@@ -359,7 +359,7 @@ export function LogoutConfirmation({ store, disabled, children }: {
   disabled: boolean
   children: (open: () => void) => ReactNode
 }): ReactNode {
-  return <ConfirmAction title="退出 DSH Enterprise" description="确定退出 DSH Enterprise吗？" confirmLabel="退出登录"
+  return <ConfirmAction title="退出 DSH Enterprise" description="确定退出 DSH Enterprise 吗？" confirmLabel="退出登录"
     disabled={disabled} onConfirm={() => { void store.logout() }}>{children}</ConfirmAction>
 }
 
