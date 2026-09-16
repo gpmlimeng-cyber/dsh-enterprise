@@ -152,7 +152,7 @@ export function EnterprisePresetMarket({ store }: {
         </div>
       )}
       {selected !== undefined ? (
-        <Modal title={detail?.displayName ?? selected.displayName} onClose={() => setSelected(undefined)}>
+        <Modal open onClose={() => setSelected(undefined)} closeLabel="关闭" title={detail?.displayName ?? selected.displayName}>
           <div ref={details} style={{ display: 'grid', gap: 12, padding: 12 }}>
             <div className="own-preset-trust">
               <ShieldAlert aria-hidden size={16} />

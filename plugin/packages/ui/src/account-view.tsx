@@ -513,7 +513,7 @@ export function EnterpriseSettingsSection(props: EnterpriseSettingsSectionProps)
   const headingId = useId()
   const tabsId = useId()
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
-  const [activeTab, setActiveTab] = useState<'account' | 'plugins'>('account')
+  const [activeTab, setActiveTab] = useState<'account' | 'plugins' | 'presets'>('account')
   const rows = [
     { id: 'account', label: '账号' },
     { id: 'plugins', label: '插件' },

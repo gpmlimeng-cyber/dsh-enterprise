@@ -247,6 +247,24 @@
       "zodExport": "zNativeGatewayRequest"
     },
     {
+      "file": "fixtures/preset-version-success.json",
+      "schema": "PresetVersionResponse",
+      "valid": true,
+      "zodExport": "zPresetVersionResponse"
+    },
+    {
+      "file": "fixtures/preset-package-list-success.json",
+      "schema": "PresetPackageListResponse",
+      "valid": true,
+      "zodExport": "zPresetPackageListResponse"
+    },
+    {
+      "file": "fixtures/runtime-preset-detail-success.json",
+      "schema": "RuntimePresetDetail",
+      "valid": true,
+      "zodExport": "zRuntimePresetDetail"
+    },
+    {
       "file": "fixtures/plugin-version-success.json",
       "schema": "PluginVersionResponse",
       "valid": true,
@@ -301,5 +319,5 @@
       "zodExport": "zAuditEventListResponse"
     }
   ],
-  "protocolSha256": "8b877f7fff033f160cec8b5565c6de8a6ede21ecb402226249969a6a4eb5ca9e"
+  "protocolSha256": "f1bc855af314e5d288cc87697f46fca76811f6e098a981b09d10ca21f0d04c88"
 }

@@ -287,6 +287,48 @@ export type BootstrapSnapshot = ModelBootstrapSnapshot;
 
 export type BootstrapResponse = ModelBootstrapResponse;
 
+export type PresetPackageId = PresetPresetPackageId;
+
+export type PresetVersionId = PresetPresetVersionId;
+
+export type PresetAssignmentId = PresetPresetAssignmentId;
+
+export type PresetVersionStatus = PresetPresetVersionStatus;
+
+export type PresetPackageStatus = PresetPresetPackageStatus;
+
+export type PresetSubjectType = PresetPresetSubjectType;
+
+export type PresetAssignmentStatus = PresetPresetAssignmentStatus;
+
+export type PresetPresetId = PresetPresetPresetId;
+
+export type PresetSourceDshVersion = PresetPresetSourceDshVersion;
+
+export type PresetSha256 = PresetPresetSha256;
+
+export type PresetUploadMetadata = PresetPresetUploadMetadata;
+
+export type PresetVersion = PresetPresetVersion;
+
+export type PresetVersionResponse = PresetPresetVersionResponse;
+
+export type PresetAssignment = PresetPresetAssignment;
+
+export type PresetAssignmentSpec = PresetPresetAssignmentSpec;
+
+export type PresetAssignmentBatchRequest = PresetPresetAssignmentBatchRequest;
+
+export type PresetPackage = PresetPresetPackage;
+
+export type PresetPackagePageData = PresetPresetPackagePageData;
+
+export type PresetPackageListResponse = PresetPresetPackageListResponse;
+
+export type RuntimePresetSummary = PresetRuntimePresetSummary;
+
+export type RuntimePresetDetail = PresetRuntimePresetDetail;
+
 export type PluginPackageId = PluginPluginPackageId;
 
 export type PluginVersionId = PluginPluginVersionId;
@@ -489,7 +531,7 @@ export type ProtocolPageResponse = {
     requestId: RequestId;
 };
 
-export type EnterpriseErrorCode = 'ENT_INVALID_REQUEST' | 'ENT_INVALID_REDIRECT_URI' | 'ENT_PKCE_REQUIRED' | 'ENT_PLUGIN_ARTIFACT_INVALID' | 'ENT_SESSION_FORMAT_UNSUPPORTED' | 'ENT_AUTH_REQUIRED' | 'ENT_AUTH_CODE_INVALID' | 'ENT_PKCE_INVALID' | 'ENT_AUTH_SESSION_EXPIRED' | 'ENT_PERMISSION_DENIED' | 'ENT_DEVICE_REVOKED' | 'ENT_MODEL_NOT_ASSIGNED' | 'ENT_PLUGIN_NOT_ASSIGNED' | 'ENT_RESOURCE_NOT_OWNED' | 'ENT_RESOURCE_NOT_FOUND' | 'ENT_SESSION_CONTENT_EXPIRED' | 'ENT_REVISION_CONFLICT' | 'ENT_LAST_ENTERPRISE_ADMIN' | 'ENT_LAST_MEMBER_IDENTITY' | 'ENT_REQUEST_IN_PROGRESS' | 'ENT_REQUEST_ALREADY_COMPLETED' | 'ENT_SESSION_SEQ_GAP' | 'ENT_SESSION_DIVERGED' | 'ENT_SESSION_SOURCE_DEVICE_CONFLICT' | 'ENT_IDENTITY_ALREADY_LINKED' | 'ENT_DEVICE_ALREADY_BOUND' | 'ENT_REQUEST_TOO_LARGE' | 'ENT_PLUGIN_ARCHIVE_TOO_LARGE' | 'ENT_SESSION_BATCH_TOO_LARGE' | 'ENT_QUOTA_FIVE_HOURS_EXCEEDED' | 'ENT_QUOTA_DAILY_EXCEEDED' | 'ENT_QUOTA_WEEKLY_EXCEEDED' | 'ENT_QUOTA_MONTHLY_EXCEEDED' | 'ENT_QUOTA_RPM_EXCEEDED' | 'ENT_QUOTA_CONCURRENCY_EXCEEDED' | 'ENT_UPSTREAM_RATE_LIMITED' | 'ENT_UPSTREAM_QUOTA_EXCEEDED' | 'ENT_UPSTREAM_AUTH_FAILED' | 'ENT_UPSTREAM_INVALID_RESPONSE' | 'ENT_PLATFORM_UNAVAILABLE' | 'ENT_UPSTREAM_UNAVAILABLE' | 'ENT_UPSTREAM_TIMEOUT';
+export type EnterpriseErrorCode = 'ENT_INVALID_REQUEST' | 'ENT_INVALID_REDIRECT_URI' | 'ENT_PKCE_REQUIRED' | 'ENT_PLUGIN_ARTIFACT_INVALID' | 'ENT_PRESET_INVALID_PACKAGE' | 'ENT_SESSION_FORMAT_UNSUPPORTED' | 'ENT_AUTH_REQUIRED' | 'ENT_AUTH_CODE_INVALID' | 'ENT_PKCE_INVALID' | 'ENT_AUTH_SESSION_EXPIRED' | 'ENT_PERMISSION_DENIED' | 'ENT_DEVICE_REVOKED' | 'ENT_MODEL_NOT_ASSIGNED' | 'ENT_PLUGIN_NOT_ASSIGNED' | 'ENT_PRESET_NOT_PUBLISHED' | 'ENT_PRESET_VISIBILITY_DENIED' | 'ENT_RESOURCE_NOT_OWNED' | 'ENT_RESOURCE_NOT_FOUND' | 'ENT_SESSION_CONTENT_EXPIRED' | 'ENT_REVISION_CONFLICT' | 'ENT_LAST_ENTERPRISE_ADMIN' | 'ENT_LAST_MEMBER_IDENTITY' | 'ENT_REQUEST_IN_PROGRESS' | 'ENT_REQUEST_ALREADY_COMPLETED' | 'ENT_SESSION_SEQ_GAP' | 'ENT_SESSION_DIVERGED' | 'ENT_SESSION_SOURCE_DEVICE_CONFLICT' | 'ENT_IDENTITY_ALREADY_LINKED' | 'ENT_DEVICE_ALREADY_BOUND' | 'ENT_REQUEST_TOO_LARGE' | 'ENT_PLUGIN_ARCHIVE_TOO_LARGE' | 'ENT_PRESET_TOO_LARGE' | 'ENT_SESSION_BATCH_TOO_LARGE' | 'ENT_QUOTA_FIVE_HOURS_EXCEEDED' | 'ENT_QUOTA_DAILY_EXCEEDED' | 'ENT_QUOTA_WEEKLY_EXCEEDED' | 'ENT_QUOTA_MONTHLY_EXCEEDED' | 'ENT_QUOTA_RPM_EXCEEDED' | 'ENT_QUOTA_CONCURRENCY_EXCEEDED' | 'ENT_UPSTREAM_RATE_LIMITED' | 'ENT_UPSTREAM_QUOTA_EXCEEDED' | 'ENT_UPSTREAM_AUTH_FAILED' | 'ENT_UPSTREAM_INVALID_RESPONSE' | 'ENT_PLATFORM_UNAVAILABLE' | 'ENT_UPSTREAM_UNAVAILABLE' | 'ENT_UPSTREAM_TIMEOUT';
 
 export type ValidationViolation = {
     field: string;
@@ -1726,6 +1768,102 @@ export type PluginRuntimePluginAssignmentsResponse = {
     requestId: RequestId;
 };
 
+export type PresetPresetAssignment = {
+    id: PresetPresetAssignmentId;
+    packageId: PresetPresetPackageId;
+    subjectType: PresetPresetSubjectType;
+    subjectId?: string;
+    status: PresetPresetAssignmentStatus;
+    revision: Revision;
+};
+
+export type PresetPresetAssignmentBatchRequest = {
+    assignments: Array<PresetPresetAssignmentSpec>;
+};
+
+export type PresetPresetAssignmentId = string;
+
+export type PresetPresetAssignmentSpec = {
+    subjectType: PresetPresetSubjectType;
+    subjectId?: string;
+};
+
+export type PresetPresetAssignmentStatus = 'ACTIVE' | 'DISABLED';
+
+export type PresetPresetPackage = {
+    id: PresetPresetPackageId;
+    presetId: PresetPresetPresetId;
+    displayName: string;
+    description?: string;
+    status: PresetPresetPackageStatus;
+    revision: Revision;
+    versions: Array<PresetPresetVersion>;
+    assignments: Array<PresetPresetAssignment>;
+};
+
+export type PresetPresetPackageId = string;
+
+export type PresetPresetPackageListResponse = {
+    data: PresetPresetPackagePageData;
+    requestId: RequestId;
+};
+
+export type PresetPresetPackagePageData = {
+    items: Array<PresetPresetPackage>;
+    page: CursorPage;
+};
+
+export type PresetPresetPackageStatus = 'ACTIVE' | 'DISABLED';
+
+export type PresetPresetPresetId = string;
+
+export type PresetPresetSha256 = string;
+
+export type PresetPresetSourceDshVersion = string;
+
+export type PresetPresetSubjectType = 'ALL' | 'USER';
+
+export type PresetPresetUploadMetadata = {
+    displayName?: string;
+    description?: string;
+};
+
+export type PresetPresetVersion = {
+    id: PresetPresetVersionId;
+    packageId: PresetPresetPackageId;
+    presetId: PresetPresetPresetId;
+    sourceDshVersion: PresetPresetSourceDshVersion;
+    sizeBytes: number;
+    sha256: PresetPresetSha256;
+    status: PresetPresetVersionStatus;
+    createdAt: string;
+    revision: Revision;
+};
+
+export type PresetPresetVersionId = string;
+
+export type PresetPresetVersionResponse = {
+    data: PresetPresetVersion;
+    requestId: RequestId;
+};
+
+export type PresetPresetVersionStatus = 'VALIDATED' | 'PUBLISHED' | 'RETIRED';
+
+export type PresetRuntimePresetDetail = PresetRuntimePresetSummary & {
+    versionId: PresetPresetVersionId;
+    sha256: PresetPresetSha256;
+};
+
+export type PresetRuntimePresetSummary = {
+    id: PresetPresetPackageId;
+    presetId: PresetPresetPresetId;
+    displayName: string;
+    description: string;
+    sourceDshVersion: PresetPresetSourceDshVersion;
+    sizeBytes: number;
+    updatedAt: string;
+};
+
 export type QuotaBootstrapQuota = {
     policyId: QuotaQuotaPolicyId;
     scope: QuotaQuotaSubjectType;
@@ -2199,6 +2337,22 @@ export type RuntimePluginDownload = unknown;
 
 export type RuntimePluginInventory = unknown;
 
+export type PresetAssignmentBatch = unknown;
+
+export type PresetCollection = unknown;
+
+export type PresetVersionPublish = unknown;
+
+export type PresetVersionRetire = unknown;
+
+export type PresetVersionUpload = unknown;
+
+export type RuntimePresetCollection = unknown;
+
+export type RuntimePresetDownload = unknown;
+
+export type RuntimePresetItem = unknown;
+
 export type AdminUsage = unknown;
 
 export type MyUsage = unknown;
@@ -2300,6 +2454,26 @@ export type ProviderUpdateRequestWritable = ModelProviderUpdateRequestWritable;
 export type ProviderProbeRequestWritable = ModelProviderProbeRequestWritable;
 
 export type ProviderProbeCategoryWritable = ModelProviderProbeCategory;
+
+export type PresetPackageIdWritable = PresetPresetPackageId;
+
+export type PresetVersionIdWritable = PresetPresetVersionId;
+
+export type PresetAssignmentIdWritable = PresetPresetAssignmentId;
+
+export type PresetVersionStatusWritable = PresetPresetVersionStatus;
+
+export type PresetPackageStatusWritable = PresetPresetPackageStatus;
+
+export type PresetSubjectTypeWritable = PresetPresetSubjectType;
+
+export type PresetAssignmentStatusWritable = PresetPresetAssignmentStatus;
+
+export type PresetPresetIdWritable = PresetPresetPresetId;
+
+export type PresetSourceDshVersionWritable = PresetPresetSourceDshVersion;
+
+export type PresetSha256Writable = PresetPresetSha256;
 
 export type PluginPackageIdWritable = PluginPluginPackageId;
 
@@ -5742,6 +5916,358 @@ export type StreamEnterpriseAnthropicMessagesResponses = {
 };
 
 export type StreamEnterpriseAnthropicMessagesResponse = StreamEnterpriseAnthropicMessagesResponses[keyof StreamEnterpriseAnthropicMessagesResponses];
+
+export type ListPresetPackagesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Server-signed opaque cursor; clients must not parse it.
+         */
+        cursor?: Cursor;
+        /**
+         * Cursor page size.
+         */
+        limit?: PageLimit;
+    };
+    url: '/enterprise/admin/v1/presets';
+};
+
+export type ListPresetPackagesErrors = {
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+};
+
+export type ListPresetPackagesError = ListPresetPackagesErrors[keyof ListPresetPackagesErrors];
+
+export type ListPresetPackagesResponses = {
+    /**
+     * Preset package page with versions and visibility.
+     */
+    200: PresetPresetPackageListResponse;
+};
+
+export type ListPresetPackagesResponse = ListPresetPackagesResponses[keyof ListPresetPackagesResponses];
+
+export type UploadPresetVersionData = {
+    body: {
+        artifact: Blob | File;
+        metadata?: PresetPresetUploadMetadata;
+    };
+    headers: {
+        /**
+         * Caller-generated UUID v4 reused only for one logical write.
+         */
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/enterprise/admin/v1/presets/versions';
+};
+
+export type UploadPresetVersionErrors = {
+    /**
+     * Invalid request.
+     */
+    400: EnterpriseErrorResponse;
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Request or archive is too large.
+     */
+    413: EnterpriseErrorResponse;
+};
+
+export type UploadPresetVersionError = UploadPresetVersionErrors[keyof UploadPresetVersionErrors];
+
+export type UploadPresetVersionResponses = {
+    /**
+     * Existing version returned for an idempotent natural key.
+     */
+    200: PresetPresetVersionResponse;
+    /**
+     * Validated preset version.
+     */
+    201: PresetPresetVersionResponse;
+};
+
+export type UploadPresetVersionResponse = UploadPresetVersionResponses[keyof UploadPresetVersionResponses];
+
+export type PublishPresetVersionData = {
+    body?: never;
+    headers: {
+        /**
+         * Current resource revision used for compare-and-swap updates.
+         */
+        'If-Match': Revision;
+    };
+    path: {
+        presetVersionId: PresetPresetVersionId;
+    };
+    query?: never;
+    url: '/enterprise/admin/v1/presets/versions/{presetVersionId}/actions/publish';
+};
+
+export type PublishPresetVersionErrors = {
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Resource not found.
+     */
+    404: EnterpriseErrorResponse;
+    /**
+     * Revision, idempotency, or state conflict.
+     */
+    409: EnterpriseErrorResponse;
+};
+
+export type PublishPresetVersionError = PublishPresetVersionErrors[keyof PublishPresetVersionErrors];
+
+export type PublishPresetVersionResponses = {
+    /**
+     * Published preset version.
+     */
+    200: PresetPresetVersionResponse;
+};
+
+export type PublishPresetVersionResponse = PublishPresetVersionResponses[keyof PublishPresetVersionResponses];
+
+export type RetirePresetVersionData = {
+    body?: never;
+    headers: {
+        /**
+         * Current resource revision used for compare-and-swap updates.
+         */
+        'If-Match': Revision;
+    };
+    path: {
+        presetVersionId: PresetPresetVersionId;
+    };
+    query?: never;
+    url: '/enterprise/admin/v1/presets/versions/{presetVersionId}/actions/retire';
+};
+
+export type RetirePresetVersionErrors = {
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Resource not found.
+     */
+    404: EnterpriseErrorResponse;
+    /**
+     * Revision, idempotency, or state conflict.
+     */
+    409: EnterpriseErrorResponse;
+};
+
+export type RetirePresetVersionError = RetirePresetVersionErrors[keyof RetirePresetVersionErrors];
+
+export type RetirePresetVersionResponses = {
+    /**
+     * Retired preset version.
+     */
+    200: PresetPresetVersionResponse;
+};
+
+export type RetirePresetVersionResponse = RetirePresetVersionResponses[keyof RetirePresetVersionResponses];
+
+export type ReplacePresetAssignmentsData = {
+    body: PresetPresetAssignmentBatchRequest;
+    headers: {
+        /**
+         * Caller-generated UUID v4 reused only for one logical write.
+         */
+        'Idempotency-Key': string;
+        /**
+         * Current resource revision used for compare-and-swap updates.
+         */
+        'If-Match': Revision;
+    };
+    path: {
+        presetPackageId: PresetPresetPackageId;
+    };
+    query?: never;
+    url: '/enterprise/admin/v1/presets/{presetPackageId}/assignments/batch';
+};
+
+export type ReplacePresetAssignmentsErrors = {
+    /**
+     * Invalid request.
+     */
+    400: EnterpriseErrorResponse;
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Resource not found.
+     */
+    404: EnterpriseErrorResponse;
+    /**
+     * Revision, idempotency, or state conflict.
+     */
+    409: EnterpriseErrorResponse;
+};
+
+export type ReplacePresetAssignmentsError = ReplacePresetAssignmentsErrors[keyof ReplacePresetAssignmentsErrors];
+
+export type ReplacePresetAssignmentsResponses = {
+    /**
+     * Fully replaced visibility assignment set.
+     */
+    200: {
+        data: Array<PresetPresetAssignment>;
+        requestId: RequestId;
+    };
+};
+
+export type ReplacePresetAssignmentsResponse = ReplacePresetAssignmentsResponses[keyof ReplacePresetAssignmentsResponses];
+
+export type ListRuntimePresetsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        sort?: 'newest';
+    };
+    url: '/enterprise/api/v1/presets';
+};
+
+export type ListRuntimePresetsErrors = {
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+};
+
+export type ListRuntimePresetsError = ListRuntimePresetsErrors[keyof ListRuntimePresetsErrors];
+
+export type ListRuntimePresetsResponses = {
+    /**
+     * Published presets visible to the current user.
+     */
+    200: {
+        data: Array<PresetRuntimePresetSummary>;
+        requestId: RequestId;
+    };
+};
+
+export type ListRuntimePresetsResponse = ListRuntimePresetsResponses[keyof ListRuntimePresetsResponses];
+
+export type GetRuntimePresetData = {
+    body?: never;
+    path: {
+        presetPackageId: PresetPresetPackageId;
+    };
+    query?: never;
+    url: '/enterprise/api/v1/presets/{presetPackageId}';
+};
+
+export type GetRuntimePresetErrors = {
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Resource not found.
+     */
+    404: EnterpriseErrorResponse;
+};
+
+export type GetRuntimePresetError = GetRuntimePresetErrors[keyof GetRuntimePresetErrors];
+
+export type GetRuntimePresetResponses = {
+    /**
+     * Visible published preset detail.
+     */
+    200: {
+        data: PresetRuntimePresetDetail;
+        requestId: RequestId;
+    };
+};
+
+export type GetRuntimePresetResponse = GetRuntimePresetResponses[keyof GetRuntimePresetResponses];
+
+export type DownloadRuntimePresetData = {
+    body?: never;
+    headers?: {
+        Range?: string;
+    };
+    path: {
+        presetVersionId: PresetPresetVersionId;
+    };
+    query?: never;
+    url: '/enterprise/api/v1/presets/versions/{presetVersionId}/download';
+};
+
+export type DownloadRuntimePresetErrors = {
+    /**
+     * Invalid request.
+     */
+    400: EnterpriseErrorResponse;
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Resource not found.
+     */
+    404: EnterpriseErrorResponse;
+};
+
+export type DownloadRuntimePresetError = DownloadRuntimePresetErrors[keyof DownloadRuntimePresetErrors];
+
+export type DownloadRuntimePresetResponses = {
+    /**
+     * Authorized .dshpreset archive bytes.
+     */
+    200: Blob | File;
+    /**
+     * Partial archive bytes.
+     */
+    206: Blob | File;
+};
+
+export type DownloadRuntimePresetResponse = DownloadRuntimePresetResponses[keyof DownloadRuntimePresetResponses];
 
 export type ListPluginPackagesData = {
     body?: never;
