@@ -3,7 +3,7 @@ feature: session-sync-p2c-p3
 status: delivered
 updated: 2026-09-16
 branch: feat/session-sync-p2c-p3
-commits: d101cf0..<filled>
+commits: d101cf03238c0ed562d4d6299de1c5d0991f566d..597b64af3e731ff7d19c5808793a4b0825757e6c
 ---
 
 # Session 同步 P2c+P3：恢复链路与设置页
