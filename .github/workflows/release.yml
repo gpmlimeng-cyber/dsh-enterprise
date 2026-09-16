@@ -1,6 +1,6 @@
-# [INPUT]: 依赖生产 Dockerfile、插件 pnpm 锁、GitHub Actions artifact、GitHub Container Registry 与 npm Trusted Publishing。
-# [OUTPUT]: 验证 Linux amd64 前后端镜像和插件，保留可下载 tgz；main 发布 GHCR next，版本标签将同一 tgz 发布到 npm。
-# [POS]: OwnDsh 唯一公开制品流水线；构建与发布复用同一插件包，测试版不创建 latest 标签，也不使用 npm 长期 Token。
+# [INPUT]: 依赖生产 Dockerfile、server Maven Wrapper、console/plugin pnpm 锁、GitHub Actions artifact、GHCR 与 npm Trusted Publishing。
+# [OUTPUT]: 并行跑后端测试、console check、镜像构建与插件检查；main 发布 GHCR next，版本标签发布 npm。
+# [POS]: DSH Enterprise（dshent）公开制品与质量流水线；server-check/console-check 为独立门禁，不阻塞 images 构建拓扑。
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 
 name: Release test artifacts
@@ -12,6 +12,61 @@ on:
     tags: ['v*']
 
 jobs:
+  server-check:
+    name: Backend tests and log scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Run enterprise + server tests
+        working-directory: server
+        run: |
+          ./mvnw -B -ntp -pl owndsh-modules/owndsh-enterprise,owndsh-server -am test \
+            -Dmaven.test.skip=false -DskipTests=false
+      - name: Scan surefire reports for secrets
+        run: |
+          set -e
+          inputs=""
+          if [ -d server/owndsh-modules/owndsh-enterprise/target/surefire-reports ]; then
+            inputs="$inputs server/owndsh-modules/owndsh-enterprise/target/surefire-reports"
+          fi
+          if [ -d server/owndsh-server/target/surefire-reports ]; then
+            inputs="$inputs server/owndsh-server/target/surefire-reports"
+          fi
+          if [ -n "$inputs" ]; then
+            node scripts/scan-sensitive-logs.mjs $inputs
+          else
+            echo "no surefire-reports; skip log scan"
+          fi
+
+  console-check:
+    name: Console typecheck build and tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.24.0 --activate
+      - name: Install and check console
+        run: |
+          pnpm --dir console install --frozen-lockfile
+          pnpm --dir console run check
+
   images:
     name: Build ${{ matrix.name }} image
     runs-on: ubuntu-latest

@@ -56,9 +56,9 @@ owndsh/                         # 工作区目录名暂保留；产品标识见 
 | ✅ | `server/LICENSE` 恢复 `Copyright (c) 2019 RuoYi-Vue-Plus`，并追加 OwnDsh / dshent 版权行（不再改名顶替） |
 | ✅ | 根目录 `NOTICE` 记录三层来源与 DeepSeek 免责 |
 | ✅ | Compose 层移除公开默认 JWT / 主密钥（见 §5） |
-| ⬜ | 全局文案与镜像名去 `owndsh` 品牌（见 §6，可分期） |
-| ⬜ | CI 接入 `mvn verify` 与 console `check`（分析报告 P1） |
-| ⬜ | 物理裁剪 `/system/**` `/monitor/**` 暴露面（分析报告 P1） |
+| ✅ | CI 接入 `server-check`（mvn 测试 + 日志扫描）与 `console-check`（`release.yml`） |
+| ✅ | 遗留 `/system/**` `/monitor/**` HTTP 面默认 404（`LegacyAdminSurfaceFilter`；逃生口 `ENT_LEGACY_HTTP_SURFACE_ENABLED`） |
+| ✅ | 本地 `scripts/check-all.sh` 一键门禁 |
 | ⬜ | Provider / 身份源测试动作补审计（分析报告 P1） |
 
 ## 5. 安全脱钩（密钥默认值）

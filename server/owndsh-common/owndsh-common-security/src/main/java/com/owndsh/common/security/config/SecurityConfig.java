@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Sa-Token Servlet 上下文、OwnDsh 安全白名单/client 规则与当前 HTTP 请求路径。
- * [OUTPUT]: 提供异步分发可用的 Sa-Token filter，以及把企业 API 鉴权完整下沉到领域 context 的统一拦截器。
+ * [OUTPUT]: 提供异步分发可用的 Sa-Token filter、默认 404 的遗留 /system//monitor 面 Filter，以及把企业 API 鉴权完整下沉到领域 context 的统一拦截器。
  * [POS]: owndsh-common-security 的全局入口；非企业路由保留登录/clientid 交叉校验，企业路由避免在领域撤销语义前截断请求。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -25,6 +25,7 @@ import com.owndsh.common.core.utils.StringUtils;
 import com.owndsh.common.satoken.utils.LoginHelper;
 import com.owndsh.common.security.config.properties.SecurityProperties;
 import com.owndsh.common.security.handler.AllUrlHandler;
+import com.owndsh.common.security.web.LegacyAdminSurfaceFilter;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -71,6 +72,22 @@ public class SecurityConfig implements WebMvcConfigurer {
         registration.setDispatcherTypes(EnumSet.of(DispatcherType.REQUEST, DispatcherType.ASYNC, DispatcherType.ERROR));
         registration.setAsyncSupported(true);
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        return registration;
+    }
+
+    /**
+     * 默认关闭上游 /system、/monitor HTTP 面（404）。
+     * 逃生口仅用于本地调试：ENT_LEGACY_HTTP_SURFACE_ENABLED=true。
+     */
+    @Bean
+    public FilterRegistrationBean<LegacyAdminSurfaceFilter> legacyAdminSurfaceFilterRegistration() {
+        boolean allow = Boolean.parseBoolean(System.getenv().getOrDefault("ENT_LEGACY_HTTP_SURFACE_ENABLED", "false"));
+        FilterRegistrationBean<LegacyAdminSurfaceFilter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(new LegacyAdminSurfaceFilter(allow));
+        registration.setName("legacyAdminSurfaceFilter");
+        registration.addUrlPatterns("/*");
+        registration.setDispatcherTypes(EnumSet.of(DispatcherType.REQUEST));
+        registration.setOrder(new LegacyAdminSurfaceFilter(allow).getOrder());
         return registration;
     }
 

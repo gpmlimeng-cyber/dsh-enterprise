@@ -6,6 +6,7 @@
 
 bootstrap-harness.ps1: Windows/PowerShell 开发环境入口，读取版本锁并准备同级 Harness checkout。
 bootstrap-harness.sh: macOS/Linux 开发环境入口，执行与 PowerShell 脚本相同的版本锁校验和 checkout 准备。
+check-all.sh: 提交前本地门禁；compose config、扫描器自测、三站 --check，FULL=1 时追加 mvn 测试与 console check。
 bootstrap-desktop.mjs: 跨平台 Desktop 开发环境入口，按发行锁准备同级 Desktop checkout 及其 Harness submodule，拒绝污染或版本漂移。
 local-demo.sh: 人工验收唯一启动入口，以随机 HTTP 端口、全新临时 release 后端和源码 CLI shim 驱动单个真实浏览器 Harness，提供可执行受管插件调和且无自动业务操作的本地体验环境。
 scan-sensitive-logs.mjs: CI 日志流式扫描器，检测常见凭据形状与外置受控 literal 且不回显命中内容。
