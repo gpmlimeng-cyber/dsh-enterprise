@@ -9,7 +9,7 @@
 
 状态：`absorbed-reference`  
 调研日期：2026-09-16（Asia/Shanghai）  
-对照基线：DSH Desktop `2.0.3` / Harness `0.1.1-rc.2`；企业方案见 `session-sync-revival-decision.md`、`owndsh-governance-mvp-design.md` §12/§16.4
+对照基线：DSH Desktop `2.0.3` / Harness `0.1.1-rc.2`；企业方案见 `../owndsh-governance-mvp-design.md` §12/§16.4 与 `../v1-product-feature-catalog.md` §10（一源一写 / 恢复新 ID / 默认关闭旁路）
 
 ---
 
