@@ -39,6 +39,8 @@ describe('enterprise local API', () => {
       cancelLogin: vi.fn(() => true),
       logout: vi.fn(async () => undefined),
       bootstrap: vi.fn(() => undefined),
+      listPresets: vi.fn(async () => []),
+      getPreset: vi.fn(async () => ({ id: '1', presetId: 'weekly', displayName: '周报' })),
     }
     pluginStatus = vi.fn(() => ({
       assignmentRevision: 7,

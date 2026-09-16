@@ -3,7 +3,7 @@ feature: preset-square
 status: in-progress
 updated: 2026-09-16
 branch: feat/preset-square-design
-commits: # filled at delivery
+commits: 2e09934..8eb2e97
 ---
 
 # DSH Enterprise 配方广场（Preset Square）
