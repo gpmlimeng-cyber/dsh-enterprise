@@ -4,7 +4,7 @@
 
 成员清单
 
-bundle/: 可发布的自包含 Harness 组合包，注入官方 credentials 并聚合 Host、企业模型覆盖、本地 API、受管插件和 Client 门禁；V1 不启动 Session 同步。
+bundle/: 可发布的自包含 Harness 组合包，注入官方 credentials 并聚合 Host、企业模型覆盖、本地 API、受管插件、条件 Session 同步与 Client 门禁；默认 sessionPolicy 关闭时不启动同步。
 contracts/: OpenAPI 生成的 DTO/Zod schema、品牌 ID、错误解码与跨语言 fixture 门禁。
 ent-admin-cli/: 管理员/Agent 只读 CLI `dsh-ent-admin`，Desktop PKCE 设备流鉴权，`--json` 稳定 stdout 契约；不进入 Harness Host，不做写操作。
 llm-gateway/: 官方 `dsh-llm-pi-ai` 的企业 profile 与本机认证代理桥，提供三协议动态目录/default，不实现模型协议。
