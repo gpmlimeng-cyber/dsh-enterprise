@@ -38,6 +38,7 @@ import com.owndsh.enterprise.model.application.ProviderSecretInput;
 import com.owndsh.enterprise.model.application.ProviderService;
 import com.owndsh.enterprise.model.domain.GrantSubjectType;
 import com.owndsh.enterprise.model.domain.GrantResourceType;
+import com.owndsh.enterprise.session.EnterpriseSessionProperties;
 import com.owndsh.enterprise.model.domain.ManagedModel;
 import com.owndsh.enterprise.model.domain.ModelGrant;
 import com.owndsh.enterprise.model.domain.ModelProvider;
@@ -136,7 +137,7 @@ class T08ApiContractTest {
             new AdminManagedModelController(models, adminContexts, cursors),
             new AdminModelSetController(modelSets, adminContexts, cursors),
             new AdminModelGrantController(grants, adminContexts, cursors),
-            new BootstrapController(bootstrap, deviceContexts)
+            new BootstrapController(bootstrap, deviceContexts, new EnterpriseSessionProperties())
         ).setControllerAdvice(new EnterpriseExceptionHandler())
             .addFilters(new EnterpriseRequestIdFilter())
             .build();

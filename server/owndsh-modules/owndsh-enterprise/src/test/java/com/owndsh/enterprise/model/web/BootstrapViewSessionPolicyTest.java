@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -51,7 +52,7 @@ class BootstrapViewSessionPolicyTest {
             1,
             new BootstrapUser(1L, "u", "U", null),
             new EnterpriseDevice(
-                2L, "t", 1L, "inst", "Dev", "inst-id", "Desktop",
+                2L, "t", 1L, "inst", "Dev", UUID.randomUUID(), "Desktop",
                 "darwin-arm64", "0.1.0", "0.1.0", DeviceStatus.ACTIVE, Instant.now(), null, 0
             ),
             List.of(),
