@@ -38,6 +38,7 @@ import com.owndsh.enterprise.quota.persistence.JdbcQuotaRuntimeConfigStore;
 import com.owndsh.enterprise.quota.persistence.JdbcQuotaWindowStore;
 import com.owndsh.enterprise.quota.persistence.JdbcUsageLedgerStore;
 import com.owndsh.enterprise.quota.persistence.JdbcUsageReservationStore;
+import com.owndsh.enterprise.session.EnterpriseSessionProperties;
 import com.owndsh.enterprise.quota.persistence.QuotaPolicyStore;
 import com.owndsh.enterprise.quota.persistence.QuotaWindowStore;
 import com.owndsh.enterprise.quota.persistence.UsageLedgerStore;
@@ -158,7 +159,7 @@ class QuotaManagementIntegrationTest {
             List.of(),
             resolver.resolve(TENANT, USER_ID),
             new EffectivePluginResolver.ResolvedAssignments(2, List.of())
-        ));
+        ), new EnterpriseSessionProperties());
         assertThat(bootstrap.quotas()).hasSize(3);
         assertThat(bootstrap.quotas().getLast().policyId()).isEqualTo(Long.toString(user.id()));
 

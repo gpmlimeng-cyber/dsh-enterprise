@@ -146,6 +146,7 @@ master key 的独立 `API_CURSOR` 用途进行 AES-GCM 认证，并绑定 tenant
 
 runtime 入口位于 `/enterprise/api/v1/sessions`，管理入口位于 `/enterprise/admin/v1/sessions`。默认单批
 上限 1 MiB、保留 90 天、每批清理 100 条，分别由 `enterprise.session.*` 配置覆盖。
+bootstrap 的 `sessionPolicy.enabled` 同样来自 `enterprise.session.enabled`（**默认 false**，V1 客户端零 Session 同步）；仅显式部署为 true 时向客户端宣告旁路能力。
 
 ## 安全与故障边界
 
