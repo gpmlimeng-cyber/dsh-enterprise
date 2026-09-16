@@ -36,6 +36,8 @@ java/com/owndsh/enterprise/test/OpenLdapTestServer.java: 共享 OpenLDAP Testcon
 java/com/owndsh/enterprise/test/RedisTestServer.java: 共享 Redis 8 Testcontainer，并为每项认证测试清理隔离 keyspace。
 java/com/owndsh/enterprise/database/EnterpriseMigrationTest.java: 验证普通数据库所有者从空库执行 V0-V30、旧 baseline 0 接管/升级、重复启动不重放种子、字符串时间参数与历史计量迁移。
 java/com/owndsh/enterprise/preset/artifact/PresetArtifactInspectorTest.java: 锁定 .dshpreset manifest 必填、路径逃逸拒绝与 agent.cordis.yml 存在性。
+java/com/owndsh/enterprise/quota/web/UsageAnalyticsViewTest.java: 锁定缓存命中率空分母为 null 与未知扣额不混入实测 Token。
+java/com/owndsh/enterprise/quota/web/AdminUsageAnalyticsControllerTest.java: 锁定 180 天上限与 from/to 顺序校验。
 java/com/owndsh/enterprise/deployment/DeploymentBootstrapServiceTest.java: 以真实 PostgreSQL 验证缺配置失败、事务回滚、幂等管理员/角色/marker，以及分步认证和 JDBC 条件首次改密。
 java/com/owndsh/enterprise/database/RbacSeedTest.java: 验证五个 built-in 角色、19 个冻结权限码、最小权限集合与数据库不可变 trigger。
 java/com/owndsh/enterprise/revision/RevisionAuditIntegrationTest.java: 验证 BOOTSTRAP CAS、稳定冲突码、显式 metadata、只追加审计及同事务回滚。

@@ -16,6 +16,8 @@ UsageReservationStore.java: 幂等 reservation、状态 CAS、最终 usage 快�
 JdbcUsageReservationStore.java: PostgreSQL 窗口快照与最终 usage 分类持久化，恢复不依赖已退出请求的内存。
 UsageLedgerStore.java: 唯一账本、分页及实测 Token、配额扣额和未知请求数的独立聚合端口。
 JdbcUsageLedgerStore.java: prompt-free 账本写入、当前显示语义 join 和实测量/扣额分离汇总。
+UsageAnalyticsStore.java: 部署时区分日/模型/成员聚合端口；每维最多 50 行并标记截断。
+JdbcUsageAnalyticsStore.java: 时间范围强制绑定的 PostgreSQL 分析 SQL，连续日序列零填充。
 RedisQuotaRateLimiter.java: 单 Lua 原子获取全部 policy RPM/并发 lease，并提供续租、释放与实时计数。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

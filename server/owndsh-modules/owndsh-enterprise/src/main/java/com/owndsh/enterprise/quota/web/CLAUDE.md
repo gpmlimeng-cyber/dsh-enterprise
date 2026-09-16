@@ -14,5 +14,7 @@ RuntimeUsageController.java: ACTIVE dsh-desktop owner 与 ACTIVE 用户双重校
 UsageLedgerView.java: prompt-free 实测分类、chargedTokens 扣额与结果状态，关联当前用户/部门/模型显示语义。
 UsageLedgerPageView.java: items/cursor 及实测 Token、配额扣额、unmeasuredRequests 未知请求独立汇总。
 AdminUsageController.java: 用户/部门/模型/canonical requestId/时间筛选的 `/enterprise/admin/v1/usage` 入口。
+AdminUsageAnalyticsController.java: `/enterprise/admin/v1/usage/analytics` 只读聚合入口；最长 180 天，ent:usage:read。
+UsageAnalyticsView.java: OpenAPI 扁平日序列/模型/成员分解投影，缓存命中率由 token 推导且无价格字段。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

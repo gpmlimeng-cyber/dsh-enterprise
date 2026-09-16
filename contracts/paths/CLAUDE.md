@@ -9,7 +9,7 @@ device.yaml: T05 Runtime enroll/heartbeat 与管理员 list/get/revoke 五个设
 identity.yaml: 身份源、LDAP 用户/组发现与单人导入、扁平产品用户组和外部组映射 Path Item，保留 revision、来源隔离、权限码和脱敏边界。
 member.yaml: LOCAL 成员幂等创建及产品成员 cursor/list/detail、状态、固定角色、身份解绑与绑定事务 operation，保持 read/write 权限、revision CAS 和新鲜认证边界。
 model.yaml: T08/P2-08A provider/model/model set/grant 管理与 ACTIVE 设备 bootstrap operation，保持幂等键、revision、集合资源和脱敏边界。
-quota.yaml: T09/P2-08A quota CRUD/状态/四窗口、本人用量及管理员 ledger operation，保持资源范围、ACTIVE 设备和 prompt-free 边界。
+quota.yaml: T09/P2-08A quota CRUD/状态/四窗口、本人用量及管理员 ledger 与 usage analytics operation，保持资源范围、ACTIVE 设备和 prompt-free 边界。
 gateway.yaml: T10/T11 Completions、Responses、Anthropic Messages 三个原生 SSE operation 与首字节前错误矩阵。
 plugin.yaml: T13 六个管理与三个 runtime operation，冻结 multipart、revision、权限、逐请求授权及单 Range 边界。
 preset.yaml: 配方广场五个管理与三个 runtime operation，冻结 .dshpreset multipart、ALL/USER 可见范围原子替换与逐请求下载授权。

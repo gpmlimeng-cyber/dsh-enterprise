@@ -9,7 +9,7 @@ device.yaml: T05 enroll/heartbeat、设备详情、管理员 cursor list 与 rev
 identity.yaml: 身份治理 schema 分片，定义 OIDC/LDAP、目录发现/单人导入、JIT/LINK_ONLY、扁平产品用户组、外部组映射和删除确认，并复用根协议公共组件。
 member.yaml: LOCAL 成员创建、产品成员 cursor/detail、固定角色、脱敏登录方式、设备/Session 摘要、状态/角色写入及一次性身份绑定 schema，不投影部门、岗位或原始 claims。
 model.yaml: T08/P2-08A Harness providerKey/type/apiProtocol、reasoningEfforts 三态/compat、model/model set/grant 管理、writeOnly credential、脱敏模型发现与完整 bootstrap schema 分片。
-quota.yaml: TOKEN/RATE 策略、四窗口与 prompt-free ledger；实测 Token、chargedTokens 配额扣额和 unmeasuredRequests 未知请求独立表达。
+quota.yaml: TOKEN/RATE 策略、四窗口与 prompt-free ledger；实测 Token、chargedTokens 配额扣额、unmeasuredRequests 未知请求，以及无价格字段的用量分析聚合 schema。
 gateway.yaml: 三协议共用的最小流式治理字段 schema，消息、工具、推理与回放保持原生透传。
 plugin.yaml: compatibility、版本状态、catalog 完整 assignment 集合、runtime 下载事实（空 signatureBase64 表示未签名）和设备库存 schema 分片；保留旧字段并明确可见范围与显式撤回语义。
 preset.yaml: dsh-preset v1 包/版本/ALL|USER 可见范围与 runtime 摘要/详情 schema，不投影 artifact 路径或包内 YAML。

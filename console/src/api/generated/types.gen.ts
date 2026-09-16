@@ -475,6 +475,20 @@ export type UsageLedgerPageData = QuotaUsageLedgerPageData;
 
 export type UsageLedgerListResponse = QuotaUsageLedgerListResponse;
 
+export type UsageAnalyticsTokens = QuotaUsageAnalyticsTokens;
+
+export type UsageAnalyticsSummary = QuotaUsageAnalyticsSummary;
+
+export type UsageAnalyticsDayPoint = QuotaUsageAnalyticsDayPoint;
+
+export type UsageAnalyticsModelRow = QuotaUsageAnalyticsModelRow;
+
+export type UsageAnalyticsMemberRow = QuotaUsageAnalyticsMemberRow;
+
+export type UsageAnalyticsData = QuotaUsageAnalyticsData;
+
+export type UsageAnalyticsResponse = QuotaUsageAnalyticsResponse;
+
 export type GatewayModel = GatewayGatewayModel;
 
 export type NativeGatewayRequest = GatewayNativeGatewayRequest;
@@ -2014,6 +2028,55 @@ export type QuotaTokenWindowUsage = {
     resetsAt: string;
 };
 
+export type QuotaUsageAnalyticsData = {
+    timezone: string;
+    from: string;
+    to: string;
+    summary: QuotaUsageAnalyticsSummary;
+    byDay: Array<QuotaUsageAnalyticsDayPoint>;
+    byModel: Array<QuotaUsageAnalyticsModelRow>;
+    byMember: Array<QuotaUsageAnalyticsMemberRow>;
+    truncated: boolean;
+};
+
+export type QuotaUsageAnalyticsDayPoint = QuotaUsageAnalyticsTokens & {
+    date: string;
+};
+
+export type QuotaUsageAnalyticsMemberRow = QuotaUsageAnalyticsTokens & {
+    userId: EnterpriseUserId;
+    username: string;
+    displayName: string;
+};
+
+export type QuotaUsageAnalyticsModelRow = QuotaUsageAnalyticsTokens & {
+    modelId: ManagedModelId;
+    alias: string;
+    displayName: string;
+    cacheHitRatio: null | number;
+};
+
+export type QuotaUsageAnalyticsResponse = {
+    data: QuotaUsageAnalyticsData;
+    requestId: RequestId;
+};
+
+export type QuotaUsageAnalyticsSummary = QuotaUsageAnalyticsTokens & {
+    settled: number;
+    chargedMax: number;
+    unmeasured: number;
+    cacheHitRatio: null | number;
+};
+
+export type QuotaUsageAnalyticsTokens = {
+    requests: number;
+    inputTokens: number;
+    outputTokens: number;
+    cacheTokens: number;
+    totalTokens: number;
+    chargedTokens: number;
+};
+
 export type QuotaUsageLedgerId = string;
 
 export type QuotaUsageLedgerItem = {
@@ -2354,6 +2417,8 @@ export type RuntimePresetDownload = unknown;
 export type RuntimePresetItem = unknown;
 
 export type AdminUsage = unknown;
+
+export type AdminUsageAnalytics = unknown;
 
 export type MyUsage = unknown;
 
@@ -5727,6 +5792,44 @@ export type ListUsageLedgerResponses = {
 };
 
 export type ListUsageLedgerResponse = ListUsageLedgerResponses[keyof ListUsageLedgerResponses];
+
+export type GetUsageAnalyticsData = {
+    body?: never;
+    path?: never;
+    query: {
+        from: string;
+        to: string;
+        userId?: EnterpriseUserId;
+        modelId?: ManagedModelId;
+    };
+    url: '/enterprise/admin/v1/usage/analytics';
+};
+
+export type GetUsageAnalyticsErrors = {
+    /**
+     * Invalid request.
+     */
+    400: EnterpriseErrorResponse;
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+};
+
+export type GetUsageAnalyticsError = GetUsageAnalyticsErrors[keyof GetUsageAnalyticsErrors];
+
+export type GetUsageAnalyticsResponses = {
+    /**
+     * Prompt-free usage analytics over a deployment-timezone day range.
+     */
+    200: QuotaUsageAnalyticsResponse;
+};
+
+export type GetUsageAnalyticsResponse = GetUsageAnalyticsResponses[keyof GetUsageAnalyticsResponses];
 
 export type StreamEnterpriseChatCompletionsData = {
     body: GatewayNativeGatewayRequest;

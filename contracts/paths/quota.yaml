@@ -148,6 +148,38 @@ MyUsage:
       '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
       '503': {$ref: '../enterprise-openapi.yaml#/components/responses/Error503'}
 
+AdminUsageAnalytics:
+  get:
+    operationId: getUsageAnalytics
+    parameters:
+      - name: from
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date-time
+      - name: userId
+        in: query
+        schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/EnterpriseUserId'}
+      - name: modelId
+        in: query
+        schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/ManagedModelId'}
+    responses:
+      '200':
+        description: Prompt-free usage analytics over a deployment-timezone day range.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/UsageAnalyticsResponse'}
+      '400': {$ref: '../enterprise-openapi.yaml#/components/responses/Error400'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+
 AdminUsage:
   get:
     operationId: listUsageLedger

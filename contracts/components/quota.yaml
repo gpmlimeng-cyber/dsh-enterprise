@@ -459,3 +459,145 @@ UsageLedgerListResponse:
     data: {$ref: '#/UsageLedgerPageData'}
     requestId:
       $ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'
+UsageAnalyticsTokens:
+  type: object
+  additionalProperties: false
+  required: [requests, inputTokens, outputTokens, cacheTokens, totalTokens, chargedTokens]
+  properties:
+    requests:
+      type: integer
+      format: int64
+      minimum: 0
+    inputTokens:
+      type: integer
+      format: int64
+      minimum: 0
+    outputTokens:
+      type: integer
+      format: int64
+      minimum: 0
+    cacheTokens:
+      type: integer
+      format: int64
+      minimum: 0
+    totalTokens:
+      type: integer
+      format: int64
+      minimum: 0
+    chargedTokens:
+      type: integer
+      format: int64
+      minimum: 0
+UsageAnalyticsSummary:
+  allOf:
+    - $ref: '#/UsageAnalyticsTokens'
+    - type: object
+      additionalProperties: false
+      required: [settled, chargedMax, unmeasured, cacheHitRatio]
+      properties:
+        settled:
+          type: integer
+          format: int64
+          minimum: 0
+        chargedMax:
+          type: integer
+          format: int64
+          minimum: 0
+        unmeasured:
+          type: integer
+          format: int64
+          minimum: 0
+        cacheHitRatio:
+          oneOf:
+            - type: 'null'
+            - type: number
+              minimum: 0
+              maximum: 1
+UsageAnalyticsDayPoint:
+  allOf:
+    - $ref: '#/UsageAnalyticsTokens'
+    - type: object
+      additionalProperties: false
+      required: [date]
+      properties:
+        date:
+          type: string
+          pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+UsageAnalyticsModelRow:
+  allOf:
+    - $ref: '#/UsageAnalyticsTokens'
+    - type: object
+      additionalProperties: false
+      required: [modelId, alias, displayName, cacheHitRatio]
+      properties:
+        modelId:
+          $ref: '../enterprise-openapi.yaml#/components/schemas/ManagedModelId'
+        alias:
+          type: string
+          minLength: 1
+          maxLength: 120
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        cacheHitRatio:
+          oneOf:
+            - type: 'null'
+            - type: number
+              minimum: 0
+              maximum: 1
+UsageAnalyticsMemberRow:
+  allOf:
+    - $ref: '#/UsageAnalyticsTokens'
+    - type: object
+      additionalProperties: false
+      required: [userId, username, displayName]
+      properties:
+        userId:
+          $ref: '../enterprise-openapi.yaml#/components/schemas/EnterpriseUserId'
+        username:
+          type: string
+          minLength: 1
+          maxLength: 100
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 30
+UsageAnalyticsData:
+  type: object
+  additionalProperties: false
+  required: [timezone, from, to, summary, byDay, byModel, byMember, truncated]
+  properties:
+    timezone:
+      type: string
+      minLength: 1
+      maxLength: 64
+    from:
+      type: string
+      format: date-time
+    to:
+      type: string
+      format: date-time
+    summary: {$ref: '#/UsageAnalyticsSummary'}
+    byDay:
+      type: array
+      maxItems: 181
+      items: {$ref: '#/UsageAnalyticsDayPoint'}
+    byModel:
+      type: array
+      maxItems: 50
+      items: {$ref: '#/UsageAnalyticsModelRow'}
+    byMember:
+      type: array
+      maxItems: 50
+      items: {$ref: '#/UsageAnalyticsMemberRow'}
+    truncated:
+      type: boolean
+UsageAnalyticsResponse:
+  type: object
+  additionalProperties: false
+  required: [data, requestId]
+  properties:
+    data: {$ref: '#/UsageAnalyticsData'}
+    requestId:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'

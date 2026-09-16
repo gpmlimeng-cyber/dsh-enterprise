@@ -1,0 +1,68 @@
+{
+  "data": {
+    "timezone": "Asia/Shanghai",
+    "from": "2026-09-01T00:00:00+08:00",
+    "to": "2026-09-17T00:00:00+08:00",
+    "summary": {
+      "requests": 12,
+      "settled": 10,
+      "chargedMax": 2,
+      "unmeasured": 2,
+      "inputTokens": 1000,
+      "outputTokens": 200,
+      "cacheTokens": 50,
+      "totalTokens": 1250,
+      "chargedTokens": 1400,
+      "cacheHitRatio": 0.047619047619047616
+    },
+    "byDay": [
+      {
+        "date": "2026-09-15",
+        "requests": 2,
+        "inputTokens": 100,
+        "outputTokens": 20,
+        "cacheTokens": 5,
+        "totalTokens": 125,
+        "chargedTokens": 125
+      },
+      {
+        "date": "2026-09-16",
+        "requests": 1,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cacheTokens": 0,
+        "totalTokens": 0,
+        "chargedTokens": 640
+      }
+    ],
+    "byModel": [
+      {
+        "modelId": "1913000000000000601",
+        "alias": "deepseek-chat",
+        "displayName": "DeepSeek Chat",
+        "requests": 3,
+        "inputTokens": 100,
+        "outputTokens": 20,
+        "cacheTokens": 5,
+        "totalTokens": 125,
+        "chargedTokens": 765,
+        "cacheHitRatio": 0.047619047619047616
+      }
+    ],
+    "byMember": [
+      {
+        "userId": "1912000000000000101",
+        "username": "alice",
+        "displayName": "Alice",
+        "requests": 3,
+        "inputTokens": 100,
+        "outputTokens": 20,
+        "cacheTokens": 5,
+        "totalTokens": 125,
+        "chargedTokens": 765
+      }
+    ],
+    "truncated": false
+  },
+  "requestId": "req_01K2USAGEANALYTICS000001"
+}
