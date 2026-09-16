@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 Cordis/Schemastery、Harness credentials/LLM/subprocess/inventory、官方运行时身份与企业业务模块
- * [OUTPUT]: 对外提供 Web/Desktop 共用 bundle apply、默认关闭的插件验签开关、Host 凭据持久化与企业插件安装/卸载组合
- * [POS]: bundle 的唯一 Host Loader 入口，组合平台认证、官方企业模型与环境原生插件调和；V1 不启动 Session 同步
+ * [OUTPUT]: 对外提供 Web/Desktop 共用 bundle apply、默认关闭的插件验签开关、Host 凭据持久化、企业插件安装/卸载与条件 Session 同步注册
+ * [POS]: bundle 的唯一 Host Loader 入口，组合平台认证、官方企业模型与环境原生插件调和；Session 同步仅在 sessionPolicy.enabled 时挂载
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -12,14 +12,22 @@ import { APP_IDENTITY, type LlmRuntime } from '@deepseek-ai/dsh-llm'
 import z from '@deepseek-ai/schemastery'
 import { registerEnterpriseGateway } from '@dshent/llm-gateway'
 import {
+  EnterprisePlatformService,
+  resolveEnterpriseDshHome,
+  type WebServerRoutePort,
+} from '@dshent/platform-client'
+import {
   EnterprisePluginDistributionService,
   type DshPluginCommandPort,
   type PluginDistributionContext,
 } from '@dshent/plugin-distribution'
 import {
-  EnterprisePlatformService,
-  type WebServerRoutePort,
-} from '@dshent/platform-client'
+  tryRegisterHostSessionSync,
+  type HostSessionSyncHandle,
+  type SessionPersistencePort,
+  type SessionStorePort,
+  type SyncableSession,
+} from '@dshent/session-sync'
 
 export const name = 'owndsh'
 export const inject = ['webServer', 'credentials', 'llm', 'subprocess', 'pluginInventory']
@@ -61,6 +69,8 @@ interface EnterpriseHostContext extends Context {
   readonly llm: LlmRuntime
   readonly subprocess: PluginDistributionContext['subprocess']
   readonly pluginInventory: PluginDistributionContext['pluginInventory']
+  readonly sessions?: SessionStorePort
+  readonly sessionPersistence?: SessionPersistencePort
 }
 
 interface DesktopProfilesPort {
@@ -131,6 +141,44 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
     harnessVersion: HARNESS_VERSION,
     bundleVersion: BUNDLE_VERSION,
   }), 'enterpriseGateway.registration')
+  // Session 同步：仅 bootstrap sessionPolicy.enabled 时挂载；默认关闭零 Session API。
+  const sessionSync = tryRegisterHostSessionSync({
+    dshHome: resolveEnterpriseDshHome(),
+    platform: {
+      status: () => platform.status(),
+      bootstrap: () => platform.bootstrap(),
+      request: (path, init) => platform.request(path, init),
+      subscribe: listener => platform.subscribe(status => listener(status)),
+    },
+    runtime: {
+      ...(ctx.sessions === undefined ? {} : { sessions: ctx.sessions }),
+      ...(ctx.sessionPersistence === undefined ? {} : {
+        sessionPersistence: ctx.sessionPersistence,
+      }),
+    },
+    logger: {
+      debug: message => ctx.logger.debug(`owndsh: ${message}`),
+      info: message => ctx.logger.info(`owndsh: ${message}`),
+      warn: message => ctx.logger.warn(`owndsh: ${message}`),
+      error: message => ctx.logger.error(`owndsh: ${message}`),
+    },
+    onSessionEvent: listener => {
+      // session/event 由官方 dsh-session 模块增广；bundle 不 import 该包，故本地窄类型订阅。
+      const events = ctx as unknown as {
+        on(
+          name: 'session/event',
+          listener: (session: SyncableSession) => void,
+        ): () => boolean
+      }
+      const off = events.on('session/event', session => listener(session))
+      return () => {
+        off()
+      }
+    },
+  })
+  ctx.effect(() => () => {
+    void (sessionSync as HostSessionSyncHandle).dispose()
+  }, 'enterpriseSessionSync.dispose()')
   const mountPluginDistribution = (
     distributionContext: PluginDistributionContext,
     profile: string,

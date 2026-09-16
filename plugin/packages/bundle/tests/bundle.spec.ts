@@ -96,6 +96,8 @@ describe('enterprise bundle', () => {
       resolve(ROOT, 'lib/client.js'),
     ]
     const combined = (await Promise.all(files.map(path => readFile(path, 'utf8')))).join('\n')
+    const source = await readFile(resolve(ROOT, 'src/index.ts'), 'utf8')
+    const manifest = JSON.parse(await readFile(resolve(ROOT, 'package.json'), 'utf8')) as Record<string, any>
     expect(combined).not.toMatch(/declare module ['"]@deepseek-ai\/dsh-typert-protocol/)
     expect(combined).not.toContain('/deepseek-harness/')
     expect(combined).not.toContain('../deepseek-harness')
@@ -105,7 +107,11 @@ describe('enterprise bundle', () => {
     expect(combined).not.toContain("from '@deepseek-ai/dsh-session'")
     expect(combined).toContain("from '@deepseek-ai/schemastery'")
     expect(combined).toContain('enterprisePluginDistribution')
-    expect(combined).not.toContain('enterpriseSessionSync')
+    // P2d 双向门禁：允许条件注册代码存在，但不得硬依赖官方 dsh-session 包。
+    expect(combined).toContain('tryRegisterHostSessionSync')
+    expect(combined).toContain('enterpriseSessionSync.dispose()')
+    expect(source).toContain("from '@dshent/session-sync'")
+    expect(manifest.peerDependencies['@deepseek-ai/dsh-session']).toBeUndefined()
     expect(combined).toContain('ENT_PLUGIN_CORE_PROTECTED')
     expect(combined).toContain('require("@deepseek-ai/dsh-client-ui-primitives")')
     expect(combined).not.toContain('globalThis.confirm(')
