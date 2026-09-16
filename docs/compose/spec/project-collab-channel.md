@@ -10,18 +10,18 @@ feature: project-collab-channel
 status: delivered
 updated: 2026-09-16
 branch: feat/project-collab-channel
-commits: 378af99..2320c3b
+commits: 378af99..578a84d
 ---
 
 # Project 协作信道（服务端第一刀）
 
 ## Report
 
-**What was built** — 交付 Project Mode 服务端第一刀：V31 项目/成员/消息表、独立 `enterprise.collab.enabled`（默认关）与 bootstrap `collabPolicy`，Runtime 项目治理/邀请/转让/消息 API 与 SSE stream。消息为社会层，不写入 Session Event；审计五类 action 无正文。
+**What was built** — 交付 Project Mode 服务端第一刀：V31 项目/成员/消息表、独立 `enterprise.collab.enabled`（默认关）与 bootstrap `collabPolicy`，Runtime 项目治理/邀请/转让/消息 API 与 SSE stream。消息为社会层，不写入 Session Event；审计五类 action 无正文。发消息在项目行锁内分配 `server_seq`，唯一约束冲突回读幂等行；SSE 用固定池 + Semaphore(64) + 成员复检。
 
 **Verification** — `EnterpriseCollabPropertiesTest` + `BootstrapViewSessionPolicyTest` PASS（5）；`T08ApiContractTest` PASS（含 collabPolicy schema）；`CollabServiceIntegrationTest` 已写但本机 Docker 不可用（PRE-EXISTING：Testcontainers 起不来）。`pnpm --filter @dshent/contracts generate` 已同步 BootstrapResponse schema。
 
-**Journey log** — ① bootstrap 增 collabPolicy 必须同步 OpenAPI 真源与 generate，否则 T08 additionalProperties=false 会红；② 审计 metadata 必须走 sealed DTO，不能用 Map；③ `sys_user` 无 tenant 列，成员存在性只能按 user_id+del_flag；④ Docker 缺失时集成门禁无法本机复验，需 CI/有 Docker 环境补跑。
+**Journey log** — ① bootstrap 增 collabPolicy 必须同步 OpenAPI 真源与 generate，否则 T08 additionalProperties=false 会红；② 审计 metadata 必须走 sealed DTO，不能用 Map；③ `sys_user` 无 tenant 列，成员存在性只能按 user_id+del_flag；④ Docker 缺失时集成门禁无法本机复验，需 CI/有 Docker 环境补跑；⑤ 并发 seq/幂等必须项目行锁 + DuplicateKeyException 回读，不能 check-then-insert。
 
 ## [S1] Problem
 
