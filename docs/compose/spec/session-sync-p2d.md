@@ -3,7 +3,7 @@ feature: session-sync-p2d
 status: delivered
 updated: 2026-09-16
 branch: feat/session-sync-p2d
-commits: f159ba8..<filled>
+commits: f159ba8c94bf9f231bda86e54418eb00aec5dd0e..7159429de77daf46d6dcc2ba13690ef4dff2062c
 ---
 
 # Session 同步 P2d：bundle 条件接线
