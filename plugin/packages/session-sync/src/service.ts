@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 types/cursor-store/upload-worker 与寄存器开关；不直接 import dsh-session
  * [OUTPUT]: 对外提供 disabled/idle/uploading 服务与无副作用 registerSessionSync
- * [POS]: session-sync 客户端服务入口；上传由 ports 注入，bundle 接线留 P2d
+ * [POS]: session-sync 客户端服务入口；上传由 ports 注入，Host 经 host-bridge 在 enabled 时挂载
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 

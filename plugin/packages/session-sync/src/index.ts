@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 service/cursor-store/types/errors/batch/hash/wire/upload-worker
- * [OUTPUT]: 对外暴露 registerSessionSync、EnterpriseSessionSyncService、游标与上传原语
+ * [INPUT]: 依赖 service/cursor-store/types/errors/batch/hash/wire/upload-worker/host-bridge
+ * [OUTPUT]: 对外暴露 registerSessionSync、EnterpriseSessionSyncService、游标、上传原语与 Host 桥
  * [POS]: @dshent/session-sync 包 facade
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -46,6 +46,17 @@ export {
   toSessionBatchBody,
 } from './wire.js'
 export { SessionUploadScheduler, type SessionUploadSchedulerOptions } from './upload-worker.js'
+export {
+  isHostSessionSyncEnabled,
+  tryRegisterHostSessionSync,
+  type HostBootstrapPort,
+  type HostPlatformPort,
+  type HostPlatformStatusPort,
+  type HostSessionPolicyPort,
+  type HostSessionRuntimePort,
+  type HostSessionSyncHandle,
+  type TryRegisterHostSessionSyncOptions,
+} from './host-bridge.js'
 export {
   SESSION_SYNC_CURSOR_FORMAT_VERSION,
   type EnterpriseSessionUploaderPort,

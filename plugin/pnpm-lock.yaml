@@ -69,6 +69,9 @@ importers:
       '@dshent/plugin-distribution':
         specifier: workspace:*
         version: link:../plugin-distribution
+      '@dshent/session-sync':
+        specifier: workspace:*
+        version: link:../session-sync
       '@dshent/ui':
         specifier: workspace:*
         version: link:../ui

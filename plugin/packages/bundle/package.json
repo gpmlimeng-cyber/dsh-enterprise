@@ -76,6 +76,7 @@
     "@dshent/llm-gateway": "workspace:*",
     "@dshent/platform-client": "workspace:*",
     "@dshent/plugin-distribution": "workspace:*",
+    "@dshent/session-sync": "workspace:*",
     "@dshent/ui": "workspace:*"
   }
 }

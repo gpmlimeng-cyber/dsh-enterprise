@@ -94,11 +94,11 @@ flowchart TB
 
 `enabled=false`：**不渲染 tab、零 Session 请求**（V1 门禁保留断言）。
 
-### 3.4 P2d · bundle 条件接线（在 P2b 可用后）
+### 3.4 P2d · bundle 条件接线（已交付于 `feat/session-sync-p2d`）
 
-1. bootstrap `sessionPolicy.enabled===true` 才 `registerSessionSync`。  
-2. 更新 `bundle.spec` / account-store「零 Session 请求」为 **开关双向**：false 仍零请求；true 允许本地 API。  
-3. **禁止**在 false 路径引入 `enterpriseSessionSync` 符号到未启用运行时。
+1. bootstrap `sessionPolicy.enabled===true` 才 `registerSessionSync`（host-bridge）。  
+2. `bundle.spec` 更新为开关双向：false 零 Session 请求；true 允许条件注册。  
+3. 未启用路径不实例化同步服务；无 `@deepseek-ai/dsh-session` peer/hard import。
 
 ### 3.5 P4 · 验收
 
