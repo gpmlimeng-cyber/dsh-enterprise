@@ -143,6 +143,7 @@ export interface RegisterSessionSyncDeps {
 export interface SessionSyncServiceHandle {
   readonly mode: SessionSyncMode
   getStatus(): SessionSyncStatus
+  ensureCursors(): Promise<void>
   markDirty(session: SyncableSession): void
   flushOnce(sessionId: string): Promise<void>
   clearSessionError(sessionId: string): Promise<void>

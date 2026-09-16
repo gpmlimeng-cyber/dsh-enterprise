@@ -23,7 +23,7 @@ import type {
   SyncableSession,
   SyncableSessionHeader,
 } from './types.js'
-import { finalRollingHash, toSessionBatchBody } from './wire.js'
+import { toSessionBatchBody } from './wire.js'
 
 export interface SessionUploadSchedulerOptions {
   readonly dshHome: string
@@ -79,6 +79,9 @@ export class SessionUploadScheduler {
     entry.session = session
     entry.dirty = true
     if (entry.timer !== null || entry.running !== null || entry.retryTimer !== null) return
+    // 终态 session 不再武装防抖；显式 clearSessionError 后才允许重新排队。
+    const terminal = (this.#cursor?.terminalErrors ?? {})[session.id]
+    if (terminal !== undefined) return
     const timer = setTimeout(() => {
       entry.timer = null
       void this.#kick(session.id)
@@ -92,6 +95,10 @@ export class SessionUploadScheduler {
       throw new SessionSyncError('ENT_SESSION_SYNC_DISABLED', 'scheduler disposed')
     }
     const entry = this.#ensureEntry(sessionId)
+    if (entry.timer !== null) {
+      clearTimeout(entry.timer)
+      entry.timer = null
+    }
     entry.dirty = false
     await this.#kick(sessionId)
   }
@@ -215,12 +222,11 @@ export class SessionUploadScheduler {
       }
     }
     const fromSeq = (cursor.cursors[sessionId] ?? -1) + 1
-    const readController = this.#createController()
     let meta: SyncableSessionHeader
     let events: readonly SyncableEvent[]
     try {
-      const page = await this.#track(
-        this.#options.sessionPersistence.readFrom(sessionId, fromSeq, readController.signal),
+      const page = await this.#callPort(signal =>
+        this.#options.sessionPersistence.readFrom(sessionId, fromSeq, signal),
       )
       meta = page.meta
       events = page.events
@@ -251,11 +257,11 @@ export class SessionUploadScheduler {
         header: slice.isFirstSlice ? meta : null,
         title,
       })
-      const batchController = this.#createController()
-      const accepted = await this.#track(
-        this.#options.uploader.appendBatch(sessionId, body, batchController.signal),
+      const accepted = await this.#callPort(signal =>
+        this.#options.uploader.appendBatch(sessionId, body, signal),
       )
-      previousRollingHash = finalRollingHash(previousRollingHash, slice.payload)
+      // 以服务端确认 hash 为下一批 previous，避免多批内客户端本地链漂移。
+      previousRollingHash = accepted.rollingHash
       if (this.#disposed || entry.disposed) return
       const acceptedSeq = Number(accepted.acceptedThroughSeq)
       const nowIso = this.#options.now().toISOString()
@@ -270,12 +276,6 @@ export class SessionUploadScheduler {
       entry.retryAttempt = 0
       this.#options.logger.debug(`session-sync pushed ${sessionId} through ${acceptedSeq}`)
     }
-  }
-
-  #createController(): AbortController {
-    const controller = new AbortController()
-    this.#abortControllers.add(controller)
-    return controller
   }
 
   async #handleSessionFailure(sessionId: string, entry: SessionEntry, error: unknown): Promise<void> {
@@ -328,7 +328,8 @@ export class SessionUploadScheduler {
   #mutateCursor(
     update: (file: SessionSyncCursorFile) => SessionSyncCursorFile,
   ): Promise<void> {
-    this.#cursorWrite = this.#cursorWrite.then(async () => {
+    // 单写者链：失败必须吞掉后继续，否则一次写盘失败会永久毒化后续所有游标更新。
+    const nextWrite = this.#cursorWrite.catch(() => undefined).then(async () => {
       const current = this.#cursor
         ?? await readCursorFile(this.#options.dshHome)
         ?? await ensureCursorFile(this.#options.dshHome, this.#options.deviceId)
@@ -336,22 +337,21 @@ export class SessionUploadScheduler {
       await writeCursorFile(this.#options.dshHome, next)
       this.#cursor = next
     })
-    return this.#cursorWrite
+    this.#cursorWrite = nextWrite.catch(() => undefined)
+    return nextWrite
   }
 
-  #track<T>(promise: Promise<T>): Promise<T> {
-    const tracked = promise.then(
-      value => {
-        this.#inFlight.delete(tracked)
-        return value
-      },
-      error => {
-        this.#inFlight.delete(tracked)
-        throw error
-      },
-    )
-    this.#inFlight.add(tracked)
-    return tracked
+  async #callPort<T>(run: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    const controller = new AbortController()
+    this.#abortControllers.add(controller)
+    const task = run(controller.signal)
+    this.#inFlight.add(task)
+    try {
+      return await task
+    } finally {
+      this.#inFlight.delete(task)
+      this.#abortControllers.delete(controller)
+    }
   }
 }
 
