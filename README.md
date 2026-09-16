@@ -1,5 +1,5 @@
 <!--
-[INPUT]: 依赖控制台品牌资源、可覆盖的容器镜像引用、根 Docker Compose、npm 插件、Harness profile 与本 fork 产品边界。
+[INPUT]: 依赖控制台品牌资源、可覆盖的容器镜像引用、根 Docker Compose、npm 插件、Harness profile 与本 fork 产品边界；Session 同步状态见 docs/session-sync-revival-decision.md。
 [OUTPUT]: 提供品牌展示、Compose 自托管、管理员初始化、员工插件、更新、排障与静态官网发布入口。
 [POS]: DSH Enterprise（dshent）公开用户入口；见 FORK.md，不再与上游 owndsh 同步。
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md / FORK.md
@@ -39,6 +39,20 @@ DSH Enterprise 不 fork 官方 Harness Web UI，不接管员工工作区，也�
 | 审计员 | 查询管理操作、模型调用、用量与 request ID 关联记录 |
 | 员工 | 用企业账号登录 Harness，使用获准模型并自主安装企业插件，无需持有上游 API Key |
 
+## 会话同步（可选能力 · 开发中）
+
+目标：员工换电脑后，登录企业账号从会话列表**恢复并继续**任务（企业 Server 密文副本 + 恢复为**新本地会话**），不是个人 Git 会话镜像，也不默认开启。
+
+| 项 | 状态 |
+|---|---|
+| 产品决议 | 已完成，见 [session-sync-revival-decision.md](docs/session-sync-revival-decision.md) |
+| 服务端（T16） | 已具备批次/加密/审计能力 |
+| `enterprise.session.enabled` | 默认 **`false`**（V1 客户端零 Session 同步请求） |
+| 客户端上传 / 恢复 / UI | **未交付**；实现分支与路线图见 `feat/session-sync-p2a` 上的 `docs/compose/spec/session-sync-client-roadmap.md` |
+| 社区参考 | 生态吸收见分支 `feat/session-sync-ecosystem` → `docs/ecosystem/dsh-session-sync-absorption.md` |
+
+部署若将来打开旁路，仅在显式 `enterprise.session.enabled=true` 后 bootstrap 才会向客户端宣告 `sessionPolicy.enabled=true`；当前默认配置下员工端**不会**出现会话同步入口。
+
 ## Docker Compose 部署
 
 当前镜像目标为 Linux `amd64`。准备 Docker Engine、Docker Compose `2.20.3+` 和 Git。
@@ -46,8 +60,8 @@ DSH Enterprise 不 fork 官方 Harness Web UI，不接管员工工作区，也�
 ### 1. 启动
 
 ```sh
-git clone https://github.com/boe1900/owndsh.git
-cd owndsh
+git clone https://github.com/gpmlimeng-cyber/dsh-enterprise.git
+cd dsh-enterprise
 docker compose up -d --wait
 ```
 
@@ -181,6 +195,10 @@ dsh plugin --profile web add --ignore-scripts dshent-plugin@next
 ### 重启后要求重新登录
 
 确认启动的是原 profile，且它的官方 credentials provider 可写。主动退出、Server 地址切换、设备/成员撤销和 30 天有效期结束都会使长期会话失效。
+
+### 能否像微信一样换设备接着聊？
+
+企业侧「会话同步」是**可选、默认关闭、客户端上传/恢复尚未交付**的能力（见上文）。V1 只提供登录、受管模型与插件；本地会话默认仍留在各机 Harness 中。不要把社区 Git 会话同步插件当成企业 Server 复制。
 
 ### GHCR 镜像无法拉取
 
