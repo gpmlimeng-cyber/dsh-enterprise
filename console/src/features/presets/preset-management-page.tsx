@@ -301,7 +301,7 @@ export function PresetManagementPage() {
       toolbarAction={canWrite ? (
         <Button variant="primary" size="xs" onClick={() => { upload.reset(); setUploadOpen(true); }}>
           <Upload aria-hidden className="size-3.5" />
-          上传 .dshpreset
+          上传配方
         </Button>
       ) : undefined}
     />
