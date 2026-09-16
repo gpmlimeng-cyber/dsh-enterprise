@@ -1,13 +1,14 @@
 /**
- * [INPUT]: 投影 BootstrapService 的用户、ACTIVE 设备、revision、含协议/推理 profile 的有效模型/配额与插件分配。
- * [OUTPUT]: 对外提供 T06 严格客户端所需的完整脱敏 bootstrap 外壳，并明确停用 V1 Session 同步策略。
- * [POS]: model/web 的 runtime 配置输出边界；插件复用下载授权事实，Session 能力保留但不进入 V1 客户端运行面。
+ * [INPUT]: 投影 BootstrapService 的用户、ACTIVE 设备、revision、含协议/推理 profile 的有效模型/配额与插件分配；SessionPolicy 来自 enterprise.session 部署参数。
+ * [OUTPUT]: 对外提供 T06 严格客户端所需的完整脱敏 bootstrap 外壳；sessionPolicy.enabled 默认 false（V1 停用），显式部署可开。
+ * [POS]: model/web 的 runtime 配置输出边界；插件复用下载授权事实，Session 能力由 EnterpriseSessionProperties 宣告。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 package com.owndsh.enterprise.model.web;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.owndsh.enterprise.model.application.BootstrapService;
+import com.owndsh.enterprise.session.EnterpriseSessionProperties;
 
 import java.util.List;
 import java.util.Base64;
@@ -21,7 +22,14 @@ public record BootstrapView(
     Plugins plugins,
     SessionPolicy sessionPolicy
 ) {
-    public static BootstrapView from(BootstrapService.BootstrapSnapshot snapshot) {
+    public static BootstrapView from(
+        BootstrapService.BootstrapSnapshot snapshot,
+        EnterpriseSessionProperties sessionProperties
+    ) {
+        return from(snapshot, toSessionPolicy(sessionProperties));
+    }
+
+    public static BootstrapView from(BootstrapService.BootstrapSnapshot snapshot, SessionPolicy sessionPolicy) {
         return new BootstrapView(
             snapshot.revision(),
             new User(
@@ -53,7 +61,15 @@ public record BootstrapView(
                     value.required(), value.desiredState().name()
                 )).toList()
             ),
-            new SessionPolicy(false, 90, 1_048_576)
+            sessionPolicy
+        );
+    }
+
+    public static SessionPolicy toSessionPolicy(EnterpriseSessionProperties sessionProperties) {
+        return new SessionPolicy(
+            sessionProperties.isEnabled(),
+            sessionProperties.getRetentionDays(),
+            sessionProperties.getMaxBatchBytes()
         );
     }
 
