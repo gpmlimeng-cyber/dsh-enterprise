@@ -49,6 +49,8 @@ P2-08C 将产品控制台会话收敛为服务端 Sa-Token 与 HttpOnly/SameSite
 
 企业插件市场：后端上传、发布与 ALL/USER 可见范围管理复用现有插件模块；员工在「DSH Enterprise 设置 → 插件」内搜索、查看详情并自主安装/切换版本/卸载，不另设侧栏入口或独立市场弹层。revision 不再触发安装，历史 required 也不强制；删除范围或退休只停止新安装，显式 ABSENT 才撤回已有受管包。签名、兼容性、逐请求授权与库存边界保留。部署时必须升级员工插件，旧客户端不会仅因后台变更自动转为自选模式。
 
+企业配方广场：托管 Desktop `dsh-preset` v1 的 `.dshpreset` 包。控制台独立 `/presets` 纵向由 `plugin_admin`/`enterprise_admin` 上传、验包、发布/退休并原子替换 ALL/USER 可见范围；员工在「DSH Enterprise 设置 → 配方」浏览并复制导入指令，经 loopback `agent-preset.import` 安装。一期不做员工投稿、一键安装、设备配方库存与 Ed25519 签名；退休只停止新下载，不远程撤回本机已装配方。
+
 插件验签策略：客户端 `verifyPluginSignatures` 默认 false，HTTP 内网部署无需员工配置公钥；文件大小、SHA-256、兼容性、逐请求授权与核心包保护始终生效。显式开启后仅信任安装层配置的 Ed25519 公钥，目录、下载和缓存都严格验签，服务端响应无权关闭校验或替换信任根。服务端 `ENT_PLUGIN_SIGNING_ENABLED` 同样默认 false，关闭时不加载私钥、不生成签名；数据库保留非空 bytea，以零长度表示未签名，HTTP `signatureBase64` 对应空字符串，无需迁移。开启签名仅影响新上传版本，不补签旧制品。Docker 与离线安装默认不提供签名密钥；升级时先更新员工插件，旧客户端无法解析无签名版本。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

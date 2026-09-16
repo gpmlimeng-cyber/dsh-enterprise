@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖普通数据库所有者、空数据库、classpath V0-V29 migration 与旧版 baseline 0 历史。
+ * [INPUT]: 依赖普通数据库所有者、空数据库、classpath V0-V30 migration 与旧版 baseline 0 历史。
  * [OUTPUT]: 验证空库建表、旧库接管/升级、重复启动、字符串时间参数及数据库计量迁移约束。
  * [POS]: database 的持续 migration 门禁，防止后续任务只验证最终 schema 而遗漏中间版本不可升级。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -40,12 +40,12 @@ class EnterpriseMigrationTest {
         assertThat(database.jdbc().queryForObject(
             "select type from flyway_schema_history where version='0'", String.class
         )).isEqualTo("SQL");
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("29");
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("30");
         Integer tableCount = database.jdbc().queryForObject("""
             select count(*) from information_schema.tables
             where table_schema = 'public' and table_name like 'ent_%'
             """, Integer.class);
-        assertThat(tableCount).isEqualTo(27);
+        assertThat(tableCount).isEqualTo(30);
         assertThat(database.jdbc().queryForObject(
             "select policy_type from ent_quota_policy where tenant_id='000000'",
             String.class
@@ -144,7 +144,7 @@ class EnterpriseMigrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"0", "28", "29"})
+    @ValueSource(strings = {"0", "28", "29", "30"})
     void adoptsLegacyHostSchemaAndPreservesExistingMigrationHistory(String oldVersion) {
         var database = PostgresTestDatabase.create("legacy_baseline");
         // ---------- 模拟旧版由 initdb 装载 Host，再由 Flyway 记录 baseline 0 ----------
@@ -157,7 +157,7 @@ class EnterpriseMigrationTest {
 
         Flyway flyway = PostgresTestDatabase.migrate(database, null);
 
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("29");
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("30");
         assertThat(database.jdbc().queryForObject(
             "select type from flyway_schema_history where version='0'", String.class
         )).isEqualTo("BASELINE");
@@ -538,7 +538,7 @@ class EnterpriseMigrationTest {
             .run(context -> {
                 assertThat(context).hasSingleBean(Flyway.class);
                 assertThat(context.getBean(Flyway.class).info().current().getVersion().getVersion())
-                    .isEqualTo("29");
+                    .isEqualTo("30");
             });
     }
 }

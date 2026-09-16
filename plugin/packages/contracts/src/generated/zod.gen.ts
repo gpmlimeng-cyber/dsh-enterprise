@@ -76,6 +76,7 @@ export const zEnterpriseErrorCode = z.enum([
     'ENT_INVALID_REDIRECT_URI',
     'ENT_PKCE_REQUIRED',
     'ENT_PLUGIN_ARTIFACT_INVALID',
+    'ENT_PRESET_INVALID_PACKAGE',
     'ENT_SESSION_FORMAT_UNSUPPORTED',
     'ENT_AUTH_REQUIRED',
     'ENT_AUTH_CODE_INVALID',
@@ -85,6 +86,8 @@ export const zEnterpriseErrorCode = z.enum([
     'ENT_DEVICE_REVOKED',
     'ENT_MODEL_NOT_ASSIGNED',
     'ENT_PLUGIN_NOT_ASSIGNED',
+    'ENT_PRESET_NOT_PUBLISHED',
+    'ENT_PRESET_VISIBILITY_DENIED',
     'ENT_RESOURCE_NOT_OWNED',
     'ENT_RESOURCE_NOT_FOUND',
     'ENT_SESSION_CONTENT_EXPIRED',
@@ -100,6 +103,7 @@ export const zEnterpriseErrorCode = z.enum([
     'ENT_DEVICE_ALREADY_BOUND',
     'ENT_REQUEST_TOO_LARGE',
     'ENT_PLUGIN_ARCHIVE_TOO_LARGE',
+    'ENT_PRESET_TOO_LARGE',
     'ENT_SESSION_BATCH_TOO_LARGE',
     'ENT_QUOTA_FIVE_HOURS_EXCEEDED',
     'ENT_QUOTA_DAILY_EXCEEDED',
@@ -1850,6 +1854,148 @@ export const zPluginRuntimePluginAssignmentsResponse = z.object({
 
 export const zRuntimePluginAssignmentsResponse = zPluginRuntimePluginAssignmentsResponse;
 
+export const zPresetPresetAssignmentId = z.string().regex(/^[1-9][0-9]{0,18}$/);
+
+export const zPresetAssignmentId = zPresetPresetAssignmentId;
+
+export const zPresetPresetAssignmentStatus = z.enum(['ACTIVE', 'DISABLED']);
+
+export const zPresetAssignmentStatus = zPresetPresetAssignmentStatus;
+
+export const zPresetPresetPackageId = z.string().regex(/^[1-9][0-9]{0,18}$/);
+
+export const zPresetPackageId = zPresetPresetPackageId;
+
+export const zPresetPresetPackageStatus = z.enum(['ACTIVE', 'DISABLED']);
+
+export const zPresetPackageStatus = zPresetPresetPackageStatus;
+
+export const zPresetPresetPresetId = z.string().min(1).max(128).regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
+
+export const zPresetPresetId = zPresetPresetPresetId;
+
+export const zPresetPresetSha256 = z.string().regex(/^[0-9a-f]{64}$/);
+
+export const zPresetSha256 = zPresetPresetSha256;
+
+export const zPresetPresetSourceDshVersion = z.string().min(1).max(64);
+
+export const zPresetSourceDshVersion = zPresetPresetSourceDshVersion;
+
+export const zPresetPresetSubjectType = z.enum(['ALL', 'USER']);
+
+export const zPresetSubjectType = zPresetPresetSubjectType;
+
+export const zPresetPresetAssignment = z.object({
+    id: zPresetPresetAssignmentId,
+    packageId: zPresetPresetPackageId,
+    subjectType: zPresetPresetSubjectType,
+    subjectId: z.string().regex(/^[1-9][0-9]{0,18}$/).optional(),
+    status: zPresetPresetAssignmentStatus,
+    revision: zRevision
+}).strict();
+
+export const zPresetAssignment = zPresetPresetAssignment;
+
+export const zPresetPresetAssignmentSpec = z.object({
+    subjectType: zPresetPresetSubjectType,
+    subjectId: z.string().regex(/^[1-9][0-9]{0,18}$/).optional()
+}).strict();
+
+export const zPresetAssignmentSpec = zPresetPresetAssignmentSpec;
+
+export const zPresetPresetAssignmentBatchRequest = z.object({
+    assignments: z.array(zPresetPresetAssignmentSpec).min(0).max(200)
+}).strict();
+
+export const zPresetAssignmentBatchRequest = zPresetPresetAssignmentBatchRequest;
+
+export const zPresetPresetUploadMetadata = z.object({
+    displayName: z.string().min(1).max(120).optional(),
+    description: z.string().max(2000).optional()
+}).strict();
+
+export const zPresetUploadMetadata = zPresetPresetUploadMetadata;
+
+export const zPresetPresetVersionId = z.string().regex(/^[1-9][0-9]{0,18}$/);
+
+export const zPresetVersionId = zPresetPresetVersionId;
+
+export const zPresetPresetVersionStatus = z.enum([
+    'VALIDATED',
+    'PUBLISHED',
+    'RETIRED'
+]);
+
+export const zPresetVersionStatus = zPresetPresetVersionStatus;
+
+export const zPresetPresetVersion = z.object({
+    id: zPresetPresetVersionId,
+    packageId: zPresetPresetPackageId,
+    presetId: zPresetPresetPresetId,
+    sourceDshVersion: zPresetPresetSourceDshVersion,
+    sizeBytes: z.coerce.bigint().gte(BigInt(1)).lte(BigInt(52428800)),
+    sha256: zPresetPresetSha256,
+    status: zPresetPresetVersionStatus,
+    createdAt: z.iso.datetime({ offset: true }),
+    revision: zRevision
+}).strict();
+
+export const zPresetVersion = zPresetPresetVersion;
+
+export const zPresetPresetPackage = z.object({
+    id: zPresetPresetPackageId,
+    presetId: zPresetPresetPresetId,
+    displayName: z.string().min(1).max(120),
+    description: z.string().max(2000).optional(),
+    status: zPresetPresetPackageStatus,
+    revision: zRevision,
+    versions: z.array(zPresetPresetVersion),
+    assignments: z.array(zPresetPresetAssignment)
+}).strict();
+
+export const zPresetPackage = zPresetPresetPackage;
+
+export const zPresetPresetPackagePageData = z.object({
+    items: z.array(zPresetPresetPackage).max(200),
+    page: zCursorPage
+}).strict();
+
+export const zPresetPackagePageData = zPresetPresetPackagePageData;
+
+export const zPresetPresetPackageListResponse = z.object({
+    data: zPresetPresetPackagePageData,
+    requestId: zRequestId
+}).strict();
+
+export const zPresetPackageListResponse = zPresetPresetPackageListResponse;
+
+export const zPresetPresetVersionResponse = z.object({
+    data: zPresetPresetVersion,
+    requestId: zRequestId
+}).strict();
+
+export const zPresetVersionResponse = zPresetPresetVersionResponse;
+
+export const zPresetRuntimePresetSummary = z.object({
+    id: zPresetPresetPackageId,
+    presetId: zPresetPresetPresetId,
+    displayName: z.string().min(1).max(120),
+    description: z.string().max(2000),
+    sourceDshVersion: zPresetPresetSourceDshVersion,
+    sizeBytes: z.coerce.bigint().gte(BigInt(1)).lte(BigInt(52428800)),
+    updatedAt: z.iso.datetime({ offset: true })
+}).strict();
+
+export const zRuntimePresetSummary = zPresetRuntimePresetSummary;
+
+export const zPresetRuntimePresetDetail = zPresetRuntimePresetSummary.and(z.object({
+    versionId: zPresetPresetVersionId,
+    sha256: zPresetPresetSha256
+}).strict());
+
+export const zRuntimePresetDetail = zPresetRuntimePresetDetail;
+
 export const zQuotaConcurrencyUsage = z.object({
     limit: z.int().gte(1),
     current: z.int().gte(0)
@@ -2443,6 +2589,22 @@ export const zRuntimePluginDownload = z.unknown();
 
 export const zRuntimePluginInventory = z.unknown();
 
+export const zPresetAssignmentBatch = z.unknown();
+
+export const zPresetCollection = z.unknown();
+
+export const zPresetVersionPublish = z.unknown();
+
+export const zPresetVersionRetire = z.unknown();
+
+export const zPresetVersionUpload = z.unknown();
+
+export const zRuntimePresetCollection = z.unknown();
+
+export const zRuntimePresetDownload = z.unknown();
+
+export const zRuntimePresetItem = z.unknown();
+
 export const zAdminUsage = z.unknown();
 
 export const zMyUsage = z.unknown();
@@ -2526,6 +2688,26 @@ export const zGrantSubjectTypeWritable = zModelGrantSubjectType;
 export const zGrantResourceTypeWritable = zModelGrantResourceType;
 
 export const zProviderProbeCategoryWritable = zModelProviderProbeCategory;
+
+export const zPresetPackageIdWritable = zPresetPresetPackageId;
+
+export const zPresetVersionIdWritable = zPresetPresetVersionId;
+
+export const zPresetAssignmentIdWritable = zPresetPresetAssignmentId;
+
+export const zPresetVersionStatusWritable = zPresetPresetVersionStatus;
+
+export const zPresetPackageStatusWritable = zPresetPresetPackageStatus;
+
+export const zPresetSubjectTypeWritable = zPresetPresetSubjectType;
+
+export const zPresetAssignmentStatusWritable = zPresetPresetAssignmentStatus;
+
+export const zPresetPresetIdWritable = zPresetPresetPresetId;
+
+export const zPresetSourceDshVersionWritable = zPresetPresetSourceDshVersion;
+
+export const zPresetSha256Writable = zPresetPresetSha256;
 
 export const zPluginPackageIdWritable = zPluginPluginPackageId;
 
@@ -3638,6 +3820,112 @@ export const zStreamEnterpriseAnthropicMessagesHeaders = z.object({
  * Upstream protocol-native server-sent events.
  */
 export const zStreamEnterpriseAnthropicMessagesResponse = z.string();
+
+export const zListPresetPackagesQuery = z.object({
+    cursor: zCursor.optional(),
+    limit: zPageLimit.optional()
+});
+
+/**
+ * Preset package page with versions and visibility.
+ */
+export const zListPresetPackagesResponse = zPresetPresetPackageListResponse;
+
+export const zUploadPresetVersionBody = z.object({
+    artifact: z.string(),
+    metadata: zPresetPresetUploadMetadata.optional()
+}).strict();
+
+export const zUploadPresetVersionHeaders = z.object({
+    'Idempotency-Key': z.uuid().length(36).regex(/^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$/)
+});
+
+/**
+ * Existing version returned for an idempotent natural key.
+ */
+export const zUploadPresetVersionResponse = zPresetPresetVersionResponse;
+
+export const zPublishPresetVersionHeaders = z.object({
+    'If-Match': zRevision
+});
+
+export const zPublishPresetVersionPath = z.object({
+    presetVersionId: zPresetPresetVersionId
+});
+
+/**
+ * Published preset version.
+ */
+export const zPublishPresetVersionResponse = zPresetPresetVersionResponse;
+
+export const zRetirePresetVersionHeaders = z.object({
+    'If-Match': zRevision
+});
+
+export const zRetirePresetVersionPath = z.object({
+    presetVersionId: zPresetPresetVersionId
+});
+
+/**
+ * Retired preset version.
+ */
+export const zRetirePresetVersionResponse = zPresetPresetVersionResponse;
+
+export const zReplacePresetAssignmentsBody = zPresetPresetAssignmentBatchRequest;
+
+export const zReplacePresetAssignmentsHeaders = z.object({
+    'Idempotency-Key': z.uuid().length(36).regex(/^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$/),
+    'If-Match': zRevision
+});
+
+export const zReplacePresetAssignmentsPath = z.object({
+    presetPackageId: zPresetPresetPackageId
+});
+
+/**
+ * Fully replaced visibility assignment set.
+ */
+export const zReplacePresetAssignmentsResponse = z.object({
+    data: z.array(zPresetPresetAssignment).max(200),
+    requestId: zRequestId
+}).strict();
+
+export const zListRuntimePresetsQuery = z.object({
+    sort: z.enum(['newest']).optional().default('newest')
+});
+
+/**
+ * Published presets visible to the current user.
+ */
+export const zListRuntimePresetsResponse = z.object({
+    data: z.array(zPresetRuntimePresetSummary),
+    requestId: zRequestId
+}).strict();
+
+export const zGetRuntimePresetPath = z.object({
+    presetPackageId: zPresetPresetPackageId
+});
+
+/**
+ * Visible published preset detail.
+ */
+export const zGetRuntimePresetResponse = z.object({
+    data: zPresetRuntimePresetDetail,
+    requestId: zRequestId
+}).strict();
+
+export const zDownloadRuntimePresetHeaders = z.object({
+    Range: z.string().optional()
+});
+
+export const zDownloadRuntimePresetPath = z.object({
+    presetVersionId: zPresetPresetVersionId
+});
+
+/**
+ * Authorized .dshpreset archive bytes.
+ */
+export const zDownloadRuntimePresetResponse = z.string();
 
 export const zListPluginPackagesQuery = z.object({
     cursor: zCursor.optional(),

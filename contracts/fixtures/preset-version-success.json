@@ -1,0 +1,14 @@
+{
+  "data": {
+    "id": "1901500000000000101",
+    "packageId": "1901500000000000001",
+    "presetId": "weekly-digest",
+    "sourceDshVersion": "0.1.0-rc.7",
+    "sizeBytes": 20480,
+    "sha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+    "status": "VALIDATED",
+    "createdAt": "2026-09-16T08:00:00Z",
+    "revision": 0
+  },
+  "requestId": "req_01K2PRESETVER1ON2SUCCESS00"
+}

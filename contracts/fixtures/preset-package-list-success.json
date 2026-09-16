@@ -1,0 +1,42 @@
+{
+  "data": {
+    "items": [
+      {
+        "id": "1901500000000000001",
+        "presetId": "weekly-digest",
+        "displayName": "周报整理",
+        "description": "把会议纪要与待办整理成企业周报草稿。",
+        "status": "ACTIVE",
+        "revision": 2,
+        "versions": [
+          {
+            "id": "1901500000000000101",
+            "packageId": "1901500000000000001",
+            "presetId": "weekly-digest",
+            "sourceDshVersion": "0.1.0-rc.7",
+            "sizeBytes": 20480,
+            "sha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+            "status": "PUBLISHED",
+            "createdAt": "2026-09-16T08:00:00Z",
+            "revision": 1
+          }
+        ],
+        "assignments": [
+          {
+            "id": "1901500000000000201",
+            "packageId": "1901500000000000001",
+            "subjectType": "ALL",
+            "status": "ACTIVE",
+            "revision": 0
+          }
+        ]
+      }
+    ],
+    "page": {
+      "hasMore": false,
+      "limit": 50,
+      "nextCursor": null
+    }
+  },
+  "requestId": "req_01K2PRESETPACKLIST00000001"
+}

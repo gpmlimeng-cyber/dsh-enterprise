@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖浏览器 fetch 与 platform-client 的按需同源 JSON 协议
- * [OUTPUT]: 对外提供严格账号/插件状态解码、Server 地址/登录/整包卸载动作和显式刷新端口
- * [POS]: dsh-ui 的浏览器网络边界，只投影 Settings 所需事实并拒绝秘密、正文与本地执行细节
+ * [OUTPUT]: 对外提供严格账号/插件/配方状态解码、Server 地址/登录/整包卸载动作、配方下载 URL 构造和显式刷新端口
+ * [POS]: dsh-ui 的浏览器网络边界，只投影 Settings 所需事实并拒绝秘密、正文、SHA 与本地执行细节
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -93,12 +93,25 @@ export interface EnterprisePluginCatalogItem {
   readonly installErrorCode?: string
 }
 
+export interface EnterpriseRuntimePreset {
+  readonly id: string
+  readonly presetId: string
+  readonly displayName: string
+  readonly description: string
+  readonly sourceDshVersion: string
+  readonly sizeBytes: number
+  readonly updatedAt: string
+  readonly versionId: string
+}
+
 export interface EnterpriseLocalApi {
   status(signal: AbortSignal): Promise<EnterpriseLocalStatus>
   refresh(signal: AbortSignal): Promise<EnterpriseLocalStatus>
   setServerUrl(serverUrl: string, signal: AbortSignal): Promise<{ readonly serverUrl: string }>
   bootstrap(signal: AbortSignal): Promise<EnterpriseAccountBootstrap | undefined>
   plugins(signal: AbortSignal): Promise<EnterprisePluginStatus>
+  presets(signal: AbortSignal): Promise<readonly EnterpriseRuntimePreset[]>
+  presetDetail(packageId: string, signal: AbortSignal): Promise<EnterpriseRuntimePreset>
   installPlugin(packageName: string, pluginVersionId: string, signal: AbortSignal): Promise<EnterprisePluginStatus>
   removePlugin(packageName: string, signal: AbortSignal): Promise<EnterprisePluginStatus>
   startLogin(signal: AbortSignal): Promise<{ readonly flowId: string }>
@@ -298,6 +311,38 @@ export function decodeEnterprisePluginStatus(value: unknown): EnterprisePluginSt
   }
 }
 
+/** 严格解码可见企业配方摘要；不投影 SHA、artifact 路径或包内 YAML。 */
+export function decodeEnterprisePresets(value: unknown): readonly EnterpriseRuntimePreset[] {
+  if (!Array.isArray(value) || value.length > 200) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  return value.map(item => {
+    const row = record(item)
+    if (row === undefined
+      || !hasExactKeys(row, [
+        'id', 'presetId', 'displayName', 'description', 'sourceDshVersion', 'sizeBytes', 'updatedAt',
+      ], ['versionId', 'sha256'])
+      || !enterpriseId(row['id']) || !nonEmptyString(row['presetId'])
+      || !nonEmptyString(row['displayName']) || !nonEmptyString(row['description'])
+      || !nonEmptyString(row['sourceDshVersion'])
+      || !Number.isSafeInteger(row['sizeBytes']) || Number(row['sizeBytes']) > 0
+      || !timestamp(row['updatedAt'])
+      || (row['versionId'] !== undefined && !enterpriseId(row['versionId']))) {
+      throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    return {
+      id: row['id'],
+      presetId: row['presetId'],
+      displayName: row['displayName'],
+      description: row['description'],
+      sourceDshVersion: row['sourceDshVersion'],
+      sizeBytes: Number(row['sizeBytes']),
+      updatedAt: row['updatedAt'],
+      versionId: typeof row['versionId'] === 'string' ? row['versionId'] : '',
+    }
+  })
+}
+
 function errorCode(value: unknown): string {
   const code = record(record(value)?.['error'])?.['code']
   return nonEmptyString(code) ? code : 'ENT_PLATFORM_UNAVAILABLE'
@@ -364,6 +409,11 @@ export function createEnterpriseLocalApi(
     },
     bootstrap: async signal => decodeBootstrap(await requestJson('/bootstrap', getInit(signal), fetcher)),
     plugins: async signal => decodeEnterprisePluginStatus(await requestJson('/plugins', getInit(signal), fetcher)),
+    presets: async signal => decodeEnterprisePresets(await requestJson('/presets', getInit(signal), fetcher)),
+    presetDetail: async (packageId, signal) => {
+      const items = decodeEnterprisePresets([await requestJson(`/presets/${packageId}`, getInit(signal), fetcher)])
+      return items[0]!
+    },
     installPlugin: async (packageName, pluginVersionId, signal) => decodeEnterprisePluginStatus(
       await requestJson('/plugins/install', jsonInit('POST', { packageName, pluginVersionId }, signal), fetcher),
     ),

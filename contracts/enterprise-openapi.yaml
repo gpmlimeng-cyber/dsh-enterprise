@@ -133,6 +133,22 @@ paths:
     $ref: './paths/gateway.yaml#/Responses'
   /enterprise/gateway/v1/messages:
     $ref: './paths/gateway.yaml#/AnthropicMessages'
+  /enterprise/admin/v1/presets:
+    $ref: './paths/preset.yaml#/PresetCollection'
+  /enterprise/admin/v1/presets/versions:
+    $ref: './paths/preset.yaml#/PresetVersionUpload'
+  /enterprise/admin/v1/presets/versions/{presetVersionId}/actions/publish:
+    $ref: './paths/preset.yaml#/PresetVersionPublish'
+  /enterprise/admin/v1/presets/versions/{presetVersionId}/actions/retire:
+    $ref: './paths/preset.yaml#/PresetVersionRetire'
+  /enterprise/admin/v1/presets/{presetPackageId}/assignments/batch:
+    $ref: './paths/preset.yaml#/PresetAssignmentBatch'
+  /enterprise/api/v1/presets:
+    $ref: './paths/preset.yaml#/RuntimePresetCollection'
+  /enterprise/api/v1/presets/{presetPackageId}:
+    $ref: './paths/preset.yaml#/RuntimePresetItem'
+  /enterprise/api/v1/presets/versions/{presetVersionId}/download:
+    $ref: './paths/preset.yaml#/RuntimePresetDownload'
   /enterprise/admin/v1/plugins:
     $ref: './paths/plugin.yaml#/PluginCollection'
   /enterprise/admin/v1/plugins/versions:
@@ -176,6 +192,7 @@ x-enterprise-error-statuses:
     - ENT_INVALID_REDIRECT_URI
     - ENT_PKCE_REQUIRED
     - ENT_PLUGIN_ARTIFACT_INVALID
+    - ENT_PRESET_INVALID_PACKAGE
     - ENT_SESSION_FORMAT_UNSUPPORTED
   '401':
     - ENT_AUTH_REQUIRED
@@ -187,6 +204,8 @@ x-enterprise-error-statuses:
     - ENT_DEVICE_REVOKED
     - ENT_MODEL_NOT_ASSIGNED
     - ENT_PLUGIN_NOT_ASSIGNED
+    - ENT_PRESET_NOT_PUBLISHED
+    - ENT_PRESET_VISIBILITY_DENIED
     - ENT_RESOURCE_NOT_OWNED
   '404':
     - ENT_RESOURCE_NOT_FOUND
@@ -205,6 +224,7 @@ x-enterprise-error-statuses:
   '413':
     - ENT_REQUEST_TOO_LARGE
     - ENT_PLUGIN_ARCHIVE_TOO_LARGE
+    - ENT_PRESET_TOO_LARGE
     - ENT_SESSION_BATCH_TOO_LARGE
   '429':
     - ENT_QUOTA_FIVE_HOURS_EXCEEDED
@@ -347,6 +367,15 @@ x-enterprise-fixtures:
     valid: true
   - file: fixtures/gateway-request-success.json
     schema: NativeGatewayRequest
+    valid: true
+  - file: fixtures/preset-version-success.json
+    schema: PresetVersionResponse
+    valid: true
+  - file: fixtures/preset-package-list-success.json
+    schema: PresetPackageListResponse
+    valid: true
+  - file: fixtures/runtime-preset-detail-success.json
+    schema: RuntimePresetDetail
     valid: true
   - file: fixtures/plugin-version-success.json
     schema: PluginVersionResponse
@@ -805,6 +834,27 @@ components:
     BootstrapModel: {$ref: './components/model.yaml#/BootstrapModel'}
     BootstrapSnapshot: {$ref: './components/model.yaml#/BootstrapSnapshot'}
     BootstrapResponse: {$ref: './components/model.yaml#/BootstrapResponse'}
+    PresetPackageId: {$ref: './components/preset.yaml#/PresetPackageId'}
+    PresetVersionId: {$ref: './components/preset.yaml#/PresetVersionId'}
+    PresetAssignmentId: {$ref: './components/preset.yaml#/PresetAssignmentId'}
+    PresetVersionStatus: {$ref: './components/preset.yaml#/PresetVersionStatus'}
+    PresetPackageStatus: {$ref: './components/preset.yaml#/PresetPackageStatus'}
+    PresetSubjectType: {$ref: './components/preset.yaml#/PresetSubjectType'}
+    PresetAssignmentStatus: {$ref: './components/preset.yaml#/PresetAssignmentStatus'}
+    PresetPresetId: {$ref: './components/preset.yaml#/PresetPresetId'}
+    PresetSourceDshVersion: {$ref: './components/preset.yaml#/PresetSourceDshVersion'}
+    PresetSha256: {$ref: './components/preset.yaml#/PresetSha256'}
+    PresetUploadMetadata: {$ref: './components/preset.yaml#/PresetUploadMetadata'}
+    PresetVersion: {$ref: './components/preset.yaml#/PresetVersion'}
+    PresetVersionResponse: {$ref: './components/preset.yaml#/PresetVersionResponse'}
+    PresetAssignment: {$ref: './components/preset.yaml#/PresetAssignment'}
+    PresetAssignmentSpec: {$ref: './components/preset.yaml#/PresetAssignmentSpec'}
+    PresetAssignmentBatchRequest: {$ref: './components/preset.yaml#/PresetAssignmentBatchRequest'}
+    PresetPackage: {$ref: './components/preset.yaml#/PresetPackage'}
+    PresetPackagePageData: {$ref: './components/preset.yaml#/PresetPackagePageData'}
+    PresetPackageListResponse: {$ref: './components/preset.yaml#/PresetPackageListResponse'}
+    RuntimePresetSummary: {$ref: './components/preset.yaml#/RuntimePresetSummary'}
+    RuntimePresetDetail: {$ref: './components/preset.yaml#/RuntimePresetDetail'}
     PluginPackageId: {$ref: './components/plugin.yaml#/PluginPackageId'}
     PluginVersionId: {$ref: './components/plugin.yaml#/PluginVersionId'}
     PluginAssignmentId: {$ref: './components/plugin.yaml#/PluginAssignmentId'}
@@ -969,6 +1019,7 @@ components:
         - ENT_INVALID_REDIRECT_URI
         - ENT_PKCE_REQUIRED
         - ENT_PLUGIN_ARTIFACT_INVALID
+        - ENT_PRESET_INVALID_PACKAGE
         - ENT_SESSION_FORMAT_UNSUPPORTED
         - ENT_AUTH_REQUIRED
         - ENT_AUTH_CODE_INVALID
@@ -978,6 +1029,8 @@ components:
         - ENT_DEVICE_REVOKED
         - ENT_MODEL_NOT_ASSIGNED
         - ENT_PLUGIN_NOT_ASSIGNED
+        - ENT_PRESET_NOT_PUBLISHED
+        - ENT_PRESET_VISIBILITY_DENIED
         - ENT_RESOURCE_NOT_OWNED
         - ENT_RESOURCE_NOT_FOUND
         - ENT_SESSION_CONTENT_EXPIRED
@@ -993,6 +1046,7 @@ components:
         - ENT_DEVICE_ALREADY_BOUND
         - ENT_REQUEST_TOO_LARGE
         - ENT_PLUGIN_ARCHIVE_TOO_LARGE
+        - ENT_PRESET_TOO_LARGE
         - ENT_SESSION_BATCH_TOO_LARGE
         - ENT_QUOTA_FIVE_HOURS_EXCEEDED
         - ENT_QUOTA_DAILY_EXCEEDED

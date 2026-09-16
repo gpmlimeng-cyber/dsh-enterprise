@@ -36,6 +36,8 @@ export interface EnterpriseLocalPlatformPort {
   cancelLogin(): boolean
   logout(): Promise<void>
   bootstrap(): BootstrapSnapshot | undefined
+  listPresets(signal?: AbortSignal): Promise<unknown>
+  getPreset(packageId: string, signal?: AbortSignal): Promise<unknown>
 }
 
 export interface EnterpriseLocalApiOptions {
@@ -272,6 +274,44 @@ export function registerEnterpriseLocalApi(
           return
         }
         writeJson(response, 200, { data: options.pluginStatus() })
+      },
+    }))
+
+    disposers.push(webServer.register({
+      kind: 'exact',
+      path: `${LOCAL_API_PREFIX}/presets`,
+      handler: async (request, response) => {
+        if (request.method !== 'GET') {
+          methodNotAllowed(response, 'GET')
+          return
+        }
+        try {
+          const value = await options.platform.listPresets()
+          writeJson(response, 200, { data: value })
+        } catch (error) {
+          const status = actionErrorStatus(error)
+          writeJson(response, status, { error: { code: errorCode(error) } })
+        }
+      },
+    }))
+
+    disposers.push(webServer.register({
+      kind: 'prefix',
+      path: `${LOCAL_API_PREFIX}/presets/`,
+      handler: async (request, response) => {
+        if (request.method !== 'GET') {
+          methodNotAllowed(response, 'GET')
+          return
+        }
+        try {
+          const packageId = requestUrl(request).pathname.slice(`${LOCAL_API_PREFIX}/presets/`.length)
+          if (!/^[1-9][0-9]{0,18}$/.test(packageId)) throw new TypeError('invalid preset package id')
+          const value = await options.platform.getPreset(packageId)
+          writeJson(response, 200, { data: value })
+        } catch (error) {
+          const status = actionErrorStatus(error)
+          writeJson(response, status, { error: { code: errorCode(error) } })
+        }
       },
     }))
 

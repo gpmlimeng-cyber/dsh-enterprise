@@ -70,6 +70,7 @@ V1 的两个使用面如下：
 | 模型网关 | OpenAI Chat Completions、OpenAI Responses、Anthropic Messages 三协议流式代理 | 已实现，待 V1 验收 |
 | 上游 429 | 保留限流/硬额度语义与合法 `Retry-After`，由 Harness 决定重试 | 已实现，待 V1 验收 |
 | 插件分发 | tgz 验包、签名、发布、分配、Desktop/Web 安装、回滚、卸载和设备库存 | 已实现，待 V1 验收 |
+| 配方广场 | 企业 .dshpreset 目录：管理员上传/发布/ALL\|USER 可见范围，员工设置浏览并复制导入指令 | 待实现 |
 | 设备治理 | 注册、心跳、状态查询、撤销和 bootstrap 刷新 | 已实现，待 V1 验收 |
 | 用量与审计 | Token ledger、策略用量、模型调用、管理操作和 request ID 关联查询 | 已实现，待 V1 验收 |
 | Session 同步 | 服务端休眠代码与数据保留，V1 不展示且客户端不执行同步 | 隐藏停用 |
