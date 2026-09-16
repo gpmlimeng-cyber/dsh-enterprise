@@ -94,7 +94,7 @@ owndsh/                         # 工作区目录名暂保留；产品标识见 
 | `OWNDSH_*` 环境变量名 | ⬜ 保留 | 仍兼容旧名；阶段三再评估 `DSHENT_*` 主前缀 |
 | 拉取用 GHCR 镜像 | ⬜ 暂保留 | `ghcr.io/boe1900/owndsh-*`；自有 registry 后再切 |
 | npm 插件名 `owndsh-plugin` | ⬜ 暂保留 | 员工安装命令会变，单独发版再改 |
-| 控制台 UI 字符串 OwnDsh 设置 | ⬜ | 源码侧文案随 console 镜像重建；部署层文档已用 DSH Enterprise 设置 |
+| 控制台 UI 字符串 OwnDsh 设置 | ✅ 源码已切 | 侧栏/登录/favicon 使用 `dshent-whale.png` + DSH Enterprise；需部署 `dshent-console` 镜像 |
 
 阶段三（代码标识，成本最高）：
 

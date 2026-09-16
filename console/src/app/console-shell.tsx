@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖上游 SidebarNav/ThemeToggle、OwnDsh 鲸鱼品牌资源、静态控制台路由、TanStack navigation 与 Beautiful UI Harness tab bar 结构。
- * [OUTPUT]: 提供 OwnDsh 品牌工作区入口、角色过滤产品侧栏、用户中心导航/Sign out、深浅主题、可关闭页面 tab、移动抽屉和内容窗口。
+ * [INPUT]: 依赖上游 SidebarNav/ThemeToggle、DSH Enterprise 鲸鱼品牌资源、静态控制台路由、TanStack navigation 与 Beautiful UI Harness tab bar 结构。
+ * [OUTPUT]: 提供 DSH Enterprise 品牌工作区入口、角色过滤产品侧栏、用户中心导航/Sign out、深浅主题、可关闭页面 tab、移动抽屉和内容窗口。
  * [POS]: app 的产品外壳；DOM、尺寸和交互直接由 Beautiful UI Harness 3ea4c181 迁移，工作区菜单只提供产品动作。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -81,9 +81,9 @@ export function ConsoleShell() {
       primaryAction={null}
       workspace={{
         key: 'enterprise',
-        name: 'OwnDsh',
-        monogram: 'O',
-        icon: <img src="/owndsh-whale-mono-m2-animated.png" alt="" className="size-full object-cover" />
+        name: 'DSH Enterprise',
+        monogram: 'D',
+        icon: <img src="/dshent-whale.png" alt="" className="size-full object-cover" />
       }}
       workspaceActions={workspaceActions}
     />

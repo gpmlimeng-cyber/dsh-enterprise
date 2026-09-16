@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 shadcn authentication 双栏外壳、Beautiful UI tokens、OwnDsh 鲸鱼品牌资源、公开身份源和 enterprise-admin Cookie 登录状态机。
+ * [INPUT]: 依赖 shadcn authentication 双栏外壳、Beautiful UI tokens、DSH Enterprise 鲸鱼品牌资源、公开身份源和 enterprise-admin Cookie 登录状态机。
  * [OUTPUT]: 提供动态沉浸式鲸鱼品牌宣言、LOCAL/LDAP Tab、OIDC 按钮、验证码及首次改密均留在产品内的管理端登录页。
  * [POS]: routes 的公开第一方登录入口，只有 OIDC 离开当前页面，登录结果只建立服务端 HttpOnly Cookie。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -185,18 +185,18 @@ function LoginPage() {
     <main className="grid min-h-[100dvh] bg-page text-ink lg:grid-cols-2">
       <section className="relative hidden flex-col overflow-hidden bg-[#081523] p-10 text-white lg:flex">
         <img
-          src="/owndsh-whale-bg-navy.png"
+          src="/dshent-whale.png"
           alt=""
-          className="login-brand-art pointer-events-none absolute inset-0 size-full object-cover object-center"
+          className="login-brand-art pointer-events-none absolute inset-0 size-full object-contain object-center opacity-90"
         />
         <div aria-hidden className="login-brand-grid pointer-events-none absolute inset-0" />
         <div className="relative z-10 flex items-center gap-2 text-[15px] font-semibold">
-          <img src="/owndsh-whale-mono-m2-animated.png" alt="" className="size-[22px] rounded-[6px] object-cover ring-1 ring-white/10" />
-          OwnDsh
+          <img src="/dshent-whale.png" alt="" className="size-[22px] rounded-[6px] object-cover ring-1 ring-white/10" />
+          DSH Enterprise
         </div>
         <div className="relative z-10 my-auto max-w-[560px]">
           <h2 className="text-balance text-[34px] font-semibold leading-[1.18]">
-            OwnDsh · Truly Own Your DeepSeek-Harness.
+            DSH Enterprise · Truly Own Your DeepSeek-Harness.
           </h2>
           <p className="mt-5 text-[15px] italic leading-6 text-white/65">
             The Self-Hosted Control Plane for DeepSeek-Harness.
@@ -207,7 +207,7 @@ function LoginPage() {
           </div>
         </div>
         <div className="relative z-10 text-white/55">
-          <p className="text-[13px] font-medium">OwnDsh Console</p>
+          <p className="text-[13px] font-medium">DSH Enterprise Console</p>
           <p className="mt-1 text-[16px] font-medium text-white/75">企业工作区</p>
         </div>
       </section>
@@ -216,11 +216,11 @@ function LoginPage() {
         <div className="absolute right-5 top-5"><ThemeToggle /></div>
         <div className="flex w-full max-w-[410px] flex-col">
           <div className="mb-8 flex items-center justify-center gap-2 text-[14px] font-semibold lg:hidden">
-            <img src="/owndsh-whale-mono-m2-animated.png" alt="" className="size-5 rounded-[6px] object-cover" />
-            OwnDsh
+            <img src="/dshent-whale.png" alt="" className="size-5 rounded-[6px] object-cover" />
+            DSH Enterprise
           </div>
           <div className="text-center">
-            <img src="/owndsh-whale-mono-m2-animated.png" alt="" className="mx-auto size-11 rounded-[10px] object-cover shadow-btn" />
+            <img src="/dshent-whale.png" alt="" className="mx-auto size-11 rounded-[10px] object-cover shadow-btn" />
             <h1 className="mt-5 text-[24px] font-semibold leading-tight">登录管理控制台</h1>
           </div>
 
