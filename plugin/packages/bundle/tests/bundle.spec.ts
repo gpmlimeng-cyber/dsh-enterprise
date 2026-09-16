@@ -50,7 +50,7 @@ describe('enterprise bundle', () => {
     })
     expect(Config({})).toMatchObject({ baseUrl: '', verifyPluginSignatures: false, trustedPluginPublicKey: '' })
     const patch = await readFile(resolve(ROOT, 'cordis.patch.yml'), 'utf8')
-    expect(patch).toContain("name: 'owndsh-plugin'")
+    expect(patch).toContain("name: 'dshent-plugin'")
     expect(patch).toMatch(/id: agent-default-model[\s\S]*provider: enterprise[\s\S]*model: enterprise\/default/)
     for (const id of ['llm-deepseek', 'llm-pi-ai', 'ui-settings-models']) {
       expect(patch).toMatch(new RegExp(`id: ${id}\\n  disabled: true`))
@@ -64,7 +64,7 @@ describe('enterprise bundle', () => {
 
   it('materializes the built lazy-CJS Client factory and registers the footer slot', async () => {
     const source = await readFile(resolve(ROOT, 'lib/client.js'), 'utf8')
-    expect(source).toContain("id: 'owndsh-plugin'")
+    expect(source).toContain("id: 'dshent-plugin'")
     expect(source).not.toContain('@deepseek-ai/dsh-typert-protocol')
     let factory: ((require: (id: string) => unknown) => Record<string, unknown>) | undefined
     runInNewContext(source, {

@@ -72,14 +72,14 @@ bundle 构建后安装到未修改的锁定 Harness `web` profile：
 ```sh
 corepack pnpm@11.7.0 run pack:bundle
 node scripts/t01-harness-smoke.mjs \
-  --tgz ../artifacts/owndsh-plugin-0.1.0.tgz
+  --tgz ../artifacts/dshent-plugin-0.1.0.tgz
 ```
 
 真实组合输出：
 
 ```json
 {
-  "clientBundle": "/plugins/owndsh-plugin/client.js?rev=87fe23ea2f33",
+  "clientBundle": "/plugins/dshent-plugin/client.js?rev=87fe23ea2f33",
   "harnessCommit": "47f943859bef60e4160492346772ded9b24f765a",
   "installationFile": "non-secret",
   "localEvents": "passed",

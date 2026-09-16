@@ -86,7 +86,7 @@ ACTIVE 设备 inventory。E2E 只通过管理 API 和员工 API 创建数据，�
 
 ```sh
 cd plugin
-corepack pnpm@11.7.0 --filter owndsh-plugin build
+corepack pnpm@11.7.0 --filter dshent-plugin build
 corepack pnpm@11.7.0 run pack:bundle
 corepack pnpm@11.7.0 run accept:t15-browser
 ```

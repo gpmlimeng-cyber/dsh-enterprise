@@ -23,7 +23,7 @@ import { runReleaseScenarios } from './v1-e2e-release.mjs';
 
 const PROJECT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const HARNESS_ROOT = resolve(PROJECT_ROOT, '..', 'deepseek-harness');
-const BUNDLE = resolve(PROJECT_ROOT, 'artifacts', 'owndsh-plugin-0.1.0.tgz');
+const BUNDLE = resolve(PROJECT_ROOT, 'artifacts', 'dshent-plugin-0.1.0.tgz');
 const ADMIN_USERNAME = process.env.OWNDSH_E2E_ADMIN_USERNAME ?? 'candidate.admin';
 const ADMIN_PASSWORD = process.env.OWNDSH_E2E_ADMIN_PASSWORD;
 

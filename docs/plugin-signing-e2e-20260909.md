@@ -14,7 +14,7 @@
 ## 环境与边界
 
 - 当前 Server 源码执行 Maven `-Pprod -DskipTests -pl owndsh-server -am package`；当前 Console 执行 `pnpm build`。镜像使用正式 Dockerfile 的完整运行阶段和固定 JRE/Nginx digest，架构为 Linux amd64，分别以 10001/101 用户运行。
-- 当前 `owndsh-plugin` 构建后重新打包；真实 Harness 为 `0.1.1-rc.2`，commit `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`。
+- 当前 `dshent-plugin` 构建后重新打包；真实 Harness 为 `0.1.1-rc.2`，commit `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`。
 - PostgreSQL 17.6、Redis 7.4.5、制品卷与 Server 日志卷均为本轮隔离资源。全程通过 HTTP Console 网关访问，数据库从空库执行基线和 Flyway V1–V29。
 - 首次改密、PKCE、设备注册、bootstrap、插件上传/发布/分配/下载/库存均走真实 API；安装、升级、回滚、卸载走官方 Harness CLI，每次安装通过真实进程重启确认 ACTIVE。
 - 验证码保持默认开启；测试从隔离 Redis 只读取得真实验证码答案，再经登录接口一次性消费。未修改登录或验签实现来放行测试。

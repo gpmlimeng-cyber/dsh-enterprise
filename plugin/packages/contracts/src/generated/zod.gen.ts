@@ -2215,6 +2215,69 @@ export const zQuotaMyQuotaUsageResponse = z.object({
 
 export const zMyQuotaUsageResponse = zQuotaMyQuotaUsageResponse;
 
+export const zQuotaUsageAnalyticsTokens = z.object({
+    requests: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    inputTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    outputTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    cacheTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    totalTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    chargedTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+}).strict();
+
+export const zUsageAnalyticsTokens = zQuotaUsageAnalyticsTokens;
+
+export const zQuotaUsageAnalyticsDayPoint = zQuotaUsageAnalyticsTokens.and(z.object({
+    date: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)
+}).strict());
+
+export const zUsageAnalyticsDayPoint = zQuotaUsageAnalyticsDayPoint;
+
+export const zQuotaUsageAnalyticsMemberRow = zQuotaUsageAnalyticsTokens.and(z.object({
+    userId: zEnterpriseUserId,
+    username: z.string().min(1).max(100),
+    displayName: z.string().min(1).max(30)
+}).strict());
+
+export const zUsageAnalyticsMemberRow = zQuotaUsageAnalyticsMemberRow;
+
+export const zQuotaUsageAnalyticsModelRow = zQuotaUsageAnalyticsTokens.and(z.object({
+    modelId: zManagedModelId,
+    alias: z.string().min(1).max(120),
+    displayName: z.string().min(1).max(120),
+    cacheHitRatio: z.number().gte(0).lte(1).nullable()
+}).strict());
+
+export const zUsageAnalyticsModelRow = zQuotaUsageAnalyticsModelRow;
+
+export const zQuotaUsageAnalyticsSummary = zQuotaUsageAnalyticsTokens.and(z.object({
+    settled: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    chargedMax: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    unmeasured: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    cacheHitRatio: z.number().gte(0).lte(1).nullable()
+}).strict());
+
+export const zUsageAnalyticsSummary = zQuotaUsageAnalyticsSummary;
+
+export const zQuotaUsageAnalyticsData = z.object({
+    timezone: z.string().min(1).max(64),
+    from: z.iso.datetime({ offset: true }),
+    to: z.iso.datetime({ offset: true }),
+    summary: zQuotaUsageAnalyticsSummary,
+    byDay: z.array(zQuotaUsageAnalyticsDayPoint).max(181),
+    byModel: z.array(zQuotaUsageAnalyticsModelRow).max(50),
+    byMember: z.array(zQuotaUsageAnalyticsMemberRow).max(50),
+    truncated: z.boolean()
+}).strict();
+
+export const zUsageAnalyticsData = zQuotaUsageAnalyticsData;
+
+export const zQuotaUsageAnalyticsResponse = z.object({
+    data: zQuotaUsageAnalyticsData,
+    requestId: zRequestId
+}).strict();
+
+export const zUsageAnalyticsResponse = zQuotaUsageAnalyticsResponse;
+
 export const zQuotaUsageLedgerId = z.string().regex(/^[1-9][0-9]{0,18}$/);
 
 export const zUsageLedgerId = zQuotaUsageLedgerId;
@@ -2606,6 +2669,8 @@ export const zRuntimePresetDownload = z.unknown();
 export const zRuntimePresetItem = z.unknown();
 
 export const zAdminUsage = z.unknown();
+
+export const zAdminUsageAnalytics = z.unknown();
 
 export const zMyUsage = z.unknown();
 
@@ -3787,6 +3852,18 @@ export const zListUsageLedgerQuery = z.object({
  * Prompt-free usage ledger page and aggregate.
  */
 export const zListUsageLedgerResponse = zQuotaUsageLedgerListResponse;
+
+export const zGetUsageAnalyticsQuery = z.object({
+    from: z.iso.datetime({ offset: true }),
+    to: z.iso.datetime({ offset: true }),
+    userId: zEnterpriseUserId.optional(),
+    modelId: zManagedModelId.optional()
+});
+
+/**
+ * Prompt-free usage analytics over a deployment-timezone day range.
+ */
+export const zGetUsageAnalyticsResponse = zQuotaUsageAnalyticsResponse;
 
 export const zStreamEnterpriseChatCompletionsBody = zGatewayNativeGatewayRequest;
 

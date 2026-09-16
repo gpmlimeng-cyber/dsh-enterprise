@@ -22,7 +22,7 @@
 1. 实现者先完成第 22 节当前任务及其依赖，不得跨过未通过验收的纵向链路并行堆功能。
 2. 接口字段、数据库约束、状态转换、错误码和失败策略以本文为准；实现中发现矛盾时先修订本文，再改代码。
 3. Harness 新行为必须通过锁定版本的公开插件扩展点实现；同级 Harness checkout 不得产生跟踪文件改动。发现缺少必要扩展点时停止当前任务，先向官方提交通用修改并更新版本锁，不在产品仓库复制或修改 Harness 源码。
-4. 员工侧只发布 `owndsh-plugin`，不维护官方 Web/Desktop UI 分叉；安装后的唯一人工配置是 OwnDsh Server 地址。
+4. 员工侧只发布 `dshent-plugin`，不维护官方 Web/Desktop UI 分叉；安装后的唯一人工配置是 OwnDsh Server 地址。
 5. 服务端以资源所有权和权限码作最终裁决，客户端隐藏按钮、模型列表和本地状态都不是授权依据。
 6. 所有外部输入在 HTTP、文件、压缩包、数据库反序列化或跨进程入口校验；同进程 TypeScript 类型边界不重复做敌意输入校验。
 7. 每项任务必须提交任务表指定的测试证据；“可以运行”不能替代并发、安全、失败和恢复场景。
@@ -137,7 +137,7 @@ T07 最初在 rc.7 验证 `settings.section` 与 `sidebar.footer.action`，迁�
 | 受管插件期望状态、制品验证、CLI 安装和清单上报 | `@dshent/plugin-distribution` |
 | Host/Client DTO、错误码和生成客户端 | `@dshent/contracts` |
 | Server 配置、登录门禁、账号和插件 UI | `@dshent/ui` |
-| 企业 profile patch 层 | `owndsh-plugin` |
+| 企业 profile patch 层 | `dshent-plugin` |
 | 中心身份、模型、配额、分发、同步与审计 | 原始服务端框架 `owndsh-enterprise` 模块 |
 
 实现前依次阅读锁定 commit 的[架构](https://github.com/deepseek-ai/deepseek-harness/blob/99f6f02fecdb7dff40c3fbc9470f5907c29f74ca/docs/architecture.zh.md)、[Cordis 入门](https://github.com/deepseek-ai/deepseek-harness/blob/99f6f02fecdb7dff40c3fbc9470f5907c29f74ca/docs/cordis-primer.zh.md)、[第一个插件](https://github.com/deepseek-ai/deepseek-harness/blob/99f6f02fecdb7dff40c3fbc9470f5907c29f74ca/docs/user/develop/basic/index.zh.md)、[插件发布](https://github.com/deepseek-ai/deepseek-harness/blob/99f6f02fecdb7dff40c3fbc9470f5907c29f74ca/docs/user/develop/basic/publish.zh.md)、[Web server](https://github.com/deepseek-ai/deepseek-harness/blob/99f6f02fecdb7dff40c3fbc9470f5907c29f74ca/docs/subsystems/web-server.zh.md)、[Client modules](https://github.com/deepseek-ai/deepseek-harness/blob/99f6f02fecdb7dff40c3fbc9470f5907c29f74ca/docs/subsystems/client-modules.zh.md)、[LLM 服务](https://github.com/deepseek-ai/deepseek-harness/blob/99f6f02fecdb7dff40c3fbc9470f5907c29f74ca/packages/llm/llm/README.zh.md)、[Session Persistence](https://github.com/deepseek-ai/deepseek-harness/blob/99f6f02fecdb7dff40c3fbc9470f5907c29f74ca/packages/session/session-persistence/README.zh.md)和[UI slots](https://github.com/deepseek-ai/deepseek-harness/blob/99f6f02fecdb7dff40c3fbc9470f5907c29f74ca/packages/client/ui-slots/README.zh.md)。
@@ -639,7 +639,7 @@ ACTIVE -> REMOVE_PENDING -> REMOVING -> RESTART_REQUIRED
 
 CLI 成功后写入 `$DSH_HOME/enterprise/managed-plugins.json`，记录 assignment revision、package、version、artifact SHA 和 `RESTART_REQUIRED`。当前进程不 HMR 新插件、不自动退出；用户重启后联合 `pluginInventory/list` 和受管状态确认 Loader row 为 active，才上报 `ACTIVE`。
 
-通用分发不能更新 `owndsh-plugin`、platform client、distribution 自身或它们的传递代码。企业核心升级由安装包执行，失败时可恢复整个已知版本。
+通用分发不能更新 `dshent-plugin`、platform client、distribution 自身或它们的传递代码。企业核心升级由安装包执行，失败时可恢复整个已知版本。
 
 ### 11.4 Runtime API
 
@@ -898,7 +898,7 @@ provider `test` 使用尚未保存的 base URL 和可选新密钥执行一次 `/
 
 本地 API 固定同源调用，不配置 CORS；Host Web server 不是安全边界，接口仍校验方法、content-type、请求体大小和 DTO。若部署把 Harness Web 绑定到 `0.0.0.0`，必须在 T20 增加可信 origin 和本机动作保护，不能把 loopback 假设当成授权。Client bundle 只把 `react`、`react/jsx-runtime`、`react-dom`、`react-dom/client` 和 `@deepseek-ai/cordis` 视为官方 platform seed，其余运行代码必须打入自己的 lazy-CJS factory。
 
-`owndsh-plugin` 声明 `dsh.bundle.patch`，patch 以裸包名插入企业 Host/Client row；同一个 package 声明 `dsh.client.platform='web'` 并导出预构建 `./client`。Host row 的存在让官方 Client module scanner 发现浏览器半边，`dsh.client.inject` 只声明官方 Client package 图依赖。企业包不得修改 `@deepseek-ai/dsh-api-remotes`、运行时扫描 Remote，或把同级 Harness 源码加入编译路径。
+`dshent-plugin` 声明 `dsh.bundle.patch`，patch 以裸包名插入企业 Host/Client row；同一个 package 声明 `dsh.client.platform='web'` 并导出预构建 `./client`。Host row 的存在让官方 Client module scanner 发现浏览器半边，`dsh.client.inject` 只声明官方 Client package 图依赖。企业包不得修改 `@deepseek-ai/dsh-api-remotes`、运行时扫描 Remote，或把同级 Harness 源码加入编译路径。
 
 T01 必须在产品仓库的独立 `plugin` workspace 构建预编译 bundle，并把 `pnpm pack` 生成的 `.tgz` 安装到未修改的锁定 Harness `web` profile，证明零配置安装、官方 settings 持久化、bundle layer、Host 本地 API、`dsh.client` bundle、`shell.overlay` 和真实浏览器调用全部成立。package consumer 与组合 smoke 不得依赖 Typert ambient shim；若以上任一官方扩展点不成立，T01 失败并停止主线。
 
@@ -916,7 +916,7 @@ T01 必须在产品仓库的独立 `plugin` workspace 构建预编译 bundle，�
 
 该包依赖 `enterprisePlatform`、`subprocess` 和现有 plugin inventory Host 服务。它只处理中心分配的 package，不能扫描并上传非受管插件名称以外的路径、配置或源码。
 
-### 16.6 `@dshent/ui` 与 `owndsh-plugin`
+### 16.6 `@dshent/ui` 与 `dshent-plugin`
 
 Client 包通过 `settings.section` 注册一个 `enterprise` 设置页，通过 `sidebar.footer.action` 注册连接状态图标，并通过 `shell.overlay` 在 `UNCONFIGURED`、未登录、登录失败、登录过期或设备撤销时全屏阻断宿主。初装只要求 Server origin，登录成功后 overlay 返回 `null` 并恢复官方 UI。组件数据全部来自插件自有同源本地 API 的脱敏调用，不把 Host `ctx` 传入 React。
 

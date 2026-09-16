@@ -78,7 +78,7 @@ else
 fi
 
 (cd "$source_root/plugin" && pnpm run build && pnpm run pack:bundle)
-bundle="$source_root/artifacts/owndsh-plugin-0.1.0.tgz"
+bundle="$source_root/artifacts/dshent-plugin-0.1.0.tgz"
 require_file "$bundle"
 
 mkdir -p "$package_root/images" "$package_root/harness" "$package_root/licenses"
@@ -96,7 +96,7 @@ cat > "$package_root/manifest.env" <<EOF
 OWNDSH_RELEASE_VERSION=$version
 OWNDSH_SERVER_IMAGE=$server_image
 OWNDSH_CONSOLE_IMAGE=$console_image
-OWNDSH_HARNESS_BUNDLE=owndsh-plugin-0.1.0.tgz
+OWNDSH_HARNESS_BUNDLE=dshent-plugin-0.1.0.tgz
 OWNDSH_HARNESS_VERSION=$harness_version
 OWNDSH_HARNESS_COMMIT=$harness_commit
 EOF

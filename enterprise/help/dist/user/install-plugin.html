@@ -59,14 +59,14 @@ pnpm --version</code></pre></div>
 <h2 id="2.-安装企业插件">2. 安装企业插件<a class="anchor" href="#2.-安装企业插件" aria-label="锚点">#</a></h2>
 <blockquote>按你实际使用的 profile 选择一条：</blockquote>
 <div class="code-block" data-language="sh"><button type="button" class="code-copy" hidden>复制</button><pre><code class="language-sh"># Harness Web
-dsh plugin --profile web add --ignore-scripts owndsh-plugin@next
+dsh plugin --profile web add --ignore-scripts dshent-plugin@next
 dsh --profile web
 
 # DSH Desktop
-dsh plugin --profile desktop add --ignore-scripts owndsh-plugin@next</code></pre></div>
+dsh plugin --profile desktop add --ignore-scripts dshent-plugin@next</code></pre></div>
 <blockquote>从 DeepSeek Harness 源码运行 CLI 时，用 <code>--dir</code> 指向你的 checkout：</blockquote>
 <div class="code-block" data-language="sh"><button type="button" class="code-copy" hidden>复制</button><pre><code class="language-sh">pnpm --dir /path/to/deepseek-harness dsh \
-  plugin --profile web add --ignore-scripts owndsh-plugin@next</code></pre></div>
+  plugin --profile web add --ignore-scripts dshent-plugin@next</code></pre></div>
 <aside class="callout callout-tip"><span class="callout-label">提示</span><p><code>--ignore-scripts</code> 是<strong>故意</strong>加的：安装阶段不执行包脚本，插件的实际行为只在 Harness 运行时生效。</p></aside>
 <blockquote><strong>安装完成后重启对应的 profile</strong>（Web 端刷新页面不够，需要重启 profile 进程）。</blockquote>
 <h2 id="3.-填写-Server-地址并登录">3. 填写 Server 地址并登录<a class="anchor" href="#3.-填写-Server-地址并登录" aria-label="锚点">#</a></h2>

@@ -28,7 +28,7 @@ const platformTgz = resolve(option(
   '--platform-tgz', resolve(PROJECT_ROOT, 'artifacts', 'owndsh-platform-client-0.1.0.tgz'),
 ))
 const distributionTgz = resolve(option(
-  '--distribution-tgz', resolve(PROJECT_ROOT, 'artifacts', 'owndsh-plugin-distribution-0.1.0.tgz'),
+  '--distribution-tgz', resolve(PROJECT_ROOT, 'artifacts', 'dshent-plugin-distribution-0.1.0.tgz'),
 ))
 const keep = args.includes('--keep')
 const root = await mkdtemp(resolve(tmpdir(), 'enterprise-t14-consumer-'))

@@ -36,7 +36,7 @@ DSH Desktop 的公共配方广场（`https://dshdesktop.com/preset/`）让社区
 | 贡献模型 | 仅 `plugin_admin` / `enterprise_admin` 上传与发布 | 与插件市场同一治理心智；可执行配置必须过审 |
 | 员工导入 | **一期**复制导入指令 + 授权下载；**二期**企业插件一键安装 | 一期不扩展 `plugin-distribution` 状态机，降低供应链改动面 |
 | 控制台 | 独立产品纵向 `/presets`（不是 `/plugins` 子页） | 两种制品、两种权限语义、两种员工消费方式 |
-| 员工发现面 | `owndsh-plugin`「DSH Enterprise 设置 → 配方」tab | 员工无控制台角色；复用既有插件市场设置 tab 模式 |
+| 员工发现面 | `dshent-plugin`「DSH Enterprise 设置 → 配方」tab | 员工无控制台角色；复用既有插件市场设置 tab 模式 |
 
 ### S2.2 包契约（只读兼容，不修改 Desktop）
 
@@ -161,7 +161,7 @@ preset/
   - 详情：manifest 元数据、版本历史、可见范围编辑、安全提示（可执行配置、需来自可信管理员）。
 - 无「员工投稿队列」、无公开 SEO 页、无下载量排行（企业目录按更新时间排序；下载计数可作为审计 metadata，不做产品排序键）。
 
-### S2.7 员工侧设置 tab（`owndsh-plugin`）
+### S2.7 员工侧设置 tab（`dshent-plugin`）
 
 - 在既有「插件」tab 旁增加「配方」tab（`plugin/packages/ui`），数据来自 runtime `/enterprise/api/v1/presets`。
 - 卡片展示 name / description / sourceDshVersion / size；详情弹窗含安全提示。

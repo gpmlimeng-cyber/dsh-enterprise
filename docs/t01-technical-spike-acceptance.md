@@ -49,16 +49,16 @@ corepack pnpm@11.7.0 install --frozen-lockfile
 corepack pnpm@11.7.0 run check
 corepack pnpm@11.7.0 run pack:bundle
 node scripts/t01-harness-smoke.mjs \
-  --tgz ../artifacts/owndsh-plugin-0.1.0.tgz
+  --tgz ../artifacts/dshent-plugin-0.1.0.tgz
 ```
 
-结果：20 个 package Vitest、4 个 workspace 不变量、TypeScript typecheck/build 全部通过。组合脚本先在全新临时 consumer 中安装 `.tgz` 并直接 `import('owndsh-plugin')`，再通过官方 CLI 安装到临时 Harness `web` profile；consumer 和 bundle 均不包含 ambient shim 或同级 Harness 源码路径。
+结果：20 个 package Vitest、4 个 workspace 不变量、TypeScript typecheck/build 全部通过。组合脚本先在全新临时 consumer 中安装 `.tgz` 并直接 `import('dshent-plugin')`，再通过官方 CLI 安装到临时 Harness `web` profile；consumer 和 bundle 均不包含 ambient shim 或同级 Harness 源码路径。
 
 真实组合 smoke 输出：
 
 ```json
 {
-  "clientBundle": "/plugins/owndsh-plugin/client.js?rev=87fe23ea2f33",
+  "clientBundle": "/plugins/dshent-plugin/client.js?rev=87fe23ea2f33",
   "harnessCommit": "47f943859bef60e4160492346772ded9b24f765a",
   "packageConsumer": "passed",
   "profile": "web",

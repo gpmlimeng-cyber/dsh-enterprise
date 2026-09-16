@@ -1,5 +1,5 @@
 <!--
-[INPUT]: 依赖锁定 Harness 0.1.1-rc.2、owndsh-plugin 发布包、官方 Client slots/settings 与可控回环平台。
+[INPUT]: 依赖锁定 Harness 0.1.1-rc.2、dshent-plugin 发布包、官方 Client slots/settings 与可控回环平台。
 [OUTPUT]: 提供零配置插件安装、Server 地址持久化、全局登录门禁、失效重锁和宿主零修改的 T07 验收证据。
 [POS]: 员工客户端接入的独立验收真源，证明 OwnDsh 只交付标准插件而不维护官方 Web/Desktop UI 分叉。
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -13,7 +13,7 @@
 
 ## 结论
 
-员工侧只安装 `owndsh-plugin`，OwnDsh 不修改或维护官方 Harness Web/Desktop UI。插件通过公开
+员工侧只安装 `dshent-plugin`，OwnDsh 不修改或维护官方 Harness Web/Desktop UI。插件通过公开
 `settings.section`、`sidebar.footer.action` 和 `shell.overlay` 扩展点工作；初装后只填写 OwnDsh
 Server 地址，不编辑 profile、不配置 API Key，也不要求员工填写插件信任公钥。
 
@@ -28,7 +28,7 @@ Server 地址，不编辑 profile、不配置 API Key，也不要求员工填写
   始终只存在 Host 内存。
 - 浏览器只调用固定同源 `/enterprise/api/v1/local/*`；Server、登录、取消、退出和卸载均严格校验
   JSON 请求，不允许浏览器指定任意平台代理路径或认证 header。
-- 显式卸载先移除当前已安装的受管插件、清空受管状态，再移除 `owndsh-plugin`。Desktop 通过官方
+- 显式卸载先移除当前已安装的受管插件、清空受管状态，再移除 `dshent-plugin`。Desktop 通过官方
   `desktopActions.requestRestart()` 重启，普通 Web 只提示手动重启。
 - 缺少安装层 Ed25519 公钥时，基础登录和模型代理保持可用，但受管插件安装以
   `ENT_PLUGIN_SIGNATURE_INVALID` 严格失败；bootstrap 无权替换信任根。
@@ -39,7 +39,7 @@ Server 地址，不编辑 profile、不配置 API Key，也不要求员工填写
 ```sh
 corepack pnpm check
 node scripts/t01-harness-smoke.mjs \
-  --tgz ../artifacts/owndsh-plugin-0.1.0.tgz
+  --tgz ../artifacts/dshent-plugin-0.1.0.tgz
 ```
 
 工作区门禁通过：UI `13/13`、contracts `9/9`、platform-client `24/24`、plugin-distribution

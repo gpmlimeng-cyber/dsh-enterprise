@@ -23,7 +23,7 @@ function option(name, fallback) {
   return index === -1 ? fallback : args[index + 1]
 }
 
-const tgz = resolve(option('--tgz', resolve(PROJECT_ROOT, 'artifacts', 'owndsh-plugin-0.1.0.tgz')))
+const tgz = resolve(option('--tgz', resolve(PROJECT_ROOT, 'artifacts', 'dshent-plugin-0.1.0.tgz')))
 const harnessRoot = resolve(option('--harness-root', DEFAULT_HARNESS_ROOT))
 const keep = args.includes('--keep')
 const home = await mkdtemp(resolve(tmpdir(), 'enterprise-t01-harness-'))
@@ -113,7 +113,7 @@ try {
   await run(process.execPath, [
     '--input-type=module',
     '--eval',
-    "const plugin = await import('owndsh-plugin'); if (typeof plugin.apply !== 'function') process.exit(2)",
+    "const plugin = await import('dshent-plugin'); if (typeof plugin.apply !== 'function') process.exit(2)",
   ], { cwd: consumer, env: process.env })
 
   const harnessEnv = { ...process.env, DSH_HOME: home }
@@ -125,8 +125,8 @@ try {
     cwd: harnessRoot,
     env: harnessEnv,
   })
-  assert.match(dump.stdout, /# == owndsh-plugin/)
-  assert.match(dump.stdout, /patched by owndsh-plugin/)
+  assert.match(dump.stdout, /# == dshent-plugin/)
+  assert.match(dump.stdout, /patched by dshent-plugin/)
 
   web = spawn('corepack', [
     'pnpm@11.7.0', '--dir', harnessRoot, 'dsh', '--profile', 'web', '--port', '0',
@@ -195,8 +195,8 @@ try {
   assert.doesNotMatch(deviceText, /token|authorization|secret/i)
 
   const index = await (await fetch(ready.url)).text()
-  assert.match(index, /owndsh-plugin/)
-  const clientUrl = index.match(/"url":"([^"]*owndsh-plugin\/client\.js[^"]*)"/)?.[1]
+  assert.match(index, /dshent-plugin/)
+  const clientUrl = index.match(/"url":"([^"]*dshent-plugin\/client\.js[^"]*)"/)?.[1]
   assert.ok(clientUrl, 'boot manifest does not expose the enterprise Client bundle')
   const clientBundle = await (await fetch(new URL(clientUrl, ready.url))).text()
   assert.match(clientBundle, /window\.__ModuleLoader__\.load/)
@@ -207,7 +207,7 @@ try {
   const harnessStatus = await run('git', ['status', '--porcelain'], { cwd: harnessRoot, env: process.env })
   assert.equal(harnessStatus.stdout, '')
   const profile = JSON.parse(await readFile(resolve(home, 'profiles', 'web', 'package.json'), 'utf8'))
-  assert.ok(profile.dsh.profile.bundles.includes('owndsh-plugin'))
+  assert.ok(profile.dsh.profile.bundles.includes('dshent-plugin'))
 
   process.stdout.write(`${JSON.stringify({
     clientBundle: clientUrl,

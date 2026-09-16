@@ -27,7 +27,7 @@ public final class PluginArtifactInspector {
     private static final int MAX_PACKAGE_JSON_BYTES = 1_048_576;
     private static final Set<String> FORBIDDEN_SCRIPTS = Set.of("preinstall", "install", "postinstall", "prepare");
     private static final Set<String> PROTECTED_PACKAGES = Set.of(
-        "owndsh-plugin",
+        "dshent-plugin",
         "@owndsh/platform-client",
         "@owndsh/plugin-distribution"
     );

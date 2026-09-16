@@ -50,8 +50,8 @@ bundle、platform client、distribution 自身以及 contracts、LLM、Session�
 版本回滚与升级使用同一个校验策略和 exact tgz 安装路径，任一步失败都保持 `FAILED`，绝不标记 active。
 OwnDsh 本体按 Harness caret peer 范围运行；第三方制品仍坚持独立的精确 commit 白名单。已映射官方 `0.1.1-rc.2`、`0.1.2-rc.1`（`a66e4702047846cdaa10c66c9d3df3951f5ea70d`）和 `0.1.5-rc.2`（`fb2c4b9e698e30edb738bca4cf0618587db7d203`）；其他未知版本以 `ENT_PLUGIN_INCOMPATIBLE` 拒绝安装。市场在安装前显示信任根/兼容性阻断原因。
 
-升级部署时必须同时更新员工 `owndsh-plugin`：旧客户端把 `INSTALLED` 当成自动安装指令，仅升级后台或把 `required` 改为 false 无法改变旧客户端行为。本地状态文件保持兼容；空签名响应要求新版客户端，后台新保存的可见范围统一写入 `required=false`。
+升级部署时必须同时更新员工 `dshent-plugin`：旧客户端把 `INSTALLED` 当成自动安装指令，仅升级后台或把 `required` 改为 false 无法改变旧客户端行为。本地状态文件保持兼容；空签名响应要求新版客户端，后台新保存的可见范围统一写入 `required=false`。
 本地状态文件无法校验时，调和器进入稳定的 `ENT_PLUGIN_STATE_INVALID` 终态并丢弃后续 pending revision，避免 Host 忙循环；修复状态后需重启 Harness 重新载入。
 
 员工可从企业界面显式卸载：Service 先通过同一官方命令边界移除当前已安装的受管包，清空受管状态，
-最后移除 `owndsh-plugin`。调用层只在成功响应写回后请求 Desktop 官方重启；普通 Web 不管理宿主进程。
+最后移除 `dshent-plugin`。调用层只在成功响应写回后请求 Desktop 官方重启；普通 Web 不管理宿主进程。

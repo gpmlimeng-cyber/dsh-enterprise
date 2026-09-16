@@ -51,7 +51,7 @@ corepack pnpm@11.7.0 --dir plugin --filter @dshent/llm-gateway test
 ```sh
 corepack pnpm@11.7.0 --dir plugin run pack:bundle
 corepack pnpm@11.7.0 --dir plugin run accept:t11-model -- \
-  --tgz ../artifacts/owndsh-plugin-0.1.0.tgz
+  --tgz ../artifacts/dshent-plugin-0.1.0.tgz
 ```
 
 `scripts/t11-harness-model-smoke.mjs` 使用未修改的锁定 Harness `web` profile，验证：

@@ -13,7 +13,7 @@ import { build } from 'esbuild'
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const LIB_ROOT = resolve(PACKAGE_ROOT, 'lib')
-const CLIENT_MODULE_ID = 'owndsh-plugin'
+const CLIENT_MODULE_ID = 'dshent-plugin'
 
 await rm(LIB_ROOT, { force: true, recursive: true })
 await mkdir(LIB_ROOT, { recursive: true })

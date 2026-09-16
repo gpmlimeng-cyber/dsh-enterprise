@@ -11,7 +11,7 @@
     "build": "pnpm --recursive --if-present run build",
     "typecheck": "pnpm --recursive --if-present run typecheck",
     "test": "pnpm run build && pnpm --recursive --if-present run test && node --test workspace.test.mjs",
-    "pack:bundle": "pnpm --filter owndsh-plugin build && pnpm --filter owndsh-plugin pack --pack-destination ../artifacts",
+    "pack:bundle": "pnpm --filter dshent-plugin build && pnpm --filter dshent-plugin pack --pack-destination ../artifacts",
     "pack:contracts": "pnpm --filter @dshent/contracts build && pnpm --filter @dshent/contracts pack --pack-destination ../artifacts",
     "pack:platform-client": "pnpm --filter @dshent/contracts build && pnpm --filter @dshent/platform-client build && pnpm --filter @dshent/contracts pack --pack-destination ../artifacts && pnpm --filter @dshent/platform-client pack --pack-destination ../artifacts",
     "pack:plugin-distribution": "pnpm --filter @dshent/plugin-distribution build && pnpm --filter @dshent/contracts pack --pack-destination ../artifacts && pnpm --filter @dshent/platform-client pack --pack-destination ../artifacts && pnpm --filter @dshent/plugin-distribution pack --pack-destination ../artifacts",

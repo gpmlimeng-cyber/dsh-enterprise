@@ -5,7 +5,7 @@
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
 
-# owndsh-plugin
+# dshent-plugin
 
 OwnDsh 的 DeepSeek Harness 官方扩展点插件。它把 DSH Desktop 或 Harness Web 连接到自托管 OwnDsh Server，让员工使用企业身份、受管模型和受管插件，而不在本机保存供应商 API Key。
 
@@ -24,17 +24,17 @@ corepack install --global pnpm@11.7.0
 
 ```sh
 # Harness Web
-dsh plugin --profile web add --ignore-scripts owndsh-plugin@latest
+dsh plugin --profile web add --ignore-scripts dshent-plugin@latest
 
 # DSH Desktop
-dsh plugin --profile desktop add --ignore-scripts owndsh-plugin@latest
+dsh plugin --profile desktop add --ignore-scripts dshent-plugin@latest
 ```
 
 从 Harness 源码运行 CLI 时：
 
 ```sh
 pnpm --dir /path/to/deepseek-harness dsh \
-  plugin --profile web add --ignore-scripts owndsh-plugin@latest
+  plugin --profile web add --ignore-scripts dshent-plugin@latest
 ```
 
 安装后重启对应 profile。填写管理员提供的 OwnDsh Server HTTP(S) 地址并完成企业登录。
@@ -50,8 +50,8 @@ Server 地址由 Harness 官方 settings 服务保存；轮换 Refresh Token 由
 ## 更新与卸载
 
 ```sh
-dsh plugin --profile web remove owndsh-plugin
-dsh plugin --profile web add --ignore-scripts owndsh-plugin@latest
+dsh plugin --profile web remove dshent-plugin
+dsh plugin --profile web add --ignore-scripts dshent-plugin@latest
 ```
 
 完全卸载只执行第一条命令。把 `web` 换成实际 profile。

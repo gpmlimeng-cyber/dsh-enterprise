@@ -98,7 +98,7 @@ class PluginArtifactSecurityTest {
             packageJson("1.0.0").replace("\"scripts\":{}", "\"scripts\":{\"postinstall\":\"node pwn.js\"}"),
             packageJson("1.0.0").replace("\"0.1.0-rc.7\"", "\"^0.1.0-rc.7\""),
             packageJson("1.0.0").replace("\"type\":\"module\"", "\"type\":\"commonjs\""),
-            packageJson("1.0.0").replace("@example/acme-tools", "owndsh-plugin")
+            packageJson("1.0.0").replace("@example/acme-tools", "dshent-plugin")
         };
         for (String packageJson : invalidPackageJson) {
             Map<String, byte[]> entries = validEntries("1.0.0");

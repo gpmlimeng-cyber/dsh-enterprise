@@ -23,7 +23,7 @@
 
 **DSH Enterprise（DSH 企业版，简称 DSH-Ent）** 是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的自托管团队控制面。管理员统一管理身份、模型、API Key、访问权限、配额、插件、设备和审计；员工继续在自己的 DSH Desktop 或 Harness Web 中工作。
 
-DSH Enterprise 不 fork 官方 Harness Web UI，不接管员工工作区，也不远程执行员工工具。员工可以安装标准 Harness 插件（当前 npm 包名仍为 `owndsh-plugin`，阶段三评估更名），或使用预装插件和运行环境的 Desktop 客户端。
+DSH Enterprise 不 fork 官方 Harness Web UI，不接管员工工作区，也不远程执行员工工具。员工可以安装标准 Harness 插件（`dshent-plugin`），或使用预装插件和运行环境的 Desktop 客户端。
 
 > **独立产品声明**：DSH Enterprise 是独立项目，与 DeepSeek AI 无隶属关系，**不是** DeepSeek 官方企业版。
 
@@ -124,18 +124,18 @@ pnpm --version
 
 ```sh
 # Harness Web
-dsh plugin --profile web add --ignore-scripts owndsh-plugin@next
+dsh plugin --profile web add --ignore-scripts dshent-plugin@next
 dsh --profile web
 
 # DSH Desktop
-dsh plugin --profile desktop add --ignore-scripts owndsh-plugin@next
+dsh plugin --profile desktop add --ignore-scripts dshent-plugin@next
 ```
 
 从 DeepSeek Harness 源码运行 CLI 时：
 
 ```sh
 pnpm --dir /path/to/deepseek-harness dsh \
-  plugin --profile web add --ignore-scripts owndsh-plugin@next
+  plugin --profile web add --ignore-scripts dshent-plugin@next
 ```
 
 安装完成后重启对应 profile。DSH Enterprise 全屏页面会要求填写管理员提供的 DSH Enterprise Server HTTP(S) 地址；保存后完成企业登录即可使用管理员授权的模型。
@@ -158,8 +158,8 @@ docker compose up -d --wait
 更新员工插件：
 
 ```sh
-dsh plugin --profile web remove owndsh-plugin
-dsh plugin --profile web add --ignore-scripts owndsh-plugin@next
+dsh plugin --profile web remove dshent-plugin
+dsh plugin --profile web add --ignore-scripts dshent-plugin@next
 ```
 
 把 `web` 换成实际使用的 profile。移除后重新安装可以避免 pnpm 复用同版本缓存。

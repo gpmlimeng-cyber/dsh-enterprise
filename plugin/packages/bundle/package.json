@@ -1,5 +1,5 @@
 {
-  "name": "owndsh-plugin",
+  "name": "dshent-plugin",
   "version": "0.1.0",
   "description": "Self-hosted enterprise control plane plugin for DeepSeek Harness",
   "keywords": ["deepseek", "harness", "self-hosted", "enterprise", "ai"],
@@ -50,8 +50,8 @@
     }
   },
   "scripts": {
-    "build": "pnpm --filter owndsh-plugin^... run build && node scripts/build.mjs",
-    "typecheck": "pnpm --filter owndsh-plugin^... run build && tsc -p tsconfig.json --noEmit",
+    "build": "pnpm --filter dshent-plugin^... run build && node scripts/build.mjs",
+    "typecheck": "pnpm --filter dshent-plugin^... run build && tsc -p tsconfig.json --noEmit",
     "test": "vitest run tests",
     "pack": "pnpm pack"
   },

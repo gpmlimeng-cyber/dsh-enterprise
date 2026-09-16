@@ -25,7 +25,7 @@ trap cleanup EXIT HUP INT TERM
 mkdir -p "$release_dir/images" "$release_dir/harness"
 cp -R "$project_root/deploy/compose" "$release_dir/compose"
 cp -R "$project_root/deploy/scripts" "$release_dir/scripts"
-cp "$project_root/artifacts/owndsh-plugin-0.1.0.tgz" "$release_dir/harness/"
+cp "$project_root/artifacts/dshent-plugin-0.1.0.tgz" "$release_dir/harness/"
 ops_server_image=${OWNDSH_E2E_SERVER_IMAGE:-owndsh-server:signing-e2e-20260909}
 ops_console_image=${OWNDSH_E2E_CONSOLE_IMAGE:-owndsh-console:signing-e2e-20260909}
 docker image save "$ops_server_image" | gzip -1 > "$release_dir/images/server.tar.gz"
@@ -34,7 +34,7 @@ cat > "$release_dir/manifest.env" <<EOF
 OWNDSH_RELEASE_VERSION=signing-e2e
 OWNDSH_SERVER_IMAGE=$ops_server_image
 OWNDSH_CONSOLE_IMAGE=$ops_console_image
-OWNDSH_HARNESS_BUNDLE=owndsh-plugin-0.1.0.tgz
+OWNDSH_HARNESS_BUNDLE=dshent-plugin-0.1.0.tgz
 EOF
 (
   cd "$release_dir"

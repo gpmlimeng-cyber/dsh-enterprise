@@ -47,7 +47,7 @@ corepack pnpm@11.7.0 run smoke:contracts
 ```sh
 corepack pnpm@11.7.0 run pack:bundle
 node scripts/t01-harness-smoke.mjs \
-  --tgz ../artifacts/owndsh-plugin-0.1.0.tgz
+  --tgz ../artifacts/dshent-plugin-0.1.0.tgz
 ```
 
 结果：真实 bundle package consumer、锁定 Harness `web` profile、Client bundle、本地 status API 和 Session seed 全部通过，组合输出仍锁定 Harness commit `47f943859bef60e4160492346772ded9b24f765a`。

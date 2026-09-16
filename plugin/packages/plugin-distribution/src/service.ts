@@ -28,14 +28,14 @@ import { downloadAndVerifyArtifact, parseTrustedPluginPublicKey, verifyAssignmen
 
 /** 企业安装包拥有、通用分发绝不能更新或卸载的完整产品代码集合。 */
 export const PROTECTED_ENTERPRISE_PACKAGES = new Set([
-  'owndsh-plugin',
+  'dshent-plugin',
   '@dshent/contracts',
   '@dshent/llm-gateway',
   '@dshent/platform-client',
   '@dshent/plugin-distribution',
   '@dshent/ui',
 ])
-const OWNDSH_PACKAGE = 'owndsh-plugin'
+const DSHENT_PACKAGE = 'dshent-plugin'
 
 interface ResolvedConfig {
   readonly verifyPluginSignatures: boolean
@@ -510,7 +510,7 @@ export class EnterprisePluginDistributionService extends Service {
     }
     this.records.clear()
     await this.persist()
-    await removeManagedPlugin(this.commandOptions(), OWNDSH_PACKAGE)
+    await removeManagedPlugin(this.commandOptions(), DSHENT_PACKAGE)
   }
 
   private async put(

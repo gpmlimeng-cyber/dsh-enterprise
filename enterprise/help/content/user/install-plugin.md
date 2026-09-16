@@ -38,18 +38,18 @@ pnpm --version
 
 ```sh
 # Harness Web
-dsh plugin --profile web add --ignore-scripts owndsh-plugin@next
+dsh plugin --profile web add --ignore-scripts dshent-plugin@next
 dsh --profile web
 
 # DSH Desktop
-dsh plugin --profile desktop add --ignore-scripts owndsh-plugin@next
+dsh plugin --profile desktop add --ignore-scripts dshent-plugin@next
 ```
 
 从 DeepSeek Harness 源码运行 CLI 时，用 `--dir` 指向你的 checkout：
 
 ```sh
 pnpm --dir /path/to/deepseek-harness dsh \
-  plugin --profile web add --ignore-scripts owndsh-plugin@next
+  plugin --profile web add --ignore-scripts dshent-plugin@next
 ```
 
 > 💡 `--ignore-scripts` 是**故意**加的：安装阶段不执行包脚本，插件的实际行为只在 Harness 运行时生效。

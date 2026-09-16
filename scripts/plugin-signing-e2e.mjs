@@ -193,7 +193,7 @@ try {
     await writeFile(resolve(workspace, 'bin/dsh'), `#!/bin/sh\ncd ${quote(harnessRoot)}\nexec ${quote(process.execPath)} ${quote(resolve(harnessRoot, 'apps/cli/lib/bin.js'))} "$@"\n`);
     await chmod(resolve(workspace, 'bin/dsh'), 0o700);
     await run('corepack', ['pnpm@11.7.0', '--dir', harnessRoot, 'dsh', 'plugin', '--profile', 'web', 'add', '--ignore-scripts',
-      resolve(root, 'artifacts/owndsh-plugin-0.1.0.tgz')], { cwd: harnessRoot, env: harnessEnv });
+      resolve(root, 'artifacts/dshent-plugin-0.1.0.tgz')], { cwd: harnessRoot, env: harnessEnv });
     await restartHarness();
     return `Harness ${lock.version}; no public key or verifyPluginSignatures in profile`;
   });

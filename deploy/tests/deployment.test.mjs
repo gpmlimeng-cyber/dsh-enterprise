@@ -260,7 +260,7 @@ test('operations scripts parse, keep Harness bundles aligned, and rollback canno
   assert.match(restore, /CONFIG SET appendonly yes/)
   assert.match(restore, /appendonly\.aof\.manifest/)
   const release = read('deploy/scripts/build-release.sh')
-  assert.match(release, /bundle="\$source_root\/artifacts\/owndsh-plugin-0\.1\.0\.tgz"/)
+  assert.match(release, /bundle="\$source_root\/artifacts\/dshent-plugin-0\.1\.0\.tgz"/)
   assert.doesNotMatch(release, /postgres_owndsh\.sql|package_root\/database/)
   assert.match(release, /OWNDSH_USE_LOCAL_BASE_IMAGES/)
   assert.match(release, /docker image ls --digests/)

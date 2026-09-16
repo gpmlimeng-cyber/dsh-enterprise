@@ -61,7 +61,7 @@ CAPTAIN 独立复核结论（每条亲自 grep/read 验证）
 
 [H] plugin 核心包黑名单两端不一致 —— 高（子代理 R1，已复核）
   服务端 PluginArtifactInspector.java:29-33 保护 3 个:
-    owndsh-plugin, @owndsh/platform-client, @owndsh/plugin-distribution
+    dshent-plugin, @owndsh/platform-client, @owndsh/plugin-distribution
   客户端 service.ts:30-37 保护 6 个（多出 @owndsh/contracts, @owndsh/llm-gateway, @owndsh/ui）
   ⇒ 服务端会接受并发布这 3 个包；防线只在客户端 service.ts:157/205/219/408。
 

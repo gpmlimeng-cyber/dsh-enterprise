@@ -137,11 +137,11 @@ jobs:
       - name: Pack plugin
         run: |
           mkdir -p artifacts
-          pnpm --dir plugin --filter owndsh-plugin pack --pack-destination "$GITHUB_WORKSPACE/artifacts"
+          pnpm --dir plugin --filter dshent-plugin pack --pack-destination "$GITHUB_WORKSPACE/artifacts"
       - name: Upload plugin package
         uses: actions/upload-artifact@v4
         with:
-          name: owndsh-plugin-package
+          name: dshent-plugin-package
           path: artifacts/*.tgz
           if-no-files-found: error
 
@@ -160,7 +160,7 @@ jobs:
           registry-url: https://registry.npmjs.org
       - uses: actions/download-artifact@v4
         with:
-          name: owndsh-plugin-package
+          name: dshent-plugin-package
           path: plugin-package
       - name: Publish npm package
         run: |

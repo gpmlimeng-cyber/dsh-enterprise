@@ -102,7 +102,7 @@ corepack pnpm@11.7.0 pack:bundle
 corepack pnpm@11.7.0 --filter @dshent/contracts check:generated
 ```
 
-七个产品 package typecheck/build 通过，83 项 Vitest 与 4 项 workspace 边界测试通过；bundle 重新打包为 `artifacts/owndsh-plugin-0.1.0.tgz`。生成协议无漂移，产品源码仍不导入同级 Harness 或 Typert Remote shim。
+七个产品 package typecheck/build 通过，83 项 Vitest 与 4 项 workspace 边界测试通过；bundle 重新打包为 `artifacts/dshent-plugin-0.1.0.tgz`。生成协议无漂移，产品源码仍不导入同级 Harness 或 Typert Remote shim。
 
 ## 2026-09-04 HTTP 拓扑回归
 

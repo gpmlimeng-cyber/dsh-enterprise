@@ -1,5 +1,5 @@
 <!--
-[INPUT]: 依赖锁定的 DSH Desktop/Harness 基线、第二阶段产品设计、OpenAPI 与当前身份、LDAP 目录、模型、配额、插件、设备和审计实现事实，以及 2026-09-04 确认的插件交付边界。
+[INPUT]: 依赖锁定的 DSH Desktop/Harness 基线、第二阶段产品设计、OpenAPI 与当前身份、LDAP 目录、模型、配额、插件、设备和审计实现事实，以及 2026-09-04 确认的插件交付边界；Session 旁路能力见 session-sync-revival-decision.md。
 [OUTPUT]: 提供 OwnDsh V1 产品功能、交付状态、关键语义、发布门禁与明确非目标的单一清单。
 [POS]: 产品与验收人员判断“平台有什么、还缺什么、何时算完成”的 V1 范围真源；技术结构和历史证据仍由详细设计及验收文档负责。
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -9,7 +9,7 @@
 
 状态：`scope-frozen-implementation-in-progress`
 
-更新日期：2026-09-04（Asia/Shanghai）
+更新日期：2026-09-16（Asia/Shanghai）
 
 适用基线：DSH Desktop `2.0.3`、DeepSeek Harness `0.1.1-rc.2`。
 
@@ -32,7 +32,7 @@
 
 OwnDsh 是 DSH Desktop 和 DeepSeek Harness 的企业控制面。员工仍在本机运行 Harness、保留本地工作区、工具、终端和会话；平台只负责企业身份、受管模型、访问授权、Token 配额、速率控制、插件分发、设备治理、用量与审计。
 
-OwnDsh 不维护、复制或分叉官方 Web/Desktop UI。员工侧唯一交付物是标准 `owndsh-plugin`：安装后只填写 OwnDsh Server 地址，未配置、未登录、登录过期或设备撤销时由官方 `shell.overlay` 扩展点全屏阻断；认证可用后恢复官方原生界面。地址保存在 Harness 官方 settings 中，不要求员工修改 profile。
+OwnDsh 不维护、复制或分叉官方 Web/Desktop UI。员工侧唯一交付物是标准 `dshent-plugin`：安装后只填写 OwnDsh Server 地址，未配置、未登录、登录过期或设备撤销时由官方 `shell.overlay` 扩展点全屏阻断；认证可用后恢复官方原生界面。地址保存在 Harness 官方 settings 中，不要求员工修改 profile。
 
 平台不实现第二套模型 SDK。消息转换、tools、reasoning、SSE 解析和模型请求重试由锁定的 Harness `dsh-llm-pi-ai` 与 `dsh-llm-retry` 负责；企业网关只做认证、授权、限流、配额、审计、受管模型替换和上游密钥注入。
 
@@ -41,7 +41,7 @@ V1 的两个使用面如下：
 | 使用面 | 用户 | 核心流程 |
 |---|---|---|
 | 产品控制台 | 企业管理员、模型管理员、插件管理员、审计员 | 配置身份源、成员、模型、策略和插件，查询用量、审计与运行异常 |
-| 官方 DSH Desktop / Harness Web + `owndsh-plugin` | 员工 | 填写 Server 地址、企业登录、获取受管模型和插件，通过企业网关调用模型 |
+| 官方 DSH Desktop / Harness Web + `dshent-plugin` | 员工 | 填写 Server 地址、企业登录、获取受管模型和插件，通过企业网关调用模型 |
 
 典型上线顺序固定为：身份源和成员 → 模型供应商和受管模型 → 用户组和模型集 → 模型授权 → Token/速率策略 → 插件分配 → 员工登录和调用 → 用量与审计。
 
@@ -258,16 +258,27 @@ V1 必须区分三类 429：
 
 ## 10. Session V1 处理
 
-Session 同步不是 V1 产品功能，但现有代码和数据库不删除：
+Session 同步**不是 V1 发布列车功能**，但 2026-09-16 已完成重新评审，见 [Session 同步重新启用决议](session-sync-revival-decision.md)。现有代码和数据库不删除。
 
-- Desktop/Web 企业 bundle 不实例化 `EnterpriseSessionSyncService`。
-- 客户端不构建 Session 同步服务，忽略休眠的 Session 事件端口，不扫描本地 Session，不上传、恢复或删除远端 Session。
+### 10.1 V1 发布路径（默认关闭，门禁不变）
+
+在 `bootstrap.sessionPolicy.enabled=false`（V1 默认）时：
+
+- Desktop/Web 企业 bundle 不实例化 Session 同步服务。
+- 客户端不构建 Session 同步服务，不扫描本地 Session，不上传、恢复或删除远端 Session。
 - Desktop 企业设置隐藏“会话同步”标签；产品控制台隐藏 Session 列表、正文和删除入口。
 - bootstrap 对客户端声明 Session 同步关闭，避免旧客户端误启动。
 - 服务端 Session 表、接口、密文和既有副本保留，升级不清理用户数据。
 - 自动测试必须证明登录和正常对话期间没有 Session API 请求。
 
-以后只有在重新完成隐私、保留期、跨设备冲突和产品价值评审后，才允许把 Session 同步重新列入产品范围。
+### 10.2 旁路能力（已批准，默认仍关闭）
+
+决议已过隐私 / 保留期 / 跨设备冲突 / 产品价值四闸，**允许**按 `session-sync-revival-decision.md` §7 的 P1–P5 开发包点亮客户端。约束：
+
+- **默认关闭**；部署显式打开才上传/恢复。
+- **不进入** §12 V1 发布门禁与 §13“必须随 V1 交付”的范围。
+- 恢复语义固定为「远端列表 → 导出校验 → **新本地 Session ID** 续聊」；不做同 ID 多端写。
+- 与 `dsh-config-manager` portable 配置同步、社区 Git 会话插件边界不得混写。
 
 ## 11. 用量、审计与安全
 
@@ -295,7 +306,7 @@ Session 同步不是 V1 产品功能，但现有代码和数据库不删除：
 | RATE | 供应商共享、组织共享、成员隔离、全部模型/模型集/单模型重叠策略一次原子裁决 |
 | 429 | 上游 rate limit 触发 Harness 重试后成功；企业配额和上游硬 quota 都只请求一次；合法 `Retry-After` 生效 |
 | 插件 | tgz 拒绝危险归档，签名验证，ALL/USER 分配，Desktop/Web 安装、升级、回滚、卸载和重启状态 |
-| Session 停用 | bundle 不创建同步服务，UI 无入口，登录和模型调用期间没有 Session API 请求 |
+| Session 停用（V1 默认路径） | `sessionPolicy.enabled=false` 时 bundle 不创建同步服务，UI 无入口，登录和模型调用期间没有 Session API 请求；旁路包不得削弱本分支 |
 | 权限与秘密 | 五角色页面/API 矩阵，越权拒绝，日志和响应不出现任何测试 secret 或请求正文 |
 | 控制台会话 | 登录后新标签直接进入；任一标签注销或改密后其他标签的后续 API 返回 401，刷新后进入登录页；浏览器存储和请求脚本不可读取平台 Token |
 
@@ -305,7 +316,7 @@ RATE 和 429 必须使用真实 Redis、真实 Java Server 与锁定 Harness 组
 
 发布候选必须同时完成 Desktop 和普通 Web Harness 流程：
 
-1. 在未修改的官方宿主安装 `owndsh-plugin`，不编辑 profile；只填写 Server 地址，重启后地址仍然存在。
+1. 在未修改的官方宿主安装 `dshent-plugin`，不编辑 profile；只填写 Server 地址，重启后地址仍然存在。
 2. 验证未配置、未登录、登录过期和设备撤销均全屏阻断，登录成功后恢复官方界面；显式卸载移除 OwnDsh 与受管插件，Desktop 自动重启、Web 提示重启。
 3. 管理员通过企业身份登录产品控制台。
 4. 创建 LOCAL 成员并验证首次登录强制改密和用户中心改密；或配置 LDAP/OIDC，通过 LDAP 有界搜索导入单个成员，并从 LDAP 目录选择组映射到产品用户组。
@@ -316,11 +327,11 @@ RATE 和 429 必须使用真实 Redis、真实 Java Server 与锁定 Harness 组
 9. 验证上游 429 自动重试、企业配额终态不重试，以及失败后租约和预留正确收敛。
 10. 完成受管插件安装、升级、回滚和卸载，重启后库存与控制台一致。
 11. 验证用量和审计能够用同一 request ID 关联一次模型请求，且没有正文和 secret。
-12. 验证整个流程不产生 Session 同步请求，刷新和重启后仍不执行同步。
+12. 在 V1 默认配置（`sessionPolicy.enabled=false`）下验证整个流程不产生 Session 同步请求，刷新和重启后仍不执行同步。
 
 ## 13. V1 明确不做
 
-- Session 同步、远端 Session 查看、恢复和删除。
+- Session 同步、远端 Session 查看、恢复和删除——**不进 V1 发布范围**；旁路能力已单独决议，见 [session-sync-revival-decision.md](session-sync-revival-decision.md)，不因旁路开包而改写本清单的 V1 交付状态。
 - 多级产品用户组、LDAP 嵌套组递归展开、组级 Token 配额和组级共享限流池。
 - SCIM 2.0、OIDC 厂商目录 API 和定时全量目录同步。
 - Workspace、Project、应用凭证层级和标签化 ABAC。

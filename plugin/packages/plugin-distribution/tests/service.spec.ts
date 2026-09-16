@@ -243,7 +243,7 @@ describe('EnterprisePluginDistributionService', () => {
     expect(restarted.service.status().plugins[0]?.state).toBe('FAILED')
     await restarted.service.uninstall()
     expect(restarted.subprocess.specs.map(spec => spec.argv.slice(-2))).toEqual([
-      ['remove', desired.packageName], ['remove', 'owndsh-plugin'],
+      ['remove', desired.packageName], ['remove', 'dshent-plugin'],
     ])
   })
 
@@ -522,7 +522,7 @@ describe('EnterprisePluginDistributionService', () => {
     expect(env.subprocess.specs.map(spec => spec.argv.slice(-2))).toEqual([
       ['--save-exact', join(env.home, 'enterprise', 'artifacts', `${desired.sha256}.tgz`)],
       ['remove', desired.packageName],
-      ['remove', 'owndsh-plugin'],
+      ['remove', 'dshent-plugin'],
     ])
     expect(env.service.status().plugins).toEqual([])
     expect(JSON.parse(await readFile(join(env.home, 'enterprise', 'managed-plugins.json'), 'utf8')))

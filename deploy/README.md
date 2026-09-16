@@ -13,7 +13,7 @@
 
 插件签名默认关闭，Compose 无需 `ENT_PLUGIN_SIGNING_PRIVATE_KEY`。显式开启时设置 `ENT_PLUGIN_SIGNING_ENABLED=true`、有效的 Ed25519 PKCS#8 私钥，并给客户端安装配置提供对应公钥与 `verifyPluginSignatures: true`。已有离线部署要继续签名，需在 `runtime.env` 显式设置 `ENT_PLUGIN_SIGNING_ENABLED=true`；原有密钥仍保留并随独立 key 归档备份。
 
-升级应先更新员工 `owndsh-plugin` 再上传无签名插件：旧客户端不接受空签名。开关只影响新上传版本；已上传版本不会补签或清除签名，关闭后新增的无签名版本也不能由旧版服务端读取，回滚前需确认目标版本支持空签名。
+升级应先更新员工 `dshent-plugin` 再上传无签名插件：旧客户端不接受空签名。开关只影响新上传版本；已上传版本不会补签或清除签名，关闭后新增的无签名版本也不能由旧版服务端读取，回滚前需确认目标版本支持空签名。
 
 ## 交付包
 
@@ -77,7 +77,7 @@ OWNDSH_USE_LOCAL_BASE_IMAGES=1 \
 安装完成后，`STATE/harness/` 包含预编译 `.tgz` 和安装专属 `cordis.patch.yml`。在员工桌面使用 Harness 官方 CLI：
 
 ```sh
-dsh plugin --profile enterprise add /approved/owndsh-plugin-0.1.0.tgz
+dsh plugin --profile enterprise add /approved/dshent-plugin-0.1.0.tgz
 install -m 600 /approved/cordis.patch.yml "$DSH_HOME/profiles/enterprise/cordis.patch.yml"
 dsh --profile enterprise --dump-config
 ```

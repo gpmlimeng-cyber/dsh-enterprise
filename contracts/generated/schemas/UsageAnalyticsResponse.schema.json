@@ -1,0 +1,373 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:owndsh:contracts:UsageAnalyticsResponse",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data",
+    "requestId"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "timezone",
+        "from",
+        "to",
+        "summary",
+        "byDay",
+        "byModel",
+        "byMember",
+        "truncated"
+      ],
+      "properties": {
+        "timezone": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "from": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "to": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "summary": {
+          "allOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "requests",
+                "inputTokens",
+                "outputTokens",
+                "cacheTokens",
+                "totalTokens",
+                "chargedTokens"
+              ],
+              "properties": {
+                "requests": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 0
+                },
+                "inputTokens": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 0
+                },
+                "outputTokens": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 0
+                },
+                "cacheTokens": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 0
+                },
+                "totalTokens": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 0
+                },
+                "chargedTokens": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 0
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "settled",
+                "chargedMax",
+                "unmeasured",
+                "cacheHitRatio"
+              ],
+              "properties": {
+                "settled": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 0
+                },
+                "chargedMax": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 0
+                },
+                "unmeasured": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 0
+                },
+                "cacheHitRatio": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "byDay": {
+          "type": "array",
+          "maxItems": 181,
+          "items": {
+            "allOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "requests",
+                  "inputTokens",
+                  "outputTokens",
+                  "cacheTokens",
+                  "totalTokens",
+                  "chargedTokens"
+                ],
+                "properties": {
+                  "requests": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  },
+                  "inputTokens": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  },
+                  "outputTokens": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  },
+                  "cacheTokens": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  },
+                  "totalTokens": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  },
+                  "chargedTokens": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "date"
+                ],
+                "properties": {
+                  "date": {
+                    "type": "string",
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "byModel": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "allOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "requests",
+                  "inputTokens",
+                  "outputTokens",
+                  "cacheTokens",
+                  "totalTokens",
+                  "chargedTokens"
+                ],
+                "properties": {
+                  "requests": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  },
+                  "inputTokens": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  },
+                  "outputTokens": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  },
+                  "cacheTokens": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  },
+                  "totalTokens": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  },
+                  "chargedTokens": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "modelId",
+                  "alias",
+                  "displayName",
+                  "cacheHitRatio"
+                ],
+                "properties": {
+                  "modelId": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]{0,18}$",
+                    "description": "Managed model snowflake ID serialized as a string."
+                  },
+                  "alias": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "displayName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "cacheHitRatio": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "byMember": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "allOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "requests",
+                  "inputTokens",
+                  "outputTokens",
+                  "cacheTokens",
+                  "totalTokens",
+                  "chargedTokens"
+                ],
+                "properties": {
+                  "requests": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  },
+                  "inputTokens": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  },
+                  "outputTokens": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  },
+                  "cacheTokens": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  },
+                  "totalTokens": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  },
+                  "chargedTokens": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "userId",
+                  "username",
+                  "displayName"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]{0,18}$",
+                    "description": "Enterprise user snowflake ID serialized as a string."
+                  },
+                  "username": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "displayName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 30
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      }
+    },
+    "requestId": {
+      "type": "string",
+      "description": "Server-generated req_ prefix followed by one canonical ULID.",
+      "pattern": "^req_[0-9A-HJKMNP-TV-Z]{26}$",
+      "examples": [
+        "req_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+      ]
+    }
+  }
+}
