@@ -1,14 +1,20 @@
 ---
 feature: preset-square
-status: in-progress
+status: delivered
 updated: 2026-09-16
 branch: feat/preset-square-design
-commits: 2e09934..8eb2e97
+commits: 2e09934..HEAD
 ---
 
 # DSH Enterprise 配方广场（Preset Square）
 
 ## Report
+
+**What was built** — 企业控制面私有 `.dshpreset` 目录：管理员在 `/presets` 上传验包、发布/退休并原子替换 ALL/USER 可见范围；员工在设置「配方」tab 浏览并复制 Desktop 导入指令（不自动 import）。包格式对齐 Desktop `dsh-preset` v1，下载每次重算可见性，退休只停新下载。
+
+**Verification** — console `tsc` + Vitest `61/61` PASS；`PresetArtifactInspectorTest` `4/4`；`AuditMetadataPolicyTest` `2/2`；`RbacSeedTest` `3/3`；`EnterpriseMigrationTest` `8/8`（V30 空库与 legacy 接管）；`@owndsh/platform-client` `29/29`；`@owndsh/ui` typecheck + `19/19` PASS。未跑真实 Desktop loopback E2E（属人工验收）。
+
+**Journey log** — 一期刻意不做一键安装，避免把 `.dshpreset` 塞进 plugin-distribution 状态机；员工发现面必须走 Host 本地 API（Client 不持有 Access Token）；`EnterpriseErrorCode` 与 `x-enterprise-error-statuses` 必须同步扩枚举，否则 contracts generate 失败。
 
 ## [S1] Problem
 
