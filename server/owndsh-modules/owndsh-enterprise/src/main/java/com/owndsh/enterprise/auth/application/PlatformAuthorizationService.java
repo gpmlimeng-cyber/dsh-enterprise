@@ -158,7 +158,8 @@ public final class PlatformAuthorizationService {
         }
         for (int attempt = 0; attempt < MAX_RANDOM_COLLISIONS; attempt++) {
             String transactionId = "tx_" + randomToken(24);
-            String deviceId = client == PlatformClient.DSH_DESKTOP
+            String deviceId = (client == PlatformClient.DSH_DESKTOP
+                || client == PlatformClient.ENT_ADMIN_CLI)
                 ? installationId.toString()
                 : "admin-" + UUID.randomUUID();
             LoginTransaction transaction = new LoginTransaction(
@@ -347,7 +348,8 @@ public final class PlatformAuthorizationService {
         if (!Pkce.matches(codeVerifier, authorizationCode.codeChallenge())) {
             throw new AuthFlowException("ENT_PKCE_INVALID");
         }
-        if (authorizationCode.client() == PlatformClient.DSH_DESKTOP) {
+        if (authorizationCode.client() == PlatformClient.DSH_DESKTOP
+            || authorizationCode.client() == PlatformClient.ENT_ADMIN_CLI) {
             return refreshSessions.issue(
                 authorizationCode.userId(), authorizationCode.client(),
                 authorizationCode.installationId(), authorizationCode.sessionDeviceId()

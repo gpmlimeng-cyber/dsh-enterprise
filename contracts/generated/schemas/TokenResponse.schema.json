@@ -38,7 +38,8 @@
           "type": "string",
           "enum": [
             "dsh-desktop",
-            "enterprise-admin"
+            "enterprise-admin",
+            "ent-admin-cli"
           ]
         },
         "refreshToken": {

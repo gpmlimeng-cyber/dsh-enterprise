@@ -24,6 +24,7 @@ Resources: members, devices, providers, models, model-sets, model-grants,
            quotas, plugins, audit, usage
 
 Usage extras:
+  dsh-ent-admin bootstrap [--json]     # employee snapshot: assigned models/quotas/plugins
   dsh-ent-admin usage me
   dsh-ent-admin usage ledger [--json]
   dsh-ent-admin quotas windows <quotaId> [--json]
@@ -269,6 +270,12 @@ export async function runCli(options: RunOptions): Promise<number> {
     const pageQuery: Record<string, string | number | undefined> = {
       cursor: typeof cursor === 'string' ? cursor : undefined,
       limit: typeof limit === 'string' ? Number(limit) : undefined,
+    }
+
+    if (command === 'bootstrap') {
+      const data = await authedGet<unknown>(server, '/enterprise/api/v1/bootstrap', {}, env)
+      emitSuccess(data, json, stdout, stderr)
+      return 0
     }
 
     if (resource === 'usage' && action === 'me') {

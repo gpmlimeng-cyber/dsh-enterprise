@@ -184,7 +184,8 @@ public final class PlatformAuthController {
     ) {
         if (body == null) throw new AuthFlowException("ENT_INVALID_REQUEST");
         PlatformClient requestedClient = client(body.clientId());
-        if (requestedClient != PlatformClient.DSH_DESKTOP) {
+        if (requestedClient != PlatformClient.DSH_DESKTOP
+            && requestedClient != PlatformClient.ENT_ADMIN_CLI) {
             throw new AuthFlowException("ENT_INVALID_REQUEST");
         }
         UUID installationId = optionalUuidV4(required(body.installationId()));

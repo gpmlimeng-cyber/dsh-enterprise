@@ -5,7 +5,7 @@
 
 PlatformClient:
   type: string
-  enum: [dsh-desktop, enterprise-admin]
+  enum: [dsh-desktop, enterprise-admin, ent-admin-cli]
 
 AuthTransactionId:
   type: string
@@ -255,7 +255,7 @@ RefreshTokenRequest:
       pattern: '^dshr_[A-Za-z0-9_-]{43}$'
     clientId:
       type: string
-      const: dsh-desktop
+      enum: [dsh-desktop, ent-admin-cli]
     installationId:
       $ref: '#/InstallationId'
 

@@ -27,7 +27,7 @@ import { EntAdminHttpError } from './http.js'
 
 const AUTH_PATH = '/enterprise/auth/v1'
 const API_PATH = '/enterprise/api/v1'
-const CLIENT_ID = 'dsh-desktop'
+const CLIENT_ID = 'ent-admin-cli'
 const CLI_VERSION = '0.1.0'
 const CLI_HARNESS_VERSION = 'ent-admin-cli'
 

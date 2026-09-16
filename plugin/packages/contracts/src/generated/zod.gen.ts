@@ -503,7 +503,11 @@ export const zAuthBrowserSessionRequest = z.object({
 
 export const zBrowserSessionRequest = zAuthBrowserSessionRequest;
 
-export const zAuthPlatformClient = z.enum(['dsh-desktop', 'enterprise-admin']);
+export const zAuthPlatformClient = z.enum([
+    'dsh-desktop',
+    'enterprise-admin',
+    'ent-admin-cli'
+]);
 
 export const zPlatformClient = zAuthPlatformClient;
 
@@ -519,7 +523,7 @@ export const zAuthorizationCodeTokenRequest = z.object({
 export const zRefreshTokenRequest = z.object({
     grantType: z.literal('refresh_token'),
     refreshToken: z.string().length(48).regex(/^dshr_[A-Za-z0-9_-]{43}$/),
-    clientId: z.literal('dsh-desktop'),
+    clientId: z.enum(['dsh-desktop', 'ent-admin-cli']),
     installationId: zAuthInstallationId
 }).strict();
 

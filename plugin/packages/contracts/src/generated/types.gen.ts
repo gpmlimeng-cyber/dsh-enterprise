@@ -830,7 +830,7 @@ export type AuthPkceCodeChallenge = string;
 
 export type AuthPkceCodeVerifier = string;
 
-export type AuthPlatformClient = 'dsh-desktop' | 'enterprise-admin';
+export type AuthPlatformClient = 'dsh-desktop' | 'enterprise-admin' | 'ent-admin-cli';
 
 export type AuthPublicIdentitySource = {
     id: IdentityIdentitySourceId;
@@ -841,7 +841,7 @@ export type AuthPublicIdentitySource = {
 export type RefreshTokenRequest = {
     grantType: 'refresh_token';
     refreshToken: string;
-    clientId: 'dsh-desktop';
+    clientId: 'dsh-desktop' | 'ent-admin-cli';
     installationId: AuthInstallationId;
 };
 
