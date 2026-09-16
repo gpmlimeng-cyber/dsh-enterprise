@@ -100,6 +100,8 @@ Agent Team 分三个产品阶段演进：单个员工会话内的临时本地团
 
 针对 `@deepseek-ai/dsh` `0.1.0-rc.6` 生态的 2026-08-14 公开 GitHub 和 npm 调研，没有发现能够完整实现跨设备 Session Event 复制、附件传输、恢复、冲突控制和企业授权的可安装插件。该结论覆盖公开可检索仓库和软件包，不代表私人实现一定不存在。
 
+**2026-09-16 复查**：npm 已出现 [dsh-session-sync](https://www.npmjs.com/package/dsh-session-sync)（PerryLink，Apache-2.0），以**用户自备 Git 仓**做会话存储字节镜像与 append-only keep-both 合并，完整度较高的**个人向**跨设备会话同步。它**没有**租户、企业 Server 密文、管理权限与 tombstone retention，**不替代**本方案的 `SessionReplication` / T16 企业复制语义；源码级对照与不可混写边界见 [ecosystem/dsh-session-sync-absorption.md](ecosystem/dsh-session-sync-absorption.md)。
+
 相邻项目解决的是更窄的问题：[dsh-memory-evolve](https://github.com/csyangwen/dsh-memory-evolve) 通过 Git 同步项目记忆、日志和待办；[dsh-interconnect](https://github.com/Chinesezjc/dsh-interconnect) 在实例之间转交消息和事件；[dsh-turn-rewind](https://github.com/Anionex/dsh-turn-rewind) 提供本地变更检查点和会话 fork；[dsh-share](https://github.com/hellodigua/dsh-share) 导出一轮对话用于分享。它们都不拥有本提案所需的完整企业复制与恢复语义，但其同步体验、实例间传输、本地检查点和展示模式仍可为独立提供方或 UI 插件提供参考。
 
 ### 与现有 Harness 能力的关系
