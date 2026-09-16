@@ -16,8 +16,8 @@ src/preset-market.tsx: DSH Enterprise 设置内的企业配方广场，列表/�
 src/assets.d.ts: 声明官方 ui-primitives 类型入口的 KaTeX CSS 副作用导入，保持依赖严格类型检查，不打入运行包。
 src/client.tsx: Client 组合根，通过三个官方 slot 注册账号/插件设置、侧栏账户行和访问门禁，共享脱敏 store；复用官方 remote 事件与连接恢复通知，不建立新连接。
 src/index.ts: 无运行行为的 Host 占位入口，使官方 scanner 从 Loader row 发现 Client half。
-src/local-api.ts: 固定同源路径的严格 Server/账号/卸载/插件/Session DTO 与显式刷新解码，删除 SHA/hash/marker 并拒绝 Token、正文和执行细节。
-src/session-view.tsx: 会话同步 tab 的逐 Session 状态、远端 cursor 列表、恢复目录、新 ID 恢复与二次确认删除呈现。
+src/local-api.ts: 固定同源路径的严格 Server/账号/卸载/插件/Session DTO 与显式刷新解码，删除 SHA/hash/marker 并拒绝 Token、正文和执行细节；含 sessionSyncStatus/listSessions/restoreSession。
+src/session-view.tsx: 会话同步 tab 的远端列表、恢复目录确认与新 ID 恢复结果呈现。
 tests/account-store.spec.ts: 保存成败与动作串行、退出错误后的本地状态收敛、服务/账号切换的迟到数据与错误隔离，以及有界登录查询和 Session 零请求测试。
 tests/account-view.spec.ts: 锁定门禁放行、Server 编辑状态白名单、受管插件和重启/失败员工语义。
 tests/client.spec.ts: Settings/sidebar/shell.overlay 三个官方 slot 的注册身份、顺序和共享注入测试，拒绝额外市场入口。

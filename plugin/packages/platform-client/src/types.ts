@@ -48,6 +48,7 @@ export interface EnterprisePlatformInternals {
   readonly pluginStatus?: () => unknown
   readonly pluginAction?: EnterpriseLocalApiOptions['pluginAction']
   readonly uninstallPlugin?: () => Promise<{ readonly restart?: () => void }>
+  readonly sessionSync?: EnterpriseLocalApiOptions['sessionSync']
 }
 
 /** 本地 Client 界面渲染的固定生命周期。 */

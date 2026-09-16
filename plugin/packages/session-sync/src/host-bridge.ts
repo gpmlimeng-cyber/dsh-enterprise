@@ -63,6 +63,12 @@ export interface TryRegisterHostSessionSyncOptions {
 
 export interface HostSessionSyncHandle {
   readonly enabled: boolean
+  status(): {
+    readonly enabled: boolean
+    readonly deviceId: string | null
+    readonly pendingSessionIds: readonly string[]
+    readonly lastError: string | null
+  }
   dispose(): Promise<void>
 }
 
@@ -222,6 +228,18 @@ export function tryRegisterHostSessionSync(
   return {
     get enabled(): boolean {
       return service !== null
+    },
+    status() {
+      if (service === null) {
+        return { enabled: false, deviceId: null, pendingSessionIds: [], lastError: null }
+      }
+      const snapshot = service.getStatus()
+      return {
+        enabled: true,
+        deviceId: snapshot.deviceId,
+        pendingSessionIds: snapshot.pendingSessionIds,
+        lastError: snapshot.lastError,
+      }
     },
     async dispose(): Promise<void> {
       if (disposed) return

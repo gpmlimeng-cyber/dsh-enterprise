@@ -219,6 +219,7 @@ export class EnterprisePlatformService extends Service {
       pluginStatus: internals.pluginStatus ?? (() => ({ assignmentRevision: 0, plugins: [] })),
       ...(internals.pluginAction === undefined ? {} : { pluginAction: internals.pluginAction }),
       ...(internals.uninstallPlugin === undefined ? {} : { uninstallPlugin: internals.uninstallPlugin }),
+      ...(internals.sessionSync === undefined ? {} : { sessionSync: internals.sessionSync }),
     })
     ctx.inject(['settings'], (settingsContext) => {
       const scope = settingsContext.settings.register(SETTINGS_NAMESPACE, CONNECTION_SETTINGS, {
