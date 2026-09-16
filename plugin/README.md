@@ -5,13 +5,13 @@
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
 
-# OwnDsh Harness Plugin Workspace
+# DSH Enterprise Harness Plugin Workspace
 
 This directory is the independent pnpm workspace for enterprise Harness
 plugins. It does not import source files from the sibling DeepSeek Harness
 checkout. T01 establishes formal packages for PKCE, local Host APIs,
 OpenAI-compatible SSE, Session seed restoration, Client slots, and a
-self-contained bundle. OwnDsh does not fork or maintain the official Harness
+self-contained bundle. DSH Enterprise does not fork or maintain the official Harness
 Web/Desktop UI: `dshent-plugin` is the only employee-side deliverable, and the
 locked upstream checkouts remain read-only verification fixtures. Published peers follow the same caret ranges as Harness packages, while the Host reports its actual Harness version through the official LLM runtime identity. T06 promotes the PKCE probe into `ctx.enterprisePlatform`
 with in-memory Access Token ownership, official Host `GrantRecord` persistence for the rotating Refresh Token,

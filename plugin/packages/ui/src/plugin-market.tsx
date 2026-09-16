@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖共享 EnterpriseAccountStore 的企业目录/本机事实、Harness Modal/Button 与 Lucide 图标
  * [OUTPUT]: 提供设置页内的插件搜索/已安装筛选、版本详情、显式安装/卸载及状态文案
- * [POS]: ui 的员工插件管理视图，由 OwnDsh 设置的插件 tab 承载，数据与执行由 OwnDsh Host 拥有
+ * [POS]: ui 的员工插件管理视图，由 DSH Enterprise 设置的插件 tab 承载，数据与执行由 DSH Enterprise Host 拥有
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 

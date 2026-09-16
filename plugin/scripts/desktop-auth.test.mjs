@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 真实内置 Harness、OwnDsh 插件、Chromium 与临时 HTTP 授权/模型服务
+ * [INPUT]: 真实内置 Harness、DSH Enterprise 插件、Chromium 与临时 HTTP 授权/模型服务
  * [OUTPUT]: 从登录、真实聊天请求到凭证失效门禁及重新登录恢复的 E2E，验证闲置零请求和网络故障保留会话
  * [POS]: 插件的桌面认证闭环验收，外部 runtime 显式传入；凭证/服务/profile 全部隔离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -19,7 +19,7 @@ import { test } from 'node:test'
 
 const root = dirname(fileURLToPath(import.meta.url))
 const runtime = process.env.OWNDSH_TEST_RUNTIME
-assert.ok(runtime, 'Set OWNDSH_TEST_RUNTIME to a prepared OwnDsh Desktop runtime containing the plugin under test')
+assert.ok(runtime, 'Set OWNDSH_TEST_RUNTIME to a prepared DSH Enterprise Desktop runtime containing the plugin under test')
 const { chromium } = await import(process.env.OWNDSH_PLAYWRIGHT_MODULE ?? 'playwright')
 const requestId = `req_${'0'.repeat(26)}`
 const json = (response, status, value) => {
@@ -33,7 +33,7 @@ const readBody = async request => {
 }
 
 test('authentication closes the loop through real chat requests without resident SSE', { timeout: 180000 }, async () => {
-  const home = await mkdtemp(join(tmpdir(), 'OwnDsh auth E2E '))
+  const home = await mkdtemp(join(tmpdir(), 'DSH Enterprise auth E2E '))
   const opener = join(home, 'opener')
   const authorizeFile = join(home, 'authorize-url')
   await mkdir(opener)
@@ -168,7 +168,7 @@ globalThis.Date = class extends NativeDate {
     const page = await browser.newPage({ viewport: { width: 1400, height: 900 } })
     const requests = []
     page.on('request', request => { if (request.url().includes('/enterprise/api/v1/local/')) requests.push(new URL(request.url()).pathname) })
-    const gate = page.getByRole('dialog', { name: 'OwnDsh', exact: true })
+    const gate = page.getByRole('dialog', { name: 'DSH Enterprise', exact: true })
     await page.goto(launchUrl)
     async function signIn() {
       await rm(authorizeFile, { force: true })

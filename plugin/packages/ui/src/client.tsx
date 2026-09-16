@@ -55,7 +55,7 @@ export function apply(ctx: SlotContextPort): void {
     name: 'settings.section',
     id: 'enterprise',
     order: 25,
-    label: 'OwnDsh 设置',
+    label: 'DSH Enterprise 设置',
     inject: () => ({ store }),
   }, EnterpriseSettingsSection as (props: never) => ReactNode))
   ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({

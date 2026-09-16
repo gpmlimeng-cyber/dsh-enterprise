@@ -276,7 +276,7 @@ export class EnterprisePluginDistributionService extends Service {
     return task
   }
 
-  /** 显式移除全部已安装受管包和 OwnDsh 自身；调用方在响应成功后负责请求宿主重启。 */
+  /** 显式移除全部已安装受管包和 DSH Enterprise 自身；调用方在响应成功后负责请求宿主重启。 */
   uninstall(): Promise<void> {
     if (this.disposed) return Promise.reject(new PluginDistributionError(
       'ENT_PLUGIN_CLI_FAILED', 'plugin distribution is disposed',

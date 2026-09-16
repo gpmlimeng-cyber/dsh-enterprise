@@ -16,11 +16,11 @@ import { test } from 'node:test'
 
 const root = dirname(fileURLToPath(import.meta.url))
 const runtime = process.env.OWNDSH_TEST_RUNTIME
-assert.ok(runtime, 'Set OWNDSH_TEST_RUNTIME to a prepared OwnDsh Desktop runtime containing the plugin under test')
+assert.ok(runtime, 'Set OWNDSH_TEST_RUNTIME to a prepared DSH Enterprise Desktop runtime containing the plugin under test')
 const { chromium, webkit } = await import(process.env.OWNDSH_PLAYWRIGHT_MODULE ?? 'playwright')
 
 test('packaged plugin uses Harness confirmation modals without native confirm', { timeout: 150000 }, async () => {
-  const home = await mkdtemp(join(tmpdir(), 'OwnDsh confirmation '))
+  const home = await mkdtemp(join(tmpdir(), 'DSH Enterprise confirmation '))
   const child = spawn(join(runtime, 'bin/node'), [join(runtime, 'launcher.mjs')], {
     env: { HOME: process.env.HOME, DSH_HOME: home, PATH: '/usr/bin:/bin:/usr/sbin:/sbin' },
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -62,7 +62,7 @@ test('packaged plugin uses Harness confirmation modals without native confirm', 
       const Original = window.EventSource
       window.EventSource = class extends Original {
         constructor(url, options) {
-          if (String(url).endsWith('/enterprise/api/v1/local/events')) throw new Error('OwnDsh must not open a resident SSE connection')
+          if (String(url).endsWith('/enterprise/api/v1/local/events')) throw new Error('DSH Enterprise must not open a resident SSE connection')
           super(url, options)
         }
       }
@@ -109,7 +109,7 @@ test('packaged plugin uses Harness confirmation modals without native confirm', 
     await page.goto(launchUrl)
     const logout = page.getByRole('button', { name: '退出登录', exact: true })
     await logout.waitFor({ timeout: 45000 })
-    const dialog = page.getByRole('dialog', { name: '退出 OwnDsh 账号', exact: true })
+    const dialog = page.getByRole('dialog', { name: '退出 DSH Enterprise', exact: true })
     await logout.click()
     await dialog.waitFor()
     assert.equal(calls.logout, 0)
@@ -131,7 +131,7 @@ test('packaged plugin uses Harness confirmation modals without native confirm', 
 
     assert.equal(await page.getByRole('button', { name: '企业插件', exact: true }).count(), 0)
     await page.getByRole('button', { name: /^(设置|Settings)$/ }).click()
-    await page.getByText('OwnDsh 设置', { exact: true }).click()
+    await page.getByText('DSH Enterprise设置', { exact: true }).click()
     const account = page.getByRole('tabpanel', { name: '账号', exact: true })
     const device = account.getByText('90018 · 4c96d076-a80a-4b6c-8df6-f0db804b6f0a', { exact: true })
     await device.waitFor()
@@ -140,7 +140,7 @@ test('packaged plugin uses Harness confirmation modals without native confirm', 
     await account.getByRole('button', { name: '刷新配置', exact: true }).click()
     assert.equal(calls.refresh, refreshBefore + 1)
     assert.equal(await account.getByRole('button', { name: '修改 Server 地址', exact: true }).count(), 0)
-    assert.equal(await account.getByRole('textbox', { name: 'OwnDsh Server 地址', exact: true }).count(), 0)
+    assert.equal(await account.getByRole('textbox', { name: 'DSH Enterprise Server 地址', exact: true }).count(), 0)
     await mkdir(join(root, '.build'), { recursive: true })
     await page.mouse.move(0, 0)
     await page.screenshot({ path: join(root, '.build/account-desktop.png') })
@@ -220,13 +220,13 @@ test('packaged plugin uses Harness confirmation modals without native confirm', 
     await mkdir(join(root, '.build'), { recursive: true })
     await page.screenshot({ path: join(root, '.build/confirm-desktop.png') })
     await dialog.getByRole('button', { name: '退出登录', exact: true }).click()
-    await page.getByRole('dialog', { name: 'OwnDsh', exact: true }).getByRole('button', { name: '登录企业账号', exact: true }).waitFor()
+    await page.getByRole('dialog', { name: 'DSH Enterprise', exact: true }).getByRole('button', { name: '登录企业账号', exact: true }).waitFor()
     await account.waitFor({ state: 'hidden' })
     assert.equal(calls.logout, 1)
 
-    const gate = page.getByRole('dialog', { name: 'OwnDsh', exact: true })
+    const gate = page.getByRole('dialog', { name: 'DSH Enterprise', exact: true })
     await gate.getByRole('button', { name: '修改 Server 地址', exact: true }).click()
-    const address = gate.getByRole('textbox', { name: 'OwnDsh Server 地址', exact: true })
+    const address = gate.getByRole('textbox', { name: 'DSH Enterprise Server 地址', exact: true })
     await address.fill('https://next.example.com/path')
     await gate.getByRole('button', { name: '保存', exact: true }).click()
     await gate.getByRole('alert').waitFor()
@@ -242,8 +242,8 @@ test('packaged plugin uses Harness confirmation modals without native confirm', 
     await gate.getByRole('button', { name: '修改 Server 地址', exact: true }).waitFor()
 
     await page.setViewportSize({ width: 375, height: 720 })
-    const uninstall = page.getByRole('dialog', { name: 'OwnDsh', exact: true }).getByRole('button', { name: '卸载 OwnDsh', exact: true })
-    const removal = page.getByRole('dialog', { name: '卸载 OwnDsh', exact: true })
+    const uninstall = page.getByRole('dialog', { name: 'DSH Enterprise', exact: true }).getByRole('button', { name: '卸载 DSH Enterprise', exact: true })
+    const removal = page.getByRole('dialog', { name: '卸载 DSH Enterprise', exact: true })
     await uninstall.click()
     await removal.waitFor()
     await page.screenshot({ path: join(root, '.build/confirm-mobile.png') })
@@ -259,7 +259,7 @@ test('packaged plugin uses Harness confirmation modals without native confirm', 
     assert.equal(calls.uninstall, 0)
     await uninstall.click()
     await removal.getByRole('button', { name: '确认卸载' }).click()
-    await page.getByText('OwnDsh 已卸载，请手动重启 Harness。', { exact: true }).last().waitFor()
+    await page.getByText('DSH Enterprise 已卸载，请手动重启 Harness。', { exact: true }).last().waitFor()
     assert.equal(calls.uninstall, 1)
     assert.deepEqual(errors, [])
   } catch (error) {

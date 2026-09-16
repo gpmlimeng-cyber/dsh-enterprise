@@ -8,7 +8,7 @@
 import { LogOut } from 'lucide-react'
 import { useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
 import { EnterpriseAccountStore } from './account-store.js'
-import { OWNDSH_ICON, LogoutConfirmation } from './account-view.js'
+import { DSHENT_ICON, LogoutConfirmation } from './account-view.js'
 
 export interface EnterpriseFooterActionProps {
   readonly store: EnterpriseAccountStore
@@ -33,10 +33,10 @@ export function EnterpriseFooterAction(props: EnterpriseFooterActionProps): Reac
   const snapshot = useSyncExternalStore(props.store.subscribe, props.store.getSnapshot, props.store.getSnapshot)
   const status = snapshot.status
   const user = snapshot.bootstrap?.user ?? status?.user
-  const name = user?.displayName || user?.username || 'OwnDsh'
+  const name = user?.displayName || user?.username || 'DSH Enterprise'
   const connected = status?.state === 'READY' || status?.state === 'REFRESHING'
   const disabled = !connected || snapshot.busy !== undefined
-  const avatar = (size: number): ReactNode => <img alt="" aria-hidden src={OWNDSH_ICON} style={{ borderRadius: 4, flex: 'none', height: size, width: size }} />
+  const avatar = (size: number): ReactNode => <img alt="" aria-hidden src={DSHENT_ICON} style={{ borderRadius: 4, flex: 'none', height: size, width: size }} />
 
   return <LogoutConfirmation store={props.store} disabled={disabled}>{logout => !props.wide ? <button
     aria-label={`${name}，退出登录`}

@@ -509,7 +509,7 @@ describe('EnterprisePluginDistributionService', () => {
     expect(restartedPlatform.reports.at(-1)).toEqual({ items: [] })
   })
 
-  it('uninstalls managed packages before OwnDsh and clears managed state', async () => {
+  it('uninstalls managed packages before DSH Enterprise and clears managed state', async () => {
     const content = Buffer.from('managed bundle to remove')
     const desired = assignment(testKey, content)
     const platform = new FakePlatform(bootstrap(1, [desired]), new Map([[desired.downloadUrl!, content]]))

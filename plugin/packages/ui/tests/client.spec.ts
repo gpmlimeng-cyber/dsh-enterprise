@@ -38,7 +38,7 @@ describe('enterprise Client plugin', () => {
       'shell.overlay',
     ])
     expect(registrations.map(item => item.options)).toMatchObject([
-      { name: 'settings.section', id: 'enterprise', order: 25, label: 'OwnDsh 设置' },
+      { name: 'settings.section', id: 'enterprise', order: 25, label: 'DSH Enterprise 设置' },
       { name: 'sidebar.footer.action', id: 'enterprise', order: 50 },
       { name: 'shell.overlay', id: 'enterprise-access', order: -100 },
     ])

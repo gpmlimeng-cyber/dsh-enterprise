@@ -109,12 +109,12 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
   }, {
     pluginStatus: () => pluginDistribution?.status() ?? { assignmentRevision: 0, plugins: [] },
     pluginAction: async (action, packageName, pluginVersionId) => {
-      if (pluginDistribution === undefined) throw new Error('OwnDsh plugin distribution is unavailable')
+      if (pluginDistribution === undefined) throw new Error('DSH Enterprise plugin distribution is unavailable')
       if (action === 'install') await pluginDistribution.install(packageName, pluginVersionId!)
       else await pluginDistribution.remove(packageName)
     },
     uninstallPlugin: async () => {
-      if (pluginDistribution === undefined) throw new Error('OwnDsh plugin distribution is unavailable')
+      if (pluginDistribution === undefined) throw new Error('DSH Enterprise plugin distribution is unavailable')
       await pluginDistribution.uninstall()
       const desktopActions = ctx.get('desktopActions') as DesktopActionsPort | undefined
       return desktopActions === undefined ? {} : {
