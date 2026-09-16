@@ -22,6 +22,7 @@ import com.owndsh.enterprise.model.domain.ProviderType;
 import com.owndsh.enterprise.model.gateway.GatewayAcceptedMetadata;
 import com.owndsh.enterprise.model.gateway.GatewayFinishedMetadata;
 import com.owndsh.enterprise.plugin.application.PluginAuditMetadata;
+import com.owndsh.enterprise.preset.application.PresetAuditMetadata;
 import com.owndsh.enterprise.quota.application.QuotaExceededException;
 import com.owndsh.enterprise.quota.application.QuotaPolicyChangeMetadata;
 import com.owndsh.enterprise.quota.application.QuotaRejectionMetadata;
@@ -115,6 +116,11 @@ class AuditMetadataPolicyTest {
             plugin(PluginAuditMetadata.Operation.ASSIGN),
             plugin(PluginAuditMetadata.Operation.DOWNLOAD),
             plugin(PluginAuditMetadata.Operation.INVENTORY),
+            new PresetAuditMetadata.Upload(1, 2, "weekly-digest", "0.1.0-rc.7", "ab".repeat(32), 10),
+            new PresetAuditMetadata.Publish(1, 2, 1),
+            new PresetAuditMetadata.Retire(1, 2, 2),
+            new PresetAuditMetadata.Assignments(1, true, 0),
+            new PresetAuditMetadata.Download(2, 3, 4),
             new SessionAuditMetadata.BatchAppended(0, 1, 2),
             new SessionAuditMetadata.Exported(0, 1, 2),
             new SessionAuditMetadata.Restored("restored-session", 2),

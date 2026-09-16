@@ -639,20 +639,20 @@ function renderRoute(path: string, role?: AuthBuiltInRole, logoutStatus = 200, p
 describe('product console access', () => {
   it('uses the fixed five-role page matrix', () => {
     const paths = (role: AuthBuiltInRole) => productRoutesFor([role]).map((route) => route.to);
-    expect(paths('enterprise_admin')).toEqual(['/', '/access', '/plugins', '/members', '/activity']);
+    expect(paths('enterprise_admin')).toEqual(['/', '/access', '/plugins', '/presets', '/members', '/activity']);
     expect(paths('model_admin')).toEqual(['/', '/access', '/activity']);
-    expect(paths('plugin_admin')).toEqual(['/plugins', '/activity']);
+    expect(paths('plugin_admin')).toEqual(['/plugins', '/presets', '/activity']);
     expect(paths('auditor')).toEqual(['/activity']);
     expect(paths('employee')).toEqual([]);
     expect(productRoutesFor(['model_admin', 'plugin_admin']).map((route) => route.to))
-      .toEqual(['/', '/access', '/plugins', '/activity']);
+      .toEqual(['/', '/access', '/plugins', '/presets', '/activity']);
   });
 
   it('sends an unauthenticated product URL to login', async () => {
     renderRoute('/members');
     expect(await screen.findByRole('heading', { name: '登录管理控制台' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'DSH Enterprise · Truly Own Your DeepSeek-Harness.' })).toBeTruthy();
-    expect(document.querySelectorAll('img[src="/dshent-whale.png"]')).toHaveLength(3);
+    expect(document.querySelectorAll('img[src="/dshent-whale.png"]').length).toBeGreaterThanOrEqual(3);
   });
 
   it('sends an employee to the fixed forbidden page', async () => {

@@ -213,6 +213,8 @@ export class EnterprisePlatformService extends Service {
         cancelLogin: () => this.cancelLogin(),
         logout: () => this.logout(),
         bootstrap: () => this.bootstrap(),
+        listPresets: signal => this.listPresets(signal),
+        getPreset: (packageId, signal) => this.getPreset(packageId, signal),
       },
       pluginStatus: internals.pluginStatus ?? (() => ({ assignmentRevision: 0, plugins: [] })),
       ...(internals.pluginAction === undefined ? {} : { pluginAction: internals.pluginAction }),
@@ -325,6 +327,33 @@ export class EnterprisePlatformService extends Service {
   /** 返回最新已校验 bootstrap 副本，永不返回平台凭据。 */
   bootstrap(): BootstrapSnapshot | undefined {
     return this.bootstrapSnapshot === undefined ? undefined : structuredClone(this.bootstrapSnapshot)
+  }
+
+  /** 拉取当前用户可见的企业配方目录；一次请求，不缓存 Token。 */
+  async listPresets(signal?: AbortSignal): Promise<unknown> {
+    return this.fetchPresetJson(`${API_PATH}/presets?sort=newest`, signal)
+  }
+
+  /** 拉取单个可见配方详情（含 versionId，供复制导入指令构造下载 URL）。 */
+  async getPreset(packageId: string, signal?: AbortSignal): Promise<unknown> {
+    return this.fetchPresetJson(`${API_PATH}/presets/${packageId}`, signal)
+  }
+
+  private async fetchPresetJson(path: string, signal?: AbortSignal): Promise<unknown> {
+    const response = await this.request(path, signal === undefined ? {} : { signal })
+    let payload: unknown
+    try {
+      payload = await response.json()
+    } catch {
+      throw new EnterprisePlatformError('ENT_PLATFORM_UNAVAILABLE', 'platform returned invalid preset JSON', true)
+    }
+    const envelope = typeof payload === 'object' && payload !== null
+      ? (payload as { data?: unknown }).data
+      : undefined
+    if (envelope === undefined) {
+      throw new EnterprisePlatformError('ENT_PLATFORM_UNAVAILABLE', 'platform returned an invalid preset payload', true)
+    }
+    return envelope
   }
 
   /** 用户打开设置或刷新目录时调用；并发刷新共享任务，闲置时没有定时请求。 */

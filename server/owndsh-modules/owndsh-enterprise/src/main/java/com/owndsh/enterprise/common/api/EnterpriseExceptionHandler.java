@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖身份/设备/模型/配额/插件/Session/网关/revision 异常、Sa-Token、MVC 绑定与当前 requestId。
+ * [INPUT]: 依赖身份/设备/模型/配额/插件/配方/Session/网关/revision 异常、Sa-Token、MVC 绑定与当前 requestId。
  * [OUTPUT]: 对外提供详细设计第 17 节稳定错误 envelope，未知故障日志只保留类型与 requestId。
  * [POS]: common/api 的企业 Controller 专用异常边界，优先于 Host 通用 R 响应处理器。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -29,6 +29,9 @@ import com.owndsh.enterprise.quota.application.QuotaResourceNotFoundException;
 import com.owndsh.enterprise.plugin.application.PluginAccessException;
 import com.owndsh.enterprise.plugin.application.PluginResourceNotFoundException;
 import com.owndsh.enterprise.plugin.artifact.PluginArtifactException;
+import com.owndsh.enterprise.preset.application.PresetAccessException;
+import com.owndsh.enterprise.preset.application.PresetResourceNotFoundException;
+import com.owndsh.enterprise.preset.artifact.PresetArtifactException;
 import com.owndsh.enterprise.quota.application.RequestAlreadyCompletedException;
 import com.owndsh.enterprise.quota.application.RequestInProgressException;
 import com.owndsh.enterprise.revision.RevisionConflictException;
@@ -223,6 +226,36 @@ public final class EnterpriseExceptionHandler {
         String message = exception.kind() == PluginArtifactException.Kind.TOO_LARGE
             ? "插件归档超过限制"
             : "插件归档无效";
+        return error(status, exception.errorCode(), message, false, null, request);
+    }
+
+    @ExceptionHandler(PresetResourceNotFoundException.class)
+    public ResponseEntity<EnterpriseErrorResponse> presetNotFound(HttpServletRequest request) {
+        return error(HttpStatus.NOT_FOUND, "ENT_RESOURCE_NOT_FOUND", "配方资源不存在", false, null, request);
+    }
+
+    @ExceptionHandler(PresetAccessException.class)
+    public ResponseEntity<EnterpriseErrorResponse> presetAccess(
+        PresetAccessException exception,
+        HttpServletRequest request
+    ) {
+        String message = exception.errorCode().equals(PresetAccessException.NOT_PUBLISHED)
+            ? "配方版本未处于可发布状态"
+            : "无权访问该配方";
+        return error(HttpStatus.FORBIDDEN, exception.errorCode(), message, false, null, request);
+    }
+
+    @ExceptionHandler(PresetArtifactException.class)
+    public ResponseEntity<EnterpriseErrorResponse> presetArtifact(
+        PresetArtifactException exception,
+        HttpServletRequest request
+    ) {
+        HttpStatus status = exception.kind() == PresetArtifactException.Kind.TOO_LARGE
+            ? HttpStatus.PAYLOAD_TOO_LARGE
+            : HttpStatus.BAD_REQUEST;
+        String message = exception.kind() == PresetArtifactException.Kind.TOO_LARGE
+            ? "配方归档超过限制"
+            : "配方归档无效";
         return error(status, exception.errorCode(), message, false, null, request);
     }
 

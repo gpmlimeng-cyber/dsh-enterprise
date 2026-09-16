@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖普通数据库所有者、空数据库、classpath V0-V29 migration 与旧版 baseline 0 历史。
+ * [INPUT]: 依赖普通数据库所有者、空数据库、classpath V0-V30 migration 与旧版 baseline 0 历史。
  * [OUTPUT]: 验证空库建表、旧库接管/升级、重复启动、字符串时间参数及数据库计量迁移约束。
  * [POS]: database 的持续 migration 门禁，防止后续任务只验证最终 schema 而遗漏中间版本不可升级。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

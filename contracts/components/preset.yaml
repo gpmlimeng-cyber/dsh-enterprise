@@ -1,0 +1,194 @@
+# [INPUT]: 依赖根协议资源 ID、revision、cursor、requestId 与严格成功 envelope。
+# [OUTPUT]: 提供 dsh-preset v1 配方包/版本/可见范围与 runtime 摘要/详情 schema。
+# [POS]: contracts/components 的配方广场真源，不投影 artifact 路径、包内 YAML 或签名私钥。
+# [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+
+PresetPackageId:
+  type: string
+  pattern: '^[1-9][0-9]{0,18}$'
+PresetVersionId:
+  type: string
+  pattern: '^[1-9][0-9]{0,18}$'
+PresetAssignmentId:
+  type: string
+  pattern: '^[1-9][0-9]{0,18}$'
+PresetVersionStatus:
+  type: string
+  enum: [VALIDATED, PUBLISHED, RETIRED]
+PresetPackageStatus:
+  type: string
+  enum: [ACTIVE, DISABLED]
+PresetSubjectType:
+  type: string
+  enum: [ALL, USER]
+PresetAssignmentStatus:
+  type: string
+  enum: [ACTIVE, DISABLED]
+PresetPresetId:
+  type: string
+  minLength: 1
+  maxLength: 128
+  pattern: '^[A-Za-z0-9][A-Za-z0-9._-]*$'
+PresetSourceDshVersion:
+  type: string
+  minLength: 1
+  maxLength: 64
+PresetSha256:
+  type: string
+  pattern: '^[0-9a-f]{64}$'
+PresetUploadMetadata:
+  type: object
+  additionalProperties: false
+  properties:
+    displayName:
+      type: string
+      minLength: 1
+      maxLength: 120
+    description:
+      type: string
+      maxLength: 2000
+PresetVersion:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - packageId
+    - presetId
+    - sourceDshVersion
+    - sizeBytes
+    - sha256
+    - status
+    - createdAt
+    - revision
+  properties:
+    id: {$ref: '#/PresetVersionId'}
+    packageId: {$ref: '#/PresetPackageId'}
+    presetId: {$ref: '#/PresetPresetId'}
+    sourceDshVersion: {$ref: '#/PresetSourceDshVersion'}
+    sizeBytes:
+      type: integer
+      format: int64
+      minimum: 1
+      maximum: 52428800
+    sha256: {$ref: '#/PresetSha256'}
+    status: {$ref: '#/PresetVersionStatus'}
+    createdAt:
+      type: string
+      format: date-time
+    revision:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/Revision'
+PresetVersionResponse:
+  type: object
+  additionalProperties: false
+  required: [data, requestId]
+  properties:
+    data: {$ref: '#/PresetVersion'}
+    requestId:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'
+PresetAssignment:
+  type: object
+  additionalProperties: false
+  required: [id, packageId, subjectType, status, revision]
+  properties:
+    id: {$ref: '#/PresetAssignmentId'}
+    packageId: {$ref: '#/PresetPackageId'}
+    subjectType: {$ref: '#/PresetSubjectType'}
+    subjectId:
+      type: string
+      pattern: '^[1-9][0-9]{0,18}$'
+    status: {$ref: '#/PresetAssignmentStatus'}
+    revision:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/Revision'
+PresetAssignmentSpec:
+  type: object
+  additionalProperties: false
+  required: [subjectType]
+  properties:
+    subjectType: {$ref: '#/PresetSubjectType'}
+    subjectId:
+      type: string
+      pattern: '^[1-9][0-9]{0,18}$'
+PresetAssignmentBatchRequest:
+  type: object
+  additionalProperties: false
+  required: [assignments]
+  properties:
+    assignments:
+      type: array
+      minItems: 0
+      maxItems: 200
+      items: {$ref: '#/PresetAssignmentSpec'}
+PresetPackage:
+  type: object
+  additionalProperties: false
+  required: [id, presetId, displayName, status, revision, versions, assignments]
+  properties:
+    id: {$ref: '#/PresetPackageId'}
+    presetId: {$ref: '#/PresetPresetId'}
+    displayName:
+      type: string
+      minLength: 1
+      maxLength: 120
+    description:
+      type: string
+      maxLength: 2000
+    status: {$ref: '#/PresetPackageStatus'}
+    revision:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/Revision'
+    versions:
+      type: array
+      items: {$ref: '#/PresetVersion'}
+    assignments:
+      type: array
+      items: {$ref: '#/PresetAssignment'}
+PresetPackagePageData:
+  type: object
+  additionalProperties: false
+  required: [items, page]
+  properties:
+    items:
+      type: array
+      maxItems: 200
+      items: {$ref: '#/PresetPackage'}
+    page:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/CursorPage'
+PresetPackageListResponse:
+  type: object
+  additionalProperties: false
+  required: [data, requestId]
+  properties:
+    data: {$ref: '#/PresetPackagePageData'}
+    requestId:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'
+RuntimePresetSummary:
+  type: object
+  additionalProperties: false
+  required: [id, presetId, displayName, description, sourceDshVersion, sizeBytes, updatedAt]
+  properties:
+    id: {$ref: '#/PresetPackageId'}
+    presetId: {$ref: '#/PresetPresetId'}
+    displayName:
+      type: string
+      minLength: 1
+      maxLength: 120
+    description:
+      type: string
+      maxLength: 2000
+    sourceDshVersion: {$ref: '#/PresetSourceDshVersion'}
+    sizeBytes:
+      type: integer
+      format: int64
+      minimum: 1
+      maximum: 52428800
+    updatedAt:
+      type: string
+      format: date-time
+RuntimePresetDetail:
+  allOf:
+    - $ref: '#/RuntimePresetSummary'
+    - type: object
+      additionalProperties: false
+      required: [versionId, sha256]
+      properties:
+        versionId: {$ref: '#/PresetVersionId'}
+        sha256: {$ref: '#/PresetSha256'}

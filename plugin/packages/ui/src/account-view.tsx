@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 React、Lucide、Harness Button/Settings close、ConfirmAction、OwnDsh 品牌鲸图与 EnterpriseAccountStore 的脱敏 snapshot 和动作
- * [OUTPUT]: 提供只读账号设置、插件 tabs、共享登出确认与全局门禁；Server 仅在无活动会话的门禁中编辑，保存成功才收起
+ * [OUTPUT]: 提供只读账号设置、插件/配方 tabs、共享登出确认与全局门禁；Server 仅在无活动会话的门禁中编辑，保存成功才收起
  * [POS]: dsh-ui 的账号设置与门禁呈现层，和 account-footer 复用品牌资源且不接触 Host Context、Token 或执行细节
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -39,6 +39,7 @@ import { EnterpriseAccountStore } from './account-store.js'
 import { ConfirmAction } from './confirm-action.js'
 import { EnterprisePluginMarket } from './plugin-market.js'
 export { enterprisePluginStatePresentation } from './plugin-market.js'
+import { EnterprisePresetMarket } from './preset-market.js'
 import type {
   EnterpriseConnectionState,
 } from './local-api.js'
@@ -516,6 +517,7 @@ export function EnterpriseSettingsSection(props: EnterpriseSettingsSectionProps)
   const rows = [
     { id: 'account', label: '账号' },
     { id: 'plugins', label: '插件' },
+    { id: 'presets', label: '配方' },
   ] as const
   return <section className="own-settings" style={page} aria-labelledby={headingId}>
     <style>{`
@@ -578,6 +580,9 @@ export function EnterpriseSettingsSection(props: EnterpriseSettingsSectionProps)
     </div>
     <div id={`${tabsId}-panel-plugins`} role="tabpanel" aria-labelledby={`${tabsId}-tab-plugins`} hidden={activeTab !== 'plugins'}>
       {activeTab === 'plugins' ? <EnterprisePluginMarket store={props.store} /> : null}
+    </div>
+    <div id={`${tabsId}-panel-presets`} role="tabpanel" aria-labelledby={`${tabsId}-tab-presets`} hidden={activeTab !== 'presets'}>
+      {activeTab === 'presets' ? <EnterprisePresetMarket store={props.store} /> : null}
     </div>
   </section>
 }

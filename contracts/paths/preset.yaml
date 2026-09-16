@@ -1,0 +1,221 @@
+# [INPUT]: 依赖根协议 cursor/revision/幂等键与统一错误响应。
+# [OUTPUT]: 提供配方管理上传/发布/退休/可见范围与 runtime 浏览/详情/授权下载 Path Item。
+# [POS]: contracts/paths 的配方广场分片，下载每次重算可见性且不依赖设备库存。
+# [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+
+PresetCollection:
+  get:
+    operationId: listPresetPackages
+    parameters:
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/Cursor'
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/Limit'
+    responses:
+      '200':
+        description: Preset package page with versions and visibility.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/PresetPackageListResponse'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+
+PresetVersionUpload:
+  post:
+    operationId: uploadPresetVersion
+    parameters:
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/IdempotencyKey'
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [artifact]
+            properties:
+              artifact:
+                type: string
+                format: binary
+              metadata:
+                $ref: '../enterprise-openapi.yaml#/components/schemas/PresetUploadMetadata'
+          encoding:
+            metadata:
+              contentType: application/json
+    responses:
+      '201':
+        description: Validated preset version.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/PresetVersionResponse'}
+      '200':
+        description: Existing version returned for an idempotent natural key.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/PresetVersionResponse'}
+      '400': {$ref: '../enterprise-openapi.yaml#/components/responses/Error400'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+      '413': {$ref: '../enterprise-openapi.yaml#/components/responses/Error413'}
+
+PresetVersionPublish:
+  parameters:
+    - name: presetVersionId
+      in: path
+      required: true
+      schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/PresetVersionId'}
+  post:
+    operationId: publishPresetVersion
+    parameters:
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/IfMatchRevision'
+    responses:
+      '200':
+        description: Published preset version.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/PresetVersionResponse'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+      '404': {$ref: '../enterprise-openapi.yaml#/components/responses/Error404'}
+      '409': {$ref: '../enterprise-openapi.yaml#/components/responses/Error409'}
+
+PresetVersionRetire:
+  parameters:
+    - name: presetVersionId
+      in: path
+      required: true
+      schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/PresetVersionId'}
+  post:
+    operationId: retirePresetVersion
+    parameters:
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/IfMatchRevision'
+    responses:
+      '200':
+        description: Retired preset version.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/PresetVersionResponse'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+      '404': {$ref: '../enterprise-openapi.yaml#/components/responses/Error404'}
+      '409': {$ref: '../enterprise-openapi.yaml#/components/responses/Error409'}
+
+PresetAssignmentBatch:
+  parameters:
+    - name: presetPackageId
+      in: path
+      required: true
+      schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/PresetPackageId'}
+  post:
+    operationId: replacePresetAssignments
+    parameters:
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/IdempotencyKey'
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/IfMatchRevision'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/PresetAssignmentBatchRequest'}
+    responses:
+      '200':
+        description: Fully replaced visibility assignment set.
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [data, requestId]
+              properties:
+                data:
+                  type: array
+                  maxItems: 200
+                  items: {$ref: '../enterprise-openapi.yaml#/components/schemas/PresetAssignment'}
+                requestId: {$ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'}
+      '400': {$ref: '../enterprise-openapi.yaml#/components/responses/Error400'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+      '404': {$ref: '../enterprise-openapi.yaml#/components/responses/Error404'}
+      '409': {$ref: '../enterprise-openapi.yaml#/components/responses/Error409'}
+
+RuntimePresetCollection:
+  get:
+    operationId: listRuntimePresets
+    parameters:
+      - name: sort
+        in: query
+        schema:
+          type: string
+          enum: [newest]
+          default: newest
+    responses:
+      '200':
+        description: Published presets visible to the current user.
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [data, requestId]
+              properties:
+                data:
+                  type: array
+                  items: {$ref: '../enterprise-openapi.yaml#/components/schemas/RuntimePresetSummary'}
+                requestId: {$ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+
+RuntimePresetItem:
+  parameters:
+    - name: presetPackageId
+      in: path
+      required: true
+      schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/PresetPackageId'}
+  get:
+    operationId: getRuntimePreset
+    responses:
+      '200':
+        description: Visible published preset detail.
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [data, requestId]
+              properties:
+                data: {$ref: '../enterprise-openapi.yaml#/components/schemas/RuntimePresetDetail'}
+                requestId: {$ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+      '404': {$ref: '../enterprise-openapi.yaml#/components/responses/Error404'}
+
+RuntimePresetDownload:
+  parameters:
+    - name: presetVersionId
+      in: path
+      required: true
+      schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/PresetVersionId'}
+  get:
+    operationId: downloadRuntimePreset
+    parameters:
+      - name: Range
+        in: header
+        required: false
+        schema:
+          type: string
+    responses:
+      '200':
+        description: Authorized .dshpreset archive bytes.
+        content:
+          application/vnd.dsh.preset+zip:
+            schema:
+              type: string
+              format: binary
+      '206':
+        description: Partial archive bytes.
+        content:
+          application/vnd.dsh.preset+zip:
+            schema:
+              type: string
+              format: binary
+      '400': {$ref: '../enterprise-openapi.yaml#/components/responses/Error400'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+      '404': {$ref: '../enterprise-openapi.yaml#/components/responses/Error404'}

@@ -1,6 +1,6 @@
 ---
 feature: preset-square
-status: designed
+status: in-progress
 updated: 2026-09-16
 branch: feat/preset-square-design
 commits: # filled at delivery
@@ -209,10 +209,10 @@ Agent 侧约定：用企业已登录 Access Token 下载二进制，再调用 De
 
 ## Tasks
 
-- [ ] T1: OpenAPI 增加 `paths/preset.yaml` 与 schema/error，登记根协议并生成 contracts — acceptance: 管理 5 + runtime 3 operation 可生成；错误码进入封闭目录；fixture 至少覆盖 version success 与 invalid package (covers: S2.5)
-- [ ] T2: Flyway `V30` 建三表、唯一索引与 `ent:preset:read/write` 角色授权 — acceptance: 空库迁移成功；`plugin_admin`/`enterprise_admin` 含新权限；越权角色不可写 (covers: S2.3)
-- [ ] T3: Server `preset` 纵向模块：验包、CAS 制品、发布/退休、assignments batch、runtime 列表/详情/下载授权 — acceptance: 非法包 400；同 sha256 幂等；RETIRED 下载 403；USER 可见性逐请求裁决；Testcontainers 事务通过 (covers: S2.2, S2.4, S2.5, S2.8)
-- [ ] T4: 审计 action 白名单与 metadata DTO 接入 preset 五类事件 — acceptance: 上传/发布/退休/范围替换/授权下载各产生一条可查询审计且无包内正文 (covers: S2.8)
-- [ ] T5: 控制台 `/presets` 纵向：product-routes、上传预览、列表/详情/可见范围/发布退休 — acceptance: `plugin_admin` 可完成上传→发布→ALL/USER 范围；`enterprise_admin` 并集可见；无 `ent:preset:write` 时写操作被拒；`pnpm check` 通过 (covers: S2.6)
-- [ ] T6: 员工插件设置「配方」tab：runtime 列表、详情、安全提示、复制导入指令 — acceptance: 无可见配方时空态；有配方时可复制含 downloadUrl 的指令；不发出 loopback import 请求 (covers: S2.7)
-- [ ] T7: 文档回环：`docs/v1-product-feature-catalog.md`、根 `CLAUDE.md`、console/plugin/server/contracts 相关 L2 — acceptance: 功能地图出现配方广场且状态为待实现/已实现之一；L2 成员清单含新路径 (covers: S2.1, S2.6, S2.7)
+- [x] T1: OpenAPI 增加 `paths/preset.yaml` 与 schema/error，登记根协议并生成 contracts — acceptance: 管理 5 + runtime 3 operation 可生成；错误码进入封闭目录；fixture 至少覆盖 version success 与 invalid package (covers: S2.5)
+- [x] T2: Flyway `V30` 建三表、唯一索引与 `ent:preset:read/write` 角色授权 — acceptance: 空库迁移成功；`plugin_admin`/`enterprise_admin` 含新权限；越权角色不可写 (covers: S2.3)
+- [x] T3: Server `preset` 纵向模块：验包、CAS 制品、发布/退休、assignments batch、runtime 列表/详情/下载授权 — acceptance: 非法包 400；同 sha256 幂等；RETIRED 下载 403；USER 可见性逐请求裁决；Testcontainers 事务通过 (covers: S2.2, S2.4, S2.5, S2.8)
+- [x] T4: 审计 action 白名单与 metadata DTO 接入 preset 五类事件 — acceptance: 上传/发布/退休/范围替换/授权下载各产生一条可查询审计且无包内正文 (covers: S2.8)
+- [x] T5: 控制台 `/presets` 纵向：product-routes、上传预览、列表/详情/可见范围/发布退休 — acceptance: `plugin_admin` 可完成上传→发布→ALL/USER 范围；`enterprise_admin` 并集可见；无 `ent:preset:write` 时写操作被拒；`pnpm check` 通过 (covers: S2.6)
+- [x] T6: 员工插件设置「配方」tab：runtime 列表、详情、安全提示、复制导入指令 — acceptance: 无可见配方时空态；有配方时可复制含 downloadUrl 的指令；不发出 loopback import 请求 (covers: S2.7)
+- [x] T7: 文档回环：`docs/v1-product-feature-catalog.md`、根 `CLAUDE.md`、console/plugin/server/contracts 相关 L2 — acceptance: 功能地图出现配方广场且状态为待实现/已实现之一；L2 成员清单含新路径 (covers: S2.1, S2.6, S2.7)

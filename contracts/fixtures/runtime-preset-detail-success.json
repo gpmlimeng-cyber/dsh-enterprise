@@ -1,0 +1,11 @@
+{
+  "id": "1901500000000000001",
+  "presetId": "weekly-digest",
+  "displayName": "周报整理",
+  "description": "把会议纪要与待办整理成企业周报草稿。",
+  "sourceDshVersion": "0.1.0-rc.7",
+  "sizeBytes": 20480,
+  "updatedAt": "2026-09-16T09:00:00Z",
+  "versionId": "1901500000000000101",
+  "sha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+}
