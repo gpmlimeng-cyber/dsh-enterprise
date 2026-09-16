@@ -75,4 +75,31 @@ describe('cursor-store', () => {
       expect((error as SessionSyncError).code).toBe('ENT_SESSION_CURSOR_INVALID')
     }
   })
+
+  it('accepts P2a files without extension fields and roundtrips P2b maps', async () => {
+    const home = await tempHome()
+    const legacy = parseCursorFile(JSON.stringify({
+      formatVersion: 1,
+      deviceId: 'device-p2a',
+      cursors: { s1: 3 },
+      lastPullAt: null,
+      lastPushAt: null,
+      lastError: null,
+    }))
+    expect(legacy.rollingHashes).toEqual({})
+    expect(legacy.terminalErrors).toEqual({})
+    expect(legacy.pushedAt).toEqual({})
+
+    await writeCursorFile(home, {
+      ...legacy,
+      cursors: { s1: 4 },
+      rollingHashes: { s1: 'A'.repeat(43) + '=' },
+      terminalErrors: { s1: 'ENT_SESSION_DIVERGED' },
+      pushedAt: { s1: '2026-09-16T00:00:00.000Z' },
+    })
+    const back = await readCursorFile(home)
+    expect(back?.cursors['s1']).toBe(4)
+    expect(back?.rollingHashes?.['s1']).toBe('A'.repeat(43) + '=')
+    expect(back?.terminalErrors?.['s1']).toBe('ENT_SESSION_DIVERGED')
+  })
 })

@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 Node fs/path 与 SessionSyncCursorFile 契约
+ * [INPUT]: 依赖 Node fs/path 与 SessionSyncCursorFile 契约（含 P2b 扩展字段）
  * [OUTPUT]: 对外提供 resolveSessionSyncCursorPath / readCursorFile / writeCursorFile 原子边界
  * [POS]: session-sync 唯一游标持久化边界；损坏文件响亮失败，不写半文件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -13,6 +13,7 @@ import {
   SESSION_SYNC_CURSOR_FORMAT_VERSION,
   type SessionSyncCursorFile,
   type SessionSyncCursors,
+  type SessionSyncStringMap,
 } from './types.js'
 
 export function resolveSessionSyncCursorPath(dshHome: string): string {
@@ -27,6 +28,9 @@ export function emptyCursorFile(deviceId: string = randomUUID()): SessionSyncCur
     lastPullAt: null,
     lastPushAt: null,
     lastError: null,
+    rollingHashes: {},
+    terminalErrors: {},
+    pushedAt: {},
   }
 }
 
@@ -48,6 +52,21 @@ function parseCursors(value: unknown): SessionSyncCursors {
   return cursors
 }
 
+function parseOptionalStringMap(value: unknown, field: string): SessionSyncStringMap | undefined {
+  if (value === undefined || value === null) return undefined
+  if (!isRecord(value)) {
+    throw new SessionSyncError('ENT_SESSION_CURSOR_INVALID', `${field} must be an object`)
+  }
+  const out: Record<string, string> = {}
+  for (const [key, entry] of Object.entries(value)) {
+    if (key.length === 0 || typeof entry !== 'string') {
+      throw new SessionSyncError('ENT_SESSION_CURSOR_INVALID', `invalid ${field} entry for ${key}`)
+    }
+    out[key] = entry
+  }
+  return out
+}
+
 export function parseCursorFile(raw: string): SessionSyncCursorFile {
   let parsed: unknown
   try {
@@ -64,6 +83,9 @@ export function parseCursorFile(raw: string): SessionSyncCursorFile {
     || parsed['lastError'] !== null && typeof parsed['lastError'] !== 'string') {
     throw new SessionSyncError('ENT_SESSION_CURSOR_INVALID', 'cursor file shape is invalid')
   }
+  const rollingHashes = parseOptionalStringMap(parsed['rollingHashes'], 'rollingHashes')
+  const terminalErrors = parseOptionalStringMap(parsed['terminalErrors'], 'terminalErrors')
+  const pushedAt = parseOptionalStringMap(parsed['pushedAt'], 'pushedAt')
   return {
     formatVersion: SESSION_SYNC_CURSOR_FORMAT_VERSION,
     deviceId: parsed['deviceId'],
@@ -71,6 +93,9 @@ export function parseCursorFile(raw: string): SessionSyncCursorFile {
     lastPullAt: parsed['lastPullAt'] as string | null,
     lastPushAt: parsed['lastPushAt'] as string | null,
     lastError: parsed['lastError'] as string | null,
+    rollingHashes: rollingHashes ?? {},
+    terminalErrors: terminalErrors ?? {},
+    pushedAt: pushedAt ?? {},
   }
 }
 
@@ -95,8 +120,14 @@ export async function writeCursorFile(
 ): Promise<void> {
   const path = resolveSessionSyncCursorPath(dshHome)
   const tmp = `${path}.${process.pid}.${randomUUID()}.tmp`
+  const serialized: SessionSyncCursorFile = {
+    ...next,
+    rollingHashes: next.rollingHashes ?? {},
+    terminalErrors: next.terminalErrors ?? {},
+    pushedAt: next.pushedAt ?? {},
+  }
   await mkdir(dirname(path), { recursive: true })
-  await writeFile(tmp, `${JSON.stringify(next, null, 2)}\n`, 'utf8')
+  await writeFile(tmp, `${JSON.stringify(serialized, null, 2)}\n`, 'utf8')
   try {
     await rename(tmp, path)
   } catch (error) {

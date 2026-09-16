@@ -32,11 +32,12 @@
 | `feat/session-sync-ecosystem` | `c1b788f` | 源码级吸收 dsh-session-sync；更新 work-platform 公开生态证据 | `docs/compose/spec/session-sync-ecosystem.md` |
 | `feat/session-sync-p1` | `4f6d251` | `enterprise.session.enabled` 可配；bootstrap `sessionPolicy` 读 `EnterpriseSessionProperties` | `docs/compose/spec/session-sync-p1.md` |
 | `feat/session-sync-p2a` | `feat/session-sync-p1` | `@dshent/session-sync` 骨架：游标原子存储 + disabled/idle 服务 + register 零副作用 | `docs/compose/spec/session-sync-p2a.md` |
+| `feat/session-sync-p2b` | `feat/session-sync-p2a` | P2b 上传链路：dirty/防抖/单 worker/切批/T16 batches/游标/终态（结构端口，无 bundle 接线） | `docs/compose/spec/session-sync-p2b.md` |
 
 **明确未做且被 V1 门禁钉住的：**
 
 - `bundle/src/index.ts` **不**导入/调用 session 同步（`bundle.spec` 仍 `not.toContain('enterpriseSessionSync')`）。  
-- 无 dirty queue、无 flush/readFrom、无 POST batches、无 restore UI、无 platform-client `/sessions/*` 本地 API。
+- 无 restore UI、无 platform-client `/sessions/*` 本地 API；上传端口尚未由 bundle 注入真实 ctx。
 
 ---
 
@@ -61,17 +62,17 @@ flowchart TB
   R5 --> R6
 ```
 
-### 3.1 P2b · 上传链路（下一步主路径）
+### 3.1 P2b · 上传链路（已交付于 `feat/session-sync-p2b`）
 
-| 项 | 规格（设计 §12.1 / §16.4） |
-|---|---|
-| 触发 | `session/event` 仅标 dirty；防抖 2s |
-| 读增量 | `sessions.flush` → `sessionPersistence.readFrom(id, lastAckSeq+1)` |
-| 线协议 | 首批 header + raw JSONL 字节 + `previousRollingHash` + `payloadSha256`；`POST /enterprise/api/v1/sessions/{id}/batches` |
-| 切批 | 遵守 bootstrap `sessionPolicy.maxBatchBytes` |
-| 终态 | `SEQ_GAP` / `DIVERGED` / `SOURCE_DEVICE_CONFLICT` / `FORMAT_UNSUPPORTED` / `CONTENT_EXPIRED` 不自动重试 |
-| 并发 | 同一 session 单 worker；dispose ≤3s 等在途 |
-| 阻塞 | **P2b 前必须** lock 一次 rc.2 `dsh-session` / `sessionPersistence` 真实公开方法名与签名 |
+| 项 | 规格（设计 §12.1 / §16.4） | 状态 |
+|---|---|---|
+| 触发 | `markDirty` / `session/event` 仅标 dirty；防抖 2s | 已交付 |
+| 读增量 | `sessions.flush` → `sessionPersistence.readFrom(id, lastAckSeq+1)` | 已交付（结构端口） |
+| 线协议 | 首批 header + raw JSONL + `previousRollingHash` + `payloadSha256`；`POST .../batches` | 已交付 |
+| 切批 | 遵守 bootstrap `sessionPolicy.maxBatchBytes` | 已交付 |
+| 终态 | SEQ_GAP / DIVERGED / SOURCE_DEVICE_CONFLICT / FORMAT_UNSUPPORTED / CONTENT_EXPIRED（+ BATCH_TOO_LARGE）不自动重试 | 已交付 |
+| 并发 | 同一 session 单 worker；dispose ≤3s 等在途 | 已交付 |
+| API lock | rc.2 `flush` / `readFrom` 签名已 lock 进结构端口 | 已完成 |
 
 **吸收纪律（见 ecosystem 文档）：** 写确认 fail-closed、日志先脱敏、危险操作白名单、auto 可逆、status/diff 只读体验——**不**抄 Git keep-both 合并。
 
@@ -126,7 +127,7 @@ flowchart TB
 |---|---|
 | 客户端是否已点亮？ | **否**。仅服务端开关 + 客户端骨架 + 文档。 |
 | 能否生产使用？ | **否**。无上传/恢复。 |
-| 下次从哪继续？ | 从 P2b：先 lock rc.2 Session API，再在 `@dshent/session-sync` 扩 `upload-worker`。 |
+| 下次从哪继续？ | P2c 恢复链路，或 P2d bundle 条件接线（把真实 `ctx.sessions` / `sessionPersistence` / `enterprisePlatform.request` 注入 `registerSessionSync`）。 |
 | 怎么恢复上下文？ | 读本文件 + `session-sync-p2a.md` + `session-sync-revival-decision.md` + `docs/ecosystem/dsh-session-sync-absorption.md`。 |
 
 ---

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 registerSessionSync 与 spy fetch
- * [OUTPUT]: 验证 enabled=false 零网络；enabled=true 为 idle 且不扫描 sessions
+ * [OUTPUT]: 验证 enabled=false 零网络；enabled=true 无 ports 时为 idle
  * [POS]: session-sync 开关语义测试
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -38,11 +38,11 @@ describe('registerSessionSync', () => {
     expect(service.getStatus().mode).toBe('disabled')
     expect(fetchSpy).not.toHaveBeenCalled()
     await expect(readdir(join(home, 'enterprise'))).rejects.toMatchObject({ code: 'ENOENT' })
-    dispose()
+    await dispose()
     expect(service.getStatus().mode).toBe('disabled')
   })
 
-  it('idles when enabled and does not call network', async () => {
+  it('idles when enabled without upload ports and does not call network', async () => {
     const home = await tempHome()
     const fetchSpy = vi.fn()
     vi.stubGlobal('fetch', fetchSpy)
@@ -54,9 +54,10 @@ describe('registerSessionSync', () => {
     })
 
     expect(service.getStatus().mode).toBe('idle')
-    await service['ensureCursors']()
+    expect(service.getStatus().ready).toBe(false)
+    await service.ensureCursors()
     expect(service.getStatus().deviceId).toBe('device-reg')
     expect(fetchSpy).not.toHaveBeenCalled()
-    dispose()
+    await dispose()
   })
 })
