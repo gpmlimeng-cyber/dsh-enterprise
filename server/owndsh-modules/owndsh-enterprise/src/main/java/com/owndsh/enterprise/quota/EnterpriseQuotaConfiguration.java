@@ -19,6 +19,7 @@ import com.owndsh.enterprise.quota.persistence.JdbcQuotaPolicyStore;
 import com.owndsh.enterprise.quota.persistence.JdbcQuotaRuntimeConfigStore;
 import com.owndsh.enterprise.quota.persistence.JdbcQuotaSubjectStore;
 import com.owndsh.enterprise.quota.persistence.JdbcQuotaWindowStore;
+import com.owndsh.enterprise.quota.persistence.JdbcUsageAnalyticsStore;
 import com.owndsh.enterprise.quota.persistence.JdbcUsageLedgerStore;
 import com.owndsh.enterprise.quota.persistence.JdbcUsageReservationStore;
 import com.owndsh.enterprise.quota.persistence.QuotaPolicyStore;
@@ -26,6 +27,7 @@ import com.owndsh.enterprise.quota.persistence.QuotaRuntimeConfigStore;
 import com.owndsh.enterprise.quota.persistence.QuotaSubjectStore;
 import com.owndsh.enterprise.quota.persistence.QuotaWindowStore;
 import com.owndsh.enterprise.quota.persistence.RedisQuotaRateLimiter;
+import com.owndsh.enterprise.quota.persistence.UsageAnalyticsStore;
 import com.owndsh.enterprise.quota.persistence.UsageLedgerStore;
 import com.owndsh.enterprise.quota.persistence.UsageReservationStore;
 import com.owndsh.enterprise.revision.BootstrapRevisionStore;
@@ -66,6 +68,11 @@ public class EnterpriseQuotaConfiguration {
     @Bean
     UsageLedgerStore enterpriseUsageLedgerStore(JdbcTemplate jdbcTemplate) {
         return new JdbcUsageLedgerStore(jdbcTemplate);
+    }
+
+    @Bean
+    UsageAnalyticsStore enterpriseUsageAnalyticsStore(JdbcTemplate jdbcTemplate) {
+        return new JdbcUsageAnalyticsStore(jdbcTemplate);
     }
 
     @Bean

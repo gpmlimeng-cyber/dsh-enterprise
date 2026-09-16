@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖用量、审计、插件库存 operation，console 权限、TanStack Query 与产品表格。
- * [OUTPUT]: 提供按 ent:* 权限裁剪的活动分段；实测 Token、配额扣额和未知用量独立展示。
+ * [OUTPUT]: 提供按 ent:* 权限裁剪的活动分段；用量分段内可切换分析与明细，实测 Token、配额扣额和未知用量独立展示。
  * [POS]: features/activity 的产品观测工作台；V1 只呈现用量、审计和插件运行异常。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -25,12 +25,16 @@ import type {
 import { SegmentedControl } from '@/components/atoms/SegmentedControl';
 import { StatusPill } from '@/components/atoms/StatusPill';
 import { ProductDataTable, type ProductTableColumn } from '@/components/product/DataTable';
+import { UsageAnalyticsPanel } from './usage-analytics-panel';
 
 const ACTIVITY_SECTIONS = [
   ['用量', 'ent:usage:read'],
   ['审计', 'ent:audit:read'],
   ['运行异常', 'ent:plugin:read']
 ] as const;
+
+const USAGE_VIEWS = ['分析', '明细'] as const;
+type UsageView = (typeof USAGE_VIEWS)[number];
 
 export type ActivitySection = (typeof ACTIVITY_SECTIONS)[number][0];
 
@@ -139,7 +143,8 @@ export function ActivityPage() {
   const { bootstrap } = useRouteContext({ from: '/_console' });
   const sections = activitySectionsFor(bootstrap.permissions);
   const [section, setSection] = useState<ActivitySection>(sections[0] ?? '用量');
-  const usage = useInfiniteQuery({ queryKey: ['activity', 'usage'], queryFn: ({ pageParam }) => loadUsage(pageParam), initialPageParam: undefined as string | undefined, getNextPageParam: nextCursor, enabled: section === '用量' });
+  const [usageView, setUsageView] = useState<UsageView>('分析');
+  const usage = useInfiniteQuery({ queryKey: ['activity', 'usage'], queryFn: ({ pageParam }) => loadUsage(pageParam), initialPageParam: undefined as string | undefined, getNextPageParam: nextCursor, enabled: section === '用量' && usageView === '明细' });
   const audit = useInfiniteQuery({ queryKey: ['activity', 'audit'], queryFn: ({ pageParam }) => loadAudit(pageParam), initialPageParam: undefined as string | undefined, getNextPageParam: nextCursor, enabled: section === '审计' });
   const runtimeErrors = useInfiniteQuery({ queryKey: ['activity', 'runtime-errors'], queryFn: ({ pageParam }) => loadRuntimeErrors(pageParam), initialPageParam: undefined as string | undefined, getNextPageParam: nextCursor, enabled: section === '运行异常' });
   const usageRows = useMemo(() => usage.data?.pages.flatMap((page) => page.items) ?? [], [usage.data]);
@@ -148,7 +153,14 @@ export function ActivityPage() {
     .filter((item) => item.state === 'FAILED' || item.lastErrorCode !== null) ?? [], [runtimeErrors.data]);
   const summary = usage.data?.pages[0]?.summary;
 
-  const table = section === '用量' ? <ProductDataTable ariaLabel="模型用量" columns={usageColumns} data={usageRows} emptyText="暂无模型用量" error={usage.error} filter={{ columnId: 'result', label: '全部结算状态', options: [{ label: '已实测', value: 'SETTLED' }, { label: '用量未知', value: 'CHARGED_MAX' }] }} getRowId={(row) => row.id} hasMore={usage.hasNextPage} isLoading={usage.isLoading} isLoadingMore={usage.isFetchingNextPage} onLoadMore={() => void usage.fetchNextPage()} onRetry={() => void usage.refetch()} searchPlaceholder="搜索成员、模型或 Request ID" toolbarAction={summary ? <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-ink-3"><span>{tokens(summary.requests)} 次</span><span>实测 {tokens(summary.totalTokens)} tokens</span><span>配额扣额 {tokens(summary.chargedTokens)}</span><span>用量未知 {tokens(summary.unmeasuredRequests)} 次</span></div> : undefined} />
+  const table = section === '用量' ? (
+    <div className="flex flex-col gap-4">
+      <SegmentedControl options={USAGE_VIEWS} value={usageView} onChange={setUsageView} />
+      {usageView === '分析' ? <UsageAnalyticsPanel /> : (
+        <ProductDataTable ariaLabel="模型用量" columns={usageColumns} data={usageRows} emptyText="暂无模型用量" error={usage.error} filter={{ columnId: 'result', label: '全部结算状态', options: [{ label: '已实测', value: 'SETTLED' }, { label: '用量未知', value: 'CHARGED_MAX' }] }} getRowId={(row) => row.id} hasMore={usage.hasNextPage} isLoading={usage.isLoading} isLoadingMore={usage.isFetchingNextPage} onLoadMore={() => void usage.fetchNextPage()} onRetry={() => void usage.refetch()} searchPlaceholder="搜索成员、模型或 Request ID" toolbarAction={summary ? <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-ink-3"><span>{tokens(summary.requests)} 次</span><span>实测 {tokens(summary.totalTokens)} tokens</span><span>配额扣额 {tokens(summary.chargedTokens)}</span><span>用量未知 {tokens(summary.unmeasuredRequests)} 次</span></div> : undefined} />
+      )}
+    </div>
+  )
     : section === '审计' ? <ProductDataTable ariaLabel="审计事件" columns={auditColumns} data={auditRows} emptyText="暂无审计事件" error={audit.error} filter={{ columnId: 'result', label: '全部结果', options: [{ label: '成功', value: 'SUCCESS' }, { label: '失败', value: 'FAILURE' }] }} getRowId={(row) => row.id} hasMore={audit.hasNextPage} isLoading={audit.isLoading} isLoadingMore={audit.isFetchingNextPage} onLoadMore={() => void audit.fetchNextPage()} onRetry={() => void audit.refetch()} searchPlaceholder="搜索动作、资源、原因或 Request ID" />
       : <ProductDataTable ariaLabel="关键运行异常" columns={runtimeErrorColumns} data={runtimeErrorRows} emptyText="暂无关键运行异常" error={runtimeErrors.error} getRowId={(row) => `${row.deviceId}:${row.packageName}`} hasMore={runtimeErrors.hasNextPage} isLoading={runtimeErrors.isLoading} isLoadingMore={runtimeErrors.isFetchingNextPage} onLoadMore={() => void runtimeErrors.fetchNextPage()} onRetry={() => void runtimeErrors.refetch()} searchPlaceholder="搜索成员、插件或错误码" />;
 

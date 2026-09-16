@@ -127,6 +127,8 @@ paths:
     $ref: './paths/quota.yaml#/MyUsage'
   /enterprise/admin/v1/usage:
     $ref: './paths/quota.yaml#/AdminUsage'
+  /enterprise/admin/v1/usage/analytics:
+    $ref: './paths/quota.yaml#/AdminUsageAnalytics'
   /enterprise/gateway/v1/chat/completions:
     $ref: './paths/gateway.yaml#/ChatCompletions'
   /enterprise/gateway/v1/responses:
@@ -364,6 +366,9 @@ x-enterprise-fixtures:
     valid: true
   - file: fixtures/usage-ledger-list-success.json
     schema: UsageLedgerListResponse
+    valid: true
+  - file: fixtures/usage-analytics-success.json
+    schema: UsageAnalyticsResponse
     valid: true
   - file: fixtures/gateway-request-success.json
     schema: NativeGatewayRequest
@@ -928,6 +933,13 @@ components:
     UsageSummary: {$ref: './components/quota.yaml#/UsageSummary'}
     UsageLedgerPageData: {$ref: './components/quota.yaml#/UsageLedgerPageData'}
     UsageLedgerListResponse: {$ref: './components/quota.yaml#/UsageLedgerListResponse'}
+    UsageAnalyticsTokens: {$ref: './components/quota.yaml#/UsageAnalyticsTokens'}
+    UsageAnalyticsSummary: {$ref: './components/quota.yaml#/UsageAnalyticsSummary'}
+    UsageAnalyticsDayPoint: {$ref: './components/quota.yaml#/UsageAnalyticsDayPoint'}
+    UsageAnalyticsModelRow: {$ref: './components/quota.yaml#/UsageAnalyticsModelRow'}
+    UsageAnalyticsMemberRow: {$ref: './components/quota.yaml#/UsageAnalyticsMemberRow'}
+    UsageAnalyticsData: {$ref: './components/quota.yaml#/UsageAnalyticsData'}
+    UsageAnalyticsResponse: {$ref: './components/quota.yaml#/UsageAnalyticsResponse'}
     GatewayModel: {$ref: './components/gateway.yaml#/GatewayModel'}
     NativeGatewayRequest: {$ref: './components/gateway.yaml#/NativeGatewayRequest'}
     EnterpriseUserId:
