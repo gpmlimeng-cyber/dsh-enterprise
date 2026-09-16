@@ -1,4 +1,4 @@
-# OwnDsh API 文档 · 中文文案叠加层
+# DSH Enterprise API 文档 · 中文文案叠加层
 #
 # 作用：契约是"机器真源"，本文件是"读者文案真源"。build-docs.mjs 在生成期按
 # operationId 覆盖契约里的 summary/description，并注入权限、写操作风险标记。

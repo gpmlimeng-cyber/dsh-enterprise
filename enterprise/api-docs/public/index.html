@@ -3,7 +3,7 @@
 [INPUT]: 依赖同源 /api-docs/enterprise-openapi.json（build-docs.mjs 生成）、自托管 ./scalar.standalone.js
          （@scalar/api-reference 1.68.0，sha256 见 vendor/*.sha256）、./theme.css 与 ./fonts/，
          以及 console 共用主题键 localStorage['bui-theme']。
-[OUTPUT]: 提供 OwnDsh API 文档门户宿主页：渲染 97 个操作、页脚浅/深主题切换（共用 'bui-theme' 键）、页脚展示协议指纹与生成时间。
+[OUTPUT]: 提供 DSH Enterprise API 文档门户宿主页：渲染 97 个操作、页脚浅/深主题切换（共用 'bui-theme' 键）、页脚展示协议指纹与生成时间。
           门户对公网完全公开且可索引；契约不含密钥或内网地址（servers 为相对路径）。
 [POS]: API 文档门户的唯一 HTML 入口；不承载业务逻辑，不做鉴权（鉴权在 nginx auth_request）。
 [PROTOCOL]: 变更时更新此头部，然后检查 设计方案.md §6.2 / §6.4
@@ -28,7 +28,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark light" />
     <meta name="robots" content="index, follow" />
-    <title>OwnDsh API 文档</title>
+    <title>DSH Enterprise API 文档</title>
     <link rel="stylesheet" href="./theme.css" />
   </head>
   <body>
@@ -37,7 +37,7 @@
     </main>
 
     <footer id="docs-footer">
-      <span id="footer-version">OwnDsh API</span>
+      <span id="footer-version">DSH Enterprise API</span>
       <span class="sep">·</span>
       <span>协议指纹 <code id="footer-protocol">读取中…</code></span>
       <span class="sep">·</span>
@@ -87,7 +87,7 @@
           orderSchemaPropertiesBy: 'preserve',
           // 隐藏 Scalar 自带的深色开关：主题统一由页脚控件控制（与帮助中心/控制台共用 'bui-theme'）
           hideDarkModeToggle: true,
-          metaData: { title: 'OwnDsh API 文档' }
+          metaData: { title: 'DSH Enterprise API 文档' }
         };
         window.__owndshScalar = { api: null };
 
@@ -196,7 +196,7 @@
           var spec = await response.json();
           var build = (spec.info && spec.info['x-owndsh-build']) || {};
           document.getElementById('footer-version').textContent =
-            (spec.info && spec.info.version ? 'OwnDsh API v' + spec.info.version : 'OwnDsh API') +
+            (spec.info && spec.info.version ? 'DSH Enterprise API v' + spec.info.version : 'DSH Enterprise API') +
             (build.commit ? ' (' + build.commit + ')' : '');
           document.getElementById('footer-protocol').textContent = build.protocolSha256
             ? String(build.protocolSha256).slice(0, 16) + '…'

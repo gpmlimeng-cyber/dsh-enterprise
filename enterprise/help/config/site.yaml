@@ -1,4 +1,4 @@
-# OwnDsh 帮助中心 · 站点地图真源
+# DSH Enterprise 帮助中心 · 站点地图真源
 #
 # 作用：build-help.mjs 的唯一导航与内容清单来源。左侧导航树、首页卡片、
 #      搜索索引、上/下一篇、"待撰写"统计全部由此文件驱动。
@@ -17,7 +17,7 @@
 version: 1
 
 site:
-  title: OwnDsh 帮助中心
+  title: DSH Enterprise 帮助中心
   basePath: /help/
   productVersion: 0.1.0
   sharedAssets: /opt/owndsh/docs-assets     # theme.css + fonts/，与 API 文档门户共用同一份源
@@ -189,11 +189,11 @@ sections:
         title: 员工接入总览：两条路怎么选
         file: content/user/overview.md
         order: 1
-        summary: OwnDsh Desktop（图形化）与官方 Harness 插件两条接入路径的取舍。
+        summary: DSH Enterprise Desktop（图形化）与官方 Harness 插件两条接入路径的取舍。
         sources: [README.md]
         status: draft
       - id: user-install-desktop
-        title: 使用 OwnDsh Desktop（无需 Node/pnpm）
+        title: 使用 DSH Enterprise Desktop（无需 Node/pnpm）
         file: content/user/install-desktop.md
         order: 2
         summary: 安装客户端、填写 Server 地址、登录即用。

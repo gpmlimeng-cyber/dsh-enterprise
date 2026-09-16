@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="color-scheme" content="dark light" />
 <meta name="robots" content="index, follow" />
-<title>员工常见问题 · OwnDsh 帮助中心</title>
+<title>员工常见问题 · DSH Enterprise 帮助中心</title>
 <link rel="stylesheet" href="/help/assets/theme.css" />
 <link rel="stylesheet" href="/help/assets/help.css" />
 <!-- 主题前导必须同步执行在 <head>，避免首帧闪烁；外置以满足 CSP script-src 'self' -->
@@ -13,7 +13,7 @@
 </head>
 <body>
 <header class="topbar">
-  <a class="brand" href="/help/"><span class="brand-mark">O</span>OwnDsh 帮助中心</a>
+  <a class="brand" href="/help/"><span class="brand-mark">O</span>DSH Enterprise 帮助中心</a>
   <div class="topbar-search">
     <input id="help-search" type="search" placeholder="搜索手册（⌘K）" aria-label="搜索手册" autocomplete="off" />
     <div id="help-search-results" class="search-results" hidden></div>
@@ -66,7 +66,7 @@ pnpm --version</code></pre></div>
 <blockquote>正常情况下重启会<strong>静默恢复</strong>登录。出现重新登录，通常是：</blockquote>
 <ul><li>启动的不是原来那个 profile；</li><li>该 profile 的官方 credentials provider 不可写（保存不下 Refresh Token）；</li><li>你主动退出过、切换过 Server 地址；</li><li>设备被撤销、成员被停用、或 30 天有效期到期。</li></ul>
 <h2 id="关于登录保持的几个事实">关于登录保持的几个事实<a class="anchor" href="#关于登录保持的几个事实" aria-label="锚点">#</a></h2>
-<ul><li>Server 地址与 Refresh Token 由 Harness Host 的官方 settings/credentials 服务持久化；</li><li><strong>Access Token 只存在 Host 内存</strong>，浏览器页面不会读取或保存它；</li><li>OwnDsh 闲置时不会建立常驻连接、不定时拉配置、不提前续期；有请求时按需续期，401 最多重试一次；</li><li>网络暂时不可达时凭据会保留，可再次发起请求，或在 OwnDsh 设置里手动刷新。</li></ul>
+<ul><li>Server 地址与 Refresh Token 由 Harness Host 的官方 settings/credentials 服务持久化；</li><li><strong>Access Token 只存在 Host 内存</strong>，浏览器页面不会读取或保存它；</li><li>DSH Enterprise 闲置时不会建立常驻连接、不定时拉配置、不提前续期；有请求时按需续期，401 最多重试一次；</li><li>网络暂时不可达时凭据会保留，可再次发起请求，或在 DSH Enterprise 设置里手动刷新。</li></ul>
 <h2 id="插件相关问题">插件相关问题<a class="anchor" href="#插件相关问题" aria-label="锚点">#</a></h2>
 <ul><li><strong>打开设置不会自动安装插件</strong>：企业插件需要你自己在 设置 → 插件 中选择安装；</li><li>只展示管理员<strong>已发布</strong>且<strong>对你可见</strong>的插件；</li><li>同一员工的多台设备各自独立选择，不互相同步；</li><li>安装后没生效：确认重启的是<strong>同一个 profile</strong>。</li></ul>
 <h2 id="相关">相关<a class="anchor" href="#相关" aria-label="锚点">#</a></h2>
@@ -74,7 +74,7 @@ pnpm --version</code></pre></div>
     </article>
     <nav class="pager"><a class="pager-prev" href="/help/user/install-plugin.html"><span>上一篇</span>为已有 Harness / 社区 Desktop 安装企业插件</a><span></span></nav>
     <footer class="page-footer">
-      <span>OwnDsh 帮助中心 · 内容版本 0.1.0</span>
+      <span>DSH Enterprise 帮助中心 · 内容版本 0.1.0</span>
       <span class="sep">·</span>
       <a href="/home/">产品官网</a>
       <span class="sep">·</span>

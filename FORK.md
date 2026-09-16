@@ -1,6 +1,10 @@
 # FORK.md — 脱钩策略与二开基线
 
-> 产品内部代号：**dshent**（对外品牌后定）。  
+> **产品命名（已定）**  
+> - 英文全称：**DSH Enterprise**  
+> - 中文全称：**DSH 企业版**  
+> - 简称：**DSH-Ent**  
+> - 技术前缀 / 内部代号：**dshent**  
 > 本文件是「不再与上游同步、完全自行二开」的制度真源。变更策略时先改这里。
 
 ## 1. 立场
@@ -10,7 +14,7 @@
 | 上游 | 历史来源：[boe1900/owndsh](https://github.com/boe1900/owndsh)（MIT），更深 vendored 源：[dromara/RuoYi-Vue-Plus](https://github.com/dromara/RuoYi-Vue-Plus) |
 | 同步 | **永不同步**。不设 upstream remote 的自动回流；不接受「跟一下上游最新」的隐式假设 |
 | 真源 | 本 monorepo 即唯一开发真源。`enterprise/` 为企业部署层与对外站点，与产品代码同仓 |
-| 品牌 | 阶段一用内部代号 **dshent** / DSH Enterprise；Java 包名、镜像名、控制台文案按下方清单渐进改名 |
+| 品牌 | **DSH Enterprise / DSH 企业版**，简称 **DSH-Ent**，技术前缀 **dshent**；Java 包名、表前缀按下方清单渐进改名 |
 | 许可 | 保持 MIT；必须保留 RuoYi-Vue-Plus / OwnDsh 版权行（见 `server/LICENSE` 与 `NOTICE`） |
 
 ## 2. 仓库形态（monorepo）
@@ -73,20 +77,23 @@ owndsh/                         # 工作区目录名暂保留；产品标识见 
 
 ## 6. 改名清单（渐进，非一次大爆炸）
 
-阶段一（本轮，标识层）：
+阶段一（已完成，标识层）：
 
 - 内部代号 / 文档统一称 **dshent** 或 **DSH Enterprise**
 - `NOTICE` / `FORK` / README 脱钩声明
 
-阶段二（构建与运行标识）：
+阶段二（本轮进行中，构建与运行标识）：
 
-| 位置 | 现状 | 目标 |
+| 位置 | 状态 | 值 |
 |---|---|---|
-| `OWNDSH_*` 环境变量 | `OWNDSH_HTTP_PORT` 等 | 可保留兼容，新增 `DSHENT_*` 别名或统一更名 |
-| 镜像名 | `ghcr.io/boe1900/owndsh-*` | 私有 registry / `dshent-*` |
-| Compose project | `owndsh` | `dshent` |
-| npm 插件名 | `owndsh-plugin` | 新 scope（需与 Harness 安装文档同步） |
-| 控制台品牌文案 | OwnDsh | DSH Enterprise |
+| 展示名 | ✅ | DSH Enterprise / DSH 企业版 / DSH-Ent |
+| Compose project 默认 | ✅ | `dshent`（`OWNDSH_COMPOSE_PROJECT_NAME` 可覆盖） |
+| 本地构建镜像默认 | ✅ | `dshent-server:0.1.0` / `dshent-console:0.1.0` |
+| 官网 / 帮助 / API 文档标题与免责 | ✅ | 已切换；站点 dist 需重新构建后生效 |
+| `OWNDSH_*` 环境变量名 | ⬜ 保留 | 仍兼容旧名；阶段三再评估 `DSHENT_*` 主前缀 |
+| 拉取用 GHCR 镜像 | ⬜ 暂保留 | `ghcr.io/boe1900/owndsh-*`；自有 registry 后再切 |
+| npm 插件名 `owndsh-plugin` | ⬜ 暂保留 | 员工安装命令会变，单独发版再改 |
+| 控制台 UI 字符串 OwnDsh 设置 | ⬜ | 源码侧文案随 console 镜像重建；部署层文档已用 DSH Enterprise 设置 |
 
 阶段三（代码标识，成本最高）：
 
@@ -96,6 +103,8 @@ owndsh/                         # 工作区目录名暂保留；产品标识见 
 | Maven `groupId` / artifactId | 与包名一并改 |
 | 前端 `@owndsh/*` 包与生成路径 | 与 contracts 生成脚本、plugin 工作区一并改 |
 | 表名前缀 `ent_` / 错误码 `ENT_*` | **可不改**（已是企业命名空间）；避免无收益的 DB 迁移 |
+| 环境变量主前缀 `OWNDSH_*` → `DSHENT_*` | 双读一段时间后删旧名 |
+| npm 包名与控制台侧栏文案 | 需同步安装文档与员工升级说明 |
 
 **原则**：二进制兼容与 DB 迁移成本高的标识最后改；文档与对外品牌可先改。
 

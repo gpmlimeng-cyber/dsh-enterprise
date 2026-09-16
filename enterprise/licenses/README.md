@@ -13,4 +13,4 @@
 说明：
 - 字体与图标文件随站点自托管，**不依赖任何外部 CDN**；
 - Scalar 渲染器同样自托管，构建期校验其 sha256（见 `api-docs/vendor/scalar.standalone.js.sha256`）；
-- OwnDsh 是独立项目，与 DeepSeek AI 或 Anywhere Labs 无隶属关系。
+- DSH Enterprise 是独立项目，与 DeepSeek AI 或 Anywhere Labs 无隶属关系。

@@ -353,7 +353,7 @@ async function build() {
   })();
   const generatedAt = new Date().toISOString();
 
-  spec.info.title = 'OwnDsh 企业管理平台 API';
+  spec.info.title = 'DSH Enterprise 企业管理平台 API';
   spec.info.description = [
     intro.trim(),
     `\n---\n\n### 错误码字典\n\n> 由契约 \`x-enterprise-error-statuses\` 的 ${contractCodes.size} 个稳定错误码自动生成。\n`,

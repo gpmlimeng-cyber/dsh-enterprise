@@ -1,4 +1,4 @@
-# OwnDsh 产品官网 · 站点真源
+# DSH Enterprise 产品官网 · 站点真源
 #
 # 作用：build.mjs 的唯一导航与页面清单来源；同时是 SEO 元数据与门禁规则的声明处。
 # 约定：
@@ -14,9 +14,12 @@
 version: 1
 
 site:
-  name: OwnDsh
+  name: DSH Enterprise
+  nameZh: DSH 企业版
+  shortName: DSH-Ent
+  techPrefix: dshent
   tagline: 把 Agent 的自由留给员工，把边界交给平台。
-  subtitle: DeepSeek Harness 的开源自托管团队控制面。
+  subtitle: DeepSeek Harness 的自托管团队控制面（独立产品，非官方）。
   defaultLocale: zh-CN
   locales: [zh-CN]            # P3 增加 en，路径前缀 /en/
   license: MIT
@@ -28,8 +31,9 @@ site:
   consoleBase: /
   compliance:
     disclaimer: >-
-      OwnDsh 是独立项目，与 DeepSeek AI 或 Anywhere Labs 无隶属关系。DeepSeek Harness 与 DSH Desktop
-      的名称、代码和商标归各自所有；OwnDsh 只通过公开插件扩展点集成。
+      DSH Enterprise（DSH 企业版）是独立项目，与 DeepSeek AI 或 Anywhere Labs 无隶属关系，
+      不是 DeepSeek 官方企业版。DeepSeek Harness 与 DSH Desktop 的名称、代码和商标归各自所有；
+      本产品只通过公开插件扩展点集成。
     links:
       - { label: 安全与合规, href: /security/ }
       - { label: 许可, href: https://github.com/boe1900/owndsh/blob/main/LICENSE }
@@ -55,7 +59,7 @@ pages:
   - id: home
     path: /
     audience: [developer, decision-maker, ops]
-    title: OwnDsh · DeepSeek Harness 的开源自托管团队控制面
+    title: DSH Enterprise · DeepSeek Harness 的自托管团队控制面
     description: 集中管理身份、模型与 API Key、访问授权、配额、插件、设备与审计，员工继续使用自己熟悉的 Harness 工作区。
     primaryCta: { label: 开始部署, href: /deploy/ }
     secondaryCta: { label: 看企业版, href: /enterprise/ }
@@ -99,7 +103,7 @@ pages:
       - id: value-points
         note: 4 个编号价值点 —— 统一身份 / 模型供给 / 成本额度 / 可追溯
       - id: before-after
-        note: ★ 痛点对照表：分散使用时 vs 接入 OwnDsh 后（全站最有说服力的一块）
+        note: ★ 痛点对照表：分散使用时 vs 接入 DSH Enterprise 后（全站最有说服力的一块）
       - id: scenarios
         note: SCALE 规模化推广 / GOVERN 合规与数据边界 / OPERATE 多部门多模型运营
       - id: delivery
@@ -115,7 +119,7 @@ pages:
   - id: deploy
     path: /deploy/
     audience: [developer, ops]
-    title: 部署与自托管 · OwnDsh
+    title: 部署与自托管 · DSH Enterprise
     description: Docker Compose 一条命令启动；环境要求、首次管理员初始化、升级、备份与离线交付包说明。
     primaryCta: { label: 查看部署命令, href: /deploy/#quickstart }
     indexable: true
@@ -141,8 +145,8 @@ pages:
   - id: download
     path: /download/
     audience: [employee]
-    title: 下载客户端 · OwnDsh
-    description: 下载 OwnDsh Desktop，或给已有 Harness 安装企业插件；含校验信息与安装说明。
+    title: 下载客户端 · DSH Enterprise
+    description: 下载 DSH Enterprise Desktop，或给已有 Harness 安装企业插件；含校验信息与安装说明。
     primaryCta: { label: 下载当前设备版本, href: /download/#platforms }
     indexable: true
     ogImage: /assets/shots/desktop.jpg
@@ -161,7 +165,7 @@ pages:
   - id: security
     path: /security/
     audience: [security, decision-maker, ops]
-    title: 安全与合规 · OwnDsh
+    title: 安全与合规 · DSH Enterprise
     description: 数据边界、密钥保管、同源会话与 CSRF 防线、审计与保留策略、许可与免责声明。
     primaryCta: { label: 查看技术边界, href: /security/#boundaries }
     indexable: true
@@ -185,7 +189,7 @@ pages:
   - id: about
     path: /about/
     audience: [developer, decision-maker]
-    title: 关于 OwnDsh · 开源、自托管的团队控制面
+    title: 关于 DSH Enterprise · 开源、自托管的团队控制面
     description: 项目定位、与 DeepSeek Harness 的关系、开源许可、参与贡献与联系方式。
     primaryCta: { label: 查看 GitHub, href: https://github.com/boe1900/owndsh }
     indexable: true
@@ -207,7 +211,7 @@ pages:
   - id: notfound
     path: /404.html
     audience: [all]
-    title: 页面不存在 · OwnDsh
+    title: 页面不存在 · DSH Enterprise
     description: 未找到该页面，返回官网首页。
     indexable: false
     sources: [website/404.html]

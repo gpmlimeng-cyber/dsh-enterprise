@@ -70,7 +70,7 @@ status: draft
 把这两样东西发给员工：
 
 1. **Server 地址**（必须是完整 HTTP(S) origin，不能带 API 路径）
-2. 让他们按《员工接入总览》选一条路：装 OwnDsh Desktop，或给已有 Harness 装企业插件
+2. 让他们按《员工接入总览》选一条路：装 DSH Enterprise Desktop，或给已有 Harness 装企业插件
 
 员工首次登录若被要求改密，是因为初始口令是一次性的——改完即可正常使用。
 

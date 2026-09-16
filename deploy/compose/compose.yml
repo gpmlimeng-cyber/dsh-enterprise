@@ -1,9 +1,9 @@
 # [INPUT]: 依赖带默认值的环境变量、PostgreSQL、Redis 与插件制品三个持久卷、可写临时目录与锁定 Linux amd64 镜像。
 # [OUTPUT]: 提供可覆盖镜像引用、admin 幂等初始化、强制外部注入 JWT/主密钥、应用日志仅写 stdout/stderr、HTTP Console、单 Server、PostgreSQL 17.6 和 Redis 7.4.5 拓扑。
-# [POS]: dshent 部署运行时事实源；不终止 TLS，PostgreSQL 创建数据库与账号，Server 内 Flyway 执行 V0 基础初始化及后续版本。公开弱密钥默认值已移除（FORK.md §5）。
+# [POS]: DSH Enterprise（dshent）部署运行时事实源；不终止 TLS，PostgreSQL 创建数据库与账号，Server 内 Flyway 执行 V0 基础初始化及后续版本。公开弱密钥默认值已移除（FORK.md §5）。
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 
-name: ${OWNDSH_COMPOSE_PROJECT_NAME:-owndsh}
+name: ${OWNDSH_COMPOSE_PROJECT_NAME:-dshent}
 
 services:
   postgres:

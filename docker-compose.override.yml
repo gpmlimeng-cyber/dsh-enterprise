@@ -7,7 +7,7 @@ services:
   # 基础镜像默认从 docker.io/library 读取；受限网络下由 .env 的 OWNDSH_BASE_IMAGE_REGISTRY 指向透明 registry mirror。
   # 构建上下文固定为仓库根，两个 Dockerfile 内的 COPY 路径（server/、console/、contracts/、deploy/nginx/）均相对该上下文。
   server:
-    image: ${OWNDSH_SERVER_LOCAL_IMAGE:-owndsh-server:0.1.0}
+    image: ${OWNDSH_SERVER_LOCAL_IMAGE:-dshent-server:0.1.0}
     build:
       context: .
       dockerfile: deploy/compose/Dockerfile.server
@@ -15,7 +15,7 @@ services:
         OWNDSH_BASE_IMAGE_REGISTRY: ${OWNDSH_BASE_IMAGE_REGISTRY:-docker.io/library}
 
   console:
-    image: ${OWNDSH_CONSOLE_LOCAL_IMAGE:-owndsh-console:0.1.0}
+    image: ${OWNDSH_CONSOLE_LOCAL_IMAGE:-dshent-console:0.1.0}
     build:
       context: .
       dockerfile: deploy/compose/Dockerfile.console
@@ -24,4 +24,4 @@ services:
 
   # 插件制品卷初始化复用已构建的 Server 镜像，避免再次拉取 GHCR。
   storage-init:
-    image: ${OWNDSH_SERVER_LOCAL_IMAGE:-owndsh-server:0.1.0}
+    image: ${OWNDSH_SERVER_LOCAL_IMAGE:-dshent-server:0.1.0}

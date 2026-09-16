@@ -1,28 +1,31 @@
 <!--
 [INPUT]: 依赖控制台品牌资源、可覆盖的容器镜像引用、根 Docker Compose、npm 插件、Harness profile 与本 fork 产品边界。
 [OUTPUT]: 提供品牌展示、Compose 自托管、管理员初始化、员工插件、更新、排障与静态官网发布入口。
-[POS]: 项目公开用户入口；产品标识见 FORK.md（内部代号 dshent），不再与上游 owndsh 同步。
+[POS]: DSH Enterprise（dshent）公开用户入口；见 FORK.md，不再与上游 owndsh 同步。
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md / FORK.md
 -->
 
-> **独立二开仓库**：本 monorepo 已与上游 [boe1900/owndsh](https://github.com/boe1900/owndsh) 脱钩，不再同步。  
-> 分叉策略、合规与改名计划见 [`FORK.md`](FORK.md)；第三方版权见 [`NOTICE`](NOTICE)。  
+> **独立二开仓库 · DSH Enterprise（DSH 企业版）**：已与上游 [boe1900/owndsh](https://github.com/boe1900/owndsh) 脱钩，不再同步。  
+> 分叉策略见 [`FORK.md`](FORK.md)；版权见 [`NOTICE`](NOTICE)。  
 > 本地起栈前：`cp .env.example .env && sh scripts/gen-secrets.sh`（并修改 DB/Redis 口令）。
 
 <div align="center">
 
-<img src="console/public/owndsh-whale-mono-m2-animated.png" alt="OwnDsh 动态小鲸鱼图标" width="128" height="128">
+<img src="console/public/owndsh-whale-mono-m2-animated.png" alt="DSH Enterprise 图标" width="128" height="128">
 
-<h1>OwnDsh</h1>
-<h2>OwnDsh · Truly Own Your DeepSeek-Harness.</h2>
+<h1>DSH Enterprise</h1>
+<h2>DSH Enterprise · Truly Own Your DeepSeek-Harness.</h2>
+<p><em>简称 DSH-Ent · 技术前缀 dshent</em></p>
 <p><em>The Self-Hosted Control Plane for DeepSeek-Harness.</em></p>
-<p>真正拥有属于你的 DeepSeek-Harness。<br>DeepSeek-Harness 的私有化控制面。</p>
+<p>DSH 企业版：真正拥有属于你的 DeepSeek-Harness。<br>DeepSeek-Harness 的私有化控制面。</p>
 
 </div>
 
-OwnDsh 是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的自托管团队控制面。管理员统一管理身份、模型、API Key、访问权限、配额、插件、设备和审计；员工继续在自己的 DSH Desktop 或 Harness Web 中工作。
+**DSH Enterprise（DSH 企业版，简称 DSH-Ent）** 是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的自托管团队控制面。管理员统一管理身份、模型、API Key、访问权限、配额、插件、设备和审计；员工继续在自己的 DSH Desktop 或 Harness Web 中工作。
 
-OwnDsh 不 fork 官方 Harness Web UI，不接管员工工作区，也不远程执行员工工具。员工可以安装标准 Harness 插件 `owndsh-plugin`，或使用预装插件和运行环境的 [OwnDsh Desktop](https://github.com/boe1900/owndsh-desktop)，客户端由独立仓库构建 macOS Intel、Apple Silicon 与 Windows x64 安装包。
+DSH Enterprise 不 fork 官方 Harness Web UI，不接管员工工作区，也不远程执行员工工具。员工可以安装标准 Harness 插件（当前 npm 包名仍为 `owndsh-plugin`，阶段三评估更名），或使用预装插件和运行环境的 Desktop 客户端。
+
+> **独立产品声明**：DSH Enterprise 是独立项目，与 DeepSeek AI 无隶属关系，**不是** DeepSeek 官方企业版。
 
 > 当前处于预发布阶段。Docker 镜像只发布 `next`，npm 插件只发布 `next`，不会更新 `latest`。
 
@@ -48,15 +51,16 @@ cd owndsh
 docker compose up -d --wait
 ```
 
-默认访问 [http://localhost:8080](http://localhost:8080)，初始账号 `admin`，密码 `owndsh`。第一次登录会强制设置符合安全策略的正式密码。数据库与账号由 PostgreSQL 创建，全部建表、种子数据和后续升级由 Server 内置 Flyway 自动执行，无需额外 SQL 文件。
+默认访问 [http://localhost:8080](http://localhost:8080)。引导管理员账号默认 `admin`，口令在 `.env` 的 `ENT_BOOTSTRAP_ADMIN_PASSWORD` 中配置；第一次登录会强制改密。数据库与账号由 PostgreSQL 创建，全部建表、种子数据和后续升级由 Server 内置 Flyway 自动执行。
 
-需要让其他设备访问或覆盖默认凭据时，再创建 `.env`：
+需要让其他设备访问或覆盖默认凭据时，创建 `.env`：
 
 ```sh
 cp .env.example .env
+sh scripts/gen-secrets.sh
 ```
 
-OwnDsh 只有一个公开地址配置。默认由 Compose 生成为 `http://localhost:8080`；需要让局域网设备访问时，把它改成部署机的实际 IP 和发布端口，例如：
+DSH Enterprise 只有一个公开地址配置。默认由 Compose 生成为 `http://localhost:8080`；需要让局域网设备访问时，把它改成部署机的实际 IP 和发布端口，例如：
 
 ```dotenv
 ENT_PUBLIC_BASE_URL=http://192.168.1.50:8080
@@ -64,15 +68,19 @@ ENT_PUBLIC_BASE_URL=http://192.168.1.50:8080
 
 其中 `192.168.1.50` 替换为运行 Docker Compose 的机器 IP；若修改 `OWNDSH_HTTP_PORT`，这里使用相同端口。管理端回调会自动派生为 `<ENT_PUBLIC_BASE_URL>/enterprise/auth/callback`，不需要单独配置。
 
-生产环境应由现有 Nginx、Ingress 或负载均衡提供可信 HTTPS，并把这个值改成外部 HTTPS 地址。OwnDsh Compose 只开放 Console 的 HTTP 端口，不直接管理证书。`.env.example` 中的数据库、Redis、JWT、master key 是开箱测试默认值；公网部署必须通过同名环境变量覆盖。
+生产环境应由现有 Nginx、Ingress 或负载均衡提供可信 HTTPS，并把这个值改成外部 HTTPS 地址。DSH Enterprise Compose 只开放 Console 的 HTTP 端口，不直接管理证书。**JWT 与 master key 在 `.env.example` 中为空，必须先执行 `sh scripts/gen-secrets.sh` 或外部注入，否则 Compose 拒绝启动**（见 `FORK.md` §5）；数据库与 Redis 口令同样不得在公网使用示例值。
 
-### 2. 可选：设置初始密码
+### 2. 生成密钥并设置初始密码
 
-Compose 默认使用下面的一次性管理员账号和密码；创建 `.env` 后可以自由修改：
+```sh
+cp .env.example .env
+sh scripts/gen-secrets.sh
+# 编辑 .env：填写 DB/Redis 口令与引导管理员口令
+```
 
 ```dotenv
 ENT_BOOTSTRAP_ADMIN_USERNAME=admin
-ENT_BOOTSTRAP_ADMIN_PASSWORD=owndsh
+ENT_BOOTSTRAP_ADMIN_PASSWORD=<一次性口令>
 ```
 
 第一次登录会强制设置符合安全策略的正式密码。
@@ -96,13 +104,13 @@ Server 日志仅输出到 stdout/stderr，由 Docker/K8s 与日志平台采集�
 3. 创建模型集，并向全部成员、用户组或指定成员授权。
 4. 按需配置 Token 配额、RPM 和并发限制。
 5. 按需上传、发布企业插件，并设置对全部或指定成员可见。
-6. 邀请员工安装 OwnDsh 并登录；企业插件由员工在市场自行选择安装。
+6. 邀请员工安装 DSH Enterprise 并登录；企业插件由员工在市场自行选择安装。
 
-员工设备不会得到供应商 API Key；每次模型请求都由 OwnDsh 网关重新校验身份、授权和额度。
+员工设备不会得到供应商 API Key；每次模型请求都由 DSH Enterprise 网关重新校验身份、授权和额度。
 
 ## 安装员工插件
 
-使用独立仓库构建的 OwnDsh Desktop 时，直接打开应用并填写 Server 地址即可，无需另装 Node、pnpm 或插件。下面的命令用于已有 Harness/社区 Desktop 的设备。
+使用独立仓库构建的 DSH Enterprise Desktop 时，直接打开应用并填写 Server 地址即可，无需另装 Node、pnpm 或插件。下面的命令用于已有 Harness/社区 Desktop 的设备。
 
 先确保 `pnpm` 是 PATH 中可直接执行的命令。Harness 当前基线使用 pnpm `11.7.0`：
 
@@ -130,13 +138,13 @@ pnpm --dir /path/to/deepseek-harness dsh \
   plugin --profile web add --ignore-scripts owndsh-plugin@next
 ```
 
-安装完成后重启对应 profile。OwnDsh 全屏页面会要求填写管理员提供的 OwnDsh Server HTTP(S) 地址；保存后完成企业登录即可使用管理员授权的模型。
+安装完成后重启对应 profile。DSH Enterprise 全屏页面会要求填写管理员提供的 DSH Enterprise Server HTTP(S) 地址；保存后完成企业登录即可使用管理员授权的模型。
 
 Server 地址和 Refresh Token 由 Harness Host 的官方 settings/credentials 服务持久化。Access Token 只存在 Host 内存，浏览器页面不会读取或保存 Token；正常重启会静默恢复登录。主动退出、设备撤销、成员停用、改密或 30 天有效期结束后需要重新登录。
 
-「OwnDsh 设置 → 插件」展示管理员发布且对本人可见的插件，支持搜索、详情、自主安装、更新和卸载。打开设置或刷新不会安装插件；其他设备独立选择。服务端签名（`ENT_PLUGIN_SIGNING_ENABLED=false`）和客户端验签（`verifyPluginSignatures=false`）默认关闭，无需配置公私钥；大小、SHA-256、兼容性和下载权限仍会校验。需要验签时可开启 `verifyPluginSignatures` 并配置部署专属公钥，详见[信任配置](plugin/packages/plugin-distribution/README.md)。从旧版迁移时必须更新员工 OwnDsh 插件，仅更新后台无法改变旧客户端的公钥要求或自动安装行为。
+「DSH Enterprise 设置 → 插件」展示管理员发布且对本人可见的插件，支持搜索、详情、自主安装、更新和卸载。打开设置或刷新不会安装插件；其他设备独立选择。服务端签名（`ENT_PLUGIN_SIGNING_ENABLED=false`）和客户端验签（`verifyPluginSignatures=false`）默认关闭，无需配置公私钥；大小、SHA-256、兼容性和下载权限仍会校验。需要验签时可开启 `verifyPluginSignatures` 并配置部署专属公钥，详见[信任配置](plugin/packages/plugin-distribution/README.md)。从旧版迁移时必须更新员工 DSH Enterprise 插件，仅更新后台无法改变旧客户端的公钥要求或自动安装行为。
 
-OwnDsh 闲置时不建立企业 SSE、不定时拉配置或提前续期。用户请求时按需续期，服务端认证 401 最多续期重试一次；Refresh Token 失效或设备撤销时显示登录门禁，重新登录后可继续对话。网络暂不可达保留凭据，可再次发起请求或在 OwnDsh 设置点击刷新；模型与插件目录在打开设置或主动刷新时更新。
+DSH Enterprise 闲置时不建立企业 SSE、不定时拉配置或提前续期。用户请求时按需续期，服务端认证 401 最多续期重试一次；Refresh Token 失效或设备撤销时显示登录门禁，重新登录后可继续对话。网络暂不可达保留凭据，可再次发起请求或在 DSH Enterprise 设置点击刷新；模型与插件目录在打开设置或主动刷新时更新。
 
 ## 更新
 
@@ -190,4 +198,4 @@ dsh plugin --profile web add --ignore-scripts owndsh-plugin@next
 
 ## 上游与声明
 
-OwnDsh 是独立项目，不隶属于 DeepSeek AI 或 Anywhere Labs。DeepSeek Harness 与 DSH Desktop 的名称、代码和商标归各自所有；OwnDsh 只通过公开插件扩展点集成。
+DSH Enterprise 是独立项目，不隶属于 DeepSeek AI 或 Anywhere Labs。DeepSeek Harness 与 DSH Desktop 的名称、代码和商标归各自所有；DSH Enterprise 只通过公开插件扩展点集成。

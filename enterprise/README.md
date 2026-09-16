@@ -114,7 +114,7 @@ git add -A && git commit -m "docs: …" && git push
 
 ## 许可
 
-本仓库内容用于部署 OwnDsh（上游 MIT）。第三方组件许可见 [`licenses/`](licenses/)：
+本仓库内容用于部署 DSH Enterprise（上游 MIT）。第三方组件许可见 [`licenses/`](licenses/)：
 Scalar API Reference（MIT）、Inter 与 JetBrains Mono 字体（SIL OFL 1.1）、Lucide 图标（ISC）。
-OwnDsh 是独立项目，与 DeepSeek AI 或 Anywhere Labs 无隶属关系；DeepSeek Harness 与 DSH Desktop
+DSH Enterprise 是独立项目，与 DeepSeek AI 或 Anywhere Labs 无隶属关系；DeepSeek Harness 与 DSH Desktop
 的名称、代码与商标归各自所有。

@@ -1,6 +1,6 @@
-# OwnDsh 企业管理平台 API
+# DSH Enterprise 企业管理平台 API
 
-OwnDsh 是面向企业的 Agent 治理平台。本页是平台 HTTP 协议的唯一对外说明，**由契约 `contracts/enterprise-openapi.yaml` 在构建期自动生成**——接口、字段、错误码均与线上服务同版，不存在"文档写的是旧版"的情况。页脚展示的协议指纹可用于与线上代码逐字核对。
+DSH Enterprise（DSH 企业版）是面向企业的 Agent 治理平台。本页是平台 HTTP 协议的唯一对外说明，**由契约 `contracts/enterprise-openapi.yaml` 在构建期自动生成**——接口、字段、错误码均与线上服务同版，不存在"文档写的是旧版"的情况。页脚展示的协议指纹可用于与线上代码逐字核对。
 
 - **接口规模**：4 个命名空间、97 个操作、230 个数据模型、42 个稳定错误码
 - **协议版本**：`0.1.0`（OpenAPI 3.1）

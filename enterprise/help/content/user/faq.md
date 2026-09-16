@@ -59,8 +59,8 @@ pnpm --version
 
 - Server 地址与 Refresh Token 由 Harness Host 的官方 settings/credentials 服务持久化；
 - **Access Token 只存在 Host 内存**，浏览器页面不会读取或保存它；
-- OwnDsh 闲置时不会建立常驻连接、不定时拉配置、不提前续期；有请求时按需续期，401 最多重试一次；
-- 网络暂时不可达时凭据会保留，可再次发起请求，或在 OwnDsh 设置里手动刷新。
+- DSH Enterprise 闲置时不会建立常驻连接、不定时拉配置、不提前续期；有请求时按需续期，401 最多重试一次；
+- 网络暂时不可达时凭据会保留，可再次发起请求，或在 DSH Enterprise 设置里手动刷新。
 
 ## 插件相关问题
 

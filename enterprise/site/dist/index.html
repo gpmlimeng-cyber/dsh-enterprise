@@ -11,13 +11,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
     <meta name="robots" content="index, follow" />
-    <title>OwnDsh · DeepSeek Harness 的开源自托管团队控制面</title>
+    <title>DSH Enterprise · DeepSeek Harness 的自托管团队控制面</title>
     <meta name="description" content="集中管理身份、模型与 API Key、访问授权、配额、插件、设备与审计，员工继续使用自己熟悉的 Harness 工作区。" />
     <link rel="canonical" href="http://62.234.16.179/home/" />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="zh_CN" />
-    <meta property="og:site_name" content="OwnDsh" />
-    <meta property="og:title" content="OwnDsh · DeepSeek Harness 的开源自托管团队控制面" />
+    <meta property="og:site_name" content="DSH Enterprise" />
+    <meta property="og:title" content="DSH Enterprise · DeepSeek Harness 的自托管团队控制面" />
     <meta property="og:description" content="集中管理身份、模型与 API Key、访问授权、配额、插件、设备与审计，员工继续使用自己熟悉的 Harness 工作区。" />
     <meta property="og:url" content="http://62.234.16.179/home/" />
     <meta property="og:image" content="http://62.234.16.179/assets/shots/console.jpg" />
@@ -28,7 +28,7 @@
     <link rel="stylesheet" href="/home/assets/theme.css" />
     <link rel="stylesheet" href="/home/assets/site.css" />
     <script src="/home/assets/theme-boot.js"></script>
-    <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"OwnDsh","applicationCategory":"DeveloperApplication","operatingSystem":"Docker (Linux amd64)","description":"集中管理身份、模型与 API Key、访问授权、配额、插件、设备与审计，员工继续使用自己熟悉的 Harness 工作区。","license":"https://opensource.org/licenses/MIT","offers":{"@type":"Offer","price":"0","priceCurrency":"CNY"},"sameAs":["https://github.com/boe1900/owndsh"]}</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"DSH Enterprise","applicationCategory":"DeveloperApplication","operatingSystem":"Docker (Linux amd64)","description":"集中管理身份、模型与 API Key、访问授权、配额、插件、设备与审计，员工继续使用自己熟悉的 Harness 工作区。","license":"https://opensource.org/licenses/MIT","offers":{"@type":"Offer","price":"0","priceCurrency":"CNY"},"sameAs":["https://github.com/boe1900/owndsh"]}</script>
   </head>
   <body>
     <!--
@@ -40,7 +40,7 @@
 <header class="topbar">
   <a class="brand" href="/home/">
     <img src="/home/assets/brand/whale-animated.png" alt="" width="24" height="24" />
-    <span>OwnDsh</span>
+    <span>DSH Enterprise</span>
   </a>
 
   <button type="button" class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="展开导航">
@@ -83,7 +83,7 @@
           <p class="eyebrow">OPEN SOURCE · SELF-HOSTED CONTROL PLANE</p>
           <h1>把 Agent 的自由留给员工，把边界交给平台。</h1>
           <p class="lead">
-            OwnDsh 是 DeepSeek Harness 的开源自托管团队控制面：集中管理身份、模型与 API Key、访问授权、配额、
+            DSH Enterprise 是 DeepSeek Harness 的开源自托管团队控制面：集中管理身份、模型与 API Key、访问授权、配额、
             插件、设备与审计，员工继续使用自己熟悉的 Harness 工作区。
           </p>
           <div class="hero-actions">
@@ -114,8 +114,8 @@
 
           <figure class="shot">
             <img src="/home/assets/shots/console.jpg" width="1600" height="1000"
-                 alt="OwnDsh 控制台：左侧为模型、访问策略、插件、成员、活动记录五个入口" loading="lazy" />
-            <figcaption>OwnDsh 控制台 · 模型页（真实界面）</figcaption>
+                 alt="DSH Enterprise 控制台：左侧为模型、访问策略、插件、成员、活动记录五个入口" loading="lazy" />
+            <figcaption>DSH Enterprise 控制台 · 模型页（真实界面）</figcaption>
           </figure>
 
           <div class="grid grid-4">
@@ -192,7 +192,7 @@
 
           <div class="note note-tip">
             <strong>接入方式</strong>
-            <span>员工可以下载 OwnDsh Desktop（预装插件与运行环境），也可以给已有的官方 Harness / 社区 Desktop 安装企业插件。</span>
+            <span>员工可以下载 DSH Enterprise Desktop（预装插件与运行环境），也可以给已有的官方 Harness / 社区 Desktop 安装企业插件。</span>
           </div>
         </div>
       </section>
@@ -221,7 +221,7 @@
     </main>
 
     <!--
-[INPUT]: 依赖 config/site.yaml 的 site/compliance 段（构建期替换 OwnDsh/MIT/https://github.com/boe1900/owndsh/https://www.deepseek.com/harness//>-）。
+[INPUT]: 依赖 config/site.yaml 的 site/compliance 段（构建期替换 DSH Enterprise/MIT/https://github.com/boe1900/owndsh/https://www.deepseek.com/harness//>-）。
 [OUTPUT]: 全站页脚：产品与文档分组链接、语言占位、许可、免责声明、版权。
 [POS]: partials 的页脚片段；由 build.mjs 注入每个页面尾部的 inject:footer 占位（占位写法在此不写完整注释标记，避免嵌套闭合）。
 [PROTOCOL]: 变更时更新此头部，然后检查 设计方案.md §9 / §14
@@ -230,8 +230,8 @@
   <div class="footer-grid">
     <div class="footer-brand">
       <img src="/home/assets/brand/whale-animated.png" alt="" width="28" height="28" />
-      <p class="footer-name">OwnDsh</p>
-      <p class="footer-tag">DeepSeek Harness 的开源自托管团队控制面。</p>
+      <p class="footer-name">DSH Enterprise</p>
+      <p class="footer-tag">DSH Enterprise · DeepSeek Harness 的自托管团队控制面（独立产品）。</p>
     </div>
 
     <nav class="footer-col" aria-label="产品">
@@ -264,7 +264,7 @@
   <div class="footer-meta">
     <span>MIT License</span>
     <span class="sep">·</span>
-    <span>© 2026 OwnDsh</span>
+    <span>© 2026 DSH Enterprise</span>
     <span class="sep">·</span>
     <span>本站为产品官网，控制台与文档入口见上方「文档与代码」</span>
   </div>

@@ -1,4 +1,4 @@
-# OwnDsh API 文档 · 分组与导航配置
+# DSH Enterprise API 文档 · 分组与导航配置
 #
 # 契约（contracts/enterprise-openapi.yaml）本身没有 tags / servers，
 # 本文件是"面向读者的信息架构真源"：由 build-docs.mjs 在生成期注入

@@ -11,13 +11,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
     <meta name="robots" content="index, follow" />
-    <title>安全与合规 · OwnDsh</title>
+    <title>安全与合规 · DSH Enterprise</title>
     <meta name="description" content="数据边界、密钥保管、同源会话与 CSRF 防线、审计与保留策略、许可与免责声明。" />
     <link rel="canonical" href="http://62.234.16.179/home/security/" />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="zh_CN" />
-    <meta property="og:site_name" content="OwnDsh" />
-    <meta property="og:title" content="安全与合规 · OwnDsh" />
+    <meta property="og:site_name" content="DSH Enterprise" />
+    <meta property="og:title" content="安全与合规 · DSH Enterprise" />
     <meta property="og:description" content="数据边界、密钥保管、同源会话与 CSRF 防线、审计与保留策略、许可与免责声明。" />
     <meta property="og:url" content="http://62.234.16.179/home/security/" />
     <meta property="og:image" content="http://62.234.16.179/assets/shots/console.jpg" />
@@ -28,7 +28,7 @@
     <link rel="stylesheet" href="/home/assets/theme.css" />
     <link rel="stylesheet" href="/home/assets/site.css" />
     <script src="/home/assets/theme-boot.js"></script>
-    <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"OwnDsh","applicationCategory":"DeveloperApplication","operatingSystem":"Docker (Linux amd64)","description":"数据边界、密钥保管、同源会话与 CSRF 防线、审计与保留策略、许可与免责声明。","license":"https://opensource.org/licenses/MIT","offers":{"@type":"Offer","price":"0","priceCurrency":"CNY"},"sameAs":["https://github.com/boe1900/owndsh"]}</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"DSH Enterprise","applicationCategory":"DeveloperApplication","operatingSystem":"Docker (Linux amd64)","description":"数据边界、密钥保管、同源会话与 CSRF 防线、审计与保留策略、许可与免责声明。","license":"https://opensource.org/licenses/MIT","offers":{"@type":"Offer","price":"0","priceCurrency":"CNY"},"sameAs":["https://github.com/boe1900/owndsh"]}</script>
   </head>
   <body>
     <!--
@@ -40,7 +40,7 @@
 <header class="topbar">
   <a class="brand" href="/home/">
     <img src="/home/assets/brand/whale-animated.png" alt="" width="24" height="24" />
-    <span>OwnDsh</span>
+    <span>DSH Enterprise</span>
   </a>
 
   <button type="button" class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="展开导航">
@@ -195,11 +195,11 @@
           <div class="grid grid-2" style="margin-top:24px">
             <div class="card">
               <h3>开源许可</h3>
-              <p>OwnDsh 以 MIT 许可开源；字体与图标遵循各自上游许可（仓库内含许可证副本）。</p>
+              <p>DSH Enterprise 以 MIT 许可开源；字体与图标遵循各自上游许可（仓库内含许可证副本）。</p>
             </div>
             <div class="card">
               <h3>商标与隶属关系</h3>
-              <p>OwnDsh 是独立项目，与 DeepSeek AI 或 Anywhere Labs 无隶属关系。DeepSeek Harness 与 DSH Desktop 的名称、代码与商标归各自所有；OwnDsh 仅通过公开插件扩展点集成。</p>
+              <p>DSH Enterprise 是独立项目，与 DeepSeek AI 或 Anywhere Labs 无隶属关系。DeepSeek Harness 与 DSH Desktop 的名称、代码与商标归各自所有；DSH Enterprise 仅通过公开插件扩展点集成。</p>
             </div>
           </div>
 
@@ -212,7 +212,7 @@
     </main>
 
     <!--
-[INPUT]: 依赖 config/site.yaml 的 site/compliance 段（构建期替换 OwnDsh/MIT/https://github.com/boe1900/owndsh/https://www.deepseek.com/harness//>-）。
+[INPUT]: 依赖 config/site.yaml 的 site/compliance 段（构建期替换 DSH Enterprise/MIT/https://github.com/boe1900/owndsh/https://www.deepseek.com/harness//>-）。
 [OUTPUT]: 全站页脚：产品与文档分组链接、语言占位、许可、免责声明、版权。
 [POS]: partials 的页脚片段；由 build.mjs 注入每个页面尾部的 inject:footer 占位（占位写法在此不写完整注释标记，避免嵌套闭合）。
 [PROTOCOL]: 变更时更新此头部，然后检查 设计方案.md §9 / §14
@@ -221,8 +221,8 @@
   <div class="footer-grid">
     <div class="footer-brand">
       <img src="/home/assets/brand/whale-animated.png" alt="" width="28" height="28" />
-      <p class="footer-name">OwnDsh</p>
-      <p class="footer-tag">DeepSeek Harness 的开源自托管团队控制面。</p>
+      <p class="footer-name">DSH Enterprise</p>
+      <p class="footer-tag">DSH Enterprise · DeepSeek Harness 的自托管团队控制面（独立产品）。</p>
     </div>
 
     <nav class="footer-col" aria-label="产品">
@@ -255,7 +255,7 @@
   <div class="footer-meta">
     <span>MIT License</span>
     <span class="sep">·</span>
-    <span>© 2026 OwnDsh</span>
+    <span>© 2026 DSH Enterprise</span>
     <span class="sep">·</span>
     <span>本站为产品官网，控制台与文档入口见上方「文档与代码」</span>
   </div>

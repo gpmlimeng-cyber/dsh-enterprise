@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 ./theme.css 提供的 OwnDsh 设计令牌（--page/--canvas/--ink/--line/--hover、.dark 覆盖）
+ * [INPUT]: 依赖 ./theme.css 提供的 DSH Enterprise 设计令牌（--page/--canvas/--ink/--line/--hover、.dark 覆盖）
  *          与自托管字体（Inter Variable / JetBrains Mono Variable）。
  * [OUTPUT]: 帮助中心的文档布局：顶栏、左侧导航、正文排版、三种提示框、代码块与复制行、表格、页脚、本页目录、响应式。
  * [POS]: 帮助中心唯一的布局样式层；只做布局与排版，令牌全部来自共享 theme.css（与 API 文档门户同源）。

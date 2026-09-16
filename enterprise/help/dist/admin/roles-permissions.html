@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="color-scheme" content="dark light" />
 <meta name="robots" content="index, follow" />
-<title>角色与权限矩阵 · OwnDsh 帮助中心</title>
+<title>角色与权限矩阵 · DSH Enterprise 帮助中心</title>
 <link rel="stylesheet" href="/help/assets/theme.css" />
 <link rel="stylesheet" href="/help/assets/help.css" />
 <!-- 主题前导必须同步执行在 <head>，避免首帧闪烁；外置以满足 CSP script-src 'self' -->
@@ -13,7 +13,7 @@
 </head>
 <body>
 <header class="topbar">
-  <a class="brand" href="/help/"><span class="brand-mark">O</span>OwnDsh 帮助中心</a>
+  <a class="brand" href="/help/"><span class="brand-mark">O</span>DSH Enterprise 帮助中心</a>
   <div class="topbar-search">
     <input id="help-search" type="search" placeholder="搜索手册（⌘K）" aria-label="搜索手册" autocomplete="off" />
     <div id="help-search-results" class="search-results" hidden></div>
@@ -49,7 +49,7 @@
     </div>
     <article class="prose">
 <h1 id="角色与权限矩阵">角色与权限矩阵<a class="anchor" href="#角色与权限矩阵" aria-label="锚点">#</a></h1>
-<blockquote>OwnDsh 的控制台权限是<strong>固定角色 + <code>ent:*</code> 权限码</strong>，没有可自由编排的权限树或菜单树。 一个人能否看到某个菜单、能否调用某个接口，只取决于<strong>他的角色聚合出的权限码集合</strong>。</blockquote>
+<blockquote>DSH Enterprise 的控制台权限是<strong>固定角色 + <code>ent:*</code> 权限码</strong>，没有可自由编排的权限树或菜单树。 一个人能否看到某个菜单、能否调用某个接口，只取决于<strong>他的角色聚合出的权限码集合</strong>。</blockquote>
 <aside class="callout callout-tip"><span class="callout-label">提示</span><p>下表的权限码来自<strong>运行中的实例</strong>（内置角色与权限不可随意修改），由文档构建期从数据库读出， 因此它反映的是&quot;你此刻这套系统&quot;的真实配置，而不是设计稿。</p></aside>
 <div class="table-wrap"><table class="matrix">
 <thead><tr><th>角色</th><th>数量</th><th title="ent:audit:read"><code>audit:read</code></th><th title="ent:device:read"><code>device:read</code></th><th title="ent:device:revoke"><code>device:revoke</code></th><th title="ent:grant:read"><code>grant:read</code></th><th title="ent:grant:write"><code>grant:write</code></th><th title="ent:identity:read"><code>identity:read</code></th><th title="ent:identity:write"><code>identity:write</code></th><th title="ent:member:read"><code>member:read</code></th><th title="ent:member:write"><code>member:write</code></th><th title="ent:model:read"><code>model:read</code></th><th title="ent:model:write"><code>model:write</code></th><th title="ent:plugin:read"><code>plugin:read</code></th><th title="ent:plugin:write"><code>plugin:write</code></th><th title="ent:session:content:read"><code>session:content:read</code></th><th title="ent:session:delete"><code>session:delete</code></th><th title="ent:session:read"><code>session:read</code></th><th title="ent:usage:read"><code>usage:read</code></th></tr></thead>
@@ -74,7 +74,7 @@
     </article>
     <nav class="pager"><a class="pager-prev" href="/help/admin/quickstart.html"><span>上一篇</span>快速开始：30 分钟让企业可用</a><span></span></nav>
     <footer class="page-footer">
-      <span>OwnDsh 帮助中心 · 内容版本 0.1.0</span>
+      <span>DSH Enterprise 帮助中心 · 内容版本 0.1.0</span>
       <span class="sep">·</span>
       <a href="/home/">产品官网</a>
       <span class="sep">·</span>
