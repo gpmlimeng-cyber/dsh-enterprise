@@ -159,7 +159,7 @@ class QuotaManagementIntegrationTest {
             List.of(),
             resolver.resolve(TENANT, USER_ID),
             new EffectivePluginResolver.ResolvedAssignments(2, List.of())
-        ), new EnterpriseSessionProperties());
+        ), new EnterpriseSessionProperties(), new com.owndsh.enterprise.collab.EnterpriseCollabProperties());
         assertThat(bootstrap.quotas()).hasSize(3);
         assertThat(bootstrap.quotas().getLast().policyId()).isEqualTo(Long.toString(user.id()));
 

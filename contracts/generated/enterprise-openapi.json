@@ -59675,7 +59675,8 @@
                         "models",
                         "quotas",
                         "plugins",
-                        "sessionPolicy"
+                        "sessionPolicy",
+                        "collabPolicy"
                       ],
                       "properties": {
                         "revision": {
@@ -60164,6 +60165,18 @@
                             "maxBatchBytes": {
                               "type": "integer",
                               "minimum": 1
+                            }
+                          }
+                        },
+                        "collabPolicy": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "enabled"
+                          ],
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
                             }
                           }
                         }
@@ -115032,7 +115045,8 @@
           "models",
           "quotas",
           "plugins",
-          "sessionPolicy"
+          "sessionPolicy",
+          "collabPolicy"
         ],
         "properties": {
           "revision": {
@@ -115523,6 +115537,18 @@
                 "minimum": 1
               }
             }
+          },
+          "collabPolicy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "enabled"
+            ],
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              }
+            }
           }
         }
       },
@@ -115544,7 +115570,8 @@
               "models",
               "quotas",
               "plugins",
-              "sessionPolicy"
+              "sessionPolicy",
+              "collabPolicy"
             ],
             "properties": {
               "revision": {
@@ -116033,6 +116060,18 @@
                   "maxBatchBytes": {
                     "type": "integer",
                     "minimum": 1
+                  }
+                }
+              },
+              "collabPolicy": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "enabled"
+                ],
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
                   }
                 }
               }

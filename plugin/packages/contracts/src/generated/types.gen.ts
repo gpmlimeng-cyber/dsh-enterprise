@@ -1322,6 +1322,10 @@ export type MemberMemberSummary = {
     revision: Revision;
 };
 
+export type BootstrapCollabPolicy = {
+    enabled: boolean;
+};
+
 export type BootstrapDevice = {
     id: EnterpriseDeviceId;
     installationId: AuthInstallationId;
@@ -1358,6 +1362,7 @@ export type ModelBootstrapSnapshot = {
     quotas: Array<QuotaBootstrapQuota>;
     plugins: PluginRuntimePluginAssignments;
     sessionPolicy: BootstrapSessionPolicy;
+    collabPolicy: BootstrapCollabPolicy;
 };
 
 export type BootstrapUser = {

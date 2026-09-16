@@ -1,12 +1,13 @@
 /**
  * [INPUT]: 投影 BootstrapService 的用户、ACTIVE 设备、revision、含协议/推理 profile 的有效模型/配额与插件分配；SessionPolicy 来自 enterprise.session 部署参数。
- * [OUTPUT]: 对外提供 T06 严格客户端所需的完整脱敏 bootstrap 外壳；sessionPolicy.enabled 默认 false（V1 停用），显式部署可开。
- * [POS]: model/web 的 runtime 配置输出边界；插件复用下载授权事实，Session 能力由 EnterpriseSessionProperties 宣告。
+ * [OUTPUT]: 对外提供 T06 严格客户端所需的完整脱敏 bootstrap 外壳；sessionPolicy/collabPolicy 均默认 false，显式部署可开。
+ * [POS]: model/web 的 runtime 配置输出边界；插件复用下载授权事实，Session/协作能力由部署 Properties 宣告。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 package com.owndsh.enterprise.model.web;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.owndsh.enterprise.collab.EnterpriseCollabProperties;
 import com.owndsh.enterprise.model.application.BootstrapService;
 import com.owndsh.enterprise.session.EnterpriseSessionProperties;
 
@@ -20,16 +21,22 @@ public record BootstrapView(
     List<Model> models,
     List<Quota> quotas,
     Plugins plugins,
-    SessionPolicy sessionPolicy
+    SessionPolicy sessionPolicy,
+    CollabPolicy collabPolicy
 ) {
     public static BootstrapView from(
         BootstrapService.BootstrapSnapshot snapshot,
-        EnterpriseSessionProperties sessionProperties
+        EnterpriseSessionProperties sessionProperties,
+        EnterpriseCollabProperties collabProperties
     ) {
-        return from(snapshot, toSessionPolicy(sessionProperties));
+        return from(snapshot, toSessionPolicy(sessionProperties), toCollabPolicy(collabProperties));
     }
 
-    public static BootstrapView from(BootstrapService.BootstrapSnapshot snapshot, SessionPolicy sessionPolicy) {
+    public static BootstrapView from(
+        BootstrapService.BootstrapSnapshot snapshot,
+        SessionPolicy sessionPolicy,
+        CollabPolicy collabPolicy
+    ) {
         return new BootstrapView(
             snapshot.revision(),
             new User(
@@ -61,7 +68,8 @@ public record BootstrapView(
                     value.required(), value.desiredState().name()
                 )).toList()
             ),
-            sessionPolicy
+            sessionPolicy,
+            collabPolicy
         );
     }
 
@@ -71,6 +79,10 @@ public record BootstrapView(
             sessionProperties.getRetentionDays(),
             sessionProperties.getMaxBatchBytes()
         );
+    }
+
+    public static CollabPolicy toCollabPolicy(EnterpriseCollabProperties collabProperties) {
+        return new CollabPolicy(collabProperties.isEnabled());
     }
 
     public record User(String id, String username, String displayName, String departmentId) {
@@ -124,5 +136,8 @@ public record BootstrapView(
     }
 
     public record SessionPolicy(boolean enabled, int retentionDays, int maxBatchBytes) {
+    }
+
+    public record CollabPolicy(boolean enabled) {
     }
 }

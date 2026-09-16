@@ -215,6 +215,29 @@ public final class EnterpriseExceptionHandler {
         return error(status,exception.errorCode(),message,false,null,request);
     }
 
+    @ExceptionHandler(com.owndsh.enterprise.collab.application.CollabException.class)
+    public ResponseEntity<EnterpriseErrorResponse> collab(
+        com.owndsh.enterprise.collab.application.CollabException exception,
+        HttpServletRequest request
+    ) {
+        HttpStatus status = switch (exception.kind()) {
+            case DISABLED, NOT_OWNER -> HttpStatus.FORBIDDEN;
+            case PROJECT_NOT_FOUND, MEMBER_NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case MEMBER_EXISTS -> HttpStatus.CONFLICT;
+            case LAST_OWNER, INVALID -> HttpStatus.BAD_REQUEST;
+        };
+        String message = switch (exception.kind()) {
+            case DISABLED -> "项目协作未启用";
+            case PROJECT_NOT_FOUND -> "项目不存在";
+            case NOT_OWNER -> "仅群主可执行该操作";
+            case LAST_OWNER -> "群主不可直接移出或转让给自己";
+            case MEMBER_EXISTS -> "成员已在项目中";
+            case MEMBER_NOT_FOUND -> "成员不存在";
+            case INVALID -> "请求参数不合法";
+        };
+        return error(status, exception.errorCode(), message, false, null, request);
+    }
+
     @ExceptionHandler(PluginArtifactException.class)
     public ResponseEntity<EnterpriseErrorResponse> pluginArtifact(
         PluginArtifactException exception,

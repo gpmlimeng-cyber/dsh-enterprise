@@ -137,7 +137,12 @@ class T08ApiContractTest {
             new AdminManagedModelController(models, adminContexts, cursors),
             new AdminModelSetController(modelSets, adminContexts, cursors),
             new AdminModelGrantController(grants, adminContexts, cursors),
-            new BootstrapController(bootstrap, deviceContexts, new EnterpriseSessionProperties())
+            new BootstrapController(
+                bootstrap,
+                deviceContexts,
+                new EnterpriseSessionProperties(),
+                new com.owndsh.enterprise.collab.EnterpriseCollabProperties()
+            )
         ).setControllerAdvice(new EnterpriseExceptionHandler())
             .addFilters(new EnterpriseRequestIdFilter())
             .build();
