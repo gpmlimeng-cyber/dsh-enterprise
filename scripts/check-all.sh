@@ -110,7 +110,8 @@ if [ "$SKIP_SITES" != "1" ]; then
     echo "ok"
   fi
 else
-  echo "\n==> SKIP_SITES=1，跳过三站 --check"
+  echo ""
+  echo "==> SKIP_SITES=1，跳过三站 --check"
 fi
 
 # ── 4. FULL：与 CI 对齐的重型检查 ────────────────────────────────
@@ -141,7 +142,8 @@ if [ "$FULL" = "1" ]; then
     echo "ok"
   fi
 else
-  echo "\n==> 默认模式不含 mvn/console；需要时 FULL=1 sh scripts/check-all.sh"
+  echo ""
+  echo "==> 默认模式不含 mvn/console；需要时 FULL=1 sh scripts/check-all.sh"
 fi
 
 printf '\n'
