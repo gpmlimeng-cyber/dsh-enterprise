@@ -1,14 +1,20 @@
 ---
 feature: session-sync-ecosystem
-status: designed
+status: delivered
 updated: 2026-09-16
 branch: feat/session-sync-ecosystem
-commits: 
+commits: c1b788f..465aad775f807e7420b528804170b8cdbab18ede
 ---
 
 # Session 生态调研吸收：dsh-session-sync
 
 ## Report
+
+**What was built** — 完成社区包 `dsh-session-sync`（PerryLink，0.2.14，Apache-2.0）的源码级调研吸收：新建 `docs/ecosystem/dsh-session-sync-absorption.md`（事实卡片、能力地图、与 T16 企业方案对照、可借鉴/不可采用/禁止混写、对 P2 输入）；更新 `owndsh-work-platform.md` 公开生态证据（保留 2026-08-14 结论时间戳，增加 2026-09-16 复查）；`docs/CLAUDE.md` 登记成员。不改 server/plugin 业务代码，不 vendor 源码。
+
+**Verification** — `git diff c1b788f..HEAD --name-only` 仅 4 个 docs 路径；AC1–AC5 结构/链接/无 TBD/无业务路径均 PASS；无自动化测试（纯文档）。
+
+**Journey log** — ① 社区插件真源是用户 Git 而非企业 Server，吸收重点是交互与安全纪律而非协议；② merge keep-both 与一源一写是两套产品哲学，文档写死禁止混写；③ 决议文件在 main 未提交，本分支交叉引用只指向已入库 design/catalog。
 
 ## [S1] Problem
 
@@ -75,7 +81,7 @@ commits:
 
 ## Tasks
 
-- [ ] T1: 拉取并固化 dsh-session-sync 源与版本事实 — acceptance: 本地存在可引用的源码快照说明（路径/commit/version），文档事实卡片与 registry 一致 (covers: S2.2, S2.4)
-- [ ] T2: 撰写 docs/ecosystem/dsh-session-sync-absorption.md — acceptance: 含事实卡片、能力地图、企业对照、吸收清单、对 P2 输入；AC1 满足 (covers: S2.1, S2.2; depends: T1)
-- [ ] T3: 更新 work-platform 公开生态证据与 docs/CLAUDE.md — acceptance: AC2+AC3 满足；旧结论时间戳保留 (covers: S2.3; depends: T2)
-- [ ] T4: 范围与链接自检 — acceptance: AC4+AC5；`rg` 确认无误改 server/plugin 业务路径 (covers: S2.1, S2.4, S2.5)
+- [x] T1: 拉取并固化 dsh-session-sync 源与版本事实 — acceptance: 本地存在可引用的源码快照说明（路径/commit/version），文档事实卡片与 registry 一致 (covers: S2.2, S2.4)
+- [x] T2: 撰写 docs/ecosystem/dsh-session-sync-absorption.md — acceptance: 含事实卡片、能力地图、企业对照、吸收清单、对 P2 输入；AC1 满足 (covers: S2.1, S2.2; depends: T1)
+- [x] T3: 更新 work-platform 公开生态证据与 docs/CLAUDE.md — acceptance: AC2+AC3 满足；旧结论时间戳保留 (covers: S2.3; depends: T2)
+- [x] T4: 范围与链接自检 — acceptance: AC4+AC5；`rg` 确认无误改 server/plugin 业务路径 (covers: S2.1, S2.4, S2.5)
