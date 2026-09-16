@@ -1,14 +1,20 @@
 ---
 feature: session-sync-p2a
-status: designed
+status: delivered
 updated: 2026-09-16
 branch: feat/session-sync-p2a
-commits: 
+commits: 0489e76..2ddd574b012157422b1596ea2eee6fcb638f90b2
 ---
 
 # Session 同步 P2a：@dshent/session-sync 骨架包
 
 ## Report
+
+**What was built** — 新 workspace 包 ：严格游标 JSON 原子存储、（disabled|idle）、 在  时零网络/零 enterprise 目录；未接 bundle（保留 V1 产物无  门禁）。
+
+**Verification** — 包 vitest 6/6 PASS；tsc --noEmit PASS； 4/4 PASS（含正式包集合含 session-sync）。
+
+**Journey log** — ① worktree 无 node_modules，用主仓  跑 vitest/tsc；② ensureCursors 须把 preferred deviceId 传入游标工厂，否则被 randomUUID 覆盖；③ bundle 接线明确划出本轮，避免破坏 V1 字符串门禁。
 
 ## [S1] Problem
 
@@ -71,8 +77,8 @@ P1 已允许服务端 bootstrap 宣告 `sessionPolicy.enabled`，但 monorepo �
 
 ## Tasks
 
-- [ ] T1: 建包骨架 package.json/tsconfig/CLAUDE/README — acceptance: `pnpm --filter @dshent/session-sync typecheck` 可运行 (covers: S2.1)
-- [ ] T2: types + cursor-store 原子读写与校验 — acceptance: 单测 roundtrip + invalid (covers: S2.2, S2.3; depends: T1)
-- [ ] T3: service + registerSessionSync 开关语义 — acceptance: disabled 零网络零 sessions 扫描单测通过 (covers: S2.2, S2.4; depends: T2)
-- [ ] T4: vitest 定向测试 — acceptance: 包内 tests 全部 PASS (covers: S2.4; depends: T3)
-- [ ] T5: 文档头与 workspace 清单一致性 — acceptance: plugin/CLAUDE 或包 CLAUDE 已登记；无 bundle 改动 (covers: S2.1, S3)
+- [x] T1: 建包骨架 package.json/tsconfig/CLAUDE/README — acceptance: `pnpm --filter @dshent/session-sync typecheck` 可运行 (covers: S2.1)
+- [x] T2: types + cursor-store 原子读写与校验 — acceptance: 单测 roundtrip + invalid (covers: S2.2, S2.3; depends: T1)
+- [x] T3: service + registerSessionSync 开关语义 — acceptance: disabled 零网络零 sessions 扫描单测通过 (covers: S2.2, S2.4; depends: T2)
+- [x] T4: vitest 定向测试 — acceptance: 包内 tests 全部 PASS (covers: S2.4; depends: T3)
+- [x] T5: 文档头与 workspace 清单一致性 — acceptance: plugin/CLAUDE 或包 CLAUDE 已登记；无 bundle 改动 (covers: S2.1, S3)
