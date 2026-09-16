@@ -65,6 +65,8 @@ export interface EnterpriseAccountBootstrap {
     readonly installationId: string
     readonly status: 'ACTIVE'
   }
+  /** 仅投影 enabled 布尔；默认 false。 */
+  readonly sessionPolicyEnabled?: boolean
 }
 
 export interface EnterprisePluginItem {
@@ -104,6 +106,22 @@ export interface EnterpriseRuntimePreset {
   readonly versionId: string
 }
 
+export interface EnterpriseSessionSyncStatus {
+  readonly enabled: boolean
+  readonly deviceId: string | null
+  readonly pendingSessionIds: readonly string[]
+  readonly lastError: string | null
+}
+
+export interface EnterpriseRemoteSession {
+  readonly id: string
+  readonly title: string | null
+  readonly lastSeq: number
+  readonly eventCount: number
+  readonly createdAt: string
+  readonly updatedAt: string
+}
+
 export interface EnterpriseLocalApi {
   status(signal: AbortSignal): Promise<EnterpriseLocalStatus>
   refresh(signal: AbortSignal): Promise<EnterpriseLocalStatus>
@@ -118,6 +136,12 @@ export interface EnterpriseLocalApi {
   cancelLogin(signal: AbortSignal): Promise<{ readonly cancelled: boolean }>
   logout(signal: AbortSignal): Promise<{ readonly loggedOut: true }>
   uninstall(signal: AbortSignal): Promise<{ readonly uninstalled: true; readonly restartRequested: boolean }>
+  sessionSyncStatus(signal: AbortSignal): Promise<EnterpriseSessionSyncStatus>
+  listSessions(signal: AbortSignal): Promise<readonly EnterpriseRemoteSession[]>
+  restoreSession(sourceSessionId: string, cwd: string, signal: AbortSignal): Promise<{
+    readonly restoredSessionId: string
+    readonly sourceSessionId: string
+  }>
 }
 
 export class EnterpriseLocalApiError extends Error {
@@ -218,13 +242,21 @@ function decodeBootstrap(value: unknown): EnterpriseAccountBootstrap | undefined
   const source = record(value)
   const user = decodeUser(source?.['user'])
   const device = record(source?.['device'])
+  const sessionPolicy = record(source?.['sessionPolicy'])
   if (source === undefined || user === undefined || device === undefined
     || !hasExactKeys(device, ['id', 'installationId', 'status'])
     || !nonEmptyString(device['id']) || !nonEmptyString(device['installationId'])
     || device['status'] !== 'ACTIVE') throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  const sessionPolicyEnabled = sessionPolicy === undefined
+    ? undefined
+    : sessionPolicy['enabled']
+  if (sessionPolicyEnabled !== undefined && typeof sessionPolicyEnabled !== 'boolean') {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
   return {
     user,
     device: { id: device['id'], installationId: device['installationId'], status: 'ACTIVE' },
+    ...(sessionPolicyEnabled === undefined ? {} : { sessionPolicyEnabled }),
   }
 }
 
@@ -343,6 +375,52 @@ export function decodeEnterprisePresets(value: unknown): readonly EnterpriseRunt
   })
 }
 
+function decodeSessionSyncStatus(value: unknown): EnterpriseSessionSyncStatus {
+  const row = record(value)
+  if (row === undefined || !hasExactKeys(row, ['enabled', 'deviceId', 'pendingSessionIds', 'lastError'])
+    || typeof row['enabled'] !== 'boolean'
+    || !(row['deviceId'] === null || nonEmptyString(row['deviceId']))
+    || !Array.isArray(row['pendingSessionIds'])
+    || row['pendingSessionIds'].some(id => !nonEmptyString(id))
+    || !(row['lastError'] === null || nonEmptyString(row['lastError']))) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  return {
+    enabled: row['enabled'],
+    deviceId: row['deviceId'] as string | null,
+    pendingSessionIds: row['pendingSessionIds'] as string[],
+    lastError: row['lastError'] as string | null,
+  }
+}
+
+function decodeRemoteSessions(value: unknown): readonly EnterpriseRemoteSession[] {
+  const items = record(value)?.['items']
+  if (!Array.isArray(items) || items.length > 200) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  return items.map(item => {
+    const row = record(item)
+    if (row === undefined || !hasExactKeys(row, [
+      'id', 'title', 'lastSeq', 'eventCount', 'createdAt', 'updatedAt',
+    ])
+      || !nonEmptyString(row['id'])
+      || !(row['title'] === null || nonEmptyString(row['title']))
+      || !Number.isSafeInteger(row['lastSeq']) || Number(row['lastSeq']) < 0
+      || !Number.isSafeInteger(row['eventCount']) || Number(row['eventCount']) < 0
+      || !nonEmptyString(row['createdAt']) || !nonEmptyString(row['updatedAt'])) {
+      throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    return {
+      id: row['id'],
+      title: row['title'] as string | null,
+      lastSeq: Number(row['lastSeq']),
+      eventCount: Number(row['eventCount']),
+      createdAt: row['createdAt'],
+      updatedAt: row['updatedAt'],
+    }
+  })
+}
+
 function errorCode(value: unknown): string {
   const code = record(record(value)?.['error'])?.['code']
   return nonEmptyString(code) ? code : 'ENT_PLATFORM_UNAVAILABLE'
@@ -448,6 +526,27 @@ export function createEnterpriseLocalApi(
         throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
       }
       return { uninstalled: true, restartRequested: data['restartRequested'] }
+    },
+    sessionSyncStatus: async signal => decodeSessionSyncStatus(
+      await requestJson('/sessions/sync', getInit(signal), fetcher),
+    ),
+    listSessions: async signal => decodeRemoteSessions(
+      await requestJson('/sessions', getInit(signal), fetcher),
+    ),
+    restoreSession: async (sourceSessionId, cwd, signal) => {
+      const data = record(await requestJson(
+        `/sessions/${encodeURIComponent(sourceSessionId)}/copies`,
+        jsonInit('POST', { cwd }, signal),
+        fetcher,
+      ))
+      if (data === undefined || !hasExactKeys(data, ['restoredSessionId', 'sourceSessionId'])
+        || !nonEmptyString(data['restoredSessionId']) || !nonEmptyString(data['sourceSessionId'])) {
+        throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+      }
+      return {
+        restoredSessionId: data['restoredSessionId'],
+        sourceSessionId: data['sourceSessionId'],
+      }
     },
   }
 }

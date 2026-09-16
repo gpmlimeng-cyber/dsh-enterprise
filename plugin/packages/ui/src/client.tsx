@@ -19,6 +19,7 @@ export * from './account-footer.js'
 export * from './account-view.js'
 export * from './local-api.js'
 export * from './plugin-market.js'
+export * from './session-view.js'
 
 interface SlotContextPort {
   readonly remote: {

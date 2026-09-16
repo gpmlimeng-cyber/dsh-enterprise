@@ -78,6 +78,17 @@ export interface SyncableSession {
 
 export interface SessionStorePort {
   flush(session: SyncableSession): Promise<boolean> | boolean
+  create?(
+    id: string,
+    options: {
+      seed: readonly SyncableEvent[]
+      meta: {
+        readonly cwd: string
+        readonly parentSession: string
+        readonly seedLength: number
+      }
+    },
+  ): SyncableSession | Promise<SyncableSession>
 }
 
 export interface SessionPersistencePort {

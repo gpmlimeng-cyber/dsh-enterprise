@@ -22,8 +22,10 @@ import {
   type PluginDistributionContext,
 } from '@dshent/plugin-distribution'
 import {
+  createHostSessionLocalPort,
   tryRegisterHostSessionSync,
   type HostSessionSyncHandle,
+  type HostSessionLocalPort,
   type SessionPersistencePort,
   type SessionStorePort,
   type SyncableSession,
@@ -110,7 +112,26 @@ function desktopPluginCommandPort(desktopPnpm: DesktopPnpmPort): DshPluginComman
 /** 在 Harness 官方 Service 上挂载平台控制面并配置官方 dsh-llm-pi-ai。 */
 export function apply(ctx: EnterpriseHostContext, config: Config): void {
   let pluginDistribution: EnterprisePluginDistributionService | undefined
-  const platform = new EnterprisePlatformService(ctx, {
+  let sessionSyncHandle: HostSessionSyncHandle | null = null
+  let platform: EnterprisePlatformService
+  const sessionLocalPort: HostSessionLocalPort = createHostSessionLocalPort({
+    platform: {
+      status: () => platform.status(),
+      bootstrap: () => platform.bootstrap(),
+      request: (path, init) => platform.request(path, init),
+      subscribe: listener => platform.subscribe(status => listener(status)),
+    },
+    getHandle: () => sessionSyncHandle,
+    ...(ctx.sessions?.create === undefined ? {} : {
+      createSession: {
+        async create(id, options) {
+          const session = await ctx.sessions!.create!(id, options)
+          return { id: session.id }
+        },
+      },
+    }),
+  })
+  platform = new EnterprisePlatformService(ctx, {
     ...(config.baseUrl === undefined ? {} : { baseUrl: config.baseUrl }),
     harnessVersion: HARNESS_VERSION,
     bundleVersion: BUNDLE_VERSION,
@@ -118,6 +139,7 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
     disposeTimeoutMs: config.disposeTimeoutMs,
   }, {
     pluginStatus: () => pluginDistribution?.status() ?? { assignmentRevision: 0, plugins: [] },
+    sessionSync: sessionLocalPort,
     pluginAction: async (action, packageName, pluginVersionId) => {
       if (pluginDistribution === undefined) throw new Error('OwnDsh plugin distribution is unavailable')
       if (action === 'install') await pluginDistribution.install(packageName, pluginVersionId!)
@@ -142,7 +164,7 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
     bundleVersion: BUNDLE_VERSION,
   }), 'enterpriseGateway.registration')
   // Session 同步：仅 bootstrap sessionPolicy.enabled 时挂载；默认关闭零 Session API。
-  const sessionSync = tryRegisterHostSessionSync({
+  sessionSyncHandle = tryRegisterHostSessionSync({
     dshHome: resolveEnterpriseDshHome(),
     platform: {
       status: () => platform.status(),
@@ -177,7 +199,7 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
     },
   })
   ctx.effect(() => () => {
-    void (sessionSync as HostSessionSyncHandle).dispose()
+    void (sessionSyncHandle as HostSessionSyncHandle | null)?.dispose()
   }, 'enterpriseSessionSync.dispose()')
   const mountPluginDistribution = (
     distributionContext: PluginDistributionContext,

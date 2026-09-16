@@ -40,6 +40,7 @@ import { ConfirmAction } from './confirm-action.js'
 import { EnterprisePluginMarket } from './plugin-market.js'
 export { enterprisePluginStatePresentation } from './plugin-market.js'
 import { EnterprisePresetMarket } from './preset-market.js'
+import { EnterpriseSessionSyncView } from './session-view.js'
 import type {
   EnterpriseConnectionState,
 } from './local-api.js'
@@ -332,7 +333,7 @@ function trapGateTab(event: React.KeyboardEvent<HTMLElement>): void {
   }
 }
 
-function useAccount(store: EnterpriseAccountStore): EnterpriseAccountSnapshot {
+export function useAccount(store: EnterpriseAccountStore): EnterpriseAccountSnapshot {
   return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
 }
 
@@ -513,12 +514,18 @@ export function EnterpriseSettingsSection(props: EnterpriseSettingsSectionProps)
   const headingId = useId()
   const tabsId = useId()
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
-  const [activeTab, setActiveTab] = useState<'account' | 'plugins' | 'presets'>('account')
+  const [activeTab, setActiveTab] = useState<'account' | 'plugins' | 'presets' | 'sessions'>('account')
+  const snapshot = useAccount(props.store)
+  const sessionSyncEnabled = snapshot.bootstrap?.sessionPolicyEnabled === true
   const rows = [
     { id: 'account', label: '账号' },
     { id: 'plugins', label: '插件' },
     { id: 'presets', label: '配方' },
+    ...(sessionSyncEnabled ? [{ id: 'sessions' as const, label: '会话同步' }] : []),
   ] as const
+  useEffect(() => {
+    if (!sessionSyncEnabled && activeTab === 'sessions') setActiveTab('account')
+  }, [sessionSyncEnabled, activeTab])
   return <section className="own-settings" style={page} aria-labelledby={headingId}>
     <style>{`
       .own-account button:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary, #4d6bfe); outline-offset: 2px; }
@@ -584,6 +591,9 @@ export function EnterpriseSettingsSection(props: EnterpriseSettingsSectionProps)
     <div id={`${tabsId}-panel-presets`} role="tabpanel" aria-labelledby={`${tabsId}-tab-presets`} hidden={activeTab !== 'presets'}>
       {activeTab === 'presets' ? <EnterprisePresetMarket store={props.store} /> : null}
     </div>
+    {sessionSyncEnabled ? <div id={`${tabsId}-panel-sessions`} role="tabpanel" aria-labelledby={`${tabsId}-tab-sessions`} hidden={activeTab !== 'sessions'}>
+      {activeTab === 'sessions' ? <EnterpriseSessionSyncView store={props.store} /> : null}
+    </div> : null}
   </section>
 }
 

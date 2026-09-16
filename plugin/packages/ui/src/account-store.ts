@@ -10,6 +10,8 @@ import type {
   EnterpriseLocalApi,
   EnterpriseLocalStatus,
   EnterprisePluginStatus,
+  EnterpriseRemoteSession,
+  EnterpriseSessionSyncStatus,
 } from './local-api.js'
 import { EnterpriseLocalApiError } from './local-api.js'
 
@@ -26,6 +28,11 @@ export interface EnterpriseAccountSnapshot {
   readonly busy?: EnterpriseAccountAction
   readonly errorCode?: string
   readonly uninstallRestartRequested?: boolean
+  readonly sessionSync?: EnterpriseSessionSyncStatus
+  readonly remoteSessions?: readonly EnterpriseRemoteSession[]
+  readonly sessionLoading?: boolean
+  readonly sessionErrorCode?: string
+  readonly restoreResult?: { readonly restoredSessionId: string; readonly sourceSessionId: string }
 }
 
 function failureCode(error: unknown): string {
@@ -61,6 +68,47 @@ export class EnterpriseAccountStore {
     return () => {
       this.#listeners.delete(listener)
       if (this.#listeners.size === 0) this.#stop()
+    }
+  }
+
+  /** 加载会话同步状态与远端列表；仅 enabled 时发 Session 请求。 */
+  async refreshSessions(): Promise<void> {
+    const signal = this.#signal()
+    const generation = ++this.#refreshGeneration
+    this.#set({ ...this.#snapshot, sessionLoading: true })
+    try {
+      const sessionSync = await this.#api.sessionSyncStatus(signal)
+      if (signal.aborted || generation !== this.#refreshGeneration) return
+      this.#set({ ...this.#snapshot, sessionSync, sessionLoading: sessionSync.enabled })
+      if (!sessionSync.enabled) {
+        this.#set({ ...this.#snapshot, sessionLoading: false, remoteSessions: [] })
+        return
+      }
+      const remoteSessions = await this.#api.listSessions(signal)
+      if (signal.aborted || generation !== this.#refreshGeneration) return
+      this.#set({ ...this.#snapshot, remoteSessions, sessionLoading: false })
+    } catch (error) {
+      if (signal.aborted || generation !== this.#refreshGeneration) return
+      this.#set({
+        ...this.#snapshot,
+        sessionLoading: false,
+        sessionErrorCode: failureCode(error),
+      })
+    }
+  }
+
+  /** 以新本地会话 ID 恢复远端副本；失败不更新 restoreResult。 */
+  async restoreSession(sourceSessionId: string, cwd: string): Promise<boolean> {
+    const signal = this.#signal()
+    try {
+      const restoreResult = await this.#api.restoreSession(sourceSessionId, cwd, signal)
+      if (signal.aborted) return false
+      this.#set({ ...this.#snapshot, restoreResult })
+      await this.refreshSessions()
+      return true
+    } catch (error) {
+      if (!signal.aborted) this.#set({ ...this.#snapshot, sessionErrorCode: failureCode(error) })
+      return false
     }
   }
 

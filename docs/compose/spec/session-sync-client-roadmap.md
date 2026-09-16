@@ -76,14 +76,14 @@ flowchart TB
 
 **吸收纪律（见 ecosystem 文档）：** 写确认 fail-closed、日志先脱敏、危险操作白名单、auto 可逆、status/diff 只读体验——**不**抄 Git keep-both 合并。
 
-### 3.2 P2c · 恢复链路
+### 3.2 P2c · 恢复链路（已交付于 `feat/session-sync-p2c-p3`）
 
 - `GET /enterprise/api/v1/sessions` 列表  
 - `GET .../export` 分页 + hash 校验  
 - `ctx.sessions.create(newId, { seed, meta: { parentSession, cwd } })`  
-- 失败不建半成品；随后 `restore-record` 审计（若走 host）
+- 失败不建半成品；随后 `restore-record` 审计  
 
-### 3.3 P3 · 本地 API + UI
+### 3.3 P3 · 本地 API + UI（同分支交付）
 
 | 本地 API（platform-client） | UI |
 |---|---|

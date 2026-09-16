@@ -47,6 +47,23 @@ export {
 } from './wire.js'
 export { SessionUploadScheduler, type SessionUploadSchedulerOptions } from './upload-worker.js'
 export {
+  downloadOwnedSession,
+  listRemoteSessions,
+  restoreRemoteSession,
+  type DownloadedOwnedSession,
+  type RemoteSessionRequestPort,
+  type RemoteSessionSummary,
+  type RestoreRemoteOptions,
+  type RestoreRemoteResult,
+  type SessionCreatePort,
+} from './restore.js'
+export {
+  createHostSessionLocalPort,
+  type CreateHostSessionLocalPortOptions,
+  type HostSessionLocalPort,
+  type HostSessionLocalStatus,
+} from './local-port.js'
+export {
   isHostSessionSyncEnabled,
   tryRegisterHostSessionSync,
   type HostBootstrapPort,

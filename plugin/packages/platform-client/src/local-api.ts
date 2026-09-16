@@ -40,6 +40,21 @@ export interface EnterpriseLocalPlatformPort {
   getPreset(packageId: string, signal?: AbortSignal): Promise<unknown>
 }
 
+/** 会话同步本地投影端口；由 session-sync host-bridge 注入，避免反向依赖。 */
+export interface EnterpriseLocalSessionPort {
+  status(): {
+    readonly enabled: boolean
+    readonly deviceId: string | null
+    readonly pendingSessionIds: readonly string[]
+    readonly lastError: string | null
+  }
+  list(signal?: AbortSignal): Promise<unknown>
+  restore(sourceSessionId: string, cwd: string, signal?: AbortSignal): Promise<{
+    readonly restoredSessionId: string
+    readonly sourceSessionId: string
+  }>
+}
+
 export interface EnterpriseLocalApiOptions {
   readonly platform: EnterpriseLocalPlatformPort
   /** 由组合层绑定 distribution，避免 platform-client 反向依赖具体插件包。 */
@@ -47,6 +62,8 @@ export interface EnterpriseLocalApiOptions {
   readonly pluginAction?: (action: 'install' | 'remove', packageName: string, pluginVersionId?: string) => Promise<void>
   /** 由组合层绑定整包卸载；返回的重启动作必须在 HTTP 成功响应写出后才执行。 */
   readonly uninstallPlugin?: () => Promise<{ readonly restart?: () => void }>
+  /** 由组合层绑定会话同步；缺省时不注册 /sessions* 路由。 */
+  readonly sessionSync?: EnterpriseLocalSessionPort
 }
 
 function writeJson(response: ServerResponse, status: number, value: unknown): void {
@@ -80,6 +97,7 @@ function actionErrorStatus(error: unknown): number {
   if (code === 'ENT_AUTH_REQUIRED' || code === 'ENT_AUTH_SESSION_EXPIRED') return 401
   if (code === 'ENT_DEVICE_REVOKED' || code === 'ENT_PERMISSION_DENIED') return 403
   if (code === 'ENT_RESOURCE_NOT_FOUND') return 404
+  if (code === 'ENT_SESSION_SYNC_DISABLED') return 403
   return 503
 }
 
@@ -276,6 +294,77 @@ export function registerEnterpriseLocalApi(
         writeJson(response, 200, { data: options.pluginStatus() })
       },
     }))
+
+    if (options.sessionSync !== undefined) {
+      const sessionSync = options.sessionSync
+      disposers.push(webServer.register({
+        kind: 'exact',
+        path: `${LOCAL_API_PREFIX}/sessions/sync`,
+        handler: async (request, response) => {
+          if (request.method !== 'GET') {
+            methodNotAllowed(response, 'GET')
+            return
+          }
+          writeJson(response, 200, { data: sessionSync.status() })
+        },
+      }))
+      disposers.push(webServer.register({
+        kind: 'exact',
+        path: `${LOCAL_API_PREFIX}/sessions`,
+        handler: async (request, response) => {
+          if (request.method !== 'GET') {
+            methodNotAllowed(response, 'GET')
+            return
+          }
+          try {
+            writeJson(response, 200, { data: { items: await sessionSync.list() } })
+          } catch (error) {
+            const status = actionErrorStatus(error)
+            writeJson(response, status, { error: {
+              code: errorCode(error) === 'ENT_SESSION_SYNC_DISABLED' ? 'ENT_SESSION_SYNC_DISABLED' : errorCode(error),
+            } })
+          }
+        },
+      }))
+      disposers.push(webServer.register({
+        kind: 'prefix',
+        path: `${LOCAL_API_PREFIX}/sessions/`,
+        handler: async (request, response) => {
+          if (request.method !== 'POST') {
+            methodNotAllowed(response, 'POST')
+            return
+          }
+          const rest = requestUrl(request).pathname.slice(`${LOCAL_API_PREFIX}/sessions/`.length)
+          const match = /^([^/]+)\/copies$/.exec(rest)
+          if (match === null) {
+            writeJson(response, 404, { error: { code: 'ENT_RESOURCE_NOT_FOUND' } })
+            return
+          }
+          const sourceSessionId = decodeURIComponent(match[1]!)
+          try {
+            const body = await readJson(request)
+            const cwd = typeof body === 'object' && body !== null && !Array.isArray(body)
+              ? (body as { cwd?: unknown }).cwd
+              : undefined
+            if (typeof cwd !== 'string' || !cwd.startsWith('/') || cwd.length > 4096) {
+              throw new TypeError('invalid restore cwd')
+            }
+            const result = await sessionSync.restore(sourceSessionId, cwd)
+            writeJson(response, 200, {
+              data: {
+                restoredSessionId: result.restoredSessionId,
+                sourceSessionId: result.sourceSessionId,
+              },
+            })
+          } catch (error) {
+            const status = actionErrorStatus(error)
+            writeJson(response, status, {
+              error: { code: status === 400 ? 'ENT_INVALID_REQUEST' : errorCode(error) },
+            })
+          }
+        },
+      }))
+    }
 
     disposers.push(webServer.register({
       kind: 'exact',
