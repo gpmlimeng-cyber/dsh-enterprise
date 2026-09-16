@@ -66,6 +66,9 @@
       "enabled": false,
       "retentionDays": 90,
       "maxBatchBytes": 1048576
+    },
+    "collabPolicy": {
+      "enabled": false
     }
   },
   "requestId": "req_01K2W3V4X5Y6Z7A8B9C0D1E2F3"

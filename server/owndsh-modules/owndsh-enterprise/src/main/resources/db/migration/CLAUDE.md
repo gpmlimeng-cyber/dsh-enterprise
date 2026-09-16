@@ -35,5 +35,6 @@ V27__one_rate_limit_per_provider.sql: 以局部唯一索引保证每个供应商
 V28__refresh_sessions.sql: 建立只存 SHA-256 摘要、绑定用户/client/installation、绝对 30 天且保留轮换重放证据的 Refresh Session family。
 V29__gateway_usage_accounting.sql: 保留历史配额扣额、清除估算伪装的实测分类，并给 reservation 增加最终 usage 快照用于结算恢复。
 V30__enterprise_preset_square.sql: 建立配方 package/version/assignment 三表、ent:preset 权限码，并扩展审计 action 白名单。
+V31__enterprise_project_collab.sql: 建立 ent_project/ent_project_member/ent_collab_message，并把五类 PROJECT/COLLAB 审计 action 并入白名单。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

@@ -61,9 +61,22 @@ class BootstrapViewSessionPolicyTest {
         );
         EnterpriseSessionProperties properties = new EnterpriseSessionProperties();
         properties.setEnabled(true);
+        com.owndsh.enterprise.collab.EnterpriseCollabProperties collab =
+            new com.owndsh.enterprise.collab.EnterpriseCollabProperties();
+        collab.setEnabled(true);
 
-        BootstrapView view = BootstrapView.from(snapshot, properties);
+        BootstrapView view = BootstrapView.from(snapshot, properties, collab);
 
         assertThat(view.sessionPolicy().enabled()).isTrue();
+        assertThat(view.collabPolicy().enabled()).isTrue();
+    }
+
+    @Test
+    void defaultsAnnounceCollabDisabled() {
+        BootstrapView.CollabPolicy policy = BootstrapView.toCollabPolicy(
+            new com.owndsh.enterprise.collab.EnterpriseCollabProperties()
+        );
+
+        assertThat(policy.enabled()).isFalse();
     }
 }

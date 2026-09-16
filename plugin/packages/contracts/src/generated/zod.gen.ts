@@ -1161,6 +1161,10 @@ export const zMemberMemberListResponse = z.object({
 
 export const zMemberListResponse = zMemberMemberListResponse;
 
+export const zBootstrapCollabPolicy = z.object({
+    enabled: z.boolean()
+}).strict();
+
 export const zBootstrapDevice = z.object({
     id: zEnterpriseDeviceId,
     installationId: zAuthInstallationId,
@@ -2061,7 +2065,8 @@ export const zModelBootstrapSnapshot = z.object({
     models: z.array(zModelBootstrapModel),
     quotas: z.array(zQuotaBootstrapQuota),
     plugins: zPluginRuntimePluginAssignments,
-    sessionPolicy: zBootstrapSessionPolicy
+    sessionPolicy: zBootstrapSessionPolicy,
+    collabPolicy: zBootstrapCollabPolicy
 }).strict();
 
 export const zBootstrapSnapshot = zModelBootstrapSnapshot;

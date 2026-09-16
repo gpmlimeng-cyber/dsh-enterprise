@@ -1,5 +1,5 @@
 # [INPUT]: 依赖根协议的品牌 ID、revision、cursor、requestId 与设备 installation ID
-# [OUTPUT]: 提供 provider/model/grant 管理、pi-ai 协议/推理 profile、探测结果与完整 bootstrap 脱敏快照 schemas
+# [OUTPUT]: 提供 provider/model/grant 管理、pi-ai 协议/推理 profile、探测结果与含 sessionPolicy/collabPolicy 的完整 bootstrap 脱敏快照 schemas
 # [POS]: OpenAPI 逻辑真源的受管模型分片，runtime 只看到有效模型目录及模型声明的推理档位映射
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 
@@ -524,7 +524,7 @@ BootstrapModel:
 BootstrapSnapshot:
   type: object
   additionalProperties: false
-  required: [revision, user, device, models, quotas, plugins, sessionPolicy]
+  required: [revision, user, device, models, quotas, plugins, sessionPolicy, collabPolicy]
   properties:
     revision:
       $ref: '../enterprise-openapi.yaml#/components/schemas/Revision'
@@ -542,6 +542,8 @@ BootstrapSnapshot:
       $ref: './plugin.yaml#/RuntimePluginAssignments'
     sessionPolicy:
       $ref: '#/BootstrapSessionPolicy'
+    collabPolicy:
+      $ref: '#/BootstrapCollabPolicy'
 BootstrapUser:
   type: object
   additionalProperties: false
@@ -586,6 +588,13 @@ BootstrapSessionPolicy:
     maxBatchBytes:
       type: integer
       minimum: 1
+BootstrapCollabPolicy:
+  type: object
+  additionalProperties: false
+  required: [enabled]
+  properties:
+    enabled:
+      type: boolean
 BootstrapResponse:
   type: object
   additionalProperties: false
