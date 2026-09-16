@@ -1,0 +1,20 @@
+# [INPUT]: 依赖根协议的受管模型 alias，只约束企业治理必须读取的公共字段
+# [OUTPUT]: 提供三种官方 Harness wire API 共用的透明流式请求 schema
+# [POS]: OpenAPI 逻辑真源的模型网关分片；消息、工具、推理与回放字段由 dsh-llm-pi-ai 和上游协议定义
+# [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+
+GatewayModel:
+  oneOf:
+    - $ref: './model.yaml#/ModelAlias'
+    - type: string
+      const: enterprise/default
+
+NativeGatewayRequest:
+  type: object
+  additionalProperties: true
+  required: [model, stream]
+  properties:
+    model: {$ref: '#/GatewayModel'}
+    stream: {type: boolean, const: true}
+    max_tokens: {type: integer, minimum: 1, maximum: 2147483647}
+    max_output_tokens: {type: integer, minimum: 1, maximum: 2147483647}

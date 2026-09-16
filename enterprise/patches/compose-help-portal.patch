@@ -1,0 +1,15 @@
+--- docker-compose.override.yml.pre-help	2026-09-16 00:33:01.674899318 +0800
++++ docker-compose.override.yml	2026-09-16 00:52:10.299221875 +0800
+@@ -1,5 +1,5 @@
+ # [INPUT]: 依赖 deploy/nginx/nginx.conf、Docker 内嵌 DNS 与部署层文档门户产物 /opt/owndsh/api-docs/dist。
+-# [OUTPUT]: 覆盖 console 的 nginx 配置（上游运行时解析，避免容器重建后 502），并只读挂载 API 文档门户静态产物。
++# [OUTPUT]: 覆盖 console 的 nginx 配置（上游运行时解析，避免容器重建后 502），并只读挂载 API 文档门户与帮助中心静态产物。
+ # [POS]: 本部署的本地修复层 + 部署层附加物挂载点；上游修复 nginx 上游缓存缺陷后可只保留文档挂载。
+ services:
+   console:
+@@ -7,3 +7,5 @@
+       - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+       # API 文档门户（P1）：源在 /opt/owndsh/api-docs，容器只读消费 dist/
+       - /opt/owndsh/api-docs/dist:/usr/share/nginx/html/api-docs:ro
++      # 帮助中心（P1）：源在 /opt/owndsh/help
++      - /opt/owndsh/help/dist:/usr/share/nginx/html/help:ro

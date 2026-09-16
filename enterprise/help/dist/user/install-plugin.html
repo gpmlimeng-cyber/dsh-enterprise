@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="dark light" />
+<meta name="robots" content="index, follow" />
+<title>为已有 Harness / 社区 Desktop 安装企业插件 · OwnDsh 帮助中心</title>
+<link rel="stylesheet" href="/help/assets/theme.css" />
+<link rel="stylesheet" href="/help/assets/help.css" />
+<!-- 主题前导必须同步执行在 <head>，避免首帧闪烁；外置以满足 CSP script-src 'self' -->
+<script src="/help/assets/theme-boot.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/help/"><span class="brand-mark">O</span>OwnDsh 帮助中心</a>
+  <div class="topbar-search">
+    <input id="help-search" type="search" placeholder="搜索手册（⌘K）" aria-label="搜索手册" autocomplete="off" />
+    <div id="help-search-results" class="search-results" hidden></div>
+  </div>
+      <div class="theme-toggle" hidden role="group" aria-label="主题">
+        <span class="theme-toggle-indicator" aria-hidden="true"></span>
+        <button type="button" data-theme-value="light" aria-label="浅色主题" aria-pressed="false">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />
+            <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+          </svg>
+        </button>
+        <button type="button" data-theme-value="dark" aria-label="深色主题" aria-pressed="false">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+          </svg>
+        </button>
+      </div>
+  <nav class="topbar-links" aria-label="文档中心">
+    <a href="/api-docs/">API 参考</a>
+    <a href="/">控制台</a>
+  </nav>
+</header>
+<div class="layout">
+  <nav class="sidebar" aria-label="手册导航"><div class="nav-group"><p class="nav-title">管理员手册</p><ul><li><a href="/help/admin/quickstart.html">快速开始：30 分钟让企业可用</a></li><li><a href="/help/admin/roles-permissions.html">角色与权限矩阵</a></li></ul></div><div class="nav-group"><p class="nav-title">员工手册</p><ul><li class="active"><a href="/help/user/install-plugin.html">为已有 Harness / 社区 Desktop 安装企业插件</a></li><li><a href="/help/user/faq.html">员工常见问题</a></li></ul></div><div class="nav-group"><p class="nav-title">运维手册</p><ul><li class="pending">撰写中</li></ul></div><div class="nav-group"><p class="nav-title">参考</p><ul><li class="pending">撰写中</li></ul></div></nav>
+  <main class="content">
+    <p class="breadcrumb"><a href="/help/">帮助中心</a> / 员工手册</p>
+    <div class="meta">
+      <span>受众：员工</span>
+      <span>适用版本：0.1.0</span>
+      <span>最后校验：2026-09-16</span>
+      
+    </div>
+    <article class="prose">
+<h1 id="为已有-Harness-/-社区-Desktop-安装企业插件">为已有 Harness / 社区 Desktop 安装企业插件<a class="anchor" href="#为已有-Harness-/-社区-Desktop-安装企业插件" aria-label="锚点">#</a></h1>
+<aside class="callout callout-tip"><span class="callout-label">提示</span><p><strong>先确认走哪条路</strong>：如果你用的是独立仓库构建的 <strong>OwnDsh Desktop</strong>，请直接看《使用 OwnDsh Desktop》—— 它已经预装插件与运行环境，不需要 Node、pnpm 或本节命令。 本节适用于<strong>已经装好</strong> DeepSeek Harness / 社区 Desktop、只想接入企业的设备。</p></aside>
+<h2 id="1.-先让-`pnpm`-可用">1. 先让 <code>pnpm</code> 可用<a class="anchor" href="#1.-先让-`pnpm`-可用" aria-label="锚点">#</a></h2>
+<blockquote><code>dsh plugin</code> 的子进程会从 <code>PATH</code> 查找 <code>pnpm</code>，所以必须先让它成为可直接执行的命令。 Harness 当前基线使用 pnpm <code>11.7.0</code>：</blockquote>
+<div class="code-block" data-language="sh"><button type="button" class="code-copy" hidden>复制</button><pre><code class="language-sh">corepack enable
+corepack install --global pnpm@11.7.0
+pnpm --version</code></pre></div>
+<aside class="callout callout-warn"><span class="callout-label">注意</span><p>只写 <code>corepack pnpm ...</code> 是不够的——<code>dsh plugin</code> 的子进程仍然找不到 <code>pnpm</code>。 必须做到<strong>直接运行 <code>pnpm --version</code> 成功</strong>，再用下面的命令。</p></aside>
+<h2 id="2.-安装企业插件">2. 安装企业插件<a class="anchor" href="#2.-安装企业插件" aria-label="锚点">#</a></h2>
+<blockquote>按你实际使用的 profile 选择一条：</blockquote>
+<div class="code-block" data-language="sh"><button type="button" class="code-copy" hidden>复制</button><pre><code class="language-sh"># Harness Web
+dsh plugin --profile web add --ignore-scripts owndsh-plugin@next
+dsh --profile web
+
+# DSH Desktop
+dsh plugin --profile desktop add --ignore-scripts owndsh-plugin@next</code></pre></div>
+<blockquote>从 DeepSeek Harness 源码运行 CLI 时，用 <code>--dir</code> 指向你的 checkout：</blockquote>
+<div class="code-block" data-language="sh"><button type="button" class="code-copy" hidden>复制</button><pre><code class="language-sh">pnpm --dir /path/to/deepseek-harness dsh \
+  plugin --profile web add --ignore-scripts owndsh-plugin@next</code></pre></div>
+<aside class="callout callout-tip"><span class="callout-label">提示</span><p><code>--ignore-scripts</code> 是<strong>故意</strong>加的：安装阶段不执行包脚本，插件的实际行为只在 Harness 运行时生效。</p></aside>
+<blockquote><strong>安装完成后重启对应的 profile</strong>（Web 端刷新页面不够，需要重启 profile 进程）。</blockquote>
+<h2 id="3.-填写-Server-地址并登录">3. 填写 Server 地址并登录<a class="anchor" href="#3.-填写-Server-地址并登录" aria-label="锚点">#</a></h2>
+<blockquote>重启后会出现 OwnDsh 全屏页面，要求填写管理员提供给你的 <strong>OwnDsh Server 地址</strong>：</blockquote>
+<ul><li>必须是完整的 <strong>HTTP(S) origin</strong>，例如 <code>https://owndsh.example.com</code>；</li><li><strong>不能带 API 路径</strong>（不要写 <code>https://owndsh.example.com/enterprise/...</code>）。</li></ul>
+<blockquote><strong>操作路径</strong>：OwnDsh 全屏页面 → 填写 Server 地址 → 保存 → 企业登录</blockquote>
+<blockquote>保存后由 Harness Host 的官方 settings/credentials 服务持久化 Server 地址与 Refresh Token； Access Token 只存在于 Host 内存，浏览器页面不会读取或保存它。<strong>正常重启会静默恢复登录。</strong></blockquote>
+<aside class="callout callout-secure"><span class="callout-label">安全</span><p>供应商 API Key 不会下发到你的设备。每次模型请求都由 OwnDsh 网关重新校验身份、授权与额度。</p></aside>
+<h2 id="4.-存不上-/-连不上时">4. 存不上 / 连不上时<a class="anchor" href="#4.-存不上-/-连不上时" aria-label="锚点">#</a></h2>
+<div class="table-wrap"><table><thead><tr><th>现象</th><th>先做这一步</th></tr></thead><tbody><tr><td>保存 Server 后显示平台不可用</td><td>在设备上访问 <code>&lt;Server地址&gt;/healthz</code>，确认返回 <code>{&quot;status&quot;:&quot;UP&quot;}</code>；再查 DNS、防火墙、反向代理与 TLS 证书</td></tr><tr><td>提示 <code>pnpm not found on PATH</code></td><td>回到第 1 节，直到 <code>pnpm --version</code> 直接可跑</td></tr><tr><td>插件装上了但页面没出现</td><td>确认重启的是<strong>同一个 profile</strong>，且插件装在该 profile 下</td></tr></tbody></table></div>
+<blockquote>更完整的排查见《员工常见问题》。</blockquote>
+<h2 id="5.-安装企业插件（可选）">5. 安装企业插件（可选）<a class="anchor" href="#5.-安装企业插件（可选）" aria-label="锚点">#</a></h2>
+<blockquote>管理员发布并对你可见的插件，在<strong>操作路径</strong>：OwnDsh 设置 → 插件 里可以搜索、查看详情、<strong>自主安装、更新和卸载</strong>。</blockquote>
+<aside class="callout callout-tip"><span class="callout-label">提示</span><p>打开设置或刷新页面<strong>不会</strong>自动安装任何插件；同一员工的其他设备各自独立选择。 服务端签名与客户端验签在本部署默认关闭（无需配置公私钥），但大小、SHA-256、兼容性与下载权限仍会校验。</p></aside>
+<h2 id="相关">相关<a class="anchor" href="#相关" aria-label="锚点">#</a></h2>
+<ul><li>API 参考：<a href="/api-docs/#tag/插件分发">插件分发</a>（拉取分配、下载构件、上报清单）</li><li>上一篇：《使用 OwnDsh Desktop（无需 Node/pnpm）》</li></ul>
+    </article>
+    <nav class="pager"><span></span><a class="pager-next" href="/help/user/faq.html"><span>下一篇</span>员工常见问题</a></nav>
+    <footer class="page-footer">
+      <span>OwnDsh 帮助中心 · 内容版本 0.1.0</span>
+      <span class="sep">·</span>
+      <a href="/home/">产品官网</a>
+      <span class="sep">·</span>
+      <a href="/api-docs/">API 参考</a>
+      <span class="sep">·</span>
+      <a href="/">返回控制台</a>
+    </footer>
+  </main>
+  <aside class="toc" aria-label="本页目录"><p class="nav-title">本页目录</p><ul><li class="lvl-2"><a href="#1.-先让-`pnpm`-可用">1. 先让 `pnpm` 可用</a></li><li class="lvl-2"><a href="#2.-安装企业插件">2. 安装企业插件</a></li><li class="lvl-2"><a href="#3.-填写-Server-地址并登录">3. 填写 Server 地址并登录</a></li><li class="lvl-2"><a href="#4.-存不上-/-连不上时">4. 存不上 / 连不上时</a></li><li class="lvl-2"><a href="#5.-安装企业插件（可选）">5. 安装企业插件（可选）</a></li><li class="lvl-2"><a href="#相关">相关</a></li></ul></aside>
+</div>
+<script src="/help/assets/help.js" defer></script>
+</body>
+</html>

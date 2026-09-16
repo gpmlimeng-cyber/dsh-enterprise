@@ -1,0 +1,120 @@
+<!doctype html>
+<!--
+[INPUT]: 依赖 build.mjs 注入的 head-meta / nav / footer 与 assets/site.js 的设备识别能力（[data-detect-device]）。
+[OUTPUT]: 客户端下载页：平台卡与当前设备识别、校验信息占位、插件安装路径、首次运行步骤。
+[POS]: 面向员工的入口页；下载地址指向官方仓库发布页，不编造安装包直链。
+[PROTOCOL]: 变更时更新此头部，然后检查 设计方案.md §4
+-->
+<html lang="zh-CN">
+  <head>
+    <!-- inject:head-meta -->
+  </head>
+  <body>
+    <!-- inject:nav -->
+
+    <main>
+      <section class="section hero">
+        <div class="wrap">
+          <p class="eyebrow">DOWNLOAD</p>
+          <h1>下载即用的 DeepSeek Harness 桌面端。</h1>
+          <p class="lead">
+            OwnDsh Desktop 预装企业插件与运行环境：填写管理员给你的 Server 地址，登录即可使用获准的模型。
+            <span class="muted" data-detect-device>正在识别当前设备…</span>
+          </p>
+        </div>
+      </section>
+
+      <section class="section section-canvas" id="platforms">
+        <div class="wrap">
+          <p class="eyebrow">PLATFORMS</p>
+          <h2>选择你的平台</h2>
+          <p class="lead">安装包由客户端仓库构建与发布；请以发布页上的最新版本与校验值为准。</p>
+
+          <div class="grid grid-3">
+            <div class="platform" data-platform="mac">
+              <span class="platform-badge" hidden>当前设备</span>
+              <h3>macOS</h3>
+              <p>Apple Silicon（M 系列）与 Intel 均有独立安装包。</p>
+              <a class="btn btn-primary" href="https://github.com/boe1900/owndsh/releases" target="_blank" rel="noopener">前往发布页</a>
+            </div>
+            <div class="platform" data-platform="windows">
+              <span class="platform-badge" hidden>当前设备</span>
+              <h3>Windows</h3>
+              <p>Windows x64 安装包。</p>
+              <a class="btn btn-primary" href="https://github.com/boe1900/owndsh/releases" target="_blank" rel="noopener">前往发布页</a>
+            </div>
+            <div class="platform" data-platform="linux">
+              <span class="platform-badge" hidden>当前设备</span>
+              <h3>Linux / 其他</h3>
+              <p>使用官方 Harness 或社区 Desktop，安装下方企业插件即可接入。</p>
+              <a class="btn btn-ghost" href="#plugin">查看插件安装</a>
+            </div>
+          </div>
+
+          <div class="placeholder">
+            <strong>校验信息占位</strong>
+            <p class="muted">
+              按产品决策，这里预留「版本号 · 发布日期 · SHA-256」三行校验信息表。上线前用发布页的真实数据填充即可
+              （替换位置：<code>content/download/index.html</code> 本区块）。**在拿到真实校验值之前不要填写任何数字。**
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="plugin">
+        <div class="wrap">
+          <p class="eyebrow">PLUGIN</p>
+          <h2>已有官方 Harness / 社区 Desktop</h2>
+          <p class="lead">先确保 <code>pnpm</code> 可直接执行（Harness 当前基线为 pnpm 11.7.0），再安装企业插件。</p>
+
+          <div class="command">
+            <code>corepack enable
+corepack install --global pnpm@11.7.0
+pnpm --version
+
+# Harness Web
+dsh plugin --profile web add --ignore-scripts owndsh-plugin@next
+dsh --profile web
+
+# DSH Desktop
+dsh plugin --profile desktop add --ignore-scripts owndsh-plugin@next</code>
+            <button type="button" class="copy-command" hidden>复制</button>
+          </div>
+
+          <div class="note note-warn">
+            <strong>注意</strong>
+            <span>只写 <code>corepack pnpm …</code> 是不够的：<code>dsh plugin</code> 的子进程仍会从 PATH 查找 pnpm。
+            判断标准很简单——直接运行 <code>pnpm --version</code> 能成功。安装后请重启对应 profile。</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-canvas">
+        <div class="wrap">
+          <p class="eyebrow">FIRST RUN</p>
+          <h2>首次运行三步</h2>
+
+          <div class="grid grid-3">
+            <div class="card"><span class="card-index">01</span><h3>填写 Server 地址</h3><p>使用管理员提供的完整 HTTP(S) origin，例如 <code>https://你的地址</code>；不要附带 API 路径（不要写成 <code>…/enterprise/…</code>）。</p></div>
+            <div class="card"><span class="card-index">02</span><h3>企业登录</h3><p>使用企业账号登录；若被要求设置新密码，说明初始口令是一次性的。</p></div>
+            <div class="card"><span class="card-index">03</span><h3>选择插件</h3><p>在「OwnDsh 设置 → 插件」里自主安装管理员发布且对你可见的企业插件。</p></div>
+          </div>
+
+          <div class="note note-safe">
+            <strong>安全</strong>
+            <span>供应商 API Key 不会下发到你的设备；每次模型请求都由平台网关重新校验身份、授权与额度。
+            Access Token 只存在 Host 内存，浏览器页面不会读取或保存它。</span>
+          </div>
+
+          <div class="note note-tip">
+            <strong>更多</strong>
+            <span>接入细节与常见问题见<a href="/help/user/install-plugin.html">帮助中心 · 安装企业插件</a>与<a href="/help/user/faq.html">员工常见问题</a>。</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- inject:footer -->
+    <script src="{{base}}assets/site.js" defer></script>
+  </body>
+</html>

@@ -1,0 +1,239 @@
+# OwnDsh API 文档 · 分组与导航配置
+#
+# 契约（contracts/enterprise-openapi.yaml）本身没有 tags / servers，
+# 本文件是"面向读者的信息架构真源"：由 build-docs.mjs 在生成期注入
+# 到 dist/enterprise-openapi.json 的 tags / x-tagGroups / operation.tags。
+#
+# 约束：operations 里的 operationId 必须与契约完全一致。契约新增操作而本文件未覆盖时，
+# build-docs.mjs --check 必须失败（防止文档静默缺页）。
+#
+# 统计：5 个分组 / 21 个 tag / 97 个操作（GET 39, POST 38, PUT 11, DELETE 9）
+
+version: 1
+
+tagGroups:
+  # ─────────────────────────────────────────────────────────────
+  - name: 管理端 API
+    description: >-
+      控制台（浏览器会话）使用的管理接口，前缀 /enterprise/admin/v1。
+      认证方式为同源 HttpOnly Cookie；写操作受同源校验保护。
+      每个操作标注所需 ent:* 权限码。
+    tags:
+      - name: 控制台会话
+        description: 控制台引导数据与当前账号口令维护。bootstrap 同时是"是否已登录控制台"的判据。
+        operations:
+          - getConsoleBootstrap
+          - changeCurrentAccountPassword
+
+      - name: 成员管理
+        description: 本地成员的创建、状态与内置角色，以及成员外部身份链接的建立与解绑。
+        operations:
+          - listMembers
+          - createLocalMember
+          - getMember
+          - updateMemberStatus
+          - replaceMemberRoles
+          - startIdentityLink
+          - unlinkMemberIdentity
+          - getUserExternalIdentitySummary
+
+      - name: 设备管理
+        description: 企业内已注册设备的查询与撤销。撤销后该设备的平台会话立即失效。
+        operations:
+          - listDevices
+          - getDevice
+          - revokeDevice
+
+      - name: 身份源与目录
+        description: >-
+          身份源（LOCAL/LDAP/OIDC）的增删改查与启用禁用、连通性测试，
+          以及 LDAP 目录的用户/组搜索与成员导入。
+        operations:
+          - listIdentitySources
+          - createIdentitySource
+          - getIdentitySource
+          - updateIdentitySource
+          - testIdentitySource
+          - enableIdentitySource
+          - disableIdentitySource
+          - searchLdapUsers
+          - importLdapUser
+          - searchLdapGroups
+
+      - name: 组织与访问组
+        description: 身份源组到平台角色的映射规则，以及用于批量授权的访问组。
+        operations:
+          - listGroupMappings
+          - createGroupMapping
+          - deleteGroupMapping
+          - listAccessGroups
+          - createAccessGroup
+          - getAccessGroup
+          - updateAccessGroup
+          - deleteAccessGroup
+
+      - name: 模型供应商
+        description: >-
+          上游模型供应商的配置与探活。凭据为只写输入，读取时只返回 credentialConfigured，
+          不会回显任何密钥信息。
+        operations:
+          - listModelProviders
+          - createModelProvider
+          - getModelProvider
+          - updateModelProvider
+          - testModelProvider
+          - enableModelProvider
+          - disableModelProvider
+
+      - name: 模型目录
+        description: 平台托管的模型别名（managed alias）定义与启停。上游真实模型名不对员工端暴露。
+        operations:
+          - listManagedModels
+          - createManagedModel
+          - getManagedModel
+          - updateManagedModel
+          - deleteManagedModel
+          - enableManagedModel
+          - disableManagedModel
+
+      - name: 模型集
+        description: 模型集是按业务场景打包的一组托管模型，供后续授权引用。
+        operations:
+          - listModelSets
+          - createModelSet
+          - getModelSet
+          - updateModelSet
+          - deleteModelSet
+
+      - name: 模型授权
+        description: 把模型集授予成员/部门/全员，支持批量下发。授权缺失时网关返回 ENT_MODEL_NOT_ASSIGNED。
+        operations:
+          - listModelGrants
+          - createModelGrant
+          - createModelGrantBatch
+          - updateModelGrant
+          - deleteModelGrant
+
+      - name: 配额与用量
+        description: >-
+          配额策略的增删改查与启停、策略窗口计数快照，以及无提示词内容的用量账本查询。
+          配额触发时网关返回 429 + ENT_QUOTA_* 错误码。
+        operations:
+          - listQuotaPolicies
+          - createQuotaPolicy
+          - getQuotaPolicy
+          - updateQuotaPolicy
+          - deleteQuotaPolicy
+          - enableQuotaPolicy
+          - disableQuotaPolicy
+          - getQuotaPolicyWindows
+          - listUsageLedger
+
+      - name: 插件治理
+        description: 插件包版本上传、发布/退休、按成员或部门批量分配，以及终端插件清单。
+        operations:
+          - listPluginPackages
+          - uploadPluginVersion
+          - publishPluginVersion
+          - retirePluginVersion
+          - replacePluginAssignments
+          - listPluginInventory
+
+      - name: 会话与审计
+        description: >-
+          员工会话元数据与（单独授权的）会话正文读取、会话删除墓碑，以及治理审计事件查询。
+          元数据接口不返回标题、正文与密文。
+        operations:
+          - listAdminSessions
+          - readAdminSessionContent
+          - deleteAdminSession
+          - listAuditEvents
+
+  # ─────────────────────────────────────────────────────────────
+  - name: 员工端 API
+    description: >-
+      员工终端（DSH Desktop / Harness）使用的接口，前缀 /enterprise/api/v1。
+      认证方式为设备绑定的 Bearer Token（Sa-Token），由 /enterprise/auth/v1/token 交换得到。
+    tags:
+      - name: 设备注册与心跳
+        description: 终端首次注册以获得设备身份，以及周期性心跳维持设备在线与配额窗口统计。
+        operations:
+          - enrollCurrentDevice
+          - heartbeatCurrentDevice
+
+      - name: 运行时引导
+        description: 员工端启动时拉取可用模型、能力与配额事实。不包含供应商路由、上游模型名或任何凭据。
+        operations:
+          - getEnterpriseBootstrap
+
+      - name: 我的用量
+        description: 当前账号在配额窗口内的用量与剩余额度。
+        operations:
+          - getMyQuotaUsage
+
+      - name: 插件分发
+        description: 拉取分配给本设备的插件版本、下载构件、上报本地插件清单。
+        operations:
+          - getPluginAssignments
+          - downloadPluginVersion
+          - replacePluginInventory
+
+      - name: 会话同步
+        description: >-
+          官方 rc.7 Session format-v0 的 JSONL 批量追加、导出、删除墓碑与恢复记录。
+          批次哈希与滚动哈希由客户端计算，服务端校验（ENT_SESSION_SEQ_GAP / ENT_SESSION_DIVERGED）。
+        operations:
+          - listOwnedSessions
+          - appendSessionBatch
+          - exportOwnedSession
+          - deleteOwnedSession
+          - recordSessionRestore
+
+  # ─────────────────────────────────────────────────────────────
+  - name: 认证 API
+    description: >-
+      平台授权与登录流程，前缀 /enterprise/auth/v1。
+      控制台走 PKCE 授权码 + 浏览器会话；桌面端走 PKCE 授权码 + Token 交换。
+    tags:
+      - name: 授权与登录
+        description: 授权端点、公开身份源列表、口令登录与 OIDC 登录。登录事务带 transaction-bound CSRF 令牌。
+        operations:
+          - authorizePlatformClient
+          - listPublicIdentitySources
+          - completePasswordLogin
+          - startOidcLogin
+          - completeOidcLogin
+
+      - name: 令牌与会话
+        description: 授权码换 Token（桌面端）、授权码换浏览器会话（控制台）、平台会话注销。
+        operations:
+          - exchangeDesktopToken
+          - exchangeBrowserAuthorizationCode
+          - logoutPlatformSession
+
+  # ─────────────────────────────────────────────────────────────
+  - name: 模型网关
+    description: >-
+      OpenAI / Anthropic 兼容的托管模型网关，前缀 /enterprise/gateway/v1。
+      请求只接受平台托管别名或 enterprise/default；成功响应为 SSE 事件流，不走企业 JSON 成功信封。
+      使用 Bearer Token 认证，不接受供应商地址、上游模型名或凭据透传。
+    tags:
+      - name: OpenAI 兼容
+        description: Chat Completions 与 Responses 两种 OpenAI 兼容入口，支持工具调用与流式增量。
+        operations:
+          - streamEnterpriseChatCompletions
+          - streamEnterpriseResponses
+
+      - name: Anthropic 兼容
+        description: Anthropic Messages 兼容入口，供 Claude 系列客户端直连平台网关。
+        operations:
+          - streamEnterpriseAnthropicMessages
+
+# ─────────────────────────────────────────────────────────────
+# 分组顺序即左侧导航顺序；"开始使用"四页不是 OpenAPI tag，
+# 由 build-docs.mjs 渲染进 info.description（Markdown）与页脚，见 config/intro.zh.md。
+tagGroupsOrder:
+  - 管理端 API
+  - 员工端 API
+  - 认证 API
+  - 模型网关

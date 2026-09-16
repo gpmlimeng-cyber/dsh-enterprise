@@ -1,0 +1,26 @@
+{
+  "model": "enterprise/default",
+  "session_id": "123e4567-e89b-42d3-a456-426614174010",
+  "messages": [
+    {"role": "system", "content": "Answer precisely."},
+    {"role": "user", "content": "What is the deployment status?"}
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "deployment_status",
+        "description": "Read deployment status.",
+        "parameters": {"type": "object", "additionalProperties": false}
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "temperature": 0.7,
+  "top_p": 1,
+  "max_tokens": 512,
+  "stop": null,
+  "reasoning_effort": "max",
+  "stream": true,
+  "stream_options": {"include_usage": true}
+}

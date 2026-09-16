@@ -1,0 +1,65 @@
+--- a/deploy/nginx/nginx.conf
++++ b/deploy/nginx/nginx.conf
+@@ -31,10 +31,9 @@
+     default $scheme;
+   }
+ 
+-  upstream enterprise_server {
+-    server server:8080;
+-    keepalive 32;
+-  }
++  # Docker 内嵌 DNS：容器重建后 server IP 变化也能解析，避免 502。
++  resolver 127.0.0.11 valid=10s ipv6=off;
++  resolver_timeout 5s;
+ 
+   server {
+     listen 8080;
+     server_name _;
++
++    # 在 server 块级定义，所有 location 共享；变量形式强制运行时 DNS 解析。
++    set $upstream_server server:8080;
+ 
+     add_header X-Content-Type-Options nosniff always;
+     add_header Referrer-Policy strict-origin always;
+@@ -56,25 +55,25 @@
+     proxy_read_timeout 60s;
+ 
+     location = /healthz {
+-      proxy_pass http://enterprise_server/actuator/health;
++      proxy_pass http://$upstream_server/actuator/health;
+       access_log off;
+     }
+ 
+     location ~ ^/enterprise/gateway/v1/(?:chat/completions|responses|messages)$ {
+       proxy_buffering off;
+       proxy_cache off;
+       proxy_read_timeout 600s;
+-      proxy_pass http://enterprise_server;
++      proxy_pass http://$upstream_server;
+     }
+ 
+     location = /enterprise/auth/callback {
+       root /usr/share/nginx/html;
+       try_files /index.html =404;
+     }
+ 
+     location /enterprise/admin/v1/ {
+-      proxy_pass http://enterprise_server;
++      proxy_pass http://$upstream_server;
+     }
+ 
+     location /enterprise/api/v1/ {
+-      proxy_pass http://enterprise_server;
++      proxy_pass http://$upstream_server;
+     }
+ 
+     location /enterprise/auth/ {
+-      proxy_pass http://enterprise_server;
++      proxy_pass http://$upstream_server;
+     }
+ 
+     location = /auth/code {
+-      proxy_pass http://enterprise_server;
++      proxy_pass http://$upstream_server;
+     }
+*** End of patch ***

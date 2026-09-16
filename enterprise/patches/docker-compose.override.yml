@@ -1,0 +1,14 @@
+# [INPUT]: 依赖 deploy/nginx/nginx.conf 与 Docker 内嵌 DNS。
+# [OUTPUT]: 覆盖 console 的 nginx 配置，使上游 server 在运行时解析，避免容器重建后 502。
+# [POS]: 本部署的本地修复层；上游修复后可删除。
+#
+# 用途：nginx 默认在启动时解析 upstream 主机名并永久缓存 IP。server 容器
+# 重建/重启后 IP 变化会导致 console 持续 502 且不自愈。此 override 将修复后的
+# nginx.conf 挂载进 console 容器，使其通过 Docker 内嵌 DNS(127.0.0.11) 运行时解析。
+#
+# 移除条件：上游 deploy/nginx/nginx.conf 已改用 resolver + 变量形式 proxy_pass 后可删除本文件。
+
+services:
+  console:
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro

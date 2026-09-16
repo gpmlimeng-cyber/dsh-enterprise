@@ -1,0 +1,1091 @@
+# [INPUT]: 依赖详细设计冻结的 HTTP 约定、paths/ operation 分片与 components/ schema 分片
+# [OUTPUT]: 提供 OpenAPI 3.1 导航根、通用 envelope、品牌 ID、requestId、revision、cursor 和错误边界
+# [POS]: contracts 的逻辑协议根，纵向任务通过受控 Path Item/schema 引用扩展且完整 bundle/hash 仍是唯一协议
+# [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: OwnDsh API
+  version: 0.1.0
+  description: >-
+    Shared protocol components. Business operations are added only by the
+    vertical task that also implements and protects the matching Controller.
+security:
+  - EnterpriseBearer: []
+  - EnterpriseAdminCookie: []
+
+paths:
+  /enterprise/auth/v1/authorize:
+    $ref: './paths/auth.yaml#/Authorize'
+  /enterprise/auth/v1/sources:
+    $ref: './paths/auth.yaml#/Sources'
+  /enterprise/auth/v1/password:
+    $ref: './paths/auth.yaml#/Password'
+  /enterprise/auth/v1/oidc/{sourceId}/start:
+    $ref: './paths/auth.yaml#/OidcStart'
+  /enterprise/auth/v1/oidc/{sourceId}/callback:
+    $ref: './paths/auth.yaml#/OidcCallback'
+  /enterprise/auth/v1/token:
+    $ref: './paths/auth.yaml#/Token'
+  /enterprise/auth/v1/browser-session:
+    $ref: './paths/auth.yaml#/BrowserSession'
+  /enterprise/auth/v1/logout:
+    $ref: './paths/auth.yaml#/Logout'
+  /enterprise/admin/v1/bootstrap:
+    $ref: './paths/auth.yaml#/ConsoleBootstrap'
+  /enterprise/admin/v1/account/password:
+    $ref: './paths/auth.yaml#/CurrentAccountPassword'
+  /enterprise/admin/v1/members:
+    $ref: './paths/member.yaml#/MemberCollection'
+  /enterprise/admin/v1/members/{userId}:
+    $ref: './paths/member.yaml#/MemberItem'
+  /enterprise/admin/v1/members/{userId}/status:
+    $ref: './paths/member.yaml#/MemberStatus'
+  /enterprise/admin/v1/members/{userId}/roles:
+    $ref: './paths/member.yaml#/MemberRoles'
+  /enterprise/admin/v1/members/{userId}/identities/{identityId}:
+    $ref: './paths/member.yaml#/MemberIdentityItem'
+  /enterprise/admin/v1/members/{userId}/identity-links:
+    $ref: './paths/member.yaml#/MemberIdentityLinks'
+  /enterprise/api/v1/devices/enroll:
+    $ref: './paths/device.yaml#/Enroll'
+  /enterprise/api/v1/devices/heartbeat:
+    $ref: './paths/device.yaml#/Heartbeat'
+  /enterprise/admin/v1/devices:
+    $ref: './paths/device.yaml#/List'
+  /enterprise/admin/v1/devices/{deviceId}:
+    $ref: './paths/device.yaml#/Get'
+  /enterprise/admin/v1/devices/{deviceId}/actions/revoke:
+    $ref: './paths/device.yaml#/Revoke'
+  /enterprise/admin/v1/identity-sources:
+    $ref: './paths/identity.yaml#/~1enterprise~1admin~1v1~1identity-sources'
+  /enterprise/admin/v1/identity-sources/{sourceId}:
+    $ref: './paths/identity.yaml#/~1enterprise~1admin~1v1~1identity-sources~1{sourceId}'
+  /enterprise/admin/v1/identity-sources/{sourceId}/actions/test:
+    $ref: './paths/identity.yaml#/~1enterprise~1admin~1v1~1identity-sources~1{sourceId}~1actions~1test'
+  /enterprise/admin/v1/identity-sources/{sourceId}/actions/enable:
+    $ref: './paths/identity.yaml#/~1enterprise~1admin~1v1~1identity-sources~1{sourceId}~1actions~1enable'
+  /enterprise/admin/v1/identity-sources/{sourceId}/actions/disable:
+    $ref: './paths/identity.yaml#/~1enterprise~1admin~1v1~1identity-sources~1{sourceId}~1actions~1disable'
+  /enterprise/admin/v1/identity-sources/{sourceId}/ldap/users:
+    $ref: './paths/identity.yaml#/~1enterprise~1admin~1v1~1identity-sources~1{sourceId}~1ldap~1users'
+  /enterprise/admin/v1/identity-sources/{sourceId}/ldap/users/actions/import:
+    $ref: './paths/identity.yaml#/~1enterprise~1admin~1v1~1identity-sources~1{sourceId}~1ldap~1users~1actions~1import'
+  /enterprise/admin/v1/identity-sources/{sourceId}/ldap/groups:
+    $ref: './paths/identity.yaml#/~1enterprise~1admin~1v1~1identity-sources~1{sourceId}~1ldap~1groups'
+  /enterprise/admin/v1/group-mappings:
+    $ref: './paths/identity.yaml#/~1enterprise~1admin~1v1~1group-mappings'
+  /enterprise/admin/v1/group-mappings/{mappingId}:
+    $ref: './paths/identity.yaml#/~1enterprise~1admin~1v1~1group-mappings~1{mappingId}'
+  /enterprise/admin/v1/access-groups:
+    $ref: './paths/identity.yaml#/~1enterprise~1admin~1v1~1access-groups'
+  /enterprise/admin/v1/access-groups/{accessGroupId}:
+    $ref: './paths/identity.yaml#/~1enterprise~1admin~1v1~1access-groups~1{accessGroupId}'
+  /enterprise/admin/v1/users/{userId}/identity-summary:
+    $ref: './paths/identity.yaml#/~1enterprise~1admin~1v1~1users~1{userId}~1identity-summary'
+  /enterprise/admin/v1/providers:
+    $ref: './paths/model.yaml#/ProviderCollection'
+  /enterprise/admin/v1/providers/{providerId}:
+    $ref: './paths/model.yaml#/ProviderItem'
+  /enterprise/admin/v1/providers/{providerId}/actions/test:
+    $ref: './paths/model.yaml#/ProviderTest'
+  /enterprise/admin/v1/providers/{providerId}/actions/enable:
+    $ref: './paths/model.yaml#/ProviderEnable'
+  /enterprise/admin/v1/providers/{providerId}/actions/disable:
+    $ref: './paths/model.yaml#/ProviderDisable'
+  /enterprise/admin/v1/models:
+    $ref: './paths/model.yaml#/ModelCollection'
+  /enterprise/admin/v1/models/{modelId}:
+    $ref: './paths/model.yaml#/ModelItem'
+  /enterprise/admin/v1/models/{modelId}/actions/enable:
+    $ref: './paths/model.yaml#/ModelEnable'
+  /enterprise/admin/v1/models/{modelId}/actions/disable:
+    $ref: './paths/model.yaml#/ModelDisable'
+  /enterprise/admin/v1/model-sets:
+    $ref: './paths/model.yaml#/ModelSetCollection'
+  /enterprise/admin/v1/model-sets/{modelSetId}:
+    $ref: './paths/model.yaml#/ModelSetItem'
+  /enterprise/admin/v1/model-grants:
+    $ref: './paths/model.yaml#/GrantCollection'
+  /enterprise/admin/v1/model-grants/batch:
+    $ref: './paths/model.yaml#/GrantBatch'
+  /enterprise/admin/v1/model-grants/{grantId}:
+    $ref: './paths/model.yaml#/GrantItem'
+  /enterprise/api/v1/bootstrap:
+    $ref: './paths/model.yaml#/Bootstrap'
+  /enterprise/admin/v1/quotas:
+    $ref: './paths/quota.yaml#/QuotaCollection'
+  /enterprise/admin/v1/quotas/{quotaId}:
+    $ref: './paths/quota.yaml#/QuotaItem'
+  /enterprise/admin/v1/quotas/{quotaId}/actions/enable:
+    $ref: './paths/quota.yaml#/QuotaEnable'
+  /enterprise/admin/v1/quotas/{quotaId}/actions/disable:
+    $ref: './paths/quota.yaml#/QuotaDisable'
+  /enterprise/admin/v1/quotas/{quotaId}/windows:
+    $ref: './paths/quota.yaml#/QuotaWindows'
+  /enterprise/api/v1/usage/me:
+    $ref: './paths/quota.yaml#/MyUsage'
+  /enterprise/admin/v1/usage:
+    $ref: './paths/quota.yaml#/AdminUsage'
+  /enterprise/gateway/v1/chat/completions:
+    $ref: './paths/gateway.yaml#/ChatCompletions'
+  /enterprise/gateway/v1/responses:
+    $ref: './paths/gateway.yaml#/Responses'
+  /enterprise/gateway/v1/messages:
+    $ref: './paths/gateway.yaml#/AnthropicMessages'
+  /enterprise/admin/v1/plugins:
+    $ref: './paths/plugin.yaml#/PluginCollection'
+  /enterprise/admin/v1/plugins/versions:
+    $ref: './paths/plugin.yaml#/PluginVersionUpload'
+  /enterprise/admin/v1/plugins/versions/{pluginVersionId}/actions/publish:
+    $ref: './paths/plugin.yaml#/PluginVersionPublish'
+  /enterprise/admin/v1/plugins/versions/{pluginVersionId}/actions/retire:
+    $ref: './paths/plugin.yaml#/PluginVersionRetire'
+  /enterprise/admin/v1/plugins/{pluginPackageId}/assignments/batch:
+    $ref: './paths/plugin.yaml#/PluginAssignmentBatch'
+  /enterprise/admin/v1/plugins/inventory:
+    $ref: './paths/plugin.yaml#/AdminPluginInventory'
+  /enterprise/api/v1/plugins/assignments:
+    $ref: './paths/plugin.yaml#/RuntimePluginAssignments'
+  /enterprise/api/v1/plugins/versions/{pluginVersionId}/download:
+    $ref: './paths/plugin.yaml#/RuntimePluginDownload'
+  /enterprise/api/v1/plugins/inventory:
+    $ref: './paths/plugin.yaml#/RuntimePluginInventory'
+  /enterprise/api/v1/sessions:
+    $ref: './paths/session.yaml#/RuntimeSessionCollection'
+  /enterprise/api/v1/sessions/{sessionId}/batches:
+    $ref: './paths/session.yaml#/RuntimeSessionBatch'
+  /enterprise/api/v1/sessions/{sessionId}/export:
+    $ref: './paths/session.yaml#/RuntimeSessionExport'
+  /enterprise/api/v1/sessions/{sessionId}:
+    $ref: './paths/session.yaml#/RuntimeSessionItem'
+  /enterprise/api/v1/sessions/{sessionId}/restore-record:
+    $ref: './paths/session.yaml#/RuntimeSessionRestoreRecord'
+  /enterprise/admin/v1/sessions:
+    $ref: './paths/session.yaml#/AdminSessionCollection'
+  /enterprise/admin/v1/sessions/{replicaId}/content:
+    $ref: './paths/session.yaml#/AdminSessionContent'
+  /enterprise/admin/v1/sessions/{replicaId}:
+    $ref: './paths/session.yaml#/AdminSessionItem'
+  /enterprise/admin/v1/audit-events:
+    $ref: './paths/audit.yaml#/AdminAuditCollection'
+
+x-enterprise-error-statuses:
+  '400':
+    - ENT_INVALID_REQUEST
+    - ENT_INVALID_REDIRECT_URI
+    - ENT_PKCE_REQUIRED
+    - ENT_PLUGIN_ARTIFACT_INVALID
+    - ENT_SESSION_FORMAT_UNSUPPORTED
+  '401':
+    - ENT_AUTH_REQUIRED
+    - ENT_AUTH_CODE_INVALID
+    - ENT_PKCE_INVALID
+    - ENT_AUTH_SESSION_EXPIRED
+  '403':
+    - ENT_PERMISSION_DENIED
+    - ENT_DEVICE_REVOKED
+    - ENT_MODEL_NOT_ASSIGNED
+    - ENT_PLUGIN_NOT_ASSIGNED
+    - ENT_RESOURCE_NOT_OWNED
+  '404':
+    - ENT_RESOURCE_NOT_FOUND
+    - ENT_SESSION_CONTENT_EXPIRED
+  '409':
+    - ENT_REVISION_CONFLICT
+    - ENT_LAST_ENTERPRISE_ADMIN
+    - ENT_LAST_MEMBER_IDENTITY
+    - ENT_REQUEST_IN_PROGRESS
+    - ENT_REQUEST_ALREADY_COMPLETED
+    - ENT_SESSION_SEQ_GAP
+    - ENT_SESSION_DIVERGED
+    - ENT_SESSION_SOURCE_DEVICE_CONFLICT
+    - ENT_IDENTITY_ALREADY_LINKED
+    - ENT_DEVICE_ALREADY_BOUND
+  '413':
+    - ENT_REQUEST_TOO_LARGE
+    - ENT_PLUGIN_ARCHIVE_TOO_LARGE
+    - ENT_SESSION_BATCH_TOO_LARGE
+  '429':
+    - ENT_QUOTA_FIVE_HOURS_EXCEEDED
+    - ENT_QUOTA_DAILY_EXCEEDED
+    - ENT_QUOTA_WEEKLY_EXCEEDED
+    - ENT_QUOTA_MONTHLY_EXCEEDED
+    - ENT_QUOTA_RPM_EXCEEDED
+    - ENT_QUOTA_CONCURRENCY_EXCEEDED
+    - ENT_UPSTREAM_RATE_LIMITED
+    - ENT_UPSTREAM_QUOTA_EXCEEDED
+  '502':
+    - ENT_UPSTREAM_AUTH_FAILED
+    - ENT_UPSTREAM_INVALID_RESPONSE
+  '503':
+    - ENT_PLATFORM_UNAVAILABLE
+    - ENT_UPSTREAM_UNAVAILABLE
+  '504':
+    - ENT_UPSTREAM_TIMEOUT
+
+x-enterprise-fixtures:
+  - file: fixtures/protocol-success.json
+    schema: ProtocolSuccessResponse
+    valid: true
+  - file: fixtures/protocol-page-success.json
+    schema: ProtocolPageResponse
+    valid: true
+  - file: fixtures/quota-error.json
+    schema: EnterpriseErrorResponse
+    valid: true
+  - file: fixtures/unknown-error-code.json
+    schema: EnterpriseErrorResponse
+    valid: false
+  - file: fixtures/unexpected-error-property.json
+    schema: EnterpriseErrorResponse
+    valid: false
+  - file: fixtures/identity-source-success.json
+    schema: IdentitySourceResponse
+    valid: true
+  - file: fixtures/identity-source-secret-leak.json
+    schema: IdentitySourceResponse
+    valid: false
+  - file: fixtures/group-mapping-success.json
+    schema: GroupMappingResponse
+    valid: true
+  - file: fixtures/identity-source-list-success.json
+    schema: IdentitySourceListResponse
+    valid: true
+  - file: fixtures/identity-source-test-success.json
+    schema: IdentitySourceTestResponse
+    valid: true
+  - file: fixtures/ldap-user-search-success.json
+    schema: LdapDirectoryUserSearchResponse
+    valid: true
+  - file: fixtures/ldap-group-search-success.json
+    schema: LdapDirectoryGroupSearchResponse
+    valid: true
+  - file: fixtures/ldap-member-import-success.json
+    schema: LdapMemberImportResponse
+    valid: true
+  - file: fixtures/group-mapping-list-success.json
+    schema: GroupMappingListResponse
+    valid: true
+  - file: fixtures/access-group-success.json
+    schema: AccessGroupResponse
+    valid: true
+  - file: fixtures/deleted-resource-success.json
+    schema: DeletedResourceResponse
+    valid: true
+  - file: fixtures/external-identity-summary-success.json
+    schema: ExternalIdentitySummaryResponse
+    valid: true
+  - file: fixtures/auth-sources-success.json
+    schema: AuthSourcesResponse
+    valid: true
+  - file: fixtures/token-success.json
+    schema: TokenResponse
+    valid: true
+  - file: fixtures/console-bootstrap-success.json
+    schema: ConsoleBootstrapResponse
+    valid: true
+  - file: fixtures/member-list-success.json
+    schema: MemberListResponse
+    valid: true
+  - file: fixtures/member-detail-success.json
+    schema: MemberDetailResponse
+    valid: true
+  - file: fixtures/device-success.json
+    schema: DeviceResponse
+    valid: true
+  - file: fixtures/device-list-success.json
+    schema: DeviceListResponse
+    valid: true
+  - file: fixtures/provider-success.json
+    schema: ProviderResponse
+    valid: true
+  - file: fixtures/provider-secret-leak.json
+    schema: ProviderResponse
+    valid: false
+  - file: fixtures/provider-list-success.json
+    schema: ProviderListResponse
+    valid: true
+  - file: fixtures/provider-probe-success.json
+    schema: ProviderProbeResponse
+    valid: true
+  - file: fixtures/model-success.json
+    schema: ManagedModelResponse
+    valid: true
+  - file: fixtures/model-list-success.json
+    schema: ManagedModelListResponse
+    valid: true
+  - file: fixtures/model-set-success.json
+    schema: ModelSetResponse
+    valid: true
+  - file: fixtures/model-grant-success.json
+    schema: ModelGrantResponse
+    valid: true
+  - file: fixtures/model-grant-list-success.json
+    schema: ModelGrantListResponse
+    valid: true
+  - file: fixtures/model-grant-batch-success.json
+    schema: ModelGrantBatchResponse
+    valid: true
+  - file: fixtures/bootstrap-models-success.json
+    schema: BootstrapResponse
+    valid: true
+  - file: fixtures/quota-policy-success.json
+    schema: QuotaPolicyResponse
+    valid: true
+  - file: fixtures/quota-policy-list-success.json
+    schema: QuotaPolicyListResponse
+    valid: true
+  - file: fixtures/quota-window-list-success.json
+    schema: QuotaWindowListResponse
+    valid: true
+  - file: fixtures/quota-usage-me-success.json
+    schema: MyQuotaUsageResponse
+    valid: true
+  - file: fixtures/usage-ledger-list-success.json
+    schema: UsageLedgerListResponse
+    valid: true
+  - file: fixtures/gateway-request-success.json
+    schema: NativeGatewayRequest
+    valid: true
+  - file: fixtures/plugin-version-success.json
+    schema: PluginVersionResponse
+    valid: true
+  - file: fixtures/plugin-assignments-success.json
+    schema: RuntimePluginAssignmentsResponse
+    valid: true
+  - file: fixtures/plugin-inventory-success.json
+    schema: PluginInventoryResponse
+    valid: true
+  - file: fixtures/session-batch-success.json
+    schema: SessionBatchAcceptedResponse
+    valid: true
+  - file: fixtures/session-list-success.json
+    schema: OwnedSessionListResponse
+    valid: true
+  - file: fixtures/session-export-success.json
+    schema: SessionExportResponse
+    valid: true
+  - file: fixtures/admin-session-list-success.json
+    schema: AdminSessionListResponse
+    valid: true
+  - file: fixtures/session-deleted-success.json
+    schema: DeletedSessionResponse
+    valid: true
+  - file: fixtures/audit-event-list-success.json
+    schema: AuditEventListResponse
+    valid: true
+
+components:
+  securitySchemes:
+    EnterpriseBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: Sa-Token
+    EnterpriseAdminCookie:
+      type: apiKey
+      in: cookie
+      name: enterprise-admin
+      description: Logical console session cookie. HTTP uses enterprise-admin; HTTPS uses __Host-enterprise-admin with Secure. Both are HttpOnly, SameSite=Strict, Path=/ and host-only.
+
+  parameters:
+    AuthClientId:
+      name: client_id
+      in: query
+      required: true
+      schema:
+        $ref: '#/components/schemas/PlatformClient'
+    AuthRedirectUri:
+      name: redirect_uri
+      in: query
+      required: true
+      schema:
+        type: string
+        format: uri
+        minLength: 1
+        maxLength: 2048
+    AuthState:
+      name: state
+      in: query
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 512
+        pattern: '^[A-Za-z0-9._~-]+$'
+    PkceChallenge:
+      name: code_challenge
+      in: query
+      required: true
+      schema:
+        $ref: '#/components/schemas/PkceCodeChallenge'
+    PkceChallengeMethod:
+      name: code_challenge_method
+      in: query
+      required: true
+      schema:
+        type: string
+        const: S256
+    InstallationIdQuery:
+      name: installation_id
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/InstallationId'
+    AuthTransactionIdQuery:
+      name: transaction_id
+      in: query
+      required: true
+      schema:
+        $ref: '#/components/schemas/AuthTransactionId'
+    DeviceIdPath:
+      name: deviceId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/EnterpriseDeviceId'
+    IdentitySourceIdPath:
+      name: sourceId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/IdentitySourceId'
+    IdentitySourceIdQuery:
+      name: sourceId
+      in: query
+      required: true
+      schema:
+        $ref: '#/components/schemas/IdentitySourceId'
+    GroupMappingIdPath:
+      name: mappingId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/GroupMappingId'
+    AccessGroupIdPath:
+      name: accessGroupId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/AccessGroupId'
+    EnterpriseUserIdPath:
+      name: userId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/EnterpriseUserId'
+    ProviderIdPath:
+      name: providerId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/ModelProviderId'
+    ManagedModelIdPath:
+      name: modelId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/ManagedModelId'
+    ModelSetIdPath:
+      name: modelSetId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/ModelSetId'
+    ModelGrantIdPath:
+      name: grantId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/ModelGrantId'
+    QuotaPolicyIdPath:
+      name: quotaId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/QuotaPolicyId'
+    PluginPackageIdPath:
+      name: pluginPackageId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/PluginPackageId'
+    PluginVersionIdPath:
+      name: pluginVersionId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/PluginVersionId'
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Server-signed opaque cursor; clients must not parse it.
+      schema:
+        $ref: '#/components/schemas/Cursor'
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Cursor page size.
+      schema:
+        $ref: '#/components/schemas/PageLimit'
+    IfMatchRevision:
+      name: If-Match
+      in: header
+      required: true
+      description: Current resource revision used for compare-and-swap updates.
+      schema:
+        $ref: '#/components/schemas/Revision'
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Caller-generated UUID v4 reused only for one logical write.
+      schema:
+        type: string
+        format: uuid
+        minLength: 36
+        maxLength: 36
+        pattern: '^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$'
+
+  headers:
+    XRequestId:
+      description: Server-generated request correlation ID.
+      required: true
+      schema:
+        $ref: '#/components/schemas/RequestId'
+
+  responses:
+    Error400:
+      description: Invalid request.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnterpriseErrorResponse'
+    Error401:
+      description: Authentication failed.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnterpriseErrorResponse'
+    Error403:
+      description: Permission denied.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnterpriseErrorResponse'
+    Error404:
+      description: Resource not found.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnterpriseErrorResponse'
+    Error409:
+      description: Revision, idempotency, or state conflict.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnterpriseErrorResponse'
+    Error413:
+      description: Request or archive is too large.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnterpriseErrorResponse'
+    Error429:
+      description: Quota exceeded.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnterpriseErrorResponse'
+    Error502:
+      description: Upstream rejected or returned an invalid response.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnterpriseErrorResponse'
+    Error503:
+      description: Platform or upstream is unavailable.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnterpriseErrorResponse'
+    Error504:
+      description: Upstream timed out.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnterpriseErrorResponse'
+
+  schemas:
+    RequestId:
+      type: string
+      description: Server-generated req_ prefix followed by one canonical ULID.
+      pattern: '^req_[0-9A-HJKMNP-TV-Z]{26}$'
+      examples:
+        - req_01ARZ3NDEKTSV4RRFFQ69G5FAV
+    Revision:
+      type: integer
+      minimum: 0
+      maximum: 9007199254740991
+      description: Monotonic compare-and-swap revision safe in JavaScript.
+      examples: [7]
+    Cursor:
+      type: string
+      minLength: 16
+      maxLength: 512
+      pattern: '^[A-Za-z0-9_-]+$'
+      description: Server-signed opaque cursor.
+    PageLimit:
+      type: integer
+      minimum: 1
+      maximum: 200
+      default: 50
+    IdentitySourceId: {$ref: './components/identity.yaml#/IdentitySourceId'}
+    GroupMappingId: {$ref: './components/identity.yaml#/GroupMappingId'}
+    DepartmentId: {$ref: './components/identity.yaml#/DepartmentId'}
+    IdentitySourceType: {$ref: './components/identity.yaml#/IdentitySourceType'}
+    IdentityProvisioningMode: {$ref: './components/identity.yaml#/IdentityProvisioningMode'}
+    IdentitySourceStatus: {$ref: './components/identity.yaml#/IdentitySourceStatus'}
+    OidcClaimMapping: {$ref: './components/identity.yaml#/OidcClaimMapping'}
+    OidcSettings: {$ref: './components/identity.yaml#/OidcSettings'}
+    LdapSettings: {$ref: './components/identity.yaml#/LdapSettings'}
+    IdentitySourceCreateRequest: {$ref: './components/identity.yaml#/IdentitySourceCreateRequest'}
+    IdentitySourceUpdateRequest: {$ref: './components/identity.yaml#/IdentitySourceUpdateRequest'}
+    IdentitySource: {$ref: './components/identity.yaml#/IdentitySource'}
+    IdentitySourceResponse: {$ref: './components/identity.yaml#/IdentitySourceResponse'}
+    IdentitySourcePageData: {$ref: './components/identity.yaml#/IdentitySourcePageData'}
+    IdentitySourceListResponse: {$ref: './components/identity.yaml#/IdentitySourceListResponse'}
+    IdentitySourceConnection: {$ref: './components/identity.yaml#/IdentitySourceConnection'}
+    IdentitySourceTestResponse: {$ref: './components/identity.yaml#/IdentitySourceTestResponse'}
+    LdapDirectoryUser: {$ref: './components/identity.yaml#/LdapDirectoryUser'}
+    LdapDirectoryUserSearch: {$ref: './components/identity.yaml#/LdapDirectoryUserSearch'}
+    LdapDirectoryUserSearchResponse: {$ref: './components/identity.yaml#/LdapDirectoryUserSearchResponse'}
+    LdapDirectoryGroup: {$ref: './components/identity.yaml#/LdapDirectoryGroup'}
+    LdapDirectoryGroupSearch: {$ref: './components/identity.yaml#/LdapDirectoryGroupSearch'}
+    LdapDirectoryGroupSearchResponse: {$ref: './components/identity.yaml#/LdapDirectoryGroupSearchResponse'}
+    LdapMemberImportRequest: {$ref: './components/identity.yaml#/LdapMemberImportRequest'}
+    LdapMemberImport: {$ref: './components/identity.yaml#/LdapMemberImport'}
+    LdapMemberImportResponse: {$ref: './components/identity.yaml#/LdapMemberImportResponse'}
+    GroupMappingCreateRequest: {$ref: './components/identity.yaml#/GroupMappingCreateRequest'}
+    GroupMapping: {$ref: './components/identity.yaml#/GroupMapping'}
+    GroupMappingResponse: {$ref: './components/identity.yaml#/GroupMappingResponse'}
+    AccessGroupId: {$ref: './components/identity.yaml#/AccessGroupId'}
+    AccessGroupWriteRequest: {$ref: './components/identity.yaml#/AccessGroupWriteRequest'}
+    AccessGroup: {$ref: './components/identity.yaml#/AccessGroup'}
+    AccessGroupResponse: {$ref: './components/identity.yaml#/AccessGroupResponse'}
+    AccessGroupPageData: {$ref: './components/identity.yaml#/AccessGroupPageData'}
+    AccessGroupListResponse: {$ref: './components/identity.yaml#/AccessGroupListResponse'}
+    GroupMappingPageData: {$ref: './components/identity.yaml#/GroupMappingPageData'}
+    GroupMappingListResponse: {$ref: './components/identity.yaml#/GroupMappingListResponse'}
+    ExternalIdentitySummary: {$ref: './components/identity.yaml#/ExternalIdentitySummary'}
+    ExternalIdentitySummaryResponse: {$ref: './components/identity.yaml#/ExternalIdentitySummaryResponse'}
+    DeletedResource: {$ref: './components/identity.yaml#/DeletedResource'}
+    DeletedResourceResponse: {$ref: './components/identity.yaml#/DeletedResourceResponse'}
+    PlatformClient: {$ref: './components/auth.yaml#/PlatformClient'}
+    AuthTransactionId: {$ref: './components/auth.yaml#/AuthTransactionId'}
+    AuthorizationCode: {$ref: './components/auth.yaml#/AuthorizationCode'}
+    PkceCodeChallenge: {$ref: './components/auth.yaml#/PkceCodeChallenge'}
+    PkceCodeVerifier: {$ref: './components/auth.yaml#/PkceCodeVerifier'}
+    InstallationId: {$ref: './components/auth.yaml#/InstallationId'}
+    PublicIdentitySource: {$ref: './components/auth.yaml#/PublicIdentitySource'}
+    AuthSourcesData: {$ref: './components/auth.yaml#/AuthSourcesData'}
+    AuthSourcesResponse: {$ref: './components/auth.yaml#/AuthSourcesResponse'}
+    PasswordLoginRequest: {$ref: './components/auth.yaml#/PasswordLoginRequest'}
+    PasswordCredentialRequest: {$ref: './components/auth.yaml#/PasswordCredentialRequest'}
+    PasswordChangeChallenge: {$ref: './components/auth.yaml#/PasswordChangeChallenge'}
+    InitialPasswordChangeRequest: {$ref: './components/auth.yaml#/InitialPasswordChangeRequest'}
+    CurrentPasswordChangeRequest: {$ref: './components/auth.yaml#/CurrentPasswordChangeRequest'}
+    PasswordChangedData: {$ref: './components/auth.yaml#/PasswordChangedData'}
+    PasswordChangedResponse: {$ref: './components/auth.yaml#/PasswordChangedResponse'}
+    PasswordStepData: {$ref: './components/auth.yaml#/PasswordStepData'}
+    PasswordStepResponse: {$ref: './components/auth.yaml#/PasswordStepResponse'}
+    TokenRequest: {$ref: './components/auth.yaml#/TokenRequest'}
+    BrowserSessionRequest: {$ref: './components/auth.yaml#/BrowserSessionRequest'}
+    TokenData: {$ref: './components/auth.yaml#/TokenData'}
+    TokenResponse: {$ref: './components/auth.yaml#/TokenResponse'}
+    LogoutData: {$ref: './components/auth.yaml#/LogoutData'}
+    LogoutResponse: {$ref: './components/auth.yaml#/LogoutResponse'}
+    BuiltInRole: {$ref: './components/auth.yaml#/BuiltInRole'}
+    ConsoleMember: {$ref: './components/auth.yaml#/ConsoleMember'}
+    ConsoleDeployment: {$ref: './components/auth.yaml#/ConsoleDeployment'}
+    ConsoleBootstrapData: {$ref: './components/auth.yaml#/ConsoleBootstrapData'}
+    ConsoleBootstrapResponse: {$ref: './components/auth.yaml#/ConsoleBootstrapResponse'}
+    MemberStatus: {$ref: './components/member.yaml#/MemberStatus'}
+    MemberLoginMethod: {$ref: './components/member.yaml#/MemberLoginMethod'}
+    MemberSummary: {$ref: './components/member.yaml#/MemberSummary'}
+    MemberIdentity: {$ref: './components/member.yaml#/MemberIdentity'}
+    MemberDeviceSummary: {$ref: './components/member.yaml#/MemberDeviceSummary'}
+    MemberSessionSummary: {$ref: './components/member.yaml#/MemberSessionSummary'}
+    MemberDetail: {$ref: './components/member.yaml#/MemberDetail'}
+    MemberDetailResponse: {$ref: './components/member.yaml#/MemberDetailResponse'}
+    LocalMemberCreateRequest: {$ref: './components/member.yaml#/LocalMemberCreateRequest'}
+    MemberStatusUpdateRequest: {$ref: './components/member.yaml#/MemberStatusUpdateRequest'}
+    MemberRoleReplaceRequest: {$ref: './components/member.yaml#/MemberRoleReplaceRequest'}
+    IdentityLinkStartRequest: {$ref: './components/member.yaml#/IdentityLinkStartRequest'}
+    IdentityLinkStart: {$ref: './components/member.yaml#/IdentityLinkStart'}
+    IdentityLinkStartResponse: {$ref: './components/member.yaml#/IdentityLinkStartResponse'}
+    MemberPageData: {$ref: './components/member.yaml#/MemberPageData'}
+    MemberListResponse: {$ref: './components/member.yaml#/MemberListResponse'}
+    DeviceStatus: {$ref: './components/device.yaml#/DeviceStatus'}
+    Device: {$ref: './components/device.yaml#/Device'}
+    DeviceEnrollRequest: {$ref: './components/device.yaml#/DeviceEnrollRequest'}
+    DeviceHeartbeatRequest: {$ref: './components/device.yaml#/DeviceHeartbeatRequest'}
+    DeviceResponse: {$ref: './components/device.yaml#/DeviceResponse'}
+    DevicePageData: {$ref: './components/device.yaml#/DevicePageData'}
+    DeviceListResponse: {$ref: './components/device.yaml#/DeviceListResponse'}
+    ModelProviderId: {$ref: './components/model.yaml#/ModelProviderId'}
+    ModelGrantId: {$ref: './components/model.yaml#/ModelGrantId'}
+    ModelSetId: {$ref: './components/model.yaml#/ModelSetId'}
+    ProviderType: {$ref: './components/model.yaml#/ProviderType'}
+    ProviderKey: {$ref: './components/model.yaml#/ProviderKey'}
+    ProviderApiProtocol: {$ref: './components/model.yaml#/ProviderApiProtocol'}
+    ModelStatus: {$ref: './components/model.yaml#/ModelStatus'}
+    GrantSubjectType: {$ref: './components/model.yaml#/GrantSubjectType'}
+    GrantResourceType: {$ref: './components/model.yaml#/GrantResourceType'}
+    ProviderCreateRequest: {$ref: './components/model.yaml#/ProviderCreateRequest'}
+    ProviderUpdateRequest: {$ref: './components/model.yaml#/ProviderUpdateRequest'}
+    ProviderProbeRequest: {$ref: './components/model.yaml#/ProviderProbeRequest'}
+    Provider: {$ref: './components/model.yaml#/Provider'}
+    ProviderResponse: {$ref: './components/model.yaml#/ProviderResponse'}
+    ProviderPageData: {$ref: './components/model.yaml#/ProviderPageData'}
+    ProviderListResponse: {$ref: './components/model.yaml#/ProviderListResponse'}
+    ProviderProbeCategory: {$ref: './components/model.yaml#/ProviderProbeCategory'}
+    ProviderDiscoveredModel: {$ref: './components/model.yaml#/ProviderDiscoveredModel'}
+    ProviderProbeResult: {$ref: './components/model.yaml#/ProviderProbeResult'}
+    ProviderProbeResponse: {$ref: './components/model.yaml#/ProviderProbeResponse'}
+    ManagedModelWriteRequest: {$ref: './components/model.yaml#/ManagedModelWriteRequest'}
+    ManagedModel: {$ref: './components/model.yaml#/ManagedModel'}
+    ManagedModelResponse: {$ref: './components/model.yaml#/ManagedModelResponse'}
+    ManagedModelPageData: {$ref: './components/model.yaml#/ManagedModelPageData'}
+    ManagedModelListResponse: {$ref: './components/model.yaml#/ManagedModelListResponse'}
+    ModelSetWriteRequest: {$ref: './components/model.yaml#/ModelSetWriteRequest'}
+    ModelSet: {$ref: './components/model.yaml#/ModelSet'}
+    ModelSetResponse: {$ref: './components/model.yaml#/ModelSetResponse'}
+    ModelSetPageData: {$ref: './components/model.yaml#/ModelSetPageData'}
+    ModelSetListResponse: {$ref: './components/model.yaml#/ModelSetListResponse'}
+    ModelGrantWriteRequest: {$ref: './components/model.yaml#/ModelGrantWriteRequest'}
+    ModelGrantBatchRequest: {$ref: './components/model.yaml#/ModelGrantBatchRequest'}
+    ModelGrant: {$ref: './components/model.yaml#/ModelGrant'}
+    ModelGrantResponse: {$ref: './components/model.yaml#/ModelGrantResponse'}
+    ModelGrantPageData: {$ref: './components/model.yaml#/ModelGrantPageData'}
+    ModelGrantListResponse: {$ref: './components/model.yaml#/ModelGrantListResponse'}
+    ModelGrantBatchResponse: {$ref: './components/model.yaml#/ModelGrantBatchResponse'}
+    BootstrapModel: {$ref: './components/model.yaml#/BootstrapModel'}
+    BootstrapSnapshot: {$ref: './components/model.yaml#/BootstrapSnapshot'}
+    BootstrapResponse: {$ref: './components/model.yaml#/BootstrapResponse'}
+    PluginPackageId: {$ref: './components/plugin.yaml#/PluginPackageId'}
+    PluginVersionId: {$ref: './components/plugin.yaml#/PluginVersionId'}
+    PluginAssignmentId: {$ref: './components/plugin.yaml#/PluginAssignmentId'}
+    PluginCompatibility: {$ref: './components/plugin.yaml#/PluginCompatibility'}
+    PluginVersion: {$ref: './components/plugin.yaml#/PluginVersion'}
+    PluginVersionResponse: {$ref: './components/plugin.yaml#/PluginVersionResponse'}
+    PluginPackage: {$ref: './components/plugin.yaml#/PluginPackage'}
+    PluginPackagePageData: {$ref: './components/plugin.yaml#/PluginPackagePageData'}
+    PluginPackageListResponse: {$ref: './components/plugin.yaml#/PluginPackageListResponse'}
+    PluginAssignmentBatchRequest: {$ref: './components/plugin.yaml#/PluginAssignmentBatchRequest'}
+    PluginAssignmentBatchResponse: {$ref: './components/plugin.yaml#/PluginAssignmentBatchResponse'}
+    RuntimePluginAssignments: {$ref: './components/plugin.yaml#/RuntimePluginAssignments'}
+    RuntimePluginAssignmentsResponse: {$ref: './components/plugin.yaml#/RuntimePluginAssignmentsResponse'}
+    PluginInventoryRequest: {$ref: './components/plugin.yaml#/PluginInventoryRequest'}
+    PluginInventoryResponse: {$ref: './components/plugin.yaml#/PluginInventoryResponse'}
+    AdminPluginInventoryListResponse: {$ref: './components/plugin.yaml#/AdminPluginInventoryListResponse'}
+    SessionId: {$ref: './components/session.yaml#/SessionId'}
+    SessionReplicaId: {$ref: './components/session.yaml#/SessionReplicaId'}
+    SessionSequence: {$ref: './components/session.yaml#/SessionSequence'}
+    SessionHashBase64: {$ref: './components/session.yaml#/SessionHashBase64'}
+    SessionStatus: {$ref: './components/session.yaml#/SessionStatus'}
+    SessionHeader: {$ref: './components/session.yaml#/SessionHeader'}
+    SessionBatchRequest: {$ref: './components/session.yaml#/SessionBatchRequest'}
+    SessionBatchAccepted: {$ref: './components/session.yaml#/SessionBatchAccepted'}
+    SessionBatchAcceptedResponse: {$ref: './components/session.yaml#/SessionBatchAcceptedResponse'}
+    OwnedSession: {$ref: './components/session.yaml#/OwnedSession'}
+    OwnedSessionPageData: {$ref: './components/session.yaml#/OwnedSessionPageData'}
+    OwnedSessionListResponse: {$ref: './components/session.yaml#/OwnedSessionListResponse'}
+    AdminSession: {$ref: './components/session.yaml#/AdminSession'}
+    AdminSessionPageData: {$ref: './components/session.yaml#/AdminSessionPageData'}
+    AdminSessionListResponse: {$ref: './components/session.yaml#/AdminSessionListResponse'}
+    SessionExport: {$ref: './components/session.yaml#/SessionExport'}
+    SessionExportResponse: {$ref: './components/session.yaml#/SessionExportResponse'}
+    DeletedSession: {$ref: './components/session.yaml#/DeletedSession'}
+    DeletedSessionResponse: {$ref: './components/session.yaml#/DeletedSessionResponse'}
+    SessionRestoreRecordRequest: {$ref: './components/session.yaml#/SessionRestoreRecordRequest'}
+    SessionRestoreRecord: {$ref: './components/session.yaml#/SessionRestoreRecord'}
+    SessionRestoreRecordResponse: {$ref: './components/session.yaml#/SessionRestoreRecordResponse'}
+    AuditEventId: {$ref: './components/audit.yaml#/AuditEventId'}
+    AuditActorType: {$ref: './components/audit.yaml#/AuditActorType'}
+    AuditResult: {$ref: './components/audit.yaml#/AuditResult'}
+    AuditTypeName: {$ref: './components/audit.yaml#/AuditTypeName'}
+    AuditAction: {$ref: './components/audit.yaml#/AuditAction'}
+    AuditMetadata: {$ref: './components/audit.yaml#/AuditMetadata'}
+    AuditEvent: {$ref: './components/audit.yaml#/AuditEvent'}
+    AuditEventPageData: {$ref: './components/audit.yaml#/AuditEventPageData'}
+    AuditEventListResponse: {$ref: './components/audit.yaml#/AuditEventListResponse'}
+    QuotaPolicyId: {$ref: './components/quota.yaml#/QuotaPolicyId'}
+    QuotaPolicyType: {$ref: './components/quota.yaml#/QuotaPolicyType'}
+    QuotaWindowId: {$ref: './components/quota.yaml#/QuotaWindowId'}
+    UsageLedgerId: {$ref: './components/quota.yaml#/UsageLedgerId'}
+    QuotaSubjectType: {$ref: './components/quota.yaml#/QuotaSubjectType'}
+    QuotaResourceType: {$ref: './components/quota.yaml#/QuotaResourceType'}
+    QuotaStatus: {$ref: './components/quota.yaml#/QuotaStatus'}
+    QuotaWindowType: {$ref: './components/quota.yaml#/QuotaWindowType'}
+    UsageResult: {$ref: './components/quota.yaml#/UsageResult'}
+    QuotaPolicyWriteRequest: {$ref: './components/quota.yaml#/QuotaPolicyWriteRequest'}
+    QuotaPolicy: {$ref: './components/quota.yaml#/QuotaPolicy'}
+    QuotaPolicyResponse: {$ref: './components/quota.yaml#/QuotaPolicyResponse'}
+    QuotaPolicyPageData: {$ref: './components/quota.yaml#/QuotaPolicyPageData'}
+    QuotaPolicyListResponse: {$ref: './components/quota.yaml#/QuotaPolicyListResponse'}
+    QuotaWindow: {$ref: './components/quota.yaml#/QuotaWindow'}
+    QuotaWindowListResponse: {$ref: './components/quota.yaml#/QuotaWindowListResponse'}
+    BootstrapQuota: {$ref: './components/quota.yaml#/BootstrapQuota'}
+    TokenWindowUsage: {$ref: './components/quota.yaml#/TokenWindowUsage'}
+    RateUsage: {$ref: './components/quota.yaml#/RateUsage'}
+    ConcurrencyUsage: {$ref: './components/quota.yaml#/ConcurrencyUsage'}
+    QuotaUsagePolicy: {$ref: './components/quota.yaml#/QuotaUsagePolicy'}
+    MyQuotaUsageResponse: {$ref: './components/quota.yaml#/MyQuotaUsageResponse'}
+    UsageLedgerItem: {$ref: './components/quota.yaml#/UsageLedgerItem'}
+    UsageSummary: {$ref: './components/quota.yaml#/UsageSummary'}
+    UsageLedgerPageData: {$ref: './components/quota.yaml#/UsageLedgerPageData'}
+    UsageLedgerListResponse: {$ref: './components/quota.yaml#/UsageLedgerListResponse'}
+    GatewayModel: {$ref: './components/gateway.yaml#/GatewayModel'}
+    NativeGatewayRequest: {$ref: './components/gateway.yaml#/NativeGatewayRequest'}
+    EnterpriseUserId:
+      type: string
+      pattern: '^[1-9][0-9]{0,18}$'
+      description: Enterprise user snowflake ID serialized as a string.
+    EnterpriseDeviceId:
+      type: string
+      pattern: '^[1-9][0-9]{0,18}$'
+      description: Enterprise device snowflake ID serialized as a string.
+    ManagedModelId:
+      type: string
+      pattern: '^[1-9][0-9]{0,18}$'
+      description: Managed model snowflake ID serialized as a string.
+    RemoteSessionId:
+      type: string
+      minLength: 1
+      maxLength: 128
+      description: Harness Session identifier; server rejects control characters at the HTTP boundary.
+    CursorPage:
+      type: object
+      additionalProperties: false
+      required: [hasMore, limit, nextCursor]
+      properties:
+        hasMore:
+          type: boolean
+        limit:
+          $ref: '#/components/schemas/PageLimit'
+        nextCursor:
+          oneOf:
+            - $ref: '#/components/schemas/Cursor'
+            - type: 'null'
+    RevisionedProtocolResource:
+      type: object
+      additionalProperties: false
+      required: [id, revision]
+      properties:
+        id:
+          $ref: '#/components/schemas/ManagedModelId'
+        revision:
+          $ref: '#/components/schemas/Revision'
+    ProtocolMetadata:
+      type: object
+      additionalProperties: false
+      required: [contractVersion, errorCodeCount, status]
+      properties:
+        contractVersion:
+          type: string
+          const: v1
+        errorCodeCount:
+          type: integer
+          const: 36
+        status:
+          type: string
+          const: ok
+    ProtocolSuccessResponse:
+      type: object
+      additionalProperties: false
+      required: [data, requestId]
+      properties:
+        data:
+          $ref: '#/components/schemas/ProtocolMetadata'
+        requestId:
+          $ref: '#/components/schemas/RequestId'
+    ProtocolPageData:
+      type: object
+      additionalProperties: false
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RevisionedProtocolResource'
+        page:
+          $ref: '#/components/schemas/CursorPage'
+    ProtocolPageResponse:
+      type: object
+      additionalProperties: false
+      required: [data, requestId]
+      properties:
+        data:
+          $ref: '#/components/schemas/ProtocolPageData'
+        requestId:
+          $ref: '#/components/schemas/RequestId'
+    EnterpriseErrorCode:
+      type: string
+      enum:
+        - ENT_INVALID_REQUEST
+        - ENT_INVALID_REDIRECT_URI
+        - ENT_PKCE_REQUIRED
+        - ENT_PLUGIN_ARTIFACT_INVALID
+        - ENT_SESSION_FORMAT_UNSUPPORTED
+        - ENT_AUTH_REQUIRED
+        - ENT_AUTH_CODE_INVALID
+        - ENT_PKCE_INVALID
+        - ENT_AUTH_SESSION_EXPIRED
+        - ENT_PERMISSION_DENIED
+        - ENT_DEVICE_REVOKED
+        - ENT_MODEL_NOT_ASSIGNED
+        - ENT_PLUGIN_NOT_ASSIGNED
+        - ENT_RESOURCE_NOT_OWNED
+        - ENT_RESOURCE_NOT_FOUND
+        - ENT_SESSION_CONTENT_EXPIRED
+        - ENT_REVISION_CONFLICT
+        - ENT_LAST_ENTERPRISE_ADMIN
+        - ENT_LAST_MEMBER_IDENTITY
+        - ENT_REQUEST_IN_PROGRESS
+        - ENT_REQUEST_ALREADY_COMPLETED
+        - ENT_SESSION_SEQ_GAP
+        - ENT_SESSION_DIVERGED
+        - ENT_SESSION_SOURCE_DEVICE_CONFLICT
+        - ENT_IDENTITY_ALREADY_LINKED
+        - ENT_DEVICE_ALREADY_BOUND
+        - ENT_REQUEST_TOO_LARGE
+        - ENT_PLUGIN_ARCHIVE_TOO_LARGE
+        - ENT_SESSION_BATCH_TOO_LARGE
+        - ENT_QUOTA_FIVE_HOURS_EXCEEDED
+        - ENT_QUOTA_DAILY_EXCEEDED
+        - ENT_QUOTA_WEEKLY_EXCEEDED
+        - ENT_QUOTA_MONTHLY_EXCEEDED
+        - ENT_QUOTA_RPM_EXCEEDED
+        - ENT_QUOTA_CONCURRENCY_EXCEEDED
+        - ENT_UPSTREAM_RATE_LIMITED
+        - ENT_UPSTREAM_QUOTA_EXCEEDED
+        - ENT_UPSTREAM_AUTH_FAILED
+        - ENT_UPSTREAM_INVALID_RESPONSE
+        - ENT_PLATFORM_UNAVAILABLE
+        - ENT_UPSTREAM_UNAVAILABLE
+        - ENT_UPSTREAM_TIMEOUT
+    ValidationViolation:
+      type: object
+      additionalProperties: false
+      required: [field, reason]
+      properties:
+        field:
+          type: string
+          minLength: 1
+          maxLength: 128
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 256
+    ValidationErrorDetails:
+      type: object
+      additionalProperties: false
+      required: [violations]
+      properties:
+        violations:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/ValidationViolation'
+    RevisionConflictDetails:
+      type: object
+      additionalProperties: false
+      required: [actualRevision, expectedRevision]
+      properties:
+        actualRevision:
+          $ref: '#/components/schemas/Revision'
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+    QuotaExceededDetails:
+      type: object
+      additionalProperties: false
+      required: [policyId, resetsAt]
+      properties:
+        policyId:
+          type: string
+          pattern: '^[1-9][0-9]{0,18}$'
+        resetsAt:
+          type: string
+          format: date-time
+    RequestConflictDetails:
+      type: object
+      additionalProperties: false
+      required: [originalRequestId, result]
+      properties:
+        originalRequestId:
+          $ref: '#/components/schemas/RequestId'
+        result:
+          type: string
+          enum: [IN_PROGRESS, COMPLETED]
+    EnterpriseError:
+      type: object
+      additionalProperties: false
+      required: [code, message, requestId, retryable]
+      properties:
+        code:
+          $ref: '#/components/schemas/EnterpriseErrorCode'
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        requestId:
+          $ref: '#/components/schemas/RequestId'
+        retryable:
+          type: boolean
+        details:
+          oneOf:
+            - $ref: '#/components/schemas/ValidationErrorDetails'
+            - $ref: '#/components/schemas/RevisionConflictDetails'
+            - $ref: '#/components/schemas/QuotaExceededDetails'
+            - $ref: '#/components/schemas/RequestConflictDetails'
+    EnterpriseErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          $ref: '#/components/schemas/EnterpriseError'

@@ -1,0 +1,243 @@
+# [INPUT]: 依赖根协议的参数、响应与 auth schema，依赖 T05 公开认证 Controller 的实际 redirect/status 行为
+# [OUTPUT]: 提供 authorize 的 HTML/同源 JSON 启动、sources/password/OIDC、Desktop code/refresh token、管理端 Cookie、logout、当前用户改密与 bootstrap Path Item。
+# [POS]: contracts/paths 的固定 public client 登录协议分片，隔离 Desktop 轮换 Bearer 与管理端第一方页面/Cookie 会话
+# [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+
+Authorize:
+  get:
+    operationId: authorizePlatformClient
+    summary: Create a five-minute login transaction; the first-party admin UI may request its sources as JSON.
+    security: []
+    parameters:
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/AuthClientId'
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/AuthRedirectUri'
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/AuthState'
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/PkceChallenge'
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/PkceChallengeMethod'
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/InstallationIdQuery'
+    responses:
+      '200':
+        description: First-party enterprise-admin login transaction and active identity sources.
+        content:
+          application/json:
+            schema:
+              $ref: '../enterprise-openapi.yaml#/components/schemas/AuthSourcesResponse'
+      '303':
+        description: Continue Desktop authentication in the public identity-source selection page.
+        headers:
+          Location:
+            required: true
+            schema:
+              type: string
+              format: uri-reference
+      '400':
+        $ref: '../enterprise-openapi.yaml#/components/responses/Error400'
+
+Sources:
+  get:
+    operationId: listPublicIdentitySources
+    summary: List active public identity sources for one login transaction.
+    security: []
+    parameters:
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/AuthTransactionIdQuery'
+    responses:
+      '200':
+        description: Public identity sources and the transaction-bound CSRF token.
+        content:
+          application/json:
+            schema:
+              $ref: '../enterprise-openapi.yaml#/components/schemas/AuthSourcesResponse'
+      '401':
+        $ref: '../enterprise-openapi.yaml#/components/responses/Error401'
+
+Password:
+  post:
+    operationId: completePasswordLogin
+    summary: Authenticate over HTTP(S) or complete a one-time LOCAL password-change challenge in the same transaction.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/x-www-form-urlencoded:
+          schema:
+            $ref: '../enterprise-openapi.yaml#/components/schemas/PasswordLoginRequest'
+    responses:
+      '200':
+        description: Page client must navigate to the exact callback after authentication completes.
+        content:
+          application/json:
+            schema:
+              $ref: '../enterprise-openapi.yaml#/components/schemas/PasswordStepResponse'
+      '303':
+        description: Non-JSON form fallback redirects successful authentication to the exact callback; credential failures return to the same login transaction. Initial-password challenge continuation requires the JSON page client.
+        headers:
+          Location:
+            required: true
+            schema:
+              type: string
+              format: uri
+      '400':
+        $ref: '../enterprise-openapi.yaml#/components/responses/Error400'
+      '401':
+        $ref: '../enterprise-openapi.yaml#/components/responses/Error401'
+      '409':
+        description: Initial credentials succeeded; continue with the returned short-lived one-time password-change challenge.
+        content:
+          application/json:
+            schema:
+              $ref: '../enterprise-openapi.yaml#/components/schemas/PasswordStepResponse'
+
+OidcStart:
+  get:
+    operationId: startOidcLogin
+    summary: Create isolated OIDC state, nonce and S256 verifier, then redirect to the IdP.
+    security: []
+    parameters:
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/IdentitySourceIdPath'
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/AuthTransactionIdQuery'
+    responses:
+      '302':
+        description: Redirect to the configured enterprise IdP.
+        headers:
+          Location:
+            required: true
+            schema:
+              type: string
+              format: uri
+      '400':
+        $ref: '../enterprise-openapi.yaml#/components/responses/Error400'
+      '401':
+        $ref: '../enterprise-openapi.yaml#/components/responses/Error401'
+
+OidcCallback:
+  get:
+    operationId: completeOidcLogin
+    summary: Consume OIDC state and complete the platform login transaction.
+    security: []
+    parameters:
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/IdentitySourceIdPath'
+      - name: state
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          maxLength: 64
+          pattern: '^[A-Za-z0-9_-]+$'
+      - name: code
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 2048
+    responses:
+      '302':
+        description: Redirect to the exact client callback with a one-time platform code.
+        headers:
+          Location:
+            required: true
+            schema:
+              type: string
+              format: uri
+      '400':
+        $ref: '../enterprise-openapi.yaml#/components/responses/Error400'
+      '401':
+        $ref: '../enterprise-openapi.yaml#/components/responses/Error401'
+
+Token:
+  post:
+    operationId: exchangeDesktopToken
+    summary: Consume one PKCE authorization code or rotate one installation-bound Desktop refresh token.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../enterprise-openapi.yaml#/components/schemas/TokenRequest'
+    responses:
+      '200':
+        description: Twelve-hour non-shared Sa-Token session plus a rotated thirty-day refresh token.
+        content:
+          application/json:
+            schema:
+              $ref: '../enterprise-openapi.yaml#/components/schemas/TokenResponse'
+      '400':
+        $ref: '../enterprise-openapi.yaml#/components/responses/Error400'
+      '401':
+        $ref: '../enterprise-openapi.yaml#/components/responses/Error401'
+      '403':
+        $ref: '../enterprise-openapi.yaml#/components/responses/Error403'
+
+BrowserSession:
+  post:
+    operationId: exchangeBrowserAuthorizationCode
+    summary: Consume one enterprise-admin authorization code into a host-only HttpOnly browser session.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../enterprise-openapi.yaml#/components/schemas/BrowserSessionRequest'
+    responses:
+      '204':
+        description: Browser session established without exposing the opaque token to JavaScript.
+        headers:
+          Set-Cookie:
+            required: true
+            schema:
+              type: string
+      '400':
+        $ref: '../enterprise-openapi.yaml#/components/responses/Error400'
+      '401':
+        $ref: '../enterprise-openapi.yaml#/components/responses/Error401'
+
+Logout:
+  post:
+    operationId: logoutPlatformSession
+    summary: Audit and revoke only the current platform token, then clear the browser session cookie when present.
+    responses:
+      '200':
+        description: Current token revoked.
+        content:
+          application/json:
+            schema:
+              $ref: '../enterprise-openapi.yaml#/components/schemas/LogoutResponse'
+      '401':
+        $ref: '../enterprise-openapi.yaml#/components/responses/Error401'
+
+ConsoleBootstrap:
+  get:
+    operationId: getConsoleBootstrap
+    summary: Return the current member, fixed roles, permissions and deployment identity without a menu tree.
+    responses:
+      '200':
+        description: Current enterprise-admin session facts.
+        content:
+          application/json:
+            schema:
+              $ref: '../enterprise-openapi.yaml#/components/schemas/ConsoleBootstrapResponse'
+      '401':
+        $ref: '../enterprise-openapi.yaml#/components/responses/Error401'
+
+CurrentAccountPassword:
+  put:
+    operationId: changeCurrentAccountPassword
+    summary: Change the current member's LOCAL password after verifying the current password, then revoke all sessions.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../enterprise-openapi.yaml#/components/schemas/CurrentPasswordChangeRequest'
+    responses:
+      '200':
+        description: Password changed and all sessions for the current member revoked.
+        content:
+          application/json:
+            schema:
+              $ref: '../enterprise-openapi.yaml#/components/schemas/PasswordChangedResponse'
+      '400': {$ref: '../enterprise-openapi.yaml#/components/responses/Error400'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}

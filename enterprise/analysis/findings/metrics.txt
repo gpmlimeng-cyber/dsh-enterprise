@@ -1,0 +1,45 @@
+OWNdsh 0.1.0 — 独立度量（captain 亲自核验）
+=========================================
+
+规模
+  文件总数（排除 node_modules/.git）: 1572
+  Java 871 / md 156 / json 120 / ts 91 / tsx 86 / xml 44 / sql 30
+
+Java 模块 LOC（仅 src/main）
+  owndsh-common/*          16 个 Maven 子模块       (common 合计 ~32.9k 含 test)
+  owndsh-modules/owndsh-system        16,964 lines (150 files)   <-- vendored 上游
+  owndsh-modules/owndsh-enterprise     27,516 lines (355 files)  <-- 自研
+  owndsh-server                           873 lines (23 files)
+  owndsh-api                            1,182 lines (18 files)
+
+  最大文件 545 行（ModelGatewayService.java / PlatformAuthorizationService.java）
+  → 全部 ≤800 行约束，无违反（AGENTS.md 硬性要求）
+
+测试
+  enterprise: 55 test files / 11,978 lines  vs main 27,516 → ~0.44 比例（健康）
+  owndsh-server: 11 test files
+  owndsh-common: 0  |  owndsh-system: 0
+  console: 9 vitest 文件  |  plugin: 14 spec 文件
+  Testcontainers: PostgreSQL / Redis / OpenLDAP 真实依赖
+
+GEB L3 头部（[INPUT]/[OUTPUT]/[POS]）覆盖率
+  enterprise/src/main      355/355  = 100%
+  console/src (非生成)      96/96   = 100%
+  plugin/packages/*/src     27/27   = 100%
+  owndsh-common (src/main)    7/267 =   3%
+  owndsh-system              3/150 =   2%
+  CLAUDE.md 文件总数: 105
+
+上游代码标识
+  "@author Lion Li" 出现文件数: 270
+    owndsh-common 146 | owndsh-system 102 | owndsh-api 10 | owndsh-server 11
+    owndsh-enterprise 0   <-- fork 边界在此，干净
+
+Schema
+  V0__host_baseline.sql 1,279 行，创建 18 张 sys_* 表（上游基线）
+  27 张 ent_* 表（自研），migration 合计 2,780 行（V0..V29）
+
+错误码
+  contracts/enterprise-openapi.yaml 定义 42 个 ENT_*
+  server main 出现 62 个 ENT_* 字面量
+  console 手写 17 个 OpenAPI 中不存在的 ENT_*（纯前端 UI 错误码）

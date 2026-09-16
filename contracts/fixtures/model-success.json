@@ -1,0 +1,16 @@
+{
+  "data": {
+    "id": "1900800000000000101",
+    "providerId": "1900800000000000001",
+    "providerName": "DeepSeek Production",
+    "alias": "deepseek-chat",
+    "modelId": "deepseek-chat",
+    "name": "DeepSeek Chat",
+    "contextWindow": 65536,
+    "maxTokens": 8192,
+    "sortOrder": 10,
+    "status": "ACTIVE",
+    "revision": 1
+  },
+  "requestId": "req_01K2W3V4X5Y6Z7A8B9C0D1E2F3"
+}

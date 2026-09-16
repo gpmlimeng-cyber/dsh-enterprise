@@ -1,0 +1,100 @@
+{
+  "source": "运行实例 PostgreSQL：sys_role / sys_role_menu / sys_menu.perms",
+  "collectedAt": "2026-09-15T16:51Z",
+  "note": "内置企业角色的 ent:* 权限由 Flyway 迁移与宿主权限表共同决定，不可自由编排。",
+  "permissions": [
+    "ent:audit:read",
+    "ent:device:read",
+    "ent:device:revoke",
+    "ent:grant:read",
+    "ent:grant:write",
+    "ent:identity:read",
+    "ent:identity:write",
+    "ent:member:read",
+    "ent:member:write",
+    "ent:model:read",
+    "ent:model:write",
+    "ent:plugin:read",
+    "ent:plugin:write",
+    "ent:session:content:read",
+    "ent:session:delete",
+    "ent:session:read",
+    "ent:usage:read"
+  ],
+  "roles": [
+    {
+      "key": "auditor",
+      "name": "审计员",
+      "permissions": [
+        "ent:audit:read",
+        "ent:session:content:read",
+        "ent:session:read",
+        "ent:usage:read"
+      ]
+    },
+    {
+      "key": "employee",
+      "name": "员工",
+      "permissions": []
+    },
+    {
+      "key": "enterprise_admin",
+      "name": "企业管理员",
+      "permissions": [
+        "ent:audit:read",
+        "ent:device:read",
+        "ent:device:revoke",
+        "ent:grant:read",
+        "ent:grant:write",
+        "ent:identity:read",
+        "ent:identity:write",
+        "ent:member:read",
+        "ent:member:write",
+        "ent:model:read",
+        "ent:model:write",
+        "ent:plugin:read",
+        "ent:plugin:write",
+        "ent:session:content:read",
+        "ent:session:delete",
+        "ent:session:read",
+        "ent:usage:read"
+      ]
+    },
+    {
+      "key": "model_admin",
+      "name": "模型管理员",
+      "permissions": [
+        "ent:grant:read",
+        "ent:grant:write",
+        "ent:member:read",
+        "ent:model:read",
+        "ent:model:write",
+        "ent:usage:read"
+      ]
+    },
+    {
+      "key": "plugin_admin",
+      "name": "插件管理员",
+      "permissions": [
+        "ent:member:read",
+        "ent:plugin:read",
+        "ent:plugin:write"
+      ]
+    },
+    {
+      "key": "superadmin",
+      "name": "超级管理员",
+      "permissions": []
+    },
+    {
+      "key": "test1",
+      "name": "本部门及以下",
+      "permissions": []
+    },
+    {
+      "key": "test2",
+      "name": "仅本人",
+      "permissions": []
+    }
+  ]
+}

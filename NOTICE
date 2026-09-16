@@ -1,0 +1,50 @@
+DSH Enterprise (internal codename: dshent)
+==========================================
+
+This repository is an independent secondary-development fork. It does **not**
+track, merge from, or contribute back to any upstream remote by default.
+
+Copyright and attribution
+-------------------------
+
+1. RuoYi-Vue-Plus (https://github.com/dromara/RuoYi-Vue-Plus)
+   - License: MIT
+   - Copyright (c) 2019 RuoYi-Vue-Plus
+   - Present primarily in:
+     - server/owndsh-common/**
+     - server/owndsh-modules/owndsh-system/**
+   - These trees are a vendored snapshot. Their MIT notices must remain intact.
+
+2. OwnDsh (https://github.com/boe1900/owndsh)
+   - License: MIT
+   - Copyright (c) 2019 OwnDsh-Vue-Plus was incorrectly rewritten from
+     RuoYi-Vue-Plus in the historical upstream tree; this fork restores the
+     original RuoYi-Vue-Plus line and records the OwnDsh authors separately.
+   - Present in server/**, console/**, plugin/**, contracts/**, deploy/**,
+     website/**, scripts/**, docs/**, upstream/**.
+
+3. This fork (DSH Enterprise / dshent)
+   - License: MIT
+   - Copyright (c) 2026 DSH Enterprise contributors
+   - Original work includes: enterprise/ deployment layer (sites, help,
+     api-docs, patches, ops records), fork policy, security hardening of
+     compose defaults, and subsequent product changes.
+
+4. Third-party components (see enterprise/licenses/ and package manifests)
+   - Scalar API Reference (MIT)
+   - Inter / JetBrains Mono fonts (SIL OFL 1.1)
+   - Lucide icons (ISC)
+
+Relationship to DeepSeek
+------------------------
+
+DSH Enterprise / OwnDsh is an independent project. It is not affiliated with,
+endorsed by, or sponsored by DeepSeek AI or Anywhere Labs. Names, code, and
+trademarks of DeepSeek Harness and DSH Desktop remain the property of their
+respective owners.
+
+Fork policy
+-----------
+
+See FORK.md for the detach policy, upstream freeze, rename plan, and
+compliance checklist.

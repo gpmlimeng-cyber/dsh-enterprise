@@ -1,0 +1,301 @@
+/**
+ * [INPUT]: 依赖 console/Beautiful UI 的设计令牌取值（与 console/src/styles/beautiful-ui.css 同名同值，
+ *          本文件是文档站点的令牌真源，深色令牌定义在 .dark 下）与自托管的 Inter Variable / JetBrains Mono Variable 字体。
+ * [OUTPUT]: 让 API 文档门户与帮助中心的配色、字体、圆角、描边与控制台视觉同族，提供共享的主题切换控件样式、页脚与降级提示样式。
+ * [POS]: 文档门户唯一的样式覆盖层；不复制 Beautiful UI 全文，只做 token 级映射。
+ * [PROTOCOL]: 变更时更新此头部，然后检查 设计方案.md §6.4
+ *
+ * 注意：第 2 节的 Scalar 变量名随版本变化，P0-2 渲染自检时必须按锁定版本逐项核对；
+ *      第 1、3 节只依赖本仓库自己的令牌与类名，不随渲染器版本变化。
+ */
+
+/* ── 0. 自托管字体：从 console 镜像里取出同一份 Inter / JetBrains Mono（含 fontsource 原始
+       unicode-range 与 woff2-variations 格式），保证文档与控制台字型一致，且不依赖任何外部 CDN
+       （Scalar bundle 内部引用了 fonts.scalar.com，故下面的 --scalar-font 覆盖是必需的，不只是美观问题）。 ── */
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("./fonts/inter-latin.woff2") format("woff2-variations");
+  unicode-range: U+0-FF, U+131, U+152-153, U+2BB-2BC, U+2C6, U+2DA, U+2DC, U+304, U+308, U+329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("./fonts/inter-latin-ext.woff2") format("woff2-variations");
+  unicode-range: U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U+308, U+329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "JetBrains Mono Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url("./fonts/jetbrains-mono-latin.woff2") format("woff2-variations");
+  unicode-range: U+0-FF, U+131, U+152-153, U+2BB-2BC, U+2C6, U+2DA, U+2DC, U+304, U+308, U+329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "JetBrains Mono Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url("./fonts/jetbrains-mono-latin-ext.woff2") format("woff2-variations");
+  unicode-range: U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U+308, U+329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* ── 1. 基础令牌：与控制台完全一致（含深色回退，避免未加载到 console 变量时失真）───── */
+:root {
+  --font-inter: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono-face: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* ── 设计令牌真源：与 console/src/styles/beautiful-ui.css 同名同值 ──
+     这里必须是**定义**而不是别名：文档站点不加载 console 的样式表，
+     只把令牌委托给 --docs-* 别名会让 --ink/--line 这类裸令牌在页面上未定义，
+     表现为"深色主题下文字仍是黑色"。两个文档站点共用本层，故它是唯一真源。 */
+  --page: oklch(0.985 0.001 286.376);
+  --canvas: oklch(0.961 0.002 247.84);
+  --surface: oklch(1 0 0);
+  --inset: oklch(0.979 0.002 247.839);
+  --hover: oklch(0.97 0.002 247.839);
+  --hover-2: oklch(0.933 0.003 247.86);
+  --ink: oklch(0.247 0.006 258.361);
+  --ink-2: oklch(0.506 0.01 264.477);
+  --ink-3: oklch(0.695 0.009 264.505);
+  --line: oklch(0.946 0.003 264.542);
+  --line-strong: oklch(0.912 0.005 258.326);
+  --line-soft: oklch(0.966 0.002 264.542);
+  --field: oklch(0.961 0.001 286.375);
+  --accent: oklch(0.626 0.205 254.947);
+  --green: oklch(0.603 0.155 150.883);
+  --orange: oklch(0.689 0.179 49.902);
+  --red: oklch(0.621 0.192 23.042);
+
+  /* API 文档门户用的别名（保持既有页面不改动） */
+  --docs-page: var(--page);
+  --docs-canvas: var(--canvas);
+  --docs-ink: var(--ink);
+  --docs-ink-2: var(--ink-2);
+  --docs-ink-3: var(--ink-3);
+  --docs-line: var(--line);
+  --docs-line-strong: var(--line-strong);
+}
+
+.dark {
+  /* 深色令牌真源（与 console 一致）；--docs-* 继承 :root 的别名关系，无需重复声明 */
+  --page: oklch(0.209 0.004 264.477);
+  --canvas: oklch(0.231 0.004 264.487);
+  --surface: oklch(0.26 0.006 271.191);
+  --inset: oklch(0.243 0.004 264.492);
+  --hover: oklch(0.289 0.006 271.22);
+  --hover-2: oklch(0.318 0.007 274.747);
+  --ink: oklch(0.964 0.002 247.839);
+  --ink-2: oklch(0.731 0.008 260.731);
+  --ink-3: oklch(0.541 0.01 264.484);
+  --line: oklch(0.308 0.006 258.354);
+  --line-strong: oklch(0.356 0.007 264.474);
+  --line-soft: oklch(0.278 0.006 258.354);
+  --field: oklch(0.293 0.006 271.223);
+  --accent: oklch(0.68 0.173 253.301);
+  --green: oklch(0.705 0.154 153.814);
+  --orange: oklch(0.746 0.156 55.642);
+  --red: oklch(0.666 0.18 21.433);
+}
+
+html,
+body {
+  margin: 0;
+  /* 兜底值仅在令牌层缺失时生效；正常路径由上面的 :root/.dark 提供 */
+  background: var(--docs-page, oklch(0.985 0.001 286.376));
+  color: var(--docs-ink, oklch(0.247 0.006 258.361));
+  font-family: var(--font-inter);
+  letter-spacing: 0;
+}
+
+/* 页脚固定占位高度，给 Scalar 容器留出空间 */
+#docs-root {
+  min-height: calc(100dvh - 30px);
+}
+
+/* ── 2. 渲染器变量映射（Scalar；键名需按锁定版本核对）──────────────────────────── */
+:root,
+.dark {
+  --scalar-font: var(--font-inter);
+  --scalar-font-code: var(--font-mono-face);
+  --scalar-background-1: var(--docs-page);
+  --scalar-background-2: var(--docs-canvas);
+  --scalar-background-3: var(--docs-canvas);
+  --scalar-color-1: var(--docs-ink);
+  --scalar-color-2: var(--docs-ink-2);
+  --scalar-color-3: var(--docs-ink-3);
+  --scalar-border-color: var(--docs-line);
+  --scalar-radius: 14px;
+  --scalar-radius-lg: 14px;
+  --scalar-radius-md: 10px;
+  --scalar-radius-sm: 7px;
+}
+
+/* 让控制台毛发级描边风格贯穿文档区块 */
+.scalar-app .section,
+.scalar-app .section-container,
+.scalar-app .introduction-card {
+  border-color: var(--docs-line) !important;
+}
+
+.scalar-app code,
+.scalar-app pre,
+.scalar-app .scalar-code-block {
+  font-family: var(--font-mono-face) !important;
+}
+
+/* 写操作风险提示（overlay 里 x-docs-write-risk=true 的操作，由 Scalar 自定义渲染时使用） */
+.docs-write-warning {
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  border: 1px solid var(--docs-line-strong);
+  border-radius: 10px;
+  background: color-mix(in srgb, oklch(0.72 0.16 60) 12%, transparent);
+  color: var(--docs-ink);
+  font-size: 12.5px;
+}
+
+/* ── 2.5 主题切换控件（与 console 的 ThemeToggle 同款：分段胶囊 + 滑动指示器）──────
+   两个文档站点共用本层样式；行为由各站点的脚本接线，存储键统一为 'bui-theme'。
+   注意 .theme-toggle[hidden] 必须显式声明：作者样式里的 display 会盖过 UA 的 [hidden]{display:none}。 */
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition: none !important;
+}
+
+.theme-toggle {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: repeat(2, 2rem);
+  align-items: center;
+  flex: none;
+  height: 2.25rem;
+  padding: 0.125rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--field, var(--canvas));
+}
+
+.theme-toggle[hidden] {
+  display: none;
+}
+
+.theme-toggle-indicator {
+  position: absolute;
+  top: 0.125rem;
+  left: 0.125rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: var(--surface, var(--page));
+  box-shadow: 0 0 0 1px var(--line-strong, var(--line));
+  opacity: 0;
+  transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1), opacity 150ms;
+}
+
+.theme-toggle button {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: color 150ms;
+}
+
+.theme-toggle button:hover {
+  color: var(--ink-2);
+}
+
+.theme-toggle button[aria-pressed="true"] {
+  color: var(--ink);
+}
+
+/* ── 3. 页脚与降级提示（自有类名，稳定可用）──────────────────────────────────── */
+#docs-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 14px;
+  border-top: 1px solid var(--docs-line);
+  background: var(--docs-canvas);
+  color: var(--docs-ink-3);
+  font-family: var(--font-inter);
+  font-size: 11.5px;
+}
+
+#docs-footer .sep {
+  opacity: 0.5;
+}
+
+#docs-footer code {
+  font-family: var(--font-mono-face);
+  font-size: 11px;
+}
+
+#docs-footer a {
+  color: var(--docs-ink-2);
+  text-decoration: none;
+}
+
+#docs-footer a:hover {
+  color: var(--docs-ink);
+  text-decoration: underline;
+}
+
+.docs-fallback {
+  max-width: 560px;
+  margin: 12vh auto 0;
+  padding: 24px;
+  border: 1px solid var(--docs-line);
+  border-radius: 14px;
+  background: var(--docs-canvas);
+  color: var(--docs-ink);
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+
+.docs-fallback h1 {
+  margin: 0 0 10px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.docs-fallback code {
+  font-family: var(--font-mono-face);
+  font-size: 12.5px;
+}
+
+@media (max-width: 640px) {
+  #docs-footer {
+    height: auto;
+    padding: 6px 12px;
+  }
+  #docs-root {
+    min-height: calc(100dvh - 52px);
+  }
+}

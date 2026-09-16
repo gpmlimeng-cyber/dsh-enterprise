@@ -1,0 +1,494 @@
+# OwnDsh API 文档 · 中文文案叠加层
+#
+# 作用：契约是"机器真源"，本文件是"读者文案真源"。build-docs.mjs 在生成期按
+# operationId 覆盖契约里的 summary/description，并注入权限、写操作风险标记。
+# 契约真源一个字都不改（保证 pnpm --filter @owndsh/contracts check:generated 依然通过）。
+#
+# 字段说明：
+#   summary      一句话（中文），必填 —— 契约里 97 个操作只有 29 条英文 summary
+#   description  补充语义/副作用/幂等性，可选（Markdown）
+#   permission   所需 ent:* 权限码；auto = 由 build-docs.mjs 从 @SaCheckPermission 自动提取
+#   write        true 表示会修改数据（Try it out 默认要求二次确认）
+#   idempotent   写操作的幂等语义说明，可选
+#
+# 命名规则：
+#   - permission=auto 表示"由 build-docs.mjs 从 @SaCheckPermission 自动提取"，提取结果即权威
+#     （已实测：97 个操作里 95 个能提取到；提取值与本文档人工标注冲突时以提取值为准）。
+#   - 员工端 / 网关 / 认证接口没有 ent:* 权限注解，用语义标签：device-token / model-gate / public / session。
+#   - 上游实测事实：配额管理接口复用的是 ent:grant:read|write 权限码（AdminQuotaController 注解如此），
+#     不是 ent:quota:*；本文档如实呈现，便于按权限规划角色。
+
+version: 1
+
+# ─────────────────────────────────────────────────────────────
+# ① 管理端 API —— 控制台会话
+operations:
+  getConsoleBootstrap:
+    summary: 获取控制台引导数据
+    description: 返回当前账号、登录来源、可用内置角色、`ent:*` 产品权限码与部署标识。控制台每次进入都会调用；未登录返回 401。**无需 `ent:*` 权限，登录即可**。
+    permission: session
+  changeCurrentAccountPassword:
+    summary: 修改当前账号口令
+    description: 校验当前口令后设置新口令。成功后服务端会清空会话缓存，需重新登录。**无需 `ent:*` 权限，本人操作**。
+    permission: session
+    write: true
+
+  # ② 成员管理
+  listMembers:
+    summary: 分页查询成员
+    description: 服务端签名的 opaque cursor 分页，客户端**不得**解析 cursor。
+    permission: ent:member:read  # [已核实]
+  createLocalMember:
+    summary: 创建本地成员
+    permission: ent:member:write  # [已核实]
+    write: true
+  getMember:
+    summary: 查询成员详情
+    permission: ent:member:read  # [已核实]
+  updateMemberStatus:
+    summary: 变更成员状态
+    description: 启停成员账号。禁止把最后一个企业管理员停用（否则返回 409 `ENT_LAST_ENTERPRISE_ADMIN`）。
+    permission: ent:member:write  # [已核实]
+    write: true
+  replaceMemberRoles:
+    summary: 覆盖成员内置角色
+    description: 全量替换语义（非增量）。禁止移除最后一个企业管理员（409 `ENT_LAST_ENTERPRISE_ADMIN`）。
+    permission: ent:member:write  # [已核实]
+    write: true
+  startIdentityLink:
+    summary: 发起成员外部身份链接
+    permission: ent:member:write  # [已核实]
+    write: true
+  unlinkMemberIdentity:
+    summary: 解绑成员外部身份
+    description: 解绑最后一个身份会返回 409 `ENT_LAST_MEMBER_IDENTITY`。
+    permission: ent:member:write  # [已核实]
+    write: true
+  getUserExternalIdentitySummary:
+    summary: 查询成员外部身份摘要
+    permission: ent:identity:read  # [已核实]
+
+  # ③ 设备管理
+  listDevices:
+    summary: 分页查询企业设备
+    permission: ent:device:read  # [已核实]
+  getDevice:
+    summary: 查询设备详情
+    permission: ent:device:read  # [已核实]
+  revokeDevice:
+    summary: 撤销设备
+    description: 撤销后该设备的平台会话失效。需要 `If-Match` 携带当前 revision，冲突返回 409 `ENT_REVISION_CONFLICT`。
+    permission: ent:device:revoke  # [已核实]
+    write: true
+
+  # ④ 身份源与目录
+  listIdentitySources:
+    summary: 列出身份源
+    permission: ent:identity:read  # [已核实]
+  createIdentitySource:
+    summary: 创建身份源
+    permission: ent:identity:write  # [已核实]
+    write: true
+  getIdentitySource:
+    summary: 查询身份源详情
+    permission: ent:identity:read  # [已核实]
+  updateIdentitySource:
+    summary: 更新身份源
+    permission: ent:identity:write  # [已核实]
+    write: true
+  testIdentitySource:
+    summary: 测试身份源连通性
+    permission: ent:identity:write  # [已核实]
+    write: true
+  enableIdentitySource:
+    summary: 启用身份源
+    permission: ent:identity:write  # [已核实]
+    write: true
+  disableIdentitySource:
+    summary: 停用身份源
+    permission: ent:identity:write  # [已核实]
+    write: true
+  searchLdapUsers:
+    summary: 搜索 LDAP 目录用户
+    description: 过滤器经 RFC4515 全量转义后下发，不会把原始输入拼进 LDAP filter。
+    permission: ent:identity:read  # [已核实]
+  importLdapUser:
+    summary: 从 LDAP 导入成员
+    permission: ent:member:write  # [已核实]
+    write: true
+  searchLdapGroups:
+    summary: 搜索 LDAP 目录组
+    permission: ent:identity:read  # [已核实]
+
+  # ⑤ 组织与访问组
+  listGroupMappings:
+    summary: 列出组映射规则
+    permission: ent:identity:read  # [已核实]
+  createGroupMapping:
+    summary: 创建组映射规则
+    permission: ent:identity:write  # [已核实]
+    write: true
+  deleteGroupMapping:
+    summary: 删除组映射规则
+    permission: ent:identity:write  # [已核实]
+    write: true
+  listAccessGroups:
+    summary: 列出访问组
+    permission: ent:member:read  # [已核实]
+  createAccessGroup:
+    summary: 创建访问组
+    permission: ent:member:write  # [已核实]
+    write: true
+  getAccessGroup:
+    summary: 查询访问组详情
+    permission: ent:member:read  # [已核实]
+  updateAccessGroup:
+    summary: 更新访问组
+    permission: ent:member:write  # [已核实]
+    write: true
+  deleteAccessGroup:
+    summary: 删除访问组
+    permission: ent:member:write  # [已核实]
+    write: true
+
+  # ⑥ 模型供应商
+  listModelProviders:
+    summary: 列出模型供应商
+    description: 只返回 `credentialConfigured`，**不会**回显任何凭据。
+    permission: auto
+  createModelProvider:
+    summary: 创建模型供应商
+    description: 凭据为只写输入，创建后不可读回。
+    permission: auto
+    write: true
+  getModelProvider:
+    summary: 查询模型供应商详情
+    permission: auto
+  updateModelProvider:
+    summary: 更新模型供应商
+    permission: auto
+    write: true
+  testModelProvider:
+    summary: 测试模型供应商连通性
+    permission: auto
+    write: true
+  enableModelProvider:
+    summary: 启用模型供应商
+    permission: auto
+    write: true
+  disableModelProvider:
+    summary: 停用模型供应商
+    permission: auto
+    write: true
+
+  # ⑦ 模型目录
+  listManagedModels:
+    summary: 列出托管模型
+    permission: ent:model:read  # [已核实]
+  createManagedModel:
+    summary: 创建托管模型
+    description: 平台别名与上游真实模型名的映射在服务端完成，员工端只见到别名。
+    permission: ent:model:write  # [已核实]
+    write: true
+  getManagedModel:
+    summary: 查询托管模型详情
+    permission: ent:model:read  # [已核实]
+  updateManagedModel:
+    summary: 更新托管模型
+    permission: ent:model:write  # [已核实]
+    write: true
+  deleteManagedModel:
+    summary: 删除托管模型
+    permission: ent:model:write  # [已核实]
+    write: true
+  enableManagedModel:
+    summary: 启用托管模型
+    permission: ent:model:write  # [已核实]
+    write: true
+  disableManagedModel:
+    summary: 停用托管模型
+    permission: ent:model:write  # [已核实]
+    write: true
+
+  # ⑧ 模型集
+  listModelSets:
+    summary: 列出模型集
+    permission: ent:model:read  # [已核实]
+  createModelSet:
+    summary: 创建模型集
+    permission: ent:model:write  # [已核实]
+    write: true
+  getModelSet:
+    summary: 查询模型集详情
+    permission: ent:model:read  # [已核实]
+  updateModelSet:
+    summary: 更新模型集
+    permission: ent:model:write  # [已核实]
+    write: true
+  deleteModelSet:
+    summary: 删除模型集
+    permission: ent:model:write  # [已核实]
+    write: true
+
+  # ⑨ 模型授权
+  listModelGrants:
+    summary: 列出模型授权
+    permission: ent:grant:read  # [已核实]
+  createModelGrant:
+    summary: 创建模型授权
+    permission: ent:grant:write  # [已核实]
+    write: true
+  createModelGrantBatch:
+    summary: 批量下发模型授权
+    description: 一次请求对多个成员/部门/全员下发同一模型集，语义为"请求-结果"批处理，重复提交会被识别（409 `ENT_REQUEST_ALREADY_COMPLETED`）。
+    permission: ent:grant:write  # [已核实]
+    write: true
+  updateModelGrant:
+    summary: 更新模型授权
+    permission: ent:grant:write  # [已核实]
+    write: true
+  deleteModelGrant:
+    summary: 删除模型授权
+    description: 删除后该范围内成员调用网关会得到 403 `ENT_MODEL_NOT_ASSIGNED`。
+    permission: ent:grant:write  # [已核实]
+    write: true
+
+  # ⑩ 配额与用量
+  listQuotaPolicies:
+    summary: 列出配额策略
+    permission: auto
+  createQuotaPolicy:
+    summary: 创建配额策略
+    description: 配额窗口类型与上限决定 429 的具体错误码（`ENT_QUOTA_*`）。
+    permission: auto
+    write: true
+  getQuotaPolicy:
+    summary: 查询配额策略详情
+    permission: auto
+  updateQuotaPolicy:
+    summary: 更新配额策略
+    permission: auto
+    write: true
+  deleteQuotaPolicy:
+    summary: 删除配额策略
+    permission: auto
+    write: true
+  enableQuotaPolicy:
+    summary: 启用配额策略
+    permission: auto
+    write: true
+  disableQuotaPolicy:
+    summary: 停用配额策略
+    permission: auto
+    write: true
+  getQuotaPolicyWindows:
+    summary: 查询配额策略窗口快照
+    description: 返回各窗口的计数与重置时间，不含内部行 ID 与 revision。
+    permission: auto
+  listUsageLedger:
+    summary: 查询用量账本
+    description: 账本**不包含**提示词、消息正文、供应商路由与凭据；分页走服务端签名 cursor。
+    permission: ent:usage:read  # [已核实]
+
+  # ⑪ 插件治理
+  listPluginPackages:
+    summary: 列出插件包
+    permission: ent:plugin:read  # [已核实]
+  uploadPluginVersion:
+    summary: 上传插件版本
+    description: 构件超出体积上限返回 413 `ENT_PLUGIN_ARCHIVE_TOO_LARGE`；签名校验失败返回 400 `ENT_PLUGIN_ARTIFACT_INVALID`。
+    permission: ent:plugin:write  # [已核实]
+    write: true
+  publishPluginVersion:
+    summary: 发布插件版本
+    permission: ent:plugin:write  # [已核实]
+    write: true
+  retirePluginVersion:
+    summary: 退休插件版本
+    description: 已分配的退休版本仍可被已引用方下载，但不再出现在新的分配中。
+    permission: ent:plugin:write  # [已核实]
+    write: true
+  replacePluginAssignments:
+    summary: 覆盖插件分配
+    description: 全量替换语义：未出现在请求中的既有分配会被移除。
+    permission: ent:plugin:write  # [已核实]
+    write: true
+  listPluginInventory:
+    summary: 查询插件清单
+    permission: ent:plugin:read  # [已核实]
+
+  # ⑫ 会话与审计
+  listAdminSessions:
+    summary: 分页查询会话元数据
+    description: 元数据**不含**标题、头部、正文与密文。
+    permission: ent:session:read  # [已核实]
+  readAdminSessionContent:
+    summary: 读取会话正文（单独授权）
+    description: 仅此操作可投影解密后的正文，权限与元数据读取分离；正文过期返回 404 `ENT_SESSION_CONTENT_EXPIRED`。
+    permission: ent:session:content:read  # [已核实] 上游为三段式权限码
+  deleteAdminSession:
+    summary: 删除会话
+    description: 删除后留下 tombstone，等待其他副本同步。
+    permission: ent:session:delete  # [已核实]
+    write: true
+  listAuditEvents:
+    summary: 查询治理审计事件
+    permission: ent:audit:read  # [已核实]
+
+  # ─────────────────────────────────────────────────────────────
+  # 员工端 API
+  enrollCurrentDevice:
+    summary: 注册当前设备
+    description: 终端首次接入时建立设备身份。已绑定的设备重复注册返回 409 `ENT_DEVICE_ALREADY_BOUND`。
+    permission: device-token
+    write: true
+  heartbeatCurrentDevice:
+    summary: 设备心跳
+    description: 维持设备在线状态并驱动设备维度的配额窗口计数。已撤销设备返回 403 `ENT_DEVICE_REVOKED`。
+    permission: device-token
+    write: true
+  getEnterpriseBootstrap:
+    summary: 拉取员工端运行时引导
+    description: 返回可用模型别名、能力与配额事实，**不含**供应商路由、上游模型名与凭据。
+    permission: device-token
+  getMyQuotaUsage:
+    summary: 查询我的配额用量
+    permission: device-token
+  getPluginAssignments:
+    summary: 拉取本设备的插件分配
+    permission: device-token
+  downloadPluginVersion:
+    summary: 下载插件版本构件
+    description: 未分配的版本返回 403 `ENT_PLUGIN_NOT_ASSIGNED`。
+    permission: device-token
+  replacePluginInventory:
+    summary: 上报本地插件清单
+    description: 全量替换语义。
+    permission: device-token
+    write: true
+  listOwnedSessions:
+    summary: 列出本人会话
+    permission: device-token
+  appendSessionBatch:
+    summary: 追加会话批次
+    description: >-
+      Session format-v0 的 JSONL 批量写入，服务端校验批次哈希与滚动哈希证明；
+      序号断裂返回 409 `ENT_SESSION_SEQ_GAP`，溯源分叉返回 409 `ENT_SESSION_DIVERGED`，
+      批次过大返回 413 `ENT_SESSION_BATCH_TOO_LARGE`。客户端应据 accepted 结果推进本地水位。
+    permission: device-token
+    write: true
+  exportOwnedSession:
+    summary: 导出本人会话
+    permission: device-token
+  deleteOwnedSession:
+    summary: 删除本人会话
+    description: 非本人会话返回 403 `ENT_RESOURCE_NOT_OWNED`。
+    permission: device-token
+    write: true
+  recordSessionRestore:
+    summary: 记录会话恢复
+    permission: device-token
+    write: true
+
+  # ─────────────────────────────────────────────────────────────
+  # 认证 API
+  authorizePlatformClient:
+    summary: 授权端点（PKCE）
+    description: 未登录时引导登录；登录后签发授权码。缺少 PKCE 参数返回 400 `ENT_PKCE_REQUIRED`，重定向地址不在白名单返回 400 `ENT_INVALID_REDIRECT_URI`。
+    permission: public
+  listPublicIdentitySources:
+    summary: 列出公开身份源
+    description: 登录页可选项，无需认证。
+    permission: public
+  completePasswordLogin:
+    summary: 口令登录
+    description: 提交账号口令完成登录事务。必须携带该事务的 CSRF 令牌；登录事务过期返回 401 `ENT_AUTH_SESSION_EXPIRED`。
+    permission: public
+    write: true
+  startOidcLogin:
+    summary: 发起 OIDC 登录
+    permission: public
+  completeOidcLogin:
+    summary: 完成 OIDC 登录回调
+    permission: public
+    write: true
+  exchangeDesktopToken:
+    summary: 授权码换取桌面端令牌
+    description: 返回 Sa-Token Bearer Token 供桌面端/Harness 调用员工端 API 与模型网关。授权码无效或已使用返回 401 `ENT_AUTH_CODE_INVALID`，PKCE 校验失败返回 401 `ENT_PKCE_INVALID`。
+    permission: public
+    write: true
+  exchangeBrowserAuthorizationCode:
+    summary: 授权码换取浏览器会话
+    description: 为控制台签发 HttpOnly Cookie（HTTP 为 `enterprise-admin`，HTTPS 为 `__Host-enterprise-admin`，SameSite=Strict）。
+    permission: public
+    write: true
+  logoutPlatformSession:
+    summary: 注销平台会话
+    description: 清除 Cookie 并与平台会话存储同步。
+    permission: session
+    write: true
+
+  # ─────────────────────────────────────────────────────────────
+  # 模型网关
+  streamEnterpriseChatCompletions:
+    summary: OpenAI Chat Completions（流式）
+    description: >-
+      仅接受平台托管别名或 `enterprise/default`；支持 `thinking.type` 与 `reasoning_effort=high|max`。
+      成功响应为 `text/event-stream`，不使用企业 JSON 成功信封；失败才返回 JSON 错误信封。
+    permission: model-gate
+    write: true
+  streamEnterpriseResponses:
+    summary: OpenAI Responses（流式）
+    permission: model-gate
+    write: true
+  streamEnterpriseAnthropicMessages:
+    summary: Anthropic Messages（流式）
+    permission: model-gate
+    write: true
+
+# ─────────────────────────────────────────────────────────────
+# 错误码字典：骨架由契约 x-enterprise-error-statuses 自动生成（42 个），
+# 这里补中文含义与处置建议。缺失项会让 build-docs.mjs --check 失败。
+errorCodes:
+  ENT_INVALID_REQUEST: { meaning: 请求参数或结构非法, action: 对照本页 schema 修正请求体 }
+  ENT_INVALID_REDIRECT_URI: { meaning: 重定向地址不在客户端白名单, action: 检查 PKCE 流程的 redirect_uri 是否与客户端注册值完全一致 }
+  ENT_PKCE_REQUIRED: { meaning: 授权请求缺少 PKCE 参数, action: 按 RFC7636 补齐 code_challenge 与 code_challenge_method=S256 }
+  ENT_PLUGIN_ARTIFACT_INVALID: { meaning: 插件构件不合法或签名校验失败, action: 重新打包并核对构件哈希 }
+  ENT_SESSION_FORMAT_UNSUPPORTED: { meaning: 会话格式版本不受支持, action: 客户端升级到 rc.7 / format-v0 }
+  ENT_AUTH_REQUIRED: { meaning: 未认证、会话失效或跨源写入被拒, action: 重新登录；若为浏览器跨源调用需改为同源 }
+  ENT_AUTH_CODE_INVALID: { meaning: 授权码无效、过期或已被使用, action: 重新走一次授权流程，授权码只能使用一次 }
+  ENT_PKCE_INVALID: { meaning: PKCE 校验失败, action: 复用同一 code_verifier，不要重新生成 }
+  ENT_AUTH_SESSION_EXPIRED: { meaning: 登录事务已过期, action: 重新发起登录 }
+  ENT_PERMISSION_DENIED: { meaning: 当前账号缺少所需 ent:* 权限, action: 由企业管理员在成员角色中补齐权限 }
+  ENT_DEVICE_REVOKED: { meaning: 设备已被撤销, action: 重新注册设备或联系管理员恢复 }
+  ENT_MODEL_NOT_ASSIGNED: { meaning: 当前账号未被授权该模型, action: 由管理员下发模型授权 }
+  ENT_PLUGIN_NOT_ASSIGNED: { meaning: 该插件版本未分配给本设备, action: 由管理员下发插件分配 }
+  ENT_RESOURCE_NOT_OWNED: { meaning: 资源不属于当前账号, action: 检查资源 ID 与账号归属 }
+  ENT_RESOURCE_NOT_FOUND: { meaning: 资源不存在, action: 核对 ID；注意已删除资源不再返回 }
+  ENT_SESSION_CONTENT_EXPIRED: { meaning: 会话正文已按保留策略过期, action: 接受该事实，正文不可恢复 }
+  ENT_REVISION_CONFLICT: { meaning: 乐观锁版本冲突, action: 重新读取资源后用新的 revision 重试（If-Match） }
+  ENT_LAST_ENTERPRISE_ADMIN: { meaning: 不允许移除最后一个企业管理员, action: 先指定另一位企业管理员 }
+  ENT_LAST_MEMBER_IDENTITY: { meaning: 不允许解绑成员最后一个身份, action: 先为成员绑定新的身份 }
+  ENT_REQUEST_IN_PROGRESS: { meaning: 相同请求正在处理中, action: 稍后用同一幂等标识重试 }
+  ENT_REQUEST_ALREADY_COMPLETED: { meaning: 该请求已完成（幂等命中）, action: 无需重试，读取上一次结果即可 }
+  ENT_SESSION_SEQ_GAP: { meaning: 会话批次序号断裂, action: 客户端补齐缺失批次或走恢复流程 }
+  ENT_SESSION_DIVERGED: { meaning: 会话历史出现分叉, action: 以服务端为准，触发会话恢复记录 }
+  ENT_SESSION_SOURCE_DEVICE_CONFLICT: { meaning: 会话来源设备冲突, action: 确认会话归属设备后再提交 }
+  ENT_IDENTITY_ALREADY_LINKED: { meaning: 该外部身份已绑定其他成员, action: 先解绑再重新绑定 }
+  ENT_DEVICE_ALREADY_BOUND: { meaning: 设备已绑定, action: 复用既有设备身份，不要重复注册 }
+  ENT_REQUEST_TOO_LARGE: { meaning: 请求体超过上限, action: 拆分请求（网关 10m，会话接口 1m） }
+  ENT_PLUGIN_ARCHIVE_TOO_LARGE: { meaning: 插件构件超过体积上限, action: 精简构件后重传 }
+  ENT_SESSION_BATCH_TOO_LARGE: { meaning: 会话批次过大, action: 拆小批次后追加 }
+  ENT_QUOTA_FIVE_HOURS_EXCEEDED: { meaning: 5 小时窗口配额用尽, action: 等待窗口重置或申请提额 }
+  ENT_QUOTA_DAILY_EXCEEDED: { meaning: 日配额用尽, action: 等待次日重置或申请提额 }
+  ENT_QUOTA_WEEKLY_EXCEEDED: { meaning: 周配额用尽, action: 等待下周重置或申请提额 }
+  ENT_QUOTA_MONTHLY_EXCEEDED: { meaning: 月配额用尽, action: 等待下月重置或申请提额 }
+  ENT_QUOTA_RPM_EXCEEDED: { meaning: 超过每分钟请求数限制, action: 按退避策略重试（建议指数退避 + 抖动） }
+  ENT_QUOTA_CONCURRENCY_EXCEEDED: { meaning: 超过并发限制, action: 降低并发或串行重试 }
+  ENT_UPSTREAM_RATE_LIMITED: { meaning: 上游模型供应商限流, action: 退避重试；持续出现需更换供应商通道 }
+  ENT_UPSTREAM_QUOTA_EXCEEDED: { meaning: 上游供应商额度用尽, action: 联系管理员充值或切换供应商 }
+  ENT_UPSTREAM_AUTH_FAILED: { meaning: 上游凭据无效, action: 管理员更新供应商凭据 }
+  ENT_UPSTREAM_INVALID_RESPONSE: { meaning: 上游返回不可解析的响应, action: 联系管理员核对供应商兼容性 }
+  ENT_PLATFORM_UNAVAILABLE: { meaning: 平台不可用（降级/维护）, action: 稍后重试并查看 /healthz }
+  ENT_UPSTREAM_UNAVAILABLE: { meaning: 上游供应商不可达, action: 稍后重试或切换供应商 }
+  ENT_UPSTREAM_TIMEOUT: { meaning: 上游超时, action: 稍后重试；长上下文请求可降低 max_tokens }

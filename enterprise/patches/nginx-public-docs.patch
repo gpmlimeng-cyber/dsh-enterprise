@@ -1,0 +1,111 @@
+--- deploy/nginx/nginx.conf.pre-public-docs	2026-09-16 00:52:10.272221777 +0800
++++ deploy/nginx/nginx.conf	2026-09-16 01:29:07.141813443 +0800
+@@ -1,6 +1,6 @@
+-# [INPUT]: 依赖同网络 server:8080、构建期管理端静态资源、部署层 /opt/owndsh/api-docs/dist 与 /opt/owndsh/help/dist（只读挂载）、浏览器原始 Host 与可选上级反向代理 forwarding headers。
+-# [OUTPUT]: 提供保留外部 authority 的 HTTP 同源入口、显式 OpenAPI 命名空间代理、管理端 SPA/认证回调、SSE 无缓冲、健康检查，以及需登录的 API 文档门户与帮助中心（auth_request 会话校验）。
+-# [POS]: Console 静态资源与 API 的轻量 HTTP 网关；TLS 终止由部署方的反向代理、Ingress 或负载均衡负责；文档门户为部署层附加物（P1）。
++# [INPUT]: 依赖同网络 server:8080、构建期管理端静态资源、部署层 /opt/owndsh/site/dist 与 /opt/owndsh/api-docs/dist、/opt/owndsh/help/dist（只读挂载）、浏览器原始 Host 与可选上级反向代理 forwarding headers。
++# [OUTPUT]: 提供保留外部 authority 的 HTTP 同源入口、显式 OpenAPI 命名空间代理、管理端 SPA/认证回调、SSE 无缓冲、健康检查，以及**完全公开且可索引**的产品官网、API 文档门户与帮助中心。
++# [POS]: Console 静态资源与 API 的轻量 HTTP 网关；TLS 终止由部署方的反向代理、Ingress 或负载均衡负责；两个文档门户为部署层附加物，按产品决策对公网开放（无鉴权、可被搜索引擎收录）。
+ # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ 
+ worker_processes auto;
+@@ -95,13 +95,9 @@
+     }
+ 
+     # ── API 文档门户（部署层 /opt/owndsh/api-docs/dist，只读 bind mount）──────────
+-    # 鉴权：auth_request 子请求复用控制台引导接口 /enterprise/admin/v1/bootstrap。
+-    #   已登录（任意控制台角色）→ 200 放行；未登录 → 401 → 跳登录页。
+-    # 注意：error_page 401 必须限定在本 location 内。若放到 server 级，会把
+-    #   /enterprise/* 的 401 一并改写成 302，破坏前端 AuthRequiredError → /login 的语义。
++    # 公开策略（产品决策）：不鉴权、可索引。契约里没有任何密钥或内网地址
++    #   （servers 为相对路径 '/'），Try it out 对匿名访客只会得到 401，不会泄露数据。
+     location /api-docs/ {
+-      auth_request /_docs_auth;
+-      error_page 401 = @docs_login;
+       root /usr/share/nginx/html;
+       index index.html;
+       try_files $uri $uri/ /api-docs/index.html;
+@@ -109,7 +105,7 @@
+       add_header X-Content-Type-Options nosniff always;
+       add_header Referrer-Policy strict-origin always;
+       add_header Cache-Control "no-cache" always;
+-      add_header X-Robots-Tag "noindex, nofollow" always;
++      add_header X-Robots-Tag "index, follow" always;
+       # gzip 只在本 location 开，避免影响 API 代理与 SSE 流
+       gzip on;
+       gzip_comp_level 5;
+@@ -117,24 +113,11 @@
+       gzip_min_length 1024;
+     }
+ 
+-    location = /_docs_auth {
+-      internal;
+-      proxy_pass http://$upstream_server/enterprise/admin/v1/bootstrap;
+-      proxy_pass_request_body off;
+-      proxy_set_header Content-Length "";
+-      proxy_set_header X-Original-URI $request_uri;
+-    }
+-
+-    location @docs_login {
+-      return 302 /login?redirect=%2Fapi-docs%2F;
+-    }
+-
+     # ── 帮助中心（部署层 /opt/owndsh/help/dist，只读 bind mount）────────────────
+-    # 与 API 文档门户共用同一鉴权判据；error_page 同样限定在本 location 内。
++    # 公开策略（产品决策）：不鉴权、可索引。因此运维篇内容必须保持"可公开"口径，
++    #   不得写入内网地址、备份路径等敏感信息（构建期有公开内容安全检查拦一道）。
+     # CSP 为 script-src 'self'：页面不得存在内联脚本（主题前导已外置为 theme-boot.js）。
+     location /help/ {
+-      auth_request /_docs_auth;
+-      error_page 401 = @help_login;
+       root /usr/share/nginx/html;
+       index index.html;
+       try_files $uri $uri/ /help/index.html;
+@@ -143,15 +126,43 @@
+       add_header X-Frame-Options DENY always;
+       add_header Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'" always;
+       add_header Cache-Control "no-cache" always;
+-      add_header X-Robots-Tag "noindex, nofollow" always;
++      add_header X-Robots-Tag "index, follow" always;
+       gzip on;
+       gzip_comp_level 5;
+       gzip_types text/html application/json text/css application/javascript text/plain image/svg+xml;
+       gzip_min_length 1024;
+     }
+ 
+-    location @help_login {
+-      return 302 /login?redirect=%2Fhelp%2F;
++    # ── 产品官网（部署层 /opt/owndsh/site/dist，只读 bind mount）──────────────────
++    # 公开策略：不鉴权、可索引（与两个文档门户一致）。CSP 为 script-src 'self'，
++    # 因此页面不得含内联脚本（主题前导已外置为 assets/theme-boot.js）。
++    location /home/ {
++      root /usr/share/nginx/html;
++      index index.html;
++      try_files $uri $uri/ =404;
++      error_page 404 /home/404.html;
++      add_header X-Content-Type-Options nosniff always;
++      add_header Referrer-Policy strict-origin-when-cross-origin always;
++      add_header X-Frame-Options DENY always;
++      add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'" always;
++      add_header Cache-Control "no-cache" always;
++      gzip on;
++      gzip_comp_level 5;
++      gzip_types text/html text/css application/javascript application/json image/svg+xml;
++      gzip_min_length 1024;
++    }
++
++    # 站点地图与抓取策略必须在域名根：页面内引用的是 /sitemap.xml 与 /robots.txt
++    location = /sitemap.xml {
++      rewrite ^ /home/sitemap.xml break;
++      root /usr/share/nginx/html;
++      add_header Cache-Control "no-cache" always;
++    }
++
++    location = /robots.txt {
++      rewrite ^ /home/robots.txt break;
++      root /usr/share/nginx/html;
++      add_header Cache-Control "no-cache" always;
+     }
+ 
+     location /assets/ {

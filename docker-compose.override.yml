@@ -1,0 +1,27 @@
+# [INPUT]: 依赖仓库根构建上下文、deploy/compose 的 Server/Console 双 Dockerfile，以及 .env 中 OWNDSH_BASE_IMAGE_REGISTRY 与 OWNDSH_*_LOCAL_IMAGE 覆盖。
+# [OUTPUT]: 在不依赖 GHCR 制品的前提下用本地源码构建 server/console，并让 storage-init 复用同一本地 server 镜像。
+# [POS]: 根 Compose 入口的可选本地构建覆盖层，保持与 deploy/compose/compose.yml 完全相同的服务名、健康检查与依赖条件；不使用它时以 `docker compose -f docker-compose.yml up -d --wait` 走 GHCR 拉取路径。
+# [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+
+services:
+  # 基础镜像默认从 docker.io/library 读取；受限网络下由 .env 的 OWNDSH_BASE_IMAGE_REGISTRY 指向透明 registry mirror。
+  # 构建上下文固定为仓库根，两个 Dockerfile 内的 COPY 路径（server/、console/、contracts/、deploy/nginx/）均相对该上下文。
+  server:
+    image: ${OWNDSH_SERVER_LOCAL_IMAGE:-owndsh-server:0.1.0}
+    build:
+      context: .
+      dockerfile: deploy/compose/Dockerfile.server
+      args:
+        OWNDSH_BASE_IMAGE_REGISTRY: ${OWNDSH_BASE_IMAGE_REGISTRY:-docker.io/library}
+
+  console:
+    image: ${OWNDSH_CONSOLE_LOCAL_IMAGE:-owndsh-console:0.1.0}
+    build:
+      context: .
+      dockerfile: deploy/compose/Dockerfile.console
+      args:
+        OWNDSH_BASE_IMAGE_REGISTRY: ${OWNDSH_BASE_IMAGE_REGISTRY:-docker.io/library}
+
+  # 插件制品卷初始化复用已构建的 Server 镜像，避免再次拉取 GHCR。
+  storage-init:
+    image: ${OWNDSH_SERVER_LOCAL_IMAGE:-owndsh-server:0.1.0}

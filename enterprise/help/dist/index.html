@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="dark light" />
+<meta name="robots" content="index, follow" />
+<title>帮助中心 · OwnDsh 帮助中心</title>
+<link rel="stylesheet" href="/help/assets/theme.css" />
+<link rel="stylesheet" href="/help/assets/help.css" />
+<!-- 主题前导必须同步执行在 <head>，避免首帧闪烁；外置以满足 CSP script-src 'self' -->
+<script src="/help/assets/theme-boot.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/help/"><span class="brand-mark">O</span>OwnDsh 帮助中心</a>
+  <div class="topbar-search">
+    <input id="help-search" type="search" placeholder="搜索手册（⌘K）" aria-label="搜索手册" autocomplete="off" />
+    <div id="help-search-results" class="search-results" hidden></div>
+  </div>
+      <div class="theme-toggle" hidden role="group" aria-label="主题">
+        <span class="theme-toggle-indicator" aria-hidden="true"></span>
+        <button type="button" data-theme-value="light" aria-label="浅色主题" aria-pressed="false">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />
+            <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+          </svg>
+        </button>
+        <button type="button" data-theme-value="dark" aria-label="深色主题" aria-pressed="false">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+          </svg>
+        </button>
+      </div>
+  <nav class="topbar-links" aria-label="文档中心">
+    <a href="/api-docs/">API 参考</a>
+    <a href="/">控制台</a>
+  </nav>
+</header>
+<div class="layout">
+  <nav class="sidebar" aria-label="手册导航"><div class="nav-group"><p class="nav-title">管理员手册</p><ul><li><a href="/help/admin/quickstart.html">快速开始：30 分钟让企业可用</a></li><li><a href="/help/admin/roles-permissions.html">角色与权限矩阵</a></li></ul></div><div class="nav-group"><p class="nav-title">员工手册</p><ul><li><a href="/help/user/install-plugin.html">为已有 Harness / 社区 Desktop 安装企业插件</a></li><li><a href="/help/user/faq.html">员工常见问题</a></li></ul></div><div class="nav-group"><p class="nav-title">运维手册</p><ul><li class="pending">撰写中</li></ul></div><div class="nav-group"><p class="nav-title">参考</p><ul><li class="pending">撰写中</li></ul></div></nav>
+  <main class="content">
+    
+    <div class="meta">
+      <span>受众：全部</span>
+      <span>适用版本：0.1.0</span>
+      <span>最后校验：2026-09-16</span>
+      
+    </div>
+    <article class="prose">
+<h1 id="OwnDsh-帮助中心">OwnDsh 帮助中心<a class="anchor" href="#OwnDsh-帮助中心" aria-label="锚点">#</a></h1>
+<blockquote>这里讲<strong>怎么做</strong>：从零把企业配置起来、员工怎么接入、出问题先看哪里。 字段级细节（请求体、响应结构、错误码全集）在 <a href="/api-docs/">API 参考</a>，两者配合使用。</blockquote>
+<div class="card-grid"><a class="card" href="/help/admin/quickstart.html"><h3>管理员手册</h3><p>从零把企业配置到可用：身份、成员、模型、授权、配额、插件、审计。</p><p class="card-meta">2/18 篇已撰写</p></a><a class="card" href="/help/user/install-plugin.html"><h3>员工手册</h3><p>在自己的 DSH Desktop / Harness 里接入企业，用上获准的模型与插件。</p><p class="card-meta">2/9 篇已撰写</p></a><div class="card card-pending"><h3>运维手册</h3><p>部署、备份、升级回滚与日常检查；含本部署的实际参数与踩坑记录。</p><p class="card-meta">撰写中，敬请期待</p></div><div class="card card-pending"><h3>参考</h3><p>术语、错误码、界面与 API 的对应关系。</p><p class="card-meta">撰写中，敬请期待</p></div></div>
+<h2 id="三条最常走的路">三条最常走的路<a class="anchor" href="#三条最常走的路" aria-label="锚点">#</a></h2>
+<ol><li><strong>刚部署完，要让它跑起来</strong> → <a href="/help/admin/quickstart.html">快速开始：30 分钟让企业可用</a></li><li><strong>员工要接入</strong> → <a href="/help/user/install-plugin.html">为已有 Harness / 社区 Desktop 安装企业插件</a></li><li><strong>出错了要排查</strong> → <a href="/help/user/faq.html">员工常见问题</a>、<a href="/api-docs/">API 参考的错误码字典</a>（42 个稳定错误码的中文释义就在该页开头）</li></ol>
+<h2 id="这套手册怎么读">这套手册怎么读<a class="anchor" href="#这套手册怎么读" aria-label="锚点">#</a></h2>
+<div class="table-wrap"><table><thead><tr><th>你的角色</th><th>从哪开始</th><th>你会得到什么</th></tr></thead><tbody><tr><td>平台管理员</td><td>管理员手册 → 快速开始 → 控制台导览</td><td>能独立完成身份、成员、模型、授权、配额、插件的全套配置</td></tr><tr><td>模型管理员</td><td>管理员手册 → 模型与授权相关篇目</td><td>清楚供应商凭据边界、托管别名与授权/配额的区别</td></tr><tr><td>插件管理员</td><td>管理员手册 → 插件治理</td><td>会走完上传 → 发布 → 分配 → 客户端上报的闭环</td></tr><tr><td>审计员</td><td>管理员手册 → 角色与权限矩阵、用量与审计</td><td>明确自己能看什么、为什么看不到其它接口</td></tr><tr><td>员工</td><td>员工手册</td><td>在自己的 Desktop / Harness 里完成接入并日常使用</td></tr><tr><td>运维</td><td>运维手册</td><td>部署、备份、升级回滚与日常检查</td></tr></tbody></table></div>
+<aside class="callout callout-tip"><span class="callout-label">提示</span><p><strong>手册与 API 参考的分工</strong>：手册回答&quot;我该点哪里、为什么这样配、报错先看什么&quot;； API 参考回答&quot;这个接口的字段是什么&quot;。手册里凡涉及字段细节的地方，都会直接链到对应接口。</p></aside>
+<h2 id="文档的可靠性">文档的可靠性<a class="anchor" href="#文档的可靠性" aria-label="锚点">#</a></h2>
+<blockquote>手册不是一次性写完就放着：</blockquote>
+<ul><li><strong>自动生成页</strong>：角色与权限矩阵、配置项参考、错误码速查、界面地图都由运行实例或契约在构建期生成，</li></ul>
+<blockquote>不靠人工抄写（页头会标「自动生成」）。</blockquote>
+<ul><li><strong>漂移门禁</strong>：每篇声明的 <code>sourceRefs</code> 必须仍然存在；正文里提到的界面按钮名必须仍能在控制台构建产物中找到；</li></ul>
+<blockquote>站内链接与锚点必须有效。任一不满足，构建直接失败。</blockquote>
+<ul><li><strong>校验时间</strong>：每页页头显示最后人工校验日期，超过 90 天会标「待复核」。</li></ul>
+<aside class="callout callout-warn"><span class="callout-label">注意</span><p>当前手册处于<strong>分批撰写</strong>阶段：员工接入部分与管理员的权限/快速开始已可用， 其余篇目按上方卡片的&quot;已撰写/总数&quot;逐步补齐。标注为待撰写的页面不会出现在左侧导航里，也点不到空链接。</p></aside>
+    </article>
+    <nav class="pager"><span></span><span></span></nav>
+    <footer class="page-footer">
+      <span>OwnDsh 帮助中心 · 内容版本 0.1.0</span>
+      <span class="sep">·</span>
+      <a href="/home/">产品官网</a>
+      <span class="sep">·</span>
+      <a href="/api-docs/">API 参考</a>
+      <span class="sep">·</span>
+      <a href="/">返回控制台</a>
+    </footer>
+  </main>
+  <aside class="toc" aria-label="本页目录"><p class="nav-title">本页目录</p><ul><li class="lvl-2"><a href="#三条最常走的路">三条最常走的路</a></li><li class="lvl-2"><a href="#这套手册怎么读">这套手册怎么读</a></li><li class="lvl-2"><a href="#文档的可靠性">文档的可靠性</a></li></ul></aside>
+</div>
+<script src="/help/assets/help.js" defer></script>
+</body>
+</html>

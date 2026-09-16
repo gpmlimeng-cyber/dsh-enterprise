@@ -1,0 +1,151 @@
+<!doctype html>
+<!--
+[INPUT]: 依赖 build.mjs 注入的 head-meta / nav / footer 与 assets/ 下的样式与脚本。
+[OUTPUT]: 部署与自托管页：一键启动、环境要求、六步企业配置路线、员工接入、运维与离线交付、排障。
+[POS]: 面向开发者与运维的落地页；内容与 README / deploy/README.md / 本部署实测一致。
+[PROTOCOL]: 变更时更新此头部，然后检查 设计方案.md §4
+-->
+<html lang="zh-CN">
+  <head>
+    <!-- inject:head-meta -->
+  </head>
+  <body>
+    <!-- inject:nav -->
+
+    <main>
+      <section class="section hero" id="quickstart">
+        <div class="wrap">
+          <p class="eyebrow">DEPLOY</p>
+          <h1>从一条命令开始。</h1>
+          <p class="lead">
+            准备 Docker Engine 与 Docker Compose 2.20.3+，克隆仓库并启动。数据库迁移由服务端在启动时自动完成。
+          </p>
+
+          <div class="command">
+            <code>git clone https://github.com/boe1900/owndsh.git
+cd owndsh
+docker compose up -d --wait</code>
+            <button type="button" class="copy-command" hidden>复制</button>
+          </div>
+
+          <div class="hero-meta">
+            <span>镜像平台：Linux amd64</span>
+            <span>实测：2 核 / 3.6 GB / 50 GB</span>
+            <span>启动后自检：<code>GET /healthz</code></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-canvas">
+        <div class="wrap">
+          <p class="eyebrow">REQUIREMENTS</p>
+          <h2>环境要求与访问入口</h2>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>项</th><th>要求 / 说明</th></tr></thead>
+              <tbody>
+                <tr><td>容器运行时</td><td>Docker Engine 20.10+ 与 Docker Compose 2.20.3+</td></tr>
+                <tr><td>资源</td><td>实测 2 vCPU / 3.6 GB 内存可稳定运行四个容器（PostgreSQL、Redis、Server、Console）</td></tr>
+                <tr><td>端口</td><td>只需放行一个 HTTP 端口（默认 80）；TLS 建议由前置反向代理终止</td></tr>
+                <tr><td>控制台</td><td><code>/</code>：模型、访问策略、插件、成员、活动记录</td></tr>
+                <tr><td>健康检查</td><td><code>GET /healthz</code> 返回 <code>{"status":"UP"}</code></td></tr>
+                <tr><td>初始管理员</td><td>由环境变量 <code>ENT_BOOTSTRAP_ADMIN_USERNAME</code> 指定；首次登录会强制改密</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="note note-warn">
+            <strong>注意</strong>
+            <span>不要执行 <code>docker compose down -v</code>：那会连同 PostgreSQL、Redis 与构建产物的数据卷一起删除。</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="wrap">
+          <p class="eyebrow">CONFIGURE</p>
+          <h2>配置企业的六步路线</h2>
+          <p class="lead">顺序有意义：没有身份源就没有成员，没有模型就没有可授权的对象。</p>
+
+          <div class="grid grid-3">
+            <div class="card"><span class="card-index">01</span><h3>配置身份来源</h3><p>成员 → 身份接入 → 新建身份源。先测试连通性再启用。</p></div>
+            <div class="card"><span class="card-index">02</span><h3>添加模型供应商</h3><p>模型 → 供应商 → 新建。凭据只写不回显，建议先做连接测试。</p></div>
+            <div class="card"><span class="card-index">03</span><h3>定义受管模型与模型集</h3><p>平台别名映射上游模型名，员工端只见别名。</p></div>
+            <div class="card"><span class="card-index">04</span><h3>下发访问授权</h3><p>访问策略 → 授权，范围可选全员、用户组或指定成员，支持批量。</p></div>
+            <div class="card"><span class="card-index">05</span><h3>按需配置配额</h3><p>访问策略 → 配额，限制 Token 窗口、RPM 与并发。</p></div>
+            <div class="card"><span class="card-index">06</span><h3>发布企业插件</h3><p>插件 → 上传 → 发布 → 分配（可选）。</p></div>
+          </div>
+
+          <div class="note note-tip">
+            <strong>提示</strong>
+            <span>授权与配额是两件事：配额策略不会代替访问授权。员工"登录后看不到模型"，九成是授权没下发。</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-canvas">
+        <div class="wrap">
+          <p class="eyebrow">CLIENTS</p>
+          <h2>员工怎么接进来</h2>
+
+          <div class="grid grid-2">
+            <div class="card">
+              <h3>OwnDsh Desktop（推荐）</h3>
+              <p>预装插件与运行环境的桌面客户端，填写 Server 地址即可登录，无需自行准备 Node 与 pnpm。</p>
+              <p class="muted"><a href="{{base}}download/">前往下载页</a></p>
+            </div>
+            <div class="card">
+              <h3>给已有 Harness 装插件</h3>
+              <div class="command" style="margin-top:12px">
+                <code>corepack enable
+corepack install --global pnpm@11.7.0
+dsh plugin --profile web add --ignore-scripts owndsh-plugin@next</code>
+                <button type="button" class="copy-command" hidden>复制</button>
+              </div>
+              <p class="muted">安装后重启对应 profile；Server 地址必须是完整 HTTP(S) origin，不能带 API 路径。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="wrap">
+          <p class="eyebrow">OPERATIONS</p>
+          <h2>运维、升级与离线交付</h2>
+
+          <div class="grid grid-2">
+            <div class="card">
+              <h3>升级</h3>
+              <div class="command" style="margin-top:12px">
+                <code>docker compose pull &amp;&amp; docker compose up -d --wait</code>
+                <button type="button" class="copy-command" hidden>复制</button>
+              </div>
+              <p class="muted">数据库迁移随服务端启动自动执行；升级前建议先做备份。</p>
+            </div>
+            <div class="card">
+              <h3>备份范围</h3>
+              <p>数据卷（PostgreSQL / Redis / 构建产物）与部署配置文件；<code>ENT_MASTER_KEY</code> 丢失将导致供应商密钥与部分会话内容不可恢复，必须纳入备份。</p>
+            </div>
+            <div class="card">
+              <h3>离线交付</h3>
+              <p>镜像可导出为离线包在无外网环境导入；若拉取镜像缓慢，可改用可信镜像源（镜像摘要与官方一致）。</p>
+            </div>
+            <div class="card">
+              <h3>日常检查</h3>
+              <p>四个容器健康状态、<code>/healthz</code> 探针、服务端日志与数据库连接数；异常优先看容器日志与 <code>requestId</code>。</p>
+            </div>
+          </div>
+
+          <div class="note note-tip">
+            <strong>更多</strong>
+            <span>完整的部署参数、备份恢复与排障步骤见<a href="/help/">帮助中心</a>（运维手册）；接口与错误码见 <a href="/api-docs/">API 参考</a>。</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- inject:footer -->
+    <script src="{{base}}assets/site.js" defer></script>
+  </body>
+</html>

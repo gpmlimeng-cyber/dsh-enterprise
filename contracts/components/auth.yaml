@@ -1,0 +1,421 @@
+# [INPUT]: 依赖根协议的 RequestId 与统一 envelope 约定，以及详细设计第 6 节固定 public client/PKCE 边界
+# [OUTPUT]: 提供登录事务、LOCAL 改密、公开身份源、Desktop code/refresh Token、浏览器 Cookie exchange、注销与 console bootstrap schema
+# [POS]: contracts/components 的认证协议分片，隔离两类客户端会话输出且不增加密码重置旁路
+# [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+
+PlatformClient:
+  type: string
+  enum: [dsh-desktop, enterprise-admin]
+
+AuthTransactionId:
+  type: string
+  minLength: 32
+  maxLength: 64
+  pattern: '^[A-Za-z0-9_-]+$'
+
+AuthorizationCode:
+  type: string
+  minLength: 43
+  maxLength: 64
+  pattern: '^[A-Za-z0-9_-]+$'
+
+PkceCodeChallenge:
+  type: string
+  minLength: 43
+  maxLength: 43
+  pattern: '^[A-Za-z0-9_-]{43}$'
+
+PkceCodeVerifier:
+  type: string
+  minLength: 43
+  maxLength: 128
+  pattern: '^[A-Za-z0-9._~-]+$'
+
+InstallationId:
+  type: string
+  format: uuid
+  minLength: 36
+  maxLength: 36
+  pattern: '^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$'
+
+PublicIdentitySource:
+  type: object
+  additionalProperties: false
+  required: [id, name, type]
+  properties:
+    id:
+      $ref: './identity.yaml#/IdentitySourceId'
+    name:
+      type: string
+      minLength: 1
+      maxLength: 120
+    type:
+      $ref: './identity.yaml#/IdentitySourceType'
+
+AuthSourcesData:
+  type: object
+  additionalProperties: false
+  required: [transactionId, csrfToken, sources]
+  properties:
+    transactionId:
+      $ref: '#/AuthTransactionId'
+    csrfToken:
+      type: string
+      minLength: 32
+      maxLength: 64
+      pattern: '^[A-Za-z0-9_-]+$'
+    sources:
+      type: array
+      minItems: 1
+      maxItems: 50
+      items:
+        $ref: '#/PublicIdentitySource'
+
+AuthSourcesResponse:
+  type: object
+  additionalProperties: false
+  required: [data, requestId]
+  properties:
+    data:
+      $ref: '#/AuthSourcesData'
+    requestId:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'
+
+PasswordLoginRequest:
+  oneOf:
+    - $ref: '#/PasswordCredentialRequest'
+    - $ref: '#/InitialPasswordChangeRequest'
+
+PasswordCredentialRequest:
+  type: object
+  additionalProperties: false
+  required: [transactionId, sourceId, csrfToken, username, password]
+  properties:
+    transactionId:
+      $ref: '#/AuthTransactionId'
+    sourceId:
+      $ref: './identity.yaml#/IdentitySourceId'
+    csrfToken:
+      type: string
+      minLength: 32
+      maxLength: 64
+      pattern: '^[A-Za-z0-9_-]+$'
+    username:
+      type: string
+      minLength: 1
+      maxLength: 100
+    password:
+      type: string
+      minLength: 1
+      maxLength: 256
+      writeOnly: true
+    captchaId:
+      type: string
+      minLength: 1
+      maxLength: 128
+      description: Required for LOCAL only when the host captcha switch is enabled.
+    captchaCode:
+      type: string
+      minLength: 1
+      maxLength: 16
+      writeOnly: true
+      description: Required for LOCAL only when the host captcha switch is enabled.
+
+PasswordChangeChallenge:
+  type: string
+  minLength: 47
+  maxLength: 47
+  pattern: '^pwc_[A-Za-z0-9_-]{43}$'
+
+InitialPasswordChangeRequest:
+  type: object
+  additionalProperties: false
+  required: [transactionId, sourceId, csrfToken, passwordChangeChallenge, newPassword]
+  properties:
+    transactionId:
+      $ref: '#/AuthTransactionId'
+    sourceId:
+      $ref: './identity.yaml#/IdentitySourceId'
+    csrfToken:
+      type: string
+      minLength: 32
+      maxLength: 64
+      pattern: '^[A-Za-z0-9_-]+$'
+    passwordChangeChallenge:
+      $ref: '#/PasswordChangeChallenge'
+    newPassword:
+      type: string
+      minLength: 14
+      maxLength: 128
+      writeOnly: true
+
+CurrentPasswordChangeRequest:
+  type: object
+  additionalProperties: false
+  required: [currentPassword, newPassword]
+  properties:
+    currentPassword:
+      type: string
+      minLength: 1
+      maxLength: 256
+      writeOnly: true
+    newPassword:
+      type: string
+      minLength: 14
+      maxLength: 128
+      writeOnly: true
+
+PasswordChangedData:
+  type: object
+  additionalProperties: false
+  required: [changed]
+  properties:
+    changed:
+      type: boolean
+      const: true
+
+PasswordChangedResponse:
+  type: object
+  additionalProperties: false
+  required: [data, requestId]
+  properties:
+    data:
+      $ref: '#/PasswordChangedData'
+    requestId:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'
+
+PasswordStepData:
+  type: object
+  additionalProperties: false
+  required: [next, rejected]
+  properties:
+    next:
+      type: string
+      enum: [REDIRECT, CHANGE_PASSWORD]
+    redirectUri:
+      type: [string, 'null']
+      format: uri
+      maxLength: 2048
+    passwordChangeChallenge:
+      oneOf:
+        - $ref: '#/PasswordChangeChallenge'
+        - type: 'null'
+    rejected:
+      type: boolean
+
+PasswordStepResponse:
+  type: object
+  additionalProperties: false
+  required: [data, requestId]
+  properties:
+    data:
+      $ref: '#/PasswordStepData'
+    requestId:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'
+
+TokenRequest:
+  oneOf:
+    - $ref: '#/AuthorizationCodeTokenRequest'
+    - $ref: '#/RefreshTokenRequest'
+
+AuthorizationCodeTokenRequest:
+  type: object
+  additionalProperties: false
+  required: [grantType, code, clientId, redirectUri, codeVerifier, installationId]
+  properties:
+    grantType:
+      type: string
+      const: authorization_code
+    code:
+      $ref: '#/AuthorizationCode'
+    clientId:
+      $ref: '#/PlatformClient'
+    redirectUri:
+      type: string
+      format: uri
+      minLength: 1
+      maxLength: 2048
+    codeVerifier:
+      $ref: '#/PkceCodeVerifier'
+    installationId:
+      $ref: '#/InstallationId'
+
+RefreshTokenRequest:
+  type: object
+  additionalProperties: false
+  required: [grantType, refreshToken, clientId, installationId]
+  properties:
+    grantType:
+      type: string
+      const: refresh_token
+    refreshToken:
+      type: string
+      minLength: 48
+      maxLength: 48
+      pattern: '^dshr_[A-Za-z0-9_-]{43}$'
+    clientId:
+      type: string
+      const: dsh-desktop
+    installationId:
+      $ref: '#/InstallationId'
+
+BrowserSessionRequest:
+  type: object
+  additionalProperties: false
+  required: [code, redirectUri, codeVerifier]
+  properties:
+    code:
+      $ref: '#/AuthorizationCode'
+    redirectUri:
+      type: string
+      format: uri
+      minLength: 1
+      maxLength: 2048
+    codeVerifier:
+      $ref: '#/PkceCodeVerifier'
+
+TokenData:
+  type: object
+  additionalProperties: false
+  required: [accessToken, tokenType, expiresIn, clientId, refreshToken, refreshExpiresIn]
+  properties:
+    accessToken:
+      type: string
+      minLength: 16
+      maxLength: 512
+      pattern: '^\S+$'
+    tokenType:
+      type: string
+      const: Bearer
+    expiresIn:
+      type: integer
+      const: 43200
+    clientId:
+      $ref: '#/PlatformClient'
+    refreshToken:
+      type: string
+      minLength: 48
+      maxLength: 48
+      pattern: '^dshr_[A-Za-z0-9_-]{43}$'
+    refreshExpiresIn:
+      type: integer
+      minimum: 1
+      maximum: 2592000
+
+TokenResponse:
+  type: object
+  additionalProperties: false
+  required: [data, requestId]
+  properties:
+    data:
+      $ref: '#/TokenData'
+    requestId:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'
+
+LogoutData:
+  type: object
+  additionalProperties: false
+  required: [loggedOut]
+  properties:
+    loggedOut:
+      type: boolean
+      const: true
+
+LogoutResponse:
+  type: object
+  additionalProperties: false
+  required: [data, requestId]
+  properties:
+    data:
+      $ref: '#/LogoutData'
+    requestId:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'
+
+BuiltInRole:
+  type: string
+  enum: [enterprise_admin, model_admin, plugin_admin, auditor, employee]
+
+ConsoleLoginMethod:
+  type: object
+  additionalProperties: false
+  required: [sourceName, sourceType]
+  properties:
+    sourceName:
+      type: string
+      minLength: 1
+      maxLength: 100
+    sourceType:
+      $ref: './identity.yaml#/IdentitySourceType'
+
+ConsoleMember:
+  type: object
+  additionalProperties: false
+  required: [id, username, displayName, email, avatarUrl, loginMethods]
+  properties:
+    id:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/EnterpriseUserId'
+    username:
+      type: string
+      minLength: 1
+      maxLength: 30
+    displayName:
+      type: string
+      minLength: 1
+      maxLength: 120
+    email:
+      type: [string, 'null']
+      format: email
+      maxLength: 50
+    avatarUrl:
+      type: [string, 'null']
+      format: uri
+      maxLength: 2048
+    loginMethods:
+      type: array
+      maxItems: 20
+      items:
+        $ref: '#/ConsoleLoginMethod'
+
+ConsoleDeployment:
+  type: object
+  additionalProperties: false
+  required: [name]
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 120
+
+ConsoleBootstrapData:
+  type: object
+  additionalProperties: false
+  required: [member, roles, permissions, deployment]
+  properties:
+    member:
+      $ref: '#/ConsoleMember'
+    roles:
+      type: array
+      uniqueItems: true
+      maxItems: 5
+      items:
+        $ref: '#/BuiltInRole'
+    permissions:
+      type: array
+      uniqueItems: true
+      maxItems: 100
+      items:
+        type: string
+        minLength: 1
+        maxLength: 120
+    deployment:
+      $ref: '#/ConsoleDeployment'
+
+ConsoleBootstrapResponse:
+  type: object
+  additionalProperties: false
+  required: [data, requestId]
+  properties:
+    data:
+      $ref: '#/ConsoleBootstrapData'
+    requestId:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'

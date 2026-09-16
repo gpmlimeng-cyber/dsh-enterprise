@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="dark light" />
+<meta name="robots" content="index, follow" />
+<title>角色与权限矩阵 · OwnDsh 帮助中心</title>
+<link rel="stylesheet" href="/help/assets/theme.css" />
+<link rel="stylesheet" href="/help/assets/help.css" />
+<!-- 主题前导必须同步执行在 <head>，避免首帧闪烁；外置以满足 CSP script-src 'self' -->
+<script src="/help/assets/theme-boot.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/help/"><span class="brand-mark">O</span>OwnDsh 帮助中心</a>
+  <div class="topbar-search">
+    <input id="help-search" type="search" placeholder="搜索手册（⌘K）" aria-label="搜索手册" autocomplete="off" />
+    <div id="help-search-results" class="search-results" hidden></div>
+  </div>
+      <div class="theme-toggle" hidden role="group" aria-label="主题">
+        <span class="theme-toggle-indicator" aria-hidden="true"></span>
+        <button type="button" data-theme-value="light" aria-label="浅色主题" aria-pressed="false">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />
+            <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+          </svg>
+        </button>
+        <button type="button" data-theme-value="dark" aria-label="深色主题" aria-pressed="false">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+          </svg>
+        </button>
+      </div>
+  <nav class="topbar-links" aria-label="文档中心">
+    <a href="/api-docs/">API 参考</a>
+    <a href="/">控制台</a>
+  </nav>
+</header>
+<div class="layout">
+  <nav class="sidebar" aria-label="手册导航"><div class="nav-group"><p class="nav-title">管理员手册</p><ul><li><a href="/help/admin/quickstart.html">快速开始：30 分钟让企业可用</a></li><li class="active"><a href="/help/admin/roles-permissions.html">角色与权限矩阵</a></li></ul></div><div class="nav-group"><p class="nav-title">员工手册</p><ul><li><a href="/help/user/install-plugin.html">为已有 Harness / 社区 Desktop 安装企业插件</a></li><li><a href="/help/user/faq.html">员工常见问题</a></li></ul></div><div class="nav-group"><p class="nav-title">运维手册</p><ul><li class="pending">撰写中</li></ul></div><div class="nav-group"><p class="nav-title">参考</p><ul><li class="pending">撰写中</li></ul></div></nav>
+  <main class="content">
+    <p class="breadcrumb"><a href="/help/">帮助中心</a> / 管理员手册</p>
+    <div class="meta">
+      <span>受众：管理员</span>
+      <span>适用版本：0.1.0</span>
+      <span>最后校验：2026-09-16</span>
+      <span class="badge">自动生成</span>
+    </div>
+    <article class="prose">
+<h1 id="角色与权限矩阵">角色与权限矩阵<a class="anchor" href="#角色与权限矩阵" aria-label="锚点">#</a></h1>
+<blockquote>OwnDsh 的控制台权限是<strong>固定角色 + <code>ent:*</code> 权限码</strong>，没有可自由编排的权限树或菜单树。 一个人能否看到某个菜单、能否调用某个接口，只取决于<strong>他的角色聚合出的权限码集合</strong>。</blockquote>
+<aside class="callout callout-tip"><span class="callout-label">提示</span><p>下表的权限码来自<strong>运行中的实例</strong>（内置角色与权限不可随意修改），由文档构建期从数据库读出， 因此它反映的是&quot;你此刻这套系统&quot;的真实配置，而不是设计稿。</p></aside>
+<div class="table-wrap"><table class="matrix">
+<thead><tr><th>角色</th><th>数量</th><th title="ent:audit:read"><code>audit:read</code></th><th title="ent:device:read"><code>device:read</code></th><th title="ent:device:revoke"><code>device:revoke</code></th><th title="ent:grant:read"><code>grant:read</code></th><th title="ent:grant:write"><code>grant:write</code></th><th title="ent:identity:read"><code>identity:read</code></th><th title="ent:identity:write"><code>identity:write</code></th><th title="ent:member:read"><code>member:read</code></th><th title="ent:member:write"><code>member:write</code></th><th title="ent:model:read"><code>model:read</code></th><th title="ent:model:write"><code>model:write</code></th><th title="ent:plugin:read"><code>plugin:read</code></th><th title="ent:plugin:write"><code>plugin:write</code></th><th title="ent:session:content:read"><code>session:content:read</code></th><th title="ent:session:delete"><code>session:delete</code></th><th title="ent:session:read"><code>session:read</code></th><th title="ent:usage:read"><code>usage:read</code></th></tr></thead>
+<tbody><tr><th scope="row">审计员<br /><code>auditor</code></th><td>4</td><td class="yes">●</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="yes">●</td><td class="no">·</td><td class="yes">●</td><td class="yes">●</td></tr><tr><th scope="row">员工<br /><code>employee</code></th><td>0</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr><tr><th scope="row">企业管理员<br /><code>enterprise_admin</code></th><td>17</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td></tr><tr><th scope="row">模型管理员<br /><code>model_admin</code></th><td>6</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="yes">●</td><td class="yes">●</td><td class="no">·</td><td class="no">·</td><td class="yes">●</td><td class="no">·</td><td class="yes">●</td><td class="yes">●</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="yes">●</td></tr><tr><th scope="row">插件管理员<br /><code>plugin_admin</code></th><td>3</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="yes">●</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="yes">●</td><td class="yes">●</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr><tr><th scope="row">超级管理员<br /><code>superadmin</code></th><td>0</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr><tr><th scope="row">本部门及以下<br /><code>test1</code></th><td>0</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr><tr><th scope="row">仅本人<br /><code>test2</code></th><td>0</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr></tbody></table></div>
+<p class="fact-note">数据来源：运行实例 PostgreSQL：sys_role / sys_role_menu / sys_menu.perms，采集于 2026-09-15T16:51Z。权限码由运行实例读出，非设计稿；内置角色与权限不可自由编排。</p>
+<h2 id="三个容易混淆的点">三个容易混淆的点<a class="anchor" href="#三个容易混淆的点" aria-label="锚点">#</a></h2>
+<h3 id="1.-员工（`employee`）没有-`ent:*`-权限，这是正常的">1. 员工（<code>employee</code>）没有 <code>ent:*</code> 权限，这是正常的<a class="anchor" href="#1.-员工（`employee`）没有-`ent:*`-权限，这是正常的" aria-label="锚点">#</a></h3>
+<blockquote>员工不在管理端工作，走的是<strong>员工端 API</strong>（<code>/enterprise/api/v1</code>）与<strong>模型网关</strong>（<code>/enterprise/gateway/v1</code>）， 用设备绑定的 Token 认证，不经过 <code>ent:*</code> 权限判定。所以矩阵里员工的 <code>ent:*</code> 数量为 0 并不代表&quot;没有权限&quot;。</blockquote>
+<h3 id="2.-`superadmin`-与-`test1`-/-`test2`-不参与企业权限">2. <code>superadmin</code> 与 <code>test1</code> / <code>test2</code> 不参与企业权限<a class="anchor" href="#2.-`superadmin`-与-`test1`-/-`test2`-不参与企业权限" aria-label="锚点">#</a></h3>
+<blockquote>它们是企业模块接管前遗留的宿主角色（超级管理员、本部门及以下、仅本人）。 在企业治理面里，它们的有效 <code>ent:*</code> 权限同样是 0——<strong>不要用它们做企业管理员</strong>，请使用「企业管理员」角色。</blockquote>
+<h3 id="3.-「审计员」被刻意收窄过">3. 「审计员」被刻意收窄过<a class="anchor" href="#3.-「审计员」被刻意收窄过" aria-label="锚点">#</a></h3>
+<blockquote>审计员的定位是<strong>只读的合规视角</strong>：可以看到审计事件、会话元数据/正文与用量， 但<strong>不能</strong>读取模型、授权与设备管理接口。这不是配置疏漏，而是上游在权限迁移中主动收回的（见 <code>sourceRefs</code> 中的 V23 迁移）。</blockquote>
+<h2 id="排查"他为什么看不到-/-403"">排查&quot;他为什么看不到 / 403&quot;<a class="anchor" href="#排查"他为什么看不到-/-403"" aria-label="锚点">#</a></h2>
+<blockquote>按顺序检查：</blockquote>
+<ol><li><strong>角色对不对</strong>：操作路径 成员 → 打开该成员 → 查看固定角色。</li><li><strong>权限够不够</strong>：对照上表，确认该角色是否包含目标操作所需的 <code>ent:*</code> 码。</li></ol>
+<blockquote>每个 API 操作需要哪个权限码，可直接查 API 参考里该操作标出的 <code>权限</code> 字段。</blockquote>
+<ol><li><strong>是不是身份/授权问题而不是权限问题</strong>：员工&quot;登录后看不到模型&quot;通常是<strong>模型授权</strong>缺失，</li></ol>
+<blockquote>不是角色权限缺失——配额策略也不能代替访问授权。见《模型访问授权》。</blockquote>
+<ol><li><strong>是不是设备/会话问题</strong>：设备被撤销、成员被停用后，历史会话会失效，表现可能是 401 而不是 403。</li></ol>
+<h2 id="相关">相关<a class="anchor" href="#相关" aria-label="锚点">#</a></h2>
+<ul><li>API 参考：<a href="/api-docs/#tag/控制台会话">控制台会话</a>（<code>bootstrap</code> 会返回当前账号的权限清单）</li><li>相邻篇目：《用量、审计与 requestId 关联排查》《成员治理：状态、固定角色、身份链接》</li></ul>
+    </article>
+    <nav class="pager"><a class="pager-prev" href="/help/admin/quickstart.html"><span>上一篇</span>快速开始：30 分钟让企业可用</a><span></span></nav>
+    <footer class="page-footer">
+      <span>OwnDsh 帮助中心 · 内容版本 0.1.0</span>
+      <span class="sep">·</span>
+      <a href="/home/">产品官网</a>
+      <span class="sep">·</span>
+      <a href="/api-docs/">API 参考</a>
+      <span class="sep">·</span>
+      <a href="/">返回控制台</a>
+    </footer>
+  </main>
+  <aside class="toc" aria-label="本页目录"><p class="nav-title">本页目录</p><ul><li class="lvl-2"><a href="#三个容易混淆的点">三个容易混淆的点</a></li><li class="lvl-3"><a href="#1.-员工（`employee`）没有-`ent:*`-权限，这是正常的">1. 员工（`employee`）没有 `ent:*` 权限，这是正常的</a></li><li class="lvl-3"><a href="#2.-`superadmin`-与-`test1`-/-`test2`-不参与企业权限">2. `superadmin` 与 `test1` / `test2` 不参与企业权限</a></li><li class="lvl-3"><a href="#3.-「审计员」被刻意收窄过">3. 「审计员」被刻意收窄过</a></li><li class="lvl-2"><a href="#排查"他为什么看不到-/-403"">排查"他为什么看不到 / 403"</a></li><li class="lvl-2"><a href="#相关">相关</a></li></ul></aside>
+</div>
+<script src="/help/assets/help.js" defer></script>
+</body>
+</html>

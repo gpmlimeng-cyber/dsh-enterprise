@@ -1,0 +1,343 @@
+# OwnDsh 帮助中心 · 站点地图真源
+#
+# 作用：build-help.mjs 的唯一导航与内容清单来源。左侧导航树、首页卡片、
+#      搜索索引、上/下一篇、"待撰写"统计全部由此文件驱动。
+#
+# 约定：
+#   id          稳定标识（锚点、搜索索引 key、跨页引用都用它）
+#   file        相对 /opt/owndsh/help 的 Markdown 路径
+#   audience    admin | user | ops | all
+#   order       同 section 内排序（左侧树与上/下一篇顺序）
+#   sources     素材真源（写作用参考；同时作为 --check 的人工可追溯线索）
+#   generated   true = 由构建期生成（禁止手改），叙述部分仍来自 file
+#   status      draft（未校验）| verified（已人工校验）
+#
+# 规模：4 个 section + 首页 = 38 篇
+
+version: 1
+
+site:
+  title: OwnDsh 帮助中心
+  basePath: /help/
+  productVersion: 0.1.0
+  sharedAssets: /opt/owndsh/docs-assets     # theme.css + fonts/，与 API 文档门户共用同一份源
+  homepage: /home/                          # 产品官网
+  apiReference: /api-docs/                  # 交叉链接目标
+  console: /
+  verifyMaxAgeDays: 90                      # verifiedAt 超过此天数在页头标记"待复核"
+
+home:
+  file: content/index.md
+  title: 帮助中心
+  summary: 按角色选择入口：管理员配置与治理、员工接入与使用、运维部署与恢复。
+
+sections:
+  # ─────────────────────────────────────────────────────────────
+  - id: admin
+    title: 管理员手册
+    audience: admin
+    path: /help/admin/
+    summary: 从零把企业配置到可用：身份、成员、模型、授权、配额、插件、审计。
+    pages:
+      - id: admin-quickstart
+        title: 快速开始：30 分钟让企业可用
+        file: content/admin/quickstart.md
+        order: 1
+        summary: 部署后的六步配置路线，从身份源到员工接入。
+        sources: [README.md, DEPLOYMENT.md, docs/v1-product-feature-catalog.md]
+        status: draft
+      - id: admin-console-tour
+        title: 控制台导览：五个入口各管什么
+        file: content/admin/console-tour.md
+        order: 2
+        summary: 模型 / 访问策略 / 插件 / 成员 / 活动记录 的职责边界与使用顺序。
+        sources: [docs/phase-2-product-console-design.md, console/src/app/product-routes.ts]
+        status: draft
+      - id: admin-local-account
+        title: 本地账号、验证码与首次强制改密
+        file: content/admin/local-account.md
+        order: 3
+        summary: 口令策略、验证码、首次登录强制改密与改密失败的处理。
+        sources: [console/src/routes/login.tsx, server/owndsh-modules/owndsh-enterprise/src/main/java/com/owndsh/enterprise/auth/web/PlatformAuthController.java]
+        uiLabels: [登录, 验证码, 新密码]
+        status: draft
+      - id: admin-identity-sources
+        title: 接入企业身份源（LOCAL / LDAP / OIDC）
+        file: content/admin/identity-sources.md
+        order: 4
+        summary: 新建身份源、连通性测试、启停与字段含义。
+        sources: [contracts/components/identity.yaml, docs/v1-product-feature-catalog.md]
+        uiLabels: [身份接入, 新建身份源, 测试]
+        status: draft
+      - id: admin-members
+        title: 成员治理：状态、固定角色、身份链接
+        file: content/admin/members.md
+        order: 5
+        summary: 邀请成员、启停、角色替换、外部身份绑定与解绑的约束。
+        sources: [docs/v1-product-feature-catalog.md, server/owndsh-modules/owndsh-enterprise/src/main/java/com/owndsh/enterprise/auth/web/AdminMemberController.java]
+        uiLabels: [成员, 邀请成员, 角色]
+        status: draft
+      - id: admin-groups
+        title: 用户组与 LDAP 组映射
+        file: content/admin/groups.md
+        order: 6
+        summary: 扁平用户组、LDAP 组发现与映射规则，以及映射到固定角色的语义。
+        sources: [docs/v1-product-feature-catalog.md]
+        uiLabels: [访问组, 组映射]
+        status: draft
+      - id: admin-devices
+        title: 设备治理与撤销
+        file: content/admin/devices.md
+        order: 7
+        summary: 设备注册、心跳、撤销的后果与排查。
+        sources: [docs/v1-product-feature-catalog.md, contracts/components/device.yaml]
+        status: draft
+      - id: admin-providers
+        title: 配置模型供应商与凭据保管
+        file: content/admin/providers.md
+        order: 8
+        summary: 供应商接入、凭据只写不回显、连通性测试与启停。
+        sources: [docs/v1-product-feature-catalog.md, contracts/components/model.yaml]
+        uiLabels: [模型, 供应商]
+        status: draft
+      - id: admin-models
+        title: 受管模型与模型集
+        file: content/admin/models.md
+        order: 9
+        summary: 托管别名、上游模型映射、模型集打包与启停。
+        sources: [docs/v1-product-feature-catalog.md, contracts/components/model.yaml]
+        uiLabels: [模型集]
+        status: draft
+      - id: admin-grants
+        title: 模型访问授权（含批量下发）
+        file: content/admin/grants.md
+        order: 10
+        summary: 授予范围（全员/用户组/成员）、批量下发与撤销的影响。
+        sources: [docs/v1-product-feature-catalog.md]
+        uiLabels: [访问策略, 授权]
+        status: draft
+      - id: admin-quotas
+        title: 配额：Token 窗口、RPM 与并发
+        file: content/admin/quotas.md
+        order: 11
+        summary: 五小时/日/周/月窗口、RPM、并发上限的语义与 429 分类。
+        sources: [docs/v1-product-feature-catalog.md, contracts/components/quota.yaml]
+        uiLabels: [配额]
+        status: draft
+      - id: admin-plugins
+        title: 插件治理：上传 / 发布 / 退休 / 分配
+        file: content/admin/plugins.md
+        order: 12
+        summary: 版本生命周期、签名的开关边界、分配范围与客户端上报。
+        sources: [docs/v1-product-feature-catalog.md, plugin/README.md]
+        uiLabels: [插件, 发布, 退休]
+        status: draft
+      - id: admin-usage-audit
+        title: 用量、审计与 requestId 关联排查
+        file: content/admin/usage-audit.md
+        order: 13
+        summary: 用量账本、审计事件、用 requestId 串起一次模型调用。
+        sources: [docs/v1-product-feature-catalog.md]
+        uiLabels: [活动记录]
+        status: draft
+      - id: admin-roles-permissions
+        title: 角色与权限矩阵
+        file: content/admin/role-permissions.md
+        order: 14
+        summary: 四个企业角色的权限对照，以及"为什么他看不到这个菜单"的判据。
+        sources: [sys_role, sys_role_menu, sys_menu, server/**/db/migration/V4__enterprise_audit.sql, server/**/db/migration/V23__product_usage_read_permission.sql]
+        generated: true
+        status: draft
+      - id: admin-sessions
+        title: 会话治理与会话正文读取
+        file: content/admin/sessions.md
+        order: 15
+        summary: 会话元数据与正文的权限分离、保留策略与删除墓碑。
+        sources: [docs/v1-product-feature-catalog.md, contracts/components/session.yaml]
+        status: draft
+      - id: admin-config-reference
+        title: 配置项参考（.env）
+        file: content/admin/config-reference.md
+        order: 16
+        summary: 全部环境变量键名、用途与"本部署是否已设置"，不含任何密钥值。
+        sources: [.env.example, /opt/owndsh/src/.env]
+        generated: true
+        status: draft
+      - id: admin-security-boundary
+        title: 安全边界与责任划分
+        file: content/admin/security-boundary.md
+        order: 17
+        summary: 谁能看到什么、密钥在哪里、平台不做什么（不接管工作区、不执行工具）。
+        sources: [docs/owndsh-governance-mvp-design.md, docs/t20-security-fault-acceptance.md]
+        status: draft
+      - id: admin-faq
+        title: 管理员常见问题
+        file: content/admin/faq.md
+        order: 18
+        summary: 部署与配置过程中的高频问题。
+        sources: [README.md, DEPLOYMENT.md]
+        status: draft
+
+  # ─────────────────────────────────────────────────────────────
+  - id: user
+    title: 员工手册
+    audience: user
+    path: /help/user/
+    summary: 在自己的 DSH Desktop / Harness 里接入企业，用上获准的模型与插件。
+    pages:
+      - id: user-overview
+        title: 员工接入总览：两条路怎么选
+        file: content/user/overview.md
+        order: 1
+        summary: OwnDsh Desktop（图形化）与官方 Harness 插件两条接入路径的取舍。
+        sources: [README.md]
+        status: draft
+      - id: user-install-desktop
+        title: 使用 OwnDsh Desktop（无需 Node/pnpm）
+        file: content/user/install-desktop.md
+        order: 2
+        summary: 安装客户端、填写 Server 地址、登录即用。
+        sources: [README.md]
+        status: draft
+      - id: user-install-plugin
+        title: 为已有 Harness / 社区 Desktop 安装企业插件
+        file: content/user/install-plugin.md
+        order: 3
+        summary: corepack 与 pnpm 基线、dsh plugin 安装命令、重启 profile。
+        sources: [README.md, plugin/README.md]
+        uiLabels: [插件, 设置, 安装]
+        status: draft
+      - id: user-server-address
+        title: 填写 Server 地址与登录
+        file: content/user/server-address.md
+        order: 4
+        summary: 地址格式要求、/healthz 自检、保存后平台不可用的排查。
+        sources: [README.md]
+        uiLabels: [设置]
+        status: draft
+      - id: user-use-models
+        title: 使用获准模型（看不到模型时怎么办）
+        file: content/user/use-models.md
+        order: 5
+        summary: 模型来源、授权与配额的区别，以及自助排查顺序。
+        sources: [README.md, docs/v1-product-feature-catalog.md]
+        status: draft
+      - id: user-plugins-market
+        title: 在企业插件市场自主安装 / 更新 / 卸载
+        file: content/user/plugins-market.md
+        order: 6
+        summary: 只展示管理员发布且对本人可见的插件，支持自主选择与卸载。
+        sources: [README.md]
+        uiLabels: [插件, 安装, 卸载]
+        status: draft
+      - id: user-session
+        title: 会话、登录保持与恢复
+        file: content/user/session.md
+        order: 7
+        summary: 30 天有效期、Token 存放位置、401 重试一次与何时必须重新登录。
+        sources: [README.md, contracts/components/session.yaml]
+        status: draft
+      - id: user-update
+        title: 更新客户端与插件
+        file: content/user/update.md
+        order: 8
+        summary: 服务端与客户端的更新顺序，以及"只更新后台不够"的原因。
+        sources: [README.md]
+        status: draft
+      - id: user-faq
+        title: 员工常见问题
+        file: content/user/faq.md
+        order: 9
+        summary: pnpm 不在 PATH、登录后看不到模型、重启要重新登录等。
+        sources: [README.md]
+        uiLabels: [插件, 设置]
+        status: draft
+
+  # ─────────────────────────────────────────────────────────────
+  - id: ops
+    title: 运维手册
+    audience: ops
+    path: /help/ops/
+    summary: 部署、备份、升级回滚与日常检查；含本部署的实际参数与踩坑记录。
+    pages:
+      - id: ops-deploy
+        title: 部署与初始化（含离线交付包）
+        file: content/ops/deploy.md
+        order: 1
+        summary: 交付包内容、安装输入、Compose 启动与首次管理员初始化。
+        sources: [deploy/README.md, README.md, DEPLOYMENT.md]
+        status: draft
+      - id: ops-backup
+        title: 备份与恢复
+        file: content/ops/backup-restore.md
+        order: 2
+        summary: 数据卷、.env 与凭据文件的备份范围，以及恢复顺序。
+        sources: [deploy/README.md, DEPLOYMENT.md]
+        status: draft
+      - id: ops-upgrade
+        title: 升级与应用回滚
+        file: content/ops/upgrade-rollback.md
+        order: 3
+        summary: 镜像更新、迁移兼容检查、回滚到上一版本镜像的步骤。
+        sources: [deploy/README.md, DEPLOYMENT.md]
+        status: draft
+      - id: ops-daily-checks
+        title: 日常检查与健康监控
+        file: content/ops/daily-checks.md
+        order: 4
+        summary: 四容器健康、/healthz、日志位置、常见 502/401 判别。
+        sources: [deploy/README.md, DEPLOYMENT.md]
+        status: draft
+      - id: ops-docs-portal
+        title: 文档门户维护（API 参考 + 帮助中心）
+        file: content/ops/docs-portal.md
+        order: 5
+        summary: 两个门户的构建命令、漂移门禁、内容更新热生效与回滚。
+        sources: [DEPLOYMENT.md, owndsh-api-docs/build-docs.mjs, owndsh-help/build-help.mjs]
+        status: draft
+      - id: ops-harness-profile
+        title: Harness 企业 profile 与客户端基线
+        file: content/ops/harness-profile.md
+        order: 6
+        summary: 企业 profile 的装配、pnpm 版本基线与会话格式版本。
+        sources: [deploy/README.md, docs/desktop-2.0.3-harness-rc2-migration.md]
+        status: draft
+
+  # ─────────────────────────────────────────────────────────────
+  - id: reference
+    title: 参考
+    audience: all
+    path: /help/reference/
+    summary: 术语、错误码、界面与 API 的对应关系。
+    pages:
+      - id: ref-glossary
+        title: 术语表
+        file: content/reference/glossary.md
+        order: 1
+        summary: 成员/设备/托管别名/模型集/授权/配额/会话/插件包/版本/分配/审计。
+        sources: [docs/v1-product-feature-catalog.md, contracts/enterprise-openapi.yaml]
+        status: draft
+      - id: ref-error-codes
+        title: 错误码速查
+        file: content/reference/error-codes.md
+        order: 2
+        summary: 42 个稳定错误码的含义与处置，字段细节链到 API 参考。
+        sources: [contracts/generated/enterprise-openapi.json, owndsh-api-docs/config/overlay.zh.yaml]
+        generated: true
+        status: draft
+      - id: ref-ui-map
+        title: 界面地图：控制台页面 → API 操作
+        file: content/reference/ui-map.md
+        order: 3
+        summary: 每个界面动作对应哪个接口，便于写自动化脚本。
+        sources: [console/src/app/product-routes.ts, owndsh-api-docs/config/tags.yaml]
+        generated: true
+        status: draft
+      - id: ref-changelog
+        title: 变更记录
+        file: content/reference/changelog.md
+        order: 4
+        summary: 按协议指纹与内容版本记录文档与产品变化。
+        sources: [contracts/generated/protocol-sha256.txt]
+        generated: true
+        status: draft

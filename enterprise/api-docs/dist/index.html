@@ -1,0 +1,216 @@
+<!doctype html>
+<!--
+[INPUT]: 依赖同源 /api-docs/enterprise-openapi.json（build-docs.mjs 生成）、自托管 ./scalar.standalone.js
+         （@scalar/api-reference 1.68.0，sha256 见 vendor/*.sha256）、./theme.css 与 ./fonts/，
+         以及 console 共用主题键 localStorage['bui-theme']。
+[OUTPUT]: 提供 OwnDsh API 文档门户宿主页：渲染 97 个操作、页脚浅/深主题切换（共用 'bui-theme' 键）、页脚展示协议指纹与生成时间。
+          门户对公网完全公开且可索引；契约不含密钥或内网地址（servers 为相对路径）。
+[POS]: API 文档门户的唯一 HTML 入口；不承载业务逻辑，不做鉴权（鉴权在 nginx auth_request）。
+[PROTOCOL]: 变更时更新此头部，然后检查 设计方案.md §6.2 / §6.4
+-->
+<html lang="zh-CN">
+  <head>
+    <script>
+      // 与控制台共用主题键（console/index.html 使用 'bui-theme'，默认深色），避免首帧闪烁与主题割裂
+      (function () {
+        try {
+          var theme = localStorage.getItem('bui-theme');
+          var dark = theme !== 'light';
+          document.documentElement.classList.toggle('dark', dark);
+          document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        } catch (error) {
+          document.documentElement.classList.add('dark');
+          document.documentElement.dataset.theme = 'dark';
+        }
+      })();
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="robots" content="index, follow" />
+    <title>OwnDsh API 文档</title>
+    <link rel="stylesheet" href="./theme.css" />
+  </head>
+  <body>
+    <main id="docs-root">
+      <div id="scalar-app"></div>
+    </main>
+
+    <footer id="docs-footer">
+      <span id="footer-version">OwnDsh API</span>
+      <span class="sep">·</span>
+      <span>协议指纹 <code id="footer-protocol">读取中…</code></span>
+      <span class="sep">·</span>
+      <span>生成于 <span id="footer-generated">—</span></span>
+      <span class="sep">·</span>
+      <a href="./enterprise-openapi.json" download>下载 OpenAPI</a>
+      <span class="sep">·</span>
+      <a href="/help/">帮助中心</a>
+      <span class="sep">·</span>
+      <a href="/home/">产品官网</a>
+      <span class="sep">·</span>
+      <a href="/">返回控制台</a>
+      <div class="theme-toggle" hidden role="group" aria-label="主题" style="margin-left:auto">
+        <span class="theme-toggle-indicator" aria-hidden="true"></span>
+        <button type="button" data-theme-value="light" aria-label="浅色主题" aria-pressed="false">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />
+            <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+          </svg>
+        </button>
+        <button type="button" data-theme-value="dark" aria-label="深色主题" aria-pressed="false">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+          </svg>
+        </button>
+      </div>
+    </footer>
+
+    <!-- 自托管渲染器：不得使用 CDN（内网/离线可用性要求）。加载顺序必须在初始化脚本之前。 -->
+    <script src="./scalar.standalone.js"></script>
+    <script>
+      // 初始化：优先用 JS API（该版本已验证挂载 window.Scalar.createApiReference）。
+      // 配置键已对 1.68.0 的 bundle 逐个探测存在性：darkMode / hideDownloadButton / hideModels /
+      // searchHotKey / proxyUrl / defaultHttpClient / orderRequiredPropertiesFirst / metaData。
+      // proxyUrl 必须显式置空：禁止把内网请求转交给 Scalar 的托管代理（proxy.scalar.com）。
+      (function () {
+        var dark = document.documentElement.dataset.theme === 'dark';
+        var config = {
+          url: './enterprise-openapi.json',
+          darkMode: dark,
+          hideDownloadButton: false,
+          hideModels: false,
+          searchHotKey: 'k',
+          proxyUrl: '',
+          defaultHttpClient: { targetKey: 'shell', clientKey: 'curl' },
+          orderRequiredPropertiesFirst: true,
+          orderSchemaPropertiesBy: 'preserve',
+          // 隐藏 Scalar 自带的深色开关：主题统一由页脚控件控制（与帮助中心/控制台共用 'bui-theme'）
+          hideDarkModeToggle: true,
+          metaData: { title: 'OwnDsh API 文档' }
+        };
+        window.__owndshScalar = { api: null };
+
+        function fallback(detail) {
+          var root = document.getElementById('docs-root');
+          if (!root) return;
+          root.innerHTML =
+            '<div class="docs-fallback">' +
+            '<h1>文档渲染器未就绪</h1>' +
+            '<p>未能初始化 <code>./scalar.standalone.js</code>' +
+            (detail ? '（' + String(detail).slice(0, 120) + '）' : '') +
+            '。</p>' +
+            '<p>可直接下载契约使用：<a href="./enterprise-openapi.json" download>enterprise-openapi.json</a>' +
+            '（可导入 Swagger UI / Apifox / Postman）。</p>' +
+            '</div>';
+        }
+
+        try {
+          if (window.Scalar && typeof window.Scalar.createApiReference === 'function') {
+            // 元素优先；个别版本只吃选择器字符串，因此再退一次
+            try {
+              window.__owndshScalar.api = window.Scalar.createApiReference(document.getElementById('scalar-app'), config);
+            } catch (elementError) {
+              window.__owndshScalar.api = window.Scalar.createApiReference('#scalar-app', config);
+            }
+          } else {
+            fallback('window.Scalar.createApiReference 不存在');
+            return;
+          }
+        } catch (error) {
+          fallback(error && error.message);
+          return;
+        }
+
+        // 防"静默白屏"：渲染器初始化完却没有任何产出时，给出可操作提示而不是空白页
+        window.setTimeout(function () {
+          var app = document.getElementById('scalar-app');
+          var root = document.getElementById('docs-root');
+          if (!app || !root) return;
+          if (app.childElementCount > 0) return;
+          if (root.querySelector('.docs-fallback')) return; // 已有更具体的提示（如会话失效）
+          fallback('渲染器未产出内容（版本或配置不兼容）');
+        }, 6000);
+      })();
+
+      // 主题切换：与帮助中心、控制台共用 'bui-theme'，行为与控制台 ThemeToggle 对齐。
+      // Scalar 侧用实例的 updateConfiguration 重配 darkMode（1.68.0 实测暴露该 API）。
+      (function () {
+        var root = document.documentElement;
+        var toggle = document.querySelector('.theme-toggle');
+        if (!toggle) return;
+        var lightButton = toggle.querySelector('[data-theme-value="light"]');
+        var darkButton = toggle.querySelector('[data-theme-value="dark"]');
+        var indicator = toggle.querySelector('.theme-toggle-indicator');
+        if (!lightButton || !darkButton) return;
+
+        var isDark = function () { return root.classList.contains('dark'); };
+
+        var render = function () {
+          var dark = isDark();
+          if (indicator) {
+            indicator.style.transform = dark ? 'translateX(32px)' : 'translateX(0)';
+            indicator.style.opacity = '1';
+          }
+          lightButton.setAttribute('aria-pressed', dark ? 'false' : 'true');
+          darkButton.setAttribute('aria-pressed', dark ? 'true' : 'false');
+        };
+
+        var apply = function (next) {
+          if (next === isDark()) return;
+          root.classList.add('theme-switching');
+          root.classList.toggle('dark', next);
+          root.dataset.theme = next ? 'dark' : 'light';
+          requestAnimationFrame(function () {
+            requestAnimationFrame(function () { root.classList.remove('theme-switching'); });
+          });
+          try { localStorage.setItem('bui-theme', next ? 'dark' : 'light'); } catch (error) { /* 隐私模式 */ }
+          var scalar = window.__owndshScalar;
+          if (scalar && scalar.api && typeof scalar.api.updateConfiguration === 'function') {
+            var current = typeof scalar.api.getConfiguration === 'function' ? scalar.api.getConfiguration() : {};
+            var merged = {};
+            for (var key in current) { if (Object.prototype.hasOwnProperty.call(current, key)) merged[key] = current[key]; }
+            merged.darkMode = next;
+            scalar.api.updateConfiguration(merged);
+          }
+          render();
+        };
+
+        lightButton.addEventListener('click', function () { apply(false); });
+        darkButton.addEventListener('click', function () { apply(true); });
+        window.addEventListener('storage', function (event) {
+          if (event.key !== 'bui-theme') return;
+          apply(event.newValue !== 'light');
+        });
+        toggle.hidden = false;
+        render();
+      })();
+
+      // 页脚指纹：读生成物里的 x-owndsh-build，保证"线上文档 = 线上代码"可核验。
+      // 会话在页面打开期间失效时 nginx 会 302 到登录页（返回 HTML），此处兜底提示重新登录。
+      (async function () {
+        try {
+          var response = await fetch('./enterprise-openapi.json', { credentials: 'same-origin' });
+          var contentType = response.headers.get('content-type') || '';
+          if (!response.ok || contentType.indexOf('json') === -1) throw new Error('unauthenticated');
+          var spec = await response.json();
+          var build = (spec.info && spec.info['x-owndsh-build']) || {};
+          document.getElementById('footer-version').textContent =
+            (spec.info && spec.info.version ? 'OwnDsh API v' + spec.info.version : 'OwnDsh API') +
+            (build.commit ? ' (' + build.commit + ')' : '');
+          document.getElementById('footer-protocol').textContent = build.protocolSha256
+            ? String(build.protocolSha256).slice(0, 16) + '…'
+            : '未知';
+          document.getElementById('footer-generated').textContent = build.generatedAt
+            ? String(build.generatedAt).replace('T', ' ').slice(0, 16) + ' UTC'
+            : '—';
+        } catch (error) {
+          document.getElementById('docs-root').innerHTML =
+            '<div class="docs-fallback"><h1>控制台会话已失效</h1>' +
+            '<p>请重新登录后再次打开 API 文档。</p>' +
+            '<p><a href="/login?redirect=%2Fapi-docs%2F">前往登录</a></p></div>';
+        }
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,240 @@
+# OwnDsh 产品官网 · 站点真源
+#
+# 作用：build.mjs 的唯一导航与页面清单来源；同时是 SEO 元数据与门禁规则的声明处。
+# 约定：
+#   path        对外路径（尾斜杠形式）
+#   audience    目标受众：developer | ops | decision-maker | employee | security
+#   primaryCta  该页主转化动作（label + href）
+#   sources     内容真源（构建期校验其存在性，并作为"对外表述有据"的可追溯线索）
+#   indexable   true = index,follow；false = noindex（本官网应全部为 true）
+#   status      draft | verified
+#
+# 与文档站的关键区别：官网公开可索引，且**不得**加登录门禁。
+
+version: 1
+
+site:
+  name: OwnDsh
+  tagline: 把 Agent 的自由留给员工，把边界交给平台。
+  subtitle: DeepSeek Harness 的开源自托管团队控制面。
+  defaultLocale: zh-CN
+  locales: [zh-CN]            # P3 增加 en，路径前缀 /en/
+  license: MIT
+  repository: https://github.com/boe1900/owndsh
+  upstream: https://www.deepseek.com/harness/
+  sharedAssets: /opt/owndsh/docs-assets    # 令牌与字体（与控制台/帮助中心/API 参考同源）
+  docsBase: /help/                         # 文档入口（公开范围取决于 §9 决策）
+  apiBase: /api-docs/
+  consoleBase: /
+  compliance:
+    disclaimer: >-
+      OwnDsh 是独立项目，与 DeepSeek AI 或 Anywhere Labs 无隶属关系。DeepSeek Harness 与 DSH Desktop
+      的名称、代码和商标归各自所有；OwnDsh 只通过公开插件扩展点集成。
+    links:
+      - { label: 安全与合规, href: /security/ }
+      - { label: 许可, href: https://github.com/boe1900/owndsh/blob/main/LICENSE }
+
+# 可选重定向（静态站需 nginx 301 或 meta-refresh 页；不配置时顶栏直接指向真实路径）
+redirects:
+  - { from: /docs/, to: /help/, note: 若希望 /docs/ 作为统一文档入口则启用 }
+
+nav:
+  primary:
+    - { label: 产品, href: / }
+    - { label: 企业版, href: /enterprise/ }
+    - { label: 部署, href: /deploy/ }
+    - { label: 下载, href: /download/ }
+    - { label: 文档, href: /help/ }
+    - { label: 安全, href: /security/ }
+  actions:
+    - { label: GitHub, href: https://github.com/boe1900/owndsh, kind: secondary }
+    - { label: 开始部署, href: /deploy/, kind: primary }
+
+# ─────────────────────────────────────────────────────────────
+pages:
+  - id: home
+    path: /
+    audience: [developer, decision-maker, ops]
+    title: OwnDsh · DeepSeek Harness 的开源自托管团队控制面
+    description: 集中管理身份、模型与 API Key、访问授权、配额、插件、设备与审计，员工继续使用自己熟悉的 Harness 工作区。
+    primaryCta: { label: 开始部署, href: /deploy/ }
+    secondaryCta: { label: 看企业版, href: /enterprise/ }
+    indexable: true
+    ogImage: /assets/shots/console.jpg
+    sources: [README.md, docs/v1-product-feature-catalog.md, DEPLOYMENT.md]
+    sections:
+      - id: hero
+        note: 主张 + 双 CTA，首屏必须出现可复制部署命令
+      - id: deploy-command
+        note: docker compose up -d --wait，旁注环境要求与实测资源占用
+      - id: screenshots
+        note: 真实控制台截图（模型/访问策略/插件/成员/活动记录）+ 员工侧客户端
+      - id: governance-pillars
+        note: 四个治理面（IDENTITY / MODELS / POLICY / AUDIT），带英文小标
+      - id: capability-matrix
+        note: 四类管理员 + 员工的能力矩阵，直接引 README 能力表
+      - id: relationship
+        note: 与官方 Harness 的边界（不 fork UI、不接管工作区、不远程执行工具）
+      - id: trust
+        note: 密钥不出平台、员工设备不持有上游 Key、每次请求重新校验、审计可回溯 requestId
+      - id: docs-entry
+        note: 帮助中心 / API 参考 / GitHub 三入口
+      - id: ecosystem
+        note: 社区、贡献、上游链接
+    status: draft
+
+  - id: enterprise
+    path: /enterprise/
+    audience: [decision-maker, security]
+    title: 企业版 · 让每位员工用好 Agent，让企业始终掌握边界
+    description: 统一身份与组织权限、集中模型供给、成本额度可控、使用可追溯；私有化部署与既有身份、模型平台对接。
+    primaryCta: { label: 预约沟通, href: /enterprise/#contact }
+    secondaryCta: { label: 先看开源版, href: / }
+    indexable: true
+    ogImage: /assets/shots/console.jpg
+    sources: [README.md, docs/v1-product-feature-catalog.md, docs/owndsh-governance-mvp-design.md]
+    sections:
+      - id: hero
+        note: 主张式标题 + 双 CTA（咨询 / 先看开源版）
+      - id: value-points
+        note: 4 个编号价值点 —— 统一身份 / 模型供给 / 成本额度 / 可追溯
+      - id: before-after
+        note: ★ 痛点对照表：分散使用时 vs 接入 OwnDsh 后（全站最有说服力的一块）
+      - id: scenarios
+        note: SCALE 规模化推广 / GOVERN 合规与数据边界 / OPERATE 多部门多模型运营
+      - id: delivery
+        note: 私有化部署、身份源对接、模型网关接入、插件治理、升级与备份支持
+      - id: verifiable-facts
+        note: 用可核验技术指标替代客户 logo 墙（97 API / 42 错误码 / 四容器 / 审计事件类型）
+      - id: contact
+        note: 联系方式（按 §9 决策：邮箱 / Discussions / 二维码），不新增后端
+      - id: compliance
+        note: 免责声明与数据处理口径
+    status: draft
+
+  - id: deploy
+    path: /deploy/
+    audience: [developer, ops]
+    title: 部署与自托管 · OwnDsh
+    description: Docker Compose 一条命令启动；环境要求、首次管理员初始化、升级、备份与离线交付包说明。
+    primaryCta: { label: 查看部署命令, href: /deploy/#quickstart }
+    indexable: true
+    ogImage: /assets/shots/console.jpg
+    sources: [README.md, deploy/README.md, DEPLOYMENT.md]
+    sections:
+      - id: quickstart
+        note: 前置条件 + compose 命令 + 首次初始化（管理员口令）
+      - id: requirements
+        note: Docker Engine / Compose 2.20.3+ / 实测 2C-3.6G 可跑四容器
+      - id: configure
+        note: 配置企业的六步路线（身份源 → 供应商 → 模型与模型集 → 授权 → 配额 → 插件）
+      - id: clients
+        note: 员工接入两条路（DSH Desktop / 官方 Harness 插件）
+      - id: operations
+        note: 升级、备份与恢复、日常检查（链接运维手册）
+      - id: offline
+        note: 离线交付包与镜像来源（含 GHCR 慢时用镜像源的说明）
+      - id: troubleshooting
+        note: 常见失败（安全组端口、GHCR 拉取、403/404 判别）→ 指向帮助中心
+    status: draft
+
+  - id: download
+    path: /download/
+    audience: [employee]
+    title: 下载客户端 · OwnDsh
+    description: 下载 OwnDsh Desktop，或给已有 Harness 安装企业插件；含校验信息与安装说明。
+    primaryCta: { label: 下载当前设备版本, href: /download/#platforms }
+    indexable: true
+    ogImage: /assets/shots/desktop.jpg
+    sources: [README.md]
+    sections:
+      - id: platforms
+        note: 三平台卡（macOS Apple Silicon / macOS Intel / Windows x64）+ 当前设备识别
+      - id: verify
+        note: 校验信息（SHA-256）与来源说明；无校验值时不得编造
+      - id: plugin
+        note: 给已有 Harness 的插件安装命令（corepack/pnpm + dsh plugin add）
+      - id: first-run
+        note: 首次运行：填写 Server 地址（完整 HTTP(S) origin，不带 API 路径）→ 企业登录
+    status: draft
+
+  - id: security
+    path: /security/
+    audience: [security, decision-maker, ops]
+    title: 安全与合规 · OwnDsh
+    description: 数据边界、密钥保管、同源会话与 CSRF 防线、审计与保留策略、许可与免责声明。
+    primaryCta: { label: 查看技术边界, href: /security/#boundaries }
+    indexable: true
+    ogImage: /assets/shots/console.jpg
+    sources: [docs/t20-security-fault-acceptance.md, contracts/enterprise-openapi.yaml, README.md]
+    sections:
+      - id: boundaries
+        note: 平台做什么/不做什么（不接管工作区、不远程执行工具、不代理供应商密钥到客户端）
+      - id: secrets
+        note: 凭据只写不回显；ENT_MASTER_KEY 的作用与丢失后果
+      - id: session
+        note: 同源 HttpOnly Cookie、SameSite=Strict、非安全方法同源校验、CORS 默认拒绝
+      - id: audit
+        note: 审计事件类型、用量账本不含提示词、会话正文单独授权
+      - id: disclosure
+        note: 漏洞报告渠道与响应口径
+      - id: license
+        note: MIT、上游许可与商标、免责声明（与页脚同源）
+    status: draft
+
+  - id: about
+    path: /about/
+    audience: [developer, decision-maker]
+    title: 关于 OwnDsh · 开源、自托管的团队控制面
+    description: 项目定位、与 DeepSeek Harness 的关系、开源许可、参与贡献与联系方式。
+    primaryCta: { label: 查看 GitHub, href: https://github.com/boe1900/owndsh }
+    indexable: true
+    ogImage: /assets/brand/whale-animated.png
+    sources: [README.md, website/README.md]
+    sections:
+      - id: positioning
+        note: 一句话定位 + 不是什么（不是客户端封装、不 fork 官方 UI）
+      - id: relationship
+        note: 与官方 Harness / DSH Desktop 的关系与边界
+      - id: roadmap
+        note: 当前阶段（预发布）与已知限制，诚实呈现
+      - id: contribute
+        note: 贡献方式、Issue/讨论区、文档改进
+      - id: contact
+        note: 联系方式（与 /enterprise/ 同源信息）
+    status: draft
+
+  - id: notfound
+    path: /404.html
+    audience: [all]
+    title: 页面不存在 · OwnDsh
+    description: 未找到该页面，返回官网首页。
+    indexable: false
+    sources: [website/404.html]
+    status: draft
+
+# ─────────────────────────────────────────────────────────────
+# 构建期门禁（沿用本次会话已验证的三道防线思路）
+gates:
+  linkIntegrity:
+    enabled: true
+    note: 遍历每个页面 HTML 的 href/src（含锚点），必须在产物中存在；站内页面与资源同等对待
+  seoRequired:
+    enabled: true
+    fields: [title, description, canonical, ogImage, indexable]
+    note: indexable=true 的页面必须齐全；缺失即构建失败
+  externalRequests:
+    enabled: true
+    allowlist:
+      - github.com
+      - www.deepseek.com
+      - deepseek-harness.github.io
+    note: 除白名单外不得出现第三方域名（无 CDN、无分析脚本；字体与图片必须自托管）
+  imageBudget:
+    enabled: true
+    firstScreenKB: 400
+    perImageKB: 300
+    note: 图片必须显式 width/height；超预算即告警（阻断由 strict 模式决定）
+  copyEvidence:
+    enabled: true
+    note: sources 中列出的文件必须存在；企业页的"可核验事实"区每条都需可追溯到仓库或实测

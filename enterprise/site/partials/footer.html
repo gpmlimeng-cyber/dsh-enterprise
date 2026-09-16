@@ -1,0 +1,49 @@
+<!--
+[INPUT]: 依赖 config/site.yaml 的 site/compliance 段（构建期替换 {{siteName}}/{{license}}/{{repository}}/{{upstream}}/{{disclaimer}}）。
+[OUTPUT]: 全站页脚：产品与文档分组链接、语言占位、许可、免责声明、版权。
+[POS]: partials 的页脚片段；由 build.mjs 注入每个页面尾部的 inject:footer 占位（占位写法在此不写完整注释标记，避免嵌套闭合）。
+[PROTOCOL]: 变更时更新此头部，然后检查 设计方案.md §9 / §14
+-->
+<footer class="site-footer">
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <img src="{{base}}assets/brand/whale-animated.png" alt="" width="28" height="28" />
+      <p class="footer-name">{{siteName}}</p>
+      <p class="footer-tag">DeepSeek Harness 的开源自托管团队控制面。</p>
+    </div>
+
+    <nav class="footer-col" aria-label="产品">
+      <p class="footer-title">产品</p>
+      <a href="{{base}}">首页</a>
+      <a href="{{base}}enterprise/">企业版</a>
+      <a href="{{base}}deploy/">部署与自托管</a>
+      <a href="{{base}}download/">下载客户端</a>
+    </nav>
+
+    <nav class="footer-col" aria-label="文档与代码">
+      <p class="footer-title">文档与代码</p>
+      <a href="/help/">帮助中心</a>
+      <a href="/api-docs/">API 参考</a>
+      <a href="https://github.com/boe1900/owndsh" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://www.deepseek.com/harness/" target="_blank" rel="noopener">DeepSeek Harness</a>
+    </nav>
+
+    <nav class="footer-col" aria-label="信任与合规">
+      <p class="footer-title">信任与合规</p>
+      <a href="{{base}}security/">安全与合规</a>
+      <a href="{{base}}about/">关于</a>
+      <!-- 语言占位：英文站在 P3 落地，届时改为 /en/ 并可访问链接 -->
+      <span class="footer-placeholder" title="英文站规划中">English（规划中）</span>
+    </nav>
+  </div>
+
+  <p class="footer-disclaimer">{{disclaimer}}</p>
+
+  <div class="footer-meta">
+    <span>MIT License</span>
+    <span class="sep">·</span>
+    <span>© 2026 {{siteName}}</span>
+    <span class="sep">·</span>
+    <span>本站为产品官网，控制台与文档入口见上方「文档与代码」</span>
+  </div>
+</footer>

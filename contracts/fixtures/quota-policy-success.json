@@ -1,0 +1,22 @@
+{
+  "data": {
+    "id": "1900900000000000001",
+    "name": "Engineering",
+    "policyType": "TOKEN",
+    "subjectType": "MEMBER",
+    "subjectId": "1761000000000000103",
+    "subjectName": "Alice",
+    "resourceType": "MODEL_SET",
+    "resourceId": "1900800000000000301",
+    "resourceName": "Coding",
+    "fiveHourTokenLimit": 100000,
+    "dailyTokenLimit": 500000,
+    "weeklyTokenLimit": 2500000,
+    "monthlyTokenLimit": 10000000,
+    "rpm": null,
+    "concurrency": null,
+    "status": "ACTIVE",
+    "revision": 1
+  },
+  "requestId": "req_01K2W3V4X5Y6Z7A8B9C0D1E2F3"
+}

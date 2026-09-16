@@ -1,0 +1,65 @@
+--- deploy/nginx/nginx.conf.pre-api-docs	2026-09-15 23:57:02.831583323 +0800
++++ deploy/nginx/nginx.conf	2026-09-16 00:32:59.550891239 +0800
+@@ -1,6 +1,6 @@
+-# [INPUT]: 依赖同网络 server:8080、构建期管理端静态资源、浏览器原始 Host 与可选上级反向代理 forwarding headers。
+-# [OUTPUT]: 提供保留外部 authority 的 HTTP 同源入口、显式 OpenAPI 命名空间代理、管理端 SPA/认证回调、SSE 无缓冲和健康检查。
+-# [POS]: Console 静态资源与 API 的轻量 HTTP 网关；TLS 终止由部署方的反向代理、Ingress 或负载均衡负责。
++# [INPUT]: 依赖同网络 server:8080、构建期管理端静态资源、部署层 /opt/owndsh/api-docs/dist（只读挂载）、浏览器原始 Host 与可选上级反向代理 forwarding headers。
++# [OUTPUT]: 提供保留外部 authority 的 HTTP 同源入口、显式 OpenAPI 命名空间代理、管理端 SPA/认证回调、SSE 无缓冲、健康检查，以及需登录的 API 文档门户（auth_request 会话校验）。
++# [POS]: Console 静态资源与 API 的轻量 HTTP 网关；TLS 终止由部署方的反向代理、Ingress 或负载均衡负责；文档门户为部署层附加物（P1）。
+ # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ 
+ worker_processes auto;
+@@ -41,6 +41,10 @@
+     # 在 server 块级定义，所有 location 共享；变量形式强制运行时 DNS 解析。
+     set $upstream_server server:8080;
+ 
++    # 容器内监听 8080、宿主机只发布 80：nginx 自发的跳转必须是相对路径，
++    # 否则 Location 会带 :8080，把浏览器送到未发布的端口。
++    absolute_redirect off;
++
+     add_header X-Content-Type-Options nosniff always;
+     add_header Referrer-Policy strict-origin always;
+ 
+@@ -90,6 +94,41 @@
+       proxy_pass http://$upstream_server;
+     }
+ 
++    # ── API 文档门户（部署层 /opt/owndsh/api-docs/dist，只读 bind mount）──────────
++    # 鉴权：auth_request 子请求复用控制台引导接口 /enterprise/admin/v1/bootstrap。
++    #   已登录（任意控制台角色）→ 200 放行；未登录 → 401 → 跳登录页。
++    # 注意：error_page 401 必须限定在本 location 内。若放到 server 级，会把
++    #   /enterprise/* 的 401 一并改写成 302，破坏前端 AuthRequiredError → /login 的语义。
++    location /api-docs/ {
++      auth_request /_docs_auth;
++      error_page 401 = @docs_login;
++      root /usr/share/nginx/html;
++      index index.html;
++      try_files $uri $uri/ /api-docs/index.html;
++      # add_header 在 location 级会覆盖 server 级，故这里补回两条安全头
++      add_header X-Content-Type-Options nosniff always;
++      add_header Referrer-Policy strict-origin always;
++      add_header Cache-Control "no-cache" always;
++      add_header X-Robots-Tag "noindex, nofollow" always;
++      # gzip 只在本 location 开，避免影响 API 代理与 SSE 流
++      gzip on;
++      gzip_comp_level 5;
++      gzip_types application/json text/css application/javascript text/plain;
++      gzip_min_length 1024;
++    }
++
++    location = /_docs_auth {
++      internal;
++      proxy_pass http://$upstream_server/enterprise/admin/v1/bootstrap;
++      proxy_pass_request_body off;
++      proxy_set_header Content-Length "";
++      proxy_set_header X-Original-URI $request_uri;
++    }
++
++    location @docs_login {
++      return 302 /login?redirect=%2Fapi-docs%2F;
++    }
++
+     location /assets/ {
+       root /usr/share/nginx/html;
+       try_files $uri =404;

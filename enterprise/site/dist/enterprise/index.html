@@ -1,0 +1,311 @@
+<!doctype html>
+<!--
+[INPUT]: 依赖 build.mjs 注入的 head-meta / nav / footer 与 assets/ 下的样式与脚本。
+[OUTPUT]: 企业版落地页：主张式 hero、四个编号价值点、痛点对照表、三类适用场景、交付方式、可核验事实、留资占位、合规说明。
+[POS]: 面向企业决策者的转化页；留资区按产品决策预留占位，不引入后端表单。
+[PROTOCOL]: 变更时更新此头部，然后检查 设计方案.md §6 / §9
+-->
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="robots" content="index, follow" />
+    <title>企业版 · 让每位员工用好 Agent，让企业始终掌握边界</title>
+    <meta name="description" content="统一身份与组织权限、集中模型供给、成本额度可控、使用可追溯；私有化部署与既有身份、模型平台对接。" />
+    <link rel="canonical" href="http://62.234.16.179/home/enterprise/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:site_name" content="OwnDsh" />
+    <meta property="og:title" content="企业版 · 让每位员工用好 Agent，让企业始终掌握边界" />
+    <meta property="og:description" content="统一身份与组织权限、集中模型供给、成本额度可控、使用可追溯；私有化部署与既有身份、模型平台对接。" />
+    <meta property="og:url" content="http://62.234.16.179/home/enterprise/" />
+    <meta property="og:image" content="http://62.234.16.179/assets/shots/console.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="alternate" hreflang="zh-CN" href="http://62.234.16.179/home/enterprise/" />
+    <!-- 英文站占位：P3 落地（site.locales 增加 en 后自动启用 hreflang） -->
+    <link rel="icon" href="/home/assets/brand/favicon.png" />
+    <link rel="stylesheet" href="/home/assets/theme.css" />
+    <link rel="stylesheet" href="/home/assets/site.css" />
+    <script src="/home/assets/theme-boot.js"></script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"OwnDsh","applicationCategory":"DeveloperApplication","operatingSystem":"Docker (Linux amd64)","description":"统一身份与组织权限、集中模型供给、成本额度可控、使用可追溯；私有化部署与既有身份、模型平台对接。","license":"https://opensource.org/licenses/MIT","offers":{"@type":"Offer","price":"0","priceCurrency":"CNY"},"sameAs":["https://github.com/boe1900/owndsh"]}</script>
+  </head>
+  <body>
+    <!--
+[INPUT]: 依赖 config/site.yaml 的 site 段与构建期 /home/ 替换。
+[OUTPUT]: 全站顶栏：产品导航、文档入口、GitHub、主题切换（共用 'bui-theme' 键）与主 CTA。
+[POS]: partials 的导航片段；由 build.mjs 注入每个页面头部的 inject:nav 占位（占位写法在此不写完整注释标记，避免嵌套闭合）。
+[PROTOCOL]: 变更时更新此头部，然后检查 设计方案.md §4
+-->
+<header class="topbar">
+  <a class="brand" href="/home/">
+    <img src="/home/assets/brand/whale-animated.png" alt="" width="24" height="24" />
+    <span>OwnDsh</span>
+  </a>
+
+  <button type="button" class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="展开导航">
+    <span></span><span></span>
+  </button>
+
+  <nav id="site-nav" class="nav" aria-label="主导航">
+    <a href="/home/">产品</a>
+    <a href="/home/enterprise/">企业版</a>
+    <a href="/home/deploy/">部署</a>
+    <a href="/home/download/">下载</a>
+    <a href="/home/security/">安全</a>
+    <a href="/help/">文档</a>
+  </nav>
+
+  <div class="topbar-actions">
+    <div class="theme-toggle" hidden role="group" aria-label="主题">
+      <span class="theme-toggle-indicator" aria-hidden="true"></span>
+      <button type="button" data-theme-value="light" aria-label="浅色主题" aria-pressed="false">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />
+          <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+        </svg>
+      </button>
+      <button type="button" data-theme-value="dark" aria-label="深色主题" aria-pressed="false">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+        </svg>
+      </button>
+    </div>
+    <a class="btn btn-ghost" href="https://github.com/boe1900/owndsh" target="_blank" rel="noopener">GitHub</a>
+    <a class="btn btn-primary" href="/home/deploy/">开始部署</a>
+  </div>
+</header>
+
+
+    <main>
+      <section class="section hero">
+        <div class="wrap">
+          <p class="eyebrow">ENTERPRISE</p>
+          <h1>让每位员工用好 Agent，让企业始终掌握边界。</h1>
+          <p class="lead">
+            员工继续用自己熟悉的 Harness 工作区；组织在同一套系统里拿到统一身份、模型供给、额度治理与使用记录。
+            个人保持高效，组织获得秩序。
+          </p>
+          <div class="hero-actions">
+            <a class="btn btn-primary btn-lg" href="#contact">预约沟通</a>
+            <a class="btn btn-ghost btn-lg" href="/home/">先看开源版</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-canvas">
+        <div class="wrap">
+          <p class="eyebrow">VALUE</p>
+          <h2>把分散的 Agent 使用，变成可管理的组织能力</h2>
+
+          <div class="grid grid-4">
+            <div class="card">
+              <span class="card-index">01</span>
+              <h3>统一身份与组织权限</h3>
+              <p>对接既有 LOCAL / LDAP / OIDC 身份；不同部门、角色与成员只看到被授权的模型与能力。</p>
+            </div>
+            <div class="card">
+              <span class="card-index">02</span>
+              <h3>模型供给不再散落</h3>
+              <p>企业集中提供并托管模型与供应商凭据，员工无需自行寻找服务商、保存密钥或反复配置连接。</p>
+            </div>
+            <div class="card">
+              <span class="card-index">03</span>
+              <h3>成本、额度与风险可控</h3>
+              <p>按组织、角色与成员管理模型访问与用量上限：五小时 / 日 / 周 / 月窗口，外加 RPM 与并发限制。</p>
+            </div>
+            <div class="card">
+              <span class="card-index">04</span>
+              <h3>每一次使用都有迹可循</h3>
+              <p>31 类审计事件与按人、按模型、按时间的用量账本，为成本分析、安全审计与持续优化提供依据。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="wrap">
+          <p class="eyebrow">BEFORE / AFTER</p>
+          <h2>企业需要的不是更多账号，而是一套清晰的使用秩序</h2>
+
+          <div class="table-wrap">
+            <table class="before-after">
+              <thead>
+                <tr><th>分散使用时</th><th>接入 OwnDsh 后</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="cross">账号与 API Key 由员工各自维护</td>
+                  <td class="check">企业身份一次登录，组织权限自动生效；供应商凭据只存在服务端</td>
+                </tr>
+                <tr>
+                  <td class="cross">模型选择与数据边界难以统一</td>
+                  <td class="check">员工只能使用企业审核并授权的托管模型别名</td>
+                </tr>
+                <tr>
+                  <td class="cross">成本、额度和异常使用不可见</td>
+                  <td class="check">用量账本与配额策略形成统一视图，超限直接返回可读的配额错误码</td>
+                </tr>
+                <tr>
+                  <td class="cross">离职、转岗后的权限回收容易遗漏</td>
+                  <td class="check">停用成员或撤销设备即失效；审批与管理动作全部留下审计记录</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-canvas">
+        <div class="wrap">
+          <p class="eyebrow">SCENARIOS</p>
+          <h2>当 Agent 从个人尝试走向组织使用</h2>
+
+          <div class="grid grid-3">
+            <div class="card">
+              <span class="tag-en">Scale</span>
+              <h3>准备规模化推广</h3>
+              <p>已有员工自发使用，希望从零散试验升级为统一、可复制的工作方式。</p>
+            </div>
+            <div class="card">
+              <span class="tag-en">Govern</span>
+              <h3>需要明确安全与数据边界</h3>
+              <p>涉及内部资料与合规要求，需要知道谁在何时使用了哪些企业能力。</p>
+            </div>
+            <div class="card">
+              <span class="tag-en">Operate</span>
+              <h3>同时管理多个部门与模型</h3>
+              <p>团队与模型持续增加，需要统一分配权限与额度，并理解真实使用效果。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="wrap">
+          <p class="eyebrow">DELIVERY</p>
+          <h2>交付方式</h2>
+          <div class="grid grid-2">
+            <div class="card">
+              <h3>私有化部署</h3>
+              <p>在你的服务器或内网以 Docker Compose 部署；数据库、会话与构建产物都留在你的环境里。</p>
+            </div>
+            <div class="card">
+              <h3>对接既有体系</h3>
+              <p>对接现有身份源（LDAP / OIDC）、模型平台与权限策略，不需要员工更换工作方式。</p>
+            </div>
+            <div class="card">
+              <h3>插件治理与分发</h3>
+              <p>企业插件上传、发布、按人/组分配，客户端自主安装并回报安装结果。</p>
+            </div>
+            <div class="card">
+              <h3>升级与备份支持</h3>
+              <p>版本升级、数据备份与恢复流程；镜像与依赖可离线交付。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-canvas">
+        <div class="wrap">
+          <p class="eyebrow">VERIFIABLE</p>
+          <h2>用可核验的事实代替宣传话术</h2>
+          <p class="lead">下面每一项都能在公开代码或在线文档里核对，你可以自己验证。</p>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>事实</th><th>怎么核对</th></tr></thead>
+              <tbody>
+                <tr><td>97 个 API 操作、230 个数据模型</td><td><a href="/api-docs/">在线 API 参考</a>（由契约在构建期生成）</td></tr>
+                <tr><td>42 个稳定错误码</td><td>同一页的错误码字典，附中文含义与处置建议</td></tr>
+                <tr><td>31 类审计事件</td><td>数据库约束与审计查询接口</td></tr>
+                <tr><td>17 个 ent:* 权限码、4 个内置企业角色</td><td><a href="/help/admin/roles-permissions.html">角色与权限矩阵</a></td></tr>
+                <tr><td>四容器自托管（postgres / redis / server / console）</td><td>仓库 compose 文件与 <a href="/home/deploy/">部署说明</a></td></tr>
+                <tr><td>MIT 许可</td><td><a href="https://github.com/boe1900/owndsh" target="_blank" rel="noopener">GitHub 仓库</a></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="contact">
+        <div class="wrap">
+          <p class="eyebrow">CONTACT</p>
+          <h2>聊聊你的团队正在怎样使用 Agent</h2>
+          <p class="lead">告诉我们组织规模、现有身份与模型平台、治理需求，我们会一起判断最合适的接入方式。</p>
+
+          <div class="placeholder">
+            <strong>联系方式占位</strong>
+            <p class="muted">
+              按产品决策，此处预留企业留资区，**不引入后端表单服务**。上线前把下面任一处替换为真实信息即可：
+              企业邮箱 · GitHub Discussions 链接 ·（可选）企业微信二维码图片。<br />
+              替换位置：<code>content/enterprise/index.html</code> 的 <code>#contact</code> 区块。
+            </p>
+          </div>
+
+          <div class="note note-tip">
+            <strong>只想先试？</strong>
+            <span>开源版直接可用：<a href="/home/deploy/">按一条命令部署</a>，或先读<a href="/help/">帮助中心</a>。</span>
+          </div>
+
+          <div class="note note-warn">
+            <strong>合规说明</strong>
+            <span>本页信息仅用于企业版沟通；我们不在此站点收集或存储任何个人信息。</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!--
+[INPUT]: 依赖 config/site.yaml 的 site/compliance 段（构建期替换 OwnDsh/MIT/https://github.com/boe1900/owndsh/https://www.deepseek.com/harness//>-）。
+[OUTPUT]: 全站页脚：产品与文档分组链接、语言占位、许可、免责声明、版权。
+[POS]: partials 的页脚片段；由 build.mjs 注入每个页面尾部的 inject:footer 占位（占位写法在此不写完整注释标记，避免嵌套闭合）。
+[PROTOCOL]: 变更时更新此头部，然后检查 设计方案.md §9 / §14
+-->
+<footer class="site-footer">
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <img src="/home/assets/brand/whale-animated.png" alt="" width="28" height="28" />
+      <p class="footer-name">OwnDsh</p>
+      <p class="footer-tag">DeepSeek Harness 的开源自托管团队控制面。</p>
+    </div>
+
+    <nav class="footer-col" aria-label="产品">
+      <p class="footer-title">产品</p>
+      <a href="/home/">首页</a>
+      <a href="/home/enterprise/">企业版</a>
+      <a href="/home/deploy/">部署与自托管</a>
+      <a href="/home/download/">下载客户端</a>
+    </nav>
+
+    <nav class="footer-col" aria-label="文档与代码">
+      <p class="footer-title">文档与代码</p>
+      <a href="/help/">帮助中心</a>
+      <a href="/api-docs/">API 参考</a>
+      <a href="https://github.com/boe1900/owndsh" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://www.deepseek.com/harness/" target="_blank" rel="noopener">DeepSeek Harness</a>
+    </nav>
+
+    <nav class="footer-col" aria-label="信任与合规">
+      <p class="footer-title">信任与合规</p>
+      <a href="/home/security/">安全与合规</a>
+      <a href="/home/about/">关于</a>
+      <!-- 语言占位：英文站在 P3 落地，届时改为 /en/ 并可访问链接 -->
+      <span class="footer-placeholder" title="英文站规划中">English（规划中）</span>
+    </nav>
+  </div>
+
+  <p class="footer-disclaimer">>-</p>
+
+  <div class="footer-meta">
+    <span>MIT License</span>
+    <span class="sep">·</span>
+    <span>© 2026 OwnDsh</span>
+    <span class="sep">·</span>
+    <span>本站为产品官网，控制台与文档入口见上方「文档与代码」</span>
+  </div>
+</footer>
+
+    <script src="/home/assets/site.js" defer></script>
+  </body>
+</html>

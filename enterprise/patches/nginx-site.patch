@@ -1,0 +1,49 @@
+--- deploy/nginx/nginx.conf.pre-site	2026-09-16 01:25:45.589816821 +0800
++++ deploy/nginx/nginx.conf	2026-09-16 01:29:07.141813443 +0800
+@@ -1,5 +1,5 @@
+-# [INPUT]: 依赖同网络 server:8080、构建期管理端静态资源、部署层 /opt/owndsh/api-docs/dist 与 /opt/owndsh/help/dist（只读挂载）、浏览器原始 Host 与可选上级反向代理 forwarding headers。
+-# [OUTPUT]: 提供保留外部 authority 的 HTTP 同源入口、显式 OpenAPI 命名空间代理、管理端 SPA/认证回调、SSE 无缓冲、健康检查，以及**完全公开且可索引**的 API 文档门户与帮助中心。
++# [INPUT]: 依赖同网络 server:8080、构建期管理端静态资源、部署层 /opt/owndsh/site/dist 与 /opt/owndsh/api-docs/dist、/opt/owndsh/help/dist（只读挂载）、浏览器原始 Host 与可选上级反向代理 forwarding headers。
++# [OUTPUT]: 提供保留外部 authority 的 HTTP 同源入口、显式 OpenAPI 命名空间代理、管理端 SPA/认证回调、SSE 无缓冲、健康检查，以及**完全公开且可索引**的产品官网、API 文档门户与帮助中心。
+ # [POS]: Console 静态资源与 API 的轻量 HTTP 网关；TLS 终止由部署方的反向代理、Ingress 或负载均衡负责；两个文档门户为部署层附加物，按产品决策对公网开放（无鉴权、可被搜索引擎收录）。
+ # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ 
+@@ -133,6 +133,38 @@
+       gzip_min_length 1024;
+     }
+ 
++    # ── 产品官网（部署层 /opt/owndsh/site/dist，只读 bind mount）──────────────────
++    # 公开策略：不鉴权、可索引（与两个文档门户一致）。CSP 为 script-src 'self'，
++    # 因此页面不得含内联脚本（主题前导已外置为 assets/theme-boot.js）。
++    location /home/ {
++      root /usr/share/nginx/html;
++      index index.html;
++      try_files $uri $uri/ =404;
++      error_page 404 /home/404.html;
++      add_header X-Content-Type-Options nosniff always;
++      add_header Referrer-Policy strict-origin-when-cross-origin always;
++      add_header X-Frame-Options DENY always;
++      add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'" always;
++      add_header Cache-Control "no-cache" always;
++      gzip on;
++      gzip_comp_level 5;
++      gzip_types text/html text/css application/javascript application/json image/svg+xml;
++      gzip_min_length 1024;
++    }
++
++    # 站点地图与抓取策略必须在域名根：页面内引用的是 /sitemap.xml 与 /robots.txt
++    location = /sitemap.xml {
++      rewrite ^ /home/sitemap.xml break;
++      root /usr/share/nginx/html;
++      add_header Cache-Control "no-cache" always;
++    }
++
++    location = /robots.txt {
++      rewrite ^ /home/robots.txt break;
++      root /usr/share/nginx/html;
++      add_header Cache-Control "no-cache" always;
++    }
++
+     location /assets/ {
+       root /usr/share/nginx/html;
+       try_files $uri =404;

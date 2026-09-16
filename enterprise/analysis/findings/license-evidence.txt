@@ -1,0 +1,31 @@
+LICENSE ATTRIBUTION EVIDENCE
+============================
+
+Upstream dromara/RuoYi-Vue-Plus LICENSE (v5.5.1), fetched from:
+https://gitsbyte.com/opensource/dromara/RuoYi-Vue-Plus/-/raw/v5.5.1/LICENSE
+
+    The MIT License (MIT)
+    Copyright (c) 2019 RuoYi-Vue-Plus        <-- ORIGINAL HOLDER
+
+Vendored copy at owndsh-0.1.0/server/LICENSE:
+
+    The MIT License (MIT)
+    Copyright (c) 2019 OwnDsh-Vue-Plus        <-- RENAMED
+
+MIT requires the copyright notice be retained verbatim:
+  "The above copyright notice and this permission notice shall be included in
+   all copies or substantial portions of the Software."
+
+Provenance markers in the vendored tree:
+  - 270 Java files carry `@author Lion Li` (RuoYi-Vue-Plus maintainer)
+      owndsh-common: 146 files
+      owndsh-modules/owndsh-system: 102 files
+      owndsh-api: 10 files
+      owndsh-server: 11 files
+      owndsh-modules/owndsh-enterprise: 0 files
+  - No NOTICE / THIRD-PARTY file anywhere in the repo (server/ included).
+  - server/CLAUDE.md refers to it only as "OwnDsh-Vue-Plus 上游".
+  - server/README.md states "第三方代码的 MIT 许可证保留在 LICENSE".
+  - No upstream repo URL / commit recorded in server/ (the CLAUDE.md commit
+    7180b529776834fee912113b23f0bd7a387a8222 is not resolvable publicly).
+  - .claude/agents/*.md upstream scaffold retained as the upstream's own files.

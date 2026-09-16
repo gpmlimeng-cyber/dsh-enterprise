@@ -1,0 +1,14 @@
+{
+  "data": {
+    "id": "1900800000000000201",
+    "resourceType": "MODEL_SET",
+    "resourceId": "1900800000000000301",
+    "resourceName": "Coding",
+    "subjectType": "MEMBER",
+    "subjectId": "1761100000000000003",
+    "subjectName": "Alice",
+    "status": "ACTIVE",
+    "revision": 0
+  },
+  "requestId": "req_01K2W3V4X5Y6Z7A8B9C0D1E2F3"
+}

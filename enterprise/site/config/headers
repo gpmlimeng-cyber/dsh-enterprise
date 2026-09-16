@@ -1,0 +1,16 @@
+# [INPUT]: Cloudflare Pages / 静态托管用的响应头策略（自托管时由 nginx 等价实现）。
+# [OUTPUT]: 官网同源资源、禁止嵌入、MIME 检查与缓存策略。
+# [POS]: 发布层配置；不承担任何认证或代理职责（官网按产品决策完全公开）。
+# [PROTOCOL]: 变更时更新此头部，然后检查 设计方案.md §7
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+/assets/*
+  Cache-Control: public, max-age=604800, immutable
+
+/*.html
+  Cache-Control: no-cache

@@ -1,0 +1,229 @@
+<!doctype html>
+<!--
+[INPUT]: 依赖 build.mjs 注入的 head-meta / nav / footer 与 assets/ 下的样式。
+[OUTPUT]: 关于页：项目定位、与官方 Harness / DSH Desktop 的关系、当前阶段与已知限制、参与贡献。
+[POS]: 官网的定位与信任补充页；如实呈现预发布阶段的限制。
+[PROTOCOL]: 变更时更新此头部，然后检查 设计方案.md §4
+-->
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="robots" content="index, follow" />
+    <title>关于 OwnDsh · 开源、自托管的团队控制面</title>
+    <meta name="description" content="项目定位、与 DeepSeek Harness 的关系、开源许可、参与贡献与联系方式。" />
+    <link rel="canonical" href="http://62.234.16.179/home/about/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:site_name" content="OwnDsh" />
+    <meta property="og:title" content="关于 OwnDsh · 开源、自托管的团队控制面" />
+    <meta property="og:description" content="项目定位、与 DeepSeek Harness 的关系、开源许可、参与贡献与联系方式。" />
+    <meta property="og:url" content="http://62.234.16.179/home/about/" />
+    <meta property="og:image" content="http://62.234.16.179/assets/brand/whale-animated.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="alternate" hreflang="zh-CN" href="http://62.234.16.179/home/about/" />
+    <!-- 英文站占位：P3 落地（site.locales 增加 en 后自动启用 hreflang） -->
+    <link rel="icon" href="/home/assets/brand/favicon.png" />
+    <link rel="stylesheet" href="/home/assets/theme.css" />
+    <link rel="stylesheet" href="/home/assets/site.css" />
+    <script src="/home/assets/theme-boot.js"></script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"OwnDsh","applicationCategory":"DeveloperApplication","operatingSystem":"Docker (Linux amd64)","description":"项目定位、与 DeepSeek Harness 的关系、开源许可、参与贡献与联系方式。","license":"https://opensource.org/licenses/MIT","offers":{"@type":"Offer","price":"0","priceCurrency":"CNY"},"sameAs":["https://github.com/boe1900/owndsh"]}</script>
+  </head>
+  <body>
+    <!--
+[INPUT]: 依赖 config/site.yaml 的 site 段与构建期 /home/ 替换。
+[OUTPUT]: 全站顶栏：产品导航、文档入口、GitHub、主题切换（共用 'bui-theme' 键）与主 CTA。
+[POS]: partials 的导航片段；由 build.mjs 注入每个页面头部的 inject:nav 占位（占位写法在此不写完整注释标记，避免嵌套闭合）。
+[PROTOCOL]: 变更时更新此头部，然后检查 设计方案.md §4
+-->
+<header class="topbar">
+  <a class="brand" href="/home/">
+    <img src="/home/assets/brand/whale-animated.png" alt="" width="24" height="24" />
+    <span>OwnDsh</span>
+  </a>
+
+  <button type="button" class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="展开导航">
+    <span></span><span></span>
+  </button>
+
+  <nav id="site-nav" class="nav" aria-label="主导航">
+    <a href="/home/">产品</a>
+    <a href="/home/enterprise/">企业版</a>
+    <a href="/home/deploy/">部署</a>
+    <a href="/home/download/">下载</a>
+    <a href="/home/security/">安全</a>
+    <a href="/help/">文档</a>
+  </nav>
+
+  <div class="topbar-actions">
+    <div class="theme-toggle" hidden role="group" aria-label="主题">
+      <span class="theme-toggle-indicator" aria-hidden="true"></span>
+      <button type="button" data-theme-value="light" aria-label="浅色主题" aria-pressed="false">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />
+          <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+        </svg>
+      </button>
+      <button type="button" data-theme-value="dark" aria-label="深色主题" aria-pressed="false">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+        </svg>
+      </button>
+    </div>
+    <a class="btn btn-ghost" href="https://github.com/boe1900/owndsh" target="_blank" rel="noopener">GitHub</a>
+    <a class="btn btn-primary" href="/home/deploy/">开始部署</a>
+  </div>
+</header>
+
+
+    <main>
+      <section class="section hero">
+        <div class="wrap">
+          <p class="eyebrow">ABOUT</p>
+          <h1>真正拥有属于你的 Harness。</h1>
+          <p class="lead">
+            OwnDsh 是 DeepSeek Harness 的自托管团队控制面：把企业需要管的部分集中到平台，把员工需要的工作空间留在各自手里。
+            它不 fork 官方 Web UI，也不接管员工的工作区。
+          </p>
+          <div class="hero-actions">
+            <a class="btn btn-primary btn-lg" href="https://github.com/boe1900/owndsh" target="_blank" rel="noopener">查看 GitHub</a>
+            <a class="btn btn-ghost btn-lg" href="/home/deploy/">开始部署</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-canvas">
+        <div class="wrap">
+          <p class="eyebrow">RELATIONSHIP</p>
+          <h2>与上游的关系</h2>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>组件</th><th>关系</th></tr></thead>
+              <tbody>
+                <tr><td>DeepSeek Harness</td><td>官方开源 Agent 运行时；OwnDsh 通过公开插件扩展点集成，不修改其源码</td></tr>
+                <tr><td>DSH Desktop</td><td>社区桌面封装，由独立仓库构建；OwnDsh 可在其上以插件方式接入企业能力</td></tr>
+                <tr><td>OwnDsh Console / Server</td><td>本项目的主体：GitHub OAuth 之外的完整企业治理面（身份、模型、授权、配额、插件、审计）</td></tr>
+                <tr><td>OwnDsh Desktop</td><td>预装企业插件与运行环境的客户端，降低员工接入成本</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="note note-warn">
+            <strong>隶属关系</strong>
+            <span>OwnDsh 是独立项目，与 DeepSeek AI 或 Anywhere Labs 无隶属关系。上游名称、代码与商标归各自所有。</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="wrap">
+          <p class="eyebrow">STATUS</p>
+          <h2>当前阶段与已知限制</h2>
+          <p class="lead">我们宁愿把限制写在官网上，也不想让你在部署之后才发现。</p>
+
+          <div class="grid grid-2">
+            <div class="card">
+              <h3>预发布阶段</h3>
+              <p>接口与插件生态仍在演进；升级前请阅读发布说明并做好备份。</p>
+            </div>
+            <div class="card">
+              <h3>镜像平台</h3>
+              <p>当前镜像目标为 Linux <code>amd64</code>；其他架构需自行构建。</p>
+            </div>
+            <div class="card">
+              <h3>默认 HTTP</h3>
+              <p>默认以 HTTP 提供，平台自身不终止 TLS；正式环境建议前置反向代理并启用 HTTPS。</p>
+            </div>
+            <div class="card">
+              <h3>身份源</h3>
+              <p>开箱为 LOCAL 账号；LDAP / OIDC 需要在控制台内配置后才能使用。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-canvas">
+        <div class="wrap">
+          <p class="eyebrow">CONTRIBUTE</p>
+          <h2>参与贡献</h2>
+
+          <div class="grid grid-3">
+            <div class="card">
+              <h3>提交 Issue</h3>
+              <p>部署问题、功能建议与缺陷都可以提到 GitHub Issues；附上 <code>requestId</code> 与服务端日志能显著加快定位。</p>
+            </div>
+            <div class="card">
+              <h3>改进文档</h3>
+              <p>帮助中心与 API 参考都由仓库内容构建；发现描述与实现不一致，欢迎直接改内容并发起 PR。</p>
+            </div>
+            <div class="card">
+              <h3>贡献代码</h3>
+              <p>服务端、控制台与插件均为独立模块，遵循各自的构建与检查命令。</p>
+            </div>
+          </div>
+
+          <div class="placeholder">
+            <strong>社区渠道占位</strong>
+            <p class="muted">
+              预留用户群 / 讨论区（GitHub Discussions 或企业微信）入口。替换位置：<code>content/about/index.html</code> 本区块。
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!--
+[INPUT]: 依赖 config/site.yaml 的 site/compliance 段（构建期替换 OwnDsh/MIT/https://github.com/boe1900/owndsh/https://www.deepseek.com/harness//>-）。
+[OUTPUT]: 全站页脚：产品与文档分组链接、语言占位、许可、免责声明、版权。
+[POS]: partials 的页脚片段；由 build.mjs 注入每个页面尾部的 inject:footer 占位（占位写法在此不写完整注释标记，避免嵌套闭合）。
+[PROTOCOL]: 变更时更新此头部，然后检查 设计方案.md §9 / §14
+-->
+<footer class="site-footer">
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <img src="/home/assets/brand/whale-animated.png" alt="" width="28" height="28" />
+      <p class="footer-name">OwnDsh</p>
+      <p class="footer-tag">DeepSeek Harness 的开源自托管团队控制面。</p>
+    </div>
+
+    <nav class="footer-col" aria-label="产品">
+      <p class="footer-title">产品</p>
+      <a href="/home/">首页</a>
+      <a href="/home/enterprise/">企业版</a>
+      <a href="/home/deploy/">部署与自托管</a>
+      <a href="/home/download/">下载客户端</a>
+    </nav>
+
+    <nav class="footer-col" aria-label="文档与代码">
+      <p class="footer-title">文档与代码</p>
+      <a href="/help/">帮助中心</a>
+      <a href="/api-docs/">API 参考</a>
+      <a href="https://github.com/boe1900/owndsh" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://www.deepseek.com/harness/" target="_blank" rel="noopener">DeepSeek Harness</a>
+    </nav>
+
+    <nav class="footer-col" aria-label="信任与合规">
+      <p class="footer-title">信任与合规</p>
+      <a href="/home/security/">安全与合规</a>
+      <a href="/home/about/">关于</a>
+      <!-- 语言占位：英文站在 P3 落地，届时改为 /en/ 并可访问链接 -->
+      <span class="footer-placeholder" title="英文站规划中">English（规划中）</span>
+    </nav>
+  </div>
+
+  <p class="footer-disclaimer">>-</p>
+
+  <div class="footer-meta">
+    <span>MIT License</span>
+    <span class="sep">·</span>
+    <span>© 2026 OwnDsh</span>
+    <span class="sep">·</span>
+    <span>本站为产品官网，控制台与文档入口见上方「文档与代码」</span>
+  </div>
+</footer>
+
+    <script src="/home/assets/site.js" defer></script>
+  </body>
+</html>

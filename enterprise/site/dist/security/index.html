@@ -1,0 +1,266 @@
+<!doctype html>
+<!--
+[INPUT]: 依赖 build.mjs 注入的 head-meta / nav / footer 与 assets/ 下的样式。
+[OUTPUT]: 安全与合规页：平台边界、凭据保管、会话与请求防线、审计与保留、漏洞披露、许可与免责声明。
+[POS]: 面向安全与法务的信任页；口径与仓库一致性说明、契约与实际实现保持一致。
+[PROTOCOL]: 变更时更新此头部，然后检查 设计方案.md §14
+-->
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="robots" content="index, follow" />
+    <title>安全与合规 · OwnDsh</title>
+    <meta name="description" content="数据边界、密钥保管、同源会话与 CSRF 防线、审计与保留策略、许可与免责声明。" />
+    <link rel="canonical" href="http://62.234.16.179/home/security/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:site_name" content="OwnDsh" />
+    <meta property="og:title" content="安全与合规 · OwnDsh" />
+    <meta property="og:description" content="数据边界、密钥保管、同源会话与 CSRF 防线、审计与保留策略、许可与免责声明。" />
+    <meta property="og:url" content="http://62.234.16.179/home/security/" />
+    <meta property="og:image" content="http://62.234.16.179/assets/shots/console.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="alternate" hreflang="zh-CN" href="http://62.234.16.179/home/security/" />
+    <!-- 英文站占位：P3 落地（site.locales 增加 en 后自动启用 hreflang） -->
+    <link rel="icon" href="/home/assets/brand/favicon.png" />
+    <link rel="stylesheet" href="/home/assets/theme.css" />
+    <link rel="stylesheet" href="/home/assets/site.css" />
+    <script src="/home/assets/theme-boot.js"></script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"OwnDsh","applicationCategory":"DeveloperApplication","operatingSystem":"Docker (Linux amd64)","description":"数据边界、密钥保管、同源会话与 CSRF 防线、审计与保留策略、许可与免责声明。","license":"https://opensource.org/licenses/MIT","offers":{"@type":"Offer","price":"0","priceCurrency":"CNY"},"sameAs":["https://github.com/boe1900/owndsh"]}</script>
+  </head>
+  <body>
+    <!--
+[INPUT]: 依赖 config/site.yaml 的 site 段与构建期 /home/ 替换。
+[OUTPUT]: 全站顶栏：产品导航、文档入口、GitHub、主题切换（共用 'bui-theme' 键）与主 CTA。
+[POS]: partials 的导航片段；由 build.mjs 注入每个页面头部的 inject:nav 占位（占位写法在此不写完整注释标记，避免嵌套闭合）。
+[PROTOCOL]: 变更时更新此头部，然后检查 设计方案.md §4
+-->
+<header class="topbar">
+  <a class="brand" href="/home/">
+    <img src="/home/assets/brand/whale-animated.png" alt="" width="24" height="24" />
+    <span>OwnDsh</span>
+  </a>
+
+  <button type="button" class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="展开导航">
+    <span></span><span></span>
+  </button>
+
+  <nav id="site-nav" class="nav" aria-label="主导航">
+    <a href="/home/">产品</a>
+    <a href="/home/enterprise/">企业版</a>
+    <a href="/home/deploy/">部署</a>
+    <a href="/home/download/">下载</a>
+    <a href="/home/security/">安全</a>
+    <a href="/help/">文档</a>
+  </nav>
+
+  <div class="topbar-actions">
+    <div class="theme-toggle" hidden role="group" aria-label="主题">
+      <span class="theme-toggle-indicator" aria-hidden="true"></span>
+      <button type="button" data-theme-value="light" aria-label="浅色主题" aria-pressed="false">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />
+          <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+        </svg>
+      </button>
+      <button type="button" data-theme-value="dark" aria-label="深色主题" aria-pressed="false">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+        </svg>
+      </button>
+    </div>
+    <a class="btn btn-ghost" href="https://github.com/boe1900/owndsh" target="_blank" rel="noopener">GitHub</a>
+    <a class="btn btn-primary" href="/home/deploy/">开始部署</a>
+  </div>
+</header>
+
+
+    <main>
+      <section class="section hero">
+        <div class="wrap">
+          <p class="eyebrow">SECURITY &amp; COMPLIANCE</p>
+          <h1>边界写清楚，才谈得上信任。</h1>
+          <p class="lead">
+            下面每一条都对应实现或契约中的具体约束，你可以对照代码与在线文档核对；我们不使用"银行级安全"这类无法验证的说法。
+          </p>
+        </div>
+      </section>
+
+      <section class="section section-canvas" id="boundaries">
+        <div class="wrap">
+          <p class="eyebrow">BOUNDARIES</p>
+          <h2>平台做什么，不做什么</h2>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>平台负责</th><th>平台不介入</th></tr></thead>
+              <tbody>
+                <tr><td>身份、成员、角色与设备治理</td><td>不接管员工工作区，不读取工作区文件</td></tr>
+                <tr><td>模型供给与供应商凭据保管</td><td>不把供应商 API Key 下发到员工设备</td></tr>
+                <tr><td>模型请求的网关转发与额度校验</td><td>不远程执行员工工具，不 fork 官方 Harness Web UI</td></tr>
+                <tr><td>审计事件、用量账本与会话治理</td><td>不在用量账本中记录提示词与消息正文</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="wrap">
+          <p class="eyebrow">SECRETS</p>
+          <h2>凭据怎么保管</h2>
+
+          <div class="grid grid-2">
+            <div class="card">
+              <h3>只写不回显</h3>
+              <p>供应商凭据为只写输入，读取接口只返回"凭据已配置"，不会回显任何密钥内容。</p>
+            </div>
+            <div class="card">
+              <h3>主密钥的边界</h3>
+              <p>部署主密钥（<code>ENT_MASTER_KEY</code>）用于保护供应商密钥与部分会话内容；它一旦丢失，这些数据不可恢复。</p>
+            </div>
+            <div class="card">
+              <h3>会话格式</h3>
+              <p>客户端同步的会话使用官方格式并带哈希校验；服务端校验批次哈希与滚动哈希证明，异常会被拒绝。</p>
+            </div>
+            <div class="card">
+              <h3>插件构件</h3>
+              <p>构件做大小、SHA-256、兼容性与下载权限校验；签名校验可按需开启（默认关闭）。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-canvas">
+        <div class="wrap">
+          <p class="eyebrow">REQUEST DEFENSE</p>
+          <h2>浏览器与会话侧的防线</h2>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>防线</th><th>具体做法</th></tr></thead>
+              <tbody>
+                <tr><td>会话凭据</td><td>管理端使用同源 HttpOnly Cookie，<code>SameSite=Strict</code>、<code>Path=/</code>；HTTPS 下自动使用 <code>__Host-</code> 前缀强化</td></tr>
+                <tr><td>写操作保护</td><td>非安全方法校验 <code>Origin</code>（缺失时看 <code>Referer</code>）必须与请求同源，不一致返回 401</td></tr>
+                <tr><td>跨域策略</td><td>CORS 默认拒绝所有跨域来源，管理端与员工端均按同源/服务端调用设计</td></tr>
+                <tr><td>登录事务</td><td>口令登录需要在同一事务内提交 CSRF 令牌；授权码一次性使用</td></tr>
+                <tr><td>响应头</td><td>控制台与文档站点设置 <code>X-Content-Type-Options: nosniff</code>、<code>Referrer-Policy</code>；帮助中心额外启用 CSP 与 <code>X-Frame-Options: DENY</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="wrap">
+          <p class="eyebrow">AUDIT</p>
+          <h2>审计与保留</h2>
+
+          <div class="grid grid-2">
+            <div class="card">
+              <h3>31 类审计事件</h3>
+              <p>覆盖登录、成员与身份变更、设备、模型与授权、配额、插件、会话与配置变更；事件由数据库约束保证取值合法。</p>
+            </div>
+            <div class="card">
+              <h3>可回溯到 requestId</h3>
+              <p>每个响应都带 <code>requestId</code>，可与审计事件、用量账本关联，用于定位一次具体调用。</p>
+            </div>
+            <div class="card">
+              <h3>会话正文单独授权</h3>
+              <p>会话元数据与正文读取权限分离；正文仅通过单独授权的操作投影解密内容，并有独立权限码。</p>
+            </div>
+            <div class="card">
+              <h3>用量账本不含正文</h3>
+              <p>账本只记录计数与归属，不保存提示词、消息内容、供应商路由或凭据。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-canvas">
+        <div class="wrap">
+          <p class="eyebrow">DISCLOSURE &amp; LICENSE</p>
+          <h2>漏洞披露、许可与免责</h2>
+
+          <div class="placeholder">
+            <strong>漏洞披露渠道占位</strong>
+            <p class="muted">
+              预留安全联系渠道（安全邮箱 / GitHub Security Advisory）。替换位置：<code>content/security/index.html</code> 本区块。
+              在填写真实渠道前，请通过 GitHub Issue 联系。
+            </p>
+          </div>
+
+          <div class="grid grid-2" style="margin-top:24px">
+            <div class="card">
+              <h3>开源许可</h3>
+              <p>OwnDsh 以 MIT 许可开源；字体与图标遵循各自上游许可（仓库内含许可证副本）。</p>
+            </div>
+            <div class="card">
+              <h3>商标与隶属关系</h3>
+              <p>OwnDsh 是独立项目，与 DeepSeek AI 或 Anywhere Labs 无隶属关系。DeepSeek Harness 与 DSH Desktop 的名称、代码与商标归各自所有；OwnDsh 仅通过公开插件扩展点集成。</p>
+            </div>
+          </div>
+
+          <div class="note note-tip">
+            <strong>补充说明</strong>
+            <span>本站为产品官网，不收集个人信息；控制台登录、审计与数据留存策略取决于你自己的部署配置。</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!--
+[INPUT]: 依赖 config/site.yaml 的 site/compliance 段（构建期替换 OwnDsh/MIT/https://github.com/boe1900/owndsh/https://www.deepseek.com/harness//>-）。
+[OUTPUT]: 全站页脚：产品与文档分组链接、语言占位、许可、免责声明、版权。
+[POS]: partials 的页脚片段；由 build.mjs 注入每个页面尾部的 inject:footer 占位（占位写法在此不写完整注释标记，避免嵌套闭合）。
+[PROTOCOL]: 变更时更新此头部，然后检查 设计方案.md §9 / §14
+-->
+<footer class="site-footer">
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <img src="/home/assets/brand/whale-animated.png" alt="" width="28" height="28" />
+      <p class="footer-name">OwnDsh</p>
+      <p class="footer-tag">DeepSeek Harness 的开源自托管团队控制面。</p>
+    </div>
+
+    <nav class="footer-col" aria-label="产品">
+      <p class="footer-title">产品</p>
+      <a href="/home/">首页</a>
+      <a href="/home/enterprise/">企业版</a>
+      <a href="/home/deploy/">部署与自托管</a>
+      <a href="/home/download/">下载客户端</a>
+    </nav>
+
+    <nav class="footer-col" aria-label="文档与代码">
+      <p class="footer-title">文档与代码</p>
+      <a href="/help/">帮助中心</a>
+      <a href="/api-docs/">API 参考</a>
+      <a href="https://github.com/boe1900/owndsh" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://www.deepseek.com/harness/" target="_blank" rel="noopener">DeepSeek Harness</a>
+    </nav>
+
+    <nav class="footer-col" aria-label="信任与合规">
+      <p class="footer-title">信任与合规</p>
+      <a href="/home/security/">安全与合规</a>
+      <a href="/home/about/">关于</a>
+      <!-- 语言占位：英文站在 P3 落地，届时改为 /en/ 并可访问链接 -->
+      <span class="footer-placeholder" title="英文站规划中">English（规划中）</span>
+    </nav>
+  </div>
+
+  <p class="footer-disclaimer">>-</p>
+
+  <div class="footer-meta">
+    <span>MIT License</span>
+    <span class="sep">·</span>
+    <span>© 2026 OwnDsh</span>
+    <span class="sep">·</span>
+    <span>本站为产品官网，控制台与文档入口见上方「文档与代码」</span>
+  </div>
+</footer>
+
+    <script src="/home/assets/site.js" defer></script>
+  </body>
+</html>

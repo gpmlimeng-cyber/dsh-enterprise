@@ -1,0 +1,28 @@
+# ── 本目录为 monorepo 的 enterprise/ 部署层，不再排除仓库源码树 ──
+# 历史独立仓的 src/ upstream/ 排除规则已废止（见 ../../FORK.md）。
+
+# ── 密钥与凭据：永不入库 ──────────────────────────────────────────
+.env
+.env.*
+*.env
+!*.env.example
+CREDENTIALS.txt
+*.pem
+*.key
+*.p12
+id_rsa*
+id_ed25519*
+id_ecdsa*
+.ssh/
+secrets.lst
+*.pre-*
+
+# ── 构建缓存与系统产物 ────────────────────────────────────────────
+node_modules/
+**/node_modules/
+.DS_Store
+._*
+*.log
+
+# dist/ 有意保留：三站静态产物可直接预览/发布。
+# dist/

@@ -1,0 +1,42 @@
+--- deploy/nginx/nginx.conf.pre-help	2026-09-16 00:32:59.550891239 +0800
++++ deploy/nginx/nginx.conf	2026-09-16 00:52:10.272221777 +0800
+@@ -1,5 +1,5 @@
+-# [INPUT]: 依赖同网络 server:8080、构建期管理端静态资源、部署层 /opt/owndsh/api-docs/dist（只读挂载）、浏览器原始 Host 与可选上级反向代理 forwarding headers。
+-# [OUTPUT]: 提供保留外部 authority 的 HTTP 同源入口、显式 OpenAPI 命名空间代理、管理端 SPA/认证回调、SSE 无缓冲、健康检查，以及需登录的 API 文档门户（auth_request 会话校验）。
++# [INPUT]: 依赖同网络 server:8080、构建期管理端静态资源、部署层 /opt/owndsh/api-docs/dist 与 /opt/owndsh/help/dist（只读挂载）、浏览器原始 Host 与可选上级反向代理 forwarding headers。
++# [OUTPUT]: 提供保留外部 authority 的 HTTP 同源入口、显式 OpenAPI 命名空间代理、管理端 SPA/认证回调、SSE 无缓冲、健康检查，以及需登录的 API 文档门户与帮助中心（auth_request 会话校验）。
+ # [POS]: Console 静态资源与 API 的轻量 HTTP 网关；TLS 终止由部署方的反向代理、Ingress 或负载均衡负责；文档门户为部署层附加物（P1）。
+ # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ 
+@@ -129,6 +129,31 @@
+       return 302 /login?redirect=%2Fapi-docs%2F;
+     }
+ 
++    # ── 帮助中心（部署层 /opt/owndsh/help/dist，只读 bind mount）────────────────
++    # 与 API 文档门户共用同一鉴权判据；error_page 同样限定在本 location 内。
++    # CSP 为 script-src 'self'：页面不得存在内联脚本（主题前导已外置为 theme-boot.js）。
++    location /help/ {
++      auth_request /_docs_auth;
++      error_page 401 = @help_login;
++      root /usr/share/nginx/html;
++      index index.html;
++      try_files $uri $uri/ /help/index.html;
++      add_header X-Content-Type-Options nosniff always;
++      add_header Referrer-Policy strict-origin always;
++      add_header X-Frame-Options DENY always;
++      add_header Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'" always;
++      add_header Cache-Control "no-cache" always;
++      add_header X-Robots-Tag "noindex, nofollow" always;
++      gzip on;
++      gzip_comp_level 5;
++      gzip_types text/html application/json text/css application/javascript text/plain image/svg+xml;
++      gzip_min_length 1024;
++    }
++
++    location @help_login {
++      return 302 /login?redirect=%2Fhelp%2F;
++    }
++
+     location /assets/ {
+       root /usr/share/nginx/html;
+       try_files $uri =404;

@@ -1,0 +1,115 @@
+<!doctype html>
+<!--
+[INPUT]: 依赖 build.mjs 注入的 head-meta / nav / footer 与 assets/ 下的样式。
+[OUTPUT]: 关于页：项目定位、与官方 Harness / DSH Desktop 的关系、当前阶段与已知限制、参与贡献。
+[POS]: 官网的定位与信任补充页；如实呈现预发布阶段的限制。
+[PROTOCOL]: 变更时更新此头部，然后检查 设计方案.md §4
+-->
+<html lang="zh-CN">
+  <head>
+    <!-- inject:head-meta -->
+  </head>
+  <body>
+    <!-- inject:nav -->
+
+    <main>
+      <section class="section hero">
+        <div class="wrap">
+          <p class="eyebrow">ABOUT</p>
+          <h1>真正拥有属于你的 Harness。</h1>
+          <p class="lead">
+            OwnDsh 是 DeepSeek Harness 的自托管团队控制面：把企业需要管的部分集中到平台，把员工需要的工作空间留在各自手里。
+            它不 fork 官方 Web UI，也不接管员工的工作区。
+          </p>
+          <div class="hero-actions">
+            <a class="btn btn-primary btn-lg" href="https://github.com/boe1900/owndsh" target="_blank" rel="noopener">查看 GitHub</a>
+            <a class="btn btn-ghost btn-lg" href="{{base}}deploy/">开始部署</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-canvas">
+        <div class="wrap">
+          <p class="eyebrow">RELATIONSHIP</p>
+          <h2>与上游的关系</h2>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>组件</th><th>关系</th></tr></thead>
+              <tbody>
+                <tr><td>DeepSeek Harness</td><td>官方开源 Agent 运行时；OwnDsh 通过公开插件扩展点集成，不修改其源码</td></tr>
+                <tr><td>DSH Desktop</td><td>社区桌面封装，由独立仓库构建；OwnDsh 可在其上以插件方式接入企业能力</td></tr>
+                <tr><td>OwnDsh Console / Server</td><td>本项目的主体：GitHub OAuth 之外的完整企业治理面（身份、模型、授权、配额、插件、审计）</td></tr>
+                <tr><td>OwnDsh Desktop</td><td>预装企业插件与运行环境的客户端，降低员工接入成本</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="note note-warn">
+            <strong>隶属关系</strong>
+            <span>OwnDsh 是独立项目，与 DeepSeek AI 或 Anywhere Labs 无隶属关系。上游名称、代码与商标归各自所有。</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="wrap">
+          <p class="eyebrow">STATUS</p>
+          <h2>当前阶段与已知限制</h2>
+          <p class="lead">我们宁愿把限制写在官网上，也不想让你在部署之后才发现。</p>
+
+          <div class="grid grid-2">
+            <div class="card">
+              <h3>预发布阶段</h3>
+              <p>接口与插件生态仍在演进；升级前请阅读发布说明并做好备份。</p>
+            </div>
+            <div class="card">
+              <h3>镜像平台</h3>
+              <p>当前镜像目标为 Linux <code>amd64</code>；其他架构需自行构建。</p>
+            </div>
+            <div class="card">
+              <h3>默认 HTTP</h3>
+              <p>默认以 HTTP 提供，平台自身不终止 TLS；正式环境建议前置反向代理并启用 HTTPS。</p>
+            </div>
+            <div class="card">
+              <h3>身份源</h3>
+              <p>开箱为 LOCAL 账号；LDAP / OIDC 需要在控制台内配置后才能使用。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-canvas">
+        <div class="wrap">
+          <p class="eyebrow">CONTRIBUTE</p>
+          <h2>参与贡献</h2>
+
+          <div class="grid grid-3">
+            <div class="card">
+              <h3>提交 Issue</h3>
+              <p>部署问题、功能建议与缺陷都可以提到 GitHub Issues；附上 <code>requestId</code> 与服务端日志能显著加快定位。</p>
+            </div>
+            <div class="card">
+              <h3>改进文档</h3>
+              <p>帮助中心与 API 参考都由仓库内容构建；发现描述与实现不一致，欢迎直接改内容并发起 PR。</p>
+            </div>
+            <div class="card">
+              <h3>贡献代码</h3>
+              <p>服务端、控制台与插件均为独立模块，遵循各自的构建与检查命令。</p>
+            </div>
+          </div>
+
+          <div class="placeholder">
+            <strong>社区渠道占位</strong>
+            <p class="muted">
+              预留用户群 / 讨论区（GitHub Discussions 或企业微信）入口。替换位置：<code>content/about/index.html</code> 本区块。
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- inject:footer -->
+    <script src="{{base}}assets/site.js" defer></script>
+  </body>
+</html>

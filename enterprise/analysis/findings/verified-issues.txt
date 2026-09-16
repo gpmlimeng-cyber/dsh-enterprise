@@ -1,0 +1,92 @@
+CAPTAIN 独立复核结论（每条亲自 grep/read 验证）
+==============================================
+
+[A] 许可合规 —— 高
+  证据: 见 license-evidence.txt
+  上游 dromara/RuoYi-Vue-Plus LICENSE: "Copyright (c) 2019 RuoYi-Vue-Plus"
+  本项目 server/LICENSE:              "Copyright (c) 2019 OwnDsh-Vue-Plus"
+  MIT 要求版权声明原样保留 → 改名后已不满足。
+  270 个文件带 "@author Lion Li"（含自研 owndsh-server/OwnDshApplication.java:16）
+  仓库无 NOTICE/THIRD-PARTY 文件；CLAUDE.md 仅称"OwnDsh-Vue-Plus 上游"，
+  未记录上游仓库 URL 与可解析 commit（7180b529... 公开不可解析）。
+
+[B] legacy 上游 HTTP 面仍在 classpath —— 中高
+  V17__enterprise_admin_system_access.sql 显式把 1761400000000000001/2（系统设置/运行状态）
+  子树授予内置 enterprise_admin 角色。
+  V0__host_baseline.sql:1279，创建 18 张 sys_* 表 + 48 条 sys_menu + 3 个上游角色
+  （superadmin 等，第 287-289 行）。
+  owndsh-system 150 文件 / 16,964 行，含 15 个 Sys*Controller + 4 个 monitor Controller，
+  全部带 @SaCheckPermission("system:*") / ("monitor:*")。
+  运行期可达性: compose.yml 里 server 服务【不发布端口】，nginx 仅代理
+  /enterprise/*、/healthz、/auth/code → 外部无法触达 /system/**。
+  但 owndsh-enterprise 的 pom 仍硬依赖 owndsh-system；ConsoleBootstrapController 等
+  直接 import com.owndsh.system.*。
+  ⇒ 当前是"被拓扑遮蔽"而非"被删除"，未做纵深防御；一旦有人把 server 端口
+     发布出来（或加一条 nginx location），上游面立刻暴露，且不在自研审计
+     AuditAction 31 项白名单覆盖内。
+
+[C] CI 从不运行后端测试 —— 高
+  .github/workflows/release.yml 全文件无 maven/mvnw/test/surefire 步骤；
+  只 docker build（Dockerfile.server:13 用 -DskipTests）与 plugin pnpm check。
+  pom.xml:66 <maven.test.skip>true</maven.test.skip>（默认跳过，需 -Dmaven.test.skip=false 显式打开）。
+  同时 deploy/tests、website/site.test.mjs、plugin/workspace.test.mjs 也未在 CI 调用。
+  ⇒ 55 个 enterprise 测试 + 11 个 server 测试完全依赖人工执行。
+
+[D] 上游 secret 默认值导致"强制外部密钥"承诺降级 —— 中
+  application.yml:174 jwt-secret-key: ${SA_TOKEN_JWT_SECRET_KEY}（无默认值，设计正确）
+  docs/t20:27 声称"无仓库 fallback…不能再用上游已知样例密钥签发平台 Token"
+  但 deploy/compose/compose.yml:80 提供
+    SA_TOKEN_JWT_SECRET_KEY: ${SA_TOKEN_JWT_SECRET_KEY:-owndsh-jwt-secret-change-me-000000000000000000000000}
+  以及 :81 ENT_MASTER_KEY 默认 0123456789abcdef0123456789abcdef
+  且 docker-compose.yml include 的 env_file 是 .env.example（含同样的公开值）。
+  全仓库无任何运行期校验拒绝该已知值 ⇒ 直接 docker compose up 即用公开密钥签发 JWT。
+  deploy/scripts/install.sh:83-84 会 openssl rand 生成真密钥，但那是可选路径。
+
+[E] 企业请求 DTO 零 Bean Validation —— 中
+  owndsh-enterprise/src/main 中 jakarta.validation/@Valid/@NotNull/@Size/@Pattern 命中 0
+  （owndsh-system + owndsh-common 有 69 处，上游遗产）。
+  校验仅靠 record compact constructor 与 EnterpriseApiValidation（UUID v4 + page limit 1..200）。
+  DeviceEnrollRequest/DeviceHeartbeatRequest 为裸 record。
+
+[F] 同一 OpenAPI 生成两份 6488 行产物 —— 低
+  console/src/api/generated/types.gen.ts 与
+  plugin/packages/contracts/src/generated/types.gen.ts
+  sha256 完全相同: a4b2a2a7ef0944bcb89d7e905a58483fc2d6f6d3
+  但生成脚本不同（console 用 hey-api 三插件；plugin 另加 zod/JSON Schema），
+  无 drift 检查强制同步 → types.gen.ts 是隐性重复真源。
+
+[G] Console 手写 17 个 OpenAPI 不存在的 ENT_* 错误码 —— 低
+  ENT_MODELS_UNAVAILABLE / ENT_PLUGIN_*_FAILED / ENT_LOGOUT_FAILED 等，
+  纯前端 UI 文案码，与契约 42 个稳定码混用，无命名空间区分。
+
+[H] plugin 核心包黑名单两端不一致 —— 高（子代理 R1，已复核）
+  服务端 PluginArtifactInspector.java:29-33 保护 3 个:
+    owndsh-plugin, @owndsh/platform-client, @owndsh/plugin-distribution
+  客户端 service.ts:30-37 保护 6 个（多出 @owndsh/contracts, @owndsh/llm-gateway, @owndsh/ui）
+  ⇒ 服务端会接受并发布这 3 个包；防线只在客户端 service.ts:157/205/219/408。
+
+[I] 退休版本 assignment 静默消失 —— 高（子代理 R2，已复核）
+  JdbcPluginStore.java:111
+    where priority=1 and (version_status='PUBLISHED' or desired_state='ABSENT')
+  USER 优先级行指向 RETIRED+INSTALLED 时整行被丢弃且不回退到 DEPT/ALL。
+  与 docs/t13:32 "assignment 已引用的退休版本仍可下载" 表述不自洽。
+
+[J] zod 硬编码 50MiB 与服务端可配 1GiB 冲突 —— 中（子代理 R3，已复核）
+  zod.gen.ts:1772 sizeBytes lte(52428800)
+  EnterprisePluginConfiguration.java:45 允许 maxArchiveBytes 至 1_073_741_824
+  运行期 assignment schema（zod.gen.ts:1823）却用 int64 max ⇒ 上限一调高即校验失败。
+
+[K] 明确的良好实践（复核为真，不应误伤）
+  - 密钥不下发客户端: ModelGatewayService.java:174-192 decrypt→upstream，finally 清零;
+    credential 只在 JdkDeepSeekUpstreamClient.java:93/96 作为 upstream header。
+  - 配额并发: QuotaReservationService.java:104-214 用 SELECT..FOR UPDATE 行锁 +
+    idempotencyKey + RESERVED→SENT 状态机 + 独立事务写 usage 快照 + recoverExpired。
+  - refresh 轮换: JdbcRefreshSessionStore.java:27 for update;
+    RefreshSessionService.java:117-135 ROTATED 命中即整族 REPLAYED。
+  - LDAP 注入: LdapFilterEscaper 全量 RFC4515 转义（LdapIdentityAdapter.java:123,161,221）。
+  - OIDC: 强制 CODE+S256+nonce、非对称 alg 白名单、issuer 等值、60s skew。
+  - crypto: HKDF-SHA-256 用途隔离 + AES-256-GCM 随机 nonce + AAD 绑 tenant/table/id/field/version。
+  - 日志不泄露: enterprise main 中 log.*(ex.getMessage) 命中 0；审计只走显式 metadata DTO。
+  - 响应头/容器: nginx nosniff/Referrer-Policy；server cap_drop ALL + read_only + no-new-privileges。
+  - GEB L3 覆盖: enterprise 355/355、console 96/96、plugin 27/27 = 100%。
+  - 单文件规模: 最大 545 行，无 >800 行违规。

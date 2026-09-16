@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:owndsh:contracts:TokenResponse",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data",
+    "requestId"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accessToken",
+        "tokenType",
+        "expiresIn",
+        "clientId",
+        "refreshToken",
+        "refreshExpiresIn"
+      ],
+      "properties": {
+        "accessToken": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 512,
+          "pattern": "^\\S+$"
+        },
+        "tokenType": {
+          "type": "string",
+          "const": "Bearer"
+        },
+        "expiresIn": {
+          "type": "integer",
+          "const": 43200
+        },
+        "clientId": {
+          "type": "string",
+          "enum": [
+            "dsh-desktop",
+            "enterprise-admin"
+          ]
+        },
+        "refreshToken": {
+          "type": "string",
+          "minLength": 48,
+          "maxLength": 48,
+          "pattern": "^dshr_[A-Za-z0-9_-]{43}$"
+        },
+        "refreshExpiresIn": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2592000
+        }
+      }
+    },
+    "requestId": {
+      "type": "string",
+      "description": "Server-generated req_ prefix followed by one canonical ULID.",
+      "pattern": "^req_[0-9A-HJKMNP-TV-Z]{26}$",
+      "examples": [
+        "req_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+      ]
+    }
+  }
+}

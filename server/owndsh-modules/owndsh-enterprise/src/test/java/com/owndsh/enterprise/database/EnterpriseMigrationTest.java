@@ -1,0 +1,544 @@
+/**
+ * [INPUT]: 依赖普通数据库所有者、空数据库、classpath V0-V29 migration 与旧版 baseline 0 历史。
+ * [OUTPUT]: 验证空库建表、旧库接管/升级、重复启动、字符串时间参数及数据库计量迁移约束。
+ * [POS]: database 的持续 migration 门禁，防止后续任务只验证最终 schema 而遗漏中间版本不可升级。
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+package com.owndsh.enterprise.database;
+
+import com.owndsh.enterprise.test.PostgresTestDatabase;
+import org.flywaydb.core.Flyway;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
+
+import javax.sql.DataSource;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+@Tag("dev")
+class EnterpriseMigrationTest {
+    @Test
+    void migratesAnEmptyDatabaseToLatestWithoutSuperuserPrivileges() {
+        var database = PostgresTestDatabase.create("empty_enterprise");
+        assertThat(database.jdbc().queryForObject(
+            "select count(*) from information_schema.tables where table_schema='public'", Integer.class
+        )).isZero();
+        assertThat(database.jdbc().queryForObject(
+            "select rolsuper from pg_roles where rolname=current_user", Boolean.class
+        )).isFalse();
+
+        Flyway flyway = PostgresTestDatabase.migrate(database, null);
+
+        assertThat(database.jdbc().queryForObject(
+            "select type from flyway_schema_history where version='0'", String.class
+        )).isEqualTo("SQL");
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("29");
+        Integer tableCount = database.jdbc().queryForObject("""
+            select count(*) from information_schema.tables
+            where table_schema = 'public' and table_name like 'ent_%'
+            """, Integer.class);
+        assertThat(tableCount).isEqualTo(27);
+        assertThat(database.jdbc().queryForObject(
+            "select policy_type from ent_quota_policy where tenant_id='000000'",
+            String.class
+        )).isEqualTo("RATE");
+        assertThat(database.jdbc().queryForObject(
+            "select revision from ent_platform_revision where tenant_id='000000' and scope='BOOTSTRAP'",
+            Long.class
+        )).isZero();
+        assertThat(database.jdbc().queryForObject(
+            "select type from ent_identity_source where tenant_id='000000'",
+            String.class
+        )).isEqualTo("LOCAL");
+        assertThat(database.jdbc().queryForObject(
+            "select provisioning_mode from ent_identity_source where tenant_id='000000'",
+            String.class
+        )).isEqualTo("LINK_ONLY");
+        assertThat(database.jdbc().queryForObject(
+            "select count(*) from sys_user where user_name in ('admin','test','test1')",
+            Integer.class
+        )).isZero();
+        assertThat(database.jdbc().queryForObject(
+            "select count(*) from sys_client where client_secret in ('pc123','app123')",
+            Integer.class
+        )).isZero();
+        assertThat(database.jdbc().queryForList("""
+            select menu_name from sys_menu
+            where parent_id=0 and visible='0' and status='0'
+            order by order_num, menu_id
+            """, String.class)).containsExactly("Agent 管控", "系统设置", "运行状态");
+        assertThat(database.jdbc().queryForList("""
+            select menu_name from sys_menu
+            where parent_id=1900400000000000000 and menu_type='C' and visible='0' and status='0'
+            order by order_num, menu_id
+            """, String.class)).containsExactly(
+                "模型与路由", "授权与配额", "身份接入", "客户端设备", "插件分发", "会话数据", "企业审计"
+            );
+        assertThat(database.jdbc().queryForObject("""
+            select count(*) from sys_menu
+            where menu_id in (
+                1761400000000000003, 1761400000000000004, 1761400000000000005,
+                1761400000000000006, 1761400000000000117, 1761400000000000120,
+                1761400000000000121
+            )
+            """, Integer.class)).isZero();
+        assertThat(database.jdbc().queryForObject("""
+            with recursive expected_menu(menu_id) as (
+                select menu_id from sys_menu
+                where menu_id in (1761400000000000001, 1761400000000000002) and status='0'
+                union
+                select child.menu_id from sys_menu child
+                join expected_menu parent on child.parent_id=parent.menu_id
+                where child.status='0'
+            )
+            select count(*) from expected_menu expected
+            left join sys_role_menu granted
+              on granted.role_id=1900300000000000001 and granted.menu_id=expected.menu_id
+            where granted.menu_id is null
+            """, Integer.class)).isZero();
+        assertThat(database.jdbc().queryForList("""
+            select role_id from sys_role_menu where menu_id=1900400000000001015 order by role_id
+            """, Long.class)).containsExactly(
+                1900300000000000001L,
+                1900300000000000002L,
+                1900300000000000003L
+            );
+        assertThat(database.jdbc().queryForObject("""
+            select count(*) from information_schema.columns
+            where table_name='sys_user' and column_name='revision'
+            """, Integer.class)).isOne();
+        assertThat(database.jdbc().queryForList("""
+            select role_id from sys_role_menu where menu_id=1900400000000001016 order by role_id
+            """, Long.class)).containsExactly(1900300000000000001L);
+    }
+
+    @Test
+    void repeatedMigrationPreservesSeedsAndSupportsTimestampParameters() {
+        var database = PostgresTestDatabase.create("repeat_migrate");
+        Flyway flyway = PostgresTestDatabase.migrate(database, null);
+        var history = database.jdbc().queryForList("select * from flyway_schema_history order by installed_rank");
+        database.jdbc().update("update sys_config set config_value='deployment-specific' where config_id=(select min(config_id) from sys_config)");
+
+        assertThat(flyway.migrate().migrationsExecuted).isZero();
+        assertThat(database.jdbc().queryForList("select * from flyway_schema_history order by installed_rank"))
+            .isEqualTo(history);
+        assertThat(database.jdbc().queryForObject(
+            "select config_value from sys_config order by config_id limit 1", String.class
+        )).isEqualTo("deployment-specific");
+        assertThat(database.jdbc().queryForObject(
+            "select timestamp '2026-09-10 12:00:00' between ? and ?", Boolean.class,
+            "2026-09-10 00:00:00", "2026-09-10 23:59:59"
+        )).isTrue();
+        assertThat(database.jdbc().queryForObject(
+            "select timestamptz '2026-09-10 12:00:00+08' between ? and ?", Boolean.class,
+            "2026-09-10 00:00:00+08", "2026-09-10 23:59:59+08"
+        )).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "28", "29"})
+    void adoptsLegacyHostSchemaAndPreservesExistingMigrationHistory(String oldVersion) {
+        var database = PostgresTestDatabase.create("legacy_baseline");
+        // ---------- 模拟旧版由 initdb 装载 Host，再由 Flyway 记录 baseline 0 ----------
+        new ResourceDatabasePopulator(new ClassPathResource("db/migration/V0__host_baseline.sql"))
+            .execute(database.dataSource());
+        if (!"0".equals(oldVersion)) PostgresTestDatabase.migrate(database, oldVersion);
+        database.jdbc().update("update sys_config set config_value='legacy-kept' where config_id=(select min(config_id) from sys_config)");
+        java.util.List<java.util.Map<String, Object>> history = "0".equals(oldVersion) ? java.util.List.of()
+            : database.jdbc().queryForList("select * from flyway_schema_history order by installed_rank");
+
+        Flyway flyway = PostgresTestDatabase.migrate(database, null);
+
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("29");
+        assertThat(database.jdbc().queryForObject(
+            "select type from flyway_schema_history where version='0'", String.class
+        )).isEqualTo("BASELINE");
+        assertThat(database.jdbc().queryForList("select * from flyway_schema_history order by installed_rank"))
+            .containsAll(history);
+        assertThat(database.jdbc().queryForObject(
+            "select config_value from sys_config order by config_id limit 1", String.class
+        )).isEqualTo("legacy-kept");
+        assertThat(flyway.migrate().migrationsExecuted).isZero();
+    }
+
+    @Test
+    void upgradesOneVersionAtATimeWithoutRebuildingTheDatabase() {
+        var database = PostgresTestDatabase.create("progressive_upgrade");
+        String[] expectedTables = {
+            "ent_usage_ledger",
+            "ent_plugin_assignment",
+            "ent_session_event",
+            "ent_audit_event",
+            "ent_platform_revision",
+            "ent_quota_runtime_config"
+        };
+
+        for (int version = 1; version <= 6; version++) {
+            Flyway flyway = PostgresTestDatabase.migrate(database, Integer.toString(version));
+            assertThat(flyway.info().current().getVersion().getVersion())
+                .as("Flyway current version")
+                .isEqualTo(Integer.toString(version));
+            assertThat(database.jdbc().queryForObject(
+                "select to_regclass(?) is not null",
+                Boolean.class,
+                expectedTables[version - 1]
+            )).isTrue();
+        }
+
+        Flyway versionSeven = PostgresTestDatabase.migrate(database, "7");
+        assertThat(versionSeven.info().current().getVersion().getVersion()).isEqualTo("7");
+        assertThat(database.jdbc().queryForObject(
+            "select count(*) from information_schema.columns where table_name='ent_device' "
+                + "and column_name in ('desired_revision','plugin_inventory_digest',"
+                + "'pending_session_events','last_successful_sync_at')",
+            Integer.class
+        )).isEqualTo(4);
+        assertThat(database.jdbc().queryForObject(
+            "select count(*) from information_schema.columns where table_name='ent_identity_source' "
+                + "and column_name in ('last_tested_at','last_test_ok','last_test_diagnostic')",
+            Integer.class
+        )).isEqualTo(3);
+
+        long userId = database.jdbc().queryForObject(
+            "select user_id from sys_user where del_flag='0' order by user_id limit 1", Long.class
+        );
+        database.jdbc().update("""
+            insert into ent_plugin_package(id,tenant_id,package_name,display_name,status,revision)
+            values (1913000000000000001,'000000','@test/migration','Migration','ACTIVE',0)
+            """);
+        database.jdbc().update("""
+            insert into ent_plugin_version(
+                id,tenant_id,package_id,version,artifact_ref,size_bytes,sha256,signature,
+                compatibility_json,status,created_by,revision
+            ) values (1913000000000000101,'000000',1913000000000000001,'1.0.0','sha256/aa/test.tgz',1,
+                repeat('a',64),decode(repeat('00',64),'hex'),'{}','PUBLISHED',?,0)
+            """, userId);
+        database.jdbc().update("""
+            insert into ent_plugin_assignment(
+                id,tenant_id,package_id,plugin_version_id,subject_type,subject_id,
+                desired_state,required,status,revision
+            ) values
+                (1913000000000000201,'000000',1913000000000000001,1913000000000000101,
+                 'ALL',null,'ACTIVE',true,'ACTIVE',0),
+                (1913000000000000202,'000000',1913000000000000001,1913000000000000101,
+                 'USER',?,'DISABLED',false,'ACTIVE',0)
+            """, userId);
+
+        Flyway versionEight = PostgresTestDatabase.migrate(database, "8");
+        assertThat(versionEight.info().current().getVersion().getVersion()).isEqualTo("8");
+        assertThat(database.jdbc().queryForList(
+            "select desired_state from ent_plugin_assignment order by id", String.class
+        )).containsExactly("INSTALLED", "ABSENT");
+        assertThatThrownBy(() -> database.jdbc().update(
+            "update ent_plugin_assignment set desired_state='ACTIVE' where id=1913000000000000201"
+        )).isInstanceOf(RuntimeException.class);
+
+        Flyway versionNine = PostgresTestDatabase.migrate(database, "9");
+        assertThat(versionNine.info().current().getVersion().getVersion()).isEqualTo("9");
+        database.jdbc().update("""
+            insert into ent_device(
+                id,tenant_id,user_id,installation_id,name,platform,status,last_seen_at,revision
+            ) values (1913000000000000301,'000000',?,'123e4567-e89b-42d3-a456-426614174016',
+                'Migration Device','darwin-arm64','ACTIVE',now(),0)
+            """, userId);
+        database.jdbc().update("""
+            insert into ent_session_replica(
+                id,tenant_id,session_id,owner_user_id,source_device_id,format_version,
+                content_key_version,header_ciphertext,header_nonce,last_seq,event_count,
+                rolling_hash,status,created_at,updated_at
+            ) values (1913000000000000401,'000000','migration-v0',?,1913000000000000301,
+                0,1,decode(repeat('00',16),'hex'),decode(repeat('00',12),'hex'),0,1,
+                decode(repeat('00',32),'hex'),'ACTIVE',now(),now())
+            """, userId);
+        assertThatThrownBy(() -> database.jdbc().update("""
+            update ent_session_replica set format_version=1 where id=1913000000000000401
+            """)).isInstanceOf(RuntimeException.class);
+
+        Flyway versionTen = PostgresTestDatabase.migrate(database, "10");
+        assertThat(versionTen.info().current().getVersion().getVersion()).isEqualTo("10");
+        assertThat(database.jdbc().queryForObject("""
+            select count(*) from pg_indexes
+             where tablename='ent_audit_event'
+               and indexname in ('ix_ent_audit_event_tenant_id','ix_ent_audit_event_tenant_retention')
+            """, Integer.class)).isEqualTo(2);
+
+        Flyway versionEleven = PostgresTestDatabase.migrate(database, "11");
+        assertThat(versionEleven.info().current().getVersion().getVersion()).isEqualTo("11");
+        assertThat(database.jdbc().queryForObject("""
+            select count(*) from information_schema.columns
+             where table_name='ent_device' and column_name='last_heartbeat_audit_at'
+            """, Integer.class)).isOne();
+
+        Flyway versionTwelve = PostgresTestDatabase.migrate(database, "12");
+        assertThat(versionTwelve.info().current().getVersion().getVersion()).isEqualTo("12");
+        assertThat(database.jdbc().queryForObject("""
+            select count(*) from information_schema.columns
+             where table_name='sys_user' and column_name='password_change_required'
+            """, Integer.class)).isOne();
+        assertThat(database.jdbc().queryForObject(
+            "select to_regclass('ent_deployment_state') is not null", Boolean.class
+        )).isTrue();
+        assertThat(database.jdbc().queryForObject(
+            "select count(*) from sys_user where user_id=? and status='1' and del_flag='2' "
+                + "and user_name=concat('retired_', user_id)",
+            Integer.class,
+            userId
+        )).isOne();
+        assertThat(database.jdbc().queryForObject(
+            "select count(*) from ent_device where id=1913000000000000301 and user_id=?",
+            Integer.class,
+            userId
+        )).isOne();
+
+        database.jdbc().update("""
+            insert into ent_model_provider(
+                id,tenant_id,name,provider_type,base_url,status,
+                connect_timeout_ms,read_timeout_ms,revision
+            ) values (1913000000000000501,'000000','Legacy Provider','DEEPSEEK_OPENAI',
+                'https://legacy.example/v1','ACTIVE',5000,30000,0)
+            """);
+        Flyway versionThirteen = PostgresTestDatabase.migrate(database, "13");
+        assertThat(versionThirteen.info().current().getVersion().getVersion()).isEqualTo("13");
+        assertThat(database.jdbc().queryForMap("""
+            select provider_key,provider_type,api_protocol,base_url
+            from ent_model_provider where id=1913000000000000501
+            """))
+            .containsEntry("provider_key", "provider-1913000000000000501")
+            .containsEntry("provider_type", "CUSTOM")
+            .containsEntry("api_protocol", "openai-completions")
+            .containsEntry("base_url", "https://legacy.example/v1");
+        assertThatThrownBy(() -> database.jdbc().update("""
+            insert into ent_model_provider(
+                id,tenant_id,provider_key,name,provider_type,api_protocol,base_url,status,
+                connect_timeout_ms,read_timeout_ms,revision
+            ) values (1913000000000000502,'000000','wrong-official','Invalid Official',
+                'DEEPSEEK_OFFICIAL','openai-completions','https://api.deepseek.com','ACTIVE',5000,30000,0)
+            """)).isInstanceOf(RuntimeException.class);
+
+        database.jdbc().update("""
+            insert into ent_managed_model(
+                id,tenant_id,provider_id,alias,display_name,upstream_model,context_window,
+                max_output_tokens,reasoning,sort_order,status,revision
+            ) values (1913000000000000601,'000000',1913000000000000501,'legacy-model','Legacy Model',
+                'legacy-model',65536,8192,true,10,'ACTIVE',0)
+            """);
+        database.jdbc().update("""
+            insert into ent_audit_event(
+                id,tenant_id,occurred_at,actor_type,actor_id,action,resource_type,resource_id,
+                result,request_id,metadata_json
+            ) values (1913000000000000701,'000000',now(),'USER',?,
+                'MODEL_CHANGED','MANAGED_MODEL','1913000000000000601','SUCCESS','req_migration_model',
+                '{"operation":"CREATE","reasoning":true,"resourceRevision":0,"bootstrapRevision":0}')
+            """, userId);
+        Flyway versionFourteen = PostgresTestDatabase.migrate(database, "14");
+        assertThat(versionFourteen.info().current().getVersion().getVersion()).isEqualTo("14");
+        assertThat(database.jdbc().queryForObject("""
+            select count(*) from information_schema.columns
+            where table_name='ent_managed_model' and column_name='reasoning'
+            """, Integer.class)).isZero();
+        assertThat(database.jdbc().queryForObject("""
+            select metadata_json ? 'reasoning' from ent_audit_event where id=1913000000000000701
+            """, Boolean.class)).isTrue();
+        database.jdbc().update("""
+            insert into ent_managed_model(
+                id,tenant_id,provider_id,alias,upstream_model,sort_order,status,revision
+            ) values (1913000000000000602,'000000',1913000000000000501,'harness-defaults',
+                'harness-defaults',20,'ACTIVE',0)
+            """);
+        assertThat(database.jdbc().queryForMap("""
+            select display_name,context_window,max_output_tokens
+            from ent_managed_model where id=1913000000000000602
+            """)).containsValues(null, null, null);
+        database.jdbc().update("""
+            insert into ent_model_provider(
+                id,tenant_id,provider_key,name,provider_type,api_protocol,base_url,status,
+                connect_timeout_ms,read_timeout_ms,revision
+            ) values
+                (1913000000000000503,'000000','responses-gateway','Responses Gateway',
+                 'CUSTOM','openai-responses','https://responses.example/v1','ACTIVE',5000,30000,0),
+                (1913000000000000504,'000000','anthropic-gateway','Anthropic Gateway',
+                 'CUSTOM','anthropic-messages','https://anthropic.example/v1','ACTIVE',5000,30000,0)
+            """);
+        assertThat(database.jdbc().queryForList("""
+            select api_protocol from ent_model_provider
+            where id in (1913000000000000503,1913000000000000504) order by id
+            """, String.class)).containsExactly("openai-responses", "anthropic-messages");
+        assertThatThrownBy(() -> database.jdbc().update("""
+            insert into ent_model_provider(
+                id,tenant_id,provider_key,name,provider_type,api_protocol,base_url,status,
+                connect_timeout_ms,read_timeout_ms,revision
+            ) values (1913000000000000505,'000000','deepseek-official','Invalid Official Protocol',
+                'DEEPSEEK_OFFICIAL','openai-responses','https://api.deepseek.com','ACTIVE',5000,30000,0)
+            """)).isInstanceOf(RuntimeException.class);
+        Flyway versionFifteen = PostgresTestDatabase.migrate(database, "15");
+        assertThat(versionFifteen.info().current().getVersion().getVersion()).isEqualTo("15");
+        database.jdbc().update("""
+            update ent_managed_model
+            set reasoning_efforts='{"off":null,"high":"high","max":"max"}'::jsonb,
+                reasoning_compat='{"thinkingFormat":"deepseek","supportsReasoningEffort":true}'::jsonb
+            where id=1913000000000000602
+            """);
+        assertThat(database.jdbc().queryForMap("""
+            select reasoning_efforts->>'high' as high,
+                   reasoning_compat->>'thinkingFormat' as format
+            from ent_managed_model where id=1913000000000000602
+            """)).containsEntry("high", "high").containsEntry("format", "deepseek");
+        assertThatThrownBy(() -> database.jdbc().update("""
+            update ent_managed_model set reasoning_efforts='{}'::jsonb
+            where id=1913000000000000602
+            """)).isInstanceOf(RuntimeException.class);
+        Flyway versionSixteen = PostgresTestDatabase.migrate(database, "16");
+        assertThat(versionSixteen.info().current().getVersion().getVersion()).isEqualTo("16");
+        assertThat(database.jdbc().queryForObject(
+            "select menu_name from sys_menu where menu_id=1900400000000000000",
+            String.class
+        )).isEqualTo("Agent 管控");
+        Flyway versionSeventeen = PostgresTestDatabase.migrate(database, "17");
+        assertThat(versionSeventeen.info().current().getVersion().getVersion()).isEqualTo("17");
+        assertThat(database.jdbc().queryForObject("""
+            select count(*) from sys_role_menu
+            where role_id=1900300000000000001
+              and menu_id in (1761400000000000001,1761400000000000002)
+            """, Integer.class)).isEqualTo(2);
+
+        long departmentId = database.jdbc().queryForObject(
+            "select dept_id from sys_user where user_id=?", Long.class, userId
+        );
+        database.jdbc().update("""
+            insert into ent_model_grant(
+                id,tenant_id,model_id,subject_type,subject_id,is_default,status,revision
+            ) values
+                (1913000000000000801,'000000',1913000000000000601,'USER',?,false,'ACTIVE',0),
+                (1913000000000000802,'000000',1913000000000000601,'DEPT',?,true,'ACTIVE',0)
+            """, userId, departmentId);
+        database.jdbc().update("""
+            insert into ent_quota_policy(
+                id,tenant_id,name,subject_type,subject_id,daily_token_limit,status,revision
+            ) values
+                (1913000000000000811,'000000','Migration Member','USER',?,1000,'ACTIVE',0),
+                (1913000000000000812,'000000','Migration Department','DEPT',?,1000,'ACTIVE',0)
+            """, userId, departmentId);
+        database.jdbc().update("""
+            insert into ent_quota_window(
+                id,tenant_id,policy_id,window_type,window_start,used_tokens,reserved_tokens,revision
+            ) values (1913000000000000821,'000000',1913000000000000812,'DAY',now(),0,10,0)
+            """);
+        database.jdbc().update("""
+            insert into ent_usage_reservation(
+                id,tenant_id,user_id,device_id,model_id,idempotency_key,request_id,state,
+                estimated_tokens,reserved_windows_json,expires_at
+            ) values (
+                '123e4567-e89b-42d3-a456-426614174081','000000',?,1913000000000000301,
+                1913000000000000601,'123e4567-e89b-42d3-a456-426614174082',
+                'req_migration_quota','RESERVED',10,
+                '[{"windowId":1913000000000000821,"policyId":1913000000000000812,
+                  "windowType":"DAY","reservedTokens":10}]',now() + interval '15 minutes'
+            )
+            """, userId);
+
+        Flyway latest = PostgresTestDatabase.migrate(database, "18");
+        assertThat(latest.info().current().getVersion().getVersion()).isEqualTo("18");
+        assertThat(database.jdbc().queryForList(
+            "select subject_type from ent_model_grant order by id", String.class
+        )).containsExactly("MEMBER");
+        assertThat(database.jdbc().queryForObject("""
+            select count(*) from information_schema.columns
+            where table_name='ent_model_grant' and column_name='is_default'
+            """, Integer.class)).isZero();
+        assertThat(database.jdbc().queryForList(
+            "select subject_type from ent_quota_policy order by id", String.class
+        )).containsExactly("ORGANIZATION", "MEMBER");
+        assertThat(database.jdbc().queryForObject(
+            "select count(*) from ent_quota_window where id=1913000000000000821", Integer.class
+        )).isZero();
+        assertThat(database.jdbc().queryForObject("""
+            select reserved_windows_json = '[]'::jsonb
+            from ent_usage_reservation where id='123e4567-e89b-42d3-a456-426614174081'
+            """, Boolean.class)).isTrue();
+
+        Flyway versionTwentyFive = PostgresTestDatabase.migrate(database, "25");
+        assertThat(versionTwentyFive.info().current().getVersion().getVersion()).isEqualTo("25");
+        Flyway versionTwentySix = PostgresTestDatabase.migrate(database, "26");
+        assertThat(versionTwentySix.info().current().getVersion().getVersion()).isEqualTo("26");
+        database.jdbc().update("""
+            insert into ent_quota_policy(
+                id,tenant_id,name,policy_type,subject_type,subject_id,resource_type,resource_id,rpm,status
+            ) values (1913000000000000831,'000000','Provider Rate','RATE','ORGANIZATION',null,
+                'PROVIDER',1913000000000000501,5,'ACTIVE')
+            """);
+        assertThatThrownBy(() -> database.jdbc().update("""
+            update ent_quota_policy set subject_type='MEMBER', subject_id=?
+            where id=1913000000000000831
+            """, userId)).isInstanceOf(RuntimeException.class);
+        Flyway versionTwentySeven = PostgresTestDatabase.migrate(database, "27");
+        assertThat(versionTwentySeven.info().current().getVersion().getVersion()).isEqualTo("27");
+        assertThatThrownBy(() -> database.jdbc().update("""
+            insert into ent_quota_policy(
+                id,tenant_id,name,policy_type,subject_type,subject_id,resource_type,resource_id,concurrency,status
+            ) values (1913000000000000832,'000000','Duplicate Provider Rate','RATE','ORGANIZATION',null,
+                'PROVIDER',1913000000000000501,2,'ACTIVE')
+            """)).isInstanceOf(RuntimeException.class);
+        Flyway versionTwentyEight = PostgresTestDatabase.migrate(database, "28");
+        assertThat(versionTwentyEight.info().current().getVersion().getVersion()).isEqualTo("28");
+        assertThat(database.jdbc().queryForObject(
+            "select to_regclass('ent_refresh_session') is not null", Boolean.class
+        )).isTrue();
+        for (String result : new String[]{"SETTLED", "CHARGED_MAX"}) {
+            java.util.UUID reservation = java.util.UUID.randomUUID();
+            boolean measured = "SETTLED".equals(result);
+            database.jdbc().update("""
+                insert into ent_usage_reservation(id,tenant_id,user_id,device_id,model_id,idempotency_key,
+                    request_id,state,estimated_tokens,reserved_windows_json,expires_at)
+                values (?,'000000',?,1913000000000000301,1913000000000000601,?,?,?,640,'[]',now())
+                """, reservation, userId, reservation.toString(), "migration-usage-" + result, result);
+            database.jdbc().update("""
+                insert into ent_usage_ledger(id,tenant_id,reservation_id,user_id,model_id,request_id,
+                    input_tokens,output_tokens,cache_tokens,total_tokens,result)
+                values (?,'000000',?,?,1913000000000000601,?,?,?,0,?,?)
+                """, measured ? 1913000000000000901L : 1913000000000000902L,
+                reservation, userId, "migration-usage-" + result, measured ? 10 : 0,
+                measured ? 5 : 640, measured ? 15 : 640, result);
+        }
+        Flyway versionTwentyNine = PostgresTestDatabase.migrate(database, "29");
+        assertThat(versionTwentyNine.info().current().getVersion().getVersion()).isEqualTo("29");
+        assertThat(database.jdbc().queryForMap("""
+            select input_tokens,output_tokens,total_tokens,charged_tokens from ent_usage_ledger
+             where request_id='migration-usage-CHARGED_MAX'
+            """)).containsEntry("input_tokens", 0L).containsEntry("output_tokens", 0L)
+            .containsEntry("total_tokens", 0L).containsEntry("charged_tokens", 640L);
+        assertThat(database.jdbc().queryForMap("""
+            select input_tokens,output_tokens,total_tokens,charged_tokens from ent_usage_ledger
+             where request_id='migration-usage-SETTLED'
+            """)).containsEntry("input_tokens", 10L).containsEntry("output_tokens", 5L)
+            .containsEntry("total_tokens", 15L).containsEntry("charged_tokens", 15L);
+        assertThatThrownBy(() -> database.jdbc().update("""
+            update ent_usage_reservation set usage_input_tokens=1 where request_id='migration-usage-SETTLED'
+            """)).isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    void springBootAutoConfigurationMigratesTheApplicationDataSource() {
+        var database = PostgresTestDatabase.create("boot_auto_migrate");
+
+        new ApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(FlywayAutoConfiguration.class))
+            .withBean(DataSource.class, database::dataSource)
+            .withPropertyValues(
+                "spring.flyway.baseline-on-migrate=true",
+                "spring.flyway.baseline-version=0"
+            )
+            .run(context -> {
+                assertThat(context).hasSingleBean(Flyway.class);
+                assertThat(context.getBean(Flyway.class).info().current().getVersion().getVersion())
+                    .isEqualTo("29");
+            });
+    }
+}

@@ -1,0 +1,177 @@
+#!/bin/sh
+# [INPUT]: 依赖 POSIX shell、SHA-256 工具、Docker Compose v2、runtime.env、release manifest 与安装 key 文件（签名私钥可选）。
+# [OUTPUT]: 提供校验、锁、健康等待、备份 key 清单与指纹，并把离线安装 key 临时注入 Compose 环境变量。
+# [POS]: deploy/scripts 的共享机制层；业务脚本决定事务顺序，secret 只进入 Compose 子进程且不写普通 runtime.env。
+# [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+
+set -eu
+
+fail() {
+  printf '%s\n' "错误: $*" >&2
+  exit 1
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1 || fail "缺少命令: $1"
+}
+
+sha256_command() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    printf '%s\n' sha256sum
+  elif command -v shasum >/dev/null 2>&1; then
+    printf '%s\n' shasum
+  else
+    fail "缺少 SHA-256 工具: sha256sum 或 shasum"
+  fi
+}
+
+require_sha256() {
+  sha256_command >/dev/null
+}
+
+sha256sum_compat() {
+  case "$(sha256_command)" in
+    sha256sum) sha256sum "$@" ;;
+    shasum) LC_ALL=C LANG=C shasum -a 256 "$@" ;;
+  esac
+}
+
+require_file() {
+  [ -f "$1" ] || fail "缺少文件: $1"
+}
+
+require_single_line() {
+  case "$1" in
+    *'
+'*) fail "$2不能包含换行" ;;
+  esac
+}
+
+require_safe_path() {
+  case "$1" in
+    /*) ;;
+    *) fail "状态目录必须是绝对路径: $1" ;;
+  esac
+  case "$1" in
+    *[!A-Za-z0-9_./-]*) fail "状态目录只允许 ASCII 路径字符: $1" ;;
+  esac
+}
+
+env_value() {
+  key=$1
+  file=$2
+  sed -n "s/^${key}=//p" "$file" | tail -n 1
+}
+
+replace_env() {
+  key=$1
+  value=$2
+  file=$3
+  require_single_line "$value" "环境值"
+  temporary="${file}.tmp.$$"
+  awk -F= -v wanted="$key" '$1 != wanted { print }' "$file" > "$temporary"
+  printf '%s=%s\n' "$key" "$value" >> "$temporary"
+  chmod 600 "$temporary"
+  mv "$temporary" "$file"
+}
+
+release_root_for_script() {
+  script_directory=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+  CDPATH= cd -- "$script_directory/.." && pwd
+}
+
+verify_release() {
+  release_root=$1
+  require_file "$release_root/manifest.env"
+  require_file "$release_root/SHA256SUMS"
+  require_sha256
+  (
+    cd "$release_root"
+    sha256sum_compat -c SHA256SUMS >/dev/null
+  ) || fail "release 校验和不匹配"
+}
+
+runtime_file() {
+  printf '%s/runtime.env\n' "$OWNDSH_STATE_DIR"
+}
+
+compose_file() {
+  runtime=$(runtime_file)
+  release=$(env_value OWNDSH_RELEASE_VERSION "$runtime")
+  [ -n "$release" ] || fail "runtime.env 缺少 OWNDSH_RELEASE_VERSION"
+  printf '%s/releases/%s/compose/compose.yml\n' "$OWNDSH_STATE_DIR" "$release"
+}
+
+compose() {
+  runtime=$(runtime_file)
+  plugin_signing_key=
+  if [ -f "$OWNDSH_STATE_DIR/secrets/plugin_signing_private_key" ]; then
+    plugin_signing_key=$(cat "$OWNDSH_STATE_DIR/secrets/plugin_signing_private_key")
+  fi
+  ENT_POSTGRES_PASSWORD="$(cat "$OWNDSH_STATE_DIR/secrets/postgres_password")" \
+  ENT_REDIS_PASSWORD="$(cat "$OWNDSH_STATE_DIR/secrets/redis_password")" \
+  SA_TOKEN_JWT_SECRET_KEY="$(cat "$OWNDSH_STATE_DIR/secrets/sa_token_jwt_secret_key")" \
+  ENT_MASTER_KEY="$(cat "$OWNDSH_STATE_DIR/secrets/enterprise_master_key")" \
+  ENT_PLUGIN_SIGNING_PRIVATE_KEY="$plugin_signing_key" \
+    docker compose --env-file "$runtime" -f "$(compose_file)" "$@"
+}
+
+acquire_operation_lock() {
+  lock_directory="$OWNDSH_STATE_DIR/.operation.lock"
+  mkdir "$lock_directory" 2>/dev/null || fail "另一个部署操作正在执行"
+  trap 'rmdir "$lock_directory" 2>/dev/null || true' EXIT HUP INT TERM
+}
+
+wait_healthy() {
+  service=$1
+  attempts=${2:-60}
+  count=0
+  while [ "$count" -lt "$attempts" ]; do
+    container=$(compose ps -q "$service")
+    if [ -n "$container" ]; then
+      status=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container")
+      [ "$status" = healthy ] && return 0
+      [ "$status" = exited ] && break
+    fi
+    count=$((count + 1))
+    sleep 2
+  done
+  compose ps >&2 || true
+  compose logs --tail 120 "$service" >&2 || true
+  fail "$service 未在时限内健康"
+}
+
+load_image_archive() {
+  archive=$1
+  require_file "$archive"
+  gzip -dc "$archive" | docker image load >/dev/null
+}
+
+volume_for() {
+  service=$1
+  destination=$2
+  container=$(compose ps -aq "$service")
+  [ -n "$container" ] || fail "找不到 $service 容器"
+  docker inspect --format "{{range .Mounts}}{{if eq .Destination \"$destination\"}}{{.Name}}{{end}}{{end}}" "$container"
+}
+
+backup_key_files() {
+  if [ "$(env_value ENT_PLUGIN_SIGNING_ENABLED "$(runtime_file)")" = true ]; then
+    require_file "$OWNDSH_STATE_DIR/secrets/plugin_signing_private_key"
+  fi
+  require_file "$OWNDSH_STATE_DIR/secrets/enterprise_master_key"
+  printf '%s\n' enterprise_master_key
+  for signing_file in plugin_signing_private_key plugin_signing_public_key; do
+    if [ -f "$OWNDSH_STATE_DIR/secrets/$signing_file" ]; then
+      printf '%s\n' "$signing_file"
+    fi
+  done
+}
+
+key_fingerprint() {
+  key_files=$(backup_key_files) || return
+  (
+    cd "$OWNDSH_STATE_DIR/secrets"
+    sha256sum_compat $key_files
+  ) | sha256sum_compat | awk '{print $1}'
+}

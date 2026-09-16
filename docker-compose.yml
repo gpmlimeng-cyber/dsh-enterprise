@@ -1,0 +1,7 @@
+# [INPUT]: 依赖 deploy/compose/compose.yml 的生产拓扑，以及项目根目录 .env（由 scripts/gen-secrets.sh 或运维分发）。
+# [OUTPUT]: 提供仓库根目录的 Docker Compose 薄入口；密钥与口令一律来自 .env / shell，不再注入 .env.example。
+# [POS]: 源码部署用户的默认入口；本地起栈前先 `cp .env.example .env && sh scripts/gen-secrets.sh` 并填写 DB/Redis 口令。
+# [PROTOCOL]: 变更时更新此头部，然后检查 FORK.md §5
+
+include:
+  - path: ./deploy/compose/compose.yml
