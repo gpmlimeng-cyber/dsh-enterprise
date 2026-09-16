@@ -192,7 +192,7 @@ function LoginPage() {
         <div aria-hidden className="login-brand-grid pointer-events-none absolute inset-0" />
         <div className="relative z-10 flex items-center gap-2 text-[15px] font-semibold">
           <img src="/dshent-whale.png" alt="" className="size-[22px] rounded-[6px] object-cover ring-1 ring-white/10" />
-          DSH Enterprise
+          DSH企业版
         </div>
         <div className="relative z-10 my-auto max-w-[560px]">
           <h2 className="text-balance text-[34px] font-semibold leading-[1.18]">
@@ -207,7 +207,7 @@ function LoginPage() {
           </div>
         </div>
         <div className="relative z-10 text-white/55">
-          <p className="text-[13px] font-medium">DSH Enterprise Console</p>
+          <p className="text-[13px] font-medium">DSH企业版 Console</p>
           <p className="mt-1 text-[16px] font-medium text-white/75">企业工作区</p>
         </div>
       </section>
@@ -217,7 +217,7 @@ function LoginPage() {
         <div className="flex w-full max-w-[410px] flex-col">
           <div className="mb-8 flex items-center justify-center gap-2 text-[14px] font-semibold lg:hidden">
             <img src="/dshent-whale.png" alt="" className="size-5 rounded-[6px] object-cover" />
-            DSH Enterprise
+            DSH企业版
           </div>
           <div className="text-center">
             <img src="/dshent-whale.png" alt="" className="mx-auto size-11 rounded-[10px] object-cover shadow-btn" />

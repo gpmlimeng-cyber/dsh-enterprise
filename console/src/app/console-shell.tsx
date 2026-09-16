@@ -81,7 +81,7 @@ export function ConsoleShell() {
       primaryAction={null}
       workspace={{
         key: 'enterprise',
-        name: 'DSH Enterprise',
+        name: 'DSH企业版',
         monogram: 'D',
         icon: <img src="/dshent-whale.png" alt="" className="size-full object-cover" />
       }}

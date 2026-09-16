@@ -88,7 +88,7 @@ function mockApi(role: AuthBuiltInRole, logoutStatus = 200, permissions: string[
           },
           roles: [role],
           permissions,
-          deployment: { name: 'DSH Enterprise' }
+          deployment: { name: 'DSH企业版' }
         },
         requestId: 'req_test'
       });
@@ -1211,7 +1211,7 @@ describe('product console session', () => {
     expect(await screen.findByRole('heading', { name: '模型' })).toBeTruthy();
 
     expect(document.querySelector('img[src="/dshent-whale.png"]')).toBeTruthy();
-    fireEvent.click((await screen.findAllByRole('button', { name: 'DSH Enterprise' }))[0]!);
+    fireEvent.click((await screen.findAllByRole('button', { name: 'DSH企业版' }))[0]!);
     const menu = document.querySelector('[data-workspace-menu]')!;
     const buttons = menu.querySelectorAll('button');
     expect(buttons.item(buttons.length - 2).textContent).toContain('用户中心');
@@ -1243,7 +1243,7 @@ describe('product console session', () => {
     renderRoute('/', 'enterprise_admin');
     expect(await screen.findByRole('heading', { name: '模型' })).toBeTruthy();
 
-    fireEvent.click((await screen.findAllByRole('button', { name: 'DSH Enterprise' }))[0]!);
+    fireEvent.click((await screen.findAllByRole('button', { name: 'DSH企业版' }))[0]!);
     const menu = document.querySelector('[data-workspace-menu]')!;
     const buttons = menu.querySelectorAll('button');
     expect(buttons.item(buttons.length - 1).textContent).toContain('Sign out');
@@ -1255,7 +1255,7 @@ describe('product console session', () => {
   it('keeps the current page when the current password is rejected', async () => {
     renderRoute('/', 'enterprise_admin');
     expect(await screen.findByRole('heading', { name: '模型' })).toBeTruthy();
-    fireEvent.click((await screen.findAllByRole('button', { name: 'DSH Enterprise' }))[0]!);
+    fireEvent.click((await screen.findAllByRole('button', { name: 'DSH企业版' }))[0]!);
     fireEvent.click(screen.getByRole('button', { name: '用户中心' }));
 
     expect(await screen.findByRole('heading', { name: '用户中心' })).toBeTruthy();
@@ -1273,7 +1273,7 @@ describe('product console session', () => {
   it('keeps the console when Server logout fails', async () => {
     renderRoute('/', 'enterprise_admin', 500);
     expect(await screen.findByRole('heading', { name: '模型' })).toBeTruthy();
-    fireEvent.click((await screen.findAllByRole('button', { name: 'DSH Enterprise' }))[0]!);
+    fireEvent.click((await screen.findAllByRole('button', { name: 'DSH企业版' }))[0]!);
     fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
 
     expect((await screen.findByRole('alert')).textContent).toContain('会话仍然有效');
