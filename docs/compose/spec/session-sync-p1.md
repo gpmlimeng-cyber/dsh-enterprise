@@ -1,14 +1,20 @@
 ---
 feature: session-sync-p1
-status: designed
+status: delivered
 updated: 2026-09-16
 branch: feat/session-sync-p1
-commits: 
+commits: 4f6d251..9437f40f01b86a5bbb79fd266508a6a5379bfba2
 ---
 
 # Session 同步 P1：bootstrap sessionPolicy 可配置
 
 ## Report
+
+**What was built** — bootstrap 的 sessionPolicy 不再写死 false/90/1MiB：配置键 enterprise.session.enabled（默认 false）与既有 retentionDays/maxBatchBytes 一并进入 BootstrapView。BootstrapController 每请求注入 EnterpriseSessionProperties。部署显式 enabled=true 时客户端才宣告旁路可用；V1 默认行为不变。
+
+**Verification** — EnterpriseSessionPropertiesTest + BootstrapViewSessionPolicyTest：5/5 PASS；T08ApiContractTest：6/6 PASS（默认 enabled:false 契约保持）。命令在 Feature 分支 server/ 下用 Maven 定向测试执行。
+
+**Journey log** — ① surefire 默认跳过，需显式关 skip；② EnterpriseDevice.installationId 是 UUID；③ standalone MockMvc 的 BootstrapController 需补第三参 properties。
 
 ## [S1] Problem
 
@@ -55,8 +61,8 @@ commits:
 
 ## Tasks
 
-- [ ] T1: EnterpriseSessionProperties 增加 enabled 默认 false — acceptance: 单测断言默认 false 与既有 1MiB/90 默认不变 (covers: S2.1, S2.4)
-- [ ] T2: BootstrapView 使用注入的 SessionPolicy — acceptance: 源码无 `new SessionPolicy(false, 90` 字面量；单测覆盖 true/false (covers: S2.2; depends: T1)
-- [ ] T3: BootstrapController 注入 properties 并转发 — acceptance: 控制器编译通过并调用新 from 签名 (covers: S2.2; depends: T2)
-- [ ] T4: 文档头与 session CLAUDE/README 一句 enabled 说明 — acceptance: 文档记载默认关闭与配置键 (covers: S2.2)
-- [ ] T5: 编译与定向测试 — acceptance: `./mvnw -pl owndsh-modules/owndsh-enterprise -am test -Dtest='EnterpriseSessionPropertiesTest,BootstrapView*,T08*'` 记录 PASS/FAIL (covers: S2.4)
+- [x] T1: EnterpriseSessionProperties 增加 enabled 默认 false — acceptance: 单测断言默认 false 与既有 1MiB/90 默认不变 (covers: S2.1, S2.4)
+- [x] T2: BootstrapView 使用注入的 SessionPolicy — acceptance: 源码无 `new SessionPolicy(false, 90` 字面量；单测覆盖 true/false (covers: S2.2; depends: T1)
+- [x] T3: BootstrapController 注入 properties 并转发 — acceptance: 控制器编译通过并调用新 from 签名 (covers: S2.2; depends: T2)
+- [x] T4: 文档头与 session CLAUDE/README 一句 enabled 说明 — acceptance: 文档记载默认关闭与配置键 (covers: S2.2)
+- [x] T5: 编译与定向测试 — acceptance: `./mvnw -pl owndsh-modules/owndsh-enterprise -am test -Dtest='EnterpriseSessionPropertiesTest,BootstrapView*,T08*'` 记录 PASS/FAIL (covers: S2.4)
