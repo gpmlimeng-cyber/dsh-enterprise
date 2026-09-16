@@ -8,7 +8,7 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { ManagedPluginState } from '@owndsh/contracts'
+import type { ManagedPluginState } from '@dshent/contracts'
 import { PluginDistributionError } from './errors.js'
 import type { ManagedPluginRecord, ManagedPluginsFile } from './types.js'
 

@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 接收协议固定的 client_id，并依赖部署配置的管理端精确 redirect URI。
- * [OUTPUT]: 对外提供 dsh-desktop/enterprise-admin 参数集合、redirect allowlist 与终端类型不变量。
- * [POS]: auth 领域的固定 public client 真源，拒绝动态注册和两类客户端参数混用。
+ * [OUTPUT]: 对外提供 dsh-desktop/enterprise-admin/ent-admin-cli 参数集合、redirect allowlist 与终端类型不变量。
+ * [POS]: auth 领域的固定 public client 真源，拒绝动态注册和三类客户端参数混用。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 package com.owndsh.enterprise.auth.domain;
@@ -15,7 +15,8 @@ import java.util.UUID;
  */
 public enum PlatformClient {
     DSH_DESKTOP("dsh-desktop", "harness"),
-    ENTERPRISE_ADMIN("enterprise-admin", "console");
+    ENTERPRISE_ADMIN("enterprise-admin", "console"),
+    ENT_ADMIN_CLI("ent-admin-cli", "admin-cli");
 
     private final String clientId;
     private final String deviceType;
@@ -43,9 +44,9 @@ public enum PlatformClient {
     public void validate(URI redirectUri, UUID installationId, URI adminRedirectUri) {
         Objects.requireNonNull(redirectUri, "redirectUri");
         switch (this) {
-            case DSH_DESKTOP -> {
+            case DSH_DESKTOP, ENT_ADMIN_CLI -> {
                 if (installationId == null || installationId.version() != 4 || !isLoopbackCallback(redirectUri)) {
-                    throw new IllegalArgumentException("dsh-desktop 参数非法");
+                    throw new IllegalArgumentException(clientId + " 参数非法");
                 }
             }
             case ENTERPRISE_ADMIN -> {

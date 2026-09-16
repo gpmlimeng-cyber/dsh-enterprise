@@ -12,7 +12,7 @@ import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import type { CredentialKey, CredentialProvider, CredentialRecord } from '@deepseek-ai/dsh-credentials'
 import { SettingsProvider, type SettingsNamespace } from '@deepseek-ai/dsh-settings'
-import type { TokenResponse } from '@owndsh/contracts'
+import type { TokenResponse } from '@dshent/contracts'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   EnterprisePlatformError,

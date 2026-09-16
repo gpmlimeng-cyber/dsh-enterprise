@@ -29,7 +29,8 @@
               "type": "string",
               "enum": [
                 "dsh-desktop",
-                "enterprise-admin"
+                "enterprise-admin",
+                "ent-admin-cli"
               ]
             }
           },
@@ -2397,7 +2398,8 @@
                         "type": "string",
                         "enum": [
                           "dsh-desktop",
-                          "enterprise-admin"
+                          "enterprise-admin",
+                          "ent-admin-cli"
                         ]
                       },
                       "redirectUri": {
@@ -2443,7 +2445,10 @@
                       },
                       "clientId": {
                         "type": "string",
-                        "const": "dsh-desktop"
+                        "enum": [
+                          "dsh-desktop",
+                          "ent-admin-cli"
+                        ]
                       },
                       "installationId": {
                         "type": "string",
@@ -2502,7 +2507,8 @@
                           "type": "string",
                           "enum": [
                             "dsh-desktop",
-                            "enterprise-admin"
+                            "enterprise-admin",
+                            "ent-admin-cli"
                           ]
                         },
                         "refreshToken": {
@@ -93512,7 +93518,8 @@
           "type": "string",
           "enum": [
             "dsh-desktop",
-            "enterprise-admin"
+            "enterprise-admin",
+            "ent-admin-cli"
           ]
         }
       },
@@ -98811,7 +98818,8 @@
         "type": "string",
         "enum": [
           "dsh-desktop",
-          "enterprise-admin"
+          "enterprise-admin",
+          "ent-admin-cli"
         ]
       },
       "AuthTransactionId": {
@@ -99402,7 +99410,8 @@
                 "type": "string",
                 "enum": [
                   "dsh-desktop",
-                  "enterprise-admin"
+                  "enterprise-admin",
+                  "ent-admin-cli"
                 ]
               },
               "redirectUri": {
@@ -99448,7 +99457,10 @@
               },
               "clientId": {
                 "type": "string",
-                "const": "dsh-desktop"
+                "enum": [
+                  "dsh-desktop",
+                  "ent-admin-cli"
+                ]
               },
               "installationId": {
                 "type": "string",
@@ -99520,7 +99532,8 @@
             "type": "string",
             "enum": [
               "dsh-desktop",
-              "enterprise-admin"
+              "enterprise-admin",
+              "ent-admin-cli"
             ]
           },
           "refreshToken": {
@@ -99574,7 +99587,8 @@
                 "type": "string",
                 "enum": [
                   "dsh-desktop",
-                  "enterprise-admin"
+                  "enterprise-admin",
+                  "ent-admin-cli"
                 ]
               },
               "refreshToken": {

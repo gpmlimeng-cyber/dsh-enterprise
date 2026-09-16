@@ -40,8 +40,8 @@ payload, and ciphertext; only the content operation can project decrypted bytes.
 
 ```sh
 cd plugin
-pnpm --filter @owndsh/contracts generate
-pnpm --filter @owndsh/contracts check:generated
+pnpm --filter @dshent/contracts generate
+pnpm --filter @dshent/contracts check:generated
 ```
 
 Both TypeScript and Java tests load the same fixture list declared by the

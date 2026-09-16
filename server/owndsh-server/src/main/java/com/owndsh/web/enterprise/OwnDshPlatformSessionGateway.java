@@ -108,7 +108,8 @@ public final class OwnDshPlatformSessionGateway implements PlatformSessionGatewa
     public void logoutCurrent() {
         if (StpUtil.isLogin()) {
             PlatformSession session = current();
-            if (session.client() == PlatformClient.DSH_DESKTOP) {
+            if (session.client() == PlatformClient.DSH_DESKTOP
+                || session.client() == PlatformClient.ENT_ADMIN_CLI) {
                 refreshSessions.revokeInstallation(
                     properties.getTenantId(), session.userId(), session.client(),
                     UUID.fromString(session.deviceId()), RefreshSession.RevocationReason.LOGOUT, Instant.now()

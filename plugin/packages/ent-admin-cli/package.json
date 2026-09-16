@@ -1,0 +1,24 @@
+{
+  "name": "@dshent/ent-admin-cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "dsh-ent-admin": "./lib/cli.js"
+  },
+  "main": "lib/cli.js",
+  "files": ["lib", "README.md"],
+  "scripts": {
+    "build": "pnpm --filter @dshent/ent-admin-cli^... run build && tsc -p tsconfig.json",
+    "typecheck": "pnpm --filter @dshent/ent-admin-cli^... run build && tsc -p tsconfig.json --noEmit",
+    "test": "vitest run tests"
+  },
+  "dependencies": {
+    "@dshent/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.0",
+    "typescript": "6.0.3",
+    "vitest": "4.1.8"
+  }
+}

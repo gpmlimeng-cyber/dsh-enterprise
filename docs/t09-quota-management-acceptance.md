@@ -96,8 +96,8 @@ OpenLDAP、WireMock、身份、PKCE、设备、模型、revision、审计和配�
 跨端协议与插件 workspace 门禁：
 
 ```sh
-pnpm --filter @owndsh/contracts generate
-pnpm --filter @owndsh/contracts check:generated
+pnpm --filter @dshent/contracts generate
+pnpm --filter @dshent/contracts check:generated
 pnpm run check
 ```
 

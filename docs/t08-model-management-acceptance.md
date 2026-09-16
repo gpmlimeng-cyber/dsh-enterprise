@@ -88,7 +88,7 @@ revision、审计和 T08 模型纵向回归。
 跨端协议与插件 workspace 门禁：
 
 ```sh
-corepack pnpm@11.7.0 --filter @owndsh/contracts generate
+corepack pnpm@11.7.0 --filter @dshent/contracts generate
 corepack pnpm@11.7.0 run check
 ```
 

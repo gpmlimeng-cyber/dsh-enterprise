@@ -32,9 +32,9 @@ contracts 包仍继承 workspace 的 `strict`、`noUncheckedIndexedAccess` 等�
 
 ```sh
 corepack pnpm@11.7.0 install --frozen-lockfile
-corepack pnpm@11.7.0 --filter @owndsh/contracts check:generated
-corepack pnpm@11.7.0 --filter @owndsh/contracts typecheck
-corepack pnpm@11.7.0 --filter @owndsh/contracts test
+corepack pnpm@11.7.0 --filter @dshent/contracts check:generated
+corepack pnpm@11.7.0 --filter @dshent/contracts typecheck
+corepack pnpm@11.7.0 --filter @dshent/contracts test
 corepack pnpm@11.7.0 run check
 corepack pnpm@11.7.0 run pack:contracts
 corepack pnpm@11.7.0 run smoke:contracts

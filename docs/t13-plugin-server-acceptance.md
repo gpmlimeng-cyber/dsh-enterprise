@@ -71,10 +71,10 @@ Redis 8、OpenLDAP、WireMock、V1-V8 migration、身份、设备、模型、配
 
 ```sh
 cd plugin
-corepack pnpm@11.7.0 --filter @owndsh/contracts generate
-corepack pnpm@11.7.0 --filter @owndsh/contracts check:generated
-corepack pnpm@11.7.0 --filter @owndsh/contracts typecheck
-corepack pnpm@11.7.0 --filter @owndsh/contracts test
+corepack pnpm@11.7.0 --filter @dshent/contracts generate
+corepack pnpm@11.7.0 --filter @dshent/contracts check:generated
+corepack pnpm@11.7.0 --filter @dshent/contracts typecheck
+corepack pnpm@11.7.0 --filter @dshent/contracts test
 ```
 
 结果：OpenAPI、自包含 JSON、JSON Schema、fixture manifest 与 TypeScript/Zod 无漂移，contracts 7 项

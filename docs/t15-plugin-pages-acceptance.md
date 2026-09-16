@@ -58,7 +58,7 @@ corepack pnpm@10.34.5 build
 ENT_E2E_BASE_URL=https://localhost corepack pnpm@10.34.5 test:e2e
 
 cd ../plugin
-corepack pnpm@11.7.0 --filter @owndsh/contracts check:generated
+corepack pnpm@11.7.0 --filter @dshent/contracts check:generated
 corepack pnpm@11.7.0 run check
 corepack pnpm@11.7.0 run pack:bundle
 corepack pnpm@11.7.0 run accept:t15-browser

@@ -131,12 +131,12 @@ T07 最初在 rc.7 验证 `settings.section` 与 `sidebar.footer.action`，迁�
 
 | 能力 | 新增所有者 |
 |---|---|
-| 平台登录、Sa-Token 内存会话、设备注册、bootstrap 和统一 HTTP client | `@owndsh/platform-client` |
-| 企业模型 profile、本机认证代理和官方模型插件挂载 | `@owndsh/llm-gateway` + `@deepseek-ai/dsh-llm-pi-ai` |
-| Session Event 队列、游标、上传、远端列表和恢复副本 | `@owndsh/session-sync` |
-| 受管插件期望状态、制品验证、CLI 安装和清单上报 | `@owndsh/plugin-distribution` |
-| Host/Client DTO、错误码和生成客户端 | `@owndsh/contracts` |
-| Server 配置、登录门禁、账号和插件 UI | `@owndsh/ui` |
+| 平台登录、Sa-Token 内存会话、设备注册、bootstrap 和统一 HTTP client | `@dshent/platform-client` |
+| 企业模型 profile、本机认证代理和官方模型插件挂载 | `@dshent/llm-gateway` + `@deepseek-ai/dsh-llm-pi-ai` |
+| Session Event 队列、游标、上传、远端列表和恢复副本 | `@dshent/session-sync` |
+| 受管插件期望状态、制品验证、CLI 安装和清单上报 | `@dshent/plugin-distribution` |
+| Host/Client DTO、错误码和生成客户端 | `@dshent/contracts` |
+| Server 配置、登录门禁、账号和插件 UI | `@dshent/ui` |
 | 企业 profile patch 层 | `owndsh-plugin` |
 | 中心身份、模型、配额、分发、同步与审计 | 原始服务端框架 `owndsh-enterprise` 模块 |
 
@@ -512,7 +512,7 @@ SIGNED_OUT -> AUTHORIZING -> ENROLLING -> BOOTSTRAPPING -> READY
 
 ### 9.2 Harness 官方模型协议层
 
-`@owndsh/llm-gateway` 不实现 `LlmAdapter`。它把 bootstrap 模型目录投影为官方 `PiAiProviderProfile`，并在隔离的 settings scope 中直接挂载 `@deepseek-ai/dsh-llm-pi-ai`。
+`@dshent/llm-gateway` 不实现 `LlmAdapter`。它把 bootstrap 模型目录投影为官方 `PiAiProviderProfile`，并在隔离的 settings scope 中直接挂载 `@deepseek-ai/dsh-llm-pi-ai`。
 
 - 按 `openai-completions`、`openai-responses`、`anthropic-messages` 建立独立 provider route；模型选择、消息、tools、reasoning、Responses replay、SSE、取消和错误语义全部由官方插件负责。
 - `contextWindow`、`maxTokens`、`reasoningEfforts` 和 `compat` 只做 profile 字段投影，企业代码不解释档位或重写协议正文。
@@ -624,7 +624,7 @@ RELEASED   CHARGED_MAX
 
 ### 11.3 客户端调和
 
-`@owndsh/plugin-distribution` 在每次 bootstrap revision 变化后调和，状态固定为：
+`@dshent/plugin-distribution` 在每次 bootstrap revision 变化后调和，状态固定为：
 
 ```text
 UNASSIGNED -> DOWNLOAD_PENDING -> DOWNLOADING -> VERIFIED -> INSTALLING -> RESTART_REQUIRED -> ACTIVE
@@ -870,11 +870,11 @@ provider `test` 使用尚未保存的 base URL 和可选新密钥执行一次 `/
 
 ## 16. Harness 插件详细设计
 
-### 16.1 `@owndsh/contracts`
+### 16.1 `@dshent/contracts`
 
 该包包含 OpenAPI 生成的 DTO、运行时 schema、HTTP error 解码、品牌 ID 和测试 fixtures。品牌 ID 至少包括 `EnterpriseUserId`、`EnterpriseDeviceId`、`ManagedModelId`、`PluginVersionId` 和 `RemoteSessionId`；业务包不得把跨 HTTP 的 ID 降为无语义裸字符串。
 
-### 16.2 `@owndsh/platform-client`
+### 16.2 `@dshent/platform-client`
 
 提供 `ctx.enterprisePlatform` Service，拥有 HTTP(S) Server origin、登录状态、内存 Token、installation、bootstrap 快照、带认证 fetch、请求取消和 60 秒刷新。公开方法固定为 `setServerUrl()`、`startLogin()`、`logout()`、`status()`、`bootstrap()`、`subscribe()`、`request()` 和 `dispose()`；`subscribe()` 只发布脱敏状态副本，只有 `request()` 能读取 Token。插件接受 HTTP 与 HTTPS，由部署方决定传输安全；公网和生产部署推荐 HTTPS。
 
@@ -902,21 +902,21 @@ provider `test` 使用尚未保存的 base URL 和可选新密钥执行一次 `/
 
 T01 必须在产品仓库的独立 `plugin` workspace 构建预编译 bundle，并把 `pnpm pack` 生成的 `.tgz` 安装到未修改的锁定 Harness `web` profile，证明零配置安装、官方 settings 持久化、bundle layer、Host 本地 API、`dsh.client` bundle、`shell.overlay` 和真实浏览器调用全部成立。package consumer 与组合 smoke 不得依赖 Typert ambient shim；若以上任一官方扩展点不成立，T01 失败并停止主线。
 
-### 16.3 `@owndsh/llm-gateway`
+### 16.3 `@dshent/llm-gateway`
 
 该包依赖官方 `dsh-llm-pi-ai`、`ctx.enterprisePlatform` 和 Harness WebServer。它只生成官方 provider profile，并注册 loopback-only 认证代理；不读取 Token 存储、不实现登录、不持久化用量，也不解析或改写消息、tools、reasoning、replay、SSE 与错误。取消通过原生 fetch signal 贯穿代理和中心流。
 
-### 16.4 `@owndsh/session-sync`
+### 16.4 `@dshent/session-sync`
 
 该包依赖 `sessions`、`sessionPersistence` 和 `enterprisePlatform`。它提供内部 `ctx.enterpriseSessionSync` Service，由 platform-client 的本地 API 查询与触发恢复，不增加 model-visible Session Event；同步状态是本地基础设施状态，不写进对话日志。
 
 同一 session 只有一个上传 worker。新事件到达 syncing 状态时只设置 dirty，当前批次完成后重新读取。对 `ENT_SESSION_SEQ_GAP`、`ENT_SESSION_DIVERGED`、`ENT_SESSION_SOURCE_DEVICE_CONFLICT`、`ENT_SESSION_FORMAT_UNSUPPORTED` 和 `ENT_SESSION_CONTENT_EXPIRED` 进入人工可见终态，不无限重试；认证、网络和 5xx 才退避重试。
 
-### 16.5 `@owndsh/plugin-distribution`
+### 16.5 `@dshent/plugin-distribution`
 
 该包依赖 `enterprisePlatform`、`subprocess` 和现有 plugin inventory Host 服务。它只处理中心分配的 package，不能扫描并上传非受管插件名称以外的路径、配置或源码。
 
-### 16.6 `@owndsh/ui` 与 `owndsh-plugin`
+### 16.6 `@dshent/ui` 与 `owndsh-plugin`
 
 Client 包通过 `settings.section` 注册一个 `enterprise` 设置页，通过 `sidebar.footer.action` 注册连接状态图标，并通过 `shell.overlay` 在 `UNCONFIGURED`、未登录、登录失败、登录过期或设备撤销时全屏阻断宿主。初装只要求 Server origin，登录成功后 overlay 返回 `null` 并恢复官方 UI。组件数据全部来自插件自有同源本地 API 的脱敏调用，不把 Host `ctx` 传入 React。
 
@@ -1037,7 +1037,7 @@ Session 正文页按 seq 分页显示时间线，识别 `user/message`、`assist
 
 ### 19.2 员工端页面
 
-`@owndsh/ui` 在官方设置面板增加一个“企业”section，内部使用紧凑 tabs；Client 通过 `/enterprise/api/v1/local/*` 与 Host 协作，不通过自定义 Typert Remote：
+`@dshent/ui` 在官方设置面板增加一个“企业”section，内部使用紧凑 tabs；Client 通过 `/enterprise/api/v1/local/*` 与 Host 协作，不通过自定义 Typert Remote：
 
 | Tab | 内容与操作 |
 |---|---|

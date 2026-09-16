@@ -35,8 +35,9 @@ public record LoginTransaction(
         requireText(sessionDeviceId, "sessionDeviceId");
         requireText(csrfToken, "csrfToken");
         Objects.requireNonNull(createdAt, "createdAt");
-        if (client == PlatformClient.DSH_DESKTOP && installationId == null) {
-            throw new IllegalArgumentException("Harness 登录事务缺少 installationId");
+        if ((client == PlatformClient.DSH_DESKTOP || client == PlatformClient.ENT_ADMIN_CLI)
+            && installationId == null) {
+            throw new IllegalArgumentException(client.clientId() + " 登录事务缺少 installationId");
         }
         if (client == PlatformClient.ENTERPRISE_ADMIN && installationId != null) {
             throw new IllegalArgumentException("管理端登录事务不能包含 installationId");

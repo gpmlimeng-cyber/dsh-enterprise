@@ -186,8 +186,12 @@ public final class DeviceService {
     }
 
     private static void requireAdmin(DeviceCallContext context) {
-        if (context.session().client() != PlatformClient.ENTERPRISE_ADMIN
-            || !"console".equals(context.session().deviceType())) {
+        PlatformClient client = context.session().client();
+        boolean adminClient = client == PlatformClient.ENTERPRISE_ADMIN
+            || client == PlatformClient.ENT_ADMIN_CLI;
+        boolean adminTerminal = "console".equals(context.session().deviceType())
+            || "admin-cli".equals(context.session().deviceType());
+        if (!adminClient || !adminTerminal) {
             throw new DeviceAccessException("ENT_PERMISSION_DENIED");
         }
     }

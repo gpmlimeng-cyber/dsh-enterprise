@@ -60,16 +60,16 @@ importers:
       '@deepseek-ai/schemastery':
         specifier: 3.18.1
         version: 3.18.1
-      '@owndsh/llm-gateway':
+      '@dshent/llm-gateway':
         specifier: workspace:*
         version: link:../llm-gateway
-      '@owndsh/platform-client':
+      '@dshent/platform-client':
         specifier: workspace:*
         version: link:../platform-client
-      '@owndsh/plugin-distribution':
+      '@dshent/plugin-distribution':
         specifier: workspace:*
         version: link:../plugin-distribution
-      '@owndsh/ui':
+      '@dshent/ui':
         specifier: workspace:*
         version: link:../ui
 
@@ -86,12 +86,28 @@ importers:
         specifier: 0.99.0
         version: 0.99.0(typescript@6.0.3)
 
+  packages/ent-admin-cli:
+    dependencies:
+      '@dshent/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      '@types/node':
+        specifier: 22.20.0
+        version: 22.20.0
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.8
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@22.20.0)(vite@8.2.1(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0))
+
   packages/llm-gateway:
     dependencies:
       '@deepseek-ai/cordis':
         specifier: ^4.0.1
         version: 4.0.1(@deepseek-ai/cordis-plugin-loader@1.0.3)
-      '@owndsh/platform-client':
+      '@dshent/platform-client':
         specifier: workspace:*
         version: link:../platform-client
     devDependencies:
@@ -104,7 +120,7 @@ importers:
       '@deepseek-ai/cordis':
         specifier: ^4.0.1
         version: 4.0.1(@deepseek-ai/cordis-plugin-loader@1.0.3)
-      '@owndsh/contracts':
+      '@dshent/contracts':
         specifier: workspace:*
         version: link:../contracts
       zod:
@@ -126,10 +142,10 @@ importers:
       '@deepseek-ai/cordis':
         specifier: ^4.0.1
         version: 4.0.1(@deepseek-ai/cordis-plugin-loader@1.0.3)
-      '@owndsh/contracts':
+      '@dshent/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@owndsh/platform-client':
+      '@dshent/platform-client':
         specifier: workspace:*
         version: link:../platform-client
       semver:

@@ -162,7 +162,9 @@ public final class RefreshSessionService {
     }
 
     private static void requireHarness(PlatformClient client, UUID installationId) {
-        if (client != PlatformClient.DSH_DESKTOP || installationId == null || installationId.version() != 4) {
+        boolean installationClient = client == PlatformClient.DSH_DESKTOP
+            || client == PlatformClient.ENT_ADMIN_CLI;
+        if (!installationClient || installationId == null || installationId.version() != 4) {
             throw new AuthFlowException("ENT_INVALID_REQUEST");
         }
     }

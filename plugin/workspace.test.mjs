@@ -87,6 +87,7 @@ test('workspace uses only the formal product package boundaries', async () => {
   assert.deepEqual(packages, [
     'bundle',
     'contracts',
+    'ent-admin-cli',
     'llm-gateway',
     'platform-client',
     'plugin-distribution',

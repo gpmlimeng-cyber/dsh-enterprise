@@ -76,10 +76,10 @@ T16 定向门禁包含 2 项精确字节 parser、1 项真实 PostgreSQL 纵向�
 
 ```sh
 cd plugin
-corepack pnpm@11.7.0 --filter @owndsh/contracts generate
-corepack pnpm@11.7.0 --filter @owndsh/contracts check:generated
-corepack pnpm@11.7.0 --filter @owndsh/contracts typecheck
-corepack pnpm@11.7.0 --filter @owndsh/contracts test
+corepack pnpm@11.7.0 --filter @dshent/contracts generate
+corepack pnpm@11.7.0 --filter @dshent/contracts check:generated
+corepack pnpm@11.7.0 --filter @dshent/contracts typecheck
+corepack pnpm@11.7.0 --filter @dshent/contracts test
 corepack pnpm@11.7.0 run check
 ```
 

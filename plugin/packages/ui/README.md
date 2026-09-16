@@ -1,11 +1,11 @@
 <!--
 [INPUT]: 依赖官方 Client slots、平台本地 API 与 EnterpriseAccountStore 的实现边界。
 [OUTPUT]: 提供只读账号设置、退出后 Server 编辑、访问门禁与跨会话响应隔离说明。
-[POS]: @owndsh/ui 的公开语义入口，明确插件 UI 与官方 Web/Desktop 外壳的所有权边界。
+[POS]: @dshent/ui 的公开语义入口，明确插件 UI 与官方 Web/Desktop 外壳的所有权边界。
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
 
-# @owndsh/ui
+# @dshent/ui
 
 Browser-side employee account and managed-plugin surface for the locked Harness Client runtime.
 It registers the `OwnDsh 设置` page through the official `settings.section`

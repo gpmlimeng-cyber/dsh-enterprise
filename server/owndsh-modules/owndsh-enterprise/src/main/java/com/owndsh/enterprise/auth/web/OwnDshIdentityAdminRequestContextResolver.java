@@ -39,7 +39,10 @@ public final class OwnDshIdentityAdminRequestContextResolver implements Identity
     public EnterpriseRequestContext resolve(HttpServletRequest request) {
         AdminSessionCookie.requireSameOriginForUnsafe(request);
         PlatformSession session = sessions.current();
-        if (session.client() != PlatformClient.ENTERPRISE_ADMIN) {
+        // enterprise-admin = Console Cookie 会话；ent-admin-cli = 管理员 CLI 的 PKCE Bearer。
+        // 两者都不授予 ambient Cookie 跨站能力；权限码仍由各 Controller 校验。
+        if (session.client() != PlatformClient.ENTERPRISE_ADMIN
+            && session.client() != PlatformClient.ENT_ADMIN_CLI) {
             throw new AuthFlowException("ENT_AUTH_REQUIRED");
         }
         EnterpriseRequestMetadata metadata = EnterpriseRequestMetadata.from(request);

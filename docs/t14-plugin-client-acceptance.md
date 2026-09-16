@@ -16,7 +16,7 @@ T14 已完成，且没有进入 T15。企业 bundle 通过 DeepSeek Harness rc.7
 
 ## 核心实现
 
-- `@owndsh/plugin-distribution` 在 bootstrap 插件 revision 变化后串行调和，避免多个
+- `@dshent/plugin-distribution` 在 bootstrap 插件 revision 变化后串行调和，避免多个
   worker 同时改写制品、profile 或状态文件。
 - 下载流写入 `$DSH_HOME/enterprise/artifacts/<sha256>.tgz.part`，边读边限制准确字节数并计算
   SHA-256；成功后校验安装包固定的 Ed25519 公钥、RFC 8785 受限签名声明和

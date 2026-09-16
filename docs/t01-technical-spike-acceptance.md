@@ -22,7 +22,7 @@ T01 已按 DeepSeek Harness 官方支持的插件路线通过。产品不再把�
 2026-08-17 的试验确实稳定复现过：树外 package 直接消费已安装的 `@deepseek-ai/dsh-typert-protocol` 时，生成器不能把 ESM 声明识别为 workspace 内的 Remote 元符号，并报错：
 
 ```text
-TypertAnalysisError: typert(host): @owndsh/platform-client publishes Remote artifacts but has no Remote methods
+TypertAnalysisError: typert(host): @dshent/platform-client publishes Remote artifacts but has no Remote methods
 ```
 
 这个结果说明“树外自行生成 Typert Remote”路线不成立，但不说明 Harness 官方插件机制失效。原设计把该内部生成路线误当成企业插件必经路线，现已修订详细设计第 3、4、8、16、18、19、20 和 22 节。产品仍拒绝 ambient protocol shim、跨仓库源码 project reference、复制上游源码、手写 Remote contribution 和修改 `@deepseek-ai/dsh-api-remotes`；这些绕过既无必要，也不能形成真实发布证据。

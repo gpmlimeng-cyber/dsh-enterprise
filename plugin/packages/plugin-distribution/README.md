@@ -1,11 +1,11 @@
 <!--
 [INPUT]: 依赖受管插件调和、制品验证、官方命令边界和显式整包卸载实现。
 [OUTPUT]: 提供默认免公钥安装、可选验签、安装/回滚/移除与新旧 Harness 库存兼容说明。
-[POS]: @owndsh/plugin-distribution 的公开语义入口，界定中心期望与本地 Loader 事实。
+[POS]: @dshent/plugin-distribution 的公开语义入口，界定中心期望与本地 Loader 事实。
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
 
-# @owndsh/plugin-distribution
+# @dshent/plugin-distribution
 
 Harness Host 的受管插件调和 Service。它只消费 `ctx.enterprisePlatform` 的完整 bootstrap、
 普通 Web 使用兼容 Harness 的 `ctx.subprocess`/`ctx.pluginInventory`，Desktop 使用公开

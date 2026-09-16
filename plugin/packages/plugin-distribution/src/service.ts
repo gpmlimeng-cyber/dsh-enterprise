@@ -7,8 +7,8 @@
 
 import { randomUUID } from 'node:crypto'
 import { Service } from '@deepseek-ai/cordis'
-import { zPluginInventoryResponse, zRuntimePluginAssignmentsResponse, type ManagedPluginState } from '@owndsh/contracts'
-import { resolveEnterpriseDshHome, type BootstrapSnapshot } from '@owndsh/platform-client'
+import { zPluginInventoryResponse, zRuntimePluginAssignmentsResponse, type ManagedPluginState } from '@dshent/contracts'
+import { resolveEnterpriseDshHome, type BootstrapSnapshot } from '@dshent/platform-client'
 import {
   installManagedPlugin,
   removeManagedPlugin,
@@ -29,11 +29,11 @@ import { downloadAndVerifyArtifact, parseTrustedPluginPublicKey, verifyAssignmen
 /** 企业安装包拥有、通用分发绝不能更新或卸载的完整产品代码集合。 */
 export const PROTECTED_ENTERPRISE_PACKAGES = new Set([
   'owndsh-plugin',
-  '@owndsh/contracts',
-  '@owndsh/llm-gateway',
-  '@owndsh/platform-client',
-  '@owndsh/plugin-distribution',
-  '@owndsh/ui',
+  '@dshent/contracts',
+  '@dshent/llm-gateway',
+  '@dshent/platform-client',
+  '@dshent/plugin-distribution',
+  '@dshent/ui',
 ])
 const OWNDSH_PACKAGE = 'owndsh-plugin'
 
