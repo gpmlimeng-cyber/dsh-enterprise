@@ -1,14 +1,20 @@
 ---
 feature: usage-analytics
-status: in-progress
+status: delivered
 updated: 2026-09-16
 branch: feat/usage-analytics
-commits: # filled at delivery
+commits: 468752c..47fa1d1
 ---
 
 # 用量分析（Usage Analytics）
 
 ## Report
+
+**What was built** — 控制台「活动记录 → 用量」新增分析视图：近 7/30/90 天或自定义日期、可选成员/模型筛选，摘要卡（请求/实测 Token/扣额/未知/缓存命中率）、部署时区连续日趋势条形、按模型与按成员分解表。服务端新增 `GET /enterprise/admin/v1/usage/analytics`，对 `ent_usage_ledger` 做日/模型/成员聚合；实测 Token 与配额扣额分离，**不引入价格/成本字段**。
+
+**Verification** — console `tsc --noEmit` PASS；console Vitest `61/61` PASS；`UsageAnalyticsViewTest` `2/2`；`AdminUsageAnalyticsControllerTest` `1/1`（180 天上限与 from/to 顺序）。未跑真实 PostgreSQL 聚合集成测试。
+
+**Journey log** — 参考 dsh-all-usage 时去掉本地会话扫描与 models.dev 成本，只复用「时间范围 + 模型/成员分解 + 日趋势」；RELEASED 不进 ledger，故分析 summary 只含 SETTLED/CHARGED_MAX；视图必须扁平 allOf，不能嵌套 tokens 对象。
 
 ## [S1] Problem
 
