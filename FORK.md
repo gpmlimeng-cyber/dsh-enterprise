@@ -102,7 +102,7 @@ owndsh/                         # 工作区目录名暂保留；产品标识见 
 |---|---|
 | Java 包名 `com.owndsh.*` | 建议改为 `com.dshent.*` 或公司域名反写；与 Flyway 表前缀 `ent_` 可解耦分步 |
 | Maven `groupId` / artifactId | 与包名一并改 |
-| 前端 `@owndsh/*` 包与生成路径 | 与 contracts 生成脚本、plugin 工作区一并改 |
+| 前端 `@dshent/*` 包与生成路径 | 与 contracts 生成脚本、plugin 工作区一并改 |
 | 表名前缀 `ent_` / 错误码 `ENT_*` | **可不改**（已是企业命名空间）；避免无收益的 DB 迁移 |
 | 环境变量主前缀 `OWNDSH_*` → `DSHENT_*` | 双读一段时间后删旧名 |
 | npm 包名与控制台侧栏文案 | 需同步安装文档与员工升级说明 |

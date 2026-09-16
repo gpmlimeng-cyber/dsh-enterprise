@@ -8,11 +8,11 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { PluginInventorySnapshot } from '@deepseek-ai/dsh-host-plugin-inventory'
 import type { SubprocessRuntime } from '@deepseek-ai/dsh-subprocess'
-import type { ManagedPluginState } from '@owndsh/contracts'
+import type { ManagedPluginState } from '@dshent/contracts'
 import type {
   BootstrapSnapshot,
   EnterprisePlatformStatus,
-} from '@owndsh/platform-client'
+} from '@dshent/platform-client'
 
 export type RuntimePluginAssignment = BootstrapSnapshot['plugins']['assignments'][number]
 

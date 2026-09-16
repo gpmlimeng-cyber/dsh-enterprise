@@ -7,7 +7,7 @@
 
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
-import { EnterprisePlatformError } from '@owndsh/platform-client'
+import { EnterprisePlatformError } from '@dshent/platform-client'
 
 export const ENTERPRISE_PROXY_PREFIX = '/v1'
 const PLATFORM_GATEWAY_PREFIX = '/enterprise/gateway/v1'

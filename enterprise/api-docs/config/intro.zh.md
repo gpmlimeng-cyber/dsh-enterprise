@@ -125,7 +125,7 @@ curl -N -X POST http://<你的控制台地址>/enterprise/gateway/v1/chat/comple
 
 ```bash
 cd plugin
-pnpm --filter @owndsh/contracts check:generated   # 内容比对，不修改工作区
+pnpm --filter @dshent/contracts check:generated   # 内容比对，不修改工作区
 ```
 
 - 生产可观测性入口：`GET /healthz` → `{"status":"UP"}`。

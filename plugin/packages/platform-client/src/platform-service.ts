@@ -18,7 +18,7 @@ import {
   type DeviceEnrollRequest,
   type EnterpriseErrorCode,
   type TokenRequest,
-} from '@owndsh/contracts'
+} from '@dshent/contracts'
 import { openSystemBrowser } from './browser.js'
 import {
   loadOrCreateInstallation,

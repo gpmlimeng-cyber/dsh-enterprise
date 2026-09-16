@@ -12,7 +12,7 @@ import {
   zDeviceResponse,
   zTokenResponse,
   type TokenRequest,
-} from '@owndsh/contracts'
+} from '@dshent/contracts'
 import { loadConfig, saveConfig, normalizeServerOrigin } from './config.js'
 import {
   deleteCredentials,

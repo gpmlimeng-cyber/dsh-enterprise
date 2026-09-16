@@ -1,11 +1,11 @@
 /**
- * [INPUT]: 依赖 @owndsh/contracts 错误解码与 fetch
+ * [INPUT]: 依赖 @dshent/contracts 错误解码与 fetch
  * [OUTPUT]: 对外提供 EntAdminHttpError、createAuthedFetch、requestJson
  * [POS]: ent-admin-cli 的 HTTP 边界；只暴露稳定 error code/retryable/requestId
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { decodeEnterpriseError, type EnterpriseError, type EnterpriseErrorCode } from '@owndsh/contracts'
+import { decodeEnterpriseError, type EnterpriseError, type EnterpriseErrorCode } from '@dshent/contracts'
 
 export class EntAdminHttpError extends Error {
   constructor(

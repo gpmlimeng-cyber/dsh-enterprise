@@ -11,7 +11,7 @@ import {
   type CredentialRecord,
   type GrantRecord,
 } from '@deepseek-ai/dsh-credentials'
-import type { TokenRequest, TokenResponse } from '@owndsh/contracts'
+import type { TokenRequest, TokenResponse } from '@dshent/contracts'
 import type { InstallationRecord } from './installation.js'
 
 const PLATFORM_GRANT_KEY = credentialKey('owndsh', 'platform')

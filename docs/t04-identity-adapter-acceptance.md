@@ -86,9 +86,9 @@ PATH=/usr/local/opt/openjdk@21/bin:$PATH \
 契约门禁从 pnpm workspace 根 `plugin/` 实际执行：
 
 ```sh
-pnpm --filter @owndsh/contracts check:generated
-pnpm --filter @owndsh/contracts typecheck
-pnpm --filter @owndsh/contracts test
+pnpm --filter @dshent/contracts check:generated
+pnpm --filter @dshent/contracts typecheck
+pnpm --filter @dshent/contracts test
 ```
 
 结果：生成漂移检查和 TypeScript 类型检查通过，Vitest 4 个测试全部通过。

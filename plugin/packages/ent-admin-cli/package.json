@@ -1,5 +1,5 @@
 {
-  "name": "@owndsh/ent-admin-cli",
+  "name": "@dshent/ent-admin-cli",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,12 +9,12 @@
   "main": "lib/cli.js",
   "files": ["lib", "README.md"],
   "scripts": {
-    "build": "pnpm --filter @owndsh/ent-admin-cli^... run build && tsc -p tsconfig.json",
-    "typecheck": "pnpm --filter @owndsh/ent-admin-cli^... run build && tsc -p tsconfig.json --noEmit",
+    "build": "pnpm --filter @dshent/ent-admin-cli^... run build && tsc -p tsconfig.json",
+    "typecheck": "pnpm --filter @dshent/ent-admin-cli^... run build && tsc -p tsconfig.json --noEmit",
     "test": "vitest run tests"
   },
   "dependencies": {
-    "@owndsh/contracts": "workspace:*"
+    "@dshent/contracts": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "22.20.0",

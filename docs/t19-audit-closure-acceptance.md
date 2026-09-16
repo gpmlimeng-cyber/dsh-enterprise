@@ -44,10 +44,10 @@ PATH=/usr/local/opt/openjdk@21/bin:$PATH \
 
 ```sh
 cd plugin
-pnpm --filter @owndsh/contracts generate
-pnpm --filter @owndsh/contracts check:generated
-pnpm --filter @owndsh/contracts typecheck
-pnpm --filter @owndsh/contracts test
+pnpm --filter @dshent/contracts generate
+pnpm --filter @dshent/contracts check:generated
+pnpm --filter @dshent/contracts typecheck
+pnpm --filter @dshent/contracts test
 
 cd ../admin-web
 corepack pnpm vitest run src/api/enterprise/audit/index.test.ts \

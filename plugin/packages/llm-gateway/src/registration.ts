@@ -10,7 +10,7 @@ import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
 import type {
   BootstrapSnapshot,
   EnterprisePlatformStatus,
-} from '@owndsh/platform-client'
+} from '@dshent/platform-client'
 import { buildEnterpriseProfiles } from './profiles.js'
 import {
   startEnterpriseProxy,

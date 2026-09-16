@@ -5,7 +5,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import type { BootstrapSnapshot } from '@owndsh/platform-client'
+import type { BootstrapSnapshot } from '@dshent/platform-client'
 import { describe, expect, it } from 'vitest'
 import {
   buildEnterpriseProfiles,

@@ -1,11 +1,11 @@
 <!--
-[INPUT]: 依赖 @owndsh/contracts 与 Desktop PKCE 设备流协议（client_id=dsh-desktop）。
+[INPUT]: 依赖 @dshent/contracts 与 Desktop PKCE 设备流协议（client_id=dsh-desktop）。
 [OUTPUT]: 提供 dsh-ent-admin 只读查询 CLI、--json Agent 契约与本地凭据边界说明。
 [POS]: plugin workspace 的管理员/Agent 终端入口，不进入 Harness Host，不做写操作。
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
 
-# @owndsh/ent-admin-cli
+# @dshent/ent-admin-cli
 
 `dsh-ent-admin`：DSH Enterprise 控制面只读 CLI。管理员与带 shell 的 AI Agent 在终端查询成员、设备、模型、配额、插件与审计。
 

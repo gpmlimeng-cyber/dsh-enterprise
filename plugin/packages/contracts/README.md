@@ -1,4 +1,4 @@
-# @owndsh/contracts
+# @dshent/contracts
 
 Generated and runtime contracts for the enterprise Harness packages. The
 logical wire source is rooted at `../../../contracts/enterprise-openapi.yaml`

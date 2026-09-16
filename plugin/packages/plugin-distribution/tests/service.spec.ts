@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import type { SubprocessRuntime, SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
-import type { BootstrapSnapshot, EnterprisePlatformStatus } from '@owndsh/platform-client'
+import type { BootstrapSnapshot, EnterprisePlatformStatus } from '@dshent/platform-client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   canonicalizeJson,
@@ -395,7 +395,7 @@ describe('EnterprisePluginDistributionService', () => {
     expect(env.subprocess.specs).toHaveLength(0)
 
     const core = assignment(testKey, content, {
-      id: '881', packageName: '@owndsh/platform-client', version: '0.1.0',
+      id: '881', packageName: '@dshent/platform-client', version: '0.1.0',
     })
     platform.publish(bootstrap(2, [core]))
     await env.service.settled()

@@ -61,15 +61,15 @@ try {
     type: 'module',
     dependencies: {
       '@deepseek-ai/cordis': '4.0.1',
-      '@owndsh/contracts': `file:${contractsTgz}`,
-      '@owndsh/platform-client': `file:${platformTgz}`,
+      '@dshent/contracts': `file:${contractsTgz}`,
+      '@dshent/platform-client': `file:${platformTgz}`,
     },
   }, null, 2))
   await writeFile(resolve(consumer, 'pnpm-workspace.yaml'), [
     'packages:',
     "  - '.'",
     'overrides:',
-    `  '@owndsh/contracts': 'file:${contractsTgz}'`,
+    `  '@dshent/contracts': 'file:${contractsTgz}'`,
     '',
   ].join('\n'))
   await run('corepack', ['pnpm@11.7.0', 'install', '--ignore-scripts'], {
@@ -81,7 +81,7 @@ try {
     '--input-type=module',
     '--eval',
     [
-      "import * as client from '@owndsh/platform-client'",
+      "import * as client from '@dshent/platform-client'",
       "if (typeof client.EnterprisePlatformService !== 'function') process.exit(2)",
       "if (typeof client.registerEnterpriseLocalApi !== 'function') process.exit(3)",
       "const installation = await client.loadOrCreateInstallation({ name: 'Consumer Workstation' })",
@@ -93,7 +93,7 @@ try {
 
   const installedRoot = resolve(consumer, 'node_modules', '@owndsh', 'platform-client')
   const manifest = JSON.parse(await readFile(resolve(installedRoot, 'package.json'), 'utf8'))
-  assert.equal(manifest.dependencies['@owndsh/contracts'], '0.1.0')
+  assert.equal(manifest.dependencies['@dshent/contracts'], '0.1.0')
   assert.equal(manifest.dependencies.zod, '4.4.3')
   const built = [
     await readFile(resolve(installedRoot, 'lib', 'index.js'), 'utf8'),

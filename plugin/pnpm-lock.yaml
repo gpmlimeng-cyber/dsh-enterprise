@@ -60,16 +60,16 @@ importers:
       '@deepseek-ai/schemastery':
         specifier: 3.18.1
         version: 3.18.1
-      '@owndsh/llm-gateway':
+      '@dshent/llm-gateway':
         specifier: workspace:*
         version: link:../llm-gateway
-      '@owndsh/platform-client':
+      '@dshent/platform-client':
         specifier: workspace:*
         version: link:../platform-client
-      '@owndsh/plugin-distribution':
+      '@dshent/plugin-distribution':
         specifier: workspace:*
         version: link:../plugin-distribution
-      '@owndsh/ui':
+      '@dshent/ui':
         specifier: workspace:*
         version: link:../ui
 
@@ -88,7 +88,7 @@ importers:
 
   packages/ent-admin-cli:
     dependencies:
-      '@owndsh/contracts':
+      '@dshent/contracts':
         specifier: workspace:*
         version: link:../contracts
     devDependencies:
@@ -107,7 +107,7 @@ importers:
       '@deepseek-ai/cordis':
         specifier: ^4.0.1
         version: 4.0.1(@deepseek-ai/cordis-plugin-loader@1.0.3)
-      '@owndsh/platform-client':
+      '@dshent/platform-client':
         specifier: workspace:*
         version: link:../platform-client
     devDependencies:
@@ -120,7 +120,7 @@ importers:
       '@deepseek-ai/cordis':
         specifier: ^4.0.1
         version: 4.0.1(@deepseek-ai/cordis-plugin-loader@1.0.3)
-      '@owndsh/contracts':
+      '@dshent/contracts':
         specifier: workspace:*
         version: link:../contracts
       zod:
@@ -142,10 +142,10 @@ importers:
       '@deepseek-ai/cordis':
         specifier: ^4.0.1
         version: 4.0.1(@deepseek-ai/cordis-plugin-loader@1.0.3)
-      '@owndsh/contracts':
+      '@dshent/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@owndsh/platform-client':
+      '@dshent/platform-client':
         specifier: workspace:*
         version: link:../platform-client
       semver:

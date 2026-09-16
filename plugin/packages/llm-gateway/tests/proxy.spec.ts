@@ -8,7 +8,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createRequire, findPackageJSON } from 'node:module'
 import { pathToFileURL } from 'node:url'
-import { EnterprisePlatformError } from '@owndsh/platform-client'
+import { EnterprisePlatformError } from '@dshent/platform-client'
 import { startEnterpriseProxy, type EnterpriseProxyHandle } from '../src/index.js'
 
 describe('startEnterpriseProxy', () => {

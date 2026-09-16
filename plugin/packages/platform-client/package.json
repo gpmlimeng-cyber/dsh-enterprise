@@ -1,5 +1,5 @@
 {
-  "name": "@owndsh/platform-client",
+  "name": "@dshent/platform-client",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,12 +13,12 @@
   },
   "files": ["lib", "README.md"],
   "scripts": {
-    "build": "pnpm --filter @owndsh/platform-client^... run build && tsc -p tsconfig.json",
-    "typecheck": "pnpm --filter @owndsh/platform-client^... run build && tsc -p tsconfig.json --noEmit",
+    "build": "pnpm --filter @dshent/platform-client^... run build && tsc -p tsconfig.json",
+    "typecheck": "pnpm --filter @dshent/platform-client^... run build && tsc -p tsconfig.json --noEmit",
     "test": "vitest run tests"
   },
   "dependencies": {
-    "@owndsh/contracts": "workspace:*",
+    "@dshent/contracts": "workspace:*",
     "zod": "4.4.3"
   },
   "peerDependencies": {

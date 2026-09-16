@@ -64,17 +64,17 @@ try {
       '@deepseek-ai/cordis': '4.0.1',
       '@deepseek-ai/dsh-host-plugin-inventory': '0.1.1-rc.2',
       '@deepseek-ai/dsh-subprocess': '0.1.1-rc.2',
-      '@owndsh/contracts': `file:${contractsTgz}`,
-      '@owndsh/platform-client': `file:${platformTgz}`,
-      '@owndsh/plugin-distribution': `file:${distributionTgz}`,
+      '@dshent/contracts': `file:${contractsTgz}`,
+      '@dshent/platform-client': `file:${platformTgz}`,
+      '@dshent/plugin-distribution': `file:${distributionTgz}`,
     },
   }, null, 2))
   await writeFile(resolve(consumer, 'pnpm-workspace.yaml'), [
     'packages:',
     "  - '.'",
     'overrides:',
-    `  '@owndsh/contracts': 'file:${contractsTgz}'`,
-    `  '@owndsh/platform-client': 'file:${platformTgz}'`,
+    `  '@dshent/contracts': 'file:${contractsTgz}'`,
+    `  '@dshent/platform-client': 'file:${platformTgz}'`,
     '',
   ].join('\n'))
   await run('corepack', ['pnpm@11.7.0', 'install', '--ignore-scripts'], { cwd: consumer, env: process.env })
@@ -83,7 +83,7 @@ try {
     '--input-type=module',
     '--eval',
     [
-      "import { canonicalizeJson, ManagedPluginStore } from '@owndsh/plugin-distribution'",
+      "import { canonicalizeJson, ManagedPluginStore } from '@dshent/plugin-distribution'",
       "if (canonicalizeJson({ b: 2, a: 1 }) !== '{\"a\":1,\"b\":2}') process.exit(2)",
       'const store = new ManagedPluginStore(process.env.DSH_HOME)',
       "await store.write({ formatVersion: 1, assignmentRevision: 7, plugins: [] })",
@@ -95,8 +95,8 @@ try {
 
   const installedRoot = resolve(consumer, 'node_modules', '@owndsh', 'plugin-distribution')
   const manifest = JSON.parse(await readFile(resolve(installedRoot, 'package.json'), 'utf8'))
-  assert.equal(manifest.dependencies['@owndsh/contracts'], '0.1.0')
-  assert.equal(manifest.dependencies['@owndsh/platform-client'], '0.1.0')
+  assert.equal(manifest.dependencies['@dshent/contracts'], '0.1.0')
+  assert.equal(manifest.dependencies['@dshent/platform-client'], '0.1.0')
   assert.equal(manifest.dependencies.semver, '7.8.4')
   assert.equal(manifest.peerDependencies['@deepseek-ai/dsh-subprocess'], '^0.1.1-rc.2')
   const built = [

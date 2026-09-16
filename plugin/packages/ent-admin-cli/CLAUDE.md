@@ -4,7 +4,7 @@
 
 成员清单
 
-package.json: `@owndsh/ent-admin-cli` 清单，bin=`dsh-ent-admin`，依赖 workspace contracts，Node 22 ESM。
+package.json: `@dshent/ent-admin-cli` 清单，bin=`dsh-ent-admin`，依赖 workspace contracts，Node 22 ESM。
 tsconfig.json: 继承 plugin base，输出 `lib/`，仅 Node lib/types。
 README.md: 使用入口与 Agent `--json` 契约摘要。
 src/paths.ts: `~/.dsh-ent-admin`（或 `DSH_ENT_ADMIN_HOME`）路径定位。

@@ -1,5 +1,5 @@
 {
-  "name": "@owndsh/llm-gateway",
+  "name": "@dshent/llm-gateway",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,12 +13,12 @@
   },
   "files": ["lib", "README.md"],
   "scripts": {
-    "build": "pnpm --filter @owndsh/llm-gateway^... run build && tsc -p tsconfig.json",
-    "typecheck": "pnpm --filter @owndsh/llm-gateway^... run build && tsc -p tsconfig.json --noEmit",
+    "build": "pnpm --filter @dshent/llm-gateway^... run build && tsc -p tsconfig.json",
+    "typecheck": "pnpm --filter @dshent/llm-gateway^... run build && tsc -p tsconfig.json --noEmit",
     "test": "vitest run tests"
   },
   "dependencies": {
-    "@owndsh/platform-client": "workspace:*"
+    "@dshent/platform-client": "workspace:*"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",

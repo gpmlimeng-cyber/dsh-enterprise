@@ -6,7 +6,7 @@
 
 ## 结论
 
-T06 已完成，且没有进入 T07。`@owndsh/platform-client` 已从 T01 技术原语提升为
+T06 已完成，且没有进入 T07。`@dshent/platform-client` 已从 T01 技术原语提升为
 Cordis `ctx.enterprisePlatform` Service，公开面固定为 `startLogin()`、`logout()`、`status()`、
 `bootstrap()`、`request()` 和 `dispose()`。bundle 继续使用 Harness 官方 `apply(ctx)`、
 `dsh.bundle`、`dsh.client` 和 `ctx.webServer.register()` 路线，没有引入自定义 Typert Remote。
@@ -37,9 +37,9 @@ T08 尚未提供真实 Server bootstrap Controller。T06 没有在发行代码�
 受影响包定点门禁：
 
 ```sh
-corepack pnpm@11.7.0 --filter @owndsh/platform-client test
-corepack pnpm@11.7.0 --filter @owndsh/platform-client typecheck
-corepack pnpm@11.7.0 --filter @owndsh/platform-client build
+corepack pnpm@11.7.0 --filter @dshent/platform-client test
+corepack pnpm@11.7.0 --filter @dshent/platform-client typecheck
+corepack pnpm@11.7.0 --filter @dshent/platform-client build
 ```
 
 结果：4 个 Vitest 文件、18 项测试全部通过。测试覆盖 HTTP(S) origin 与非法 URL 负例、回环/state/伪造 state/取消/超时、并发 installation、

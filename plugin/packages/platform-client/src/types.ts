@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod'
-import { zBootstrapQuota, zRequestId, zRevision, type EnterpriseErrorCode } from '@owndsh/contracts'
+import { zBootstrapQuota, zRequestId, zRevision, type EnterpriseErrorCode } from '@dshent/contracts'
 import type { InstallationOptions } from './installation.js'
 import type { EnterpriseLocalApiOptions } from './local-api.js'
 

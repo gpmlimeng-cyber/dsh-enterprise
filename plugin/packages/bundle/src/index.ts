@@ -10,16 +10,16 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { CredentialProvider } from '@deepseek-ai/dsh-credentials'
 import { APP_IDENTITY, type LlmRuntime } from '@deepseek-ai/dsh-llm'
 import z from '@deepseek-ai/schemastery'
-import { registerEnterpriseGateway } from '@owndsh/llm-gateway'
+import { registerEnterpriseGateway } from '@dshent/llm-gateway'
 import {
   EnterprisePluginDistributionService,
   type DshPluginCommandPort,
   type PluginDistributionContext,
-} from '@owndsh/plugin-distribution'
+} from '@dshent/plugin-distribution'
 import {
   EnterprisePlatformService,
   type WebServerRoutePort,
-} from '@owndsh/platform-client'
+} from '@dshent/platform-client'
 
 export const name = 'owndsh'
 export const inject = ['webServer', 'credentials', 'llm', 'subprocess', 'pluginInventory']

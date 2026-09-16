@@ -41,7 +41,7 @@
 
 ```sh
 corepack pnpm@11.7.0 --dir plugin run typecheck
-corepack pnpm@11.7.0 --dir plugin --filter @owndsh/llm-gateway test
+corepack pnpm@11.7.0 --dir plugin --filter @dshent/llm-gateway test
 ```
 
 最小回归覆盖三协议 profile、default/reasoningEfforts、透明 relay、平台 SSE 标记和本机认证隔离。

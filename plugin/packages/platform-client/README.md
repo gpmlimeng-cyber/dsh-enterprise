@@ -1,11 +1,11 @@
 <!--
 [INPUT]: 依赖 EnterprisePlatformService、官方 settings/credentials、同源本地 API 和 Host 认证实现。
 [OUTPUT]: 提供退出后 Server 修改、平台方法、Access/Refresh 生命周期与本地路由安全边界说明。
-[POS]: @owndsh/platform-client 的公开语义入口，连接 Host 认证核心与浏览器插件调用面。
+[POS]: @dshent/platform-client 的公开语义入口，连接 Host 认证核心与浏览器插件调用面。
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
 
-# @owndsh/platform-client
+# @dshent/platform-client
 
 Harness Host 的企业平台控制面。`EnterprisePlatformService` 通过 Cordis 注册
 `ctx.enterprisePlatform`，并公开以下方法：

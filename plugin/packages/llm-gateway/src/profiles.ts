@@ -11,7 +11,7 @@ import type {
   PiAiProviderProfile,
   PiAiReasoningEfforts,
 } from '@deepseek-ai/dsh-llm-pi-ai'
-import type { BootstrapSnapshot } from '@owndsh/platform-client'
+import type { BootstrapSnapshot } from '@dshent/platform-client'
 
 export const ENTERPRISE_DEFAULT_PROVIDER = 'enterprise'
 export const ENTERPRISE_DEFAULT_MODEL = 'enterprise/default'

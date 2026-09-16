@@ -5,7 +5,7 @@
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
 
-# @owndsh/llm-gateway
+# @dshent/llm-gateway
 
 DeepSeek Harness 官方 `@deepseek-ai/dsh-llm-pi-ai` 的企业配置桥。本包不实现
 `LlmAdapter`，也不解析或转换 message、tool、reasoning、replay 与 SSE。

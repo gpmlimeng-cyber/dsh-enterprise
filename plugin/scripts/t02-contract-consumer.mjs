@@ -55,7 +55,7 @@ try {
     '--eval',
     [
       "import assert from 'node:assert/strict'",
-      "import * as contracts from '@owndsh/contracts'",
+      "import * as contracts from '@dshent/contracts'",
       "assert.equal(contracts.parseEnterpriseUserId('73001'), '73001')",
       "assert.match(contracts.enterpriseProtocolSha256, /^[0-9a-f]{64}$/)",
       "assert.throws(() => contracts.decodeEnterpriseError({ error: { code: 'ENT_PLATFORM_UNAVAILABLE', debugTrace: 'forbidden', message: 'unavailable', requestId: 'req_01ARZ3NDEKTSV4RRFFQ69G5FAV', retryable: true } }))",
