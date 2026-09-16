@@ -18,6 +18,7 @@ import com.owndsh.enterprise.collab.persistence.CollabStore.MemberRow;
 import com.owndsh.enterprise.collab.persistence.CollabStore.MessageRow;
 import com.owndsh.enterprise.collab.persistence.CollabStore.ProjectRow;
 import com.owndsh.enterprise.device.application.DeviceCallContext;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -54,7 +55,11 @@ public final class CollabService {
         long actor = actorId(context);
         Instant now = Instant.now();
         return tx.execute(status -> {
-            if (!store.insertProject(projectId, context.tenantId(), trimmed, actor, now)) {
+            try {
+                if (!store.insertProject(projectId, context.tenantId(), trimmed, actor, now)) {
+                    throw new CollabException(CollabException.Kind.INVALID);
+                }
+            } catch (DuplicateKeyException ex) {
                 throw new CollabException(CollabException.Kind.INVALID);
             }
             store.insertMember(context.tenantId(), projectId, actor, ProjectMemberRole.OWNER.name(), now);
@@ -166,7 +171,11 @@ public final class CollabService {
             throw new CollabException(CollabException.Kind.INVALID);
         }
         return tx.execute(status -> {
-            requireMember(context, projectId, actor);
+            store.findProjectForUpdate(context.tenantId(), projectId)
+                .orElseThrow(() -> new CollabException(CollabException.Kind.PROJECT_NOT_FOUND));
+            if (store.findMember(context.tenantId(), projectId, actor).isEmpty()) {
+                throw new CollabException(CollabException.Kind.PROJECT_NOT_FOUND);
+            }
             MessageRow existing = store.findMessageByIdempotency(context.tenantId(), projectId, idem)
                 .orElse(null);
             if (existing != null) {
@@ -186,8 +195,13 @@ public final class CollabService {
                 idem,
                 Instant.now()
             );
-            if (!store.insertMessage(row)) {
-                throw new CollabException(CollabException.Kind.INVALID);
+            try {
+                if (!store.insertMessage(row)) {
+                    throw new CollabException(CollabException.Kind.INVALID);
+                }
+            } catch (DuplicateKeyException ex) {
+                return store.findMessageByIdempotency(context.tenantId(), projectId, idem)
+                    .orElseThrow(() -> new CollabException(CollabException.Kind.INVALID));
             }
             audit.append(event(
                 context, AuditAction.COLLAB_MESSAGE_POSTED, projectId,
@@ -252,7 +266,13 @@ public final class CollabService {
             "sys:" + context.requestId() + ":" + seq,
             Instant.now()
         );
-        store.insertMessage(row);
+        try {
+            if (!store.insertMessage(row)) {
+                throw new CollabException(CollabException.Kind.INVALID);
+            }
+        } catch (DuplicateKeyException ex) {
+            throw new CollabException(CollabException.Kind.INVALID);
+        }
         audit.append(event(
             context, AuditAction.COLLAB_MESSAGE_POSTED, projectId,
             new CollabAuditMetadata.MessagePosted(

@@ -34,6 +34,9 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @RestController
 @RequestMapping("/enterprise/api/v1/projects")
@@ -41,15 +44,21 @@ public final class RuntimeProjectController {
     private static final long SSE_TIMEOUT_MS = 30 * 60 * 1000L;
     private static final long SSE_POLL_MS = 500L;
     private static final long SSE_HEARTBEAT_MS = 15_000L;
+    private static final int SSE_MAX_STREAMS = 64;
 
     private final CollabService collab;
     private final DeviceRequestContextResolver contexts;
     private final EnterpriseCursorCodec cursors;
-    private final ExecutorService sseWorkers = Executors.newCachedThreadPool(runnable -> {
-        Thread thread = new Thread(runnable, "collab-sse");
-        thread.setDaemon(true);
-        return thread;
-    });
+    private final Semaphore ssePermits = new Semaphore(SSE_MAX_STREAMS);
+    private final AtomicInteger sseSeq = new AtomicInteger();
+    private final ExecutorService sseWorkers = Executors.newFixedThreadPool(
+        Math.min(8, SSE_MAX_STREAMS),
+        runnable -> {
+            Thread thread = new Thread(runnable, "collab-sse-" + sseSeq.incrementAndGet());
+            thread.setDaemon(true);
+            return thread;
+        }
+    );
 
     public RuntimeProjectController(
         CollabService collab,
@@ -181,8 +190,28 @@ public final class RuntimeProjectController {
     ) {
         DeviceCallContext context = contexts.resolve(request);
         collab.listMessages(context, projectId, afterSeq, 1);
+        if (!ssePermits.tryAcquire()) {
+            throw new CollabException(CollabException.Kind.INVALID);
+        }
+        AtomicBoolean released = new AtomicBoolean(false);
+        Runnable releaseOnce = () -> {
+            if (released.compareAndSet(false, true)) {
+                ssePermits.release();
+            }
+        };
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
-        sseWorkers.execute(() -> pump(context, projectId, afterSeq, emitter));
+        emitter.onCompletion(releaseOnce);
+        emitter.onTimeout(() -> {
+            releaseOnce.run();
+            emitter.complete();
+        });
+        emitter.onError(error -> releaseOnce.run());
+        try {
+            sseWorkers.execute(() -> pump(context, projectId, afterSeq, emitter));
+        } catch (RuntimeException ex) {
+            releaseOnce.run();
+            throw ex;
+        }
         return ResponseEntity.ok(emitter);
     }
 
@@ -194,11 +223,16 @@ public final class RuntimeProjectController {
     ) {
         long cursor = startSeq;
         long lastHeartbeat = System.currentTimeMillis();
+        long membershipCheckedAt = System.currentTimeMillis();
         try {
             while (!Thread.currentThread().isInterrupted()) {
+                long now = System.currentTimeMillis();
+                if (now - membershipCheckedAt >= 30_000L) {
+                    collab.listMessages(context, projectId, cursor, 1);
+                    membershipCheckedAt = now;
+                }
                 List<MessageRow> batch = collab.listMessages(context, projectId, cursor, 100);
                 if (batch.isEmpty()) {
-                    long now = System.currentTimeMillis();
                     if (now - lastHeartbeat >= SSE_HEARTBEAT_MS) {
                         emitter.send(SseEmitter.event().comment("heartbeat"));
                         lastHeartbeat = now;

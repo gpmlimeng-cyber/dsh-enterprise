@@ -10,7 +10,7 @@ feature: project-collab-channel
 status: delivered
 updated: 2026-09-16
 branch: feat/project-collab-channel
-commits: 378af99..<head>
+commits: 378af99..2320c3b
 ---
 
 # Project 协作信道（服务端第一刀）

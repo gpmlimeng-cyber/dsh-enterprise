@@ -100,7 +100,13 @@ class CollabServiceIntegrationTest {
                 assertThat(ex.errorCode()).isEqualTo("ENT_PROJECT_NOT_OWNER"));
 
         DeviceCallContext outsider = runtime(OWNER, "D");
-        // OWNER is still a member after transfer, so list works; create a stranger via PEER removal is out of scope.
+        // OWNER remains a member after transfer; assert a true non-member is rejected as not found.
+        long strangerId = 1913000000000000999L;
+        PostgresTestDatabase.insertActiveUser(database, strangerId, 103L, "collab-stranger", "Collab Stranger");
+        DeviceCallContext stranger = runtime(strangerId, "E");
+        assertThatThrownBy(() -> enabled.listMessages(stranger, project.id(), 0, 50))
+            .isInstanceOfSatisfying(CollabException.class, ex ->
+                assertThat(ex.errorCode()).isEqualTo("ENT_PROJECT_NOT_FOUND"));
         List<MessageRow> messages = enabled.listMessages(outsider, project.id(), 0, 50);
         assertThat(messages).hasSizeGreaterThanOrEqualTo(2);
 
