@@ -3,7 +3,7 @@ feature: session-sync-p2b
 status: delivered
 updated: 2026-09-16
 branch: feat/session-sync-p2b
-commits: 378af99..<filled-at-finalize>
+commits: 378af99e90c9bf95ce28055e50854fc70de19d4f..dc2fe7e5670728ae72834ad7ae031068a6a1c614
 ---
 
 # Session 同步 P2b：最小可测上传链路
@@ -12,9 +12,9 @@ commits: 378af99..<filled-at-finalize>
 
 **What was built** — `@dshent/session-sync` 在 P2a 骨架上落地最小可测上传链路：dirty 标记、2s 防抖、单 session worker、按 `maxBatchBytes` 切批、T16 `POST /enterprise/api/v1/sessions/{id}/batches` 线协议（raw JSONL + rolling hash + payloadSha256）、游标原子写与终态不自动重试。Harness 0.1.1-rc.2 的 `sessions.flush` / `sessionPersistence.readFrom` 已 lock 为结构端口，运行时不 import `@deepseek-ai/dsh-session*`；未接 bundle/UI/local API/restore。
 
-**Verification** — 见下方 Verification 段（交付时填写命令结果）。
+**Verification** — `@dshent/session-sync` typecheck PASS；vitest 19/19 PASS；`dshent-plugin` bundle.spec 3/3 PASS（含 `not.toContain('enterpriseSessionSync')`）；`workspace.test.mjs` 4/4 PASS。
 
-**Journey log** — ① rc.2 真 API 从 npm pack 取证：`flush(session): Promise<boolean>`、`readFrom(id, fromSeq, signal?)`；② 终态 persist 必须 await，否则 flushOnce 返回后游标仍是旧状态；③ V1 门禁依赖 bundle 先 build 再测，仅改 session-sync 不影响 `enterpriseSessionSync` 断言。
+**Journey log** — ① rc.2 真 API 从 npm pack 取证：`flush(session): Promise<boolean>`、`readFrom(id, fromSeq, signal?)`；② 终态 persist 必须 await，否则 flushOnce 返回后游标仍是旧状态；③ 审查抓到 `#mutateCursor` 链毒化（一次写失败永久卡死后续游标）——已用 `catch` 恢复链并改用服务端 `rollingHash` 作下一批 previous，复审 PASS；④ V1 门禁依赖 bundle 先 build 再测。
 
 ## [S1] Problem
 
