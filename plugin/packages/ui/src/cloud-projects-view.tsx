@@ -54,18 +54,19 @@ export function EnterpriseCloudProjectsView(props: EnterpriseCloudProjectsViewPr
     setNotice(null)
     try {
       await action()
-      await reload()
     } catch (cause) {
       // 用户在选择器里取消不是错误。
       if ((cause as EnterpriseLocalApiError | undefined)?.code !== 'ENT_WORKSPACE_PICK_CANCELLED') {
         setError(errorMessage(cause))
       }
     } finally {
+      // 部分成功（例如已建项目但登记失败）也必须刷新，否则列表会停在旧事实。
+      await reload()
       setBusy(false)
     }
   }, [reload])
 
-  const nativeWorkspaces = props.store.nativeWorkspacesAvailable
+  const nativeWorkspaces = props.store.nativeWorkspacesAvailable()
 
   if (snapshot.bootstrap?.cloudWorkspaceEnabled !== true) {
     return <div style={{ color: 'var(--dsw-alias-label-tertiary, #667085)', fontSize: 13, padding: 12 }}>
@@ -81,14 +82,26 @@ export function EnterpriseCloudProjectsView(props: EnterpriseCloudProjectsViewPr
           event.preventDefault()
           void run(async () => {
             const created = await props.store.createCloudProject(name.trim(), null)
-            setName('')
             if (!nativeWorkspaces) {
+              setName('')
               setNotice('已创建云端项目')
               return
             }
-            // 与创建本地项目一致：紧接着弹系统选目录，建完直接进入会话。
-            const opened = await props.store.openCloudProject(created.id)
-            setNotice(opened.enteredSession ? '已创建并进入云端项目' : `已创建并映射到 ${opened.path}`)
+            // 与创建本地项目一致：紧接着弹系统选目录。
+            try {
+              const opened = await props.store.openCloudProject(created.id)
+              setName('')
+              setNotice(opened.sessionRequested
+                ? `已创建并登记为工作区（正在打开会话）：${opened.path}`
+                : `已创建并登记为工作区：${opened.path}`)
+            } catch (cause) {
+              if ((cause as EnterpriseLocalApiError | undefined)?.code === 'ENT_WORKSPACE_PICK_CANCELLED') {
+                setName('')
+                setNotice('项目已创建，尚未选择本地目录；可在列表中点「打开」继续')
+                return
+              }
+              throw cause
+            }
           })
         }}
       >
@@ -163,12 +176,16 @@ export function EnterpriseCloudProjectsView(props: EnterpriseCloudProjectsViewPr
                   void run(async () => {
                     if (mappedPath !== undefined) {
                       const opened = await props.store.openCloudProject(project.id, mappedPath)
-                      setNotice(opened.enteredSession ? '已进入该云端项目会话' : '已登记为工作区')
+                      setNotice(opened.sessionRequested
+                        ? `已登记为工作区，正在打开会话：${opened.path}`
+                        : `已登记为工作区：${opened.path}`)
                       return
                     }
                     if (nativeWorkspaces) {
                       const opened = await props.store.openCloudProject(project.id)
-                      setNotice(opened.enteredSession ? '已建立映射并进入会话' : '已建立本地映射')
+                      setNotice(opened.sessionRequested
+                        ? `已建立映射并登记为工作区，正在打开会话：${opened.path}`
+                        : `已建立本地映射并登记为工作区：${opened.path}`)
                       return
                     }
                     await props.store.cloneCloudProject(project.id, rootDir.trim())
@@ -244,7 +261,7 @@ export function EnterpriseCloudProjectsView(props: EnterpriseCloudProjectsViewPr
         ))}
         {projects.length === 0 ? (
           <li style={{ color: 'var(--dsw-alias-label-tertiary, #667085)', fontSize: 13 }}>
-            暂无云端项目。先创建一个，再映射本地目录。
+            暂无云端项目。填名称后一次完成：选本地目录、拉取项目并登记为工作区。
           </li>
         ) : null}
       </ul>

@@ -13,7 +13,7 @@ import {
   EnterpriseSettingsSection,
 } from './account-view.js'
 import { createEnterpriseLocalApi } from './local-api.js'
-import { readOfficialWorkspaces } from './workspaces-port.js'
+import { createOfficialWorkspacesReader } from './workspaces-port.js'
 
 export * from './account-store.js'
 export * from './account-footer.js'
@@ -45,7 +45,7 @@ export const inject = ['slots', 'remote']
 
 /** 复用三个官方 slot 类型注册账号与市场；网络能力只封装在共享 store 内。 */
 export function apply(ctx: SlotContextPort): void {
-  const store = new EnterpriseAccountStore(createEnterpriseLocalApi(), readOfficialWorkspaces(ctx))
+  const store = new EnterpriseAccountStore(createEnterpriseLocalApi(), createOfficialWorkspacesReader(ctx))
   ctx.effect(() => {
     const refresh = () => { void store.refresh() }
     const disposers = [

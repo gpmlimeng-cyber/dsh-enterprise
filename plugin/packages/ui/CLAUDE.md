@@ -15,7 +15,7 @@ src/plugin-market.tsx: DSH Enterprise 设置内的插件管理视图，分离目
 src/preset-market.tsx: DSH Enterprise 设置内的企业配方广场，列表/详情并复制 Desktop 导入指令；一期不自动下载或 import，安全提示覆盖可执行配置风险。
 src/assets.d.ts: 声明官方 ui-primitives 类型入口的 KaTeX CSS 副作用导入，保持依赖严格类型检查，不打入运行包。
 src/client.tsx: Client 组合根，通过三个官方 slot 注册账号/插件设置、侧栏账户行和访问门禁，共享脱敏 store；复用官方 remote 事件与连接恢复通知，不建立新连接；以可选读取官方 `workspaces` 服务的方式把云端项目接到原生工作区能力上。
-src/workspaces-port.ts: 官方 `ctx.workspaces` 的窄接口与安全读取器；服务缺失或能力不全时返回 undefined，让视图退回手动目录路径。
+src/workspaces-port.ts: 官方 `ctx.workspaces` 的窄接口与按需读取器（`createOfficialWorkspacesReader`）；服务缺失或能力不全时返回 undefined 退回手动目录路径，标识字段同时接受官方 `workspaceId` 与旧 `id`，会话只暴露 `requestSession` 布尔而不宣称已进入。
 src/index.ts: 无运行行为的 Host 占位入口，使官方 scanner 从 Loader row 发现 Client half。
 src/local-api.ts: 固定同源路径的严格 Server/账号/卸载/插件/Session/云端项目 DTO 与显式刷新解码，删除 SHA/hash/marker 并拒绝 Token、正文和执行细节；含 sessionSyncStatus/listSessions/restoreSession 与 listCloudProjects/create/clone/pull/commit/push/status。
 src/session-view.tsx: 会话同步 tab 的远端列表、恢复目录确认与新 ID 恢复结果呈现。
@@ -25,6 +25,6 @@ tests/account-view.spec.ts: 锁定门禁放行、Server 编辑状态白名单、
 tests/client.spec.ts: Settings/sidebar/shell.overlay 三个官方 slot 的注册身份、顺序和共享注入测试，拒绝额外市场入口。
 tests/local-api.spec.ts: Server/账号/卸载/插件/Session DTO、固定路径、脱敏投影、显式刷新与秘密字段拒绝测试。
 tests/session-view.spec.ts: 锁定十一种同步状态文案、删除不重传与分叉停止语义。
-tests/cloud-project-open.spec.ts: 锁定官方工作区端口读取与「取目录→clone→登记→进会话」编排、取消语义、进会话失败保留映射与端口缺失降级。
+tests/cloud-project-open.spec.ts: 锁定端口读取（缺失/不全/字段名容错/重绑定/按需重读）、「取目录→clone→登记→请求会话」编排、取消语义、登记失败保留映射、未连接拒绝与端口缺失降级。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

@@ -48,7 +48,7 @@ function connected(status: EnterpriseLocalStatus): boolean {
 /** 引用计数管理请求生命周期；宿主事件只触发本地状态读取，不产生后台企业请求。 */
 export class EnterpriseAccountStore {
   readonly #api: EnterpriseLocalApi
-  readonly #workspaces: OfficialWorkspacesPort | undefined
+  readonly #readWorkspaces: () => OfficialWorkspacesPort | undefined
   readonly #listeners = new Set<() => void>()
   #snapshot: EnterpriseAccountSnapshot = { phase: 'loading' }
   #lifetime: AbortController | undefined
@@ -59,9 +59,9 @@ export class EnterpriseAccountStore {
   #bootstrapLoading = false
   #pluginsLoading = false
 
-  constructor(api: EnterpriseLocalApi, workspaces?: OfficialWorkspacesPort) {
+  constructor(api: EnterpriseLocalApi, readWorkspaces?: () => OfficialWorkspacesPort | undefined) {
     this.#api = api
-    this.#workspaces = workspaces
+    this.#readWorkspaces = readWorkspaces ?? (() => undefined)
   }
 
   readonly getSnapshot = (): EnterpriseAccountSnapshot => this.#snapshot
@@ -146,44 +146,50 @@ export class EnterpriseAccountStore {
     return this.#api.addCloudProjectMember(projectId, userId, this.#signal())
   }
 
-  /** 官方原生工作区能力是否可用；不可用时视图退回手动填写根目录。 */
-  get nativeWorkspacesAvailable(): boolean {
-    return this.#workspaces !== undefined
+  /** 官方原生工作区能力是否可用；按需读取，不在启动时缓存。 */
+  nativeWorkspacesAvailable(): boolean {
+    return this.#readWorkspaces() !== undefined
   }
 
   /**
    * 与创建本地项目一致的开箱流程：官方原生选目录 → clone 到 `<所选目录>/<slug>`
-   * → 登记为原生工作区 → 直接进入该工作区会话。
+   * → 登记为原生工作区 → 请求打开该工作区会话。
+   * `sessionRequested` 只表示已向官方发起打开请求：官方 `startSession` 自行吞掉失败，
+   * 客户端无法确认会话是否真的打开，因此不得用它宣称「已进入会话」。
    */
   async openCloudProject(projectId: string, rootDirOverride?: string): Promise<{
     readonly path: string
     readonly workspaceId: string | null
-    readonly enteredSession: boolean
+    readonly sessionRequested: boolean
   }> {
+    if (!connected(this.#requireStatus())) throw new EnterpriseLocalApiError('ENT_AUTH_REQUIRED', 401)
+    const signal = this.#signal()
+    const workspaces = this.#readWorkspaces()
     let rootDir = rootDirOverride
     if (rootDir === undefined) {
-      if (this.#workspaces === undefined) {
+      if (workspaces === undefined) {
         throw new EnterpriseLocalApiError('ENT_LOCAL_UNAVAILABLE')
       }
-      const picked = await this.#workspaces.pickDirectory()
+      const picked = await workspaces.pickDirectory()
+      if (signal.aborted) throw new EnterpriseLocalApiError('ENT_PLATFORM_DISPOSED')
       if (picked === null || picked.length === 0) {
         throw new EnterpriseLocalApiError('ENT_WORKSPACE_PICK_CANCELLED')
       }
       rootDir = picked
     }
-    const mapping = await this.#api.cloneCloudProject(projectId, rootDir, this.#signal())
-    if (this.#workspaces === undefined) {
-      return { path: mapping.path, workspaceId: null, enteredSession: false }
+    const mapping = await this.#api.cloneCloudProject(projectId, rootDir, signal)
+    if (signal.aborted) throw new EnterpriseLocalApiError('ENT_PLATFORM_DISPOSED')
+    const current = this.#readWorkspaces()
+    if (current === undefined) {
+      return { path: mapping.path, workspaceId: null, sessionRequested: false }
     }
-    const workspace = await this.#workspaces.create({ path: mapping.path })
-    let entered = false
-    try {
-      this.#workspaces.startSession(workspace.id)
-      entered = true
-    } catch {
-      // 登记成功即可；开会话失败不改变已建立的映射。
+    const workspace = await current.create({ path: mapping.path })
+    if (signal.aborted) throw new EnterpriseLocalApiError('ENT_PLATFORM_DISPOSED')
+    return {
+      path: mapping.path,
+      workspaceId: workspace.workspaceId,
+      sessionRequested: current.requestSession(workspace.workspaceId),
     }
-    return { path: mapping.path, workspaceId: workspace.id, enteredSession: entered }
   }
 
   #requireStatus(): EnterpriseLocalStatus {

@@ -24,7 +24,7 @@ commits: f4268ea..28d00bf
 | server `EnterpriseSafetyDefaultsTest`（真实加载 application.yml） | **4/4 PASS** |
 | server `EnterpriseContractSchemaTest` | FAIL 1 = `fixtures/usage-analytics-success.json`，**PRE-EXISTING**（未改动的 main worktree 同样失败；断言在首个失败处中止，另有 3 个 preset fixture 不一致亦为基线既有） |
 | plugin `pnpm -r run build` / contracts `check:generated` | PASS（无生成漂移） |
-| plugin 全量 vitest | 除上述基线 fixture 外全绿：cloud-workspace 17/17、platform-client 32/32、ui 19/19、session-sync 28/28、llm-gateway 7/7、plugin-distribution 27/27、ent-admin-cli 3/3、bundle 3/3 |
+| plugin 全量 vitest | 除上述基线 fixture 外全绿：cloud-workspace 17/17、platform-client 32/32、ui 32/32（S4 后）、session-sync 28/28（单文件运行；全量并发时偶发抖动）、llm-gateway 7/7、plugin-distribution 27/27、ent-admin-cli 3/3、bundle 3/3 |
 | plugin `workspace.test.mjs` | **4/4 PASS** |
 | deploy `deployment.test.mjs` | 11/14 = 与 main 基线一致（3 项环境相关失败） |
 | 客户端非快进映射 | 用真实 git 输出验证 `rejected`/`fetch first` 命中映射正则 |
@@ -192,6 +192,7 @@ commits: f4268ea..28d00bf
 - 管理端 Console / 审计深度页 / 通知 / 活动流 / 配额绑定
 - Desktop 独立仓库 UI、跨设备映射自动迁移
 - SSH git、服务端自动 merge、web IDE
+- S4 追加：**原生工作区登记路径**的会话报告只表示「已发起」（见 S4.4.3/S4.7 D2）
 - 会话与云端项目的**强制**绑定：原生路径下由官方 `startSession` 进入该工作区会话（见 S4），但用户仍可对任意本地目录开会话，服务端不校验会话与项目的对应关系
 - 大文件 LFS、repo GC 运维面
 
@@ -229,7 +230,7 @@ commits: f4268ea..28d00bf
 
 1. 创建：表单提交 → `createCloudProject(name)` → 原生可用时紧接着 `openCloudProject(id)`（选目录、clone、登记、进会话），按钮文案为「创建并选择本地目录」。
 2. 打开：列表行 —— 未映射且原生可用 → `openCloudProject(id)`（弹选择器）；已映射 → `openCloudProject(id, mapping.path)`（**不再弹选择器**，直接登记并进会话）；原生不可用 → 退回手动根目录 clone。
-3. `startSession` 失败不撤销已建立的映射：返回 `enteredSession: false`，映射与工作区登记保持有效。
+3. 会话只报告「已发起」：官方 `startSession` 返回 void 且自行吞掉失败，客户端无法确认会话是否真的打开，因此返回 `sessionRequested`（缺 `startSession` 或同步抛错为 false），UI 文案为「正在打开会话」而非「已进入」。映射与工作区登记在任一后续步骤失败时都保持有效。
 4. 原生不可用时 `openCloudProject(id)`（无根目录入参）抛出 `ENT_LOCAL_UNAVAILABLE`，由视图呈现；`nativeWorkspacesAvailable` 为 false 时视图不渲染根目录输入以外的原生文案。
 
 ### S4.5 测试边界
@@ -244,6 +245,22 @@ commits: f4268ea..28d00bf
 - 接管官方 `directoryFlow` 空位（等于替换官方目录选择器）
 - 引入 `dsh-better-sidebar` 等第三方侧栏依赖
 - 镜像目录 + fs API 拦截（云端项目已有真实 git 工作副本，无需该层）
+
+### S4.7 评审修复（第二轮）
+
+本轮增量经独立评审后修复：
+
+| 编号 | 缺陷 | 修复 |
+|---|---|---|
+| D1 | 官方 `create()` 的标识字段被读成 `id`；官方契约名为 `workspaceId`（本机 0.1.0-rc.6 实证），对应版本上会导致登记后必然抛错 | 读取器同时接受 `workspaceId` 与 `id`，非空字符串方可；两侧字段名均有测试 |
+| D2 | `enteredSession` 会撒谎：缺 `startSession` 时静默返回真；官方实现又自行吞错 | 端口新增 `requestSession()` 返回布尔；store 改为 `sessionRequested`；UI 文案降级为「正在打开会话」 |
+| D3 | 创建后取消选目录 → 项目已建、无映射、列表不可见、名称被清空且无提示 | 创建后先刷新列表；取消时给出「项目已创建，尚未选择目录」提示并保留可重试路径 |
+| D4 | 该编排是 store 中唯一没有中断守卫的方法 | 补 `connected()` 校验与每次 await 后的 abort 检查 |
+| D5 | 失败路径跳过 `reload()`，列表停在旧事实 | `run()` 改为在 `finally` 中始终刷新 |
+| D6 | 服务在 `apply` 时一次性捕获，cordis `get(strict=true)` 下启动次序不保证 | 改为按需读取（`createOfficialWorkspacesReader`） |
+| D7 | 文档未随增量更新 | 本节、Report、commits 与 ui 计数同步 |
+
+**未能在本机验证（需在锁定运行时上复核）**：锁定版本 0.1.5-rc.2 的 `ctx.workspaces` 真实形状。本机仅有 0.1.0-rc.6 的官方包，因此「`create` 返回字段名」与「`startSession` 是否抛错」两处只按 0.1.0-rc.6 实证并做了字段名容错；发布前须对锁定版本再核一次，检查点为该版本的 `dsh-client-runtime` 客户端契约里 `create` 的返回类型。
 
 ## Tasks
 
