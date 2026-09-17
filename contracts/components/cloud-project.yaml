@@ -4,15 +4,14 @@
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 
 CloudProjectId:
-  type: integer
-  format: int64
-  minimum: 1
+  type: string
+  pattern: '^[1-9][0-9]{0,18}$'
 
 CloudProjectSlug:
   type: string
   minLength: 1
   maxLength: 64
-  pattern: '^[a-z0-9][a-z0-9-]{0,62}$'
+  pattern: '^[a-z0-9][a-z0-9-]{0,63}$'
 
 CloudProjectRole:
   type: string

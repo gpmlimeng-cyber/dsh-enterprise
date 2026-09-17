@@ -10,7 +10,7 @@ screenshots.json: 社区市场从插件源码目录读取的四张原始截图�
 tsconfig.json: bundle Host 公开声明的 emit-only TypeScript 边界，通过 workspace 声明消费产品模块，并局部跳过链接上游损坏声明检查。
 cordis.patch.yml: 官方 profile layer，覆盖企业 default、停用个人 provider/模型设置并插入企业 Host/Client row。
 scripts/build.mjs: 内联产品模块但 externalize 官方 Cordis/credentials/LLM/settings/Schemastery 与 Client ui-primitives 单例的双端构建器。
-src/index.ts: Web/Desktop 共用 Host 组合入口，绑定 credentials/pi-ai/分发，并在 bootstrap sessionPolicy.enabled 时经 tryRegisterHostSessionSync 条件挂载会话同步。
+src/index.ts: Web/Desktop 共用 Host 组合入口，绑定 credentials/pi-ai/分发，在 bootstrap sessionPolicy.enabled 时经 tryRegisterHostSessionSync 条件挂载会话同步，并装配云端工作空间（本地映射 + Access Token askpass git 注入）。
 tests/bundle.spec.ts: 验签开关默认值与显式开启、credentials/模型/分发组合、Session 同步双向门禁（无 dsh-session peer）、兼容 peers、Client graph 与构建产物验收。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

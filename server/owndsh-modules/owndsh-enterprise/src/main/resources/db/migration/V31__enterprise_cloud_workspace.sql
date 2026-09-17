@@ -18,7 +18,7 @@ create table ent_cloud_project
     constraint fk_ent_cloud_project_creator foreign key (created_by)
         references sys_user (user_id) on delete restrict,
     constraint ck_ent_cloud_project_status check (status in ('ACTIVE', 'DISABLED')),
-    constraint ck_ent_cloud_project_slug check (slug ~ '^[a-z0-9][a-z0-9-]{0,62}$'),
+    constraint ck_ent_cloud_project_slug check (slug ~ '^[a-z0-9][a-z0-9-]{0,63}$'),
     constraint ck_ent_cloud_project_name check (char_length(name) between 1 and 120),
     constraint ck_ent_cloud_project_branch check (default_branch ~ '^[A-Za-z0-9][A-Za-z0-9._/-]{0,62}$'),
     constraint uq_ent_cloud_project_slug unique (tenant_id, slug)
@@ -43,3 +43,21 @@ create index ix_ent_cloud_project_tenant_created
 
 create index ix_ent_cloud_member_user
     on ent_cloud_project_member (user_id, project_id);
+
+-- 云端项目治理审计：与 AuditAction 枚举保持同构。
+alter table ent_audit_event drop constraint ck_ent_audit_event_action;
+
+alter table ent_audit_event add constraint ck_ent_audit_event_action check (action in (
+    'LOGIN_SUCCEEDED', 'LOGIN_FAILED', 'LOGOUT', 'IDENTITY_SOURCE_CHANGED', 'USER_LINKED', 'USER_UNLINKED',
+    'DEVICE_ENROLLED', 'DEVICE_HEARTBEAT', 'DEVICE_REVOKED',
+    'PROVIDER_CHANGED', 'MODEL_CHANGED', 'MODEL_GRANT_CHANGED',
+    'MODEL_REQUEST_ACCEPTED', 'MODEL_REQUEST_FINISHED',
+    'QUOTA_CHANGED', 'QUOTA_REJECTED', 'RESERVATION_RECOVERED',
+    'PLUGIN_UPLOADED', 'PLUGIN_PUBLISHED', 'PLUGIN_ASSIGNED', 'PLUGIN_DOWNLOADED',
+    'PLUGIN_INVENTORY_REPORTED', 'SESSION_BATCH_APPENDED', 'SESSION_EXPORTED',
+    'SESSION_RESTORED', 'SESSION_CONTENT_READ', 'SESSION_DELETED', 'SESSION_EXPIRED',
+    'CLOUD_PROJECT_CREATED', 'CLOUD_PROJECT_MEMBER_ADDED', 'CLOUD_PROJECT_MEMBER_REMOVED',
+    'ROLE_ASSIGNED', 'USER_STATUS_CHANGED', 'CONFIG_CHANGED',
+    'PRESET_VERSION_UPLOADED', 'PRESET_VERSION_PUBLISHED', 'PRESET_VERSION_RETIRED',
+    'PRESET_ASSIGNMENTS_REPLACED', 'PRESET_DOWNLOAD_AUTHORIZED'
+));

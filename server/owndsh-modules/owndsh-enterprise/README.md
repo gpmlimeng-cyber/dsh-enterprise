@@ -179,8 +179,20 @@ PATH=/usr/local/opt/openjdk@21/bin:$PATH \
 测试从真实 Host PostgreSQL 基线启动数据库，分别验证一次性迁移和逐版本升级；不会使用 H2
 模拟 PostgreSQL 约束。身份/设备/网关测试还会启动 WireMock OIDC/DeepSeek、OpenLDAP StartTLS、
 Redis 8 和 PostgreSQL 17 Testcontainers，并使用 OpenAPI 派生 JSON Schema 验证认证、设备、模型、
-配额、bootstrap、用量、模型流、插件与 Session 接口的成功/失败响应。插件测试还覆盖恶意归档、
+配额、bootstrap、用量、模型流、插件、Session 与云端项目接口的成功/失败响应。插件测试还覆盖恶意归档、
 JCS/Ed25519、并发幂等上传、assignment 优先级、自选安装范围、越权/退休下载拒绝、库存原子替换和文件补偿；Session
-测试覆盖精确字节 hash、连续/重复/gap/diverge/跨设备/并发、密文、正文权限、删除与 retention。
+测试覆盖精确字节 hash、连续/重复/gap/diverge/跨设备/并发、密文、正文权限、删除与 retention；云端工作空间
+测试覆盖 slug 规范化、bare 仓库初始化、成员权限、Basic→Bearer 凭据解包、last-OWNER 保护与禁用开关。
+
+## 云端工作空间
+
+`enterprise.cloud-workspace.enabled`（默认 `true`）与 `repo-root` 是本能力的部署边界。
+登录员工经 `/enterprise/api/v1/cloud-projects` 自助创建项目（创建者自动为 OWNER）并在服务端
+`repo-root/projects/{projectId}.git` 初始化 bare 仓库；后续所有文件真源都由 Git 承载，服务端不解释文件内容。
+
+Git 传输走同一企业 HTTP 面的 Smart HTTP：`/enterprise/api/v1/git/{projectId}/info/refs`、
+`.../git-upload-pack`、`.../git-receive-pack`。`GitBasicAuthFilter` 只匹配该前缀，把 HTTP Basic 的
+password（企业 Access Token）改写为后续 Bearer 语义，再由既有设备上下文解析会话；用户名被忽略。
+`ReceivePack` 保持 JGit 默认，非 fast-forward 推送被拒绝，冲突合并责任留在编辑者本地。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

@@ -103597,6 +103597,9 @@
                 "SESSION_CONTENT_READ",
                 "SESSION_DELETED",
                 "SESSION_EXPIRED",
+                "CLOUD_PROJECT_CREATED",
+                "CLOUD_PROJECT_MEMBER_ADDED",
+                "CLOUD_PROJECT_MEMBER_REMOVED",
                 "ROLE_ASSIGNED",
                 "USER_STATUS_CHANGED",
                 "CONFIG_CHANGED"
@@ -103787,6 +103790,9 @@
                                   "SESSION_CONTENT_READ",
                                   "SESSION_DELETED",
                                   "SESSION_EXPIRED",
+                                  "CLOUD_PROJECT_CREATED",
+                                  "CLOUD_PROJECT_MEMBER_ADDED",
+                                  "CLOUD_PROJECT_MEMBER_REMOVED",
                                   "ROLE_ASSIGNED",
                                   "USER_STATUS_CHANGED",
                                   "CONFIG_CHANGED"
@@ -105217,15 +105223,14 @@
                         ],
                         "properties": {
                           "id": {
-                            "type": "integer",
-                            "format": "int64",
-                            "minimum": 1
+                            "type": "string",
+                            "pattern": "^[1-9][0-9]{0,18}$"
                           },
                           "slug": {
                             "type": "string",
                             "minLength": 1,
                             "maxLength": 64,
-                            "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+                            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
                           },
                           "name": {
                             "type": "string",
@@ -105787,15 +105792,14 @@
                       ],
                       "properties": {
                         "id": {
-                          "type": "integer",
-                          "format": "int64",
-                          "minimum": 1
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]{0,18}$"
                         },
                         "slug": {
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 64,
-                          "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+                          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
                         },
                         "name": {
                           "type": "string",
@@ -106790,15 +106794,14 @@
                       ],
                       "properties": {
                         "id": {
-                          "type": "integer",
-                          "format": "int64",
-                          "minimum": 1
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]{0,18}$"
                         },
                         "slug": {
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 64,
-                          "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+                          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
                         },
                         "name": {
                           "type": "string",
@@ -127911,15 +127914,14 @@
         }
       },
       "CloudProjectId": {
-        "type": "integer",
-        "format": "int64",
-        "minimum": 1
+        "type": "string",
+        "pattern": "^[1-9][0-9]{0,18}$"
       },
       "CloudProjectSlug": {
         "type": "string",
         "minLength": 1,
         "maxLength": 64,
-        "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+        "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
       },
       "CloudProjectRole": {
         "type": "string",
@@ -127965,15 +127967,14 @@
         ],
         "properties": {
           "id": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 1
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,18}$"
           },
           "slug": {
             "type": "string",
             "minLength": 1,
             "maxLength": 64,
-            "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
           },
           "name": {
             "type": "string",
@@ -128036,15 +128037,14 @@
             ],
             "properties": {
               "id": {
-                "type": "integer",
-                "format": "int64",
-                "minimum": 1
+                "type": "string",
+                "pattern": "^[1-9][0-9]{0,18}$"
               },
               "slug": {
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 64,
-                "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
               },
               "name": {
                 "type": "string",
@@ -128119,15 +128119,14 @@
               ],
               "properties": {
                 "id": {
-                  "type": "integer",
-                  "format": "int64",
-                  "minimum": 1
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]{0,18}$"
                 },
                 "slug": {
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 64,
-                  "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
                 },
                 "name": {
                   "type": "string",
@@ -128358,6 +128357,9 @@
           "SESSION_CONTENT_READ",
           "SESSION_DELETED",
           "SESSION_EXPIRED",
+          "CLOUD_PROJECT_CREATED",
+          "CLOUD_PROJECT_MEMBER_ADDED",
+          "CLOUD_PROJECT_MEMBER_REMOVED",
           "ROLE_ASSIGNED",
           "USER_STATUS_CHANGED",
           "CONFIG_CHANGED"
@@ -129080,6 +129082,9 @@
               "SESSION_CONTENT_READ",
               "SESSION_DELETED",
               "SESSION_EXPIRED",
+              "CLOUD_PROJECT_CREATED",
+              "CLOUD_PROJECT_MEMBER_ADDED",
+              "CLOUD_PROJECT_MEMBER_REMOVED",
               "ROLE_ASSIGNED",
               "USER_STATUS_CHANGED",
               "CONFIG_CHANGED"
@@ -129850,6 +129855,9 @@
                     "SESSION_CONTENT_READ",
                     "SESSION_DELETED",
                     "SESSION_EXPIRED",
+                    "CLOUD_PROJECT_CREATED",
+                    "CLOUD_PROJECT_MEMBER_ADDED",
+                    "CLOUD_PROJECT_MEMBER_REMOVED",
                     "ROLE_ASSIGNED",
                     "USER_STATUS_CHANGED",
                     "CONFIG_CHANGED"
@@ -130665,6 +130673,9 @@
                         "SESSION_CONTENT_READ",
                         "SESSION_DELETED",
                         "SESSION_EXPIRED",
+                        "CLOUD_PROJECT_CREATED",
+                        "CLOUD_PROJECT_MEMBER_ADDED",
+                        "CLOUD_PROJECT_MEMBER_REMOVED",
                         "ROLE_ASSIGNED",
                         "USER_STATUS_CHANGED",
                         "CONFIG_CHANGED"

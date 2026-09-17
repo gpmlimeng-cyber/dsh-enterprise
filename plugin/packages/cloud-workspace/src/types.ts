@@ -30,6 +30,11 @@ export interface CloudProjectListItem extends CloudProjectDto {
   readonly mapping: CloudProjectMapping | null
 }
 
+export interface CloudProjectMemberDto {
+  readonly userId: string
+  readonly role: string
+}
+
 export interface AccessTokenProvider {
   getAccessToken(): Promise<string>
 }

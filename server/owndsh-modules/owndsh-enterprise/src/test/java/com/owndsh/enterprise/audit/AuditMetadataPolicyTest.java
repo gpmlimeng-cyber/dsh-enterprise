@@ -129,6 +129,9 @@ class AuditMetadataPolicyTest {
             new SessionAuditMetadata.Expired(1, 2),
             new UserGovernanceAuditMetadata.RoleAssigned(2),
             new UserGovernanceAuditMetadata.StatusChanged("0", "1"),
+            new CloudProjectCreatedMetadata("team-docs", "OWNER"),
+            new CloudProjectMemberAddedMetadata(2, "MEMBER"),
+            new CloudProjectMemberRemovedMetadata(2),
             new RevisionChangedMetadata(0, 1)
         );
     }

@@ -15,5 +15,6 @@ plugin.yaml: T13 六个管理与三个 runtime operation，冻结 multipart、re
 preset.yaml: 配方广场五个管理与三个 runtime operation，冻结 .dshpreset multipart、ALL/USER 可见范围原子替换与逐请求下载授权。
 session.yaml: T16 三个管理与五个 runtime operation，冻结设备源绑定、正文独立权限、导出 hash 与 tombstone 边界。
 audit.yaml: T19 单一管理只读 operation，冻结九维筛选、cursor 和 ent:audit:read 权限边界。
+cloud-project.yaml: 云端工作空间 create/list/get 与成员 add/remove 四个 Path Item；Git Smart HTTP 为二进制协议，不在 OpenAPI 编码。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

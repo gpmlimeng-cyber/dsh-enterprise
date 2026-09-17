@@ -35,6 +35,6 @@ V27__one_rate_limit_per_provider.sql: 以局部唯一索引保证每个供应商
 V28__refresh_sessions.sql: 建立只存 SHA-256 摘要、绑定用户/client/installation、绝对 30 天且保留轮换重放证据的 Refresh Session family。
 V29__gateway_usage_accounting.sql: 保留历史配额扣额、清除估算伪装的实测分类，并给 reservation 增加最终 usage 快照用于结算恢复。
 V30__enterprise_preset_square.sql: 建立配方 package/version/assignment 三表、ent:preset 权限码，并扩展审计 action 白名单。
-V31__enterprise_cloud_workspace.sql: 建立云端项目与成员两表，slug 在 tenant 内唯一，角色 OWNER/MEMBER。
+V31__enterprise_cloud_workspace.sql: 建立云端项目与成员两表，slug 在 tenant 内唯一，角色 OWNER/MEMBER，并扩展审计 action 白名单至云端项目治理三类事件。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

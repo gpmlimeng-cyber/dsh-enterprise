@@ -31,6 +31,7 @@ export function EnterpriseCloudProjectsView(props: EnterpriseCloudProjectsViewPr
   const [rootDir, setRootDir] = useState('')
   const [message, setMessage] = useState('')
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [memberId, setMemberId] = useState('')
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -189,6 +190,30 @@ export function EnterpriseCloudProjectsView(props: EnterpriseCloudProjectsViewPr
                 推送
               </button>
             </div>
+            {project.role === 'OWNER' ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                <input
+                  value={memberId}
+                  onChange={event => setMemberId(event.target.value)}
+                  placeholder="成员 ID"
+                  aria-label={`${project.name} 成员 ID`}
+                  style={{ flex: '1 1 160px', padding: '6px 8px' }}
+                />
+                <button
+                  type="button"
+                  disabled={busy || !/^[1-9][0-9]{0,18}$/.test(memberId.trim())}
+                  onClick={() => {
+                    void run(async () => {
+                      await props.store.addCloudProjectMember(project.id, memberId.trim())
+                      setMemberId('')
+                      setNotice('已添加项目成员')
+                    })
+                  }}
+                >
+                  添加成员
+                </button>
+              </div>
+            ) : null}
             {activeId === project.id ? <div style={{ fontSize: 12 }}>处理中…</div> : null}
           </li>
         ))}

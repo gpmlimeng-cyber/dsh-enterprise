@@ -53,4 +53,6 @@ P2-08C 将产品控制台会话收敛为服务端 Sa-Token 与 HttpOnly/SameSite
 
 插件验签策略：客户端 `verifyPluginSignatures` 默认 false，HTTP 内网部署无需员工配置公钥；文件大小、SHA-256、兼容性、逐请求授权与核心包保护始终生效。显式开启后仅信任安装层配置的 Ed25519 公钥，目录、下载和缓存都严格验签，服务端响应无权关闭校验或替换信任根。服务端 `ENT_PLUGIN_SIGNING_ENABLED` 同样默认 false，关闭时不加载私钥、不生成签名；数据库保留非空 bytea，以零长度表示未签名，HTTP `signatureBase64` 对应空字符串，无需迁移。开启签名仅影响新上传版本，不补签旧制品。Docker 与离线安装默认不提供签名密钥；升级时先更新员工插件，旧客户端无法解析无签名版本。
 
+云端工作空间：解决「团队共享同一项目目录」的协作缺口，与 Session 同步（密文复制、换机续作）正交。服务端 `com.owndsh.enterprise.workspace` 纵向持有 V31 项目/成员事实与 `repo-root` 下的 bare Git 仓库；文件真源是 Git 本身，服务端不解释内容。员工在「DSH Enterprise 设置 → 云端项目」自助创建（创建者自动 OWNER）、克隆到用户所选根目录下的 `<slug>/`，随后 clone/pull/commit/push 走 `/enterprise/api/v1/git/{projectId}` 的 Smart HTTP（JGit Upload/ReceivePack）。Git 鉴权复用企业 Access Token：`GitBasicAuthFilter` 只匹配该前缀，把 HTTP Basic 的 password 改写为 Bearer 语义交给既有设备上下文解析，用户名被忽略，Token 只经 Host 内存经 `GIT_ASKPASS` 注入 git 子进程，不进入映射文件或 Client DTO。非 fast-forward 推送被服务端拒绝，合并责任留在编辑者本地。bootstrap 新增 `cloudWorkspace.enabled`（默认 true）作为客户端开关，管理台项目治理、LFS、SSH 远程与自动 merge 均在首期范围外。
+
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

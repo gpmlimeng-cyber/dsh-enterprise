@@ -66,7 +66,7 @@ describe('enterprise local API', () => {
     server = createServer((request, response) => {
       const path = new URL(request.url ?? '/', 'http://127.0.0.1').pathname
       const route = routes.get(`exact:${path}`) ?? [...routes.values()].find(candidate => (
-        candidate.kind === 'prefix' && (path === candidate.path || path.startsWith(`${candidate.path}/`))
+        candidate.kind === 'prefix' && path.startsWith(candidate.path)
       ))
       if (route === undefined) return void response.writeHead(404).end()
       void Promise.resolve(route.handler(request, response))
@@ -205,5 +205,87 @@ describe('enterprise local API', () => {
     expect(oversized.status).toBe(413)
     dispose()
     expect((await fetch(`${baseUrl}/enterprise/api/v1/local/status`)).status).toBe(404)
+  })
+
+  it('exposes cloud project routes only when the port is injected and maps workspace errors', async () => {
+    const cloudWorkspace = {
+      list: vi.fn(async () => [{ id: '1', slug: 'team-docs', name: 'Team Docs', cloneUrl: 'https://x/1', role: 'OWNER', mapping: null }]),
+      create: vi.fn(async (body: { name: string }) => ({ id: '2', slug: 'docs', name: body.name, cloneUrl: 'https://x/2', role: 'OWNER', mapping: null })),
+      clone: vi.fn(async () => ({ path: '/tmp/team-docs' })),
+      pull: vi.fn(async () => ({ fastForward: true, message: 'ok' })),
+      commit: vi.fn(async () => ({ committed: true })),
+      push: vi.fn(async () => undefined),
+      status: vi.fn(async () => ({ branch: 'main', dirty: false, path: '/tmp/team-docs' })),
+      addMember: vi.fn(async (_projectId: string, body: { userId: string }) => ({ userId: body.userId, role: 'MEMBER' })),
+    }
+    registerEnterpriseLocalApi(webServer, { platform, pluginStatus, cloudWorkspace })
+
+    await expect((await fetch(`${baseUrl}/enterprise/api/v1/local/cloud-projects`)).json())
+      .resolves.toEqual({
+        data: [{ id: '1', slug: 'team-docs', name: 'Team Docs', cloneUrl: 'https://x/1', role: 'OWNER', mapping: null }],
+      })
+    await expect((await fetch(`${baseUrl}/enterprise/api/v1/local/cloud-projects`, {
+      body: JSON.stringify({ name: 'Docs' }),
+      headers: { 'content-type': 'application/json' }, method: 'POST',
+    })).json()).resolves.toEqual({
+      data: { id: '2', slug: 'docs', name: 'Docs', cloneUrl: 'https://x/2', role: 'OWNER', mapping: null },
+    })
+    await expect((await fetch(`${baseUrl}/enterprise/api/v1/local/cloud-projects/1/clone`, {
+      body: JSON.stringify({ rootDir: '/tmp' }),
+      headers: { 'content-type': 'application/json' }, method: 'POST',
+    })).json()).resolves.toEqual({ data: { path: '/tmp/team-docs' } })
+    await expect((await fetch(`${baseUrl}/enterprise/api/v1/local/cloud-projects/1/pull`, { method: 'POST' })).json())
+      .resolves.toEqual({ data: { fastForward: true, message: 'ok' } })
+    await expect((await fetch(`${baseUrl}/enterprise/api/v1/local/cloud-projects/1/commit`, {
+      body: JSON.stringify({ message: 'update' }),
+      headers: { 'content-type': 'application/json' }, method: 'POST',
+    })).json()).resolves.toEqual({ data: { committed: true } })
+    await expect((await fetch(`${baseUrl}/enterprise/api/v1/local/cloud-projects/1/status`, { method: 'POST' })).json())
+      .resolves.toEqual({ data: { branch: 'main', dirty: false, path: '/tmp/team-docs' } })
+    await expect((await fetch(`${baseUrl}/enterprise/api/v1/local/cloud-projects/1/members`, {
+      body: JSON.stringify({ userId: '7' }),
+      headers: { 'content-type': 'application/json' }, method: 'POST',
+    })).json()).resolves.toEqual({ data: { userId: '7', role: 'MEMBER' } })
+
+    const invalidMember = await fetch(`${baseUrl}/enterprise/api/v1/local/cloud-projects/1/members`, {
+      body: JSON.stringify({ userId: 'not-an-id' }),
+      headers: { 'content-type': 'application/json' }, method: 'POST',
+    })
+    expect(invalidMember.status).toBe(400)
+  })
+
+  it('omits cloud project routes when no port is injected', async () => {
+    registerEnterpriseLocalApi(webServer, { platform, pluginStatus })
+    const response = await fetch(`${baseUrl}/enterprise/api/v1/local/cloud-projects`)
+    expect(response.status).toBe(404)
+  })
+
+  it('maps stable workspace error codes to their HTTP status', async () => {
+    const cloudWorkspace = {
+      list: vi.fn(async () => { throw Object.assign(new Error('nope'), { code: 'ENT_WORKSPACE_DISABLED' }) }),
+      create: vi.fn(async () => { throw Object.assign(new Error('conflict'), { code: 'ENT_WORKSPACE_SLUG_CONFLICT' }) }),
+      clone: vi.fn(async () => { throw Object.assign(new Error('not mapped'), { code: 'ENT_WORKSPACE_NOT_MAPPED' }) }),
+      pull: vi.fn(async () => { throw Object.assign(new Error('git down'), { code: 'ENT_GIT_UNAVAILABLE' }) }),
+      commit: vi.fn(async () => { throw Object.assign(new Error('diverged'), { code: 'ENT_GIT_NON_FAST_FORWARD' }) }),
+      push: vi.fn(async () => undefined),
+      status: vi.fn(async () => ({ branch: 'main', dirty: false, path: '/tmp/x' })),
+      addMember: vi.fn(async (_projectId: string, body: { userId: string }) => ({ userId: body.userId, role: 'MEMBER' })),
+    }
+    registerEnterpriseLocalApi(webServer, { platform, pluginStatus, cloudWorkspace })
+
+    expect((await fetch(`${baseUrl}/enterprise/api/v1/local/cloud-projects`)).status).toBe(403)
+    expect((await fetch(`${baseUrl}/enterprise/api/v1/local/cloud-projects`, {
+      body: JSON.stringify({ name: 'Docs' }),
+      headers: { 'content-type': 'application/json' }, method: 'POST',
+    })).status).toBe(409)
+    expect((await fetch(`${baseUrl}/enterprise/api/v1/local/cloud-projects/1/clone`, {
+      body: JSON.stringify({ rootDir: '/tmp' }),
+      headers: { 'content-type': 'application/json' }, method: 'POST',
+    })).status).toBe(400)
+    expect((await fetch(`${baseUrl}/enterprise/api/v1/local/cloud-projects/1/pull`, { method: 'POST' })).status).toBe(500)
+    expect((await fetch(`${baseUrl}/enterprise/api/v1/local/cloud-projects/1/commit`, {
+      body: JSON.stringify({ message: 'update' }),
+      headers: { 'content-type': 'application/json' }, method: 'POST',
+    })).status).toBe(409)
   })
 })

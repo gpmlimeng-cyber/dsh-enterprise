@@ -45,13 +45,13 @@ public final class CloudProjectViews {
 
     public static String cloneUrl(URI publicBaseUrl, long projectId) {
         if (publicBaseUrl == null) {
-            return "/enterprise/api/v1/git/" + projectId + ".git";
+            return "/enterprise/api/v1/git/" + projectId;
         }
         String base = publicBaseUrl.toString();
         if (base.endsWith("/")) {
             base = base.substring(0, base.length() - 1);
         }
-        return base + "/enterprise/api/v1/git/" + projectId + ".git";
+        return base + "/enterprise/api/v1/git/" + projectId;
     }
 
     public record View(

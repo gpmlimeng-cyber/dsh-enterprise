@@ -31,5 +31,8 @@ public interface WorkspaceStore {
 
     int deleteMember(String tenantId, long projectId, long userId);
 
+    /** 创建补偿：删除项目行（成员随 FK 级联）。 */
+    int deleteProject(String tenantId, long projectId);
+
     boolean userExists(long userId);
 }

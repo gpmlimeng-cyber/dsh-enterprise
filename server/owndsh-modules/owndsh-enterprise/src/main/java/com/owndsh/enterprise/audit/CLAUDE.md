@@ -4,7 +4,7 @@
 
 成员清单
 
-AuditAction.java: 36 个 action 的枚举真源，与 PostgreSQL check 约束保持同构。
+AuditAction.java: 39 个 action 的枚举真源，与 PostgreSQL check 约束（V4+V30+V31）保持同构。
 AuditActorType.java: USER/SYSTEM actor 分类。
 AuditResult.java: SUCCESS/FAILURE 结果分类。
 AuditMetadata.java: 每个显式 metadata DTO 必须声明唯一 action 的编译期入口闸门。
@@ -13,6 +13,9 @@ AuditSink.java: 业务事务唯一 append 端口，不暴露修改或删除能�
 JdbcAuditSink.java: 只执行 INSERT 并序列化显式 DTO 的 PostgreSQL adapter。
 EmptyAuditMetadata.java: DEVICE_REVOKED 的显式空 metadata。
 RevisionChangedMetadata.java: CONFIG_CHANGED 的 revision 白名单。
+CloudProjectCreatedMetadata.java: CLOUD_PROJECT_CREATED 的 slug/role 白名单。
+CloudProjectMemberAddedMetadata.java: CLOUD_PROJECT_MEMBER_ADDED 的 userId/role 白名单。
+CloudProjectMemberRemovedMetadata.java: CLOUD_PROJECT_MEMBER_REMOVED 的 userId 白名单。
 AuditEventRecord.java: 不含原始 user-agent 的只读账本投影。
 AuditFilter.java: action/actor/resource/result/reason/requestId/时间筛选值对象。
 AuditQueryStore.java: 审计 keyset 查询和 retention 批量删除端口。

@@ -63,7 +63,6 @@ describe('enterprise local browser API', () => {
       plugins: { revision: 1, assignments: [] },
       sessionPolicy: { enabled: true },
       cloudWorkspace: { enabled: true },
-      cloudWorkspace: { enabled: true },
     }))
     const api = createEnterpriseLocalApi(fetcher)
     await expect(api.bootstrap(new AbortController().signal)).resolves.toEqual({

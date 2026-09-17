@@ -196,6 +196,9 @@ export const zAuditAuditAction = z.enum([
     'SESSION_CONTENT_READ',
     'SESSION_DELETED',
     'SESSION_EXPIRED',
+    'CLOUD_PROJECT_CREATED',
+    'CLOUD_PROJECT_MEMBER_ADDED',
+    'CLOUD_PROJECT_MEMBER_REMOVED',
     'ROLE_ASSIGNED',
     'USER_STATUS_CHANGED',
     'CONFIG_CHANGED'
@@ -569,7 +572,7 @@ export const zCloudProjectCloudProjectCreateRequest = z.object({
 
 export const zCloudProjectCreateRequest = zCloudProjectCloudProjectCreateRequest;
 
-export const zCloudProjectCloudProjectId = z.coerce.bigint().gte(BigInt(1)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' });
+export const zCloudProjectCloudProjectId = z.string().regex(/^[1-9][0-9]{0,18}$/);
 
 export const zCloudProjectId = zCloudProjectCloudProjectId;
 
@@ -605,7 +608,7 @@ export const zCloudProjectCloudProjectRole = z.enum(['OWNER', 'MEMBER']);
 
 export const zCloudProjectRole = zCloudProjectCloudProjectRole;
 
-export const zCloudProjectCloudProjectSlug = z.string().min(1).max(64).regex(/^[a-z0-9][a-z0-9-]{0,62}$/);
+export const zCloudProjectCloudProjectSlug = z.string().min(1).max(64).regex(/^[a-z0-9][a-z0-9-]{0,63}$/);
 
 export const zCloudProjectSlug = zCloudProjectCloudProjectSlug;
 

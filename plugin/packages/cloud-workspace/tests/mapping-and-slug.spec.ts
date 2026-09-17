@@ -35,7 +35,7 @@ describe('MappingStore', () => {
       projectId: '42',
       slug: 'team-docs',
       path: '/tmp/work/team-docs',
-      cloneUrl: 'http://localhost:8080/enterprise/api/v1/git/42.git',
+      cloneUrl: 'http://localhost:8080/enterprise/api/v1/git/42',
       defaultBranch: 'main',
       lastActionAt: '2026-09-17T00:00:00.000Z',
     })

@@ -8,6 +8,7 @@ package com.owndsh.enterprise.workspace.git;
 
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.lib.Constants;
+import org.eclipse.jgit.lib.RefUpdate;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.lib.StoredConfig;
 
@@ -44,11 +45,18 @@ public final class GitRepositoryService {
         }
         try {
             Files.createDirectories(path);
-            try (Git git = Git.init().setBare(true).setDirectory(path.toFile()).call();
+            try (Git git = Git.init()
+                .setBare(true)
+                .setInitialBranch(defaultBranch)
+                .setDirectory(path.toFile())
+                .call();
                  Repository repository = git.getRepository()) {
                 StoredConfig config = repository.getConfig();
                 config.setString("init", null, "defaultBranch", defaultBranch);
                 config.save();
+                RefUpdate head = repository.updateRef(Constants.HEAD);
+                head.disableRefLog();
+                head.link(Constants.R_HEADS + defaultBranch);
             }
             return path;
         } catch (Exception exception) {

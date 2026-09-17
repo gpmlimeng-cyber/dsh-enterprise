@@ -12,6 +12,7 @@ import type {
   AccessTokenProvider,
   CloudProjectDto,
   CloudProjectListItem,
+  CloudProjectMemberDto,
   CloudWorkspacePlatformPort,
   GitCommandRunner,
 } from './types.js'
@@ -19,14 +20,15 @@ import type {
 export { CloudWorkspaceError, isCloudWorkspaceError, toCloudWorkspaceError } from './errors.js'
 export type { CloudWorkspaceErrorCode } from './errors.js'
 export { defaultMappingPath, MappingStore } from './mapping-store.js'
-export { createDefaultGitRunner, GitOps } from './git-ops.js'
+export { createDefaultGitRunner, GIT_USERNAME, GitOps } from './git-ops.js'
 export { CloudWorkspaceService } from './service.js'
-export { slugify, isValidProjectId, isValidRootDir } from './slug.js'
+export { slugify, isValidProjectId, isValidProjectSlug, isValidRootDir } from './slug.js'
 export type {
   AccessTokenProvider,
   CloudProjectDto,
   CloudProjectListItem,
   CloudProjectMapping,
+  CloudProjectMemberDto,
   CloudWorkspaceLogger,
   CloudWorkspacePlatformPort,
   GitCommandRunner,
@@ -48,6 +50,7 @@ export interface CloudWorkspaceHandle {
   commit(projectId: string, message: string, signal?: AbortSignal): Promise<{ committed: boolean }>
   push(projectId: string, signal?: AbortSignal): Promise<void>
   status(projectId: string, signal?: AbortSignal): Promise<{ branch: string; dirty: boolean; path: string }>
+  addMember(projectId: string, userId: string, signal?: AbortSignal): Promise<CloudProjectMemberDto>
 }
 
 export function createCloudWorkspaceHandle(deps: CloudWorkspaceDeps): CloudWorkspaceHandle {
@@ -63,6 +66,7 @@ export function createCloudWorkspaceHandle(deps: CloudWorkspaceDeps): CloudWorks
     commit: (projectId, message, signal) => service.commit(projectId, message, signal),
     push: (projectId, signal) => service.push(projectId, signal),
     status: (projectId, signal) => service.status(projectId, signal),
+    addMember: (projectId, userId, signal) => service.addMember(projectId, userId, signal),
   }
 }
 
@@ -74,6 +78,7 @@ export interface CloudWorkspaceLocalPort {
   commit(projectId: string, body: { message: string }): Promise<unknown>
   push(projectId: string): Promise<unknown>
   status(projectId: string): Promise<unknown>
+  addMember(projectId: string, body: { userId: string }): Promise<unknown>
 }
 
 export function createCloudWorkspaceLocalPort(
@@ -132,6 +137,13 @@ export function createCloudWorkspaceLocalPort(
     status: async (projectId) => {
       try {
         return await require().status(projectId)
+      } catch (error) {
+        throw toCloudWorkspaceError(error)
+      }
+    },
+    addMember: async (projectId, body) => {
+      try {
+        return await require().addMember(projectId, body.userId)
       } catch (error) {
         throw toCloudWorkspaceError(error)
       }

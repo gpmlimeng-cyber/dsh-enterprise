@@ -225,7 +225,7 @@ public final class EnterpriseExceptionHandler {
             case DISABLED, FORBIDDEN -> HttpStatus.FORBIDDEN;
             case NOT_FOUND -> HttpStatus.NOT_FOUND;
             case SLUG_CONFLICT, LAST_OWNER -> HttpStatus.CONFLICT;
-            case INVALID_REQUEST, NOT_MAPPED -> HttpStatus.BAD_REQUEST;
+            case INVALID_REQUEST -> HttpStatus.BAD_REQUEST;
             case GIT_UNAVAILABLE -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
         String message = switch (exception.kind()) {
@@ -233,7 +233,6 @@ public final class EnterpriseExceptionHandler {
             case NOT_FOUND -> "云端项目不存在";
             case FORBIDDEN -> "无权访问该云端项目";
             case SLUG_CONFLICT -> "项目标识已存在";
-            case NOT_MAPPED -> "尚未映射本地目录";
             case LAST_OWNER -> "必须保留至少一名 OWNER";
             case INVALID_REQUEST -> "请求参数不合法";
             case GIT_UNAVAILABLE -> "Git 仓库不可用";

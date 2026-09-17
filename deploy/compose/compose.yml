@@ -54,6 +54,7 @@ services:
     command: ["sh", "-ec", "chown -R 10001:10001 /var/lib/enterprise"]
     volumes:
       - artifacts:/var/lib/enterprise/artifacts
+      - cloud_workspace:/var/lib/enterprise/cloud-workspace
     restart: "no"
     networks: [backend]
     cap_drop: [ALL]
@@ -85,11 +86,13 @@ services:
       ENT_BOOTSTRAP_ADMIN_USERNAME: ${ENT_BOOTSTRAP_ADMIN_USERNAME:-admin}
       ENT_BOOTSTRAP_ADMIN_PASSWORD: ${ENT_BOOTSTRAP_ADMIN_PASSWORD:-owndsh}
       ENT_ARTIFACT_ROOT: /var/lib/enterprise/artifacts
+      ENT_CLOUD_WORKSPACE_REPO_ROOT: /var/lib/enterprise/cloud-workspace
       XDG_CACHE_HOME: /tmp
       JAVA_TOOL_OPTIONS: ${OWNDSH_JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError}
       TZ: ${ENT_DEPLOYMENT_TIME_ZONE:-Asia/Shanghai}
     volumes:
       - artifacts:/var/lib/enterprise/artifacts
+      - cloud_workspace:/var/lib/enterprise/cloud-workspace
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
@@ -139,3 +142,4 @@ volumes:
   postgres_data:
   redis_data:
   artifacts:
+  cloud_workspace:

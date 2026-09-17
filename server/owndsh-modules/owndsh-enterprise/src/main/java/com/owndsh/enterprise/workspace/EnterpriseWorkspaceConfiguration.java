@@ -6,6 +6,7 @@
  */
 package com.owndsh.enterprise.workspace;
 
+import com.owndsh.enterprise.audit.AuditSink;
 import com.owndsh.enterprise.workspace.application.CloudWorkspaceService;
 import com.owndsh.enterprise.workspace.git.GitRepositoryService;
 import com.owndsh.enterprise.workspace.git.GitSmartHttpService;
@@ -19,6 +20,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.nio.file.Path;
 import java.util.function.LongSupplier;
@@ -58,11 +61,15 @@ public class EnterpriseWorkspaceConfiguration {
 
     @Bean
     CloudWorkspaceService enterpriseCloudWorkspaceService(
+        PlatformTransactionManager transactionManager,
         WorkspaceStore store,
         GitRepositoryService repositories,
         EnterpriseWorkspaceProperties properties,
+        AuditSink auditSink,
         @Qualifier("enterpriseIdSupplier") LongSupplier ids
     ) {
-        return new CloudWorkspaceService(store, repositories, properties, ids);
+        return new CloudWorkspaceService(
+            new TransactionTemplate(transactionManager), store, repositories, properties, auditSink, ids
+        );
     }
 }

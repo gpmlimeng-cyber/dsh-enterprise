@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖系统 git PATH、GIT_ASKPASS 临时脚本与 AccessTokenProvider。
  * [OUTPUT]: 对外提供 clone/status/dirty/commit/pull/push 与临时凭据清理。
- * [POS]: cloud-workspace 的 Git 执行边界；Access Token 只经 askpass 注入子进程，不写映射文件。
+ * [POS]: cloud-workspace 的 Git 执行边界；Access Token 只经 askpass 注入子进程环境，不写映射文件或脚本正文。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { spawn } from 'node:child_process'
@@ -10,6 +10,18 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { CloudWorkspaceError } from './errors.js'
 import type { AccessTokenProvider, GitCommandRunner } from './types.js'
+
+/** username 固定 `oauth2`；服务端忽略用户名，只认 password=Access Token。 */
+export const GIT_USERNAME = 'oauth2'
+
+const ASKPASS_SCRIPT = [
+  '#!/bin/sh',
+  'case "$1" in',
+  '  *[Uu]sername*) printf \'%s\\n\' "$DSHENT_GIT_USERNAME" ;;',
+  '  *) printf \'%s\\n\' "$DSHENT_GIT_TOKEN" ;;',
+  'esac',
+  '',
+].join('\n')
 
 export function createDefaultGitRunner(): GitCommandRunner {
   return {
@@ -46,12 +58,12 @@ export class GitOps {
 
   async withAuth<T>(
     signal: AbortSignal | undefined,
-    action: (env: NodeJS.ProcessEnv, cleanup: () => void) => Promise<T>,
+    action: (env: NodeJS.ProcessEnv) => Promise<T>,
   ): Promise<T> {
     const token = await this.tokens.getAccessToken()
     const directory = mkdtempSync(join(tmpdir(), 'dshent-git-askpass-'))
     const askpass = join(directory, 'askpass.sh')
-    writeFileSync(askpass, '#!/bin/sh\nprintf \'%s\\n\' "$DSHENT_GIT_TOKEN"\n', { mode: 0o700 })
+    writeFileSync(askpass, ASKPASS_SCRIPT, { mode: 0o700 })
     chmodSync(askpass, 0o700)
     const env: NodeJS.ProcessEnv = {
       ...process.env,
@@ -60,36 +72,42 @@ export class GitOps {
       SSH_ASKPASS: askpass,
       DISPLAY: 'dshent-mock',
       DSHENT_GIT_TOKEN: token,
+      DSHENT_GIT_USERNAME: GIT_USERNAME,
     }
     try {
-      return await action(env, () => { /* cleanup after */ })
+      return await action(env)
     } finally {
-      try { rmSync(directory, { recursive: true, force: true }) } catch { /* ignore */ }
+      delete env.DSHENT_GIT_TOKEN
+      try { rmSync(directory, { recursive: true, force: true }) } catch { /* 临时目录已消失 */ }
     }
   }
 
-  async clone(cloneUrl: string, targetPath: string, branch: string, signal?: AbortSignal): Promise<void> {
+  /**
+   * 新建的云端项目是空仓库：`--branch` 无法匹配未诞生的分支，
+   * 因此先做普通 clone，待首次提交后分支自然出现。
+   */
+  async clone(cloneUrl: string, targetPath: string, signal?: AbortSignal): Promise<void> {
     await this.withAuth(signal, async (env) => {
-      const result = await this.runner.run(null, [
-        'clone', '--branch', branch, '--single-branch', cloneUrl, targetPath,
-      ], env, signal)
-      if (result.exitCode !== 0) {
-        throw new CloudWorkspaceError('ENT_INVALID_REQUEST', result.stderr || 'git clone 失败', 400)
+      const result = await this.runner.run(null, ['clone', cloneUrl, targetPath], env, signal)
+      if (result.exitCode === 0) return
+      if (/already exists and is not an empty directory/i.test(result.stderr)) {
+        throw new CloudWorkspaceError('ENT_INVALID_REQUEST', '本地目录已存在且非空', 400)
       }
+      throw new CloudWorkspaceError('ENT_INVALID_REQUEST', result.stderr || 'git clone 失败', 400)
     })
   }
 
   async status(cwd: string, signal?: AbortSignal): Promise<{ branch: string; dirty: boolean }> {
     return this.withAuth(signal, async (env) => {
-      const branchResult = await this.runner.run(cwd, ['rev-parse', '--abbrev-ref', 'HEAD'], env, signal)
-      if (branchResult.exitCode !== 0) {
-        throw new CloudWorkspaceError('ENT_WORKSPACE_NOT_MAPPED', '目录不是有效工作树', 400)
-      }
+      const branchResult = await this.runner.run(cwd, ['symbolic-ref', '--short', '-q', 'HEAD'], env, signal)
       const statusResult = await this.runner.run(cwd, ['status', '--porcelain'], env, signal)
       if (statusResult.exitCode !== 0) {
-        throw new CloudWorkspaceError('ENT_GIT_UNAVAILABLE', 'git status 失败', 500)
+        throw new CloudWorkspaceError('ENT_WORKSPACE_NOT_MAPPED', '目录不是有效工作树', 400)
       }
-      return { branch: branchResult.stdout.trim() || 'main', dirty: statusResult.stdout.trim().length > 0 }
+      const branch = branchResult.exitCode === 0 && branchResult.stdout.trim().length > 0
+        ? branchResult.stdout.trim()
+        : 'main'
+      return { branch, dirty: statusResult.stdout.trim().length > 0 }
     })
   }
 
@@ -109,8 +127,9 @@ export class GitOps {
   async pullFfOnly(cwd: string, signal?: AbortSignal): Promise<{ fastForward: boolean; stderr: string }> {
     return this.withAuth(signal, async (env) => {
       const result = await this.runner.run(cwd, ['pull', '--ff-only'], env, signal)
-      if (result.exitCode === 0) return { fastForward: true, stderr: result.stderr }
-      return { fastForward: false, stderr: result.stderr }
+      return result.exitCode === 0
+        ? { fastForward: true, stderr: result.stderr }
+        : { fastForward: false, stderr: result.stderr }
     })
   }
 

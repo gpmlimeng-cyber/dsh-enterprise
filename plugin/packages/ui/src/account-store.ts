@@ -139,6 +139,10 @@ export class EnterpriseAccountStore {
     await this.#api.pushCloudProject(projectId, this.#signal())
   }
 
+  async addCloudProjectMember(projectId: string, userId: string): Promise<{ readonly userId: string; readonly role: string }> {
+    return this.#api.addCloudProjectMember(projectId, userId, this.#signal())
+  }
+
   #requireStatus(): EnterpriseLocalStatus {
     const status = this.#snapshot.status
     if (status === undefined) throw new EnterpriseLocalApiError('ENT_LOCAL_UNAVAILABLE')

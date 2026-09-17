@@ -79,11 +79,7 @@ importers:
         specifier: workspace:*
         version: link:../ui
 
-  packages/cloud-workspace:
-    dependencies:
-      zod:
-        specifier: 4.4.3
-        version: 4.4.3
+  packages/cloud-workspace: {}
 
   packages/contracts:
     dependencies:

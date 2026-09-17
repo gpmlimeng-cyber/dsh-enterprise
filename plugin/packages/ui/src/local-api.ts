@@ -151,6 +151,7 @@ export interface EnterpriseLocalApi {
   commitCloudProject(projectId: string, message: string, signal: AbortSignal): Promise<{ readonly committed: boolean }>
   pushCloudProject(projectId: string, signal: AbortSignal): Promise<void>
   cloudProjectStatus(projectId: string, signal: AbortSignal): Promise<{ readonly branch: string; readonly dirty: boolean; readonly path: string }>
+  addCloudProjectMember(projectId: string, userId: string, signal: AbortSignal): Promise<{ readonly userId: string; readonly role: string }>
 }
 
 export interface EnterpriseCloudProject {
@@ -633,6 +634,17 @@ export function createEnterpriseLocalApi(
       }
       return { branch: data['branch'], dirty: data['dirty'], path: data['path'] }
     },
+    addCloudProjectMember: async (projectId, userId, signal) => {
+      const data = record(await requestJson(
+        `/cloud-projects/${encodeURIComponent(projectId)}/members`,
+        jsonInit('POST', { userId }, signal),
+        fetcher,
+      ))
+      if (data === undefined || !nonEmptyString(data['userId'])) {
+        throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+      }
+      return { userId: data['userId'], role: nonEmptyString(data['role']) ? data['role'] : 'MEMBER' }
+    },
   }
 }
 
@@ -642,10 +654,10 @@ function decodeCloudProjects(value: unknown): EnterpriseCloudProject[] {
     const source = record(item)
     if (source === undefined
       || !nonEmptyString(source['id'])
+      || !nonEmptyString(source['slug'])
       || !nonEmptyString(source['name'])
       || !nonEmptyString(source['cloneUrl'])
-      || (source['role'] !== 'OWNER' && source['role'] !== 'MEMBER')
-      || !nonEmptyString(source['id'])) {
+      || (source['role'] !== 'OWNER' && source['role'] !== 'MEMBER')) {
       throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
     }
     const rawMapping = source['mapping']
@@ -659,7 +671,7 @@ function decodeCloudProjects(value: unknown): EnterpriseCloudProject[] {
     }
     return {
       id: source['id'],
-      slug: nonEmptyString(source['slug']) ? source['slug'] : source['id'],
+      slug: source['slug'],
       name: source['name'],
       description: typeof source['description'] === 'string' ? source['description'] : null,
       defaultBranch: nonEmptyString(source['defaultBranch']) ? source['defaultBranch'] : 'main',

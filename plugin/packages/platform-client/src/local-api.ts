@@ -77,6 +77,7 @@ export interface EnterpriseLocalCloudWorkspacePort {
   commit(projectId: string, body: { message: string }): Promise<unknown>
   push(projectId: string): Promise<unknown>
   status(projectId: string): Promise<unknown>
+  addMember(projectId: string, body: { userId: string }): Promise<unknown>
 }
 
 function writeJson(response: ServerResponse, status: number, value: unknown): void {
@@ -105,12 +106,15 @@ function actionErrorStatus(error: unknown): number {
   if (error instanceof RangeError) return 413
   if (error instanceof SyntaxError || error instanceof TypeError) return 400
   const code = errorCode(error)
-  if (code === 'ENT_INVALID_REQUEST') return 400
-  if (code === 'ENT_PLUGIN_BUSY') return 409
+  if (code === 'ENT_INVALID_REQUEST' || code === 'ENT_WORKSPACE_NOT_MAPPED') return 400
+  if (code === 'ENT_PLUGIN_BUSY' || code === 'ENT_WORKSPACE_SLUG_CONFLICT'
+    || code === 'ENT_WORKSPACE_LAST_OWNER' || code === 'ENT_GIT_NON_FAST_FORWARD') return 409
   if (code === 'ENT_AUTH_REQUIRED' || code === 'ENT_AUTH_SESSION_EXPIRED') return 401
-  if (code === 'ENT_DEVICE_REVOKED' || code === 'ENT_PERMISSION_DENIED') return 403
+  if (code === 'ENT_DEVICE_REVOKED' || code === 'ENT_PERMISSION_DENIED'
+    || code === 'ENT_SESSION_SYNC_DISABLED' || code === 'ENT_WORKSPACE_DISABLED'
+    || code === 'ENT_WORKSPACE_FORBIDDEN') return 403
   if (code === 'ENT_RESOURCE_NOT_FOUND') return 404
-  if (code === 'ENT_SESSION_SYNC_DISABLED') return 403
+  if (code === 'ENT_GIT_UNAVAILABLE') return 500
   return 503
 }
 
@@ -430,7 +434,7 @@ export function registerEnterpriseLocalApi(
         path: `${LOCAL_API_PREFIX}/cloud-projects/`,
         handler: async (request, response) => {
           const rest = requestUrl(request).pathname.slice(`${LOCAL_API_PREFIX}/cloud-projects/`.length)
-          const actionMatch = /^([^/]+)(?:\/(clone|pull|commit|push|status))?$/.exec(rest)
+          const actionMatch = /^([^/]+)(?:\/(clone|pull|commit|push|status|members))?$/.exec(rest)
           if (actionMatch === null) {
             writeJson(response, 404, { error: { code: 'ENT_RESOURCE_NOT_FOUND' } })
             return
@@ -465,6 +469,17 @@ export function registerEnterpriseLocalApi(
             }
             if (action === 'push') {
               writeJson(response, 200, { data: await cloudWorkspace.push(projectId) })
+              return
+            }
+            if (action === 'members') {
+              const body = await readJson(request)
+              const userId = typeof body === 'object' && body !== null && !Array.isArray(body)
+                ? (body as { userId?: unknown }).userId
+                : undefined
+              if (typeof userId !== 'string' || !/^[1-9][0-9]{0,18}$/.test(userId)) {
+                throw new TypeError('invalid userId')
+              }
+              writeJson(response, 200, { data: await cloudWorkspace.addMember(projectId, { userId }) })
               return
             }
             const body = await readJson(request)

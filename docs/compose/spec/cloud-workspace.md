@@ -46,13 +46,13 @@ commits:
 
 | 方法 | 路径 | 行为 |
 |---|---|---|
-| POST | `/` | body `{name, description?}`；slug 规范化 + 冲突 409；事务插 project+OWNER member；`GitRepositoryService.initBare`；审计 |
+| POST | `/` | body `{name, description?}`；slug 规范化 + 冲突 409；**先初始化 bare 仓库（HEAD→defaultBranch），再在同一事务写 project+OWNER member 与审计**；事务失败则删除刚建仓库，成功审计只随提交出现 |
 | GET | `/` | 当前用户作为成员的项目列表（id/slug/name/role/cloneUrl/defaultBranch） |
 | GET | `/{projectId}` | 成员可见才返回 |
-| POST | `/{projectId}/members` | OWNER 添加成员 `{userId}`（本企业用户）；幂等 |
-| DELETE | `/{projectId}/members/{userId}` | OWNER 移除；禁止移除最后一个 OWNER |
+| POST | `/{projectId}/members` | OWNER 添加成员 `{userId}`（本企业用户）；幂等；审计 CLOUD_PROJECT_MEMBER_ADDED |
+| DELETE | `/{projectId}/members/{userId}` | OWNER 移除；禁止移除最后一个 OWNER；审计 CLOUD_PROJECT_MEMBER_REMOVED |
 
-**Git Smart HTTP**（`/enterprise/api/v1/git/{projectId}/**`）
+**Git Smart HTTP**（`/enterprise/api/v1/git/{projectId}/**`；cloneUrl 不带 `.git` 后缀，与 `@PathVariable long` 兼容）
 
 - `GET .../info/refs?service=git-upload-pack|git-receive-pack`
 - `POST .../git-upload-pack`、`POST .../git-receive-pack`
@@ -99,17 +99,17 @@ commits:
 |---|---|
 | GET `/local/cloud-projects` | 远端列表 + 本地映射状态（mapped/path/dirty?） |
 | POST `/local/cloud-projects` | `{name, description?}` 创建，返回项目 |
-| POST `/local/cloud-projects/{id}/clone` | `{rootDir}` 绝对路径；生成 slug 子目录；`git clone`；写映射；失败清理 |
+| POST `/local/cloud-projects/{id}/clone` | `{rootDir}` 绝对路径；生成 slug 子目录；**`git clone`（不带 `--branch`，兼容空仓库）**；写映射；失败清理 |
 | POST `/local/cloud-projects/{id}/pull` | mapped 才允许；`git pull --ff-only` 失败则报告需手动合并 |
 | POST `/local/cloud-projects/{id}/commit` | `{message}`；有变更则 `add -A` + commit |
 | POST `/local/cloud-projects/{id}/push` | `git push`；非 FF 把 stderr 映射为 `ENT_GIT_NON_FAST_FORWARD` |
-| POST `/local/cloud-projects/{id}/members` | OWNER 加成员 |
+| POST `/local/cloud-projects/{id}/members` | OWNER 加成员 `{userId}` |
 | GET `/local/cloud-projects/{id}/status` | branch、dirty、last commit subject |
 
 **Git 凭据（Access Token）**
 
 - Host 生成一次性 `GIT_ASKPASS` 脚本：向本地 platform `GET /status` 侧信道不可行（token 不出 Host API）。改为：GitOps 通过注入的 `AccessTokenProvider` 接口在 Host 内取 token，写入 askpass 脚本内存环境不可持久化场景用临时 0700 文件 + 操作结束删除。
-- username 固定 `oauth2`（服务端忽略用户名，只认 password=token）。
+- username 固定 `oauth2`（askpass 按提示词分流回答用户名/密码；服务端忽略用户名，只认 password=token）。
 - **禁止**把 Access Token 打进 UI 日志、commit message、映射 JSON。
 
 **UI**（`@dshent/ui`）
@@ -129,7 +129,7 @@ commits:
 | 未登录/坏 token | 401 `ENT_AUTH_REQUIRED` |
 | 非成员 git 或 JSON | 403 `ENT_WORKSPACE_FORBIDDEN` |
 | slug 冲突 | 409 `ENT_WORKSPACE_SLUG_CONFLICT` |
-| 非 FF push | 客户端 `ENT_GIT_NON_FAST_FORWARD`（git stderr 保留） |
+| 非 FF push | 客户端 `ENT_GIT_NON_FAST_FORWARD`（409，已用真实 git 输出验证匹配） |
 | 无映射 | 400 `ENT_WORKSPACE_NOT_MAPPED` |
 | 系统无 git | 500 `ENT_GIT_UNAVAILABLE` |
 | enabled=false | 403 `ENT_WORKSPACE_DISABLED` |
@@ -143,6 +143,21 @@ commits:
 | contracts | fixtures 校验 + 生成无漂移 |
 | cloud-workspace package | vitest：slug、mapping store、git 命令行构造、错误映射；无真实 git 也可 mock runner |
 | bundle/workspace | build、bundle.spec（若需）、workspace.test.mjs 5 包 |
+
+### S2.7 评审修复（2026-09-17）
+
+首轮实现经独立评审实测复现 6 项 CRITICAL，已修复并复验：
+
+| 编号 | 缺陷 | 修复 |
+|---|---|---|
+| C1 | `application.yml` 重复 `cloud-workspace:` 键导致 Spring 启动失败，并吞掉 `enterprise.session.retention-*` | 合并为单块并恢复 session retention 两行 |
+| C2 | cloneUrl 带 `.git` 后缀无法绑定 `@PathVariable long`（实测 400） | cloneUrl 去掉 `.git` |
+| C3 | `git clone --branch` 对空仓库必然失败（实测 exit 128） | 普通 clone，分支在首次提交后自然出现 |
+| C4 | `init.defaultBranch` 写在 init 之后不移动 HEAD（实测仍为 master） | `setInitialBranch` + `RefUpdate.link` |
+| C5 | 合约 `CloudProjectId` 声明 integer 而服务端序列化字符串，Java fixture 门禁失败 | 改为字符串 schema，与仓库 snowflake-as-string 约定一致 |
+| C6 | `create()` 非原子且无审计 | 先建仓、后事务写行+审计；事务失败清理仓库；新增三类审计 action 与 V31 白名单 |
+
+同时修复 HIGH/MEDIUM：本地 API 错误状态注册表（H1）、成员加入的本地路由与 UI（H2）、评审期未提交的 L2 地图（H3）、Git 控制器/服务与 GitOps 测试（H4）、slug 长度边界（M1）、部署卷（M2）、客户端透传服务端错误码（M3）、客户端 slug 校验（M4）、askpass 用户名（M5）、死代码与文档漂移（M6）、重复插入行（M7）。
 
 ## [S3] Out of Scope
 

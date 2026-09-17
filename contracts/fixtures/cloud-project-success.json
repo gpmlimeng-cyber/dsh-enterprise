@@ -6,7 +6,7 @@
     "description": "团队共享设计资料",
     "defaultBranch": "main",
     "role": "OWNER",
-    "cloneUrl": "http://localhost:8080/enterprise/api/v1/git/1000000000001.git",
+    "cloneUrl": "http://localhost:8080/enterprise/api/v1/git/1000000000001",
     "createdAt": "2026-09-17T00:00:00Z",
     "updatedAt": "2026-09-17T00:00:00Z"
   },

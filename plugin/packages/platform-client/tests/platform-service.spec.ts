@@ -245,7 +245,6 @@ describe('EnterprisePlatformService', () => {
             },
             sessionPolicy: { enabled: true, retentionDays: 90, maxBatchBytes: 1_048_576 },
             cloudWorkspace: { enabled: true },
-            cloudWorkspace: { enabled: true },
           },
           requestId: REQUEST_ID,
         })

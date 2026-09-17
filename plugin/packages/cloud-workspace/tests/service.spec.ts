@@ -21,7 +21,7 @@ function project(id: string, name: string): CloudProjectDto {
     description: null,
     defaultBranch: 'main',
     role: 'OWNER',
-    cloneUrl: `http://localhost:8080/enterprise/api/v1/git/${id}.git`,
+    cloneUrl: `http://localhost:8080/enterprise/api/v1/git/${id}`,
     createdAt: '2026-09-17T00:00:00Z',
     updatedAt: '2026-09-17T00:00:00Z',
   }

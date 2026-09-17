@@ -152,6 +152,14 @@ public final class JdbcWorkspaceStore implements WorkspaceStore {
     }
 
     @Override
+    public int deleteProject(String tenantId, long projectId) {
+        return jdbc.update(
+            "delete from ent_cloud_project where tenant_id=? and id=?",
+            tenantId, projectId
+        );
+    }
+
+    @Override
     public boolean userExists(long userId) {
         Integer count = jdbc.queryForObject(
             "select count(*) from sys_user where user_id=?",

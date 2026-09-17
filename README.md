@@ -53,6 +53,21 @@ DSH Enterprise 不 fork 官方 Harness Web UI，不接管员工工作区，也�
 
 部署若将来打开旁路，仅在显式 `enterprise.session.enabled=true` 后 bootstrap 才会向客户端宣告 `sessionPolicy.enabled=true`；当前默认配置下员工端**不会**出现会话同步入口。
 
+## 云端工作空间（可选能力）
+
+目标：团队共享同一项目目录。发起人在客户端选择「云端项目」创建项目，资料以企业 Server 上的 **bare Git 仓库**为真源；成员各自克隆到自己机器上的映射目录，用 `pull / commit / push` 按 Git 语义协同。
+
+| 项 | 说明 |
+|---|---|
+| 服务端 | `com.owndsh.enterprise.workspace` 纵向 + Flyway `V31`；`enterprise.cloud-workspace.repo-root` 存放 `projects/{id}.git` |
+| 传输 | 与现有企业 API 同一 HTTP 面：`/enterprise/api/v1/git/{projectId}` 的 Git Smart HTTP（JGit） |
+| 鉴权 | HTTP Basic，password = 企业 Access Token；Token 只在 Host 内存并经 `GIT_ASKPASS` 注入 git 子进程，不写映射文件、不进浏览器 |
+| 并发 | 非 fast-forward 推送由服务端拒绝，冲突合并留在编辑者本地 |
+| 开关 | `enterprise.cloud-workspace.enabled`（默认 `true`）；bootstrap 以 `cloudWorkspace.enabled` 向客户端宣告 |
+| 界面 | 「DSH Enterprise 设置 → 云端项目」：创建、映射本地根目录、拉取/提交/推送 |
+
+管理台项目治理、LFS、SSH 远程与自动 merge 不在首期范围。
+
 ## Docker Compose 部署
 
 当前镜像目标为 Linux `amd64`。准备 Docker Engine、Docker Compose `2.20.3+` 和 Git。

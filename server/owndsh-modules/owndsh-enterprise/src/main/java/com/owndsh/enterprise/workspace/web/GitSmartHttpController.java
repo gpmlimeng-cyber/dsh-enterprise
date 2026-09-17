@@ -10,16 +10,15 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import com.owndsh.enterprise.device.application.DeviceCallContext;
 import com.owndsh.enterprise.device.web.DeviceRequestContextResolver;
+import com.owndsh.enterprise.workspace.application.CloudWorkspaceException;
 import com.owndsh.enterprise.workspace.application.CloudWorkspaceService;
 import com.owndsh.enterprise.workspace.git.GitSmartHttpService;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/enterprise/api/v1/git")
@@ -49,7 +48,7 @@ public final class GitSmartHttpController {
         try {
             git.handleInfoRefs(projectId, service, response);
         } catch (RuntimeException exception) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "git repository unavailable", exception);
+            throw new CloudWorkspaceException(CloudWorkspaceException.Kind.NOT_FOUND);
         }
     }
 
@@ -63,7 +62,7 @@ public final class GitSmartHttpController {
         try {
             git.handleUploadPack(projectId, request, response);
         } catch (RuntimeException exception) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "git repository unavailable", exception);
+            throw new CloudWorkspaceException(CloudWorkspaceException.Kind.NOT_FOUND);
         }
     }
 
@@ -77,7 +76,7 @@ public final class GitSmartHttpController {
         try {
             git.handleReceivePack(projectId, request, response);
         } catch (RuntimeException exception) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "git repository unavailable", exception);
+            throw new CloudWorkspaceException(CloudWorkspaceException.Kind.NOT_FOUND);
         }
     }
 

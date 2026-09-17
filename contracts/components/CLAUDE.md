@@ -15,5 +15,6 @@ plugin.yaml: compatibility、版本状态、catalog 完整 assignment 集合、r
 preset.yaml: dsh-preset v1 包/版本/ALL|USER 可见范围与 runtime 摘要/详情 schema，不投影 artifact 路径或包内 YAML。
 session.yaml: 官方 rc.7 format v0 header、精确 JSONL/hash、本人/admin metadata、正文页、tombstone 与恢复审计 schema 分片。
 audit.yaml: 31-action 枚举、封闭 metadata 与 cursor；模型传输失败可携带已实测结算，明确拒绝可 RELEASED，恢复可由 usage 快照 SETTLED。
+cloud-project.yaml: 云端项目 id/slug/role、create 请求、cloneUrl 投影与成员 schema 分片；不投影磁盘路径或 Git 内部状态。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

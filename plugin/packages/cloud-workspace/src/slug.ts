@@ -21,6 +21,11 @@ export function isValidProjectId(value: string): boolean {
   return /^[1-9][0-9]{0,18}$/.test(value)
 }
 
+/** 服务端 slug 语法；用于把服务端返回的 slug 拼进本地路径前的防御性校验。 */
+export function isValidProjectSlug(value: string): boolean {
+  return /^[a-z0-9][a-z0-9-]{0,63}$/.test(value)
+}
+
 export function isValidRootDir(value: string): boolean {
   if (!value.startsWith('/')) return false
   if (value.includes('\0')) return false

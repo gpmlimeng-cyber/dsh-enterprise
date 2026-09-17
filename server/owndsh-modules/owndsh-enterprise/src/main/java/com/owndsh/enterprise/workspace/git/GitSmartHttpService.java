@@ -88,7 +88,7 @@ public final class GitSmartHttpService {
         raw.flush();
     }
 
-    private static ReceivePack createReceivePack(Repository repository) {
+    static ReceivePack createReceivePack(Repository repository) {
         ReceivePack receivePack = new ReceivePack(repository);
         receivePack.setAllowCreates(true);
         receivePack.setAllowDeletes(false);
