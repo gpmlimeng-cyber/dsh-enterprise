@@ -1,9 +1,9 @@
 ---
 feature: cloud-workspace
-status: in-progress
+status: delivered
 updated: 2026-09-17
 branch: feat/cloud-workspace
-commits: f4268ea..28d00bf
+commits: f4268ea..df952f2
 ---
 
 # 云端工作空间（Cloud Workspace）最小同步闭环
