@@ -62,8 +62,11 @@ class BootstrapViewSessionPolicyTest {
         EnterpriseSessionProperties properties = new EnterpriseSessionProperties();
         properties.setEnabled(true);
 
-        BootstrapView view = BootstrapView.from(snapshot, properties);
+        BootstrapView view = BootstrapView.from(
+            snapshot, properties, new com.owndsh.enterprise.workspace.EnterpriseWorkspaceProperties()
+        );
 
         assertThat(view.sessionPolicy().enabled()).isTrue();
+        assertThat(view.cloudWorkspace().enabled()).isTrue();
     }
 }

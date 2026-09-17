@@ -37,6 +37,7 @@ import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { EnterpriseAccountSnapshot } from './account-store.js'
 import { EnterpriseAccountStore } from './account-store.js'
 import { ConfirmAction } from './confirm-action.js'
+import { EnterpriseCloudProjectsView } from './cloud-projects-view.js'
 import { EnterprisePluginMarket } from './plugin-market.js'
 export { enterprisePluginStatePresentation } from './plugin-market.js'
 import { EnterprisePresetMarket } from './preset-market.js'
@@ -514,18 +515,23 @@ export function EnterpriseSettingsSection(props: EnterpriseSettingsSectionProps)
   const headingId = useId()
   const tabsId = useId()
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
-  const [activeTab, setActiveTab] = useState<'account' | 'plugins' | 'presets' | 'sessions'>('account')
+  const [activeTab, setActiveTab] = useState<'account' | 'plugins' | 'presets' | 'sessions' | 'cloud'>('account')
   const snapshot = useAccount(props.store)
   const sessionSyncEnabled = snapshot.bootstrap?.sessionPolicyEnabled === true
+  const cloudWorkspaceEnabled = snapshot.bootstrap?.cloudWorkspaceEnabled === true
   const rows = [
     { id: 'account', label: '账号' },
     { id: 'plugins', label: '插件' },
     { id: 'presets', label: '配方' },
+    ...(cloudWorkspaceEnabled ? [{ id: 'cloud' as const, label: '云端项目' }] : []),
     ...(sessionSyncEnabled ? [{ id: 'sessions' as const, label: '会话同步' }] : []),
   ] as const
   useEffect(() => {
     if (!sessionSyncEnabled && activeTab === 'sessions') setActiveTab('account')
   }, [sessionSyncEnabled, activeTab])
+  useEffect(() => {
+    if (!cloudWorkspaceEnabled && activeTab === 'cloud') setActiveTab('account')
+  }, [cloudWorkspaceEnabled, activeTab])
   return <section className="own-settings" style={page} aria-labelledby={headingId}>
     <style>{`
       .own-account button:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary, #4d6bfe); outline-offset: 2px; }
@@ -591,6 +597,9 @@ export function EnterpriseSettingsSection(props: EnterpriseSettingsSectionProps)
     <div id={`${tabsId}-panel-presets`} role="tabpanel" aria-labelledby={`${tabsId}-tab-presets`} hidden={activeTab !== 'presets'}>
       {activeTab === 'presets' ? <EnterprisePresetMarket store={props.store} /> : null}
     </div>
+    {cloudWorkspaceEnabled ? <div id={`${tabsId}-panel-cloud`} role="tabpanel" aria-labelledby={`${tabsId}-tab-cloud`} hidden={activeTab !== 'cloud'}>
+      {activeTab === 'cloud' ? <EnterpriseCloudProjectsView store={props.store} /> : null}
+    </div> : null}
     {sessionSyncEnabled ? <div id={`${tabsId}-panel-sessions`} role="tabpanel" aria-labelledby={`${tabsId}-tab-sessions`} hidden={activeTab !== 'sessions'}>
       {activeTab === 'sessions' ? <EnterpriseSessionSyncView store={props.store} /> : null}
     </div> : null}

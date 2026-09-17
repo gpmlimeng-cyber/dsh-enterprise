@@ -78,6 +78,12 @@ export const zEnterpriseErrorCode = z.enum([
     'ENT_PLUGIN_ARTIFACT_INVALID',
     'ENT_PRESET_INVALID_PACKAGE',
     'ENT_SESSION_FORMAT_UNSUPPORTED',
+    'ENT_WORKSPACE_NOT_MAPPED',
+    'ENT_WORKSPACE_DISABLED',
+    'ENT_WORKSPACE_FORBIDDEN',
+    'ENT_WORKSPACE_SLUG_CONFLICT',
+    'ENT_WORKSPACE_LAST_OWNER',
+    'ENT_GIT_UNAVAILABLE',
     'ENT_AUTH_REQUIRED',
     'ENT_AUTH_CODE_INVALID',
     'ENT_PKCE_INVALID',
@@ -555,6 +561,81 @@ export const zAuthTokenResponse = z.object({
 }).strict();
 
 export const zTokenResponse = zAuthTokenResponse;
+
+export const zCloudProjectCloudProjectCreateRequest = z.object({
+    name: z.string().min(1).max(120),
+    description: z.string().max(2000).nullish()
+}).strict();
+
+export const zCloudProjectCreateRequest = zCloudProjectCloudProjectCreateRequest;
+
+export const zCloudProjectCloudProjectId = z.coerce.bigint().gte(BigInt(1)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' });
+
+export const zCloudProjectId = zCloudProjectCloudProjectId;
+
+export const zCloudProjectCloudProjectMember = z.object({
+    userId: zEnterpriseUserId,
+    role: z.string(),
+    createdAt: z.iso.datetime({ offset: true }).nullish()
+}).strict();
+
+export const zCloudProjectMember = zCloudProjectCloudProjectMember;
+
+export const zCloudProjectCloudProjectMemberListResponse = z.object({
+    data: z.array(zCloudProjectCloudProjectMember),
+    requestId: zRequestId
+}).strict();
+
+export const zCloudProjectMemberListResponse = zCloudProjectCloudProjectMemberListResponse;
+
+export const zCloudProjectCloudProjectMemberRequest = z.object({
+    userId: zEnterpriseUserId
+}).strict();
+
+export const zCloudProjectMemberRequest = zCloudProjectCloudProjectMemberRequest;
+
+export const zCloudProjectCloudProjectMemberResponse = z.object({
+    data: zCloudProjectCloudProjectMember,
+    requestId: zRequestId
+}).strict();
+
+export const zCloudProjectMemberResponse = zCloudProjectCloudProjectMemberResponse;
+
+export const zCloudProjectCloudProjectRole = z.enum(['OWNER', 'MEMBER']);
+
+export const zCloudProjectRole = zCloudProjectCloudProjectRole;
+
+export const zCloudProjectCloudProjectSlug = z.string().min(1).max(64).regex(/^[a-z0-9][a-z0-9-]{0,62}$/);
+
+export const zCloudProjectSlug = zCloudProjectCloudProjectSlug;
+
+export const zCloudProjectCloudProject = z.object({
+    id: zCloudProjectCloudProjectId,
+    slug: zCloudProjectCloudProjectSlug,
+    name: z.string().min(1).max(120),
+    description: z.string().nullable(),
+    defaultBranch: z.string().min(1).max(64),
+    role: zCloudProjectCloudProjectRole,
+    cloneUrl: z.string().min(1),
+    createdAt: z.iso.datetime({ offset: true }),
+    updatedAt: z.iso.datetime({ offset: true })
+}).strict();
+
+export const zCloudProject = zCloudProjectCloudProject;
+
+export const zCloudProjectCloudProjectListResponse = z.object({
+    data: z.array(zCloudProjectCloudProject),
+    requestId: zRequestId
+}).strict();
+
+export const zCloudProjectListResponse = zCloudProjectCloudProjectListResponse;
+
+export const zCloudProjectCloudProjectResponse = z.object({
+    data: zCloudProjectCloudProject,
+    requestId: zRequestId
+}).strict();
+
+export const zCloudProjectResponse = zCloudProjectCloudProjectResponse;
 
 export const zDeviceDeviceEnrollRequest = z.object({
     installationId: zAuthInstallationId,
@@ -1160,6 +1241,10 @@ export const zMemberMemberListResponse = z.object({
 }).strict();
 
 export const zMemberListResponse = zMemberMemberListResponse;
+
+export const zBootstrapCloudWorkspace = z.object({
+    enabled: z.boolean()
+}).strict();
 
 export const zBootstrapDevice = z.object({
     id: zEnterpriseDeviceId,
@@ -2061,7 +2146,8 @@ export const zModelBootstrapSnapshot = z.object({
     models: z.array(zModelBootstrapModel),
     quotas: z.array(zQuotaBootstrapQuota),
     plugins: zPluginRuntimePluginAssignments,
-    sessionPolicy: zBootstrapSessionPolicy
+    sessionPolicy: zBootstrapSessionPolicy,
+    cloudWorkspace: zBootstrapCloudWorkspace
 }).strict();
 
 export const zBootstrapSnapshot = zModelBootstrapSnapshot;
@@ -2545,6 +2631,14 @@ export const zSources = z.unknown();
 
 export const zToken = z.unknown();
 
+export const zRuntimeCloudProjectCollection = z.unknown();
+
+export const zRuntimeCloudProjectItem = z.unknown();
+
+export const zRuntimeCloudProjectMemberItem = z.unknown();
+
+export const zRuntimeCloudProjectMembers = z.unknown();
+
 export const zEnroll = z.unknown();
 
 export const zGet = z.unknown();
@@ -2790,6 +2884,12 @@ export const zSessionHashBase64Writable = zSessionSessionHashBase64;
 
 export const zSessionStatusWritable = zSessionSessionStatus;
 
+export const zCloudProjectIdWritable = zCloudProjectCloudProjectId;
+
+export const zCloudProjectSlugWritable = zCloudProjectCloudProjectSlug;
+
+export const zCloudProjectRoleWritable = zCloudProjectCloudProjectRole;
+
 export const zAuditEventIdWritable = zAuditAuditEventId;
 
 export const zAuditActorTypeWritable = zAuditAuditActorType;
@@ -3007,6 +3107,8 @@ export const zIfMatchRevision = zRevision;
  * Caller-generated UUID v4 reused only for one logical write.
  */
 export const zIdempotencyKey = z.uuid().length(36).regex(/^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$/);
+
+export const zCloudProjectIdPath = z.coerce.bigint().gte(BigInt(1)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' });
 
 export const zEventLimit = z.int().gte(1).lte(200).default(200);
 
@@ -4211,3 +4313,54 @@ export const zListAuditEventsQuery = z.object({
  * Append-only audit metadata page; source IP and user-agent hash are not returned.
  */
 export const zListAuditEventsResponse = zAuditAuditEventListResponse;
+
+/**
+ * Current user's cloud projects.
+ */
+export const zListCloudProjectsResponse = zCloudProjectCloudProjectListResponse;
+
+export const zCreateCloudProjectBody = zCloudProjectCloudProjectCreateRequest;
+
+/**
+ * Cloud project created with OWNER membership and bare repository.
+ */
+export const zCreateCloudProjectResponse = zCloudProjectCloudProjectResponse;
+
+export const zGetCloudProjectPath = z.object({
+    projectId: z.coerce.bigint().gte(BigInt(1)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+/**
+ * Membership-visible cloud project.
+ */
+export const zGetCloudProjectResponse = zCloudProjectCloudProjectResponse;
+
+export const zListCloudProjectMembersPath = z.object({
+    projectId: z.coerce.bigint().gte(BigInt(1)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+/**
+ * Project members.
+ */
+export const zListCloudProjectMembersResponse = zCloudProjectCloudProjectMemberListResponse;
+
+export const zAddCloudProjectMemberBody = zCloudProjectCloudProjectMemberRequest;
+
+export const zAddCloudProjectMemberPath = z.object({
+    projectId: z.coerce.bigint().gte(BigInt(1)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+/**
+ * Member added or already present.
+ */
+export const zAddCloudProjectMemberResponse = zCloudProjectCloudProjectMemberResponse;
+
+export const zRemoveCloudProjectMemberPath = z.object({
+    projectId: z.coerce.bigint().gte(BigInt(1)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    userId: zEnterpriseUserId
+});
+
+/**
+ * Member removed.
+ */
+export const zRemoveCloudProjectMemberResponse = zCloudProjectCloudProjectMemberResponse;

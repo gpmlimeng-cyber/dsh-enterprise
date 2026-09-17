@@ -1,0 +1,124 @@
+# [INPUT]: 依赖根协议 RequestId/EnterpriseId envelope 与成员 userId
+# [OUTPUT]: 提供云端项目、cloneUrl 与成员的 runtime schema 分片
+# [POS]: contracts/components 的云端工作空间最小同步闭环 schema；不投影磁盘路径或 Git 内部状态
+# [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+
+CloudProjectId:
+  type: integer
+  format: int64
+  minimum: 1
+
+CloudProjectSlug:
+  type: string
+  minLength: 1
+  maxLength: 64
+  pattern: '^[a-z0-9][a-z0-9-]{0,62}$'
+
+CloudProjectRole:
+  type: string
+  enum: [OWNER, MEMBER]
+
+CloudProjectCreateRequest:
+  type: object
+  additionalProperties: false
+  required: [name]
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 120
+    description:
+      type: [string, 'null']
+      maxLength: 2000
+
+CloudProject:
+  type: object
+  additionalProperties: false
+  required: [id, slug, name, description, defaultBranch, role, cloneUrl, createdAt, updatedAt]
+  properties:
+    id:
+      $ref: '#/CloudProjectId'
+    slug:
+      $ref: '#/CloudProjectSlug'
+    name:
+      type: string
+      minLength: 1
+      maxLength: 120
+    description:
+      type: [string, 'null']
+    defaultBranch:
+      type: string
+      minLength: 1
+      maxLength: 64
+    role:
+      $ref: '#/CloudProjectRole'
+    cloneUrl:
+      type: string
+      minLength: 1
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+
+CloudProjectResponse:
+  type: object
+  additionalProperties: false
+  required: [data, requestId]
+  properties:
+    data: {$ref: '#/CloudProject'}
+    requestId:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'
+
+CloudProjectListResponse:
+  type: object
+  additionalProperties: false
+  required: [data, requestId]
+  properties:
+    data:
+      type: array
+      items: {$ref: '#/CloudProject'}
+    requestId:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'
+
+CloudProjectMemberRequest:
+  type: object
+  additionalProperties: false
+  required: [userId]
+  properties:
+    userId:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/EnterpriseUserId'
+
+CloudProjectMember:
+  type: object
+  additionalProperties: false
+  required: [userId, role]
+  properties:
+    userId:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/EnterpriseUserId'
+    role:
+      type: string
+    createdAt:
+      type: [string, 'null']
+      format: date-time
+
+CloudProjectMemberResponse:
+  type: object
+  additionalProperties: false
+  required: [data, requestId]
+  properties:
+    data: {$ref: '#/CloudProjectMember'}
+    requestId:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'
+
+CloudProjectMemberListResponse:
+  type: object
+  additionalProperties: false
+  required: [data, requestId]
+  properties:
+    data:
+      type: array
+      items: {$ref: '#/CloudProjectMember'}
+    requestId:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'

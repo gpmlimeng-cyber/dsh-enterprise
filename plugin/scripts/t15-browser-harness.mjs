@@ -260,6 +260,8 @@ const platformServer = createServer(async (request, response) => {
         device: { id: '90018', installationId, status: 'ACTIVE' },
         models: [], quotas: [], plugins: { revision: 7, assignments: [assignment] },
         sessionPolicy: { enabled: false, retentionDays: 90, maxBatchBytes: 1_048_576 },
+        cloudWorkspace: { enabled: true },
+        cloudWorkspace: { enabled: true },
       },
       requestId: REQUEST_ID,
     })

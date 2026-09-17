@@ -62,12 +62,15 @@ describe('enterprise local browser API', () => {
       quotas: [],
       plugins: { revision: 1, assignments: [] },
       sessionPolicy: { enabled: true },
+      cloudWorkspace: { enabled: true },
+      cloudWorkspace: { enabled: true },
     }))
     const api = createEnterpriseLocalApi(fetcher)
     await expect(api.bootstrap(new AbortController().signal)).resolves.toEqual({
       user: { id: '10031', username: 'zhangsan', displayName: 'Zhang San', departmentId: '210' },
       device: { id: '90018', installationId: '4c96d076-a80a-4b6c-8df6-f0db804b6f0a', status: 'ACTIVE' },
       sessionPolicyEnabled: true,
+      cloudWorkspaceEnabled: true,
     })
   })
 

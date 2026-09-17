@@ -405,6 +405,28 @@ export type SessionRestoreRecord = SessionSessionRestoreRecord;
 
 export type SessionRestoreRecordResponse = SessionSessionRestoreRecordResponse;
 
+export type CloudProjectId = CloudProjectCloudProjectId;
+
+export type CloudProjectSlug = CloudProjectCloudProjectSlug;
+
+export type CloudProjectRole = CloudProjectCloudProjectRole;
+
+export type CloudProjectCreateRequest = CloudProjectCloudProjectCreateRequest;
+
+export type CloudProject = CloudProjectCloudProject;
+
+export type CloudProjectResponse = CloudProjectCloudProjectResponse;
+
+export type CloudProjectListResponse = CloudProjectCloudProjectListResponse;
+
+export type CloudProjectMemberRequest = CloudProjectCloudProjectMemberRequest;
+
+export type CloudProjectMember = CloudProjectCloudProjectMember;
+
+export type CloudProjectMemberResponse = CloudProjectCloudProjectMemberResponse;
+
+export type CloudProjectMemberListResponse = CloudProjectCloudProjectMemberListResponse;
+
 export type AuditEventId = AuditAuditEventId;
 
 export type AuditActorType = AuditAuditActorType;
@@ -545,7 +567,7 @@ export type ProtocolPageResponse = {
     requestId: RequestId;
 };
 
-export type EnterpriseErrorCode = 'ENT_INVALID_REQUEST' | 'ENT_INVALID_REDIRECT_URI' | 'ENT_PKCE_REQUIRED' | 'ENT_PLUGIN_ARTIFACT_INVALID' | 'ENT_PRESET_INVALID_PACKAGE' | 'ENT_SESSION_FORMAT_UNSUPPORTED' | 'ENT_AUTH_REQUIRED' | 'ENT_AUTH_CODE_INVALID' | 'ENT_PKCE_INVALID' | 'ENT_AUTH_SESSION_EXPIRED' | 'ENT_PERMISSION_DENIED' | 'ENT_DEVICE_REVOKED' | 'ENT_MODEL_NOT_ASSIGNED' | 'ENT_PLUGIN_NOT_ASSIGNED' | 'ENT_PRESET_NOT_PUBLISHED' | 'ENT_PRESET_VISIBILITY_DENIED' | 'ENT_RESOURCE_NOT_OWNED' | 'ENT_RESOURCE_NOT_FOUND' | 'ENT_SESSION_CONTENT_EXPIRED' | 'ENT_REVISION_CONFLICT' | 'ENT_LAST_ENTERPRISE_ADMIN' | 'ENT_LAST_MEMBER_IDENTITY' | 'ENT_REQUEST_IN_PROGRESS' | 'ENT_REQUEST_ALREADY_COMPLETED' | 'ENT_SESSION_SEQ_GAP' | 'ENT_SESSION_DIVERGED' | 'ENT_SESSION_SOURCE_DEVICE_CONFLICT' | 'ENT_IDENTITY_ALREADY_LINKED' | 'ENT_DEVICE_ALREADY_BOUND' | 'ENT_REQUEST_TOO_LARGE' | 'ENT_PLUGIN_ARCHIVE_TOO_LARGE' | 'ENT_PRESET_TOO_LARGE' | 'ENT_SESSION_BATCH_TOO_LARGE' | 'ENT_QUOTA_FIVE_HOURS_EXCEEDED' | 'ENT_QUOTA_DAILY_EXCEEDED' | 'ENT_QUOTA_WEEKLY_EXCEEDED' | 'ENT_QUOTA_MONTHLY_EXCEEDED' | 'ENT_QUOTA_RPM_EXCEEDED' | 'ENT_QUOTA_CONCURRENCY_EXCEEDED' | 'ENT_UPSTREAM_RATE_LIMITED' | 'ENT_UPSTREAM_QUOTA_EXCEEDED' | 'ENT_UPSTREAM_AUTH_FAILED' | 'ENT_UPSTREAM_INVALID_RESPONSE' | 'ENT_PLATFORM_UNAVAILABLE' | 'ENT_UPSTREAM_UNAVAILABLE' | 'ENT_UPSTREAM_TIMEOUT';
+export type EnterpriseErrorCode = 'ENT_INVALID_REQUEST' | 'ENT_INVALID_REDIRECT_URI' | 'ENT_PKCE_REQUIRED' | 'ENT_PLUGIN_ARTIFACT_INVALID' | 'ENT_PRESET_INVALID_PACKAGE' | 'ENT_SESSION_FORMAT_UNSUPPORTED' | 'ENT_WORKSPACE_NOT_MAPPED' | 'ENT_WORKSPACE_DISABLED' | 'ENT_WORKSPACE_FORBIDDEN' | 'ENT_WORKSPACE_SLUG_CONFLICT' | 'ENT_WORKSPACE_LAST_OWNER' | 'ENT_GIT_UNAVAILABLE' | 'ENT_AUTH_REQUIRED' | 'ENT_AUTH_CODE_INVALID' | 'ENT_PKCE_INVALID' | 'ENT_AUTH_SESSION_EXPIRED' | 'ENT_PERMISSION_DENIED' | 'ENT_DEVICE_REVOKED' | 'ENT_MODEL_NOT_ASSIGNED' | 'ENT_PLUGIN_NOT_ASSIGNED' | 'ENT_PRESET_NOT_PUBLISHED' | 'ENT_PRESET_VISIBILITY_DENIED' | 'ENT_RESOURCE_NOT_OWNED' | 'ENT_RESOURCE_NOT_FOUND' | 'ENT_SESSION_CONTENT_EXPIRED' | 'ENT_REVISION_CONFLICT' | 'ENT_LAST_ENTERPRISE_ADMIN' | 'ENT_LAST_MEMBER_IDENTITY' | 'ENT_REQUEST_IN_PROGRESS' | 'ENT_REQUEST_ALREADY_COMPLETED' | 'ENT_SESSION_SEQ_GAP' | 'ENT_SESSION_DIVERGED' | 'ENT_SESSION_SOURCE_DEVICE_CONFLICT' | 'ENT_IDENTITY_ALREADY_LINKED' | 'ENT_DEVICE_ALREADY_BOUND' | 'ENT_REQUEST_TOO_LARGE' | 'ENT_PLUGIN_ARCHIVE_TOO_LARGE' | 'ENT_PRESET_TOO_LARGE' | 'ENT_SESSION_BATCH_TOO_LARGE' | 'ENT_QUOTA_FIVE_HOURS_EXCEEDED' | 'ENT_QUOTA_DAILY_EXCEEDED' | 'ENT_QUOTA_WEEKLY_EXCEEDED' | 'ENT_QUOTA_MONTHLY_EXCEEDED' | 'ENT_QUOTA_RPM_EXCEEDED' | 'ENT_QUOTA_CONCURRENCY_EXCEEDED' | 'ENT_UPSTREAM_RATE_LIMITED' | 'ENT_UPSTREAM_QUOTA_EXCEEDED' | 'ENT_UPSTREAM_AUTH_FAILED' | 'ENT_UPSTREAM_INVALID_RESPONSE' | 'ENT_PLATFORM_UNAVAILABLE' | 'ENT_UPSTREAM_UNAVAILABLE' | 'ENT_UPSTREAM_TIMEOUT';
 
 export type ValidationViolation = {
     field: string;
@@ -916,6 +938,59 @@ export type AuthTokenResponse = {
     data: AuthTokenData;
     requestId: RequestId;
 };
+
+export type CloudProjectCloudProject = {
+    id: CloudProjectCloudProjectId;
+    slug: CloudProjectCloudProjectSlug;
+    name: string;
+    description: string | null;
+    defaultBranch: string;
+    role: CloudProjectCloudProjectRole;
+    cloneUrl: string;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type CloudProjectCloudProjectCreateRequest = {
+    name: string;
+    description?: string | null;
+};
+
+export type CloudProjectCloudProjectId = number;
+
+export type CloudProjectCloudProjectListResponse = {
+    data: Array<CloudProjectCloudProject>;
+    requestId: RequestId;
+};
+
+export type CloudProjectCloudProjectMember = {
+    userId: EnterpriseUserId;
+    role: string;
+    createdAt?: string | null;
+};
+
+export type CloudProjectCloudProjectMemberListResponse = {
+    data: Array<CloudProjectCloudProjectMember>;
+    requestId: RequestId;
+};
+
+export type CloudProjectCloudProjectMemberRequest = {
+    userId: EnterpriseUserId;
+};
+
+export type CloudProjectCloudProjectMemberResponse = {
+    data: CloudProjectCloudProjectMember;
+    requestId: RequestId;
+};
+
+export type CloudProjectCloudProjectResponse = {
+    data: CloudProjectCloudProject;
+    requestId: RequestId;
+};
+
+export type CloudProjectCloudProjectRole = 'OWNER' | 'MEMBER';
+
+export type CloudProjectCloudProjectSlug = string;
 
 export type DeviceDevice = {
     id: EnterpriseDeviceId;
@@ -1322,6 +1397,10 @@ export type MemberMemberSummary = {
     revision: Revision;
 };
 
+export type BootstrapCloudWorkspace = {
+    enabled: boolean;
+};
+
 export type BootstrapDevice = {
     id: EnterpriseDeviceId;
     installationId: AuthInstallationId;
@@ -1358,6 +1437,7 @@ export type ModelBootstrapSnapshot = {
     quotas: Array<QuotaBootstrapQuota>;
     plugins: PluginRuntimePluginAssignments;
     sessionPolicy: BootstrapSessionPolicy;
+    cloudWorkspace: BootstrapCloudWorkspace;
 };
 
 export type BootstrapUser = {
@@ -2293,6 +2373,14 @@ export type Sources = unknown;
 
 export type Token = unknown;
 
+export type RuntimeCloudProjectCollection = unknown;
+
+export type RuntimeCloudProjectItem = unknown;
+
+export type RuntimeCloudProjectMemberItem = unknown;
+
+export type RuntimeCloudProjectMembers = unknown;
+
 export type Enroll = unknown;
 
 export type Get = unknown;
@@ -2556,6 +2644,12 @@ export type SessionHashBase64Writable = SessionSessionHashBase64;
 
 export type SessionStatusWritable = SessionSessionStatus;
 
+export type CloudProjectIdWritable = CloudProjectCloudProjectId;
+
+export type CloudProjectSlugWritable = CloudProjectCloudProjectSlug;
+
+export type CloudProjectRoleWritable = CloudProjectCloudProjectRole;
+
 export type AuditEventIdWritable = AuditAuditEventId;
 
 export type AuditActorTypeWritable = AuditAuditActorType;
@@ -2757,6 +2851,8 @@ export type IfMatchRevision = Revision;
  * Caller-generated UUID v4 reused only for one logical write.
  */
 export type IdempotencyKey = string;
+
+export type CloudProjectIdPath = number;
 
 export type EventLimit = number;
 
@@ -7115,3 +7211,218 @@ export type ListAuditEventsResponses = {
 };
 
 export type ListAuditEventsResponse = ListAuditEventsResponses[keyof ListAuditEventsResponses];
+
+export type ListCloudProjectsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/enterprise/api/v1/cloud-projects';
+};
+
+export type ListCloudProjectsErrors = {
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+};
+
+export type ListCloudProjectsError = ListCloudProjectsErrors[keyof ListCloudProjectsErrors];
+
+export type ListCloudProjectsResponses = {
+    /**
+     * Current user's cloud projects.
+     */
+    200: CloudProjectCloudProjectListResponse;
+};
+
+export type ListCloudProjectsResponse = ListCloudProjectsResponses[keyof ListCloudProjectsResponses];
+
+export type CreateCloudProjectData = {
+    body: CloudProjectCloudProjectCreateRequest;
+    path?: never;
+    query?: never;
+    url: '/enterprise/api/v1/cloud-projects';
+};
+
+export type CreateCloudProjectErrors = {
+    /**
+     * Invalid request.
+     */
+    400: EnterpriseErrorResponse;
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Revision, idempotency, or state conflict.
+     */
+    409: EnterpriseErrorResponse;
+};
+
+export type CreateCloudProjectError = CreateCloudProjectErrors[keyof CreateCloudProjectErrors];
+
+export type CreateCloudProjectResponses = {
+    /**
+     * Cloud project created with OWNER membership and bare repository.
+     */
+    200: CloudProjectCloudProjectResponse;
+};
+
+export type CreateCloudProjectResponse = CreateCloudProjectResponses[keyof CreateCloudProjectResponses];
+
+export type GetCloudProjectData = {
+    body?: never;
+    path: {
+        projectId: number;
+    };
+    query?: never;
+    url: '/enterprise/api/v1/cloud-projects/{projectId}';
+};
+
+export type GetCloudProjectErrors = {
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Resource not found.
+     */
+    404: EnterpriseErrorResponse;
+};
+
+export type GetCloudProjectError = GetCloudProjectErrors[keyof GetCloudProjectErrors];
+
+export type GetCloudProjectResponses = {
+    /**
+     * Membership-visible cloud project.
+     */
+    200: CloudProjectCloudProjectResponse;
+};
+
+export type GetCloudProjectResponse = GetCloudProjectResponses[keyof GetCloudProjectResponses];
+
+export type ListCloudProjectMembersData = {
+    body?: never;
+    path: {
+        projectId: number;
+    };
+    query?: never;
+    url: '/enterprise/api/v1/cloud-projects/{projectId}/members';
+};
+
+export type ListCloudProjectMembersErrors = {
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Resource not found.
+     */
+    404: EnterpriseErrorResponse;
+};
+
+export type ListCloudProjectMembersError = ListCloudProjectMembersErrors[keyof ListCloudProjectMembersErrors];
+
+export type ListCloudProjectMembersResponses = {
+    /**
+     * Project members.
+     */
+    200: CloudProjectCloudProjectMemberListResponse;
+};
+
+export type ListCloudProjectMembersResponse = ListCloudProjectMembersResponses[keyof ListCloudProjectMembersResponses];
+
+export type AddCloudProjectMemberData = {
+    body: CloudProjectCloudProjectMemberRequest;
+    path: {
+        projectId: number;
+    };
+    query?: never;
+    url: '/enterprise/api/v1/cloud-projects/{projectId}/members';
+};
+
+export type AddCloudProjectMemberErrors = {
+    /**
+     * Invalid request.
+     */
+    400: EnterpriseErrorResponse;
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Resource not found.
+     */
+    404: EnterpriseErrorResponse;
+};
+
+export type AddCloudProjectMemberError = AddCloudProjectMemberErrors[keyof AddCloudProjectMemberErrors];
+
+export type AddCloudProjectMemberResponses = {
+    /**
+     * Member added or already present.
+     */
+    200: CloudProjectCloudProjectMemberResponse;
+};
+
+export type AddCloudProjectMemberResponse = AddCloudProjectMemberResponses[keyof AddCloudProjectMemberResponses];
+
+export type RemoveCloudProjectMemberData = {
+    body?: never;
+    path: {
+        projectId: number;
+        userId: EnterpriseUserId;
+    };
+    query?: never;
+    url: '/enterprise/api/v1/cloud-projects/{projectId}/members/{userId}';
+};
+
+export type RemoveCloudProjectMemberErrors = {
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Resource not found.
+     */
+    404: EnterpriseErrorResponse;
+    /**
+     * Revision, idempotency, or state conflict.
+     */
+    409: EnterpriseErrorResponse;
+};
+
+export type RemoveCloudProjectMemberError = RemoveCloudProjectMemberErrors[keyof RemoveCloudProjectMemberErrors];
+
+export type RemoveCloudProjectMemberResponses = {
+    /**
+     * Member removed.
+     */
+    200: CloudProjectCloudProjectMemberResponse;
+};
+
+export type RemoveCloudProjectMemberResponse = RemoveCloudProjectMemberResponses[keyof RemoveCloudProjectMemberResponses];

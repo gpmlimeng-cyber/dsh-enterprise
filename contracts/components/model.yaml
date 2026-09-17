@@ -524,7 +524,7 @@ BootstrapModel:
 BootstrapSnapshot:
   type: object
   additionalProperties: false
-  required: [revision, user, device, models, quotas, plugins, sessionPolicy]
+  required: [revision, user, device, models, quotas, plugins, sessionPolicy, cloudWorkspace]
   properties:
     revision:
       $ref: '../enterprise-openapi.yaml#/components/schemas/Revision'
@@ -542,6 +542,8 @@ BootstrapSnapshot:
       $ref: './plugin.yaml#/RuntimePluginAssignments'
     sessionPolicy:
       $ref: '#/BootstrapSessionPolicy'
+    cloudWorkspace:
+      $ref: '#/BootstrapCloudWorkspace'
 BootstrapUser:
   type: object
   additionalProperties: false
@@ -586,6 +588,13 @@ BootstrapSessionPolicy:
     maxBatchBytes:
       type: integer
       minimum: 1
+BootstrapCloudWorkspace:
+  type: object
+  additionalProperties: false
+  required: [enabled]
+  properties:
+    enabled:
+      type: boolean
 BootstrapResponse:
   type: object
   additionalProperties: false

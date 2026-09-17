@@ -12,6 +12,7 @@ import com.owndsh.enterprise.device.application.DeviceCallContext;
 import com.owndsh.enterprise.device.web.DeviceRequestContextResolver;
 import com.owndsh.enterprise.model.application.BootstrapService;
 import com.owndsh.enterprise.session.EnterpriseSessionProperties;
+import com.owndsh.enterprise.workspace.EnterpriseWorkspaceProperties;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -22,22 +23,25 @@ public final class BootstrapController {
     private final BootstrapService bootstrap;
     private final DeviceRequestContextResolver contexts;
     private final EnterpriseSessionProperties sessionProperties;
+    private final EnterpriseWorkspaceProperties workspaceProperties;
 
     public BootstrapController(
         BootstrapService bootstrap,
         DeviceRequestContextResolver contexts,
-        EnterpriseSessionProperties sessionProperties
+        EnterpriseSessionProperties sessionProperties,
+        EnterpriseWorkspaceProperties workspaceProperties
     ) {
         this.bootstrap = bootstrap;
         this.contexts = contexts;
         this.sessionProperties = sessionProperties;
+        this.workspaceProperties = workspaceProperties;
     }
 
     @GetMapping
     public EnterpriseResponse<BootstrapView> get(HttpServletRequest request) {
         DeviceCallContext context = contexts.resolve(request);
         return new EnterpriseResponse<>(
-            BootstrapView.from(bootstrap.load(context), sessionProperties),
+            BootstrapView.from(bootstrap.load(context), sessionProperties, workspaceProperties),
             context.requestId()
         );
     }

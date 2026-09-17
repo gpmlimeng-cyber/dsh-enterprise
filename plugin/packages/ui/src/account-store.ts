@@ -7,6 +7,7 @@
 
 import type {
   EnterpriseAccountBootstrap,
+  EnterpriseCloudProject,
   EnterpriseLocalApi,
   EnterpriseLocalStatus,
   EnterprisePluginStatus,
@@ -110,6 +111,38 @@ export class EnterpriseAccountStore {
       if (!signal.aborted) this.#set({ ...this.#snapshot, sessionErrorCode: failureCode(error) })
       return false
     }
+  }
+
+  /** 云端项目列表；仅 READY 时可用，失败向上抛出由 UI 呈现。 */
+  async listCloudProjects(): Promise<readonly EnterpriseCloudProject[]> {
+    if (!connected(this.#requireStatus())) throw new EnterpriseLocalApiError('ENT_AUTH_REQUIRED', 401)
+    return this.#api.listCloudProjects(this.#signal())
+  }
+
+  async createCloudProject(name: string, description: string | null): Promise<EnterpriseCloudProject> {
+    return this.#api.createCloudProject(name, description, this.#signal())
+  }
+
+  async cloneCloudProject(projectId: string, rootDir: string): Promise<{ readonly path: string }> {
+    return this.#api.cloneCloudProject(projectId, rootDir, this.#signal())
+  }
+
+  async pullCloudProject(projectId: string): Promise<{ readonly fastForward: boolean; readonly message: string }> {
+    return this.#api.pullCloudProject(projectId, this.#signal())
+  }
+
+  async commitCloudProject(projectId: string, message: string): Promise<{ readonly committed: boolean }> {
+    return this.#api.commitCloudProject(projectId, message, this.#signal())
+  }
+
+  async pushCloudProject(projectId: string): Promise<void> {
+    await this.#api.pushCloudProject(projectId, this.#signal())
+  }
+
+  #requireStatus(): EnterpriseLocalStatus {
+    const status = this.#snapshot.status
+    if (status === undefined) throw new EnterpriseLocalApiError('ENT_LOCAL_UNAVAILABLE')
+    return status
   }
 
   /** 显式重新读取状态；footer 点击与动作收敛共用该路径。 */

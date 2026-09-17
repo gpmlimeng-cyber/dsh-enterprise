@@ -220,6 +220,7 @@ export class EnterprisePlatformService extends Service {
       ...(internals.pluginAction === undefined ? {} : { pluginAction: internals.pluginAction }),
       ...(internals.uninstallPlugin === undefined ? {} : { uninstallPlugin: internals.uninstallPlugin }),
       ...(internals.sessionSync === undefined ? {} : { sessionSync: internals.sessionSync }),
+      ...(internals.cloudWorkspace === undefined ? {} : { cloudWorkspace: internals.cloudWorkspace }),
     })
     ctx.inject(['settings'], (settingsContext) => {
       const scope = settingsContext.settings.register(SETTINGS_NAMESPACE, CONNECTION_SETTINGS, {
@@ -537,6 +538,16 @@ export class EnterprisePlatformService extends Service {
     await this.loadBootstrap(transaction.abort.signal)
     transaction.abort.signal.throwIfAborted()
     this.transition('READY')
+  }
+
+  /** Host 专用：确保并返回内存 Access Token，供云端工作空间 askpass 注入 git 子进程；禁止转发给 Client。 */
+  async mintHostAccessToken(): Promise<string> {
+    await this.ensureAccessToken()
+    const token = this.platformCredentials.accessToken()
+    if (token === undefined || token === null || token === '') {
+      throw new EnterprisePlatformError('ENT_AUTH_REQUIRED', 'enterprise access token is unavailable')
+    }
+    return token
   }
 
   private async ensureAccessToken(force = false): Promise<void> {

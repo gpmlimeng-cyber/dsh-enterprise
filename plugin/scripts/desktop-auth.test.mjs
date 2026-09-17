@@ -121,6 +121,8 @@ globalThis.Date = class extends NativeDate {
         models: [{ alias: 'auth-e2e', name: 'Auth E2E', apiProtocol: 'openai-completions', isDefault: true, contextWindow: 65536, maxTokens: 1024 }],
         quotas: [], plugins: { revision: 1, assignments: [] },
         sessionPolicy: { enabled: false, retentionDays: 90, maxBatchBytes: 1048576 },
+        cloudWorkspace: { enabled: true },
+        cloudWorkspace: { enabled: true },
       } })
     } else if (url.pathname.endsWith('/plugins/inventory')) {
       json(response, 200, { data: { reported: (await readBody(request)).items.length } })

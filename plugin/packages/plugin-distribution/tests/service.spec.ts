@@ -80,6 +80,8 @@ function bootstrap(revision: number, assignments: RuntimePluginAssignment[]): Bo
     quotas: [],
     plugins: { revision, assignments },
     sessionPolicy: { enabled: false, retentionDays: 90, maxBatchBytes: 1_048_576 },
+    cloudWorkspace: { enabled: true },
+    cloudWorkspace: { enabled: true },
   }
 }
 

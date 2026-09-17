@@ -1,0 +1,14 @@
+{
+  "data": {
+    "id": "1000000000001",
+    "slug": "design-docs",
+    "name": "设计文档",
+    "description": "团队共享设计资料",
+    "defaultBranch": "main",
+    "role": "OWNER",
+    "cloneUrl": "http://localhost:8080/enterprise/api/v1/git/1000000000001.git",
+    "createdAt": "2026-09-17T00:00:00Z",
+    "updatedAt": "2026-09-17T00:00:00Z"
+  },
+  "requestId": "req_01K2W3V4X5Y6Z7A8B9C0D1E2F3"
+}

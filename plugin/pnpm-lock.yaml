@@ -60,6 +60,9 @@ importers:
       '@deepseek-ai/schemastery':
         specifier: 3.18.1
         version: 3.18.1
+      '@dshent/cloud-workspace':
+        specifier: workspace:*
+        version: link:../cloud-workspace
       '@dshent/llm-gateway':
         specifier: workspace:*
         version: link:../llm-gateway
@@ -75,6 +78,12 @@ importers:
       '@dshent/ui':
         specifier: workspace:*
         version: link:../ui
+
+  packages/cloud-workspace:
+    dependencies:
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
 
   packages/contracts:
     dependencies:

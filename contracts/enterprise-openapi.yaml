@@ -187,6 +187,14 @@ paths:
     $ref: './paths/session.yaml#/AdminSessionItem'
   /enterprise/admin/v1/audit-events:
     $ref: './paths/audit.yaml#/AdminAuditCollection'
+  /enterprise/api/v1/cloud-projects:
+    $ref: './paths/cloud-project.yaml#/RuntimeCloudProjectCollection'
+  /enterprise/api/v1/cloud-projects/{projectId}:
+    $ref: './paths/cloud-project.yaml#/RuntimeCloudProjectItem'
+  /enterprise/api/v1/cloud-projects/{projectId}/members:
+    $ref: './paths/cloud-project.yaml#/RuntimeCloudProjectMembers'
+  /enterprise/api/v1/cloud-projects/{projectId}/members/{userId}:
+    $ref: './paths/cloud-project.yaml#/RuntimeCloudProjectMemberItem'
 
 x-enterprise-error-statuses:
   '400':
@@ -196,6 +204,7 @@ x-enterprise-error-statuses:
     - ENT_PLUGIN_ARTIFACT_INVALID
     - ENT_PRESET_INVALID_PACKAGE
     - ENT_SESSION_FORMAT_UNSUPPORTED
+    - ENT_WORKSPACE_NOT_MAPPED
   '401':
     - ENT_AUTH_REQUIRED
     - ENT_AUTH_CODE_INVALID
@@ -209,6 +218,8 @@ x-enterprise-error-statuses:
     - ENT_PRESET_NOT_PUBLISHED
     - ENT_PRESET_VISIBILITY_DENIED
     - ENT_RESOURCE_NOT_OWNED
+    - ENT_WORKSPACE_DISABLED
+    - ENT_WORKSPACE_FORBIDDEN
   '404':
     - ENT_RESOURCE_NOT_FOUND
     - ENT_SESSION_CONTENT_EXPIRED
@@ -223,6 +234,8 @@ x-enterprise-error-statuses:
     - ENT_SESSION_SOURCE_DEVICE_CONFLICT
     - ENT_IDENTITY_ALREADY_LINKED
     - ENT_DEVICE_ALREADY_BOUND
+    - ENT_WORKSPACE_SLUG_CONFLICT
+    - ENT_WORKSPACE_LAST_OWNER
   '413':
     - ENT_REQUEST_TOO_LARGE
     - ENT_PLUGIN_ARCHIVE_TOO_LARGE
@@ -245,6 +258,8 @@ x-enterprise-error-statuses:
     - ENT_UPSTREAM_UNAVAILABLE
   '504':
     - ENT_UPSTREAM_TIMEOUT
+  '500':
+    - ENT_GIT_UNAVAILABLE
 
 x-enterprise-fixtures:
   - file: fixtures/protocol-success.json
@@ -351,6 +366,12 @@ x-enterprise-fixtures:
     valid: true
   - file: fixtures/bootstrap-models-success.json
     schema: BootstrapResponse
+    valid: true
+  - file: fixtures/cloud-project-success.json
+    schema: CloudProjectResponse
+    valid: true
+  - file: fixtures/cloud-project-list-success.json
+    schema: CloudProjectListResponse
     valid: true
   - file: fixtures/quota-policy-success.json
     schema: QuotaPolicyResponse
@@ -898,6 +919,17 @@ components:
     SessionRestoreRecordRequest: {$ref: './components/session.yaml#/SessionRestoreRecordRequest'}
     SessionRestoreRecord: {$ref: './components/session.yaml#/SessionRestoreRecord'}
     SessionRestoreRecordResponse: {$ref: './components/session.yaml#/SessionRestoreRecordResponse'}
+    CloudProjectId: {$ref: './components/cloud-project.yaml#/CloudProjectId'}
+    CloudProjectSlug: {$ref: './components/cloud-project.yaml#/CloudProjectSlug'}
+    CloudProjectRole: {$ref: './components/cloud-project.yaml#/CloudProjectRole'}
+    CloudProjectCreateRequest: {$ref: './components/cloud-project.yaml#/CloudProjectCreateRequest'}
+    CloudProject: {$ref: './components/cloud-project.yaml#/CloudProject'}
+    CloudProjectResponse: {$ref: './components/cloud-project.yaml#/CloudProjectResponse'}
+    CloudProjectListResponse: {$ref: './components/cloud-project.yaml#/CloudProjectListResponse'}
+    CloudProjectMemberRequest: {$ref: './components/cloud-project.yaml#/CloudProjectMemberRequest'}
+    CloudProjectMember: {$ref: './components/cloud-project.yaml#/CloudProjectMember'}
+    CloudProjectMemberResponse: {$ref: './components/cloud-project.yaml#/CloudProjectMemberResponse'}
+    CloudProjectMemberListResponse: {$ref: './components/cloud-project.yaml#/CloudProjectMemberListResponse'}
     AuditEventId: {$ref: './components/audit.yaml#/AuditEventId'}
     AuditActorType: {$ref: './components/audit.yaml#/AuditActorType'}
     AuditResult: {$ref: './components/audit.yaml#/AuditResult'}
@@ -1033,6 +1065,12 @@ components:
         - ENT_PLUGIN_ARTIFACT_INVALID
         - ENT_PRESET_INVALID_PACKAGE
         - ENT_SESSION_FORMAT_UNSUPPORTED
+        - ENT_WORKSPACE_NOT_MAPPED
+        - ENT_WORKSPACE_DISABLED
+        - ENT_WORKSPACE_FORBIDDEN
+        - ENT_WORKSPACE_SLUG_CONFLICT
+        - ENT_WORKSPACE_LAST_OWNER
+        - ENT_GIT_UNAVAILABLE
         - ENT_AUTH_REQUIRED
         - ENT_AUTH_CODE_INVALID
         - ENT_PKCE_INVALID

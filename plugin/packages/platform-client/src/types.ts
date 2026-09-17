@@ -49,6 +49,7 @@ export interface EnterprisePlatformInternals {
   readonly pluginAction?: EnterpriseLocalApiOptions['pluginAction']
   readonly uninstallPlugin?: () => Promise<{ readonly restart?: () => void }>
   readonly sessionSync?: EnterpriseLocalApiOptions['sessionSync']
+  readonly cloudWorkspace?: EnterpriseLocalApiOptions['cloudWorkspace']
 }
 
 /** 本地 Client 界面渲染的固定生命周期。 */
@@ -154,6 +155,9 @@ export const zBootstrapSnapshot = z.object({
     enabled: z.boolean(),
     retentionDays: z.number().int().positive().safe(),
     maxBatchBytes: z.number().int().positive().safe(),
+  }).strict(),
+  cloudWorkspace: z.object({
+    enabled: z.boolean(),
   }).strict(),
 }).strict()
 

@@ -64,6 +64,19 @@ export interface EnterpriseLocalApiOptions {
   readonly uninstallPlugin?: () => Promise<{ readonly restart?: () => void }>
   /** 由组合层绑定会话同步；缺省时不注册 /sessions* 路由。 */
   readonly sessionSync?: EnterpriseLocalSessionPort
+  /** 由组合层绑定云端工作空间；缺省时不注册 /cloud-projects* 路由。 */
+  readonly cloudWorkspace?: EnterpriseLocalCloudWorkspacePort
+}
+
+/** 云端工作空间本地投影端口；由 cloud-workspace 包注入，避免反向依赖。 */
+export interface EnterpriseLocalCloudWorkspacePort {
+  list(): Promise<unknown>
+  create(body: { name: string; description?: string | null }): Promise<unknown>
+  clone(projectId: string, body: { rootDir: string }): Promise<unknown>
+  pull(projectId: string): Promise<unknown>
+  commit(projectId: string, body: { message: string }): Promise<unknown>
+  push(projectId: string): Promise<unknown>
+  status(projectId: string): Promise<unknown>
 }
 
 function writeJson(response: ServerResponse, status: number, value: unknown): void {
@@ -361,6 +374,108 @@ export function registerEnterpriseLocalApi(
             writeJson(response, status, {
               error: { code: status === 400 ? 'ENT_INVALID_REQUEST' : errorCode(error) },
             })
+          }
+        },
+      }))
+    }
+
+    if (options.cloudWorkspace !== undefined) {
+      const cloudWorkspace = options.cloudWorkspace
+      disposers.push(webServer.register({
+        kind: 'exact',
+        path: `${LOCAL_API_PREFIX}/cloud-projects`,
+        handler: async (request, response) => {
+          if (request.method === 'GET') {
+            try {
+              writeJson(response, 200, { data: await cloudWorkspace.list() })
+            } catch (error) {
+              const status = actionErrorStatus(error)
+              writeJson(response, status, { error: { code: errorCode(error) } })
+            }
+            return
+          }
+          if (request.method === 'POST') {
+            try {
+              const body = await readJson(request)
+              if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+                throw new TypeError('invalid create body')
+              }
+              const input = body as { name?: unknown; description?: unknown }
+              if (typeof input.name !== 'string' || input.name.length === 0 || input.name.length > 120) {
+                throw new TypeError('invalid project name')
+              }
+              if (input.description !== undefined && input.description !== null && typeof input.description !== 'string') {
+                throw new TypeError('invalid description')
+              }
+              const description = input.description === undefined || input.description === null
+                ? null
+                : input.description
+              writeJson(response, 200, {
+                data: await cloudWorkspace.create({
+                  name: input.name,
+                  description,
+                }),
+              })
+            } catch (error) {
+              const status = actionErrorStatus(error)
+              writeJson(response, status, { error: { code: status === 400 ? 'ENT_INVALID_REQUEST' : errorCode(error) } })
+            }
+            return
+          }
+          methodNotAllowed(response, 'GET,POST')
+        },
+      }))
+      disposers.push(webServer.register({
+        kind: 'prefix',
+        path: `${LOCAL_API_PREFIX}/cloud-projects/`,
+        handler: async (request, response) => {
+          const rest = requestUrl(request).pathname.slice(`${LOCAL_API_PREFIX}/cloud-projects/`.length)
+          const actionMatch = /^([^/]+)(?:\/(clone|pull|commit|push|status))?$/.exec(rest)
+          if (actionMatch === null) {
+            writeJson(response, 404, { error: { code: 'ENT_RESOURCE_NOT_FOUND' } })
+            return
+          }
+          const projectId = decodeURIComponent(actionMatch[1]!)
+          const action = actionMatch[2]
+          try {
+            if (request.method === 'GET' && action === undefined) {
+              writeJson(response, 200, { data: await cloudWorkspace.list() })
+              return
+            }
+            if (request.method !== 'POST' || action === undefined) {
+              methodNotAllowed(response, action === undefined ? 'GET,POST' : 'POST')
+              return
+            }
+            if (action === 'clone') {
+              const body = await readJson(request)
+              const rootDir = typeof body === 'object' && body !== null && !Array.isArray(body)
+                ? (body as { rootDir?: unknown }).rootDir
+                : undefined
+              if (typeof rootDir !== 'string') throw new TypeError('invalid rootDir')
+              writeJson(response, 200, { data: await cloudWorkspace.clone(projectId, { rootDir }) })
+              return
+            }
+            if (action === 'pull') {
+              writeJson(response, 200, { data: await cloudWorkspace.pull(projectId) })
+              return
+            }
+            if (action === 'status') {
+              writeJson(response, 200, { data: await cloudWorkspace.status(projectId) })
+              return
+            }
+            if (action === 'push') {
+              writeJson(response, 200, { data: await cloudWorkspace.push(projectId) })
+              return
+            }
+            const body = await readJson(request)
+            const message = typeof body === 'object' && body !== null && !Array.isArray(body)
+              ? (body as { message?: unknown }).message
+              : undefined
+            if (typeof message !== 'string' || message.trim().length === 0) throw new TypeError('invalid message')
+            writeJson(response, 200, { data: await cloudWorkspace.commit(projectId, { message }) })
+          } catch (error) {
+            const status = actionErrorStatus(error)
+            writeJson(response, status, { error: { code: status === 400 ? 'ENT_INVALID_REQUEST' : errorCode(error) } })
           }
         },
       }))

@@ -77,6 +77,12 @@ enterprise:
     max-json-request-bytes: ${ENT_JSON_REQUEST_MAX_BYTES:2097152}
   session:
     max-batch-bytes: ${ENT_SESSION_BATCH_MAX_BYTES:1048576}
+  cloud-workspace:
+    enabled: ${ENT_CLOUD_WORKSPACE_ENABLED:true}
+    repo-root: ${ENT_CLOUD_WORKSPACE_REPO_ROOT:./data/enterprise/cloud-workspace}
+  cloud-workspace:
+    enabled: ${ENT_CLOUD_WORKSPACE_ENABLED:true}
+    repo-root: ${ENT_CLOUD_WORKSPACE_REPO_ROOT:./data/enterprise/cloud-workspace}
     retention-days: ${ENT_SESSION_RETENTION_DAYS:90}
     retention-batch-size: ${ENT_SESSION_RETENTION_BATCH_SIZE:100}
   audit:

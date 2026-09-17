@@ -9,6 +9,7 @@ package com.owndsh.enterprise.model.web;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.owndsh.enterprise.model.application.BootstrapService;
 import com.owndsh.enterprise.session.EnterpriseSessionProperties;
+import com.owndsh.enterprise.workspace.EnterpriseWorkspaceProperties;
 
 import java.util.List;
 import java.util.Base64;
@@ -20,16 +21,40 @@ public record BootstrapView(
     List<Model> models,
     List<Quota> quotas,
     Plugins plugins,
-    SessionPolicy sessionPolicy
+    SessionPolicy sessionPolicy,
+    CloudWorkspacePolicy cloudWorkspace
 ) {
     public static BootstrapView from(
         BootstrapService.BootstrapSnapshot snapshot,
         EnterpriseSessionProperties sessionProperties
     ) {
-        return from(snapshot, toSessionPolicy(sessionProperties));
+        return from(snapshot, sessionProperties, new EnterpriseWorkspaceProperties());
     }
 
-    public static BootstrapView from(BootstrapService.BootstrapSnapshot snapshot, SessionPolicy sessionPolicy) {
+    public static BootstrapView from(
+        BootstrapService.BootstrapSnapshot snapshot,
+        EnterpriseSessionProperties sessionProperties,
+        EnterpriseWorkspaceProperties workspaceProperties
+    ) {
+        return from(
+            snapshot,
+            toSessionPolicy(sessionProperties),
+            new CloudWorkspacePolicy(workspaceProperties.isEnabled())
+        );
+    }
+
+    public static BootstrapView from(
+        BootstrapService.BootstrapSnapshot snapshot,
+        SessionPolicy sessionPolicy
+    ) {
+        return from(snapshot, sessionPolicy, new CloudWorkspacePolicy(false));
+    }
+
+    public static BootstrapView from(
+        BootstrapService.BootstrapSnapshot snapshot,
+        SessionPolicy sessionPolicy,
+        CloudWorkspacePolicy cloudWorkspace
+    ) {
         return new BootstrapView(
             snapshot.revision(),
             new User(
@@ -61,7 +86,8 @@ public record BootstrapView(
                     value.required(), value.desiredState().name()
                 )).toList()
             ),
-            sessionPolicy
+            sessionPolicy,
+            cloudWorkspace
         );
     }
 
@@ -124,5 +150,8 @@ public record BootstrapView(
     }
 
     public record SessionPolicy(boolean enabled, int retentionDays, int maxBatchBytes) {
+    }
+
+    public record CloudWorkspacePolicy(boolean enabled) {
     }
 }

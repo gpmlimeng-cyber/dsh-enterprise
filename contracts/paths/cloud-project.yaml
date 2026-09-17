@@ -1,0 +1,111 @@
+# [INPUT]: 依赖 cloud-project.yaml schemas 与根协议统一错误响应
+# [OUTPUT]: 提供 runtime 云端项目 create/list/get 与成员 add/remove Path Item
+# [POS]: contracts/paths 的云端工作空间最小同步闭环分片；Git Smart HTTP 为二进制协议，不在 OpenAPI 编码
+# [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+
+RuntimeCloudProjectCollection:
+  get:
+    operationId: listCloudProjects
+    responses:
+      '200':
+        description: Current user's cloud projects.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/CloudProjectListResponse'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+  post:
+    operationId: createCloudProject
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/CloudProjectCreateRequest'}
+    responses:
+      '200':
+        description: Cloud project created with OWNER membership and bare repository.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/CloudProjectResponse'}
+      '400': {$ref: '../enterprise-openapi.yaml#/components/responses/Error400'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+      '409': {$ref: '../enterprise-openapi.yaml#/components/responses/Error409'}
+
+RuntimeCloudProjectItem:
+  parameters:
+    - $ref: '#/components/parameters/CloudProjectIdPath'
+  get:
+    operationId: getCloudProject
+    responses:
+      '200':
+        description: Membership-visible cloud project.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/CloudProjectResponse'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+      '404': {$ref: '../enterprise-openapi.yaml#/components/responses/Error404'}
+
+RuntimeCloudProjectMembers:
+  parameters:
+    - $ref: '#/components/parameters/CloudProjectIdPath'
+  get:
+    operationId: listCloudProjectMembers
+    responses:
+      '200':
+        description: Project members.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/CloudProjectMemberListResponse'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+      '404': {$ref: '../enterprise-openapi.yaml#/components/responses/Error404'}
+  post:
+    operationId: addCloudProjectMember
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/CloudProjectMemberRequest'}
+    responses:
+      '200':
+        description: Member added or already present.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/CloudProjectMemberResponse'}
+      '400': {$ref: '../enterprise-openapi.yaml#/components/responses/Error400'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+      '404': {$ref: '../enterprise-openapi.yaml#/components/responses/Error404'}
+
+RuntimeCloudProjectMemberItem:
+  parameters:
+    - $ref: '#/components/parameters/CloudProjectIdPath'
+    - name: userId
+      in: path
+      required: true
+      schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/EnterpriseUserId'}
+  delete:
+    operationId: removeCloudProjectMember
+    responses:
+      '200':
+        description: Member removed.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/CloudProjectMemberResponse'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+      '404': {$ref: '../enterprise-openapi.yaml#/components/responses/Error404'}
+      '409': {$ref: '../enterprise-openapi.yaml#/components/responses/Error409'}
+
+components:
+  parameters:
+    CloudProjectIdPath:
+      name: projectId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1

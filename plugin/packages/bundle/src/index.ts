@@ -30,6 +30,11 @@ import {
   type SessionStorePort,
   type SyncableSession,
 } from '@dshent/session-sync'
+import {
+  createCloudWorkspaceHandle,
+  createCloudWorkspaceLocalPort,
+  type CloudWorkspaceHandle,
+} from '@dshent/cloud-workspace'
 
 export const name = 'owndsh'
 export const inject = ['webServer', 'credentials', 'llm', 'subprocess', 'pluginInventory']
@@ -113,6 +118,7 @@ function desktopPluginCommandPort(desktopPnpm: DesktopPnpmPort): DshPluginComman
 export function apply(ctx: EnterpriseHostContext, config: Config): void {
   let pluginDistribution: EnterprisePluginDistributionService | undefined
   let sessionSyncHandle: HostSessionSyncHandle | null = null
+  let cloudWorkspaceHandle: CloudWorkspaceHandle | null = null
   let platform: EnterprisePlatformService
   const sessionLocalPort: HostSessionLocalPort = createHostSessionLocalPort({
     platform: {
@@ -131,6 +137,7 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
       },
     }),
   })
+  const cloudWorkspaceLocalPort = createCloudWorkspaceLocalPort(() => cloudWorkspaceHandle)
   platform = new EnterprisePlatformService(ctx, {
     ...(config.baseUrl === undefined ? {} : { baseUrl: config.baseUrl }),
     harnessVersion: HARNESS_VERSION,
@@ -140,6 +147,7 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
   }, {
     pluginStatus: () => pluginDistribution?.status() ?? { assignmentRevision: 0, plugins: [] },
     sessionSync: sessionLocalPort,
+    cloudWorkspace: cloudWorkspaceLocalPort,
     pluginAction: async (action, packageName, pluginVersionId) => {
       if (pluginDistribution === undefined) throw new Error('DSH Enterprise plugin distribution is unavailable')
       if (action === 'install') await pluginDistribution.install(packageName, pluginVersionId!)
@@ -201,6 +209,16 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
   ctx.effect(() => () => {
     void (sessionSyncHandle as HostSessionSyncHandle | null)?.dispose()
   }, 'enterpriseSessionSync.dispose()')
+  cloudWorkspaceHandle = createCloudWorkspaceHandle({
+    dshHome: resolveEnterpriseDshHome(),
+    platform: {
+      bootstrap: () => platform.bootstrap(),
+      request: (path, init) => platform.request(path, init),
+    },
+    tokens: {
+      getAccessToken: () => platform.mintHostAccessToken(),
+    },
+  })
   const mountPluginDistribution = (
     distributionContext: PluginDistributionContext,
     profile: string,

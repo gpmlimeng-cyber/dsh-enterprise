@@ -36,6 +36,7 @@ import com.owndsh.enterprise.quota.application.RequestAlreadyCompletedException;
 import com.owndsh.enterprise.quota.application.RequestInProgressException;
 import com.owndsh.enterprise.revision.RevisionConflictException;
 import com.owndsh.enterprise.session.application.SessionException;
+import com.owndsh.enterprise.workspace.application.CloudWorkspaceException;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -213,6 +214,31 @@ public final class EnterpriseExceptionHandler {
             case NOT_FOUND -> "Session 不存在";
         };
         return error(status,exception.errorCode(),message,false,null,request);
+    }
+
+    @ExceptionHandler(CloudWorkspaceException.class)
+    public ResponseEntity<EnterpriseErrorResponse> cloudWorkspace(
+        CloudWorkspaceException exception,
+        HttpServletRequest request
+    ) {
+        HttpStatus status = switch (exception.kind()) {
+            case DISABLED, FORBIDDEN -> HttpStatus.FORBIDDEN;
+            case NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case SLUG_CONFLICT, LAST_OWNER -> HttpStatus.CONFLICT;
+            case INVALID_REQUEST, NOT_MAPPED -> HttpStatus.BAD_REQUEST;
+            case GIT_UNAVAILABLE -> HttpStatus.INTERNAL_SERVER_ERROR;
+        };
+        String message = switch (exception.kind()) {
+            case DISABLED -> "云端工作空间未启用";
+            case NOT_FOUND -> "云端项目不存在";
+            case FORBIDDEN -> "无权访问该云端项目";
+            case SLUG_CONFLICT -> "项目标识已存在";
+            case NOT_MAPPED -> "尚未映射本地目录";
+            case LAST_OWNER -> "必须保留至少一名 OWNER";
+            case INVALID_REQUEST -> "请求参数不合法";
+            case GIT_UNAVAILABLE -> "Git 仓库不可用";
+        };
+        return error(status, exception.errorCode(), message, false, null, request);
     }
 
     @ExceptionHandler(PluginArtifactException.class)

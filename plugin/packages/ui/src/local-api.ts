@@ -67,6 +67,8 @@ export interface EnterpriseAccountBootstrap {
   }
   /** 仅投影 enabled 布尔；默认 false。 */
   readonly sessionPolicyEnabled?: boolean
+  /** 仅投影 enabled 布尔；默认 true。 */
+  readonly cloudWorkspaceEnabled?: boolean
 }
 
 export interface EnterprisePluginItem {
@@ -142,6 +144,24 @@ export interface EnterpriseLocalApi {
     readonly restoredSessionId: string
     readonly sourceSessionId: string
   }>
+  listCloudProjects(signal: AbortSignal): Promise<readonly EnterpriseCloudProject[]>
+  createCloudProject(name: string, description: string | null, signal: AbortSignal): Promise<EnterpriseCloudProject>
+  cloneCloudProject(projectId: string, rootDir: string, signal: AbortSignal): Promise<{ readonly path: string }>
+  pullCloudProject(projectId: string, signal: AbortSignal): Promise<{ readonly fastForward: boolean; readonly message: string }>
+  commitCloudProject(projectId: string, message: string, signal: AbortSignal): Promise<{ readonly committed: boolean }>
+  pushCloudProject(projectId: string, signal: AbortSignal): Promise<void>
+  cloudProjectStatus(projectId: string, signal: AbortSignal): Promise<{ readonly branch: string; readonly dirty: boolean; readonly path: string }>
+}
+
+export interface EnterpriseCloudProject {
+  readonly id: string
+  readonly slug: string
+  readonly name: string
+  readonly description: string | null
+  readonly defaultBranch: string
+  readonly role: 'OWNER' | 'MEMBER'
+  readonly cloneUrl: string
+  readonly mapping: { readonly path: string } | null
 }
 
 export class EnterpriseLocalApiError extends Error {
@@ -253,10 +273,18 @@ function decodeBootstrap(value: unknown): EnterpriseAccountBootstrap | undefined
   if (sessionPolicyEnabled !== undefined && typeof sessionPolicyEnabled !== 'boolean') {
     throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
   }
+  const cloudWorkspace = record(source?.['cloudWorkspace'])
+  const cloudWorkspaceEnabled = cloudWorkspace === undefined
+    ? undefined
+    : cloudWorkspace['enabled']
+  if (cloudWorkspaceEnabled !== undefined && typeof cloudWorkspaceEnabled !== 'boolean') {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
   return {
     user,
     device: { id: device['id'], installationId: device['installationId'], status: 'ACTIVE' },
     ...(sessionPolicyEnabled === undefined ? {} : { sessionPolicyEnabled }),
+    ...(cloudWorkspaceEnabled === undefined ? {} : { cloudWorkspaceEnabled }),
   }
 }
 
@@ -548,5 +576,96 @@ export function createEnterpriseLocalApi(
         sourceSessionId: data['sourceSessionId'],
       }
     },
+    listCloudProjects: async signal => decodeCloudProjects(
+      await requestJson('/cloud-projects', getInit(signal), fetcher),
+    ),
+    createCloudProject: async (name, description, signal) => {
+      const created = await requestJson('/cloud-projects', jsonInit('POST', { name, description }, signal), fetcher)
+      const [project] = decodeCloudProjects([created])
+      if (project === undefined) throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+      return project
+    },
+    cloneCloudProject: async (projectId, rootDir, signal) => {
+      const data = record(await requestJson(
+        `/cloud-projects/${encodeURIComponent(projectId)}/clone`,
+        jsonInit('POST', { rootDir }, signal),
+        fetcher,
+      ))
+      if (data === undefined || !nonEmptyString(data['path'])) {
+        throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+      }
+      return { path: data['path'] }
+    },
+    pullCloudProject: async (projectId, signal) => {
+      const data = record(await requestJson(
+        `/cloud-projects/${encodeURIComponent(projectId)}/pull`,
+        postInit(signal),
+        fetcher,
+      ))
+      if (data === undefined || typeof data['fastForward'] !== 'boolean' || !nonEmptyString(data['message'])) {
+        throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+      }
+      return { fastForward: data['fastForward'], message: data['message'] }
+    },
+    commitCloudProject: async (projectId, message, signal) => {
+      const data = record(await requestJson(
+        `/cloud-projects/${encodeURIComponent(projectId)}/commit`,
+        jsonInit('POST', { message }, signal),
+        fetcher,
+      ))
+      if (data === undefined || typeof data['committed'] !== 'boolean') {
+        throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+      }
+      return { committed: data['committed'] }
+    },
+    pushCloudProject: async (projectId, signal) => {
+      await requestJson(`/cloud-projects/${encodeURIComponent(projectId)}/push`, postInit(signal), fetcher)
+    },
+    cloudProjectStatus: async (projectId, signal) => {
+      const data = record(await requestJson(
+        `/cloud-projects/${encodeURIComponent(projectId)}/status`,
+        postInit(signal),
+        fetcher,
+      ))
+      if (data === undefined || !nonEmptyString(data['branch'])
+        || typeof data['dirty'] !== 'boolean' || !nonEmptyString(data['path'])) {
+        throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+      }
+      return { branch: data['branch'], dirty: data['dirty'], path: data['path'] }
+    },
   }
+}
+
+function decodeCloudProjects(value: unknown): EnterpriseCloudProject[] {
+  const items = Array.isArray(value) ? value : []
+  return items.map((item) => {
+    const source = record(item)
+    if (source === undefined
+      || !nonEmptyString(source['id'])
+      || !nonEmptyString(source['name'])
+      || !nonEmptyString(source['cloneUrl'])
+      || (source['role'] !== 'OWNER' && source['role'] !== 'MEMBER')
+      || !nonEmptyString(source['id'])) {
+      throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    const rawMapping = source['mapping']
+    let mapping: { readonly path: string } | null = null
+    if (rawMapping !== undefined && rawMapping !== null) {
+      const record_ = record(rawMapping)
+      if (record_ === undefined || !nonEmptyString(record_['path'])) {
+        throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+      }
+      mapping = { path: record_['path'] }
+    }
+    return {
+      id: source['id'],
+      slug: nonEmptyString(source['slug']) ? source['slug'] : source['id'],
+      name: source['name'],
+      description: typeof source['description'] === 'string' ? source['description'] : null,
+      defaultBranch: nonEmptyString(source['defaultBranch']) ? source['defaultBranch'] : 'main',
+      role: source['role'],
+      cloneUrl: source['cloneUrl'],
+      mapping,
+    }
+  })
 }

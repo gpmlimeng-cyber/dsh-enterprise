@@ -13,6 +13,7 @@ src/main/java/com/owndsh/enterprise/quota/: TOKEN/RATE 互斥的组织/成员与
 src/main/java/com/owndsh/enterprise/plugin/: tgz 流式验包、JCS/Ed25519、CAS 制品、version/assignment、下载授权与设备库存纵向模块；局部地图见 plugin/CLAUDE.md。
 src/main/java/com/owndsh/enterprise/preset/: .dshpreset 流式验包、CAS 制品、version/可见范围与员工浏览/下载授权纵向模块；局部地图见 preset/CLAUDE.md。
 src/main/java/com/owndsh/enterprise/session/: 精确 JSONL/hash、AES-GCM 远端副本、本人/管理读取、tombstone 与 retention 纵向模块；局部地图见 session/CLAUDE.md。
+src/main/java/com/owndsh/enterprise/workspace/: 云端项目、bare Git、Smart HTTP、成员授权与 V31 数据边界纵向模块；局部地图见 workspace/CLAUDE.md。
 src/main/java/com/owndsh/enterprise/common/: 企业 HTTP envelope、40 个稳定错误映射、requestId/metadata、认证 cursor、有界 JSON 请求与故障日志隔离公共边界；局部地图见 common/CLAUDE.md。
 src/main/java/com/owndsh/enterprise/audit/: 31-action 显式 metadata DTO、只追加 JDBC sink、tenant/keyset 管理查询、365 天有界 retention 与用户治理事务监听纵向模块；局部地图见 audit/CLAUDE.md。
 src/main/java/com/owndsh/enterprise/deployment/: deploy profile 一次性管理员、PostgreSQL 锁和初始化完成标记边界；局部地图见 deployment/CLAUDE.md。
