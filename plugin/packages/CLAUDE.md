@@ -12,6 +12,6 @@ llm-gateway/: 官方 `dsh-llm-pi-ai` 的企业 profile 与本机认证代理桥�
 platform-client/: `ctx.enterprisePlatform` Service，构建前先产出 contracts 依赖，使用官方 settings 持久化 Server 地址、官方 credentials 保存轮换 Refresh Token，并独占内存 Access Token 与认证请求。
 plugin-distribution/: `ctx.enterprisePluginDistribution` Service，强制制品大小/hash/兼容性校验、默认关闭 Ed25519 验签，并提供官方 CLI、原子状态、重启确认、库存与卸载。
 session-sync/: 企业 Session 同步客户端 `@dshent/session-sync`；P2b 上传链路 + P2d host-bridge（仅 sessionPolicy.enabled 时由 bundle 挂载），不导入 dsh-session 真包。
-ui/: 基于 `dsh.client` 与官方 Settings/sidebar/shell.overlay slots 的 Server 配置、全局登录门禁、账号和受管插件浏览器半边。
+ui/: 基于 `dsh.client` 与官方 Settings/sidebar/shell.overlay slots 的 Server 配置、全局登录门禁、账号与受管插件浏览器半边；云端项目可选接入官方 `ctx.workspaces`，用原生选目录把项目登记为原生工作区。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

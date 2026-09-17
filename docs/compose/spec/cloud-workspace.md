@@ -1,6 +1,6 @@
 ---
 feature: cloud-workspace
-status: delivered
+status: in-progress
 updated: 2026-09-17
 branch: feat/cloud-workspace
 commits: f4268ea..28d00bf
@@ -192,8 +192,58 @@ commits: f4268ea..28d00bf
 - 管理端 Console / 审计深度页 / 通知 / 活动流 / 配额绑定
 - Desktop 独立仓库 UI、跨设备映射自动迁移
 - SSH git、服务端自动 merge、web IDE
-- 会话与云端项目的强制绑定（会话仍用任意本地 cwd）
+- 会话与云端项目的**强制**绑定：原生路径下由官方 `startSession` 进入该工作区会话（见 S4），但用户仍可对任意本地目录开会话，服务端不校验会话与项目的对应关系
 - 大文件 LFS、repo GC 运维面
+
+## [S4] 增补：与创建本地项目一致的客户端体验（2026-09-17）
+
+### S4.1 问题
+
+首期把云端项目入口放在「DSH Enterprise 设置 → 云端项目」，且流程是「先在设置页建项目 → 再回来填本地根目录 → clone」。这与创建本地项目（官方工作区流程）的体验差距是：入口在设置页、两段式、目录靠手输。
+
+### S4.2 参考实现与官方扩展面（已核实）
+
+参考 `ZhangFengshun/dsh-remote-ssh`（VSCode Remote-SSH 类插件）：它把远程目录做成**本地镜像目录 + 标记文件 + Host 侧 fs API 拦截**，客户端视角是普通工作区；其入口依赖第三方侧栏插件 `dsh-better-sidebar` 的扩展面，自身不占用官方原生选择器。
+
+本仓库可用的正门是官方客户端服务 `ctx.workspaces`（`dsh-client-runtime` 提供）：
+
+| 能力 | 用途 |
+|---|---|
+| `pickDirectory()` | 打开 Host 原生目录选择器——**与本地工作区流程同一个对话框** |
+| `create({ path })` | 把一个已存在路径登记为**原生工作区**（幂等） |
+| `startSession(workspaceId)` | 直接进入该工作区会话 |
+
+官方「Add workspace…」菜单位于 `ui-workspace` 声明、`kind: 'single'` 的 `sidebar.workspaces.directoryFlow` / `conversation.hero.workspace.directoryFlow` 空位，且**已被官方目录选择器占用**。因此把云端项目条目并入该菜单等价于接管官方选择器（影响所有本地工作区添加）。
+
+### S4.3 冻结决策（本轮）
+
+| 决策 | 选择 |
+|---|---|
+| 落地方式 | **登记为原生工作区**：官方 `pickDirectory()` 选目录 → clone 到 `<所选>/<slug>` → `create({path})` 登记 → `startSession()` 进会话 |
+| 入口位置 | 维持插件自有入口（设置页 tab）；**不接管**官方目录选择器 |
+| 依赖策略 | **可选接入**：`readOfficialWorkspaces(ctx)` 从 `ctx.get('workspaces')` 安全读取；任一必需能力缺失即返回 undefined，视图退回手动填根目录。不把 `@deepseek-ai/dsh-client-runtime` 写进 `dsh.client.inject`，维持「不依赖可能退役的 client-runtime row」既有约束 |
+| 映射语义 | 不变：仍为 `projectId → <root>/<slug>`，与 S2.1 冻结决策一致 |
+| 取消语义 | 用户在选择器取消 → `ENT_WORKSPACE_PICK_CANCELLED`，视图不报错、不 clone |
+
+### S4.4 行为契约
+
+1. 创建：表单提交 → `createCloudProject(name)` → 原生可用时紧接着 `openCloudProject(id)`（选目录、clone、登记、进会话），按钮文案为「创建并选择本地目录」。
+2. 打开：列表行 —— 未映射且原生可用 → `openCloudProject(id)`（弹选择器）；已映射 → `openCloudProject(id, mapping.path)`（**不再弹选择器**，直接登记并进会话）；原生不可用 → 退回手动根目录 clone。
+3. `startSession` 失败不撤销已建立的映射：返回 `enteredSession: false`，映射与工作区登记保持有效。
+4. 原生不可用时 `openCloudProject(id)`（无根目录入参）抛出 `ENT_LOCAL_UNAVAILABLE`，由视图呈现；`nativeWorkspacesAvailable` 为 false 时视图不渲染根目录输入以外的原生文案。
+
+### S4.5 测试边界
+
+| 层 | 断言 |
+|---|---|
+| `readOfficialWorkspaces` | ctx 缺失 / 服务缺失 / 能力不全 → undefined；完整服务 → pick/create 透传；`create` 返回无 id → 抛错 |
+| `openCloudProject` | 取目录→clone→登记→进会话；取消不 clone；进会话失败保留映射；无原生时用显式根目录并返回 `workspaceId: null`；已映射时不弹选择器 |
+
+### S4.6 明确不做
+
+- 接管官方 `directoryFlow` 空位（等于替换官方目录选择器）
+- 引入 `dsh-better-sidebar` 等第三方侧栏依赖
+- 镜像目录 + fs API 拦截（云端项目已有真实 git 工作副本，无需该层）
 
 ## Tasks
 
@@ -207,3 +257,5 @@ commits: f4268ea..28d00bf
 - [x] T8: platform-client local routes + bundle 接线 + workspace 白名单 — acceptance: local 路由注册；bundle build；workspace.test.mjs 含新包 (covers: S2.4)
 - [x] T9: UI 云端项目 tab — acceptance: 登录后设置内可见列表/创建/clone/pull/commit/push；enabled=false 隐藏 (covers: S2.4)
 - [x] T10: 文档回环（CLAUDE L1/L2/L3）+ 定向验证 — acceptance: 受影响包测试与 server 定向测试记录 PASS/FAIL (covers: S2.6)
+- [x] T11: 官方 ctx.workspaces 可选接入 — acceptance: 端口读取器在缺失/不全时返回 undefined；完整时透传 (covers: S4.3, S4.5)
+- [x] T12: 创建/打开流程改为原生选目录 + 登记工作区 + 进会话 — acceptance: 创建后一步进会话；已映射不重复弹选择器；取消不报错；原生缺失退回手动根目录 (covers: S4.4, S4.5)

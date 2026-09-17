@@ -13,6 +13,7 @@ import {
   EnterpriseSettingsSection,
 } from './account-view.js'
 import { createEnterpriseLocalApi } from './local-api.js'
+import { readOfficialWorkspaces } from './workspaces-port.js'
 
 export * from './account-store.js'
 export * from './account-footer.js'
@@ -20,6 +21,7 @@ export * from './account-view.js'
 export * from './local-api.js'
 export * from './plugin-market.js'
 export * from './session-view.js'
+export * from './workspaces-port.js'
 
 interface SlotContextPort {
   readonly remote: {
@@ -27,6 +29,8 @@ interface SlotContextPort {
   }
   on(event: 'connection/reset', listener: () => void): () => void
   effect(effect: () => () => void, label: string): void
+  /** 官方服务读取口；用于可选接入 `workspaces`，缺失时调用方降级。 */
+  get?(name: string): unknown
   readonly slots: {
     inject(name: string, register: () => unknown): unknown
     register(
@@ -41,7 +45,7 @@ export const inject = ['slots', 'remote']
 
 /** 复用三个官方 slot 类型注册账号与市场；网络能力只封装在共享 store 内。 */
 export function apply(ctx: SlotContextPort): void {
-  const store = new EnterpriseAccountStore(createEnterpriseLocalApi())
+  const store = new EnterpriseAccountStore(createEnterpriseLocalApi(), readOfficialWorkspaces(ctx))
   ctx.effect(() => {
     const refresh = () => { void store.refresh() }
     const disposers = [

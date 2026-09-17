@@ -15,6 +15,7 @@ import type {
   EnterpriseSessionSyncStatus,
 } from './local-api.js'
 import { EnterpriseLocalApiError } from './local-api.js'
+import type { OfficialWorkspacesPort } from './workspaces-port.js'
 
 export type EnterpriseAccountAction = 'configure' | 'login' | 'cancel' | 'logout' | 'uninstall'
 
@@ -47,6 +48,7 @@ function connected(status: EnterpriseLocalStatus): boolean {
 /** 引用计数管理请求生命周期；宿主事件只触发本地状态读取，不产生后台企业请求。 */
 export class EnterpriseAccountStore {
   readonly #api: EnterpriseLocalApi
+  readonly #workspaces: OfficialWorkspacesPort | undefined
   readonly #listeners = new Set<() => void>()
   #snapshot: EnterpriseAccountSnapshot = { phase: 'loading' }
   #lifetime: AbortController | undefined
@@ -57,8 +59,9 @@ export class EnterpriseAccountStore {
   #bootstrapLoading = false
   #pluginsLoading = false
 
-  constructor(api: EnterpriseLocalApi) {
+  constructor(api: EnterpriseLocalApi, workspaces?: OfficialWorkspacesPort) {
     this.#api = api
+    this.#workspaces = workspaces
   }
 
   readonly getSnapshot = (): EnterpriseAccountSnapshot => this.#snapshot
@@ -141,6 +144,46 @@ export class EnterpriseAccountStore {
 
   async addCloudProjectMember(projectId: string, userId: string): Promise<{ readonly userId: string; readonly role: string }> {
     return this.#api.addCloudProjectMember(projectId, userId, this.#signal())
+  }
+
+  /** 官方原生工作区能力是否可用；不可用时视图退回手动填写根目录。 */
+  get nativeWorkspacesAvailable(): boolean {
+    return this.#workspaces !== undefined
+  }
+
+  /**
+   * 与创建本地项目一致的开箱流程：官方原生选目录 → clone 到 `<所选目录>/<slug>`
+   * → 登记为原生工作区 → 直接进入该工作区会话。
+   */
+  async openCloudProject(projectId: string, rootDirOverride?: string): Promise<{
+    readonly path: string
+    readonly workspaceId: string | null
+    readonly enteredSession: boolean
+  }> {
+    let rootDir = rootDirOverride
+    if (rootDir === undefined) {
+      if (this.#workspaces === undefined) {
+        throw new EnterpriseLocalApiError('ENT_LOCAL_UNAVAILABLE')
+      }
+      const picked = await this.#workspaces.pickDirectory()
+      if (picked === null || picked.length === 0) {
+        throw new EnterpriseLocalApiError('ENT_WORKSPACE_PICK_CANCELLED')
+      }
+      rootDir = picked
+    }
+    const mapping = await this.#api.cloneCloudProject(projectId, rootDir, this.#signal())
+    if (this.#workspaces === undefined) {
+      return { path: mapping.path, workspaceId: null, enteredSession: false }
+    }
+    const workspace = await this.#workspaces.create({ path: mapping.path })
+    let entered = false
+    try {
+      this.#workspaces.startSession(workspace.id)
+      entered = true
+    } catch {
+      // 登记成功即可；开会话失败不改变已建立的映射。
+    }
+    return { path: mapping.path, workspaceId: workspace.id, enteredSession: entered }
   }
 
   #requireStatus(): EnterpriseLocalStatus {

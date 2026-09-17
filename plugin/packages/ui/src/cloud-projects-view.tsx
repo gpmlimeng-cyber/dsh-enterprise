@@ -56,11 +56,16 @@ export function EnterpriseCloudProjectsView(props: EnterpriseCloudProjectsViewPr
       await action()
       await reload()
     } catch (cause) {
-      setError(errorMessage(cause))
+      // 用户在选择器里取消不是错误。
+      if ((cause as EnterpriseLocalApiError | undefined)?.code !== 'ENT_WORKSPACE_PICK_CANCELLED') {
+        setError(errorMessage(cause))
+      }
     } finally {
       setBusy(false)
     }
   }, [reload])
+
+  const nativeWorkspaces = props.store.nativeWorkspacesAvailable
 
   if (snapshot.bootstrap?.cloudWorkspaceEnabled !== true) {
     return <div style={{ color: 'var(--dsw-alias-label-tertiary, #667085)', fontSize: 13, padding: 12 }}>
@@ -75,9 +80,15 @@ export function EnterpriseCloudProjectsView(props: EnterpriseCloudProjectsViewPr
         onSubmit={(event) => {
           event.preventDefault()
           void run(async () => {
-            await props.store.createCloudProject(name.trim(), null)
+            const created = await props.store.createCloudProject(name.trim(), null)
             setName('')
-            setNotice('已创建云端项目')
+            if (!nativeWorkspaces) {
+              setNotice('已创建云端项目')
+              return
+            }
+            // 与创建本地项目一致：紧接着弹系统选目录，建完直接进入会话。
+            const opened = await props.store.openCloudProject(created.id)
+            setNotice(opened.enteredSession ? '已创建并进入云端项目' : `已创建并映射到 ${opened.path}`)
           })
         }}
       >
@@ -91,11 +102,14 @@ export function EnterpriseCloudProjectsView(props: EnterpriseCloudProjectsViewPr
           />
         </label>
         <button type="submit" disabled={busy || name.trim().length === 0}>
-          创建云端项目
+          {nativeWorkspaces ? '创建并选择本地目录' : '创建云端项目'}
         </button>
       </form>
+      {nativeWorkspaces ? <div style={{ color: 'var(--dsw-alias-label-tertiary, #667085)', fontSize: 12 }}>
+        会在你选择的目录下建一个项目子目录，并登记为工作区后直接进入会话。
+      </div> : null}
 
-      <label style={{ display: 'grid', gap: 4, fontSize: 13 }}>
+      {nativeWorkspaces ? null : <label style={{ display: 'grid', gap: 4, fontSize: 13 }}>
         本地根目录（绝对路径）
         <input
           value={rootDir}
@@ -103,7 +117,7 @@ export function EnterpriseCloudProjectsView(props: EnterpriseCloudProjectsViewPr
           placeholder="/Users/you/workspace"
           style={{ padding: '6px 8px' }}
         />
-      </label>
+      </label>}
       <label style={{ display: 'grid', gap: 4, fontSize: 13 }}>
         提交说明
         <input
@@ -142,16 +156,27 @@ export function EnterpriseCloudProjectsView(props: EnterpriseCloudProjectsViewPr
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               <button
                 type="button"
-                disabled={busy || rootDir.trim().length === 0}
+                disabled={busy || (!nativeWorkspaces && rootDir.trim().length === 0)}
                 onClick={() => {
                   setActiveId(project.id)
+                  const mappedPath = project.mapping?.path
                   void run(async () => {
+                    if (mappedPath !== undefined) {
+                      const opened = await props.store.openCloudProject(project.id, mappedPath)
+                      setNotice(opened.enteredSession ? '已进入该云端项目会话' : '已登记为工作区')
+                      return
+                    }
+                    if (nativeWorkspaces) {
+                      const opened = await props.store.openCloudProject(project.id)
+                      setNotice(opened.enteredSession ? '已建立映射并进入会话' : '已建立本地映射')
+                      return
+                    }
                     await props.store.cloneCloudProject(project.id, rootDir.trim())
                     setNotice('已克隆到本地映射目录')
                   }).finally(() => setActiveId(null))
                 }}
               >
-                映射本地
+                {project.mapping !== null ? '打开' : nativeWorkspaces ? '打开（选目录并进入）' : '映射本地'}
               </button>
               <button
                 type="button"
