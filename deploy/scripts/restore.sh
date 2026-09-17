@@ -106,6 +106,14 @@ docker run --rm --platform linux/amd64 --user 0:0 \
   -v "$artifact_volume:/target" -v "$data_backup:/restore:ro" \
   --entrypoint sh "$server_image" -ec 'find /target -mindepth 1 -maxdepth 1 -exec rm -rf {} +; tar -C /target -xzf /restore/artifacts.tar.gz; chown -R 10001:10001 /target'
 
+# 云端工作空间 bare 仓库卷；旧格式备份（无该归档）跳过并保留现有仓库。
+if [ -f "$data_backup/cloud-workspace.tar.gz" ]; then
+  cloud_workspace_volume=$(volume_for server /var/lib/enterprise/cloud-workspace)
+  docker run --rm --platform linux/amd64 --user 0:0 \
+    -v "$cloud_workspace_volume:/target" -v "$data_backup:/restore:ro" \
+    --entrypoint sh "$server_image" -ec 'find /target -mindepth 1 -maxdepth 1 -exec rm -rf {} +; tar -C /target -xzf /restore/cloud-workspace.tar.gz; chown -R 10001:10001 /target'
+fi
+
 compose up -d redis storage-init server console
 wait_healthy redis 45
 wait_healthy server 90

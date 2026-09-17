@@ -15,7 +15,7 @@ src/main/java/com/owndsh/enterprise/preset/: .dshpreset 流式验包、CAS 制�
 src/main/java/com/owndsh/enterprise/session/: 精确 JSONL/hash、AES-GCM 远端副本、本人/管理读取、tombstone 与 retention 纵向模块；局部地图见 session/CLAUDE.md。
 src/main/java/com/owndsh/enterprise/workspace/: 云端项目、bare Git、Smart HTTP、成员授权与 V31 数据边界纵向模块；局部地图见 workspace/CLAUDE.md。
 src/main/java/com/owndsh/enterprise/common/: 企业 HTTP envelope、40 个稳定错误映射、requestId/metadata、认证 cursor、有界 JSON 请求与故障日志隔离公共边界；局部地图见 common/CLAUDE.md。
-src/main/java/com/owndsh/enterprise/audit/: 31-action 显式 metadata DTO、只追加 JDBC sink、tenant/keyset 管理查询、365 天有界 retention 与用户治理事务监听纵向模块；局部地图见 audit/CLAUDE.md。
+src/main/java/com/owndsh/enterprise/audit/: 39-action 显式 metadata DTO、只追加 JDBC sink、tenant/keyset 管理查询、365 天有界 retention 与用户治理事务监听纵向模块；局部地图见 audit/CLAUDE.md。
 src/main/java/com/owndsh/enterprise/deployment/: deploy profile 一次性管理员、PostgreSQL 锁和初始化完成标记边界；局部地图见 deployment/CLAUDE.md。
 src/main/java/com/owndsh/enterprise/crypto/: HKDF-SHA-256 用途派生与 AES-256-GCM 秘密/cursor 保护，不暴露 master key 或派生 key。
 src/main/java/com/owndsh/enterprise/revision/: 固定 BOOTSTRAP scope 的 optimistic CAS、稳定冲突错误码与审计同事务编排。

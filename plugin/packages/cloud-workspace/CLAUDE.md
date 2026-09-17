@@ -12,7 +12,7 @@ src/errors.ts: 稳定客户端错误码与 CloudWorkspaceError。
 src/slug.ts: 与服务端兼容的 slug 规范化与路径校验。
 src/mapping-store.ts: enterprise/cloud-workspace-mappings.json 原子 JSON 映射存储。
 src/git-ops.ts: 系统 git + 凭据 GIT_ASKPASS 0700 临时目录（用户名 oauth2）注入，clone/pull/push/commit。
-src/service.ts: list/create/clone/pull/commit/push/status 用例与映射合并。
+src/service.ts: list/create/clone/pull/commit/push/status/addMember 用例、映射合并与服务端错误码透传。
 src/index.ts: facade、createCloudWorkspaceHandle 与 createCloudWorkspaceLocalPort。
 tests/*: slug/映射、服务行为、GitOps 命令构造/非 FF 错误映射/askpass 凭据清理验收。
 

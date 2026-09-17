@@ -169,13 +169,13 @@ commits:
 
 ## Tasks
 
-- [ ] T1: 规格冻结与 GEB 路线 — acceptance: 本文件 status=in-progress 前与用户决策一致 (covers: S2.1)
-- [ ] T2: 服务端 workspace 纵向骨架 + V31 迁移 + properties/enabled — acceptance: 模块可编译；迁移 SQL 存在；默认 enabled=true 单测 (covers: S2.2)
-- [ ] T3: 项目 CRUD + 成员服务 + bare init — acceptance: POST/GET cloud-projects 与 members 服务逻辑单测/MockMvc 过；bare 目录生成 (covers: S2.2)
-- [ ] T4: Git Smart HTTP + Basic→Bearer 滤镜 + 非 FF 拒绝 — acceptance: JGit Upload/Receive 接线；无/错 token 401；非成员 403；ReceivePack 非 FF 拒绝单测 (covers: S2.2, S2.5)
-- [ ] T5: OpenAPI paths/components/fixtures + 生成无漂移 — acceptance: contracts 校验通过 (covers: S2.3)
-- [ ] T6: bootstrap cloudWorkspace 声明 — acceptance: BootstrapView 含 cloudWorkspace.enabled 默认 true (covers: S2.2)
-- [ ] T7: @dshent/cloud-workspace 包 + GitOps/Mapping + 单测 — acceptance: typecheck+vitest 绿 (covers: S2.4)
-- [ ] T8: platform-client local routes + bundle 接线 + workspace 白名单 — acceptance: local 路由注册；bundle build；workspace.test.mjs 含新包 (covers: S2.4)
-- [ ] T9: UI 云端项目 tab — acceptance: 登录后设置内可见列表/创建/clone/pull/commit/push；enabled=false 隐藏 (covers: S2.4)
-- [ ] T10: 文档回环（CLAUDE L1/L2/L3）+ 定向验证 — acceptance: 受影响包测试与 server 定向测试记录 PASS/FAIL (covers: S2.6)
+- [x] T1: 规格冻结与 GEB 路线 — acceptance: 本文件 status=in-progress 前与用户决策一致 (covers: S2.1)
+- [x] T2: 服务端 workspace 纵向骨架 + V31 迁移 + properties/enabled — acceptance: 模块可编译；迁移 SQL 存在；默认 enabled=true 单测 (covers: S2.2)
+- [x] T3: 项目 CRUD + 成员服务 + bare init — acceptance: POST/GET cloud-projects 与 members 服务逻辑单测/MockMvc 过；bare 目录生成 (covers: S2.2)
+- [x] T4: Git Smart HTTP + Basic→Bearer 滤镜 + 非 FF 拒绝 — acceptance: JGit Upload/Receive 接线；无/错 token 401；非成员 403；ReceivePack 非 FF 拒绝单测 (covers: S2.2, S2.5)
+- [x] T5: OpenAPI paths/components/fixtures + 生成无漂移 — acceptance: contracts 校验通过 (covers: S2.3)
+- [x] T6: bootstrap cloudWorkspace 声明 — acceptance: BootstrapView 含 cloudWorkspace.enabled 默认 true (covers: S2.2)
+- [x] T7: @dshent/cloud-workspace 包 + GitOps/Mapping + 单测 — acceptance: typecheck+vitest 绿 (covers: S2.4)
+- [x] T8: platform-client local routes + bundle 接线 + workspace 白名单 — acceptance: local 路由注册；bundle build；workspace.test.mjs 含新包 (covers: S2.4)
+- [x] T9: UI 云端项目 tab — acceptance: 登录后设置内可见列表/创建/clone/pull/commit/push；enabled=false 隐藏 (covers: S2.4)
+- [x] T10: 文档回环（CLAUDE L1/L2/L3）+ 定向验证 — acceptance: 受影响包测试与 server 定向测试记录 PASS/FAIL (covers: S2.6)

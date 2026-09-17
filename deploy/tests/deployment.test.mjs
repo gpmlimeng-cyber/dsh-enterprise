@@ -67,10 +67,14 @@ test('compose publishes only the HTTP Console and pins all third-party images', 
   assert.equal(config.services.server.environment.ENT_ALLOW_INSECURE_OIDC, 'false')
   assert.equal(config.services.server.environment.XDG_CACHE_HOME, '/tmp')
   assert.equal(config.services.server.read_only, true)
-  assert.deepEqual(Object.keys(config.volumes).sort(), ['artifacts', 'postgres_data', 'redis_data'])
+  assert.deepEqual(
+    Object.keys(config.volumes).sort(),
+    ['artifacts', 'cloud_workspace', 'postgres_data', 'redis_data'],
+  )
   for (const service of ['server', 'storage-init']) {
     assert.deepEqual(config.services[service].volumes.map(({ source, target }) => ({ source, target })), [
       { source: 'artifacts', target: '/var/lib/enterprise/artifacts' },
+      { source: 'cloud_workspace', target: '/var/lib/enterprise/cloud-workspace' },
     ])
   }
   assert.deepEqual(config.services['storage-init'].command, [

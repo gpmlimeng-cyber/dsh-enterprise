@@ -103602,7 +103602,12 @@
                 "CLOUD_PROJECT_MEMBER_REMOVED",
                 "ROLE_ASSIGNED",
                 "USER_STATUS_CHANGED",
-                "CONFIG_CHANGED"
+                "CONFIG_CHANGED",
+                "PRESET_VERSION_UPLOADED",
+                "PRESET_VERSION_PUBLISHED",
+                "PRESET_VERSION_RETIRED",
+                "PRESET_ASSIGNMENTS_REPLACED",
+                "PRESET_DOWNLOAD_AUTHORIZED"
               ]
             }
           },
@@ -103795,7 +103800,12 @@
                                   "CLOUD_PROJECT_MEMBER_REMOVED",
                                   "ROLE_ASSIGNED",
                                   "USER_STATUS_CHANGED",
-                                  "CONFIG_CHANGED"
+                                  "CONFIG_CHANGED",
+                                  "PRESET_VERSION_UPLOADED",
+                                  "PRESET_VERSION_PUBLISHED",
+                                  "PRESET_VERSION_RETIRED",
+                                  "PRESET_ASSIGNMENTS_REPLACED",
+                                  "PRESET_DOWNLOAD_AUTHORIZED"
                                 ]
                               },
                               "resourceType": {
@@ -128362,7 +128372,12 @@
           "CLOUD_PROJECT_MEMBER_REMOVED",
           "ROLE_ASSIGNED",
           "USER_STATUS_CHANGED",
-          "CONFIG_CHANGED"
+          "CONFIG_CHANGED",
+          "PRESET_VERSION_UPLOADED",
+          "PRESET_VERSION_PUBLISHED",
+          "PRESET_VERSION_RETIRED",
+          "PRESET_ASSIGNMENTS_REPLACED",
+          "PRESET_DOWNLOAD_AUTHORIZED"
         ]
       },
       "AuditMetadata": {
@@ -129087,7 +129102,12 @@
               "CLOUD_PROJECT_MEMBER_REMOVED",
               "ROLE_ASSIGNED",
               "USER_STATUS_CHANGED",
-              "CONFIG_CHANGED"
+              "CONFIG_CHANGED",
+              "PRESET_VERSION_UPLOADED",
+              "PRESET_VERSION_PUBLISHED",
+              "PRESET_VERSION_RETIRED",
+              "PRESET_ASSIGNMENTS_REPLACED",
+              "PRESET_DOWNLOAD_AUTHORIZED"
             ]
           },
           "resourceType": {
@@ -129860,7 +129880,12 @@
                     "CLOUD_PROJECT_MEMBER_REMOVED",
                     "ROLE_ASSIGNED",
                     "USER_STATUS_CHANGED",
-                    "CONFIG_CHANGED"
+                    "CONFIG_CHANGED",
+                    "PRESET_VERSION_UPLOADED",
+                    "PRESET_VERSION_PUBLISHED",
+                    "PRESET_VERSION_RETIRED",
+                    "PRESET_ASSIGNMENTS_REPLACED",
+                    "PRESET_DOWNLOAD_AUTHORIZED"
                   ]
                 },
                 "resourceType": {
@@ -130678,7 +130703,12 @@
                         "CLOUD_PROJECT_MEMBER_REMOVED",
                         "ROLE_ASSIGNED",
                         "USER_STATUS_CHANGED",
-                        "CONFIG_CHANGED"
+                        "CONFIG_CHANGED",
+                        "PRESET_VERSION_UPLOADED",
+                        "PRESET_VERSION_PUBLISHED",
+                        "PRESET_VERSION_RETIRED",
+                        "PRESET_ASSIGNMENTS_REPLACED",
+                        "PRESET_DOWNLOAD_AUTHORIZED"
                       ]
                     },
                     "resourceType": {

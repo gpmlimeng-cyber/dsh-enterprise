@@ -6,9 +6,11 @@
  */
 package com.owndsh.enterprise.workspace.application;
 
+import com.owndsh.enterprise.audit.AuditAction;
 import com.owndsh.enterprise.audit.AuditActorType;
 import com.owndsh.enterprise.audit.AuditEvent;
 import com.owndsh.enterprise.audit.AuditResult;
+import com.owndsh.enterprise.audit.AuditMetadata;
 import com.owndsh.enterprise.audit.AuditSink;
 import com.owndsh.enterprise.audit.CloudProjectCreatedMetadata;
 import com.owndsh.enterprise.audit.CloudProjectMemberAddedMetadata;
@@ -121,7 +123,7 @@ public final class CloudWorkspaceService {
                     id, context.session().userId(), CloudProjectMember.Role.OWNER, now
                 ));
                 auditSink.append(event(
-                    context, id, com.owndsh.enterprise.audit.AuditAction.CLOUD_PROJECT_CREATED,
+                    context, id, AuditAction.CLOUD_PROJECT_CREATED,
                     new CloudProjectCreatedMetadata(slug, CloudProjectMember.Role.OWNER.name())
                 ));
             });
@@ -202,7 +204,7 @@ public final class CloudWorkspaceService {
         transactions.executeWithoutResult(status -> {
             store.insertMember(member);
             auditSink.append(event(
-                context, projectId, com.owndsh.enterprise.audit.AuditAction.CLOUD_PROJECT_MEMBER_ADDED,
+                context, projectId, AuditAction.CLOUD_PROJECT_MEMBER_ADDED,
                 new CloudProjectMemberAddedMetadata(userId, CloudProjectMember.Role.MEMBER.name())
             ));
         });
@@ -224,7 +226,7 @@ public final class CloudWorkspaceService {
                 throw new CloudWorkspaceException(CloudWorkspaceException.Kind.NOT_FOUND);
             }
             auditSink.append(event(
-                context, projectId, com.owndsh.enterprise.audit.AuditAction.CLOUD_PROJECT_MEMBER_REMOVED,
+                context, projectId, AuditAction.CLOUD_PROJECT_MEMBER_REMOVED,
                 new CloudProjectMemberRemovedMetadata(userId)
             ));
         });
@@ -249,8 +251,8 @@ public final class CloudWorkspaceService {
     private AuditEvent event(
         DeviceCallContext context,
         long projectId,
-        com.owndsh.enterprise.audit.AuditAction action,
-        com.owndsh.enterprise.audit.AuditMetadata metadata
+        AuditAction action,
+        AuditMetadata metadata
     ) {
         return new AuditEvent(
             positiveId(), context.tenantId(), Instant.now(clock), AuditActorType.USER,

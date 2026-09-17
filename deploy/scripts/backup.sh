@@ -49,10 +49,11 @@ redis_container=$(compose ps -q redis)
 docker cp "$redis_container:/data/dump.rdb" "$data_backup/redis.rdb"
 
 artifact_volume=$(volume_for server /var/lib/enterprise/artifacts)
+cloud_workspace_volume=$(volume_for server /var/lib/enterprise/cloud-workspace)
 server_image=$(env_value OWNDSH_SERVER_IMAGE "$(runtime_file)")
 docker run --rm --platform linux/amd64 --user 0:0 \
-  -v "$artifact_volume:/source:ro" -v "$data_backup:/backup" \
-  --entrypoint sh "$server_image" -ec 'tar -C /source -czf /backup/artifacts.tar.gz .'
+  -v "$artifact_volume:/source:ro" -v "$cloud_workspace_volume:/projects:ro" -v "$data_backup:/backup" \
+  --entrypoint sh "$server_image" -ec 'tar -C /source -czf /backup/artifacts.tar.gz .; tar -C /projects -czf /backup/cloud-workspace.tar.gz .'
 
 cp "$(runtime_file)" "$data_backup/runtime.env"
 cat > "$data_backup/backup.env" <<EOF
@@ -62,7 +63,7 @@ OWNDSH_RELEASE_VERSION=$(env_value OWNDSH_RELEASE_VERSION "$(runtime_file)")
 EOF
 (
   cd "$data_backup"
-  sha256sum_compat postgres.dump redis.rdb artifacts.tar.gz runtime.env backup.env > SHA256SUMS
+  sha256sum_compat postgres.dump redis.rdb artifacts.tar.gz cloud-workspace.tar.gz runtime.env backup.env > SHA256SUMS
 )
 
 key_files=$(backup_key_files)

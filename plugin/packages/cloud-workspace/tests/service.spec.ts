@@ -88,7 +88,7 @@ describe('CloudWorkspaceService', () => {
       projectId: '1',
       slug: 'team-docs',
       path: join(root, 'team-docs'),
-      cloneUrl: 'http://localhost/enterprise/api/v1/git/1.git',
+      cloneUrl: 'http://localhost/enterprise/api/v1/git/1',
       defaultBranch: 'main',
       lastActionAt: '2026-09-17T00:00:00.000Z',
     })
@@ -99,5 +99,23 @@ describe('CloudWorkspaceService', () => {
   it('rejects when disabled', async () => {
     platform.bootstrap = () => ({ cloudWorkspaceEnabled: false })
     await expect(service.list()).rejects.toMatchObject({ code: 'ENT_WORKSPACE_DISABLED' })
+  })
+
+  it('prefers the server envelope error code over the HTTP status', async () => {
+    platform.request = vi.fn(async () => new Response(
+      JSON.stringify({ error: { code: 'ENT_WORKSPACE_SLUG_CONFLICT', message: 'taken', requestId: 'req_1' } }),
+      { status: 409, headers: { 'content-type': 'application/json' } },
+    ))
+
+    await expect(service.create('Team Docs')).rejects.toMatchObject({ code: 'ENT_WORKSPACE_SLUG_CONFLICT' })
+  })
+
+  it('falls back to the HTTP status when the envelope has no usable code', async () => {
+    platform.request = vi.fn(async () => new Response('not-json', {
+      status: 403,
+      headers: { 'content-type': 'text/plain' },
+    }))
+
+    await expect(service.list()).rejects.toMatchObject({ code: 'ENT_WORKSPACE_FORBIDDEN' })
   })
 })

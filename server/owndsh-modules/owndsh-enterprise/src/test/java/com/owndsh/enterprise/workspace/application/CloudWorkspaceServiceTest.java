@@ -256,12 +256,6 @@ class CloudWorkspaceServiceTest {
         }
 
         @Override
-        public int deleteProject(String tenantId, long projectId) {
-            members.remove(projectId);
-            return projects.remove(tenantId + ":" + projectId) == null ? 0 : 1;
-        }
-
-        @Override
         public boolean userExists(long userId) {
             return userId > 0;
         }

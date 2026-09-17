@@ -56,7 +56,11 @@ public final class GitRepositoryService {
                 config.save();
                 RefUpdate head = repository.updateRef(Constants.HEAD);
                 head.disableRefLog();
-                head.link(Constants.R_HEADS + defaultBranch);
+                RefUpdate.Result linked = head.link(Constants.R_HEADS + defaultBranch);
+                if (linked != RefUpdate.Result.NEW && linked != RefUpdate.Result.FORCED
+                    && linked != RefUpdate.Result.NO_CHANGE) {
+                    throw new CloudWorkspaceGitException("bare 仓库 HEAD 指向 defaultBranch 失败");
+                }
             }
             return path;
         } catch (Exception exception) {
