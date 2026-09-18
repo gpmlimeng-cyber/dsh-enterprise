@@ -12,5 +12,6 @@ cordis.patch.yml: 官方 profile layer，覆盖企业 default、停用个人 pro
 scripts/build.mjs: 内联产品模块但 externalize 官方 Cordis/credentials/LLM/settings/Schemastery 与 Client ui-primitives 单例的双端构建器。
 src/index.ts: Web/Desktop 共用 Host 组合入口，绑定 credentials/pi-ai/分发，在 bootstrap sessionPolicy.enabled 时经 tryRegisterHostSessionSync 条件挂载会话同步，并装配云端工作空间（本地映射 + Access Token askpass git 注入）。
 tests/bundle.spec.ts: 验签开关默认值与显式开启、credentials/模型/分发组合、Session 同步双向门禁（无 dsh-session peer）、兼容 peers、Client graph 与构建产物验收。
+tests/apply-optional-services.spec.ts: 固化 Cordis「未注入属性直读即抛错」模型，断言 apply 绝不出现 without inject，并以源码扫描禁止 sessions/sessionPersistence/desktop* 直读；对应用户端真实启动崩溃回归。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

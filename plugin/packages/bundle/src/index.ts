@@ -120,6 +120,10 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
   let sessionSyncHandle: HostSessionSyncHandle | null = null
   let cloudWorkspaceHandle: CloudWorkspaceHandle | null = null
   let platform: EnterprisePlatformService
+  // 未列入 inject 的服务只能用 ctx.get 读取；直接读属性会被 Cordis Proxy
+  // 抛出 "cannot get property ... without inject" 并带崩整个插件树。
+  const hostSessions = ctx.get('sessions') as SessionStorePort | undefined
+  const hostSessionPersistence = ctx.get('sessionPersistence') as SessionPersistencePort | undefined
   const sessionLocalPort: HostSessionLocalPort = createHostSessionLocalPort({
     platform: {
       status: () => platform.status(),
@@ -128,10 +132,10 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
       subscribe: listener => platform.subscribe(status => listener(status)),
     },
     getHandle: () => sessionSyncHandle,
-    ...(ctx.sessions?.create === undefined ? {} : {
+    ...(hostSessions?.create === undefined ? {} : {
       createSession: {
         async create(id, options) {
-          const session = await ctx.sessions!.create!(id, options)
+          const session = await hostSessions.create!(id, options)
           return { id: session.id }
         },
       },
@@ -181,10 +185,8 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
       subscribe: listener => platform.subscribe(status => listener(status)),
     },
     runtime: {
-      ...(ctx.sessions === undefined ? {} : { sessions: ctx.sessions }),
-      ...(ctx.sessionPersistence === undefined ? {} : {
-        sessionPersistence: ctx.sessionPersistence,
-      }),
+      ...(hostSessions === undefined ? {} : { sessions: hostSessions }),
+      ...(hostSessionPersistence === undefined ? {} : { sessionPersistence: hostSessionPersistence }),
     },
     logger: {
       debug: message => ctx.logger.debug(`owndsh: ${message}`),

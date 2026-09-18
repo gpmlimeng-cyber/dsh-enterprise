@@ -262,6 +262,25 @@ commits: f4268ea..df952f2
 
 **未能在本机验证（需在锁定运行时上复核）**：锁定版本 0.1.5-rc.2 的 `ctx.workspaces` 真实形状。本机仅有 0.1.0-rc.6 的官方包，因此「`create` 返回字段名」与「`startSession` 是否抛错」两处只按 0.1.0-rc.6 实证并做了字段名容错；发布前须对锁定版本再核一次，检查点为该版本的 `dsh-client-runtime` 客户端契约里 `create` 的返回类型。
 
+### S4.8 交付后真实启动缺陷（包进本地 DSH 后发现）
+
+首次把新包装进用户本地 `owndsh` profile 后，插件树加载失败：
+
+```
+failed to apply loader entry owndsh (dshent-plugin): cannot get property "sessions" without inject
+```
+
+**根因**：Cordis 的 `ReflectService.handler.get` 对未注入属性直接抛错（`cordis/lib/index.js` 陷阱）。`bundle` 的 `inject` 只有五个服务、不含 `sessions`/`sessionPersistence`，但 `apply()` 直读 `ctx.sessions`。这在基线 `f4268ea` 即已存在（未注入时必炸），旧安装包因不含会话同步接线而从未触发；新包带上该接线后被真实启动暴露。
+
+**修复**：改为 `ctx.get('sessions')` / `ctx.get('sessionPersistence')`（与同文件既有的 `ctx.get('desktopActions')` 范式一致；`get` 对未提供项安全返回 undefined），统一提到 `hostSessions`/`hostSessionPersistence` 变量供两处复用。**不**把 `sessions` 加进 `inject`——那会与「无 dsh-session 也必须可加载」的既定门禁冲突。
+
+**回归门禁**：`plugin/packages/bundle/tests/apply-optional-services.spec.ts`
+1. 直读 `ctx.sessions` 必须抛出宿主同款 `without inject`（固化模型）；
+2. `apply()` 不得抛出 `/without inject/`（桩足以拦住该类错误，更深的 Cordis Service 构造差异不在断言范围）；
+3. 源码不得出现 `ctx.sessions`/`ctx.sessionPersistence`/`ctx.desktopProfiles`/`ctx.desktopPnpm`/`ctx.desktopActions` 直读——对基线 `f4268ea` 源码运行该断言会失败（3 处命中），当前 0 处。
+
+**验证**：bundle typecheck 0；bundle 测试 6/6（原 3 + 新 3）；重新打包后两个 profile 的 `lib/index.js` 中 `ctx.sessions` 直读为 0、`hostSessions` 出现 4 次。
+
 ## Tasks
 
 - [x] T1: 规格冻结与 GEB 路线 — acceptance: 本文件 status=in-progress 前与用户决策一致 (covers: S2.1)
