@@ -156,9 +156,15 @@ export const zBootstrapSnapshot = z.object({
     retentionDays: z.number().int().positive().safe(),
     maxBatchBytes: z.number().int().positive().safe(),
   }).strict(),
+  /**
+   * 云端工作空间宣告。**必须保持可选**：旧版企业 Server 不发该字段，
+   * 一旦设为必填，bootstrap 整体校验失败会被映射成 ENT_PLATFORM_UNAVAILABLE，
+   * 使模型/插件/会话同步全部不可用（已实测复现）。缺省即「未启用」。
+   * 协议侧（contracts 生成物）仍为必填，描述的是带本功能的新 Server。
+   */
   cloudWorkspace: z.object({
     enabled: z.boolean(),
-  }).strict(),
+  }).strict().optional(),
 }).strict()
 
 export type BootstrapSnapshot = z.infer<typeof zBootstrapSnapshot>

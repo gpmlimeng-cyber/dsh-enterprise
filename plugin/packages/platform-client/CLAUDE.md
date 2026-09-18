@@ -14,7 +14,7 @@ src/local-api.ts: exact/prefix 同源路由暴露企业目录、严格 package/v
 src/pkce.ts: PKCE S256 生成、仅绑定 `127.0.0.1` 的 callback、state/取消/超时生命周期。
 src/platform-credentials.ts: 独占官方 GrantRecord 与内存 Access Token，在 credentials 原子修改边界内轮换 Refresh Token，并阻止过期 origin 或已销毁 Service 重新装载认证态。
 src/platform-service.ts: 注册 `ctx.enterprisePlatform`，将运行时 Server 修改收敛到无活动会话时的凭据清理与官方 settings 写入，保存期间禁止登录；编排登出、启动恢复、按需续期/401 单次重放、会话代次隔离与显式 bootstrap 刷新；`mintHostAccessToken()` 是 Host 专用内存 Token 出口，只服务云端工作空间 git askpass，禁止进入任何 Client DTO 或本地路由。
-src/types.ts: 复用生成契约严格校验含空签名制品的 Bootstrap、模型、配额、受管插件与 cloudWorkspace 宣告，定义公共 Service 配置、稳定错误及无秘密状态 DTO。
+src/types.ts: 复用生成契约严格校验含空签名制品的 Bootstrap、模型、配额、受管插件与 cloudWorkspace 宣告，定义公共 Service 配置、稳定错误及无秘密状态 DTO；`cloudWorkspace` 必须保持 **optional**（旧 Server 不发该字段，必填会导致 ENT_PLATFORM_UNAVAILABLE 使 bootstrap 整体失败）。
 tests/installation.spec.ts: 并发首次启动、0600 权限、字段白名单与损坏文件 fail-closed 验收。
 tests/local-api.spec.ts: 真实 Node HTTP 下的 Server 更新、整包卸载、平台/插件/Session 路由、严格 DTO、无 SSE、显式刷新、探针退役与 disposer 验收。
 tests/pkce.spec.ts: S256、精确 callback、state、取消和超时的 Vitest 验收。

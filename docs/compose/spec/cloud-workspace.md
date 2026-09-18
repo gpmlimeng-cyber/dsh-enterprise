@@ -281,6 +281,22 @@ failed to apply loader entry owndsh (dshent-plugin): cannot get property "sessio
 
 **验证**：bundle typecheck 0；bundle 测试 6/6（原 3 + 新 3）；重新打包后两个 profile 的 `lib/index.js` 中 `ctx.sessions` 直读为 0、`hostSessions` 出现 4 次。
 
+### S4.9 旧服务器兼容缺陷（本地实测复现）
+
+把新包装进用户本地 `owndsh` profile 后，企业账号面板显示 `ENT_PLATFORM_UNAVAILABLE`（「暂时无法连接企业服务」），状态停在 REFRESHING。
+
+**根因**：S4 曾把 `zBootstrapSnapshot.cloudWorkspace` 设为**必填**，而用户配置的服务器 `http://62.234.16.179` 是**旧版企业 Server（不发该字段）**。`loadBootstrap` 的 `safeParse` 失败即抛 `ENT_PLATFORM_UNAVAILABLE`（`platform-service.ts` 该路径与真·网络故障同码），`refreshBootstrap` 捕获后置为 REFRESHING——于是 **bootstrap 整体失败，模型/插件/会话同步全部瘫痪**，文案还误导成「连不上服务器」。
+
+**探测证据**：`curl http://62.234.16.179/enterprise/api/v1/bootstrap` → **401 / 0.13s**（服务可达且正常要求认证），root → 200；UI 文案来自本插件 `account-view.tsx`。排除网络与鉴权失败。
+
+**修复**：客户端 schema 中该字段改为 `.strict().optional()`——旧服务器缺失即视为「云端工作空间未启用」（UI 本就以 `cloudWorkspaceEnabled === true` 门禁渲染）。协议侧（`contracts` 生成物）保持必填，描述的是带本功能的新 Server。同时把 `ENT_PLATFORM_UNAVAILABLE` 的中文释义改为「暂时无法连接企业服务，**或服务端返回了不兼容的响应**」，避免再次误导。
+
+**回归门禁**：`plugin/packages/platform-client/tests/bootstrap-schema-compat.spec.ts` —— 旧负载可解析且 `cloudWorkspace` 为 undefined、新负载可解析且值透传、畸形负载仍被 strict 拒绝。
+
+**验证**：platform-client 35/35、ui 32/32；重打包安装后，`lib/index.js` 中 `strict().optional()` 存在。
+
+**产品边界（必须同时满足）**：云端工作空间能力需要**新版 Server**（bare Git、`/cloud-projects` API、bootstrap 宣告）与**新版客户端**同时到位。旧 Server + 新客户端 = 企业基础功能正常、云端项目 tab 隐藏；要真正使用云端项目，需部署本分支的服务端。
+
 ## Tasks
 
 - [x] T1: 规格冻结与 GEB 路线 — acceptance: 本文件 status=in-progress 前与用户决策一致 (covers: S2.1)

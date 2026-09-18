@@ -144,7 +144,7 @@ const ERROR_MESSAGES: Readonly<Record<string, string>> = {
   ENT_AUTH_TIMEOUT: '登录等待超时，请重试。',
   ENT_DEVICE_REVOKED: '此设备已被管理员撤销。',
   ENT_LOCAL_RESPONSE_INVALID: '本地企业服务返回了无效数据。',
-  ENT_PLATFORM_UNAVAILABLE: '暂时无法连接企业服务。',
+  ENT_PLATFORM_UNAVAILABLE: '暂时无法连接企业服务，或服务端返回了不兼容的响应。',
   ENT_LOCAL_UNAVAILABLE: '暂时无法连接本机 Harness，请重试。',
 }
 
