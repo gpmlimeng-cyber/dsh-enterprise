@@ -7,6 +7,7 @@
 
 import type {
   EnterpriseAccountBootstrap,
+  EnterpriseBuiltinModel,
   EnterpriseCloudProject,
   EnterpriseLocalApi,
   EnterpriseLocalStatus,
@@ -117,6 +118,12 @@ export class EnterpriseAccountStore {
   }
 
   /** 云端项目列表；仅 READY 时可用，失败向上抛出由 UI 呈现。 */
+  /** 企业内置模型目录（只读展示用）；失败向上抛出由 UI 呈现。 */
+  async listBuiltinModels(): Promise<readonly EnterpriseBuiltinModel[]> {
+    if (!connected(this.#requireStatus())) throw new EnterpriseLocalApiError('ENT_AUTH_REQUIRED', 401)
+    return this.#api.builtinModels(this.#signal())
+  }
+
   async listCloudProjects(): Promise<readonly EnterpriseCloudProject[]> {
     if (!connected(this.#requireStatus())) throw new EnterpriseLocalApiError('ENT_AUTH_REQUIRED', 401)
     return this.#api.listCloudProjects(this.#signal())

@@ -14,7 +14,7 @@ commits: f4268ea..df952f2
 
 创建流程按「先初始化 bare 仓库（HEAD 指向 defaultBranch）→ 单事务写入项目行、OWNER 成员与审计 → 事务失败则删除刚建仓库」实现，配套三类审计 action（CLOUD_PROJECT_CREATED / MEMBER_ADDED / MEMBER_REMOVED）在 Java 枚举、V31 check 约束与 `AuditMetadataPolicyTest` 三处同构。bootstrap 新增 `cloudWorkspace.enabled`（默认 true）作为客户端开关。
 
-客户端新增 `@dshent/cloud-workspace`：本地映射 JSON（projectId→path，0600 原子写）、系统 `git` 经 `GIT_ASKPASS` 注入内存 Access Token（用户名固定 `oauth2`，临时目录 0700 且操作后删除，Token 不进入映射文件或 Client DTO）。platform-client 增加 `/cloud-projects*` 本地路由与错误状态注册，bundle 装配 Host 端口，UI 在「DSH Enterprise 设置 → 云端项目」提供创建、映射本地根目录、pull/commit/push 与成员添加。
+客户端新增 `@dshent/cloud-workspace`：本地映射 JSON（projectId→path，0600 原子写）、系统 `git` 经 `GIT_ASKPASS` 注入内存 Access Token（用户名固定 `oauth2`，临时目录 0700 且操作后删除，Token 不进入映射文件或 Client DTO）。platform-client 增加 `/cloud-projects*` 本地路由与错误状态注册，bundle 装配 Host 端口，UI 在「企业设置 → 云端项目」提供创建、映射本地根目录、pull/commit/push 与成员添加。
 
 **Verification**
 
@@ -50,7 +50,7 @@ commits: f4268ea..df952f2
 |---|---|
 | 首期范围 | **最小可用同步闭环**：创建云端项目 → 服务端 bare 仓库 → 成员本地映射 → pull/commit/push；管理台项目页后置 |
 | 传输/存储 | 服务端 **bare Git + Smart HTTP**（JGit），挂在既有企业 HTTP 面 |
-| 客户端入口 | 企业插件：新包 `@dshent/cloud-workspace` +「DSH Enterprise 设置 → 云端项目」 |
+| 客户端入口 | 企业插件：新包 `@dshent/cloud-workspace` +「企业设置 → 云端项目」 |
 | Git 鉴权 | HTTP Basic：密码 = 企业 **Access Token**（Host 内存 token 经 credential helper 注入 git 子进程；服务端把 Basic password 当 Sa-Token Bearer） |
 | 并发写入 | 经典 **非 fast-forward 拒绝**；客户端提示先 pull/merge 再 push |
 | 创建/发现 | 登录员工在插件内**自助创建**，自动成为 OWNER；列表仅返回本人为成员的项目 |
@@ -200,7 +200,7 @@ commits: f4268ea..df952f2
 
 ### S4.1 问题
 
-首期把云端项目入口放在「DSH Enterprise 设置 → 云端项目」，且流程是「先在设置页建项目 → 再回来填本地根目录 → clone」。这与创建本地项目（官方工作区流程）的体验差距是：入口在设置页、两段式、目录靠手输。
+首期把云端项目入口放在「企业设置 → 云端项目」，且流程是「先在设置页建项目 → 再回来填本地根目录 → clone」。这与创建本地项目（官方工作区流程）的体验差距是：入口在设置页、两段式、目录靠手输。
 
 ### S4.2 参考实现与官方扩展面（已核实）
 

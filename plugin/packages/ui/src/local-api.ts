@@ -124,11 +124,25 @@ export interface EnterpriseRemoteSession {
   readonly updatedAt: string
 }
 
+/**
+ * 企业内置模型的只读投影（来自 bootstrap，但不并入账号 bootstrap 契约——
+ * 该契约被刻意收紧为账号/设备/策略最小面）。
+ */
+export interface EnterpriseBuiltinModel {
+  readonly alias: string
+  readonly name: string
+  readonly apiProtocol: 'openai-completions' | 'openai-responses' | 'anthropic-messages'
+  readonly isDefault: boolean
+  readonly contextWindow?: number
+}
+
 export interface EnterpriseLocalApi {
   status(signal: AbortSignal): Promise<EnterpriseLocalStatus>
   refresh(signal: AbortSignal): Promise<EnterpriseLocalStatus>
   setServerUrl(serverUrl: string, signal: AbortSignal): Promise<{ readonly serverUrl: string }>
   bootstrap(signal: AbortSignal): Promise<EnterpriseAccountBootstrap | undefined>
+  /** 只读的模型目录（企业内置模型展示专用；不污染账号 bootstrap 投影）。 */
+  builtinModels(signal: AbortSignal): Promise<readonly EnterpriseBuiltinModel[]>
   plugins(signal: AbortSignal): Promise<EnterprisePluginStatus>
   presets(signal: AbortSignal): Promise<readonly EnterpriseRuntimePreset[]>
   presetDetail(packageId: string, signal: AbortSignal): Promise<EnterpriseRuntimePreset>
@@ -256,6 +270,31 @@ export function decodeEnterpriseLocalStatus(value: unknown): EnterpriseLocalStat
     ...(status['connectedAt'] === undefined ? {} : { connectedAt: status['connectedAt'] as string }),
     ...(status['errorCode'] === undefined ? {} : { errorCode: status['errorCode'] as string }),
   }
+}
+
+const BUILTIN_PROTOCOLS = new Set(['openai-completions', 'openai-responses', 'anthropic-messages'])
+
+/** 从 bootstrap 主体里摘出企业内置模型；缺失或不合法则返回空表（页面可降级）。 */
+function decodeBuiltinModels(value: unknown): readonly EnterpriseBuiltinModel[] {
+  // requestJson 已经剥掉 { data } 信封，这里拿到的就是 bootstrap 主体。
+  const data = record(value)
+  const models = data?.['models']
+  if (!Array.isArray(models)) return []
+  const rows: EnterpriseBuiltinModel[] = []
+  for (const item of models) {
+    const model = record(item)
+    if (model === undefined || !nonEmptyString(model['alias'])) continue
+    const protocol = model['apiProtocol']
+    if (typeof protocol !== 'string' || !BUILTIN_PROTOCOLS.has(protocol)) continue
+    rows.push({
+      alias: model['alias'],
+      name: nonEmptyString(model['name']) ? model['name'] : model['alias'],
+      apiProtocol: protocol as EnterpriseBuiltinModel['apiProtocol'],
+      isDefault: model['isDefault'] === true,
+      ...(typeof model['contextWindow'] === 'number' ? { contextWindow: model['contextWindow'] } : {}),
+    })
+  }
+  return rows
 }
 
 function decodeBootstrap(value: unknown): EnterpriseAccountBootstrap | undefined {
@@ -515,6 +554,9 @@ export function createEnterpriseLocalApi(
       return { serverUrl: data['serverUrl'] }
     },
     bootstrap: async signal => decodeBootstrap(await requestJson('/bootstrap', getInit(signal), fetcher)),
+    builtinModels: async signal => decodeBuiltinModels(
+      await requestJson('/bootstrap', getInit(signal), fetcher),
+    ),
     plugins: async signal => decodeEnterprisePluginStatus(await requestJson('/plugins', getInit(signal), fetcher)),
     presets: async signal => decodeEnterprisePresets(await requestJson('/presets', getInit(signal), fetcher)),
     presetDetail: async (packageId, signal) => {

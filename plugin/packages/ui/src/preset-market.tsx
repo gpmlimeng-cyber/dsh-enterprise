@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖共享 EnterpriseAccountStore、Harness Modal/Button、Lucide 图标与同源配方 API
  * [OUTPUT]: 提供设置页内的企业配方列表、详情安全提示与复制导入指令（不自动下载/导入）
- * [POS]: ui 的员工配方广场视图，由 DSH Enterprise 设置的配方 tab 承载；一期不扩展 plugin-distribution 状态机
+ * [POS]: ui 的员工配方广场视图，由企业设置的配方 tab 承载；一期不扩展 plugin-distribution 状态机
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 

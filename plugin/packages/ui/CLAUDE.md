@@ -11,14 +11,15 @@ src/account-store.ts: 官方 slot 共享的状态控制器，串行处理 Server
 src/account-footer.tsx: 官方 sidebar footer slot 的 DSH Enterprise 账户行，使用品牌图标、显示名和灰色确认退出按钮；插件管理归设置页，不劫持 Settings 私有状态。
 src/account-view.tsx: 复用宿主 Button/tokens 呈现账号摘要、只读地址/设备/版本和刷新/退出/卸载；Server 编辑只出现在无活动会话的门禁，保存成功才收起；保留插件 tab、官方 close 门禁联动和窄屏导航适配。
 src/confirm-action.tsx: 复用 Harness 共享 Modal/Button 的页面确认，封闭焦点并隔离外层 Escape，只有明确确认才调用业务动作，供账号与卸载入口共用。
-src/plugin-market.tsx: DSH Enterprise 设置内的插件管理视图，分离目录和本机库存并承载显式安装/卸载；校验状态统一描述完整性与兼容性，适配可选验签；详情弹窗管理焦点并隔离外层 Settings 的 Escape。
-src/preset-market.tsx: DSH Enterprise 设置内的企业配方广场，列表/详情并复制 Desktop 导入指令；一期不自动下载或 import，安全提示覆盖可执行配置风险。
+src/plugin-market.tsx: 企业设置内的插件管理视图，分离目录和本机库存并承载显式安装/卸载；校验状态统一描述完整性与兼容性，适配可选验签；详情弹窗管理焦点并隔离外层 Settings 的 Escape。
+src/preset-market.tsx: 企业设置内的企业配方广场，列表/详情并复制 Desktop 导入指令；一期不自动下载或 import，安全提示覆盖可执行配置风险。
 src/assets.d.ts: 声明官方 ui-primitives 类型入口的 KaTeX CSS 副作用导入，保持依赖严格类型检查，不打入运行包。
-src/client.tsx: Client 组合根，通过三个官方 slot 注册账号/插件设置、侧栏账户行和访问门禁，共享脱敏 store；复用官方 remote 事件与连接恢复通知，不建立新连接；以可选读取官方 `workspaces` 服务的方式把云端项目接到原生工作区能力上。
+src/client.tsx: Client 组合根，通过四个官方 slot 注册企业设置、侧栏账户行、访问门禁与官方模型配置页 footer 扩展，共享脱敏 store；复用官方 remote 事件与连接恢复通知，不建立新连接；以可选读取官方 `workspaces` 服务的方式把云端项目接到原生工作区能力上。
 src/workspaces-port.ts: 官方 `ctx.workspaces` 的窄接口与按需读取器（`createOfficialWorkspacesReader`）；服务缺失或能力不全时返回 undefined 退回手动目录路径，标识字段同时接受官方 `workspaceId` 与旧 `id`，会话只暴露 `requestSession` 布尔而不宣称已进入。
 src/index.ts: 无运行行为的 Host 占位入口，使官方 scanner 从 Loader row 发现 Client half。
 src/local-api.ts: 固定同源路径的严格 Server/账号/卸载/插件/Session/云端项目 DTO 与显式刷新解码，删除 SHA/hash/marker 并拒绝 Token、正文和执行细节；含 sessionSyncStatus/listSessions/restoreSession 与 listCloudProjects/create/clone/pull/commit/push/status。
 src/session-view.tsx: 会话同步 tab 的远端列表、恢复目录确认与新 ID 恢复结果呈现。
+src/builtin-models-section.tsx: 官方模型配置页 settings.models.footer 扩展区块，企业受管模型带「内置」标签、全程只读（无任何添加/编辑入口），只读行由 builtinModelRows 纯投影产出。
 src/cloud-projects-view.tsx: 云端项目 tab 的列表/创建/映射与 pull/commit/push 操作，只走本地 API 不持有 Access Token。
 tests/account-store.spec.ts: 保存成败与动作串行、退出错误后的本地状态收敛、服务/账号切换的迟到数据与错误隔离，以及有界登录查询和 Session 零请求测试。
 tests/account-view.spec.ts: 锁定门禁放行、Server 编辑状态白名单、受管插件和重启/失败员工语义。

@@ -5,6 +5,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+export * from './default-model.js'
 export * from './profiles.js'
 export * from './proxy.js'
 export * from './registration.js'

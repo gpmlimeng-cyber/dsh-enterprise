@@ -8,7 +8,7 @@
 # @dshent/ui
 
 Browser-side employee account and managed-plugin surface for the locked Harness Client runtime.
-It registers the `DSH Enterprise 设置` page through the official `settings.section`
+It registers the `企业设置` page through the official `settings.section`
 slot, an account entry through `sidebar.footer.action`, and the
 required access gate through `shell.overlay`. DSH Enterprise does not own or fork the
 surrounding Web/Desktop UI.

@@ -36,7 +36,7 @@ DSH Desktop 的公共配方广场（`https://dshdesktop.com/preset/`）让社区
 | 贡献模型 | 仅 `plugin_admin` / `enterprise_admin` 上传与发布 | 与插件市场同一治理心智；可执行配置必须过审 |
 | 员工导入 | **一期**复制导入指令 + 授权下载；**二期**企业插件一键安装 | 一期不扩展 `plugin-distribution` 状态机，降低供应链改动面 |
 | 控制台 | 独立产品纵向 `/presets`（不是 `/plugins` 子页） | 两种制品、两种权限语义、两种员工消费方式 |
-| 员工发现面 | `dshent-plugin`「DSH Enterprise 设置 → 配方」tab | 员工无控制台角色；复用既有插件市场设置 tab 模式 |
+| 员工发现面 | `dshent-plugin`「企业设置 → 配方」tab | 员工无控制台角色；复用既有插件市场设置 tab 模式 |
 
 ### S2.2 包契约（只读兼容，不修改 Desktop）
 

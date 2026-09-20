@@ -550,9 +550,9 @@ export function EnterpriseSettingsSection(props: EnterpriseSettingsSectionProps)
     `}</style>
     <h2 id={headingId} style={{ ...heading, alignItems: 'center', display: 'flex', gap: 9 }}>
       <img alt="" aria-hidden src={DSHENT_ICON} style={{ borderRadius: 6, height: 24, width: 24 }} />
-      DSH Enterprise 设置
+      企业设置
     </h2>
-    <div role="tablist" aria-label="DSH Enterprise 设置" style={tabs}>
+    <div role="tablist" aria-label="企业设置" style={tabs}>
       {rows.map((row, index) => {
         const selected = activeTab === row.id
         return <button

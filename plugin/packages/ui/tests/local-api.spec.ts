@@ -73,6 +73,49 @@ describe('enterprise local browser API', () => {
     })
   })
 
+  it('projects only builtin models from bootstrap for the read-only section', async () => {
+    const fetcher = vi.fn(async () => ok({
+      revision: 7,
+      user: { id: '10031', username: 'zhangsan', displayName: 'Zhang San', departmentId: null },
+      device: { id: '90018', installationId: '4c96d076-a80a-4b6c-8df6-f0db804b6f0a', status: 'ACTIVE' },
+      models: [
+        { alias: 'deepseek-flash', name: 'Flash', apiProtocol: 'openai-completions', isDefault: true, contextWindow: 65536 },
+        { alias: 'weird', apiProtocol: 'telepathy', isDefault: false },
+      ],
+      quotas: [],
+      plugins: { revision: 1, assignments: [] },
+      sessionPolicy: { enabled: false },
+      cloudWorkspace: { enabled: true },
+    }))
+    const api = createEnterpriseLocalApi(fetcher)
+
+    await expect(api.builtinModels(new AbortController().signal)).resolves.toEqual([
+      {
+        alias: 'deepseek-flash',
+        name: 'Flash',
+        apiProtocol: 'openai-completions',
+        isDefault: true,
+        contextWindow: 65536,
+      },
+    ])
+    // 账号 bootstrap 投影保持不透出 models（既有最小面约定）。
+    const boot = await api.bootstrap(new AbortController().signal)
+    expect(boot).not.toHaveProperty('models')
+  })
+
+  it('returns an empty builtin list when bootstrap carries no models', async () => {
+    const fetcher = vi.fn(async () => ok({
+      revision: 1,
+      user: { id: '10031', username: 'zhangsan', displayName: 'Zhang San', departmentId: null },
+      device: { id: '90018', installationId: '4c96d076-a80a-4b6c-8df6-f0db804b6f0a', status: 'ACTIVE' },
+      quotas: [],
+      plugins: { revision: 1, assignments: [] },
+      sessionPolicy: { enabled: false },
+    }))
+    const api = createEnterpriseLocalApi(fetcher)
+    await expect(api.builtinModels(new AbortController().signal)).resolves.toEqual([])
+  })
+
   it('strictly validates plugin records and drops SHA and restart markers from the browser projection', async () => {
     for (const state of MANAGED_PLUGIN_STATES) {
       expect(decodeEnterprisePluginStatus({ assignmentRevision: 7, plugins: [{ ...PLUGIN, state }] }))

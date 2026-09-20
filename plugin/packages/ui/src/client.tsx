@@ -14,10 +14,12 @@ import {
 } from './account-view.js'
 import { createEnterpriseLocalApi } from './local-api.js'
 import { createOfficialWorkspacesReader } from './workspaces-port.js'
+import { EnterpriseBuiltinModelsSection } from './builtin-models-section.js'
 
 export * from './account-store.js'
 export * from './account-footer.js'
 export * from './account-view.js'
+export * from './builtin-models-section.js'
 export * from './local-api.js'
 export * from './plugin-market.js'
 export * from './session-view.js'
@@ -60,7 +62,7 @@ export function apply(ctx: SlotContextPort): void {
     name: 'settings.section',
     id: 'enterprise',
     order: 25,
-    label: 'DSH Enterprise 设置',
+    label: '企业设置',
     inject: () => ({ store }),
   }, EnterpriseSettingsSection as (props: never) => ReactNode))
   ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
@@ -75,4 +77,11 @@ export function apply(ctx: SlotContextPort): void {
     order: -100,
     inject: () => ({ store }),
   }, EnterpriseAccessGate as (props: never) => ReactNode))
+  // 官方模型配置页的 footer 扩展位：企业内置模型只读区块（伴随插件标准接入面）。
+  ctx.slots.inject('settings.models.footer', () => ctx.slots.register({
+    name: 'settings.models.footer',
+    id: 'enterprise-builtin-models',
+    order: 10,
+    inject: () => ({ store }),
+  }, EnterpriseBuiltinModelsSection as (props: never) => ReactNode))
 }

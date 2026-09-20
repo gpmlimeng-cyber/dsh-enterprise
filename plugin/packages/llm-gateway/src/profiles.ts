@@ -18,6 +18,14 @@ export const ENTERPRISE_DEFAULT_MODEL = 'enterprise/default'
 /** 哨兵模型的展示名：不带任何“企业”字样，避免与真实模型名拼接后缀产生噪音。 */
 export const ENTERPRISE_SENTINEL_DISPLAY_NAME = '跟随管理员默认'
 
+/**
+ * 可选参数。稳态必须为 false（列表只留真实模型）；
+ * 仅当默认仍指向未同步占位符 `enterprise/default` 时传 true，作为桥接过渡态。
+ */
+export interface BuildProfilesOptions {
+  readonly includeUnsyncedDefault?: boolean
+}
+
 export type EnterpriseApiProtocol = BootstrapSnapshot['models'][number]['apiProtocol']
 export type EnterpriseProfiles = Record<string, PiAiProviderProfile>
 
@@ -84,15 +92,18 @@ function providerProfile(
  * 因此：
  * - 单协议部署把全部模型并入唯一的 `enterprise` provider，选择器只出现**一个分组**；
  *   provider 键保持 `enterprise`，与 cordis.patch 的 `provider: enterprise` 一致。
- * - 多协议无法共用一个 provider（provider 只能声明一种 api/baseURL），退回按协议分组，
- *   并保留独立的 `enterprise` 哨兵分组。
+ * - 多协议无法共用一个 provider（provider 只能声明一种 api/baseURL），退回按协议分组。
+ * - 稳态不输出 `enterprise/default` 哨兵行（列表只留真实模型）；仅桥接过渡态传
+ *   includeUnsyncedDefault=true 时保留，避免官方默认模型落入 UNKNOWN_MODEL。
  */
 export function buildEnterpriseProfiles(
   snapshot: BootstrapSnapshot | undefined,
   baseURL: string,
   authorization: string,
+  options: BuildProfilesOptions = {},
 ): EnterpriseProfiles {
   if (snapshot === undefined) return {}
+  const includeBridge = options.includeUnsyncedDefault ?? false
   const selected = snapshot.models.find(model => model.isDefault)
   const protocols = [...new Set(snapshot.models.map(model => model.apiProtocol))]
 
@@ -101,7 +112,9 @@ export function buildEnterpriseProfiles(
     const models = snapshot.models
       .filter(model => model.apiProtocol === api)
       .map(model => modelProfile(model))
-    models.push(modelProfile(selected, ENTERPRISE_DEFAULT_MODEL, ENTERPRISE_SENTINEL_DISPLAY_NAME))
+    if (includeBridge) {
+      models.push(modelProfile(selected, ENTERPRISE_DEFAULT_MODEL, ENTERPRISE_SENTINEL_DISPLAY_NAME))
+    }
     return {
       [ENTERPRISE_DEFAULT_PROVIDER]: providerProfile(api, baseURL, authorization, DISPLAY_NAMES[api], models),
     }
@@ -112,7 +125,7 @@ export function buildEnterpriseProfiles(
     const models = snapshot.models.filter(model => model.apiProtocol === api).map(model => modelProfile(model))
     if (models.length > 0) profiles[ROUTES[api]] = providerProfile(api, baseURL, authorization, DISPLAY_NAMES[api], models)
   }
-  if (selected !== undefined) {
+  if (includeBridge && selected !== undefined) {
     profiles[ENTERPRISE_DEFAULT_PROVIDER] = providerProfile(
       selected.apiProtocol,
       baseURL,

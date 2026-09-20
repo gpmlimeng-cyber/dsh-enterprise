@@ -8,6 +8,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   apply,
+  EnterpriseBuiltinModelsSection,
   EnterpriseFooterAction,
   EnterpriseAccessGate,
   EnterpriseSettingsSection,
@@ -36,19 +37,21 @@ describe('enterprise Client plugin', () => {
       'settings.section',
       'sidebar.footer.action',
       'shell.overlay',
+      'settings.models.footer',
     ])
     expect(registrations.map(item => item.options)).toMatchObject([
-      { name: 'settings.section', id: 'enterprise', order: 25, label: 'DSH Enterprise 设置' },
+      { name: 'settings.section', id: 'enterprise', order: 25, label: '企业设置' },
       { name: 'sidebar.footer.action', id: 'enterprise', order: 50 },
       { name: 'shell.overlay', id: 'enterprise-access', order: -100 },
+      { name: 'settings.models.footer', id: 'enterprise-builtin-models', order: 10 },
     ])
     expect(registrations.map(item => item.component)).toEqual([
       EnterpriseSettingsSection,
       EnterpriseFooterAction,
       EnterpriseAccessGate,
+      EnterpriseBuiltinModelsSection,
     ])
     const stores = registrations.map(item => (item.options['inject'] as () => { store: unknown })().store)
-    expect(stores[0]).toBe(stores[1])
-    expect(stores[1]).toBe(stores[2])
+    expect(new Set(stores).size).toBe(1)
   })
 })

@@ -25,6 +25,7 @@ describe('enterprise bundle', () => {
       '@deepseek-ai/dsh-client-ui-layout',
       '@deepseek-ai/dsh-client-ui-sidebar',
       '@deepseek-ai/dsh-client-ui-settings-general',
+      '@deepseek-ai/dsh-client-ui-settings-models',
     ])
     expect(manifest.dependencies).toBeUndefined()
     expect(manifest.peerDependencies['@deepseek-ai/dsh-llm']).toBe('^0.1.5-rc.2')
@@ -52,8 +53,9 @@ describe('enterprise bundle', () => {
     const patch = await readFile(resolve(ROOT, 'cordis.patch.yml'), 'utf8')
     expect(patch).toContain("name: 'dshent-plugin'")
     expect(patch).toMatch(/id: agent-default-model[\s\S]*provider: enterprise[\s\S]*model: enterprise\/default/)
+    // 官方自定义模型能力必须保持启用：页面与两类 provider 不再被停用。
     for (const id of ['llm-deepseek', 'llm-pi-ai', 'ui-settings-models']) {
-      expect(patch).toMatch(new RegExp(`id: ${id}\\n  disabled: true`))
+      expect(patch).not.toMatch(new RegExp(`id: ${id}\\n  disabled: true`))
     }
     expect(patch).not.toContain('deepseek-harness')
     const source = await readFile(resolve(ROOT, 'src/index.ts'), 'utf8')
