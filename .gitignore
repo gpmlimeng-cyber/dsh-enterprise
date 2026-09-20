@@ -49,3 +49,6 @@ tmp/
 # 已迁出独立仓库的本地桌面缓存
 /desktop/
 plugin/scripts/.build/
+
+# 插件打包产物（安装包走 ~/DSH/plugins 或 artifacts/）
+plugin/packages/bundle/*.tgz
