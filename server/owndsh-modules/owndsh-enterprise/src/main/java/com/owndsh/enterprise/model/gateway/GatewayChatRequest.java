@@ -1,13 +1,14 @@
 /**
  * [INPUT]: 依赖 parser 提取的三协议 JSON、受管 alias、可见字节数、可选输出上限及其 wire 字段名。
- * [OUTPUT]: 对外提供防御性复制的请求事实，以及写入已校验输出上限和模型/治理字段的原生上游请求体。
- * [POS]: model/gateway 的短生命周期 wire 容器，不解释消息、工具、推理或 replay 语义。
+ * [OUTPUT]: 对外提供防御性复制的请求事实，以及写入已校验输出上限和模型/治理字段的原生上游请求体（含 Chat Completions role 兼容）。
+ * [POS]: model/gateway 的短生命周期 wire 容器；不解释消息、工具、推理或 replay 语义。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 package com.owndsh.enterprise.model.gateway;
 
 import com.owndsh.enterprise.model.domain.ProviderApiProtocol;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
 import java.util.Objects;
@@ -52,10 +53,28 @@ public final class GatewayChatRequest {
             ObjectNode streamOptions = existing != null && existing.isObject()
                 ? existing.asObject() : result.putObject("stream_options");
             streamOptions.put("include_usage", true);
+            // Harness/较新 OpenAI 客户端会发 role=developer；DeepSeek Chat Completions 仅接受
+            // system/user/assistant/tool/latest_reminder。developer 在语义上等价 system，做最小兼容映射。
+            normalizeDeveloperRoleToSystem(result);
         } else if (protocol == ProviderApiProtocol.OPENAI_RESPONSES) {
             result.put("store", false);
         }
         return result;
+    }
+
+    static void normalizeDeveloperRoleToSystem(ObjectNode body) {
+        JsonNode messages = body.get("messages");
+        if (!(messages instanceof ArrayNode array)) {
+            return;
+        }
+        for (JsonNode node : array) {
+            if (node instanceof ObjectNode message) {
+                JsonNode role = message.get("role");
+                if (role != null && role.isString() && "developer".equals(role.stringValue())) {
+                    message.put("role", "system");
+                }
+            }
+        }
     }
 
     private static String requireText(String value, String name) {

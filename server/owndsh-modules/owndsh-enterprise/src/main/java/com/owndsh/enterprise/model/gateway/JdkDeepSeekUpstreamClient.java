@@ -106,8 +106,9 @@ public final class JdkDeepSeekUpstreamClient implements DeepSeekUpstreamClient {
             : readSafeError(response.body(), readTimeoutMs);
         if (status < 200 || status >= 300) {
             log.warn(
-                "上游模型请求被拒绝 status={} upstreamRequestId={} errorCode={} errorType={} errorParam={}",
-                status, upstreamRequestId, upstreamError.code(), upstreamError.type(), upstreamError.param()
+                "上游模型请求被拒绝 status={} upstreamRequestId={} errorCode={} errorType={} errorParam={} errorMessage={}",
+                status, upstreamRequestId, upstreamError.code(), upstreamError.type(), upstreamError.param(),
+                upstreamError.message()
             );
         }
         if (status == 401 || status == 403) {
@@ -215,7 +216,8 @@ public final class JdkDeepSeekUpstreamClient implements DeepSeekUpstreamClient {
             return new SafeUpstreamError(
                 safeDiagnostic(error.get("code")),
                 safeDiagnostic(error.get("type")),
-                safeDiagnostic(error.get("param"))
+                safeDiagnostic(error.get("param")),
+                safeDiagnosticMessage(error.get("message"))
             );
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
@@ -231,7 +233,17 @@ public final class JdkDeepSeekUpstreamClient implements DeepSeekUpstreamClient {
     private static String safeDiagnostic(JsonNode node) {
         if (node == null || !node.isString()) return null;
         String value = node.stringValue();
-        return value != null && value.matches("[A-Za-z0-9._:/\\[\\]-]{1,160}") ? value : null;
+        return value != null && value.matches("[A-Za-z0-9._:/\\[\\]-]{0,160}") ? value : null;
+    }
+
+    /** 仅用于诊断日志：截断并去掉控制字符，不回显请求正文或密钥。 */
+    private static String safeDiagnosticMessage(JsonNode node) {
+        if (node == null || !node.isString()) return null;
+        String value = node.stringValue();
+        if (value == null) return null;
+        String cleaned = value.replaceAll("[\\r\\n\\t]+", " ").strip();
+        if (cleaned.isEmpty()) return null;
+        return cleaned.length() > 240 ? cleaned.substring(0, 240) + "…" : cleaned;
     }
 
     private static void closeQuietly(InputStream input) {
@@ -242,8 +254,8 @@ public final class JdkDeepSeekUpstreamClient implements DeepSeekUpstreamClient {
         }
     }
 
-    private record SafeUpstreamError(String code, String type, String param) {
-        private static final SafeUpstreamError EMPTY = new SafeUpstreamError(null, null, null);
+    private record SafeUpstreamError(String code, String type, String param, String message) {
+        private static final SafeUpstreamError EMPTY = new SafeUpstreamError(null, null, null, null);
 
         private boolean quotaExceeded() {
             return quotaCode(code) || quotaCode(type);
