@@ -66,6 +66,8 @@ test('compose publishes only the HTTP Console and pins all third-party images', 
   assert.equal(config.services.console.platform, 'linux/amd64')
   assert.equal(config.services.server.environment.ENT_ALLOW_INSECURE_OIDC, 'false')
   assert.equal(config.services.server.environment.XDG_CACHE_HOME, '/tmp')
+  assert.equal(config.services.server.environment.ENT_ARTIFACT_ROOT, '/var/lib/enterprise/artifacts')
+  assert.equal(config.services.server.environment.ENT_PRESET_ARTIFACT_ROOT, '/var/lib/enterprise/artifacts/presets')
   assert.equal(config.services.server.read_only, true)
   assert.deepEqual(Object.keys(config.volumes).sort(), ['artifacts', 'postgres_data', 'redis_data'])
   for (const service of ['server', 'storage-init']) {

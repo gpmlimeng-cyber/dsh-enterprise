@@ -85,6 +85,7 @@ services:
       ENT_BOOTSTRAP_ADMIN_USERNAME: ${ENT_BOOTSTRAP_ADMIN_USERNAME:-admin}
       ENT_BOOTSTRAP_ADMIN_PASSWORD: ${ENT_BOOTSTRAP_ADMIN_PASSWORD:-owndsh}
       ENT_ARTIFACT_ROOT: /var/lib/enterprise/artifacts
+      ENT_PRESET_ARTIFACT_ROOT: /var/lib/enterprise/artifacts/presets
       XDG_CACHE_HOME: /tmp
       JAVA_TOOL_OPTIONS: ${OWNDSH_JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError}
       TZ: ${ENT_DEPLOYMENT_TIME_ZONE:-Asia/Shanghai}
