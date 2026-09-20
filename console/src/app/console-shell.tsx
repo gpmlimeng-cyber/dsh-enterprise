@@ -1,12 +1,12 @@
 /**
- * [INPUT]: 依赖上游 SidebarNav/ThemeToggle、DSH Enterprise 鲸鱼品牌资源、静态控制台路由、TanStack navigation 与 Beautiful UI Harness tab bar 结构。
- * [OUTPUT]: 提供 DSH Enterprise 品牌工作区入口、角色过滤产品侧栏、用户中心导航/Sign out、深浅主题、可关闭页面 tab、移动抽屉和内容窗口。
+ * [INPUT]: 依赖上游 SidebarNav/ThemeToggle、DSH Enterprise 鲸鱼品牌资源、静态控制台路由、同源产品官网 /home/、帮助中心 /help/ 与 API 文档 /api-docs/、TanStack navigation 与 Beautiful UI Harness tab bar 结构。
+ * [OUTPUT]: 提供 DSH Enterprise 品牌工作区入口、角色过滤产品侧栏、官网/帮助/接口文档外链入口、用户中心导航/Sign out、深浅主题、可关闭页面 tab、移动抽屉和内容窗口。
  * [POS]: app 的产品外壳；DOM、尺寸和交互直接由 Beautiful UI Harness 3ea4c181 迁移，工作区菜单只提供产品动作。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { Outlet, useNavigate, useRouteContext, useRouterState } from '@tanstack/react-router';
-import { CircleUserRound, LogOut, Menu, UserPlus, X } from 'lucide-react';
+import { BookOpen, CircleUserRound, CodeXml, ExternalLink, LogOut, Menu, UserPlus, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { logoutCurrentSession } from '@/auth/session';
 import SidebarNav, {
@@ -15,6 +15,14 @@ import SidebarNav, {
 } from '@/components/primitives/SidebarNav';
 import { ThemeToggle } from '@/components/site/ThemeToggle';
 import { CONSOLE_ROUTES, isAccountRoute, isProductRoute, productRoutesFor, type ProductRoute } from './product-routes';
+
+// 文档与官网是同源静态站点（不是 SPA 路由），
+// 新标签页打开，不进入页面 Tab 体系，也不参与 activeNav 高亮。
+const DOC_TARGETS: Record<string, string> = {
+  'docs-site': '/home/',
+  'docs-help': '/help/',
+  'docs-api': '/api-docs/'
+};
 
 export function ConsoleShell() {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -32,11 +40,16 @@ export function ConsoleShell() {
 
   const go = (to: ProductRoute) => void navigate({ to });
   const closeMobileNav = () => dialogRef.current?.close();
-  const navItems: SidebarNavItem[] = availableRoutes.map(({ to, label, icon: Icon }) => ({
-    key: to,
-    label,
-    icon: <Icon size={18} />
-  }));
+  const navItems: SidebarNavItem[] = [
+    ...availableRoutes.map(({ to, label, icon: Icon }) => ({
+      key: to,
+      label,
+      icon: <Icon size={18} />
+    })),
+    { key: 'docs-site', label: '产品官网', icon: <ExternalLink size={18} /> },
+    { key: 'docs-help', label: '帮助文档', icon: <BookOpen size={18} /> },
+    { key: 'docs-api', label: '接口文档', icon: <CodeXml size={18} /> }
+  ];
   const workspaceActions: SidebarWorkspaceAction[] = [];
   if (availableRoutes.some((route) => route.to === '/members')) {
     workspaceActions.push({ label: '邀请成员', icon: <UserPlus size={16} />, onClick: () => go('/members') });
@@ -75,6 +88,12 @@ export function ConsoleShell() {
       historyLabel={null}
       navItems={navItems}
       onNavigate={(key) => {
+        const docTarget = DOC_TARGETS[key];
+        if (docTarget !== undefined) {
+          window.open(docTarget, '_blank', 'noopener');
+          if (mobile) closeMobileNav();
+          return;
+        }
         if (isProductRoute(key)) go(key);
         if (mobile) closeMobileNav();
       }}
