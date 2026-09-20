@@ -205,7 +205,13 @@ export async function login(options: LoginOptions): Promise<{ serverUrl: string;
       abort.signal,
     )
 
-    await enrollDevice(serverUrl, token.accessToken, installation.installationId, installation.name)
+    // Device enroll is harness-terminal only; admin-cli sessions are authorized
+    // by PlatformClient alone. Skip when the server rejects non-desktop clients.
+    try {
+      await enrollDevice(serverUrl, token.accessToken, installation.installationId, installation.name)
+    } catch (error) {
+      if (!(error instanceof EntAdminHttpError) || error.code !== 'ENT_PERMISSION_DENIED') throw error
+    }
     await saveConfig({ serverUrl }, env)
     await saveCredentials(
       {
