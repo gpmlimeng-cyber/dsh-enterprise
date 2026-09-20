@@ -1919,7 +1919,7 @@ export type PresetPresetSubjectType = 'ALL' | 'USER';
 
 export type PresetPresetUploadMetadata = {
     displayName?: string;
-    description?: string;
+    description?: string | null;
 };
 
 export type PresetPresetVersion = {
@@ -1946,6 +1946,7 @@ export type PresetPresetVersionStatus = 'VALIDATED' | 'PUBLISHED' | 'RETIRED';
 export type PresetRuntimePresetDetail = PresetRuntimePresetSummary & {
     versionId: PresetPresetVersionId;
     sha256: PresetPresetSha256;
+    downloadPath?: string | null;
 };
 
 export type PresetRuntimePresetSummary = {

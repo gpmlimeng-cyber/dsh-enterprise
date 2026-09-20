@@ -421,11 +421,15 @@ export function decodeEnterprisePresets(value: unknown): readonly EnterpriseRunt
     if (row === undefined
       || !hasExactKeys(row, [
         'id', 'presetId', 'displayName', 'description', 'sourceDshVersion', 'sizeBytes', 'updatedAt',
-      ], ['versionId', 'sha256'])
+      ], ['versionId', 'sha256', 'downloadPath'])
       || !enterpriseId(row['id']) || !nonEmptyString(row['presetId'])
-      || !nonEmptyString(row['displayName']) || !nonEmptyString(row['description'])
+      || !nonEmptyString(row['displayName'])
+      // 契约 description 无 minLength 且库列为可空 text：空串与 null 都必须放行。
+      || (row['description'] !== null && typeof row['description'] !== 'string')
+      || (typeof row['description'] === 'string' && row['description'].length > 2000)
       || !nonEmptyString(row['sourceDshVersion'])
-      || !Number.isSafeInteger(row['sizeBytes']) || Number(row['sizeBytes']) > 0
+      // sizeBytes 契约 minimum:1；必须拒绝 ≤0，而不是 >0（历史写反导致任何合法配方都被拒）。
+      || !Number.isSafeInteger(row['sizeBytes']) || Number(row['sizeBytes']) <= 0
       || !timestamp(row['updatedAt'])
       || (row['versionId'] !== undefined && !enterpriseId(row['versionId']))) {
       throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
@@ -434,7 +438,7 @@ export function decodeEnterprisePresets(value: unknown): readonly EnterpriseRunt
       id: row['id'],
       presetId: row['presetId'],
       displayName: row['displayName'],
-      description: row['description'],
+      description: typeof row['description'] === 'string' ? row['description'] : '',
       sourceDshVersion: row['sourceDshVersion'],
       sizeBytes: Number(row['sizeBytes']),
       updatedAt: row['updatedAt'],

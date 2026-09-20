@@ -80634,7 +80634,10 @@
                         "maxLength": 120
                       },
                       "description": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "maxLength": 2000
                       }
                     }
@@ -85703,6 +85706,12 @@
                             "sha256": {
                               "type": "string",
                               "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "downloadPath": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           }
                         }
@@ -123515,7 +123524,10 @@
             "maxLength": 120
           },
           "description": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "maxLength": 2000
           }
         }
@@ -124516,6 +124528,12 @@
               "sha256": {
                 "type": "string",
                 "pattern": "^[0-9a-f]{64}$"
+              },
+              "downloadPath": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             }
           }

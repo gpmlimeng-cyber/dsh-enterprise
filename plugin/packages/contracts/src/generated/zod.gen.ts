@@ -2005,7 +2005,7 @@ export const zPresetAssignmentBatchRequest = zPresetPresetAssignmentBatchRequest
 
 export const zPresetPresetUploadMetadata = z.object({
     displayName: z.string().min(1).max(120).optional(),
-    description: z.string().max(2000).optional()
+    description: z.string().max(2000).nullish()
 }).strict();
 
 export const zPresetUploadMetadata = zPresetPresetUploadMetadata;
@@ -2084,7 +2084,8 @@ export const zRuntimePresetSummary = zPresetRuntimePresetSummary;
 
 export const zPresetRuntimePresetDetail = zPresetRuntimePresetSummary.and(z.object({
     versionId: zPresetPresetVersionId,
-    sha256: zPresetPresetSha256
+    sha256: zPresetPresetSha256,
+    downloadPath: z.string().nullish()
 }).strict());
 
 export const zRuntimePresetDetail = zPresetRuntimePresetDetail;

@@ -7,6 +7,7 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import {
+  decodeEnterprisePresets,
   createEnterpriseLocalApi,
   decodeEnterprisePluginStatus,
   decodeEnterpriseLocalStatus,
@@ -114,6 +115,44 @@ describe('enterprise local browser API', () => {
     }))
     const api = createEnterpriseLocalApi(fetcher)
     await expect(api.builtinModels(new AbortController().signal)).resolves.toEqual([])
+  })
+
+  it('accepts preset rows whose description is empty or null, and detail rows carrying downloadPath', async () => {
+    const base = {
+      revision: 1,
+      user: { id: '10031', username: 'zhangsan', displayName: 'Zhang San', departmentId: null },
+      device: { id: '90018', installationId: '4c96d076-a80a-4b6c-8df6-f0db804b6f0a', status: 'ACTIVE' },
+      quotas: [],
+      plugins: { revision: 1, assignments: [] },
+      sessionPolicy: { enabled: false },
+      cloudWorkspace: { enabled: true },
+    }
+    // 空串说明：契约 minLength 缺省允许；null 来自库列可空。
+    const fetcher = vi.fn(async () => ok(base))
+    const api = createEnterpriseLocalApi(fetcher)
+    // 用真实本地形态直接喂解码器（requestJson 的 data 层已剥壳）。
+    const rows = [
+      {
+        id: '1901500000000000001', presetId: 'weekly', displayName: '周报',
+        description: '', sourceDshVersion: '0.1.0-rc.7', sizeBytes: 2048,
+        updatedAt: '2026-09-16T09:00:00Z',
+      },
+      {
+        id: '1901500000000000002', presetId: 'standup', displayName: '站会',
+        description: null, sourceDshVersion: '0.1.0-rc.7', sizeBytes: 4096,
+        updatedAt: '2026-09-16T10:00:00Z',
+      },
+      {
+        id: '1901500000000000003', presetId: 'deep-dive', displayName: '深潜',
+        description: 'ok', sourceDshVersion: '0.1.0-rc.7', sizeBytes: 1024,
+        updatedAt: '2026-09-16T11:00:00Z', versionId: '1901500000000000101',
+        sha256: 'a'.repeat(64), downloadPath: '/enterprise/api/v1/presets/1901500000000000003',
+      },
+    ]
+    const decoded = decodeEnterprisePresets(rows)
+    expect(decoded.map(row => row.description)).toEqual(['', '', 'ok'])
+    expect(decoded[2]?.versionId).toBe('1901500000000000101')
+    void api
   })
 
   it('strictly validates plugin records and drops SHA and restart markers from the browser projection', async () => {

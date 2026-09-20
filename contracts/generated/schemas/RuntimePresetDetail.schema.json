@@ -66,6 +66,12 @@
         "sha256": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$"
+        },
+        "downloadPath": {
+          "type": [
+            "string",
+            "null"
+          ]
         }
       }
     }

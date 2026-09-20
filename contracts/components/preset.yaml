@@ -45,7 +45,8 @@ PresetUploadMetadata:
       minLength: 1
       maxLength: 120
     description:
-      type: string
+      # 数据库列为可空 text；未填写说明时为 null 或空串。
+      type: [string, 'null']
       maxLength: 2000
 PresetVersion:
   type: object
@@ -192,3 +193,5 @@ RuntimePresetDetail:
       properties:
         versionId: {$ref: '#/PresetVersionId'}
         sha256: {$ref: '#/PresetSha256'}
+        downloadPath:
+          type: [string, 'null']
