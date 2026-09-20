@@ -15,6 +15,8 @@ import type { BootstrapSnapshot } from '@dshent/platform-client'
 
 export const ENTERPRISE_DEFAULT_PROVIDER = 'enterprise'
 export const ENTERPRISE_DEFAULT_MODEL = 'enterprise/default'
+/** 哨兵模型的展示名：不带任何“企业”字样，避免与真实模型名拼接后缀产生噪音。 */
+export const ENTERPRISE_SENTINEL_DISPLAY_NAME = '跟随管理员默认'
 
 export type EnterpriseApiProtocol = BootstrapSnapshot['models'][number]['apiProtocol']
 export type EnterpriseProfiles = Record<string, PiAiProviderProfile>
@@ -75,26 +77,48 @@ function providerProfile(
   }
 }
 
-/** 将一次脱敏 bootstrap 快照投影为官方 adapter 的完整 route 配置。 */
+/**
+ * 将一次脱敏 bootstrap 快照投影为官方 adapter 的完整 route 配置。
+ *
+ * 官方模型选择器按 provider 1:1 生成分组（组名 = provider.displayName）。
+ * 因此：
+ * - 单协议部署把全部模型并入唯一的 `enterprise` provider，选择器只出现**一个分组**；
+ *   provider 键保持 `enterprise`，与 cordis.patch 的 `provider: enterprise` 一致。
+ * - 多协议无法共用一个 provider（provider 只能声明一种 api/baseURL），退回按协议分组，
+ *   并保留独立的 `enterprise` 哨兵分组。
+ */
 export function buildEnterpriseProfiles(
   snapshot: BootstrapSnapshot | undefined,
   baseURL: string,
   authorization: string,
 ): EnterpriseProfiles {
   if (snapshot === undefined) return {}
+  const selected = snapshot.models.find(model => model.isDefault)
+  const protocols = [...new Set(snapshot.models.map(model => model.apiProtocol))]
+
+  if (selected !== undefined && protocols.length === 1 && selected.apiProtocol === protocols[0]) {
+    const api = selected.apiProtocol
+    const models = snapshot.models
+      .filter(model => model.apiProtocol === api)
+      .map(model => modelProfile(model))
+    models.push(modelProfile(selected, ENTERPRISE_DEFAULT_MODEL, ENTERPRISE_SENTINEL_DISPLAY_NAME))
+    return {
+      [ENTERPRISE_DEFAULT_PROVIDER]: providerProfile(api, baseURL, authorization, DISPLAY_NAMES[api], models),
+    }
+  }
+
   const profiles: EnterpriseProfiles = {}
   for (const api of Object.keys(ROUTES) as EnterpriseApiProtocol[]) {
     const models = snapshot.models.filter(model => model.apiProtocol === api).map(model => modelProfile(model))
     if (models.length > 0) profiles[ROUTES[api]] = providerProfile(api, baseURL, authorization, DISPLAY_NAMES[api], models)
   }
-  const selected = snapshot.models.find(model => model.isDefault)
   if (selected !== undefined) {
     profiles[ENTERPRISE_DEFAULT_PROVIDER] = providerProfile(
       selected.apiProtocol,
       baseURL,
       authorization,
       '企业模型',
-      [modelProfile(selected, ENTERPRISE_DEFAULT_MODEL, `${selected.name ?? selected.alias}（企业默认）`)],
+      [modelProfile(selected, ENTERPRISE_DEFAULT_MODEL, ENTERPRISE_SENTINEL_DISPLAY_NAME)],
     )
   }
   return profiles

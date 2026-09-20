@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildEnterpriseProfiles,
   ENTERPRISE_DEFAULT_MODEL,
+  ENTERPRISE_SENTINEL_DISPLAY_NAME,
 } from '../src/index.js'
 
 function snapshot(): BootstrapSnapshot {
@@ -55,5 +56,30 @@ describe('buildEnterpriseProfiles', () => {
     expect(profiles['enterprise-openai-responses']?.headers).toEqual({ authorization: 'Bearer local-secret' })
     expect(profiles['enterprise-anthropic-messages']?.baseURL).toBe('http://127.0.0.1:3000')
     expect(buildEnterpriseProfiles(undefined, 'http://127.0.0.1:3000/v1', 'Bearer local-secret')).toEqual({})
+  })
+
+  it('collapses a single-protocol snapshot into one provider group without 企业 suffix on model names', () => {
+    const singleProtocol: BootstrapSnapshot = {
+      ...snapshot(),
+      models: [
+        { alias: 'deepseek-flash', apiProtocol: 'openai-completions', isDefault: true },
+        { alias: 'deepseek-plus', apiProtocol: 'openai-completions', isDefault: false },
+      ],
+    }
+    const profiles = buildEnterpriseProfiles(
+      singleProtocol,
+      'http://127.0.0.1:3000/v1',
+      'Bearer local-secret',
+    )
+
+    // 选择器按 provider 1:1 分组：单协议必须只得到一个分组，且键仍是 cordis.patch 依赖的 enterprise。
+    expect(Object.keys(profiles)).toEqual(['enterprise'])
+    expect(profiles['enterprise']?.displayName).toBe('企业模型 · Chat Completions')
+
+    const names = (profiles['enterprise']?.models ?? []).map(model => model.name ?? model.id)
+    expect(names).toEqual(['deepseek-flash', 'deepseek-plus', ENTERPRISE_SENTINEL_DISPLAY_NAME])
+    // 名称后不得再拼「企业…」后缀。
+    for (const name of names) expect(name).not.toMatch(/企业/)
+    expect(profiles['enterprise']?.models?.map(model => model.id)).toContain(ENTERPRISE_DEFAULT_MODEL)
   })
 })
