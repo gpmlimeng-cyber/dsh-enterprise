@@ -10,7 +10,7 @@ server/ - Java 后端；owndsh-enterprise 为自研核心，owndsh-common / ownd
 console/ - Vite/TanStack 产品控制台，静态路由与 OpenAPI Fetch client
 website/ - 零依赖静态官网（上游遗留；对外营销站以 enterprise/site 为准）
 enterprise/ - 企业部署层 monorepo 目录：官网 / 帮助 / API 文档 / patches / 运维与分析
-contracts/ - OpenAPI 3.1 协议真源、跨语言 schema 和 fixture 验收
+contracts/ - OpenAPI 3.1 协议真源、跨语言 schema、fixture 验收与企业核心包清单（plugin-core-packages.json）
 deploy/ - Compose、nginx、安装/备份/升级脚本；TLS 由部署方终止
 docs/ - 产品预研、MVP 实施规格与逐任务验收证据
 plugin/ - pnpm workspace，构建标准 Harness 插件；只使用官方扩展点

@@ -90,7 +90,9 @@ class PluginManifestSignerTest {
             "1901300000000000101", "@example/acme-tools", "1.2.3", 4096,
             "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
             new PluginCompatibility(
-                List.of(PluginCompatibility.LOCKED_HARNESS_COMMIT),
+                // JCS 已知答案向量：该值与上方 canonical 期望字符串成对冻结，
+                // 属固定测试向量而非可共享夹具，故刻意不复用 PluginTestArtifacts.HARNESS_COMMIT。
+                List.of("b150a551b8d465e31e418e1b2eaf5e79bbb7d28e"),
                 ">=0.1.0 <0.2.0",
                 List.of("linux", "darwin")
             )

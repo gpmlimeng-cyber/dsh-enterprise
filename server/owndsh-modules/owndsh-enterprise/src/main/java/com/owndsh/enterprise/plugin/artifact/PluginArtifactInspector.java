@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 Commons Compress、Jackson 3 与解压/entry 上限，读取不可信 pnpm pack tgz。
+ * [INPUT]: 依赖 Commons Compress、Jackson 3、解压/entry 上限与外部注入的企业核心包清单。
  * [OUTPUT]: 对外提供已验证 package name/version/displayName 和 bundle patch 的归档摘要。
- * [POS]: plugin/artifact 的单遍验包闸门，绝不把未知 entry 解压到文件系统。
+ * [POS]: plugin/artifact 的单遍验包闸门，绝不把未知 entry 解压到文件系统；核心包名单由配置注入而非本类内嵌，杜绝双份真源再次漂移。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 package com.owndsh.enterprise.plugin.artifact;
@@ -26,12 +26,10 @@ import java.util.regex.Pattern;
 public final class PluginArtifactInspector {
     private static final int MAX_PACKAGE_JSON_BYTES = 1_048_576;
     private static final Set<String> FORBIDDEN_SCRIPTS = Set.of("preinstall", "install", "postinstall", "prepare");
-    private static final Set<String> PROTECTED_PACKAGES = Set.of(
-        "dshent-plugin",
-        "@owndsh/platform-client",
-        "@owndsh/plugin-distribution"
-    );
-    private static final Pattern PACKAGE_NAME = Pattern.compile(
+    /**
+     * 与配置校验共用的合法 npm package name 语法，避免同一规则在两处各写一份。
+     */
+    public static final Pattern PACKAGE_NAME = Pattern.compile(
         "^(?:@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$"
     );
     private static final Pattern SEMVER = Pattern.compile(
@@ -44,12 +42,22 @@ public final class PluginArtifactInspector {
     private final JsonMapper json;
     private final long maxExpandedBytes;
     private final int maxEntries;
+    private final Set<String> protectedPackages;
 
-    public PluginArtifactInspector(JsonMapper json, long maxExpandedBytes, int maxEntries) {
+    public PluginArtifactInspector(
+        JsonMapper json,
+        long maxExpandedBytes,
+        int maxEntries,
+        Set<String> protectedPackages
+    ) {
         this.json = Objects.requireNonNull(json, "json");
         if (maxExpandedBytes <= 0 || maxEntries <= 0) throw new IllegalArgumentException("归档上限必须为正数");
         this.maxExpandedBytes = maxExpandedBytes;
         this.maxEntries = maxEntries;
+        if (protectedPackages == null || protectedPackages.isEmpty()) {
+            throw new IllegalArgumentException("企业核心包清单不能为空");
+        }
+        this.protectedPackages = Set.copyOf(protectedPackages);
     }
 
     public InspectedPlugin inspect(Path archive) {
@@ -131,7 +139,7 @@ public final class PluginArtifactInspector {
         if (root == null || !root.isObject()) throw invalid("package.json 必须是 object");
         String name = requiredText(root.get("name"), "name", 214);
         if (!PACKAGE_NAME.matcher(name).matches()) throw invalid("package name 非法");
-        if (PROTECTED_PACKAGES.contains(name)) throw invalid("企业核心包不能通过通用插件分发");
+        if (protectedPackages.contains(name)) throw invalid("企业核心包不能通过通用插件分发");
         String version = requiredText(root.get("version"), "version", 64);
         if (!SEMVER.matcher(version).matches()) throw invalid("package version 必须是 SemVer");
         if (!"module".equals(requiredText(root.get("type"), "type", 16))) {

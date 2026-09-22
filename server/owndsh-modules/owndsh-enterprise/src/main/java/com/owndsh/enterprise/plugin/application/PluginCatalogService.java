@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖事务、PluginStore、带 hash 互斥的 tgz inspector/CAS store、JCS Ed25519 signer、revision、审计与 ID。
- * [OUTPUT]: 提供企业目录、幂等上传、发布/退休与可见范围原子替换；保留 required 协议字段但写入统一为可选安装。
+ * [INPUT]: 依赖事务、PluginStore、带 hash 互斥的 CAS store、tgz/zip 容器归一化器、JCS Ed25519 signer、revision、审计与 ID。
+ * [OUTPUT]: 提供企业目录、幂等上传（原始上传先归一化为规范 npm tgz 再验包入库）、发布/退休与可见范围原子替换；保留 required 协议字段但写入统一为可选安装。
  * [POS]: plugin/application 的管理状态编排，文件系统补偿与数据库事务边界在此唯一协调。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,6 +12,7 @@ import com.owndsh.enterprise.audit.AuditEvent;
 import com.owndsh.enterprise.audit.AuditResult;
 import com.owndsh.enterprise.audit.AuditSink;
 import com.owndsh.enterprise.plugin.artifact.PluginArtifactInspector;
+import com.owndsh.enterprise.plugin.artifact.PluginArtifactNormalizer;
 import com.owndsh.enterprise.plugin.artifact.PluginArtifactStore;
 import com.owndsh.enterprise.plugin.artifact.PluginManifestSigner;
 import com.owndsh.enterprise.plugin.domain.DevicePluginInventory;
@@ -39,6 +40,7 @@ public final class PluginCatalogService {
     private final TransactionOperations transactions;
     private final PluginStore plugins;
     private final PluginArtifactStore artifacts;
+    private final PluginArtifactNormalizer normalizer;
     private final PluginArtifactInspector inspector;
     private final PluginManifestSigner signer;
     private final BootstrapRevisionStore revisions;
@@ -50,6 +52,7 @@ public final class PluginCatalogService {
         TransactionOperations transactions,
         PluginStore plugins,
         PluginArtifactStore artifacts,
+        PluginArtifactNormalizer normalizer,
         PluginArtifactInspector inspector,
         PluginManifestSigner signer,
         BootstrapRevisionStore revisions,
@@ -57,7 +60,8 @@ public final class PluginCatalogService {
         LongSupplier ids
     ) {
         this(
-            transactions, plugins, artifacts, inspector, signer, revisions, auditSink, ids, Clock.systemUTC()
+            transactions, plugins, artifacts, normalizer, inspector, signer, revisions, auditSink, ids,
+            Clock.systemUTC()
         );
     }
 
@@ -65,6 +69,7 @@ public final class PluginCatalogService {
         TransactionOperations transactions,
         PluginStore plugins,
         PluginArtifactStore artifacts,
+        PluginArtifactNormalizer normalizer,
         PluginArtifactInspector inspector,
         PluginManifestSigner signer,
         BootstrapRevisionStore revisions,
@@ -75,6 +80,7 @@ public final class PluginCatalogService {
         this.transactions = Objects.requireNonNull(transactions, "transactions");
         this.plugins = Objects.requireNonNull(plugins, "plugins");
         this.artifacts = Objects.requireNonNull(artifacts, "artifacts");
+        this.normalizer = Objects.requireNonNull(normalizer, "normalizer");
         this.inspector = Objects.requireNonNull(inspector, "inspector");
         this.signer = Objects.requireNonNull(signer, "signer");
         this.revisions = Objects.requireNonNull(revisions, "revisions");
@@ -101,12 +107,22 @@ public final class PluginCatalogService {
     ) {
         Objects.requireNonNull(context, "context");
         Objects.requireNonNull(compatibility, "compatibility");
-        PluginArtifactStore.PendingArtifact pending = artifacts.writePending(uploadId, input);
+        PluginArtifactStore.PendingArtifact original = artifacts.writePending(uploadId, input);
+        PluginArtifactStore.PendingArtifact pending;
+        try {
+            pending = canonical(uploadId, original);
+        } catch (RuntimeException exception) {
+            artifacts.deletePending(original);
+            throw exception;
+        }
+        // 归一化后可能与原始上传不是同一份临时文件，能否区分决定退出时要清理几份。
+        boolean distinct = pending != original;
         PluginArtifactInspector.InspectedPlugin inspected;
         try {
             inspected = inspector.inspect(pending.path());
         } catch (RuntimeException exception) {
             artifacts.deletePending(pending);
+            if (distinct) artifacts.deletePending(original);
             throw exception;
         }
 
@@ -178,7 +194,26 @@ public final class PluginCatalogService {
             }
         } finally {
             artifacts.deletePending(pending);
+            if (distinct) artifacts.deletePending(original);
         }
+    }
+
+    /**
+     * 把原始上传折叠成规范 npm tgz。
+     *
+     * 已经是规范 npm 布局的 gzip tar 原样返回：字节不变即 hash 不变，既保留上游 npm 的制品同一性，
+     * 也让既有行继续按原 SHA-256 幂等命中，老数据零迁移。
+     * 只有 zip（GitHub 发布包常用）或带外层包装目录的归档才重写，重写产物字节可复现。
+     */
+    private PluginArtifactStore.PendingArtifact canonical(
+        UUID uploadId,
+        PluginArtifactStore.PendingArtifact original
+    ) {
+        if (normalizer.isCanonicalNpmTgz(original.path())) return original;
+        PluginArtifactStore.PendingArtifact canonical =
+            artifacts.writeNormalizedPending(uploadId, original.path(), normalizer);
+        artifacts.deletePending(original);
+        return canonical;
     }
 
     public PluginVersion publish(PluginMutationContext context, long versionId, long expectedRevision) {

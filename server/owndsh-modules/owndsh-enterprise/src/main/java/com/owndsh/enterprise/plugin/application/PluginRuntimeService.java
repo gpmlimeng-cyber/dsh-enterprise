@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 ACTIVE DeviceService、active user store、生效 resolver、artifact store、事务、审计与 ID。
- * [OUTPUT]: 提供 runtime assignments、逐请求 version 下载授权和设备 inventory 原子替换。
+ * [OUTPUT]: 提供 runtime assignments、逐请求 version 下载授权和设备 inventory 原子替换；审计 resourceType 由 operation 唯一映射决定。
  * [POS]: plugin/application 的 runtime 信任编排，任何下载都重新计算当前 assignment。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -100,12 +100,13 @@ public final class PluginRuntimeService {
         PluginVersion version = plugins.findVersion(context.tenantId(), versionId)
             .orElseThrow(PluginAccessException::new);
         Path path = artifacts.resolve(version.artifactRef(), version.sha256());
+        PluginAuditMetadata metadata = new PluginAuditMetadata(
+            PluginAuditMetadata.Operation.DOWNLOAD, version.revision(), effective.revision(), 1,
+            assignment.required()
+        );
         transactions.executeWithoutResult(status -> audit(
-            context, device.id(), AuditAction.PLUGIN_DOWNLOADED, versionId,
-            new PluginAuditMetadata(
-                PluginAuditMetadata.Operation.DOWNLOAD, version.revision(), effective.revision(), 1,
-                assignment.required()
-            )
+            context, device.id(), AuditAction.PLUGIN_DOWNLOADED,
+            resourceTypeFor(metadata.operation()), versionId, metadata
         ));
         return new AuthorizedDownload(path, version.sizeBytes(), version.sha256());
     }
@@ -130,13 +131,14 @@ public final class PluginRuntimeService {
         }).toList();
         transactions.executeWithoutResult(status -> {
             plugins.replaceInventory(context.tenantId(), device.id(), inventory);
+            PluginAuditMetadata metadata = new PluginAuditMetadata(
+                PluginAuditMetadata.Operation.INVENTORY, device.revision(),
+                resolver.resolve(context.tenantId(), user.id(), user.departmentId()).revision(),
+                inventory.size(), false
+            );
             audit(
-                context, device.id(), AuditAction.PLUGIN_INVENTORY_REPORTED, device.id(),
-                new PluginAuditMetadata(
-                    PluginAuditMetadata.Operation.INVENTORY, device.revision(),
-                    resolver.resolve(context.tenantId(), user.id(), user.departmentId()).revision(),
-                    inventory.size(), false
-                )
+                context, device.id(), AuditAction.PLUGIN_INVENTORY_REPORTED,
+                resourceTypeFor(metadata.operation()), device.id(), metadata
             );
         });
         return inventory.size();
@@ -146,16 +148,31 @@ public final class PluginRuntimeService {
         return users.findActive(tenantId, userId).orElseThrow(PluginAccessException::new);
     }
 
+    /* ------------------------------------------------------------------ *
+     * 审计 resourceType：由 operation 唯一决定，switch 无 default 分支，
+     * 新增 Operation 常量而未在此声明资源类型即为编译错误。
+     * resourceId 语义随类型而变：DOWNLOAD=version id，INVENTORY=device id。
+     * ------------------------------------------------------------------ */
+    static String resourceTypeFor(PluginAuditMetadata.Operation operation) {
+        Objects.requireNonNull(operation, "operation");
+        return switch (operation) {
+            case UPLOAD, PUBLISH, RETIRE, DOWNLOAD -> "PLUGIN_VERSION";
+            case ASSIGN -> "PLUGIN_PACKAGE";
+            case INVENTORY -> "DEVICE";
+        };
+    }
+
     private void audit(
         DeviceCallContext context,
         long deviceId,
         AuditAction action,
+        String resourceType,
         long resourceId,
         PluginAuditMetadata metadata
     ) {
         auditSink.append(new AuditEvent(
             positiveId(), context.tenantId(), Instant.now(clock), AuditActorType.USER,
-            context.session().userId(), deviceId, action, "PLUGIN_VERSION", Long.toString(resourceId),
+            context.session().userId(), deviceId, action, resourceType, Long.toString(resourceId),
             AuditResult.SUCCESS, null, context.requestId(), context.sourceIp(), context.userAgentHash(), metadata
         ));
     }

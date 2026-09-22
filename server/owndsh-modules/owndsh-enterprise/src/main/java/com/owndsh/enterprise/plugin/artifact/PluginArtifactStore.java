@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖受控 artifact root、压缩大小上限、不可信上传流与本机文件锁语义。
- * [OUTPUT]: 提供 `.part` 有界写入/SHA-256、跨进程 hash 互斥、原子 CAS 终结、解析和清理能力。
+ * [INPUT]: 依赖受控 artifact root、压缩大小上限、不可信上传流、归一化器产出的规范 tgz 与本机文件锁语义。
+ * [OUTPUT]: 提供 `.part` 有界写入/SHA-256、zip/tgz 归一化写入（边写边算 hash 与硬上限）、跨进程 hash 互斥、原子 CAS 终结、解析和清理能力。
  * [POS]: plugin/artifact 的唯一文件系统边界，串行化同 hash 的事务补偿且不接受请求路径。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -84,6 +84,37 @@ public final class PluginArtifactStore {
             throw new PluginArtifactException(PluginArtifactException.Kind.INVALID, "插件 tgz 不能为空");
         }
         return new PendingArtifact(path, size, HexFormat.of().formatHex(digest.digest()));
+    }
+
+    /**
+     * 把已落地的原始上传归一化为规范 npm tgz，并重新计算 SHA-256 与大小。
+     *
+     * 上限取归一化器的解压上限，而不是 maxArchiveBytes：规范 tgz 是受限内容经 tar+gzip 重新封装的结果，
+     * 其大小本就不由"上传压缩大小"决定——48MB 的 zip 展开后完全可能产出更大的 tgz，用压缩上限卡这里会误杀合法归档。
+     * 用解压上限则给出硬 DoS 天花板，且该上限已在配置层校验过不小于压缩上限。
+     */
+    public PendingArtifact writeNormalizedPending(UUID uploadId, Path source, PluginArtifactNormalizer normalizer) {
+        Objects.requireNonNull(uploadId, "uploadId");
+        Objects.requireNonNull(source, "source");
+        Objects.requireNonNull(normalizer, "normalizer");
+        Path path = temporaryRoot.resolve(uploadId + ".canonical.part");
+        MessageDigest digest = sha256Digest();
+        CountingDigestSink sink = new CountingDigestSink(digest, normalizer.maxExpandedBytes());
+        try (OutputStream output = Files.newOutputStream(path, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+            sink.attach(output);
+            normalizer.writeCanonicalTgz(source, sink);
+        } catch (PluginArtifactException exception) {
+            deleteQuietly(path);
+            throw exception;
+        } catch (IOException exception) {
+            deleteQuietly(path);
+            throw new IllegalStateException("插件上传临时文件写入失败", exception);
+        }
+        if (sink.size() == 0) {
+            deleteQuietly(path);
+            throw new PluginArtifactException(PluginArtifactException.Kind.INVALID, "插件 tgz 不能为空");
+        }
+        return new PendingArtifact(path, sink.size(), HexFormat.of().formatHex(digest.digest()));
     }
 
     public ArtifactMutationLock lockForMutation(PendingArtifact pending) {
@@ -192,6 +223,51 @@ public final class PluginArtifactStore {
             channel.close();
         } catch (IOException ignored) {
             // 获取锁失败时只保留原始异常。
+        }
+    }
+
+    /**
+     * 边写边算 SHA-256、边计数、边执行硬上限的 OutputStream 包装。
+     *
+     * 为什么要有这个类：归一化器把 tgz 直接写进 target，而 CAS 需要的是"这份字节的 hash 和大小"，
+     * 若先落盘再回读计算，就多了一整趟 IO 与一个"写完才发现超限"的窗口。
+     * 这里把 hash、计数与上限压在写入路径上，超限在第一笔越界数据处立刻失败，不留半成品。
+     * 上限用解压上限（normalizer 侧同值），理由见 writeNormalizedPending 的注释。
+     */
+    private static final class CountingDigestSink extends OutputStream {
+        private final MessageDigest digest;
+        private final long limit;
+        private OutputStream target;
+        private long size;
+
+        private CountingDigestSink(MessageDigest digest, long limit) {
+            this.digest = digest;
+            this.limit = limit;
+        }
+
+        private void attach(OutputStream target) {
+            this.target = target;
+        }
+
+        private long size() {
+            return size;
+        }
+
+        @Override
+        public void write(int value) throws IOException {
+            write(new byte[] {(byte) value}, 0, 1);
+        }
+
+        @Override
+        public void write(byte[] buffer, int offset, int length) throws IOException {
+            if (length > limit - size) {
+                throw new PluginArtifactException(
+                    PluginArtifactException.Kind.TOO_LARGE, "插件 tgz 压缩大小超过上限"
+                );
+            }
+            digest.update(buffer, offset, length);
+            target.write(buffer, offset, length);
+            size += length;
         }
     }
 

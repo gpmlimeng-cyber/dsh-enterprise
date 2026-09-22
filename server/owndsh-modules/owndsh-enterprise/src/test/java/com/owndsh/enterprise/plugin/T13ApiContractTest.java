@@ -338,7 +338,7 @@ class T13ApiContractTest {
 
     private static PluginCompatibility compatibility() {
         return new PluginCompatibility(
-            List.of(PluginCompatibility.LOCKED_HARNESS_COMMIT),
+            List.of(PluginTestArtifacts.HARNESS_COMMIT),
             ">=0.1.0 <0.2.0",
             List.of("darwin", "linux")
         );
@@ -348,7 +348,7 @@ class T13ApiContractTest {
         return """
             {"harnessCommits":["%s"],"enterpriseBundleRange":">=0.1.0 <0.2.0",
             "operatingSystems":["darwin","linux"]}
-            """.formatted(PluginCompatibility.LOCKED_HARNESS_COMMIT);
+            """.formatted(PluginTestArtifacts.HARNESS_COMMIT);
     }
 
     private static DeviceCallContext runtimeContext() {

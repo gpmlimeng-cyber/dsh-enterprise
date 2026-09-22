@@ -25,6 +25,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -38,14 +39,24 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("dev")
 class PluginArtifactSecurityTest {
     private static final JsonMapper JSON = JsonMapper.builder().build();
+    /**
+     * 本测试只覆盖验包器的受保护包判定回路，故只放它真正会命中的那一项。
+     * 此处不是权威清单：权威 6 项由 contracts/plugin-core-packages.json 经 enterprise.plugin.core-packages
+     * 注入生产 inspector，其一致性由 PluginCorePackageContractTest 守护，本测试刻意不复制它以免再造第二份真源。
+     */
+    private static final Set<String> PROTECTED_PACKAGE_FOR_TEST = Set.of("dshent-plugin");
 
     @TempDir
     Path temporary;
 
+    private static PluginArtifactInspector inspector(long maxExpandedBytes, int maxEntries) {
+        return new PluginArtifactInspector(JSON, maxExpandedBytes, maxEntries, PROTECTED_PACKAGE_FOR_TEST);
+    }
+
     @Test
     void acceptsPrebuiltModuleWithExactHarnessPeersWithoutExtractingIt() throws Exception {
         Path archive = write(validArchive("1.2.3"));
-        PluginArtifactInspector inspector = new PluginArtifactInspector(JSON, 10_000, 100);
+        PluginArtifactInspector inspector = inspector(10_000, 100);
 
         PluginArtifactInspector.InspectedPlugin inspected = inspector.inspect(archive);
 
@@ -65,7 +76,7 @@ class PluginArtifactSecurityTest {
         }
         byte[] nulName = validArchive("1.0.0");
         nulName[20] = 0;
-        assertThatThrownBy(() -> new PluginArtifactInspector(JSON, 10_000, 100).inspect(write(nulName)))
+        assertThatThrownBy(() -> inspector(10_000, 100).inspect(write(nulName)))
             .isInstanceOf(PluginArtifactException.class);
 
         ByteArrayOutputStream output = new ByteArrayOutputStream();
@@ -115,10 +126,10 @@ class PluginArtifactSecurityTest {
         Map<String, byte[]> expanded = validEntries("1.0.0");
         expanded.put("package/lib/bomb.js", new byte[4096]);
         Path archive = write(archive(expanded, null));
-        assertThatThrownBy(() -> new PluginArtifactInspector(JSON, 1000, 100).inspect(archive))
+        assertThatThrownBy(() -> inspector(1000, 100).inspect(archive))
             .isInstanceOfSatisfying(PluginArtifactException.class,
                 value -> assertThat(value.kind()).isEqualTo(PluginArtifactException.Kind.TOO_LARGE));
-        assertThatThrownBy(() -> new PluginArtifactInspector(JSON, 10_000, 1).inspect(archive))
+        assertThatThrownBy(() -> inspector(10_000, 1).inspect(archive))
             .isInstanceOfSatisfying(PluginArtifactException.class,
                 value -> assertThat(value.kind()).isEqualTo(PluginArtifactException.Kind.TOO_LARGE));
 
@@ -267,7 +278,7 @@ class PluginArtifactSecurityTest {
     }
 
     private void assertInvalid(Path archive) {
-        assertThatThrownBy(() -> new PluginArtifactInspector(JSON, 100_000, 100).inspect(archive))
+        assertThatThrownBy(() -> inspector(100_000, 100).inspect(archive))
             .isInstanceOfSatisfying(PluginArtifactException.class,
                 value -> assertThat(value.kind()).isEqualTo(PluginArtifactException.Kind.INVALID));
     }

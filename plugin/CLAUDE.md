@@ -12,5 +12,6 @@ tsconfig.base.json: 共享 TypeScript 严格配置，统一 Node/Web 标准库�
 packages/: 正式企业插件模块与管理员只读 CLI（ent-admin-cli），包含平台 Service、兼容 Harness 模型配置桥、受管插件 adapter、门禁 UI、自包含 bundle、contracts 与 `dsh-ent-admin`；局部地图见 `packages/CLAUDE.md`。
 scripts/: tarball consumer 与锁定 Harness 真实组合验收入口，只操作临时目录/profile；test:desktop 通过显式 OWNDSH_TEST_RUNTIME 验证外部桌面运行树的插件认证与页面交互，不承担客户端构建。
 workspace.test.mjs: workspace 不变量测试，在独立 CI 校验版本锁、工具链、正式 package 集合与源码隔离，本地存在同级 Desktop/Harness 时追加精确 commit 验证。
+core-packages.test.mjs: 企业核心包漂移门禁，双向比对 `contracts/plugin-core-packages.json` 与 `service.ts` 的 PROTECTED_ENTERPRISE_PACKAGES，并拦截工作区不存在的死包名；解析不到常量即响亮失败，随 `pnpm test` 的 `node --test` 尾部执行。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

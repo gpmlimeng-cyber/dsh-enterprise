@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 Cordis Context、真实临时状态/制品文件、签名 assignment 与 fake platform/subprocess/inventory
+ * [INPUT]: 依赖 Cordis Context、真实临时状态/制品文件、签名 assignment、PROTECTED_ENTERPRISE_PACKAGES 信任锚与 fake platform/subprocess/inventory
  * [OUTPUT]: 验证默认无签名免公钥安装、显式验签阻断、版本操作/卸载耐久、授权复查、重启确认、撤回和核心保护
  * [POS]: plugin-distribution 的完整状态机验收，模拟中心 revision 而不修改或替身化 Harness 源码
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -17,6 +17,7 @@ import {
   canonicalizeJson,
   EnterprisePluginDistributionService,
   ManagedPluginStore,
+  PROTECTED_ENTERPRISE_PACKAGES,
   signatureManifest,
   type DshPluginCommandPort,
   type EnterprisePlatformPort,
@@ -394,13 +395,25 @@ describe('EnterprisePluginDistributionService', () => {
     })
     expect(env.subprocess.specs).toHaveLength(0)
 
-    const core = assignment(testKey, content, {
-      id: '881', packageName: '@dshent/platform-client', version: '0.1.0',
-    })
-    platform.publish(bootstrap(2, [core]))
-    await env.service.settled()
-    await expect(env.service.install(core.packageName, core.pluginVersionId)).rejects.toMatchObject({ code: 'ENT_PLUGIN_CORE_PROTECTED' })
-    expect(env.service.status().catalog).toEqual([])
+    // 列表驱动：信任锚里的每个名字都必须被拒，且拒绝必须发生在 CLI 边界之前。
+    // 逐项独立 revision，避免覆盖式 publish 影响彼此；未命名过的核心包一次都不该进入 catalog。
+    const protectedNames = [...PROTECTED_ENTERPRISE_PACKAGES].sort()
+    expect(protectedNames.length).toBeGreaterThan(0)
+    let revision = 2
+    for (const packageName of protectedNames) {
+      const core = assignment(testKey, content, {
+        id: String(880 + revision), packageName, version: '0.1.0',
+      })
+      platform.publish(bootstrap(revision, [core]))
+      await env.service.settled()
+      await expect(env.service.install(core.packageName, core.pluginVersionId))
+        .rejects.toMatchObject({ code: 'ENT_PLUGIN_CORE_PROTECTED' })
+      expect(env.service.status().catalog).toEqual([])
+      // 拒绝后不得留下任何本机记录：核心包连状态机都不该进入。
+      expect(env.service.status().plugins.map(record => record.packageName)).not.toContain(packageName)
+      revision += 1
+    }
+    // 全部 6 个名字走完后，subprocess 一次都没有被触碰：保护发生在 argv 构造之前。
     expect(env.subprocess.specs).toHaveLength(0)
   })
 

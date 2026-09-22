@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 JDBC/Jackson/事务、设备/用户、revision/audit、ID 与 artifact root/环境 Ed25519 配置。
- * [OUTPUT]: 装配 T13 inspector、默认关闭且开启时严格校验私钥的 JCS signer、CAS store、plugin persistence、catalog 与 runtime 服务 Beans。
- * [POS]: plugin 纵向模块的 Spring composition root，领域/application 不使用静态容器或请求路径。
+ * [INPUT]: 依赖 JDBC/Jackson/事务、设备/用户、revision/audit、ID 与 artifact root/环境 Ed25519/企业核心包清单配置。
+ * [OUTPUT]: 装配 T13 带配置化核心包名单的 inspector、与 inspector 同上限的 zip/tgz 归一化器、默认关闭且开启时严格校验私钥的 JCS signer、CAS store、plugin persistence、catalog 与 runtime 服务 Beans。
+ * [POS]: plugin 纵向模块的 Spring composition root，领域/application 不使用静态容器或请求路径；核心包真源在此从配置流入验包器。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 package com.owndsh.enterprise.plugin;
@@ -13,6 +13,7 @@ import com.owndsh.enterprise.plugin.application.EffectivePluginResolver;
 import com.owndsh.enterprise.plugin.application.PluginCatalogService;
 import com.owndsh.enterprise.plugin.application.PluginRuntimeService;
 import com.owndsh.enterprise.plugin.artifact.PluginArtifactInspector;
+import com.owndsh.enterprise.plugin.artifact.PluginArtifactNormalizer;
 import com.owndsh.enterprise.plugin.artifact.PluginArtifactStore;
 import com.owndsh.enterprise.plugin.artifact.PluginManifestSigner;
 import com.owndsh.enterprise.plugin.persistence.JdbcPluginStore;
@@ -28,6 +29,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.nio.file.Path;
+import java.util.Set;
 import java.util.function.LongSupplier;
 
 @Configuration(proxyBeanMethods = false)
@@ -60,9 +62,27 @@ public class EnterprisePluginConfiguration {
         if (properties.getMaxEntries() < 1 || properties.getMaxEntries() > 100_000) {
             throw new IllegalStateException("enterprise.plugin.max-entries 超出范围");
         }
+        properties.validate();
         return new PluginArtifactInspector(
-            jsonMapper, properties.getMaxExpandedBytes(), properties.getMaxEntries()
+            jsonMapper, properties.getMaxExpandedBytes(), properties.getMaxEntries(),
+            Set.copyOf(properties.getCorePackages())
         );
+    }
+
+    /**
+     * 归一化器的上限与 inspector 取同一组配置值：两者在"归一化 → 验包"链路上串联处理同一份内容，
+     * 若各用一套上限，就会出现归一化放行、验包拒绝（或反之）的自相矛盾配置。
+     */
+    @Bean
+    PluginArtifactNormalizer enterprisePluginArtifactNormalizer(EnterprisePluginProperties properties) {
+        if (properties.getMaxExpandedBytes() < properties.getMaxArchiveBytes()
+            || properties.getMaxExpandedBytes() > 4_294_967_296L) {
+            throw new IllegalStateException("enterprise.plugin.max-expanded-bytes 超出范围");
+        }
+        if (properties.getMaxEntries() < 1 || properties.getMaxEntries() > 100_000) {
+            throw new IllegalStateException("enterprise.plugin.max-entries 超出范围");
+        }
+        return new PluginArtifactNormalizer(properties.getMaxExpandedBytes(), properties.getMaxEntries());
     }
 
     @Bean
@@ -88,6 +108,7 @@ public class EnterprisePluginConfiguration {
         PlatformTransactionManager transactionManager,
         PluginStore pluginStore,
         PluginArtifactStore artifactStore,
+        PluginArtifactNormalizer normalizer,
         PluginArtifactInspector inspector,
         PluginManifestSigner signer,
         BootstrapRevisionStore revisionStore,
@@ -95,7 +116,7 @@ public class EnterprisePluginConfiguration {
         @Qualifier("enterpriseIdSupplier") LongSupplier ids
     ) {
         return new PluginCatalogService(
-            new TransactionTemplate(transactionManager), pluginStore, artifactStore, inspector, signer,
+            new TransactionTemplate(transactionManager), pluginStore, artifactStore, normalizer, inspector, signer,
             revisionStore, auditSink, ids
         );
     }

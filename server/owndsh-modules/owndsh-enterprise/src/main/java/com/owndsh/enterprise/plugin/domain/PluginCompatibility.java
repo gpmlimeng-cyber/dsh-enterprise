@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 接收协议冻结的 Harness commit 集合、企业 bundle SemVer range 与 OS 集合。
+ * [INPUT]: 接收发布方声明的 Harness commit 集合、企业 bundle SemVer range 与 OS 集合。
  * [OUTPUT]: 对外提供排序去重、不可变且可直接进入 JCS 声明的 compatibility 值对象。
- * [POS]: plugin/domain 的兼容性真源，明确拒绝把 Git commit 当作可排序版本范围。
+ * [POS]: plugin/domain 的兼容性真源，只校验 commit 形态而非锁定单一版本，兼容裁决交给 Harness 自身 caret peer 规则。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 package com.owndsh.enterprise.plugin.domain;
@@ -16,7 +16,6 @@ public record PluginCompatibility(
     String enterpriseBundleRange,
     List<String> operatingSystems
 ) {
-    public static final String LOCKED_HARNESS_COMMIT = "b150a551b8d465e31e418e1b2eaf5e79bbb7d28e";
     private static final Pattern COMMIT = Pattern.compile("^[0-9a-f]{40}$");
     private static final Set<String> OPERATING_SYSTEMS = Set.of("darwin", "linux", "win32");
 
@@ -28,9 +27,6 @@ public record PluginCompatibility(
             throw new IllegalArgumentException("harnessCommits 非法");
         }
         harnessCommits = harnessCommits.stream().distinct().sorted().toList();
-        if (!harnessCommits.contains(LOCKED_HARNESS_COMMIT)) {
-            throw new IllegalArgumentException("compatibility 必须包含锁定 Harness commit");
-        }
         enterpriseBundleRange = requireText(enterpriseBundleRange, "enterpriseBundleRange", 120);
         if (operatingSystems.isEmpty() || operatingSystems.size() > OPERATING_SYSTEMS.size()
             || operatingSystems.stream().anyMatch(value -> !OPERATING_SYSTEMS.contains(value))) {

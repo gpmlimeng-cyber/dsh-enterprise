@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖真实 PostgreSQL 17/Flyway V1-V13、三个显式活动用户 fixture、CAS 文件、Ed25519、设备与插件 JDBC/application 服务。
- * [OUTPUT]: 验证无签名上传/存储/HTTP 投影与有签名版本并存、并发上传、可选可见范围、退休下架/禁止优先级回退、下载授权、库存、审计和文件补偿。
+ * [OUTPUT]: 验证无签名上传/存储/HTTP 投影与有签名版本并存、并发上传、可选可见范围、退休下架/禁止优先级回退、下载授权、库存、审计 action 与 resource_type/resource_id 关联和文件补偿。
  * [POS]: T13 服务端纵向验收，跨越 artifact、domain、persistence 与 application 的真实事务边界。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -20,6 +20,7 @@ import com.owndsh.enterprise.plugin.application.PluginCatalogService;
 import com.owndsh.enterprise.plugin.application.PluginMutationContext;
 import com.owndsh.enterprise.plugin.application.PluginRuntimeService;
 import com.owndsh.enterprise.plugin.artifact.PluginArtifactInspector;
+import com.owndsh.enterprise.plugin.artifact.PluginArtifactNormalizer;
 import com.owndsh.enterprise.plugin.artifact.PluginArtifactStore;
 import com.owndsh.enterprise.plugin.artifact.PluginManifestSigner;
 import com.owndsh.enterprise.plugin.domain.DevicePluginInventory;
@@ -42,10 +43,13 @@ import java.io.ByteArrayInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyPairGenerator;
+import java.security.MessageDigest;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -103,17 +107,21 @@ class PluginServerIntegrationTest {
         var revisions = new JdbcBootstrapRevisionStore(jdbc);
         var audit = new JdbcAuditSink(jdbc, json);
         var artifacts = new PluginArtifactStore(artifactRoot, 2_000_000);
-        var inspector = new PluginArtifactInspector(json, 8_000_000, 100);
+        // 本测试只上传 @example/* 非核心包，故传最小非空集合即可放行；权威清单由
+        // contracts/plugin-core-packages.json 经配置注入，绝不在此复制，其一致性由 PluginCorePackageContractTest 断言。
+        var inspector = new PluginArtifactInspector(json, 8_000_000, 100, Set.of("dshent-plugin"));
+        // 归一化器与 inspector 用同一组上限，与 EnterprisePluginConfiguration 的装配保持一致。
+        var normalizer = new PluginArtifactNormalizer(8_000_000, 100);
         var signer = new PluginManifestSigner(
             json, KeyPairGenerator.getInstance("Ed25519").generateKeyPair().getPrivate()
         );
         AtomicLong sequence = new AtomicLong(1_901_300_000_100_000_000L);
         LongSupplier ids = sequence::incrementAndGet;
         PluginCatalogService catalog = new PluginCatalogService(
-            transaction, store, artifacts, inspector, signer, revisions, audit, ids
+            transaction, store, artifacts, normalizer, inspector, signer, revisions, audit, ids
         );
         PluginCatalogService unsignedCatalog = new PluginCatalogService(
-            transaction, store, artifacts, inspector,
+            transaction, store, artifacts, normalizer, inspector,
             new EnterprisePluginConfiguration().enterprisePluginManifestSigner(json, new EnterprisePluginProperties()),
             revisions, audit, ids
         );
@@ -240,15 +248,23 @@ class PluginServerIntegrationTest {
         assertThat(jdbc.queryForObject(
             "select count(*) from ent_audit_event where action='PLUGIN_DOWNLOADED'", Long.class
         )).isEqualTo(1);
+        assertThat(jdbc.queryForObject("""
+            select count(*) from ent_audit_event
+            where action='PLUGIN_DOWNLOADED' and resource_type='PLUGIN_VERSION' and resource_id=?
+            """, Long.class, Long.toString(publishedTwo.id()))).isEqualTo(1);
         assertThat(jdbc.queryForObject(
             "select count(*) from ent_audit_event where action='PLUGIN_INVENTORY_REPORTED'", Long.class
         )).isEqualTo(2);
+        assertThat(jdbc.queryForObject("""
+            select count(*) from ent_audit_event
+            where action='PLUGIN_INVENTORY_REPORTED' and resource_type='DEVICE' and resource_id=?
+            """, Long.class, Long.toString(PEER_DEVICE))).isEqualTo(2);
         assertThat(revisions.current(TENANT)).isEqualTo(revisionBeforeAssignments + 2);
         assertThat(artifactCount()).isEqualTo(2);
         assertDirectoryEmpty(artifactRoot.resolve("tmp"));
 
         PluginCatalogService failingCatalog = new PluginCatalogService(
-            transaction, store, artifacts, inspector, signer, revisions,
+            transaction, store, artifacts, normalizer, inspector, signer, revisions,
             event -> { throw new IllegalStateException("forced audit rollback"); }, ids
         );
         byte[] rollbackBytes = PluginTestArtifacts.validArchive("@example/t13-rollback", "1.0.0");
@@ -259,6 +275,87 @@ class PluginServerIntegrationTest {
             "select count(*) from ent_plugin_package where package_name='@example/t13-rollback'", Long.class
         )).isZero();
         assertThat(artifactCount()).isEqualTo(2);
+        assertDirectoryEmpty(artifactRoot.resolve("tmp"));
+    }
+
+    /**
+     * zip 上传的端到端验收：员工端用 `dsh plugin add` 安装走的是 npm/pnpm 语义，两者都只吃 gzip tar，
+     * 所以"上传成功"必须等价于"CAS 里躺着的是规范 npm tgz"，否则就是一个装不上的假功能。
+     */
+    @Test
+    void normalizesZipAndGitHubWrappedUploadsIntoTgzBeforeTheContentAddressedStore() throws Exception {
+        // 本用例独立建库：既有用例对 ent_plugin_version/审计/制品做的是全表计数，
+        // 共用同一个库会让"全表恰好 1 行"这类断言被本用例的上传污染，那是测试耦合而不是产品缺陷。
+        PostgresTestDatabase.Database isolated = PostgresTestDatabase.create("t13_plugin_zip");
+        PostgresTestDatabase.migrate(isolated, null);
+        PostgresTestDatabase.insertActiveUser(
+            isolated, ADMIN_USER, ADMIN_DEPT, "t13-zip-admin", "T13 Zip Admin"
+        );
+        JsonMapper json = JsonMapper.builder().build();
+        var jdbc = isolated.jdbc();
+        var transaction = new TransactionTemplate(new DataSourceTransactionManager(isolated.dataSource()));
+        var store = new JdbcPluginStore(jdbc, json);
+        var revisions = new JdbcBootstrapRevisionStore(jdbc);
+        var audit = new JdbcAuditSink(jdbc, json);
+        var artifacts = new PluginArtifactStore(artifactRoot, 2_000_000);
+        var normalizer = new PluginArtifactNormalizer(8_000_000, 100);
+        var inspector = new PluginArtifactInspector(json, 8_000_000, 100, Set.of("dshent-plugin"));
+        var catalog = new PluginCatalogService(
+            transaction, store, artifacts, normalizer, inspector,
+            new PluginManifestSigner(json, null), revisions, audit,
+            new AtomicLong(1_901_300_000_200_000_000L)::incrementAndGet
+        );
+        PluginMutationContext mutation = mutationContext();
+        PluginCompatibility compatibility = compatibility();
+
+        byte[] zip = PluginTestArtifacts.validZipArchive("@example/t13-zip-tools", "1.0.0");
+        PluginCatalogService.UploadResult first = catalog.upload(
+            mutation, UUID.randomUUID(), new ByteArrayInputStream(zip), compatibility
+        );
+        assertThat(first.created()).isTrue();
+
+        // 落库的 hash/大小必须描述 CAS 里那份 tgz，而不是上传时的 zip 字节。
+        Path stored = artifacts.resolve(first.version().artifactRef(), first.version().sha256());
+        byte[] storedBytes = Files.readAllBytes(stored);
+        assertThat(HexFormat.of().formatHex(
+            MessageDigest.getInstance("SHA-256").digest(storedBytes)
+        )).isEqualTo(first.version().sha256());
+        assertThat(first.version().sizeBytes()).isEqualTo(storedBytes.length);
+        assertThat(storedBytes).isNotEqualTo(zip);
+        assertThat(inspector.inspect(stored).packageName()).isEqualTo("@example/t13-zip-tools");
+
+        // 同一份 zip 重复上传必须幂等命中同一行：这正是重写产物字节可复现的价值。
+        PluginCatalogService.UploadResult second = catalog.upload(
+            mutation, UUID.randomUUID(), new ByteArrayInputStream(zip), compatibility
+        );
+        assertThat(second.created()).isFalse();
+        assertThat(second.version().id()).isEqualTo(first.version().id());
+        assertThat(second.version().sha256()).isEqualTo(first.version().sha256());
+
+        // GitHub "Source code" 包的外层目录必须被剥掉，否则 npm 找不到 package/package.json。
+        byte[] wrapped = PluginTestArtifacts.wrappedZipArchive(
+            "acme-tools-1.0.0", "@example/t13-github-tools", "1.0.0"
+        );
+        PluginCatalogService.UploadResult fromGithub = catalog.upload(
+            mutation, UUID.randomUUID(), new ByteArrayInputStream(wrapped), compatibility
+        );
+        assertThat(fromGithub.created()).isTrue();
+        Path githubStored = artifacts.resolve(fromGithub.version().artifactRef(), fromGithub.version().sha256());
+        assertThat(inspector.inspect(githubStored).packageName()).isEqualTo("@example/t13-github-tools");
+
+        // 既有规范 tgz 仍走字节透传：上传 hash 必须等于原始字节 hash，历史行身份不被这次改动改写。
+        byte[] canonical = PluginTestArtifacts.validArchive("@example/t13-passthrough", "1.0.0");
+        PluginCatalogService.UploadResult passthrough = catalog.upload(
+            mutation, UUID.randomUUID(), new ByteArrayInputStream(canonical), compatibility
+        );
+        assertThat(passthrough.version().sha256()).isEqualTo(
+            HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(canonical))
+        );
+        assertThat(Files.readAllBytes(
+            artifacts.resolve(passthrough.version().artifactRef(), passthrough.version().sha256())
+        )).isEqualTo(canonical);
+
+        // zip 与 tgz 两次上传都不许留下任何 .part 残骸。
         assertDirectoryEmpty(artifactRoot.resolve("tmp"));
     }
 
@@ -341,7 +438,7 @@ class PluginServerIntegrationTest {
 
     private static PluginCompatibility compatibility() {
         return new PluginCompatibility(
-            List.of(PluginCompatibility.LOCKED_HARNESS_COMMIT),
+            List.of(PluginTestArtifacts.HARNESS_COMMIT),
             ">=0.1.0 <0.2.0",
             List.of("darwin", "linux")
         );

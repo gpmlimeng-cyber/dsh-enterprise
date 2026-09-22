@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 React、共享 MemberSelect、ProductDialog、插件 DTO 与浏览器原生表单控件。
- * [OUTPUT]: 提供插件 tgz 上传、ALL/USER 企业可见范围编辑和版本退休确认对话框；发布不强制安装。
+ * [OUTPUT]: 提供插件 tgz/tar.gz/zip 上传（服务端嗅探魔数并归一化为标准 npm tgz）、ALL/USER 企业可见范围编辑（原样重发不可编辑的 DEPT 事实）和版本退休确认对话框；发布不强制安装。
  * [POS]: features/plugins 的写入表单层，只收集产品语义，不解析 tgz、不签名也不持有 mutation。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,14 +12,34 @@ import type {
   PluginCompatibility,
   PluginOperatingSystem,
   PluginPackage,
+  PluginSubjectType,
   PluginVersion
 } from '@/api/generated/types.gen';
 import { Button } from '@/components/atoms/Button';
 import { ProductDialog } from '@/components/product/Dialog';
 import { MemberSelect } from '@/features/member-select';
 
-const SUPPORTED_HARNESS_COMMITS = 'b150a551b8d465e31e418e1b2eaf5e79bbb7d28e\na66e4702047846cdaa10c66c9d3df3951f5ea70d';
+/**
+ * 上传表单的可编辑初值，不是兼容性白名单：服务端 PluginCompatibility 只校验
+ * `^[0-9a-f]{40}$` 等 commit 形态，真实兼容裁决按 Harness 自身 caret peer 规则进行。
+ * 该默认值来源 docs/desktop-2.0.3-harness-rc2-migration.md 与 plugin bundle 的版本→commit 映射；
+ * 控制台没有任何协议字段可读取服务端受支持集合，因此这里只是运维可改的种子值。
+ */
+const DEFAULT_HARNESS_COMMITS = 'b150a551b8d465e31e418e1b2eaf5e79bbb7d28e\na66e4702047846cdaa10c66c9d3df3951f5ea70d';
+const HARNESS_COMMIT_PATTERN = /^[0-9a-f]{40}$/;
+const MAX_HARNESS_COMMITS = 20;
+const MAX_ASSIGNMENT_ITEMS = 200;
 const MAX_ARTIFACT_BYTES = 50 * 1024 * 1024;
+/**
+ * 控制台只做扩展名门禁，真实格式由服务端嗅探魔数裁决并归一化为标准 npm tgz。
+ * `.tar.gz` 作为整体后缀独立比对，不能退化为泛 `.gz` 匹配。
+ */
+const ACCEPTED_ARTIFACT_EXTENSIONS: ReadonlyArray<string> = ['.tgz', '.tar.gz', '.zip'];
+
+function isAcceptedArtifactName(name: string): boolean {
+  const lowerCaseName = name.toLowerCase();
+  return ACCEPTED_ARTIFACT_EXTENSIONS.some((extension) => lowerCaseName.endsWith(extension));
+}
 const OPERATING_SYSTEMS: ReadonlyArray<{ label: string; value: PluginOperatingSystem }> = [
   { label: 'macOS', value: 'darwin' },
   { label: 'Linux', value: 'linux' },
@@ -36,23 +56,55 @@ type ProductAssignment = Omit<PluginAssignmentWrite, 'subjectType'> & {
   subjectType: 'ALL' | 'USER';
 };
 
+/** ALL/USER 是控制台可编辑的可见范围；DEPT 不在此界面呈现，只能原样透传。 */
+type EditableSubjectType = ProductAssignment['subjectType'];
+
+const EDITABLE_SUBJECT_TYPES: ReadonlyArray<EditableSubjectType> = ['ALL', 'USER'];
+
+function isEditableSubjectType(value: PluginSubjectType): value is EditableSubjectType {
+  return (EDITABLE_SUBJECT_TYPES as ReadonlyArray<PluginSubjectType>).includes(value);
+}
+
+function toWrite(assignment: PluginAssignmentWrite): PluginAssignmentWrite {
+  return {
+    pluginVersionId: assignment.pluginVersionId,
+    subjectType: assignment.subjectType,
+    subjectId: assignment.subjectId,
+    desiredState: assignment.desiredState,
+    required: false
+  };
+}
+
+function editableAssignments(pluginPackage: PluginPackage): ProductAssignment[] {
+  return pluginPackage.assignments.flatMap((assignment) => (
+    isEditableSubjectType(assignment.subjectType)
+      // 收窄发生在属性访问路径上，因此 subjectType 在此分支已知为 ALL|USER。
+      ? [{ ...toWrite(assignment), subjectType: assignment.subjectType }]
+      : []
+  ));
+}
+
+/**
+ * 保存是服务端全量替换（PluginCatalogService.replaceAssignments 先无范围删除再插入）。
+ * 控制台不呈现 DEPT 可见范围，因此必须把加载到的 DEPT 事实原样重发，
+ * 否则一次“什么都没改”的保存会永久删除控制台从未显示的分配。
+ */
+function preservedAssignments(pluginPackage: PluginPackage): PluginAssignmentWrite[] {
+  return pluginPackage.assignments
+    .filter((assignment) => !isEditableSubjectType(assignment.subjectType))
+    .map((assignment) => toWrite(assignment));
+}
+
 export type PluginAssignmentValue = {
-  items: ProductAssignment[];
+  /**
+   * 完整替换载荷（服务端 replaceAssignments 是无范围全量替换）：
+   * 可编辑的 ALL/USER 项 + 界面未呈现、必须原样重发的 DEPT 事实。
+   * 此处已是终态，调用方不得再自行拼装，否则会重新打开静默删除的缺口。
+   */
+  items: PluginAssignmentWrite[];
   packageId: string;
   revision: number;
 };
-
-function editableAssignments(pluginPackage: PluginPackage): ProductAssignment[] {
-  return pluginPackage.assignments
-    .filter((assignment) => assignment.subjectType !== 'DEPT')
-    .map((assignment) => ({
-      pluginVersionId: assignment.pluginVersionId,
-      subjectType: assignment.subjectType as ProductAssignment['subjectType'],
-      subjectId: assignment.subjectId,
-      desiredState: assignment.desiredState,
-      required: false
-    }));
-}
 
 export function parseHarnessCommits(value: string) {
   return [...new Set(value.split(/[\s,]+/).map((item) => item.trim()).filter(Boolean))];
@@ -70,14 +122,14 @@ export function UploadPluginVersionDialog({
   saving: boolean;
 }) {
   const [artifact, setArtifact] = useState<File>();
-  const [harnessCommits, setHarnessCommits] = useState(SUPPORTED_HARNESS_COMMITS);
+  const [harnessCommits, setHarnessCommits] = useState(DEFAULT_HARNESS_COMMITS);
   const [enterpriseBundleRange, setEnterpriseBundleRange] = useState('>=0.1.0 <0.2.0');
   const [operatingSystems, setOperatingSystems] = useState<PluginOperatingSystem[]>(['darwin', 'linux', 'win32']);
   const [validationError, setValidationError] = useState<string>();
 
   const submit = () => {
-    if (!artifact || !artifact.name.endsWith('.tgz')) {
-      setValidationError('请选择 .tgz 插件包');
+    if (!artifact || !isAcceptedArtifactName(artifact.name)) {
+      setValidationError('请选择 .tgz、.tar.gz 或 .zip 插件包');
       return;
     }
     if (artifact.size > MAX_ARTIFACT_BYTES) {
@@ -115,7 +167,7 @@ export function UploadPluginVersionDialog({
           插件包
           <input
             type="file"
-            accept=".tgz,application/gzip"
+            accept=".tgz,.tar.gz,.zip,application/gzip,application/zip,application/x-zip-compressed"
             className="block w-full rounded-lg border border-line bg-canvas px-3 py-2 text-[12.5px] text-ink file:mr-3 file:rounded-md file:border-0 file:bg-inset file:px-2.5 file:py-1 file:text-[12px] file:text-ink-2"
             onChange={(event) => setArtifact(event.target.files?.[0])}
           />
@@ -221,11 +273,16 @@ export function PluginAssignmentDialog({
     onSave({
       packageId: pluginPackage.id,
       revision: pluginPackage.revision,
-      items: items.map((item) => ({
-        ...item,
-        subjectId: item.subjectType === 'ALL' ? null : item.subjectId,
-        required: false
-      }))
+      // 可编辑项在前，原样保留的不可编辑事实在后；服务端按全量替换消费，
+      // 因此这里必须一次性交齐，避免任何“只提交界面所见”的路径重新引入静默删除。
+      items: [
+        ...items.map((item) => ({
+          ...item,
+          subjectId: item.subjectType === 'ALL' ? null : item.subjectId,
+          required: false
+        })),
+        ...preservedAssignments(pluginPackage)
+      ]
     });
   };
 

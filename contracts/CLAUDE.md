@@ -6,6 +6,7 @@
 
 README.md: 协议真源使用规则，定义手写与生成边界、双端消费方式和漂移门禁。
 enterprise-openapi.yaml: OpenAPI 3.1 逻辑协议导航根，定义 Bearer 与 HTTP/HTTPS 管理端 Cookie、40 个稳定错误码和 97 个 operation，并引用受控 Path Item/schema 分片。
+plugin-core-packages.json: 企业核心包清单唯一真源，服务端上传验包与客户端安装信任锚共同消费；双端任一侧漂移、或出现工作区不存在的死包名，都会被门禁测试拦下。
 paths/: identity/auth/member/device/model/quota/gateway/plugin/session/audit operation 分片目录；局部地图见 paths/CLAUDE.md。
 components/: 身份治理、认证、成员、设备、模型、配额、网关、插件、Session 与审计协议 schema 分片；局部地图见 components/CLAUDE.md。
 fixtures/auth-sources-success.json: T05 登录事务、CSRF 与公开身份源成功响应样例。
