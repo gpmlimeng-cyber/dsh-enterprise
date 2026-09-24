@@ -6,14 +6,14 @@ Java 21 + Spring Boot 4.1 + Sa-Token + PostgreSQL + React 19 + TypeScript + Deep
 
 <directory>
 .github/ - CI/发布工作流（历史从 GHCR 镜像；二开后应指向自有 registry）
-server/ - Java 后端；owndsh-enterprise 为自研核心，owndsh-common / owndsh-system 为冻结 vendored 遗产
-console/ - Vite/TanStack 产品控制台，静态路由与 OpenAPI Fetch client
-website/ - 零依赖静态官网（上游遗留；对外营销站以 enterprise/site 为准）
-enterprise/ - 企业部署层 monorepo 目录：官网 / 帮助 / API 文档 / patches / 运维与分析
-contracts/ - OpenAPI 3.1 协议真源、跨语言 schema、fixture 验收与企业核心包清单（plugin-core-packages.json）
-deploy/ - Compose、nginx、安装/备份/升级脚本；TLS 由部署方终止
+server/ - 后台：管理 API、模型网关、配额、审计；owndsh-enterprise 为自研核心，owndsh-common / owndsh-system 为冻结 vendored 遗产
+console/ - 后台管理界面。不是员工 Web 客户端，不移入 apps/
+website/ - 遗留静态官网；新公开页面以 enterprise/site 为准
+enterprise/ - 对外官网、帮助、API 文档、历史补丁和运维记录。不是客户端运行时
+contracts/ - 各端共用的 OpenAPI 3.1 真源、schema、fixture 与企业核心包清单
+deploy/ - 后台和控制台的 Compose、nginx、安装/备份/升级脚本；TLS 由部署方终止
 docs/ - 产品预研、MVP 实施规格与逐任务验收证据
-plugin/ - pnpm workspace，构建标准 Harness 插件；只使用官方扩展点
+plugin/ - 自研 Harness 插件工作区。各端只引用这里打出的包，不在 apps 里再写一份
 scripts/ - 开发与运维脚本（含 gen-secrets.sh 密钥生成）
 upstream/ - 第三方运行时版本锁（不保存第三方源码）；插件基线为官方 Harness Desktop，见 dsh-desktop.lock.json
 </directory>
@@ -26,7 +26,7 @@ README.md - 面向管理员与员工的产品入口
 docker-compose.yml - 根 Compose 薄入口；密钥来自 .env，不注入 .env.example
 .env.example - 环境变量模板；JWT/主密钥必须外部注入
 scripts/gen-secrets.sh - 生成 .env 中 SA_TOKEN_JWT_SECRET_KEY / ENT_MASTER_KEY
-apps/ - 企业桌面打包层；用锁定的官方 Harness Desktop 构建自己的安装包，不入库上游源码
+apps/ - 员工客户端打包层。现在只有 desktop；web 和 mobile 在有版本锁前不建目录。结构边界见 FORK.md §2
 .gitignore - 密钥、依赖、构建产物排除规则
 .dockerignore - 构建上下文边界
 .gitattributes - 跨平台文本与换行约定

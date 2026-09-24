@@ -19,26 +19,44 @@
 
 ## 2. 仓库形态（monorepo）
 
+不按“后台 / 桌面 / 移动 / Web”把现有目录搬一次。`server/`、`console/`、`plugin/`、`contracts/`、`deploy/` 已经是构建、Compose 和文档的路径合同。新能力按下面的边界往里放，不平行再造一套。
+
 ```
-owndsh/                         # 工作区目录名暂保留；产品标识见 FORK 代号
-├── server/                     # Java 后端（含 vendored common/system）
-├── console/                    # React 控制台
-├── plugin/                     # Harness 插件工作区
-├── contracts/                  # OpenAPI 真源
-├── deploy/                     # Compose / nginx / 安装脚本
-├── enterprise/                 # 部署层：官网 / 帮助 / API 文档 / patches / 运维记录
-│   ├── site/  help/  api-docs/  docs-assets/
-│   ├── patches/  analysis/  DEPLOYMENT.md
-├── apps/desktop/               # 企业安装包打包层，不保存上游源码
-├── docs/  website/  scripts/  upstream/
-├── FORK.md  NOTICE  README.md
+dsh-enterprise/
+├── server/                     # 后台：管理 API、模型网关、配额、审计、设备
+├── console/                    # 后台管理界面。只给管理员，不是员工 Web 客户端
+├── plugin/                     # 自研 Harness 插件。各端只引用这里打出的包
+│   └── packages/               # bundle、ui、platform-client、gateway、session-sync 等
+├── contracts/                  # 各端共用的 OpenAPI 真源
+├── apps/                       # 员工客户端打包层。只放客制和打包脚本，不放上游源码
+│   └── desktop/                # 已落地：用官方 Harness Desktop 构建自己的安装包
+├── enterprise/                 # 对外站点与帮助，不是客户端运行时
+│   ├── site/  help/  api-docs/
+├── deploy/                     # 后台和控制台的 Compose、nginx、安装脚本
+├── upstream/                   # 只放第三方版本锁
+├── docs/  scripts/  website/   # 规格与脚本；website 是遗留官网，新页面进 enterprise/site
 └── docker-compose.yml          # 薄入口 → deploy/compose/compose.yml
 ```
 
+四类东西不要混：
+
+| 想放的东西 | 放这里 | 不要放这里 |
+|---|---|---|
+| 后台管理和网关 | `server/` + `console/` | `apps/` |
+| 自研插件 | `plugin/packages/` | 某个客户端目录里再写一份 |
+| 员工桌面安装包 | `apps/desktop/` | 同级 `dsh-desktop/` 或本仓上游源码副本 |
+| 员工 Web 客户端 | 将来 `apps/web/` | `console/`、`website/`、`enterprise/site/` |
+| 员工移动端 | 将来 `apps/mobile/` | 现在不建目录 |
+| 官网、帮助、API 文档 | `enterprise/` | `apps/` |
+
+`apps/web` 和 `apps/mobile` 现在不建。官方 Harness 有 `apps/web`，没有移动端；Web 打包层要等单独的版本锁和打包脚本，形态照 `apps/desktop`，不能把控制台或官网搬进去充数。移动端要等有可锁定的上游，或先在这里写下自研壳的决定，再创建目录。
+
 约定：
 
-- 产品功能改 `server/` `console/` `plugin/` `contracts/`；桌面安装包客制改 `apps/desktop/`，不把官方源码复制进来；
-- 对外站点与部署补丁改 `enterprise/`，**不再**维护独立的 dsh-enterprise 仓库补丁重放；
+- 产品功能改 `server/` `console/` `plugin/` `contracts/`。客户端只在 `apps/<端>/` 改品牌、图标和内置插件清单。
+- 内置插件写在该端的 `plugins.json`，包本身仍从 `plugin/` 构建。
+- 官方源码只留在仓外 checkout。`upstream/` 只提交锁。
+- 对外站点与部署补丁改 `enterprise/`，**不再**维护独立的 dsh-enterprise 仓库补丁重放。
 - `enterprise/patches/` 仅作历史存档与服务器应急，新改动直接进 monorepo 源。
 
 ## 3. vendored 上游策略（冻结 + 逐步吸收）
