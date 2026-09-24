@@ -121,3 +121,4 @@ owndsh/                         # 工作区目录名暂保留；产品标识见 
 - 不得把 `.env`、生产密钥、`*.pem` 提交进仓；
 - 不得假设「上游已经修了」而跳过本仓测试；
 - 不得在未更新 `NOTICE` / 本文件的情况下引入新的第三方源码树。
+- 员工桌面客户端只允许用 `upstream/deepseek-harness-desktop.lock.json` 引用官方 Harness `apps/desktop`，不得把该源码树复制进本仓，除非同时更新 `NOTICE` 与本节。

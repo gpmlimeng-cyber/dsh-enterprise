@@ -1,6 +1,6 @@
 <!--
 [INPUT]: 依赖控制台品牌资源、可覆盖的容器镜像引用、根 Docker Compose、npm 插件、Harness profile 与本 fork 产品边界；Session 同步状态见 docs/session-sync-revival-decision.md。
-[OUTPUT]: 提供品牌展示、Compose 自托管、管理员初始化、员工插件、更新、排障与静态官网发布入口。
+[OUTPUT]: 提供品牌展示、Compose 自托管、管理员初始化、员工桌面客户端入口、员工插件、更新、排障与静态官网发布入口。
 [POS]: DSH Enterprise（dshent）公开用户入口；见 FORK.md，不再与上游 owndsh 同步。
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md / FORK.md
 -->
@@ -122,9 +122,19 @@ Server 日志仅输出到 stdout/stderr，由 Docker/K8s 与日志平台采集�
 
 员工设备不会得到供应商 API Key；每次模型请求都由 DSH Enterprise 网关重新校验身份、授权和额度。
 
+## 桌面客户端
+
+员工桌面客户端使用官方 DeepSeek Harness Desktop `0.1.7-rc.1`（`apps/desktop`）。本仓库只锁定版本，不保存该源码树，也不把它宣传成 DeepSeek 官方企业软件。它不替代插件开发仍在使用的社区 Desktop 2.0.3 基线。
+
+```sh
+node scripts/bootstrap-harness-desktop.mjs
+```
+
+版本、本地安装边界和插件关系见[桌面客户端说明](docs/desktop-client.md)。
+
 ## 安装员工插件
 
-使用独立仓库构建的 DSH Enterprise Desktop 时，直接打开应用并填写 Server 地址即可，无需另装 Node、pnpm 或插件。下面的命令用于已有 Harness/社区 Desktop 的设备。
+已有 Harness 或社区 Desktop 的设备用下面的命令安装企业插件。官方 Desktop `0.1.7-rc.1` 尚未作为插件纵向验收基线。
 
 先确保 `pnpm` 是 PATH 中可直接执行的命令。Harness 当前基线使用 pnpm `11.7.0`：
 

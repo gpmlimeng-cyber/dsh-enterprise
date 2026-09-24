@@ -1,0 +1,11 @@
+{
+  "role": "employee-desktop-client",
+  "repository": "https://github.com/deepseek-ai/deepseek-harness.git",
+  "version": "0.1.7-rc.1",
+  "commit": "46a7f68b0922371ce7144b668b90e377d8e799f4",
+  "license": "MIT",
+  "desktop": {
+    "path": "apps/desktop",
+    "package": "@deepseek-ai/dsh-desktop"
+  }
+}

@@ -1,0 +1,44 @@
+# 员工桌面客户端
+
+状态：已接入版本锁（2026-09-24）
+
+员工桌面客户端是官方 DeepSeek Harness Desktop，包名 `@deepseek-ai/dsh-desktop`，源码路径 `apps/desktop`。本仓库只锁定版本，不保存第三方源码树。它不是 DeepSeek 官方企业软件，也不是带 DSH Enterprise 品牌的独立安装包。
+
+## 锁定版本
+
+| 项 | 值 |
+|---|---|
+| 仓库 | `https://github.com/deepseek-ai/deepseek-harness.git` |
+| 版本 | `0.1.7-rc.1` |
+| commit | `46a7f68b0922371ce7144b668b90e377d8e799f4` |
+| 许可证 | MIT |
+| 真源 | `upstream/deepseek-harness-desktop.lock.json` |
+
+社区 Desktop `2.0.3` 与 Harness `0.1.1-rc.2` 仍是插件开发和 `scripts/bootstrap-desktop.mjs` 的基线，不由本文件替换。两套 checkout 不能共用同一个目录。
+
+## 准备源码
+
+默认放到本仓库同级的 `deepseek-harness-desktop/`：
+
+```sh
+node scripts/bootstrap-harness-desktop.mjs
+node scripts/bootstrap-harness-desktop.mjs --check-only
+```
+
+已有官方 checkout 时传入路径。脏工作区只允许 `--check-only`；准备命令拒绝在有本地改动时切换 commit。
+
+```sh
+node scripts/bootstrap-harness-desktop.mjs --check-only /path/to/deepseek-harness
+```
+
+## 本地运行边界
+
+本机没有 Apple Developer ID 时，不能生成可分发的签名并公证安装包。可运行的本地应用是 ad-hoc 签名的开发包，启动器会写死源码目录和运行时目录。不要删除对应 checkout，否则已安装的应用无法启动。
+
+不要把 `node_modules/`、`.desktop-build/`、`.env`、`*.pem` 或 `/Applications` 里的 `.app` 提交进本仓库。`/desktop/` 仍是已迁出的本地缓存，保持忽略。
+
+官方打包入口是 Harness 仓库里的 `pnpm run package:desktop:mac:arm64`。它需要 Apple 签名和公证凭据，凭据不得写入本仓库。
+
+## 与企业插件的关系
+
+打开桌面端后，员工仍要填写管理员提供的 DSH Enterprise Server 地址并登录。`dshent-plugin` 的已验证运行面是社区 Desktop 2.0.3 / Harness 0.1.1-rc.2；官方 Desktop `0.1.7-rc.1` 可以按 Harness 的 caret peer 规则尝试安装，但本锁不表示插件已在该版本完成纵向验收。

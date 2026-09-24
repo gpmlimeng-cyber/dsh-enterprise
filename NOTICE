@@ -43,6 +43,12 @@ endorsed by, or sponsored by DeepSeek AI or Anywhere Labs. Names, code, and
 trademarks of DeepSeek Harness and DSH Desktop remain the property of their
 respective owners.
 
+The employee desktop client pin (upstream/deepseek-harness-desktop.lock.json)
+references DeepSeek Harness apps/desktop under the MIT license at a fixed
+commit. That source tree is not vendored in this repository. A locally built
+copy must not be described as official DeepSeek enterprise software or as a
+DSH Enterprise branded desktop product.
+
 Fork policy
 -----------
 
