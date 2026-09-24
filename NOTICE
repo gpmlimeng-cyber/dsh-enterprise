@@ -45,9 +45,11 @@ respective owners.
 
 The plugin baseline and employee desktop client pin both reference DeepSeek
 Harness apps/desktop under the MIT license at the same fixed commit. That
-source tree is not vendored in this repository. A locally built copy must not
-be described as official DeepSeek enterprise software or as a DSH Enterprise
-branded desktop product.
+source tree is not vendored in this repository. apps/desktop in this repository
+is only a packaging layer: it can apply a DSH Enterprise product name, icons,
+and bundled plugin tarballs while invoking the official package scripts. The
+resulting package must identify the upstream MIT project and must not be
+described as official DeepSeek software.
 
 Fork policy
 -----------

@@ -124,7 +124,7 @@ Server 日志仅输出到 stdout/stderr，由 Docker/K8s 与日志平台采集�
 
 ## 桌面客户端
 
-员工桌面客户端和插件基线都使用官方 DeepSeek Harness Desktop `0.1.7-rc.1`（`apps/desktop`）。本仓库只锁定版本，不保存该源码树，也不把它宣传成 DeepSeek 官方企业软件。社区 Desktop 2.0.3 不再是插件基线。
+员工桌面客户端和插件基线都使用官方 DeepSeek Harness Desktop `0.1.7-rc.1`。本仓库 `apps/desktop` 用这把锁构建自己的安装包，可改品牌并带上企业插件；上游源码不入库，安装包也不得宣传成 DeepSeek 官方软件。社区 Desktop 2.0.3 不再是插件基线。
 
 ```sh
 node scripts/bootstrap-harness-desktop.mjs

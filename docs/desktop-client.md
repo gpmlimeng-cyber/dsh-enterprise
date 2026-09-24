@@ -2,7 +2,7 @@
 
 状态：已接入版本锁（2026-09-24）
 
-员工桌面客户端是官方 DeepSeek Harness Desktop，包名 `@deepseek-ai/dsh-desktop`，源码路径 `apps/desktop`。本仓库只锁定版本，不保存第三方源码树。它不是 DeepSeek 官方企业软件，也不是带 DSH Enterprise 品牌的独立安装包。
+员工桌面客户端基于官方 DeepSeek Harness Desktop，包名 `@deepseek-ai/dsh-desktop`，上游源码路径 `apps/desktop`。本仓库不保存该源码树。`apps/desktop` 是企业打包层，用同一把锁构建 DSH Enterprise 安装包。它不是 DeepSeek 官方企业软件。
 
 ## 锁定版本
 
@@ -37,7 +37,14 @@ node scripts/bootstrap-harness-desktop.mjs --check-only /path/to/deepseek-harnes
 
 不要把 `node_modules/`、`.desktop-build/`、`.env`、`*.pem` 或 `/Applications` 里的 `.app` 提交进本仓库。`/desktop/` 仍是已迁出的本地缓存，保持忽略。
 
-官方打包入口是 Harness 仓库里的 `pnpm run package:desktop:mac:arm64`。它需要 Apple 签名和公证凭据，凭据不得写入本仓库。
+官方打包入口是 Harness 仓库里的 `pnpm run package:desktop:mac:arm64`。企业安装包不要直接改那个 checkout，使用本仓库的打包层：
+
+```sh
+node apps/desktop/scripts/desktop-package.mjs plan
+node apps/desktop/scripts/desktop-package.mjs package --dir
+```
+
+`brand.json` 控制产品名、应用 ID 和可选图标。`plugins.json` 控制打进安装包资源的插件 tgz。官方运行时不会在首次启动时自动安装这些插件，打包后用 `install-plugins` 写入 desktop profile。可分发的 macOS 包仍需要 Apple 签名和公证凭据，凭据不得写入本仓库。
 
 ## 与企业插件的关系
 

@@ -1,0 +1,15 @@
+{
+  "name": "@dshent/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Package a DSH Enterprise desktop app from the pinned official DeepSeek Harness Desktop",
+  "scripts": {
+    "plan": "node scripts/desktop-package.mjs plan",
+    "stage-plugins": "node scripts/desktop-package.mjs stage-plugins",
+    "package": "node scripts/desktop-package.mjs package",
+    "restore": "node scripts/desktop-package.mjs restore",
+    "test": "node --test scripts/desktop-package.test.mjs"
+  },
+  "license": "MIT"
+}

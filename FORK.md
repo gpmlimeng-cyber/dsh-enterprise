@@ -29,6 +29,7 @@ owndsh/                         # 工作区目录名暂保留；产品标识见 
 ├── enterprise/                 # 部署层：官网 / 帮助 / API 文档 / patches / 运维记录
 │   ├── site/  help/  api-docs/  docs-assets/
 │   ├── patches/  analysis/  DEPLOYMENT.md
+├── apps/desktop/               # 企业安装包打包层，不保存上游源码
 ├── docs/  website/  scripts/  upstream/
 ├── FORK.md  NOTICE  README.md
 └── docker-compose.yml          # 薄入口 → deploy/compose/compose.yml
@@ -36,7 +37,7 @@ owndsh/                         # 工作区目录名暂保留；产品标识见 
 
 约定：
 
-- 产品功能改 `server/` `console/` `plugin/` `contracts/`；
+- 产品功能改 `server/` `console/` `plugin/` `contracts/`；桌面安装包客制改 `apps/desktop/`，不把官方源码复制进来；
 - 对外站点与部署补丁改 `enterprise/`，**不再**维护独立的 dsh-enterprise 仓库补丁重放；
 - `enterprise/patches/` 仅作历史存档与服务器应急，新改动直接进 monorepo 源。
 
