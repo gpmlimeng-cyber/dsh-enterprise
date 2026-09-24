@@ -10,7 +10,7 @@
 状态：`partial-delivered-roadmap`  
 更新日期：2026-09-16（Asia/Shanghai）  
 产品决议：`docs/session-sync-revival-decision.md`（已入 main）  
-基线：DSH Desktop `2.0.3` / Harness `0.1.1-rc.2`；服务端 T16 已完成
+基线：官方 Harness Desktop `0.1.7-rc.1`；服务端 T16 已完成。路线图起草时核对的是社区 Desktop `2.0.3`。
 
 ---
 

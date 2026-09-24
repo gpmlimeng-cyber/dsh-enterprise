@@ -14,11 +14,11 @@
 | 许可证 | MIT |
 | 真源 | `upstream/deepseek-harness-desktop.lock.json` |
 
-社区 Desktop `2.0.3` 与 Harness `0.1.1-rc.2` 仍是插件开发和 `scripts/bootstrap-desktop.mjs` 的基线，不由本文件替换。两套 checkout 不能共用同一个目录。
+这把锁就是插件开发基线。`upstream/dsh-desktop.lock.json` 与 `upstream/deepseek-harness.lock.json` 必须和它指向同一仓库、版本和 commit。社区 Desktop `2.0.3` 已退出插件基线。
 
 ## 准备源码
 
-默认放到本仓库同级的 `deepseek-harness-desktop/`：
+默认放到本仓库同级的 `dsh-desktop/`：
 
 ```sh
 node scripts/bootstrap-harness-desktop.mjs
@@ -41,4 +41,4 @@ node scripts/bootstrap-harness-desktop.mjs --check-only /path/to/deepseek-harnes
 
 ## 与企业插件的关系
 
-打开桌面端后，员工仍要填写管理员提供的 DSH Enterprise Server 地址并登录。`dshent-plugin` 的已验证运行面是社区 Desktop 2.0.3 / Harness 0.1.1-rc.2；官方 Desktop `0.1.7-rc.1` 可以按 Harness 的 caret peer 规则尝试安装，但本锁不表示插件已在该版本完成纵向验收。
+打开桌面端后，员工仍要填写管理员提供的 DSH Enterprise Server 地址并登录。`dshent-plugin` 的开发基线是本锁；安装时按运行时版本查找已映射 commit，因此 `0.1.7-rc.1` 必须出现在插件兼容表中。旧映射版本仍可安装，但不能代替这把基线。本锁不表示插件已在 `0.1.7-rc.1` 完成新的纵向验收。

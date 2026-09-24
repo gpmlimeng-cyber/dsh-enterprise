@@ -124,7 +124,7 @@ Server 日志仅输出到 stdout/stderr，由 Docker/K8s 与日志平台采集�
 
 ## 桌面客户端
 
-员工桌面客户端使用官方 DeepSeek Harness Desktop `0.1.7-rc.1`（`apps/desktop`）。本仓库只锁定版本，不保存该源码树，也不把它宣传成 DeepSeek 官方企业软件。它不替代插件开发仍在使用的社区 Desktop 2.0.3 基线。
+员工桌面客户端和插件基线都使用官方 DeepSeek Harness Desktop `0.1.7-rc.1`（`apps/desktop`）。本仓库只锁定版本，不保存该源码树，也不把它宣传成 DeepSeek 官方企业软件。社区 Desktop 2.0.3 不再是插件基线。
 
 ```sh
 node scripts/bootstrap-harness-desktop.mjs
@@ -134,7 +134,7 @@ node scripts/bootstrap-harness-desktop.mjs
 
 ## 安装员工插件
 
-已有 Harness 或社区 Desktop 的设备用下面的命令安装企业插件。官方 Desktop `0.1.7-rc.1` 尚未作为插件纵向验收基线。
+已有官方 Harness Desktop 的设备用下面的命令安装企业插件。插件基线是官方 Desktop `0.1.7-rc.1`；旧的已映射 Harness 版本仍可按 caret peer 安装，但不再作为开发基线。
 
 先确保 `pnpm` 是 PATH 中可直接执行的命令。Harness 当前基线使用 pnpm `11.7.0`：
 

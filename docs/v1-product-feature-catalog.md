@@ -11,7 +11,7 @@
 
 更新日期：2026-09-16（Asia/Shanghai）
 
-适用基线：DSH Desktop `2.0.3`、DeepSeek Harness `0.1.1-rc.2`。
+适用基线：官方 DeepSeek Harness Desktop `0.1.7-rc.1`（`apps/desktop`）。社区 Desktop `2.0.3` 不再是插件基线。
 
 ## 1. 文档定位
 

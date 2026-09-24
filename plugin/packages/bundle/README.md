@@ -9,7 +9,7 @@
 
 DSH Enterprise 的 DeepSeek Harness 官方扩展点插件。它把 DSH Desktop 或 Harness Web 连接到自托管 DSH Enterprise Server，让员工使用企业身份、受管模型和受管插件，而不在本机保存供应商 API Key。
 
-> 当前稳定包为 `0.1.0`，Harness `0.1.5-rc.2` 为验证基线。
+> 当前稳定包为 `0.1.0`，插件基线是官方 Harness Desktop `0.1.7-rc.1`。
 
 ## 安装
 
@@ -58,12 +58,12 @@ dsh plugin --profile web add --ignore-scripts dshent-plugin@latest
 
 ## 兼容性与边界
 
-当前验证基线是 DeepSeek Harness `0.1.5-rc.2`。DSH Enterprise 不替换官方 Web/Desktop UI，不访问员工工作区，也不实现第二套模型协议。
+当前插件基线是官方 DeepSeek Harness Desktop `0.1.7-rc.1`。DSH Enterprise 不替换官方 Web/Desktop UI，不访问员工工作区，也不实现第二套模型协议。
 
 登录和企业模型只需安装本包。管理员上传、发布并配置可见范围后，员工在「DSH Enterprise 设置 → 插件」内自主安装、更新或卸载。不会自动安装，其他设备独立选择。安装或卸载后需完全退出并重新打开客户端。
 
 插件签名校验 `verifyPluginSignatures` 默认关闭，员工无需配置公钥；文件大小、SHA-256、目标系统和 Harness 兼容性仍会校验。需要验签的部署可在 profile 的 `owndsh.config` 中设置 `verifyPluginSignatures: true` 和部署专属 `trustedPluginPublicKey`，开启后缺公钥或签名错误会阻止安装。
 
-管理员上传时仍需选择目标系统和对应 Harness commit。已识别 Harness `0.1.1-rc.2`、`0.1.2-rc.1` 和 `0.1.5-rc.2`。旧版 DSH Enterprise 可能仍强制要求公钥或自动调和插件，需要先升级员工插件才能使用当前行为。
+管理员上传时仍需选择目标系统和对应 Harness commit。当前基线是 `0.1.7-rc.1`（`46a7f68b0922371ce7144b668b90e377d8e799f4`）。已映射的旧版本仍包括 `0.1.1-rc.2`、`0.1.2-rc.1` 和 `0.1.5-rc.2`。旧版 DSH Enterprise 可能仍强制要求公钥或自动调和插件，需要先升级员工插件才能使用当前行为。
 
 项目与完整部署说明：[github.com/boe1900/owndsh](https://github.com/boe1900/owndsh)

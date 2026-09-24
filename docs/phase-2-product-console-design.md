@@ -11,7 +11,7 @@
 
 设计日期：2026-08-31（Asia/Shanghai）
 
-适用基线：DSH Desktop `2.0.3`、DeepSeek Harness `0.1.1-rc.2`、第一阶段 Server/Flyway V17。
+适用基线：官方 DeepSeek Harness Desktop `0.1.7-rc.1`、第一阶段 Server/Flyway V17。设计当时核对过社区 Desktop `2.0.3`，该社区基线已退出。
 
 当前 V1 产品范围、实现状态和发布门禁以 [V1 产品功能清单](v1-product-feature-catalog.md) 为准。本文继续作为第二阶段技术设计与实施证据；两者出现产品范围差异时，先更新 V1 功能清单，再同步本文和代码。
 

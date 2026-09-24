@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 upstream/dsh-desktop.lock.json、Node.js、Git CLI 与可访问的 Desktop/Harness 仓库
- * [OUTPUT]: 在产品仓库同级目录准备精确 Desktop checkout 及其锁定 Harness submodule
- * [POS]: scripts 的跨平台 Desktop 开发基线入口，不复制或修改任何 Desktop 生命周期代码
+ * [OUTPUT]: 在产品仓库同级目录准备官方 Harness Desktop checkout
+ * [POS]: scripts 的插件桌面基线入口，不复制或修改任何 Desktop 生命周期代码
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -49,10 +49,12 @@ const head = git(['rev-parse', 'HEAD'], checkout, true).trim()
 if (head !== lock.commit) throw new Error(`Desktop checkout is not at ${lock.commit}: ${checkout}`)
 const manifest = JSON.parse(readFileSync(resolve(checkout, 'package.json'), 'utf8'))
 if (manifest.version !== lock.version) throw new Error(`Desktop version is ${manifest.version}, expected ${lock.version}`)
-const harnessRoot = resolve(checkout, 'deepseek-harness')
-if (!existsSync(resolve(harnessRoot, '.git'))) throw new Error(`Desktop Harness submodule is missing: ${harnessRoot}`)
-const harnessHead = git(['rev-parse', 'HEAD'], harnessRoot, true).trim()
-if (harnessHead !== lock.harness.commit) {
-  throw new Error(`Desktop Harness is ${harnessHead}, expected ${lock.harness.commit}`)
+const desktopManifest = JSON.parse(readFileSync(resolve(checkout, lock.path, 'package.json'), 'utf8'))
+if (desktopManifest.name !== lock.package) {
+  throw new Error(`Desktop package is ${desktopManifest.name}, expected ${lock.package}`)
 }
-process.stdout.write(`${JSON.stringify({ checkout, desktop: head, harness: harnessHead, version: manifest.version }, null, 2)}\n`)
+if (desktopManifest.version !== lock.version) {
+  throw new Error(`Desktop package version is ${desktopManifest.version}, expected ${lock.version}`)
+}
+if (head !== lock.harness.commit) throw new Error(`Desktop Harness is ${head}, expected ${lock.harness.commit}`)
+process.stdout.write(`${JSON.stringify({ checkout, desktop: head, harness: head, version: desktopManifest.version }, null, 2)}\n`)

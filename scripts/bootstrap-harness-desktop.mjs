@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 upstream/deepseek-harness-desktop.lock.json、Node.js 与 Git CLI
  * [OUTPUT]: 在产品仓库同级目录准备官方 DeepSeek Harness Desktop checkout，或只校验已有 checkout
- * [POS]: 员工桌面客户端基线入口；不复制源码，不改社区 Desktop 2.0.3 锁
+ * [POS]: 员工桌面客户端入口；与插件基线同一把官方锁，不复制源码
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -89,7 +89,7 @@ function main() {
   const checkOnly = args[0] === '--check-only'
   if (checkOnly) args.shift()
   if (args.length > 1) fail('usage: node scripts/bootstrap-harness-desktop.mjs [--check-only] [destination]')
-  const checkout = resolve(args[0] ?? resolve(PROJECT_ROOT, '..', 'deepseek-harness-desktop'))
+  const checkout = resolve(args[0] ?? resolve(PROJECT_ROOT, '..', 'dsh-desktop'))
   if (!checkOnly) prepare(checkout, lock)
   else if (!existsSync(checkout)) fail(`Harness Desktop checkout does not exist: ${checkout}`)
   const inspected = inspectHarnessDesktopCheckout(checkout, lock)

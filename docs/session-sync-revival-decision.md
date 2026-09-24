@@ -9,7 +9,7 @@
 
 状态：`decision-approved-client-track`  
 决议日期：2026-09-16（Asia/Shanghai）  
-适用基线：DSH Desktop `2.0.3`、DeepSeek Harness `0.1.1-rc.2`  
+适用基线：官方 DeepSeek Harness Desktop `0.1.7-rc.1`。2026-09-16 决议当时核对的是社区 Desktop `2.0.3` / Harness `0.1.1-rc.2`。  
 服务端事实：T16 已完成（`t16-session-server-acceptance.md`）  
 功能清单关联：`v1-product-feature-catalog.md` §10
 

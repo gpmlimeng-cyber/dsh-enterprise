@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="color-scheme" content="dark light" />
 <meta name="robots" content="index, follow" />
-<title>为已有 Harness / 社区 Desktop 安装企业插件 · DSH Enterprise 帮助中心</title>
+<title>为已有官方 Harness Desktop 安装企业插件 · DSH Enterprise 帮助中心</title>
 <link rel="stylesheet" href="/help/assets/theme.css" />
 <link rel="stylesheet" href="/help/assets/help.css" />
 <!-- 主题前导必须同步执行在 <head>，避免首帧闪烁；外置以满足 CSP script-src 'self' -->
@@ -38,7 +38,7 @@
   </nav>
 </header>
 <div class="layout">
-  <nav class="sidebar" aria-label="手册导航"><div class="nav-group"><p class="nav-title">管理员手册</p><ul><li><a href="/help/admin/quickstart.html">快速开始：30 分钟让企业可用</a></li><li><a href="/help/admin/roles-permissions.html">角色与权限矩阵</a></li></ul></div><div class="nav-group"><p class="nav-title">员工手册</p><ul><li class="active"><a href="/help/user/install-plugin.html">为已有 Harness / 社区 Desktop 安装企业插件</a></li><li><a href="/help/user/faq.html">员工常见问题</a></li></ul></div><div class="nav-group"><p class="nav-title">运维手册</p><ul><li class="pending">撰写中</li></ul></div><div class="nav-group"><p class="nav-title">参考</p><ul><li class="pending">撰写中</li></ul></div></nav>
+  <nav class="sidebar" aria-label="手册导航"><div class="nav-group"><p class="nav-title">管理员手册</p><ul><li><a href="/help/admin/quickstart.html">快速开始：30 分钟让企业可用</a></li><li><a href="/help/admin/roles-permissions.html">角色与权限矩阵</a></li></ul></div><div class="nav-group"><p class="nav-title">员工手册</p><ul><li class="active"><a href="/help/user/install-plugin.html">为已有官方 Harness Desktop 安装企业插件</a></li><li><a href="/help/user/faq.html">员工常见问题</a></li></ul></div><div class="nav-group"><p class="nav-title">运维手册</p><ul><li class="pending">撰写中</li></ul></div><div class="nav-group"><p class="nav-title">参考</p><ul><li class="pending">撰写中</li></ul></div></nav>
   <main class="content">
     <p class="breadcrumb"><a href="/help/">帮助中心</a> / 员工手册</p>
     <div class="meta">
@@ -48,8 +48,8 @@
       
     </div>
     <article class="prose">
-<h1 id="为已有-Harness-/-社区-Desktop-安装企业插件">为已有 Harness / 社区 Desktop 安装企业插件<a class="anchor" href="#为已有-Harness-/-社区-Desktop-安装企业插件" aria-label="锚点">#</a></h1>
-<aside class="callout callout-tip"><span class="callout-label">提示</span><p><strong>先确认走哪条路</strong>：如果你用的是独立仓库构建的 <strong>DSH Enterprise Desktop</strong>，请直接看《使用 DSH Enterprise Desktop》—— 它已经预装插件与运行环境，不需要 Node、pnpm 或本节命令。 本节适用于<strong>已经装好</strong> DeepSeek Harness / 社区 Desktop、只想接入企业的设备。</p></aside>
+<h1 id="为已有官方-Harness-Desktop-安装企业插件">为已有官方 Harness Desktop 安装企业插件<a class="anchor" href="#为已有官方-Harness-Desktop-安装企业插件" aria-label="锚点">#</a></h1>
+<aside class="callout callout-tip"><span class="callout-label">提示</span><p><strong>先确认走哪条路</strong>：如果你用的是独立仓库构建的 <strong>DSH Enterprise Desktop</strong>，请直接看《使用 DSH Enterprise Desktop》—— 它已经预装插件与运行环境，不需要 Node、pnpm 或本节命令。 本节适用于<strong>已经装好</strong>官方 DeepSeek Harness Desktop 0.1.7-rc.1、只想接入企业的设备。社区 Desktop 2.0.3 不再是插件基线。</p></aside>
 <h2 id="1.-先让-`pnpm`-可用">1. 先让 <code>pnpm</code> 可用<a class="anchor" href="#1.-先让-`pnpm`-可用" aria-label="锚点">#</a></h2>
 <blockquote><code>dsh plugin</code> 的子进程会从 <code>PATH</code> 查找 <code>pnpm</code>，所以必须先让它成为可直接执行的命令。 Harness 当前基线使用 pnpm <code>11.7.0</code>：</blockquote>
 <div class="code-block" data-language="sh"><button type="button" class="code-copy" hidden>复制</button><pre><code class="language-sh">corepack enable

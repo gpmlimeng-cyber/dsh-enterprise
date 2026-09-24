@@ -31,15 +31,15 @@
 
 | 代码库 | 冻结基线 | 用途 |
 |---|---|---|
-| [DSH Desktop](https://github.com/anywhere-labs/dsh-desktop) | 版本 `2.0.3`，提交 `1eb398d78108de1303ce29b1aeaf70aaf96acee4` | 员工主客户端、Electron 生命周期、profile 与插件管理 |
-| DeepSeek Harness | Desktop gitlink 派生版本 `0.1.1-rc.2`，提交 `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e` | 员工本地 Runtime、Host/Client 插件和普通 Web 兼容面 |
+| [DeepSeek Harness Desktop](https://github.com/deepseek-ai/deepseek-harness/tree/master/apps/desktop) | 版本 `0.1.7-rc.1`，提交 `46a7f68b0922371ce7144b668b90e377d8e799f4`，路径 `apps/desktop` | 员工主客户端、Electron 生命周期、profile 与插件管理 |
+| DeepSeek Harness | 与桌面端同一棵官方源码树，版本 `0.1.7-rc.1`，提交 `46a7f68b0922371ce7144b668b90e377d8e799f4` | 员工本地 Runtime、Host/Client 插件和普通 Web 兼容面 |
 | OwnDsh Server | 版本 `0.1.0`，由产品仓库自主维护 | 企业服务端底座 |
 | Java 及服务端框架 | Java 21、Spring Boot 4.1.0、Sa-Token 1.45.0、MyBatis-Plus 3.5.17 | 服务端运行时 |
 | 管理端前端 | React 19、Vite 8、TanStack Router/Query/Table/Form、TypeScript 6 | OwnDsh Console |
 | Harness 工具链 | 仓库锁定的 Node、pnpm、TypeScript、React、Cordis、Typert 和 Vitest | 不单独升级 |
 | 数据组件 | PostgreSQL 17.x、Redis 7.4.x、Nginx 1.28.x | Compose 在 T21 固定可获得的 patch 版本与镜像 digest |
 
-产品仓库以 `upstream/dsh-desktop.lock.json` 锁定发行版本，并要求 `upstream/deepseek-harness.lock.json` 与其 Harness gitlink 完全一致。正式编码只检出机器锁 commit，不自动拉取上游默认分支；升级必须先选 Desktop 发行，再运行基线、插件和 Web/Desktop 组合门禁。若公开接口发生变化，只调整企业插件，不把旧接口兼容层带入 MVP。
+产品仓库以 `upstream/dsh-desktop.lock.json` 锁定官方 Harness Desktop，并要求 `upstream/deepseek-harness.lock.json` 与 `upstream/deepseek-harness-desktop.lock.json` 指向同一 commit。正式编码只检出机器锁 commit，不自动拉取上游默认分支；升级必须先选官方 Desktop 发行，再运行基线、插件和 Web/Desktop 组合门禁。若公开接口发生变化，只调整企业插件，不把旧接口兼容层带入 MVP。社区 Desktop 2.0.3 不再是插件基线。
 
 OwnDsh Server 由本项目自主维护，原始代码的 MIT 许可证保留在 `server/LICENSE`。Console 直接派生的 Beautiful UI 源码使用 `console/BEAUTIFUL_UI_LICENSE` 保留 MIT 许可证与 `upstream/beautiful-ui.lock.json` 来源；已退役前端不再进入源码或交付物。
 
@@ -125,7 +125,7 @@ OwnDsh Server 由本项目自主维护，原始代码的 MIT 许可证保留在 
 
 T07 最初在 rc.7 验证 `settings.section` 与 `sidebar.footer.action`，迁移到 rc.2 后又核对 `shell.overlay` 与 `@deepseek-ai/dsh-settings`。当前门禁通过 `shell.overlay` 覆盖未配置、未登录和失效状态，Server 地址由官方 settings 持久化；sidebar 只展示/刷新状态，企业详情仍归官方 Settings 导航所有。禁止查询 Harness DOM、修改私有 React 状态或复制官方 UI。T07 只按桌面视口验收；移动端属于第 2.3 节明确不做范围。
 
-2026-08-27 起发行基线改为 DSH Desktop 2.0.3 及其 Harness 0.1.1-rc.2 gitlink。企业 bundle 在 Desktop 中读取公开 `desktopProfiles.current`，并通过 `desktopPnpm.runPlugin()` 管理当前 profile；普通 Web 继续走官方 `dsh plugin` CLI。Electron renderer 仍是 Web Client，因此企业 bundle 的 `dsh.client.platform` 保持 `web`。迁移影响与验证证据见 [`desktop-2.0.3-harness-rc2-migration.md`](desktop-2.0.3-harness-rc2-migration.md)。
+2026-08-27 曾把发行基线改为社区 DSH Desktop 2.0.3 及其 Harness 0.1.1-rc.2 gitlink，证据见 [`desktop-2.0.3-harness-rc2-migration.md`](desktop-2.0.3-harness-rc2-migration.md)。2026-09-24 起插件基线改为官方 Harness Desktop 0.1.7-rc.1。企业 bundle 在 Desktop 中读取公开 `desktopProfiles.current`，并通过 `desktopPnpm.runPlugin()` 管理当前 profile；普通 Web 继续走官方 `dsh plugin` CLI。Electron renderer 仍是 Web Client，因此企业 bundle 的 `dsh.client.platform` 保持 `web`。
 
 ### 3.2 必须新增的能力
 

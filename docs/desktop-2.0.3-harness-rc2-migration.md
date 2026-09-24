@@ -1,5 +1,7 @@
 # DSH Desktop 2.0.3 / Harness rc.2 基线迁移
 
+状态：历史证据。2026-09-24 起插件基线改为官方 Harness Desktop `0.1.7-rc.1`，见 `docs/desktop-client.md`。下文记录当时的迁移，不再是当前发行真源。
+
 状态：`completed`（2026-08-27）
 
 ## 冻结基线

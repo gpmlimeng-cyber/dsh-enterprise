@@ -44,10 +44,12 @@ test('Desktop lock owns the exact Harness baseline', () => {
     derivedFrom: 'dsh-desktop.lock.json#harness',
   }
   const desktop = validateDesktopLock({
-    repository: 'https://example.com/desktop.git',
-    version: '2.0.3',
+    repository: 'https://example.com/harness.git',
+    version: '0.1.7-rc.1',
     commit: COMMIT,
     license: 'MIT',
+    path: 'apps/desktop',
+    package: '@deepseek-ai/dsh-desktop',
     harness: { repository: harness.repository, version: harness.version, commit: harness.commit },
   })
 

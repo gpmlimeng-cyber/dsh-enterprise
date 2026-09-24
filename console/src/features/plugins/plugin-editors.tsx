@@ -22,10 +22,15 @@ import { MemberSelect } from '@/features/member-select';
 /**
  * 上传表单的可编辑初值，不是兼容性白名单：服务端 PluginCompatibility 只校验
  * `^[0-9a-f]{40}$` 等 commit 形态，真实兼容裁决按 Harness 自身 caret peer 规则进行。
- * 该默认值来源 docs/desktop-2.0.3-harness-rc2-migration.md 与 plugin bundle 的版本→commit 映射；
+ * 第一行是当前官方桌面端插件基线；其余行保留已映射的旧 Harness commit，避免新上传漏掉仍在运行的客户端。
  * 控制台没有任何协议字段可读取服务端受支持集合，因此这里只是运维可改的种子值。
  */
-const DEFAULT_HARNESS_COMMITS = 'b150a551b8d465e31e418e1b2eaf5e79bbb7d28e\na66e4702047846cdaa10c66c9d3df3951f5ea70d';
+const DEFAULT_HARNESS_COMMITS = [
+  '46a7f68b0922371ce7144b668b90e377d8e799f4',
+  'fb2c4b9e698e30edb738bca4cf0618587db7d203',
+  'a66e4702047846cdaa10c66c9d3df3951f5ea70d',
+  'b150a551b8d465e31e418e1b2eaf5e79bbb7d28e',
+].join('\n');
 const HARNESS_COMMIT_PATTERN = /^[0-9a-f]{40}$/;
 const MAX_HARNESS_COMMITS = 20;
 const MAX_ASSIGNMENT_ITEMS = 200;

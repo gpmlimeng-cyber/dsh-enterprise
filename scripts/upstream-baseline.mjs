@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 upstream 的 Desktop/Harness 版本锁与 Git CLI
- * [OUTPUT]: 对外提供 Desktop→Harness 一致性与本地 checkout 基线检查
- * [POS]: scripts 的客户端基线工具，以 Desktop 为 Harness 兼容版本真源
+ * [OUTPUT]: 对外提供官方 Desktop→Harness 一致性与本地 checkout 基线检查
+ * [POS]: scripts 的客户端基线工具，以官方 Harness Desktop 为插件基线真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -48,9 +48,31 @@ export function validateDesktopLock(lock, label = 'Desktop lock') {
     fail(`${label} is missing version`)
   }
   if (lock.license !== 'MIT') fail(`${label} must preserve the MIT license`)
+  if (lock.path !== 'apps/desktop') fail(`${label} path must be apps/desktop`)
+  if (lock.package !== '@deepseek-ai/dsh-desktop') fail(`${label} package must be @deepseek-ai/dsh-desktop`)
   validateCommit(lock.commit, `${label} commit`)
   validateHarnessLock(lock.harness, `${label} harness`)
   return lock
+}
+
+export function validateOfficialDesktopBaseline(desktop, client) {
+  if (client?.role !== 'employee-desktop-client') {
+    fail('deepseek-harness-desktop.lock.json role must be employee-desktop-client')
+  }
+  if (normalizeRepositoryUrl(desktop.repository) !== normalizeRepositoryUrl(client.repository)) {
+    fail('Desktop repository differs from the official desktop client lock')
+  }
+  for (const key of ['version', 'commit']) {
+    if (desktop[key] !== client[key]) fail(`Desktop ${key} differs from the official desktop client lock`)
+  }
+  if (desktop.path !== client.desktop?.path || desktop.package !== client.desktop?.package) {
+    fail('Desktop package path differs from the official desktop client lock')
+  }
+  for (const key of ['repository', 'version', 'commit']) {
+    if (desktop.harness[key] !== desktop[key]) {
+      fail(`Desktop harness ${key} must come from the same official desktop tree`)
+    }
+  }
 }
 
 export function validateDesktopHarnessAlignment(desktop, harness) {
@@ -78,7 +100,10 @@ function run(command, args, options = {}) {
 }
 
 function verifyHarnessCheckout(lock) {
-  const checkout = resolve(PROJECT_ROOT, '..', 'deepseek-harness')
+  const sibling = resolve(PROJECT_ROOT, '..', 'deepseek-harness')
+  const checkout = existsSync(join(sibling, '.git'))
+    ? sibling
+    : resolve(PROJECT_ROOT, '..', 'dsh-desktop')
   if (!existsSync(join(checkout, '.git'))) {
     fail(`Harness checkout is missing: ${checkout}`)
   }
@@ -128,9 +153,12 @@ function verifyDesktopCheckout(lock) {
   if (manifest.version !== lock.version) {
     fail(`Desktop version mismatch: expected ${lock.version}, got ${manifest.version}`)
   }
-  const gitlink = run('git', ['-C', checkout, 'ls-tree', 'HEAD', 'deepseek-harness'], { capture: true }).trim()
-  if (!gitlink.includes(`commit ${lock.harness.commit}\tdeepseek-harness`)) {
-    fail(`Desktop Harness gitlink differs from ${lock.harness.commit}`)
+  const desktopManifest = readJson(join(checkout, lock.path, 'package.json'))
+  if (desktopManifest.name !== lock.package) {
+    fail(`Desktop package is ${desktopManifest.name}, expected ${lock.package}`)
+  }
+  if (desktopManifest.version !== lock.version) {
+    fail(`Desktop package version is ${desktopManifest.version}, expected ${lock.version}`)
   }
   process.stdout.write(`verified dsh-desktop.lock.json: ${lock.commit}\n`)
 }
@@ -145,8 +173,10 @@ export function loadBaselineLocks(projectRoot = PROJECT_ROOT) {
     readJson(join(lockRoot, 'dsh-desktop.lock.json')),
     'dsh-desktop.lock.json',
   )
+  const client = readJson(join(lockRoot, 'deepseek-harness-desktop.lock.json'))
   validateDesktopHarnessAlignment(desktop, harness)
-  return { desktop, harness }
+  validateOfficialDesktopBaseline(desktop, client)
+  return { desktop, harness, client }
 }
 
 export function verifyBaseline() {

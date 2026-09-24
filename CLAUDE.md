@@ -15,7 +15,7 @@ deploy/ - Compose、nginx、安装/备份/升级脚本；TLS 由部署方终止
 docs/ - 产品预研、MVP 实施规格与逐任务验收证据
 plugin/ - pnpm workspace，构建标准 Harness 插件；只使用官方扩展点
 scripts/ - 开发与运维脚本（含 gen-secrets.sh 密钥生成）
-upstream/ - 第三方运行时版本锁（不保存第三方源码）；员工桌面客户端见 deepseek-harness-desktop.lock.json
+upstream/ - 第三方运行时版本锁（不保存第三方源码）；插件基线为官方 Harness Desktop，见 dsh-desktop.lock.json
 </directory>
 
 <config>
@@ -31,7 +31,7 @@ scripts/gen-secrets.sh - 生成 .env 中 SA_TOKEN_JWT_SECRET_KEY / ENT_MASTER_KE
 .gitattributes - 跨平台文本与换行约定
 </config>
 
-T00 建立上游源码与插件工作区，T01 验证官方插件扩展面，T02 建立跨端协议真源，T03 建立 PostgreSQL/密码学/revision/审计基础，T04 建立身份适配器与治理 API，T05 建立 PKCE/Sa-Token/设备生命周期，T06 建立 Harness 内存 Access Token、Host Refresh Grant、installation、bootstrap 刷新与同源控制面，T07 通过官方 Settings/sidebar/shell.overlay slot 交付 Server 配置与登录门禁，T08 建立 provider/model/grant 管理与 bootstrap 模型目录，T09 建立叠加配额、PostgreSQL reservation、Redis lease、结算恢复和用量查询，T10 建立请求级模型授权、三协议透明 upstream、计费终态和双审计，T11 直接挂载官方 rc.2 `dsh-llm-pi-ai`，建立 reasoningEfforts 动态目录、default sentinel、三协议模型流和本机认证代理，T12 建立 enterprise-admin PKCE、动态权限路由及身份/设备/模型/授权/配额/用量管理控制台，T13 建立受控 tgz 验包、JCS/Ed25519 签名、CAS 制品、发布/分配、逐请求下载授权与设备库存服务端，T14 通过官方 rc.2 subprocess/inventory 与 Desktop `desktopPnpm` 建立受管插件下载验签、CLI 调和、重启确认、库存与回滚客户端，T15 建立管理端插件纵向工作台与桌面员工插件状态 tab，T16 建立官方 format v0 精确 JSONL/hash、AES-GCM、并发远端副本、正文权限、tombstone 与 retention 服务端，T17 建立基于官方 rc.2 Session/Persistence 的 dirty queue、确认游标、断点退避、远端列表与新 ID 耐久恢复客户端。当前开发与发布验证基线为 DSH Desktop 2.0.3，其 Harness gitlink 为 0.1.1-rc.2；该版本不是插件运行时硬锁，发布包按 Harness 自身的 caret peer 规则接受兼容版本并从官方运行时身份读取实际版本。同级 `dsh-desktop/` 与 `deepseek-harness/` 都是只读开发依赖，普通 `dsh web` 仍是兼容运行面。员工桌面客户端另锁官方 DeepSeek Harness Desktop 0.1.7-rc.1（`upstream/deepseek-harness-desktop.lock.json`，路径 `apps/desktop`），只引用不入库，默认 checkout 为同级 `deepseek-harness-desktop/`，不替换社区 Desktop 2.0.3 开发基线。
+T00 建立上游源码与插件工作区，T01 验证官方插件扩展面，T02 建立跨端协议真源，T03 建立 PostgreSQL/密码学/revision/审计基础，T04 建立身份适配器与治理 API，T05 建立 PKCE/Sa-Token/设备生命周期，T06 建立 Harness 内存 Access Token、Host Refresh Grant、installation、bootstrap 刷新与同源控制面，T07 通过官方 Settings/sidebar/shell.overlay slot 交付 Server 配置与登录门禁，T08 建立 provider/model/grant 管理与 bootstrap 模型目录，T09 建立叠加配额、PostgreSQL reservation、Redis lease、结算恢复和用量查询，T10 建立请求级模型授权、三协议透明 upstream、计费终态和双审计，T11 直接挂载官方 rc.2 `dsh-llm-pi-ai`，建立 reasoningEfforts 动态目录、default sentinel、三协议模型流和本机认证代理，T12 建立 enterprise-admin PKCE、动态权限路由及身份/设备/模型/授权/配额/用量管理控制台，T13 建立受控 tgz 验包、JCS/Ed25519 签名、CAS 制品、发布/分配、逐请求下载授权与设备库存服务端，T14 通过官方 rc.2 subprocess/inventory 与 Desktop `desktopPnpm` 建立受管插件下载验签、CLI 调和、重启确认、库存与回滚客户端，T15 建立管理端插件纵向工作台与桌面员工插件状态 tab，T16 建立官方 format v0 精确 JSONL/hash、AES-GCM、并发远端副本、正文权限、tombstone 与 retention 服务端，T17 建立基于官方 rc.2 Session/Persistence 的 dirty queue、确认游标、断点退避、远端列表与新 ID 耐久恢复客户端。当前开发与发布验证基线为官方 DeepSeek Harness Desktop 0.1.7-rc.1（`apps/desktop`，commit `46a7f68b0922371ce7144b668b90e377d8e799f4`）。`upstream/dsh-desktop.lock.json` 与 `upstream/deepseek-harness-desktop.lock.json` 锁定同一棵官方源码树，`upstream/deepseek-harness.lock.json` 从该桌面端基线派生；不再使用社区 Desktop 2.0.3。该版本不是插件运行时硬锁，发布包仍按 Harness caret peer 接受已映射的兼容版本，并从官方运行时身份读取实际版本。同级 `dsh-desktop/` 是只读官方 checkout，源码不入库。普通 `dsh web` 仍是兼容运行面。
 
 模型协议法则：`@deepseek-ai/dsh-llm-pi-ai` 是客户端唯一协议实现，拥有消息、tools、reasoning、replay、SSE、通用重试与 provider 兼容语义；企业层只负责认证代理、授权、配额、审计、受管模型 ID 覆盖和上游密钥注入，不增加 provider 特定重试。后续模型能力优先升级锁定 Harness/官方依赖，禁止在企业代码中复制协议 adapter 或引入第二套 AI 抽象。
 

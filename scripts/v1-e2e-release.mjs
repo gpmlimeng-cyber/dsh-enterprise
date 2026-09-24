@@ -20,7 +20,9 @@ import {
 } from './v1-e2e-support.mjs';
 
 const PROJECT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const HARNESS_COMMIT = 'b150a551b8d465e31e418e1b2eaf5e79bbb7d28e';
+const HARNESS_LOCK = JSON.parse(await readFile(resolve(PROJECT_ROOT, 'upstream', 'deepseek-harness.lock.json'), 'utf8'));
+const HARNESS_COMMIT = HARNESS_LOCK.commit;
+const HARNESS_VERSION = HARNESS_LOCK.version;
 const ADMIN_USERNAME = process.env.OWNDSH_E2E_ADMIN_USERNAME ?? 'candidate.admin';
 const ADMIN_PASSWORD = process.env.OWNDSH_E2E_ADMIN_PASSWORD;
 
@@ -246,7 +248,7 @@ export async function runReleaseScenarios({
           installationId,
           name: `V1 E2E ${installationId.slice(0, 8)}`,
           platform: process.platform,
-          harnessVersion: '0.1.1-rc.2',
+          harnessVersion: HARNESS_VERSION,
           enterpriseBundleVersion: '0.1.0',
         },
       }));

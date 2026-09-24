@@ -15,7 +15,7 @@ verifiedAt: 2026-09-16
 ## 三条最常走的路
 
 1. **刚部署完，要让它跑起来** → [快速开始：30 分钟让企业可用](/help/admin/quickstart.html)
-2. **员工要接入** → [为已有 Harness / 社区 Desktop 安装企业插件](/help/user/install-plugin.html)
+2. **员工要接入** → [为已有官方 Harness Desktop 安装企业插件](/help/user/install-plugin.html)
 3. **出错了要排查** → [员工常见问题](/help/user/faq.html)、[API 参考的错误码字典](/api-docs/)（42 个稳定错误码的中文释义就在该页开头）
 
 ## 这套手册怎么读

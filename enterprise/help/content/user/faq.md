@@ -72,4 +72,4 @@ pnpm --version
 ## 相关
 
 - API 参考：[认证 API](/api-docs/#tag/授权与登录)、[模型网关](/api-docs/#tag/OpenAI%20兼容)
-- 相邻篇目：《为已有 Harness / 社区 Desktop 安装企业插件》《会话、登录保持与恢复》
+- 相邻篇目：《为已有官方 Harness Desktop 安装企业插件》《会话、登录保持与恢复》

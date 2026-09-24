@@ -22,44 +22,51 @@ async function readJson(path) {
   return JSON.parse(await readFile(path, 'utf8'))
 }
 
-test('workspace uses the locked Desktop-owned Harness baseline and toolchain', async () => {
-  const [workspace, harnessLock, desktopLock] = await Promise.all([
+test('workspace uses the official Desktop Harness baseline and toolchain', async () => {
+  const [workspace, harnessLock, desktopLock, clientLock, bundleSource] = await Promise.all([
     readJson(resolve(WORKSPACE_ROOT, 'package.json')),
     readJson(resolve(PROJECT_ROOT, 'upstream', 'deepseek-harness.lock.json')),
     readJson(resolve(PROJECT_ROOT, 'upstream', 'dsh-desktop.lock.json')),
+    readJson(resolve(PROJECT_ROOT, 'upstream', 'deepseek-harness-desktop.lock.json')),
+    readFile(resolve(WORKSPACE_ROOT, 'packages', 'bundle', 'src', 'index.ts'), 'utf8'),
   ])
 
   assert.equal(workspace.private, true)
   assert.equal(workspace.packageManager, 'pnpm@11.7.0')
   assert.deepEqual(workspace.engines, { node: '^22.19.0 || >=24.0.0' })
+  assert.equal(desktopLock.version, '0.1.7-rc.1')
+  assert.equal(desktopLock.commit, clientLock.commit)
+  assert.equal(desktopLock.repository, clientLock.repository)
   assert.deepEqual(desktopLock.harness, {
     repository: harnessLock.repository,
     version: harnessLock.version,
     commit: harnessLock.commit,
   })
-  if (!existsSync(HARNESS_ROOT) || !existsSync(DESKTOP_ROOT)) return
+  assert.match(bundleSource, new RegExp(`'${harnessLock.version}': '${harnessLock.commit}'`))
+  if (!existsSync(DESKTOP_ROOT) && !existsSync(HARNESS_ROOT)) return
 
-  const [harness, desktop] = await Promise.all([
-    readJson(resolve(HARNESS_ROOT, 'package.json')),
-    readJson(resolve(DESKTOP_ROOT, 'package.json')),
-  ])
+  if (existsSync(DESKTOP_ROOT)) {
+    const [desktop, desktopApp] = await Promise.all([
+      readJson(resolve(DESKTOP_ROOT, 'package.json')),
+      readJson(resolve(DESKTOP_ROOT, desktopLock.path, 'package.json')),
+    ])
+    assert.equal(workspace.packageManager, desktop.packageManager)
+    assert.deepEqual(workspace.engines, desktop.engines)
+    assert.equal(desktop.version, desktopLock.version)
+    assert.equal(desktopApp.name, desktopLock.package)
+    assert.equal(desktopApp.version, desktopLock.version)
+    assert.equal(
+      execFileSync('git', ['-C', DESKTOP_ROOT, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+      desktopLock.commit,
+    )
+  }
+  if (!existsSync(HARNESS_ROOT)) return
+  const harness = await readJson(resolve(HARNESS_ROOT, 'package.json'))
   assert.equal(workspace.packageManager, harness.packageManager)
   assert.deepEqual(workspace.engines, harness.engines)
-  assert.deepEqual(workspace.engines, desktop.engines)
-  assert.equal(desktop.version, desktopLock.version)
   assert.equal(harness.version, harnessLock.version)
   assert.equal(
-    execFileSync('git', ['-C', DESKTOP_ROOT, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
-    desktopLock.commit,
-  )
-  assert.equal(
     execFileSync('git', ['-C', HARNESS_ROOT, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
-    harnessLock.commit,
-  )
-  assert.equal(
-    execFileSync('git', ['-C', resolve(DESKTOP_ROOT, 'deepseek-harness'), 'rev-parse', 'HEAD'], {
-      encoding: 'utf8',
-    }).trim(),
     harnessLock.commit,
   )
 })

@@ -11,7 +11,7 @@
 
 执行日期：2026-09-03 至 2026-09-04（Asia/Shanghai）
 
-适用基线：DSH Desktop `2.0.3`、DeepSeek Harness `0.1.1-rc.2`。
+适用基线：本次验收使用 DSH Desktop `2.0.3`、DeepSeek Harness `0.1.1-rc.2`。2026-09-24 起当前插件基线改为官方 Harness Desktop `0.1.7-rc.1`；下表证据不自动覆盖新基线。
 
 ## 1. 验收原则
 

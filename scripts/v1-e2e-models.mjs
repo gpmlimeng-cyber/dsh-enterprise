@@ -6,6 +6,9 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   ORIGIN,
   SERVER_CONTAINER,
@@ -16,6 +19,10 @@ import {
   redis,
 } from './v1-e2e-support.mjs';
 
+const HARNESS_LOCK = JSON.parse(await readFile(
+  resolve(dirname(fileURLToPath(import.meta.url)), '..', 'upstream', 'deepseek-harness.lock.json'),
+  'utf8',
+));
 const PROTOCOL_PATH = {
   'openai-completions': '/enterprise/gateway/v1/chat/completions',
   'openai-responses': '/enterprise/gateway/v1/responses',
@@ -95,7 +102,7 @@ async function runtimeSession(username, password) {
       installationId,
       name: `V1 E2E ${username}`,
       platform: 'darwin',
-      harnessVersion: '0.1.1-rc.2',
+      harnessVersion: HARNESS_LOCK.version,
       enterpriseBundleVersion: '0.1.0',
     },
   });
@@ -131,7 +138,7 @@ async function gatewayCall(session, protocol, alias, options = {}) {
       authorization: `Bearer ${session.bearer}`,
       'content-type': 'application/json',
       'idempotency-key': idempotencyKey,
-      'x-harness-version': '0.1.1-rc.2',
+      'x-harness-version': HARNESS_LOCK.version,
       'x-enterprise-bundle-version': '0.1.0',
     },
     body: JSON.stringify(requestBody(protocol, alias, options.body)),
