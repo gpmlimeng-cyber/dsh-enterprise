@@ -1,19 +1,24 @@
 /**
- * [INPUT]: 依赖 Cordis/Schemastery、Harness credentials/LLM/subprocess/inventory、官方运行时身份与企业业务模块
- * [OUTPUT]: 对外提供 Web/Desktop 共用 bundle apply、默认关闭的插件验签开关、Host 凭据持久化、企业插件安装/卸载与条件 Session 同步注册
- * [POS]: bundle 的唯一 Host Loader 入口，组合平台认证、官方企业模型与环境原生插件调和；Session 同步仅在 sessionPolicy.enabled 时挂载
+ * [INPUT]: 依赖 Cordis/Schemastery、Harness credentials/LLM/subprocess/inventory、官方 dsh-deepseek-account-platform、官方 settings 的 volatile Config 投影、官方运行时身份与企业业务模块
+ * [OUTPUT]: 对外提供 Web/Desktop 共用 bundle apply、官方 settings 的 volatile Server/账户后台地址字段、默认关闭的插件验签开关、Host 凭据持久化、企业插件安装/卸载、条件 Session 同步注册，以及用 settings 自定义地址热重挂官方账户插件
+ * [POS]: bundle 的唯一 Host Loader 入口，组合平台认证、官方企业模型、账户后台地址与环境原生插件调和；Session 同步仅在 sessionPolicy.enabled 时挂载
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { createRequire } from 'node:module'
 import type { Context } from '@deepseek-ai/cordis'
 import type { CredentialProvider } from '@deepseek-ai/dsh-credentials'
+import * as AccountPlatform from '@deepseek-ai/dsh-deepseek-account-platform'
+import type { Config as AccountPlatformConfig } from '@deepseek-ai/dsh-deepseek-account-platform'
 import { APP_IDENTITY, type LlmRuntime } from '@deepseek-ai/dsh-llm'
+import type { SettingsProvider } from '@deepseek-ai/dsh-settings'
 import z from '@deepseek-ai/schemastery'
 import { registerEnterpriseGateway } from '@dshent/llm-gateway'
 import {
+  EnterprisePlatformError,
   EnterprisePlatformService,
   resolveEnterpriseDshHome,
+  settingsReference,
   type WebServerRoutePort,
 } from '@dshent/platform-client'
 import {
@@ -30,22 +35,66 @@ import {
   type SessionStorePort,
   type SyncableSession,
 } from '@dshent/session-sync'
+import {
+  DEFAULT_ACCOUNT_ORIGIN,
+  createAccountOriginController,
+  registerEnterpriseAccountRoutes,
+  resolveAccountOrigins,
+  type AccountOrigin,
+  type AccountOriginController,
+  type AccountOriginPort,
+} from './account-origin.js'
+
+declare module '@deepseek-ai/dsh-settings' {
+  interface SettingsProvider {
+    /**
+     * 声明本插件实例的设置页策略。官方 0.1.7-rc.2 的 `SettingsForms.configure`
+     * (`dsh-settings/lib/index.js:370`，`docs/subsystems/settings.md`) 取代了 0.1.5-rc.2 的
+     * 命名空间注册面；本 workspace 的官方依赖基线仍是 0.1.5-rc.2，故在此补齐该成员。
+     *
+     * @param presentation - 自动页面策略；`auto` 默认 true。
+     * @param owner - 策略归属的插件实例；缺省为调用方 fiber。
+     * @returns 撤销策略的 disposer。
+     */
+    configure(presentation: { auto?: boolean }, owner?: unknown): () => void
+  }
+}
 
 export const name = 'owndsh'
-export const inject = ['webServer', 'credentials', 'llm', 'subprocess', 'pluginInventory']
+export const inject = ['webServer', 'credentials', 'settings', 'llm', 'subprocess', 'pluginInventory']
 
 const VERIFIED_HARNESS_COMMITS: Readonly<Record<string, string>> = {
   '0.1.1-rc.2': 'b150a551b8d465e31e418e1b2eaf5e79bbb7d28e',
   '0.1.2-rc.1': 'a66e4702047846cdaa10c66c9d3df3951f5ea70d',
   '0.1.5-rc.2': 'fb2c4b9e698e30edb738bca4cf0618587db7d203',
   '0.1.7-rc.1': '46a7f68b0922371ce7144b668b90e377d8e799f4',
+  '0.1.7-rc.2': '477b4f420553e8a52c2fbccc464d7561b239c443',
 }
 const HARNESS_VERSION = APP_IDENTITY.version
 const { version: BUNDLE_VERSION } = createRequire(import.meta.url)('../package.json') as { version: string }
 
+/**
+ * 把一份 schema 标记为 volatile：官方 0.1.7-rc.2 的 schemastery 3.18.4
+ * (`.volatile()` = `extra('volatile', true)`) 按该 meta 键把字段投影成配置引用，
+ * 而本 workspace 的官方依赖基线 3.18.1 尚未声明 `Meta.volatile`，故按 meta 键写入。
+ *
+ * @param schema - 需要可热更新的字段 schema。
+ * @returns 同一 schema，带 `volatile` meta。
+ */
+function volatile<T extends z>(schema: T): T {
+  const extra: unknown = Reflect.get(schema, 'extra')
+  if (typeof extra !== 'function') return schema
+  return Reflect.apply(extra, schema, ['volatile', true])
+}
+
 export interface Config {
   /** 可选安装默认值；用户可在欢迎页写入 Harness 官方 settings。 */
   readonly baseUrl?: string
+  /** 用户在官方 settings 中持久化的 Server 地址；解析结果为配置引用，组合层传字符串或引用。 */
+  readonly serverUrl?: string
+  /** 用户在官方 settings 中持久化的账户/推理后台地址；同样以 volatile 引用投影，留空回落企业默认。 */
+  readonly platformOrigin: string
+  readonly inferenceOrigin: string
   /** 默认关闭；开启后使用安装配置的公钥验证企业插件签名。 */
   readonly verifyPluginSignatures?: boolean
   /** 仅开启验签时读取的 Ed25519 SPKI PEM 或 DER Base64；bootstrap 无权替换。 */
@@ -56,8 +105,17 @@ export interface Config {
   readonly dshCommand: string
 }
 
-export const Config: z<Config> = z.object({
+// 官方 0.1.7-rc.2 起，settings 只投影活动 profile entry 自身 Config 里的 volatile 字段，
+// 命名空间就是该 entry 的 id；因此地址字段必须声明在这里，而不是另注册一个命名空间。
+// 显式 `z<Config>` 注解会与 schemastery 3.18.4 的 volatile 输出类型（可含 Volatile<T>）冲突，
+// 官方同名插件的做法是不注解、让 schema 自行推断，接口只用于 apply 的入参。
+export const Config = z.object({
   baseUrl: z.string().default(''),
+  serverUrl: volatile(z.string().default('')),
+  platformOrigin: volatile(z.string().default(DEFAULT_ACCOUNT_ORIGIN))
+    .description('账户授权与账户查询后台；留空或等默认即企业后台'),
+  inferenceOrigin: volatile(z.string().default(DEFAULT_ACCOUNT_ORIGIN))
+    .description('账户 token 允许附着的推理/文件后台；留空或等默认即企业后台'),
   verifyPluginSignatures: z.boolean().default(false),
   trustedPluginPublicKey: z.string().default(''),
   requestTimeoutMs: z.number().step(1).min(1).default(30_000),
@@ -110,8 +168,169 @@ function desktopPluginCommandPort(desktopPnpm: DesktopPnpmPort): DshPluginComman
   }
 }
 
-/** 在 Harness 官方 Service 上挂载平台控制面并配置官方 dsh-llm-pi-ai。 */
+/** base 行 `desktopPlatform` 表达式里的原生平台集合。 */
+const DESKTOP_PLATFORM_NAMES = ['darwin', 'win32'] as const
+
+/**
+ * base 行 `desktopPlatform` 的同义表达式：只有桌面原生 profile 且运行在 macOS/Windows 时才声明原生身份。
+ *
+ * @param ctx - 组合根上下文；`profileContext` 是可选服务，只能经 `ctx.get` 读取。
+ * @returns 原生平台名；其余情况返回 null，官方实现按 Web 客户端处理。
+ */
+function resolveDesktopPlatform(ctx: Context): 'darwin' | 'win32' | null {
+  const profile = ctx.get('profileContext') as { readonly name?: string } | undefined
+  if (profile?.name !== 'desktop') return null
+  return DESKTOP_PLATFORM_NAMES.find(name => name === process.platform) ?? null
+}
+
+/**
+ * 读取 owner Loader entry 的本地 id。官方 settings 的表单命名空间就是活动 profile entry 的 id，
+ * 而 entry 由官方 Loader 增广到 fiber 上；bundle 不依赖 loader 包的类型，故按结构读取。
+ *
+ * @param ctx - 组合根上下文。
+ * @returns owner entry id；非 Loader 组合下 undefined。
+ */
+function ownerEntryId(ctx: Context): string | undefined {
+  const entry: unknown = Reflect.get(ctx.fiber, 'entry')
+  if (typeof entry !== 'object' || entry === null) return undefined
+  const options: unknown = Reflect.get(entry, 'options')
+  if (typeof options !== 'object' || options === null) return undefined
+  const id: unknown = Reflect.get(options, 'id')
+  return typeof id === 'string' && id.length > 0 ? id : undefined
+}
+
+/**
+ * 该 entry 当前的自动页面策略。官方 rc.2 的自动页面策略键是 owner fiber，
+ * 官方 `configure` 对同一 fiber 只接受一次注册（重复即抛）；同一个 `owndsh` entry 上
+ * platform-client 已为 volatile Server 地址声明过 `auto: false`，所以本包先读投影再决定是否补声明。
+ *
+ * `autoGenerate` 只存在于 0.1.7-rc.2 的 `SettingsForms.describe()`，而本 workspace 的官方依赖基线
+ * 仍是 0.1.5-rc.2，故按结构读取。
+ *
+ * @param settings - 官方 `ctx.settings` 实例。
+ * @param entryId - owner entry id。
+ * @returns `true` 表示仍会自动生成页面，`false` 表示已有 `auto: false` 策略，
+ *          `undefined` 表示该 entry 还没进入官方投影。
+ */
+function settingsAutoGenerate(settings: SettingsProvider, entryId: string): boolean | undefined {
+  const descriptors = (settings as unknown as {
+    describe(): readonly { readonly ns: unknown, readonly autoGenerate?: unknown }[]
+  }).describe()
+  for (const descriptor of descriptors) {
+    if (String(descriptor.ns) === entryId) return descriptor.autoGenerate !== false
+  }
+  return undefined
+}
+
+/**
+ * 用官方 `dsh-deepseek-account-platform` 的**同一实现**承载用户自定义的后台地址。
+ *
+ * 三条被官方实现约束的事实决定了这里的绑定方式：
+ * 1. 该包 default export 一个 Service 类，Cordis `ctx.plugin` 不展开模块命名空间，必须取 `.default`。
+ * 2. 它注册的 `deepseekAccount` 是全局唯一 Service 名，新实例必须先让旧实例卸载才能注册；
+ *    因此"失败保留旧实例"由控制器用上一个地址重新挂载实现，而不是并存两个实例。
+ * 3. `allowLoopbackHttp` 只解锁回环明文——正是本包校验器唯一放行的明文情形，非回环明文仍由上游拒绝。
+ *
+ * @param ctx - 承载官方插件与官方 settings 的上下文（bundle 组合根）。
+ * @param settings - 已解析的地址读写端口（读自 volatile 引用，写经 `settings.update`）。
+ * @returns 路由读写端口与热重挂生命周期。
+ */
+function createAccountOriginMount(
+  ctx: Context,
+  settings: Pick<AccountOriginPort, 'read' | 'write'>,
+): AccountOriginController {
+  return createAccountOriginController({
+    read: settings.read,
+    write: settings.write,
+    mount: async (origins) => {
+      const config: AccountPlatformConfig = {
+        platformOrigin: origins.platformOrigin,
+        inferenceOrigin: origins.inferenceOrigin,
+        desktopPlatform: resolveDesktopPlatform(ctx),
+        allowLoopbackHttp: true,
+      }
+      const fiber = ctx.plugin(AccountPlatform.default, config)
+      await fiber
+      return { dispose: () => fiber.dispose() }
+    },
+    onError: (message, error) => {
+      ctx.logger.error(`owndsh: ${message}`, error)
+    },
+  })
+}
+
+/**
+ * 把官方账户实现挂到用户自定义地址上，并把地址持久化进官方 settings。
+ *
+ * 官方 0.1.7-rc.2 的 settings 不再是「注册一个命名空间」：表单命名空间就是活动 profile entry 的 id，
+ * 只投影该 entry 自身 Config 里的 volatile 字段。因此两个地址字段声明在本包 Config 中，
+ * 读取走官方 volatile 引用，写入走 `settings.update(entryId, patch)`，并把该实例的自动页面策略关掉。
+ * entry id 或 volatile 引用不可得时地址保持只读：写入以 `ENT_SETTINGS_UNAVAILABLE` 拒绝，
+ * 与 platform-client 的 Server 地址语义一致，而不是误报平台不可用。
+ *
+ * @param ctx - bundle 组合根上下文；settings 与事件都注册在它上面。
+ * @param webServer - bundle 顶层注入的 `ctx.webServer` route port。
+ * @param config - Loader 已解析的 entry Config（volatile 字段在运行期是配置引用）。
+ */
+function mountEnterpriseAccountOrigin(ctx: Context, webServer: WebServerRoutePort, config: Config): void {
+  const platformOrigin = settingsReference<string>(config.platformOrigin)
+  const inferenceOrigin = settingsReference<string>(config.inferenceOrigin)
+  const entryId = ownerEntryId(ctx)
+  const owner = ctx.fiber
+  const read = (): AccountOrigin => resolveAccountOrigins({
+    platformOrigin: platformOrigin?.get() ?? config.platformOrigin,
+    inferenceOrigin: inferenceOrigin?.get() ?? config.inferenceOrigin,
+  })
+  let persist: ((patch: Partial<AccountOrigin>) => Promise<void>) | undefined
+  if (entryId === undefined || platformOrigin === undefined || inferenceOrigin === undefined) {
+    ctx.logger.warn('owndsh: Harness settings do not expose the enterprise account origin on this profile')
+  } else {
+    ctx.inject(['settings'], settingsContext => {
+      // 官方 Settings 生成这个页面没有意义：地址由企业配置向导经本地路由写。
+      // `owndsh` entry id 的推导方式与 platform-client 完全相同（都读 ctx.fiber.entry.options.id），
+      // 因此走到这里时它已为本 entry 声明过 `auto: false`；只有投影明确显示仍会自动生成时才补声明，
+      // 否则重复注册会被官方 configure 如实抛错。entry 未进入投影时无页面可生成，同样不必声明。
+      if (settingsAutoGenerate(settingsContext.settings, entryId) === true) {
+        settingsContext.effect(() => settingsContext.settings.configure({ auto: false }, owner))
+      }
+      persist = patch => settingsContext.settings.update(entryId, patch)
+    })
+  }
+  const controller = createAccountOriginMount(ctx, {
+    read,
+    write: async (patch) => {
+      const write = persist
+      if (write === undefined) {
+        throw new EnterprisePlatformError(
+          'ENT_SETTINGS_UNAVAILABLE',
+          'Harness settings do not expose the enterprise account origin on this profile',
+        )
+      }
+      await write(patch)
+    },
+  })
+  ctx.effect(() => () => controller.dispose(), 'enterpriseAccountOrigin.dispose()')
+  ctx.effect(() => registerEnterpriseAccountRoutes(webServer, controller), 'enterpriseAccountOrigin.routes')
+  if (entryId !== undefined) {
+    // 显式 POST 与外部改址会各自请求一次重挂；控制器按指纹幂等，串行化后只有第一次真正换实例。
+    ctx.effect(() => ctx.on('settings/document-updated', namespace => {
+      if (String(namespace) !== entryId) return
+      void controller.apply(read()).catch((error: unknown) => {
+        ctx.logger.error('owndsh: account origin hot remount failed', error)
+      })
+    }), 'enterpriseAccountOrigin.watch')
+  }
+  void controller.apply(read()).catch((error: unknown) => {
+    ctx.logger.error('owndsh: initial official account platform mount failed', error)
+  })
+}
+
+/** 在 Harness 官方 Service 上挂载平台控制面，并把企业 profiles 并入已挂载的官方 dsh-llm-pi-ai。 */
 export function apply(ctx: EnterpriseHostContext, config: Config): void {
+  // 官方 0.1.7-rc.2 起 Cordis 强制 inject：访问未 inject 的服务属性会直接抛异常（`?.` 挡不住），
+  // 因此会话相关服务一律经 ctx.get() 取可选实例，保持「缺失即跳过同步挂载」的原意。
+  const sessions = ctx.get('sessions') as EnterpriseHostContext['sessions']
+  const sessionPersistence = ctx.get('sessionPersistence') as EnterpriseHostContext['sessionPersistence']
   let pluginDistribution: EnterprisePluginDistributionService | undefined
   let sessionSyncHandle: HostSessionSyncHandle | null = null
   let platform: EnterprisePlatformService
@@ -123,10 +342,10 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
       subscribe: listener => platform.subscribe(status => listener(status)),
     },
     getHandle: () => sessionSyncHandle,
-    ...(ctx.sessions?.create === undefined ? {} : {
+    ...(sessions?.create === undefined ? {} : {
       createSession: {
         async create(id, options) {
-          const session = await ctx.sessions!.create!(id, options)
+          const session = await sessions!.create!(id, options)
           return { id: session.id }
         },
       },
@@ -134,6 +353,7 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
   })
   platform = new EnterprisePlatformService(ctx, {
     ...(config.baseUrl === undefined ? {} : { baseUrl: config.baseUrl }),
+    serverUrl: settingsReference<string | undefined>(config.serverUrl),
     harnessVersion: HARNESS_VERSION,
     bundleVersion: BUNDLE_VERSION,
     requestTimeoutMs: config.requestTimeoutMs,
@@ -174,9 +394,9 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
       subscribe: listener => platform.subscribe(status => listener(status)),
     },
     runtime: {
-      ...(ctx.sessions === undefined ? {} : { sessions: ctx.sessions }),
-      ...(ctx.sessionPersistence === undefined ? {} : {
-        sessionPersistence: ctx.sessionPersistence,
+      ...(sessions === undefined ? {} : { sessions }),
+      ...(sessionPersistence === undefined ? {} : {
+        sessionPersistence,
       }),
     },
     logger: {
@@ -234,4 +454,6 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
       )
     })
   }
+  // 目标1：官方 `deepseek-account` base 行已停用，账户后台由企业 bundle 用用户自定义地址挂载同一实现。
+  mountEnterpriseAccountOrigin(ctx, ctx.webServer, config)
 }

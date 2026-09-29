@@ -1,0 +1,7 @@
+# [INPUT]: 依赖 DSH 官方 Loader 的 insert 语义与裸包名解析，依赖宿主既有 webServer/settings 服务
+# [OUTPUT]: 在任意 DSH 客户端 profile 中插入企业控制面 Host 行；不改动宿主既有 row
+# [POS]: client-plugin 的 profile 接线层；与第三方客户端的自有 patch 并存而不争抢 id
+# [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+- insert:
+    - id: dshent-client-plugin
+      name: 'dshent-client-plugin'

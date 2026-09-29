@@ -1,26 +1,26 @@
 /**
  * [INPUT]: 依赖账号视图的固定连接/受管插件状态投影与协议类型
- * [OUTPUT]: 验证全局门禁、Server 编辑时机与插件状态文案；页面确认由浏览器回归覆盖
+ * [OUTPUT]: 验证会话可用判定、Server 编辑时机与插件状态文案；登录入口与弹窗契约由 account-gate.spec 覆盖
  * [POS]: dsh-ui 插件 tab 的产品词汇门禁，真实 DOM 与视觉由 Harness snapshot 覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { describe, expect, it, vi } from 'vitest'
 import {
-  enterpriseAccessBlocked,
   enterprisePluginStatePresentation,
   enterpriseServerEditable,
+  enterpriseSessionUsable,
   enterpriseStatePresentation,
 } from '../src/account-view.js'
 import { ENTERPRISE_CONNECTION_STATES, MANAGED_PLUGIN_STATES } from '../src/local-api.js'
 
-vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({ Modal: vi.fn(), Button: vi.fn() }))
+vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({ Button: vi.fn(), Input: vi.fn(), Modal: vi.fn() }))
 
 describe('enterprise plugin state presentation', () => {
-  it('blocks the whole shell unless the enterprise session remains usable', () => {
-    expect(enterpriseAccessBlocked()).toBe(true)
+  it('treats only a usable enterprise session as connected', () => {
+    expect(enterpriseSessionUsable()).toBe(false)
     for (const state of ENTERPRISE_CONNECTION_STATES) {
-      expect(enterpriseAccessBlocked(state)).toBe(state !== 'READY' && state !== 'REFRESHING')
+      expect(enterpriseSessionUsable(state)).toBe(state === 'READY' || state === 'REFRESHING')
     }
   })
 

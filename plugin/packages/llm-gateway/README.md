@@ -16,8 +16,11 @@ DeepSeek Harness 官方 `@deepseek-ai/dsh-llm-pi-ai` 的企业配置桥。本包
   `PiAiProviderProfile`。三个 route 分别使用 `openai-completions`、`openai-responses` 和
   `anthropic-messages`；profile 按官方 SDK 约定分别处理 OpenAI `/v1` base URL 与 Anthropic
   自动追加的 `/v1/messages`，`enterprise/default` 始终指向当前有效默认模型。
-- `registration.ts` 直接挂载官方 `dsh-llm-pi-ai` Cordis 插件。bootstrap 变化时更新官方
-  profiles；目录、reasoning effort 校验、消息转换、回放、取消、重试和流终态全部由官方插件负责。
+- `registration.ts` 复用 profile 里**已挂载**的官方 `dsh-llm-pi-ai`：官方那一行的 `providers`
+  是唯一配置面且声明为 volatile，本包经官方 Loader 的 entry config 写入面把企业 route 合并进去
+  （只写内存，不写 profile 文档，避免随机回环端口与进程内 bearer 落盘），bootstrap 变化时按指纹
+  幂等更新，释放时撤回企业键。目录、reasoning effort 校验、消息转换、回放、取消、重试和流终态
+  全部由官方插件负责；企业 route 只占用 `enterprise*` 独立键空间。
 - `proxy.ts` 提供 Host 私有 loopback 认证代理。它每次启动绑定随机端口并生成随机
   bearer；官方 adapter 向其发送原生协议请求，代理移除本机认证、注入幂等/版本 header，
   再通过 `EnterprisePlatformService.request()` 使用内存平台 Token。

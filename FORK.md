@@ -55,6 +55,7 @@ dsh-enterprise/
 
 - 产品功能改 `server/` `console/` `plugin/` `contracts/`。客户端只在 `apps/<端>/` 改品牌、图标和内置插件清单。
 - 内置插件写在该端的 `plugins.json`，包本身仍从 `plugin/` 构建。
+- 第三方 DSH 客户端（如 Jingyun DSH Client）**不入库**：企业集成以 `plugin/packages/` 里的独立插件交付，只用官方 `@deepseek-ai/*` 扩展面，不 vendored 客户端源码，也不改客户端代码。
 - 官方源码只留在仓外 checkout。`upstream/` 只提交锁。
 - 对外站点与部署补丁改 `enterprise/`，**不再**维护独立的 dsh-enterprise 仓库补丁重放。
 - `enterprise/patches/` 仅作历史存档与服务器应急，新改动直接进 monorepo 源。
@@ -78,6 +79,7 @@ dsh-enterprise/
 | ✅ | CI 接入 `server-check`（mvn 测试 + 日志扫描）与 `console-check`（`release.yml`） |
 | ✅ | 遗留 `/system/**` `/monitor/**` HTTP 面默认 404（`LegacyAdminSurfaceFilter`；逃生口 `ENT_LEGACY_HTTP_SURFACE_ENABLED`） |
 | ✅ | 本地 `scripts/check-all.sh` 一键门禁 |
+| ✅ | 第三方客户端集成以独立插件交付（`plugin/packages/client-plugin`），不 vendored 客户端源码 |
 | ⬜ | 全局文案与镜像名去 `owndsh` 品牌（见 §6，可分期） |
 | ⬜ | Provider / 身份源测试动作补审计（分析报告 P1） |
 
@@ -141,3 +143,5 @@ dsh-enterprise/
 - 不得假设「上游已经修了」而跳过本仓测试；
 - 不得在未更新 `NOTICE` / 本文件的情况下引入新的第三方源码树。
 - 员工桌面客户端和插件基线只允许用官方 Harness `apps/desktop` 的版本锁引用，不得把该源码树复制进本仓，除非同时更新 `NOTICE` 与本节。不得再把社区 Desktop 2.0.3 当作插件基线。
+- 第三方客户端（含 Jingyun DSH Client）的源码树不得复制进本仓；企业集成只以 `plugin/packages/` 下的独立插件交付，且该插件不得依赖第三方客户端私有模块、不得要求客户端改代码。
+- 不得在客户端里绕过 Host 把企业 access token 交给浏览器侧（含 `localStorage`/查询串/渲染产物）；插件暴露的本机路由必须同源 fail-closed。

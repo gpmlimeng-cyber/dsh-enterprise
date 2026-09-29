@@ -34,7 +34,7 @@ test('workspace uses the official Desktop Harness baseline and toolchain', async
   assert.equal(workspace.private, true)
   assert.equal(workspace.packageManager, 'pnpm@11.7.0')
   assert.deepEqual(workspace.engines, { node: '^22.19.0 || >=24.0.0' })
-  assert.equal(desktopLock.version, '0.1.7-rc.1')
+  assert.equal(desktopLock.version, '0.1.7-rc.2')
   assert.equal(desktopLock.commit, clientLock.commit)
   assert.equal(desktopLock.repository, clientLock.repository)
   assert.deepEqual(desktopLock.harness, {
@@ -93,6 +93,7 @@ test('workspace uses only the formal product package boundaries', async () => {
 
   assert.deepEqual(packages, [
     'bundle',
+    'client-plugin',
     'contracts',
     'ent-admin-cli',
     'llm-gateway',

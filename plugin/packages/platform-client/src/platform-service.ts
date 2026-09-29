@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 Cordis Service/WebServer/settings.register/credentials、T02 contracts、PKCE/installation/browser 原语与 Node fetch
+ * [INPUT]: 依赖 Cordis Service/WebServer/settings、官方 settings 投影的 volatile Config 引用、credentials、T02 contracts、PKCE/installation/browser 原语与 Node fetch
  * [OUTPUT]: 提供 ctx.enterprisePlatform、启动恢复、按需刷新/Token 轮换；仅无活动会话时允许清理凭据并修改 Server
  * [POS]: platform-client 的 Host 业务核心，跨 Web/Desktop 复用官方凭据平面且不向 Client UI 暴露任何 Token
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -9,8 +9,7 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import { platform as hostPlatform } from 'node:os'
 import { Context, Service } from '@deepseek-ai/cordis'
 import type { CredentialProvider } from '@deepseek-ai/dsh-credentials'
-import type { SettingsNamespace, SettingsScope } from '@deepseek-ai/dsh-settings'
-import z from '@deepseek-ai/schemastery'
+import type {} from '@deepseek-ai/dsh-settings'
 import {
   decodeEnterpriseError,
   zDeviceResponse,
@@ -32,27 +31,38 @@ import { createPkceS256, PkceLoopbackError, startLoopbackCallback, type Loopback
 import { PlatformCredentialManager } from './platform-credentials.js'
 import {
   EnterprisePlatformError,
+  settingsReference,
   zBootstrapResponse,
   type BootstrapSnapshot,
   type EnterpriseLoginFlow,
   type EnterprisePlatformConfig,
   type EnterprisePlatformInternals,
   type EnterprisePlatformStatus,
+  type SettingsReference,
 } from './types.js'
 
 const AUTH_PATH = '/enterprise/auth/v1'
 const API_PATH = '/enterprise/api/v1'
-// 固定合法命名兼容 rc.2 的 branded 类型与新版 register 的字符串校验。
-const SETTINGS_NAMESPACE = 'owndsh' as SettingsNamespace
-interface EnterpriseConnectionSettings { readonly serverUrl: string }
-const CONNECTION_SETTINGS: z<EnterpriseConnectionSettings> = z.object({
-  serverUrl: z.string().default(''),
-})
 const TRANSITIONAL_REQUEST_PATHS = new Set([
   `${AUTH_PATH}/logout`,
   `${API_PATH}/bootstrap`,
   `${API_PATH}/devices/enroll`,
 ])
+
+declare module '@deepseek-ai/dsh-settings' {
+  interface SettingsProvider {
+    /**
+     * 声明本插件实例的设置页策略。官方 0.1.7-rc.2 的 `SettingsForms.configure`
+     * (`dsh-settings/lib/index.js:370`，`docs/subsystems/settings.md`) 取代了 0.1.5-rc.2 的
+     * 命名空间注册面；本 workspace 的官方依赖基线仍是 0.1.5-rc.2，故在此补齐该成员。
+     *
+     * @param presentation - 自动页面策略；`auto` 默认 true。
+     * @param owner - 策略归属的插件实例；缺省为调用方 fiber。
+     * @returns 撤销策略的 disposer。
+     */
+    configure(presentation: { auto?: boolean }, owner?: unknown): () => void
+  }
+}
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -120,6 +130,51 @@ function isAbort(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError'
 }
 
+/**
+ * 读取 owner Loader entry 的本地 id。官方 settings 的表单命名空间就是活动 profile entry 的 id，
+ * 而 entry 由官方 Loader 增广到 fiber 上；platform-client 不依赖 loader 包的类型，故按结构读取。
+ *
+ * @param ctx - 创建本 Service 的上下文。
+ * @returns owner entry id；非 Loader 组合下 undefined。
+ */
+function ownerSettingsNamespace(ctx: Context): string | undefined {
+  const entry: unknown = Reflect.get(ctx.fiber, 'entry')
+  if (typeof entry !== 'object' || entry === null) return undefined
+  const options: unknown = Reflect.get(entry, 'options')
+  if (typeof options !== 'object' || options === null) return undefined
+  const id: unknown = Reflect.get(options, 'id')
+  return typeof id === 'string' && id.length > 0 ? id : undefined
+}
+
+/** 官方 Loader owner entry 的窄视图；settings 文档刚写入的原始配置就在 `options.config`。 */
+interface OwnerEntryPort {
+  readonly options: { readonly id?: unknown, readonly config?: unknown }
+}
+
+/** 官方 `ctx.configEditor`：活动 profile 里可寻址的配置行。 */
+interface ConfigEditorPort {
+  entries(): readonly OwnerEntryPort[]
+}
+
+/**
+ * 读取官方 settings 文档里 owner entry 的原始配置。
+ *
+ * 官方「写文档 → 广播 `settings/document-updated` → 提交 volatile 引用」不是同一个同步段，
+ * 广播时 volatile 引用可能还是上一份值；Loader 的 entry 视图在广播前已带上新配置。
+ *
+ * @param ctx - 创建本 Service 的上下文。
+ * @param entryId - owner profile entry 的 id。
+ * @returns 该 entry 的组合配置；非 Loader 组合或读不到时返回 undefined。
+ */
+function ownerEntryConfig(ctx: Context, entryId: string): Record<string, unknown> | undefined {
+  const editor = ctx.get('configEditor') as ConfigEditorPort | undefined
+  const row = editor?.entries().find(entry => entry.options.id === entryId)
+  const config: unknown = row?.options.config
+  return typeof config === 'object' && config !== null && !Array.isArray(config)
+    ? config as Record<string, unknown>
+    : undefined
+}
+
 /** Host 独占的企业控制面，也是内存平台 Token 的唯一读取者。 */
 export class EnterprisePlatformService extends Service {
   static inject = ['webServer', 'credentials']
@@ -138,10 +193,13 @@ export class EnterprisePlatformService extends Service {
   private readonly disposeLocalApi: () => void
   private readonly logger: Context['logger']
   private readonly compositionServerUrl: string
+  private readonly serverUrlReference: SettingsReference<string> | undefined
+  private readonly settingsNamespace: string | undefined
 
   private currentStatus: EnterprisePlatformStatus
   private baseUrl: URL | undefined
-  private settingsScope: SettingsScope<EnterpriseConnectionSettings> | undefined
+  /** 官方 settings 的写入端口；owner entry 未声明 volatile 地址字段或 settings 缺席时保持 undefined。 */
+  private settingsWrite: ((serverUrl: string) => Promise<void>) | undefined
   private bootstrapSnapshot: BootstrapSnapshot | undefined
   private connectedAt: string | undefined
   private login: LoginTransaction | undefined
@@ -165,6 +223,7 @@ export class EnterprisePlatformService extends Service {
     this.config = resolvedConfig
     this.baseUrl = baseUrl
     this.compositionServerUrl = baseUrl?.origin ?? ''
+    this.serverUrlReference = settingsReference<string>(config.serverUrl)
     this.fetch = internals.fetch ?? globalThis.fetch
     this.openBrowser = internals.openBrowser ?? openSystemBrowser
     this.logger = ctx.logger
@@ -221,27 +280,23 @@ export class EnterprisePlatformService extends Service {
       ...(internals.uninstallPlugin === undefined ? {} : { uninstallPlugin: internals.uninstallPlugin }),
       ...(internals.sessionSync === undefined ? {} : { sessionSync: internals.sessionSync }),
     })
-    ctx.inject(['settings'], (settingsContext) => {
-      const scope = settingsContext.settings.register(SETTINGS_NAMESPACE, CONNECTION_SETTINGS, {
-        base: { serverUrl: this.compositionServerUrl },
-        validate: value => {
-          const next = resolveBaseUrl(value.serverUrl)?.origin
-          if (this.settingsScope !== undefined && next !== this.baseUrl?.origin && (this.configuring === undefined || next !== this.configuring)) {
-            throw new EnterprisePlatformError('ENT_PERMISSION_DENIED', 'use the signed-out Server editor')
-          }
-        },
+    const settingsNamespace = internals.settingsNamespace ?? ownerSettingsNamespace(ctx)
+    this.settingsNamespace = settingsNamespace
+    if (settingsNamespace === undefined) {
+      this.logger.warn('enterprise platform: no owning profile entry; the Server address cannot be persisted')
+    } else {
+      ctx.inject(['settings'], settingsContext => {
+        // 官方 rc.2 的 settings 只投影活动 profile entry 自身的 volatile Config 字段：命名空间即 owner entry 的 id，
+        // 注册面收敛为页面策略（官方 Settings 不生成 Server 页），地址字段由组合层声明为 volatile。
+        settingsContext.effect(() => settingsContext.settings.configure({ auto: false }, ctx.fiber))
+        this.settingsWrite = serverUrl => settingsContext.settings.update(settingsNamespace, { serverUrl })
       })
-      this.settingsScope = scope
-      this.applyServerUrl(scope.get().serverUrl)
-      const unwatch = scope.watch(next => { this.applyServerUrl(next.serverUrl) })
-      settingsContext.effect(() => () => {
-        unwatch()
-        if (this.settingsScope !== scope) return
-        this.settingsScope = undefined
-        if (!this.disposed) this.applyServerUrl(this.compositionServerUrl)
-      }, 'enterprisePlatform.settings')
-    })
+      ctx.on('settings/document-updated', namespace => {
+        if (String(namespace) === settingsNamespace) this.reconcileServerUrl()
+      })
+    }
     ctx.effect(() => () => this.dispose(), 'enterprisePlatform.dispose()')
+    this.applyServerUrl(this.initialServerUrl())
     this.startSessionRestore()
   }
 
@@ -254,14 +309,17 @@ export class EnterprisePlatformService extends Service {
     }
     const resolved = resolveBaseUrl(serverUrl)
     if (resolved === undefined) throw new TypeError('serverUrl is required')
-    const scope = this.settingsScope
-    if (scope === undefined) {
-      throw new EnterprisePlatformError('ENT_PLATFORM_UNAVAILABLE', 'Harness settings are unavailable', true)
+    // 先判定可写性：地址不可持久化时不得先清掉凭据再失败。
+    if (this.settingsWrite === undefined || this.serverUrlReference === undefined) {
+      throw new EnterprisePlatformError(
+        'ENT_SETTINGS_UNAVAILABLE',
+        'Harness settings do not expose the enterprise Server address on this profile',
+      )
     }
     this.configuring = resolved.origin
     try {
       await this.platformCredentials.delete()
-      await scope.update({ serverUrl: resolved.origin })
+      await this.persistServerUrl(resolved.origin)
       this.applyServerUrl(resolved.origin)
       return { serverUrl: resolved.origin }
     } finally { this.configuring = undefined }
@@ -771,6 +829,130 @@ export class EnterprisePlatformService extends Service {
     this.platformCredentials.clearAccess()
     this.bootstrapSnapshot = undefined
     this.connectedAt = undefined
+  }
+
+  /**
+   * 官方 settings 生效的 Server 地址；用户未覆盖时回落到组合层 baseUrl（旧 `base` 层的等价语义）。
+   *
+   * @returns 已 trim 的地址字符串；空串表示组合层也未提供地址。
+   */
+  private settingsServerUrl(): string {
+    const stored = this.writtenServerUrl()
+    return stored.trim() === '' ? this.compositionServerUrl : stored.trim()
+  }
+
+  /**
+   * 本次写入后的地址原始值。
+   *
+   * 优先读 Loader owner entry 的配置：官方广播 `settings/document-updated` 时 volatile 引用可能
+   * 还没提交新值，读引用会把「刚写入的值」看成上一份值，从而既不拒绝非法改址、也无法写回保护。
+   * 拿不到 entry 视图（非 Loader 组合）时回落到 volatile 引用。
+   *
+   * @returns 文档里的地址字符串；两处都读不到时为空串。
+   */
+  private writtenServerUrl(): string {
+    const namespace = this.settingsNamespace
+    if (namespace !== undefined) {
+      const config = ownerEntryConfig(this.ctx, namespace)
+      const value: unknown = config?.['serverUrl']
+      if (typeof value === 'string') return value
+    }
+    return this.serverUrlReference?.get() ?? ''
+  }
+
+  /**
+   * 启动时采用的地址；持久化值非法时回落到组合层 baseUrl，一次手改的文档不会阻断开机。
+   *
+   * @returns 组合层已校验过的地址或持久化地址。
+   */
+  private initialServerUrl(): string {
+    const stored = this.settingsServerUrl()
+    try {
+      resolveBaseUrl(stored)
+      return stored
+    } catch {
+      this.logger.warn('enterprise platform: ignoring an invalid persisted Server address')
+      return this.compositionServerUrl
+    }
+  }
+
+  /**
+   * 官方 rc.2 的 settings 没有 per-namespace `validate` 钩子，落盘前无法拒绝一次外部改址；
+   * 因此广播后立即把文档写回最近一次**有效**地址，保持「退出登录后才能改 Server」的既有契约。
+   *
+   * 判定对象是**本次写入的值**（见 {@link writtenServerUrl}），而不是「已存的旧值」：
+   * 首次配置前该字段就是空串，把空串当成非法地址会立刻把刚写入的有效地址写回空值
+   * （rc.2 的写回即刻生效），用户于是永远配不上 Server。空串在这里只表示「未设置」，
+   * 不拒绝、也不写回；显式保存（`configuring`）期间读到空串同样不写回。
+   */
+  private reconcileServerUrl(): void {
+    const next = this.settingsServerUrl()
+    if (next.trim() === '') {
+      if (this.configuring !== undefined || this.baseUrl === undefined) return
+      // 已生效过一个有效地址却被清空：仍按一次地址变更处理，写回该有效地址。
+      this.refuseServerUrl('the stored address is empty')
+      return
+    }
+    let origin: string | undefined
+    try {
+      origin = resolveBaseUrl(next)?.origin
+    } catch {
+      origin = undefined
+    }
+    if (origin === undefined) {
+      this.refuseServerUrl('the stored address is not an HTTP(S) origin')
+      return
+    }
+    if (origin === this.baseUrl?.origin) return
+    if (origin !== this.configuring && this.hasActiveSession()) {
+      this.refuseServerUrl('a session is active')
+      return
+    }
+    this.applyServerUrl(next)
+  }
+
+  /** 写入官方 settings；不可写时以语义准确的码拒绝，而不是误导性的平台不可用。 */
+  private async persistServerUrl(serverUrl: string): Promise<void> {
+    const write = this.settingsWrite
+    if (write === undefined) {
+      throw new EnterprisePlatformError(
+        'ENT_SETTINGS_UNAVAILABLE',
+        'Harness settings do not expose the enterprise Server address on this profile',
+      )
+    }
+    await write(serverUrl)
+  }
+
+  /**
+   * 把官方 settings 写回最近一次被接受的有效地址，并保留一次警告。
+   *
+   * `this.baseUrl` 只在地址通过 {@link resolveBaseUrl} 校验后被赋值，因此它就是「上一个有效值」；
+   * 从未有过有效地址时写回空串，等于把文档还原成「未设置」，而不是保留一个非法字面量。
+   *
+   * 广播是在官方 `configEditor.edit` 的 HMR 事务内发出的（`SettingsForms.invalidate()` →
+   * `app-boot/config-reload`），而 `dsh-hmr` 用 AsyncLocalStorage 判定嵌套事务，从该上下文里再写一次
+   * 文档必然被 `HMR transactions cannot be nested` 拒绝——换用定时器重试也躲不开（定时器继承同一
+   * async 上下文）。因此这一写回只在**启动读回**那一次真正落到文档上；运行期它至少留下两条警告，
+   * 而不是静默丢弃外部非法改址。
+   *
+   * @param reason - 拒绝原因，只进入 Host 日志。
+   */
+  private refuseServerUrl(reason: string): void {
+    const write = this.settingsWrite
+    if (write === undefined) return
+    this.logger.warn(`enterprise platform: refused a Server address change: ${reason}`)
+    const previous = this.baseUrl?.origin ?? ''
+    void write(previous).catch(() => {
+      this.logger.warn('enterprise platform: failed to restore the persisted Server address')
+    })
+  }
+
+  /** 是否持有活动会话或正在登录/登出；这些状态下地址不得变化。 */
+  private hasActiveSession(): boolean {
+    return this.login !== undefined || this.loggingOut
+      || this.currentStatus.state === 'READY'
+      || this.currentStatus.state === 'REFRESHING'
+      || this.currentStatus.state === 'BOOTSTRAPPING'
   }
 
   private applyServerUrl(serverUrl: string): void {

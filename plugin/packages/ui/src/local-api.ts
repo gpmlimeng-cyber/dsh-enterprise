@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖浏览器 fetch 与 platform-client 的按需同源 JSON 协议
- * [OUTPUT]: 对外提供严格账号/插件/配方状态解码、Server 地址/登录/整包卸载动作、配方下载 URL 构造和显式刷新端口
+ * [OUTPUT]: 对外提供严格账号/插件/配方状态解码、Server 地址/账户后台地址/登录/整包卸载动作和显式刷新端口
  * [POS]: dsh-ui 的浏览器网络边界，只投影 Settings 所需事实并拒绝秘密、正文、SHA 与本地执行细节
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -122,10 +122,32 @@ export interface EnterpriseRemoteSession {
   readonly updatedAt: string
 }
 
+/** 账户后台与推理后台地址；defaults 是 Host 当前默认值，只用于占位与回退。 */
+export interface EnterpriseAccountOrigin {
+  readonly platformOrigin: string
+  readonly inferenceOrigin: string
+  readonly defaults: {
+    readonly platformOrigin: string
+    readonly inferenceOrigin: string
+  }
+}
+
+export interface EnterpriseAccountOriginUpdate {
+  readonly platformOrigin: string
+  readonly inferenceOrigin: string
+  /** false 表示官方账户行需重启 Harness 才重新挂载。 */
+  readonly remounted: boolean
+}
+
 export interface EnterpriseLocalApi {
   status(signal: AbortSignal): Promise<EnterpriseLocalStatus>
   refresh(signal: AbortSignal): Promise<EnterpriseLocalStatus>
   setServerUrl(serverUrl: string, signal: AbortSignal): Promise<{ readonly serverUrl: string }>
+  accountOrigin(signal: AbortSignal): Promise<EnterpriseAccountOrigin>
+  setAccountOrigin(
+    origin: { readonly platformOrigin?: string; readonly inferenceOrigin?: string },
+    signal: AbortSignal,
+  ): Promise<EnterpriseAccountOriginUpdate>
   bootstrap(signal: AbortSignal): Promise<EnterpriseAccountBootstrap | undefined>
   plugins(signal: AbortSignal): Promise<EnterprisePluginStatus>
   presets(signal: AbortSignal): Promise<readonly EnterpriseRuntimePreset[]>
@@ -191,6 +213,62 @@ function safePlatformUrl(value: unknown): value is string {
       && url.username === '' && url.password === '' && url.search === '' && url.hash === ''
   } catch {
     return false
+  }
+}
+
+/** 与上游 platformOrigin() 一致的 loopback 白名单；此外的明文 HTTP 一律拒绝。 */
+const LOOPBACK_HOSTS = ['localhost', '127.0.0.1', '[::1]']
+
+/**
+ * 账户后台地址比 Server 地址更严：只接受 HTTPS origin 或 loopback HTTP origin，
+ * 且必须是 ASCII，避免同形字地址被回显进输入框。
+ */
+function accountOrigin(value: unknown): value is string {
+  if (!nonEmptyString(value) || value.length > 512 || !/^[\x21-\x7e]+$/.test(value)) return false
+  try {
+    const url = new URL(value)
+    return (url.protocol === 'https:' || (url.protocol === 'http:' && LOOPBACK_HOSTS.includes(url.hostname)))
+      && url.hostname !== '' && url.username === '' && url.password === ''
+      && (url.pathname === '' || url.pathname === '/') && url.search === '' && url.hash === ''
+  } catch {
+    return false
+  }
+}
+
+function decodeAccountOriginDefaults(value: unknown): EnterpriseAccountOrigin['defaults'] {
+  const defaults = record(value)
+  if (defaults === undefined || !hasExactKeys(defaults, ['platformOrigin', 'inferenceOrigin'])
+    || !accountOrigin(defaults['platformOrigin']) || !accountOrigin(defaults['inferenceOrigin'])) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  return { platformOrigin: defaults['platformOrigin'], inferenceOrigin: defaults['inferenceOrigin'] }
+}
+
+/** 严格解码 Host 的账户后台地址投影；缺字段、类型不符或非 HTTPS/loopback 地址都抛稳定错误。 */
+export function decodeEnterpriseAccountOrigin(value: unknown): EnterpriseAccountOrigin {
+  const source = record(value)
+  if (source === undefined || !hasExactKeys(source, ['platformOrigin', 'inferenceOrigin', 'defaults'])
+    || !accountOrigin(source['platformOrigin']) || !accountOrigin(source['inferenceOrigin'])) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  return {
+    platformOrigin: source['platformOrigin'],
+    inferenceOrigin: source['inferenceOrigin'],
+    defaults: decodeAccountOriginDefaults(source['defaults']),
+  }
+}
+
+function decodeAccountOriginUpdate(value: unknown): EnterpriseAccountOriginUpdate {
+  const source = record(value)
+  if (source === undefined || !hasExactKeys(source, ['platformOrigin', 'inferenceOrigin', 'remounted'])
+    || !accountOrigin(source['platformOrigin']) || !accountOrigin(source['inferenceOrigin'])
+    || typeof source['remounted'] !== 'boolean') {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  return {
+    platformOrigin: source['platformOrigin'],
+    inferenceOrigin: source['inferenceOrigin'],
+    remounted: source['remounted'],
   }
 }
 
@@ -485,6 +563,15 @@ export function createEnterpriseLocalApi(
       }
       return { serverUrl: data['serverUrl'] }
     },
+    accountOrigin: async signal => decodeEnterpriseAccountOrigin(
+      await requestJson('/account-origin', getInit(signal), fetcher),
+    ),
+    setAccountOrigin: async (origin, signal) => decodeAccountOriginUpdate(
+      await requestJson('/account-origin', jsonInit('POST', {
+        ...(origin.platformOrigin === undefined ? {} : { platformOrigin: origin.platformOrigin }),
+        ...(origin.inferenceOrigin === undefined ? {} : { inferenceOrigin: origin.inferenceOrigin }),
+      }, signal), fetcher),
+    ),
     bootstrap: async signal => decodeBootstrap(await requestJson('/bootstrap', getInit(signal), fetcher)),
     plugins: async signal => decodeEnterprisePluginStatus(await requestJson('/plugins', getInit(signal), fetcher)),
     presets: async signal => decodeEnterprisePresets(await requestJson('/presets', getInit(signal), fetcher)),

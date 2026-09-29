@@ -9,9 +9,9 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Context } from '@deepseek-ai/cordis'
+import { Context, Service } from '@deepseek-ai/cordis'
 import type { CredentialKey, CredentialProvider, CredentialRecord } from '@deepseek-ai/dsh-credentials'
-import { SettingsProvider, type SettingsNamespace } from '@deepseek-ai/dsh-settings'
+import type { SettingsNamespace } from '@deepseek-ai/dsh-settings'
 import type { TokenResponse } from '@dshent/contracts'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -19,6 +19,7 @@ import {
   EnterprisePlatformService,
   resolveEnterpriseDevicePath,
   type EnterprisePlatformStatus,
+  type SettingsReference,
   type WebServerRoutePort,
 } from '../src/index.js'
 import { PlatformCredentialManager } from '../src/platform-credentials.js'
@@ -48,17 +49,51 @@ interface Environment {
   close(): Promise<void>
 }
 
-class MemorySettings extends SettingsProvider {
-  readonly writable = true
-  readonly document: Record<string, unknown> = {}
+/**
+ * 官方 rc.2 settings 的测试替身：命名空间是 owner profile entry 的 id，写入折进 volatile Config 引用，
+ * 再广播 `settings/document-updated`——与官方 SettingsForms + Loader volatile 提交的可观察行为一致。
+ */
+class MemorySettings extends Service {
+  readonly document: Record<string, Record<string, unknown>> = {}
+  readonly policies: { readonly auto?: boolean }[] = []
+  /** owner entry 的 volatile 地址引用；官方 Loader 在 volatile 提交时更新同一引用。 */
+  readonly serverUrl: SettingsReference<string> = { get: () => this.stored }
+  /**
+   * 为 true 时文档与广播先行、volatile 引用留到 {@link flushReference} 才追上：
+   * 官方「写文档 → 广播 → 提交 volatile」并非同一个同步段，写回判定必须容忍这段空窗。
+   */
+  deferReference = false
+  private stored = ''
+  private pending = ''
 
-  protected load(): Promise<Record<string, unknown>> {
-    return Promise.resolve(structuredClone(this.document))
+  constructor(ctx: Context) {
+    super(ctx, 'settings')
   }
 
-  protected persist(namespace: SettingsNamespace, section: Record<string, unknown>): Promise<void> {
-    this.document[namespace] = structuredClone(section)
+  configure(presentation: { readonly auto?: boolean }): () => void {
+    this.policies.push(presentation)
+    return () => { this.policies.pop() }
+  }
+
+  update(namespace: string, patch: object): Promise<void> {
+    const previous = this.document[namespace]
+    const section = { ...(previous ?? {}), ...(patch as Record<string, unknown>) }
+    // 官方 SettingsForms 只在投影出的 raw 变化时广播；重复写回同一个值不再产生事件。
+    const changed = JSON.stringify(section) !== JSON.stringify(previous ?? {})
+    this.document[namespace] = section
+    if (namespace === 'owndsh' && typeof section['serverUrl'] === 'string') {
+      this.pending = section['serverUrl']
+      if (!this.deferReference) this.stored = this.pending
+    }
+    if (changed) this.ctx.emit('settings/document-updated', namespace as SettingsNamespace, 1)
     return Promise.resolve()
+  }
+
+  /** 让 volatile 引用追上文档并补发一次广播；官方 Loader 的 volatile 提交正是这一步。 */
+  flushReference(): void {
+    if (this.pending === this.stored) return
+    this.stored = this.pending
+    this.ctx.emit('settings/document-updated', 'owndsh' as SettingsNamespace, 2)
   }
 }
 
@@ -313,14 +348,20 @@ describe('EnterprisePlatformService', () => {
     const credentials = new MemoryCredentials()
     ctx.reflect.provide('credentials', credentials as unknown as CredentialProvider)
     let settings: MemorySettings | undefined
-    if (options.withSettings === true) {
-      await ctx.plugin(MemorySettings)
-      settings = ctx.settings as MemorySettings
+    if (options.withSettings === true) settings = new MemorySettings(ctx)
+    // 官方 Loader 的 owner entry 视图：本 Service 用它读「本次写入的原始值」，
+    // 而不是可能还停在上一份值的 volatile 引用。
+    if (settings !== undefined) {
+      const owner = settings
+      ctx.reflect.provide('configEditor', {
+        entries: () => [{ options: { id: 'owndsh', config: owner.document['owndsh'] } }],
+      })
     }
     const service = new EnterprisePlatformService(
       ctx as Context & { readonly webServer: WebServerRoutePort, readonly credentials: CredentialProvider },
       {
         ...(options.startUnconfigured === true ? {} : { baseUrl: platformUrl }),
+        ...(settings === undefined ? {} : { serverUrl: settings.serverUrl }),
         harnessVersion: '0.1.0-rc.7',
         bundleVersion: '0.1.0',
         requestTimeoutMs: options.requestTimeoutMs ?? 1_000,
@@ -330,6 +371,7 @@ describe('EnterprisePlatformService', () => {
         installationName: 'Acceptance Workstation',
       },
       {
+        settingsNamespace: 'owndsh',
         ...(options.now === undefined ? {} : { now: options.now }),
         openBrowser: async (rawUrl) => {
           const url = new URL(rawUrl)
@@ -415,6 +457,44 @@ describe('EnterprisePlatformService', () => {
     }
   })
 
+  it('reports an accurate code when the profile cannot persist the Server address', async () => {
+    const env = await environment({ startUnconfigured: true })
+    expect(env.service.status()).toMatchObject({ state: 'UNCONFIGURED', platformUrl: null })
+
+    await expect(env.service.setServerUrl(env.platformUrl)).rejects.toMatchObject({ code: 'ENT_SETTINGS_UNAVAILABLE' })
+    const response = await fetch(`${env.localUrl}/enterprise/api/v1/local/server`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ serverUrl: env.platformUrl }),
+    })
+    expect(response.status).toBe(503)
+    await expect(response.json()).resolves.toEqual({ error: { code: 'ENT_SETTINGS_UNAVAILABLE' } })
+    expect(env.service.status()).toMatchObject({ state: 'UNCONFIGURED', platformUrl: null })
+  })
+
+  it('accepts the first Server address even while the volatile reference still lags the document', async () => {
+    const env = await environment({ withSettings: true, startUnconfigured: true })
+    expect(env.service.status()).toMatchObject({ state: 'UNCONFIGURED', platformUrl: null })
+    // 首次配置前该字段就是空串：写回判定若读这份旧引用，就会把刚写入的有效地址抹成空串。
+    env.settings!.deferReference = true
+
+    await env.service.setServerUrl(env.platformUrl)
+    expect(env.settings!.document).toEqual({ owndsh: { serverUrl: env.platformUrl } })
+    expect(env.service.status().platformUrl).toBe(env.platformUrl)
+
+    env.settings!.flushReference()
+    await vi.waitFor(() => expect(env.settings!.document).toEqual({ owndsh: { serverUrl: env.platformUrl } }))
+    expect(env.service.status().platformUrl).toBe(env.platformUrl)
+  })
+
+  it('reverts an externally written non-origin address to the last accepted one', async () => {
+    const env = await environment({ withSettings: true, startUnconfigured: true })
+    await env.service.setServerUrl(env.platformUrl)
+    expect(env.settings!.document).toEqual({ owndsh: { serverUrl: env.platformUrl } })
+
+    await env.settings!.update('owndsh', { serverUrl: 'not-a-url' })
+    await vi.waitFor(() => expect(env.settings?.document).toEqual({ owndsh: { serverUrl: env.platformUrl } }))
+    expect(env.service.status().platformUrl).toBe(env.platformUrl)
+  })
+
   it('requires logout before changing Server through the local API and cannot revive the old account', async () => {
     const env = await environment({ withSettings: true, startUnconfigured: true })
     expect(env.service.status()).toMatchObject({ state: 'UNCONFIGURED', platformUrl: null })
@@ -422,6 +502,8 @@ describe('EnterprisePlatformService', () => {
     await env.service.setServerUrl(env.platformUrl)
     await vi.waitFor(() => expect(env.service.status()).toMatchObject({ state: 'SIGNED_OUT', platformUrl: env.platformUrl }))
     expect(env.settings?.document).toEqual({ owndsh: { serverUrl: env.platformUrl } })
+    // 地址只在企业 UI 与门禁内编辑；官方 Settings 不为该 entry 生成页面。
+    expect(env.settings?.policies).toEqual([{ auto: false }])
 
     await login(env)
     const before = env.service.status()
@@ -430,9 +512,10 @@ describe('EnterprisePlatformService', () => {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ serverUrl: env.localUrl }),
     })
     expect(rejected.status).toBe(403)
+    // rc.2 没有 per-namespace validate：连接态的外部写入被写回旧地址，文档与内存状态都不变。
     for (const serverUrl of [env.localUrl, '']) {
-      await expect(env.context.settings.update('owndsh' as SettingsNamespace, { serverUrl }))
-        .rejects.toMatchObject({ code: 'ENT_PERMISSION_DENIED' })
+      await env.settings!.update('owndsh', { serverUrl })
+      await vi.waitFor(() => expect(env.settings?.document).toEqual({ owndsh: { serverUrl: env.platformUrl } }))
     }
     expect(env.service.status()).toEqual(before)
     expect(env.credentials.record).toEqual(grant)

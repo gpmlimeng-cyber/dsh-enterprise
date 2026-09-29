@@ -4,7 +4,8 @@
 
 成员清单
 
-bundle/: 可发布的自包含 Harness 组合包，注入官方 credentials 并聚合 Host、企业模型覆盖、本地 API、受管插件、条件 Session 同步与 Client 门禁；默认 sessionPolicy 关闭时不启动同步。
+bundle/: 可发布的自包含 Harness 组合包，注入官方 credentials 并聚合 Host、企业模型覆盖、本地 API、受管插件、条件 Session 同步与 Client 门禁；停用官方 `deepseek-account` 行后按 `owndsh-account` settings 以自定义地址热重挂官方账户实现，默认 sessionPolicy 关闭时不启动同步。
+client-plugin/: 可发布的**客户端插件** `dshent-client-plugin`，把 E1 登录/令牌/设备、E2 企业模型网关、E3 用量配额、E4 企业插件市场接进任意 DSH 客户端；不依赖 `@dshent/*`，只依赖官方 `@deepseek-ai/*` 扩展面，用于第三方 DSH 客户端（如 Jingyun DSH Client）而不 vendored 其源码。
 contracts/: OpenAPI 生成的 DTO/Zod schema、品牌 ID、错误解码与跨语言 fixture 门禁。
 ent-admin-cli/: 管理员/Agent 只读 CLI `dsh-ent-admin`，Desktop PKCE 设备流鉴权，`--json` 稳定 stdout 契约；不进入 Harness Host，不做写操作。
 llm-gateway/: 官方 `dsh-llm-pi-ai` 的企业 profile 与本机认证代理桥，提供三协议动态目录/default，不实现模型协议。

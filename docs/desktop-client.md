@@ -9,8 +9,8 @@
 | 项 | 值 |
 |---|---|
 | 仓库 | `https://github.com/deepseek-ai/deepseek-harness.git` |
-| 版本 | `0.1.7-rc.1` |
-| commit | `46a7f68b0922371ce7144b668b90e377d8e799f4` |
+| 版本 | `0.1.7-rc.2` |
+| commit | `477b4f420553e8a52c2fbccc464d7561b239c443` |
 | 许可证 | MIT |
 | 真源 | `upstream/deepseek-harness-desktop.lock.json` |
 
@@ -48,4 +48,4 @@ node apps/desktop/scripts/desktop-package.mjs package --dir
 
 ## 与企业插件的关系
 
-打开桌面端后，员工仍要填写管理员提供的 DSH Enterprise Server 地址并登录。`dshent-plugin` 的开发基线是本锁；安装时按运行时版本查找已映射 commit，因此 `0.1.7-rc.1` 必须出现在插件兼容表中。旧映射版本仍可安装，但不能代替这把基线。本锁不表示插件已在 `0.1.7-rc.1` 完成新的纵向验收。
+打开桌面端后，员工仍要填写管理员提供的 DSH Enterprise Server 地址并登录。`dshent-plugin` 的开发基线是本锁；安装时按运行时版本查找已映射 commit，因此 `0.1.7-rc.2` 必须出现在插件兼容表中。旧映射版本仍可安装，但不能代替这把基线。本锁不表示插件已在 `0.1.7-rc.2` 完成新的纵向验收。

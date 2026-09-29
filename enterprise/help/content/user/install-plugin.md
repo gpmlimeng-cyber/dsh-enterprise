@@ -16,7 +16,7 @@ status: draft
 
 > 💡 **先确认走哪条路**：如果你用的是独立仓库构建的 **DSH Enterprise Desktop**，请直接看《使用 DSH Enterprise Desktop》——
 > 它已经预装插件与运行环境，不需要 Node、pnpm 或本节命令。
-> 本节适用于**已经装好**官方 DeepSeek Harness Desktop `0.1.7-rc.1`、只想接入企业的设备。社区 Desktop 2.0.3 不再是插件基线。
+> 本节适用于**已经装好**官方 DeepSeek Harness Desktop `0.1.7-rc.2`、只想接入企业的设备。社区 Desktop 2.0.3 不再是插件基线。
 
 ## 1. 先让 `pnpm` 可用
 

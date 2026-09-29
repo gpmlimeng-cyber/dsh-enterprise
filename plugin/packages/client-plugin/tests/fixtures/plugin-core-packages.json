@@ -1,0 +1,11 @@
+{
+  "description": "企业核心包清单，插件分发的唯一真源。此处列出的包由企业安装在层拥有，通用插件分发绝不能上传、安装或覆盖它们。服务端上传验包（PluginArtifactInspector）与客户端安装信任锚（@dshent/plugin-distribution 的 PROTECTED_ENTERPRISE_PACKAGES）都必须与本清单逐字一致；任一侧漂移都会被门禁测试拦下。判定语义为「随产品一同安装、非第三方可分发的产品代码」：@dshent/ent-admin-cli 是管理端 CLI 工具（bin 入口、不在员工安装树内），@dshent/session-sync 证据不足，二者均不列入——误保护会使该包永久无法作为插件分发。",
+  "packages": [
+    "dshent-plugin",
+    "@dshent/contracts",
+    "@dshent/llm-gateway",
+    "@dshent/platform-client",
+    "@dshent/plugin-distribution",
+    "@dshent/ui"
+  ]
+}

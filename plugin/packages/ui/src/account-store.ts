@@ -60,6 +60,11 @@ export class EnterpriseAccountStore {
     this.#api = api
   }
 
+  /** 只读暴露同源网络边界，供设置页的就地动作（账户后台地址）复用同一实例。 */
+  get api(): EnterpriseLocalApi {
+    return this.#api
+  }
+
   readonly getSnapshot = (): EnterpriseAccountSnapshot => this.#snapshot
 
   readonly subscribe = (listener: () => void): (() => void) => {

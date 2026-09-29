@@ -1,0 +1,12 @@
+{
+  "profile": "desktop",
+  "installArgs": ["--ignore-scripts", "--save-exact"],
+  "packages": [
+    {
+      "id": "dshent-plugin",
+      "source": "workspace",
+      "workspace": "plugin/packages/bundle",
+      "packageName": "dshent-plugin"
+    }
+  ]
+}

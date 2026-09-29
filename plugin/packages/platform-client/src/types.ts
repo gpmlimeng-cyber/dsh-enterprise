@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 zod、生成契约、installation 与本地 API 端口，约束含可空签名的 bootstrap 输入及 Service 配置边界
- * [OUTPUT]: 对外提供 BootstrapSnapshot、平台状态/错误、无验收探针的 Service 配置与运行时 schema
- * [POS]: platform-client 的公共契约层，隔离中心 HTTP 输入、Host 运行参数与无秘密界面状态
+ * [INPUT]: 依赖 zod、生成契约、官方 settings 的 volatile Config 引用形状、installation 与本地 API 端口
+ * [OUTPUT]: 对外提供 BootstrapSnapshot、平台状态/错误、volatile 引用识别与无验收探针的 Service 配置
+ * [POS]: platform-client 的公共契约层，隔离中心 HTTP 输入、Host 运行参数、官方 settings 引用与无秘密界面状态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -13,7 +13,11 @@ import type { EnterpriseLocalApiOptions } from './local-api.js'
 /** 不携带响应主体或凭据的稳定 Service 失败，并保留经过 Fetch 校验的 Retry-After。 */
 export class EnterprisePlatformError extends Error {
   constructor(
-    readonly code: EnterpriseErrorCode | 'ENT_AUTH_CANCELLED' | 'ENT_AUTH_TIMEOUT' | 'ENT_PLATFORM_DISPOSED',
+    readonly code: EnterpriseErrorCode
+      | 'ENT_AUTH_CANCELLED'
+      | 'ENT_AUTH_TIMEOUT'
+      | 'ENT_PLATFORM_DISPOSED'
+      | 'ENT_SETTINGS_UNAVAILABLE',
     message: string,
     readonly retryable = false,
     readonly httpStatus?: number,
@@ -25,9 +29,32 @@ export class EnterprisePlatformError extends Error {
   }
 }
 
+/** 官方 settings 投影出的 volatile Config 引用读面；官方 `Volatile<T>` 的结构等价面。 */
+export interface SettingsReference<T> {
+  /** @returns 引用的当前值。 */
+  get(): T
+}
+
+/**
+ * 识别官方 volatile Config 引用。组合层把声明为 volatile 的字段引用交给本 Service，
+ * 未声明 volatile 的字段解析为普通值，因此这里按结构判定，让写入侧以语义准确的码拒绝，
+ * 而不是在运行期按错误的方法名抛异常。
+ *
+ * @param value - 组合层传入的字段值。
+ * @returns 可读引用；普通值、空值或缺 `get()` 时 undefined。
+ */
+export function settingsReference<T>(value: unknown): SettingsReference<T> | undefined {
+  if (typeof value !== 'object' || value === null) return undefined
+  const read: unknown = Reflect.get(value, 'get')
+  if (typeof read !== 'function') return undefined
+  return { get: () => Reflect.apply(read, value, []) }
+}
+
 /** 平台客户端所需的部署时与 Host 版本事实。 */
 export interface EnterprisePlatformConfig {
   readonly baseUrl?: string
+  /** 官方 settings 中用户持久化的 Server 地址引用；缺省时地址只读，写入以 `ENT_SETTINGS_UNAVAILABLE` 拒绝。 */
+  readonly serverUrl?: SettingsReference<string | undefined> | undefined
   readonly harnessVersion: string
   readonly bundleVersion: string
   readonly requestTimeoutMs?: number
@@ -44,6 +71,8 @@ export interface EnterprisePlatformInternals {
   readonly now?: () => Date
   readonly createFlowId?: () => string
   readonly createState?: () => string
+  /** 官方 settings 命名空间；生产由 owner Loader entry id 决定，非 Loader carrier 与测试在此显式指定。 */
+  readonly settingsNamespace?: string
   readonly installation?: Omit<InstallationOptions, 'dshHome' | 'name'>
   readonly pluginStatus?: () => unknown
   readonly pluginAction?: EnterpriseLocalApiOptions['pluginAction']
