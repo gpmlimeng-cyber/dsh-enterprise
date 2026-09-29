@@ -1,43 +1,15 @@
 {
-  "name": "jingyun-dsh",
-  "version": "0.1.20",
+  "name": "@dshent/desktop",
+  "version": "0.1.0",
   "private": true,
-  "workspaces": [
-    "packages/*"
-  ],
   "type": "module",
+  "description": "Package a DSH Enterprise desktop app from the pinned official DeepSeek Harness Desktop",
   "scripts": {
-    "build": "pnpm -r build",
-    "build:deps": "node scripts/build_deps.js",
-    "download:runtimes": "node scripts/download_runtimes.js",
-    "dev": "concurrently -n \"bundle,server\" -c \"cyan,green\" \"pnpm -C packages/jingyun-dsh dev\" \"node scripts/run_dsh.js --watch --watch-path=packages/jingyun-dsh/lib --no-open\"",
-    "watch": "pnpm -C packages/jingyun-dsh dev",
-    "start": "node scripts/run_dsh.js",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build",
-    "lint": "oxlint --fix",
-    "fmt": "oxfmt --write",
-    "typecheck": "tsc -b --noEmit",
-    "cargo": "cd src-tauri && cargo",
-    "release": "bumpp package.json packages/jingyun-dsh/package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml -x \"cargo update -p jingyun-dsh-client --manifest-path src-tauri/Cargo.toml\" --all"
+    "plan": "node scripts/desktop-package.mjs plan",
+    "stage-plugins": "node scripts/desktop-package.mjs stage-plugins",
+    "package": "node scripts/desktop-package.mjs package",
+    "restore": "node scripts/desktop-package.mjs restore",
+    "test": "node --test scripts/desktop-package.test.mjs"
   },
-  "dependencies": {
-    "@deepseek-ai/dsh": "0.1.5-rc.2",
-    "@jingyun-ai/jingyun-dsh": "workspace:^",
-    "qrcode.react": "^4.2.0",
-    "ws": "^8.21.3",
-    "yaml": "^2.9.0"
-  },
-  "devDependencies": {
-    "@tauri-apps/cli": "^2.11.4",
-    "@types/decompress": "^4.2.7",
-    "@types/node": "^24.13.4",
-    "bumpp": "^12.3.0",
-    "concurrently": "^10.0.5",
-    "decompress": "^4.2.1",
-    "oxfmt": "^0.67.0",
-    "oxlint": "^1.82.0",
-    "tsdown": "^0.23.0",
-    "typescript": "^7.0.2"
-  }
+  "license": "MIT"
 }

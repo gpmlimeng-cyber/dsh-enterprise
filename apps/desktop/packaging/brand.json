@@ -1,6 +1,0 @@
-{
-  "productName": "DSH Enterprise",
-  "appId": "com.dshent.desktop",
-  "artifactPrefix": "dsh-enterprise",
-  "urlSchemes": ["dsh"]
-}
