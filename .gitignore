@@ -49,3 +49,7 @@ tmp/
 # 已迁出独立仓库的本地桌面缓存
 /desktop/
 plugin/scripts/.build/
+
+# 本地备份文件（不得入库）
+*.bak
+*.bak-*
