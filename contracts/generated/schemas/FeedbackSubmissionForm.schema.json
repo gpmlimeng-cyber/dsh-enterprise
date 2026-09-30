@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:owndsh:contracts:FeedbackSubmissionForm",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "metadata"
+  ],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "description",
+        "consent"
+      ],
+      "properties": {
+        "type": {
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": [
+                "issue",
+                "suggestion"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "缺省为 issue。"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 510
+        },
+        "occurredAt": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "选填；缺省为服务端提交时刻。必须带时区。"
+        },
+        "contact": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 160
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "选填邮箱或手机号。"
+        },
+        "consent": {
+          "type": "boolean",
+          "const": true,
+          "description": "必须显式同意，非 true 的提交没有合规依据。"
+        },
+        "diagnostics": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "客户端自动附带的白名单诊断摘要。键集封闭且字段内容受服务端正则收窄， 令牌、会话内容与文件路径没有落点。",
+              "properties": {
+                "pluginVersion": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 64,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$"
+                },
+                "hostVersion": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 64,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$"
+                },
+                "os": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 64,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+                },
+                "installationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                },
+                "lastErrorCode": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 64,
+                  "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "attachments": {
+      "type": "array",
+      "maxItems": 3,
+      "description": "最多 3 张位图 part；第 4 张 part 在协议层就不存在。",
+      "items": {
+        "type": "string",
+        "format": "binary"
+      }
+    }
+  }
+}

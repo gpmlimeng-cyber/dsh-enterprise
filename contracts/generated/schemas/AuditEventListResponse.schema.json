@@ -109,7 +109,11 @@
                   "SESSION_EXPIRED",
                   "ROLE_ASSIGNED",
                   "USER_STATUS_CHANGED",
-                  "CONFIG_CHANGED"
+                  "CONFIG_CHANGED",
+                  "BRANDING_PUBLISHED",
+                  "BRANDING_ROLLED_BACK",
+                  "FEEDBACK_SUBMITTED",
+                  "FEEDBACK_STATUS_CHANGED"
                 ]
               },
               "resourceType": {
@@ -769,6 +773,123 @@
                         "minimum": 0
                       },
                       "currentRevision": {
+                        "type": "integer",
+                        "minimum": 1
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "configId",
+                      "revision",
+                      "logoCount"
+                    ],
+                    "properties": {
+                      "configId": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "revision": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "logoCount": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 3
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "configId",
+                      "fromRevision",
+                      "targetRevision",
+                      "revision"
+                    ],
+                    "properties": {
+                      "configId": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "fromRevision": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "targetRevision": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "revision": {
+                        "type": "integer",
+                        "minimum": 2
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "feedbackId",
+                      "type",
+                      "attachmentCount"
+                    ],
+                    "properties": {
+                      "feedbackId": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "issue",
+                          "suggestion"
+                        ]
+                      },
+                      "attachmentCount": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 3
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "feedbackId",
+                      "previousStatus",
+                      "currentStatus",
+                      "revision"
+                    ],
+                    "properties": {
+                      "feedbackId": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "previousStatus": {
+                        "type": "string",
+                        "enum": [
+                          "new",
+                          "triaged",
+                          "resolved",
+                          "ignored"
+                        ]
+                      },
+                      "currentStatus": {
+                        "type": "string",
+                        "enum": [
+                          "new",
+                          "triaged",
+                          "resolved",
+                          "ignored"
+                        ]
+                      },
+                      "revision": {
                         "type": "integer",
                         "minimum": 1
                       }

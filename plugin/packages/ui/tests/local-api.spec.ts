@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 dsh-ui 同源 local-api、标准 Response 与 EventSource test double
- * [OUTPUT]: 验证账号/插件严格解码、地址/卸载固定路径、脱敏投影、显式刷新与秘密字段拒绝
+ * [OUTPUT]: 验证账号/插件/技能严格解码、地址/卸载固定路径、脱敏投影、显式刷新与秘密字段拒绝
  * [POS]: dsh-ui 浏览器网络边界测试，确保浏览器只能消费 Host 脱敏 DTO
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -166,6 +166,41 @@ describe('enterprise local browser API', () => {
     expect(fetcher.mock.calls[4]?.[1]).toMatchObject({
       body: '{"serverUrl":"https://next.example.com"}', method: 'POST',
     })
+  })
+
+  it('uses same-origin fixed paths for the skill catalog and its detail, dropping SHA from the projection', async () => {
+    const summary = {
+      id: '7001',
+      skillId: 'code-review-ent',
+      displayName: '企业代码评审技能包',
+      description: '企业统一的代码评审检查单',
+      sourceDshVersion: '0.2.0-rc.2',
+      sizeBytes: 2048,
+      skillCount: 1,
+      updatedAt: '2026-09-30T10:00:00Z',
+    }
+    const detail = {
+      ...summary,
+      versionId: '9001',
+      sha256: 'a'.repeat(64),
+      skills: [{ name: 'code-review', description: '按检查单评审改动', modelInvocable: true, userInvocable: true }],
+    }
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input)
+      if (path.endsWith('/skills')) return ok([summary])
+      if (path.endsWith('/skills/7001')) return ok(detail)
+      throw new Error(`unexpected path ${path}`)
+    })
+    const api = createEnterpriseLocalApi(fetcher)
+    const signal = new AbortController().signal
+    await expect(api.skills(signal)).resolves.toEqual([{ ...summary, versionId: '', skills: [] }])
+    const projected = await api.skillDetail('7001', signal)
+    expect(projected).toMatchObject({ versionId: '9001', skillCount: 1 })
+    expect(JSON.stringify(projected)).not.toMatch(/sha256/i)
+    expect(fetcher.mock.calls.map(call => String(call[0]))).toEqual([
+      '/enterprise/api/v1/local/skills',
+      '/enterprise/api/v1/local/skills/7001',
+    ])
   })
 
   it('refreshes account state with one JSON request', async () => {

@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 React 的 useSyncExternalStore、Lucide 的 SunMoon（14px，同官方菜单行图标位），以及宿主 ui-theme 服务的 getTheme/setTheme 与 theme/change 事件
  * [OUTPUT]: 对外提供偏好词表 ENTERPRISE_THEME_PREFERENCES 与窄化 isEnterpriseThemePreference、官方主题只读源 createEnterpriseThemeSource/EnterpriseThemeSource（服务晚到时补发通知）、共享订阅 useEnterpriseTheme、选项组模型 enterpriseThemeRow、点击写入 selectEnterpriseTheme 与分段组件 EnterpriseThemeOptionGroup
- * [POS]: dsh-ui 个人中心菜单内的外观选项组；把官方主题偏好翻译成「读回/写入/订阅」三个端口，不持有第二份偏好，也不直接改 DOM class。分段几何照官方 ui-primitives/lib/SegmentedControl.module.css，样式表归 account-menu 的 ENTERPRISE_MENU_STYLES 持有（本组只出现在菜单里，菜单视觉因此只有一个真源）
+ * [POS]: dsh-ui 个人中心菜单内的外观选项组；把官方主题偏好翻译成「读回/写入/订阅」三个端口，不持有第二份偏好，也不直接改 DOM class。分段几何照官方 ui-primitives/lib/SegmentedControl.module.css，样式表归 menu-styles 的 ENTERPRISE_MENU_STYLES 持有（本组只出现在菜单里，菜单视觉因此只有一个真源）
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -145,7 +145,7 @@ export interface EnterpriseThemeOptionGroupProps {
 
 /**
  * 菜单内的外观选项组：只读官方偏好决定选中态，点击写回官方主题运行时。
- * 全部几何与交互态由 account-menu 的 `ENTERPRISE_MENU_STYLES` 持有（这一组只出现在菜单里，
+ * 全部几何与交互态由 menu-styles 的 `ENTERPRISE_MENU_STYLES` 持有（这一组只出现在菜单里，
  * 菜单视觉因此只有一个真源），这里只给类名与 ARIA。
  */
 export function EnterpriseThemeOptionGroup(props: EnterpriseThemeOptionGroupProps): ReactNode {

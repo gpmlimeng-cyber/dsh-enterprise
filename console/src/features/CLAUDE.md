@@ -12,5 +12,8 @@ members/: 产品成员、扁平用户组、OIDC/LDAP/LOCAL 身份接入、LDAP �
 models/: Provider 与受管模型目录、三协议配置、模型发现和 Harness 能力声明管理；局部地图见 models/CLAUDE.md。
 plugins/: 插件版本、发布状态、分配事实和设备库存管理；局部地图见 plugins/CLAUDE.md。
 presets/: 企业 .dshpreset 配方目录、发布状态与 ALL/USER 可见范围管理；局部地图见 presets/CLAUDE.md。
+skills/: 企业 .dshskill 技能包、包内多 SKILL.md 条目的 frontmatter 投影、发布状态与 ALL/USER 可见范围管理；局部地图见 skills/CLAUDE.md。
+branding/: 企业品牌名称/LOGO/欢迎语编辑、登录弹窗预览、发布与历史 revision 回滚；局部地图见 branding/CLAUDE.md。
+feedback/: 员工反馈的按状态分诊列表、详情弹窗（诊断 + 附件预览）与冻结链路状态流转；局部地图见 feedback/CLAUDE.md。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

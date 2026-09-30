@@ -1,0 +1,251 @@
+name: 'publish'
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  get-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version number
+        id: get_version
+        run: |
+          version=$(jq -r '.version' src-tauri/tauri.conf.json)
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+  get-product-name:
+    runs-on: ubuntu-latest
+    outputs:
+      product_name: ${{ steps.get_product_name.outputs.product_name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get product name
+        id: get_product_name
+        run: |
+          product_name=$(jq -r '.productName' src-tauri/tauri.conf.json)
+          echo "product_name=$product_name" >> $GITHUB_OUTPUT
+
+  publish-tauri:
+    needs: [get-version, get-product-name]
+    env:
+      VERSION: ${{ needs.get-version.outputs.version }}
+      PRODUCT_NAME: ${{ needs.get-product-name.outputs.product_name }}
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'macos-latest'
+            arch: 'aarch64'
+            args: '--target aarch64-apple-darwin'
+          - platform: 'macos-latest'
+            arch: 'x86_64'
+            args: '--target x86_64-apple-darwin'
+          - platform: 'ubuntu-22.04'
+            args: '--no-bundle'
+          - platform: 'windows-latest'
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          standalone: true
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'pnpm'
+
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: install dependencies (ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: install frontend dependencies
+        run: |
+          pnpm install --no-frozen-lockfile
+
+      - name: configure desktop app
+        shell: bash
+        run: |
+          cat << 'EOF' > packages/jingyun-dsh/desktop-config.json
+          {
+            "domain": "https://demo.jingyun.online/",
+            "custom_name": "Jingyun.Studio",
+            "custom_logo": ""
+          }
+          EOF
+
+      - name: Cache runtimes (node & python)
+        uses: actions/cache@v4
+        with:
+          path: |
+            src-tauri/resources/vendor/node
+            src-tauri/resources/vendor/python
+          key: runtimes-${{ matrix.platform }}-${{ matrix.arch || 'default' }}-${{ hashFiles('scripts/download_runtimes.js') }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: 'src-tauri -> target'
+          cache-all-targets: 'true'
+
+      - name: build
+        uses: tauri-apps/tauri-action@v0
+        with:
+          args: ${{ matrix.args }}
+
+      - name: Create artifacts directory
+        run: mkdir -p artifacts
+
+      - name: Fix macOS bundle signature and repack DMG
+        if: matrix.platform == 'macos-latest'
+        shell: bash
+        env:
+          ARCH_ALIAS: ${{ matrix.arch == 'x86_64' && 'x64' || matrix.arch }}
+        run: |
+          bash scripts/fix_macos_build.sh \
+            "src-tauri/target/${{ matrix.arch }}-apple-darwin/release/bundle/macos/${{ env.PRODUCT_NAME }}.app" \
+            "src-tauri/target/${{ matrix.arch }}-apple-darwin/release/bundle/dmg/${{ env.PRODUCT_NAME }}_${{ env.VERSION }}_${{ env.ARCH_ALIAS }}.dmg" \
+            "${{ env.PRODUCT_NAME }}"
+
+      - name: Copy windows to release assets
+        if: matrix.platform == 'windows-latest'
+        shell: bash
+        run: |
+          cp "src-tauri/target/release/bundle/nsis/${{ env.PRODUCT_NAME }}_${{ env.VERSION }}_x64-setup.exe" "artifacts/${{ env.PRODUCT_NAME }}_${{ env.VERSION }}_windows_x64-setup.exe"
+          cd src-tauri/target/release
+          if [ -f "jingyun-dsh-client.exe" ] && [ ! -f "${{ env.PRODUCT_NAME }}.exe" ]; then
+            cp "jingyun-dsh-client.exe" "${{ env.PRODUCT_NAME }}.exe"
+          fi
+          if [ ! -d "resources" ] && [ -d "../../resources" ]; then
+            cp -r ../../resources resources
+          fi
+          rm -rf data
+          mkdir -p data
+          rm -f "${{ env.PRODUCT_NAME }}_${{ env.VERSION }}_windows_x64.zip"
+          7z a "${{ env.PRODUCT_NAME }}_${{ env.VERSION }}_windows_x64.zip" "${{ env.PRODUCT_NAME }}.exe" resources data
+          cd -
+          cp "src-tauri/target/release/${{ env.PRODUCT_NAME }}_${{ env.VERSION }}_windows_x64.zip" "artifacts/${{ env.PRODUCT_NAME }}_${{ env.VERSION }}_windows_x64.zip"
+
+      - name: Copy linux to release assets
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          cd src-tauri/target/release
+          if [ -f "jingyun-dsh-client" ] && [ ! -f "${{ env.PRODUCT_NAME }}" ]; then
+            cp "jingyun-dsh-client" "${{ env.PRODUCT_NAME }}"
+          fi
+          if [ ! -d "resources" ] && [ -d "../../resources" ]; then
+            cp -r ../../resources resources
+          fi
+          rm -rf data
+          mkdir -p data
+          EXTRA_ITEMS="data"
+          if [ -d "resources" ]; then
+            EXTRA_ITEMS="resources data"
+          fi
+          tar -czf "${{ env.PRODUCT_NAME }}_${{ env.VERSION }}_linux_amd64.tar.gz" "${{ env.PRODUCT_NAME }}" $EXTRA_ITEMS
+          cd -
+          cp "src-tauri/target/release/${{ env.PRODUCT_NAME }}_${{ env.VERSION }}_linux_amd64.tar.gz" "artifacts/${{ env.PRODUCT_NAME }}_${{ env.VERSION }}_linux_amd64.tar.gz"
+
+      - name: Copy macos to release assets
+        if: matrix.platform == 'macos-latest'
+        env:
+          ARCH_ALIAS: ${{ matrix.arch == 'x86_64' && 'x64' || matrix.arch }}
+        run: |
+          cp "src-tauri/target/${{ matrix.arch }}-apple-darwin/release/bundle/dmg/${{ env.PRODUCT_NAME }}_${{ env.VERSION }}_${{ env.ARCH_ALIAS }}.dmg" "artifacts/${{ env.PRODUCT_NAME }}_${{ env.VERSION }}_macos_${{ matrix.arch }}.dmg"
+          cd "src-tauri/target/${{ matrix.arch }}-apple-darwin/release/bundle/macos"
+          if [ -d "${{ env.PRODUCT_NAME }}.app" ]; then
+            zip -r -y "$GITHUB_WORKSPACE/artifacts/${{ env.PRODUCT_NAME }}_${{ env.VERSION }}_macos_${{ matrix.arch }}.zip" "${{ env.PRODUCT_NAME }}.app"
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets-${{ matrix.platform }}-${{ matrix.arch || 'default' }}
+          path: artifacts/*
+
+  create-release:
+    needs: [publish-tauri, get-version, get-product-name]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      PRODUCT_NAME: ${{ needs.get-product-name.outputs.product_name }}
+      VERSION: ${{ needs.get-version.outputs.version }}
+      OSS_ACCESS_KEY_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
+      OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
+      OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
+      OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          name: Release v${{ needs.get-version.outputs.version }}
+          files: |
+            artifacts/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+
+      # 准备不含版本号的固定安装包并同步至 OSS
+      - name: Prepare unversioned files for OSS
+        if: env.OSS_ACCESS_KEY_ID != ''
+        run: |
+          mkdir -p oss_uploads
+          # 1. 提取唯一的 Windows 安装包 -> Jingyun-DSH-Windows.exe
+          for f in artifacts/*windows*setup.exe artifacts/*-setup.exe; do
+            [ -f "$f" ] || continue
+            cp "$f" "oss_uploads/Jingyun-DSH-Windows.exe"
+            echo "Prepared Windows: Jingyun-DSH-Windows.exe"
+            break
+          done
+          # 2. 提取唯一的 macOS 安装包 -> Jingyun-DSH-Mac.dmg (优先 Apple Silicon aarch64，兼顾主流 Mac)
+          for f in artifacts/*macos*aarch64*.dmg artifacts/*macos*.dmg artifacts/*.dmg; do
+            [ -f "$f" ] || continue
+            cp "$f" "oss_uploads/Jingyun-DSH-Mac.dmg"
+            echo "Prepared macOS: Jingyun-DSH-Mac.dmg"
+            break
+          done
+          ls -lh oss_uploads/
+
+      - name: Setup ossutil
+        if: env.OSS_ACCESS_KEY_ID != ''
+        uses: manyuanrong/setup-ossutil@v2.0
+        with:
+          endpoint: ${{ secrets.OSS_ENDPOINT }}
+          access-key-id: ${{ secrets.OSS_ACCESS_KEY_ID }}
+          access-key-secret: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
+
+      - name: Upload to Aliyun OSS (uploads/)
+        if: env.OSS_ACCESS_KEY_ID != ''
+        run: |
+          ossutil cp -r -f oss_uploads/ "oss://${OSS_BUCKET}/uploads/"
+          echo "Successfully uploaded unversioned assets to oss://${OSS_BUCKET}/uploads/"

@@ -1,0 +1,40 @@
+{
+  "data": {
+    "id": "1901600000000000001",
+    "type": "issue",
+    "status": "new",
+    "description": "管理端详情不得暴露内容寻址路径或内容哈希。",
+    "contact": null,
+    "submitterId": "202",
+    "attachmentCount": 1,
+    "occurredAt": "2026-09-30T03:00:00Z",
+    "revision": 0,
+    "statusNote": null,
+    "statusChangedBy": null,
+    "statusChangedAt": null,
+    "createdAt": "2026-09-30T03:00:01Z",
+    "updatedAt": "2026-09-30T03:00:01Z",
+    "diagnostics": {
+      "pluginVersion": "0.1.0",
+      "hostVersion": "0.1.7-rc.2",
+      "os": "darwin-arm64",
+      "installationId": "install-01",
+      "lastErrorCode": null
+    },
+    "attachments": [
+      {
+        "id": "1901600000000000101",
+        "seq": 1,
+        "url": "/enterprise/admin/v1/feedback/1901600000000000001/attachments/1901600000000000101/content",
+        "contentType": "image/png",
+        "extension": "png",
+        "sizeBytes": 204800,
+        "width": 1280,
+        "height": 800,
+        "artifactRef": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "localPath": "/var/lib/enterprise/artifacts/feedback/sha256/aa/aaaa"
+      }
+    ]
+  },
+  "requestId": "req_01K2ZJ4Y8K7W4R5S6T7V8X9YZA"
+}

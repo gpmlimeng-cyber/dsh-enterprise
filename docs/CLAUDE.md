@@ -11,8 +11,11 @@ owndsh-work-platform.md: 产品预研，定义企业工作平台形态、能力�
 owndsh-governance-mvp-design.md: MVP 实施真源，定义冻结决策、模块、API、数据表、测试、T00-T23 顺序和验收标准；其中 UI 交互面（shell.overlay 全屏门禁、sidebar 状态入口、隔离 settings scope 挂载 pi-ai）为 2026-08-17 设计基线记载，现状见 plugin/packages/ui/README.md 与 plugin/packages/bundle/CLAUDE.md。
 phase-2-product-console-design.md: 第二阶段产品化实施真源，冻结 TanStack/Beautiful UI 控制台、成员多身份、LDAP 目录组映射、集合授权，以及 TOKEN 多窗口、组织级供应商与其他资源 RATE 瞬时限流结构。
 branding-customization-plan.md: 品牌自定义功能实施规划，定义后台集中配置（LOGO/名称/主视觉/主题色）到 dshent-plugin 客户端自有界面呈现的分层归位、免登录公开只读接口契约、本地缓存与内置默认回退、B1–B5 分期验收、外部资源与官方品牌错位风险，以及官方 UI 零分叉边界。
+feedback-feature-spec.md: 问题反馈功能规格真源，固化表单字段（含 occurredAt 随 type 显隐的条件规则）、与截图的主动差异、Host 代取令牌的提交链路、管理端状态机与审计/权限登记要点，以及一期/二期边界。
+personal-center-menu-changes.md: 个人中心菜单变更队列（ui 包串行）：LOGO 形状兼容、重载/重启、检查更新+更新按钮、帮助与反馈、以及"末行为会话动作位"的登录/退出登录相呼应，含逐项验收与统一收口动作。
 desktop-2.0.3-harness-rc2-migration.md: 历史 Desktop 2.0.3 迁移证据；当前插件基线已改为官方 Harness Desktop 0.1.7-rc.2，本文不再是发行真源。
 desktop-client.md: 员工桌面客户端与插件基线说明，锁定官方 Harness Desktop 0.1.7-rc.2，并记录企业打包层、本地安装和旧映射版本的边界。
+desktop-restart-reload-reference.md: 桌面端「重启应用 / 重新载入页面」参考真源，锁定上游 dsh-desktop 的调用面（渲染进程 IPC / 同源 HTTP / Host 服务）、"重载≠应用 Host 侧变化"红线、重启次序与失败反馈缺口，以及一次性 restartToken 式的待生效变更范式。
 gateway-real-model-validation-20260906.md: V29 与取消修复的 10 次真实 Responses 调用证据，记录 Spring flush 根因、667 毫秒取消清理、108 项后端回归及已获准请求超额结算规则。
 t00-baseline-acceptance.md: T00 独立验收证据，记录初始导入与 rc.7 重新基线的环境、命令、真实 consumer 和退出结论。
 t01-technical-spike-acceptance.md: T01 独立验收证据，保留 Typert 路线误判分析并记录官方插件路线、正式模块、测试与真实 Harness Web 结果。

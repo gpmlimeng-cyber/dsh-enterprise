@@ -1,0 +1,11 @@
+{
+  "type": "issue",
+  "description": "诊断信息不应承载令牌或本地路径。",
+  "consent": true,
+  "diagnostics": {
+    "pluginVersion": "0.1.0",
+    "accessToken": "eyJhbGciOiJIUzI1NiJ9.forged",
+    "installationId": "/Users/developer/.dsh/enterprise/install.json",
+    "lastErrorCode": "ENT_TIMEOUT"
+  }
+}

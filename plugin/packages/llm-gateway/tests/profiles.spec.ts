@@ -38,20 +38,23 @@ describe('buildEnterpriseProfiles', () => {
       'http://127.0.0.1:3000/v1',
       'Bearer local-secret',
     )
+    // 产品裁决（2026-09-30，去重）：默认模型只由稳定入口 `enterprise` 承载，不再进协议组；
+    // 本 fixture 的默认模型是 openai-responses 上唯一一个，故该协议组整体不产出（4 → 3）。
     expect(Object.keys(profiles)).toEqual([
       'enterprise-openai-completions',
-      'enterprise-openai-responses',
       'enterprise-anthropic-messages',
       'enterprise',
     ])
     expect(profiles['enterprise']?.api).toBe('openai-responses')
-    expect(profiles['enterprise']?.models?.[0]).toMatchObject({
-      id: ENTERPRISE_DEFAULT_MODEL,
-      reasoningEfforts: { off: null, xhigh: 'xhigh' },
-    })
-    expect(profiles['enterprise-openai-responses']?.retryPolicy).toBeUndefined()
-    expect(profiles['enterprise-openai-responses']?.baseURL).toBe('http://127.0.0.1:3000/v1')
-    expect(profiles['enterprise-openai-responses']?.headers).toEqual({ authorization: 'Bearer local-secret' })
+    // 产品裁决（2026-09-30）：默认入口不再改写模型 id——改写会让官方选择器显示
+    // `enterprise/enterprise/default`，且选中后在目录里找不到该 id、模型从列表消失。
+    expect(profiles['enterprise']?.models).toHaveLength(1)
+    expect(profiles['enterprise']?.models?.[0]).toMatchObject({ reasoningEfforts: { off: null, xhigh: 'xhigh' } })
+    expect(JSON.stringify(profiles['enterprise'])).not.toContain(ENTERPRISE_DEFAULT_MODEL)
+    // 去重后 openai-responses 组已不产出（默认模型只在稳定入口），改在存活组上断言同一批性质。
+    expect(profiles['enterprise-openai-completions']?.retryPolicy).toBeUndefined()
+    expect(profiles['enterprise-openai-completions']?.baseURL).toBe('http://127.0.0.1:3000/v1')
+    expect(profiles['enterprise-openai-completions']?.headers).toEqual({ authorization: 'Bearer local-secret' })
     expect(profiles['enterprise-anthropic-messages']?.baseURL).toBe('http://127.0.0.1:3000')
     expect(buildEnterpriseProfiles(undefined, 'http://127.0.0.1:3000/v1', 'Bearer local-secret')).toEqual({})
   })

@@ -1,12 +1,19 @@
 /**
- * [INPUT]: 依赖 Node crypto 生成 PKCE entropy，依赖 node:http 监听 127.0.0.1 回环 callback
- * [OUTPUT]: 对外提供 createPkceS256、startLoopbackCallback 与稳定 PkceLoopbackError
- * [POS]: platform-client 的浏览器登录事务原语，只管理 verifier/state/callback 生命周期，不接触平台 Token
+ * [INPUT]: 依赖 Node crypto 生成 PKCE entropy，依赖 node:http 监听 127.0.0.1 回环 callback，依赖 callback-page 判定回调语言（缺省中文）并渲染浏览器可见结果页
+ * [OUTPUT]: 对外提供 createPkceS256、startLoopbackCallback、稳定 PkceLoopbackError 与回调语言诊断契约
+ * [POS]: platform-client 的浏览器登录事务原语，只管理 verifier/state/callback 生命周期与回环结果页，不接触平台 Token
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { createHash, randomBytes } from 'node:crypto'
-import { createServer, type Server } from 'node:http'
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
+import {
+  pickCallbackLocale,
+  renderCallbackPage,
+  type CallbackBranding,
+  type CallbackLocale,
+  type CallbackOutcome,
+} from './callback-page.js'
 
 /** 供 platform-client 状态机消费的稳定本地失败码。 */
 export type PkceLoopbackErrorCode =
@@ -46,10 +53,34 @@ export interface LoopbackCallback {
   cancel(): void
 }
 
+/**
+ * 回环回调收到的语言线索与其判定结论：下次「页面为何是英文」无需复现即可定性。
+ * 原文已在 pkce 侧截断到 {@link ACCEPT_LANGUAGE_LOG_LIMIT} 字符，且 `Accept-Language` 本身不含令牌。
+ */
+export interface CallbackRequestDiagnostics {
+  /** 原始 `Accept-Language`，已截断；请求头缺失或非单值字符串时为 `''`。 */
+  readonly acceptLanguage: string
+  /** 据此判定的回调页语言。 */
+  readonly locale: CallbackLocale
+}
+
+/** 诊断留痕的原文上限：足够看清语言列表，又不至于把畸形头整体灌进日志。 */
+export const ACCEPT_LANGUAGE_LOG_LIMIT = 200
+
 export interface LoopbackCallbackOptions {
   readonly expectedState: string
   readonly timeoutMs: number
   readonly signal?: AbortSignal
+  /**
+   * 结果页品牌来源，通常直接传 `EnterpriseBrandingCache.document`（只用已缓存品牌，不发新请求）。
+   * 返回 null/undefined 或抛错都回落内置 `DSH Enterprise`，品牌永远不阻断登录结果页。
+   */
+  readonly branding?: () => Promise<CallbackBranding | null | undefined>
+  /**
+   * 回环回调的诊断留痕端口，由组合层绑定既有 logger；缺省即不留痕，不影响登录。
+   * 只上报截断后的 `Accept-Language` 原文与判定结论，不含任何令牌。
+   */
+  readonly onCallbackRequest?: (info: CallbackRequestDiagnostics) => void
 }
 
 /** 使用 256 bit entropy 创建 verifier 及其 base64url SHA-256 challenge。 */
@@ -86,17 +117,24 @@ export async function startLoopbackCallback(
     rejectResult = reject
   })
 
-  const stop = (): void => {
+  let stopped = false
+  const stopServer = (): void => {
+    if (stopped) return
+    stopped = true
     clearTimeout(timeout)
     options.signal?.removeEventListener('abort', cancel)
     server.closeAllConnections()
     server.close()
   }
-  const settleFailure = (error: PkceLoopbackError): void => {
+  /**
+   * 结算失败事务。`deferStop` 为 true 时把停监听交给响应刷出回调，
+   * 否则浏览器可能只看到 connection reset 而看不到失败页。
+   */
+  const settleFailure = (error: PkceLoopbackError, deferStop = false): void => {
     if (settled) return
     settled = true
     rejectResult(error)
-    stop()
+    if (!deferStop) stopServer()
   }
   const cancel = (): void => {
     settleFailure(new PkceLoopbackError('ENT_AUTH_CANCELLED', 'PKCE login was cancelled'))
@@ -105,32 +143,90 @@ export async function startLoopbackCallback(
     settleFailure(new PkceLoopbackError('ENT_AUTH_TIMEOUT', 'PKCE callback timed out'))
   }, options.timeoutMs)
 
-  server = createServer((request, response) => {
-    const url = new URL(request.url ?? '/', 'http://127.0.0.1')
+  /** 结果页是浏览器唯一可见面：先写完整 HTML，响应刷出后才释放端口。 */
+  const respond = (response: ServerResponse, status: number, body: string): void => {
+    const payload = Buffer.from(body, 'utf8')
+    response.writeHead(status, {
+      'cache-control': 'no-store',
+      'content-length': payload.byteLength,
+      'content-type': 'text/html; charset=utf-8',
+      'referrer-policy': 'no-referrer',
+      'x-content-type-options': 'nosniff',
+    })
+    // 正常刷出走 end 回调；浏览器中途断开时靠 close 事件兜底，端口不会悬着。
+    response.once('close', stopServer)
+    response.end(payload, () => stopServer())
+  }
+
+  /** 品牌只作装饰：取不到就用内置名，绝不因品牌故障改变结果页语义。 */
+  const renderPage = async (outcome: CallbackOutcome, locale: CallbackLocale): Promise<string> => {
+    let branding: CallbackBranding | null = null
+    try {
+      branding = (await options.branding?.()) ?? null
+    } catch {
+      branding = null
+    }
+    return renderCallbackPage({ branding, locale, outcome })
+  }
+
+  const handleRequest = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
+    const header = request.headers['accept-language']
+    // 语言只判定一次，诊断留痕与实际渲染共用同一结论，避免日志与页面说法不一致。
+    const acceptLanguage = typeof header === 'string' ? header : ''
+    const locale = pickCallbackLocale(acceptLanguage)
+    let url: URL
+    try {
+      url = new URL(request.url ?? '/', 'http://127.0.0.1')
+    } catch {
+      response.writeHead(400).end()
+      return
+    }
     if (request.method !== 'GET' || url.pathname !== '/callback') {
       response.writeHead(404).end()
       return
     }
+    // 只对真正的回环回调留痕，且只留原文截断与结论：Accept-Language 里没有令牌。
+    options.onCallbackRequest?.({
+      acceptLanguage: acceptLanguage.slice(0, ACCEPT_LANGUAGE_LOG_LIMIT),
+      locale,
+    })
     const state = url.searchParams.get('state')
     const code = url.searchParams.get('code')
+    const reported = url.searchParams.get('error')
+    if (settled) {
+      // 已结算后仍挤进来的回调（例如成功响应刷出前的并发请求）不再兑现登录，只给一页明确结论。
+      respond(response, 410, await renderPage({ reason: 'expired', status: 'failure' }, locale))
+      return
+    }
     if (state !== options.expectedState) {
-      response.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' })
-      response.end('Invalid login state')
-      settleFailure(new PkceLoopbackError('ENT_AUTH_STATE_INVALID', 'PKCE callback state mismatch'))
+      settleFailure(new PkceLoopbackError('ENT_AUTH_STATE_INVALID', 'PKCE callback state mismatch'), true)
+      respond(response, 400, await renderPage({ reason: 'state', status: 'failure' }, locale))
       return
     }
-    if (code === null || code.length === 0) {
-      response.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' })
-      response.end('Missing authorization code')
-      settleFailure(new PkceLoopbackError('ENT_AUTH_CALLBACK_INVALID', 'PKCE callback code is missing'))
+    if (reported !== null || code === null || code.length === 0) {
+      settleFailure(new PkceLoopbackError(
+        'ENT_AUTH_CALLBACK_INVALID',
+        reported === null ? 'PKCE callback code is missing' : 'PKCE callback reported an authorization error',
+      ), true)
+      respond(
+        response,
+        400,
+        await renderPage({ reason: reported === null ? 'code' : 'error', status: 'failure' }, locale),
+      )
       return
     }
-    response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' })
-    response.end('Login completed. You can close this window.')
-    if (settled) return
     settled = true
     resolveResult({ code, state })
-    stop()
+    respond(response, 200, await renderPage({ status: 'success' }, locale))
+  }
+
+  server = createServer((request, response) => {
+    void handleRequest(request, response).catch(() => {
+      if (!response.writableEnded) {
+        response.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' })
+        response.end()
+      }
+    })
   })
 
   await new Promise<void>((resolve, reject) => {

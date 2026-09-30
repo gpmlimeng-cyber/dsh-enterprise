@@ -84,7 +84,11 @@ export function buildEnterpriseProfiles(
   if (snapshot === undefined) return {}
   const profiles: EnterpriseProfiles = {}
   for (const api of Object.keys(ROUTES) as EnterpriseApiProtocol[]) {
-    const models = snapshot.models.filter(model => model.apiProtocol === api).map(model => modelProfile(model))
+    // 产品裁决（2026-09-30，去重）：默认模型已由下方的稳定入口（`enterprise/default`）承载，
+    // 不再进协议组——否则「只有一个模型且它就是默认」时，同一个模型会在模型列表里出现两次。
+    const models = snapshot.models
+      .filter(model => model.apiProtocol === api && model.isDefault !== true)
+      .map(model => modelProfile(model))
     if (models.length > 0) profiles[ROUTES[api]] = providerProfile(api, baseURL, authorization, DISPLAY_NAMES[api], models)
   }
   const selected = snapshot.models.find(model => model.isDefault)
@@ -94,7 +98,7 @@ export function buildEnterpriseProfiles(
       baseURL,
       authorization,
       '企业模型',
-      [modelProfile(selected, ENTERPRISE_DEFAULT_MODEL, `${selected.name ?? selected.alias}（企业默认）`)],
+      [modelProfile(selected)],
     )
   }
   return profiles

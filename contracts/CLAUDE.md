@@ -5,10 +5,10 @@
 成员清单
 
 README.md: 协议真源使用规则，定义手写与生成边界、双端消费方式和漂移门禁。
-enterprise-openapi.yaml: OpenAPI 3.1 逻辑协议导航根，定义 Bearer 与 HTTP/HTTPS 管理端 Cookie、40 个稳定错误码和 97 个 operation，并引用受控 Path Item/schema 分片。
+enterprise-openapi.yaml: OpenAPI 3.1 逻辑协议导航根，定义 Bearer 与 HTTP/HTTPS 管理端 Cookie、56 个稳定错误码、107 个 path 与 127 个 operation，并引用受控 Path Item/schema 分片。
 plugin-core-packages.json: 企业核心包清单唯一真源，服务端上传验包与客户端安装信任锚共同消费；双端任一侧漂移、或出现工作区不存在的死包名，都会被门禁测试拦下。
-paths/: identity/auth/member/device/model/quota/gateway/plugin/session/audit operation 分片目录；局部地图见 paths/CLAUDE.md。
-components/: 身份治理、认证、成员、设备、模型、配额、网关、插件、Session 与审计协议 schema 分片；局部地图见 components/CLAUDE.md。
+paths/: identity/auth/member/device/model/quota/gateway/plugin/skill/preset/session/audit/branding/feedback operation 分片目录；局部地图见 paths/CLAUDE.md。
+components/: 身份治理、认证、成员、设备、模型、配额、网关、插件、技能、配方、Session、审计、品牌与反馈协议 schema 分片；局部地图见 components/CLAUDE.md。
 fixtures/auth-sources-success.json: T05 登录事务、CSRF 与公开身份源成功响应样例。
 fixtures/device-list-success.json: T05 管理设备 cursor 列表成功响应样例。
 fixtures/device-success.json: T05 单设备 enroll/heartbeat/get/revoke 统一成功响应样例。
@@ -50,6 +50,19 @@ fixtures/session-export-success.json: T16 官方 v0 header、精确 JSONL payloa
 fixtures/admin-session-list-success.json: T16 不解密正文的管理 metadata cursor 列表成功样例。
 fixtures/session-deleted-success.json: T16 正文清除并保留 DELETED tombstone 成功响应样例。
 fixtures/audit-event-list-success.json: T19 同 requestId 的模型 accepted/finished 双记录与封闭 metadata 成功响应样例。
+fixtures/branding-success.json: 品牌 B1 公开白名单成功样例，只含 revision、名称、三个 LOGO 引用与欢迎语。
+fixtures/branding-leak.json: 公开品牌响应夹带 organizationId/members 的严格 schema 负例，证明企业数据无法进入公开面。
+fixtures/feedback-submission-success.json: 反馈 multipart metadata 正例，含选填时区时间、联系方式与五项白名单诊断。
+fixtures/feedback-description-too-long.json: 511 字描述负例，证明 510 字上限由 schema 而非服务端事后裁剪。
+fixtures/feedback-consent-missing.json: consent=false 负例，证明未勾选同意在协议层就被拒绝。
+fixtures/feedback-diagnostics-leak.json: diagnostics 夹带 accessToken 与本地 installationId 的负例，证明诊断键集封闭。
+fixtures/feedback-attachments-too-many.json: 4 个附件 part 的负例，证明最多 3 张位图的协议上限。
+fixtures/feedback-svg-attachment.json: 附件 MIME 白名单负例（image/svg+xml），证明矢量格式不在协议内。
+fixtures/feedback-submission-response-success.json: 提交回执成功样例，只回 ID/类型/状态/发生时间/附件数/创建时间。
+fixtures/feedback-admin-list-success.json: 管理端反馈 keyset 列表样例，含 triaged 与 new 两种状态投影。
+fixtures/feedback-admin-detail-success.json: 管理端反馈详情样例，含白名单诊断与两个只暴露鉴权 URL 的附件。
+fixtures/feedback-status-change-success.json: 状态流转后的详情样例（resolved + 备注 + revision 2）。
+fixtures/feedback-detail-leak.json: 详情附件夹带 artifactRef/localPath 的严格 schema 负例，证明内容寻址路径无法进入协议。
 fixtures/protocol-page-success.json: 带品牌 ID、revision 和 cursor page metadata 的成功响应样例。
 fixtures/protocol-success.json: 最小统一成功响应样例，验证 data/requestId envelope。
 fixtures/quota-error.json: 带固定 QuotaExceededDetails 的第 17 节失败响应样例。

@@ -17,9 +17,12 @@ import { Route as ConsoleIndexRouteImport } from './routes/_console.index'
 import { Route as ConsoleAccessRouteImport } from './routes/_console.access'
 import { Route as ConsoleAccountRouteImport } from './routes/_console.account'
 import { Route as ConsoleActivityRouteImport } from './routes/_console.activity'
+import { Route as ConsoleBrandingRouteImport } from './routes/_console.branding'
+import { Route as ConsoleFeedbackRouteImport } from './routes/_console.feedback'
 import { Route as ConsoleMembersRouteImport } from './routes/_console.members'
 import { Route as ConsolePluginsRouteImport } from './routes/_console.plugins'
 import { Route as ConsolePresetsRouteImport } from './routes/_console.presets'
+import { Route as ConsoleSkillsRouteImport } from './routes/_console.skills'
 import { Route as ExamplesIndexRouteImport } from './routes/examples.index'
 import { Route as ExamplesHarnessRouteImport } from './routes/examples.harness'
 import { Route as ConsoleAccountIndexRouteImport } from './routes/_console.account.index'
@@ -65,6 +68,16 @@ const ConsoleActivityRoute = ConsoleActivityRouteImport.update({
   path: '/activity',
   getParentRoute: () => ConsoleRoute,
 } as any)
+const ConsoleBrandingRoute = ConsoleBrandingRouteImport.update({
+  id: '/branding',
+  path: '/branding',
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleFeedbackRoute = ConsoleFeedbackRouteImport.update({
+  id: '/feedback',
+  path: '/feedback',
+  getParentRoute: () => ConsoleRoute,
+} as any)
 const ConsoleMembersRoute = ConsoleMembersRouteImport.update({
   id: '/members',
   path: '/members',
@@ -78,6 +91,11 @@ const ConsolePluginsRoute = ConsolePluginsRouteImport.update({
 const ConsolePresetsRoute = ConsolePresetsRouteImport.update({
   id: '/presets',
   path: '/presets',
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleSkillsRoute = ConsoleSkillsRouteImport.update({
+  id: '/skills',
+  path: '/skills',
   getParentRoute: () => ConsoleRoute,
 } as any)
 const ExamplesIndexRoute = ExamplesIndexRouteImport.update({
@@ -114,9 +132,12 @@ export interface FileRoutesByFullPath {
   '/access': typeof ConsoleAccessRoute
   '/account': typeof ConsoleAccountRouteWithChildren
   '/activity': typeof ConsoleActivityRoute
+  '/branding': typeof ConsoleBrandingRoute
+  '/feedback': typeof ConsoleFeedbackRoute
   '/members': typeof ConsoleMembersRoute
   '/plugins': typeof ConsolePluginsRoute
   '/presets': typeof ConsolePresetsRoute
+  '/skills': typeof ConsoleSkillsRoute
   '/examples/harness': typeof ExamplesHarnessRoute
   '/examples/': typeof ExamplesIndexRoute
   '/account/security': typeof ConsoleAccountSecurityRoute
@@ -128,9 +149,12 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/access': typeof ConsoleAccessRoute
   '/activity': typeof ConsoleActivityRoute
+  '/branding': typeof ConsoleBrandingRoute
+  '/feedback': typeof ConsoleFeedbackRoute
   '/members': typeof ConsoleMembersRoute
   '/plugins': typeof ConsolePluginsRoute
   '/presets': typeof ConsolePresetsRoute
+  '/skills': typeof ConsoleSkillsRoute
   '/examples/harness': typeof ExamplesHarnessRoute
   '/': typeof ConsoleIndexRoute
   '/examples': typeof ExamplesIndexRoute
@@ -147,9 +171,12 @@ export interface FileRoutesById {
   '/_console/access': typeof ConsoleAccessRoute
   '/_console/account': typeof ConsoleAccountRouteWithChildren
   '/_console/activity': typeof ConsoleActivityRoute
+  '/_console/branding': typeof ConsoleBrandingRoute
+  '/_console/feedback': typeof ConsoleFeedbackRoute
   '/_console/members': typeof ConsoleMembersRoute
   '/_console/plugins': typeof ConsolePluginsRoute
   '/_console/presets': typeof ConsolePresetsRoute
+  '/_console/skills': typeof ConsoleSkillsRoute
   '/examples/harness': typeof ExamplesHarnessRoute
   '/_console/': typeof ConsoleIndexRoute
   '/examples/': typeof ExamplesIndexRoute
@@ -167,9 +194,12 @@ export interface FileRouteTypes {
     | '/access'
     | '/account'
     | '/activity'
+    | '/branding'
+    | '/feedback'
     | '/members'
     | '/plugins'
     | '/presets'
+    | '/skills'
     | '/examples/harness'
     | '/examples/'
     | '/account/security'
@@ -181,9 +211,12 @@ export interface FileRouteTypes {
     | '/login'
     | '/access'
     | '/activity'
+    | '/branding'
+    | '/feedback'
     | '/members'
     | '/plugins'
     | '/presets'
+    | '/skills'
     | '/examples/harness'
     | '/'
     | '/examples'
@@ -199,9 +232,12 @@ export interface FileRouteTypes {
     | '/_console/access'
     | '/_console/account'
     | '/_console/activity'
+    | '/_console/branding'
+    | '/_console/feedback'
     | '/_console/members'
     | '/_console/plugins'
     | '/_console/presets'
+    | '/_console/skills'
     | '/examples/harness'
     | '/_console/'
     | '/examples/'
@@ -276,6 +312,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConsoleActivityRouteImport
       parentRoute: typeof ConsoleRoute
     }
+    '/_console/branding': {
+      id: '/_console/branding'
+      path: '/branding'
+      fullPath: '/branding'
+      preLoaderRoute: typeof ConsoleBrandingRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    '/_console/feedback': {
+      id: '/_console/feedback'
+      path: '/feedback'
+      fullPath: '/feedback'
+      preLoaderRoute: typeof ConsoleFeedbackRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
     '/_console/members': {
       id: '/_console/members'
       path: '/members'
@@ -295,6 +345,13 @@ declare module '@tanstack/react-router' {
       path: '/presets'
       fullPath: '/presets'
       preLoaderRoute: typeof ConsolePresetsRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    '/_console/skills': {
+      id: '/_console/skills'
+      path: '/skills'
+      fullPath: '/skills'
+      preLoaderRoute: typeof ConsoleSkillsRouteImport
       parentRoute: typeof ConsoleRoute
     }
     '/examples/': {
@@ -353,9 +410,12 @@ interface ConsoleRouteChildren {
   ConsoleAccessRoute: typeof ConsoleAccessRoute
   ConsoleAccountRoute: typeof ConsoleAccountRouteWithChildren
   ConsoleActivityRoute: typeof ConsoleActivityRoute
+  ConsoleBrandingRoute: typeof ConsoleBrandingRoute
+  ConsoleFeedbackRoute: typeof ConsoleFeedbackRoute
   ConsoleMembersRoute: typeof ConsoleMembersRoute
   ConsolePluginsRoute: typeof ConsolePluginsRoute
   ConsolePresetsRoute: typeof ConsolePresetsRoute
+  ConsoleSkillsRoute: typeof ConsoleSkillsRoute
   ConsoleIndexRoute: typeof ConsoleIndexRoute
 }
 
@@ -363,9 +423,12 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
   ConsoleAccessRoute: ConsoleAccessRoute,
   ConsoleAccountRoute: ConsoleAccountRouteWithChildren,
   ConsoleActivityRoute: ConsoleActivityRoute,
+  ConsoleBrandingRoute: ConsoleBrandingRoute,
+  ConsoleFeedbackRoute: ConsoleFeedbackRoute,
   ConsoleMembersRoute: ConsoleMembersRoute,
   ConsolePluginsRoute: ConsolePluginsRoute,
   ConsolePresetsRoute: ConsolePresetsRoute,
+  ConsoleSkillsRoute: ConsoleSkillsRoute,
   ConsoleIndexRoute: ConsoleIndexRoute,
 }
 

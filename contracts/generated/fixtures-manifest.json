@@ -271,6 +271,24 @@
       "zodExport": "zRuntimePresetDetail"
     },
     {
+      "file": "fixtures/skill-version-success.json",
+      "schema": "SkillVersionResponse",
+      "valid": true,
+      "zodExport": "zSkillVersionResponse"
+    },
+    {
+      "file": "fixtures/skill-package-list-success.json",
+      "schema": "SkillPackageListResponse",
+      "valid": true,
+      "zodExport": "zSkillPackageListResponse"
+    },
+    {
+      "file": "fixtures/runtime-skill-detail-success.json",
+      "schema": "RuntimeSkillDetail",
+      "valid": true,
+      "zodExport": "zRuntimeSkillDetail"
+    },
+    {
       "file": "fixtures/plugin-version-success.json",
       "schema": "PluginVersionResponse",
       "valid": true,
@@ -323,7 +341,85 @@
       "schema": "AuditEventListResponse",
       "valid": true,
       "zodExport": "zAuditEventListResponse"
+    },
+    {
+      "file": "fixtures/branding-success.json",
+      "schema": "BrandingPublicResponse",
+      "valid": true,
+      "zodExport": "zBrandingPublicResponse"
+    },
+    {
+      "file": "fixtures/branding-leak.json",
+      "schema": "BrandingPublicResponse",
+      "valid": false,
+      "zodExport": "zBrandingPublicResponse"
+    },
+    {
+      "file": "fixtures/feedback-submission-success.json",
+      "schema": "FeedbackSubmissionMetadata",
+      "valid": true,
+      "zodExport": "zFeedbackSubmissionMetadata"
+    },
+    {
+      "file": "fixtures/feedback-description-too-long.json",
+      "schema": "FeedbackSubmissionMetadata",
+      "valid": false,
+      "zodExport": "zFeedbackSubmissionMetadata"
+    },
+    {
+      "file": "fixtures/feedback-consent-missing.json",
+      "schema": "FeedbackSubmissionMetadata",
+      "valid": false,
+      "zodExport": "zFeedbackSubmissionMetadata"
+    },
+    {
+      "file": "fixtures/feedback-diagnostics-leak.json",
+      "schema": "FeedbackSubmissionMetadata",
+      "valid": false,
+      "zodExport": "zFeedbackSubmissionMetadata"
+    },
+    {
+      "file": "fixtures/feedback-attachments-too-many.json",
+      "schema": "FeedbackSubmissionForm",
+      "valid": false,
+      "zodExport": "zFeedbackSubmissionForm"
+    },
+    {
+      "file": "fixtures/feedback-svg-attachment.json",
+      "schema": "FeedbackAttachmentContentType",
+      "valid": false,
+      "zodExport": "zFeedbackAttachmentContentType"
+    },
+    {
+      "file": "fixtures/feedback-submission-response-success.json",
+      "schema": "FeedbackSubmissionResponse",
+      "valid": true,
+      "zodExport": "zFeedbackSubmissionResponse"
+    },
+    {
+      "file": "fixtures/feedback-admin-list-success.json",
+      "schema": "FeedbackListResponse",
+      "valid": true,
+      "zodExport": "zFeedbackListResponse"
+    },
+    {
+      "file": "fixtures/feedback-admin-detail-success.json",
+      "schema": "FeedbackDetailResponse",
+      "valid": true,
+      "zodExport": "zFeedbackDetailResponse"
+    },
+    {
+      "file": "fixtures/feedback-status-change-success.json",
+      "schema": "FeedbackDetailResponse",
+      "valid": true,
+      "zodExport": "zFeedbackDetailResponse"
+    },
+    {
+      "file": "fixtures/feedback-detail-leak.json",
+      "schema": "FeedbackDetailResponse",
+      "valid": false,
+      "zodExport": "zFeedbackDetailResponse"
     }
   ],
-  "protocolSha256": "b44209b7e5dfce662e0e78a7d3de8322c5c22f37033c7fb6d8f9561397f882f9"
+  "protocolSha256": "b681625ac005c3862755649f8d38c8ecb68c42d1c30b8a460253fa331960833b"
 }

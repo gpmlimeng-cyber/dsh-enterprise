@@ -1,0 +1,263 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:owndsh:contracts:FeedbackDetailResponse",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data",
+    "requestId"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "status",
+        "description",
+        "contact",
+        "submitterId",
+        "attachmentCount",
+        "occurredAt",
+        "revision",
+        "statusNote",
+        "statusChangedBy",
+        "statusChangedAt",
+        "createdAt",
+        "updatedAt",
+        "diagnostics",
+        "attachments"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,18}$"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "issue",
+            "suggestion"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "new",
+            "triaged",
+            "resolved",
+            "ignored"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 510
+        },
+        "contact": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 160
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "submitterId": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,18}$",
+          "description": "Enterprise user snowflake ID serialized as a string."
+        },
+        "attachmentCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Monotonic compare-and-swap revision safe in JavaScript.",
+          "examples": [
+            7
+          ]
+        },
+        "statusNote": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "statusChangedBy": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{0,18}$",
+              "description": "Enterprise user snowflake ID serialized as a string."
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "statusChangedAt": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "diagnostics": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "客户端自动附带的白名单诊断摘要。键集封闭且字段内容受服务端正则收窄， 令牌、会话内容与文件路径没有落点。",
+          "properties": {
+            "pluginVersion": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$"
+            },
+            "hostVersion": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$"
+            },
+            "os": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+            },
+            "installationId": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            "lastErrorCode": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 64,
+              "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+            }
+          }
+        },
+        "attachments": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "seq",
+              "url",
+              "contentType",
+              "extension",
+              "sizeBytes",
+              "width",
+              "height"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]{0,18}$"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3
+              },
+              "url": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512,
+                "pattern": "^/enterprise/admin/v1/feedback/[1-9][0-9]{0,18}/attachments/[1-9][0-9]{0,18}/content$",
+                "description": "管理端鉴权内容地址；不含本地路径或内容哈希。"
+              },
+              "contentType": {
+                "type": "string",
+                "enum": [
+                  "image/png",
+                  "image/jpeg",
+                  "image/webp"
+                ],
+                "description": "位图白名单；SVG 与任何矢量格式都不在协议内。"
+              },
+              "extension": {
+                "type": "string",
+                "enum": [
+                  "png",
+                  "jpg",
+                  "webp"
+                ]
+              },
+              "sizeBytes": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 1,
+                "maximum": 2097152
+              },
+              "width": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8192
+              },
+              "height": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8192
+              }
+            }
+          }
+        }
+      }
+    },
+    "requestId": {
+      "type": "string",
+      "description": "Server-generated req_ prefix followed by one canonical ULID.",
+      "pattern": "^req_[0-9A-HJKMNP-TV-Z]{26}$",
+      "examples": [
+        "req_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+      ]
+    }
+  }
+}

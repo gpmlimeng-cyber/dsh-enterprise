@@ -66,6 +66,18 @@ enterprise:
     core-packages: ${ENT_PLUGIN_CORE_PACKAGES:dshent-plugin,@dshent/contracts,@dshent/llm-gateway,@dshent/platform-client,@dshent/plugin-distribution,@dshent/ui}
   preset:
     artifact-root: ${ENT_PRESET_ARTIFACT_ROOT:./data/enterprise/presets}
+  skill:
+    artifact-root: ${ENT_SKILL_ARTIFACT_ROOT:./data/enterprise/skills}
+  branding:
+    # 默认嵌在既有 artifact 卷内：容器 read_only 根文件系统下无需新增挂载即可启动，
+    # 显式 ENT_BRANDING_ARTIFACT_ROOT 仍然优先（部署层可平移到独立卷）。
+    artifact-root: ${ENT_BRANDING_ARTIFACT_ROOT:${ENT_ARTIFACT_ROOT:./data/enterprise/artifacts}/branding}
+  feedback:
+    # 与 branding 同卷不同子目录：备份/恢复沿用既有 artifacts 卷，无需新增挂载。
+    # 单张附件上限 2 MiB，与 ent_feedback_attachment.size check 同构。
+    artifact-root: ${ENT_FEEDBACK_ARTIFACT_ROOT:${ENT_ARTIFACT_ROOT:./data/enterprise/artifacts}/feedback}
+    max-attachment-bytes: ${ENT_FEEDBACK_MAX_ATTACHMENT_BYTES:2097152}
+    max-dimension: ${ENT_FEEDBACK_MAX_DIMENSION:8192}
   deployment:
     bootstrap:
       username: ${ENT_BOOTSTRAP_ADMIN_USERNAME:}

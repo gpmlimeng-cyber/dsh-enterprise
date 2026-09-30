@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 React、Lucide、Harness Button、AccountOriginEditor、brand 品牌位图、account-actions 的登出与卸载确认、account-state 的共享投影与 login-dialog 的弹窗入口，以及 EnterpriseAccountStore 的脱敏 snapshot
- * [OUTPUT]: 提供账号设置区（账号状态/登录入口/插件/配方 tabs）、只读账号信息投影与共享登出确认；不再提供任何全屏门禁
+ * [INPUT]: 依赖 React、Lucide、Harness Button、AccountOriginEditor、brand 品牌位图、account-actions 的登出与卸载确认、account-state 的共享投影与 login-dialog 的弹窗入口、plugin/preset/skill 三个市场视图，以及 EnterpriseAccountStore 的脱敏 snapshot
+ * [OUTPUT]: 提供账号设置区（账号状态/登录入口/插件/配方/技能 tabs）、只读账号信息投影与共享登出确认；不再提供任何全屏门禁
  * [POS]: dsh-ui 的账号设置呈现层，官方账号区缺席时账号信息在本层自洽，登录统一交给登录弹窗，不接触 Host Context、Token 或执行细节
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -57,6 +57,7 @@ import { EnterprisePluginMarket } from './plugin-market.js'
 export { enterprisePluginStatePresentation } from './plugin-market.js'
 import { EnterprisePresetMarket } from './preset-market.js'
 import { EnterpriseSessionSyncView } from './session-view.js'
+import { EnterpriseSkillMarket } from './skill-market.js'
 
 
 export interface EnterpriseStoreInjected {
@@ -66,7 +67,7 @@ export interface EnterpriseStoreInjected {
 export interface EnterpriseSettingsSectionProps extends EnterpriseStoreInjected {}
 
 /** 账号设置内部 tab；受管动作 tab 只在企业会话可用时出现在 tablist 中。 */
-type SettingsTab = 'account' | 'plugins' | 'presets' | 'sessions'
+type SettingsTab = 'account' | 'plugins' | 'presets' | 'skills' | 'sessions'
 
 const page: CSSProperties = {
   color: 'var(--dsw-alias-label-primary, #101828)',
@@ -275,6 +276,7 @@ export function EnterpriseSettingsSection(props: EnterpriseSettingsSectionProps)
     ...(sessionUsable ? [
       { id: 'plugins' as const, label: '插件' },
       { id: 'presets' as const, label: '配方' },
+      { id: 'skills' as const, label: '技能' },
       ...(sessionSyncEnabled ? [{ id: 'sessions' as const, label: '会话同步' }] : []),
     ] : []),
   ], [sessionUsable, sessionSyncEnabled])
@@ -299,9 +301,9 @@ export function EnterpriseSettingsSection(props: EnterpriseSettingsSectionProps)
     `}</style>
     <h2 id={headingId} style={{ ...heading, alignItems: 'center', display: 'flex', gap: 9 }}>
       <img alt="" aria-hidden src={DSHENT_ICON} style={{ borderRadius: 6, height: 24, width: 24 }} />
-      DSH Enterprise 设置
+      企业设置
     </h2>
-    <div role="tablist" aria-label="DSH Enterprise 设置" style={tabs}>
+    <div role="tablist" aria-label="企业设置" style={tabs}>
       {rows.map((row, index) => {
         const selected = activeTab === row.id
         return <button
@@ -346,6 +348,9 @@ export function EnterpriseSettingsSection(props: EnterpriseSettingsSectionProps)
     </div>
     <div id={`${tabsId}-panel-presets`} role="tabpanel" aria-labelledby={`${tabsId}-tab-presets`} hidden={activeTab !== 'presets'}>
       {activeTab === 'presets' ? <EnterprisePresetMarket store={props.store} /> : null}
+    </div>
+    <div id={`${tabsId}-panel-skills`} role="tabpanel" aria-labelledby={`${tabsId}-tab-skills`} hidden={activeTab !== 'skills'}>
+      {activeTab === 'skills' ? <EnterpriseSkillMarket store={props.store} /> : null}
     </div>
     {sessionSyncEnabled ? <div id={`${tabsId}-panel-sessions`} role="tabpanel" aria-labelledby={`${tabsId}-tab-sessions`} hidden={activeTab !== 'sessions'}>
       {activeTab === 'sessions' ? <EnterpriseSessionSyncView store={props.store} /> : null}

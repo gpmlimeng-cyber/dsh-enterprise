@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖共享 EnterpriseAccountStore、Harness Modal/Button、Lucide 图标与同源配方 API
+ * [INPUT]: 依赖共享 EnterpriseAccountStore、Harness Modal/Button、Lucide 图标、display-format 的大小格式化与同源配方 API
  * [OUTPUT]: 提供设置页内的企业配方列表、详情安全提示与复制导入指令（不自动下载/导入）
- * [POS]: ui 的员工配方广场视图，由 DSH Enterprise 设置的配方 tab 承载；一期不扩展 plugin-distribution 状态机
+ * [POS]: ui 的员工配方广场视图，由「企业设置」的配方 tab 承载；一期不扩展 plugin-distribution 状态机
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -9,6 +9,7 @@ import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import { BookOpen, Copy, LoaderCircle, RefreshCw, Search, ShieldAlert } from 'lucide-react'
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import type { EnterpriseAccountStore } from './account-store.js'
+import { formatByteSize } from './display-format.js'
 import type { EnterpriseRuntimePreset } from './local-api.js'
 import { createEnterpriseLocalApi } from './local-api.js'
 
@@ -31,12 +32,6 @@ const styles = `
 .own-preset-trust{display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:8px;background:#fff7ed;color:#9a3412;font-size:12.5px;line-height:19px}
 .own-preset-copy{width:100%;min-height:140px;resize:vertical;border:1px solid var(--dsw-alias-stroke-border-2,#d0d5dd);border-radius:8px;padding:12px;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--dsw-alias-label-primary,#101828);background:var(--dsw-alias-background-primary,#fff)}
 `
-
-function bytes(value: number): string {
-  if (value < 1024) return `${value} B`
-  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KiB`
-  return `${(value / (1024 * 1024)).toFixed(1)} MiB`
-}
 
 export function buildPresetImportInstruction(
   preset: EnterpriseRuntimePreset,
@@ -146,7 +141,7 @@ export function EnterprisePresetMarket({ store }: {
                   <span className="own-preset-sub">{item.description}</span>
                 </span>
               </button>
-              <div className="own-preset-meta">DSH {item.sourceDshVersion} · {bytes(item.sizeBytes)}</div>
+              <div className="own-preset-meta">DSH {item.sourceDshVersion} · {formatByteSize(item.sizeBytes)}</div>
             </article>
           ))}
         </div>

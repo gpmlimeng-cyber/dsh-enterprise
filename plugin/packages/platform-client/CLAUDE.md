@@ -7,18 +7,22 @@
 README.md: 平台客户端使用与安全边界，记录可选安装默认值、官方 settings 地址持久化、本地 API 和 Token 不出 Host 约束。
 package.json: 私有 workspace package 清单，声明 caret-compatible Cordis/credentials/settings/Schemastery peers、T02 contracts 与 strict Zod 运行依赖。
 tsconfig.json: Host TypeScript 构建边界，从 `src/` 生成 ESM、声明与 sourcemap 到 `lib/`。
+src/branding.ts: 企业品牌 Host 侧边界——免登录 `GET /enterprise/api/v1/branding` 取数（短超时 3s）、revision 去重的磁盘缓存 `$DSH_HOME/enterprise/branding.json` 加位图副本目录、以及「位图 MIME 白名单 / 512KB 尺寸上限 / 只收平台同源地址」三道资源门禁；LOGO 槽位按契约真源同时接受裸字符串与 `{ url, sha256, … }` 对象（只取 `url`，其余字段与未知字段一律忽略，实际字节仍以响应 MIME 头与下载长度为准），同 revision 只补缺失副本且待补槽位取自本次远端声明（旧版 Host 把对象形 LOGO 读成 null 的空副本缓存因此自愈）、绝不覆盖文档字段，一切失败（不存在/未配置/离线/解析失败/超时/资源非法）都降级为「没有企业品牌」并只留一条 warn，内置默认由 ui 侧持有。
 src/browser.ts: 通过无 shell argv 调用系统 URL opener，向 PKCE 事务提供可取消桌面浏览器交接。
-src/index.ts: package 公开入口，集中导出 Service、PKCE、installation、bootstrap、本地 API 契约与地址写入诊断串。
+src/callback-page.ts: 回环结果页的唯一渲染器——`pickCallbackLocale` 按 `Accept-Language` 首选语言（q 值优先、同 q 先出现者胜、`q=0` 视为不偏好）决定中/英文，**缺省中文**：缺失、空、畸形、通配与无法解析，以及 fr/de 等既非 `zh` 又非明确 `en` 的偏好，一律回落导出的 `CALLBACK_DEFAULT_LOCALE`（`zh`，产品要求缺省中文），只有 best q 的主子标签明确是 `en` 才用英文；`escapeHtmlText` 是品牌与企业欢迎语进入 HTML 的唯一转义出口（名称→简称→欢迎语→内置 `DSH Enterprise` 逐级回落），`renderCallbackPage` 产出 `<!doctype html>` 单文件页：内联样式、`color-scheme` + `prefers-color-scheme` 深色、无任何外链/CDN、成功态尽力 `window.close()` 一次并保留按钮与手关闭提示、失败态只给结论与「请回到客户端重试」而不回显原始错误。
+src/index.ts: package 公开入口，集中导出 Service、PKCE 与回环结果页、installation、bootstrap、品牌缓存、本地 API 契约与地址写入诊断串。
 src/installation.ts: 统一解析 DSH_HOME 并原子维护 `enterprise/device.json`，严格限定 UUID v4、显示名和创建时间。
-src/local-api.ts: exact/prefix 同源路由暴露企业目录、严格 package/version 安装与 package 卸载动作，以及 Server/账号/Session JSON 与显式刷新；执行端口由 bundle 反向注入以避免依赖环，`onError` 只上报操作名/原始 error/最终状态码而不改响应语义。
-src/pkce.ts: PKCE S256 生成、仅绑定 `127.0.0.1` 的 callback、state/取消/超时生命周期。
+src/local-api.ts: exact/prefix 同源路由暴露企业目录、严格 package/version 安装与 package 卸载动作、只读品牌文档与品牌位图副本，以及 Server/账号/Session JSON 与显式刷新（品牌读取恒 200，缺品牌回 `data: null` 由 ui 回落内置）；执行端口由 bundle 反向注入以避免依赖环，`onError` 只上报操作名/原始 error/最终状态码而不改响应语义。
+src/pkce.ts: PKCE S256 生成、仅绑定 `127.0.0.1` 的 callback、state/取消/超时生命周期，并把浏览器可见结论交给 callback-page：语言在回调入口只判定一次，可选 `branding` 端口只读已缓存品牌（缺省/抛错回落内置名），成功、state 失配、缺 code、`error=` 回调与超时后的迟到回调各自渲染对应结果页；另有可选 `onCallbackRequest` 诊断端口，把截断到 `ACCEPT_LANGUAGE_LOG_LIMIT`（200）的 `Accept-Language` 原文与判定结论交给组合层，端口在响应刷出后才释放，避免用户只看到 connection reset。
 src/platform-credentials.ts: 独占官方 GrantRecord 与内存 Access Token，在 credentials 原子修改边界内轮换 Refresh Token，并阻止过期 origin 或已销毁 Service 重新装载认证态。
-src/platform-service.ts: 注册 `ctx.enterprisePlatform`，把 Server 地址收敛到官方 rc.2 settings 中 owner profile entry 的 volatile Config 引用（命名空间即 entry id，写入经 `settings.update`，官方 Settings 不生成页面），保存期间禁止登录；写回判定只看**本次写入的新值**，空串按「未设置」跳过（首次配置不得被当成非法旧值抹掉），连接态或非法的外部改址写回最近一次被接受的有效地址，不可持久化时报 `ENT_SETTINGS_UNAVAILABLE`，且五个不可持久化判定点（entry id 缺失 / volatile 引用缺失 / `configure` 抛错 / 写入端口未装配 / `settings.update` 抛错）都在抛错前经 Host logger 留下 operation、地址、entryId、entry 可见性与原始 error；编排登出、启动恢复、按需续期/401 单次重放、会话代次隔离与显式 bootstrap 刷新。
+src/platform-service.ts: 注册 `ctx.enterprisePlatform`，把 Server 地址收敛到官方 rc.2 settings 中 owner profile entry 的 volatile Config 引用（命名空间即 entry id，写入经 `settings.update`，官方 Settings 不生成页面），保存期间禁止登录；写回判定只看**本次写入的新值**，空串按「未设置」跳过（首次配置不得被当成非法旧值抹掉），连接态或非法的外部改址写回最近一次被接受的有效地址，不可持久化时报 `ENT_SETTINGS_UNAVAILABLE`，且五个不可持久化判定点（entry id 缺失 / volatile 引用缺失 / `configure` 抛错 / 写入端口未装配 / `settings.update` 抛错）都在抛错前经 Host logger 留下 operation、地址、entryId、entry 可见性与原始 error；编排登出、启动恢复、按需续期/401 单次重放、会话代次隔离与显式 bootstrap 刷新，并在构造、登录成功与 Server 切换三个时点各拉一次品牌（不轮询、不常驻 SSE）。
 src/settings-diagnostics.ts: 地址写入诊断层，按结构只读官方 `configEditor.entries()`（含全局 id/name/runtime/ACTIVE/configKeys/schema 与 volatile 字段名）与 settings 的能力位，并给出异常 name/message/code/stack 摘要；刻意不调用会广播 `settings/document-updated` 的官方 `describe()`，保证探测零副作用。
 src/types.ts: 复用生成契约严格校验含空签名制品的 Bootstrap、模型、配额与受管插件，定义公共 Service 配置（含官方 volatile Server 地址引用与 `settingsReference` 识别）、稳定错误及无秘密状态 DTO。
+tests/branding.spec.ts: 真实 HTTP 与真实临时目录下验证接口缺失/未配置/离线/超时/缓存损坏一律「没有品牌」、revision 去重与冷启动离线复用磁盘副本、`string | { url }` 双形 LOGO 槽位（含旧版空副本缓存同 revision 自愈）、资源 MIME/尺寸/同源三道门禁，以及本地只读品牌文档与位图路由（200/404/405、无 CORS、`data: null`）。
+tests/callback-page.spec.ts: 回环结果页纯函数验收——语言映射按「缺省中文」新规格锁定（缺失/空串/畸形/通配/`q=0` 与非中英语言一律 `zh`，`zh-CN,zh;q=0.9`→`zh`、`en-US,en;q=0.9`→`en`、`en;q=0.1,zh;q=0.9`→`zh`，zh/en 并存沿用 q 值与同 q 先出现者规则），`<`/`"`/`&` 恶意品牌名必被转义且不得形成标签，品牌逐级回落与内置默认，成功态中文与自动关窗、失败态英文与不自动关窗。
 tests/installation.spec.ts: 并发首次启动、0600 权限、字段白名单与损坏文件 fail-closed 验收。
 tests/local-api.spec.ts: 真实 Node HTTP 下的 Server 更新、整包卸载、平台/插件/Session 路由、严格 DTO、无 SSE、显式刷新、探针退役与 disposer 验收。
-tests/pkce.spec.ts: S256、精确 callback、state、取消和超时的 Vitest 验收。
+tests/pkce.spec.ts: S256、精确 callback、state、取消和超时的 Vitest 验收，以及真实 HTTP 下结果页的缺省中文（内置 fetch 自带的 `accept-language: *` 与裸 `node:http` 的真正缺失头两条路径）、明确英文偏好、诊断端口的 200 字符截断、品牌转义与失败态分支和稳定错误码不变。
 tests/platform-service.spec.ts: 真实 socket 下验证无签名 bootstrap、退出后才可修改 Server、首次配置在 volatile 引用尚未追上文档时不被写回抹掉、非 origin 的外部改址被写回最近一次有效地址、连接态的外部 settings 改址被写回旧地址、地址不可持久化时返回 `ENT_SETTINGS_UNAVAILABLE`、保存/认证互斥与旧账号不复活，以及 GrantRecord 恢复、按需轮换、超时、闲置零请求和退出竞态。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

@@ -13,7 +13,10 @@ quota.yaml: TOKEN/RATE 策略、四窗口与 prompt-free ledger；实测 Token�
 gateway.yaml: 三协议共用的最小流式治理字段 schema，消息、工具、推理与回放保持原生透传。
 plugin.yaml: compatibility、版本状态、catalog 完整 assignment 集合、runtime 下载事实（空 signatureBase64 表示未签名）和设备库存 schema 分片；保留旧字段并明确可见范围与显式撤回语义。
 preset.yaml: dsh-preset v1 包/版本/ALL|USER 可见范围与 runtime 摘要/详情 schema，不投影 artifact 路径或包内 YAML。
+skill.yaml: dsh-skill v1 技能包/版本/SKILL.md 条目/ALL|USER 可见范围与 runtime 摘要/详情 schema，条目仅投影 frontmatter 元数据与调用策略，不投影 artifact 路径或正文。
 session.yaml: 官方 rc.7 format v0 header、精确 JSONL/hash、本人/admin metadata、正文页、tombstone 与恢复审计 schema 分片。
-audit.yaml: 31-action 枚举、封闭 metadata 与 cursor；模型传输失败可携带已实测结算，明确拒绝可 RELEASED，恢复可由 usage 快照 SETTLED。
+branding.yaml: 公开品牌白名单与管理端品牌/revision/资产/发布/回滚 schema，公开面不含资产 ID、organization 或 artifact 路径。
+feedback.yaml: 反馈类型/状态、封闭 diagnostics 白名单、multipart 提交 metadata/form、提交回执与管理端列表项/详情/附件/状态流转 schema，不投影 artifact 路径与内容哈希。
+audit.yaml: 40-action 枚举、封闭 metadata 与 cursor；模型传输失败可携带已实测结算，明确拒绝可 RELEASED，恢复可由 usage 快照 SETTLED，反馈提交/状态流转各有专属 metadata。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

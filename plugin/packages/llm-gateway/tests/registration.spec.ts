@@ -72,11 +72,11 @@ describe('registerEnterpriseGateway', () => {
     disposers.push(dispose)
 
     const providers = entry.options.config['providers'] as Record<string, { baseURL?: string }>
+    // 产品裁决（2026-09-30，去重）：默认模型不进协议组 → openai-responses 组不产出（5 → 4）。
     expect(Object.keys(providers).sort()).toEqual([
       'enterprise',
       'enterprise-anthropic-messages',
       'enterprise-openai-completions',
-      'enterprise-openai-responses',
       'xiaomi-token-plan-cn',
     ])
     // 企业 route 指向 Host 私有回环代理，用户自己的 provider 逐字保留。

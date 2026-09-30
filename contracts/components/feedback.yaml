@@ -1,0 +1,287 @@
+# [INPUT]: 依赖根协议 revision/cursor/requestId/严格 envelope，以及 V34 反馈两表与白名单 diagnostics 的事实形状。
+# [OUTPUT]: 提供提交 metadata/form、提交回执、管理端列表项/详情/附件、状态流转请求与封闭诊断 schema。
+# [POS]: contracts/components 的问题反馈真源，diagnostics 是封闭键集且不含 artifact 路径与内容哈希。
+# [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+
+FeedbackType:
+  type: string
+  enum: [issue, suggestion]
+FeedbackStatus:
+  type: string
+  enum: [new, triaged, resolved, ignored]
+FeedbackAttachmentContentType:
+  type: string
+  enum: [image/png, image/jpeg, image/webp]
+  description: 位图白名单；SVG 与任何矢量格式都不在协议内。
+FeedbackAttachmentExtension:
+  type: string
+  enum: [png, jpg, webp]
+FeedbackDiagnostics:
+  type: object
+  additionalProperties: false
+  description: >-
+    客户端自动附带的白名单诊断摘要。键集封闭且字段内容受服务端正则收窄，
+    令牌、会话内容与文件路径没有落点。
+  properties:
+    pluginVersion:
+      type: [string, 'null']
+      maxLength: 64
+      pattern: '^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$'
+    hostVersion:
+      type: [string, 'null']
+      maxLength: 64
+      pattern: '^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$'
+    os:
+      type: [string, 'null']
+      maxLength: 64
+      pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$'
+    installationId:
+      type: [string, 'null']
+      maxLength: 128
+      pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'
+    lastErrorCode:
+      type: [string, 'null']
+      maxLength: 64
+      pattern: '^[A-Z][A-Z0-9_]{0,63}$'
+FeedbackSubmissionMetadata:
+  type: object
+  additionalProperties: false
+  required: [description, consent]
+  properties:
+    type:
+      oneOf:
+        - $ref: '#/FeedbackType'
+        - type: 'null'
+      description: 缺省为 issue。
+    description:
+      type: string
+      minLength: 1
+      maxLength: 510
+    occurredAt:
+      oneOf:
+        - type: string
+          format: date-time
+        - type: 'null'
+      description: 选填；缺省为服务端提交时刻。必须带时区。
+    contact:
+      oneOf:
+        - type: string
+          minLength: 3
+          maxLength: 160
+        - type: 'null'
+      description: 选填邮箱或手机号。
+    consent:
+      type: boolean
+      const: true
+      description: 必须显式同意，非 true 的提交没有合规依据。
+    diagnostics:
+      oneOf:
+        - $ref: '#/FeedbackDiagnostics'
+        - type: 'null'
+FeedbackSubmissionForm:
+  type: object
+  additionalProperties: false
+  required: [metadata]
+  properties:
+    metadata:
+      $ref: '#/FeedbackSubmissionMetadata'
+    attachments:
+      type: array
+      maxItems: 3
+      description: 最多 3 张位图 part；第 4 张 part 在协议层就不存在。
+      items:
+        type: string
+        format: binary
+FeedbackSubmissionData:
+  type: object
+  additionalProperties: false
+  required: [id, type, status, occurredAt, attachmentCount, createdAt]
+  properties:
+    id:
+      type: string
+      pattern: '^[1-9][0-9]{0,18}$'
+    type: {$ref: '#/FeedbackType'}
+    status: {$ref: '#/FeedbackStatus'}
+    occurredAt: {type: string, format: date-time}
+    attachmentCount:
+      type: integer
+      minimum: 0
+      maximum: 3
+    createdAt: {type: string, format: date-time}
+FeedbackSubmissionResponse:
+  type: object
+  additionalProperties: false
+  required: [data, requestId]
+  properties:
+    data: {$ref: '#/FeedbackSubmissionData'}
+    requestId: {$ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'}
+FeedbackAttachment:
+  type: object
+  additionalProperties: false
+  required: [id, seq, url, contentType, extension, sizeBytes, width, height]
+  properties:
+    id:
+      type: string
+      pattern: '^[1-9][0-9]{0,18}$'
+    seq:
+      type: integer
+      minimum: 1
+      maximum: 3
+    url:
+      type: string
+      minLength: 1
+      maxLength: 512
+      pattern: '^/enterprise/admin/v1/feedback/[1-9][0-9]{0,18}/attachments/[1-9][0-9]{0,18}/content$'
+      description: 管理端鉴权内容地址；不含本地路径或内容哈希。
+    contentType: {$ref: '#/FeedbackAttachmentContentType'}
+    extension: {$ref: '#/FeedbackAttachmentExtension'}
+    sizeBytes:
+      type: integer
+      format: int64
+      minimum: 1
+      maximum: 2097152
+    width:
+      type: integer
+      minimum: 1
+      maximum: 8192
+    height:
+      type: integer
+      minimum: 1
+      maximum: 8192
+FeedbackItem:
+  type: object
+  additionalProperties: false
+  required: [id, type, status, description, contact, submitterId, attachmentCount, occurredAt, revision,
+             statusNote, statusChangedBy, statusChangedAt, createdAt, updatedAt]
+  properties:
+    id:
+      type: string
+      pattern: '^[1-9][0-9]{0,18}$'
+    type: {$ref: '#/FeedbackType'}
+    status: {$ref: '#/FeedbackStatus'}
+    description:
+      type: string
+      minLength: 1
+      maxLength: 510
+    contact:
+      oneOf:
+        - type: string
+          minLength: 3
+          maxLength: 160
+        - type: 'null'
+    submitterId:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/EnterpriseUserId'
+    attachmentCount:
+      type: integer
+      minimum: 0
+      maximum: 3
+    occurredAt: {type: string, format: date-time}
+    revision: {$ref: '../enterprise-openapi.yaml#/components/schemas/Revision'}
+    statusNote:
+      oneOf:
+        - type: string
+          minLength: 1
+          maxLength: 500
+        - type: 'null'
+    statusChangedBy:
+      oneOf:
+        - $ref: '../enterprise-openapi.yaml#/components/schemas/EnterpriseUserId'
+        - type: 'null'
+    statusChangedAt:
+      oneOf:
+        - type: string
+          format: date-time
+        - type: 'null'
+    createdAt: {type: string, format: date-time}
+    updatedAt: {type: string, format: date-time}
+FeedbackDetail:
+  type: object
+  additionalProperties: false
+  required: [id, type, status, description, contact, submitterId, attachmentCount, occurredAt, revision,
+             statusNote, statusChangedBy, statusChangedAt, createdAt, updatedAt, diagnostics, attachments]
+  properties:
+    id:
+      type: string
+      pattern: '^[1-9][0-9]{0,18}$'
+    type: {$ref: '#/FeedbackType'}
+    status: {$ref: '#/FeedbackStatus'}
+    description:
+      type: string
+      minLength: 1
+      maxLength: 510
+    contact:
+      oneOf:
+        - type: string
+          minLength: 3
+          maxLength: 160
+        - type: 'null'
+    submitterId:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/EnterpriseUserId'
+    attachmentCount:
+      type: integer
+      minimum: 0
+      maximum: 3
+    occurredAt: {type: string, format: date-time}
+    revision: {$ref: '../enterprise-openapi.yaml#/components/schemas/Revision'}
+    statusNote:
+      oneOf:
+        - type: string
+          minLength: 1
+          maxLength: 500
+        - type: 'null'
+    statusChangedBy:
+      oneOf:
+        - $ref: '../enterprise-openapi.yaml#/components/schemas/EnterpriseUserId'
+        - type: 'null'
+    statusChangedAt:
+      oneOf:
+        - type: string
+          format: date-time
+        - type: 'null'
+    createdAt: {type: string, format: date-time}
+    updatedAt: {type: string, format: date-time}
+    diagnostics: {$ref: '#/FeedbackDiagnostics'}
+    attachments:
+      type: array
+      maxItems: 3
+      items: {$ref: '#/FeedbackAttachment'}
+FeedbackPageData:
+  type: object
+  additionalProperties: false
+  required: [items, page]
+  properties:
+    items:
+      type: array
+      maxItems: 200
+      items: {$ref: '#/FeedbackItem'}
+    page: {$ref: '../enterprise-openapi.yaml#/components/schemas/CursorPage'}
+FeedbackListResponse:
+  type: object
+  additionalProperties: false
+  required: [data, requestId]
+  properties:
+    data: {$ref: '#/FeedbackPageData'}
+    requestId: {$ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'}
+FeedbackDetailResponse:
+  type: object
+  additionalProperties: false
+  required: [data, requestId]
+  properties:
+    data: {$ref: '#/FeedbackDetail'}
+    requestId: {$ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'}
+FeedbackStatusChangeRequest:
+  type: object
+  additionalProperties: false
+  required: [status]
+  properties:
+    status:
+      oneOf:
+        - $ref: '#/FeedbackStatus'
+        - type: 'null'
+      description: 只允许 new→triaged、triaged→resolved、triaged→ignored。
+    note:
+      oneOf:
+        - type: string
+          minLength: 1
+          maxLength: 500
+        - type: 'null'

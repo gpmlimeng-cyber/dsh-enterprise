@@ -1,0 +1,179 @@
+# [INPUT]: 依赖根协议 cursor/revision/幂等键、统一错误响应与 branding/envelope schema 分片。
+# [OUTPUT]: 提供免登录公开品牌 JSON/不可变资源 Path Item，以及管理端当前发布/revision/上传/预览/发布/回滚 Path Item。
+# [POS]: contracts/paths 的品牌自定义分片，公开面 security 为空且只引用白名单 schema。
+# [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+
+PublicBrandingCurrent:
+  get:
+    operationId: getPublicBranding
+    summary: Anonymous same-origin read of the white-listed brand singleton, cached by revision ETag.
+    security: []
+    responses:
+      '200':
+        description: Brand singleton for the deployment tenant; revision 0 means unconfigured and the client falls back to built-in defaults.
+        headers:
+          ETag:
+            schema: {type: string}
+          Cache-Control:
+            schema: {type: string}
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/BrandingPublicResponse'}
+      '304':
+        description: The caller's If-None-Match still matches the current revision.
+
+PublicBrandingAsset:
+  get:
+    operationId: getPublicBrandingAsset
+    summary: Anonymous read of one bitmap referenced by the published revision.
+    security: []
+    parameters:
+      - name: revision
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+      - name: fileName
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^[0-9a-f]{64}\.(png|jpg|webp)$'
+    responses:
+      '200':
+        description: Immutable bitmap bytes served with nosniff and a content-addressed ETag.
+        content:
+          image/png: {}
+          image/jpeg: {}
+          image/webp: {}
+      '304':
+        description: The caller's If-None-Match still matches the asset hash.
+      '404': {$ref: '../enterprise-openapi.yaml#/components/responses/Error404'}
+
+AdminBrandingCurrent:
+  get:
+    operationId: getAdminBranding
+    summary: Read the current published brand, including internal asset IDs and admin preview URLs.
+    responses:
+      '200':
+        description: Current published brand revision.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/BrandingAdminResponse'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+
+AdminBrandingRevisionList:
+  get:
+    operationId: listAdminBrandingRevisions
+    summary: List immutable published brand revisions newest first for rollback selection.
+    parameters:
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/Cursor'
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/Limit'
+    responses:
+      '200':
+        description: Brand revision page.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/BrandingRevisionListResponse'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+
+AdminBrandingAssetUpload:
+  post:
+    operationId: uploadBrandingAsset
+    summary: Validate and store one PNG/JPEG/WebP bitmap; identical bytes are deduplicated by SHA-256.
+    parameters:
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/IdempotencyKey'
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [asset]
+            properties:
+              asset:
+                type: string
+                format: binary
+    responses:
+      '201':
+        description: Stored bitmap asset; nothing is publicly visible before publish.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/BrandingAdminAssetResponse'}
+      '400': {$ref: '../enterprise-openapi.yaml#/components/responses/Error400'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+      '413': {$ref: '../enterprise-openapi.yaml#/components/responses/Error413'}
+
+AdminBrandingAssetContent:
+  get:
+    operationId: getAdminBrandingAssetContent
+    summary: Preview one uploaded bitmap, including assets that are not published yet.
+    parameters:
+      - name: assetId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^[1-9][0-9]{0,18}$'
+    responses:
+      '200':
+        description: Bitmap bytes; the response is never publicly cacheable.
+        content:
+          image/png: {}
+          image/jpeg: {}
+          image/webp: {}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+      '404': {$ref: '../enterprise-openapi.yaml#/components/responses/Error404'}
+
+AdminBrandingPublish:
+  post:
+    operationId: publishBranding
+    summary: Publish one new immutable brand revision; If-Match carries the current revision.
+    parameters:
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/IfMatchRevision'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/BrandingPublishRequest'}
+    responses:
+      '200':
+        description: Newly published brand revision.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/BrandingAdminResponse'}
+      '400': {$ref: '../enterprise-openapi.yaml#/components/responses/Error400'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+      '404': {$ref: '../enterprise-openapi.yaml#/components/responses/Error404'}
+      '409': {$ref: '../enterprise-openapi.yaml#/components/responses/Error409'}
+
+AdminBrandingRollback:
+  post:
+    operationId: rollbackBranding
+    summary: Re-publish an earlier revision's content as a new revision; history is never rewritten.
+    parameters:
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/IfMatchRevision'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/BrandingRollbackRequest'}
+    responses:
+      '200':
+        description: Brand revision created by the rollback.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/BrandingAdminResponse'}
+      '400': {$ref: '../enterprise-openapi.yaml#/components/responses/Error400'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+      '404': {$ref: '../enterprise-openapi.yaml#/components/responses/Error404'}
+      '409': {$ref: '../enterprise-openapi.yaml#/components/responses/Error409'}

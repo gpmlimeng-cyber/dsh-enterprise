@@ -77,6 +77,10 @@ export const zEnterpriseErrorCode = z.enum([
     'ENT_PKCE_REQUIRED',
     'ENT_PLUGIN_ARTIFACT_INVALID',
     'ENT_PRESET_INVALID_PACKAGE',
+    'ENT_SKILL_INVALID_PACKAGE',
+    'ENT_BRANDING_ASSET_INVALID',
+    'ENT_FEEDBACK_INVALID',
+    'ENT_FEEDBACK_ATTACHMENT_INVALID',
     'ENT_SESSION_FORMAT_UNSUPPORTED',
     'ENT_AUTH_REQUIRED',
     'ENT_AUTH_CODE_INVALID',
@@ -88,6 +92,8 @@ export const zEnterpriseErrorCode = z.enum([
     'ENT_PLUGIN_NOT_ASSIGNED',
     'ENT_PRESET_NOT_PUBLISHED',
     'ENT_PRESET_VISIBILITY_DENIED',
+    'ENT_SKILL_NOT_PUBLISHED',
+    'ENT_SKILL_VISIBILITY_DENIED',
     'ENT_RESOURCE_NOT_OWNED',
     'ENT_RESOURCE_NOT_FOUND',
     'ENT_SESSION_CONTENT_EXPIRED',
@@ -101,9 +107,13 @@ export const zEnterpriseErrorCode = z.enum([
     'ENT_SESSION_SOURCE_DEVICE_CONFLICT',
     'ENT_IDENTITY_ALREADY_LINKED',
     'ENT_DEVICE_ALREADY_BOUND',
+    'ENT_FEEDBACK_STATE_CONFLICT',
     'ENT_REQUEST_TOO_LARGE',
     'ENT_PLUGIN_ARCHIVE_TOO_LARGE',
     'ENT_PRESET_TOO_LARGE',
+    'ENT_SKILL_TOO_LARGE',
+    'ENT_BRANDING_ASSET_TOO_LARGE',
+    'ENT_FEEDBACK_ATTACHMENT_TOO_LARGE',
     'ENT_SESSION_BATCH_TOO_LARGE',
     'ENT_QUOTA_FIVE_HOURS_EXCEEDED',
     'ENT_QUOTA_DAILY_EXCEEDED',
@@ -192,7 +202,11 @@ export const zAuditAuditAction = z.enum([
     'SESSION_EXPIRED',
     'ROLE_ASSIGNED',
     'USER_STATUS_CHANGED',
-    'CONFIG_CHANGED'
+    'CONFIG_CHANGED',
+    'BRANDING_PUBLISHED',
+    'BRANDING_ROLLED_BACK',
+    'FEEDBACK_SUBMITTED',
+    'FEEDBACK_STATUS_CHANGED'
 ]);
 
 export const zAuditAction = zAuditAuditAction;
@@ -220,6 +234,19 @@ export const zAuthAuditMetadata = z.object({
         'LDAP',
         'LOCAL'
     ]).optional()
+}).strict();
+
+export const zBrandingPublishedAuditMetadata = z.object({
+    configId: z.int().gte(1),
+    revision: z.int().gte(1),
+    logoCount: z.int().gte(0).lte(3)
+}).strict();
+
+export const zBrandingRolledBackAuditMetadata = z.object({
+    configId: z.int().gte(1),
+    fromRevision: z.int().gte(1),
+    targetRevision: z.int().gte(1),
+    revision: z.int().gte(2)
 }).strict();
 
 export const zDeviceEnrollmentAuditMetadata = z.object({
@@ -556,6 +583,151 @@ export const zAuthTokenResponse = z.object({
 
 export const zTokenResponse = zAuthTokenResponse;
 
+export const zBrandingBrandingAssetContentType = z.enum([
+    'image/png',
+    'image/jpeg',
+    'image/webp'
+]);
+
+export const zBrandingAssetContentType = zBrandingBrandingAssetContentType;
+
+export const zBrandingBrandingAssetHash = z.string().regex(/^[0-9a-f]{64}$/);
+
+export const zBrandingAssetHash = zBrandingBrandingAssetHash;
+
+export const zBrandingBrandingAdminAsset = z.object({
+    id: z.string().regex(/^[1-9][0-9]{0,18}$/),
+    url: z.string().min(1).max(512).regex(/^\/enterprise\/admin\/v1\/branding\/assets\/[1-9][0-9]{0,18}\/content$/),
+    sha256: zBrandingBrandingAssetHash,
+    contentType: zBrandingBrandingAssetContentType,
+    width: z.int().gte(1).lte(8192),
+    height: z.int().gte(1).lte(8192),
+    sizeBytes: z.coerce.bigint().gte(BigInt(1)).lte(BigInt(524288))
+}).strict();
+
+export const zBrandingAdminAsset = zBrandingBrandingAdminAsset;
+
+export const zBrandingBrandingAdminAssetResponse = z.object({
+    data: zBrandingBrandingAdminAsset,
+    requestId: zRequestId
+}).strict();
+
+export const zBrandingAdminAssetResponse = zBrandingBrandingAdminAssetResponse;
+
+export const zBrandingBrandingAdminLogo = z.object({
+    light: zBrandingBrandingAdminAsset.nullable(),
+    dark: zBrandingBrandingAdminAsset.nullable(),
+    square: zBrandingBrandingAdminAsset.nullable()
+}).strict();
+
+export const zBrandingAdminLogo = zBrandingBrandingAdminLogo;
+
+export const zBrandingBrandingAssetRef = z.object({
+    url: z.string().min(1).max(512).regex(/^\/enterprise\/api\/v1\/branding\/assets\/[1-9][0-9]{0,18}\/[0-9a-f]{64}\.(png|jpg|webp)$/),
+    sha256: zBrandingBrandingAssetHash,
+    contentType: zBrandingBrandingAssetContentType,
+    width: z.int().gte(1).lte(8192),
+    height: z.int().gte(1).lte(8192),
+    sizeBytes: z.coerce.bigint().gte(BigInt(1)).lte(BigInt(524288))
+}).strict();
+
+export const zBrandingAssetRef = zBrandingBrandingAssetRef;
+
+export const zBrandingBrandingPublicLogo = z.object({
+    light: zBrandingBrandingAssetRef.nullable(),
+    dark: zBrandingBrandingAssetRef.nullable(),
+    square: zBrandingBrandingAssetRef.nullable()
+}).strict();
+
+export const zBrandingPublicLogo = zBrandingBrandingPublicLogo;
+
+export const zBrandingBrandingPublishRequest = z.object({
+    name: z.string().max(120).nullish(),
+    shortName: z.string().max(60).nullish(),
+    logoLightAssetId: z.string().regex(/^[1-9][0-9]{0,18}$/).nullish(),
+    logoDarkAssetId: z.string().regex(/^[1-9][0-9]{0,18}$/).nullish(),
+    logoSquareAssetId: z.string().regex(/^[1-9][0-9]{0,18}$/).nullish(),
+    welcomeHeadline: z.string().max(200).nullish(),
+    welcomeEditionLabel: z.string().max(60).nullish()
+}).strict();
+
+export const zBrandingPublishRequest = zBrandingBrandingPublishRequest;
+
+export const zBrandingBrandingRevision = z.object({
+    id: z.string().regex(/^[1-9][0-9]{0,18}$/),
+    revision: zRevision,
+    name: z.string().min(1).max(120).nullable(),
+    shortName: z.string().min(1).max(60).nullable(),
+    publishedAt: z.iso.datetime({ offset: true }),
+    current: z.boolean()
+}).strict();
+
+export const zBrandingRevision = zBrandingBrandingRevision;
+
+export const zBrandingBrandingRevisionPageData = z.object({
+    items: z.array(zBrandingBrandingRevision).max(200),
+    page: zCursorPage
+}).strict();
+
+export const zBrandingRevisionPageData = zBrandingBrandingRevisionPageData;
+
+export const zBrandingBrandingRevisionListResponse = z.object({
+    data: zBrandingBrandingRevisionPageData,
+    requestId: zRequestId
+}).strict();
+
+export const zBrandingRevisionListResponse = zBrandingBrandingRevisionListResponse;
+
+export const zBrandingBrandingRollbackRequest = z.object({
+    targetRevision: z.string().regex(/^[1-9][0-9]{0,18}$/)
+}).strict();
+
+export const zBrandingRollbackRequest = zBrandingBrandingRollbackRequest;
+
+export const zBrandingBrandingWelcome = z.object({
+    headline: z.string().min(1).max(200).nullable(),
+    editionLabel: z.string().min(1).max(60).nullable()
+}).strict();
+
+export const zBrandingWelcome = zBrandingBrandingWelcome;
+
+export const zBrandingBrandingAdminData = z.object({
+    revision: zRevision,
+    name: z.string().min(1).max(120).nullable(),
+    shortName: z.string().min(1).max(60).nullable(),
+    logo: zBrandingBrandingAdminLogo,
+    welcome: zBrandingBrandingWelcome,
+    updatedAt: z.iso.datetime({ offset: true }).nullable(),
+    updatedBy: z.string().regex(/^[1-9][0-9]{0,18}$/).nullable()
+}).strict();
+
+export const zBrandingAdminData = zBrandingBrandingAdminData;
+
+export const zBrandingBrandingAdminResponse = z.object({
+    data: zBrandingBrandingAdminData,
+    requestId: zRequestId
+}).strict();
+
+export const zBrandingAdminResponse = zBrandingBrandingAdminResponse;
+
+export const zBrandingBrandingPublicData = z.object({
+    revision: zRevision,
+    name: z.string().min(1).max(120).nullable(),
+    shortName: z.string().min(1).max(60).nullable(),
+    logo: zBrandingBrandingPublicLogo,
+    welcome: zBrandingBrandingWelcome,
+    updatedAt: z.iso.datetime({ offset: true }).nullable()
+}).strict();
+
+export const zBrandingPublicData = zBrandingBrandingPublicData;
+
+export const zBrandingBrandingPublicResponse = z.object({
+    data: zBrandingBrandingPublicData,
+    requestId: zRequestId
+}).strict();
+
+export const zBrandingPublicResponse = zBrandingBrandingPublicResponse;
+
 export const zDeviceDeviceEnrollRequest = z.object({
     installationId: zAuthInstallationId,
     name: z.string().min(1).max(120),
@@ -623,6 +795,181 @@ export const zDeviceDeviceResponse = z.object({
 }).strict();
 
 export const zDeviceResponse = zDeviceDeviceResponse;
+
+/**
+ * 位图白名单；SVG 与任何矢量格式都不在协议内。
+ */
+export const zFeedbackFeedbackAttachmentContentType = z.enum([
+    'image/png',
+    'image/jpeg',
+    'image/webp'
+]);
+
+export const zFeedbackAttachmentContentType = zFeedbackFeedbackAttachmentContentType;
+
+export const zFeedbackFeedbackAttachmentExtension = z.enum([
+    'png',
+    'jpg',
+    'webp'
+]);
+
+export const zFeedbackAttachmentExtension = zFeedbackFeedbackAttachmentExtension;
+
+export const zFeedbackFeedbackAttachment = z.object({
+    id: z.string().regex(/^[1-9][0-9]{0,18}$/),
+    seq: z.int().gte(1).lte(3),
+    url: z.string().min(1).max(512).regex(/^\/enterprise\/admin\/v1\/feedback\/[1-9][0-9]{0,18}\/attachments\/[1-9][0-9]{0,18}\/content$/),
+    contentType: zFeedbackFeedbackAttachmentContentType,
+    extension: zFeedbackFeedbackAttachmentExtension,
+    sizeBytes: z.coerce.bigint().gte(BigInt(1)).lte(BigInt(2097152)),
+    width: z.int().gte(1).lte(8192),
+    height: z.int().gte(1).lte(8192)
+}).strict();
+
+export const zFeedbackAttachment = zFeedbackFeedbackAttachment;
+
+/**
+ * 客户端自动附带的白名单诊断摘要。键集封闭且字段内容受服务端正则收窄， 令牌、会话内容与文件路径没有落点。
+ */
+export const zFeedbackFeedbackDiagnostics = z.object({
+    pluginVersion: z.string().max(64).regex(/^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$/).nullish(),
+    hostVersion: z.string().max(64).regex(/^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$/).nullish(),
+    os: z.string().max(64).regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/).nullish(),
+    installationId: z.string().max(128).regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/).nullish(),
+    lastErrorCode: z.string().max(64).regex(/^[A-Z][A-Z0-9_]{0,63}$/).nullish()
+}).strict();
+
+export const zFeedbackDiagnostics = zFeedbackFeedbackDiagnostics;
+
+export const zFeedbackFeedbackStatus = z.enum([
+    'new',
+    'triaged',
+    'resolved',
+    'ignored'
+]);
+
+export const zFeedbackStatus = zFeedbackFeedbackStatus;
+
+export const zFeedbackStatusChangedAuditMetadata = z.object({
+    feedbackId: z.int().gte(1),
+    previousStatus: zFeedbackFeedbackStatus,
+    currentStatus: zFeedbackFeedbackStatus,
+    revision: z.int().gte(1)
+}).strict();
+
+export const zFeedbackFeedbackStatusChangeRequest = z.object({
+    status: zFeedbackFeedbackStatus.nullable(),
+    note: z.string().min(1).max(500).nullish()
+}).strict();
+
+export const zFeedbackStatusChangeRequest = zFeedbackFeedbackStatusChangeRequest;
+
+export const zFeedbackFeedbackType = z.enum(['issue', 'suggestion']);
+
+export const zFeedbackType = zFeedbackFeedbackType;
+
+export const zFeedbackSubmittedAuditMetadata = z.object({
+    feedbackId: z.int().gte(1),
+    type: zFeedbackFeedbackType,
+    attachmentCount: z.int().gte(0).lte(3)
+}).strict();
+
+export const zFeedbackFeedbackDetail = z.object({
+    id: z.string().regex(/^[1-9][0-9]{0,18}$/),
+    type: zFeedbackFeedbackType,
+    status: zFeedbackFeedbackStatus,
+    description: z.string().min(1).max(510),
+    contact: z.string().min(3).max(160).nullable(),
+    submitterId: zEnterpriseUserId,
+    attachmentCount: z.int().gte(0).lte(3),
+    occurredAt: z.iso.datetime({ offset: true }),
+    revision: zRevision,
+    statusNote: z.string().min(1).max(500).nullable(),
+    statusChangedBy: zEnterpriseUserId.nullable(),
+    statusChangedAt: z.iso.datetime({ offset: true }).nullable(),
+    createdAt: z.iso.datetime({ offset: true }),
+    updatedAt: z.iso.datetime({ offset: true }),
+    diagnostics: zFeedbackFeedbackDiagnostics,
+    attachments: z.array(zFeedbackFeedbackAttachment).max(3)
+}).strict();
+
+export const zFeedbackDetail = zFeedbackFeedbackDetail;
+
+export const zFeedbackFeedbackDetailResponse = z.object({
+    data: zFeedbackFeedbackDetail,
+    requestId: zRequestId
+}).strict();
+
+export const zFeedbackDetailResponse = zFeedbackFeedbackDetailResponse;
+
+export const zFeedbackFeedbackItem = z.object({
+    id: z.string().regex(/^[1-9][0-9]{0,18}$/),
+    type: zFeedbackFeedbackType,
+    status: zFeedbackFeedbackStatus,
+    description: z.string().min(1).max(510),
+    contact: z.string().min(3).max(160).nullable(),
+    submitterId: zEnterpriseUserId,
+    attachmentCount: z.int().gte(0).lte(3),
+    occurredAt: z.iso.datetime({ offset: true }),
+    revision: zRevision,
+    statusNote: z.string().min(1).max(500).nullable(),
+    statusChangedBy: zEnterpriseUserId.nullable(),
+    statusChangedAt: z.iso.datetime({ offset: true }).nullable(),
+    createdAt: z.iso.datetime({ offset: true }),
+    updatedAt: z.iso.datetime({ offset: true })
+}).strict();
+
+export const zFeedbackItem = zFeedbackFeedbackItem;
+
+export const zFeedbackFeedbackPageData = z.object({
+    items: z.array(zFeedbackFeedbackItem).max(200),
+    page: zCursorPage
+}).strict();
+
+export const zFeedbackPageData = zFeedbackFeedbackPageData;
+
+export const zFeedbackFeedbackListResponse = z.object({
+    data: zFeedbackFeedbackPageData,
+    requestId: zRequestId
+}).strict();
+
+export const zFeedbackListResponse = zFeedbackFeedbackListResponse;
+
+export const zFeedbackFeedbackSubmissionData = z.object({
+    id: z.string().regex(/^[1-9][0-9]{0,18}$/),
+    type: zFeedbackFeedbackType,
+    status: zFeedbackFeedbackStatus,
+    occurredAt: z.iso.datetime({ offset: true }),
+    attachmentCount: z.int().gte(0).lte(3),
+    createdAt: z.iso.datetime({ offset: true })
+}).strict();
+
+export const zFeedbackSubmissionData = zFeedbackFeedbackSubmissionData;
+
+export const zFeedbackFeedbackSubmissionMetadata = z.object({
+    type: zFeedbackFeedbackType.nullish(),
+    description: z.string().min(1).max(510),
+    occurredAt: z.iso.datetime({ offset: true }).nullish(),
+    contact: z.string().min(3).max(160).nullish(),
+    consent: z.literal(true),
+    diagnostics: zFeedbackFeedbackDiagnostics.nullish()
+}).strict();
+
+export const zFeedbackSubmissionMetadata = zFeedbackFeedbackSubmissionMetadata;
+
+export const zFeedbackFeedbackSubmissionForm = z.object({
+    metadata: zFeedbackFeedbackSubmissionMetadata,
+    attachments: z.array(z.string()).max(3).optional()
+}).strict();
+
+export const zFeedbackSubmissionForm = zFeedbackFeedbackSubmissionForm;
+
+export const zFeedbackFeedbackSubmissionResponse = z.object({
+    data: zFeedbackFeedbackSubmissionData,
+    requestId: zRequestId
+}).strict();
+
+export const zFeedbackSubmissionResponse = zFeedbackFeedbackSubmissionResponse;
 
 /**
  * Product access group snowflake ID serialized as a string.
@@ -1523,7 +1870,11 @@ export const zAuditAuditMetadata = z.union([
     zSessionExpiredAuditMetadata,
     zRoleAssignedAuditMetadata,
     zUserStatusChangedAuditMetadata,
-    zRevisionChangedAuditMetadata
+    zRevisionChangedAuditMetadata,
+    zBrandingPublishedAuditMetadata,
+    zBrandingRolledBackAuditMetadata,
+    zFeedbackSubmittedAuditMetadata,
+    zFeedbackStatusChangedAuditMetadata
 ]);
 
 export const zAuditMetadata = zAuditAuditMetadata;
@@ -2523,6 +2874,166 @@ export const zSessionAdminSessionListResponse = z.object({
 
 export const zAdminSessionListResponse = zSessionAdminSessionListResponse;
 
+export const zSkillSkillAssignmentId = z.string().regex(/^[1-9][0-9]{0,18}$/);
+
+export const zSkillAssignmentId = zSkillSkillAssignmentId;
+
+export const zSkillSkillAssignmentStatus = z.enum(['ACTIVE', 'DISABLED']);
+
+export const zSkillAssignmentStatus = zSkillSkillAssignmentStatus;
+
+export const zSkillSkillEntryName = z.string().min(1).max(64).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+
+export const zSkillEntryName = zSkillSkillEntryName;
+
+export const zSkillSkillEntry = z.object({
+    name: zSkillSkillEntryName,
+    description: z.string().min(1).max(1024),
+    whenToUse: z.string().max(2048).optional(),
+    modelInvocable: z.boolean(),
+    userInvocable: z.boolean()
+}).strict();
+
+export const zSkillEntry = zSkillSkillEntry;
+
+export const zSkillSkillPackageId = z.string().regex(/^[1-9][0-9]{0,18}$/);
+
+export const zSkillPackageId = zSkillSkillPackageId;
+
+export const zSkillSkillPackageRef = z.string().min(1).max(128).regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
+
+export const zSkillPackageRef = zSkillSkillPackageRef;
+
+export const zSkillSkillPackageStatus = z.enum(['ACTIVE', 'DISABLED']);
+
+export const zSkillPackageStatus = zSkillSkillPackageStatus;
+
+export const zSkillSkillSha256 = z.string().regex(/^[0-9a-f]{64}$/);
+
+export const zSkillSha256 = zSkillSkillSha256;
+
+export const zSkillSkillSourceDshVersion = z.string().min(1).max(64);
+
+export const zSkillSourceDshVersion = zSkillSkillSourceDshVersion;
+
+export const zSkillRuntimeSkillSummary = z.object({
+    id: zSkillSkillPackageId,
+    skillId: zSkillSkillPackageRef,
+    displayName: z.string().min(1).max(120),
+    description: z.string().max(2000),
+    sourceDshVersion: zSkillSkillSourceDshVersion,
+    sizeBytes: z.coerce.bigint().gte(BigInt(1)).lte(BigInt(52428800)),
+    skillCount: z.int().gte(1).lte(200),
+    updatedAt: z.iso.datetime({ offset: true })
+}).strict();
+
+export const zRuntimeSkillSummary = zSkillRuntimeSkillSummary;
+
+export const zSkillSkillSubjectType = z.enum(['ALL', 'USER']);
+
+export const zSkillSubjectType = zSkillSkillSubjectType;
+
+export const zSkillSkillAssignment = z.object({
+    id: zSkillSkillAssignmentId,
+    packageId: zSkillSkillPackageId,
+    subjectType: zSkillSkillSubjectType,
+    subjectId: z.string().regex(/^[1-9][0-9]{0,18}$/).optional(),
+    status: zSkillSkillAssignmentStatus,
+    revision: zRevision
+}).strict();
+
+export const zSkillAssignment = zSkillSkillAssignment;
+
+export const zSkillSkillAssignmentSpec = z.object({
+    subjectType: zSkillSkillSubjectType,
+    subjectId: z.string().regex(/^[1-9][0-9]{0,18}$/).optional()
+}).strict();
+
+export const zSkillAssignmentSpec = zSkillSkillAssignmentSpec;
+
+export const zSkillSkillAssignmentBatchRequest = z.object({
+    assignments: z.array(zSkillSkillAssignmentSpec).min(0).max(200)
+}).strict();
+
+export const zSkillAssignmentBatchRequest = zSkillSkillAssignmentBatchRequest;
+
+export const zSkillSkillUploadMetadata = z.object({
+    displayName: z.string().min(1).max(120).optional(),
+    description: z.string().max(2000).optional()
+}).strict();
+
+export const zSkillUploadMetadata = zSkillSkillUploadMetadata;
+
+export const zSkillSkillVersionId = z.string().regex(/^[1-9][0-9]{0,18}$/);
+
+export const zSkillVersionId = zSkillSkillVersionId;
+
+export const zSkillRuntimeSkillDetail = zSkillRuntimeSkillSummary.and(z.object({
+    versionId: zSkillSkillVersionId,
+    sha256: zSkillSkillSha256,
+    skills: z.array(zSkillSkillEntry).max(200)
+}).strict());
+
+export const zRuntimeSkillDetail = zSkillRuntimeSkillDetail;
+
+export const zSkillSkillVersionStatus = z.enum([
+    'VALIDATED',
+    'PUBLISHED',
+    'RETIRED'
+]);
+
+export const zSkillVersionStatus = zSkillSkillVersionStatus;
+
+export const zSkillSkillVersion = z.object({
+    id: zSkillSkillVersionId,
+    packageId: zSkillSkillPackageId,
+    skillId: zSkillSkillPackageRef,
+    sourceDshVersion: zSkillSkillSourceDshVersion,
+    sizeBytes: z.coerce.bigint().gte(BigInt(1)).lte(BigInt(52428800)),
+    sha256: zSkillSkillSha256,
+    status: zSkillSkillVersionStatus,
+    skillCount: z.int().gte(1).lte(200),
+    skills: z.array(zSkillSkillEntry).max(200).optional(),
+    createdAt: z.iso.datetime({ offset: true }),
+    revision: zRevision
+}).strict();
+
+export const zSkillVersion = zSkillSkillVersion;
+
+export const zSkillSkillPackage = z.object({
+    id: zSkillSkillPackageId,
+    skillId: zSkillSkillPackageRef,
+    displayName: z.string().min(1).max(120),
+    description: z.string().max(2000).optional(),
+    status: zSkillSkillPackageStatus,
+    revision: zRevision,
+    versions: z.array(zSkillSkillVersion),
+    assignments: z.array(zSkillSkillAssignment)
+}).strict();
+
+export const zSkillPackage = zSkillSkillPackage;
+
+export const zSkillSkillPackagePageData = z.object({
+    items: z.array(zSkillSkillPackage).max(200),
+    page: zCursorPage
+}).strict();
+
+export const zSkillPackagePageData = zSkillSkillPackagePageData;
+
+export const zSkillSkillPackageListResponse = z.object({
+    data: zSkillSkillPackagePageData,
+    requestId: zRequestId
+}).strict();
+
+export const zSkillPackageListResponse = zSkillSkillPackageListResponse;
+
+export const zSkillSkillVersionResponse = z.object({
+    data: zSkillSkillVersion,
+    requestId: zRequestId
+}).strict();
+
+export const zSkillVersionResponse = zSkillSkillVersionResponse;
+
 export const zAdminAuditCollection = z.unknown();
 
 export const zAuthorize = z.unknown();
@@ -2545,6 +3056,22 @@ export const zSources = z.unknown();
 
 export const zToken = z.unknown();
 
+export const zAdminBrandingAssetContent = z.unknown();
+
+export const zAdminBrandingAssetUpload = z.unknown();
+
+export const zAdminBrandingCurrent = z.unknown();
+
+export const zAdminBrandingPublish = z.unknown();
+
+export const zAdminBrandingRevisionList = z.unknown();
+
+export const zAdminBrandingRollback = z.unknown();
+
+export const zPublicBrandingAsset = z.unknown();
+
+export const zPublicBrandingCurrent = z.unknown();
+
 export const zEnroll = z.unknown();
 
 export const zGet = z.unknown();
@@ -2554,6 +3081,16 @@ export const zHeartbeat = z.unknown();
 export const zList = z.unknown();
 
 export const zRevoke = z.unknown();
+
+export const zAdminFeedbackAttachmentContent = z.unknown();
+
+export const zAdminFeedbackCollection = z.unknown();
+
+export const zAdminFeedbackItem = z.unknown();
+
+export const zAdminFeedbackStatus = z.unknown();
+
+export const zRuntimeFeedbackSubmit = z.unknown();
 
 export const zAnthropicMessages = z.unknown();
 
@@ -2700,6 +3237,22 @@ export const zRuntimeSessionItem = z.unknown();
 
 export const zRuntimeSessionRestoreRecord = z.unknown();
 
+export const zRuntimeSkillCollection = z.unknown();
+
+export const zRuntimeSkillDownload = z.unknown();
+
+export const zRuntimeSkillItem = z.unknown();
+
+export const zSkillAssignmentBatch = z.unknown();
+
+export const zSkillCollection = z.unknown();
+
+export const zSkillVersionPublish = z.unknown();
+
+export const zSkillVersionRetire = z.unknown();
+
+export const zSkillVersionUpload = z.unknown();
+
 export const zIdentitySourceIdWritable = zIdentityIdentitySourceId;
 
 export const zGroupMappingIdWritable = zIdentityGroupMappingId;
@@ -2774,6 +3327,28 @@ export const zPresetSourceDshVersionWritable = zPresetPresetSourceDshVersion;
 
 export const zPresetSha256Writable = zPresetPresetSha256;
 
+export const zSkillPackageIdWritable = zSkillSkillPackageId;
+
+export const zSkillVersionIdWritable = zSkillSkillVersionId;
+
+export const zSkillAssignmentIdWritable = zSkillSkillAssignmentId;
+
+export const zSkillVersionStatusWritable = zSkillSkillVersionStatus;
+
+export const zSkillPackageStatusWritable = zSkillSkillPackageStatus;
+
+export const zSkillSubjectTypeWritable = zSkillSkillSubjectType;
+
+export const zSkillAssignmentStatusWritable = zSkillSkillAssignmentStatus;
+
+export const zSkillPackageRefWritable = zSkillSkillPackageRef;
+
+export const zSkillEntryNameWritable = zSkillSkillEntryName;
+
+export const zSkillSourceDshVersionWritable = zSkillSkillSourceDshVersion;
+
+export const zSkillSha256Writable = zSkillSkillSha256;
+
 export const zPluginPackageIdWritable = zPluginPluginPackageId;
 
 export const zPluginVersionIdWritable = zPluginPluginVersionId;
@@ -2799,6 +3374,18 @@ export const zAuditResultWritable = zAuditAuditResult;
 export const zAuditTypeNameWritable = zAuditAuditTypeName;
 
 export const zAuditActionWritable = zAuditAuditAction;
+
+export const zBrandingAssetHashWritable = zBrandingBrandingAssetHash;
+
+export const zBrandingAssetContentTypeWritable = zBrandingBrandingAssetContentType;
+
+export const zFeedbackTypeWritable = zFeedbackFeedbackType;
+
+export const zFeedbackStatusWritable = zFeedbackFeedbackStatus;
+
+export const zFeedbackAttachmentContentTypeWritable = zFeedbackFeedbackAttachmentContentType;
+
+export const zFeedbackAttachmentExtensionWritable = zFeedbackFeedbackAttachmentExtension;
 
 export const zQuotaPolicyIdWritable = zQuotaQuotaPolicyId;
 
@@ -4004,6 +4591,112 @@ export const zDownloadRuntimePresetPath = z.object({
  */
 export const zDownloadRuntimePresetResponse = z.string();
 
+export const zListSkillPackagesQuery = z.object({
+    cursor: zCursor.optional(),
+    limit: zPageLimit.optional()
+});
+
+/**
+ * Skill package page with versions and visibility.
+ */
+export const zListSkillPackagesResponse = zSkillSkillPackageListResponse;
+
+export const zUploadSkillVersionBody = z.object({
+    artifact: z.string(),
+    metadata: zSkillSkillUploadMetadata.optional()
+}).strict();
+
+export const zUploadSkillVersionHeaders = z.object({
+    'Idempotency-Key': z.uuid().length(36).regex(/^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$/)
+});
+
+/**
+ * Existing version returned for an idempotent natural key.
+ */
+export const zUploadSkillVersionResponse = zSkillSkillVersionResponse;
+
+export const zPublishSkillVersionHeaders = z.object({
+    'If-Match': zRevision
+});
+
+export const zPublishSkillVersionPath = z.object({
+    skillVersionId: zSkillSkillVersionId
+});
+
+/**
+ * Published skill version.
+ */
+export const zPublishSkillVersionResponse = zSkillSkillVersionResponse;
+
+export const zRetireSkillVersionHeaders = z.object({
+    'If-Match': zRevision
+});
+
+export const zRetireSkillVersionPath = z.object({
+    skillVersionId: zSkillSkillVersionId
+});
+
+/**
+ * Retired skill version.
+ */
+export const zRetireSkillVersionResponse = zSkillSkillVersionResponse;
+
+export const zReplaceSkillAssignmentsBody = zSkillSkillAssignmentBatchRequest;
+
+export const zReplaceSkillAssignmentsHeaders = z.object({
+    'Idempotency-Key': z.uuid().length(36).regex(/^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$/),
+    'If-Match': zRevision
+});
+
+export const zReplaceSkillAssignmentsPath = z.object({
+    skillPackageId: zSkillSkillPackageId
+});
+
+/**
+ * Fully replaced visibility assignment set.
+ */
+export const zReplaceSkillAssignmentsResponse = z.object({
+    data: z.array(zSkillSkillAssignment).max(200),
+    requestId: zRequestId
+}).strict();
+
+export const zListRuntimeSkillsQuery = z.object({
+    sort: z.enum(['newest']).optional().default('newest')
+});
+
+/**
+ * Published skills visible to the current user.
+ */
+export const zListRuntimeSkillsResponse = z.object({
+    data: z.array(zSkillRuntimeSkillSummary),
+    requestId: zRequestId
+}).strict();
+
+export const zGetRuntimeSkillPath = z.object({
+    skillPackageId: zSkillSkillPackageId
+});
+
+/**
+ * Visible published skill detail.
+ */
+export const zGetRuntimeSkillResponse = z.object({
+    data: zSkillRuntimeSkillDetail,
+    requestId: zRequestId
+}).strict();
+
+export const zDownloadRuntimeSkillHeaders = z.object({
+    Range: z.string().optional()
+});
+
+export const zDownloadRuntimeSkillPath = z.object({
+    skillVersionId: zSkillSkillVersionId
+});
+
+/**
+ * Authorized .dshskill archive bytes.
+ */
+export const zDownloadRuntimeSkillResponse = z.string();
+
 export const zListPluginPackagesQuery = z.object({
     cursor: zCursor.optional(),
     limit: zPageLimit.optional()
@@ -4211,3 +4904,118 @@ export const zListAuditEventsQuery = z.object({
  * Append-only audit metadata page; source IP and user-agent hash are not returned.
  */
 export const zListAuditEventsResponse = zAuditAuditEventListResponse;
+
+/**
+ * Brand singleton for the deployment tenant; revision 0 means unconfigured and the client falls back to built-in defaults.
+ */
+export const zGetPublicBrandingResponse = zBrandingBrandingPublicResponse;
+
+export const zGetPublicBrandingAssetPath = z.object({
+    revision: z.int().gte(1).lte(9007199254740991),
+    fileName: z.string().regex(/^[0-9a-f]{64}\.(png|jpg|webp)$/)
+});
+
+/**
+ * Current published brand revision.
+ */
+export const zGetAdminBrandingResponse = zBrandingBrandingAdminResponse;
+
+export const zListAdminBrandingRevisionsQuery = z.object({
+    cursor: zCursor.optional(),
+    limit: zPageLimit.optional()
+});
+
+/**
+ * Brand revision page.
+ */
+export const zListAdminBrandingRevisionsResponse = zBrandingBrandingRevisionListResponse;
+
+export const zUploadBrandingAssetBody = z.object({
+    asset: z.string()
+}).strict();
+
+export const zUploadBrandingAssetHeaders = z.object({
+    'Idempotency-Key': z.uuid().length(36).regex(/^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$/)
+});
+
+/**
+ * Stored bitmap asset; nothing is publicly visible before publish.
+ */
+export const zUploadBrandingAssetResponse = zBrandingBrandingAdminAssetResponse;
+
+export const zGetAdminBrandingAssetContentPath = z.object({
+    assetId: z.string().regex(/^[1-9][0-9]{0,18}$/)
+});
+
+export const zPublishBrandingBody = zBrandingBrandingPublishRequest;
+
+export const zPublishBrandingHeaders = z.object({
+    'If-Match': zRevision
+});
+
+/**
+ * Newly published brand revision.
+ */
+export const zPublishBrandingResponse = zBrandingBrandingAdminResponse;
+
+export const zRollbackBrandingBody = zBrandingBrandingRollbackRequest;
+
+export const zRollbackBrandingHeaders = z.object({
+    'If-Match': zRevision
+});
+
+/**
+ * Brand revision created by the rollback.
+ */
+export const zRollbackBrandingResponse = zBrandingBrandingAdminResponse;
+
+export const zSubmitFeedbackBody = zFeedbackFeedbackSubmissionForm;
+
+export const zSubmitFeedbackHeaders = z.object({
+    'Idempotency-Key': z.uuid().length(36).regex(/^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$/).optional()
+});
+
+/**
+ * Feedback accepted for triage; the response never echoes attachments or diagnostics content.
+ */
+export const zSubmitFeedbackResponse = zFeedbackFeedbackSubmissionResponse;
+
+export const zListFeedbackQuery = z.object({
+    cursor: zCursor.optional(),
+    limit: zPageLimit.optional(),
+    status: zFeedbackFeedbackStatus.optional()
+});
+
+/**
+ * Feedback page; the cursor is bound to the status filter.
+ */
+export const zListFeedbackResponse = zFeedbackFeedbackListResponse;
+
+export const zGetFeedbackPath = z.object({
+    feedbackId: z.string().regex(/^[1-9][0-9]{0,18}$/)
+});
+
+/**
+ * Feedback detail; attachments expose an authenticated content URL only.
+ */
+export const zGetFeedbackResponse = zFeedbackFeedbackDetailResponse;
+
+export const zChangeFeedbackStatusBody = zFeedbackFeedbackStatusChangeRequest;
+
+export const zChangeFeedbackStatusHeaders = z.object({
+    'If-Match': zRevision
+});
+
+export const zChangeFeedbackStatusPath = z.object({
+    feedbackId: z.string().regex(/^[1-9][0-9]{0,18}$/)
+});
+
+/**
+ * Updated feedback after the transition was accepted and audited.
+ */
+export const zChangeFeedbackStatusResponse = zFeedbackFeedbackDetailResponse;
+
+export const zGetFeedbackAttachmentContentPath = z.object({
+    feedbackId: z.string().regex(/^[1-9][0-9]{0,18}$/),
+    attachmentId: z.string().regex(/^[1-9][0-9]{0,18}$/)
+});

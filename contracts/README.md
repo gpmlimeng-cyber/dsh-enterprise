@@ -38,6 +38,14 @@ rolling-hash proofs, owner metadata pages, separately authorized admin content,
 and deletion tombstones. Admin metadata schemas deliberately omit title, header,
 payload, and ciphertext; only the content operation can project decrypted bytes.
 
+B1 adds the brand singleton contract: an anonymous same-origin read of the
+white-listed brand fields with a revision ETag, content-addressed immutable
+bitmap URLs scoped by that revision, and the admin operations for asset upload,
+current published read, revision history, publish, and rollback. The public
+schemas deliberately omit asset IDs, `organizationId`, and every enterprise or
+member field; the negative `branding-leak.json` fixture proves `BrandingPublicResponse`
+rejects them in both runtimes.
+
 ```sh
 cd plugin
 pnpm --filter @dshent/contracts generate

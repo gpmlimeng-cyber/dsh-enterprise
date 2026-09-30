@@ -1,0 +1,135 @@
+# [INPUT]: 依赖根协议 cursor/If-Match/requestId/统一错误响应与 feedback/envelope schema 分片。
+# [OUTPUT]: 提供员工 multipart 提交 Path Item 与管理端列表/详情/状态流转/附件内容 Path Item。
+# [POS]: contracts/paths 的问题反馈分片，提交端只接受 metadata 与最多 3 个位图 part。
+# [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+
+RuntimeFeedbackSubmit:
+  post:
+    operationId: submitFeedback
+    summary: Submit one issue or suggestion as an authenticated employee; the server attributes it to the current session.
+    parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        description: 选填 UUID v4；重复提交同一键返回既有反馈而不新建行。
+        schema:
+          type: string
+          format: uuid
+          minLength: 36
+          maxLength: 36
+          pattern: '^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$'
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            $ref: '../enterprise-openapi.yaml#/components/schemas/FeedbackSubmissionForm'
+    responses:
+      '201':
+        description: Feedback accepted for triage; the response never echoes attachments or diagnostics content.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/FeedbackSubmissionResponse'}
+      '400': {$ref: '../enterprise-openapi.yaml#/components/responses/Error400'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '413': {$ref: '../enterprise-openapi.yaml#/components/responses/Error413'}
+
+AdminFeedbackCollection:
+  get:
+    operationId: listFeedback
+    summary: List employee feedback newest first with an optional status filter.
+    parameters:
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/Cursor'
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/Limit'
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: '../enterprise-openapi.yaml#/components/schemas/FeedbackStatus'
+    responses:
+      '200':
+        description: Feedback page; the cursor is bound to the status filter.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/FeedbackListResponse'}
+      '400': {$ref: '../enterprise-openapi.yaml#/components/responses/Error400'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+
+AdminFeedbackItem:
+  get:
+    operationId: getFeedback
+    summary: Read one feedback with its white-listed diagnostics and attachment manifest.
+    parameters:
+      - name: feedbackId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^[1-9][0-9]{0,18}$'
+    responses:
+      '200':
+        description: Feedback detail; attachments expose an authenticated content URL only.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/FeedbackDetailResponse'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+      '404': {$ref: '../enterprise-openapi.yaml#/components/responses/Error404'}
+
+AdminFeedbackStatus:
+  post:
+    operationId: changeFeedbackStatus
+    summary: Move one feedback along the frozen triage chain; If-Match carries the current revision.
+    parameters:
+      - name: feedbackId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^[1-9][0-9]{0,18}$'
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/IfMatchRevision'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/FeedbackStatusChangeRequest'}
+    responses:
+      '200':
+        description: Updated feedback after the transition was accepted and audited.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/FeedbackDetailResponse'}
+      '400': {$ref: '../enterprise-openapi.yaml#/components/responses/Error400'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+      '404': {$ref: '../enterprise-openapi.yaml#/components/responses/Error404'}
+      '409': {$ref: '../enterprise-openapi.yaml#/components/responses/Error409'}
+
+AdminFeedbackAttachmentContent:
+  get:
+    operationId: getFeedbackAttachmentContent
+    summary: Stream one bitmap attachment of a feedback for admin review.
+    parameters:
+      - name: feedbackId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^[1-9][0-9]{0,18}$'
+      - name: attachmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^[1-9][0-9]{0,18}$'
+    responses:
+      '200':
+        description: Bitmap bytes; never publicly cacheable.
+        content:
+          image/png: {}
+          image/jpeg: {}
+          image/webp: {}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+      '404': {$ref: '../enterprise-openapi.yaml#/components/responses/Error404'}

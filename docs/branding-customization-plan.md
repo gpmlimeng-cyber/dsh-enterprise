@@ -102,3 +102,23 @@
 1. **全域调研**（用保活的 `subagent`，避免 `workflow` 被消息中断）：官方 0.2.0-rc.2 品牌面 / jingyun 全清单 / 本仓现有落点 / 服务端与管理端可复用范式 → 落 `docs/branding-survey.md`。
 2. 定稿 OpenAPI 草案（`contracts/`）+ 表结构。
 3. 进 B1 实现；B2 可并行（接口契约定稿后即可按 mock 起步）。
+
+## 9. 实施进展
+
+### B2 插件侧 —— 已完成并装机（2026-09-30）
+
+- **取数**：Host 侧 `platform-client/src/platform-service.ts:274` 装配 `EnterpriseBrandingCache`（复用平台 fetch 生命周期 + 自身 3s 超时）；构造、登录成功、Server 切换各触发一次 `refresh()`，并发合并，**不轮询、无 SSE**。
+- **缓存**：`platform-client/src/branding.ts:306` → `$DSH_HOME/enterprise/branding.json` + `branding/<slot>-<rev>.<ext>`；`revision` 即内容身份，同 rev 且副本齐全则零请求零落盘；跨 rev 清旧副本，原子写。
+- **回退**：`refresh()` 永不 reject；`ui/src/branding.ts:79` 逐字段回落内置（`DSH Enterprise` / 「探索未至之境」 / 「预览版」 + `brand.ts` 两图）。**任何情况下登录弹窗与菜单照常渲染**。
+- **资源门禁**：位图 MIME 白名单（拒 SVG）、512KB 上限（流式截断，不信 `Content-Length`）、平台同源；UI 侧二次门禁只认同源本地副本路径，非法只丢该槽位，加载失败原地换内置图。
+- **本地路由**：`GET /enterprise/api/v1/local/branding` 恒 200 `{data:<文档|null>}`；`GET …/branding/asset/{light|dark|square}?v=<rev>` 回字节或 404；非 GET 405；`no-store`、无 CORS。
+- **应用面**：`login-dialog.tsx`（标题=name、说明=headline）、`login-page.tsx`（品牌位图/欢迎语/版本徽标）、`account-menu.tsx`（菜单头部 LOGO+简称）。**官方组件与 DOM 零触碰**。
+- **门禁**：`platform-client` 5 文件/43 例全绿；`ui` 10 文件/82 例全绿 + typecheck + build；装机哈希 `index.js b1ca399853bf` / `client.js f58f37d64e17`（tar ↔ profile 一致）。
+
+### B1 服务端与管理端 —— 实现中
+
+已见交付面：`V32__enterprise_branding.sql`、`PublicBrandingController` / `AdminBrandingController` / `BrandingViews`、`JdbcBrandingStore`、`BrandingImageInspector` / `BrandingAssetStore`、`contracts/paths/branding.yaml` + `BrandingPublicResponse.schema.json` 及生成物、`console` 品牌页与路由。
+
+### 尚未联通的最后一环：**部署**
+
+插件已具备取数与回退，但 `https://62.234.16.179/` 上**尚未部署**品牌接口（V32 与新 Controller 都还在本地）。因此当前客户端取数必然 404 → 走内置默认。**端到端生效需要把 B1 部署到该后台**（Flyway V32 + 新接口 + 管理端页面），这正是"看起来没变化"的原因，也是本功能交付的最后一个动作。

@@ -99,10 +99,10 @@ describe('目标1：官方账户行停用，后台地址由用户自定义', () 
 
   it('保留既有企业策略行（默认模型 / 停用个人 provider / 插入企业 row）', async () => {
     const source = await patchSource()
-    expect(patchBlock(source, 'agent-default-model')).toContain('provider: enterprise')
-    expect(patchBlock(source, 'llm-deepseek')).toContain('disabled: true')
-    expect(patchBlock(source, 'llm-pi-ai')).toContain('disabled: true')
-    expect(patchBlock(source, 'ui-settings-models')).toContain('disabled: true')
+    // 产品裁决（2026-09-30）：官方模型行一个字段都不改；企业模型只由 llm-gateway 挂载，
+    // 因此 patch 里不得再出现对官方模型行的任何 config 覆盖（09-30 晨的 llm-deepseek baseURL 覆盖已删除）。
+    expect(source).not.toMatch(/- id: llm-deepseek\n/)
+    expect(source).not.toContain('llm-deepseek')
     expect(source).toContain("- id: owndsh\n      name: 'dshent-plugin'")
   })
 })

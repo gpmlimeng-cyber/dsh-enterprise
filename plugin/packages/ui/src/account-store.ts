@@ -13,7 +13,7 @@ import type {
   EnterpriseRemoteSession,
   EnterpriseSessionSyncStatus,
 } from './local-api.js'
-import { EnterpriseLocalApiError } from './local-api.js'
+import { enterpriseLocalErrorCode } from './local-api.js'
 
 export type EnterpriseAccountAction = 'configure' | 'login' | 'cancel' | 'logout' | 'uninstall'
 
@@ -33,10 +33,6 @@ export interface EnterpriseAccountSnapshot {
   readonly sessionLoading?: boolean
   readonly sessionErrorCode?: string
   readonly restoreResult?: { readonly restoredSessionId: string; readonly sourceSessionId: string }
-}
-
-function failureCode(error: unknown): string {
-  return error instanceof EnterpriseLocalApiError ? error.code : 'ENT_LOCAL_UNAVAILABLE'
 }
 
 function connected(status: EnterpriseLocalStatus): boolean {
@@ -97,7 +93,7 @@ export class EnterpriseAccountStore {
       this.#set({
         ...this.#snapshot,
         sessionLoading: false,
-        sessionErrorCode: failureCode(error),
+        sessionErrorCode: enterpriseLocalErrorCode(error),
       })
     }
   }
@@ -112,7 +108,7 @@ export class EnterpriseAccountStore {
       await this.refreshSessions()
       return true
     } catch (error) {
-      if (!signal.aborted) this.#set({ ...this.#snapshot, sessionErrorCode: failureCode(error) })
+      if (!signal.aborted) this.#set({ ...this.#snapshot, sessionErrorCode: enterpriseLocalErrorCode(error) })
       return false
     }
   }
@@ -126,7 +122,7 @@ export class EnterpriseAccountStore {
       if (!signal.aborted && generation === this.#refreshGeneration) this.#acceptStatus(status)
     } catch (error) {
       if (signal.aborted || generation !== this.#refreshGeneration) return
-      this.#set({ ...this.#snapshot, phase: this.#snapshot.status === undefined ? 'error' : 'ready', errorCode: failureCode(error) })
+      this.#set({ ...this.#snapshot, phase: this.#snapshot.status === undefined ? 'error' : 'ready', errorCode: enterpriseLocalErrorCode(error) })
     } finally {
       if (!signal.aborted && generation === this.#refreshGeneration) this.#scheduleLoginPoll()
     }
@@ -167,7 +163,7 @@ export class EnterpriseAccountStore {
       await this.refresh()
       if (signal.aborted) return
       if (this.#snapshot.status !== undefined && connected(this.#snapshot.status)) await this.#loadPlugins()
-      if (!signal.aborted) this.#set({ ...this.#snapshot, pluginErrorCode: failureCode(error) })
+      if (!signal.aborted) this.#set({ ...this.#snapshot, pluginErrorCode: enterpriseLocalErrorCode(error) })
     } finally {
       if (!signal.aborted) {
         const { pluginBusy: _busy, ...settled } = this.#snapshot
@@ -257,7 +253,7 @@ export class EnterpriseAccountStore {
       return !signal.aborted
     } catch (error) {
       if (!signal.aborted && action === 'logout') await this.refresh()
-      if (!signal.aborted) this.#set({ ...this.#snapshot, errorCode: failureCode(error) })
+      if (!signal.aborted) this.#set({ ...this.#snapshot, errorCode: enterpriseLocalErrorCode(error) })
       return false
     } finally {
       if (!signal.aborted) {
@@ -308,7 +304,7 @@ export class EnterpriseAccountStore {
         this.#set({ ...this.#snapshot, bootstrap })
       }
     } catch (error) {
-      if (!signal.aborted) this.#set({ ...this.#snapshot, errorCode: failureCode(error) })
+      if (!signal.aborted) this.#set({ ...this.#snapshot, errorCode: enterpriseLocalErrorCode(error) })
     } finally {
       if (!signal.aborted) this.#bootstrapLoading = false
     }
@@ -329,7 +325,7 @@ export class EnterpriseAccountStore {
     } catch (error) {
       if (!signal.aborted) {
         const { pluginsLoading: _pluginsLoading, ...settled } = this.#snapshot
-        this.#set({ ...settled, pluginErrorCode: failureCode(error) })
+        this.#set({ ...settled, pluginErrorCode: enterpriseLocalErrorCode(error) })
       }
     } finally {
       if (!signal.aborted) this.#pluginsLoading = false

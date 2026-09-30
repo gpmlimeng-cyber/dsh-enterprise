@@ -1,11 +1,18 @@
 /**
- * [INPUT]: 依赖 Harness `ctx.webServer.register()` route port、平台操作端口、组合层注入的插件动作端口与可选投影留痕端口
- * [OUTPUT]: 提供账号/配置按需刷新与插件操作的严格同源 JSON 路由，无常驻状态连接；每个把异常投影成 HTTP 状态的回调都经 `onError` 上报操作名与原始 error
+ * [INPUT]: 依赖 Harness `ctx.webServer.register()` route port、平台操作端口、组合层注入的插件动作端口、品牌只读端口与可选投影留痕端口
+ * [OUTPUT]: 提供账号/配置按需刷新、插件操作与本地品牌投影的严格同源 JSON 路由，无常驻状态连接；每个把异常投影成 HTTP 状态的回调都经 `onError` 上报操作名与原始 error
  * [POS]: platform-client 的 Host/Client 同源协作边界，只序列化脱敏 DTO 并把认证 HTTP 留在 Host Service
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import {
+  BRANDING_ASSET_LOCAL_PATH,
+  BRANDING_ASSET_SLOTS,
+  BRANDING_LOCAL_PATH,
+  type BrandingAssetSlot,
+  type EnterpriseBrandingPort,
+} from './branding.js'
 import type {
   BootstrapSnapshot,
   EnterpriseLoginFlow,
@@ -64,6 +71,8 @@ export interface EnterpriseLocalApiOptions {
   readonly uninstallPlugin?: () => Promise<{ readonly restart?: () => void }>
   /** 由组合层绑定会话同步；缺省时不注册 /sessions* 路由。 */
   readonly sessionSync?: EnterpriseLocalSessionPort
+  /** 由 platform-client 品牌缓存绑定；缺省时不注册 /branding* 路由。 */
+  readonly branding?: EnterpriseBrandingPort
   /**
    * 本地路由把异常投影成 HTTP 状态码时的留痕端口；由组合层绑定 Host logger。
    * 只上报操作名、原始 error 与最终状态码，不改变任何响应语义。
@@ -83,6 +92,17 @@ function writeJson(response: ServerResponse, status: number, value: unknown): vo
 function methodNotAllowed(response: ServerResponse, allow: string): void {
   response.setHeader('allow', allow)
   writeJson(response, 405, { error: { code: 'ENT_INVALID_REQUEST' } })
+}
+
+/** 品牌位图是本地缓存副本：只回白名单 MIME 与长度，浏览器不需要任何解码逻辑。 */
+function writeAsset(response: ServerResponse, contentType: string, bytes: Buffer): void {
+  response.writeHead(200, {
+    'cache-control': 'no-store',
+    'content-length': String(bytes.byteLength),
+    'content-type': contentType,
+    'x-content-type-options': 'nosniff',
+  })
+  response.end(bytes)
 }
 
 function errorCode(error: unknown): string {
@@ -261,6 +281,53 @@ export function registerEnterpriseLocalApi(
         writeJson(response, 200, { data: options.platform.bootstrap() ?? null })
       },
     }))
+
+    if (options.branding !== undefined) {
+      const branding = options.branding
+      // 品牌是本地缓存投影：读失败也必须回一个可渲染的答案（null 由 ui 回落内置默认），故恒 200。
+      disposers.push(webServer.register({
+        kind: 'exact',
+        path: BRANDING_LOCAL_PATH,
+        handler: async (request, response) => {
+          if (request.method !== 'GET') {
+            methodNotAllowed(response, 'GET')
+            return
+          }
+          try {
+            writeJson(response, 200, { data: await branding.document() })
+          } catch (error) {
+            options.onError?.(`GET ${BRANDING_LOCAL_PATH}`, error, 200)
+            writeJson(response, 200, { data: null })
+          }
+        },
+      }))
+      disposers.push(webServer.register({
+        kind: 'prefix',
+        path: `${BRANDING_ASSET_LOCAL_PATH}/`,
+        handler: async (request, response) => {
+          if (request.method !== 'GET') {
+            methodNotAllowed(response, 'GET')
+            return
+          }
+          const slot = requestUrl(request).pathname.slice(`${BRANDING_ASSET_LOCAL_PATH}/`.length)
+          if (!BRANDING_ASSET_SLOTS.includes(slot as BrandingAssetSlot)) {
+            writeJson(response, 404, { error: { code: 'ENT_RESOURCE_NOT_FOUND' } })
+            return
+          }
+          try {
+            const asset = await branding.asset(slot as BrandingAssetSlot)
+            if (asset === undefined) {
+              writeJson(response, 404, { error: { code: 'ENT_RESOURCE_NOT_FOUND' } })
+              return
+            }
+            writeAsset(response, asset.contentType, asset.bytes)
+          } catch (error) {
+            options.onError?.(`GET ${BRANDING_ASSET_LOCAL_PATH}/${slot}`, error, 404)
+            writeJson(response, 404, { error: { code: 'ENT_RESOURCE_NOT_FOUND' } })
+          }
+        },
+      }))
+    }
 
     for (const action of ['install', 'remove'] as const) {
       disposers.push(webServer.register({

@@ -57,6 +57,13 @@ Session、日志或 installation 文件。Host 重启只尝试一次静默恢复
 - `POST /enterprise/api/v1/local/uninstall`
 - `GET /enterprise/api/v1/local/bootstrap`
 - `GET /enterprise/api/v1/local/plugins`
+- `GET /enterprise/api/v1/local/branding`
+- `GET /enterprise/api/v1/local/branding/asset/{light|dark|square}`
+
+品牌路由只回 Host 已缓存的投影：`/branding` 在任何失败下都是 `200 { "data": null }`（由 UI 回落内置品牌），
+`/branding/asset/*` 只回白名单位图（PNG/JPEG/WebP/GIF，≤512KB，不接受 SVG）或 `404`；品牌由 Host 在启动、
+登录成功与切换 Server 时各拉一次 `GET /enterprise/api/v1/branding`（3 秒超时、免登录、只收平台同源资源），
+缓存在 `$DSH_HOME/enterprise/branding.json` 与同目录 `branding/` 副本中，同 revision 不重复下载，不轮询。
 
 POST action 必须使用 `application/json`；刷新、登录、取消、退出和卸载使用严格空对象 `{}`，Server
 更新只接受 `{ "serverUrl": "http://..." }` 或 `{ "serverUrl": "https://..." }`。本地 API 不配置 CORS。路由不接受任意平台 URL。插件状态由 bundle 通过最小反转端口接入，platform-client 不反向依赖 distribution 包；`/events` 已移除。UI 复用 Harness 官方模型/凭据/设置事件读取本地状态，

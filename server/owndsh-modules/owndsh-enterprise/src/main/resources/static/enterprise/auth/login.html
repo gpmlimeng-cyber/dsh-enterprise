@@ -1,7 +1,7 @@
 <!--
-  [INPUT]: 依赖同源 login.css/login.js、OwnDsh 鲸鱼 APNG、enterprise 两阶段认证 API、一次性改密 challenge 与宿主验证码端点。
-  [OUTPUT]: 提供居中登录卡片、密码身份源 Tab、凭据认证、仅新密码 challenge、LDAP 密码提交与 OIDC 跳转页面骨架。
-  [POS]: 公开认证页面，以独立静态资源复用 Console 登录语言，不加载管理端应用且不在同一次请求中混用初始密码与新密码。
+  [INPUT]: 依赖同源 login.css/login.js、branding.js 与回退鲸鱼 APNG、enterprise 两阶段认证 API、一次性改密 challenge 与宿主验证码端点。
+  [OUTPUT]: 提供带 DSH Enterprise 静态回退品牌的居中登录卡片、密码身份源 Tab、凭据认证、仅新密码 challenge、LDAP 密码提交与 OIDC 跳转页面骨架。
+  [POS]: 公开认证页面，以独立静态资源复用 Console 登录语言，品牌装饰由 branding.js 按发布配置改写，不加载管理端应用且不在同一次请求中混用初始密码与新密码。
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
 <!doctype html>
@@ -10,18 +10,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>OwnDsh</title>
+  <title>DSH Enterprise</title>
   <link rel="stylesheet" href="/enterprise/auth/login.css">
 </head>
 <body>
   <main class="auth-shell">
     <p class="brand-name">
-      <img src="/enterprise/auth/owndsh-whale-mono-m2-animated.png" alt="">
-      OwnDsh
+      <img id="brand-logo" src="/enterprise/auth/owndsh-whale-mono-m2-animated.png" alt="">
+      <span id="brand-name-text">DSH Enterprise</span>
+      <span id="brand-edition" class="brand-edition" hidden></span>
     </p>
     <div class="auth-card">
       <header class="brand-block">
         <h1>登录企业工作区</h1>
+        <p id="brand-headline" class="brand-headline" hidden></p>
       </header>
 
       <section class="auth-panel" aria-live="polite">
@@ -72,6 +74,7 @@
       </section>
     </div>
   </main>
+  <script type="module" src="/enterprise/auth/branding.js"></script>
   <script type="module" src="/enterprise/auth/login.js"></script>
 </body>
 </html>

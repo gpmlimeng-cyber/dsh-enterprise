@@ -32,16 +32,19 @@ java/com/owndsh/enterprise/plugin/PluginTestArtifacts.java: 集中生成无脚�
 java/com/owndsh/enterprise/plugin/PluginArtifactNormalizerTest.java: 纯 JVM 门禁，锁定 zip/GitHub 包装目录折叠为规范 npm tgz、规范 tgz 判定与透传前提、重写字节可复现，以及路径逃逸/特殊 entry（FIFO/设备/CONTIG）/双上限的 fail-closed 拒绝。
 java/com/owndsh/enterprise/plugin/application/PluginAuditResourceTypeTest.java: 纯 JVM 断言 operation→resourceType 映射（INVENTORY=DEVICE、DOWNLOAD=PLUGIN_VERSION）、复用既有词表且覆盖全部 Operation 常量，不启动容器。
 java/com/owndsh/enterprise/session/: T16 精确 JSONL/hash、并发远端副本、正文权限、tombstone 与 V9 协议纵向门禁；局部地图见 session/CLAUDE.md。
-java/com/owndsh/enterprise/audit/: 36-action metadata 白名单、requestId 关联、用户治理接缝与 365 天 retention 门禁；局部地图见 audit/CLAUDE.md。
+java/com/owndsh/enterprise/branding/: 品牌位图校验、发布/回滚状态机与公开视图泄露面纯 JVM 门禁；局部地图见 branding/CLAUDE.md。
+java/com/owndsh/enterprise/feedback/: 反馈 wire/database 映射、冻结状态链、诊断白名单、提交与状态编排纯 JVM 门禁；局部地图见 feedback/CLAUDE.md。
+java/com/owndsh/enterprise/audit/: 40-action metadata 白名单、requestId 关联、用户治理接缝与 365 天 retention 门禁；局部地图见 audit/CLAUDE.md。
 java/com/owndsh/enterprise/common/api/: T20 有界 JSON 请求、稳定 413/503 与故障日志秘密隔离门禁；局部地图见 common/api/CLAUDE.md。
 java/com/owndsh/enterprise/test/OpenLdapTestServer.java: 共享 OpenLDAP Testcontainer 与测试专用 TLS trust，集中管理 LDAP 集成环境。
 java/com/owndsh/enterprise/test/RedisTestServer.java: 共享 Redis 8 Testcontainer，并为每项认证测试清理隔离 keyspace。
-java/com/owndsh/enterprise/database/EnterpriseMigrationTest.java: 验证普通数据库所有者从空库执行 V0-V31、旧 baseline 0 接管/升级、重复启动不重放种子、字符串时间参数与历史计量迁移。
+java/com/owndsh/enterprise/database/EnterpriseMigrationTest.java: 验证普通数据库所有者从空库执行 V0-V35、旧 baseline 0 接管/升级、重复启动不重放种子、字符串时间参数与历史计量迁移。
 java/com/owndsh/enterprise/preset/artifact/PresetArtifactInspectorTest.java: 锁定 .dshpreset manifest 必填、路径逃逸拒绝与 agent.cordis.yml 存在性。
+java/com/owndsh/enterprise/skill/artifact/SkillArtifactInspectorTest.java: 纯 JVM 锁定 .dshskill manifest 必填、路径逃逸/旁路目录拒绝、SKILL.md frontmatter 必填与调用策略、旧字段拒收、包内重名拒绝与 entry 上限。
 java/com/owndsh/enterprise/quota/web/UsageAnalyticsViewTest.java: 锁定缓存命中率空分母为 null 与未知扣额不混入实测 Token。
 java/com/owndsh/enterprise/quota/web/AdminUsageAnalyticsControllerTest.java: 锁定 180 天上限与 from/to 顺序校验。
 java/com/owndsh/enterprise/deployment/DeploymentBootstrapServiceTest.java: 以真实 PostgreSQL 验证缺配置失败、事务回滚、幂等管理员/角色/marker，以及分步认证和 JDBC 条件首次改密。
-java/com/owndsh/enterprise/database/RbacSeedTest.java: 验证五个 built-in 角色、19 个冻结权限码、最小权限集合与数据库不可变 trigger。
+java/com/owndsh/enterprise/database/RbacSeedTest.java: 验证五个 built-in 角色、25 个冻结权限码（按 F 型权限行取真源，排除 C 型页面节点复用的 read 权限）、最小权限集合与数据库不可变 trigger。
 java/com/owndsh/enterprise/revision/RevisionAuditIntegrationTest.java: 验证 BOOTSTRAP CAS、稳定冲突码、显式 metadata、只追加审计及同事务回滚。
 java/com/owndsh/enterprise/test/PostgresTestDatabase.java: 共享 PostgreSQL 17 Testcontainer，为每组验收创建非超级用户持有的空数据库、从 classpath 执行全部 Flyway 迁移，并提供不依赖默认账号的最小活动用户 fixture。
 resources/ldap/bootstrap.ldif: OpenLDAP 集成测试的固定组织、用户与可验证属性数据，不含生产秘密。

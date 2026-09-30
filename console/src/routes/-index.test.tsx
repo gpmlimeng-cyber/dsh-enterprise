@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Testing Library、Vitest、内存 history、静态角色元数据与完整产品 routeTree。
- * [OUTPUT]: 在仅有 getRandomValues 的 HTTP 环境验证五角色矩阵、多身份登录、成员/LDAP/模型/策略写入、插件可见范围自主安装及 Sign out。
+ * [OUTPUT]: 在仅有 getRandomValues 的 HTTP 环境验证五角色矩阵、多身份登录、成员/LDAP/模型/策略写入、插件可见范围自主安装、技能目录页面及 Sign out。
  * [POS]: routes 的产品壳最小集成门禁，覆盖前端可见性但不替代 Server ent:* 权限测试。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -639,13 +639,13 @@ function renderRoute(path: string, role?: AuthBuiltInRole, logoutStatus = 200, p
 describe('product console access', () => {
   it('uses the fixed five-role page matrix', () => {
     const paths = (role: AuthBuiltInRole) => productRoutesFor([role]).map((route) => route.to);
-    expect(paths('enterprise_admin')).toEqual(['/', '/access', '/plugins', '/presets', '/members', '/activity']);
+    expect(paths('enterprise_admin')).toEqual(['/', '/access', '/plugins', '/presets', '/skills', '/branding', '/feedback', '/members', '/activity']);
     expect(paths('model_admin')).toEqual(['/', '/access', '/activity']);
-    expect(paths('plugin_admin')).toEqual(['/plugins', '/presets', '/activity']);
+    expect(paths('plugin_admin')).toEqual(['/plugins', '/presets', '/skills', '/activity']);
     expect(paths('auditor')).toEqual(['/activity']);
     expect(paths('employee')).toEqual([]);
     expect(productRoutesFor(['model_admin', 'plugin_admin']).map((route) => route.to))
-      .toEqual(['/', '/access', '/plugins', '/presets', '/activity']);
+      .toEqual(['/', '/access', '/plugins', '/presets', '/skills', '/activity']);
   });
 
   it('sends an unauthenticated product URL to login', async () => {

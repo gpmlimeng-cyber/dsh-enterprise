@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 React、Lucide、Harness Modal/Button、account-state 的状态文案与 EnterpriseAccountStore 的脱敏快照和动作，正文来自 login-page 的原登录页内容
+ * [INPUT]: 依赖 React、Lucide、Harness Modal/Button、account-state 的状态文案、branding 的品牌读取层与 EnterpriseAccountStore 的脱敏快照和动作，正文来自 login-page 的原登录页内容
  * [OUTPUT]: 对外提供登录弹窗状态机 enterpriseLoginDialogReducer、入口投影 enterpriseLoginEntry、关闭语义 enterpriseLoginDialogCloseAction、提交计划 enterpriseLoginSubmitPlan 与 useEnterpriseLoginDialog/EnterpriseLoginDialog
- * [POS]: dsh-ui 唯一的登录弹窗壳，持有弹窗尺寸、焦点封闭、取消语义与提交计划，正文交给 login-page；弹窗关闭即结束本次登录，不再阻断宿主
+ * [POS]: dsh-ui 唯一的登录弹窗壳，持有弹窗尺寸、焦点封闭、取消语义与提交计划，标题与说明取企业品牌（缺省内置），正文交给 login-page；弹窗关闭即结束本次登录，不再阻断宿主
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -23,6 +23,7 @@ import {
   useAccount,
 } from './account-state.js'
 import type { EnterpriseAccountAction, EnterpriseAccountStore } from './account-store.js'
+import { useEnterpriseBranding } from './branding.js'
 import type { EnterpriseConnectionState } from './local-api.js'
 import { enterpriseLoginServerEditorVisible, EnterpriseLoginPage } from './login-page.js'
 
@@ -153,6 +154,8 @@ export interface EnterpriseLoginDialogProps {
  */
 export function EnterpriseLoginDialog(props: EnterpriseLoginDialogProps): ReactNode {
   const snapshot = useAccount(props.store)
+  // 标题与说明即企业名称与欢迎语；后台未配置或不可达时是内置默认，弹窗照常打开。
+  const branding = useEnterpriseBranding(props.store)
   const status = snapshot.status
   const state = status?.state
   const busy = snapshot.busy
@@ -233,8 +236,8 @@ export function EnterpriseLoginDialog(props: EnterpriseLoginDialogProps): ReactN
     open={props.open}
     onClose={props.onClose}
     closeLabel="关闭"
-    title="DSH Enterprise"
-    description="DSH Enterprise - Truly Own Your DeepSeek-Harness"
+    title={branding.name}
+    description={branding.headline}
     footer={<div style={footer}>
       <Button variant="outline" disabled={busy === 'cancel'} onClick={props.onClose}>取消</Button>
       {showServerEditor ? <Button
@@ -248,6 +251,7 @@ export function EnterpriseLoginDialog(props: EnterpriseLoginDialogProps): ReactN
     <div ref={bodyRef}>
       <style>{style}</style>
       <EnterpriseLoginPage
+        branding={branding}
         errorCode={error}
         onLogin={submit}
         onServerEditingChange={setEditingServer}

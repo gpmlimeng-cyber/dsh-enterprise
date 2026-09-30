@@ -170,7 +170,15 @@ export async function login(options: LoginOptions): Promise<{ serverUrl: string;
   const pkce = createPkceS256()
   const state = randomBytes(16).toString('base64url')
   const abort = new AbortController()
-  const callback = await startLoopbackCallback({ expectedState: state, timeoutMs, signal: abort.signal })
+  const callback = await startLoopbackCallback({
+    expectedState: state,
+    timeoutMs,
+    signal: abort.signal,
+    // 语言已按企业缺省规则判定：原文截断后留痕，下次「页面为何不是中文」可直接定性。
+    onCallbackRequest: ({ acceptLanguage, locale }) => {
+      options.log?.(`Callback page language [accept-language="${acceptLanguage}" locale=${locale}]`)
+    },
+  })
 
   const authorizeUrl = new URL(`${AUTH_PATH}/authorize`, serverUrl)
   authorizeUrl.search = new URLSearchParams({

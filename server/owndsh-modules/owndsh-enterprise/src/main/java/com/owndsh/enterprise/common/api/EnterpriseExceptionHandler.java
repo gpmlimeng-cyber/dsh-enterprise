@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖身份/设备/模型/配额/插件/配方/Session/网关/revision 异常、Sa-Token、MVC 绑定与当前 requestId。
+ * [INPUT]: 依赖身份/设备/模型/配额/插件/配方/Session/网关/品牌/反馈/revision 异常、Sa-Token、MVC 绑定与当前 requestId。
  * [OUTPUT]: 对外提供详细设计第 17 节稳定错误 envelope，未知故障日志只保留类型与 requestId。
  * [POS]: common/api 的企业 Controller 专用异常边界，优先于 Host 通用 R 响应处理器。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -19,9 +19,15 @@ import com.owndsh.enterprise.auth.application.IdentityAlreadyLinkedException;
 import com.owndsh.enterprise.auth.application.IdentityResourceNotFoundException;
 import com.owndsh.enterprise.auth.application.MemberManagementException;
 import com.owndsh.enterprise.auth.application.AuthFlowException;
+import com.owndsh.enterprise.branding.application.BrandingResourceNotFoundException;
+import com.owndsh.enterprise.branding.artifact.BrandingAssetException;
 import com.owndsh.enterprise.device.application.DeviceAccessException;
 import com.owndsh.enterprise.device.application.DeviceBindingConflictException;
 import com.owndsh.enterprise.device.application.DeviceNotFoundException;
+import com.owndsh.enterprise.feedback.application.FeedbackNotFoundException;
+import com.owndsh.enterprise.feedback.application.FeedbackStateConflictException;
+import com.owndsh.enterprise.feedback.artifact.FeedbackAttachmentException;
+import com.owndsh.enterprise.feedback.domain.FeedbackValidationException;
 import com.owndsh.enterprise.model.application.ModelResourceNotFoundException;
 import com.owndsh.enterprise.model.gateway.GatewayException;
 import com.owndsh.enterprise.quota.application.QuotaExceededException;
@@ -32,6 +38,9 @@ import com.owndsh.enterprise.plugin.artifact.PluginArtifactException;
 import com.owndsh.enterprise.preset.application.PresetAccessException;
 import com.owndsh.enterprise.preset.application.PresetResourceNotFoundException;
 import com.owndsh.enterprise.preset.artifact.PresetArtifactException;
+import com.owndsh.enterprise.skill.application.SkillAccessException;
+import com.owndsh.enterprise.skill.application.SkillResourceNotFoundException;
+import com.owndsh.enterprise.skill.artifact.SkillArtifactException;
 import com.owndsh.enterprise.quota.application.RequestAlreadyCompletedException;
 import com.owndsh.enterprise.quota.application.RequestInProgressException;
 import com.owndsh.enterprise.revision.RevisionConflictException;
@@ -215,6 +224,63 @@ public final class EnterpriseExceptionHandler {
         return error(status,exception.errorCode(),message,false,null,request);
     }
 
+    @ExceptionHandler(BrandingAssetException.class)
+    public ResponseEntity<EnterpriseErrorResponse> brandingAsset(
+        BrandingAssetException exception,
+        HttpServletRequest request
+    ) {
+        HttpStatus status = exception.kind() == BrandingAssetException.Kind.TOO_LARGE
+            ? HttpStatus.PAYLOAD_TOO_LARGE
+            : HttpStatus.BAD_REQUEST;
+        String message = exception.kind() == BrandingAssetException.Kind.TOO_LARGE
+            ? "品牌图片超过单文件上限"
+            : "品牌图片不合法";
+        return error(status, exception.errorCode(), message, false, null, request);
+    }
+
+    @ExceptionHandler(BrandingResourceNotFoundException.class)
+    public ResponseEntity<EnterpriseErrorResponse> brandingNotFound(HttpServletRequest request) {
+        return error(HttpStatus.NOT_FOUND, "ENT_RESOURCE_NOT_FOUND", "品牌资源不存在", false, null, request);
+    }
+
+    @ExceptionHandler(FeedbackValidationException.class)
+    public ResponseEntity<EnterpriseErrorResponse> feedbackValidation(
+        FeedbackValidationException exception,
+        HttpServletRequest request
+    ) {
+        // 消息只描述字段规则，绝不回显提交正文或诊断内容。
+        return error(HttpStatus.BAD_REQUEST, exception.errorCode(), exception.getMessage(), false, null, request);
+    }
+
+    @ExceptionHandler(FeedbackAttachmentException.class)
+    public ResponseEntity<EnterpriseErrorResponse> feedbackAttachment(
+        FeedbackAttachmentException exception,
+        HttpServletRequest request
+    ) {
+        HttpStatus status = exception.kind() == FeedbackAttachmentException.Kind.TOO_LARGE
+            ? HttpStatus.PAYLOAD_TOO_LARGE
+            : HttpStatus.BAD_REQUEST;
+        String message = exception.kind() == FeedbackAttachmentException.Kind.TOO_LARGE
+            ? "反馈附件超过单张上限"
+            : "反馈附件不合法";
+        return error(status, exception.errorCode(), message, false, null, request);
+    }
+
+    @ExceptionHandler(FeedbackNotFoundException.class)
+    public ResponseEntity<EnterpriseErrorResponse> feedbackNotFound(HttpServletRequest request) {
+        return error(HttpStatus.NOT_FOUND, "ENT_RESOURCE_NOT_FOUND", "反馈资源不存在", false, null, request);
+    }
+
+    @ExceptionHandler(FeedbackStateConflictException.class)
+    public ResponseEntity<EnterpriseErrorResponse> feedbackState(
+        FeedbackStateConflictException exception,
+        HttpServletRequest request
+    ) {
+        return error(
+            HttpStatus.CONFLICT, exception.errorCode(), exception.getMessage(), false, null, request
+        );
+    }
+
     @ExceptionHandler(PluginArtifactException.class)
     public ResponseEntity<EnterpriseErrorResponse> pluginArtifact(
         PluginArtifactException exception,
@@ -256,6 +322,36 @@ public final class EnterpriseExceptionHandler {
         String message = exception.kind() == PresetArtifactException.Kind.TOO_LARGE
             ? "配方归档超过限制"
             : "配方归档无效";
+        return error(status, exception.errorCode(), message, false, null, request);
+    }
+
+    @ExceptionHandler(SkillResourceNotFoundException.class)
+    public ResponseEntity<EnterpriseErrorResponse> skillNotFound(HttpServletRequest request) {
+        return error(HttpStatus.NOT_FOUND, "ENT_RESOURCE_NOT_FOUND", "技能资源不存在", false, null, request);
+    }
+
+    @ExceptionHandler(SkillAccessException.class)
+    public ResponseEntity<EnterpriseErrorResponse> skillAccess(
+        SkillAccessException exception,
+        HttpServletRequest request
+    ) {
+        String message = exception.errorCode().equals(SkillAccessException.NOT_PUBLISHED)
+            ? "技能版本未处于可发布状态"
+            : "无权访问该技能";
+        return error(HttpStatus.FORBIDDEN, exception.errorCode(), message, false, null, request);
+    }
+
+    @ExceptionHandler(SkillArtifactException.class)
+    public ResponseEntity<EnterpriseErrorResponse> skillArtifact(
+        SkillArtifactException exception,
+        HttpServletRequest request
+    ) {
+        HttpStatus status = exception.kind() == SkillArtifactException.Kind.TOO_LARGE
+            ? HttpStatus.PAYLOAD_TOO_LARGE
+            : HttpStatus.BAD_REQUEST;
+        String message = exception.kind() == SkillArtifactException.Kind.TOO_LARGE
+            ? "技能归档超过限制"
+            : "技能归档无效";
         return error(status, exception.errorCode(), message, false, null, request);
     }
 

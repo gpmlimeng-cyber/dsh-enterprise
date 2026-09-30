@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 V4/V19/V20/V23/V30 固定 sys_role/sys_menu/sys_role_menu seed 与不可变 trigger。
- * [OUTPUT]: 验证五角色、19 权限码、最小角色集合和 built-in 数据库保护。
+ * [INPUT]: 依赖 V4/V19/V20/V23/V30/V32/V34/V35 固定 sys_role/sys_menu/sys_role_menu seed 与不可变 trigger。
+ * [OUTPUT]: 验证五角色、25 权限码、最小角色集合和 built-in 数据库保护。
  * [POS]: T03 RBAC seed 退出门禁，确保权限真源不是 remark 或仅靠 UI 约定。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -36,8 +36,10 @@ class RbacSeedTest {
             "enterprise_admin", "model_admin", "plugin_admin", "auditor", "employee"
         );
 
+        // 权限码住在 F 型权限行；C 型页面节点复用同一 read 权限（V33/V34），
+        // 故按 menu_type='F' 取真源，既排除页面节点重复行，又保留对重复权限码的严格断言。
         List<String> permissions = database.jdbc().queryForList("""
-            select perms from sys_menu where perms like 'ent:%' order by perms
+            select perms from sys_menu where perms like 'ent:%' and menu_type = 'F' order by perms
             """, String.class);
         assertThat(permissions).containsExactlyInAnyOrder(
             "ent:identity:read", "ent:identity:write",
@@ -46,8 +48,11 @@ class RbacSeedTest {
             "ent:grant:read", "ent:grant:write",
             "ent:plugin:read", "ent:plugin:write",
             "ent:preset:read", "ent:preset:write",
+            "ent:skill:read", "ent:skill:write",
             "ent:session:read", "ent:session:delete", "ent:session:content:read",
-            "ent:audit:read", "ent:member:read", "ent:member:write", "ent:usage:read"
+            "ent:audit:read", "ent:member:read", "ent:member:write", "ent:usage:read",
+            "ent:branding:read", "ent:branding:write",
+            "ent:feedback:read", "ent:feedback:write"
         );
     }
 
@@ -58,7 +63,8 @@ class RbacSeedTest {
             "ent:usage:read"
         );
         assertThat(permissionsFor("plugin_admin")).containsExactlyInAnyOrder(
-            "ent:plugin:read", "ent:plugin:write", "ent:preset:read", "ent:preset:write", "ent:member:read"
+            "ent:plugin:read", "ent:plugin:write", "ent:preset:read", "ent:preset:write",
+            "ent:skill:read", "ent:skill:write", "ent:member:read"
         );
         assertThat(permissionsFor("auditor")).containsExactlyInAnyOrder(
             "ent:usage:read", "ent:session:read", "ent:session:content:read", "ent:audit:read"

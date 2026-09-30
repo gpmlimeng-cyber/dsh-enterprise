@@ -1,0 +1,32 @@
+{
+  "data": {
+    "revision": 3,
+    "name": "DeepSeek Harness 企业版",
+    "shortName": "DSH 企业版",
+    "logo": {
+      "light": {
+        "url": "/enterprise/api/v1/branding/assets/3/9f2c4b6d8e0a1c3e5f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6.png",
+        "sha256": "9f2c4b6d8e0a1c3e5f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6",
+        "contentType": "image/png",
+        "width": 512,
+        "height": 512,
+        "sizeBytes": 20480
+      },
+      "dark": null,
+      "square": {
+        "url": "/enterprise/api/v1/branding/assets/3/6d5c4b3a291807f6e5d4c3b2a1908f7e6d5c4b3a291807f5e3c1a0e8d6b4c2f9.webp",
+        "sha256": "6d5c4b3a291807f6e5d4c3b2a1908f7e6d5c4b3a291807f5e3c1a0e8d6b4c2f9",
+        "contentType": "image/webp",
+        "width": 256,
+        "height": 256,
+        "sizeBytes": 8192
+      }
+    },
+    "welcome": {
+      "headline": "探索未至之境",
+      "editionLabel": "预览版"
+    },
+    "updatedAt": "2026-09-30T03:00:00Z"
+  },
+  "requestId": "req_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+}

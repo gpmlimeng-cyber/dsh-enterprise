@@ -1,0 +1,14 @@
+{
+  "type": "suggestion",
+  "description": "希望插件市场支持按组织筛选，并在详情页显示最近一次升级时间。",
+  "occurredAt": "2026-09-30T11:00:00+08:00",
+  "contact": "developer.one@example.org",
+  "consent": true,
+  "diagnostics": {
+    "pluginVersion": "0.1.0",
+    "hostVersion": "0.1.7-rc.2",
+    "os": "darwin-arm64",
+    "installationId": "install-01",
+    "lastErrorCode": "ENT_UPSTREAM_TIMEOUT"
+  }
+}

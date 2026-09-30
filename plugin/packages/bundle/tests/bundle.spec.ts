@@ -51,10 +51,8 @@ describe('enterprise bundle', () => {
     expect(Config({})).toMatchObject({ baseUrl: '', verifyPluginSignatures: false, trustedPluginPublicKey: '' })
     const patch = await readFile(resolve(ROOT, 'cordis.patch.yml'), 'utf8')
     expect(patch).toContain("name: 'dshent-plugin'")
-    expect(patch).toMatch(/id: agent-default-model[\s\S]*provider: enterprise[\s\S]*model: enterprise\/default/)
-    for (const id of ['llm-deepseek', 'llm-pi-ai', 'ui-settings-models']) {
-      expect(patch).toMatch(new RegExp(`id: ${id}\\n  disabled: true`))
-    }
+    // 产品裁决（2026-09-30）：官方模型行不改——patch 不得覆盖官方模型行的 config。
+    expect(patch).not.toMatch(/- id: llm-deepseek\n/)
     expect(patch).not.toContain('deepseek-harness')
     const source = await readFile(resolve(ROOT, 'src/index.ts'), 'utf8')
     expect(source).toContain('const HARNESS_VERSION = APP_IDENTITY.version')

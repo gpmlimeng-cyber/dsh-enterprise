@@ -1,0 +1,7 @@
+# [INPUT]: 依赖 DSH 官方 Loader 的 insert 语义与裸包名解析，依赖 jingyun-dsh 已挂载的 webServer/settings 服务
+# [OUTPUT]: 在 jingyun 客户端 profile 中插入企业控制面 Host 插件；企业默认模型行按需由部署方另行覆盖
+# [POS]: 企业集成的 profile 接线层；本包自身不修改官方 base row，避免与 jingyun-dsh 的品牌行争抢同一 id
+# [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+- insert:
+    - id: jingyun-enterprise
+      name: '@jingyun-ai/jingyun-enterprise'

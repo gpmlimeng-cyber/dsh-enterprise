@@ -1,0 +1,30 @@
+{
+  "data": {
+    "id": "1902500000000000101",
+    "packageId": "1902500000000000001",
+    "skillId": "meeting-notes",
+    "sourceDshVersion": "0.1.7-rc.2",
+    "sizeBytes": 40960,
+    "sha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+    "status": "VALIDATED",
+    "skillCount": 2,
+    "skills": [
+      {
+        "name": "meeting-notes",
+        "description": "Use when asked to summarize meeting recordings or transcripts into structured notes with decisions and action items.",
+        "whenToUse": "Use for meeting minutes, transcript summarization, or action-item extraction.",
+        "modelInvocable": true,
+        "userInvocable": true
+      },
+      {
+        "name": "meeting-actions",
+        "description": "Use when asked to turn meeting decisions into a tracked action list with owners and due dates.",
+        "modelInvocable": true,
+        "userInvocable": false
+      }
+    ],
+    "createdAt": "2026-09-30T08:00:00Z",
+    "revision": 0
+  },
+  "requestId": "req_7ADGKPSWZ258BEHMQTX0369CFJ"
+}

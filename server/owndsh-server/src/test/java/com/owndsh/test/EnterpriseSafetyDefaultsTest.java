@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.core.env.PropertySource;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.util.PropertyPlaceholderHelper;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -67,6 +68,24 @@ class EnterpriseSafetyDefaultsTest {
             .isEqualTo("${ENT_PLUGIN_SIGNING_ENABLED:false}");
         assertThat(property("enterprise.plugin.signing-private-key"))
             .isEqualTo("${ENT_PLUGIN_SIGNING_PRIVATE_KEY:}");
+    }
+
+    @Test
+    void keepsTheBrandingArtifactRootInsideTheMountedArtifactVolume() {
+        String raw = property("enterprise.branding.artifact-root").toString();
+        assertThat(raw).isEqualTo("${ENT_BRANDING_ARTIFACT_ROOT:${ENT_ARTIFACT_ROOT:./data/enterprise/artifacts}/branding}");
+
+        // 容器只读根文件系统只挂载 ENT_ARTIFACT_ROOT 卷；未显式覆盖时必须落在该卷内，
+        // 否则品牌 CAS 目录初始化会在启动期 fail-fast。
+        PropertyPlaceholderHelper helper = new PropertyPlaceholderHelper("${", "}", ":", null, true);
+        assertThat(helper.replacePlaceholders(raw, name ->
+            "ENT_ARTIFACT_ROOT".equals(name) ? "/var/lib/enterprise/artifacts" : null
+        )).isEqualTo("/var/lib/enterprise/artifacts/branding");
+        assertThat(helper.replacePlaceholders(raw, name ->
+            "ENT_BRANDING_ARTIFACT_ROOT".equals(name) ? "/srv/branding" : null
+        )).isEqualTo("/srv/branding");
+        assertThat(helper.replacePlaceholders(raw, name -> null))
+            .isEqualTo("./data/enterprise/artifacts/branding");
     }
 
     @Test

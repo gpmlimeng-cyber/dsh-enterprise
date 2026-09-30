@@ -1,0 +1,236 @@
+# [INPUT]: 依赖根协议资源 ID、revision、cursor、requestId 与严格成功 envelope；技能 frontmatter 语义对齐 DSH 官方 `dsh-skill`/`dsh-skill-filesystem` 的 name/description/调用策略解析。
+# [OUTPUT]: 提供 dsh-skill v1 技能包/版本/技能条目/可见范围与 runtime 摘要/详情 schema。
+# [POS]: contracts/components 的企业技能目录真源，不投影 artifact 路径、SKILL.md 正文、包内脚本或签名私钥。
+# [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+
+SkillPackageId:
+  type: string
+  pattern: '^[1-9][0-9]{0,18}$'
+SkillVersionId:
+  type: string
+  pattern: '^[1-9][0-9]{0,18}$'
+SkillAssignmentId:
+  type: string
+  pattern: '^[1-9][0-9]{0,18}$'
+SkillVersionStatus:
+  type: string
+  enum: [VALIDATED, PUBLISHED, RETIRED]
+SkillPackageStatus:
+  type: string
+  enum: [ACTIVE, DISABLED]
+SkillSubjectType:
+  type: string
+  enum: [ALL, USER]
+SkillAssignmentStatus:
+  type: string
+  enum: [ACTIVE, DISABLED]
+# manifest.id 的稳定标识：与 DSH skill 名规约同源（小写连字符），封顶 64，避免与包显示名混淆。
+SkillPackageRef:
+  type: string
+  minLength: 1
+  maxLength: 128
+  pattern: '^[A-Za-z0-9][A-Za-z0-9._-]*$'
+# 单个 SKILL.md 条目名：严格 kebab-case，对齐 dsh-skill 的 isSkillName 正则。
+SkillEntryName:
+  type: string
+  minLength: 1
+  maxLength: 64
+  pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+SkillSourceDshVersion:
+  type: string
+  minLength: 1
+  maxLength: 64
+SkillSha256:
+  type: string
+  pattern: '^[0-9a-f]{64}$'
+# 单条技能元数据（来自 SKILL.md frontmatter 的脱敏投影，绝不含正文）。
+SkillEntry:
+  type: object
+  additionalProperties: false
+  required: [name, description, modelInvocable, userInvocable]
+  properties:
+    name: {$ref: '#/SkillEntryName'}
+    description:
+      type: string
+      minLength: 1
+      maxLength: 1024
+    whenToUse:
+      type: string
+      maxLength: 2048
+    modelInvocable:
+      type: boolean
+    userInvocable:
+      type: boolean
+SkillUploadMetadata:
+  type: object
+  additionalProperties: false
+  properties:
+    displayName:
+      type: string
+      minLength: 1
+      maxLength: 120
+    description:
+      type: string
+      maxLength: 2000
+SkillVersion:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - packageId
+    - skillId
+    - sourceDshVersion
+    - sizeBytes
+    - sha256
+    - status
+    - skillCount
+    - createdAt
+    - revision
+  properties:
+    id: {$ref: '#/SkillVersionId'}
+    packageId: {$ref: '#/SkillPackageId'}
+    skillId: {$ref: '#/SkillPackageRef'}
+    sourceDshVersion: {$ref: '#/SkillSourceDshVersion'}
+    sizeBytes:
+      type: integer
+      format: int64
+      minimum: 1
+      maximum: 52428800
+    sha256: {$ref: '#/SkillSha256'}
+    status: {$ref: '#/SkillVersionStatus'}
+    skillCount:
+      type: integer
+      minimum: 1
+      maximum: 200
+    skills:
+      type: array
+      maxItems: 200
+      items: {$ref: '#/SkillEntry'}
+    createdAt:
+      type: string
+      format: date-time
+    revision:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/Revision'
+SkillVersionResponse:
+  type: object
+  additionalProperties: false
+  required: [data, requestId]
+  properties:
+    data: {$ref: '#/SkillVersion'}
+    requestId:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'
+SkillAssignment:
+  type: object
+  additionalProperties: false
+  required: [id, packageId, subjectType, status, revision]
+  properties:
+    id: {$ref: '#/SkillAssignmentId'}
+    packageId: {$ref: '#/SkillPackageId'}
+    subjectType: {$ref: '#/SkillSubjectType'}
+    subjectId:
+      type: string
+      pattern: '^[1-9][0-9]{0,18}$'
+    status: {$ref: '#/SkillAssignmentStatus'}
+    revision:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/Revision'
+SkillAssignmentSpec:
+  type: object
+  additionalProperties: false
+  required: [subjectType]
+  properties:
+    subjectType: {$ref: '#/SkillSubjectType'}
+    subjectId:
+      type: string
+      pattern: '^[1-9][0-9]{0,18}$'
+SkillAssignmentBatchRequest:
+  type: object
+  additionalProperties: false
+  required: [assignments]
+  properties:
+    assignments:
+      type: array
+      minItems: 0
+      maxItems: 200
+      items: {$ref: '#/SkillAssignmentSpec'}
+SkillPackage:
+  type: object
+  additionalProperties: false
+  required: [id, skillId, displayName, status, revision, versions, assignments]
+  properties:
+    id: {$ref: '#/SkillPackageId'}
+    skillId: {$ref: '#/SkillPackageRef'}
+    displayName:
+      type: string
+      minLength: 1
+      maxLength: 120
+    description:
+      type: string
+      maxLength: 2000
+    status: {$ref: '#/SkillPackageStatus'}
+    revision:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/Revision'
+    versions:
+      type: array
+      items: {$ref: '#/SkillVersion'}
+    assignments:
+      type: array
+      items: {$ref: '#/SkillAssignment'}
+SkillPackagePageData:
+  type: object
+  additionalProperties: false
+  required: [items, page]
+  properties:
+    items:
+      type: array
+      maxItems: 200
+      items: {$ref: '#/SkillPackage'}
+    page:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/CursorPage'
+SkillPackageListResponse:
+  type: object
+  additionalProperties: false
+  required: [data, requestId]
+  properties:
+    data: {$ref: '#/SkillPackagePageData'}
+    requestId:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'
+RuntimeSkillSummary:
+  type: object
+  additionalProperties: false
+  required: [id, skillId, displayName, description, sourceDshVersion, sizeBytes, skillCount, updatedAt]
+  properties:
+    id: {$ref: '#/SkillPackageId'}
+    skillId: {$ref: '#/SkillPackageRef'}
+    displayName:
+      type: string
+      minLength: 1
+      maxLength: 120
+    description:
+      type: string
+      maxLength: 2000
+    sourceDshVersion: {$ref: '#/SkillSourceDshVersion'}
+    sizeBytes:
+      type: integer
+      format: int64
+      minimum: 1
+      maximum: 52428800
+    skillCount:
+      type: integer
+      minimum: 1
+      maximum: 200
+    updatedAt:
+      type: string
+      format: date-time
+RuntimeSkillDetail:
+  allOf:
+    - $ref: '#/RuntimeSkillSummary'
+    - type: object
+      additionalProperties: false
+      required: [versionId, sha256, skills]
+      properties:
+        versionId: {$ref: '#/SkillVersionId'}
+        sha256: {$ref: '#/SkillSha256'}
+        skills:
+          type: array
+          maxItems: 200
+          items: {$ref: '#/SkillEntry'}

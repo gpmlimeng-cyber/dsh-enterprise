@@ -1,0 +1,40 @@
+{
+  "data": [
+    {
+      "policyId": "1900100000000000002",
+      "name": "Default",
+      "scope": "ORGANIZATION",
+      "subjectId": null,
+      "resourceType": "ALL_MODELS",
+      "resourceId": null,
+      "resourceName": "全部模型",
+      "fiveHours": {
+        "limit": 200000,
+        "usedTokens": 12000,
+        "reservedTokens": 1024,
+        "resetsAt": "2026-08-18T20:00:00+08:00"
+      },
+      "daily": {
+        "limit": 1000000,
+        "usedTokens": 12000,
+        "reservedTokens": 1024,
+        "resetsAt": "2026-08-19T00:00:00+08:00"
+      },
+      "weekly": {
+        "limit": 5000000,
+        "usedTokens": 250000,
+        "reservedTokens": 1024,
+        "resetsAt": "2026-08-24T00:00:00+08:00"
+      },
+      "monthly": {
+        "limit": 20000000,
+        "usedTokens": 250000,
+        "reservedTokens": 1024,
+        "resetsAt": "2026-09-01T00:00:00+08:00"
+      },
+      "rpm": null,
+      "concurrency": null
+    }
+  ],
+  "requestId": "req_01K2W3V4X5Y6Z7A8B9C0D1E2F3"
+}

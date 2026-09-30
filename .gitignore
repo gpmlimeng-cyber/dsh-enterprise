@@ -50,6 +50,6 @@ tmp/
 /desktop/
 plugin/scripts/.build/
 
-# 本地备份文件（不得入库）
+# 本地改写备份（不入库）
 *.bak
 *.bak-*

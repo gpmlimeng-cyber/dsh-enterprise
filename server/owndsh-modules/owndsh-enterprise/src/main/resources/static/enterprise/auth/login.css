@@ -1,7 +1,7 @@
 /*
- * [INPUT]: 依赖 login.html 的居中 auth-card、鲸鱼品牌、身份源 Tab、两阶段 form/captcha 结构与 Console Beautiful UI token。
- * [OUTPUT]: 提供单列认证卡片、左上品牌、响应式 Tab、冷灰控件、焦点状态与稳定验证码尺寸。
- * [POS]: enterprise 公开登录页的唯一样式层，与管理控制台共享产品语言而不复制其双栏构图或前端运行时。
+ * [INPUT]: 依赖 login.html 的居中 auth-card、鲸鱼品牌与 branding.js 注入的版本徽标/欢迎语、身份源 Tab、两阶段 form/captcha 结构与 Console Beautiful UI token。
+ * [OUTPUT]: 提供单列认证卡片、左上品牌与版本徽标、欢迎语副题、响应式 Tab、冷灰控件、焦点状态与稳定验证码尺寸。
+ * [POS]: enterprise 公开登录页的唯一样式层，与管理控制台和客户端登录弹窗共享产品语言而不复制其双栏构图或前端运行时。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -102,6 +102,27 @@ button:not(:disabled) { cursor: pointer; }
   width: 30px;
   height: 30px;
   border-radius: 7px;
+}
+
+/* 版本标识 pill 与客户端登录弹窗同档位：11px、6px 圆角、1px 6px 内边距、弱背景。 */
+.brand-edition {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--hover);
+  color: var(--ink-2);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.brand-headline {
+  margin: 8px 0 0;
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+  text-wrap: balance;
 }
 
 h1,

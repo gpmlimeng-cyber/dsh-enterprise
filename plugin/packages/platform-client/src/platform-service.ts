@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 Cordis Service/WebServer/settings、官方 settings 投影的 volatile Config 引用、configEditor 的只读 entry 读面、credentials、T02 contracts、PKCE/installation/browser 原语与 Node fetch
- * [OUTPUT]: 提供 ctx.enterprisePlatform、启动恢复、按需刷新/Token 轮换与地址写入失败的结构化诊断日志；仅无活动会话时允许清理凭据并修改 Server
- * [POS]: platform-client 的 Host 业务核心，跨 Web/Desktop 复用官方凭据平面且不向 Client UI 暴露任何 Token；每个 `ENT_SETTINGS_UNAVAILABLE` 抛出点都留痕
+ * [OUTPUT]: 提供 ctx.enterprisePlatform、启动恢复、按需刷新/Token 轮换、品牌缓存的三个取数时机与地址写入失败的结构化诊断日志；仅无活动会话时允许清理凭据并修改 Server
+ * [POS]: platform-client 的 Host 业务核心，跨 Web/Desktop 复用官方凭据平面且不向 Client UI 暴露任何 Token；品牌缓存在这里装配（构造、登录成功、Server 切换各刷新一次），每个 `ENT_SETTINGS_UNAVAILABLE` 抛出点都留痕
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -18,6 +18,7 @@ import {
   type EnterpriseErrorCode,
   type TokenRequest,
 } from '@dshent/contracts'
+import { EnterpriseBrandingCache } from './branding.js'
 import { openSystemBrowser } from './browser.js'
 import {
   loadOrCreateInstallation,
@@ -183,6 +184,7 @@ export class EnterprisePlatformService extends Service {
   private readonly config: ResolvedConfig
   private readonly fetch: typeof globalThis.fetch
   private readonly platformCredentials: PlatformCredentialManager
+  private readonly branding: EnterpriseBrandingCache
   private readonly openBrowser: (url: string, signal: AbortSignal) => Promise<void>
   private readonly now: () => Date
   private readonly createFlowId: () => string
@@ -268,6 +270,15 @@ export class EnterprisePlatformService extends Service {
     void this.installation.catch(() => {
       this.transition('FAILED', { errorCode: 'ENT_PLATFORM_UNAVAILABLE' })
     })
+    // 品牌走免登录取数：接口不存在/离线/超时都只是没有企业品牌，ui 回落内置默认，绝不阻断界面。
+    this.branding = new EnterpriseBrandingCache({
+      fetch: (input, init) => this.executeFetch(input, init),
+      ...(this.config.dshHome === undefined ? {} : { dshHome: this.config.dshHome }),
+      onFailure: (operation, error) => {
+        this.logger.warn(`enterprise platform: enterprise branding is unavailable [operation=${operation}]`, error)
+      },
+      serverUrl: () => this.baseUrl,
+    })
     this.disposeLocalApi = registerEnterpriseLocalApi(ctx.webServer, {
       platform: {
         status: () => this.status(),
@@ -281,6 +292,10 @@ export class EnterprisePlatformService extends Service {
         getPreset: (packageId, signal) => this.getPreset(packageId, signal),
       },
       pluginStatus: internals.pluginStatus ?? (() => ({ assignmentRevision: 0, plugins: [] })),
+      branding: {
+        asset: slot => this.branding.asset(slot),
+        document: () => this.branding.document(),
+      },
       ...(internals.pluginAction === undefined ? {} : { pluginAction: internals.pluginAction }),
       ...(internals.uninstallPlugin === undefined ? {} : { uninstallPlugin: internals.uninstallPlugin }),
       ...(internals.sessionSync === undefined ? {} : { sessionSync: internals.sessionSync }),
@@ -340,6 +355,8 @@ export class EnterprisePlatformService extends Service {
     }
     ctx.effect(() => () => this.dispose(), 'enterprisePlatform.dispose()')
     this.applyServerUrl(this.initialServerUrl())
+    // 启动即拉一次（Server 未配置时是空操作）；此后只在登录成功与切换 Server 时各拉一次，不轮询。
+    void this.branding.refresh()
     this.startSessionRestore()
   }
 
@@ -558,6 +575,7 @@ export class EnterprisePlatformService extends Service {
     this.lifetime.abort(new DOMException('enterprise platform disposed', 'AbortError'))
     for (const controller of this.activeRequests) controller.abort()
     this.disposeLocalApi()
+    this.branding.dispose()
     this.listeners.clear()
     this.clearSession()
     const pending = Promise.allSettled([
@@ -590,6 +608,13 @@ export class EnterprisePlatformService extends Service {
       expectedState: state,
       timeoutMs: this.config.callbackTimeoutMs,
       signal: transaction.abort.signal,
+      // 只读已缓存品牌：登录开始时不再发新请求，取不到就由结果页回落内置名。
+      branding: () => this.branding.document(),
+      // 语言已按企业缺省规则判定：原文截断后留痕，下次「页面为何不是中文」可直接定性。
+      onCallbackRequest: ({ acceptLanguage, locale }) => {
+        this.logger.warn('enterprise platform: loopback callback language'
+          + ` [accept-language="${acceptLanguage}" locale=${locale}]`)
+      },
     })
     transaction.callback = callback
     const authorizeUrl = new URL(`${AUTH_PATH}/authorize`, baseUrl)
@@ -645,6 +670,8 @@ export class EnterprisePlatformService extends Service {
     await this.loadBootstrap(transaction.abort.signal)
     transaction.abort.signal.throwIfAborted()
     this.transition('READY')
+    // 登录后再拉一次：管理员改过品牌时不必等下一次重启。
+    void this.branding.refresh()
   }
 
   private async ensureAccessToken(force = false): Promise<void> {
@@ -1029,6 +1056,7 @@ export class EnterprisePlatformService extends Service {
     this.restoreOrigin = undefined
     this.transition(next === undefined ? 'UNCONFIGURED' : 'SIGNED_OUT')
     this.startSessionRestore()
+    void this.branding.refresh()
   }
 
   private requireBaseUrl(): URL {

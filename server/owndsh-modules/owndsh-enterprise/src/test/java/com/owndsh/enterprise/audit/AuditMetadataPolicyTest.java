@@ -7,12 +7,16 @@
 package com.owndsh.enterprise.audit;
 
 import com.owndsh.enterprise.auth.application.AuthAuditMetadata;
+import com.owndsh.enterprise.branding.application.BrandingAuditMetadata;
 import com.owndsh.enterprise.auth.application.IdentityChangeMetadata;
 import com.owndsh.enterprise.auth.application.IdentityLinkMetadata;
 import com.owndsh.enterprise.auth.application.IdentityUnlinkMetadata;
 import com.owndsh.enterprise.auth.domain.IdentitySourceType;
 import com.owndsh.enterprise.device.application.DeviceEnrollmentMetadata;
 import com.owndsh.enterprise.device.application.DeviceHeartbeatMetadata;
+import com.owndsh.enterprise.feedback.application.FeedbackAuditMetadata;
+import com.owndsh.enterprise.feedback.domain.FeedbackStatus;
+import com.owndsh.enterprise.feedback.domain.FeedbackType;
 import com.owndsh.enterprise.model.application.ManagedModelChangeMetadata;
 import com.owndsh.enterprise.model.application.ModelGrantChangeMetadata;
 import com.owndsh.enterprise.model.application.ProviderChangeMetadata;
@@ -31,6 +35,7 @@ import com.owndsh.enterprise.quota.domain.QuotaStatus;
 import com.owndsh.enterprise.quota.domain.QuotaSubjectType;
 import com.owndsh.enterprise.quota.domain.ReservationState;
 import com.owndsh.enterprise.session.application.SessionAuditMetadata;
+import com.owndsh.enterprise.skill.application.SkillAuditMetadata;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
@@ -121,6 +126,11 @@ class AuditMetadataPolicyTest {
             new PresetAuditMetadata.Retire(1, 2, 2),
             new PresetAuditMetadata.Assignments(1, true, 0),
             new PresetAuditMetadata.Download(2, 3, 4),
+            new SkillAuditMetadata.Upload(1, 2, "meeting-notes", "0.1.7-rc.2", "ab".repeat(32), 10),
+            new SkillAuditMetadata.Publish(1, 2, 1),
+            new SkillAuditMetadata.Retire(1, 2, 2),
+            new SkillAuditMetadata.Assignments(1, true, 0),
+            new SkillAuditMetadata.Download(2, 3, 4),
             new SessionAuditMetadata.BatchAppended(0, 1, 2),
             new SessionAuditMetadata.Exported(0, 1, 2),
             new SessionAuditMetadata.Restored("restored-session", 2),
@@ -129,7 +139,11 @@ class AuditMetadataPolicyTest {
             new SessionAuditMetadata.Expired(1, 2),
             new UserGovernanceAuditMetadata.RoleAssigned(2),
             new UserGovernanceAuditMetadata.StatusChanged("0", "1"),
-            new RevisionChangedMetadata(0, 1)
+            new RevisionChangedMetadata(0, 1),
+            new BrandingAuditMetadata.Published(1, 1, 3),
+            new BrandingAuditMetadata.RolledBack(1, 2, 1, 3),
+            new FeedbackAuditMetadata.Submitted(1, FeedbackType.ISSUE, 2),
+            new FeedbackAuditMetadata.StatusChanged(1, FeedbackStatus.NEW, FeedbackStatus.TRIAGED, 1)
         );
     }
 

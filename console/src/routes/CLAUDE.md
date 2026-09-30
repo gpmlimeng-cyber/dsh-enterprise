@@ -18,6 +18,9 @@ _console.activity.tsx: 活动记录薄路由入口，转发到 features/activity
 _console.members.tsx: 产品成员、扁平用户组与身份接入聚合目录的薄路由入口。
 _console.plugins.tsx: 插件版本、分配事实和设备状态真实产品页的薄路由入口。
 _console.presets.tsx: 企业配方目录、发布与可见范围真实产品页的薄路由入口。
+_console.skills.tsx: 企业技能目录、包内多 SKILL.md 条目、发布与可见范围真实产品页的薄路由入口。
+_console.branding.tsx: 品牌名称/LOGO/欢迎语、发布与回滚真实产品页的薄路由入口。
+_console.feedback.tsx: 员工问题反馈按状态分诊、详情与状态流转真实产品页的薄路由入口。
 examples.tsx: `/examples` 的独立父出口，不挂载企业产品壳。
 examples.index.tsx: 运行全部上游组件 demo 并展示同源源码。
 examples.harness.tsx: 运行完整 Ice Cream Harness 交互基线。

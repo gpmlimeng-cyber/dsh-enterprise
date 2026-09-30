@@ -1,5 +1,5 @@
 # [INPUT]: 依赖详细设计冻结的 HTTP 约定、paths/ operation 分片与 components/ schema 分片
-# [OUTPUT]: 提供 OpenAPI 3.1 导航根、通用 envelope、品牌 ID、requestId、revision、cursor 和错误边界
+# [OUTPUT]: 提供 OpenAPI 3.1 导航根、通用 envelope、资源 ID、requestId、revision、cursor 和错误边界
 # [POS]: contracts 的逻辑协议根，纵向任务通过受控 Path Item/schema 引用扩展且完整 bundle/hash 仍是唯一协议
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 openapi: 3.1.0
@@ -151,6 +151,22 @@ paths:
     $ref: './paths/preset.yaml#/RuntimePresetItem'
   /enterprise/api/v1/presets/versions/{presetVersionId}/download:
     $ref: './paths/preset.yaml#/RuntimePresetDownload'
+  /enterprise/admin/v1/skills:
+    $ref: './paths/skill.yaml#/SkillCollection'
+  /enterprise/admin/v1/skills/versions:
+    $ref: './paths/skill.yaml#/SkillVersionUpload'
+  /enterprise/admin/v1/skills/versions/{skillVersionId}/actions/publish:
+    $ref: './paths/skill.yaml#/SkillVersionPublish'
+  /enterprise/admin/v1/skills/versions/{skillVersionId}/actions/retire:
+    $ref: './paths/skill.yaml#/SkillVersionRetire'
+  /enterprise/admin/v1/skills/{skillPackageId}/assignments/batch:
+    $ref: './paths/skill.yaml#/SkillAssignmentBatch'
+  /enterprise/api/v1/skills:
+    $ref: './paths/skill.yaml#/RuntimeSkillCollection'
+  /enterprise/api/v1/skills/{skillPackageId}:
+    $ref: './paths/skill.yaml#/RuntimeSkillItem'
+  /enterprise/api/v1/skills/versions/{skillVersionId}/download:
+    $ref: './paths/skill.yaml#/RuntimeSkillDownload'
   /enterprise/admin/v1/plugins:
     $ref: './paths/plugin.yaml#/PluginCollection'
   /enterprise/admin/v1/plugins/versions:
@@ -187,6 +203,32 @@ paths:
     $ref: './paths/session.yaml#/AdminSessionItem'
   /enterprise/admin/v1/audit-events:
     $ref: './paths/audit.yaml#/AdminAuditCollection'
+  /enterprise/api/v1/branding:
+    $ref: './paths/branding.yaml#/PublicBrandingCurrent'
+  /enterprise/api/v1/branding/assets/{revision}/{fileName}:
+    $ref: './paths/branding.yaml#/PublicBrandingAsset'
+  /enterprise/admin/v1/branding:
+    $ref: './paths/branding.yaml#/AdminBrandingCurrent'
+  /enterprise/admin/v1/branding/revisions:
+    $ref: './paths/branding.yaml#/AdminBrandingRevisionList'
+  /enterprise/admin/v1/branding/assets:
+    $ref: './paths/branding.yaml#/AdminBrandingAssetUpload'
+  /enterprise/admin/v1/branding/assets/{assetId}/content:
+    $ref: './paths/branding.yaml#/AdminBrandingAssetContent'
+  /enterprise/admin/v1/branding/actions/publish:
+    $ref: './paths/branding.yaml#/AdminBrandingPublish'
+  /enterprise/admin/v1/branding/actions/rollback:
+    $ref: './paths/branding.yaml#/AdminBrandingRollback'
+  /enterprise/api/v1/feedback:
+    $ref: './paths/feedback.yaml#/RuntimeFeedbackSubmit'
+  /enterprise/admin/v1/feedback:
+    $ref: './paths/feedback.yaml#/AdminFeedbackCollection'
+  /enterprise/admin/v1/feedback/{feedbackId}:
+    $ref: './paths/feedback.yaml#/AdminFeedbackItem'
+  /enterprise/admin/v1/feedback/{feedbackId}/status:
+    $ref: './paths/feedback.yaml#/AdminFeedbackStatus'
+  /enterprise/admin/v1/feedback/{feedbackId}/attachments/{attachmentId}/content:
+    $ref: './paths/feedback.yaml#/AdminFeedbackAttachmentContent'
 
 x-enterprise-error-statuses:
   '400':
@@ -195,6 +237,10 @@ x-enterprise-error-statuses:
     - ENT_PKCE_REQUIRED
     - ENT_PLUGIN_ARTIFACT_INVALID
     - ENT_PRESET_INVALID_PACKAGE
+    - ENT_SKILL_INVALID_PACKAGE
+    - ENT_BRANDING_ASSET_INVALID
+    - ENT_FEEDBACK_INVALID
+    - ENT_FEEDBACK_ATTACHMENT_INVALID
     - ENT_SESSION_FORMAT_UNSUPPORTED
   '401':
     - ENT_AUTH_REQUIRED
@@ -208,6 +254,8 @@ x-enterprise-error-statuses:
     - ENT_PLUGIN_NOT_ASSIGNED
     - ENT_PRESET_NOT_PUBLISHED
     - ENT_PRESET_VISIBILITY_DENIED
+    - ENT_SKILL_NOT_PUBLISHED
+    - ENT_SKILL_VISIBILITY_DENIED
     - ENT_RESOURCE_NOT_OWNED
   '404':
     - ENT_RESOURCE_NOT_FOUND
@@ -223,10 +271,14 @@ x-enterprise-error-statuses:
     - ENT_SESSION_SOURCE_DEVICE_CONFLICT
     - ENT_IDENTITY_ALREADY_LINKED
     - ENT_DEVICE_ALREADY_BOUND
+    - ENT_FEEDBACK_STATE_CONFLICT
   '413':
     - ENT_REQUEST_TOO_LARGE
     - ENT_PLUGIN_ARCHIVE_TOO_LARGE
     - ENT_PRESET_TOO_LARGE
+    - ENT_SKILL_TOO_LARGE
+    - ENT_BRANDING_ASSET_TOO_LARGE
+    - ENT_FEEDBACK_ATTACHMENT_TOO_LARGE
     - ENT_SESSION_BATCH_TOO_LARGE
   '429':
     - ENT_QUOTA_FIVE_HOURS_EXCEEDED
@@ -382,6 +434,15 @@ x-enterprise-fixtures:
   - file: fixtures/runtime-preset-detail-success.json
     schema: RuntimePresetDetail
     valid: true
+  - file: fixtures/skill-version-success.json
+    schema: SkillVersionResponse
+    valid: true
+  - file: fixtures/skill-package-list-success.json
+    schema: SkillPackageListResponse
+    valid: true
+  - file: fixtures/runtime-skill-detail-success.json
+    schema: RuntimeSkillDetail
+    valid: true
   - file: fixtures/plugin-version-success.json
     schema: PluginVersionResponse
     valid: true
@@ -409,6 +470,45 @@ x-enterprise-fixtures:
   - file: fixtures/audit-event-list-success.json
     schema: AuditEventListResponse
     valid: true
+  - file: fixtures/branding-success.json
+    schema: BrandingPublicResponse
+    valid: true
+  - file: fixtures/branding-leak.json
+    schema: BrandingPublicResponse
+    valid: false
+  - file: fixtures/feedback-submission-success.json
+    schema: FeedbackSubmissionMetadata
+    valid: true
+  - file: fixtures/feedback-description-too-long.json
+    schema: FeedbackSubmissionMetadata
+    valid: false
+  - file: fixtures/feedback-consent-missing.json
+    schema: FeedbackSubmissionMetadata
+    valid: false
+  - file: fixtures/feedback-diagnostics-leak.json
+    schema: FeedbackSubmissionMetadata
+    valid: false
+  - file: fixtures/feedback-attachments-too-many.json
+    schema: FeedbackSubmissionForm
+    valid: false
+  - file: fixtures/feedback-svg-attachment.json
+    schema: FeedbackAttachmentContentType
+    valid: false
+  - file: fixtures/feedback-submission-response-success.json
+    schema: FeedbackSubmissionResponse
+    valid: true
+  - file: fixtures/feedback-admin-list-success.json
+    schema: FeedbackListResponse
+    valid: true
+  - file: fixtures/feedback-admin-detail-success.json
+    schema: FeedbackDetailResponse
+    valid: true
+  - file: fixtures/feedback-status-change-success.json
+    schema: FeedbackDetailResponse
+    valid: true
+  - file: fixtures/feedback-detail-leak.json
+    schema: FeedbackDetailResponse
+    valid: false
 
 components:
   securitySchemes:
@@ -860,6 +960,29 @@ components:
     PresetPackageListResponse: {$ref: './components/preset.yaml#/PresetPackageListResponse'}
     RuntimePresetSummary: {$ref: './components/preset.yaml#/RuntimePresetSummary'}
     RuntimePresetDetail: {$ref: './components/preset.yaml#/RuntimePresetDetail'}
+    SkillPackageId: {$ref: './components/skill.yaml#/SkillPackageId'}
+    SkillVersionId: {$ref: './components/skill.yaml#/SkillVersionId'}
+    SkillAssignmentId: {$ref: './components/skill.yaml#/SkillAssignmentId'}
+    SkillVersionStatus: {$ref: './components/skill.yaml#/SkillVersionStatus'}
+    SkillPackageStatus: {$ref: './components/skill.yaml#/SkillPackageStatus'}
+    SkillSubjectType: {$ref: './components/skill.yaml#/SkillSubjectType'}
+    SkillAssignmentStatus: {$ref: './components/skill.yaml#/SkillAssignmentStatus'}
+    SkillPackageRef: {$ref: './components/skill.yaml#/SkillPackageRef'}
+    SkillEntryName: {$ref: './components/skill.yaml#/SkillEntryName'}
+    SkillSourceDshVersion: {$ref: './components/skill.yaml#/SkillSourceDshVersion'}
+    SkillSha256: {$ref: './components/skill.yaml#/SkillSha256'}
+    SkillEntry: {$ref: './components/skill.yaml#/SkillEntry'}
+    SkillUploadMetadata: {$ref: './components/skill.yaml#/SkillUploadMetadata'}
+    SkillVersion: {$ref: './components/skill.yaml#/SkillVersion'}
+    SkillVersionResponse: {$ref: './components/skill.yaml#/SkillVersionResponse'}
+    SkillAssignment: {$ref: './components/skill.yaml#/SkillAssignment'}
+    SkillAssignmentSpec: {$ref: './components/skill.yaml#/SkillAssignmentSpec'}
+    SkillAssignmentBatchRequest: {$ref: './components/skill.yaml#/SkillAssignmentBatchRequest'}
+    SkillPackage: {$ref: './components/skill.yaml#/SkillPackage'}
+    SkillPackagePageData: {$ref: './components/skill.yaml#/SkillPackagePageData'}
+    SkillPackageListResponse: {$ref: './components/skill.yaml#/SkillPackageListResponse'}
+    RuntimeSkillSummary: {$ref: './components/skill.yaml#/RuntimeSkillSummary'}
+    RuntimeSkillDetail: {$ref: './components/skill.yaml#/RuntimeSkillDetail'}
     PluginPackageId: {$ref: './components/plugin.yaml#/PluginPackageId'}
     PluginVersionId: {$ref: './components/plugin.yaml#/PluginVersionId'}
     PluginAssignmentId: {$ref: './components/plugin.yaml#/PluginAssignmentId'}
@@ -907,6 +1030,39 @@ components:
     AuditEvent: {$ref: './components/audit.yaml#/AuditEvent'}
     AuditEventPageData: {$ref: './components/audit.yaml#/AuditEventPageData'}
     AuditEventListResponse: {$ref: './components/audit.yaml#/AuditEventListResponse'}
+    BrandingAssetHash: {$ref: './components/branding.yaml#/BrandingAssetHash'}
+    BrandingAssetContentType: {$ref: './components/branding.yaml#/BrandingAssetContentType'}
+    BrandingAssetRef: {$ref: './components/branding.yaml#/BrandingAssetRef'}
+    BrandingPublicLogo: {$ref: './components/branding.yaml#/BrandingPublicLogo'}
+    BrandingWelcome: {$ref: './components/branding.yaml#/BrandingWelcome'}
+    BrandingPublicData: {$ref: './components/branding.yaml#/BrandingPublicData'}
+    BrandingPublicResponse: {$ref: './components/branding.yaml#/BrandingPublicResponse'}
+    BrandingAdminAsset: {$ref: './components/branding.yaml#/BrandingAdminAsset'}
+    BrandingAdminLogo: {$ref: './components/branding.yaml#/BrandingAdminLogo'}
+    BrandingAdminData: {$ref: './components/branding.yaml#/BrandingAdminData'}
+    BrandingAdminResponse: {$ref: './components/branding.yaml#/BrandingAdminResponse'}
+    BrandingAdminAssetResponse: {$ref: './components/branding.yaml#/BrandingAdminAssetResponse'}
+    BrandingRevision: {$ref: './components/branding.yaml#/BrandingRevision'}
+    BrandingRevisionPageData: {$ref: './components/branding.yaml#/BrandingRevisionPageData'}
+    BrandingRevisionListResponse: {$ref: './components/branding.yaml#/BrandingRevisionListResponse'}
+    BrandingPublishRequest: {$ref: './components/branding.yaml#/BrandingPublishRequest'}
+    BrandingRollbackRequest: {$ref: './components/branding.yaml#/BrandingRollbackRequest'}
+    FeedbackType: {$ref: './components/feedback.yaml#/FeedbackType'}
+    FeedbackStatus: {$ref: './components/feedback.yaml#/FeedbackStatus'}
+    FeedbackAttachmentContentType: {$ref: './components/feedback.yaml#/FeedbackAttachmentContentType'}
+    FeedbackAttachmentExtension: {$ref: './components/feedback.yaml#/FeedbackAttachmentExtension'}
+    FeedbackDiagnostics: {$ref: './components/feedback.yaml#/FeedbackDiagnostics'}
+    FeedbackSubmissionMetadata: {$ref: './components/feedback.yaml#/FeedbackSubmissionMetadata'}
+    FeedbackSubmissionForm: {$ref: './components/feedback.yaml#/FeedbackSubmissionForm'}
+    FeedbackSubmissionData: {$ref: './components/feedback.yaml#/FeedbackSubmissionData'}
+    FeedbackSubmissionResponse: {$ref: './components/feedback.yaml#/FeedbackSubmissionResponse'}
+    FeedbackAttachment: {$ref: './components/feedback.yaml#/FeedbackAttachment'}
+    FeedbackItem: {$ref: './components/feedback.yaml#/FeedbackItem'}
+    FeedbackDetail: {$ref: './components/feedback.yaml#/FeedbackDetail'}
+    FeedbackPageData: {$ref: './components/feedback.yaml#/FeedbackPageData'}
+    FeedbackListResponse: {$ref: './components/feedback.yaml#/FeedbackListResponse'}
+    FeedbackDetailResponse: {$ref: './components/feedback.yaml#/FeedbackDetailResponse'}
+    FeedbackStatusChangeRequest: {$ref: './components/feedback.yaml#/FeedbackStatusChangeRequest'}
     QuotaPolicyId: {$ref: './components/quota.yaml#/QuotaPolicyId'}
     QuotaPolicyType: {$ref: './components/quota.yaml#/QuotaPolicyType'}
     QuotaWindowId: {$ref: './components/quota.yaml#/QuotaWindowId'}
@@ -1032,6 +1188,10 @@ components:
         - ENT_PKCE_REQUIRED
         - ENT_PLUGIN_ARTIFACT_INVALID
         - ENT_PRESET_INVALID_PACKAGE
+        - ENT_SKILL_INVALID_PACKAGE
+        - ENT_BRANDING_ASSET_INVALID
+        - ENT_FEEDBACK_INVALID
+        - ENT_FEEDBACK_ATTACHMENT_INVALID
         - ENT_SESSION_FORMAT_UNSUPPORTED
         - ENT_AUTH_REQUIRED
         - ENT_AUTH_CODE_INVALID
@@ -1043,6 +1203,8 @@ components:
         - ENT_PLUGIN_NOT_ASSIGNED
         - ENT_PRESET_NOT_PUBLISHED
         - ENT_PRESET_VISIBILITY_DENIED
+        - ENT_SKILL_NOT_PUBLISHED
+        - ENT_SKILL_VISIBILITY_DENIED
         - ENT_RESOURCE_NOT_OWNED
         - ENT_RESOURCE_NOT_FOUND
         - ENT_SESSION_CONTENT_EXPIRED
@@ -1056,9 +1218,13 @@ components:
         - ENT_SESSION_SOURCE_DEVICE_CONFLICT
         - ENT_IDENTITY_ALREADY_LINKED
         - ENT_DEVICE_ALREADY_BOUND
+        - ENT_FEEDBACK_STATE_CONFLICT
         - ENT_REQUEST_TOO_LARGE
         - ENT_PLUGIN_ARCHIVE_TOO_LARGE
         - ENT_PRESET_TOO_LARGE
+        - ENT_SKILL_TOO_LARGE
+        - ENT_BRANDING_ASSET_TOO_LARGE
+        - ENT_FEEDBACK_ATTACHMENT_TOO_LARGE
         - ENT_SESSION_BATCH_TOO_LARGE
         - ENT_QUOTA_FIVE_HOURS_EXCEEDED
         - ENT_QUOTA_DAILY_EXCEEDED

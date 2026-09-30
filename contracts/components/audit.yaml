@@ -41,6 +41,10 @@ AuditAction:
     - ROLE_ASSIGNED
     - USER_STATUS_CHANGED
     - CONFIG_CHANGED
+    - BRANDING_PUBLISHED
+    - BRANDING_ROLLED_BACK
+    - FEEDBACK_SUBMITTED
+    - FEEDBACK_STATUS_CHANGED
 
 EmptyAuditMetadata: {type: object, additionalProperties: false, properties: {}}
 AuthAuditMetadata:
@@ -226,6 +230,40 @@ RevisionChangedAuditMetadata:
   properties:
     previousRevision: {type: integer, minimum: 0}
     currentRevision: {type: integer, minimum: 1}
+BrandingPublishedAuditMetadata:
+  type: object
+  additionalProperties: false
+  required: [configId, revision, logoCount]
+  properties:
+    configId: {type: integer, minimum: 1}
+    revision: {type: integer, minimum: 1}
+    logoCount: {type: integer, minimum: 0, maximum: 3}
+BrandingRolledBackAuditMetadata:
+  type: object
+  additionalProperties: false
+  required: [configId, fromRevision, targetRevision, revision]
+  properties:
+    configId: {type: integer, minimum: 1}
+    fromRevision: {type: integer, minimum: 1}
+    targetRevision: {type: integer, minimum: 1}
+    revision: {type: integer, minimum: 2}
+FeedbackSubmittedAuditMetadata:
+  type: object
+  additionalProperties: false
+  required: [feedbackId, type, attachmentCount]
+  properties:
+    feedbackId: {type: integer, minimum: 1}
+    type: {$ref: './feedback.yaml#/FeedbackType'}
+    attachmentCount: {type: integer, minimum: 0, maximum: 3}
+FeedbackStatusChangedAuditMetadata:
+  type: object
+  additionalProperties: false
+  required: [feedbackId, previousStatus, currentStatus, revision]
+  properties:
+    feedbackId: {type: integer, minimum: 1}
+    previousStatus: {$ref: './feedback.yaml#/FeedbackStatus'}
+    currentStatus: {$ref: './feedback.yaml#/FeedbackStatus'}
+    revision: {type: integer, minimum: 1}
 
 AuditMetadata:
   anyOf:
@@ -252,6 +290,10 @@ AuditMetadata:
     - $ref: '#/RoleAssignedAuditMetadata'
     - $ref: '#/UserStatusChangedAuditMetadata'
     - $ref: '#/RevisionChangedAuditMetadata'
+    - $ref: '#/BrandingPublishedAuditMetadata'
+    - $ref: '#/BrandingRolledBackAuditMetadata'
+    - $ref: '#/FeedbackSubmittedAuditMetadata'
+    - $ref: '#/FeedbackStatusChangedAuditMetadata'
 
 AuditEvent:
   type: object

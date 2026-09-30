@@ -129,10 +129,22 @@ export async function registerEnterpriseGateway(
     contributed = Object.keys(next)
   }
 
+  /**
+   * 本次贡献是否仍在 pi-ai 行的 config 里。
+   *
+   * 官方在改写这一行的 config 时会**整体重提交**（例如模型选择写回），持久化值里没有我们注入的
+   * providers ⇒ 贡献被抹掉。指纹只记录"我们算过什么"，不能证明"它还在"，所以跳过前必须核实。
+   */
+  const contributionIntact = (): boolean => {
+    if (contributed.length === 0) return true
+    const providers = plainRecord(plainRecord(entry.options.config)['providers'])
+    return contributed.every(key => providers[key] !== undefined)
+  }
+
   const applyProfiles = async (): Promise<void> => {
     const next = profiles()
     const nextFingerprint = JSON.stringify(next)
-    if (nextFingerprint === fingerprint) return
+    if (nextFingerprint === fingerprint && contributionIntact()) return
     await publish(next)
     fingerprint = nextFingerprint
   }
@@ -147,6 +159,18 @@ export async function registerEnterpriseGateway(
       })
   }
   const unsubscribe = options.platform.subscribe(refresh)
+  // 官方改这一行 config 时会整体重提交我们的贡献，settings 文档更新是其中一条已知路径：
+  // 这里补一次，配合 contributionIntact 让注入自愈（无 effect/on 能力的宿主自动跳过）。
+  if (typeof ctx.effect === 'function' && typeof ctx.on === 'function') {
+    // 该事件由官方 settings 插件发出：bundle 侧同一事件名是类型安全的，而本包 Context 的类型
+    // 来自 cordis、未声明它，故只把 `on` 收窄成"(事件名, 处理函数) -> 注销器"；运行期事件真实存在。
+    const onSettingsDocumentUpdated = ctx.on as unknown as
+      (event: string, handler: () => void) => () => void
+    ctx.effect(
+      () => onSettingsDocumentUpdated('settings/document-updated', () => { refresh() }),
+      'enterpriseGateway.settingsWatch',
+    )
+  }
   try {
     await applyProfiles()
   } catch (error) {

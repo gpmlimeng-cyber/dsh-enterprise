@@ -231,3 +231,11 @@ Keep the map aligned with the terrain, or the terrain will be lost.
 - **凭据前提**：该 provider 声明 `apiKeyEnv: XIAOMI_TOKEN_PLAN_CN_API_KEY`；已实测可经 harness 凭据 seam 解析（`mimo-v2.6-flash` 调用返回成功）。若解析失败，调用会以 `MISSING_CREDENTIAL` 终止。
 - 无论走哪条通路，子任务交付**必须**：给出真实命令输出、如实标注未验证项、**不得**为消红而改测试期望或伪造通过。
 
+## 写作用域法则：同包不并行
+
+- **定义**：任一 package（`plugin/packages/*`、`server/*` 模块、`console/*`、`contracts/*` 等）同一时刻**只允许一个写者**；跨会话、跨 Agent、跨 worktree 一视同仁。
+- **派工前**：必须声明 package 级写作用域 + 共享文件清单；Lead 维护"包占用表"，冲突即串行，不靠运气。
+- **共享文件归属**：注册面、聚合入口、公共 spec（`client.tsx`、`local-api.ts`、`client.spec.ts`、`account-gate.spec.ts` 一类）由**先到者独占**；后到者只提"要加哪一行"，由 owner 落地。
+- **不可中断的子代理**：包级互斥必须在**派工之前**保证；Teammate 可 `interrupt_agent`，但同样禁止并行写同一 package。
+- **冲突处置**：① 立即停手；② 落**哈希快照**；③ 逐项核对两侧功能标记与各自 spec；④ 补回缺失 hunk；⑤ 重跑门禁；此后才允许构建/装机/推送。
+- **违规判定**：任何"同包双写"都算违规，**即便最终没有覆盖**——"没覆盖"是运气，不是设计。

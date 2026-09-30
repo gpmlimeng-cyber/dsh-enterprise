@@ -6,6 +6,7 @@
  */
 
 import { createRequire } from 'node:module'
+import { release } from 'node:os'
 import type { Context } from '@deepseek-ai/cordis'
 import type { CredentialProvider } from '@deepseek-ai/dsh-credentials'
 import * as AccountPlatform from '@deepseek-ai/dsh-deepseek-account-platform'
@@ -17,6 +18,7 @@ import { registerEnterpriseGateway } from '@dshent/llm-gateway'
 import {
   EnterprisePlatformError,
   EnterprisePlatformService,
+  openSystemBrowser,
   resolveEnterpriseDshHome,
   settingsDiagnostics,
   settingsReference,
@@ -46,6 +48,10 @@ import {
   type AccountOriginController,
   type AccountOriginPort,
 } from './account-origin.js'
+import { registerEnterpriseFeedbackRoute } from './feedback-route.js'
+import { registerEnterpriseHelpRoute } from './help-route.js'
+import { registerEnterpriseUsageRoute } from './usage-route.js'
+import { registerEnterpriseModelsStatusRoute } from './models-status.js'
 
 declare module '@deepseek-ai/dsh-settings' {
   interface SettingsProvider {
@@ -275,8 +281,13 @@ function createAccountOriginMount(
  * @param ctx - bundle 组合根上下文；settings 与事件都注册在它上面。
  * @param webServer - bundle 顶层注入的 `ctx.webServer` route port。
  * @param config - Loader 已解析的 entry Config（volatile 字段在运行期是配置引用）。
+ * @returns 当前生效平台地址的读数；帮助中心路由用它派生 `${platformOrigin}/help/`（严格 allowlist）。
  */
-function mountEnterpriseAccountOrigin(ctx: Context, webServer: WebServerRoutePort, config: Config): void {
+function mountEnterpriseAccountOrigin(
+  ctx: Context,
+  webServer: WebServerRoutePort,
+  config: Config,
+): () => string | undefined {
   const platformOrigin = settingsReference<string>(config.platformOrigin)
   const inferenceOrigin = settingsReference<string>(config.inferenceOrigin)
   const entryId = ownerEntryId(ctx)
@@ -365,6 +376,7 @@ function mountEnterpriseAccountOrigin(ctx: Context, webServer: WebServerRoutePor
   void controller.apply(read()).catch((error: unknown) => {
     ctx.logger.error('owndsh: initial official account platform mount failed', error)
   })
+  return () => read().platformOrigin
 }
 
 /** 在 Harness 官方 Service 上挂载平台控制面，并把企业 profiles 并入已挂载的官方 dsh-llm-pi-ai。 */
@@ -426,6 +438,34 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
     harnessVersion: HARNESS_VERSION,
     bundleVersion: BUNDLE_VERSION,
   }), 'enterpriseGateway.registration')
+  // 用量只读镜像：Access Token 只在 Host 内存，个人中心「我的用量」只能读这条同源路由，
+  // 由 Host 以 GET 代取中心 usage/me；上游 401 投影 401、其余失败投影 503 并留 warn 日志。
+  // 企业模型挂载状态（只读诊断）：Host 日志不落盘，断点状态从这里读。
+  ctx.effect(() => registerEnterpriseModelsStatusRoute(ctx.webServer, ctx, platform, (message, error) => {
+    ctx.logger.warn(`owndsh: ${message}`)
+    ctx.logger.warn(error instanceof Error ? error.message : String(error))
+  }), 'enterpriseModelsStatus.routes')
+  ctx.effect(() => registerEnterpriseUsageRoute(ctx.webServer, platform, (message, error) => {
+    ctx.logger.warn(`owndsh: ${message}`, error)
+  }), 'enterpriseUsage.routes')
+  // 反馈提交透传：浏览器无令牌，由 Host 代取 Access Token 转交中心 multipart 提交；
+  // 附件在本地就按中心同名口径限流（≤3 张 / 单张 ≤2 MiB / 位图魔数），
+  // diagnostics 由 Host 采集（版本/OS/installationId/最近错误码）并覆盖浏览器提交的同名字段。
+  ctx.effect(() => registerEnterpriseFeedbackRoute(ctx.webServer, platform, {
+    hostVersion: HARNESS_VERSION,
+    os: `${process.platform}-${release()}`,
+    pluginVersion: BUNDLE_VERSION,
+  }, (message, error) => {
+    ctx.logger.warn(`owndsh: ${message}`, error)
+  }), 'enterpriseFeedback.routes')
+  // 帮助中心：浏览器既拿不到也不该拿 URL，地址由 Host 按自己配置的平台地址 + 固定 /help/ 派生，
+  // 再用 PKCE 登录那条系统浏览器通道打开（严格 allowlist = 没有可注入的输入）。
+  const readPlatformOrigin = mountEnterpriseAccountOrigin(ctx, ctx.webServer, config)
+  ctx.effect(() => registerEnterpriseHelpRoute(ctx.webServer, readPlatformOrigin, {
+    open: (url, signal) => openSystemBrowser(url, signal),
+  }, (message, error) => {
+    ctx.logger.warn(`owndsh: ${message}`, error)
+  }), 'enterpriseHelp.routes')
   // Session 同步：仅 bootstrap sessionPolicy.enabled 时挂载；默认关闭零 Session API。
   sessionSyncHandle = tryRegisterHostSessionSync({
     dshHome: resolveEnterpriseDshHome(),
@@ -497,5 +537,5 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
     })
   }
   // 目标1：官方 `deepseek-account` base 行已停用，账户后台由企业 bundle 用用户自定义地址挂载同一实现。
-  mountEnterpriseAccountOrigin(ctx, ctx.webServer, config)
+  // 挂载点已在上面拿到读数（readPlatformOrigin），帮助中心路由与它共用同一份「当前平台地址」。
 }

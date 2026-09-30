@@ -1,0 +1,27 @@
+{
+  "id": "1902500000000000001",
+  "skillId": "meeting-notes",
+  "displayName": "会议纪要技能组",
+  "description": "把会议录音与转写整理成结构化纪要，并产出可跟踪的行动项。",
+  "sourceDshVersion": "0.1.7-rc.2",
+  "sizeBytes": 40960,
+  "skillCount": 2,
+  "updatedAt": "2026-09-30T08:00:00Z",
+  "versionId": "1902500000000000101",
+  "sha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+  "skills": [
+    {
+      "name": "meeting-notes",
+      "description": "Use when asked to summarize meeting recordings or transcripts into structured notes with decisions and action items.",
+      "whenToUse": "Use for meeting minutes, transcript summarization, or action-item extraction.",
+      "modelInvocable": true,
+      "userInvocable": true
+    },
+    {
+      "name": "meeting-actions",
+      "description": "Use when asked to turn meeting decisions into a tracked action list with owners and due dates.",
+      "modelInvocable": true,
+      "userInvocable": false
+    }
+  ]
+}

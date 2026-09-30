@@ -35,5 +35,10 @@ V27__one_rate_limit_per_provider.sql: 以局部唯一索引保证每个供应商
 V28__refresh_sessions.sql: 建立只存 SHA-256 摘要、绑定用户/client/installation、绝对 30 天且保留轮换重放证据的 Refresh Session family。
 V29__gateway_usage_accounting.sql: 保留历史配额扣额、清除估算伪装的实测分类，并给 reservation 增加最终 usage 快照用于结算恢复。
 V30__enterprise_preset_square.sql: 建立配方 package/version/assignment 三表、ent:preset 权限码，并扩展审计 action 白名单。
+V31__ent_admin_cli_refresh_client.sql: 保留管理端会话与 CLI/Refresh client 的历史演进事实（既有文件，回填地图）。 
+V32__enterprise_branding.sql: 建立品牌单行配置（含可空 organization_id 预留列）、不可变发布文档与位图资产三表，新增 ent:branding 权限码并扩展审计 action 白名单。
+V33__enterprise_branding_menu.sql: 补齐品牌页 C 型菜单节点并授予 enterprise_admin，修正 V32 只登记 F 型权限码、控制台侧栏无入口的缺口；插入幂等，可在已手工插入的环境安全重跑。
+V34__enterprise_feedback.sql: 建立反馈主表（白名单 diagnostics 直接落列、consent 与 510 字描述入库约束、可选幂等键）与不可变附件表（≤3 张、单张 ≤2 MiB、位图 MIME），新增 ent:feedback 权限码 + F 型权限行 + C 型「问题反馈」菜单节点并只授 enterprise_admin，扩展审计 action 白名单两条。
+V35__enterprise_skill_catalog.sql: 建立技能 package/version/assignment 三表（version 存 frontmatter 脱敏投影 jsonb + GIN 索引，不存正文）、ent:skill 权限码 + F 型权限行，并扩展审计 action 白名单五条。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:owndsh:contracts:FeedbackAttachmentContentType",
+  "type": "string",
+  "enum": [
+    "image/png",
+    "image/jpeg",
+    "image/webp"
+  ],
+  "description": "位图白名单；SVG 与任何矢量格式都不在协议内。"
+}

@@ -329,6 +329,52 @@ export type RuntimePresetSummary = PresetRuntimePresetSummary;
 
 export type RuntimePresetDetail = PresetRuntimePresetDetail;
 
+export type SkillPackageId = SkillSkillPackageId;
+
+export type SkillVersionId = SkillSkillVersionId;
+
+export type SkillAssignmentId = SkillSkillAssignmentId;
+
+export type SkillVersionStatus = SkillSkillVersionStatus;
+
+export type SkillPackageStatus = SkillSkillPackageStatus;
+
+export type SkillSubjectType = SkillSkillSubjectType;
+
+export type SkillAssignmentStatus = SkillSkillAssignmentStatus;
+
+export type SkillPackageRef = SkillSkillPackageRef;
+
+export type SkillEntryName = SkillSkillEntryName;
+
+export type SkillSourceDshVersion = SkillSkillSourceDshVersion;
+
+export type SkillSha256 = SkillSkillSha256;
+
+export type SkillEntry = SkillSkillEntry;
+
+export type SkillUploadMetadata = SkillSkillUploadMetadata;
+
+export type SkillVersion = SkillSkillVersion;
+
+export type SkillVersionResponse = SkillSkillVersionResponse;
+
+export type SkillAssignment = SkillSkillAssignment;
+
+export type SkillAssignmentSpec = SkillSkillAssignmentSpec;
+
+export type SkillAssignmentBatchRequest = SkillSkillAssignmentBatchRequest;
+
+export type SkillPackage = SkillSkillPackage;
+
+export type SkillPackagePageData = SkillSkillPackagePageData;
+
+export type SkillPackageListResponse = SkillSkillPackageListResponse;
+
+export type RuntimeSkillSummary = SkillRuntimeSkillSummary;
+
+export type RuntimeSkillDetail = SkillRuntimeSkillDetail;
+
 export type PluginPackageId = PluginPluginPackageId;
 
 export type PluginVersionId = PluginPluginVersionId;
@@ -422,6 +468,72 @@ export type AuditEvent = AuditAuditEvent;
 export type AuditEventPageData = AuditAuditEventPageData;
 
 export type AuditEventListResponse = AuditAuditEventListResponse;
+
+export type BrandingAssetHash = BrandingBrandingAssetHash;
+
+export type BrandingAssetContentType = BrandingBrandingAssetContentType;
+
+export type BrandingAssetRef = BrandingBrandingAssetRef;
+
+export type BrandingPublicLogo = BrandingBrandingPublicLogo;
+
+export type BrandingWelcome = BrandingBrandingWelcome;
+
+export type BrandingPublicData = BrandingBrandingPublicData;
+
+export type BrandingPublicResponse = BrandingBrandingPublicResponse;
+
+export type BrandingAdminAsset = BrandingBrandingAdminAsset;
+
+export type BrandingAdminLogo = BrandingBrandingAdminLogo;
+
+export type BrandingAdminData = BrandingBrandingAdminData;
+
+export type BrandingAdminResponse = BrandingBrandingAdminResponse;
+
+export type BrandingAdminAssetResponse = BrandingBrandingAdminAssetResponse;
+
+export type BrandingRevision = BrandingBrandingRevision;
+
+export type BrandingRevisionPageData = BrandingBrandingRevisionPageData;
+
+export type BrandingRevisionListResponse = BrandingBrandingRevisionListResponse;
+
+export type BrandingPublishRequest = BrandingBrandingPublishRequest;
+
+export type BrandingRollbackRequest = BrandingBrandingRollbackRequest;
+
+export type FeedbackType = FeedbackFeedbackType;
+
+export type FeedbackStatus = FeedbackFeedbackStatus;
+
+export type FeedbackAttachmentContentType = FeedbackFeedbackAttachmentContentType;
+
+export type FeedbackAttachmentExtension = FeedbackFeedbackAttachmentExtension;
+
+export type FeedbackDiagnostics = FeedbackFeedbackDiagnostics;
+
+export type FeedbackSubmissionMetadata = FeedbackFeedbackSubmissionMetadata;
+
+export type FeedbackSubmissionForm = FeedbackFeedbackSubmissionForm;
+
+export type FeedbackSubmissionData = FeedbackFeedbackSubmissionData;
+
+export type FeedbackSubmissionResponse = FeedbackFeedbackSubmissionResponse;
+
+export type FeedbackAttachment = FeedbackFeedbackAttachment;
+
+export type FeedbackItem = FeedbackFeedbackItem;
+
+export type FeedbackDetail = FeedbackFeedbackDetail;
+
+export type FeedbackPageData = FeedbackFeedbackPageData;
+
+export type FeedbackListResponse = FeedbackFeedbackListResponse;
+
+export type FeedbackDetailResponse = FeedbackFeedbackDetailResponse;
+
+export type FeedbackStatusChangeRequest = FeedbackFeedbackStatusChangeRequest;
 
 export type QuotaPolicyId = QuotaQuotaPolicyId;
 
@@ -545,7 +657,7 @@ export type ProtocolPageResponse = {
     requestId: RequestId;
 };
 
-export type EnterpriseErrorCode = 'ENT_INVALID_REQUEST' | 'ENT_INVALID_REDIRECT_URI' | 'ENT_PKCE_REQUIRED' | 'ENT_PLUGIN_ARTIFACT_INVALID' | 'ENT_PRESET_INVALID_PACKAGE' | 'ENT_SESSION_FORMAT_UNSUPPORTED' | 'ENT_AUTH_REQUIRED' | 'ENT_AUTH_CODE_INVALID' | 'ENT_PKCE_INVALID' | 'ENT_AUTH_SESSION_EXPIRED' | 'ENT_PERMISSION_DENIED' | 'ENT_DEVICE_REVOKED' | 'ENT_MODEL_NOT_ASSIGNED' | 'ENT_PLUGIN_NOT_ASSIGNED' | 'ENT_PRESET_NOT_PUBLISHED' | 'ENT_PRESET_VISIBILITY_DENIED' | 'ENT_RESOURCE_NOT_OWNED' | 'ENT_RESOURCE_NOT_FOUND' | 'ENT_SESSION_CONTENT_EXPIRED' | 'ENT_REVISION_CONFLICT' | 'ENT_LAST_ENTERPRISE_ADMIN' | 'ENT_LAST_MEMBER_IDENTITY' | 'ENT_REQUEST_IN_PROGRESS' | 'ENT_REQUEST_ALREADY_COMPLETED' | 'ENT_SESSION_SEQ_GAP' | 'ENT_SESSION_DIVERGED' | 'ENT_SESSION_SOURCE_DEVICE_CONFLICT' | 'ENT_IDENTITY_ALREADY_LINKED' | 'ENT_DEVICE_ALREADY_BOUND' | 'ENT_REQUEST_TOO_LARGE' | 'ENT_PLUGIN_ARCHIVE_TOO_LARGE' | 'ENT_PRESET_TOO_LARGE' | 'ENT_SESSION_BATCH_TOO_LARGE' | 'ENT_QUOTA_FIVE_HOURS_EXCEEDED' | 'ENT_QUOTA_DAILY_EXCEEDED' | 'ENT_QUOTA_WEEKLY_EXCEEDED' | 'ENT_QUOTA_MONTHLY_EXCEEDED' | 'ENT_QUOTA_RPM_EXCEEDED' | 'ENT_QUOTA_CONCURRENCY_EXCEEDED' | 'ENT_UPSTREAM_RATE_LIMITED' | 'ENT_UPSTREAM_QUOTA_EXCEEDED' | 'ENT_UPSTREAM_AUTH_FAILED' | 'ENT_UPSTREAM_INVALID_RESPONSE' | 'ENT_PLATFORM_UNAVAILABLE' | 'ENT_UPSTREAM_UNAVAILABLE' | 'ENT_UPSTREAM_TIMEOUT';
+export type EnterpriseErrorCode = 'ENT_INVALID_REQUEST' | 'ENT_INVALID_REDIRECT_URI' | 'ENT_PKCE_REQUIRED' | 'ENT_PLUGIN_ARTIFACT_INVALID' | 'ENT_PRESET_INVALID_PACKAGE' | 'ENT_SKILL_INVALID_PACKAGE' | 'ENT_BRANDING_ASSET_INVALID' | 'ENT_FEEDBACK_INVALID' | 'ENT_FEEDBACK_ATTACHMENT_INVALID' | 'ENT_SESSION_FORMAT_UNSUPPORTED' | 'ENT_AUTH_REQUIRED' | 'ENT_AUTH_CODE_INVALID' | 'ENT_PKCE_INVALID' | 'ENT_AUTH_SESSION_EXPIRED' | 'ENT_PERMISSION_DENIED' | 'ENT_DEVICE_REVOKED' | 'ENT_MODEL_NOT_ASSIGNED' | 'ENT_PLUGIN_NOT_ASSIGNED' | 'ENT_PRESET_NOT_PUBLISHED' | 'ENT_PRESET_VISIBILITY_DENIED' | 'ENT_SKILL_NOT_PUBLISHED' | 'ENT_SKILL_VISIBILITY_DENIED' | 'ENT_RESOURCE_NOT_OWNED' | 'ENT_RESOURCE_NOT_FOUND' | 'ENT_SESSION_CONTENT_EXPIRED' | 'ENT_REVISION_CONFLICT' | 'ENT_LAST_ENTERPRISE_ADMIN' | 'ENT_LAST_MEMBER_IDENTITY' | 'ENT_REQUEST_IN_PROGRESS' | 'ENT_REQUEST_ALREADY_COMPLETED' | 'ENT_SESSION_SEQ_GAP' | 'ENT_SESSION_DIVERGED' | 'ENT_SESSION_SOURCE_DEVICE_CONFLICT' | 'ENT_IDENTITY_ALREADY_LINKED' | 'ENT_DEVICE_ALREADY_BOUND' | 'ENT_FEEDBACK_STATE_CONFLICT' | 'ENT_REQUEST_TOO_LARGE' | 'ENT_PLUGIN_ARCHIVE_TOO_LARGE' | 'ENT_PRESET_TOO_LARGE' | 'ENT_SKILL_TOO_LARGE' | 'ENT_BRANDING_ASSET_TOO_LARGE' | 'ENT_FEEDBACK_ATTACHMENT_TOO_LARGE' | 'ENT_SESSION_BATCH_TOO_LARGE' | 'ENT_QUOTA_FIVE_HOURS_EXCEEDED' | 'ENT_QUOTA_DAILY_EXCEEDED' | 'ENT_QUOTA_WEEKLY_EXCEEDED' | 'ENT_QUOTA_MONTHLY_EXCEEDED' | 'ENT_QUOTA_RPM_EXCEEDED' | 'ENT_QUOTA_CONCURRENCY_EXCEEDED' | 'ENT_UPSTREAM_RATE_LIMITED' | 'ENT_UPSTREAM_QUOTA_EXCEEDED' | 'ENT_UPSTREAM_AUTH_FAILED' | 'ENT_UPSTREAM_INVALID_RESPONSE' | 'ENT_PLATFORM_UNAVAILABLE' | 'ENT_UPSTREAM_UNAVAILABLE' | 'ENT_UPSTREAM_TIMEOUT';
 
 export type ValidationViolation = {
     field: string;
@@ -583,7 +695,7 @@ export type EnterpriseErrorResponse = {
     error: EnterpriseError;
 };
 
-export type AuditAuditAction = 'LOGIN_SUCCEEDED' | 'LOGIN_FAILED' | 'LOGOUT' | 'IDENTITY_SOURCE_CHANGED' | 'USER_LINKED' | 'USER_UNLINKED' | 'DEVICE_ENROLLED' | 'DEVICE_HEARTBEAT' | 'DEVICE_REVOKED' | 'PROVIDER_CHANGED' | 'MODEL_CHANGED' | 'MODEL_GRANT_CHANGED' | 'MODEL_REQUEST_ACCEPTED' | 'MODEL_REQUEST_FINISHED' | 'QUOTA_CHANGED' | 'QUOTA_REJECTED' | 'RESERVATION_RECOVERED' | 'PLUGIN_UPLOADED' | 'PLUGIN_PUBLISHED' | 'PLUGIN_ASSIGNED' | 'PLUGIN_DOWNLOADED' | 'PLUGIN_INVENTORY_REPORTED' | 'SESSION_BATCH_APPENDED' | 'SESSION_EXPORTED' | 'SESSION_RESTORED' | 'SESSION_CONTENT_READ' | 'SESSION_DELETED' | 'SESSION_EXPIRED' | 'ROLE_ASSIGNED' | 'USER_STATUS_CHANGED' | 'CONFIG_CHANGED';
+export type AuditAuditAction = 'LOGIN_SUCCEEDED' | 'LOGIN_FAILED' | 'LOGOUT' | 'IDENTITY_SOURCE_CHANGED' | 'USER_LINKED' | 'USER_UNLINKED' | 'DEVICE_ENROLLED' | 'DEVICE_HEARTBEAT' | 'DEVICE_REVOKED' | 'PROVIDER_CHANGED' | 'MODEL_CHANGED' | 'MODEL_GRANT_CHANGED' | 'MODEL_REQUEST_ACCEPTED' | 'MODEL_REQUEST_FINISHED' | 'QUOTA_CHANGED' | 'QUOTA_REJECTED' | 'RESERVATION_RECOVERED' | 'PLUGIN_UPLOADED' | 'PLUGIN_PUBLISHED' | 'PLUGIN_ASSIGNED' | 'PLUGIN_DOWNLOADED' | 'PLUGIN_INVENTORY_REPORTED' | 'SESSION_BATCH_APPENDED' | 'SESSION_EXPORTED' | 'SESSION_RESTORED' | 'SESSION_CONTENT_READ' | 'SESSION_DELETED' | 'SESSION_EXPIRED' | 'ROLE_ASSIGNED' | 'USER_STATUS_CHANGED' | 'CONFIG_CHANGED' | 'BRANDING_PUBLISHED' | 'BRANDING_ROLLED_BACK' | 'FEEDBACK_SUBMITTED' | 'FEEDBACK_STATUS_CHANGED';
 
 export type AuditAuditActorType = 'USER' | 'SYSTEM';
 
@@ -614,7 +726,7 @@ export type AuditAuditEventPageData = {
     page: CursorPage;
 };
 
-export type AuditAuditMetadata = EmptyAuditMetadata | AuthAuditMetadata | IdentityChangeAuditMetadata | IdentityLinkAuditMetadata | IdentityUnlinkAuditMetadata | DeviceEnrollmentAuditMetadata | DeviceHeartbeatAuditMetadata | ProviderChangeAuditMetadata | ModelChangeAuditMetadata | ModelGrantChangeAuditMetadata | GatewayAcceptedAuditMetadata | GatewayFinishedAuditMetadata | QuotaChangeAuditMetadata | QuotaRejectionAuditMetadata | ReservationRecoveredAuditMetadata | PluginAuditMetadata | SessionRangeAuditMetadata | SessionRestoredAuditMetadata | SessionDeletedAuditMetadata | SessionExpiredAuditMetadata | RoleAssignedAuditMetadata | UserStatusChangedAuditMetadata | RevisionChangedAuditMetadata;
+export type AuditAuditMetadata = EmptyAuditMetadata | AuthAuditMetadata | IdentityChangeAuditMetadata | IdentityLinkAuditMetadata | IdentityUnlinkAuditMetadata | DeviceEnrollmentAuditMetadata | DeviceHeartbeatAuditMetadata | ProviderChangeAuditMetadata | ModelChangeAuditMetadata | ModelGrantChangeAuditMetadata | GatewayAcceptedAuditMetadata | GatewayFinishedAuditMetadata | QuotaChangeAuditMetadata | QuotaRejectionAuditMetadata | ReservationRecoveredAuditMetadata | PluginAuditMetadata | SessionRangeAuditMetadata | SessionRestoredAuditMetadata | SessionDeletedAuditMetadata | SessionExpiredAuditMetadata | RoleAssignedAuditMetadata | UserStatusChangedAuditMetadata | RevisionChangedAuditMetadata | BrandingPublishedAuditMetadata | BrandingRolledBackAuditMetadata | FeedbackSubmittedAuditMetadata | FeedbackStatusChangedAuditMetadata;
 
 export type AuditAuditResult = 'SUCCESS' | 'FAILURE';
 
@@ -623,6 +735,19 @@ export type AuditAuditTypeName = string;
 export type AuthAuditMetadata = {
     clientId: 'dsh-desktop' | 'enterprise-admin';
     sourceType?: 'OIDC' | 'LDAP' | 'LOCAL';
+};
+
+export type BrandingPublishedAuditMetadata = {
+    configId: number;
+    revision: number;
+    logoCount: number;
+};
+
+export type BrandingRolledBackAuditMetadata = {
+    configId: number;
+    fromRevision: number;
+    targetRevision: number;
+    revision: number;
 };
 
 export type DeviceEnrollmentAuditMetadata = {
@@ -638,6 +763,19 @@ export type DeviceHeartbeatAuditMetadata = {
 
 export type EmptyAuditMetadata = {
     [key: string]: never;
+};
+
+export type FeedbackStatusChangedAuditMetadata = {
+    feedbackId: number;
+    previousStatus: FeedbackFeedbackStatus;
+    currentStatus: FeedbackFeedbackStatus;
+    revision: number;
+};
+
+export type FeedbackSubmittedAuditMetadata = {
+    feedbackId: number;
+    type: FeedbackFeedbackType;
+    attachmentCount: number;
 };
 
 export type GatewayAcceptedAuditMetadata = {
@@ -917,6 +1055,119 @@ export type AuthTokenResponse = {
     requestId: RequestId;
 };
 
+export type BrandingBrandingAdminAsset = {
+    id: string;
+    /**
+     * Admin-authenticated preview URL; unpublished assets never appear here.
+     */
+    url: string;
+    sha256: BrandingBrandingAssetHash;
+    contentType: BrandingBrandingAssetContentType;
+    width: number;
+    height: number;
+    sizeBytes: number;
+};
+
+export type BrandingBrandingAdminAssetResponse = {
+    data: BrandingBrandingAdminAsset;
+    requestId: RequestId;
+};
+
+export type BrandingBrandingAdminData = {
+    revision: Revision;
+    name: string | null;
+    shortName: string | null;
+    logo: BrandingBrandingAdminLogo;
+    welcome: BrandingBrandingWelcome;
+    updatedAt: string | null;
+    updatedBy: string | null;
+};
+
+export type BrandingBrandingAdminLogo = {
+    light: BrandingBrandingAdminAsset | null;
+    dark: BrandingBrandingAdminAsset | null;
+    square: BrandingBrandingAdminAsset | null;
+};
+
+export type BrandingBrandingAdminResponse = {
+    data: BrandingBrandingAdminData;
+    requestId: RequestId;
+};
+
+export type BrandingBrandingAssetContentType = 'image/png' | 'image/jpeg' | 'image/webp';
+
+export type BrandingBrandingAssetHash = string;
+
+export type BrandingBrandingAssetRef = {
+    /**
+     * Content-addressed immutable URL scoped by the published revision.
+     */
+    url: string;
+    sha256: BrandingBrandingAssetHash;
+    contentType: BrandingBrandingAssetContentType;
+    width: number;
+    height: number;
+    sizeBytes: number;
+};
+
+export type BrandingBrandingPublicData = {
+    revision: Revision;
+    name: string | null;
+    shortName: string | null;
+    logo: BrandingBrandingPublicLogo;
+    welcome: BrandingBrandingWelcome;
+    updatedAt: string | null;
+};
+
+export type BrandingBrandingPublicLogo = {
+    light: BrandingBrandingAssetRef | null;
+    dark: BrandingBrandingAssetRef | null;
+    square: BrandingBrandingAssetRef | null;
+};
+
+export type BrandingBrandingPublicResponse = {
+    data: BrandingBrandingPublicData;
+    requestId: RequestId;
+};
+
+export type BrandingBrandingPublishRequest = {
+    name?: string | null;
+    shortName?: string | null;
+    logoLightAssetId?: string | null;
+    logoDarkAssetId?: string | null;
+    logoSquareAssetId?: string | null;
+    welcomeHeadline?: string | null;
+    welcomeEditionLabel?: string | null;
+};
+
+export type BrandingBrandingRevision = {
+    id: string;
+    revision: Revision;
+    name: string | null;
+    shortName: string | null;
+    publishedAt: string;
+    current: boolean;
+};
+
+export type BrandingBrandingRevisionListResponse = {
+    data: BrandingBrandingRevisionPageData;
+    requestId: RequestId;
+};
+
+export type BrandingBrandingRevisionPageData = {
+    items: Array<BrandingBrandingRevision>;
+    page: CursorPage;
+};
+
+export type BrandingBrandingRollbackRequest = {
+    targetRevision: string;
+};
+
+export type BrandingBrandingWelcome = {
+    headline: string | null;
+    editionLabel: string | null;
+};
+
 export type DeviceDevice = {
     id: EnterpriseDeviceId;
     userId: EnterpriseUserId;
@@ -970,6 +1221,144 @@ export type DeviceDeviceResponse = {
 };
 
 export type DeviceDeviceStatus = 'ACTIVE' | 'REVOKED';
+
+export type FeedbackFeedbackAttachment = {
+    id: string;
+    seq: number;
+    /**
+     * 管理端鉴权内容地址；不含本地路径或内容哈希。
+     */
+    url: string;
+    contentType: FeedbackFeedbackAttachmentContentType;
+    extension: FeedbackFeedbackAttachmentExtension;
+    sizeBytes: number;
+    width: number;
+    height: number;
+};
+
+/**
+ * 位图白名单；SVG 与任何矢量格式都不在协议内。
+ */
+export type FeedbackFeedbackAttachmentContentType = 'image/png' | 'image/jpeg' | 'image/webp';
+
+export type FeedbackFeedbackAttachmentExtension = 'png' | 'jpg' | 'webp';
+
+export type FeedbackFeedbackDetail = {
+    id: string;
+    type: FeedbackFeedbackType;
+    status: FeedbackFeedbackStatus;
+    description: string;
+    contact: string | null;
+    submitterId: EnterpriseUserId;
+    attachmentCount: number;
+    occurredAt: string;
+    revision: Revision;
+    statusNote: string | null;
+    statusChangedBy: EnterpriseUserId | null;
+    statusChangedAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+    diagnostics: FeedbackFeedbackDiagnostics;
+    attachments: Array<FeedbackFeedbackAttachment>;
+};
+
+export type FeedbackFeedbackDetailResponse = {
+    data: FeedbackFeedbackDetail;
+    requestId: RequestId;
+};
+
+/**
+ * 客户端自动附带的白名单诊断摘要。键集封闭且字段内容受服务端正则收窄， 令牌、会话内容与文件路径没有落点。
+ */
+export type FeedbackFeedbackDiagnostics = {
+    pluginVersion?: string | null;
+    hostVersion?: string | null;
+    os?: string | null;
+    installationId?: string | null;
+    lastErrorCode?: string | null;
+};
+
+export type FeedbackFeedbackItem = {
+    id: string;
+    type: FeedbackFeedbackType;
+    status: FeedbackFeedbackStatus;
+    description: string;
+    contact: string | null;
+    submitterId: EnterpriseUserId;
+    attachmentCount: number;
+    occurredAt: string;
+    revision: Revision;
+    statusNote: string | null;
+    statusChangedBy: EnterpriseUserId | null;
+    statusChangedAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type FeedbackFeedbackListResponse = {
+    data: FeedbackFeedbackPageData;
+    requestId: RequestId;
+};
+
+export type FeedbackFeedbackPageData = {
+    items: Array<FeedbackFeedbackItem>;
+    page: CursorPage;
+};
+
+export type FeedbackFeedbackStatus = 'new' | 'triaged' | 'resolved' | 'ignored';
+
+export type FeedbackFeedbackStatusChangeRequest = {
+    /**
+     * 只允许 new→triaged、triaged→resolved、triaged→ignored。
+     */
+    status: FeedbackFeedbackStatus | null;
+    note?: string | null;
+};
+
+export type FeedbackFeedbackSubmissionData = {
+    id: string;
+    type: FeedbackFeedbackType;
+    status: FeedbackFeedbackStatus;
+    occurredAt: string;
+    attachmentCount: number;
+    createdAt: string;
+};
+
+export type FeedbackFeedbackSubmissionForm = {
+    metadata: FeedbackFeedbackSubmissionMetadata;
+    /**
+     * 最多 3 张位图 part；第 4 张 part 在协议层就不存在。
+     */
+    attachments?: Array<Blob | File>;
+};
+
+export type FeedbackFeedbackSubmissionMetadata = {
+    /**
+     * 缺省为 issue。
+     */
+    type?: FeedbackFeedbackType | null;
+    description: string;
+    /**
+     * 选填；缺省为服务端提交时刻。必须带时区。
+     */
+    occurredAt?: string | null;
+    /**
+     * 选填邮箱或手机号。
+     */
+    contact?: string | null;
+    /**
+     * 必须显式同意，非 true 的提交没有合规依据。
+     */
+    consent: true;
+    diagnostics?: FeedbackFeedbackDiagnostics | null;
+};
+
+export type FeedbackFeedbackSubmissionResponse = {
+    data: FeedbackFeedbackSubmissionData;
+    requestId: RequestId;
+};
+
+export type FeedbackFeedbackType = 'issue' | 'suggestion';
 
 export type GatewayGatewayModel = ModelAlias | 'enterprise/default';
 
@@ -2271,6 +2660,116 @@ export type SessionSessionSequence = number;
 
 export type SessionSessionStatus = 'ACTIVE' | 'DELETED' | 'EXPIRED';
 
+export type SkillRuntimeSkillDetail = SkillRuntimeSkillSummary & {
+    versionId: SkillSkillVersionId;
+    sha256: SkillSkillSha256;
+    skills: Array<SkillSkillEntry>;
+};
+
+export type SkillRuntimeSkillSummary = {
+    id: SkillSkillPackageId;
+    skillId: SkillSkillPackageRef;
+    displayName: string;
+    description: string;
+    sourceDshVersion: SkillSkillSourceDshVersion;
+    sizeBytes: number;
+    skillCount: number;
+    updatedAt: string;
+};
+
+export type SkillSkillAssignment = {
+    id: SkillSkillAssignmentId;
+    packageId: SkillSkillPackageId;
+    subjectType: SkillSkillSubjectType;
+    subjectId?: string;
+    status: SkillSkillAssignmentStatus;
+    revision: Revision;
+};
+
+export type SkillSkillAssignmentBatchRequest = {
+    assignments: Array<SkillSkillAssignmentSpec>;
+};
+
+export type SkillSkillAssignmentId = string;
+
+export type SkillSkillAssignmentSpec = {
+    subjectType: SkillSkillSubjectType;
+    subjectId?: string;
+};
+
+export type SkillSkillAssignmentStatus = 'ACTIVE' | 'DISABLED';
+
+export type SkillSkillEntry = {
+    name: SkillSkillEntryName;
+    description: string;
+    whenToUse?: string;
+    modelInvocable: boolean;
+    userInvocable: boolean;
+};
+
+export type SkillSkillEntryName = string;
+
+export type SkillSkillPackage = {
+    id: SkillSkillPackageId;
+    skillId: SkillSkillPackageRef;
+    displayName: string;
+    description?: string;
+    status: SkillSkillPackageStatus;
+    revision: Revision;
+    versions: Array<SkillSkillVersion>;
+    assignments: Array<SkillSkillAssignment>;
+};
+
+export type SkillSkillPackageId = string;
+
+export type SkillSkillPackageListResponse = {
+    data: SkillSkillPackagePageData;
+    requestId: RequestId;
+};
+
+export type SkillSkillPackagePageData = {
+    items: Array<SkillSkillPackage>;
+    page: CursorPage;
+};
+
+export type SkillSkillPackageRef = string;
+
+export type SkillSkillPackageStatus = 'ACTIVE' | 'DISABLED';
+
+export type SkillSkillSha256 = string;
+
+export type SkillSkillSourceDshVersion = string;
+
+export type SkillSkillSubjectType = 'ALL' | 'USER';
+
+export type SkillSkillUploadMetadata = {
+    displayName?: string;
+    description?: string;
+};
+
+export type SkillSkillVersion = {
+    id: SkillSkillVersionId;
+    packageId: SkillSkillPackageId;
+    skillId: SkillSkillPackageRef;
+    sourceDshVersion: SkillSkillSourceDshVersion;
+    sizeBytes: number;
+    sha256: SkillSkillSha256;
+    status: SkillSkillVersionStatus;
+    skillCount: number;
+    skills?: Array<SkillSkillEntry>;
+    createdAt: string;
+    revision: Revision;
+};
+
+export type SkillSkillVersionId = string;
+
+export type SkillSkillVersionResponse = {
+    data: SkillSkillVersion;
+    requestId: RequestId;
+};
+
+export type SkillSkillVersionStatus = 'VALIDATED' | 'PUBLISHED' | 'RETIRED';
+
 export type AdminAuditCollection = unknown;
 
 export type Authorize = unknown;
@@ -2293,6 +2792,22 @@ export type Sources = unknown;
 
 export type Token = unknown;
 
+export type AdminBrandingAssetContent = unknown;
+
+export type AdminBrandingAssetUpload = unknown;
+
+export type AdminBrandingCurrent = unknown;
+
+export type AdminBrandingPublish = unknown;
+
+export type AdminBrandingRevisionList = unknown;
+
+export type AdminBrandingRollback = unknown;
+
+export type PublicBrandingAsset = unknown;
+
+export type PublicBrandingCurrent = unknown;
+
 export type Enroll = unknown;
 
 export type Get = unknown;
@@ -2302,6 +2817,16 @@ export type Heartbeat = unknown;
 export type List = unknown;
 
 export type Revoke = unknown;
+
+export type AdminFeedbackAttachmentContent = unknown;
+
+export type AdminFeedbackCollection = unknown;
+
+export type AdminFeedbackItem = unknown;
+
+export type AdminFeedbackStatus = unknown;
+
+export type RuntimeFeedbackSubmit = unknown;
 
 export type AnthropicMessages = unknown;
 
@@ -2448,6 +2973,22 @@ export type RuntimeSessionItem = unknown;
 
 export type RuntimeSessionRestoreRecord = unknown;
 
+export type RuntimeSkillCollection = unknown;
+
+export type RuntimeSkillDownload = unknown;
+
+export type RuntimeSkillItem = unknown;
+
+export type SkillAssignmentBatch = unknown;
+
+export type SkillCollection = unknown;
+
+export type SkillVersionPublish = unknown;
+
+export type SkillVersionRetire = unknown;
+
+export type SkillVersionUpload = unknown;
+
 export type IdentitySourceIdWritable = IdentityIdentitySourceId;
 
 export type GroupMappingIdWritable = IdentityGroupMappingId;
@@ -2540,6 +3081,28 @@ export type PresetSourceDshVersionWritable = PresetPresetSourceDshVersion;
 
 export type PresetSha256Writable = PresetPresetSha256;
 
+export type SkillPackageIdWritable = SkillSkillPackageId;
+
+export type SkillVersionIdWritable = SkillSkillVersionId;
+
+export type SkillAssignmentIdWritable = SkillSkillAssignmentId;
+
+export type SkillVersionStatusWritable = SkillSkillVersionStatus;
+
+export type SkillPackageStatusWritable = SkillSkillPackageStatus;
+
+export type SkillSubjectTypeWritable = SkillSkillSubjectType;
+
+export type SkillAssignmentStatusWritable = SkillSkillAssignmentStatus;
+
+export type SkillPackageRefWritable = SkillSkillPackageRef;
+
+export type SkillEntryNameWritable = SkillSkillEntryName;
+
+export type SkillSourceDshVersionWritable = SkillSkillSourceDshVersion;
+
+export type SkillSha256Writable = SkillSkillSha256;
+
 export type PluginPackageIdWritable = PluginPluginPackageId;
 
 export type PluginVersionIdWritable = PluginPluginVersionId;
@@ -2565,6 +3128,18 @@ export type AuditResultWritable = AuditAuditResult;
 export type AuditTypeNameWritable = AuditAuditTypeName;
 
 export type AuditActionWritable = AuditAuditAction;
+
+export type BrandingAssetHashWritable = BrandingBrandingAssetHash;
+
+export type BrandingAssetContentTypeWritable = BrandingBrandingAssetContentType;
+
+export type FeedbackTypeWritable = FeedbackFeedbackType;
+
+export type FeedbackStatusWritable = FeedbackFeedbackStatus;
+
+export type FeedbackAttachmentContentTypeWritable = FeedbackFeedbackAttachmentContentType;
+
+export type FeedbackAttachmentExtensionWritable = FeedbackFeedbackAttachmentExtension;
 
 export type QuotaPolicyIdWritable = QuotaQuotaPolicyId;
 
@@ -6372,6 +6947,358 @@ export type DownloadRuntimePresetResponses = {
 
 export type DownloadRuntimePresetResponse = DownloadRuntimePresetResponses[keyof DownloadRuntimePresetResponses];
 
+export type ListSkillPackagesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Server-signed opaque cursor; clients must not parse it.
+         */
+        cursor?: Cursor;
+        /**
+         * Cursor page size.
+         */
+        limit?: PageLimit;
+    };
+    url: '/enterprise/admin/v1/skills';
+};
+
+export type ListSkillPackagesErrors = {
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+};
+
+export type ListSkillPackagesError = ListSkillPackagesErrors[keyof ListSkillPackagesErrors];
+
+export type ListSkillPackagesResponses = {
+    /**
+     * Skill package page with versions and visibility.
+     */
+    200: SkillSkillPackageListResponse;
+};
+
+export type ListSkillPackagesResponse = ListSkillPackagesResponses[keyof ListSkillPackagesResponses];
+
+export type UploadSkillVersionData = {
+    body: {
+        artifact: Blob | File;
+        metadata?: SkillSkillUploadMetadata;
+    };
+    headers: {
+        /**
+         * Caller-generated UUID v4 reused only for one logical write.
+         */
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/enterprise/admin/v1/skills/versions';
+};
+
+export type UploadSkillVersionErrors = {
+    /**
+     * Invalid request.
+     */
+    400: EnterpriseErrorResponse;
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Request or archive is too large.
+     */
+    413: EnterpriseErrorResponse;
+};
+
+export type UploadSkillVersionError = UploadSkillVersionErrors[keyof UploadSkillVersionErrors];
+
+export type UploadSkillVersionResponses = {
+    /**
+     * Existing version returned for an idempotent natural key.
+     */
+    200: SkillSkillVersionResponse;
+    /**
+     * Validated skill version.
+     */
+    201: SkillSkillVersionResponse;
+};
+
+export type UploadSkillVersionResponse = UploadSkillVersionResponses[keyof UploadSkillVersionResponses];
+
+export type PublishSkillVersionData = {
+    body?: never;
+    headers: {
+        /**
+         * Current resource revision used for compare-and-swap updates.
+         */
+        'If-Match': Revision;
+    };
+    path: {
+        skillVersionId: SkillSkillVersionId;
+    };
+    query?: never;
+    url: '/enterprise/admin/v1/skills/versions/{skillVersionId}/actions/publish';
+};
+
+export type PublishSkillVersionErrors = {
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Resource not found.
+     */
+    404: EnterpriseErrorResponse;
+    /**
+     * Revision, idempotency, or state conflict.
+     */
+    409: EnterpriseErrorResponse;
+};
+
+export type PublishSkillVersionError = PublishSkillVersionErrors[keyof PublishSkillVersionErrors];
+
+export type PublishSkillVersionResponses = {
+    /**
+     * Published skill version.
+     */
+    200: SkillSkillVersionResponse;
+};
+
+export type PublishSkillVersionResponse = PublishSkillVersionResponses[keyof PublishSkillVersionResponses];
+
+export type RetireSkillVersionData = {
+    body?: never;
+    headers: {
+        /**
+         * Current resource revision used for compare-and-swap updates.
+         */
+        'If-Match': Revision;
+    };
+    path: {
+        skillVersionId: SkillSkillVersionId;
+    };
+    query?: never;
+    url: '/enterprise/admin/v1/skills/versions/{skillVersionId}/actions/retire';
+};
+
+export type RetireSkillVersionErrors = {
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Resource not found.
+     */
+    404: EnterpriseErrorResponse;
+    /**
+     * Revision, idempotency, or state conflict.
+     */
+    409: EnterpriseErrorResponse;
+};
+
+export type RetireSkillVersionError = RetireSkillVersionErrors[keyof RetireSkillVersionErrors];
+
+export type RetireSkillVersionResponses = {
+    /**
+     * Retired skill version.
+     */
+    200: SkillSkillVersionResponse;
+};
+
+export type RetireSkillVersionResponse = RetireSkillVersionResponses[keyof RetireSkillVersionResponses];
+
+export type ReplaceSkillAssignmentsData = {
+    body: SkillSkillAssignmentBatchRequest;
+    headers: {
+        /**
+         * Caller-generated UUID v4 reused only for one logical write.
+         */
+        'Idempotency-Key': string;
+        /**
+         * Current resource revision used for compare-and-swap updates.
+         */
+        'If-Match': Revision;
+    };
+    path: {
+        skillPackageId: SkillSkillPackageId;
+    };
+    query?: never;
+    url: '/enterprise/admin/v1/skills/{skillPackageId}/assignments/batch';
+};
+
+export type ReplaceSkillAssignmentsErrors = {
+    /**
+     * Invalid request.
+     */
+    400: EnterpriseErrorResponse;
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Resource not found.
+     */
+    404: EnterpriseErrorResponse;
+    /**
+     * Revision, idempotency, or state conflict.
+     */
+    409: EnterpriseErrorResponse;
+};
+
+export type ReplaceSkillAssignmentsError = ReplaceSkillAssignmentsErrors[keyof ReplaceSkillAssignmentsErrors];
+
+export type ReplaceSkillAssignmentsResponses = {
+    /**
+     * Fully replaced visibility assignment set.
+     */
+    200: {
+        data: Array<SkillSkillAssignment>;
+        requestId: RequestId;
+    };
+};
+
+export type ReplaceSkillAssignmentsResponse = ReplaceSkillAssignmentsResponses[keyof ReplaceSkillAssignmentsResponses];
+
+export type ListRuntimeSkillsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        sort?: 'newest';
+    };
+    url: '/enterprise/api/v1/skills';
+};
+
+export type ListRuntimeSkillsErrors = {
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+};
+
+export type ListRuntimeSkillsError = ListRuntimeSkillsErrors[keyof ListRuntimeSkillsErrors];
+
+export type ListRuntimeSkillsResponses = {
+    /**
+     * Published skills visible to the current user.
+     */
+    200: {
+        data: Array<SkillRuntimeSkillSummary>;
+        requestId: RequestId;
+    };
+};
+
+export type ListRuntimeSkillsResponse = ListRuntimeSkillsResponses[keyof ListRuntimeSkillsResponses];
+
+export type GetRuntimeSkillData = {
+    body?: never;
+    path: {
+        skillPackageId: SkillSkillPackageId;
+    };
+    query?: never;
+    url: '/enterprise/api/v1/skills/{skillPackageId}';
+};
+
+export type GetRuntimeSkillErrors = {
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Resource not found.
+     */
+    404: EnterpriseErrorResponse;
+};
+
+export type GetRuntimeSkillError = GetRuntimeSkillErrors[keyof GetRuntimeSkillErrors];
+
+export type GetRuntimeSkillResponses = {
+    /**
+     * Visible published skill detail.
+     */
+    200: {
+        data: SkillRuntimeSkillDetail;
+        requestId: RequestId;
+    };
+};
+
+export type GetRuntimeSkillResponse = GetRuntimeSkillResponses[keyof GetRuntimeSkillResponses];
+
+export type DownloadRuntimeSkillData = {
+    body?: never;
+    headers?: {
+        Range?: string;
+    };
+    path: {
+        skillVersionId: SkillSkillVersionId;
+    };
+    query?: never;
+    url: '/enterprise/api/v1/skills/versions/{skillVersionId}/download';
+};
+
+export type DownloadRuntimeSkillErrors = {
+    /**
+     * Invalid request.
+     */
+    400: EnterpriseErrorResponse;
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Resource not found.
+     */
+    404: EnterpriseErrorResponse;
+};
+
+export type DownloadRuntimeSkillError = DownloadRuntimeSkillErrors[keyof DownloadRuntimeSkillErrors];
+
+export type DownloadRuntimeSkillResponses = {
+    /**
+     * Authorized .dshskill archive bytes.
+     */
+    200: Blob | File;
+    /**
+     * Partial archive bytes.
+     */
+    206: Blob | File;
+};
+
+export type DownloadRuntimeSkillResponse = DownloadRuntimeSkillResponses[keyof DownloadRuntimeSkillResponses];
+
 export type ListPluginPackagesData = {
     body?: never;
     path?: never;
@@ -7115,3 +8042,484 @@ export type ListAuditEventsResponses = {
 };
 
 export type ListAuditEventsResponse = ListAuditEventsResponses[keyof ListAuditEventsResponses];
+
+export type GetPublicBrandingData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/enterprise/api/v1/branding';
+};
+
+export type GetPublicBrandingResponses = {
+    /**
+     * Brand singleton for the deployment tenant; revision 0 means unconfigured and the client falls back to built-in defaults.
+     */
+    200: BrandingBrandingPublicResponse;
+};
+
+export type GetPublicBrandingResponse = GetPublicBrandingResponses[keyof GetPublicBrandingResponses];
+
+export type GetPublicBrandingAssetData = {
+    body?: never;
+    path: {
+        revision: number;
+        fileName: string;
+    };
+    query?: never;
+    url: '/enterprise/api/v1/branding/assets/{revision}/{fileName}';
+};
+
+export type GetPublicBrandingAssetErrors = {
+    /**
+     * Resource not found.
+     */
+    404: EnterpriseErrorResponse;
+};
+
+export type GetPublicBrandingAssetError = GetPublicBrandingAssetErrors[keyof GetPublicBrandingAssetErrors];
+
+export type GetPublicBrandingAssetResponses = {
+    /**
+     * Immutable bitmap bytes served with nosniff and a content-addressed ETag.
+     */
+    200: unknown;
+};
+
+export type GetAdminBrandingData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/enterprise/admin/v1/branding';
+};
+
+export type GetAdminBrandingErrors = {
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+};
+
+export type GetAdminBrandingError = GetAdminBrandingErrors[keyof GetAdminBrandingErrors];
+
+export type GetAdminBrandingResponses = {
+    /**
+     * Current published brand revision.
+     */
+    200: BrandingBrandingAdminResponse;
+};
+
+export type GetAdminBrandingResponse = GetAdminBrandingResponses[keyof GetAdminBrandingResponses];
+
+export type ListAdminBrandingRevisionsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Server-signed opaque cursor; clients must not parse it.
+         */
+        cursor?: Cursor;
+        /**
+         * Cursor page size.
+         */
+        limit?: PageLimit;
+    };
+    url: '/enterprise/admin/v1/branding/revisions';
+};
+
+export type ListAdminBrandingRevisionsErrors = {
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+};
+
+export type ListAdminBrandingRevisionsError = ListAdminBrandingRevisionsErrors[keyof ListAdminBrandingRevisionsErrors];
+
+export type ListAdminBrandingRevisionsResponses = {
+    /**
+     * Brand revision page.
+     */
+    200: BrandingBrandingRevisionListResponse;
+};
+
+export type ListAdminBrandingRevisionsResponse = ListAdminBrandingRevisionsResponses[keyof ListAdminBrandingRevisionsResponses];
+
+export type UploadBrandingAssetData = {
+    body: {
+        asset: Blob | File;
+    };
+    headers: {
+        /**
+         * Caller-generated UUID v4 reused only for one logical write.
+         */
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/enterprise/admin/v1/branding/assets';
+};
+
+export type UploadBrandingAssetErrors = {
+    /**
+     * Invalid request.
+     */
+    400: EnterpriseErrorResponse;
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Request or archive is too large.
+     */
+    413: EnterpriseErrorResponse;
+};
+
+export type UploadBrandingAssetError = UploadBrandingAssetErrors[keyof UploadBrandingAssetErrors];
+
+export type UploadBrandingAssetResponses = {
+    /**
+     * Stored bitmap asset; nothing is publicly visible before publish.
+     */
+    201: BrandingBrandingAdminAssetResponse;
+};
+
+export type UploadBrandingAssetResponse = UploadBrandingAssetResponses[keyof UploadBrandingAssetResponses];
+
+export type GetAdminBrandingAssetContentData = {
+    body?: never;
+    path: {
+        assetId: string;
+    };
+    query?: never;
+    url: '/enterprise/admin/v1/branding/assets/{assetId}/content';
+};
+
+export type GetAdminBrandingAssetContentErrors = {
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Resource not found.
+     */
+    404: EnterpriseErrorResponse;
+};
+
+export type GetAdminBrandingAssetContentError = GetAdminBrandingAssetContentErrors[keyof GetAdminBrandingAssetContentErrors];
+
+export type GetAdminBrandingAssetContentResponses = {
+    /**
+     * Bitmap bytes; the response is never publicly cacheable.
+     */
+    200: unknown;
+};
+
+export type PublishBrandingData = {
+    body: BrandingBrandingPublishRequest;
+    headers: {
+        /**
+         * Current resource revision used for compare-and-swap updates.
+         */
+        'If-Match': Revision;
+    };
+    path?: never;
+    query?: never;
+    url: '/enterprise/admin/v1/branding/actions/publish';
+};
+
+export type PublishBrandingErrors = {
+    /**
+     * Invalid request.
+     */
+    400: EnterpriseErrorResponse;
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Resource not found.
+     */
+    404: EnterpriseErrorResponse;
+    /**
+     * Revision, idempotency, or state conflict.
+     */
+    409: EnterpriseErrorResponse;
+};
+
+export type PublishBrandingError = PublishBrandingErrors[keyof PublishBrandingErrors];
+
+export type PublishBrandingResponses = {
+    /**
+     * Newly published brand revision.
+     */
+    200: BrandingBrandingAdminResponse;
+};
+
+export type PublishBrandingResponse = PublishBrandingResponses[keyof PublishBrandingResponses];
+
+export type RollbackBrandingData = {
+    body: BrandingBrandingRollbackRequest;
+    headers: {
+        /**
+         * Current resource revision used for compare-and-swap updates.
+         */
+        'If-Match': Revision;
+    };
+    path?: never;
+    query?: never;
+    url: '/enterprise/admin/v1/branding/actions/rollback';
+};
+
+export type RollbackBrandingErrors = {
+    /**
+     * Invalid request.
+     */
+    400: EnterpriseErrorResponse;
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Resource not found.
+     */
+    404: EnterpriseErrorResponse;
+    /**
+     * Revision, idempotency, or state conflict.
+     */
+    409: EnterpriseErrorResponse;
+};
+
+export type RollbackBrandingError = RollbackBrandingErrors[keyof RollbackBrandingErrors];
+
+export type RollbackBrandingResponses = {
+    /**
+     * Brand revision created by the rollback.
+     */
+    200: BrandingBrandingAdminResponse;
+};
+
+export type RollbackBrandingResponse = RollbackBrandingResponses[keyof RollbackBrandingResponses];
+
+export type SubmitFeedbackData = {
+    body: FeedbackFeedbackSubmissionForm;
+    headers?: {
+        /**
+         * 选填 UUID v4；重复提交同一键返回既有反馈而不新建行。
+         */
+        'Idempotency-Key'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/enterprise/api/v1/feedback';
+};
+
+export type SubmitFeedbackErrors = {
+    /**
+     * Invalid request.
+     */
+    400: EnterpriseErrorResponse;
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Request or archive is too large.
+     */
+    413: EnterpriseErrorResponse;
+};
+
+export type SubmitFeedbackError = SubmitFeedbackErrors[keyof SubmitFeedbackErrors];
+
+export type SubmitFeedbackResponses = {
+    /**
+     * Feedback accepted for triage; the response never echoes attachments or diagnostics content.
+     */
+    201: FeedbackFeedbackSubmissionResponse;
+};
+
+export type SubmitFeedbackResponse = SubmitFeedbackResponses[keyof SubmitFeedbackResponses];
+
+export type ListFeedbackData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Server-signed opaque cursor; clients must not parse it.
+         */
+        cursor?: Cursor;
+        /**
+         * Cursor page size.
+         */
+        limit?: PageLimit;
+        status?: FeedbackFeedbackStatus;
+    };
+    url: '/enterprise/admin/v1/feedback';
+};
+
+export type ListFeedbackErrors = {
+    /**
+     * Invalid request.
+     */
+    400: EnterpriseErrorResponse;
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+};
+
+export type ListFeedbackError = ListFeedbackErrors[keyof ListFeedbackErrors];
+
+export type ListFeedbackResponses = {
+    /**
+     * Feedback page; the cursor is bound to the status filter.
+     */
+    200: FeedbackFeedbackListResponse;
+};
+
+export type ListFeedbackResponse = ListFeedbackResponses[keyof ListFeedbackResponses];
+
+export type GetFeedbackData = {
+    body?: never;
+    path: {
+        feedbackId: string;
+    };
+    query?: never;
+    url: '/enterprise/admin/v1/feedback/{feedbackId}';
+};
+
+export type GetFeedbackErrors = {
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Resource not found.
+     */
+    404: EnterpriseErrorResponse;
+};
+
+export type GetFeedbackError = GetFeedbackErrors[keyof GetFeedbackErrors];
+
+export type GetFeedbackResponses = {
+    /**
+     * Feedback detail; attachments expose an authenticated content URL only.
+     */
+    200: FeedbackFeedbackDetailResponse;
+};
+
+export type GetFeedbackResponse = GetFeedbackResponses[keyof GetFeedbackResponses];
+
+export type ChangeFeedbackStatusData = {
+    body: FeedbackFeedbackStatusChangeRequest;
+    headers: {
+        /**
+         * Current resource revision used for compare-and-swap updates.
+         */
+        'If-Match': Revision;
+    };
+    path: {
+        feedbackId: string;
+    };
+    query?: never;
+    url: '/enterprise/admin/v1/feedback/{feedbackId}/status';
+};
+
+export type ChangeFeedbackStatusErrors = {
+    /**
+     * Invalid request.
+     */
+    400: EnterpriseErrorResponse;
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Resource not found.
+     */
+    404: EnterpriseErrorResponse;
+    /**
+     * Revision, idempotency, or state conflict.
+     */
+    409: EnterpriseErrorResponse;
+};
+
+export type ChangeFeedbackStatusError = ChangeFeedbackStatusErrors[keyof ChangeFeedbackStatusErrors];
+
+export type ChangeFeedbackStatusResponses = {
+    /**
+     * Updated feedback after the transition was accepted and audited.
+     */
+    200: FeedbackFeedbackDetailResponse;
+};
+
+export type ChangeFeedbackStatusResponse = ChangeFeedbackStatusResponses[keyof ChangeFeedbackStatusResponses];
+
+export type GetFeedbackAttachmentContentData = {
+    body?: never;
+    path: {
+        feedbackId: string;
+        attachmentId: string;
+    };
+    query?: never;
+    url: '/enterprise/admin/v1/feedback/{feedbackId}/attachments/{attachmentId}/content';
+};
+
+export type GetFeedbackAttachmentContentErrors = {
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Resource not found.
+     */
+    404: EnterpriseErrorResponse;
+};
+
+export type GetFeedbackAttachmentContentError = GetFeedbackAttachmentContentErrors[keyof GetFeedbackAttachmentContentErrors];
+
+export type GetFeedbackAttachmentContentResponses = {
+    /**
+     * Bitmap bytes; never publicly cacheable.
+     */
+    200: unknown;
+};

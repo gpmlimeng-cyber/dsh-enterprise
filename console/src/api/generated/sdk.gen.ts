@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type ServerSentEventsResult, type TDataShape, urlSearchParamsBodySerializer } from './client';
 import { client } from './client.gen';
-import type { AppendSessionBatchData, AppendSessionBatchErrors, AppendSessionBatchResponses, AuthorizePlatformClientData, AuthorizePlatformClientErrors, AuthorizePlatformClientResponses, ChangeCurrentAccountPasswordData, ChangeCurrentAccountPasswordErrors, ChangeCurrentAccountPasswordResponses, CompleteOidcLoginData, CompleteOidcLoginErrors, CompletePasswordLoginData, CompletePasswordLoginErrors, CompletePasswordLoginResponses, CreateAccessGroupData, CreateAccessGroupErrors, CreateAccessGroupResponses, CreateGroupMappingData, CreateGroupMappingErrors, CreateGroupMappingResponses, CreateIdentitySourceData, CreateIdentitySourceErrors, CreateIdentitySourceResponses, CreateLocalMemberData, CreateLocalMemberErrors, CreateLocalMemberResponses, CreateManagedModelData, CreateManagedModelErrors, CreateManagedModelResponses, CreateModelGrantBatchData, CreateModelGrantBatchErrors, CreateModelGrantBatchResponses, CreateModelGrantData, CreateModelGrantErrors, CreateModelGrantResponses, CreateModelProviderData, CreateModelProviderErrors, CreateModelProviderResponses, CreateModelSetData, CreateModelSetErrors, CreateModelSetResponses, CreateQuotaPolicyData, CreateQuotaPolicyErrors, CreateQuotaPolicyResponses, DeleteAccessGroupData, DeleteAccessGroupErrors, DeleteAccessGroupResponses, DeleteAdminSessionData, DeleteAdminSessionErrors, DeleteAdminSessionResponses, DeleteGroupMappingData, DeleteGroupMappingErrors, DeleteGroupMappingResponses, DeleteManagedModelData, DeleteManagedModelErrors, DeleteManagedModelResponses, DeleteModelGrantData, DeleteModelGrantErrors, DeleteModelGrantResponses, DeleteModelSetData, DeleteModelSetErrors, DeleteModelSetResponses, DeleteOwnedSessionData, DeleteOwnedSessionErrors, DeleteOwnedSessionResponses, DeleteQuotaPolicyData, DeleteQuotaPolicyErrors, DeleteQuotaPolicyResponses, DisableIdentitySourceData, DisableIdentitySourceErrors, DisableIdentitySourceResponses, DisableManagedModelData, DisableManagedModelErrors, DisableManagedModelResponses, DisableModelProviderData, DisableModelProviderErrors, DisableModelProviderResponses, DisableQuotaPolicyData, DisableQuotaPolicyErrors, DisableQuotaPolicyResponses, DownloadPluginVersionData, DownloadPluginVersionErrors, DownloadPluginVersionResponses, DownloadRuntimePresetData, DownloadRuntimePresetErrors, DownloadRuntimePresetResponses, EnableIdentitySourceData, EnableIdentitySourceErrors, EnableIdentitySourceResponses, EnableManagedModelData, EnableManagedModelErrors, EnableManagedModelResponses, EnableModelProviderData, EnableModelProviderErrors, EnableModelProviderResponses, EnableQuotaPolicyData, EnableQuotaPolicyErrors, EnableQuotaPolicyResponses, EnrollCurrentDeviceData, EnrollCurrentDeviceErrors, EnrollCurrentDeviceResponses, ExchangeBrowserAuthorizationCodeData, ExchangeBrowserAuthorizationCodeErrors, ExchangeBrowserAuthorizationCodeResponses, ExchangeDesktopTokenData, ExchangeDesktopTokenErrors, ExchangeDesktopTokenResponses, ExportOwnedSessionData, ExportOwnedSessionErrors, ExportOwnedSessionResponses, GetAccessGroupData, GetAccessGroupErrors, GetAccessGroupResponses, GetConsoleBootstrapData, GetConsoleBootstrapErrors, GetConsoleBootstrapResponses, GetDeviceData, GetDeviceErrors, GetDeviceResponses, GetEnterpriseBootstrapData, GetEnterpriseBootstrapErrors, GetEnterpriseBootstrapResponses, GetIdentitySourceData, GetIdentitySourceErrors, GetIdentitySourceResponses, GetManagedModelData, GetManagedModelErrors, GetManagedModelResponses, GetMemberData, GetMemberErrors, GetMemberResponses, GetModelProviderData, GetModelProviderErrors, GetModelProviderResponses, GetModelSetData, GetModelSetErrors, GetModelSetResponses, GetMyQuotaUsageData, GetMyQuotaUsageErrors, GetMyQuotaUsageResponses, GetPluginAssignmentsData, GetPluginAssignmentsErrors, GetPluginAssignmentsResponses, GetQuotaPolicyData, GetQuotaPolicyErrors, GetQuotaPolicyResponses, GetQuotaPolicyWindowsData, GetQuotaPolicyWindowsErrors, GetQuotaPolicyWindowsResponses, GetRuntimePresetData, GetRuntimePresetErrors, GetRuntimePresetResponses, GetUsageAnalyticsData, GetUsageAnalyticsErrors, GetUsageAnalyticsResponses, GetUserExternalIdentitySummaryData, GetUserExternalIdentitySummaryErrors, GetUserExternalIdentitySummaryResponses, HeartbeatCurrentDeviceData, HeartbeatCurrentDeviceErrors, HeartbeatCurrentDeviceResponses, ImportLdapUserData, ImportLdapUserErrors, ImportLdapUserResponses, ListAccessGroupsData, ListAccessGroupsErrors, ListAccessGroupsResponses, ListAdminSessionsData, ListAdminSessionsErrors, ListAdminSessionsResponses, ListAuditEventsData, ListAuditEventsErrors, ListAuditEventsResponses, ListDevicesData, ListDevicesErrors, ListDevicesResponses, ListGroupMappingsData, ListGroupMappingsErrors, ListGroupMappingsResponses, ListIdentitySourcesData, ListIdentitySourcesErrors, ListIdentitySourcesResponses, ListManagedModelsData, ListManagedModelsErrors, ListManagedModelsResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListModelGrantsData, ListModelGrantsErrors, ListModelGrantsResponses, ListModelProvidersData, ListModelProvidersErrors, ListModelProvidersResponses, ListModelSetsData, ListModelSetsErrors, ListModelSetsResponses, ListOwnedSessionsData, ListOwnedSessionsErrors, ListOwnedSessionsResponses, ListPluginInventoryData, ListPluginInventoryErrors, ListPluginInventoryResponses, ListPluginPackagesData, ListPluginPackagesErrors, ListPluginPackagesResponses, ListPresetPackagesData, ListPresetPackagesErrors, ListPresetPackagesResponses, ListPublicIdentitySourcesData, ListPublicIdentitySourcesErrors, ListPublicIdentitySourcesResponses, ListQuotaPoliciesData, ListQuotaPoliciesErrors, ListQuotaPoliciesResponses, ListRuntimePresetsData, ListRuntimePresetsErrors, ListRuntimePresetsResponses, ListUsageLedgerData, ListUsageLedgerErrors, ListUsageLedgerResponses, LogoutPlatformSessionData, LogoutPlatformSessionErrors, LogoutPlatformSessionResponses, PublishPluginVersionData, PublishPluginVersionErrors, PublishPluginVersionResponses, PublishPresetVersionData, PublishPresetVersionErrors, PublishPresetVersionResponses, ReadAdminSessionContentData, ReadAdminSessionContentErrors, ReadAdminSessionContentResponses, RecordSessionRestoreData, RecordSessionRestoreErrors, RecordSessionRestoreResponses, ReplaceMemberRolesData, ReplaceMemberRolesErrors, ReplaceMemberRolesResponses, ReplacePluginAssignmentsData, ReplacePluginAssignmentsErrors, ReplacePluginAssignmentsResponses, ReplacePluginInventoryData, ReplacePluginInventoryErrors, ReplacePluginInventoryResponses, ReplacePresetAssignmentsData, ReplacePresetAssignmentsErrors, ReplacePresetAssignmentsResponses, RetirePluginVersionData, RetirePluginVersionErrors, RetirePluginVersionResponses, RetirePresetVersionData, RetirePresetVersionErrors, RetirePresetVersionResponses, RevokeDeviceData, RevokeDeviceErrors, RevokeDeviceResponses, SearchLdapGroupsData, SearchLdapGroupsErrors, SearchLdapGroupsResponses, SearchLdapUsersData, SearchLdapUsersErrors, SearchLdapUsersResponses, StartIdentityLinkData, StartIdentityLinkErrors, StartIdentityLinkResponses, StartOidcLoginData, StartOidcLoginErrors, StreamEnterpriseAnthropicMessagesData, StreamEnterpriseAnthropicMessagesErrors, StreamEnterpriseAnthropicMessagesResponse, StreamEnterpriseAnthropicMessagesResponses, StreamEnterpriseChatCompletionsData, StreamEnterpriseChatCompletionsErrors, StreamEnterpriseChatCompletionsResponse, StreamEnterpriseChatCompletionsResponses, StreamEnterpriseResponsesData, StreamEnterpriseResponsesErrors, StreamEnterpriseResponsesResponse, StreamEnterpriseResponsesResponses, TestIdentitySourceData, TestIdentitySourceErrors, TestIdentitySourceResponses, TestModelProviderData, TestModelProviderErrors, TestModelProviderResponses, UnlinkMemberIdentityData, UnlinkMemberIdentityErrors, UnlinkMemberIdentityResponses, UpdateAccessGroupData, UpdateAccessGroupErrors, UpdateAccessGroupResponses, UpdateIdentitySourceData, UpdateIdentitySourceErrors, UpdateIdentitySourceResponses, UpdateManagedModelData, UpdateManagedModelErrors, UpdateManagedModelResponses, UpdateMemberStatusData, UpdateMemberStatusErrors, UpdateMemberStatusResponses, UpdateModelGrantData, UpdateModelGrantErrors, UpdateModelGrantResponses, UpdateModelProviderData, UpdateModelProviderErrors, UpdateModelProviderResponses, UpdateModelSetData, UpdateModelSetErrors, UpdateModelSetResponses, UpdateQuotaPolicyData, UpdateQuotaPolicyErrors, UpdateQuotaPolicyResponses, UploadPluginVersionData, UploadPluginVersionErrors, UploadPluginVersionResponses, UploadPresetVersionData, UploadPresetVersionErrors, UploadPresetVersionResponses } from './types.gen';
+import type { AppendSessionBatchData, AppendSessionBatchErrors, AppendSessionBatchResponses, AuthorizePlatformClientData, AuthorizePlatformClientErrors, AuthorizePlatformClientResponses, ChangeCurrentAccountPasswordData, ChangeCurrentAccountPasswordErrors, ChangeCurrentAccountPasswordResponses, ChangeFeedbackStatusData, ChangeFeedbackStatusErrors, ChangeFeedbackStatusResponses, CompleteOidcLoginData, CompleteOidcLoginErrors, CompletePasswordLoginData, CompletePasswordLoginErrors, CompletePasswordLoginResponses, CreateAccessGroupData, CreateAccessGroupErrors, CreateAccessGroupResponses, CreateGroupMappingData, CreateGroupMappingErrors, CreateGroupMappingResponses, CreateIdentitySourceData, CreateIdentitySourceErrors, CreateIdentitySourceResponses, CreateLocalMemberData, CreateLocalMemberErrors, CreateLocalMemberResponses, CreateManagedModelData, CreateManagedModelErrors, CreateManagedModelResponses, CreateModelGrantBatchData, CreateModelGrantBatchErrors, CreateModelGrantBatchResponses, CreateModelGrantData, CreateModelGrantErrors, CreateModelGrantResponses, CreateModelProviderData, CreateModelProviderErrors, CreateModelProviderResponses, CreateModelSetData, CreateModelSetErrors, CreateModelSetResponses, CreateQuotaPolicyData, CreateQuotaPolicyErrors, CreateQuotaPolicyResponses, DeleteAccessGroupData, DeleteAccessGroupErrors, DeleteAccessGroupResponses, DeleteAdminSessionData, DeleteAdminSessionErrors, DeleteAdminSessionResponses, DeleteGroupMappingData, DeleteGroupMappingErrors, DeleteGroupMappingResponses, DeleteManagedModelData, DeleteManagedModelErrors, DeleteManagedModelResponses, DeleteModelGrantData, DeleteModelGrantErrors, DeleteModelGrantResponses, DeleteModelSetData, DeleteModelSetErrors, DeleteModelSetResponses, DeleteOwnedSessionData, DeleteOwnedSessionErrors, DeleteOwnedSessionResponses, DeleteQuotaPolicyData, DeleteQuotaPolicyErrors, DeleteQuotaPolicyResponses, DisableIdentitySourceData, DisableIdentitySourceErrors, DisableIdentitySourceResponses, DisableManagedModelData, DisableManagedModelErrors, DisableManagedModelResponses, DisableModelProviderData, DisableModelProviderErrors, DisableModelProviderResponses, DisableQuotaPolicyData, DisableQuotaPolicyErrors, DisableQuotaPolicyResponses, DownloadPluginVersionData, DownloadPluginVersionErrors, DownloadPluginVersionResponses, DownloadRuntimePresetData, DownloadRuntimePresetErrors, DownloadRuntimePresetResponses, DownloadRuntimeSkillData, DownloadRuntimeSkillErrors, DownloadRuntimeSkillResponses, EnableIdentitySourceData, EnableIdentitySourceErrors, EnableIdentitySourceResponses, EnableManagedModelData, EnableManagedModelErrors, EnableManagedModelResponses, EnableModelProviderData, EnableModelProviderErrors, EnableModelProviderResponses, EnableQuotaPolicyData, EnableQuotaPolicyErrors, EnableQuotaPolicyResponses, EnrollCurrentDeviceData, EnrollCurrentDeviceErrors, EnrollCurrentDeviceResponses, ExchangeBrowserAuthorizationCodeData, ExchangeBrowserAuthorizationCodeErrors, ExchangeBrowserAuthorizationCodeResponses, ExchangeDesktopTokenData, ExchangeDesktopTokenErrors, ExchangeDesktopTokenResponses, ExportOwnedSessionData, ExportOwnedSessionErrors, ExportOwnedSessionResponses, GetAccessGroupData, GetAccessGroupErrors, GetAccessGroupResponses, GetAdminBrandingAssetContentData, GetAdminBrandingAssetContentErrors, GetAdminBrandingAssetContentResponses, GetAdminBrandingData, GetAdminBrandingErrors, GetAdminBrandingResponses, GetConsoleBootstrapData, GetConsoleBootstrapErrors, GetConsoleBootstrapResponses, GetDeviceData, GetDeviceErrors, GetDeviceResponses, GetEnterpriseBootstrapData, GetEnterpriseBootstrapErrors, GetEnterpriseBootstrapResponses, GetFeedbackAttachmentContentData, GetFeedbackAttachmentContentErrors, GetFeedbackAttachmentContentResponses, GetFeedbackData, GetFeedbackErrors, GetFeedbackResponses, GetIdentitySourceData, GetIdentitySourceErrors, GetIdentitySourceResponses, GetManagedModelData, GetManagedModelErrors, GetManagedModelResponses, GetMemberData, GetMemberErrors, GetMemberResponses, GetModelProviderData, GetModelProviderErrors, GetModelProviderResponses, GetModelSetData, GetModelSetErrors, GetModelSetResponses, GetMyQuotaUsageData, GetMyQuotaUsageErrors, GetMyQuotaUsageResponses, GetPluginAssignmentsData, GetPluginAssignmentsErrors, GetPluginAssignmentsResponses, GetPublicBrandingAssetData, GetPublicBrandingAssetErrors, GetPublicBrandingAssetResponses, GetPublicBrandingData, GetPublicBrandingResponses, GetQuotaPolicyData, GetQuotaPolicyErrors, GetQuotaPolicyResponses, GetQuotaPolicyWindowsData, GetQuotaPolicyWindowsErrors, GetQuotaPolicyWindowsResponses, GetRuntimePresetData, GetRuntimePresetErrors, GetRuntimePresetResponses, GetRuntimeSkillData, GetRuntimeSkillErrors, GetRuntimeSkillResponses, GetUsageAnalyticsData, GetUsageAnalyticsErrors, GetUsageAnalyticsResponses, GetUserExternalIdentitySummaryData, GetUserExternalIdentitySummaryErrors, GetUserExternalIdentitySummaryResponses, HeartbeatCurrentDeviceData, HeartbeatCurrentDeviceErrors, HeartbeatCurrentDeviceResponses, ImportLdapUserData, ImportLdapUserErrors, ImportLdapUserResponses, ListAccessGroupsData, ListAccessGroupsErrors, ListAccessGroupsResponses, ListAdminBrandingRevisionsData, ListAdminBrandingRevisionsErrors, ListAdminBrandingRevisionsResponses, ListAdminSessionsData, ListAdminSessionsErrors, ListAdminSessionsResponses, ListAuditEventsData, ListAuditEventsErrors, ListAuditEventsResponses, ListDevicesData, ListDevicesErrors, ListDevicesResponses, ListFeedbackData, ListFeedbackErrors, ListFeedbackResponses, ListGroupMappingsData, ListGroupMappingsErrors, ListGroupMappingsResponses, ListIdentitySourcesData, ListIdentitySourcesErrors, ListIdentitySourcesResponses, ListManagedModelsData, ListManagedModelsErrors, ListManagedModelsResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListModelGrantsData, ListModelGrantsErrors, ListModelGrantsResponses, ListModelProvidersData, ListModelProvidersErrors, ListModelProvidersResponses, ListModelSetsData, ListModelSetsErrors, ListModelSetsResponses, ListOwnedSessionsData, ListOwnedSessionsErrors, ListOwnedSessionsResponses, ListPluginInventoryData, ListPluginInventoryErrors, ListPluginInventoryResponses, ListPluginPackagesData, ListPluginPackagesErrors, ListPluginPackagesResponses, ListPresetPackagesData, ListPresetPackagesErrors, ListPresetPackagesResponses, ListPublicIdentitySourcesData, ListPublicIdentitySourcesErrors, ListPublicIdentitySourcesResponses, ListQuotaPoliciesData, ListQuotaPoliciesErrors, ListQuotaPoliciesResponses, ListRuntimePresetsData, ListRuntimePresetsErrors, ListRuntimePresetsResponses, ListRuntimeSkillsData, ListRuntimeSkillsErrors, ListRuntimeSkillsResponses, ListSkillPackagesData, ListSkillPackagesErrors, ListSkillPackagesResponses, ListUsageLedgerData, ListUsageLedgerErrors, ListUsageLedgerResponses, LogoutPlatformSessionData, LogoutPlatformSessionErrors, LogoutPlatformSessionResponses, PublishBrandingData, PublishBrandingErrors, PublishBrandingResponses, PublishPluginVersionData, PublishPluginVersionErrors, PublishPluginVersionResponses, PublishPresetVersionData, PublishPresetVersionErrors, PublishPresetVersionResponses, PublishSkillVersionData, PublishSkillVersionErrors, PublishSkillVersionResponses, ReadAdminSessionContentData, ReadAdminSessionContentErrors, ReadAdminSessionContentResponses, RecordSessionRestoreData, RecordSessionRestoreErrors, RecordSessionRestoreResponses, ReplaceMemberRolesData, ReplaceMemberRolesErrors, ReplaceMemberRolesResponses, ReplacePluginAssignmentsData, ReplacePluginAssignmentsErrors, ReplacePluginAssignmentsResponses, ReplacePluginInventoryData, ReplacePluginInventoryErrors, ReplacePluginInventoryResponses, ReplacePresetAssignmentsData, ReplacePresetAssignmentsErrors, ReplacePresetAssignmentsResponses, ReplaceSkillAssignmentsData, ReplaceSkillAssignmentsErrors, ReplaceSkillAssignmentsResponses, RetirePluginVersionData, RetirePluginVersionErrors, RetirePluginVersionResponses, RetirePresetVersionData, RetirePresetVersionErrors, RetirePresetVersionResponses, RetireSkillVersionData, RetireSkillVersionErrors, RetireSkillVersionResponses, RevokeDeviceData, RevokeDeviceErrors, RevokeDeviceResponses, RollbackBrandingData, RollbackBrandingErrors, RollbackBrandingResponses, SearchLdapGroupsData, SearchLdapGroupsErrors, SearchLdapGroupsResponses, SearchLdapUsersData, SearchLdapUsersErrors, SearchLdapUsersResponses, StartIdentityLinkData, StartIdentityLinkErrors, StartIdentityLinkResponses, StartOidcLoginData, StartOidcLoginErrors, StreamEnterpriseAnthropicMessagesData, StreamEnterpriseAnthropicMessagesErrors, StreamEnterpriseAnthropicMessagesResponse, StreamEnterpriseAnthropicMessagesResponses, StreamEnterpriseChatCompletionsData, StreamEnterpriseChatCompletionsErrors, StreamEnterpriseChatCompletionsResponse, StreamEnterpriseChatCompletionsResponses, StreamEnterpriseResponsesData, StreamEnterpriseResponsesErrors, StreamEnterpriseResponsesResponse, StreamEnterpriseResponsesResponses, SubmitFeedbackData, SubmitFeedbackErrors, SubmitFeedbackResponses, TestIdentitySourceData, TestIdentitySourceErrors, TestIdentitySourceResponses, TestModelProviderData, TestModelProviderErrors, TestModelProviderResponses, UnlinkMemberIdentityData, UnlinkMemberIdentityErrors, UnlinkMemberIdentityResponses, UpdateAccessGroupData, UpdateAccessGroupErrors, UpdateAccessGroupResponses, UpdateIdentitySourceData, UpdateIdentitySourceErrors, UpdateIdentitySourceResponses, UpdateManagedModelData, UpdateManagedModelErrors, UpdateManagedModelResponses, UpdateMemberStatusData, UpdateMemberStatusErrors, UpdateMemberStatusResponses, UpdateModelGrantData, UpdateModelGrantErrors, UpdateModelGrantResponses, UpdateModelProviderData, UpdateModelProviderErrors, UpdateModelProviderResponses, UpdateModelSetData, UpdateModelSetErrors, UpdateModelSetResponses, UpdateQuotaPolicyData, UpdateQuotaPolicyErrors, UpdateQuotaPolicyResponses, UploadBrandingAssetData, UploadBrandingAssetErrors, UploadBrandingAssetResponses, UploadPluginVersionData, UploadPluginVersionErrors, UploadPluginVersionResponses, UploadPresetVersionData, UploadPresetVersionErrors, UploadPresetVersionResponses, UploadSkillVersionData, UploadSkillVersionErrors, UploadSkillVersionResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -1072,6 +1072,95 @@ export const downloadRuntimePreset = <ThrowOnError extends boolean = false>(opti
     ...options
 });
 
+export const listSkillPackages = <ThrowOnError extends boolean = false>(options?: Options<ListSkillPackagesData, ThrowOnError>): RequestResult<ListSkillPackagesResponses, ListSkillPackagesErrors, ThrowOnError> => (options?.client ?? client).get<ListSkillPackagesResponses, ListSkillPackagesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'enterprise-admin',
+            type: 'apiKey'
+        }],
+    url: '/enterprise/admin/v1/skills',
+    ...options
+});
+
+export const uploadSkillVersion = <ThrowOnError extends boolean = false>(options: Options<UploadSkillVersionData, ThrowOnError>): RequestResult<UploadSkillVersionResponses, UploadSkillVersionErrors, ThrowOnError> => (options.client ?? client).post<UploadSkillVersionResponses, UploadSkillVersionErrors, ThrowOnError>({
+    ...formDataBodySerializer,
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'enterprise-admin',
+            type: 'apiKey'
+        }],
+    url: '/enterprise/admin/v1/skills/versions',
+    ...options,
+    headers: {
+        'Content-Type': null,
+        ...options.headers
+    }
+});
+
+export const publishSkillVersion = <ThrowOnError extends boolean = false>(options: Options<PublishSkillVersionData, ThrowOnError>): RequestResult<PublishSkillVersionResponses, PublishSkillVersionErrors, ThrowOnError> => (options.client ?? client).post<PublishSkillVersionResponses, PublishSkillVersionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'enterprise-admin',
+            type: 'apiKey'
+        }],
+    url: '/enterprise/admin/v1/skills/versions/{skillVersionId}/actions/publish',
+    ...options
+});
+
+export const retireSkillVersion = <ThrowOnError extends boolean = false>(options: Options<RetireSkillVersionData, ThrowOnError>): RequestResult<RetireSkillVersionResponses, RetireSkillVersionErrors, ThrowOnError> => (options.client ?? client).post<RetireSkillVersionResponses, RetireSkillVersionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'enterprise-admin',
+            type: 'apiKey'
+        }],
+    url: '/enterprise/admin/v1/skills/versions/{skillVersionId}/actions/retire',
+    ...options
+});
+
+export const replaceSkillAssignments = <ThrowOnError extends boolean = false>(options: Options<ReplaceSkillAssignmentsData, ThrowOnError>): RequestResult<ReplaceSkillAssignmentsResponses, ReplaceSkillAssignmentsErrors, ThrowOnError> => (options.client ?? client).post<ReplaceSkillAssignmentsResponses, ReplaceSkillAssignmentsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'enterprise-admin',
+            type: 'apiKey'
+        }],
+    url: '/enterprise/admin/v1/skills/{skillPackageId}/assignments/batch',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const listRuntimeSkills = <ThrowOnError extends boolean = false>(options?: Options<ListRuntimeSkillsData, ThrowOnError>): RequestResult<ListRuntimeSkillsResponses, ListRuntimeSkillsErrors, ThrowOnError> => (options?.client ?? client).get<ListRuntimeSkillsResponses, ListRuntimeSkillsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'enterprise-admin',
+            type: 'apiKey'
+        }],
+    url: '/enterprise/api/v1/skills',
+    ...options
+});
+
+export const getRuntimeSkill = <ThrowOnError extends boolean = false>(options: Options<GetRuntimeSkillData, ThrowOnError>): RequestResult<GetRuntimeSkillResponses, GetRuntimeSkillErrors, ThrowOnError> => (options.client ?? client).get<GetRuntimeSkillResponses, GetRuntimeSkillErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'enterprise-admin',
+            type: 'apiKey'
+        }],
+    url: '/enterprise/api/v1/skills/{skillPackageId}',
+    ...options
+});
+
+export const downloadRuntimeSkill = <ThrowOnError extends boolean = false>(options: Options<DownloadRuntimeSkillData, ThrowOnError>): RequestResult<DownloadRuntimeSkillResponses, DownloadRuntimeSkillErrors, ThrowOnError> => (options.client ?? client).get<DownloadRuntimeSkillResponses, DownloadRuntimeSkillErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'enterprise-admin',
+            type: 'apiKey'
+        }],
+    url: '/enterprise/api/v1/skills/versions/{skillVersionId}/download',
+    ...options
+});
+
 export const listPluginPackages = <ThrowOnError extends boolean = false>(options?: Options<ListPluginPackagesData, ThrowOnError>): RequestResult<ListPluginPackagesResponses, ListPluginPackagesErrors, ThrowOnError> => (options?.client ?? client).get<ListPluginPackagesResponses, ListPluginPackagesErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
@@ -1270,5 +1359,180 @@ export const listAuditEvents = <ThrowOnError extends boolean = false>(options?: 
             type: 'apiKey'
         }],
     url: '/enterprise/admin/v1/audit-events',
+    ...options
+});
+
+/**
+ * Anonymous same-origin read of the white-listed brand singleton, cached by revision ETag.
+ */
+export const getPublicBranding = <ThrowOnError extends boolean = false>(options?: Options<GetPublicBrandingData, ThrowOnError>): RequestResult<GetPublicBrandingResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetPublicBrandingResponses, unknown, ThrowOnError>({ url: '/enterprise/api/v1/branding', ...options });
+
+/**
+ * Anonymous read of one bitmap referenced by the published revision.
+ */
+export const getPublicBrandingAsset = <ThrowOnError extends boolean = false>(options: Options<GetPublicBrandingAssetData, ThrowOnError>): RequestResult<GetPublicBrandingAssetResponses, GetPublicBrandingAssetErrors, ThrowOnError> => (options.client ?? client).get<GetPublicBrandingAssetResponses, GetPublicBrandingAssetErrors, ThrowOnError>({ url: '/enterprise/api/v1/branding/assets/{revision}/{fileName}', ...options });
+
+/**
+ * Read the current published brand, including internal asset IDs and admin preview URLs.
+ */
+export const getAdminBranding = <ThrowOnError extends boolean = false>(options?: Options<GetAdminBrandingData, ThrowOnError>): RequestResult<GetAdminBrandingResponses, GetAdminBrandingErrors, ThrowOnError> => (options?.client ?? client).get<GetAdminBrandingResponses, GetAdminBrandingErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'enterprise-admin',
+            type: 'apiKey'
+        }],
+    url: '/enterprise/admin/v1/branding',
+    ...options
+});
+
+/**
+ * List immutable published brand revisions newest first for rollback selection.
+ */
+export const listAdminBrandingRevisions = <ThrowOnError extends boolean = false>(options?: Options<ListAdminBrandingRevisionsData, ThrowOnError>): RequestResult<ListAdminBrandingRevisionsResponses, ListAdminBrandingRevisionsErrors, ThrowOnError> => (options?.client ?? client).get<ListAdminBrandingRevisionsResponses, ListAdminBrandingRevisionsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'enterprise-admin',
+            type: 'apiKey'
+        }],
+    url: '/enterprise/admin/v1/branding/revisions',
+    ...options
+});
+
+/**
+ * Validate and store one PNG/JPEG/WebP bitmap; identical bytes are deduplicated by SHA-256.
+ */
+export const uploadBrandingAsset = <ThrowOnError extends boolean = false>(options: Options<UploadBrandingAssetData, ThrowOnError>): RequestResult<UploadBrandingAssetResponses, UploadBrandingAssetErrors, ThrowOnError> => (options.client ?? client).post<UploadBrandingAssetResponses, UploadBrandingAssetErrors, ThrowOnError>({
+    ...formDataBodySerializer,
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'enterprise-admin',
+            type: 'apiKey'
+        }],
+    url: '/enterprise/admin/v1/branding/assets',
+    ...options,
+    headers: {
+        'Content-Type': null,
+        ...options.headers
+    }
+});
+
+/**
+ * Preview one uploaded bitmap, including assets that are not published yet.
+ */
+export const getAdminBrandingAssetContent = <ThrowOnError extends boolean = false>(options: Options<GetAdminBrandingAssetContentData, ThrowOnError>): RequestResult<GetAdminBrandingAssetContentResponses, GetAdminBrandingAssetContentErrors, ThrowOnError> => (options.client ?? client).get<GetAdminBrandingAssetContentResponses, GetAdminBrandingAssetContentErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'enterprise-admin',
+            type: 'apiKey'
+        }],
+    url: '/enterprise/admin/v1/branding/assets/{assetId}/content',
+    ...options
+});
+
+/**
+ * Publish one new immutable brand revision; If-Match carries the current revision.
+ */
+export const publishBranding = <ThrowOnError extends boolean = false>(options: Options<PublishBrandingData, ThrowOnError>): RequestResult<PublishBrandingResponses, PublishBrandingErrors, ThrowOnError> => (options.client ?? client).post<PublishBrandingResponses, PublishBrandingErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'enterprise-admin',
+            type: 'apiKey'
+        }],
+    url: '/enterprise/admin/v1/branding/actions/publish',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Re-publish an earlier revision's content as a new revision; history is never rewritten.
+ */
+export const rollbackBranding = <ThrowOnError extends boolean = false>(options: Options<RollbackBrandingData, ThrowOnError>): RequestResult<RollbackBrandingResponses, RollbackBrandingErrors, ThrowOnError> => (options.client ?? client).post<RollbackBrandingResponses, RollbackBrandingErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'enterprise-admin',
+            type: 'apiKey'
+        }],
+    url: '/enterprise/admin/v1/branding/actions/rollback',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Submit one issue or suggestion as an authenticated employee; the server attributes it to the current session.
+ */
+export const submitFeedback = <ThrowOnError extends boolean = false>(options: Options<SubmitFeedbackData, ThrowOnError>): RequestResult<SubmitFeedbackResponses, SubmitFeedbackErrors, ThrowOnError> => (options.client ?? client).post<SubmitFeedbackResponses, SubmitFeedbackErrors, ThrowOnError>({
+    ...formDataBodySerializer,
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'enterprise-admin',
+            type: 'apiKey'
+        }],
+    url: '/enterprise/api/v1/feedback',
+    ...options,
+    headers: {
+        'Content-Type': null,
+        ...options.headers
+    }
+});
+
+/**
+ * List employee feedback newest first with an optional status filter.
+ */
+export const listFeedback = <ThrowOnError extends boolean = false>(options?: Options<ListFeedbackData, ThrowOnError>): RequestResult<ListFeedbackResponses, ListFeedbackErrors, ThrowOnError> => (options?.client ?? client).get<ListFeedbackResponses, ListFeedbackErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'enterprise-admin',
+            type: 'apiKey'
+        }],
+    url: '/enterprise/admin/v1/feedback',
+    ...options
+});
+
+/**
+ * Read one feedback with its white-listed diagnostics and attachment manifest.
+ */
+export const getFeedback = <ThrowOnError extends boolean = false>(options: Options<GetFeedbackData, ThrowOnError>): RequestResult<GetFeedbackResponses, GetFeedbackErrors, ThrowOnError> => (options.client ?? client).get<GetFeedbackResponses, GetFeedbackErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'enterprise-admin',
+            type: 'apiKey'
+        }],
+    url: '/enterprise/admin/v1/feedback/{feedbackId}',
+    ...options
+});
+
+/**
+ * Move one feedback along the frozen triage chain; If-Match carries the current revision.
+ */
+export const changeFeedbackStatus = <ThrowOnError extends boolean = false>(options: Options<ChangeFeedbackStatusData, ThrowOnError>): RequestResult<ChangeFeedbackStatusResponses, ChangeFeedbackStatusErrors, ThrowOnError> => (options.client ?? client).post<ChangeFeedbackStatusResponses, ChangeFeedbackStatusErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'enterprise-admin',
+            type: 'apiKey'
+        }],
+    url: '/enterprise/admin/v1/feedback/{feedbackId}/status',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Stream one bitmap attachment of a feedback for admin review.
+ */
+export const getFeedbackAttachmentContent = <ThrowOnError extends boolean = false>(options: Options<GetFeedbackAttachmentContentData, ThrowOnError>): RequestResult<GetFeedbackAttachmentContentResponses, GetFeedbackAttachmentContentErrors, ThrowOnError> => (options.client ?? client).get<GetFeedbackAttachmentContentResponses, GetFeedbackAttachmentContentErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'enterprise-admin',
+            type: 'apiKey'
+        }],
+    url: '/enterprise/admin/v1/feedback/{feedbackId}/attachments/{attachmentId}/content',
     ...options
 });

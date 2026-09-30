@@ -1,0 +1,20 @@
+{
+  "data": {
+    "revision": 3,
+    "name": "DeepSeek Harness 企业版",
+    "shortName": "DSH 企业版",
+    "logo": {
+      "light": null,
+      "dark": null,
+      "square": null
+    },
+    "welcome": {
+      "headline": "探索未至之境",
+      "editionLabel": "预览版"
+    },
+    "updatedAt": "2026-09-30T03:00:00Z",
+    "organizationId": "1900300000000000001",
+    "members": 42
+  },
+  "requestId": "req_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+}

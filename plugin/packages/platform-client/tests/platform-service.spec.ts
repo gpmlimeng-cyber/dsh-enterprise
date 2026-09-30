@@ -726,7 +726,8 @@ describe('EnterprisePlatformService', () => {
       {
         now: () => new Date(now),
         fetch: async (input, init) => {
-          if (failFirstRestore) {
+          // 只注入一次「恢复会话失败」：启动期还有一次免登录品牌取数，不能替它把故障吃掉。
+          if (failFirstRestore && String(input).includes('/enterprise/auth/v1/token')) {
             failFirstRestore = false
             throw new TypeError('platform temporarily unavailable')
           }
@@ -768,7 +769,8 @@ describe('EnterprisePlatformService', () => {
         errorCode: 'ENT_AUTH_STATE_INVALID',
       })
     })
-    expect(env.platformRequests).toHaveLength(0)
+    // 品牌是 Host 启动唯一的免登录公开取数；伪造 state 不得触发任何身份或平台 API 请求。
+    expect(env.platformRequests.filter(request => request.path !== '/enterprise/api/v1/branding')).toHaveLength(0)
   })
 
   it('aborts an authenticated request and settles it before dispose returns', async () => {

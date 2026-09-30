@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 React、Lucide、Harness Input/Button、brand 的品牌位图、account-state 的状态/错误/可编辑投影、account-actions 的登出与卸载确认，以及 EnterpriseAccountStore 的脱敏 snapshot 和动作
+ * [INPUT]: 依赖 React、Lucide、Harness Input/Button、branding 的品牌视图与元素工厂、account-state 的状态/错误/可编辑投影、account-actions 的登出与卸载确认，以及 EnterpriseAccountStore 的脱敏 snapshot 和动作
  * [OUTPUT]: 对外提供登录页正文 EnterpriseLoginPage 与两条纯投影 enterpriseLoginServerEditorVisible/enterpriseLoginPageAction
  * [POS]: dsh-ui 登录弹窗的正文呈现层，照搬原全屏登录页的内容与信息架构（品牌、状态、错误、Server 编辑、动作、页脚元信息、卸载），只被 login-dialog 组合，自身不含遮罩、焦点陷阱或任何阻断宿主的效果
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -29,6 +29,7 @@ import {
 } from './account-state.js'
 import type { EnterpriseAccountSnapshot, EnterpriseAccountStore } from './account-store.js'
 import { DSHENT_ANIMATED_ICON, DSHENT_ICON } from './brand.js'
+import { EnterpriseBrandMark, type EnterpriseBrandingView } from './branding.js'
 import type { EnterpriseConnectionState } from './local-api.js'
 
 /**
@@ -76,6 +77,14 @@ const stateDescription: CSSProperties = {
   margin: '6px 0 16px',
 }
 
+/** 欢迎语：品牌配置优先、缺省内置；与状态说明同处说明区，不替代任何功能性文案。 */
+const brandLine: CSSProperties = {
+  color: 'var(--dsw-alias-label-secondary, #475467)',
+  fontSize: 12,
+  lineHeight: '18px',
+  margin: '-10px 0 14px',
+}
+
 const alert: CSSProperties = {
   color: 'var(--dsw-alias-status-error, #c4320a)',
   fontSize: 13,
@@ -107,6 +116,18 @@ const metaSource: CSSProperties = { alignItems: 'center', display: 'flex', gap: 
 
 const metaValue: CSSProperties = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
 
+/** 版本标识徽标：后台配置优先，缺省是内置的「预览版」；与页脚的插件版本同处一行。 */
+const editionBadge: CSSProperties = {
+  background: 'var(--dsw-alias-interactive-bg-hover, color-mix(in srgb, currentColor 8%, transparent))',
+  borderRadius: 6,
+  flex: 'none',
+  fontSize: 11,
+  lineHeight: '16px',
+  padding: '1px 6px',
+}
+
+const versionRow: CSSProperties = { alignItems: 'center', display: 'flex', flex: 'none', gap: 6 }
+
 const actions: CSSProperties = { alignItems: 'center', display: 'flex', gap: 8, justifyContent: 'space-between', marginTop: 14, width: '100%' }
 
 const restart: CSSProperties = { color: 'var(--dsw-alias-status-warning, #b54708)', fontSize: 13, margin: '12px 0 0' }
@@ -124,6 +145,8 @@ const style = `
 export interface EnterpriseLoginPageProps {
   readonly store: EnterpriseAccountStore
   readonly snapshot: EnterpriseAccountSnapshot
+  /** 企业品牌视图；未配置/离线时就是内置默认，本页不需要知道来源。 */
+  readonly branding: EnterpriseBrandingView
   /** 受控字段值由弹窗壳持有，弹窗页脚的提交计划与之一致。 */
   readonly serverUrl: string
   readonly errorCode: string | undefined
@@ -222,15 +245,22 @@ export function EnterpriseLoginPage(props: EnterpriseLoginPageProps): ReactNode 
 
   return <div className="own-login" style={page}>
     <style>{style}</style>
-    <picture>
-      <source media="(prefers-reduced-motion: reduce)" srcSet={DSHENT_ICON} />
-      <img alt="" aria-hidden height={48} src={DSHENT_ANIMATED_ICON} style={brandIcon} width={48} />
-    </picture>
+    <EnterpriseBrandMark
+      fallback={DSHENT_ANIMATED_ICON}
+      size={48}
+      src={props.branding.logoSrc}
+      staticFallback={DSHENT_ICON}
+      staticSrc={props.branding.staticLogoSrc}
+      style={brandIcon}
+    />
     <div data-enterprise-state={state ?? props.snapshot.phase} role="status" style={stateRow}>
       {enterpriseStateIcon(presentation, 16, presentation.icon === 'progress' ? 'own-login-spin' : undefined)}
       <span style={stateTitle}>{presentation.title}</span>
     </div>
     <p style={stateDescription} title={presentation.description}>{presentation.description}</p>
+    <p data-enterprise-brand={props.branding.custom ? 'configured' : 'builtin'} style={brandLine}>
+      {props.branding.headline}
+    </p>
     {errorDisplay === undefined ? null : <p role="alert" style={alert}>
       {errorDisplay.message}{errorDisplay.code === undefined ? null : <> <code>{errorDisplay.code}</code></>}
     </p>}
@@ -257,7 +287,14 @@ export function EnterpriseLoginPage(props: EnterpriseLoginPageProps): ReactNode 
         <span aria-hidden style={{ background: configured === null ? 'var(--dsw-alias-label-disabled, #d0d5dd)' : presentation.color, borderRadius: '50%', flex: 'none', height: 6, width: 6 }} />
         <span style={metaValue} title={configured ?? undefined}>{configured ?? '尚未配置 Server'}</span>
       </span>
-      <span style={{ flex: 'none' }}>v{status?.bundleVersion ?? '0.1.0'}</span>
+      <span style={versionRow}>
+        <span style={{ flex: 'none' }}>v{status?.bundleVersion ?? '0.1.0'}</span>
+        {props.branding.editionLabel === '' ? null : <span
+          data-enterprise-edition={props.branding.editionLabel}
+          style={editionBadge}
+          title={`版本标识：${props.branding.editionLabel}`}
+        >{props.branding.editionLabel}</span>}
+      </span>
     </div>
     <div style={actions}>
       <Button
@@ -269,8 +306,7 @@ export function EnterpriseLoginPage(props: EnterpriseLoginPageProps): ReactNode 
         title="获取最新账号、设备和企业配置"
       >刷新配置</Button>
       <UninstallAction quiet snapshot={props.snapshot} store={props.store} />
-    </div>
-    {props.snapshot.uninstallRestartRequested === false ? <p role="status" style={restart}>
+    </div>    {props.snapshot.uninstallRestartRequested === false ? <p role="status" style={restart}>
       DSH Enterprise 已卸载，请手动重启 Harness。
     </p> : null}
   </div>

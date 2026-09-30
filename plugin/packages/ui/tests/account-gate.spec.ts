@@ -46,7 +46,7 @@ const bootstrap: EnterpriseAccountBootstrap = {
 
 /** 产品决策：进入系统不再有任何全屏门禁，未登录也能正常使用宿主。 */
 describe('the full-screen access gate is retired', () => {
-  it('registers only the settings section and the personal-center launcher, never a shell.overlay blocker', () => {
+  it('registers the two settings seats and the plugins-page market entry, never a shell.overlay blocker', () => {
     const injected: string[] = []
     const registrations: Record<string, unknown>[] = []
     apply({
@@ -60,7 +60,7 @@ describe('the full-screen access gate is retired', () => {
       on: () => () => undefined,
       effect: effect => { effect() },
     })
-    expect(injected).toEqual(['settings.section', 'settings.launcher'])
+    expect(injected).toEqual(['settings.section', 'settings.launcher', 'plugins.item', 'plugins.detail.badge'])
     expect(injected).not.toContain('shell.overlay')
     expect(registrations.map(options => options['name'])).not.toContain('shell.overlay')
   })

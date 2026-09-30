@@ -1,0 +1,221 @@
+# [INPUT]: 依赖根协议 cursor/revision/幂等键与统一错误响应；技能包语义对齐 DSH 官方 `dsh-skill`/`dsh-skill-filesystem` 的技能发现与调用策略。
+# [OUTPUT]: 提供技能管理上传/发布/退休/可见范围与 runtime 浏览/详情/授权下载 Path Item。
+# [POS]: contracts/paths 的企业技能目录分片，下载每次重算可见性且不依赖设备库存；不新增第二套技能运行时。
+# [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+
+SkillCollection:
+  get:
+    operationId: listSkillPackages
+    parameters:
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/Cursor'
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/Limit'
+    responses:
+      '200':
+        description: Skill package page with versions and visibility.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/SkillPackageListResponse'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+
+SkillVersionUpload:
+  post:
+    operationId: uploadSkillVersion
+    parameters:
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/IdempotencyKey'
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [artifact]
+            properties:
+              artifact:
+                type: string
+                format: binary
+              metadata:
+                $ref: '../enterprise-openapi.yaml#/components/schemas/SkillUploadMetadata'
+          encoding:
+            metadata:
+              contentType: application/json
+    responses:
+      '201':
+        description: Validated skill version.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/SkillVersionResponse'}
+      '200':
+        description: Existing version returned for an idempotent natural key.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/SkillVersionResponse'}
+      '400': {$ref: '../enterprise-openapi.yaml#/components/responses/Error400'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+      '413': {$ref: '../enterprise-openapi.yaml#/components/responses/Error413'}
+
+SkillVersionPublish:
+  parameters:
+    - name: skillVersionId
+      in: path
+      required: true
+      schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/SkillVersionId'}
+  post:
+    operationId: publishSkillVersion
+    parameters:
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/IfMatchRevision'
+    responses:
+      '200':
+        description: Published skill version.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/SkillVersionResponse'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+      '404': {$ref: '../enterprise-openapi.yaml#/components/responses/Error404'}
+      '409': {$ref: '../enterprise-openapi.yaml#/components/responses/Error409'}
+
+SkillVersionRetire:
+  parameters:
+    - name: skillVersionId
+      in: path
+      required: true
+      schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/SkillVersionId'}
+  post:
+    operationId: retireSkillVersion
+    parameters:
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/IfMatchRevision'
+    responses:
+      '200':
+        description: Retired skill version.
+        content:
+          application/json:
+            schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/SkillVersionResponse'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+      '404': {$ref: '../enterprise-openapi.yaml#/components/responses/Error404'}
+      '409': {$ref: '../enterprise-openapi.yaml#/components/responses/Error409'}
+
+SkillAssignmentBatch:
+  parameters:
+    - name: skillPackageId
+      in: path
+      required: true
+      schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/SkillPackageId'}
+  post:
+    operationId: replaceSkillAssignments
+    parameters:
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/IdempotencyKey'
+      - $ref: '../enterprise-openapi.yaml#/components/parameters/IfMatchRevision'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/SkillAssignmentBatchRequest'}
+    responses:
+      '200':
+        description: Fully replaced visibility assignment set.
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [data, requestId]
+              properties:
+                data:
+                  type: array
+                  maxItems: 200
+                  items: {$ref: '../enterprise-openapi.yaml#/components/schemas/SkillAssignment'}
+                requestId: {$ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'}
+      '400': {$ref: '../enterprise-openapi.yaml#/components/responses/Error400'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+      '404': {$ref: '../enterprise-openapi.yaml#/components/responses/Error404'}
+      '409': {$ref: '../enterprise-openapi.yaml#/components/responses/Error409'}
+
+RuntimeSkillCollection:
+  get:
+    operationId: listRuntimeSkills
+    parameters:
+      - name: sort
+        in: query
+        schema:
+          type: string
+          enum: [newest]
+          default: newest
+    responses:
+      '200':
+        description: Published skills visible to the current user.
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [data, requestId]
+              properties:
+                data:
+                  type: array
+                  items: {$ref: '../enterprise-openapi.yaml#/components/schemas/RuntimeSkillSummary'}
+                requestId: {$ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+
+RuntimeSkillItem:
+  parameters:
+    - name: skillPackageId
+      in: path
+      required: true
+      schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/SkillPackageId'}
+  get:
+    operationId: getRuntimeSkill
+    responses:
+      '200':
+        description: Visible published skill detail.
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [data, requestId]
+              properties:
+                data: {$ref: '../enterprise-openapi.yaml#/components/schemas/RuntimeSkillDetail'}
+                requestId: {$ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+      '404': {$ref: '../enterprise-openapi.yaml#/components/responses/Error404'}
+
+RuntimeSkillDownload:
+  parameters:
+    - name: skillVersionId
+      in: path
+      required: true
+      schema: {$ref: '../enterprise-openapi.yaml#/components/schemas/SkillVersionId'}
+  get:
+    operationId: downloadRuntimeSkill
+    parameters:
+      - name: Range
+        in: header
+        required: false
+        schema:
+          type: string
+    responses:
+      '200':
+        description: Authorized .dshskill archive bytes.
+        content:
+          application/vnd.dsh.skill+zip:
+            schema:
+              type: string
+              format: binary
+      '206':
+        description: Partial archive bytes.
+        content:
+          application/vnd.dsh.skill+zip:
+            schema:
+              type: string
+              format: binary
+      '400': {$ref: '../enterprise-openapi.yaml#/components/responses/Error400'}
+      '401': {$ref: '../enterprise-openapi.yaml#/components/responses/Error401'}
+      '403': {$ref: '../enterprise-openapi.yaml#/components/responses/Error403'}
+      '404': {$ref: '../enterprise-openapi.yaml#/components/responses/Error404'}

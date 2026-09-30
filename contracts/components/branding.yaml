@@ -1,0 +1,275 @@
+# [INPUT]: 依赖根协议资源 ID、revision、requestId 与严格成功 envelope，以及 V32 品牌三表的事实形状。
+# [OUTPUT]: 提供公开品牌白名单 schema、管理端品牌/revision/资产/发布/回滚 schema 与两类新错误码。
+# [POS]: contracts/components 的品牌自定义真源，公开面不含企业/成员/资产 ID/artifact 路径。
+# [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+
+BrandingAssetHash:
+  type: string
+  pattern: '^[0-9a-f]{64}$'
+BrandingAssetContentType:
+  type: string
+  enum: [image/png, image/jpeg, image/webp]
+BrandingAssetRef:
+  type: object
+  additionalProperties: false
+  required: [url, sha256, contentType, width, height, sizeBytes]
+  properties:
+    url:
+      type: string
+      minLength: 1
+      maxLength: 512
+      pattern: '^/enterprise/api/v1/branding/assets/[1-9][0-9]{0,18}/[0-9a-f]{64}\.(png|jpg|webp)$'
+      description: Content-addressed immutable URL scoped by the published revision.
+    sha256: {$ref: '#/BrandingAssetHash'}
+    contentType: {$ref: '#/BrandingAssetContentType'}
+    width:
+      type: integer
+      minimum: 1
+      maximum: 8192
+    height:
+      type: integer
+      minimum: 1
+      maximum: 8192
+    sizeBytes:
+      type: integer
+      format: int64
+      minimum: 1
+      maximum: 524288
+BrandingPublicLogo:
+  type: object
+  additionalProperties: false
+  required: [light, dark, square]
+  properties:
+    light:
+      oneOf:
+        - $ref: '#/BrandingAssetRef'
+        - type: 'null'
+    dark:
+      oneOf:
+        - $ref: '#/BrandingAssetRef'
+        - type: 'null'
+    square:
+      oneOf:
+        - $ref: '#/BrandingAssetRef'
+        - type: 'null'
+BrandingWelcome:
+  type: object
+  additionalProperties: false
+  required: [headline, editionLabel]
+  properties:
+    headline:
+      oneOf:
+        - type: string
+          minLength: 1
+          maxLength: 200
+        - type: 'null'
+    editionLabel:
+      oneOf:
+        - type: string
+          minLength: 1
+          maxLength: 60
+        - type: 'null'
+BrandingPublicData:
+  type: object
+  additionalProperties: false
+  required: [revision, name, shortName, logo, welcome, updatedAt]
+  properties:
+    revision:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/Revision'
+    name:
+      oneOf:
+        - type: string
+          minLength: 1
+          maxLength: 120
+        - type: 'null'
+    shortName:
+      oneOf:
+        - type: string
+          minLength: 1
+          maxLength: 60
+        - type: 'null'
+    logo: {$ref: '#/BrandingPublicLogo'}
+    welcome: {$ref: '#/BrandingWelcome'}
+    updatedAt:
+      oneOf:
+        - type: string
+          format: date-time
+        - type: 'null'
+BrandingPublicResponse:
+  type: object
+  additionalProperties: false
+  required: [data, requestId]
+  properties:
+    data: {$ref: '#/BrandingPublicData'}
+    requestId: {$ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'}
+BrandingAdminAsset:
+  type: object
+  additionalProperties: false
+  required: [id, url, sha256, contentType, width, height, sizeBytes]
+  properties:
+    id:
+      type: string
+      pattern: '^[1-9][0-9]{0,18}$'
+    url:
+      type: string
+      minLength: 1
+      maxLength: 512
+      pattern: '^/enterprise/admin/v1/branding/assets/[1-9][0-9]{0,18}/content$'
+      description: Admin-authenticated preview URL; unpublished assets never appear here.
+    sha256: {$ref: '#/BrandingAssetHash'}
+    contentType: {$ref: '#/BrandingAssetContentType'}
+    width:
+      type: integer
+      minimum: 1
+      maximum: 8192
+    height:
+      type: integer
+      minimum: 1
+      maximum: 8192
+    sizeBytes:
+      type: integer
+      format: int64
+      minimum: 1
+      maximum: 524288
+BrandingAdminLogo:
+  type: object
+  additionalProperties: false
+  required: [light, dark, square]
+  properties:
+    light:
+      oneOf:
+        - $ref: '#/BrandingAdminAsset'
+        - type: 'null'
+    dark:
+      oneOf:
+        - $ref: '#/BrandingAdminAsset'
+        - type: 'null'
+    square:
+      oneOf:
+        - $ref: '#/BrandingAdminAsset'
+        - type: 'null'
+BrandingAdminData:
+  type: object
+  additionalProperties: false
+  required: [revision, name, shortName, logo, welcome, updatedAt, updatedBy]
+  properties:
+    revision:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/Revision'
+    name:
+      oneOf:
+        - type: string
+          minLength: 1
+          maxLength: 120
+        - type: 'null'
+    shortName:
+      oneOf:
+        - type: string
+          minLength: 1
+          maxLength: 60
+        - type: 'null'
+    logo: {$ref: '#/BrandingAdminLogo'}
+    welcome: {$ref: '#/BrandingWelcome'}
+    updatedAt:
+      oneOf:
+        - type: string
+          format: date-time
+        - type: 'null'
+    updatedBy:
+      oneOf:
+        - type: string
+          pattern: '^[1-9][0-9]{0,18}$'
+        - type: 'null'
+BrandingAdminResponse:
+  type: object
+  additionalProperties: false
+  required: [data, requestId]
+  properties:
+    data: {$ref: '#/BrandingAdminData'}
+    requestId: {$ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'}
+BrandingAdminAssetResponse:
+  type: object
+  additionalProperties: false
+  required: [data, requestId]
+  properties:
+    data: {$ref: '#/BrandingAdminAsset'}
+    requestId: {$ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'}
+BrandingRevision:
+  type: object
+  additionalProperties: false
+  required: [id, revision, name, shortName, publishedAt, current]
+  properties:
+    id:
+      type: string
+      pattern: '^[1-9][0-9]{0,18}$'
+    revision:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/Revision'
+    name:
+      oneOf:
+        - type: string
+          minLength: 1
+          maxLength: 120
+        - type: 'null'
+    shortName:
+      oneOf:
+        - type: string
+          minLength: 1
+          maxLength: 60
+        - type: 'null'
+    publishedAt: {type: string, format: date-time}
+    current: {type: boolean}
+BrandingRevisionPageData:
+  type: object
+  additionalProperties: false
+  required: [items, page]
+  properties:
+    items:
+      type: array
+      maxItems: 200
+      items: {$ref: '#/BrandingRevision'}
+    page: {$ref: '../enterprise-openapi.yaml#/components/schemas/CursorPage'}
+BrandingRevisionListResponse:
+  type: object
+  additionalProperties: false
+  required: [data, requestId]
+  properties:
+    data: {$ref: '#/BrandingRevisionPageData'}
+    requestId: {$ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'}
+BrandingPublishRequest:
+  type: object
+  additionalProperties: false
+  properties:
+    name:
+      type: [string, 'null']
+      maxLength: 120
+    shortName:
+      type: [string, 'null']
+      maxLength: 60
+    logoLightAssetId:
+      oneOf:
+        - type: string
+          pattern: '^[1-9][0-9]{0,18}$'
+        - type: 'null'
+    logoDarkAssetId:
+      oneOf:
+        - type: string
+          pattern: '^[1-9][0-9]{0,18}$'
+        - type: 'null'
+    logoSquareAssetId:
+      oneOf:
+        - type: string
+          pattern: '^[1-9][0-9]{0,18}$'
+        - type: 'null'
+    welcomeHeadline:
+      type: [string, 'null']
+      maxLength: 200
+    welcomeEditionLabel:
+      type: [string, 'null']
+      maxLength: 60
+BrandingRollbackRequest:
+  type: object
+  additionalProperties: false
+  required: [targetRevision]
+  properties:
+    targetRevision:
+      type: string
+      pattern: '^[1-9][0-9]{0,18}$'

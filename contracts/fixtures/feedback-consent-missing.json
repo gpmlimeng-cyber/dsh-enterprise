@@ -1,0 +1,6 @@
+{
+  "type": "issue",
+  "description": "点击导出后客户端直接退出，重启后会话仍然丢失。",
+  "contact": "138 0000 0000",
+  "consent": false
+}

@@ -12,13 +12,16 @@ src/main/java/com/owndsh/enterprise/model/: provider/model/model set/grant 管�
 src/main/java/com/owndsh/enterprise/quota/: TOKEN/RATE 互斥的组织/成员与多模型范围策略、组织级供应商速率上限、四类 Token 窗口、PostgreSQL 预留、Redis lease、结算恢复与用量查询纵向模块；局部地图见 quota/CLAUDE.md。
 src/main/java/com/owndsh/enterprise/plugin/: tgz 流式验包、JCS/Ed25519、CAS 制品、version/assignment、下载授权与设备库存纵向模块；局部地图见 plugin/CLAUDE.md。
 src/main/java/com/owndsh/enterprise/preset/: .dshpreset 流式验包、CAS 制品、version/可见范围与员工浏览/下载授权纵向模块；局部地图见 preset/CLAUDE.md。
+src/main/java/com/owndsh/enterprise/skill/: .dshskill 流式验包（含 SKILL.md frontmatter）、CAS 制品、version/可见范围与员工浏览/下载授权纵向模块；局部地图见 skill/CLAUDE.md。
 src/main/java/com/owndsh/enterprise/session/: 精确 JSONL/hash、AES-GCM 远端副本、本人/管理读取、tombstone 与 retention 纵向模块；局部地图见 session/CLAUDE.md。
-src/main/java/com/owndsh/enterprise/common/: 企业 HTTP envelope、40 个稳定错误映射、requestId/metadata、认证 cursor、有界 JSON 请求与故障日志隔离公共边界；局部地图见 common/CLAUDE.md。
-src/main/java/com/owndsh/enterprise/audit/: 31-action 显式 metadata DTO、只追加 JDBC sink、tenant/keyset 管理查询、365 天有界 retention 与用户治理事务监听纵向模块；局部地图见 audit/CLAUDE.md。
+src/main/java/com/owndsh/enterprise/branding/: 免登录公开只读品牌接口、带 revision 的不可变位图资源、单行配置发布/回滚与 ent:branding 权限纵向模块；局部地图见 branding/CLAUDE.md。
+src/main/java/com/owndsh/enterprise/feedback/: 员工 multipart 提交（会话归属、白名单 diagnostics、≤3 张位图 CAS 附件）、管理端 keyset 列表/详情与冻结链路状态流转纵向模块；局部地图见 feedback/CLAUDE.md。
+src/main/java/com/owndsh/enterprise/common/: 企业 HTTP envelope、稳定错误映射、requestId/metadata、认证 cursor、有界 JSON 请求、跨纵向位图格式解析与故障日志隔离公共边界；局部地图见 common/CLAUDE.md。
+src/main/java/com/owndsh/enterprise/audit/: 45-action 显式 metadata DTO、只追加 JDBC sink、tenant/keyset 管理查询、365 天有界 retention 与用户治理事务监听纵向模块；局部地图见 audit/CLAUDE.md。
 src/main/java/com/owndsh/enterprise/deployment/: deploy profile 一次性管理员、PostgreSQL 锁和初始化完成标记边界；局部地图见 deployment/CLAUDE.md。
 src/main/java/com/owndsh/enterprise/crypto/: HKDF-SHA-256 用途派生与 AES-256-GCM 秘密/cursor 保护，不暴露 master key 或派生 key。
 src/main/java/com/owndsh/enterprise/revision/: 固定 BOOTSTRAP scope 的 optimistic CAS、稳定冲突错误码与审计同事务编排。
-src/main/resources/db/migration/: PostgreSQL `V0` 至 `V30` 真源，V0 承接原 Host 基线，空库与旧 baseline 0 共用后续迁移，建立企业事实、Refresh Session、实测 usage 快照、独立配额扣额与配方广场；局部地图见 db/migration/CLAUDE.md。
+src/main/resources/db/migration/: PostgreSQL `V0` 至 `V35` 真源，V0 承接原 Host 基线，空库与旧 baseline 0 共用后续迁移，建立企业事实、Refresh Session、实测 usage 快照、独立配额扣额、配方广场、品牌单行配置、问题反馈两张表与技能目录三表；局部地图见 db/migration/CLAUDE.md。
 src/main/resources/static/enterprise/auth/: 无 Token 的公开身份源选择、LOCAL 首次改密/验证码、LDAP 密码与 OIDC 跳转页；局部地图见 auth/CLAUDE.md。
 src/test/java/com/owndsh/enterprise/: 单元和 Testcontainers 集成验收，覆盖数据库、身份、PKCE/Redis、Refresh Token 轮换/重放、设备、模型、配额、插件、协议和事务边界；局部地图见 src/test/CLAUDE.md。
 
