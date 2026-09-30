@@ -82,6 +82,23 @@ export function enterpriseFeedbackOccurredAtIso(local: string): string | undefin
   return Number.isNaN(at.getTime()) ? undefined : at.toISOString()
 }
 
+/**
+ * 附件缩略图：为已选文件建立对象 URL，并在卸载或文件替换时释放。
+ *
+ * 预览是"看得见的确认"——用户能一眼核对是否选对了截图；组件随列表项卸载即回收，不泄漏对象 URL。
+ */
+function AttachmentThumb({ file, name }: { readonly file: File; readonly name: string }): ReactNode {
+  const [url, setUrl] = useState<string>()
+  useEffect(() => {
+    const next = URL.createObjectURL(file)
+    setUrl(next)
+    return () => { URL.revokeObjectURL(next) }
+  }, [file])
+  return url === undefined
+    ? <span aria-hidden className="own-feedback-thumb" />
+    : <img alt={`${name} 预览`} className="own-feedback-thumb" src={url} />
+}
+
 /** 已选附件：保留原始 `File` 以便原样提交，另存界面要显示的名字与大小。 */
 export interface EnterpriseFeedbackAttachment {
   readonly file: File
@@ -209,6 +226,7 @@ const FEEDBACK_STYLES = `
       .own-feedback-consent { align-items: flex-start; color: var(--dsw-alias-label-primary, #101828); display: flex; font-size: 13px; gap: 8px; line-height: 20px; }
       .own-feedback-attachments { display: flex; flex-direction: column; gap: 6px; list-style: none; margin: 8px 0 0; padding: 0; }
       .own-feedback-attachment { align-items: center; display: flex; gap: 8px; font-size: 13px; line-height: 20px; }
+      .own-feedback-thumb { background: var(--dsw-alias-fill-secondary, #f2f4f7); border-radius: 6px; flex: none; height: 40px; object-fit: cover; width: 40px; }
       .own-feedback-attachment-name { color: var(--dsw-alias-label-primary, #101828); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .own-feedback-attachment-size { color: var(--dsw-alias-label-tertiary, #667085); font-size: 12px; }
       .own-feedback-remove { align-items: center; background: transparent; border: 0; color: var(--dsw-alias-label-tertiary, #667085); cursor: pointer; display: inline-flex; padding: 2px; }
@@ -470,6 +488,7 @@ export function EnterpriseFeedbackDialog(props: EnterpriseFeedbackDialogProps): 
               ? null
               : <ul className="own-feedback-attachments">
                 {form.attachments.map(attachment => <li className="own-feedback-attachment" key={`${attachment.name}-${attachment.size}-${attachment.file.lastModified}`}>
+                  <AttachmentThumb file={attachment.file} name={attachment.name} />
                   <span className="own-feedback-attachment-name" title={attachment.name}>{attachment.name}</span>
                   <span className="own-feedback-attachment-size">{sizeText(attachment.size)}</span>
                   <button
