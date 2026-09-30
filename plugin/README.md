@@ -19,12 +19,15 @@ locked upstream checkouts remain read-only verification fixtures. Published peer
 with in-memory Access Token ownership, official Host `GrantRecord` persistence for the rotating Refresh Token,
 installation persistence, enroll/bootstrap, restart recovery, and request-time Token renewal and same-origin local JSON (no resident enterprise SSE). The workspace uses the locked Harness
 release's public plugin surface and does not generate or mount a custom Typert
-Remote. T07 adds the employee account experience through the official
-`settings.section`, `sidebar.footer.action`, and `shell.overlay` slots. The
-overlay blocks the official UI until a Server address is configured and the
-enterprise session is ready; all three surfaces share one browser store over
-the T06 local control plane. The Server address is persisted by the official
-Harness settings service, so a normal installation requires no profile edit.
+Remote. T07 adds the employee account experience through two official seats:
+the `settings.section` page and the `settings.launcher` personal-center menu.
+Entering the harness is never blocked — the `shell.overlay` gate and the
+`sidebar.footer.action` entry have retired, a signed-out employee still gets
+the menu (whose first row is `登录`), and login opens a non-blocking dialog.
+Both surfaces share one browser store over the T06 local control plane. The
+Server address is persisted by the official Harness settings service in this
+plugin's owner entry (id `owndsh`) as volatile Config fields written through
+`settings.update`, so a normal installation requires no profile edit.
 T11 directly mounts the official rc.2 `@deepseek-ai/dsh-llm-pi-ai` adapter with
 enterprise-managed profiles and an ephemeral Host-only loopback authentication proxy. The enterprise
 plugin stores no upstream API key and implements no model wire protocol.
@@ -53,7 +56,7 @@ standalone package consumer and an installed plugin in a temporary Harness
 Server origin through the plugin's local API, and verifies the official
 `settings.yaml`; it never writes to the sibling Harness checkout.
 `pnpm run accept:t07-browser` starts a controlled loopback platform and a
-temporary real Harness profile for the full-screen setup/login/expiry/revocation
+temporary real Harness profile for the non-blocking setup/login/expiry/revocation
 acceptance; stop it with SIGINT so it can verify upstream cleanliness and remove
 its temporary `DSH_HOME`.
 `pnpm run accept:t11-model` is fully automatic: it installs the tgz into a

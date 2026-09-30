@@ -11,6 +11,8 @@
 
 文档状态：实施基线
 
+> 修订注记（2026-09-30）：本文第 1–21 节是 2026-08-17 冻结的 MVP 设计与决策基线，其中 UI 交互面与模型挂载方式已随后续实现变更：`shell.overlay` 全屏门禁与 `sidebar.footer.action` 入口均已退场，账号入口改到官方 `settings.launcher` 个人中心座位、登录改为非阻断弹窗（正文＝原企业登录页，440px），企业 profiles 并入 profile 已挂载的官方 `llm-pi-ai` 而非在隔离 settings scope 中自建第二份实例，settings 由 rc.2 的 `SettingsForms`（volatile Config 字段 + `settings.update`）承载，账户地址段名不再是 `owndsh-account` 而是 entry id `owndsh`。相关段落作为设计记载保留，不复述现状；现状真源见 `plugin/packages/ui/README.md`、`plugin/packages/bundle/CLAUDE.md`、`plugin/packages/platform-client/README.md`。
+
 ## 1. 文档定位
 
 本文把[企业 Agent 工作平台预研](owndsh-work-platform.md)收敛为一份可直接用于编码、联调和试点验收的实施规格。第 1 至 21 节是设计真源，第 22 节是唯一实施顺序；开发者或 AI 不得在编码时自行扩大范围、替换技术路线或补入远期能力。
@@ -123,7 +125,7 @@ OwnDsh Server 由本项目自主维护，原始代码的 MIT 许可证保留在 
 
 2026-08-18 对照官网插件教程、锁定源码和官方最新 `master` 后确认：`typertPlugin({ mode: 'package' })` 是 Harness 自身 Typert workspace 的生成粒度，不是普通树外插件的发布入口。此前把自定义 Typert Remote 当作企业插件必经路线属于产品设计误判，不是 Harness 官方插件机制缺陷。MVP 改用官方稳定组合面：Host 逻辑通过 Cordis `apply(ctx)` 注册服务、事件和 `ctx.webServer` 路由；浏览器逻辑通过 `dsh.client` Client module 与 UI slot 组合；企业专有协议由插件自有同源 HTTP/SSE 承载。产品不再生成、挂载或修改自定义 Remote contribution，也不需要 ambient protocol shim。
 
-T07 最初在 rc.7 验证 `settings.section` 与 `sidebar.footer.action`，迁移到 rc.2 后又核对 `shell.overlay` 与 `@deepseek-ai/dsh-settings`。当前门禁通过 `shell.overlay` 覆盖未配置、未登录和失效状态，Server 地址由官方 settings 持久化；sidebar 只展示/刷新状态，企业详情仍归官方 Settings 导航所有。禁止查询 Harness DOM、修改私有 React 状态或复制官方 UI。T07 只按桌面视口验收；移动端属于第 2.3 节明确不做范围。
+T07 最初在 rc.7 验证 `settings.section` 与 `sidebar.footer.action`，迁移到 rc.2 后又核对 `shell.overlay` 与 `@deepseek-ai/dsh-settings`。当时门禁通过 `shell.overlay` 覆盖未配置、未登录和失效状态，Server 地址由官方 settings 持久化；sidebar 只展示/刷新状态，企业详情仍归官方 Settings 导航所有（该门禁已退场，见文首修订注记）。禁止查询 Harness DOM、修改私有 React 状态或复制官方 UI。T07 只按桌面视口验收；移动端属于第 2.3 节明确不做范围。
 
 2026-08-27 曾把发行基线改为社区 DSH Desktop 2.0.3 及其 Harness 0.1.1-rc.2 gitlink，证据见 [`desktop-2.0.3-harness-rc2-migration.md`](desktop-2.0.3-harness-rc2-migration.md)。2026-09-24 起插件基线改为官方 Harness Desktop 0.1.7-rc.1。企业 bundle 在 Desktop 中读取公开 `desktopProfiles.current`，并通过 `desktopPnpm.runPlugin()` 管理当前 profile；普通 Web 继续走官方 `dsh plugin` CLI。Electron renderer 仍是 Web Client，因此企业 bundle 的 `dsh.client.platform` 保持 `web`。
 
@@ -512,7 +514,7 @@ SIGNED_OUT -> AUTHORIZING -> ENROLLING -> BOOTSTRAPPING -> READY
 
 ### 9.2 Harness 官方模型协议层
 
-`@dshent/llm-gateway` 不实现 `LlmAdapter`。它把 bootstrap 模型目录投影为官方 `PiAiProviderProfile`，并在隔离的 settings scope 中直接挂载 `@deepseek-ai/dsh-llm-pi-ai`。
+`@dshent/llm-gateway` 不实现 `LlmAdapter`。它把 bootstrap 模型目录投影为官方 `PiAiProviderProfile`，并在隔离的 settings scope 中直接挂载 `@deepseek-ai/dsh-llm-pi-ai`。（设计记载；现状改为并入 profile 已挂载的官方 `llm-pi-ai`，不自建第二份实例，见文首修订注记。）
 
 - 按 `openai-completions`、`openai-responses`、`anthropic-messages` 建立独立 provider route；模型选择、消息、tools、reasoning、Responses replay、SSE、取消和错误语义全部由官方插件负责。
 - `contextWindow`、`maxTokens`、`reasoningEfforts` 和 `compat` 只做 profile 字段投影，企业代码不解释档位或重写协议正文。
@@ -521,7 +523,7 @@ SIGNED_OUT -> AUTHORIZING -> ENROLLING -> BOOTSTRAPPING -> READY
 
 bootstrap 模型目录变化后，插件按 profile 指纹调用官方 Cordis fiber `update`，目录 topology 和 `llm/adapters-updated` 仍由 `ctx.llm` 管理，不增加新的模型目录事件。
 
-企业 bundle 把 `agent-default-model` 配置为 provider `enterprise`、model `enterprise/default`。平台仍按当前用户重新解析该 sentinel；它不作为普通管理 alias 创建。bundle 禁用 base profile 的个人 provider 和个人模型设置页，由企业 row 挂载隔离的官方插件实例，但不声称能阻止用户运行其他 profile。
+企业 bundle 把 `agent-default-model` 配置为 provider `enterprise`、model `enterprise/default`。平台仍按当前用户重新解析该 sentinel；它不作为普通管理 alias 创建。bundle 禁用 base profile 的个人 provider 和个人模型设置页，由企业 row 挂载隔离的官方插件实例（设计记载；现状改为并入 profile 已挂载的官方 `llm-pi-ai`，见文首修订注记），但不声称能阻止用户运行其他 profile。
 
 ### 9.3 网关协议
 
@@ -1046,7 +1048,7 @@ Session 正文页按 seq 分页显示时间线，识别 `user/message`、`assist
 | 插件 | 期望版本、本地版本、下载/安装/重启/active/失败状态、重试 |
 | 会话同步 | backlog、最后成功时间、逐 Session 状态、远端列表、恢复到所选 cwd、删除远端副本 |
 
-sidebar footer 使用图标表达 `SIGNED_OUT`、`READY`、`REFRESHING`、`ERROR`，hover tooltip 显示状态名称，点击重新读取状态；企业页由官方 Settings 导航打开。登录 onboarding 只在企业 profile 且未登录时出现，成功后自动关闭，并可通过 owner 提供的 `openSection('enterprise')` 打开账号页。
+sidebar footer 使用图标表达 `SIGNED_OUT`、`READY`、`REFRESHING`、`ERROR`，hover tooltip 显示状态名称，点击重新读取状态；企业页由官方 Settings 导航打开。登录 onboarding 只在企业 profile 且未登录时出现，成功后自动关闭，并可通过 owner 提供的 `openSection('enterprise')` 打开账号页。（设计记载：sidebar footer 入口与登录 onboarding 均已退场，现状为官方 `settings.launcher` 个人中心菜单加非阻断登录弹窗，见文首修订注记。）
 
 任何异步操作都有 disabled、loading、success 和稳定 error code 映射。长文本、package name、用户名称和错误 message 必须在窄屏换行或省略并提供 tooltip；控件不能因状态文字改变布局尺寸。
 

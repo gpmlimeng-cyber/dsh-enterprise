@@ -27,15 +27,15 @@ describe('enterprise bundle', () => {
       '@deepseek-ai/dsh-client-ui-settings-general',
     ])
     expect(manifest.dependencies).toBeUndefined()
-    expect(manifest.peerDependencies['@deepseek-ai/dsh-llm']).toBe('^0.1.5-rc.2')
-    expect(manifest.peerDependencies['@deepseek-ai/dsh-credentials']).toBe('^0.1.5-rc.2')
-    expect(manifest.peerDependencies['@deepseek-ai/dsh-llm-pi-ai']).toBe('^0.1.5-rc.2')
+    expect(manifest.peerDependencies['@deepseek-ai/dsh-llm']).toBe('>=0.1.5-rc.2 <0.3.0')
+    expect(manifest.peerDependencies['@deepseek-ai/dsh-credentials']).toBe('>=0.1.5-rc.2 <0.3.0')
+    expect(manifest.peerDependencies['@deepseek-ai/dsh-llm-pi-ai']).toBe('>=0.1.5-rc.2 <0.3.0')
     expect(manifest.peerDependencies['@deepseek-ai/dsh-session']).toBeUndefined()
-    expect(manifest.peerDependencies['@deepseek-ai/dsh-subprocess']).toBe('^0.1.5-rc.2')
-    expect(manifest.peerDependencies['@deepseek-ai/dsh-host-plugin-inventory']).toBe('^0.1.5-rc.2')
+    expect(manifest.peerDependencies['@deepseek-ai/dsh-subprocess']).toBe('>=0.1.5-rc.2 <0.3.0')
+    expect(manifest.peerDependencies['@deepseek-ai/dsh-host-plugin-inventory']).toBe('>=0.1.5-rc.2 <0.3.0')
     expect(manifest.peerDependencies['@deepseek-ai/schemastery']).toBe('^3.18.1')
     expect(inject).toEqual([
-      'webServer', 'credentials', 'llm', 'subprocess', 'pluginInventory',
+      'webServer', 'credentials', 'settings', 'llm', 'subprocess', 'pluginInventory',
     ])
     expect(Config({
       baseUrl: 'https://enterprise.example.com',
@@ -62,7 +62,7 @@ describe('enterprise bundle', () => {
     expect(source).not.toContain("const HARNESS_VERSION = '0.1.1-rc.2'")
   })
 
-  it('materializes the built lazy-CJS Client factory and registers the footer slot', async () => {
+  it('materializes the built lazy-CJS Client factory and registers the official settings slots', async () => {
     const source = await readFile(resolve(ROOT, 'lib/client.js'), 'utf8')
     expect(source).toContain("id: 'dshent-plugin'")
     expect(source).not.toContain('@deepseek-ai/dsh-typert-protocol')
@@ -85,8 +85,20 @@ describe('enterprise bundle', () => {
     }) as { apply?: (ctx: unknown) => void } | undefined
     expect(client?.apply).toBeTypeOf('function')
     const register = vi.fn(() => () => undefined)
-    client?.apply?.({ effect: () => undefined, slots: { inject: (_name: string, callback: () => unknown) => callback(), register } })
-    expect(register).toHaveBeenCalledTimes(3)
+    // 外观选项组要读官方 ui-theme（`ctx.get('theme')` 按需 + `ctx.inject(['theme'])` 等服务出现后补发通知），
+    // 所以假 ctx 必须提供 inject/get/on/remote，否则组合根在 createEnterpriseThemeSource 处就崩。
+    const injected: string[][] = []
+    const ctx = {
+      effect: () => undefined,
+      get: () => undefined,
+      inject: (deps: readonly string[], callback: () => void) => { injected.push([...deps]); callback(); return () => undefined },
+      on: () => () => undefined,
+      remote: { $on: () => () => undefined },
+      slots: { inject: (_name: string, callback: () => unknown) => callback(), register },
+    }
+    client?.apply?.(ctx)
+    expect(injected).toEqual([['theme']])
+    expect(register).toHaveBeenCalledTimes(2)
   })
 
   it('contains no ambient Remote shim or sibling source import', async () => {

@@ -20,7 +20,15 @@ import {
 import type { EnterpriseAccountBootstrap, EnterpriseLocalStatus } from '../src/local-api.js'
 
 vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
-  Button: vi.fn(), Input: vi.fn(), Modal: vi.fn(), useAnchoredPosition: vi.fn(), useDismissOnOutsidePointer: vi.fn(),
+  Button: vi.fn(),
+  IconEllipsisOutlineMedium: vi.fn(),
+  IconLoadingOutlineMedium: vi.fn(),
+  IconSettingsOutlineMedium: vi.fn(),
+  IconUserOutlineMedium: vi.fn(),
+  Input: vi.fn(),
+  Menu: vi.fn(),
+  MenuItemButton: vi.fn(),
+  Modal: vi.fn(),
 }))
 
 const status: EnterpriseLocalStatus = {

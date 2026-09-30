@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 Cordis Service/WebServer/settings、官方 settings 投影的 volatile Config 引用、credentials、T02 contracts、PKCE/installation/browser 原语与 Node fetch
- * [OUTPUT]: 提供 ctx.enterprisePlatform、启动恢复、按需刷新/Token 轮换；仅无活动会话时允许清理凭据并修改 Server
- * [POS]: platform-client 的 Host 业务核心，跨 Web/Desktop 复用官方凭据平面且不向 Client UI 暴露任何 Token
+ * [INPUT]: 依赖 Cordis Service/WebServer/settings、官方 settings 投影的 volatile Config 引用、configEditor 的只读 entry 读面、credentials、T02 contracts、PKCE/installation/browser 原语与 Node fetch
+ * [OUTPUT]: 提供 ctx.enterprisePlatform、启动恢复、按需刷新/Token 轮换与地址写入失败的结构化诊断日志；仅无活动会话时允许清理凭据并修改 Server
+ * [POS]: platform-client 的 Host 业务核心，跨 Web/Desktop 复用官方凭据平面且不向 Client UI 暴露任何 Token；每个 `ENT_SETTINGS_UNAVAILABLE` 抛出点都留痕
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -29,6 +29,7 @@ import {
 } from './local-api.js'
 import { createPkceS256, PkceLoopbackError, startLoopbackCallback, type LoopbackCallback } from './pkce.js'
 import { PlatformCredentialManager } from './platform-credentials.js'
+import { settingsDiagnostics, thrownErrorDiagnostics } from './settings-diagnostics.js'
 import {
   EnterprisePlatformError,
   settingsReference,
@@ -195,6 +196,10 @@ export class EnterprisePlatformService extends Service {
   private readonly compositionServerUrl: string
   private readonly serverUrlReference: SettingsReference<string> | undefined
   private readonly settingsNamespace: string | undefined
+  /** 组合根上下文；诊断只在失败路径上按结构读 `configEditor`/settings，不做任何写入。 */
+  private readonly ownerContext: Context
+  /** 官方 settings 实例；仅用于失败时记录其可写能力位，不调用会广播的 `describe()`。 */
+  private settingsService: unknown
 
   private currentStatus: EnterprisePlatformStatus
   private baseUrl: URL | undefined
@@ -279,17 +284,55 @@ export class EnterprisePlatformService extends Service {
       ...(internals.pluginAction === undefined ? {} : { pluginAction: internals.pluginAction }),
       ...(internals.uninstallPlugin === undefined ? {} : { uninstallPlugin: internals.uninstallPlugin }),
       ...(internals.sessionSync === undefined ? {} : { sessionSync: internals.sessionSync }),
+      // 本地路由把异常投影成 HTTP 状态码时留痕：这是前端拿到的 `error.code` 与 Host 侧原始异常的接缝。
+      onError: (operation, error, status) => {
+        this.logger.warn(`enterprise platform: local route rejected the request [operation=${operation} status=${status}]`
+          + ` ${thrownErrorDiagnostics(error)}`, error)
+      },
     })
     const settingsNamespace = internals.settingsNamespace ?? ownerSettingsNamespace(ctx)
     this.settingsNamespace = settingsNamespace
+    this.ownerContext = ctx
     if (settingsNamespace === undefined) {
-      this.logger.warn('enterprise platform: no owning profile entry; the Server address cannot be persisted')
+      // 「不可持久化」的第 1 个判定点：owner Loader entry 读不到，命名空间无从推导。
+      this.logger.warn('enterprise platform: no owning profile entry; the Server address cannot be persisted'
+        + ` [operation=construct step=owner-entry-id-missing ${settingsDiagnostics(ctx, undefined)}]`)
     } else {
+      if (this.serverUrlReference === undefined) {
+        // 「不可持久化」的第 2 个判定点：组合层未把 volatile 地址字段投影成引用。
+        this.logger.warn('enterprise platform: the volatile Server address reference is missing;'
+          + ' the Server address cannot be persisted'
+          + ` [operation=construct step=volatile-reference-missing ${settingsDiagnostics(ctx, settingsNamespace)}]`)
+      }
+      // 官方 rc.2 的 settings 只投影活动 profile entry 自身的 volatile Config 字段：命名空间即 owner entry 的 id，
+      // 注册面收敛为页面策略（官方 Settings 不生成 Server 页），地址字段由组合层声明为 volatile。
       ctx.inject(['settings'], settingsContext => {
-        // 官方 rc.2 的 settings 只投影活动 profile entry 自身的 volatile Config 字段：命名空间即 owner entry 的 id，
-        // 注册面收敛为页面策略（官方 Settings 不生成 Server 页），地址字段由组合层声明为 volatile。
-        settingsContext.effect(() => settingsContext.settings.configure({ auto: false }, ctx.fiber))
-        this.settingsWrite = serverUrl => settingsContext.settings.update(settingsNamespace, { serverUrl })
+        this.settingsService = settingsContext.settings
+        try {
+          settingsContext.effect(() => settingsContext.settings.configure({ auto: false }, ctx.fiber))
+        } catch (error) {
+          // 「不可持久化」的第 3 个判定点：官方页面策略注册失败时 `settings.update` 端口根本不会被装配。
+          this.logger.error('enterprise platform: settings.configure({auto:false}) failed;'
+            + ' the Server address cannot be persisted'
+            + ` [operation=construct step=configure-threw ${settingsDiagnostics(ctx, settingsNamespace, settingsContext.settings)}]`
+            + ` ${thrownErrorDiagnostics(error)}`, error)
+          throw error
+        }
+        this.settingsWrite = async serverUrl => {
+          try {
+            await settingsContext.settings.update(settingsNamespace, { serverUrl })
+          } catch (error) {
+            // 「不可持久化」的第 5 个判定点：官方 settings 自己拒绝了这次写入（entry 缺失 / 无 volatile form / 被覆盖）。
+            this.logger.error('enterprise platform: settings.update rejected the Server address'
+              + ` [operation=setServerUrl step=settings-update-threw entryId=${settingsNamespace} serverUrl=${serverUrl}`
+              + ` ${settingsDiagnostics(ctx, settingsNamespace, settingsContext.settings)}]`
+              + ` ${thrownErrorDiagnostics(error)}`, error)
+            throw error
+          }
+        }
+        this.logger.warn('enterprise platform: Server address write port wired'
+          + ` [operation=construct step=wired entryId=${settingsNamespace}`
+          + ` ${settingsDiagnostics(ctx, settingsNamespace, settingsContext.settings)}]`)
       })
       ctx.on('settings/document-updated', namespace => {
         if (String(namespace) === settingsNamespace) this.reconcileServerUrl()
@@ -311,6 +354,13 @@ export class EnterprisePlatformService extends Service {
     if (resolved === undefined) throw new TypeError('serverUrl is required')
     // 先判定可写性：地址不可持久化时不得先清掉凭据再失败。
     if (this.settingsWrite === undefined || this.serverUrlReference === undefined) {
+      // 「不可持久化」的第 4 个判定点：本次保存请求撞上未装配的 settings 写入端口。
+      const step = this.settingsWrite === undefined ? 'settings-write-port-missing' : 'volatile-reference-missing'
+      this.logger.error('enterprise platform: refusing to save the Server address'
+        + ` [operation=setServerUrl step=${step} serverUrl=${resolved.origin}`
+        + ` settingsWrite=${this.settingsWrite === undefined ? 'absent' : 'ready'}`
+        + ` serverUrlReference=${this.serverUrlReference === undefined ? 'absent' : 'ready'}`
+        + ` ${settingsDiagnostics(this.ownerContext, this.settingsNamespace, this.settingsService)}]`)
       throw new EnterprisePlatformError(
         'ENT_SETTINGS_UNAVAILABLE',
         'Harness settings do not expose the enterprise Server address on this profile',
@@ -915,11 +965,15 @@ export class EnterprisePlatformService extends Service {
   private async persistServerUrl(serverUrl: string): Promise<void> {
     const write = this.settingsWrite
     if (write === undefined) {
+      this.logger.error('enterprise platform: refusing to persist the Server address'
+        + ` [operation=setServerUrl step=settings-write-port-missing serverUrl=${serverUrl}`
+        + ` ${settingsDiagnostics(this.ownerContext, this.settingsNamespace, this.settingsService)}]`)
       throw new EnterprisePlatformError(
         'ENT_SETTINGS_UNAVAILABLE',
         'Harness settings do not expose the enterprise Server address on this profile',
       )
     }
+    // 写入端口自身已在装配处记录 `settings.update` 抛出的原始 error；这里不再吞错。
     await write(serverUrl)
   }
 
@@ -939,11 +993,19 @@ export class EnterprisePlatformService extends Service {
    */
   private refuseServerUrl(reason: string): void {
     const write = this.settingsWrite
-    if (write === undefined) return
+    if (write === undefined) {
+      // 曾经静默的「不可持久化」分支：连写回端口都没有，外部非法改址只会被丢弃。
+      this.logger.warn(`enterprise platform: refused a Server address change but cannot persist any address: ${reason}`
+        + ` [operation=reconcile step=settings-write-port-missing`
+        + ` ${settingsDiagnostics(this.ownerContext, this.settingsNamespace, this.settingsService)}]`)
+      return
+    }
     this.logger.warn(`enterprise platform: refused a Server address change: ${reason}`)
     const previous = this.baseUrl?.origin ?? ''
-    void write(previous).catch(() => {
-      this.logger.warn('enterprise platform: failed to restore the persisted Server address')
+    void write(previous).catch(error => {
+      this.logger.warn('enterprise platform: failed to restore the persisted Server address'
+        + ` [operation=reconcile step=restore-write-threw serverUrl=${previous}]`
+        + ` ${thrownErrorDiagnostics(error)}`, error)
     })
   }
 

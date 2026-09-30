@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖内置 Harness/插件运行树与 Playwright，使用临时 profile 并拦截账号动作 API
  * [OUTPUT]: 验证只读账号地址、退出后编辑及失败保留、授权中禁止修改，并覆盖市场/确认框和桌面/窄屏布局
- * [POS]: 插件的 WebView 兼容回归，外部 runtime 显式传入，不访问真实企业账号或卸载实际插件
+ * [POS]: 插件的 WebView 兼容回归，外部 runtime 显式传入，不访问真实企业账号或卸载实际插件；侧栏入口是官方 `settings.launcher` 座位上的账号菜单，登出不再弹全屏门禁
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -107,10 +107,21 @@ test('packaged plugin uses Harness confirmation modals without native confirm', 
       await route.fulfill({ json: { data } })
     })
     await page.goto(launchUrl)
-    const logout = page.getByRole('button', { name: '退出登录', exact: true })
-    await logout.waitFor({ timeout: 45000 })
+    // 侧栏入口已从常驻的 sidebar.footer.action 退出按钮改为官方 settings.launcher 座位上的账号菜单：
+    // 必须先开菜单，再点菜单里的「退出登录」行项，才进入同一个共享确认弹窗。
+    const launcher = page.getByRole('button', { name: 'DSH Enterprise 账号菜单', exact: true })
+    const menu = page.getByRole('menu', { name: 'DSH Enterprise 账号菜单', exact: true })
+    const logout = menu.getByRole('menuitem', { name: '退出登录', exact: true })
+    const openMenu = async () => {
+      await launcher.click()
+      await logout.waitFor()
+    }
+    await launcher.waitFor({ timeout: 45000 })
     const dialog = page.getByRole('dialog', { name: '退出 DSH Enterprise', exact: true })
+    await openMenu()
     await logout.click()
+    // 选中行项即关闭菜单，菜单与确认弹窗不共存。
+    await menu.waitFor({ state: 'hidden' })
     await dialog.waitFor()
     assert.equal(calls.logout, 0)
     assert.equal(await dialog.getByRole('button', { name: '取消' }).evaluate(el => el === document.activeElement), true)
@@ -120,10 +131,13 @@ test('packaged plugin uses Harness confirmation modals without native confirm', 
     }
     await dialog.getByRole('button', { name: '取消' }).click()
     await dialog.waitFor({ state: 'hidden' })
-    assert.equal(await logout.evaluate(el => el === document.activeElement), true)
+    // 取消确认后焦点必须回到侧栏入口触发按钮，不能留在已关闭的确认弹窗上。
+    assert.equal(await launcher.evaluate(el => el === document.activeElement), true)
+    await openMenu()
     await logout.click()
     await page.keyboard.press('Escape')
     await dialog.waitFor({ state: 'hidden' })
+    await openMenu()
     await logout.click()
     await dialog.getByRole('button', { name: '关闭', exact: true }).click()
     await dialog.waitFor({ state: 'hidden' })
@@ -210,6 +224,7 @@ test('packaged plugin uses Harness confirmation modals without native confirm', 
       assert.equal(await card.evaluate(element => element.scrollWidth <= element.clientWidth), true)
     }
     await page.setViewportSize({ width: 1400, height: 900 })
+    const gate = page.getByRole('dialog', { name: 'DSH Enterprise', exact: true })
     await page.getByRole('tab', { name: '账号', exact: true }).click()
     await account.getByRole('button', { name: '退出登录', exact: true }).click()
     await dialog.waitFor()
@@ -220,11 +235,14 @@ test('packaged plugin uses Harness confirmation modals without native confirm', 
     await mkdir(join(root, '.build'), { recursive: true })
     await page.screenshot({ path: join(root, '.build/confirm-desktop.png') })
     await dialog.getByRole('button', { name: '退出登录', exact: true }).click()
-    await page.getByRole('dialog', { name: 'DSH Enterprise', exact: true }).getByRole('button', { name: '登录企业账号', exact: true }).waitFor()
-    await account.waitFor({ state: 'hidden' })
+    // 登出不再弹全屏门禁，也不再关闭设置面板：账号区就地回到未登录并给出「登录」入口。
+    await gate.waitFor({ state: 'hidden', timeout: 15000 })
+    await account.getByRole('button', { name: '登录', exact: true }).waitFor({ timeout: 15000 })
+    assert.equal(await account.isVisible(), true, 'Logout must not close the Settings panel')
     assert.equal(calls.logout, 1)
 
-    const gate = page.getByRole('dialog', { name: 'DSH Enterprise', exact: true })
+    // 设置面板此刻盖住侧栏入口，登录弹窗从账号区那个入口打开，打开的是同一个非阻断弹窗。
+    await account.getByRole('button', { name: '登录', exact: true }).click()
     await gate.getByRole('button', { name: '修改 Server 地址', exact: true }).click()
     const address = gate.getByRole('textbox', { name: 'DSH Enterprise Server 地址', exact: true })
     await address.fill('https://next.example.com/path')

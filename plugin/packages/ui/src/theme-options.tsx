@@ -1,12 +1,12 @@
 /**
- * [INPUT]: 依赖 React 的 useSyncExternalStore、Lucide 的 SunMoon，以及宿主 ui-theme 服务的 getTheme/setTheme 与 theme/change 事件
+ * [INPUT]: 依赖 React 的 useSyncExternalStore、Lucide 的 SunMoon（14px，同官方菜单行图标位），以及宿主 ui-theme 服务的 getTheme/setTheme 与 theme/change 事件
  * [OUTPUT]: 对外提供偏好词表 ENTERPRISE_THEME_PREFERENCES 与窄化 isEnterpriseThemePreference、官方主题只读源 createEnterpriseThemeSource/EnterpriseThemeSource（服务晚到时补发通知）、共享订阅 useEnterpriseTheme、选项组模型 enterpriseThemeRow、点击写入 selectEnterpriseTheme 与分段组件 EnterpriseThemeOptionGroup
- * [POS]: dsh-ui 个人中心菜单内的外观选项组；把官方主题偏好翻译成「读回/写入/订阅」三个端口，不持有第二份偏好，也不直接改 DOM class
+ * [POS]: dsh-ui 个人中心菜单内的外观选项组；把官方主题偏好翻译成「读回/写入/订阅」三个端口，不持有第二份偏好，也不直接改 DOM class。分段几何照官方 ui-primitives/lib/SegmentedControl.module.css，样式表归 account-menu 的 ENTERPRISE_MENU_STYLES 持有（本组只出现在菜单里，菜单视觉因此只有一个真源）
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { SunMoon } from 'lucide-react'
-import { useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
+import { useSyncExternalStore, type ReactNode } from 'react'
 
 /** 官方内置主题偏好全集（ui-theme 的 THEME_PREFERENCES）；这里只做窄化，不另立枚举。 */
 export const ENTERPRISE_THEME_PREFERENCES = ['light', 'dark', 'system'] as const
@@ -138,74 +138,35 @@ export function selectEnterpriseTheme(
   source?.setPreference(next)
 }
 
-const row: CSSProperties = {
-  alignItems: 'center',
-  display: 'flex',
-  gap: 10,
-  justifyContent: 'space-between',
-  padding: '6px 10px',
-}
-
-const rowLabel: CSSProperties = {
-  alignItems: 'center',
-  color: 'inherit',
-  display: 'flex',
-  fontSize: 13,
-  gap: 10,
-  lineHeight: '20px',
-  minWidth: 0,
-}
-
-const rowIcon: CSSProperties = {
-  alignItems: 'center',
-  color: 'var(--dsw-alias-menu-icon, var(--dsw-alias-label-tertiary, #667085))',
-  display: 'inline-flex',
-  flex: 'none',
-  height: 16,
-  justifyContent: 'center',
-  width: 16,
-}
-
-/** 分段样式照 jingyun 的胶囊几何（2px 内衬、11px 字号、3px 10px 内距），颜色全部取宿主 token。 */
-const styles = `
-      .own-theme-seg { background: var(--dsw-alias-interactive-bg-hover, rgba(38, 49, 72, 0.06)); border-radius: 8px; display: flex; flex: none; gap: 2px; padding: 2px; }
-      .own-theme-seg-btn { background: transparent; border: 0; border-radius: 6px; color: var(--dsw-alias-label-tertiary, #667085); cursor: pointer; font: inherit; font-size: 11px; font-weight: 400; line-height: 16px; padding: 3px 10px; transition: background-color 0.15s ease, color 0.15s ease; white-space: nowrap; }
-      .own-theme-seg-btn:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover-accent, rgba(38, 49, 72, 0.14)); color: var(--dsw-alias-label-primary, #101828); }
-      .own-theme-seg-btn:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary, #4d6bfe); outline-offset: 1px; }
-      .own-theme-seg-btn:disabled { cursor: not-allowed; opacity: 0.4; }
-      .own-theme-seg-btn-active { background: var(--dsw-alias-bg-layer-1, #ffffff); box-shadow: var(--dsw-elevation-soft, 0 1px 3px rgba(0, 0, 0, 0.12)); color: var(--dsw-alias-label-primary, #101828); font-weight: 600; }
-      .own-theme-seg-btn-active:hover:not(:disabled) { background: var(--dsw-alias-bg-layer-1, #ffffff); }
-      @media (prefers-reduced-motion: reduce) { .own-theme-seg-btn { transition: none; } }
-`
-
 export interface EnterpriseThemeOptionGroupProps {
   /** 官方主题源；宿主未提供 ui-theme 时为 undefined，整组禁用而非假装已选。 */
   readonly source?: EnterpriseThemeSource | undefined
 }
 
-/** 菜单内的外观选项组：只读官方偏好决定选中态，点击写回官方主题运行时。 */
+/**
+ * 菜单内的外观选项组：只读官方偏好决定选中态，点击写回官方主题运行时。
+ * 全部几何与交互态由 account-menu 的 `ENTERPRISE_MENU_STYLES` 持有（这一组只出现在菜单里，
+ * 菜单视觉因此只有一个真源），这里只给类名与 ARIA。
+ */
 export function EnterpriseThemeOptionGroup(props: EnterpriseThemeOptionGroupProps): ReactNode {
   const preference = useEnterpriseTheme(props.source)
   const model = enterpriseThemeRow(preference)
-  return <>
-    <style>{styles}</style>
-    <div style={row}>
-      <span style={rowLabel}>
-        <span aria-hidden style={rowIcon}><SunMoon size={16} /></span>
-        {model.label}
-      </span>
-      {/* 菜单里的单选组：语义按 menuitemradio 报读，选中态就是官方偏好本身。 */}
-      <div aria-label={model.label} className="own-theme-seg" role="group">
-        {model.options.map(option => <button
-          key={option.id}
-          aria-checked={option.selected}
-          className={option.selected ? 'own-theme-seg-btn own-theme-seg-btn-active' : 'own-theme-seg-btn'}
-          disabled={option.disabled}
-          onClick={() => { selectEnterpriseTheme(props.source, preference, option.id) }}
-          role="menuitemradio"
-          type="button"
-        >{option.label}</button>)}
-      </div>
+  return <div className="own-theme-row" role="presentation">
+    <span className="own-theme-label">
+      <span aria-hidden className="own-theme-icon"><SunMoon size={14} /></span>
+      {model.label}
+    </span>
+    {/* 菜单里的单选组：语义按 menuitemradio 报读，选中态就是官方偏好本身。 */}
+    <div aria-label={model.label} className="own-theme-seg" role="group">
+      {model.options.map(option => <button
+        key={option.id}
+        aria-checked={option.selected}
+        className="own-theme-seg-btn"
+        disabled={option.disabled}
+        onClick={() => { selectEnterpriseTheme(props.source, preference, option.id) }}
+        role="menuitemradio"
+        type="button"
+      >{option.label}</button>)}
     </div>
-  </>
+  </div>
 }

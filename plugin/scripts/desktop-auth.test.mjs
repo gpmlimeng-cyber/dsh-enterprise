@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 真实内置 Harness、DSH Enterprise 插件、Chromium 与临时 HTTP 授权/模型服务
- * [OUTPUT]: 从登录、真实聊天请求到凭证失效门禁及重新登录恢复的 E2E，验证闲置零请求和网络故障保留会话
- * [POS]: 插件的桌面认证闭环验收，外部 runtime 显式传入；凭证/服务/profile 全部隔离
+ * [OUTPUT]: 从侧栏账号菜单登录、真实聊天请求到凭证失效就地降级及重新登录恢复的 E2E，验证闲置零请求和网络故障保留会话
+ * [POS]: 插件的桌面认证闭环验收，外部 runtime 显式传入；凭证/服务/profile 全部隔离。入口是官方 `settings.launcher` 座位上的账号菜单加非阻断登录弹窗，全屏门禁已退役
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -169,9 +169,20 @@ globalThis.Date = class extends NativeDate {
     const requests = []
     page.on('request', request => { if (request.url().includes('/enterprise/api/v1/local/')) requests.push(new URL(request.url()).pathname) })
     const gate = page.getByRole('dialog', { name: 'DSH Enterprise', exact: true })
+    // 登录弹窗不再自动出现，也不再阻断宿主：唯一入口是官方 `settings.launcher` 座位上的账号菜单，
+    // 任何登录态点它都只弹菜单，未登录时菜单第一项「登录」才打开弹窗。
+    const launcher = page.getByRole('button', { name: 'DSH Enterprise 账号菜单', exact: true })
+    const menu = page.getByRole('menu', { name: 'DSH Enterprise 账号菜单', exact: true })
     await page.goto(launchUrl)
+    /** 经侧栏账号菜单打开登录弹窗。 */
+    async function openLoginDialog() {
+      await launcher.click()
+      await menu.getByRole('menuitem', { name: '登录', exact: true }).click()
+      await gate.getByRole('button', { name: '登录企业账号', exact: true }).waitFor({ timeout: 15000 })
+    }
     async function signIn() {
       await rm(authorizeFile, { force: true })
+      await openLoginDialog()
       await gate.getByRole('button', { name: '登录企业账号', exact: true }).click()
       let url
       for (let attempt = 0; attempt < 100; attempt++) {
@@ -203,6 +214,20 @@ globalThis.Date = class extends NativeDate {
       assert.equal(requests.length, localBefore, 'Idle page must not poll local state')
       assert.ok(requests.every(path => !path.endsWith('/events')))
     }
+    /**
+     * 过期/撤销的现状断言：旧行为是自动弹全屏门禁，该行为已退役，现为「宿主不被阻断 +
+     * 失效状态就地落在侧栏账号入口上」。弹窗必须保持关闭，触发器 data-enterprise-state
+     * 必须精确等于 Host 报告的终态，打开菜单能看到「未登录」与该状态的引导语。
+     */
+    async function expectSignedOutState(state, description) {
+      await gate.waitFor({ state: 'hidden', timeout: 15000 })
+      assert.equal(await launcher.getAttribute('data-enterprise-state'), state)
+      await launcher.click()
+      await menu.getByText('未登录', { exact: true }).waitFor({ timeout: 15000 })
+      await menu.getByText(description, { exact: true }).waitFor({ timeout: 15000 })
+      await page.keyboard.press('Escape')
+      await menu.waitFor({ state: 'hidden' })
+    }
     await signIn()
     await page.getByRole('button', { name: 'Choose workspace', exact: true }).click()
     await page.getByRole('button', { name: 'Edit path', exact: true }).click()
@@ -229,8 +254,9 @@ globalThis.Date = class extends NativeDate {
 
     await idle()
     mode = 'expired'
-    await prompt('Expired refresh credential must open the login page')
-    await gate.getByText('登录已过期', { exact: true }).waitFor({ timeout: 15000 })
+    await prompt('Expired refresh credential must degrade in place without gating the host')
+    // 续期被拒后不再自动弹门禁：失效状态就地呈现，重新登录仍要从账号菜单进弹窗。
+    await expectSignedOutState('AUTH_EXPIRED', '企业会话已失效，请重新登录')
     assert.equal(gatewayCalls, 2, 'Rejected refresh must not reach the model backend')
     await mkdir(join(root, '.build'), { recursive: true })
     await page.screenshot({ path: join(root, '.build/auth-expired.png') })
@@ -241,14 +267,14 @@ globalThis.Date = class extends NativeDate {
 
     await idle()
     mode = 'revoked'
-    await prompt('Revoked device must open the login gate')
-    await gate.getByText('设备已撤销', { exact: true }).waitFor({ timeout: 15000 })
+    await prompt('Revoked device must degrade in place without gating the host')
+    await expectSignedOutState('DEVICE_REVOKED', '此设备不再具有企业访问权限')
     assert.equal(gatewayCalls, 3)
     assert.deepEqual(serverErrors, [])
     await writeFile(join(root, '.build/auth-e2e-result.json'), JSON.stringify({
       idleNoRequests: true, noResidentSse: true, requestTimeRefresh: true,
-      networkFailurePreservesSession: true, expiredRefreshShowsLogin: true,
-      reloginResumesChat: true, revokedDeviceShowsLogin: true,
+      networkFailurePreservesSession: true, expiredRefreshShowsSignedOutState: true,
+      reloginResumesChat: true, revokedDeviceShowsSignedOutState: true,
     }, null, 2))
   } catch (error) {
     const page = browser?.contexts()[0]?.pages()[0]

@@ -19,12 +19,22 @@ import {
   enterpriseMenuTransition,
   enterpriseMenuTriggerElement,
   type EnterpriseMenuTargets,
+  type EnterpriseMenuTriggerHandlers,
+  type EnterpriseMenuTriggerView,
 } from '../src/account-menu.js'
 import { enterpriseAccountIdentity } from '../src/account-state.js'
 import type { EnterpriseAccountBootstrap, EnterpriseLocalStatus } from '../src/local-api.js'
 
 vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
-  Button: vi.fn(), Input: vi.fn(), Modal: vi.fn(), useAnchoredPosition: vi.fn(), useDismissOnOutsidePointer: vi.fn(),
+  Button: vi.fn(),
+  IconEllipsisOutlineMedium: vi.fn(),
+  IconLoadingOutlineMedium: vi.fn(),
+  IconSettingsOutlineMedium: vi.fn(),
+  IconUserOutlineMedium: vi.fn(),
+  Input: vi.fn(),
+  Menu: vi.fn(),
+  MenuItemButton: vi.fn(),
+  Modal: vi.fn(),
 }))
 
 /** 副作用记录器：断言状态机给出的效果序列，而不是组件内部实现。 */
@@ -255,7 +265,7 @@ describe('selection runs the command effects in order', () => {
 
 /** 触发按钮的类名与两态属性是 hover / 折叠 / 未登录三条 CSS 规则的唯一开关。 */
 describe('the trigger button carries the class and state attributes hover needs', () => {
-  const handlers: EnterpriseMenuTriggerHandlers = { onClick: () => undefined, onKeyDown: () => undefined, ref: null }
+  const handlers: EnterpriseMenuTriggerHandlers = { onClick: () => undefined, ref: null }
   const view: EnterpriseMenuTriggerView = {
     ariaExpanded: false,
     entryPath: 'menu',
@@ -278,17 +288,30 @@ describe('the trigger button carries the class and state attributes hover needs'
     expect(element.props.type).toBe('button')
   })
 
+  it('renders the official 14px ellipsis instead of a hand-drawn avatar circle while signed out', () => {
+    const element = enterpriseMenuTriggerElement(view, handlers)
+    const glyph = element.props.children[0]
+    // 官方占用者未登录时是裸的 IconEllipsisOutlineMedium size={14}，不套头像圈。
+    expect(glyph.props.size).toBe(14)
+    expect(glyph.props.className).toBeUndefined()
+    expect(element.props.children[1].props.className).toBe('own-menu-trigger-label')
+  })
+
   it('flips both attributes for the collapsed rail and the signed-in row', () => {
     const rail = enterpriseMenuTriggerElement({ ...view, initial: '张', signedIn: true, wide: false }, handlers)
     expect(rail.props['data-collapsed']).toBe('true')
     expect(rail.props['data-signed-out']).toBe('false')
     expect(rail.props.style).toBeUndefined()
+    // 已登录仍是官方 .avatar 的 24px 圆，圈内是首字；窄栏不渲染文案。
+    expect(rail.props.children[0].props.className).toBe('own-menu-avatar')
+    expect(rail.props.children[0].props.children).toBe('张')
+    expect(rail.props.children[1]).toBeNull()
   })
 })
 
-/** 注入样式表持有全部交互态；兜底必须主题中性，深色硬编码在深色主题上等于没有反馈。 */
+/** 注入样式表持有我们自绘部分的全部交互态；兜底必须主题中性，深色硬编码在深色主题上等于没有反馈。 */
 describe('the injected stylesheet owns every trigger interaction state', () => {
-  /** 样式表里每一处悬停/按下的 token 兜底声明，逐条核对兜底值。 */
+  /** 样式表里每一处悬停的 token 兜底声明，逐条核对兜底值。 */
   const hoverBackgrounds = [...ENTERPRISE_MENU_STYLES.matchAll(
     /background: (var\(--dsw-alias-interactive-bg-(?:hover|hover-danger|active)[^;]*\));/g,
   )].map(match => match[1] ?? '')
@@ -297,18 +320,43 @@ describe('the injected stylesheet owns every trigger interaction state', () => {
     expect(ENTERPRISE_MENU_STYLES).toContain('.own-menu-trigger:hover')
     expect(ENTERPRISE_MENU_STYLES)
       .toContain('var(--dsw-alias-interactive-bg-hover, color-mix(in srgb, currentColor 8%, transparent))')
-    expect(ENTERPRISE_MENU_STYLES).toContain('.own-menu-item:hover:not(:disabled)')
   })
 
-  it('covers focus-visible, pressed and both trigger states', () => {
-    expect(ENTERPRISE_MENU_STYLES).toContain('.own-menu-trigger:active')
+  it('copies the official trigger geometry, radius and both state blocks verbatim', () => {
+    // 官方 AccountMenu.module.css：44px 整行 / 6px 内衬 / gap 8 / radius-md / 14px 字号。
+    expect(ENTERPRISE_MENU_STYLES).toContain('height: 44px')
+    expect(ENTERPRISE_MENU_STYLES).toContain('padding: 6px')
+    expect(ENTERPRISE_MENU_STYLES).toContain('gap: 8px')
+    // 官方 .root{flex:1;min-width:0} + .anchor{width:100%} 的合体：Menu 锚点 span 撑满设置行。
+    expect(ENTERPRISE_MENU_STYLES).toContain('.own-menu-anchor { flex: 1; min-width: 0; width: 100%; }')
+    expect(ENTERPRISE_MENU_STYLES).toContain('border-radius: var(--dsw-radius-md, 12px)')
+    expect(ENTERPRISE_MENU_STYLES).toContain('font-size: 14px')
+    expect(ENTERPRISE_MENU_STYLES).toContain(".own-menu-trigger[data-collapsed='true'] { box-sizing: border-box; justify-content: center; gap: 0; width: 36px; height: 36px; padding: 0; }")
+    expect(ENTERPRISE_MENU_STYLES).toContain(".own-menu-trigger[data-signed-out='true']:not([data-collapsed='true']) { height: 32px; padding: 6px 2px 6px 6px; line-height: 20px; }")
+    // 官方 .avatar 的 24px 圆与两颗官方 token。
+    expect(ENTERPRISE_MENU_STYLES).toContain('var(--dsw-alias-bg-skeleton')
+    expect(ENTERPRISE_MENU_STYLES).toContain('var(--dsw-alias-label-tertiary, #667085)')
+  })
+
+  it('covers focus-visible and both trigger states', () => {
     expect(ENTERPRISE_MENU_STYLES).toContain('.own-menu-trigger:focus-visible')
+    expect(ENTERPRISE_MENU_STYLES).toContain('var(--dsw-focus-ring-width, 2px)')
     expect(ENTERPRISE_MENU_STYLES).toContain(".own-menu-trigger[data-collapsed='true']")
     expect(ENTERPRISE_MENU_STYLES).toContain(".own-menu-trigger[data-signed-out='true']:not([data-collapsed='true'])")
   })
 
+  it('leaves the menu card and its rows to the official primitive', () => {
+    // 卡片与行项由官方 Menu/MenuItemButton 渲染：我们不许留任何自绘行、卡片或分隔线之外的官方件。
+    expect(ENTERPRISE_MENU_STYLES).not.toContain('.own-menu-item')
+    expect(ENTERPRISE_MENU_STYLES).not.toContain('background: var(--dsw-specific-menu')
+    expect(ENTERPRISE_MENU_STYLES).not.toContain('box-shadow: var(--dsw-elevation-prominent')
+    // 分组发丝线仍照官方 Menu.module.css 的 .separator 取值。
+    expect(ENTERPRISE_MENU_STYLES).toContain('.own-menu-separator { height: 0.5px; margin: 3px 2px; background: var(--dsw-alias-border-l2')
+  })
+
   it('falls back to a theme-neutral currentColor overlay instead of a dark-on-dark colour', () => {
-    expect(hoverBackgrounds.length).toBeGreaterThanOrEqual(4)
+    // 自绘部分只剩触发按钮与外观组两处悬停填充；行与卡片的悬停归官方样式表。
+    expect(hoverBackgrounds.length).toBeGreaterThanOrEqual(2)
     for (const declaration of hoverBackgrounds) {
       expect(declaration).toContain('color-mix(in srgb, currentColor')
       expect(declaration).not.toMatch(/rgba\(\s*9\s*,\s*9\s*,\s*11/)

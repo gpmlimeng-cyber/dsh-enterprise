@@ -3,7 +3,7 @@ title: 为已有官方 Harness Desktop 安装企业插件
 audience: user
 order: 3
 summary: 用 corepack 备好 pnpm 基线，一条 dsh plugin 命令装上企业插件，然后填写管理员给你的 Server 地址。
-verifiedAt: 2026-09-16
+verifiedAt: 2026-09-30
 sourceRefs:
   - README.md#安装员工插件
   - README.md#更新
@@ -58,12 +58,12 @@ pnpm --dir /path/to/deepseek-harness dsh \
 
 ## 3. 填写 Server 地址并登录
 
-重启后会出现 DSH Enterprise 全屏页面，要求填写管理员提供给你的 **DSH Enterprise Server 地址**：
+重启后官方界面照常可用，不会出现任何阻断页。DSH Enterprise 的入口是侧栏上的**个人中心菜单**（未登录也可打开，首项「登录」）；点开「登录」后，在非阻断的**登录弹窗**里填写管理员提供给你的 **DSH Enterprise Server 地址**：
 
 - 必须是完整的 **HTTP(S) origin**，例如 `https://owndsh.example.com`；
 - **不能带 API 路径**（不要写 `https://owndsh.example.com/enterprise/...`）。
 
-**操作路径**：DSH Enterprise 全屏页面 → 填写 Server 地址 → 保存 → 企业登录
+**操作路径**：个人中心菜单 → 登录 → 在登录弹窗填写 Server 地址 → 保存 → 企业登录
 
 保存后由 Harness Host 的官方 settings/credentials 服务持久化 Server 地址与 Refresh Token；
 Access Token 只存在于 Host 内存，浏览器页面不会读取或保存它。**正常重启会静默恢复登录。**
@@ -76,7 +76,7 @@ Access Token 只存在于 Host 内存，浏览器页面不会读取或保存它�
 |---|---|
 | 保存 Server 后显示平台不可用 | 在设备上访问 `<Server地址>/healthz`，确认返回 `{"status":"UP"}`；再查 DNS、防火墙、反向代理与 TLS 证书 |
 | 提示 `pnpm not found on PATH` | 回到第 1 节，直到 `pnpm --version` 直接可跑 |
-| 插件装上了但页面没出现 | 确认重启的是**同一个 profile**，且插件装在该 profile 下 |
+| 插件装上了但账号入口没出现 | 确认重启的是**同一个 profile**，且插件装在该 profile 下 |
 
 更完整的排查见《员工常见问题》。
 

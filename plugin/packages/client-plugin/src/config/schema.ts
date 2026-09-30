@@ -28,7 +28,14 @@ export interface Config {
   marketInstallEnabled: boolean
 }
 
-export const Config: Schema<Config> = Schema.object({
+// TS2375 的真因是 schemastery 双版本撕裂，不是这里写错了类型：本 workspace 直接依赖
+// 3.18.1，而 `@deepseek-ai/dsh-llm-pi-ai@0.1.5-rc.2` 经 `dsh-llm@0.1.7-rc.2` 拉进 3.18.4；
+// 两个版本都在 `declare global { namespace Schemastery }` 里声明同名 `Schema`/`Meta`，
+// 全局命名空间被合并后 `Meta<T>.default` 取到 3.18.4 的 `SchemaOutput<T>`（含 `Volatile`），
+// 于是 `Schema<Config>` 注解报 `string | Volatile<...>` 不可赋给 `string`；不注解则因
+// 推断类型无法在 .d.ts 里具名而报 TS2883。显式断言把导出类型钉在模块内解析到的 3.18.1 上，
+// 不改变任何运行时行为。真正的修法是消掉 3.18.1/3.18.4 双版本（见 task-2 的 peer 撕裂跟踪）。
+export const Config = Schema.object({
   baseUrl: Schema.string()
     .default('')
     .description('企业控制面地址，例如 http://192.168.1.50:8080。留空时首启由界面要求填写。'),
@@ -60,4 +67,4 @@ export const Config: Schema<Config> = Schema.object({
   marketInstallEnabled: Schema.boolean()
     .default(true)
     .description('是否允许从企业市场安装/卸载插件。关闭后仅可浏览与查看授权。'),
-})
+}) as Schema<Config>

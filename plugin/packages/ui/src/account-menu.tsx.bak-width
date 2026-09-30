@@ -399,16 +399,12 @@ export const ENTERPRISE_MENU_STYLES = `
          等宽 1fr 轨道、28px 标签、13px/20px/500、label-secondary → 选中与 hover 只换 label-primary，
          选中格承担 bg-layer-1 + elevation-soft + radius-sm。官方用滑动指示器；菜单里不引动画，
          让选中格直接持有那层抬升，静置外观与官方一致。 */
-      /* 官方 Menu 的 .list 是 min 144 / max 360 的 max-content：内容多宽菜单就多宽。
-         我们自定的头部与外观组会把它撑得明显宽于官方占用者，故给内容一个确定宽度，
-         并让长文本的 ellipsis 真正生效（max-content 下 ellipsis 不减少固有宽度）。 */
-      .own-menu-content { width: 200px; }   /* 测量前的回落值；实测宽度由内联 style 覆盖 */
-      .own-theme-row { align-items: stretch; display: flex; flex-direction: column; gap: 6px; min-height: 34px; padding: 6px 8px; }
+      .own-theme-row { align-items: center; display: flex; gap: 8px; justify-content: space-between; min-height: 34px; padding: 6px 8px; }
       .own-theme-label { align-items: center; color: var(--dsw-alias-label-primary, #101828); display: flex; font-size: 13px; gap: 6px; line-height: 20px; min-width: 0; }
       .own-theme-icon { align-items: center; color: var(--dsw-alias-menu-icon, var(--dsw-alias-label-primary, #101828)); display: inline-flex; flex: none; height: 14px; justify-content: center; width: 14px; }
       .own-theme-icon svg { width: 14px; height: 14px; }
-      .own-theme-seg { background: var(--dsw-alias-interactive-bg-hover, color-mix(in srgb, currentColor 8%, transparent)); border-radius: var(--dsw-radius-md, 12px); display: inline-grid; flex: none; gap: 2px; width: 100%; grid-auto-columns: 1fr; grid-auto-flow: column; padding: 4px; }
-      .own-theme-seg-btn { background: transparent; border: 0; border-radius: var(--dsw-radius-sm, 8px); color: var(--dsw-alias-label-secondary, #475467); cursor: pointer; font: inherit; font-size: 13px; font-weight: 500; height: 28px; line-height: 20px; padding: 0 4px; transition: color 120ms ease; white-space: nowrap; }
+      .own-theme-seg { background: var(--dsw-alias-interactive-bg-hover, color-mix(in srgb, currentColor 8%, transparent)); border-radius: var(--dsw-radius-md, 12px); display: inline-grid; flex: none; gap: 2px; grid-auto-columns: 1fr; grid-auto-flow: column; padding: 4px; }
+      .own-theme-seg-btn { background: transparent; border: 0; border-radius: var(--dsw-radius-sm, 8px); color: var(--dsw-alias-label-secondary, #475467); cursor: pointer; font: inherit; font-size: 13px; font-weight: 500; height: 28px; line-height: 20px; padding: 0 16px; transition: color 120ms ease; white-space: nowrap; }
       .own-theme-seg-btn:hover:not(:disabled), .own-theme-seg-btn[aria-checked='true'] { color: var(--dsw-alias-label-primary, #101828); }
       .own-theme-seg-btn[aria-checked='true'] { background: var(--dsw-alias-bg-layer-1, #ffffff); box-shadow: var(--dsw-elevation-soft, 0 1px 3px rgba(0, 0, 0, 0.12)); }
       .own-theme-seg-btn:disabled { cursor: not-allowed; opacity: 0.4; }
@@ -448,9 +444,6 @@ export function EnterpriseAccountMenu(props: EnterpriseAccountMenuProps): ReactN
   const [menu, setMenu] = useState<EnterpriseMenuState>(ENTERPRISE_MENU_CLOSED)
   const menuRef = useRef(menu)
   const trigger = useRef<HTMLButtonElement>(null)
-  /** 菜单宽度＝触发按钮 hover 区域的实测宽度：等宽即左右边缘对齐（官方无论左对齐还是居中）。
-      侧栏可折叠、宽度会变，故由 ResizeObserver 跟随；折叠态 36px 不足以承载菜单，回落最小可读宽度。 */
-  const [menuWidth, setMenuWidth] = useState<number | undefined>(undefined)
   const settingsWasOpen = useRef(props.settingsOpen === true)
 
   /** 事件入口：先按纯状态机得到新状态与效果，再落地。状态只在 run 里前进，ref 与 state 不会分叉。 */
@@ -487,22 +480,6 @@ export function EnterpriseAccountMenu(props: EnterpriseAccountMenuProps): ReactN
     if (dialog.open && menuRef.current.open) runRef.current({ type: 'release' })
   }, [dialog.open])
 
-  useEffect(() => {
-    const node = trigger.current
-    if (node === null || typeof ResizeObserver === 'undefined') return
-    /** 官方 Menu 的 .list 左右各 4px 内边距：内容宽 + 8 = 卡片宽，故减去它才与按钮等宽。 */
-    const surfacePadding = 8
-    const minMenuWidth = 200
-    const sync = (): void => {
-      const width = node.offsetWidth - surfacePadding
-      setMenuWidth(width >= minMenuWidth ? width : minMenuWidth)
-    }
-    sync()
-    const observer = new ResizeObserver(sync)
-    observer.observe(node)
-    return () => { observer.disconnect() }
-  }, [props.wide])
-
   const select = (command: EnterpriseMenuCommand, startLogout?: () => void): void => {
     run({ type: 'select', command }, startLogout)
   }
@@ -530,7 +507,7 @@ export function EnterpriseAccountMenu(props: EnterpriseAccountMenuProps): ReactN
     shortcut={row.id === 'settings' ? props.settingsShortcut : undefined}
   >{row.label}</OfficialMenuItemButton>
   /** 官方卡片只负责外框与键盘，内容按官方行几何排：头部 → 账号动作 → 外观 → 设置 → 确认退出。 */
-  const panel = (startLogout: () => void): ReactNode => <div className="own-menu-content" style={menuWidth === undefined ? undefined : { width: menuWidth }}>
+  const panel = (startLogout: () => void): ReactNode => <>
     <div className="own-menu-header" role="presentation">
       <span aria-hidden className={TRIGGER_GLYPH_CLASS}>
         {model.presentsAccount ? model.initial : <IconUserOutlineMedium size={16} />}
@@ -547,7 +524,7 @@ export function EnterpriseAccountMenu(props: EnterpriseAccountMenuProps): ReactN
         ? <div onKeyDown={onThemeGroupKeyDown} role="presentation"><EnterpriseThemeOptionGroup source={props.theme} /></div>
         : sectionRows(section).map(row => renderRow(row, section, startLogout))}
     </Fragment>)}
-  </div>
+  </>
   const launcher = (startLogout: () => void): ReactNode => <OfficialMenu
     anchor={enterpriseMenuTriggerElement({
       ariaExpanded: menu.open,

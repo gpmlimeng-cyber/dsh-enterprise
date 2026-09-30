@@ -22,17 +22,18 @@ Harness Host 的企业平台控制面。`EnterprisePlatformService` 通过 Cordi
 | `request()` | 执行同源、带认证且可取消的平台 fetch；这是唯一读取 Token 的代码路径。 |
 | `dispose()` | 取消登录/刷新/请求，关闭本地路由，等待工作停稳。 |
 
-`baseUrl` 只是安装层可选默认值。未提供时 Service 进入 `UNCONFIGURED`，员工在全屏门禁中填写
-Server 地址；地址通过 `@deepseek-ai/dsh-settings` 持久化到 `$DSH_HOME/settings.yaml` 的
-`owndsh.serverUrl`。地址必须是不含 user-info、path、query 或 fragment 的 HTTP 或 HTTPS origin；
-账号设置只读显示地址，员工须先退出登录，再在门禁页修改。Host 拒绝已登录、授权、设备注册、
+`baseUrl` 只是安装层可选默认值。未提供时 Service 进入 `UNCONFIGURED`，员工在「DSH Enterprise 设置 →
+账号」或登录弹窗中填写 Server 地址，未登录不阻断宿主；地址是 `@deepseek-ai/dsh-settings` 中本插件
+owner entry（id `owndsh`）的 volatile 字段 `serverUrl`，经 `settings.update` 写入
+`$DSH_HOME/settings.yaml`。地址必须是不含 user-info、path、query 或 fragment 的 HTTP 或 HTTPS origin；
+账号设置只读显示地址，员工须先退出登录，再在登录弹窗的地址编辑器修改。Host 拒绝已登录、授权、设备注册、
 恢复会话和退出过程中的修改；通用 settings 写入不可绕过此流程。初次配置或登录失败后仍可纠正地址，
 凭据清理失败时不写新地址，切回旧地址不会复活旧账号。运行时修改统一经 `setServerUrl()`；启动时仍读取磁盘配置。
 传输安全由部署方决定，公网和生产部署推荐 HTTPS。普通请求超时 30 秒、dispose 超时 3 秒。
 闲置时不轮询 bootstrap、不提前续期、不建立企业状态 SSE。用户请求发现 Access Token 到期时
 共享一次轮换；服务端先返回认证 401 时，对可重放请求体最多续期重试一次，403 权限拒绝不触发登出。
 `Accept` 包含 `text/event-stream` 的模型流不设置总时限，仍服从调用方取消、Service dispose 和服务端流超时。
-网络失败保留 Refresh Grant 与已校验 bootstrap；明确认证失效或设备撤销才删除凭据并阻断。
+网络失败保留 Refresh Grant 与已校验 bootstrap；明确认证失效或设备撤销才删除凭据，并在账号区显示失效状态与登录入口，宿主不被全屏阻断。
 会话代次校验阻止注销、切换 Server 和销毁后旧异步结果恢复认证或配置。
 
 Service 在 `$DSH_HOME/enterprise/device.json` 只持久化 installation UUID v4、显示名和

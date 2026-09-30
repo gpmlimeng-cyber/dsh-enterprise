@@ -1,12 +1,12 @@
 /**
- * [INPUT]: 依赖 Node HTTP 类型与 platform-client 的 `ctx.webServer` route port、稳定本地错误码
- * [OUTPUT]: 对外提供企业账户后台默认域名、地址校验纯函数、同源 GET/POST 路由注册，以及地址不可持久化时的语义化 503 投影
+ * [INPUT]: 依赖 Node HTTP 类型、platform-client 的 `ctx.webServer` route port 与异常摘要、稳定本地错误码
+ * [OUTPUT]: 对外提供企业账户后台默认域名、地址校验纯函数、同源 GET/POST 路由注册，以及地址不可持久化时的语义化 503 投影（经 `report` 端口留痕）
  * [POS]: bundle 的账户后台地址语义层；地址的挂载、热重挂生命周期与官方 settings volatile 字段声明留在 src/index.ts，本文件只做校验与 HTTP 投影
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { WebServerRoutePort } from '@dshent/platform-client'
+import { thrownErrorDiagnostics, type WebServerRoutePort } from '@dshent/platform-client'
 
 /** 企业账户后台默认 origin；两个地址留空或等值即回落到它。 */
 export const DEFAULT_ACCOUNT_ORIGIN = 'https://meizhiyun.chat'
@@ -130,6 +130,8 @@ export interface AccountOriginPort {
   mountedFingerprint(): string
   /** 写入设置并热重挂；实现自己吞掉失败，不向路由抛异常。 */
   write(patch: Partial<AccountOrigin>): Promise<void>
+  /** 异常被投影成 HTTP 状态码时的留痕端口；缺省时不落日志。 */
+  report?(message: string, error: unknown): void
 }
 
 /** 一个已挂载的官方账户插件实例；`dispose` 必须释放全局唯一的 `deepseekAccount` 注册。 */
@@ -216,6 +218,7 @@ export function createAccountOriginController(options: AccountOriginControllerOp
   return {
     read: () => options.read(),
     mountedFingerprint: () => mounted?.fingerprint ?? '',
+    report: (message, error) => { options.onError(message, error) },
     write: async (patch) => {
       // 路由在解析正文时已规范化地址；能到这里的补丁一定是可挂载的配置。
       await options.write(patch)
@@ -314,14 +317,21 @@ export function registerEnterpriseAccountRoutes(
           body = { data: { ...port.read(), remounted: port.mountedFingerprint() !== mounted } }
         }
       } catch (error) {
+        const operation = `${request.method ?? 'UNKNOWN'} ${ACCOUNT_ORIGIN_PATH}`
         if (settingsUnavailable(error)) {
           // 部署/组合层事实，不是用户输入问题；与 platform-client 的本地 API 同样报 503。
           status = 503
           body = { error: { code: SETTINGS_UNAVAILABLE_CODE } }
+          port.report?.(`account origin request projected to 503`
+            + ` [operation=${operation} step=settings-write-port-missing status=${status}]`
+            + ` ${thrownErrorDiagnostics(error)}`, error)
         } else {
           // 非法输入、超限正文与 settings 的其余拒绝收敛为同一个 400；本地 API 没有更细的错误面。
           status = 400
           body = { error: { code: 'ENT_INVALID_REQUEST' } }
+          port.report?.(`account origin request projected to 400`
+            + ` [operation=${operation} step=request-rejected status=${status}]`
+            + ` ${thrownErrorDiagnostics(error)}`, error)
         }
       }
       writeJson(response, status, body)

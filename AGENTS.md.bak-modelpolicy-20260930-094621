@@ -219,15 +219,3 @@ Phase 3 生根:
 维护三层完整，执行回环约束，拒绝孤立变更。
 Keep the map aligned with the terrain, or the terrain will be lost.
 </INVOCATION>
-
-## 模型分工（多代理协作）
-
-- **总编排（Lead / 当前会话）**：使用 DeepSeek 模型。负责拆解任务、裁决冲突、定义写作用域、复核交付与最终提交。
-- **子任务（subagent / teammate / workflow 子代理）**：优先 MiMo，优先 `mimo-v2.6-flash`；确需重推理时临时升 `mimo-v2.6-pro`。
-- **两条通路的取舍**（当前 harness 能力所限，模型可控与可 steer 不可兼得）：
-  - 需要**指定模型** → 走 `workflow` 的 `agent(prompt, { provider: 'xiaomi-token-plan-cn', model: 'mimo-v2.6-flash' })`；代价是子代理**不可 steer**（无 `send_message`、无共享任务板）。
-  - 需要**可 steer / 共享任务板** → 走 `spawn_teammate`；该通路**无法指定模型**，沿用宿主默认。
-  - **两者兼得**：官方设置 → 子代理面板打开 `Allow agents to choose models for Subagents`，并把 `xiaomi-token-plan-cn / mimo-v2.6-flash` 加入 `Models agents may choose`；该开关**仅对新会话生效**（官方文案原文：Applies only to new sessions）。
-- **凭据前提**：该 provider 声明 `apiKeyEnv: XIAOMI_TOKEN_PLAN_CN_API_KEY`；已实测可经 harness 凭据 seam 解析（`mimo-v2.6-flash` 调用返回成功）。若解析失败，调用会以 `MISSING_CREDENTIAL` 终止。
-- 无论走哪条通路，子任务交付**必须**：给出真实命令输出、如实标注未验证项、**不得**为消红而改测试期望或伪造通过。
-

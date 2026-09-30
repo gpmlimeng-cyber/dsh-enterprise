@@ -49,10 +49,12 @@ the official order — the account action first when it exists (`登录` while s
 the only opener of the login dialog, or `查看登录进度` while `AUTHORIZING`/`ENROLLING`/
 `BOOTSTRAPPING`), then the inline `外观` segmented group and `设置` in every state in that
 order, then the confirmed `退出登录` once a session is usable. While signed out the trigger
-keeps the official `t('more')` word `更多` and an ellipsis glyph on `data-signed-out`, because
-it now opens a menu rather than a sign-in dialog; `aria-haspopup` is `menu` in every state.
-Escape, an outside click and the trigger itself close the menu and return focus to the
-trigger, Tab closes it the same way, and the login dialog and the menu are mutually
+keeps the official `t('more')` word `更多` and the official 14px ellipsis glyph on
+`data-signed-out`, because it now opens a menu rather than a sign-in dialog; `aria-haspopup` is
+`menu` in every state. Escape, an outside click and the trigger itself close the menu and return
+focus to the trigger, Tab closes it the same way (the official menu settles official rows with
+Tab instead, so the `外观` group — a `menuitemradio` the official keymap does not define — is
+closed and handed back by this package), and the login dialog and the menu are mutually
 exclusive because a menu row closes the menu before the dialog or the confirmation opens.
 
 The `外观` group is a second entry point to the same official theme preference, not a private
@@ -63,15 +65,22 @@ host provides no theme service the group renders disabled instead of pretending 
 no theme state is ever kept in local component state or written to the DOM, and the plugin
 waits for the service to appear and republishes once, so a cold boot where ui-theme activates
 later cannot leave the group stale. The segmented
-control follows the reference plugin's compact capsule geometry while taking every color from
-host tokens, so it follows both palettes without a dark-mode override.
+control copies the official `SegmentedControl` geometry (hover-fill track, `--dsw-radius-md`
+inset 4px, 2px seams, equal 1fr tracks, 28px labels at 13px/20px/500, the selected cell carrying
+`--dsw-alias-bg-layer-1` with `--dsw-elevation-soft`), so it follows both palettes without a
+dark-mode override.
 
 The DSH Enterprise Settings section contains Account and Plugins tabs aligned with the
 native DSH Plugins tab rhythm and keyboard navigation. The launcher occupies the shell's
-settings-row seat, so it reuses that row's geometry and tokens: a 42px expanded row with the
-native radius and hover fill, a 36px rail button, and an avatar or first-letter circle in the
-icon slot. Its menu card is 270px wide with 16px corners, the host menu surface and elevation
-tokens, one hairline between groups, and 16px icon slots. Sign-out requires the same in-page
+settings-row seat and copies the official account occupant's geometry one value at a time: a
+44px expanded row with `--dsw-radius-md` and a 6px inset, a 36px rail button, a 32px signed-out
+row whose icon is the bare 14px official ellipsis, and a 24px avatar circle on
+`--dsw-alias-bg-skeleton`. The dropdown itself is the official `Menu` primitive — card surface,
+radius, elevation, portal placement, arrow walk, autofocus and Escape all belong to it — and its
+rows are the official `MenuItemButton`, so row height, padding, font, hover fill and danger
+color come from the host's own menu stylesheet rather than from this package. What stays here is
+only what the official account menu has no counterpart for: the two-line account header and the
+`外观` group, both laid out on the official item metrics. Sign-out requires the same in-page
 Harness `Modal` and `Button` confirmation as the Account tab before clearing the session.
 Uninstall uses the same component and the login dialog
 reuses both confirmations; Cancel and Escape leave the account and plugins unchanged. The dialog uses Host

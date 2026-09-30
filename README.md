@@ -162,13 +162,13 @@ pnpm --dir /path/to/deepseek-harness dsh \
   plugin --profile web add --ignore-scripts dshent-plugin@next
 ```
 
-安装完成后重启对应 profile。DSH Enterprise 全屏页面会要求填写管理员提供的 DSH Enterprise Server HTTP(S) 地址；保存后完成企业登录即可使用管理员授权的模型。
+安装完成后重启对应 profile。首次启动不阻断官方界面：在官方 `settings.launcher` 个人中心菜单（未登录也可打开，首项「登录」）或个人中心的登录弹窗里填写管理员提供的 DSH Enterprise Server HTTP(S) 地址；保存后完成企业登录即可使用管理员授权的模型。
 
 Server 地址和 Refresh Token 由 Harness Host 的官方 settings/credentials 服务持久化。Access Token 只存在 Host 内存，浏览器页面不会读取或保存 Token；正常重启会静默恢复登录。主动退出、设备撤销、成员停用、改密或 30 天有效期结束后需要重新登录。
 
 「DSH Enterprise 设置 → 插件」展示管理员发布且对本人可见的插件，支持搜索、详情、自主安装、更新和卸载。打开设置或刷新不会安装插件；其他设备独立选择。服务端签名（`ENT_PLUGIN_SIGNING_ENABLED=false`）和客户端验签（`verifyPluginSignatures=false`）默认关闭，无需配置公私钥；大小、SHA-256、兼容性和下载权限仍会校验。需要验签时可开启 `verifyPluginSignatures` 并配置部署专属公钥，详见[信任配置](plugin/packages/plugin-distribution/README.md)。从旧版迁移时必须更新员工 DSH Enterprise 插件，仅更新后台无法改变旧客户端的公钥要求或自动安装行为。
 
-DSH Enterprise 闲置时不建立企业 SSE、不定时拉配置或提前续期。用户请求时按需续期，服务端认证 401 最多续期重试一次；Refresh Token 失效或设备撤销时显示登录门禁，重新登录后可继续对话。网络暂不可达保留凭据，可再次发起请求或在 DSH Enterprise 设置点击刷新；模型与插件目录在打开设置或主动刷新时更新。
+DSH Enterprise 闲置时不建立企业 SSE、不定时拉配置或提前续期。用户请求时按需续期，服务端认证 401 最多续期重试一次；Refresh Token 失效或设备撤销时账号区显示失效状态与登录入口，不阻断宿主，重新登录后可继续对话。网络暂不可达保留凭据，可再次发起请求或在 DSH Enterprise 设置点击刷新；模型与插件目录在打开设置或主动刷新时更新。
 
 ## 更新
 

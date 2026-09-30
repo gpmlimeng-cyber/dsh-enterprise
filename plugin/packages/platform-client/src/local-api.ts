@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Harness `ctx.webServer.register()` route port、平台操作端口及组合层注入的插件动作端口
- * [OUTPUT]: 提供账号/配置按需刷新与插件操作的严格同源 JSON 路由，无常驻状态连接
+ * [INPUT]: 依赖 Harness `ctx.webServer.register()` route port、平台操作端口、组合层注入的插件动作端口与可选投影留痕端口
+ * [OUTPUT]: 提供账号/配置按需刷新与插件操作的严格同源 JSON 路由，无常驻状态连接；每个把异常投影成 HTTP 状态的回调都经 `onError` 上报操作名与原始 error
  * [POS]: platform-client 的 Host/Client 同源协作边界，只序列化脱敏 DTO 并把认证 HTTP 留在 Host Service
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -64,6 +64,11 @@ export interface EnterpriseLocalApiOptions {
   readonly uninstallPlugin?: () => Promise<{ readonly restart?: () => void }>
   /** 由组合层绑定会话同步；缺省时不注册 /sessions* 路由。 */
   readonly sessionSync?: EnterpriseLocalSessionPort
+  /**
+   * 本地路由把异常投影成 HTTP 状态码时的留痕端口；由组合层绑定 Host logger。
+   * 只上报操作名、原始 error 与最终状态码，不改变任何响应语义。
+   */
+  readonly onError?: (operation: string, error: unknown, status: number) => void
 }
 
 function writeJson(response: ServerResponse, status: number, value: unknown): void {
@@ -145,6 +150,7 @@ function registerJsonAction(
   webServer: WebServerRoutePort,
   path: string,
   action: () => Promise<unknown>,
+  onError?: (operation: string, error: unknown, status: number) => void,
 ): () => void {
   return webServer.register({
     kind: 'exact',
@@ -159,6 +165,7 @@ function registerJsonAction(
         writeJson(response, 200, { data: await action() })
       } catch (error) {
         const status = actionErrorStatus(error)
+        onError?.(`POST ${LOCAL_API_PREFIX}${path}`, error, status)
         writeJson(response, status, {
           error: { code: status === 413 ? 'ENT_REQUEST_TOO_LARGE' : status === 400 ? 'ENT_INVALID_REQUEST' : errorCode(error) },
         })
@@ -175,7 +182,7 @@ export function registerEnterpriseLocalApi(
   const disposers: (() => void)[] = []
 
   try {
-    disposers.push(registerJsonAction(webServer, '/refresh', () => options.platform.refresh()))
+    disposers.push(registerJsonAction(webServer, '/refresh', () => options.platform.refresh(), options.onError))
     disposers.push(webServer.register({
       kind: 'exact',
       path: `${LOCAL_API_PREFIX}/status`,
@@ -201,6 +208,7 @@ export function registerEnterpriseLocalApi(
           writeJson(response, 200, { data: await options.platform.setServerUrl(input.serverUrl) })
         } catch (error) {
           const status = actionErrorStatus(error)
+          options.onError?.(`POST ${LOCAL_API_PREFIX}/server`, error, status)
           writeJson(response, status, {
             error: { code: status === 400 ? 'ENT_INVALID_REQUEST' : errorCode(error) },
           })
@@ -208,14 +216,14 @@ export function registerEnterpriseLocalApi(
       },
     }))
 
-    disposers.push(registerJsonAction(webServer, '/auth/start', async () => options.platform.startLogin()))
+    disposers.push(registerJsonAction(webServer, '/auth/start', async () => options.platform.startLogin(), options.onError))
     disposers.push(registerJsonAction(webServer, '/auth/cancel', async () => ({
       cancelled: options.platform.cancelLogin(),
-    })))
+    }), options.onError))
     disposers.push(registerJsonAction(webServer, '/logout', async () => {
       await options.platform.logout()
       return { loggedOut: true }
-    }))
+    }, options.onError))
 
     if (options.uninstallPlugin !== undefined) {
       disposers.push(webServer.register({

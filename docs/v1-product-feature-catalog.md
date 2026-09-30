@@ -9,7 +9,7 @@
 
 状态：`scope-frozen-implementation-in-progress`
 
-更新日期：2026-09-16（Asia/Shanghai）
+更新日期：2026-09-30（Asia/Shanghai）
 
 适用基线：官方 DeepSeek Harness Desktop `0.1.7-rc.1`（`apps/desktop`）。社区 Desktop `2.0.3` 不再是插件基线。
 
@@ -32,7 +32,7 @@
 
 OwnDsh 是 DSH Desktop 和 DeepSeek Harness 的企业控制面。员工仍在本机运行 Harness、保留本地工作区、工具、终端和会话；平台只负责企业身份、受管模型、访问授权、Token 配额、速率控制、插件分发、设备治理、用量与审计。
 
-OwnDsh 不维护、复制或分叉官方 Web/Desktop UI。员工侧唯一交付物是标准 `dshent-plugin`：安装后只填写 OwnDsh Server 地址，未配置、未登录、登录过期或设备撤销时由官方 `shell.overlay` 扩展点全屏阻断；认证可用后恢复官方原生界面。地址保存在 Harness 官方 settings 中，不要求员工修改 profile。
+OwnDsh 不维护、复制或分叉官方 Web/Desktop UI。员工侧唯一交付物是标准 `dshent-plugin`：安装后只填写 OwnDsh Server 地址，未配置、未登录、登录过期或设备撤销都不阻断宿主，官方原生界面全程可用；账号入口是官方 `settings.launcher` 个人中心菜单（未登录也弹菜单，首项「登录」），登录在非阻断弹窗（440px，正文＝原企业登录页）内完成。地址保存在 Harness 官方 settings 中本插件 owner entry（id `owndsh`）的 volatile 字段，不要求员工修改 profile。
 
 平台不实现第二套模型 SDK。消息转换、tools、reasoning、SSE 解析和模型请求重试由锁定的 Harness `dsh-llm-pi-ai` 与 `dsh-llm-retry` 负责；企业网关只做认证、授权、限流、配额、审计、受管模型替换和上游密钥注入。
 
@@ -50,7 +50,7 @@ V1 的两个使用面如下：
 | 功能域 | V1 功能 | 当前状态 |
 |---|---|---|
 | 企业登录 | 控制台、Desktop 和 Web Harness 使用 Authorization Code + PKCE 企业登录 | 已实现，待 V1 验收 |
-| 客户端插件门禁 | 零配置安装、Server 地址持久化、全屏登录/失效门禁和显式整包卸载 | 已实现，待 V1 验收 |
+| 客户端插件入口 | 零配置安装、Server 地址持久化、未登录不阻断的个人中心菜单/登录弹窗和显式整包卸载 | 已实现，待 V1 验收 |
 | 控制台会话 | HTTP(S) 自适应的 HttpOnly/SameSite=Strict host-only Cookie、写请求同源校验、新标签复用、服务端注销 | 已实现，待真实浏览器验收 |
 | 身份源 | LOCAL、LDAP、OIDC，显式字段/Claim 映射、连接测试、启停 | 已实现，待 V1 验收 |
 | 自动建号 | LDAP/OIDC 首次登录按稳定外部 subject JIT 建号 | 已实现，待 V1 验收 |
@@ -317,7 +317,7 @@ RATE 和 429 必须使用真实 Redis、真实 Java Server 与锁定 Harness 组
 发布候选必须同时完成 Desktop 和普通 Web Harness 流程：
 
 1. 在未修改的官方宿主安装 `dshent-plugin`，不编辑 profile；只填写 Server 地址，重启后地址仍然存在。
-2. 验证未配置、未登录、登录过期和设备撤销均全屏阻断，登录成功后恢复官方界面；显式卸载移除 OwnDsh 与受管插件，Desktop 自动重启、Web 提示重启。
+2. 验证未配置、未登录、登录过期和设备撤销均不阻断宿主（官方外壳全程可用），个人中心菜单在任何登录态都可打开且未登录首项为「登录」，登录弹窗成功后自动关闭并恢复账号区；显式卸载移除 OwnDsh 与受管插件，Desktop 自动重启、Web 提示重启。
 3. 管理员通过企业身份登录产品控制台。
 4. 创建 LOCAL 成员并验证首次登录强制改密和用户中心改密；或配置 LDAP/OIDC，通过 LDAP 有界搜索导入单个成员，并从 LDAP 目录选择组映射到产品用户组。
 5. 配置 DeepSeek 官方和自定义供应商，发现或手工添加模型并组成模型集。

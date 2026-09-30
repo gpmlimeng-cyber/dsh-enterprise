@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Cordis/Schemastery、Harness credentials/LLM/subprocess/inventory、官方 dsh-deepseek-account-platform、官方 settings 的 volatile Config 投影、官方运行时身份与企业业务模块
- * [OUTPUT]: 对外提供 Web/Desktop 共用 bundle apply、官方 settings 的 volatile Server/账户后台地址字段、默认关闭的插件验签开关、Host 凭据持久化、企业插件安装/卸载、条件 Session 同步注册，以及用 settings 自定义地址热重挂官方账户插件
+ * [INPUT]: 依赖 Cordis/Schemastery、Harness credentials/LLM/subprocess/inventory、官方 dsh-deepseek-account-platform、官方 settings 的 volatile Config 投影、platform-client 的地址写入诊断串、官方运行时身份与企业业务模块
+ * [OUTPUT]: 对外提供 Web/Desktop 共用 bundle apply、官方 settings 的 volatile Server/账户后台地址字段、默认关闭的插件验签开关、Host 凭据持久化、企业插件安装/卸载、条件 Session 同步注册，以及用 settings 自定义地址热重挂官方账户插件；地址不可持久化的每个判定点都写 warn/error 宿主日志
  * [POS]: bundle 的唯一 Host Loader 入口，组合平台认证、官方企业模型、账户后台地址与环境原生插件调和；Session 同步仅在 sessionPolicy.enabled 时挂载
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -18,7 +18,9 @@ import {
   EnterprisePlatformError,
   EnterprisePlatformService,
   resolveEnterpriseDshHome,
+  settingsDiagnostics,
   settingsReference,
+  thrownErrorDiagnostics,
   type WebServerRoutePort,
 } from '@dshent/platform-client'
 import {
@@ -267,6 +269,8 @@ function createAccountOriginMount(
  * 读取走官方 volatile 引用，写入走 `settings.update(entryId, patch)`，并把该实例的自动页面策略关掉。
  * entry id 或 volatile 引用不可得时地址保持只读：写入以 `ENT_SETTINGS_UNAVAILABLE` 拒绝，
  * 与 platform-client 的 Server 地址语义一致，而不是误报平台不可用。
+ * 四个「不可持久化」判定点（引用缺失 / configure 抛错 / 写入端口未装配 / `settings.update` 抛错）
+ * 都在抛错前用 Host logger 留下 operation、地址、entryId、entry 可见性与原始 error。
  *
  * @param ctx - bundle 组合根上下文；settings 与事件都注册在它上面。
  * @param webServer - bundle 顶层注入的 `ctx.webServer` route port。
@@ -283,17 +287,51 @@ function mountEnterpriseAccountOrigin(ctx: Context, webServer: WebServerRoutePor
   })
   let persist: ((patch: Partial<AccountOrigin>) => Promise<void>) | undefined
   if (entryId === undefined || platformOrigin === undefined || inferenceOrigin === undefined) {
-    ctx.logger.warn('owndsh: Harness settings do not expose the enterprise account origin on this profile')
+    // 「不可持久化」判定：owner entry id 或两个 volatile 地址引用缺席；记清是哪一个。
+    const missing = [
+      ...(entryId === undefined ? ['entryId'] : []),
+      ...(platformOrigin === undefined ? ['platformOrigin'] : []),
+      ...(inferenceOrigin === undefined ? ['inferenceOrigin'] : []),
+    ].join(',')
+    ctx.logger.warn('owndsh: Harness settings do not expose the enterprise account origin on this profile'
+      + ` [operation=mountAccountOrigin step=volatile-reference-missing missing=${missing}`
+      + ` platformOrigin=${platformOrigin === undefined ? 'absent' : 'ready'}`
+      + ` inferenceOrigin=${inferenceOrigin === undefined ? 'absent' : 'ready'}`
+      + ` ${settingsDiagnostics(ctx, entryId)}]`)
   } else {
     ctx.inject(['settings'], settingsContext => {
       // 官方 Settings 生成这个页面没有意义：地址由企业配置向导经本地路由写。
       // `owndsh` entry id 的推导方式与 platform-client 完全相同（都读 ctx.fiber.entry.options.id），
       // 因此走到这里时它已为本 entry 声明过 `auto: false`；只有投影明确显示仍会自动生成时才补声明，
       // 否则重复注册会被官方 configure 如实抛错。entry 未进入投影时无页面可生成，同样不必声明。
-      if (settingsAutoGenerate(settingsContext.settings, entryId) === true) {
-        settingsContext.effect(() => settingsContext.settings.configure({ auto: false }, owner))
+      const autoGenerate = settingsAutoGenerate(settingsContext.settings, entryId)
+      if (autoGenerate === true) {
+        try {
+          settingsContext.effect(() => settingsContext.settings.configure({ auto: false }, owner))
+        } catch (error) {
+          // 与 platform-client 共用同一个 owner fiber：这里抛错说明页面策略已被别处注册。
+          ctx.logger.error('owndsh: settings.configure({auto:false}) failed for the account origin'
+            + ` [operation=mountAccountOrigin step=configure-threw entryId=${entryId}`
+            + ` ${settingsDiagnostics(ctx, entryId, settingsContext.settings)}]`
+            + ` ${thrownErrorDiagnostics(error)}`, error)
+          throw error
+        }
       }
-      persist = patch => settingsContext.settings.update(entryId, patch)
+      persist = async patch => {
+        try {
+          await settingsContext.settings.update(entryId, patch)
+        } catch (error) {
+          ctx.logger.error('owndsh: settings.update rejected the account origin'
+            + ` [operation=setAccountOrigin step=settings-update-threw entryId=${entryId}`
+            + ` patch=${JSON.stringify(patch)}`
+            + ` ${settingsDiagnostics(ctx, entryId, settingsContext.settings)}]`
+            + ` ${thrownErrorDiagnostics(error)}`, error)
+          throw error
+        }
+      }
+      ctx.logger.warn('owndsh: account origin write port wired'
+        + ` [operation=mountAccountOrigin step=wired entryId=${entryId} autoGenerate=${String(autoGenerate)}`
+        + ` ${settingsDiagnostics(ctx, entryId, settingsContext.settings)}]`)
     })
   }
   const controller = createAccountOriginMount(ctx, {
@@ -301,6 +339,10 @@ function mountEnterpriseAccountOrigin(ctx: Context, webServer: WebServerRoutePor
     write: async (patch) => {
       const write = persist
       if (write === undefined) {
+        // 「不可持久化」判定：`ctx.inject(['settings'])` 从未装配写入端口（服务缺席或装配期抛错）。
+        ctx.logger.error('owndsh: refusing to save the account origin'
+          + ` [operation=setAccountOrigin step=settings-write-port-missing entryId=${entryId ?? '(none)'}`
+          + ` patch=${JSON.stringify(patch)} ${settingsDiagnostics(ctx, entryId)}]`)
         throw new EnterprisePlatformError(
           'ENT_SETTINGS_UNAVAILABLE',
           'Harness settings do not expose the enterprise account origin on this profile',

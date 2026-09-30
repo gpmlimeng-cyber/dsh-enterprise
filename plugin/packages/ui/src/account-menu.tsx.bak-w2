@@ -402,7 +402,7 @@ export const ENTERPRISE_MENU_STYLES = `
       /* 官方 Menu 的 .list 是 min 144 / max 360 的 max-content：内容多宽菜单就多宽。
          我们自定的头部与外观组会把它撑得明显宽于官方占用者，故给内容一个确定宽度，
          并让长文本的 ellipsis 真正生效（max-content 下 ellipsis 不减少固有宽度）。 */
-      .own-menu-content { width: 200px; }   /* 测量前的回落值；实测宽度由内联 style 覆盖 */
+      .own-menu-content { width: 200px; }
       .own-theme-row { align-items: stretch; display: flex; flex-direction: column; gap: 6px; min-height: 34px; padding: 6px 8px; }
       .own-theme-label { align-items: center; color: var(--dsw-alias-label-primary, #101828); display: flex; font-size: 13px; gap: 6px; line-height: 20px; min-width: 0; }
       .own-theme-icon { align-items: center; color: var(--dsw-alias-menu-icon, var(--dsw-alias-label-primary, #101828)); display: inline-flex; flex: none; height: 14px; justify-content: center; width: 14px; }
@@ -448,9 +448,6 @@ export function EnterpriseAccountMenu(props: EnterpriseAccountMenuProps): ReactN
   const [menu, setMenu] = useState<EnterpriseMenuState>(ENTERPRISE_MENU_CLOSED)
   const menuRef = useRef(menu)
   const trigger = useRef<HTMLButtonElement>(null)
-  /** 菜单宽度＝触发按钮 hover 区域的实测宽度：等宽即左右边缘对齐（官方无论左对齐还是居中）。
-      侧栏可折叠、宽度会变，故由 ResizeObserver 跟随；折叠态 36px 不足以承载菜单，回落最小可读宽度。 */
-  const [menuWidth, setMenuWidth] = useState<number | undefined>(undefined)
   const settingsWasOpen = useRef(props.settingsOpen === true)
 
   /** 事件入口：先按纯状态机得到新状态与效果，再落地。状态只在 run 里前进，ref 与 state 不会分叉。 */
@@ -487,22 +484,6 @@ export function EnterpriseAccountMenu(props: EnterpriseAccountMenuProps): ReactN
     if (dialog.open && menuRef.current.open) runRef.current({ type: 'release' })
   }, [dialog.open])
 
-  useEffect(() => {
-    const node = trigger.current
-    if (node === null || typeof ResizeObserver === 'undefined') return
-    /** 官方 Menu 的 .list 左右各 4px 内边距：内容宽 + 8 = 卡片宽，故减去它才与按钮等宽。 */
-    const surfacePadding = 8
-    const minMenuWidth = 200
-    const sync = (): void => {
-      const width = node.offsetWidth - surfacePadding
-      setMenuWidth(width >= minMenuWidth ? width : minMenuWidth)
-    }
-    sync()
-    const observer = new ResizeObserver(sync)
-    observer.observe(node)
-    return () => { observer.disconnect() }
-  }, [props.wide])
-
   const select = (command: EnterpriseMenuCommand, startLogout?: () => void): void => {
     run({ type: 'select', command }, startLogout)
   }
@@ -530,7 +511,7 @@ export function EnterpriseAccountMenu(props: EnterpriseAccountMenuProps): ReactN
     shortcut={row.id === 'settings' ? props.settingsShortcut : undefined}
   >{row.label}</OfficialMenuItemButton>
   /** 官方卡片只负责外框与键盘，内容按官方行几何排：头部 → 账号动作 → 外观 → 设置 → 确认退出。 */
-  const panel = (startLogout: () => void): ReactNode => <div className="own-menu-content" style={menuWidth === undefined ? undefined : { width: menuWidth }}>
+  const panel = (startLogout: () => void): ReactNode => <div className="own-menu-content">
     <div className="own-menu-header" role="presentation">
       <span aria-hidden className={TRIGGER_GLYPH_CLASS}>
         {model.presentsAccount ? model.initial : <IconUserOutlineMedium size={16} />}

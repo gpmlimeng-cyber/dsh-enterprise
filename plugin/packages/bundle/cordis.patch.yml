@@ -1,6 +1,6 @@
-# [INPUT]: 依赖官方 dsh.bundle patch 覆盖、裸包名 Loader 与 base/web 既有 row id；依赖官方 settings 中 `owndsh-account` 的用户地址
+# [INPUT]: 依赖官方 dsh.bundle patch 覆盖、裸包名 Loader 与 base/web 既有 row id；依赖 owner entry `owndsh` 的 volatile 字段（`serverUrl`/`platformOrigin`/`inferenceOrigin`）里的用户地址
 # [OUTPUT]: 覆盖企业默认模型、停用 base provider/个人模型设置与官方账户行，插入 owndsh Host/Client row
-# [POS]: bundle 的企业 profile 策略层；官方账户实现改由企业 bundle 用用户自定义地址挂载，官方 llm-pi-ai 由企业 row 在隔离 settings scope 中挂载
+# [POS]: bundle 的企业 profile 策略层；官方账户实现改由企业 bundle 用用户自定义地址挂载，企业模型路由并入 profile 已挂载的官方 llm-pi-ai（不再自建第二份实例）
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 - id: agent-default-model
   config:
@@ -18,7 +18,7 @@
 #
 # 官方 `deepseek-account` 行（`@deepseek-ai/dsh-deepseek-account-platform`）默认指向
 # `https://platform.deepseek.com` 与 `https://api.deepseek.com`。企业版把这一行**停用**，
-# 由企业 bundle 用**官方同一实现**、按 `owndsh-account` settings 段里的地址重新挂载：
+# 由企业 bundle 用**官方同一实现**、按 owner entry `owndsh` 的 volatile 字段里的地址重新挂载：
 # 地址变更即热重挂（dispose 旧实例 + 用新配置挂载），无需重启 Harness。
 #
 # 三条约束：
@@ -30,15 +30,16 @@
 #    （`https://meizhiyun.chat`），不同源时账户凭据不会随推理请求发出。
 #
 # 自定义方式（产品界面内改，写入官方 settings；不设即用上面的企业默认值）：
-#   owndsh-account.platformOrigin     账户授权与账户查询后台，默认 https://meizhiyun.chat
-#   owndsh-account.inferenceOrigin    账户 token 允许附着的推理/文件后台，默认 https://meizhiyun.chat
+#   owndsh.serverUrl                  登录用的企业 Server 地址（写入走 `settings.update`）
+#   owndsh.platformOrigin             账户授权与账户查询后台，默认 https://meizhiyun.chat
+#   owndsh.inferenceOrigin            账户 token 允许附着的推理/文件后台，默认 https://meizhiyun.chat
 - id: deepseek-account
   disabled: true
 
-# 决策3：官方账号区降级为仅信息展示。step: done 关闭官方首启引导（
-# onboarding-state visible = !done && signedIn），否则它会盖在我们的登录门禁之上。
-# 官方登录入口退场：官方账户/登录入口整体不挂载，左下角位置由我们 bundle 的
-# sidebar.footer.action 入口替代（官方没有"只隐藏登录动作"的受支持开关，故整行退场）。
+# 官方账户 UI 整体退场：官方账户/登录入口不挂载；个人中心入口改由我们占用官方
+# `settings.launcher` 座位——该座位就是官方给"账户自有侧栏菜单"留的位置，座位被占用后
+# SettingsRoot 的 fallback 设置齿轮不再渲染，因此"设置"由我们的菜单提供。
+# 官方没有"只隐藏登录动作"的受支持开关，故这里是整行停用（它同时关掉官方首启引导）。
 - id: ui-settings-account
   disabled: true
 
