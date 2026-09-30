@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 React、Lucide、官方 ui-primitives 的 useAnchoredPosition/useDismissOnOutsidePointer、account-state 的账号投影与状态文案、login-dialog 的入口投影与弹窗、account-view 的登出确认、theme-options 的外观选项组，以及 EnterpriseAccountStore 的脱敏快照
- * [OUTPUT]: 对外提供入口决策 enterpriseMenuEntryPath、菜单纯决策 enterpriseAccountMenu/enterpriseMenuSections/enterpriseMenuTransition/enterpriseMenuCommandEffects/applyEnterpriseMenuEffects 与菜单组件 EnterpriseAccountMenu，后者占据官方 settings.launcher 座位
- * [POS]: dsh-ui 唯一的侧栏账号入口，照官方占用者语义：任何登录态点击都先弹菜单，未登录时首项「登录」才打开登录弹窗，因此「外观」与「设置」对未登录用户始终可达；设置项交还宿主 openSettings() 打开官方设置面板
+ * [INPUT]: 依赖 React（含 Ref/ReactElement 类型）、Lucide、官方 ui-primitives 的 useAnchoredPosition/useDismissOnOutsidePointer、account-state 的账号投影与状态文案、login-dialog 的入口投影与弹窗、account-view 的登出确认、theme-options 的外观选项组，以及 EnterpriseAccountStore 的脱敏快照
+ * [OUTPUT]: 对外提供入口决策 enterpriseMenuEntryPath、菜单纯决策 enterpriseAccountMenu/enterpriseMenuSections/enterpriseMenuTransition/enterpriseMenuCommandEffects/applyEnterpriseMenuEffects、触发按钮元素工厂 enterpriseMenuTriggerElement、注入样式表 ENTERPRISE_MENU_STYLES 与菜单组件 EnterpriseAccountMenu，后者占据官方 settings.launcher 座位
+ * [POS]: dsh-ui 唯一的侧栏账号入口，照官方占用者语义：任何登录态点击都先弹菜单，未登录时首项「登录」才打开登录弹窗，因此「外观」与「设置」对未登录用户始终可达；设置项交还宿主 openSettings() 打开官方设置面板。触发按钮的几何与全部交互态只由 ENTERPRISE_MENU_STYLES 的类规则持有，元素本身不带内联样式——内联 background 的内联优先级会压掉 :hover，折叠与未登录两态也无法由属性规则覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -15,7 +15,9 @@ import {
   useState,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
+  type ReactElement,
   type ReactNode,
+  type Ref,
 } from 'react'
 import { useAnchoredPosition, useDismissOnOutsidePointer } from '@deepseek-ai/dsh-client-ui-primitives'
 import {
@@ -272,50 +274,71 @@ export interface EnterpriseAccountMenuProps extends EnterpriseStoreInjected {
   readonly theme?: EnterpriseThemeSource | undefined
 }
 
-/** 与官方设置行同款几何：42px 整行 / 36px 折叠钮，圆角与悬停都取自宿主 token。 */
-const triggerRow: CSSProperties = {
-  alignItems: 'center',
-  background: 'transparent',
-  border: 0,
-  borderRadius: 'var(--dsw-radius-md, 10px)',
-  boxSizing: 'border-box',
-  color: 'var(--dsw-alias-label-primary, #101828)',
-  cursor: 'pointer',
-  display: 'flex',
-  flex: '1 1 auto',
-  font: 'inherit',
-  fontSize: 14,
-  gap: 8,
-  height: 42,
-  lineHeight: '22px',
-  margin: 0,
-  minWidth: 0,
-  overflow: 'hidden',
-  padding: '0 10px 0 8px',
-  userSelect: 'none',
+/** 触发按钮的类名与两态属性：hover、折叠、未登录三条 CSS 规则都由它们开关。 */
+const TRIGGER_CLASS = 'own-menu-trigger'
+const TRIGGER_GLYPH_CLASS = 'own-menu-avatar'
+const TRIGGER_LABEL_CLASS = 'own-menu-trigger-label'
+
+/** 触发按钮的静态呈现事实：宽窄、登录态、文案、入口类型与当前连接状态。 */
+export interface EnterpriseMenuTriggerView {
+  readonly wide: boolean
+  readonly signedIn: boolean
+  readonly initial: string
+  readonly label: string
+  readonly ariaExpanded: boolean
+  /** 入口决策的唯一答案，照官方占用者恒为 menu。 */
+  readonly entryPath: EnterpriseMenuEntryPath
+  readonly state: string | undefined
 }
 
-const triggerRail: CSSProperties = { ...triggerRow, flex: 'none', gap: 0, height: 36, justifyContent: 'center', padding: 0, width: 36 }
+/** 触发按钮的行为接缝：ref 与两个事件处理器由调用方给出，元素工厂自身不持有状态。 */
+export interface EnterpriseMenuTriggerHandlers {
+  readonly ref: Ref<HTMLButtonElement>
+  readonly onClick: () => void
+  readonly onKeyDown: (event: ReactKeyboardEvent<HTMLButtonElement>) => void
+}
 
-const triggerText: CSSProperties = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+/**
+ * 触发按钮的元素工厂：几何与全部交互态只在 `ENTERPRISE_MENU_STYLES` 的类规则里声明，这颗 button
+ * 因此不带任何 `style`。这是缺陷根因的正面约束——内联 `background` 的内联优先级会压掉 `:hover`，
+ * 折叠与未登录两态也必须由 `data-collapsed` / `data-signed-out` 属性规则覆盖，不能靠内联分叉。
+ */
+export function enterpriseMenuTriggerElement(
+  view: EnterpriseMenuTriggerView,
+  handlers: EnterpriseMenuTriggerHandlers,
+): ReactElement {
+  return <button
+    ref={handlers.ref}
+    aria-expanded={view.ariaExpanded}
+    aria-haspopup={view.entryPath}
+    aria-label={MENU_LABEL}
+    className={TRIGGER_CLASS}
+    data-collapsed={view.wide ? 'false' : 'true'}
+    data-enterprise-menu-trigger=""
+    data-enterprise-state={view.state}
+    data-signed-out={view.signedIn ? 'false' : 'true'}
+    onClick={handlers.onClick}
+    onKeyDown={handlers.onKeyDown}
+    title={MENU_LABEL}
+    type="button"
+  >
+    {view.signedIn
+      ? <span aria-hidden className={TRIGGER_GLYPH_CLASS} style={avatarColorSignedIn}>{view.initial}</span>
+      : <span aria-hidden className={TRIGGER_GLYPH_CLASS} style={avatarColor}><MoreHorizontal size={view.wide ? 16 : 18} /></span>}
+    {view.wide ? <span className={TRIGGER_LABEL_CLASS}>{view.label}</span> : null}
+  </button>
+}
 
-const avatar: CSSProperties = {
-  alignItems: 'center',
+/**
+ * 头像/图标位只内联两套颜色：几何统一归 `.own-menu-avatar` 类规则，紧凑的未登录行才能在 20px
+ * 圆内放得下图标而不被 `overflow: hidden` 切边；内联几何会再次压掉状态规则。
+ */
+const avatarColor: CSSProperties = {
   background: 'var(--dsw-alias-bg-layer-2, #f2f4f7)',
-  borderRadius: '50%',
   color: 'var(--dsw-alias-label-secondary, #475467)',
-  display: 'flex',
-  flex: 'none',
-  fontSize: 12,
-  fontWeight: 600,
-  height: 24,
-  justifyContent: 'center',
-  lineHeight: '24px',
-  width: 24,
 }
 
-const avatarSignedIn: CSSProperties = {
-  ...avatar,
+const avatarColorSignedIn: CSSProperties = {
   background: 'var(--dsw-alias-accent-primary, #2563eb)',
   color: 'var(--dsw-alias-label-on-primary, #ffffff)',
 }
@@ -350,9 +373,9 @@ const divider: CSSProperties = { background: 'var(--dsw-alias-border-l2, rgba(0,
 
 const group: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 2 }
 
+/** 行项只内联几何与排版：`background` 归类规则（`.own-menu-item`），否则内联优先级会压掉 hover/active。 */
 const item: CSSProperties = {
   alignItems: 'center',
-  background: 'transparent',
   border: 0,
   borderRadius: 8,
   boxSizing: 'border-box',
@@ -392,17 +415,65 @@ const keycaps: CSSProperties = {
   whiteSpace: 'nowrap',
 }
 
-/** 菜单视觉与键盘态：悬停、危险悬停、焦点环、入场动画，全部只读宿主 token。 */
-const styles = `
+/**
+ * 菜单视觉与键盘态的唯一真源，由组件以 `<style>` 注入。两条硬约束：
+ * 1. 触发按钮与菜单行的 `background` 只在这里声明，元素上不得再有内联同名属性；
+ * 2. 悬停/按下的兜底一律主题中性——官方 token 缺席时用 `color-mix(in srgb, currentColor …)` 叠加，
+ *    深浅主题都可见；深色硬编码兜底（如 rgba(9, 9, 11, .05)）在深色主题上等于没有反馈。
+ * 触发按钮几何照官方占用者与 fallback 齿轮：42px 整行 / 36px 折叠钮 / 未登录紧凑行；圆角与颜色全取宿主 token。
+ */
+export const ENTERPRISE_MENU_STYLES = `
       .own-menu-card { animation: own-menu-in 0.15s ease-out; }
-      .own-menu-trigger:focus-visible, .own-menu-item:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary, #4d6bfe); outline-offset: 2px; }
-      .own-menu-item { transition: background-color 0.15s ease, color 0.15s ease; }
-      .own-menu-item:hover:not(:disabled), .own-menu-item:focus-visible:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover, rgba(9, 9, 11, 0.05)); }
+      .own-menu-trigger {
+        align-items: center;
+        background: transparent;
+        border: 0;
+        border-radius: var(--dsw-radius-md, 12px);
+        box-sizing: border-box;
+        color: var(--dsw-alias-label-primary, #101828);
+        cursor: pointer;
+        display: flex;
+        flex: 1 1 auto;
+        font: inherit;
+        font-size: 14px;
+        gap: 8px;
+        height: 42px;
+        line-height: 22px;
+        margin: 0;
+        min-width: 0;
+        overflow: hidden;
+        padding: 0 10px 0 8px;
+        transition: background-color 0.15s ease, color 0.15s ease;
+        user-select: none;
+      }
+      .own-menu-trigger[data-collapsed='true'] { flex: none; gap: 0; height: 36px; justify-content: center; padding: 0; width: 36px; }
+      .own-menu-trigger[data-signed-out='true']:not([data-collapsed='true']) { height: 32px; line-height: 20px; padding: 6px 2px 6px 6px; }
+      .own-menu-trigger[data-signed-out='true']:not([data-collapsed='true']) .own-menu-avatar { height: 20px; width: 20px; }
+      .own-menu-trigger-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .own-menu-avatar {
+        align-items: center;
+        border-radius: 50%;
+        corner-shape: round;
+        display: flex;
+        flex: none;
+        font-size: 12px;
+        font-weight: 600;
+        height: 24px;
+        justify-content: center;
+        line-height: 1;
+        width: 24px;
+      }
+      .own-menu-trigger:hover { background: var(--dsw-alias-interactive-bg-hover, color-mix(in srgb, currentColor 8%, transparent)); }
+      .own-menu-trigger:active { background: var(--dsw-alias-interactive-bg-active, var(--dsw-alias-interactive-bg-hover, color-mix(in srgb, currentColor 14%, transparent))); }
+      .own-menu-trigger:focus-visible, .own-menu-item:focus-visible { outline-color: var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary, #4d6bfe)); outline-offset: 2px; outline-style: solid; outline-width: var(--dsw-focus-ring-width, 2px); }
+      .own-menu-item { background: transparent; transition: background-color 0.15s ease, color 0.15s ease; }
+      .own-menu-item:hover:not(:disabled), .own-menu-item:focus-visible:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover, color-mix(in srgb, currentColor 8%, transparent)); }
+      .own-menu-item:active:not(:disabled) { background: var(--dsw-alias-interactive-bg-active, var(--dsw-alias-interactive-bg-hover, color-mix(in srgb, currentColor 14%, transparent))); }
       .own-menu-item:disabled { cursor: not-allowed; opacity: 0.4; }
       .own-menu-item-danger { color: var(--dsw-alias-state-error-primary, #c4320a); }
       .own-menu-item-danger .own-menu-item-icon { color: var(--dsw-alias-state-error-primary, #c4320a); }
-      .own-menu-item-danger:hover:not(:disabled), .own-menu-item-danger:focus-visible:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover-danger, var(--dsw-alias-interactive-bg-hover, rgba(9, 9, 11, 0.05))); }
-      .own-menu-trigger:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(9, 9, 11, 0.05)); }
+      .own-menu-item-danger:hover:not(:disabled), .own-menu-item-danger:focus-visible:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover-danger, var(--dsw-alias-interactive-bg-hover, color-mix(in srgb, currentColor 8%, transparent))); }
+      .own-menu-item-danger:active:not(:disabled) { background: var(--dsw-alias-interactive-bg-active, var(--dsw-alias-interactive-bg-hover-danger, color-mix(in srgb, currentColor 14%, transparent))); }
       .own-menu-spin { animation: own-menu-rotate 1s linear infinite; }
       @keyframes own-menu-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
       @keyframes own-menu-rotate { to { transform: rotate(360deg); } }
@@ -545,26 +616,19 @@ export function EnterpriseAccountMenu(props: EnterpriseAccountMenuProps): ReactN
   />
   const launcher = (startLogout: () => void): ReactNode => <>
     <div ref={root} style={{ display: 'flex', flex: '1 1 auto', minWidth: 0 }}>
-      <button
-        ref={trigger}
-        aria-expanded={menu.open}
-        aria-haspopup={entryPath}
-        aria-label={MENU_LABEL}
-        className="own-menu-trigger"
-        data-enterprise-menu-trigger=""
-        data-enterprise-state={snapshot.status?.state ?? snapshot.phase}
-        data-signed-out={!signedIn}
-        onClick={() => { run({ type: 'launch', dialogOpen: dialog.open }) }}
-        onKeyDown={(event) => { if (event.key === 'Escape' && menu.open) { event.preventDefault(); run({ type: 'dismiss' }) } }}
-        style={props.wide ? triggerRow : triggerRail}
-        title={MENU_LABEL}
-        type="button"
-      >
-        {signedIn
-          ? <span aria-hidden style={avatarSignedIn}>{model.initial}</span>
-          : <span aria-hidden style={avatar}><MoreHorizontal size={props.wide ? 16 : 18} /></span>}
-        {props.wide ? <span style={triggerText}>{model.triggerLabel}</span> : null}
-      </button>
+      {enterpriseMenuTriggerElement({
+        ariaExpanded: menu.open,
+        entryPath,
+        initial: model.initial,
+        label: model.triggerLabel,
+        signedIn,
+        state: snapshot.status?.state ?? snapshot.phase,
+        wide: props.wide,
+      }, {
+        onClick: () => { run({ type: 'launch', dialogOpen: dialog.open }) },
+        onKeyDown: (event) => { if (event.key === 'Escape' && menu.open) { event.preventDefault(); run({ type: 'dismiss' }) } },
+        ref: trigger,
+      })}
       {menu.open ? <div
         ref={panel}
         aria-label={MENU_LABEL}
@@ -574,7 +638,7 @@ export function EnterpriseAccountMenu(props: EnterpriseAccountMenuProps): ReactN
         style={position === null ? { ...card, visibility: 'hidden' } : { ...card, ...position }}
       >
         <div role="presentation" style={header}>
-          <span aria-hidden style={model.presentsAccount ? avatarSignedIn : avatar}>
+          <span aria-hidden className={TRIGGER_GLYPH_CLASS} style={model.presentsAccount ? avatarColorSignedIn : avatarColor}>
             {model.presentsAccount ? model.initial : <UserRound size={16} />}
           </span>
           <span style={headerText}>
@@ -596,7 +660,7 @@ export function EnterpriseAccountMenu(props: EnterpriseAccountMenuProps): ReactN
   </>
   // 退出确认挂在菜单之外，所以菜单关闭不会卸载确认弹窗；未登录时没有行项引用它的开启器。
   return <>
-    <style>{styles}</style>
+    <style>{ENTERPRISE_MENU_STYLES}</style>
     <LogoutConfirmation store={props.store} disabled={entry.disabled}>{launcher}</LogoutConfirmation>
   </>
 }

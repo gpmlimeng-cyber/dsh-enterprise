@@ -9,6 +9,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   ENTERPRISE_MENU_CLOSED,
   ENTERPRISE_MENU_OPEN,
+  ENTERPRISE_MENU_STYLES,
   applyEnterpriseMenuEffects,
   enterpriseAccountMenu,
   enterpriseMenuCommandEffects,
@@ -16,6 +17,7 @@ import {
   enterpriseMenuKeyEvent,
   enterpriseMenuSections,
   enterpriseMenuTransition,
+  enterpriseMenuTriggerElement,
   type EnterpriseMenuTargets,
 } from '../src/account-menu.js'
 import { enterpriseAccountIdentity } from '../src/account-state.js'
@@ -248,5 +250,69 @@ describe('selection runs the command effects in order', () => {
     const opened = enterpriseMenuTransition(ENTERPRISE_MENU_CLOSED, { type: 'launch', dialogOpen: true })
     applyEnterpriseMenuEffects(opened.effects, harness(calls))
     expect(calls).toEqual(['close-dialog', 'focus-menu'])
+  })
+})
+
+/** 触发按钮的类名与两态属性是 hover / 折叠 / 未登录三条 CSS 规则的唯一开关。 */
+describe('the trigger button carries the class and state attributes hover needs', () => {
+  const handlers: EnterpriseMenuTriggerHandlers = { onClick: () => undefined, onKeyDown: () => undefined, ref: null }
+  const view: EnterpriseMenuTriggerView = {
+    ariaExpanded: false,
+    entryPath: 'menu',
+    initial: '张',
+    label: '更多',
+    signedIn: false,
+    state: 'SIGNED_OUT',
+    wide: true,
+  }
+
+  it('marks the wide signed-out row with the hover class and both state attributes', () => {
+    const element = enterpriseMenuTriggerElement(view, handlers)
+    expect(element.props.className).toBe('own-menu-trigger')
+    expect(element.props['data-collapsed']).toBe('false')
+    expect(element.props['data-signed-out']).toBe('true')
+    expect(element.props['data-enterprise-menu-trigger']).toBe('')
+    expect(element.props['data-enterprise-state']).toBe('SIGNED_OUT')
+    // 内联 background 的内联优先级会压掉 :hover（本次缺陷的根因），元素必须完全不带内联样式。
+    expect(element.props.style).toBeUndefined()
+    expect(element.props.type).toBe('button')
+  })
+
+  it('flips both attributes for the collapsed rail and the signed-in row', () => {
+    const rail = enterpriseMenuTriggerElement({ ...view, initial: '张', signedIn: true, wide: false }, handlers)
+    expect(rail.props['data-collapsed']).toBe('true')
+    expect(rail.props['data-signed-out']).toBe('false')
+    expect(rail.props.style).toBeUndefined()
+  })
+})
+
+/** 注入样式表持有全部交互态；兜底必须主题中性，深色硬编码在深色主题上等于没有反馈。 */
+describe('the injected stylesheet owns every trigger interaction state', () => {
+  /** 样式表里每一处悬停/按下的 token 兜底声明，逐条核对兜底值。 */
+  const hoverBackgrounds = [...ENTERPRISE_MENU_STYLES.matchAll(
+    /background: (var\(--dsw-alias-interactive-bg-(?:hover|hover-danger|active)[^;]*\));/g,
+  )].map(match => match[1] ?? '')
+
+  it('keeps a usable trigger hover rule on the official sidebar token', () => {
+    expect(ENTERPRISE_MENU_STYLES).toContain('.own-menu-trigger:hover')
+    expect(ENTERPRISE_MENU_STYLES)
+      .toContain('var(--dsw-alias-interactive-bg-hover, color-mix(in srgb, currentColor 8%, transparent))')
+    expect(ENTERPRISE_MENU_STYLES).toContain('.own-menu-item:hover:not(:disabled)')
+  })
+
+  it('covers focus-visible, pressed and both trigger states', () => {
+    expect(ENTERPRISE_MENU_STYLES).toContain('.own-menu-trigger:active')
+    expect(ENTERPRISE_MENU_STYLES).toContain('.own-menu-trigger:focus-visible')
+    expect(ENTERPRISE_MENU_STYLES).toContain(".own-menu-trigger[data-collapsed='true']")
+    expect(ENTERPRISE_MENU_STYLES).toContain(".own-menu-trigger[data-signed-out='true']:not([data-collapsed='true'])")
+  })
+
+  it('falls back to a theme-neutral currentColor overlay instead of a dark-on-dark colour', () => {
+    expect(hoverBackgrounds.length).toBeGreaterThanOrEqual(4)
+    for (const declaration of hoverBackgrounds) {
+      expect(declaration).toContain('color-mix(in srgb, currentColor')
+      expect(declaration).not.toMatch(/rgba\(\s*9\s*,\s*9\s*,\s*11/)
+    }
+    expect(ENTERPRISE_MENU_STYLES).not.toMatch(/rgba\(\s*9\s*,\s*9\s*,\s*11/)
   })
 })
