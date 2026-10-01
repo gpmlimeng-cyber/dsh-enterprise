@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 bundle 的 cordis.patch.yml、发布源码/产物、`src/account-origin.ts` 的校验纯函数与路由注册器、Node 原生 HTTP server/fetch
- * [OUTPUT]: 锁定目标1 的后台地址不变量：base 行停用、企业默认域名进源码、地址校验纯函数、桌面身份重述、官方账户 UI/控制器 row 不被覆盖、发布物内不出现非回环的内网字面端点，以及本地 GET/POST 路由的 200/400/405 契约
+ * [OUTPUT]: 锁定目标1 的后台地址不变量：base 行停用、企业默认域名进源码、地址校验纯函数、桌面身份重述、官方账户 UI 整行停用（disabled 无 config 覆盖）且控制器/platform row 不被覆盖、发布物内不出现非回环的内网字面端点，以及本地 GET/POST 路由的 200/400/405 契约
  * [POS]: bundle 的部署安全回归门禁；"地址必须由用户自己填"的语义被改成硬编码、或有人把某个内网 IP 写死进包，本文件都会红
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -90,9 +90,14 @@ describe('目标1：官方账户行停用，后台地址由用户自定义', () 
     }
   })
 
-  it('不覆盖官方账户页面与账户控制器 row：官方账户管理与页面原样复用', async () => {
+  it('官方账户 UI 整行停用而不覆盖其 config，账户控制器与 platform 行不被触碰', async () => {
     const source = await patchSource()
-    expect(source).not.toMatch(/^- id: ui-settings-account$/m)
+    // 产品裁决：官方没有"只隐藏登录动作"的开关，故 ui-settings-account 整行 disabled（关掉官方首启引导），
+    // 但停用不得带 config 覆盖——否则 base 行自带字段会被整体替换语义吃掉。
+    // 「不被覆盖」的不变量落在 config 覆盖与另外两个 row 上，而非"整行不得出现"。
+    const uiSettingsAccount = patchBlock(source, 'ui-settings-account')
+    expect(uiSettingsAccount).toContain('disabled: true')
+    expect(uiSettingsAccount).not.toContain('config:')
     expect(source).not.toMatch(/^- id: account-controller$/m)
     expect(source).not.toMatch(/^- id: deepseek-account-platform$/m)
   })

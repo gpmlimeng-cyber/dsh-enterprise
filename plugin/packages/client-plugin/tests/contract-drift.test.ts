@@ -43,12 +43,12 @@ function readJson(path: string): unknown {
 const hasContracts = CONTRACTS_ROOT !== null
 
 describe('契约漂移门禁', () => {
-  it.skipIf(!hasContracts)('46 个稳定错误码与 OpenAPI 枚举逐字同序', () => {
+  it.skipIf(!hasContracts)('56 个稳定错误码与 OpenAPI 枚举逐字同序', () => {
     const spec = readJson(join(CONTRACTS_ROOT ?? '', 'generated/enterprise-openapi.json')) as {
       components: { schemas: { EnterpriseErrorCode: { enum: string[] } } }
     }
     const truth = spec.components.schemas.EnterpriseErrorCode.enum
-    expect(truth).toHaveLength(46)
+    expect(truth).toHaveLength(56)
     // 顺序也断言：生成脚本是机械复制，重新排序即说明有人手改了生成物
     expect([...ENTERPRISE_ERROR_CODES]).toEqual(truth)
   })

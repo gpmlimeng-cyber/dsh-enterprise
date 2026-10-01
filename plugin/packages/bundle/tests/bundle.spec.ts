@@ -95,8 +95,10 @@ describe('enterprise bundle', () => {
       slots: { inject: (_name: string, callback: () => unknown) => callback(), register },
     }
     client?.apply?.(ctx)
-    expect(injected).toEqual([['theme']])
-    expect(register).toHaveBeenCalledTimes(2)
+    // 外观组读 ui-theme，快捷键面板读 ui-shortcuts；客户端注册四个 settings/plugins 座位
+    // （企业设置页 / 个人中心登录入口 / 官方插件页市场卡片 / 插件详情徽标）。
+    expect(injected).toEqual([['theme'], ['shortcuts']])
+    expect(register).toHaveBeenCalledTimes(4)
   })
 
   it('contains no ambient Remote shim or sibling source import', async () => {
@@ -113,7 +115,8 @@ describe('enterprise bundle', () => {
     expect(combined).not.toContain('../deepseek-harness')
     expect(combined).toContain("from '@deepseek-ai/dsh-llm'")
     expect(combined).toMatch(/from ["']@deepseek-ai\/dsh-credentials["']/)
-    expect(combined).toMatch(/from ["']@deepseek-ai\/dsh-llm-pi-ai["']/)
+    // 官方 llm-pi-ai 经 peer 声明接入（经 @dshent/llm-gateway 封装，index.ts 不再直接 from pi-ai）。
+    expect(manifest.peerDependencies['@deepseek-ai/dsh-llm-pi-ai']).toBe('>=0.1.5-rc.2 <0.3.0')
     expect(combined).not.toContain("from '@deepseek-ai/dsh-session'")
     expect(combined).toContain("from '@deepseek-ai/schemastery'")
     expect(combined).toContain('enterprisePluginDistribution')
