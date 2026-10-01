@@ -95,9 +95,7 @@ export const ENTERPRISE_MENU_STYLES = `
       .own-usage-policy { display: flex; flex-direction: column; gap: 6px; }
       .own-usage-policy + .own-usage-policy { border-top: 0.5px solid var(--dsw-alias-border-l1, color-mix(in srgb, currentColor 8%, transparent)); margin-top: 6px; padding-top: 6px; }
       .own-usage-policy-title { color: var(--dsw-alias-label-primary, #101828); font-size: 12px; font-weight: 500; line-height: 18px; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .own-usage-head, .own-usage-item { align-items: center; display: grid; gap: 6px; grid-template-columns: minmax(0, 1fr) 64px auto; }
-      .own-usage-head-cell { color: var(--dsw-alias-label-tertiary, #667085); font-size: 11px; line-height: 16px; }
-      .own-usage-head-cell:nth-child(2) { text-align: right; }
+      .own-usage-item { align-items: center; display: grid; gap: 6px; grid-template-columns: minmax(0, 1fr) 64px auto; }
       .own-usage-period { color: var(--dsw-alias-label-secondary, #475467); font-size: 12px; line-height: 18px; }
       /* 剩余额度百分比：等宽数字、右对齐；耗尽（0%）走警示色。 */
       .own-usage-percent { color: var(--dsw-alias-label-primary, #101828); font-size: 12px; font-variant-numeric: tabular-nums; line-height: 18px; text-align: right; }

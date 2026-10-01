@@ -547,9 +547,11 @@ describe('the injected stylesheet owns every trigger interaction state', () => {
   })
 
   it('lays the inline usage block out in exactly three columns', () => {
-    // 队列第 11 项：展开区每行三列（周期｜剩余额度｜详情），表头与数据行共用同一个轨道模板。
+    // 队列第 11 项：展开区每行三列（周期｜剩余额度｜详情）。
+    // 列头行已按用户裁定移除（2026-10-01），轨道模板现在只由数据行持有。
     expect(ENTERPRISE_MENU_STYLES)
-      .toContain('.own-usage-head, .own-usage-item { align-items: center; display: grid; gap: 6px; grid-template-columns: minmax(0, 1fr) 64px auto; }')
+      .toContain('.own-usage-item { align-items: center; display: grid; gap: 6px; grid-template-columns: minmax(0, 1fr) 64px auto; }')
+    expect(ENTERPRISE_MENU_STYLES).not.toContain('own-usage-head')
     const tracks = (/grid-template-columns: ([^;]+);/u.exec(ENTERPRISE_MENU_STYLES)?.[1] ?? '')
       .replace(/minmax\([^)]*\)/gu, 'X').trim().split(/\s+/u)
     expect(tracks).toHaveLength(3)

@@ -13,7 +13,6 @@ import {
 } from '../src/local-api.js'
 import type { EnterpriseQuotaUsagePolicy } from '../src/local-api.js'
 import {
-  ENTERPRISE_USAGE_COLUMNS,
   ENTERPRISE_USAGE_DETAILS_HINT,
   ENTERPRISE_USAGE_WINDOW_KEYS,
   enterpriseTokenText,
@@ -67,7 +66,6 @@ describe('the four-window projection keeps the product order and the counter sem
   })
 
   it('shows the remaining percentage in the second column and marks exhaustion with 0%', () => {
-    expect(ENTERPRISE_USAGE_COLUMNS).toEqual(['周期', '剩余额度', '详情'])
     const [fiveHours] = enterpriseUsageWindows(policy())
     expect(fiveHours).toMatchObject({
       exhausted: false,

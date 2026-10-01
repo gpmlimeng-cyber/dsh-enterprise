@@ -25,7 +25,6 @@ export const ENTERPRISE_USAGE_WINDOW_KEYS = ['fiveHours', 'daily', 'weekly', 'mo
 export type EnterpriseUsageWindowKey = typeof ENTERPRISE_USAGE_WINDOW_KEYS[number]
 
 /** 展开区的三列标题（周期｜剩余额度｜详情），列序即产品口径，行与表头共用同一个模板。 */
-export const ENTERPRISE_USAGE_COLUMNS = ['周期', '剩余额度', '详情'] as const
 
 /** 窗口中文标签固定为「5 小时 / 日 / 周 / 月」，与 client-plugin 的用量投影用词同源。 */
 const WINDOW_LABELS: Readonly<Record<EnterpriseUsageWindowKey, string>> = {
