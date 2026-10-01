@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 protocol/envelope 的信封解包与错误构造，依赖全局 fetch 与 AbortSignal
- * [OUTPUT]: 对外提供带超时、Bearer 注入、401 单次续期重放的 EnterpriseHttpClient
+ * [OUTPUT]: 对外提供带超时、Bearer 注入、401 单次续期重放的 EnterpriseHttpClient；非 raw 出口把非 2xx 折叠为 EnterprisePlatformError，raw 出口（requestResponse）原样返回 Response
  * [POS]: protocol 层的唯一 HTTP 出口；业务模块不得自行调用 fetch，以保证重放与错误折叠一致
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -210,6 +210,11 @@ export class EnterpriseHttpClient {
         return this.execute(path, init, raw, false)
       }
     }
+
+    // raw 出口（requestResponse / 网关 SSE 转发）按契约「返回原始 Response 供调用方消费」：
+    // 把状态码交回调用方，不在传输层折叠为异常——否则 control-plane 补的 401 单次续期
+    // 重放分支永远收不到 Response（401 在此被提前抛出）。
+    if (raw) return response
 
     throw toPlatformError(payload, response.status, retryAfter === undefined ? undefined : response.headers)
   }

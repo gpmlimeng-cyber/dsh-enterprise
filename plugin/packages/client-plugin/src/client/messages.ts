@@ -9,7 +9,7 @@ import type { EnterpriseClientErrorCode } from '../protocol/error-codes.js'
 import type { EnterpriseConnectionState } from '../protocol/types.js'
 
 /**
- * 契约 46 个稳定码 + 10 个客户端本地码的完整中文文案。
+ * 契约 56 个稳定码 + 10 个客户端本地码的完整中文文案。
  * 用穷尽 Record 而不是 Partial：契约新增错误码时编译期即失败，逼迫在此补齐人话。
  */
 export const ENTERPRISE_ERROR_MESSAGES: Readonly<Record<EnterpriseClientErrorCode, string>> = {
@@ -21,6 +21,10 @@ export const ENTERPRISE_ERROR_MESSAGES: Readonly<Record<EnterpriseClientErrorCod
   ENT_AUTH_REQUIRED: '登录状态已失效，请重新登录',
   ENT_AUTH_CODE_INVALID: '登录凭据无效或已过期，请重新登录',
   ENT_AUTH_SESSION_EXPIRED: '登录会话已超时，请重新登录',
+  ENT_SKILL_INVALID_PACKAGE: '技能包内容不合规，已阻止装配',
+  ENT_BRANDING_ASSET_INVALID: '品牌图片不符合要求，已拒绝',
+  ENT_FEEDBACK_INVALID: '反馈内容不合规，请修改后重试',
+  ENT_FEEDBACK_ATTACHMENT_INVALID: '反馈附件格式或大小不合规，已拒绝',
 
   // ── 权限与设备 ────────────────────────────────────────────────
   ENT_PERMISSION_DENIED: '当前账号没有执行该操作的权限',
@@ -44,6 +48,9 @@ export const ENTERPRISE_ERROR_MESSAGES: Readonly<Record<EnterpriseClientErrorCod
   ENT_REQUEST_TOO_LARGE: '请求内容过大，已拒绝',
   ENT_PLUGIN_ARCHIVE_TOO_LARGE: '插件包超过企业允许的大小上限',
   ENT_PRESET_TOO_LARGE: '企业配方超过允许的大小上限',
+  ENT_SKILL_TOO_LARGE: '企业技能包超过允许的大小上限',
+  ENT_BRANDING_ASSET_TOO_LARGE: '品牌图片超过允许的大小上限',
+  ENT_FEEDBACK_ATTACHMENT_TOO_LARGE: '反馈附件超过允许的大小上限',
   ENT_SESSION_BATCH_TOO_LARGE: '会话数据单批超过上限，正在自动分批重试',
 
   // ── 配额与上游 ────────────────────────────────────────────────
@@ -66,6 +73,13 @@ export const ENTERPRISE_ERROR_MESSAGES: Readonly<Record<EnterpriseClientErrorCod
   ENT_PRESET_INVALID_PACKAGE: '配方包内容不合规，已阻止导入',
   ENT_PRESET_NOT_PUBLISHED: '该配方已下架，无法导入',
   ENT_PRESET_VISIBILITY_DENIED: '当前账号无权使用该配方',
+
+  // ── 企业技能目录 ──────────────────────────────────────────────
+  ENT_SKILL_NOT_PUBLISHED: '该技能已下架，无法装配',
+  ENT_SKILL_VISIBILITY_DENIED: '当前账号无权使用该技能',
+
+  // ── 问题反馈 ──────────────────────────────────────────────────
+  ENT_FEEDBACK_STATE_CONFLICT: '该反馈状态已被其他设备更新，请刷新后重试',
 
   // ── 会话同步 ──────────────────────────────────────────────────
   ENT_SESSION_FORMAT_UNSUPPORTED: '本机会话格式不受企业中心支持，请升级客户端',

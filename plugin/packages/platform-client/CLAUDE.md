@@ -11,7 +11,7 @@ src/branding.ts: 企业品牌 Host 侧边界——免登录 `GET /enterprise/api
 src/browser.ts: 通过无 shell argv 调用系统 URL opener，向 PKCE 事务提供可取消桌面浏览器交接。
 src/callback-page.ts: 回环结果页的唯一渲染器——`pickCallbackLocale` 按 `Accept-Language` 首选语言（q 值优先、同 q 先出现者胜、`q=0` 视为不偏好）决定中/英文，**缺省中文**：缺失、空、畸形、通配与无法解析，以及 fr/de 等既非 `zh` 又非明确 `en` 的偏好，一律回落导出的 `CALLBACK_DEFAULT_LOCALE`（`zh`，产品要求缺省中文），只有 best q 的主子标签明确是 `en` 才用英文；`escapeHtmlText` 是品牌与企业欢迎语进入 HTML 的唯一转义出口（名称→简称→欢迎语→内置 `DSH Enterprise` 逐级回落），`renderCallbackPage` 产出 `<!doctype html>` 单文件页：内联样式、`color-scheme` + `prefers-color-scheme` 深色、无任何外链/CDN、成功态尽力 `window.close()` 一次并保留按钮与手关闭提示、失败态只给结论与「请回到客户端重试」而不回显原始错误。
 src/index.ts: package 公开入口，集中导出 Service、PKCE 与回环结果页、installation、bootstrap、品牌缓存、本地 API 契约与地址写入诊断串。
-src/installation.ts: 统一解析 DSH_HOME 并原子维护 `enterprise/device.json`，严格限定 UUID v4、显示名和创建时间。
+src/installation.ts: 统一解析 DSH_HOME 并原子维护 `enterprise/device.json`，严格限定 UUID v4、显示名和创建时间；原子创建优先 `link(tmp→path)`（桌面/Linux），遇文件系统拒硬链接（Android/FUSE EACCES 等）回退 `writeFile(path, wx)`——两者同 O_EXCL 竞态语义，不覆盖并发者已写文件，使拒硬链接的文件系统上仍保并发安全。
 src/local-api.ts: exact/prefix 同源路由暴露企业目录、严格 package/version 安装与 package 卸载动作、只读品牌文档与品牌位图副本，以及 Server/账号/Session JSON 与显式刷新（品牌读取恒 200，缺品牌回 `data: null` 由 ui 回落内置）；执行端口由 bundle 反向注入以避免依赖环，`onError` 只上报操作名/原始 error/最终状态码而不改响应语义。
 src/pkce.ts: PKCE S256 生成、仅绑定 `127.0.0.1` 的 callback、state/取消/超时生命周期，并把浏览器可见结论交给 callback-page：语言在回调入口只判定一次，可选 `branding` 端口只读已缓存品牌（缺省/抛错回落内置名），成功、state 失配、缺 code、`error=` 回调与超时后的迟到回调各自渲染对应结果页；另有可选 `onCallbackRequest` 诊断端口，把截断到 `ACCEPT_LANGUAGE_LOG_LIMIT`（200）的 `Accept-Language` 原文与判定结论交给组合层，端口在响应刷出后才释放，避免用户只看到 connection reset。
 src/platform-credentials.ts: 独占官方 GrantRecord 与内存 Access Token，在 credentials 原子修改边界内轮换 Refresh Token，并阻止过期 origin 或已销毁 Service 重新装载认证态。

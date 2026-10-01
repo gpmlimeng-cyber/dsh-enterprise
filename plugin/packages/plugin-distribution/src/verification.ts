@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 Node Web Response 流、crypto/fs、安装层验签开关与可选公钥、semver 和中心 RuntimePluginAssignment
- * [OUTPUT]: 对外提供强制大小/hash/兼容性校验、默认关闭的 Ed25519 验签与冻结 JCS 声明
- * [POS]: plugin-distribution 的制品校验边界，下载与缓存共用同一验签策略，通过后才进入安装流程
+ * [OUTPUT]: 对外提供强制大小/hash/兼容性校验、默认关闭的 Ed25519 验签与冻结 JCS 声明；兼容判定前将 android 归一化为 linux（仅判定侧，不改写签名 manifest）
+ * [POS]: plugin-distribution 的制品校验边界，下载与缓存共用同一验签策略，通过后才进入安装流程；平台归一化使其在 Android（Linux 同源）运行时能匹配标 linux 的制品白名单
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -77,6 +77,19 @@ export function parseTrustedPluginPublicKey(value: string): KeyObject {
   }
 }
 
+/**
+ * 归一化受检平台到制品白名单的三平台集合（darwin/linux/win32）。
+ *
+ * Android 内核即 Linux，其用户态与 linux 同源；制品白名单标 `linux` 时，
+ * 本机 `process.platform === 'android'` 应被视作 linux 而非第三种未知平台。
+ * 仅用于兼容性判定侧，不改写 `signatureManifest` 里的 compatibility 字节
+ * （签名与 RFC 8785 向量保持逐字不变）。
+ */
+function normalizeOperatingSystem(platform: NodeJS.Platform): 'darwin' | 'linux' | 'win32' {
+  if (platform === 'android') return 'linux'
+  return platform as 'darwin' | 'linux' | 'win32'
+}
+
 export function verifyAssignmentMetadata(
   assignment: RuntimePluginAssignment,
   trustedPublicKey: KeyObject | undefined,
@@ -87,7 +100,7 @@ export function verifyAssignmentMetadata(
   const operatingSystem = context.operatingSystem ?? process.platform
   if (context.harnessCommit === undefined
     || !compatibility.harnessCommits.includes(context.harnessCommit)
-    || !compatibility.operatingSystems.includes(operatingSystem as 'darwin' | 'linux' | 'win32')
+    || !compatibility.operatingSystems.includes(normalizeOperatingSystem(operatingSystem))
     || !satisfies(context.bundleVersion, compatibility.enterpriseBundleRange, { includePrerelease: true })) {
     throw new PluginDistributionError('ENT_PLUGIN_INCOMPATIBLE', 'plugin assignment is incompatible with this runtime')
   }

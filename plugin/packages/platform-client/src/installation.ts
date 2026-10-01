@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 Node fs/os/path/crypto 在 DSH_HOME 下原子读写非秘密 installation 文件
- * [OUTPUT]: 对外提供 loadOrCreateInstallation、resolveEnterpriseDshHome、resolveEnterpriseDevicePath 与严格 InstallationRecord
- * [POS]: platform-client 的唯一持久化边界，只保存 UUID/显示名/创建时间而永不接触 Token
+ * [OUTPUT]: 对外提供 loadOrCreateInstallation、resolveEnterpriseDshHome、resolveEnterpriseDevicePath 与严格 InstallationRecord；原子创建优先 link(tmp→path)，遇文件系统拒硬链接（Android/FUSE EACCES 等）回退 writeFile(path, wx)，两者同 O_EXCL 竞态语义
+ * [POS]: platform-client 的唯一持久化边界，只保存 UUID/显示名/创建时间而永不接触 Token；跨平台原子写（link 主路径 + wx 回退）使其在拒硬链接的文件系统上仍保并发安全
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -80,9 +80,19 @@ export async function loadOrCreateInstallation(
   }
   await mkdir(dirname(path), { mode: 0o700, recursive: true })
   const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`
+  const content = `${JSON.stringify(record, null, 2)}\n`
   try {
-    await writeFile(temporary, `${JSON.stringify(record, null, 2)}\n`, { flag: 'wx', mode: 0o600 })
-    await link(temporary, path)
+    await writeFile(temporary, content, { flag: 'wx', mode: 0o600 })
+    try {
+      await link(temporary, path)
+    } catch (error) {
+      // Android/FUSE 等文件系统拒硬链接（EACCES/EPERM/ENOSYS/EOPNOTSUPP）。
+      // 回退 writeFile(path, wx) —— 同样以 O_EXCL 独占创建，目标已存在即 EEXIST，
+      // 与 link 的并发竞态语义一致（不覆盖并发者已写文件），且为单文件原生原子写。
+      const code = (error as NodeJS.ErrnoException).code
+      if (code !== 'EACCES' && code !== 'EPERM' && code !== 'ENOSYS' && code !== 'EOPNOTSUPP') throw error
+      await writeFile(path, content, { flag: 'wx', mode: 0o600 })
+    }
     await rm(temporary)
   } catch (error) {
     await rm(temporary, { force: true })
