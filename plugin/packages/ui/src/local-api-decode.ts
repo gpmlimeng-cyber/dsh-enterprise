@@ -77,6 +77,8 @@ export interface EnterpriseLocalStatus {
    * 存在即代表「宿主没有打开，由你打开」；缺失代表宿主已经打开。
    */
   readonly authorizeUrl?: string
+  /** 授权页交接方（宿主下发）：native 时渲染原生表单。未下发（旧宿主半）时客户端退回平台判断。 */
+  readonly loginMode?: 'browser' | 'native'
 }
 
 export interface EnterpriseAccountBootstrap {
@@ -396,7 +398,7 @@ export function decodeEnterpriseAccountOriginUpdate(value: unknown): EnterpriseA
 /** 严格解码本地 JSON response 内的脱敏状态。 */
 export function decodeEnterpriseLocalStatus(value: unknown): EnterpriseLocalStatus {
   const status = record(value)
-  const allowedOptional = ['flowId', 'user', 'revision', 'connectedAt', 'errorCode', 'authorizeUrl']
+  const allowedOptional = ['flowId', 'user', 'revision', 'connectedAt', 'errorCode', 'authorizeUrl', 'loginMode']
   if (status === undefined
     || !hasExactKeys(status, ['state', 'bundleVersion', 'platformUrl', 'transport'], allowedOptional)
     || !ENTERPRISE_CONNECTION_STATES.includes(status['state'] as EnterpriseConnectionState)
@@ -423,6 +425,9 @@ export function decodeEnterpriseLocalStatus(value: unknown): EnterpriseLocalStat
   if (status['errorCode'] !== undefined && !nonEmptyString(status['errorCode'])) {
     throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
   }
+  if (status['loginMode'] !== undefined && status['loginMode'] !== 'browser' && status['loginMode'] !== 'native') {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
   if (status['authorizeUrl'] !== undefined && !safeAuthorizeUrl(status['authorizeUrl'])) {
     throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
   }
@@ -437,6 +442,7 @@ export function decodeEnterpriseLocalStatus(value: unknown): EnterpriseLocalStat
     ...(status['connectedAt'] === undefined ? {} : { connectedAt: status['connectedAt'] as string }),
     ...(status['errorCode'] === undefined ? {} : { errorCode: status['errorCode'] as string }),
     ...(status['authorizeUrl'] === undefined ? {} : { authorizeUrl: status['authorizeUrl'] as string }),
+    ...(status['loginMode'] === undefined ? {} : { loginMode: status['loginMode'] as 'browser' | 'native' }),
   }
 }
 

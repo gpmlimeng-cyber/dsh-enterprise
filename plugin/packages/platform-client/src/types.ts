@@ -232,6 +232,8 @@ export interface EnterprisePlatformStatus {
    * `host` 模式下宿主自己打开系统浏览器，故该字段永不出现。
    */
   readonly authorizeUrl?: string
+  /** 授权页交接方：native = 客户端渲染原生表单；browser = 宿主自己打开系统浏览器。客户端据此决定是否渲染原生表单，不必再用 UA 猜测。 */
+  readonly loginMode?: 'browser' | 'native'
 }
 
 /** 浏览器登录事务启动后立即返回的结果。 */

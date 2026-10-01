@@ -467,12 +467,15 @@ export function EnterpriseLoginPage(props: EnterpriseLoginPageProps): ReactNode 
    *      广域网往返才到；少了这一条，那一小段会退回「等待授权 + 转圈」，就是肉眼可见的第一屏）
    * 再加上打开即登录的 SIGNED_OUT / CANCELLED。
    *
-   * `mobileShell` 是必须的门：桌面端等系统浏览器时同样是 AUTHORIZING，若不加这道门，
+   * `nativeShell` 是必须的门：桌面端等系统浏览器时同样是 AUTHORIZING，若不加这道门，
    * 桌面会被误判成原生表单（那边根本没有 /local/auth/form）。
-   * 这里用 UA 作代理判断；等到宿主把交接模式下推进状态，应改为直接读那个字段。
+   * 优先读宿主下发的 `loginMode`（native/browser）；只有旧宿主半没有这个字段时才退回 UA 判断兜底。
    */
-  const mobileShell = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)
-  const nativeLogin = mobileShell && (
+  // 优先读宿主下发的交接模式；旧宿主半没有这个字段时才退回 UA 判断（兜底,不是长期方案）。
+  const nativeShell = status?.loginMode === undefined
+    ? (typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent))
+    : status.loginMode === 'native'
+  const nativeLogin = nativeShell && (
     authorizeUrl !== undefined
     || props.snapshot.busy === 'login'
     || state === 'AUTHORIZING'

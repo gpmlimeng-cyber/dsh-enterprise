@@ -622,8 +622,9 @@ export class EnterprisePlatformService extends Service {
   /** 返回浏览器安全连接事实的副本。 */
   status(): EnterprisePlatformStatus {
     const status = cloneStatus(this.currentStatus)
+    const base = { ...status, loginMode: this.browserHandoff === 'client' ? ('native' as const) : ('browser' as const) }
     // 授权 URL 不进 currentStatus：只在 client 交接的 AUTHORIZING 窗口内附带下发。
-    return this.pendingAuthorizeUrl === undefined ? status : { ...status, authorizeUrl: this.pendingAuthorizeUrl }
+    return this.pendingAuthorizeUrl === undefined ? base : { ...base, authorizeUrl: this.pendingAuthorizeUrl }
   }
 
   /** 返回最新已校验 bootstrap 副本，永不返回平台凭据。 */
