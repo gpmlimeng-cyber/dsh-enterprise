@@ -5,7 +5,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -26,11 +26,24 @@ afterEach(async () => {
   }
 })
 
+/** 与 bootstrap fixture 的 device.installationId 一致；客户端随机生成会与之不匹配导致 ENT_DEVICE_REVOKED。 */
+const INSTALLATION_ID = '123e4567-e89b-42d3-a456-426614174000'
+
 function makeDshHome(): string {
   const dir = mkdtempSync(join(tmpdir(), 'dshent-enterprise-'))
   cleanups.push(() => {
     rmSync(dir, { recursive: true, force: true })
   })
+  // EnterpriseStore 的 dir 是 `<dshHome>/enterprise`；预写该处 config.json 的 installationId
+  // 使其与 bootstrap fixture 对齐——否则 resolveInstallationId 会随机生成 UUID，
+  // loadBootstrap 的 `snapshot.device.installationId !== this.installationId` 恒不相等 → 误判 DEVICE_REVOKED。
+  const enterpriseDir = join(dir, 'enterprise')
+  mkdirSync(enterpriseDir, { recursive: true, mode: 0o700 })
+  writeFileSync(join(enterpriseDir, 'config.json'), JSON.stringify({
+    serverUrl: null,
+    installationId: INSTALLATION_ID,
+    deviceName: null,
+  }, null, 2))
   return dir
 }
 
