@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖同源 JSON API 和宿主事件触发的状态读取
- * [OUTPUT]: 提供按需账号/插件操作、明确的地址保存结果与共享 snapshot；仅登录期间有界查询
+ * [OUTPUT]: 提供按需账号/插件操作、明确的地址保存结果与共享 snapshot；仅登录期间有界查询；原样承载宿主在 AUTHORIZING 下发的 `authorizeUrl`（不产生副作用，由登录弹窗消费）
  * [POS]: dsh-ui 的浏览器状态控制器，在官方 slot 与 Settings tabs 间共享事实且隔离网络细节
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -263,6 +263,10 @@ export class EnterpriseAccountStore {
     }
   }
 
+  /**
+   * 宿主在 AUTHORIZING 期间下发的授权 URL 只由登录弹窗消费（弹窗内 iframe 直接渲染授权页），
+   * 因此这里不产生任何副作用：状态本身已带该字段，store 只负责原样承载。
+   */
   #acceptStatus(status: EnterpriseLocalStatus): void {
     const previousStatus = this.#snapshot.status
     const accountChanged = previousStatus === undefined || connected(previousStatus) !== connected(status)

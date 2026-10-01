@@ -151,6 +151,9 @@ describe('EnterprisePlatformService', () => {
     readonly forgedCallbackState?: boolean
     readonly withSettings?: boolean
     readonly startUnconfigured?: boolean
+    readonly browserHandoff?: 'host' | 'client'
+    /** 原生登录代提交的假响应：ok=回 REDIRECT、rejected=401、change=409 要求改密。 */
+    readonly nativePasswordMode?: 'ok' | 'rejected' | 'change'
   } = {}): Promise<Environment> {
     const home = await mkdtemp(join(tmpdir(), 'enterprise-platform-service-'))
     const routes = new Map<string, Route>()
@@ -161,6 +164,8 @@ describe('EnterprisePlatformService', () => {
     let refreshSequence = 0
     let activeRefreshToken: string | undefined
     let autoCallback = true
+    let nativeRedirectUri = ''
+    let nativeState = ''
     let bootstrapMode: BootstrapMode = 'ok'
     let bootstrapRevision = 1
 
@@ -172,6 +177,50 @@ describe('EnterprisePlatformService', () => {
         at: Date.now(),
         ...(path === '/enterprise/api/v1/bootstrap' ? { bootstrapMode } : {}),
       })
+      // 原生登录（安卓）宿主会自己 GET 授权 URL 建立服务端事务，再取认证来源；
+      // 这里只回最小可用形状，供 client 交接用例断言。
+      if (path === '/enterprise/auth/v1/authorize') {
+        // 原生登录：宿主自己 GET 这条 URL，测试要把它内联的回环回调与 state 记下来，
+        // 好在 /password 分支里回一条真实可达的 redirectUri，验证"宿主自己走完回调"。
+        const authorize = new URL(request.url ?? '/', 'http://127.0.0.1')
+        nativeRedirectUri = authorize.searchParams.get('redirect_uri') ?? ''
+        nativeState = authorize.searchParams.get('state') ?? ''
+        response.writeHead(303, { location: '/enterprise/auth/login.html?transaction_id=tx_spec' })
+        response.end()
+        return
+      }
+      if (path === '/enterprise/auth/v1/sources') {
+        json(response, 200, {
+          data: { csrfToken: 'csrf_spec', sources: [{ id: '19001', name: 'Local', type: 'LOCAL' }] },
+          requestId: REQUEST_ID,
+        })
+        return
+      }
+      if (path === '/enterprise/auth/v1/password' && request.method === 'POST') {
+        // 原生登录走 multipart：这里只排空正文，不按 JSON 解析（解析失败会让请求悬死）。
+        for await (const _chunk of request) { /* drain */ }
+        if (options.nativePasswordMode === 'rejected') {
+          json(response, 401, {
+            error: { code: 'ENT_AUTH_REQUIRED', message: '身份认证失败', requestId: REQUEST_ID, retryable: false },
+          })
+          return
+        }
+        if (options.nativePasswordMode === 'change') {
+          json(response, 409, {
+            data: { next: 'CHANGE_PASSWORD', passwordChangeChallenge: 'pwc_spec', rejected: false },
+            requestId: REQUEST_ID,
+          })
+          return
+        }
+        json(response, 200, {
+          data: {
+            next: 'REDIRECT',
+            redirectUri: `${nativeRedirectUri}?code=${'c'.repeat(43)}&state=${nativeState}`,
+          },
+          requestId: REQUEST_ID,
+        })
+        return
+      }
       if (path === '/enterprise/auth/v1/token' && request.method === 'POST') {
         const token = await body(request)
         const grantType = String(token['grantType'])
@@ -373,6 +422,7 @@ describe('EnterprisePlatformService', () => {
       {
         settingsNamespace: 'owndsh',
         ...(options.now === undefined ? {} : { now: options.now }),
+        ...(options.browserHandoff === undefined ? {} : { browserHandoff: options.browserHandoff }),
         openBrowser: async (rawUrl) => {
           const url = new URL(rawUrl)
           authorizeUrls.push(url)
@@ -429,6 +479,90 @@ describe('EnterprisePlatformService', () => {
       expect(status.state, JSON.stringify({ status, requests: env.platformRequests })).toBe('READY')
     }, { timeout: 2_000 })
   }
+
+  // 安卓宿主进程没有任何可用的开源路径（Termux/系统 am 都被包名↔uid 校验拒绝），
+  // 所以授权 URL 必须改由浏览器半打开；这两条锁死交接开关的两个方向。
+  it('client 交接：宿主一次都不开浏览器，授权 URL 随 AUTHORIZING 下发、离开即收回', async () => {
+    const env = await environment({ browserHandoff: 'client' })
+    environments.push(env)
+    // 宿主不再代开，回调改由本测试按 URL 里的 redirect_uri 驱动。
+    env.setAutoCallback(false)
+    await env.service.startLogin()
+
+    let authorizeUrl: URL | undefined
+    await vi.waitFor(() => {
+      const value = env.service.status().authorizeUrl
+      expect(value, JSON.stringify(env.service.status())).toBeTypeOf('string')
+      authorizeUrl = new URL(value as string)
+    }, { timeout: 2_000 })
+    // 关键断言：宿主那条 execFile 通道一次都没被碰过。
+    expect(env.authorizeUrls).toEqual([])
+    expect(authorizeUrl?.origin).toBe(env.platformUrl)
+    expect(authorizeUrl?.pathname).toBe('/enterprise/auth/v1/authorize')
+    expect(authorizeUrl?.searchParams.get('code_challenge_method')).toBe('S256')
+    expect(authorizeUrl?.searchParams.get('code_challenge')).toMatch(/^[A-Za-z0-9_-]{43}$/)
+    expect(authorizeUrl?.searchParams.get('code_challenge')).not.toBe(authorizeUrl?.searchParams.get('state'))
+
+    // 浏览器半打开登录页后，服务端回跳本机回调；登录照常走完。
+    const callback = new URL(authorizeUrl?.searchParams.get('redirect_uri') as string)
+    callback.searchParams.set('code', 'c'.repeat(43))
+    callback.searchParams.set('state', authorizeUrl?.searchParams.get('state') as string)
+    expect((await fetch(callback)).ok).toBe(true)
+
+    await vi.waitFor(() => {
+      expect(env.service.status().state, JSON.stringify(env.service.status())).toBe('READY')
+    }, { timeout: 2_000 })
+    // 离开 AUTHORIZING 就不再下发，客户端不会重复打开。
+    expect(env.service.status().authorizeUrl).toBeUndefined()
+  })
+
+  it('原生登录：宿主自己开事务、交出表单，代提交凭证后把回调走完', async () => {
+    const env = await environment({ browserHandoff: 'client' })
+    environments.push(env)
+    await env.service.startLogin()
+    await vi.waitFor(() => {
+      expect(env.service.status().authorizeUrl).toBeTypeOf('string')
+    }, { timeout: 2_000 })
+    // 宿主一次都没碰浏览器；来源交给界面渲染表单。
+    expect(env.authorizeUrls).toEqual([])
+    expect(env.service.loginForm().sources).toEqual([{ id: '19001', name: 'Local', type: 'LOCAL' }])
+    await expect(env.service.submitCredentials({ sourceId: '19001', username: 'zhangsan', password: 'pw' }))
+      .resolves.toEqual({ next: 'redirect' })
+    // 凭证通过后宿主自己走完 redirectUri，登录在后台继续到 READY。
+    await vi.waitFor(() => {
+      expect(env.service.status().state, JSON.stringify(env.platformRequests)).toBe('READY')
+    }, { timeout: 2_000 })
+  })
+
+  it('原生登录：凭证被拒时抛中心错误码，不吞成 503', async () => {
+    const env = await environment({ browserHandoff: 'client', nativePasswordMode: 'rejected' })
+    environments.push(env)
+    await env.service.startLogin()
+    await vi.waitFor(() => {
+      expect(env.service.status().authorizeUrl).toBeTypeOf('string')
+    }, { timeout: 2_000 })
+    await expect(env.service.submitCredentials({ sourceId: '19001', username: 'zhangsan', password: 'wrong' }))
+      .rejects.toMatchObject({ code: 'ENT_AUTH_REQUIRED' })
+  })
+
+  it('原生登录：需改密时交出一次性 challenge 而不报错', async () => {
+    const env = await environment({ browserHandoff: 'client', nativePasswordMode: 'change' })
+    environments.push(env)
+    await env.service.startLogin()
+    await vi.waitFor(() => {
+      expect(env.service.status().authorizeUrl).toBeTypeOf('string')
+    }, { timeout: 2_000 })
+    await expect(env.service.submitCredentials({ sourceId: '19001', username: 'zhangsan', password: 'init' }))
+      .resolves.toEqual({ next: 'change-password', challenge: 'pwc_spec', rejected: false })
+  })
+
+  it('默认 host 交接：宿主自己打开浏览器，状态下从不出现授权 URL', async () => {
+    const env = await environment({ browserHandoff: 'host' })
+    environments.push(env)
+    await login(env)
+    expect(env.authorizeUrls.length).toBeGreaterThan(0)
+    expect(env.service.status().authorizeUrl).toBeUndefined()
+  })
 
   it('accepts credential-free HTTP and HTTPS origins and rejects other URL shapes', async () => {
     const webServer: WebServerRoutePort = { register: () => () => undefined }

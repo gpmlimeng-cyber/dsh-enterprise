@@ -13,9 +13,11 @@ import {
   decodeEnterpriseBranding,
   decodeEnterpriseFeedbackReceipt,
   decodeEnterpriseDataEnvelope,
+  decodeEnterpriseCredentialResult,
   decodeEnterpriseErrorCode,
   decodeEnterpriseLocalStatus,
   decodeEnterpriseLoginCancel,
+  decodeEnterpriseLoginForm,
   decodeEnterpriseLoginStart,
   decodeEnterpriseLogout,
   decodeEnterprisePluginStatus,
@@ -185,6 +187,15 @@ export function createEnterpriseLocalApi(
     ),
     cancelLogin: async signal => decodeEnterpriseLoginCancel(
       await requestJson('/auth/cancel', postInit(signal), fetcher),
+    ),
+    loginForm: async signal => decodeEnterpriseLoginForm(
+      await requestJson('/auth/form', getInit(signal), fetcher),
+    ),
+    submitCredentials: async (input, signal) => decodeEnterpriseCredentialResult(
+      await requestJson('/auth/password', jsonInit('POST', input, signal), fetcher),
+    ),
+    submitPasswordChange: async (input, signal) => decodeEnterpriseCredentialResult(
+      await requestJson('/auth/password-change', jsonInit('POST', input, signal), fetcher),
     ),
     logout: async signal => decodeEnterpriseLogout(
       await requestJson('/logout', postInit(signal), fetcher),

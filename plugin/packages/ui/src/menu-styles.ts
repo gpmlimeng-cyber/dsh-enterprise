@@ -117,11 +117,11 @@ export const ENTERPRISE_MENU_STYLES = `
          我们自定的头部与外观组会把它撑得明显宽于官方占用者，故给内容一个确定宽度，
          并让长文本的 ellipsis 真正生效（max-content 下 ellipsis 不减少固有宽度）。 */
       .own-menu-content { width: 200px; }   /* 测量前的回落值；实测宽度由内联 style 覆盖 */
-      .own-theme-row { align-items: stretch; display: flex; flex-direction: column; gap: 6px; min-height: 34px; padding: 6px 8px; }
+      .own-theme-row { align-items: center; display: flex; flex-direction: row; gap: 8px; min-height: 34px; padding: 6px 8px; }
       .own-theme-label { align-items: center; color: var(--dsw-alias-label-primary, #101828); display: flex; font-size: 13px; gap: 6px; line-height: 20px; min-width: 0; }
       .own-theme-icon { align-items: center; color: var(--dsw-alias-menu-icon, var(--dsw-alias-label-primary, #101828)); display: inline-flex; flex: none; height: 14px; justify-content: center; width: 14px; }
       .own-theme-icon svg { width: 14px; height: 14px; }
-      .own-theme-seg { background: var(--dsw-alias-interactive-bg-hover, color-mix(in srgb, currentColor 8%, transparent)); border-radius: var(--dsw-radius-md, 12px); display: inline-grid; flex: none; gap: 2px; width: 100%; grid-auto-columns: 1fr; grid-auto-flow: column; padding: 4px; }
+      .own-theme-seg { background: var(--dsw-alias-interactive-bg-hover, color-mix(in srgb, currentColor 8%, transparent)); border-radius: var(--dsw-radius-md, 12px); display: inline-grid; flex: 1 1 auto; min-width: 0; gap: 2px; grid-auto-columns: 1fr; grid-auto-flow: column; padding: 4px; }
       .own-theme-seg-btn { background: transparent; border: 0; border-radius: var(--dsw-radius-sm, 8px); color: var(--dsw-alias-label-secondary, #475467); cursor: pointer; font: inherit; font-size: 13px; font-weight: 500; height: 28px; line-height: 20px; padding: 0 4px; transition: color 120ms ease; white-space: nowrap; }
       .own-theme-seg-btn:hover:not(:disabled), .own-theme-seg-btn[aria-checked='true'] { color: var(--dsw-alias-label-primary, #101828); }
       .own-theme-seg-btn[aria-checked='true'] { background: var(--dsw-alias-bg-layer-1, #ffffff); box-shadow: var(--dsw-elevation-soft, 0 1px 3px rgba(0, 0, 0, 0.12)); }

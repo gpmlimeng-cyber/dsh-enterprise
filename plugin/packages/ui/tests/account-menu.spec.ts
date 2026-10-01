@@ -264,21 +264,22 @@ describe('the maintenance group follows the detected desktop capabilities', () =
   })
 })
 
-/** 队列第 9 项：帮助与文档由平台地址派生，未配置时禁用并把原因摆在行上（不静默）。 */
+/** 队列第 9 项：帮助与文档由平台地址派生，未配置时禁用（原因只走 title，不再占用行尾）。 */
 describe('the 帮助与文档 row follows the platform address', () => {
-  it('enables the row with a 需登录 hint when the platform address is configured', () => {
+  it('enables the row without any trailing hint when the platform address is configured', () => {
     const model = enterpriseAccountMenu({ state: 'READY', busy: undefined, identity: identityOf('READY', status.user) })
+    // 行右侧不写字（2026-10-01 用户裁定）：hint 必须缺席，只有 title 保留说明。
     expect(model.docs).toEqual({
       disabled: false,
-      hint: ENTERPRISE_HELP_HINT,
       id: 'docs',
       label: '帮助与文档',
       title: ENTERPRISE_HELP_HINT,
     })
+    expect(model.docs.hint).toBeUndefined()
     expect(ENTERPRISE_HELP_HINT).toContain('需登录')
   })
 
-  it('disables the row and states the reason when the platform address is missing', () => {
+  it('disables the row and keeps the reason out of the trailing slot when the address is missing', () => {
     // UNCONFIGURED 的投影里 platformUrl 是 null（decodeEnterpriseLocalStatus 的形状门禁保证二者同真同假）。
     const identity = enterpriseAccountIdentity({
       phase: 'ready',
@@ -287,7 +288,7 @@ describe('the 帮助与文档 row follows the platform address', () => {
     const unconfigured = enterpriseAccountMenu({ state: 'UNCONFIGURED', busy: undefined, identity })
     expect(identity.isPlatformConfigured).toBe(false)
     expect(unconfigured.docs.disabled).toBe(true)
-    expect(unconfigured.docs.hint).toBe(ENTERPRISE_HELP_UNCONFIGURED_HINT)
+    expect(unconfigured.docs.hint).toBeUndefined()
     expect(unconfigured.docs.title).toBe(ENTERPRISE_HELP_UNCONFIGURED_HINT)
   })
 })

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 branding 的同源 LOGO 来源门禁与 `EnterpriseBrandingDocument` 形状、decode-primitives 的严格解码内核、skill-api-decode 的技能 DTO 与解码
- * [OUTPUT]: 对外提供连接/受管插件状态枚举、本地 API DTO 类型与严格解码（账号、品牌、插件、配方、Session、四窗口用量、反馈回执）、`EnterpriseLocalApi` 契约、失败码投影 `enterpriseLocalErrorCode`，并再导出 `EnterpriseLocalApiError` 与 skill-api-decode 的全部技能契约
+ * [OUTPUT]: 对外提供连接/受管插件状态枚举、本地 API DTO 类型与严格解码（账号、品牌、插件、配方、Session、四窗口用量、反馈回执、原生登录的来源列表与凭证/改密结果）、`EnterpriseLocalApi` 契约、失败码投影 `enterpriseLocalErrorCode`，并再导出 `EnterpriseLocalApiError` 与 skill-api-decode 的全部技能契约
  * [POS]: dsh-ui 的浏览器取数契约层——只定义「主机可以说什么」与「什么不许说」，不含任何 fetch；网络执行留在 local-api.ts，界面只消费本文件的投影结果。逼近 800 行后按业务纵切出技能分片与共享内核，本文件仍是唯一对外真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -71,6 +71,12 @@ export interface EnterpriseLocalStatus {
   readonly revision?: number
   readonly connectedAt?: string
   readonly errorCode?: string
+  /**
+   * 宿主交浏览器半打开时下发的授权 URL（仅 AUTHORIZING 窗口内出现）。
+   *
+   * 存在即代表「宿主没有打开，由你打开」；缺失代表宿主已经打开。
+   */
+  readonly authorizeUrl?: string
 }
 
 export interface EnterpriseAccountBootstrap {
@@ -254,6 +260,18 @@ export interface EnterpriseLocalApi {
   removePlugin(packageName: string, signal: AbortSignal): Promise<EnterprisePluginStatus>
   startLogin(signal: AbortSignal): Promise<{ readonly flowId: string }>
   cancelLogin(signal: AbortSignal): Promise<{ readonly cancelled: boolean }>
+  /** 原生登录（安卓）本轮的认证来源；没有进行中的原生事务时按 400 拒绝。 */
+  loginForm(signal: AbortSignal): Promise<EnterpriseLoginForm>
+  /** 代提交账号密码；成功即 Host 已在后台继续登录。 */
+  submitCredentials(
+    input: { readonly sourceId: string; readonly username: string; readonly password: string },
+    signal: AbortSignal,
+  ): Promise<EnterpriseCredentialResult>
+  /** 「需改密」分支的第二次提交。 */
+  submitPasswordChange(
+    input: { readonly challenge: string; readonly newPassword: string },
+    signal: AbortSignal,
+  ): Promise<EnterpriseCredentialResult>
   logout(signal: AbortSignal): Promise<{ readonly loggedOut: true }>
   uninstall(signal: AbortSignal): Promise<{ readonly uninstalled: true; readonly restartRequested: boolean }>
   sessionSyncStatus(signal: AbortSignal): Promise<EnterpriseSessionSyncStatus>
@@ -283,6 +301,18 @@ function decodeUser(value: unknown): EnterpriseStatusUser | undefined {
     username: user['username'],
     displayName: user['displayName'],
     departmentId: user['departmentId'],
+  }
+}
+
+function safeAuthorizeUrl(value: unknown): value is string {
+  if (!nonEmptyString(value)) return false
+  try {
+    const url = new URL(value)
+    // 与平台地址不同：授权 URL 必须带 PKCE 查询串，故这里放行 search，仍拒绝凭据与片段。
+    return (url.protocol === 'https:' || url.protocol === 'http:')
+      && url.username === '' && url.password === '' && url.hash === ''
+  } catch {
+    return false
   }
 }
 
@@ -366,7 +396,7 @@ export function decodeEnterpriseAccountOriginUpdate(value: unknown): EnterpriseA
 /** 严格解码本地 JSON response 内的脱敏状态。 */
 export function decodeEnterpriseLocalStatus(value: unknown): EnterpriseLocalStatus {
   const status = record(value)
-  const allowedOptional = ['flowId', 'user', 'revision', 'connectedAt', 'errorCode']
+  const allowedOptional = ['flowId', 'user', 'revision', 'connectedAt', 'errorCode', 'authorizeUrl']
   if (status === undefined
     || !hasExactKeys(status, ['state', 'bundleVersion', 'platformUrl', 'transport'], allowedOptional)
     || !ENTERPRISE_CONNECTION_STATES.includes(status['state'] as EnterpriseConnectionState)
@@ -393,6 +423,9 @@ export function decodeEnterpriseLocalStatus(value: unknown): EnterpriseLocalStat
   if (status['errorCode'] !== undefined && !nonEmptyString(status['errorCode'])) {
     throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
   }
+  if (status['authorizeUrl'] !== undefined && !safeAuthorizeUrl(status['authorizeUrl'])) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
   return {
     state: status['state'] as EnterpriseConnectionState,
     bundleVersion: status['bundleVersion'],
@@ -403,7 +436,59 @@ export function decodeEnterpriseLocalStatus(value: unknown): EnterpriseLocalStat
     ...(status['revision'] === undefined ? {} : { revision: status['revision'] as number }),
     ...(status['connectedAt'] === undefined ? {} : { connectedAt: status['connectedAt'] as string }),
     ...(status['errorCode'] === undefined ? {} : { errorCode: status['errorCode'] as string }),
+    ...(status['authorizeUrl'] === undefined ? {} : { authorizeUrl: status['authorizeUrl'] as string }),
   }
+}
+
+/** 企业认证来源（服务端 `/sources` 返回的一条）。 */
+export interface EnterpriseAuthSource {
+  readonly id: string
+  readonly name: string
+  readonly type: 'LOCAL' | 'OIDC'
+}
+
+/** 原生登录表单的数据面：本轮事务可用的来源（服务端已关验证码，故不含验证码面）。 */
+export interface EnterpriseLoginForm {
+  readonly sources: readonly EnterpriseAuthSource[]
+}
+
+/** 原生凭证提交结果：`redirect` = 已在后台继续登录；`change-password` = 服务端要求先改密。 */
+export type EnterpriseCredentialResult =
+  | { readonly next: 'redirect' }
+  | { readonly next: 'change-password'; readonly challenge: string; readonly rejected: boolean }
+
+function decodeAuthSource(value: unknown): EnterpriseAuthSource {
+  const source = record(value)
+  if (source === undefined
+    || !hasExactKeys(source, ['id', 'name', 'type'])
+    || !nonEmptyString(source['id'])
+    || !nonEmptyString(source['name'])
+    || (source['type'] !== 'LOCAL' && source['type'] !== 'OIDC')) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  return { id: source['id'], name: source['name'], type: source['type'] }
+}
+
+export function decodeEnterpriseLoginForm(value: unknown): EnterpriseLoginForm {
+  const payload = record(value)
+  const sources = payload?.['sources']
+  if (payload === undefined || !hasExactKeys(payload, ['sources']) || !Array.isArray(sources)) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  return { sources: sources.map(decodeAuthSource) }
+}
+
+export function decodeEnterpriseCredentialResult(value: unknown): EnterpriseCredentialResult {
+  const result = record(value)
+  if (result === undefined) throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  if (result['next'] === 'redirect' && hasExactKeys(result, ['next'])) return { next: 'redirect' }
+  if (result['next'] === 'change-password'
+    && hasExactKeys(result, ['next', 'challenge', 'rejected'])
+    && nonEmptyString(result['challenge'])
+    && typeof result['rejected'] === 'boolean') {
+    return { next: 'change-password', challenge: result['challenge'], rejected: result['rejected'] }
+  }
+  throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
 }
 
 export function decodeBootstrap(value: unknown): EnterpriseAccountBootstrap | undefined {

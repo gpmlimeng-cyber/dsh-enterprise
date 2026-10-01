@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Cordis Service/WebServer/settings、官方 settings 投影的 volatile Config 引用、configEditor 的只读 entry 读面、credentials、T02 contracts、PKCE/installation/browser 原语与 Node fetch
- * [OUTPUT]: 提供 ctx.enterprisePlatform、启动恢复、按需刷新/Token 轮换、品牌缓存的三个取数时机与地址写入失败的结构化诊断日志；仅无活动会话时允许清理凭据并修改 Server
+ * [OUTPUT]: 提供 ctx.enterprisePlatform、启动恢复、按需刷新/Token 轮换、品牌缓存的三个取数时机与地址写入失败的结构化诊断日志；仅无活动会话时允许清理凭据并修改 Server；安卓上宿主没有可用的系统浏览器通道（Termux/系统 am 都被包名↔uid 校验拒绝，壳的 androidBridge 在 WebView 里也取不到），改用 `browserHandoff: 'client'` 把授权 URL 挂上 AUTHORIZING 状态下发、并在宿主内代开服务端事务（GET 授权 URL 取 transaction_id → 取 /sources），由登录弹窗渲染原生表单、经本机路由代收账号密码与改密，成功后宿主自己跟随回环回调；离开该状态即收回，凭证不落盘不进日志
  * [POS]: platform-client 的 Host 业务核心，跨 Web/Desktop 复用官方凭据平面且不向 Client UI 暴露任何 Token；品牌缓存在这里装配（构造、登录成功、Server 切换各刷新一次），每个 `ENT_SETTINGS_UNAVAILABLE` 抛出点都留痕
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -40,6 +40,11 @@ import {
   type EnterprisePlatformConfig,
   type EnterprisePlatformInternals,
   type EnterprisePlatformStatus,
+  type EnterpriseAuthSource,
+  type EnterpriseCredentialResult,
+  type EnterpriseCredentialsInput,
+  type EnterpriseLoginForm,
+  type EnterprisePasswordChangeInput,
   type SettingsReference,
 } from './types.js'
 
@@ -128,6 +133,37 @@ function cloneStatus(status: EnterprisePlatformStatus): EnterprisePlatformStatus
   return structuredClone(status)
 }
 
+/** 安卓原生登录的本轮事务：授权 URL 已由宿主自己 GET 开好，账号密码与改密都由界面代收。 */
+interface NativeLoginTransaction {
+  readonly transactionId: string
+  readonly csrfToken: string
+  /** 本 Service 自己起的回环回调：只有以它为前缀的 redirectUri 才会被跟随。 */
+  readonly redirectUri: string
+  readonly sources: readonly EnterpriseAuthSource[]
+  /** 首次提交后记住——改密重提要带上它（浏览器表单里它一直是未禁用的隐藏字段）。 */
+  sourceId?: string
+}
+
+/**
+ * 解析 `/sources` 响应：只取 csrfToken 与来源三字段，形状不认识即返回 undefined（调用方投影 503）。
+ *
+ * 刻意不引入新 schema 面：这是只在原生登录里走的窄契约，形状校验几行就够。
+ */
+function parseAuthSources(value: unknown): { readonly csrfToken: string; readonly sources: EnterpriseAuthSource[] } | undefined {
+  const data = (value as { data?: unknown } | null)?.data
+  if (typeof data !== 'object' || data === null) return undefined
+  const { csrfToken, sources } = data as { csrfToken?: unknown; sources?: unknown }
+  if (typeof csrfToken !== 'string' || csrfToken.length === 0 || !Array.isArray(sources)) return undefined
+  const parsed: EnterpriseAuthSource[] = []
+  for (const item of sources) {
+    if (typeof item !== 'object' || item === null) return undefined
+    const { id, name, type } = item as { id?: unknown; name?: unknown; type?: unknown }
+    if (typeof id !== 'string' || typeof name !== 'string' || (type !== 'LOCAL' && type !== 'OIDC')) return undefined
+    parsed.push({ id, name, type })
+  }
+  return { csrfToken, sources: parsed }
+}
+
 function isAbort(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError'
 }
@@ -186,6 +222,8 @@ export class EnterprisePlatformService extends Service {
   private readonly platformCredentials: PlatformCredentialManager
   private readonly branding: EnterpriseBrandingCache
   private readonly openBrowser: (url: string, signal: AbortSignal) => Promise<void>
+  /** `client` 时宿主不碰浏览器，授权 URL 改随状态下发、由登录弹窗内嵌渲染（安卓唯一通路）。 */
+  private readonly browserHandoff: 'host' | 'client'
   private readonly now: () => Date
   private readonly createFlowId: () => string
   private readonly createState: () => string
@@ -209,6 +247,10 @@ export class EnterprisePlatformService extends Service {
   private settingsWrite: ((serverUrl: string) => Promise<void>) | undefined
   private bootstrapSnapshot: BootstrapSnapshot | undefined
   private connectedAt: string | undefined
+  /** client 交接期间待浏览器半打开的授权 URL；离开 AUTHORIZING 一律清空。 */
+  private pendingAuthorizeUrl: string | undefined
+  /** 原生登录（安卓）本轮事务；离开 AUTHORIZING 一律清空，凭证不留痕。 */
+  private nativeLogin: NativeLoginTransaction | undefined
   private login: LoginTransaction | undefined
   private loginTask: Promise<void> | undefined
   private refreshTask: Promise<void> | undefined
@@ -233,6 +275,7 @@ export class EnterprisePlatformService extends Service {
     this.serverUrlReference = settingsReference<string>(config.serverUrl)
     this.fetch = internals.fetch ?? globalThis.fetch
     this.openBrowser = internals.openBrowser ?? openSystemBrowser
+    this.browserHandoff = internals.browserHandoff ?? 'host'
     this.logger = ctx.logger
     this.now = internals.now ?? (() => new Date())
     this.createFlowId = internals.createFlowId ?? randomUUID
@@ -285,6 +328,9 @@ export class EnterprisePlatformService extends Service {
         refresh: () => this.refresh(),
         setServerUrl: serverUrl => this.setServerUrl(serverUrl),
         startLogin: () => this.startLogin(),
+        loginForm: () => this.loginForm(),
+        submitCredentials: input => this.submitCredentials(input),
+        submitPasswordChange: input => this.submitPasswordChange(input),
         cancelLogin: () => this.cancelLogin(),
         logout: () => this.logout(),
         bootstrap: () => this.bootstrap(),
@@ -419,6 +465,134 @@ export class EnterprisePlatformService extends Service {
     return { flowId: transaction.flowId }
   }
 
+  /**
+   * 安卓上宿主自己把服务端事务开起来：GET 授权 URL **不跟随重定向**，从 Location 里取
+   * `transaction_id`，再取认证来源交给界面渲染表单。整条链不需要任何浏览器。
+   */
+  private async beginNativeLogin(
+    authorizeUrl: string,
+    redirectUri: string,
+    signal: AbortSignal,
+  ): Promise<NativeLoginTransaction> {
+    const response = await this.executeFetch(new URL(authorizeUrl), { method: 'GET', redirect: 'manual', signal })
+    const location = response.headers.get('location')
+    let transactionId: string | null = null
+    if (location !== null) {
+      try {
+        transactionId = new URL(location, this.baseUrl?.origin ?? 'http://enterprise.local').searchParams.get('transaction_id')
+      } catch {
+        transactionId = null
+      }
+    }
+    if (transactionId === null || transactionId.length === 0) {
+      throw new EnterprisePlatformError('ENT_PLATFORM_UNAVAILABLE',
+        'platform did not open an authorization transaction', true, response.status)
+    }
+    const parsed = parseAuthSources(await this.fetchPublicJson(
+      `${AUTH_PATH}/sources?transaction_id=${encodeURIComponent(transactionId)}`,
+      { headers: { accept: 'application/json' } },
+      signal,
+    ))
+    if (parsed === undefined) {
+      throw new EnterprisePlatformError('ENT_PLATFORM_UNAVAILABLE', 'platform returned invalid auth sources', true)
+    }
+    return { transactionId, csrfToken: parsed.csrfToken, redirectUri, sources: parsed.sources }
+  }
+
+  private requireNativeLogin(): NativeLoginTransaction {
+    const native = this.nativeLogin
+    if (native === undefined) {
+      throw new EnterprisePlatformError('ENT_INVALID_REQUEST', 'no native login is in progress')
+    }
+    return native
+  }
+
+  /** 原生登录表单的来源面；没有进行中的原生事务时按非法请求拒绝。 */
+  loginForm(): EnterpriseLoginForm {
+    this.assertOpen()
+    return { sources: this.requireNativeLogin().sources }
+  }
+
+  /**
+   * 代提交账号密码：凭证只在内存里构造成 multipart 正文转发给企业服务器，不落盘、不进日志。
+   *
+   * 成功即本 Service 自己把 `redirectUri` 走完（那条地址指向它自己起的回环回调），
+   * 之后 token 交换、设备注册与 bootstrap 全按原有流程在后台继续。
+   */
+  async submitCredentials(input: EnterpriseCredentialsInput): Promise<EnterpriseCredentialResult> {
+    this.assertOpen()
+    const native = this.requireNativeLogin()
+    const form = new FormData()
+    form.set('transactionId', native.transactionId)
+    form.set('sourceId', input.sourceId)
+    form.set('csrfToken', native.csrfToken)
+    form.set('username', input.username)
+    form.set('password', input.password)
+    native.sourceId = input.sourceId
+    return await this.completeNativePassword(form, native)
+  }
+
+  /** 「需改密」分支的第二次提交：判定完全交给服务端，本地不做策略放行。 */
+  async submitPasswordChange(input: EnterprisePasswordChangeInput): Promise<EnterpriseCredentialResult> {
+    this.assertOpen()
+    const native = this.requireNativeLogin()
+    const form = new FormData()
+    form.set('transactionId', native.transactionId)
+    form.set('sourceId', native.sourceId ?? '')
+    form.set('csrfToken', native.csrfToken)
+    form.set('passwordChangeChallenge', input.challenge)
+    form.set('newPassword', input.newPassword)
+    form.set('confirmPassword', input.newPassword)
+    return await this.completeNativePassword(form, native)
+  }
+
+  private async completeNativePassword(
+    form: FormData,
+    native: NativeLoginTransaction,
+  ): Promise<EnterpriseCredentialResult> {
+    const response = await this.executeFetch(new URL(`${AUTH_PATH}/password`, this.requireBaseUrl()), {
+      body: form,
+      headers: { accept: 'application/json' },
+      method: 'POST',
+      redirect: 'error',
+    })
+    let payload: unknown
+    try {
+      payload = await response.json()
+    } catch {
+      throw new EnterprisePlatformError('ENT_PLATFORM_UNAVAILABLE',
+        'platform returned invalid credential JSON', true, response.status)
+    }
+    const data = (payload as { data?: { next?: unknown; redirectUri?: unknown; passwordChangeChallenge?: unknown; rejected?: unknown } } | null)?.data
+    if (response.ok && data?.next === 'REDIRECT' && typeof data.redirectUri === 'string') {
+      await this.driveNativeRedirect(data.redirectUri, native)
+      return { next: 'redirect' }
+    }
+    if (response.status === 409 && data?.next === 'CHANGE_PASSWORD' && typeof data.passwordChangeChallenge === 'string') {
+      return { next: 'change-password', challenge: data.passwordChangeChallenge, rejected: data.rejected === true }
+    }
+    const code = (payload as { error?: { code?: unknown } } | null)?.error?.code
+    throw new EnterprisePlatformError(
+      typeof code === 'string' ? (code as EnterprisePlatformError['code']) : 'ENT_PLATFORM_UNAVAILABLE',
+      'platform rejected the enterprise credentials',
+      false,
+      response.status,
+    )
+  }
+
+  /**
+   * 跟随服务端给的 `redirectUri`——**只接受以本事务回环回调为前缀的地址**，
+   * 绝不把服务端返回的任意 URL 当请求目标（防 SSRF/钓鱼重定向）。
+   */
+  private async driveNativeRedirect(redirectUri: string, native: NativeLoginTransaction): Promise<void> {
+    if (!redirectUri.startsWith(native.redirectUri)) {
+      throw new EnterprisePlatformError('ENT_PLATFORM_UNAVAILABLE',
+        'platform returned a redirect outside the loopback callback', true)
+    }
+    const response = await this.executeFetch(new URL(redirectUri), { method: 'GET', redirect: 'error' })
+    await response.body?.cancel()
+  }
+
   /** 中心可达时撤销当前会话，之后始终清空全部本地认证状态。 */
   async logout(): Promise<void> {
     this.assertOpen()
@@ -447,7 +621,9 @@ export class EnterprisePlatformService extends Service {
 
   /** 返回浏览器安全连接事实的副本。 */
   status(): EnterprisePlatformStatus {
-    return cloneStatus(this.currentStatus)
+    const status = cloneStatus(this.currentStatus)
+    // 授权 URL 不进 currentStatus：只在 client 交接的 AUTHORIZING 窗口内附带下发。
+    return this.pendingAuthorizeUrl === undefined ? status : { ...status, authorizeUrl: this.pendingAuthorizeUrl }
   }
 
   /** 返回最新已校验 bootstrap 副本，永不返回平台凭据。 */
@@ -626,8 +802,18 @@ export class EnterprisePlatformService extends Service {
       code_challenge_method: pkce.method,
       installation_id: installation.installationId,
     }).toString()
+    // client 交接：宿主自己把服务端事务开起来（不交给浏览器），授权 URL 挂上 AUTHORIZING 状态
+    // 随轮询下发，作为「本轮走原生表单」的信号；账号密码随后由界面经本机路由代收。
+    const authorize = authorizeUrl.toString()
+    if (this.browserHandoff === 'client') {
+      // 先备好事务、再发信号：authorizeUrl 一旦出现，`/local/auth/form` 就必须已经能答。
+      // 反过来的顺序会开出一个「信号已下、事务未就绪」的窗口，客户端在那一瞬取表单会拿到
+      // ENT_INVALID_REQUEST，而表单只在挂载时取一次、不重试，界面就永远卡在错误上。
+      this.nativeLogin = await this.beginNativeLogin(authorize, callback.redirectUri, transaction.abort.signal)
+      this.pendingAuthorizeUrl = authorize
+    }
     const [, result] = await Promise.all([
-      this.openBrowser(authorizeUrl.toString(), transaction.abort.signal),
+      this.browserHandoff === 'client' ? undefined : this.openBrowser(authorize, transaction.abort.signal),
       callback.result,
     ])
     transaction.abort.signal.throwIfAborted()
@@ -1071,6 +1257,11 @@ export class EnterprisePlatformService extends Service {
     detail: { readonly flowId?: string; readonly errorCode?: string } = {},
   ): void {
     if (this.disposed) return
+    // 只有 AUTHORIZING 才下发授权 URL；任何离开该状态的迁移都代表本轮交接已结束。
+    if (state !== 'AUTHORIZING') {
+      this.pendingAuthorizeUrl = undefined
+      this.nativeLogin = undefined
+    }
     const snapshot = this.bootstrapSnapshot
     this.currentStatus = {
       state,

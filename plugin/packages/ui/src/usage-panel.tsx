@@ -316,34 +316,32 @@ export function EnterpriseUsagePanel(props: EnterpriseUsagePanelProps): ReactNod
         : props.state.policies.map(policy => {
           const view = enterpriseUsagePolicyView(policy)
           return <section className="own-usage-policy" key={view.policyId}>
-            <h3 className="own-usage-policy-title">{view.title}</h3>
-            <div className="own-usage-head">
-              {ENTERPRISE_USAGE_COLUMNS.map(column => <span className="own-usage-head-cell" key={column}>{column}</span>)}
-            </div>
+            {/* 不放策略标题行（2026-10-01 用户裁定）：只有一个默认策略时，"Default" 这行
+                既不是数据也不区分任何东西；多策略场景由每行数据自身承载。 */}
             {view.windows.length === 0
               ? <p className="own-usage-hint">该策略当前没有生效窗口。</p>
-              : view.windows.map(window => <div className="own-usage-item" key={window.key}>
+              : view.windows.map((window, index) => <div className="own-usage-item" key={window.key}>
                 <span className="own-usage-period">{window.label}</span>
                 <span
                   className="own-usage-percent"
                   data-exhausted={window.exhausted ? 'true' : 'false'}
                   title={`限额 ${enterpriseUsageAmountText(window.limit)} · 已用 ${enterpriseTokenText(window.usedTokens)} · 剩余 ${enterpriseUsageAmountText(window.remainingTokens)}`}
                 >{enterpriseUsageRemainingText(window)}</span>
-                <button
-                  aria-disabled="true"
-                  className="own-usage-details"
-                  onClick={openDetails}
-                  type="button"
-                >详情</button>
+                {/* 刷新不再单独占一行：并到最后一行数据里。 */}
+                {refreshable && index === view.windows.length - 1
+                  ? <button className="own-usage-refresh" onClick={props.onRefresh} type="button">刷新</button>
+                  : <button
+                    aria-disabled="true"
+                    className="own-usage-details"
+                    onClick={openDetails}
+                    type="button"
+                  >详情</button>}
               </div>)}
           </section>
         }))
       : null}
     {detailsHint && props.onOpenUsageDetails === undefined
       ? <p className="own-usage-notice" role="status">{ENTERPRISE_USAGE_DETAILS_HINT}</p>
-      : null}
-    {refreshable
-      ? <button className="own-usage-refresh" onClick={props.onRefresh} type="button">刷新</button>
       : null}
   </div>
 }

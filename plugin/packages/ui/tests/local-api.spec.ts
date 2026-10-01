@@ -8,6 +8,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   createEnterpriseLocalApi,
+  decodeEnterpriseCredentialResult,
+  decodeEnterpriseLoginForm,
   decodeEnterprisePluginStatus,
   decodeEnterpriseLocalStatus,
   ENTERPRISE_CONNECTION_STATES,
@@ -51,6 +53,26 @@ describe('enterprise local browser API', () => {
       .toThrow('ENT_LOCAL_RESPONSE_INVALID')
     expect(() => decodeEnterpriseLocalStatus({ ...STATUS, platformUrl: 'https://user:secret@example.com' }))
       .toThrow('ENT_LOCAL_RESPONSE_INVALID')
+  })
+
+  // 宿主交浏览器半打开时下发的授权 URL：必须带 PKCE 查询串，但不许带凭据或片段。
+  it('carries the client-handoff authorize URL and refuses malformed ones', () => {
+    const authorizeUrl = 'https://enterprise.example.com/enterprise/auth/v1/authorize?state=s&code_challenge=c'
+    expect(decodeEnterpriseLocalStatus({ ...STATUS, authorizeUrl })).toEqual({ ...STATUS, authorizeUrl })
+    // 只带 OPTIONAL：host 交接（宿主自己打开）时这个字段根本不出现。
+    expect(decodeEnterpriseLocalStatus({ ...STATUS })).toEqual(STATUS)
+    const malformed: readonly (readonly [string, unknown])[] = [
+      ['empty', ''],
+      ['not a url', 'not-a-url'],
+      ['non http', 'ftp://enterprise.example.com/authorize'],
+      ['credentials', 'https://user:secret@enterprise.example.com/authorize'],
+      ['fragment', `${authorizeUrl}#frag`],
+      ['non string', 42],
+    ]
+    for (const [label, bad] of malformed) {
+      expect(() => decodeEnterpriseLocalStatus({ ...STATUS, authorizeUrl: bad }), label)
+        .toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    }
   })
 
   it('projects account bootstrap and never returns unrelated policy fields', async () => {
@@ -213,6 +235,37 @@ describe('enterprise local browser API', () => {
       method: 'POST', body: '{}',
     }))
     expect('events' in api).toBe(false)
+  })
+
+  // 原生登录（安卓）：来源列表与凭证结果的严格解码——多字段、错类型、越界键一律拒绝。
+  it('strictly decodes the native login form and credential results', () => {
+    expect(decodeEnterpriseLoginForm({ sources: [{ id: '19001', name: 'Local', type: 'LOCAL' }] }))
+      .toEqual({ sources: [{ id: '19001', name: 'Local', type: 'LOCAL' }] })
+    expect(decodeEnterpriseLoginForm({ sources: [] })).toEqual({ sources: [] })
+    for (const bad of [
+      {},
+      { sources: 'nope' },
+      { sources: [{ id: '1', name: 'Local', type: 'SAML' }] },
+      { sources: [{ id: '', name: 'Local', type: 'LOCAL' }] },
+      { sources: [{ id: '1', name: 'Local', type: 'LOCAL', extra: 1 }] },
+      { sources: [{ id: '1', name: 'Local' }] },
+      { sources: [{ id: '1', name: 'Local', type: 'LOCAL' }], captcha: {} },
+    ]) {
+      expect(() => decodeEnterpriseLoginForm(bad), JSON.stringify(bad)).toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    expect(decodeEnterpriseCredentialResult({ next: 'redirect' })).toEqual({ next: 'redirect' })
+    expect(decodeEnterpriseCredentialResult({ next: 'change-password', challenge: 'c-1', rejected: false }))
+      .toEqual({ next: 'change-password', challenge: 'c-1', rejected: false })
+    for (const bad of [
+      {},
+      { next: 'redirect', extra: 1 },
+      { next: 'change-password', challenge: 'c-1' },
+      { next: 'change-password', challenge: '', rejected: false },
+      { next: 'change-password', challenge: 'c-1', rejected: 'yes' },
+      { next: 'something-else' },
+    ]) {
+      expect(() => decodeEnterpriseCredentialResult(bad), JSON.stringify(bad)).toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    }
   })
 
 })

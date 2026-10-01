@@ -7,7 +7,7 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import { enterpriseStateIcon, enterpriseStatePresentation } from '../src/account-state.js'
-import { enterpriseLoginPageAction, enterpriseLoginServerEditorVisible } from '../src/login-page.js'
+import { enterpriseLoginPageAction, enterpriseLoginServerEditorVisible, enterprisePasswordPolicyError } from '../src/login-page.js'
 import { ENTERPRISE_CONNECTION_STATES } from '../src/local-api.js'
 
 vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({ Button: vi.fn(), Input: vi.fn(), Modal: vi.fn() }))
@@ -33,8 +33,7 @@ describe('the ported Server editor keeps the original visibility rule', () => {
 })
 
 /** 原件 account-view.tsx:376-396：未配置无动作，迁移中取消，可用会话退出，其余登录企业账号。 */
-describe('the ported login actions keep the original branch rule', () => {
-  it('maps every connection state to exactly one action', () => {
+describe('the ported login actions keep the original branch rule', () => {  it('maps every connection state to exactly one action', () => {
     expect(enterpriseLoginPageAction('UNCONFIGURED')).toBe('none')
     for (const state of ['AUTHORIZING', 'ENROLLING', 'BOOTSTRAPPING'] as const) {
       expect(enterpriseLoginPageAction(state)).toBe('cancel-login')
@@ -70,6 +69,19 @@ describe('the shared state icon follows the state presentation', () => {
   it('renders a valid icon element for every presentation', () => {
     for (const state of ENTERPRISE_CONNECTION_STATES) {
       expect(enterpriseStateIcon(enterpriseStatePresentation(state))).toBeTruthy()
+    }
+  })
+})
+
+// 改密策略与服务端一致：≥14 位且同时含大小写、数字与符号（本地先判，避免白跑一次往返）。
+describe('the native password-change policy mirrors the server rule', () => {
+  it('requires a matching confirmation, 14 characters, and all four character classes', () => {
+    expect(enterprisePasswordPolicyError('Abcdef123456!x', 'Abcdef123456!x')).toBeUndefined()
+    expect(enterprisePasswordPolicyError('Abcdef123456!x', 'Abcdef123456!y')).toBe('两次输入的新密码不一致')
+    expect(enterprisePasswordPolicyError('Abcdef12345!', 'Abcdef12345!')).toBe('新密码至少 14 位')
+    // 缺任一字符类都拒绝：仅大小写、仅数字、仅符号。
+    for (const weak of ['Abcdefghijklmn', 'abcdef12345678', 'ABCDEF12345678', '12345678901234', '!!!!!!!!!!!!!!']) {
+      expect(enterprisePasswordPolicyError(weak, weak), weak).toBe('新密码需同时包含大写、小写、数字与符号')
     }
   })
 })

@@ -5,7 +5,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { SunMoon } from 'lucide-react'
+import { Moon, Smartphone, Sun, SunMoon } from 'lucide-react'
 import { useSyncExternalStore, type ReactNode } from 'react'
 
 /** 官方内置主题偏好全集（ui-theme 的 THEME_PREFERENCES）；这里只做窄化，不另立枚举。 */
@@ -18,6 +18,16 @@ const THEME_LABELS: Readonly<Record<EnterpriseThemePreference, string>> = {
   light: '浅色',
   dark: '深色',
   system: '跟随系统',
+}
+
+/**
+ * 图标即文案（2026-10-01 用户裁定）：选项只出图标，一行排完。
+ * 语义没有丢——每个按钮仍带 `aria-label` 与 `title`，读屏与悬停都能拿到「浅色 / 深色 / 跟随系统」。
+ */
+const THEME_ICONS: Readonly<Record<EnterpriseThemePreference, ReactNode>> = {
+  light: <Sun aria-hidden size={15} />,
+  dark: <Moon aria-hidden size={15} />,
+  system: <Smartphone aria-hidden size={15} />,
 }
 
 const THEME_ROW_LABEL = '外观'
@@ -161,12 +171,14 @@ export function EnterpriseThemeOptionGroup(props: EnterpriseThemeOptionGroupProp
       {model.options.map(option => <button
         key={option.id}
         aria-checked={option.selected}
+        aria-label={option.label}
         className="own-theme-seg-btn"
         disabled={option.disabled}
         onClick={() => { selectEnterpriseTheme(props.source, preference, option.id) }}
         role="menuitemradio"
+        title={option.label}
         type="button"
-      >{option.label}</button>)}
+      >{THEME_ICONS[option.id]}</button>)}
     </div>
   </div>
 }

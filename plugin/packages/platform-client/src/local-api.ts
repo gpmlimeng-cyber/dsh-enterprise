@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Harness `ctx.webServer.register()` route port、平台操作端口、组合层注入的插件动作端口、品牌只读端口与可选投影留痕端口
- * [OUTPUT]: 提供账号/配置按需刷新、插件操作与本地品牌投影的严格同源 JSON 路由，无常驻状态连接；每个把异常投影成 HTTP 状态的回调都经 `onError` 上报操作名与原始 error
+ * [OUTPUT]: 提供账号/配置按需刷新、插件操作、本地品牌投影与原生登录（来源列表 / 凭证代提交 / 改密代提交）的严格同源 JSON 路由，无常驻状态连接；凭证正文只按固定键集读入并原样转发，绝不进日志；每个把异常投影成 HTTP 状态的回调都经 `onError` 上报操作名与原始 error
  * [POS]: platform-client 的 Host/Client 同源协作边界，只序列化脱敏 DTO 并把认证 HTTP 留在 Host Service
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -15,7 +15,11 @@ import {
 } from './branding.js'
 import type {
   BootstrapSnapshot,
+  EnterpriseCredentialResult,
+  EnterpriseCredentialsInput,
   EnterpriseLoginFlow,
+  EnterpriseLoginForm,
+  EnterprisePasswordChangeInput,
   EnterprisePlatformStatus,
 } from './types.js'
 
@@ -40,6 +44,15 @@ export interface EnterpriseLocalPlatformPort {
   refresh(): Promise<EnterprisePlatformStatus>
   setServerUrl(serverUrl: string): Promise<{ readonly serverUrl: string }>
   startLogin(): Promise<EnterpriseLoginFlow>
+  /**
+   * 原生登录（安卓）：宿主已自己开好服务端事务，这里交出可选认证来源供界面渲染表单。
+   * 没有进行中的原生事务时抛 `ENT_INVALID_REQUEST`。
+   */
+  loginForm(): EnterpriseLoginForm
+  /** 代提交账号密码；成功即已驱动本机回调，失败按中心错误码抛出。 */
+  submitCredentials(input: EnterpriseCredentialsInput, signal?: AbortSignal): Promise<EnterpriseCredentialResult>
+  /** 走完「需改密」分支；成功后同样已驱动本机回调（再次被策略拒时返回 change-password）。 */
+  submitPasswordChange(input: EnterprisePasswordChangeInput, signal?: AbortSignal): Promise<EnterpriseCredentialResult>
   cancelLogin(): boolean
   logout(): Promise<void>
   bootstrap(): BootstrapSnapshot | undefined
@@ -166,6 +179,25 @@ function requestUrl(request: IncomingMessage): URL {
   return new URL(request.url ?? '/', 'http://enterprise.local')
 }
 
+/**
+ * 逐字段读必填字符串：键集必须**完全一致**、每个值都是非空有界字符串，否则 TypeError（投影 400）。
+ *
+ * 原生登录的凭证正文走这里——多余键即拒，避免任何越界字段被顺手转发给企业服务器。
+ */
+function requiredStrings(value: unknown, keys: readonly string[], maxLength: number): Record<string, string> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new TypeError('body must be an object')
+  const body = value as Record<string, unknown>
+  const expected = [...keys].sort().join(',')
+  if (Object.keys(body).sort().join(',') !== expected) throw new TypeError('unexpected body keys')
+  const result: Record<string, string> = {}
+  for (const key of keys) {
+    const field = body[key]
+    if (typeof field !== 'string' || field.length === 0 || field.length > maxLength) throw new TypeError(`invalid ${key}`)
+    result[key] = field
+  }
+  return result
+}
+
 function registerJsonAction(
   webServer: WebServerRoutePort,
   path: string,
@@ -244,6 +276,77 @@ export function registerEnterpriseLocalApi(
       await options.platform.logout()
       return { loggedOut: true }
     }, options.onError))
+
+    // 原生登录（安卓）：宿主已自己开好服务端事务，界面直接收账号密码——凭证只在内存中转发，
+    // 既不写盘也不进日志；成功后宿主自己把 redirectUri 走完（本机回调照常触发）。
+    disposers.push(webServer.register({
+      kind: 'exact',
+      path: `${LOCAL_API_PREFIX}/auth/form`,
+      handler: (request, response) => {
+        if (request.method !== 'GET') {
+          methodNotAllowed(response, 'GET')
+          return
+        }
+        try {
+          writeJson(response, 200, { data: options.platform.loginForm() })
+        } catch (error) {
+          options.onError?.(`GET ${LOCAL_API_PREFIX}/auth/form`, error, actionErrorStatus(error))
+          writeJson(response, actionErrorStatus(error), { error: { code: errorCode(error) } })
+        }
+      },
+    }))
+
+    disposers.push(webServer.register({
+      kind: 'exact',
+      path: `${LOCAL_API_PREFIX}/auth/password`,
+      handler: async (request, response) => {
+        if (request.method !== 'POST') {
+          methodNotAllowed(response, 'POST')
+          return
+        }
+        const operation = `POST ${LOCAL_API_PREFIX}/auth/password`
+        try {
+          const body = requiredStrings(await readJson(request), ['sourceId', 'username', 'password'], 512)
+          writeJson(response, 200, { data: await options.platform.submitCredentials({
+            sourceId: body['sourceId'] as string,
+            username: body['username'] as string,
+            password: body['password'] as string,
+          }) })
+        } catch (error) {
+          const status = actionErrorStatus(error)
+          // 凭证永不进日志：这里只留操作名、原始 error（不含正文）与状态码。
+          options.onError?.(operation, error, status)
+          writeJson(response, status, {
+            error: { code: status === 400 ? 'ENT_INVALID_REQUEST' : status === 413 ? 'ENT_REQUEST_TOO_LARGE' : errorCode(error) },
+          })
+        }
+      },
+    }))
+
+    disposers.push(webServer.register({
+      kind: 'exact',
+      path: `${LOCAL_API_PREFIX}/auth/password-change`,
+      handler: async (request, response) => {
+        if (request.method !== 'POST') {
+          methodNotAllowed(response, 'POST')
+          return
+        }
+        const operation = `POST ${LOCAL_API_PREFIX}/auth/password-change`
+        try {
+          const body = requiredStrings(await readJson(request), ['challenge', 'newPassword'], 512)
+          writeJson(response, 200, { data: await options.platform.submitPasswordChange({
+            challenge: body['challenge'] as string,
+            newPassword: body['newPassword'] as string,
+          }) })
+        } catch (error) {
+          const status = actionErrorStatus(error)
+          options.onError?.(operation, error, status)
+          writeJson(response, status, {
+            error: { code: status === 400 ? 'ENT_INVALID_REQUEST' : status === 413 ? 'ENT_REQUEST_TOO_LARGE' : errorCode(error) },
+          })
+        }
+      },
+    }))
 
     if (options.uninstallPlugin !== undefined) {
       disposers.push(webServer.register({

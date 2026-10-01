@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 zod、生成契约、官方 settings 的 volatile Config 引用形状、installation 与本地 API 端口
- * [OUTPUT]: 对外提供 BootstrapSnapshot、平台状态/错误、volatile 引用识别与无验收探针的 Service 配置
+ * [OUTPUT]: 对外提供 BootstrapSnapshot、平台状态/错误（含安卓授权页交接时随 AUTHORIZING 下发的 `authorizeUrl`）、volatile 引用识别与无验收探针的 Service 配置（含 `browserHandoff` 开关）
  * [POS]: platform-client 的公共契约层，隔离中心 HTTP 输入、Host 运行参数、官方 settings 引用与无秘密界面状态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -68,6 +68,17 @@ export interface EnterprisePlatformConfig {
 export interface EnterprisePlatformInternals {
   readonly fetch?: typeof globalThis.fetch
   readonly openBrowser?: (url: string, signal: AbortSignal) => Promise<void>
+  /**
+   * 授权页交接方，默认 `host`（宿主进程自己打开系统浏览器）。
+   *
+   * 安卓必须传 `client`：宿主进程没有任何可用的开源路径——Termux 与系统的 `am` 都会被
+   * `ActivityTaskManagerService.assertPackageMatchesCallerUid` 以「包名不属于调用 uid」拒绝，
+   * 实测壳注入的 `window.androidBridge` 在 WebView 里也取不到。此时授权 URL 随状态下发，
+   * 由登录弹窗用 iframe 直接渲染授权页（实测服务端未设 `X-Frame-Options`/`frame-ancestors`，
+   * 且宿主页面本身是非安全上下文、混合内容不拦），登录成功后的重定向仍命中宿主本机回调，
+   * PKCE 链路照常闭合。
+   */
+  readonly browserHandoff?: 'host' | 'client'
   readonly now?: () => Date
   readonly createFlowId?: () => string
   readonly createState?: () => string
@@ -213,9 +224,47 @@ export interface EnterprisePlatformStatus {
   readonly revision?: number
   readonly connectedAt?: string
   readonly errorCode?: string
+  /**
+   * 仅 `browserHandoff: 'client'` 且处于 AUTHORIZING 时下发：宿主已用这条授权 URL 在服务端
+   * 开了事务（自己 GET，不交给浏览器）。
+   *
+   * 客户端把它当「本轮是原生表单登录」的信号，据 `/local/auth/form` 渲染账号表单；
+   * `host` 模式下宿主自己打开系统浏览器，故该字段永不出现。
+   */
+  readonly authorizeUrl?: string
 }
 
 /** 浏览器登录事务启动后立即返回的结果。 */
 export interface EnterpriseLoginFlow {
   readonly flowId: string
 }
+
+/** 服务端 `/sources` 返回的一条企业认证来源。 */
+export interface EnterpriseAuthSource {
+  readonly id: string
+  readonly name: string
+  readonly type: 'LOCAL' | 'OIDC'
+}
+
+/** 原生登录表单的数据面：本轮事务可用的来源（服务端已关闭验证码，故不含验证码面）。 */
+export interface EnterpriseLoginForm {
+  readonly sources: readonly EnterpriseAuthSource[]
+}
+
+/** 原生登录的凭证入参；密码只在内存中转发给企业服务器，绝不落盘、绝不进日志。 */
+export interface EnterpriseCredentialsInput {
+  readonly sourceId: string
+  readonly username: string
+  readonly password: string
+}
+
+/** 「需先改密」分支的入参：challenge 来自服务端 409 响应，一次性使用。 */
+export interface EnterprisePasswordChangeInput {
+  readonly challenge: string
+  readonly newPassword: string
+}
+
+/** 原生凭证提交结果：`redirect` = 已驱动本机回调、登录在后台继续；`change-password` = 服务端要求先改密。 */
+export type EnterpriseCredentialResult =
+  | { readonly next: 'redirect' }
+  | { readonly next: 'change-password'; readonly challenge: string; readonly rejected: boolean }

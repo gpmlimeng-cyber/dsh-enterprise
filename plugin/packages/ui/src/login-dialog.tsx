@@ -9,6 +9,7 @@ import { LoaderCircle } from 'lucide-react'
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useReducer,
   useRef,
   useState,
@@ -167,6 +168,8 @@ export function EnterpriseLoginDialog(props: EnterpriseLoginDialogProps): ReactN
   const [localError, setLocalError] = useState<string>()
   const bodyRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef(props.onClose)
+  /** 本次打开是否已经自动起跳过授权（防止取消后被 effect 立刻重启）。 */
+  const autoStarted = useRef(false)
   const error = localError ?? snapshot.errorCode ?? status?.errorCode
   const submitting = busy !== undefined || inFlight
   const showServerEditor = enterpriseLoginServerEditorVisible(state, editingServer)
@@ -178,6 +181,40 @@ export function EnterpriseLoginDialog(props: EnterpriseLoginDialogProps): ReactN
     setEditingServer(false)
     setLocalError(undefined)
   }, [props.open, savedUrl])
+  /**
+   * 打开即进入授权：地址已配置但未登录时，弹窗出来就该直接能输账号密码，
+   * 不该再要求用户点一次「登录企业账号」；上一轮被用户取消（CANCELLED）同样如此。
+   *
+   * **必须用 useLayoutEffect**：useEffect 晚于首次绘制，会先画出一帧「未登录 + 登录企业账号」
+   * 的旧视图，再被自动登录换成表单——那正是用户看到的"两个页面"。layout effect 在绘制前跑完，
+   * startLogin 又是同步置 busy 的，于是首帧就已经是原生表单。
+   *
+   * 用 `autoStarted` 保证**每次打开只自动起跳一次**：否则对话框开着时点「取消登录」，
+   * 状态一变成 CANCELLED 就会被这个 effect 立刻重启，取消按钮等于失效。
+   * FAILED 刻意不自动重开——中心不可达时的自动重试只会变成打点循环，交回按钮由用户决定。
+   */
+  useLayoutEffect(() => {
+    if (!props.open) {
+      autoStarted.current = false
+      return
+    }
+    if (autoStarted.current) return
+    if (state !== 'SIGNED_OUT' && state !== 'CANCELLED') return
+    autoStarted.current = true
+    void (async () => {
+      await props.store.startLogin()
+      /**
+       * 授权事务在宿主侧是后台建立的（要先 GET 授权 URL、再取来源，两次往返），
+       * 而 store 的常规轮询是 1 秒一拍——只靠它，弹窗出来后输入控件要等一下才出现。
+       * 这里在登录刚发起后做一段**有界**的快速追赶：命中即退出，最坏 1.8 秒后交回常规轮询。
+       */
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        if (props.store.getSnapshot().status?.authorizeUrl !== undefined) return
+        await new Promise(resolve => { setTimeout(resolve, 150) })
+        await props.store.refresh()
+      }
+    })()
+  }, [props.open, state, props.store])
   useEffect(() => { if (!editable) setEditingServer(false) }, [editable])
   // 官方 Modal 只提供 Esc/遮罩关闭；这里封闭 Tab 与外部聚焦，并隔离外层 Settings 的 Escape。
   useEffect(() => {
@@ -238,15 +275,18 @@ export function EnterpriseLoginDialog(props: EnterpriseLoginDialogProps): ReactN
     closeLabel="关闭"
     title={branding.name}
     description={branding.headline}
-    footer={<div style={footer}>
+    // 页脚只在「用户主动点进修改地址」时出现：那里需要「存了再登录」这个合并动作。
+    // 首次为空的引导步不算——那一步输入框旁的「保存」就够，页脚只会多出一个与 X 同义的
+    // 「取消」和一个提前的「登录」。
+    footer={editingServer ? <div style={footer}>
       <Button variant="outline" disabled={busy === 'cancel'} onClick={props.onClose}>取消</Button>
-      {showServerEditor ? <Button
+      <Button
         variant="primary"
         disabled={submitting || !editable}
         icon={submitting ? <LoaderCircle aria-hidden className="own-login-spin" size={15} /> : undefined}
         onClick={submit}
-      >{busy === 'configure' ? '正在保存' : submitting ? '正在登录' : '登录'}</Button> : null}
-    </div>}
+      >{busy === 'configure' ? '正在保存' : submitting ? '正在登录' : '登录'}</Button>
+    </div> : undefined}
   >
     <div ref={bodyRef}>
       <style>{style}</style>

@@ -180,7 +180,8 @@ export function enterpriseAccountMenu(input: EnterpriseAccountMenuInput): Enterp
     feedback: { id: 'feedback', label: FEEDBACK_LABEL, disabled: false },
     docs: {
       disabled: !helpConfigured,
-      hint: helpConfigured ? ENTERPRISE_HELP_HINT : ENTERPRISE_HELP_UNCONFIGURED_HINT,
+      // 行右侧不写字（2026-10-01 用户裁定）：这一行只有「打开帮助站」一个含义，
+      // 右侧那句弱化提示在菜单里是噪音；禁用原因改写进 title（悬停可见），不再占用行尾。
       id: 'docs',
       label: ENTERPRISE_HELP_LABEL,
       title: helpConfigured ? ENTERPRISE_HELP_HINT : ENTERPRISE_HELP_UNCONFIGURED_HINT,
