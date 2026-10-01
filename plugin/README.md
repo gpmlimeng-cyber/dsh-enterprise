@@ -50,6 +50,37 @@ pnpm run accept:t11-model
 pnpm run accept:t14-dsh-plugin
 ```
 
+## Android / DSH runtime environment adaptation
+
+On an Android host (`process.platform === 'android'`, arm64, Termux-fork under
+`com.deepcode.shell`), the default toolchain assumptions do not hold: the
+filesystem layer rejects hard links and, on `/storage` (FUSE), symlinks; the
+Bionic `linker64` refuses to exec any `#!` script it is handed; and neither
+vitest's `forks` pool nor Node's `--test` runner start their workers. The
+workspace gate still runs green there once these five adjustments are applied
+(all are environment-side; no product test or expectation is modified):
+
+```sh
+# 1. Keep the repo on internal storage (/data), never /storage (FUSE lacks symlink/link support).
+# 2. Point esbuild at its Android native binary so install never execs the JS shim.
+export ESBUILD_BINARY_PATH=<repo>/plugin/node_modules/@esbuild/android-arm64/bin/esbuild
+# 3. Install without lifecycle scripts; esbuild's postinstall self-check cannot run under linker64
+#    and contributes nothing to build/typecheck once the native binary is present.
+npx pnpm@11.7.0 install --frozen-lockfile --ignore-scripts
+# 4. Run every vitest suite with the threads pool (forks workers die with EPIPE on Android).
+npx vitest run tests --pool=threads
+# 5. The root invariant gates must be driven through `node --test` on CI; locally on Android that
+#    runner fails to start, so import workspace.test.mjs / core-packages.test.mjs directly —
+#    their assertions pass unchanged (6/6).
+```
+
+The client-plugin and platform-client suites additionally report red on
+Android for non-environment reasons that are intentionally not papered over:
+`client-plugin` is missing its host entry `src/index.ts` (never tracked in git),
+and `platform-client` uses `fs.link()` for its atomic installation write, which
+the Android filesystem rejects — both need their own design decision, not a
+test-expectation change.
+
 The packed bundle is accepted by `scripts/t01-harness-smoke.mjs` as both a
 standalone package consumer and an installed plugin in a temporary Harness
 `web` profile. It proves the zero-configuration `UNCONFIGURED` state, saves the
