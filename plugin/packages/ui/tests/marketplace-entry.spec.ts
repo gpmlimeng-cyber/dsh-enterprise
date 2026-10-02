@@ -1737,6 +1737,49 @@ describe('enterprise marketplace entry', () => {
     expect(cssRuleBody(collectStyleText(legacy), '.own-market-storeHero')).toBe('')
   })
 
+  // 容器内边距（用户反馈「四周缺少间距」）：侧栏「应用商店」是我们**自己注册的 main 面板**，官方不像
+  // `plugins.item` 的 `DetailTop` 那样给它带外层内边距，故 HERO / 页签条 / 搜索框 / 卡片网格原先整页贴着
+  // 屏幕左右边缘。修在**新外壳的根容器**上；旧外壳外面有官方内边距，一行都不能加——本用例同时反向锁死它。
+  it('pads the store shell root container and keeps the legacy shell free of that padding', () => {
+    const props = {
+      view: 'page' as const,
+      sessionUsable: true,
+      enterpriseSkills: enterpriseMarketSkillRows([SKILL]),
+      skillActionError: { id: SKILL.id, action: 'install' as const, code: 'ENT_ARTIFACT_INTEGRITY_FAILED' },
+    }
+    const store = EnterpriseMarketStoreShell(props)
+    const legacy = EnterpriseMarketLegacyShell(props)
+    const css = collectStyleText(store)
+    // 规则原文（写进 `storeStyles` 的那一条）：左右 14px = 卡片内衬 `padding:12px 14px` 的横向 14px（= HERO 内衬）；
+    // 顶部 14px 同一口径（HERO 不贴内容区上沿）；底部 20px = 卡片/HERO 的 radius-xl(20px) 量级（最后一张卡不贴底）。
+    expect(cssRuleBody(css, '.own-market-entry.own-market-storePage'))
+      .toBe('padding:14px 14px 20px;box-sizing:border-box')
+    // 内边距加在**新外壳的根节点**上：根节点自己就是这个 section，故 HERO / 页签条 / 搜索框 / 卡片网格 /
+    // 展开区 / 失败提示六件全部落在同一个有内边距的容器里（逐个在树里实渲染一次）。
+    expect(isValidElement(store) ? store.type : undefined).toBe('section')
+    expect(isValidElement(store) ? store.props.className : undefined).toBe('own-market-entry own-market-storePage')
+    for (const name of ['own-market-storeHero', 'own-market-storeTabs', 'own-market-catalogSearch', 'own-market-cardGrid', 'own-market-cardDetails', 'own-market-inlineError']) {
+      expect(collectByClassName(store, name), name).toHaveLength(1)
+    }
+    // 不横向溢出：`.own-market-entry *` 的既有 border-box 口径对本页所有后代成立，根节点自己再显式声明一次
+    // （块级 `width:auto` + border-box 下内边距落在容器内部，不产生横向滚动）。
+    expect(cssRuleBody(css, '.own-market-entry *')).toBe('box-sizing:border-box')
+    // 窄屏那套单列逻辑一字未动（容器查询 + 同断点 media 兜底旧 WebView）。
+    expect(css).toContain('@container own-market-catalog')
+    expect(css).toContain('@media (max-width:520px)')
+    // 反向断言（防把官方那层间距重复叠上）：旧外壳既没有这枚类，也没有这条内边距规则。
+    expect(isValidElement(legacy) ? legacy.props.className : undefined).toBe('own-market-entry')
+    expect(collectByClassName(legacy, 'own-market-storePage')).toEqual([])
+    const legacyCss = collectStyleText(legacy)
+    expect(cssRuleBody(legacyCss, '.own-market-entry.own-market-storePage')).toBe('')
+    expect(legacyCss).not.toContain('storePage')
+    expect(legacyCss).not.toContain('padding:14px 14px 20px')
+    // 旧外壳根节点仍是零内边距（依赖官方 DetailTop 自带内边距），共享的 border-box 口径照旧还在。
+    const legacyRoot = cssRuleBody(legacyCss, '.own-market-entry')
+    expect(legacyRoot).toContain('min-width:0')
+    expect(legacyRoot).not.toContain('padding')
+  })
+
   // 商业化字样反向断言：两套外壳（含 summary 与三个页签、含失败态与已装态）的全树文本与样式文本
   // 都不许出现价格/交易/购买/购物车/客服之类的字样。
   it('keeps both shells free of any commercial wording', () => {
