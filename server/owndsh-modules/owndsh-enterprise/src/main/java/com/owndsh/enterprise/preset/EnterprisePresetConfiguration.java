@@ -32,8 +32,8 @@ import java.util.function.LongSupplier;
 @EnableConfigurationProperties(EnterprisePresetProperties.class)
 public class EnterprisePresetConfiguration {
     @Bean
-    PresetStore enterprisePresetStore(JdbcTemplate jdbcTemplate) {
-        return new JdbcPresetStore(jdbcTemplate);
+    PresetStore enterprisePresetStore(JdbcTemplate jdbcTemplate, JsonMapper jsonMapper) {
+        return new JdbcPresetStore(jdbcTemplate, jsonMapper);
     }
 
     @Bean

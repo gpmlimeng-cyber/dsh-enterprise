@@ -37,6 +37,16 @@ describe('enterprise local error status mapping', () => {
     expect(enterpriseLocalErrorStatus(new Error('socket hang up'))).toBe(503)
     expect(enterpriseLocalErrorStatus(withCode('EACCES'))).toBe(503)
   })
+
+  it('maps the preset publish-gate dependency codes to 400/409', () => {
+    const withCode = (code: string): Error => Object.assign(new Error(code), { code })
+    // 形状/类型非法 = 发布内容本身不合法 → 400。
+    expect(enterpriseLocalErrorStatus(withCode('ENT_PRESET_DEPENDENCIES_INVALID'))).toBe(400)
+    expect(enterpriseLocalErrorStatus(withCode('ENT_PRESET_DEPENDENCY_KIND_UNSUPPORTED'))).toBe(400)
+    // 声明合法但中心当前没有可分发目标 → 409（补齐/改钉后可重试）。
+    expect(enterpriseLocalErrorStatus(withCode('ENT_PRESET_REQUIRES_MISSING'))).toBe(409)
+    expect(enterpriseLocalErrorStatus(withCode('ENT_PRESET_REQUIRES_NOT_PUBLISHED'))).toBe(409)
+  })
 })
 
 /**

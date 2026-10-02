@@ -237,6 +237,8 @@ x-enterprise-error-statuses:
     - ENT_PKCE_REQUIRED
     - ENT_PLUGIN_ARTIFACT_INVALID
     - ENT_PRESET_INVALID_PACKAGE
+    - ENT_PRESET_DEPENDENCIES_INVALID
+    - ENT_PRESET_DEPENDENCY_KIND_UNSUPPORTED
     - ENT_SKILL_INVALID_PACKAGE
     - ENT_BRANDING_ASSET_INVALID
     - ENT_FEEDBACK_INVALID
@@ -272,6 +274,8 @@ x-enterprise-error-statuses:
     - ENT_IDENTITY_ALREADY_LINKED
     - ENT_DEVICE_ALREADY_BOUND
     - ENT_FEEDBACK_STATE_CONFLICT
+    - ENT_PRESET_REQUIRES_MISSING
+    - ENT_PRESET_REQUIRES_NOT_PUBLISHED
   '413':
     - ENT_REQUEST_TOO_LARGE
     - ENT_PLUGIN_ARCHIVE_TOO_LARGE
@@ -428,6 +432,9 @@ x-enterprise-fixtures:
   - file: fixtures/preset-version-success.json
     schema: PresetVersionResponse
     valid: true
+  - file: fixtures/preset-version-unknown-dependency-kind.json
+    schema: PresetVersionResponse
+    valid: false
   - file: fixtures/preset-package-list-success.json
     schema: PresetPackageListResponse
     valid: true
@@ -951,6 +958,7 @@ components:
     PresetSha256: {$ref: './components/preset.yaml#/PresetSha256'}
     PresetUploadMetadata: {$ref: './components/preset.yaml#/PresetUploadMetadata'}
     PresetVersion: {$ref: './components/preset.yaml#/PresetVersion'}
+    PresetDependency: {$ref: './components/preset.yaml#/PresetDependency'}
     PresetVersionResponse: {$ref: './components/preset.yaml#/PresetVersionResponse'}
     PresetAssignment: {$ref: './components/preset.yaml#/PresetAssignment'}
     PresetAssignmentSpec: {$ref: './components/preset.yaml#/PresetAssignmentSpec'}
@@ -1188,6 +1196,8 @@ components:
         - ENT_PKCE_REQUIRED
         - ENT_PLUGIN_ARTIFACT_INVALID
         - ENT_PRESET_INVALID_PACKAGE
+        - ENT_PRESET_DEPENDENCIES_INVALID
+        - ENT_PRESET_DEPENDENCY_KIND_UNSUPPORTED
         - ENT_SKILL_INVALID_PACKAGE
         - ENT_BRANDING_ASSET_INVALID
         - ENT_FEEDBACK_INVALID
@@ -1219,6 +1229,8 @@ components:
         - ENT_IDENTITY_ALREADY_LINKED
         - ENT_DEVICE_ALREADY_BOUND
         - ENT_FEEDBACK_STATE_CONFLICT
+        - ENT_PRESET_REQUIRES_MISSING
+        - ENT_PRESET_REQUIRES_NOT_PUBLISHED
         - ENT_REQUEST_TOO_LARGE
         - ENT_PLUGIN_ARCHIVE_TOO_LARGE
         - ENT_PRESET_TOO_LARGE

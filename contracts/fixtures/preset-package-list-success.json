@@ -18,7 +18,22 @@
             "sha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
             "status": "PUBLISHED",
             "createdAt": "2026-09-16T08:00:00Z",
-            "revision": 1
+            "revision": 1,
+            "dependencies": [
+              {
+                "kind": "skill",
+                "id": "expense-reimbursement",
+                "mode": "pinned",
+                "versionId": "1901500000000000902",
+                "required": true
+              },
+              {
+                "kind": "plugin",
+                "id": "@deepseek-ai/dsh-agent-preset",
+                "mode": "latest",
+                "required": false
+              }
+            ]
           }
         ],
         "assignments": [

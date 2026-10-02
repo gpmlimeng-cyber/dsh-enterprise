@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖事务、PresetStore、ZIP inspector/CAS store、revision、审计与 ID。
- * [OUTPUT]: 提供配方目录、幂等上传、发布/退休与可见范围原子替换。
+ * [OUTPUT]: 提供配方目录、幂等上传（含引用清单落库）、发布口引用 fail-closed 校验、退休与可见范围原子替换。
  * [POS]: preset/application 的管理状态编排，文件系统补偿与数据库事务在此协调。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -14,6 +14,9 @@ import com.owndsh.enterprise.audit.AuditSink;
 import com.owndsh.enterprise.preset.artifact.PresetArtifactInspector;
 import com.owndsh.enterprise.preset.artifact.PresetArtifactStore;
 import com.owndsh.enterprise.preset.domain.PresetAssignment;
+import com.owndsh.enterprise.preset.domain.PresetDependency;
+import com.owndsh.enterprise.preset.domain.PresetDependencyResolution;
+import com.owndsh.enterprise.preset.domain.PresetDependencyRules;
 import com.owndsh.enterprise.preset.domain.PresetPackage;
 import com.owndsh.enterprise.preset.domain.PresetVersion;
 import com.owndsh.enterprise.preset.persistence.PresetStore;
@@ -29,8 +32,10 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 
 public final class PresetCatalogService {
@@ -128,6 +133,7 @@ public final class PresetCatalogService {
                     PresetVersion uploaded = new PresetVersion(
                         versionId, context.tenantId(), presetPackage.id(), inspected.sourceDshVersion(),
                         finalized[0].artifactRef(), pending.sizeBytes(), pending.sha256(),
+                        inspected.dependencies(),
                         PresetVersion.Status.VALIDATED, context.actorId(), Instant.now(clock), 0
                     );
                     presets.insertVersion(uploaded);
@@ -162,18 +168,63 @@ public final class PresetCatalogService {
         }
     }
 
+    /**
+     * 发布（VALIDATED → PUBLISHED）。
+     *
+     * <p>**发布口是引用校验的唯一 fail-closed 闸**：形状复检 + 每个 required 引用必须当前可分发，
+     * 任一不满足都在状态迁移之前抛 {@link PresetDependencyException}（稳定错误码见该类）。
+     * 不复检"可选引用"——它们允许缺失，员工端降级提示即可（方案 §D.5）。
+     */
     public PresetVersion publish(PresetMutationContext context, long versionId, long expectedRevision) {
         return changeStatus(
             context, versionId, expectedRevision, PresetVersion.Status.VALIDATED, PresetVersion.Status.PUBLISHED,
-            AuditAction.PRESET_VERSION_PUBLISHED
+            AuditAction.PRESET_VERSION_PUBLISHED,
+            version -> requireDependenciesResolvable(context.tenantId(), version)
         );
     }
 
     public PresetVersion retire(PresetMutationContext context, long versionId, long expectedRevision) {
         return changeStatus(
             context, versionId, expectedRevision, PresetVersion.Status.PUBLISHED, PresetVersion.Status.RETIRED,
-            AuditAction.PRESET_VERSION_RETIRED
+            AuditAction.PRESET_VERSION_RETIRED,
+            null
         );
+    }
+
+    /**
+     * 形状闸（与验包同一份规则）+ required 引用解析闸。
+     *
+     * <p>形状在发布口再查一次是刻意的：`dependencies` 是库内冻结列，历史行、手工 SQL 或将来新增的
+     * 写路径都可能绕过验包；发布是"员工可见"的最后一道门，必须自己再确认一次。
+     */
+    private void requireDependenciesResolvable(String tenantId, PresetVersion version) {
+        Optional<PresetDependencyRules.Finding> finding = PresetDependencyRules.inspect(version.dependencies());
+        if (finding.isPresent()) {
+            PresetDependencyRules.Finding violation = finding.get();
+            throw violation.violation() == PresetDependencyRules.Violation.KIND_UNSUPPORTED
+                ? new PresetDependencyException(
+                    PresetDependencyException.DEPENDENCY_KIND_UNSUPPORTED, violation.detail())
+                : new PresetDependencyException(
+                    PresetDependencyException.DEPENDENCIES_INVALID, violation.detail());
+        }
+        for (PresetDependency dependency : version.dependencies()) {
+            if (!dependency.required()) continue;
+            PresetDependencyResolution resolution = presets.resolveDependency(
+                tenantId, dependency.kind(), dependency.id(), dependency.versionId()
+            );
+            if (resolution == PresetDependencyResolution.MISSING) {
+                throw new PresetDependencyException(
+                    PresetDependencyException.REQUIRES_MISSING,
+                    "必填引用不存在：" + PresetDependencyRules.label(dependency)
+                );
+            }
+            if (resolution == PresetDependencyResolution.NOT_PUBLISHED) {
+                throw new PresetDependencyException(
+                    PresetDependencyException.REQUIRES_NOT_PUBLISHED,
+                    "必填引用当前不可分发（未发布或已退休）：" + PresetDependencyRules.label(dependency)
+                );
+            }
+        }
     }
 
     public List<PresetAssignment> replaceAssignments(
@@ -241,12 +292,14 @@ public final class PresetCatalogService {
         long expectedRevision,
         PresetVersion.Status from,
         PresetVersion.Status to,
-        AuditAction action
+        AuditAction action,
+        Consumer<PresetVersion> beforeTransition
     ) {
         return requireResult(transactions.execute(status -> {
             PresetVersion version = presets.findVersion(context.tenantId(), versionId)
                 .orElseThrow(PresetResourceNotFoundException::new);
             if (version.status() != from) throw new PresetAccessException(PresetAccessException.NOT_PUBLISHED);
+            if (beforeTransition != null) beforeTransition.accept(version);
             if (!presets.transitionVersion(context.tenantId(), versionId, from, to, expectedRevision)) {
                 throw versionConflict(context.tenantId(), versionId, expectedRevision);
             }

@@ -36,6 +36,7 @@ import com.owndsh.enterprise.plugin.application.PluginAccessException;
 import com.owndsh.enterprise.plugin.application.PluginResourceNotFoundException;
 import com.owndsh.enterprise.plugin.artifact.PluginArtifactException;
 import com.owndsh.enterprise.preset.application.PresetAccessException;
+import com.owndsh.enterprise.preset.application.PresetDependencyException;
 import com.owndsh.enterprise.preset.application.PresetResourceNotFoundException;
 import com.owndsh.enterprise.preset.artifact.PresetArtifactException;
 import com.owndsh.enterprise.skill.application.SkillAccessException;
@@ -323,6 +324,24 @@ public final class EnterpriseExceptionHandler {
             ? "配方归档超过限制"
             : "配方归档无效";
         return error(status, exception.errorCode(), message, false, null, request);
+    }
+
+    /**
+     * 发布口的引用 fail-closed 校验：形状/类型非法是"请求内容不合法"（400），
+     * required 引用不可分发是"中心当前状态与发布意图冲突"（409，可修复后重试）。
+     * message 用异常自带的 detail——它只含已过形状校验的 kind/id，便于管理员直接定位缺哪一项。
+     */
+    @ExceptionHandler(PresetDependencyException.class)
+    public ResponseEntity<EnterpriseErrorResponse> presetDependency(
+        PresetDependencyException exception,
+        HttpServletRequest request
+    ) {
+        HttpStatus status = switch (exception.errorCode()) {
+            case PresetDependencyException.REQUIRES_MISSING,
+                 PresetDependencyException.REQUIRES_NOT_PUBLISHED -> HttpStatus.CONFLICT;
+            default -> HttpStatus.BAD_REQUEST;
+        };
+        return error(status, exception.errorCode(), exception.getMessage(), false, null, request);
     }
 
     @ExceptionHandler(SkillResourceNotFoundException.class)

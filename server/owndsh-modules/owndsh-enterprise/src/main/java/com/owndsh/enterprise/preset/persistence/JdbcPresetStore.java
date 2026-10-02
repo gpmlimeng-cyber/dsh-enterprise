@@ -1,17 +1,21 @@
 /**
- * [INPUT]: 依赖 V30 表与 Spring JDBC。
- * [OUTPUT]: 实现 preset catalog/version/assignment 与可见 runtime 查询。
+ * [INPUT]: 依赖 V30 表、V39 dependencies 列、Spring JDBC 与 Jackson（dependencies jsonb 序列化）。
+ * [OUTPUT]: 实现 preset catalog/version/assignment、可见 runtime 查询与技能/插件引用解析。
  * [POS]: preset/persistence 的 PostgreSQL adapter，USER 优先于 ALL。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 package com.owndsh.enterprise.preset.persistence;
 
 import com.owndsh.enterprise.preset.domain.PresetAssignment;
+import com.owndsh.enterprise.preset.domain.PresetDependency;
+import com.owndsh.enterprise.preset.domain.PresetDependencyResolution;
 import com.owndsh.enterprise.preset.domain.PresetPackage;
 import com.owndsh.enterprise.preset.domain.PresetVersion;
 import com.owndsh.enterprise.preset.domain.RuntimePreset;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -20,17 +24,12 @@ import java.util.Objects;
 import java.util.Optional;
 
 public final class JdbcPresetStore implements PresetStore {
+    private static final TypeReference<List<PresetDependency>> DEPENDENCIES = new TypeReference<>() {
+    };
     private static final RowMapper<PresetPackage> PACKAGE = (rs, i) -> new PresetPackage(
         rs.getLong("id"), rs.getString("tenant_id"), rs.getString("preset_id"),
         rs.getString("display_name"), rs.getString("description"),
         PresetPackage.Status.valueOf(rs.getString("status")), rs.getLong("revision")
-    );
-    private static final RowMapper<PresetVersion> VERSION = (rs, i) -> new PresetVersion(
-        rs.getLong("id"), rs.getString("tenant_id"), rs.getLong("package_id"),
-        rs.getString("source_dsh_version"), rs.getString("artifact_ref"),
-        rs.getLong("size_bytes"), rs.getString("sha256"),
-        PresetVersion.Status.valueOf(rs.getString("status")), rs.getLong("created_by"),
-        rs.getTimestamp("created_at").toInstant(), rs.getLong("revision")
     );
     private static final RowMapper<PresetAssignment> ASSIGNMENT = (rs, i) -> new PresetAssignment(
         rs.getLong("id"), rs.getString("tenant_id"), rs.getLong("package_id"),
@@ -45,9 +44,25 @@ public final class JdbcPresetStore implements PresetStore {
     );
 
     private final JdbcTemplate jdbc;
+    private final JsonMapper json;
 
-    public JdbcPresetStore(JdbcTemplate jdbc) {
+    /** version mapper 是实例字段：dependencies jsonb 需要 JsonMapper 反序列化（同 JdbcSkillStore 先例）。 */
+    private final RowMapper<PresetVersion> versionMapper = (rs, i) -> new PresetVersion(
+        rs.getLong("id"), rs.getString("tenant_id"), rs.getLong("package_id"),
+        rs.getString("source_dsh_version"), rs.getString("artifact_ref"),
+        rs.getLong("size_bytes"), rs.getString("sha256"), dependencies(rs.getString("dependencies")),
+        PresetVersion.Status.valueOf(rs.getString("status")), rs.getLong("created_by"),
+        rs.getTimestamp("created_at").toInstant(), rs.getLong("revision")
+    );
+
+    public JdbcPresetStore(JdbcTemplate jdbc, JsonMapper json) {
         this.jdbc = Objects.requireNonNull(jdbc, "jdbc");
+        this.json = Objects.requireNonNull(json, "json");
+    }
+
+    private List<PresetDependency> dependencies(String value) {
+        if (value == null || value.isBlank()) return List.of();
+        return json.readValue(value, DEPENDENCIES);
     }
 
     @Override
@@ -108,14 +123,14 @@ public final class JdbcPresetStore implements PresetStore {
             join ent_preset_package p on p.id = v.package_id
             where v.tenant_id = ? and p.preset_id = ? and v.source_dsh_version = ? and v.sha256 = ?
             """,
-            VERSION, tenantId, presetId, sourceDshVersion, sha256
+            versionMapper, tenantId, presetId, sourceDshVersion, sha256
         ));
     }
 
     @Override
     public Optional<PresetVersion> findVersion(String tenantId, long versionId) {
         return one(jdbc.query(
-            "select * from ent_preset_version where tenant_id = ? and id = ?", VERSION, tenantId, versionId
+            "select * from ent_preset_version where tenant_id = ? and id = ?", versionMapper, tenantId, versionId
         ));
     }
 
@@ -123,7 +138,7 @@ public final class JdbcPresetStore implements PresetStore {
     public List<PresetVersion> listVersions(String tenantId, long packageId) {
         return jdbc.query(
             "select * from ent_preset_version where tenant_id = ? and package_id = ? order by created_at desc, id desc",
-            VERSION, tenantId, packageId
+            versionMapper, tenantId, packageId
         );
     }
 
@@ -132,11 +147,13 @@ public final class JdbcPresetStore implements PresetStore {
         jdbc.update(
             """
             insert into ent_preset_version
-            (id, tenant_id, package_id, source_dsh_version, artifact_ref, size_bytes, sha256, status, created_by, created_at, revision)
-            values (?,?,?,?,?,?,?,?,?,?,?)
+            (id, tenant_id, package_id, source_dsh_version, artifact_ref, size_bytes, sha256, dependencies,
+             status, created_by, created_at, revision)
+            values (?,?,?,?,?,?,?,?::jsonb,?,?,?,?)
             """,
             version.id(), version.tenantId(), version.packageId(), version.sourceDshVersion(), version.artifactRef(),
-            version.sizeBytes(), version.sha256(), version.status().name(), version.createdBy(),
+            version.sizeBytes(), version.sha256(), json.writeValueAsString(version.dependencies()),
+            version.status().name(), version.createdBy(),
             java.sql.Timestamp.from(version.createdAt()), version.revision()
         );
     }
@@ -257,11 +274,94 @@ public final class JdbcPresetStore implements PresetStore {
                   )
               )
             """,
-            VERSION, tenantId, versionId, userId
+            versionMapper, tenantId, versionId, userId
         ));
+    }
+
+    @Override
+    public PresetDependencyResolution resolveDependency(String tenantId, String kind, String id, String versionId) {
+        return switch (kind) {
+            case PresetDependency.KIND_SKILL -> resolveSkillDependency(tenantId, id, versionId);
+            case PresetDependency.KIND_PLUGIN -> resolvePluginDependency(tenantId, id, versionId);
+            // 形状闸已在发布口拒绝未知 kind；这里的兜底只保证 DIP 边界不回显任何东西。
+            default -> PresetDependencyResolution.MISSING;
+        };
+    }
+
+    /**
+     * 技能引用：pinned 时按 (versionId, skillId) 定位；latest 时看该技能包是否已有 PUBLISHED 版本。
+     * 两跳以内单条 SQL，不做跨包外键（引用是软约束）。
+     */
+    private PresetDependencyResolution resolveSkillDependency(String tenantId, String id, String versionId) {
+        Long pinned = pinnedId(versionId);
+        if (versionId != null && pinned == null) return PresetDependencyResolution.MISSING;
+        String sql = pinned == null
+            ? """
+              select p.status as package_status,
+                     (select count(*) from ent_skill_version v
+                       where v.package_id = p.id and v.status = 'PUBLISHED') > 0 as distributable
+              from ent_skill_package p
+              where p.tenant_id = ? and p.skill_id = ?
+              """
+            : """
+              select p.status as package_status, v.status = 'PUBLISHED' as distributable
+              from ent_skill_version v
+              join ent_skill_package p on p.id = v.package_id
+              where v.tenant_id = ? and p.tenant_id = ? and v.id = ? and p.skill_id = ?
+              """;
+        List<DependencyRow> rows = pinned == null
+            ? jdbc.query(sql, DEPENDENCY_ROW, tenantId, id)
+            : jdbc.query(sql, DEPENDENCY_ROW, tenantId, tenantId, pinned, id);
+        return one(rows).map(JdbcPresetStore::resolve).orElse(PresetDependencyResolution.MISSING);
+    }
+
+    /** 插件引用：与技能同构，包名锚在 ent_plugin_package.package_name（npm 名）。 */
+    private PresetDependencyResolution resolvePluginDependency(String tenantId, String id, String versionId) {
+        Long pinned = pinnedId(versionId);
+        if (versionId != null && pinned == null) return PresetDependencyResolution.MISSING;
+        String sql = pinned == null
+            ? """
+              select p.status as package_status,
+                     (select count(*) from ent_plugin_version v
+                       where v.package_id = p.id and v.status = 'PUBLISHED') > 0 as distributable
+              from ent_plugin_package p
+              where p.tenant_id = ? and p.package_name = ?
+              """
+            : """
+              select p.status as package_status, v.status = 'PUBLISHED' as distributable
+              from ent_plugin_version v
+              join ent_plugin_package p on p.id = v.package_id
+              where v.tenant_id = ? and p.tenant_id = ? and v.id = ? and p.package_name = ?
+              """;
+        List<DependencyRow> rows = pinned == null
+            ? jdbc.query(sql, DEPENDENCY_ROW, tenantId, id)
+            : jdbc.query(sql, DEPENDENCY_ROW, tenantId, tenantId, pinned, id);
+        return one(rows).map(JdbcPresetStore::resolve).orElse(PresetDependencyResolution.MISSING);
+    }
+
+    private static PresetDependencyResolution resolve(DependencyRow row) {
+        if (!"ACTIVE".equals(row.packageStatus())) return PresetDependencyResolution.NOT_PUBLISHED;
+        return row.distributable() ? PresetDependencyResolution.RESOLVED : PresetDependencyResolution.NOT_PUBLISHED;
+    }
+
+    /** 形状闸已保证雪花 ID 的十进制形状；这里仍防御性吞掉非法值，避免 500。 */
+    private static Long pinnedId(String versionId) {
+        if (versionId == null) return null;
+        try {
+            return Long.valueOf(versionId);
+        } catch (NumberFormatException exception) {
+            return null;
+        }
     }
 
     private static <T> Optional<T> one(List<T> rows) {
         return rows.isEmpty() ? Optional.empty() : Optional.of(rows.getFirst());
     }
+
+    private record DependencyRow(String packageStatus, boolean distributable) {
+    }
+
+    private static final RowMapper<DependencyRow> DEPENDENCY_ROW = (rs, i) -> new DependencyRow(
+        rs.getString("package_status"), rs.getBoolean("distributable")
+    );
 }

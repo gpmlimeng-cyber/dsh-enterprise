@@ -192,6 +192,8 @@ function errorCode(error: unknown): string {
  * 原先它是本文件私有的 `actionErrorStatus`，现在对外导出：`bundle/src/skill-route.ts` 的两条
  * **本机技能文件**子路由（`/skills/<id>/files`、`/skills/<id>/file`）必须与本文件的
  * `/skills/content` 用同一张表，否则同一种失败会在两条同族路由上给出两个状态码。
+ * 另含配方发布口 fail-closed 的四个码：它们目前只由管理端 HTTP 端点产生、不走本机路由，
+ * 仍然放进同一张表，以守住"一个稳定码只在一处定状态"的纪律。
  * 只读形状，不含任何路由副作用。
  *
  * @param error - 路由 handler 里逃出来的异常（带受控 `code` 的稳定错误或内建类型错误）。
@@ -213,6 +215,11 @@ export function enterpriseLocalErrorStatus(error: unknown): number {
   if (code === 'ENT_DEVICE_REVOKED' || code === 'ENT_PERMISSION_DENIED') return 403
   if (code === 'ENT_RESOURCE_NOT_FOUND') return 404
   if (code === 'ENT_SESSION_SYNC_DISABLED') return 403
+  // 配方发布口 fail-closed 引用校验（ENT_PRESET_DEPENDENCIES_INVALID / _KIND_UNSUPPORTED 是
+  // "这份版本的引用声明本身不合法"→400；ENT_PRESET_REQUIRES_MISSING / _NOT_PUBLISHED 是
+  // "声明合法但中心当前没有可分发目标"→409，管理员补齐或改钉后重试）。
+  if (code === 'ENT_PRESET_DEPENDENCIES_INVALID' || code === 'ENT_PRESET_DEPENDENCY_KIND_UNSUPPORTED') return 400
+  if (code === 'ENT_PRESET_REQUIRES_MISSING' || code === 'ENT_PRESET_REQUIRES_NOT_PUBLISHED') return 409
   return 503
 }
 

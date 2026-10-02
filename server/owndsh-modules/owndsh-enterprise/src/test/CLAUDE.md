@@ -39,7 +39,9 @@ java/com/owndsh/enterprise/common/api/: T20 有界 JSON 请求、稳定 413/503 
 java/com/owndsh/enterprise/test/OpenLdapTestServer.java: 共享 OpenLDAP Testcontainer 与测试专用 TLS trust，集中管理 LDAP 集成环境。
 java/com/owndsh/enterprise/test/RedisTestServer.java: 共享 Redis 8 Testcontainer，并为每项认证测试清理隔离 keyspace。
 java/com/owndsh/enterprise/database/EnterpriseMigrationTest.java: 验证普通数据库所有者从空库执行 V0-V35、旧 baseline 0 接管/升级、重复启动不重放种子、字符串时间参数与历史计量迁移。
-java/com/owndsh/enterprise/preset/artifact/PresetArtifactInspectorTest.java: 锁定 .dshpreset manifest 必填、路径逃逸拒绝与 agent.cordis.yml 存在性。
+java/com/owndsh/enterprise/preset/artifact/PresetArtifactInspectorTest.java: 锁定 .dshpreset manifest 必填、顶层未知键忽略、dependencies 形状/未知键/resolvedVersionId 拒绝、路径逃逸拒绝与 agent.cordis.yml 存在性。
+java/com/owndsh/enterprise/preset/domain/PresetDependencyRulesTest.java: 纯 JVM 锁定引用形状闸的每一档（类型不支持、pinned/latest 坐标、id 语法、查重、条数上限）。
+java/com/owndsh/enterprise/preset/application/PresetCatalogServiceDependencyGateTest.java: 纯 JVM 锁定发布口四个稳定错误码、可选引用放行与拒绝时零状态迁移。
 java/com/owndsh/enterprise/skill/artifact/SkillArtifactInspectorTest.java: 纯 JVM 锁定 .dshskill manifest 必填、路径逃逸/旁路目录拒绝、SKILL.md frontmatter 必填与调用策略、旧字段拒收、包内重名拒绝与 entry 上限。
 java/com/owndsh/enterprise/quota/web/UsageAnalyticsViewTest.java: 锁定缓存命中率空分母为 null 与未知扣额不混入实测 Token。
 java/com/owndsh/enterprise/quota/web/AdminUsageAnalyticsControllerTest.java: 锁定 180 天上限与 from/to 顺序校验。

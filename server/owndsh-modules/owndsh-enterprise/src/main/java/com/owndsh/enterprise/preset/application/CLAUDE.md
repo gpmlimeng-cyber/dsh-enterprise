@@ -4,7 +4,8 @@
 
 成员清单
 
-PresetCatalogService.java: 幂等上传、发布/退休、可见范围全量原子替换与审计同事务编排。
+PresetCatalogService.java: 幂等上传（含 dependencies 落库）、发布口 required 引用 fail-closed 校验、退休、可见范围全量原子替换与审计同事务编排。
+PresetDependencyException.java: 发布口四个稳定错误码（DEPENDENCIES_INVALID / DEPENDENCY_KIND_UNSUPPORTED / REQUIRES_MISSING / REQUIRES_NOT_PUBLISHED）。
 PresetRuntimeService.java: ACTIVE 设备门禁下的可见配方列表/详情与逐请求下载授权。
 PresetAuditMetadata.java: 五类配方审计 action 的非敏感 metadata 白名单。
 PresetMutationContext.java: 管理写入所需的 tenant/actor/request 上下文。

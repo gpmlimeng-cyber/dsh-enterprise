@@ -259,6 +259,12 @@
       "zodExport": "zPresetVersionResponse"
     },
     {
+      "file": "fixtures/preset-version-unknown-dependency-kind.json",
+      "schema": "PresetVersionResponse",
+      "valid": false,
+      "zodExport": "zPresetVersionResponse"
+    },
+    {
       "file": "fixtures/preset-package-list-success.json",
       "schema": "PresetPackageListResponse",
       "valid": true,
@@ -421,5 +427,5 @@
       "zodExport": "zFeedbackDetailResponse"
     }
   ],
-  "protocolSha256": "b681625ac005c3862755649f8d38c8ecb68c42d1c30b8a460253fa331960833b"
+  "protocolSha256": "1c9868452a1789ff757a87f010a23dec75ee5dc17913400d1893ba294fadc80d"
 }

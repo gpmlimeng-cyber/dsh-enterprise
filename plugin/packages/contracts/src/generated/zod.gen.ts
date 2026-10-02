@@ -77,6 +77,8 @@ export const zEnterpriseErrorCode = z.enum([
     'ENT_PKCE_REQUIRED',
     'ENT_PLUGIN_ARTIFACT_INVALID',
     'ENT_PRESET_INVALID_PACKAGE',
+    'ENT_PRESET_DEPENDENCIES_INVALID',
+    'ENT_PRESET_DEPENDENCY_KIND_UNSUPPORTED',
     'ENT_SKILL_INVALID_PACKAGE',
     'ENT_BRANDING_ASSET_INVALID',
     'ENT_FEEDBACK_INVALID',
@@ -108,6 +110,8 @@ export const zEnterpriseErrorCode = z.enum([
     'ENT_IDENTITY_ALREADY_LINKED',
     'ENT_DEVICE_ALREADY_BOUND',
     'ENT_FEEDBACK_STATE_CONFLICT',
+    'ENT_PRESET_REQUIRES_MISSING',
+    'ENT_PRESET_REQUIRES_NOT_PUBLISHED',
     'ENT_REQUEST_TOO_LARGE',
     'ENT_PLUGIN_ARCHIVE_TOO_LARGE',
     'ENT_PRESET_TOO_LARGE',
@@ -2272,6 +2276,20 @@ export const zPresetPresetVersionId = z.string().regex(/^[1-9][0-9]{0,18}$/);
 
 export const zPresetVersionId = zPresetPresetVersionId;
 
+/**
+ * 配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。
+ */
+export const zPresetPresetDependency = z.object({
+    kind: z.enum(['skill', 'plugin']),
+    id: z.string().min(1).max(214),
+    mode: z.enum(['pinned', 'latest']),
+    versionId: zPresetPresetVersionId.optional(),
+    required: z.boolean(),
+    resolvedVersionId: zPresetPresetVersionId.optional()
+}).strict();
+
+export const zPresetDependency = zPresetPresetDependency;
+
 export const zPresetPresetVersionStatus = z.enum([
     'VALIDATED',
     'PUBLISHED',
@@ -2289,7 +2307,8 @@ export const zPresetPresetVersion = z.object({
     sha256: zPresetPresetSha256,
     status: zPresetPresetVersionStatus,
     createdAt: z.iso.datetime({ offset: true }),
-    revision: zRevision
+    revision: zRevision,
+    dependencies: z.array(zPresetPresetDependency).max(200)
 }).strict();
 
 export const zPresetVersion = zPresetPresetVersion;

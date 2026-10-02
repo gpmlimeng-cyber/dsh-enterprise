@@ -1,5 +1,5 @@
 # [INPUT]: 依赖根协议资源 ID、revision、cursor、requestId 与严格成功 envelope。
-# [OUTPUT]: 提供 dsh-preset v1 配方包/版本/可见范围与 runtime 摘要/详情 schema。
+# [OUTPUT]: 提供 dsh-preset v1 配方包/版本/可见范围（含版本 dependencies 引用清单）与 runtime 摘要/详情 schema。
 # [POS]: contracts/components 的配方广场真源，不投影 artifact 路径、包内 YAML 或签名私钥。
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 
@@ -47,6 +47,34 @@ PresetUploadMetadata:
     description:
       type: string
       maxLength: 2000
+PresetDependency:
+  description: >-
+    配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析，
+    否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。
+  type: object
+  additionalProperties: false
+  required: [kind, id, mode, required]
+  properties:
+    kind:
+      type: string
+      enum: [skill, plugin]
+    id:
+      description: 技能 skillId（`^[A-Za-z0-9][A-Za-z0-9._-]*$`，≤128）或 npm package name（≤214）。
+      type: string
+      minLength: 1
+      maxLength: 214
+    mode:
+      description: pinned 钉 versionId；latest 跟该资产当前最新 PUBLISHED。
+      type: string
+      enum: [pinned, latest]
+    versionId: {$ref: '#/PresetVersionId'}
+    required:
+      type: boolean
+    resolvedVersionId:
+      description: >-
+        留位字段（方案 §D 的可选第 6 键）：服务端在发布口解析"当时最新"后填充，只做展示与变更提示，
+        不是运行时真源。当前切片不填充，故服务端不会输出该键；manifest 里作者声明它会被验包拒绝。
+      $ref: '#/PresetVersionId'
 PresetVersion:
   type: object
   additionalProperties: false
@@ -60,6 +88,7 @@ PresetVersion:
     - status
     - createdAt
     - revision
+    - dependencies
   properties:
     id: {$ref: '#/PresetVersionId'}
     packageId: {$ref: '#/PresetPackageId'}
@@ -77,6 +106,11 @@ PresetVersion:
       format: date-time
     revision:
       $ref: '../enterprise-openapi.yaml#/components/schemas/Revision'
+    dependencies:
+      description: 上传时从 manifest.json 抄下来的引用清单，随版本冻结；无引用即空数组。
+      type: array
+      maxItems: 200
+      items: {$ref: '#/PresetDependency'}
 PresetVersionResponse:
   type: object
   additionalProperties: false

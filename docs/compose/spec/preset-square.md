@@ -53,8 +53,15 @@ preset/
 `manifest.json` 必填：`format=dsh-preset`、`version=1`、`id`、`name`、`sourceDshVersion`。  
 `description`、`exportedAt` 可选。
 
+**引用清单 `dependencies`（V39 起）**：顶层可选数组，元素形状
+`{kind:"skill"|"plugin", id, mode:"pinned"|"latest", versionId?, required}`——
+`id` 对技能是 `skillId`、对插件是 npm package name；`pinned` 必须带 `versionId`，`latest` 跟该资产当前最新 `PUBLISHED`。
+服务端把它抄进 `ent_preset_version.dependencies` 并**随版本冻结**（不提供就地修改引用列的写路径）；
+形状非法（元素含未知键、类型/枚举不对、重复引用、超 200 条）在**上传口**以 `ENT_PRESET_INVALID_PACKAGE` 拒包。
+`resolvedVersionId` 是服务端字段（规划里的可选第 6 键），当前切片不填充，manifest 里声明它一律拒包。
+
 服务端验包拒绝：绝对路径、`..` 穿越、反斜杠路径、缺失 `preset/agent.cordis.yml`、非 `dsh-preset`/非 v1 manifest、超过大小上限、非法 ZIP entry（符号链接等）。  
-服务端**不**解析/执行 Cordis YAML，只做结构与元数据校验；深度语义由 Desktop 导入器的 Harness preset scanner 负责。
+服务端**不**解析/执行 Cordis YAML，只做结构与元数据校验；深度语义由 Desktop 导入器的 Harness preset scanner 负责。顶层未知键仍被忽略（向后兼容）。
 
 默认上限：单包解压前 ≤ 50 MiB，entry 数 ≤ 10 000；与插件包量级一致。超限返回 `413`。
 
@@ -85,6 +92,7 @@ preset/
 | `artifact_ref` | varchar(1024)，CAS 相对引用 |
 | `size_bytes` | bigint > 0 |
 | `sha256` | `^[0-9a-f]{64}$`，tenant 内唯一 |
+| `dependencies` | jsonb not null default `'[]'`（V39），`jsonb_typeof='array'` 且 `jsonb_array_length ≤ 200`；GIN `jsonb_path_ops` 索引供"谁引用了 X"的 containment 查询 |
 | `status` | `VALIDATED` → `PUBLISHED` → `RETIRED`（上传成功即 `VALIDATED`，无独立 UPLOADED 停留态） |
 | `created_by` | FK → `sys_user` |
 | `created_at` | timestamptz |
@@ -127,7 +135,7 @@ preset/
 
 | Method | Path | 语义 |
 |---|---|---|
-| GET | `/enterprise/admin/v1/presets` | cursor 列表；每项含 package + 最新 PUBLISHED/VALIDATED 版本摘要 + 可见范围集合 |
+| GET | `/enterprise/admin/v1/presets` | cursor 列表；每项含 package + 最新 PUBLISHED/VALIDATED 版本摘要（含 `dependencies`）+ 可见范围集合 |
 | POST | `/enterprise/admin/v1/presets/versions` | multipart 上传；幂等键；返回 `VALIDATED` 版本 |
 | POST | `/enterprise/admin/v1/presets/versions/{presetVersionId}/actions/publish` | 发布；`If-Match: revision` |
 | POST | `/enterprise/admin/v1/presets/versions/{presetVersionId}/actions/retire` | 退休；停止新下载授权 |
@@ -149,6 +157,16 @@ preset/
 | `ENT_PRESET_TOO_LARGE` | 413 | 超包体或 entry 上限 |
 | `ENT_PRESET_NOT_PUBLISHED` | 403/409 | 未发布或已退休仍请求下载/发布态非法 |
 | `ENT_PRESET_VISIBILITY_DENIED` | 403 | 下载/列表裁决不可见 |
+| `ENT_PRESET_DEPENDENCIES_INVALID` | 400 | **发布口复检**发现 `dependencies` 形状非法（重复引用、超上限、pinned/latest 坐标不自洽） |
+| `ENT_PRESET_DEPENDENCY_KIND_UNSUPPORTED` | 400 | **发布口复检**发现引用类型不在 `skill`/`plugin` 内 |
+| `ENT_PRESET_REQUIRES_MISSING` | 409 | **发布口 fail-closed**：`required` 引用在中心不存在（技能 skillId / 插件 npm 名 / pinned versionId 查不到） |
+| `ENT_PRESET_REQUIRES_NOT_PUBLISHED` | 409 | **发布口 fail-closed**：`required` 引用存在但没有可分发版本（未 PUBLISHED / 已 RETIRED / package 非 ACTIVE） |
+
+发布（`VALIDATED → PUBLISHED`）前先复检形状，再逐条解析 `required: true` 的引用；任一不满足即在状态迁移之前拒绝，
+避免"管理员看到发布成功、员工端才发现缺能力"。`required: false` 的引用允许缺失（员工端降级提示即可）。
+管理端版本投影带出 `dependencies`（5 键：kind/id/mode/versionId/required）；**runtime 员工端投影保持原样**——
+插件侧解码器是关闭键集，服务端先加字段会让整列表解码失败（`ENT_LOCAL_RESPONSE_INVALID`），
+故本切片只动管理端，员工端契约与解码器同批留到真正消费该字段时再改。
 
 下载路径**每次**重算 assignment，与插件 `RuntimePluginDownload` 相同，不缓存授权。
 
