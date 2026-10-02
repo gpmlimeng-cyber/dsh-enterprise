@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖官方 slots/remote/connection 生命周期事件与官方 layout 服务（`inject` 声明，供「回到官方插件列表」一跳；本次未消费）、EnterpriseAccountStore，以及宿主 ui-theme 与 shortcuts 服务（按需读取，不作硬注入），不创建传输连接
- * [OUTPUT]: 注册账号/插件设置、官方 settings.launcher 座位上的账号菜单、官方插件页「官方」分组里的「插件市场」入口卡片与详情页标题行（`plugins.detail.badge` 槽只出「版本号 + 包名」，无「预览版」签、无可拨总开关），以及独立应用商店的两处座位——官方 `main` 槽上的 `enterprise-store` 整页面板与 `sidebar.panellist` 上的「应用商店」一级入口（order 20，排在官方 plugins=0／schedules=10 之后）；面板与插件页卡片注册的是**同一个** `EnterpriseMarketPage`（面板侧只把 owner props 的 `view` 换成恒定 `ENTERPRISE_STORE_PANEL_VIEW='page'`），故两处入口渲染同一份三页签商店、共用同一个 store；宿主模型/凭据变化后按需读取状态，让请求触发的认证失效立即呈现；向菜单注入官方主题只读源、桌面能力面（动作 + 更新状态）与官方快捷键注册表只读源
- * [POS]: dsh-ui 的浏览器组合根，只向 React 注入共享脱敏 store、主题源、桌面能力面与快捷键源，不注册任何全屏阻断层，也不自建第二份商店——侧栏一级入口与主内容区面板都只把同一份市场实现接到官方座位上（`sidebar.panellist.id` 与 `main.key` 同值）
+ * [OUTPUT]: 注册账号/插件设置、官方 settings.launcher 座位上的账号菜单、官方插件页「官方」分组里的「插件市场」入口卡片与详情页标题行（`plugins.detail.badge` 槽只出「版本号 + 包名」，无「预览版」签、无可拨总开关），以及独立应用商店的两处座位——官方 `main` 槽上的 `enterprise-store` 整页面板与 `sidebar.panellist` 上的「应用商店」一级入口（order 20，排在官方 plugins=0／schedules=10 之后）；**两条入口各用各的呈现外壳**：`plugins.item` 注册 `EnterpriseMarketLegacyPage`（旧外观：官方两行卡片，无 HERO／无搜索框），`main` 面板注册 `EnterpriseMarketStorePage`（新外观：HERO + 官方卡片网格 + 搜索 + 行展开）——两者**不是同一个组件**，但共用同一份控制器逻辑（取数/已装真值/更新判定/安装卸载/失败处理/页签与搜索状态）与同一个 store，面板侧只把 owner props 的 `view` 换成恒定 `ENTERPRISE_STORE_PANEL_VIEW='page'`；宿主模型/凭据变化后按需读取状态，让请求触发的认证失效立即呈现；向菜单注入官方主题只读源、桌面能力面（动作 + 更新状态）与官方快捷键注册表只读源
+ * [POS]: dsh-ui 的浏览器组合根，只向 React 注入共享脱敏 store、主题源、桌面能力面与快捷键源，不注册任何全屏阻断层，也不自建第二份逻辑——两条入口只把同一个共享控制器接到各自的呈现外壳上（`sidebar.panellist.id` 与 `main.key` 同值 = `enterprise-store`）
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -20,7 +20,8 @@ import {
   ENTERPRISE_STORE_PANEL_ID,
   ENTERPRISE_STORE_PANEL_VIEW,
   EnterpriseMarketBadge,
-  EnterpriseMarketPage,
+  EnterpriseMarketLegacyPage,
+  EnterpriseMarketStorePage,
   EnterpriseStoreIcon,
 } from './marketplace-entry.js'
 import { createEnterpriseShortcutsSource } from './shortcuts-view.js'
@@ -134,14 +135,16 @@ export function apply(ctx: SlotContextPort): void {
     inject: () => ({ desktop, shortcuts, shortcutsOpener, store, theme }),
   }, EnterpriseAccountMenu as (props: never) => ReactNode))
   // 官方插件页「官方」分组里的入口卡片：按 D3 保留为**第二入口**（卡片不改成跳转、不删除），点进去的
-  // `page` 与侧栏「应用商店」面板渲染同一份三页签商店；不顶替官方插件页，注入共享 store 让详情页开关/登录弹窗真实可用。
+  // `page` 视图走**旧外观外壳**（`EnterpriseMarketLegacyPage` → 9723a97 那一版两行卡片，无 HERO、无搜索框）；
+  // 侧栏「应用商店」面板走**新外观外壳**（`EnterpriseMarketStorePage` → HERO + 卡片网格 + 搜索）。
+  // 两者共用同一个控制器/同一份逻辑与同一份 store，只换呈现外壳。注入共享 store 让详情页开关/登录弹窗真实可用。
   ctx.slots.inject('plugins.item', () => ctx.slots.register({
     name: 'plugins.item',
     id: ENTERPRISE_MARKET_ENTRY_ID,
     order: ENTERPRISE_MARKET_ENTRY_ORDER,
     label: ENTERPRISE_MARKET_ENTRY_LABEL,
     inject: () => ({ store }),
-  }, EnterpriseMarketPage as (props: never) => ReactNode))
+  }, EnterpriseMarketLegacyPage as (props: never) => ReactNode))
   // 详情页标题行（官方 titleRow 的 h3 旁）只出「版本号 + 包名」——纯噪音的「预览版」文字签已删，
   // 标题行也没有可拨总开关（产品决策：拨不动的开关像坏的；功能开关在各行与「组件」页签里）。
   // 注入共享 store 让版本签读组件版本；对非本条目 subject 返回 null（官方槽语义）。
@@ -151,16 +154,17 @@ export function apply(ctx: SlotContextPort): void {
     inject: () => ({ store }),
   }, EnterpriseMarketBadge as (props: never) => ReactNode))
   // 二期结构切片：把商店从「官方插件页内的一个 page」升级为「独立应用商店 = 侧栏一级入口 + 主内容区整页面板」。
-  // 面板注册的是**与 plugins.item 同一个** `EnterpriseMarketPage`（同一份实现、同一个 store）——面板侧只把
-  // 官方 owner props 的 `view` 换成恒定等价值 `ENTERPRISE_STORE_PANEL_VIEW`（'page'），故两处入口都渲染
-  // 同一份三页签商店（企业技能 | 企业插件 | 组件，默认企业技能），不存在第二份商店实现。
+  // 本条入口注册的是 `EnterpriseMarketStorePage`（**新外观**外壳：HERO + 官方卡片网格 + 搜索 + 行展开），
+  // 与 `plugins.item` 的 `EnterpriseMarketLegacyPage`（旧外观外壳）**不是同一个组件**——两条入口各用各的外观，
+  // 但共用同一份控制器逻辑（取数/已装真值/更新判定/安装卸载/失败处理/页签与搜索状态）与同一个 store。
+  // 面板侧仍只把官方 owner props 的 `view` 换成恒定等价值 `ENTERPRISE_STORE_PANEL_VIEW`（'page'）。
   // `main` 是 keyed 槽（key 域开放，实测只有官方 `conversation`/`plugins`/`schedules` 占用），
   // 派发为 renderSlot('main', {}, { entryKey: activePanelId ?? 'conversation' })。
   ctx.slots.inject('main', () => ctx.slots.register({
     name: 'main',
     key: ENTERPRISE_STORE_PANEL_ID,
     inject: () => ({ store, view: ENTERPRISE_STORE_PANEL_VIEW }),
-  }, EnterpriseMarketPage as (props: never) => ReactNode))
+  }, EnterpriseMarketStorePage as (props: never) => ReactNode))
   // 侧栏一级入口：官方契约是「每个 list id 对应同名 main 面板」，故 id 必须等于上面的 main key
   // （不同值会让点击命中 layout.selectPanel 的「未注册」抛错）。order=20 排在官方实测占用之后
   // （plugins=0、schedules=10）；label 由侧栏解析成行标题与可访问名，图标拿官方 owner props { size, active }。

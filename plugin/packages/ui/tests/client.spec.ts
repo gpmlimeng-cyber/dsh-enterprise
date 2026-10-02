@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 dsh-ui Client apply 与 `inject` 声明、账号菜单组件、插件市场入口与结构化 slots test double
- * [OUTPUT]: 验证 settings.section/settings.launcher/plugins.item/plugins.detail.badge/main/sidebar.panellist 六处注册身份与共享 store 注入（设置区、个人中心、市场入口、商店面板同一 store，市场入口靠它让详情页开关/登录弹窗取真值，badge 槽位只注入 store）、**两处入口注册同一个 `EnterpriseMarketPage`**（面板侧 inject 额外给 `view:'page'`，即「一份实现两处入口」）、独立应用商店的 key/id 同值（`main.key === sidebar.panellist.id === 'enterprise-store'`、order 20、label「应用商店」、图标为函数组件）、`inject` 声明含 `layout`，个人中心座位独有的官方主题源／桌面能力面／官方快捷键源（纯 Web 下动作面缺席、更新不可读、快捷键空快照），且 shell.overlay、旧 footer 入口与设置页页签均未注册
- * [POS]: dsh-ui Client 组合回归测试，锁定「官方设置区 + 官方个人中心座位 + 官方插件页入口卡片 + 侧栏一级入口／主内容区面板共用同一份商店」路线且不把 Host Context 传入 React
+ * [OUTPUT]: 验证 settings.section/settings.launcher/plugins.item/plugins.detail.badge/main/sidebar.panellist 六处注册身份与共享 store 注入（设置区、个人中心、市场入口、商店面板同一 store，市场入口靠它让详情页开关/登录弹窗取真值，badge 槽位只注入 store）、**两条入口注册的是两个不同的呈现外壳组件**（`plugins.item` → `EnterpriseMarketLegacyPage`（旧外观）、`main` → `EnterpriseMarketStorePage`（新外观），面板侧 inject 额外给 `view:'page'`——两条入口各用各的外观、共用同一份控制器逻辑）、独立应用商店的 key/id 同值（`main.key === sidebar.panellist.id === 'enterprise-store'`、order 20、label「应用商店」、图标为函数组件）、`inject` 声明含 `layout`，个人中心座位独有的官方主题源／桌面能力面／官方快捷键源（纯 Web 下动作面缺席、更新不可读、快捷键空快照），且 shell.overlay、旧 footer 入口与设置页页签均未注册
+ * [POS]: dsh-ui Client 组合回归测试，锁定「官方设置区 + 官方个人中心座位 + 官方插件页入口卡片（旧外观）+ 侧栏一级入口／主内容区面板（新外观）共用同一份商店逻辑」路线且不把 Host Context 传入 React
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -10,7 +10,8 @@ import {
   apply,
   EnterpriseAccountMenu,
   EnterpriseMarketBadge,
-  EnterpriseMarketPage,
+  EnterpriseMarketLegacyPage,
+  EnterpriseMarketStorePage,
   EnterpriseSettingsSection,
   EnterpriseStoreIcon,
   inject,
@@ -72,9 +73,11 @@ describe('enterprise Client plugin', () => {
     expect(registrations.map(item => item.component)).toEqual([
       EnterpriseSettingsSection,
       EnterpriseAccountMenu,
-      EnterpriseMarketPage,
+      // `plugins.item` 的详情页走**旧外观**外壳（9723a97 那一版官方两行卡片）。
+      EnterpriseMarketLegacyPage,
       EnterpriseMarketBadge,
-      EnterpriseMarketPage,
+      // 商店面板走**新外观**外壳（HERO + 官方卡片网格 + 搜索 + 行展开）。
+      EnterpriseMarketStorePage,
       EnterpriseStoreIcon,
     ])
     // 设置区、个人中心、市场入口三个座位共享同一个脱敏 store；badge 槽位无 inject（版本签纯呈现）。
@@ -86,11 +89,13 @@ describe('enterprise Client plugin', () => {
     expect(market()).toEqual({ store: stores[2] })
     const badge = registrations[3]!.options['inject'] as () => Record<string, unknown>
     expect(badge()).toEqual({ store: stores[2] })
-    // 商店面板与插件页市场条目注册的是**同一个组件**（同一份商店实现，不分叉），
-    // 面板侧只多注入一个恒定等价的 view='page'（官方 owner props 的等价物）。
+    // **双外观拆分**：商店面板与插件页市场条目注册的是**两个不同**的组件（各用各的呈现外壳），
+    // 但两者共享同一份控制器逻辑与同一个 store；面板侧只多注入一个恒定等价的 view='page'。
     const panel = registrations[4]!.options['inject'] as () => Record<string, unknown>
     expect(panel()).toEqual({ store: stores[2], view: 'page' })
-    expect(registrations[4]!.component).toBe(registrations[2]!.component)
+    expect(registrations[4]!.component).toBe(EnterpriseMarketStorePage)
+    expect(registrations[2]!.component).toBe(EnterpriseMarketLegacyPage)
+    expect(registrations[4]!.component).not.toBe(registrations[2]!.component)
     // 侧栏条目只带 list metadata（id/order/label），没有自有注入面；图标是函数组件（owner props: {size, active}）。
     expect(registrations[5]!.options['inject']).toBeUndefined()
     expect(registrations[5]!.options['id']).toBe(registrations[4]!.options['key'])
