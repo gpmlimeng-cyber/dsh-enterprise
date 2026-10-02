@@ -1,14 +1,14 @@
 /**
- * [INPUT]: 依赖 React（useState/useEffect）、品牌位图 brand、lucide-react 三枚组件图标、官方 ui-primitives 的 Switch/Tag/StateDot（pinned 0.1.5-rc.2 的 .d.ts 已导出，不走 official-ui 收窄接缝）、account-state 的 `enterpriseSessionUsable` 与 account-store 的 `EnterpriseAccountSnapshot`（shared 面、订阅只在 WithStore 包装内）、local-api-decode 的技能 DTO（`EnterpriseRuntimeSkill` 目录 + 已装记录 `EnterpriseInstalledSkill`——技能行开关的「已装」只认后者这一份 Host 真值）与失败码唯一投影 `enterpriseLocalErrorCode`（行内失败提示的 code 来源，与技能 tab 同源）、消费官方 `plugins.item` owner props（`view`/`form`）；中心当前版本只从**详情投影** `store.api.skillDetail(id)` 取（列表投影的 `versionId` 恒为空串），且只对已装行取——未装行没有本机版本可比，不白跑请求
- * [OUTPUT]: 提供官方插件页「官方」分组里的「插件市场」入口卡片与带「开关 + 组件列表 + 企业插件节 + 企业技能节」的详情页（布局逐值照官方 PackageDetail+RowsSection 实物），以及可脱离 DOM 测试的组件清单/计数摘要/组件状态纯投影、企业插件行投影、企业技能行投影（官方两行卡片：标题 + 描述，并带中心当前版本 `latestVersionId`）、「有更新」判定纯投影 `enterpriseMarketSkillHasUpdate` 与判定入口 `enterpriseMarketSkillRowHasUpdate`、开关左侧那枚辅助标签的纯投影 `enterpriseMarketSkillUpdateTag` 与文案常量 `ENTERPRISE_MARKET_SKILL_UPDATE_LABEL`、技能行受管态纯投影 `enterpriseMarketSkillState`（`AVAILABLE`/`INSTALLED`/`UPDATE_AVAILABLE`/`INSTALLING`/`REMOVING`）、三节默认展开态常量 `ENTERPRISE_MARKET_DEFAULT_EXPANDED`、失败可见反馈 `EnterpriseMarketActionError` 与文案投影 `enterpriseMarketActionErrorLabel`，以及注册常量；卡片摘要与详情页正文**不重复同一句**——摘要只在 `summary` 视图出现（官方必渲染的那一份），详情页只留标题与组件列表
- * [POS]: ui 的企业扩展市场入口，只占官方 `plugins.item` 槽位（卡片一句话走 `summary`、详情正文走 `page`），不注册侧栏入口与独立市场弹层；store 与开登录回调均为可选注入（共享注册面经 `client.tsx` 的 `inject` 给本条目注入 store，缺席时降级为占位态，注入后自动升级为真值态）；组件行 `reserved` 只剩配方一行，插件与技能行随企业会话真值，两个目录节（企业插件/企业技能）都只在对应大组件开启且目录非空时出现，企业插件行维持原样（状态点 + 文案 + 官方 `Switch` 一键安装/卸载），企业技能行右侧 = **[辅助标签按钮] [Switch]**（标签在前）：官方两行卡片（第 1 行标题 `own-market-cardId`、第 2 行描述 `own-market-cardDesc` 单行省略，不出现元信息行）+ 那枚**始终存在**的官方 `Switch`：`checked` = 该技能已装（`installedSkills` 命中本行）、在途（`INSTALLING`/`REMOVING`）`disabled`、`label` 给动作语义（`安装企业技能 X`/`卸载企业技能 X`）、`onChange(next)` 原样交回 `onToggleSkill(skill, next)`，开关仍是该行的主控件；**开关左侧的辅助标签**是真实 `<button type="button">`（`own-market-skillTag`，键盘可达、`:focus-visible` 焦点环、`data-enterprise-skill-tag='UPDATE_AVAILABLE'`），**只在「有更新」时出现**（`enterpriseMarketSkillRowHasUpdate`：本机已装记录的 `versionId` 与行上的 `latestVersionId` 都非空且不等），`aria-label` = `更新企业技能 X`、`title` = 「点此更新到中心当前版本」、点击 = `onToggleSkill(skill, true)`（重装到中心当前版本），在途 `disabled` 但**不消失**（用户看得见「正在更新」）；未装行、已装且同版本行、以及未装行的在途一律不出这枚标签——右侧就一个 `Switch`；`installedSkills`（Host 回传的已装记录）/`pendingSkill`（行键 + 方向）/`onToggleSkill` 三个直传输入决定 `data-enterprise-skill-state` 与那枚开关的 checked/disabled，动作返回的已装清单覆盖本地真值、失败即退回未装（界面不保留乐观已装）；技能列表列的是后台分配（预置）的**全部**技能——不按「已装」过滤，未装的也照列，装不装由用户拨这枚开关决定；版本身份只投影 `versionId` 这一份（`sha256` 按 `skill-api-decode` 的契约在解码时校验形状后即丢，界面拿不到中心哈希，故「有更新」**不比 sha256**）——中心列表投影的 `versionId` 恒为空串、只有 `GET /skills/{id}` 详情才是真值，故 hook 入口**只对已装行**逐个取详情（`store.api.skillDetail(packageId)`）按 id 归并成行上的 `latestVersionId`，取不到/失败即留空串＝该行不判更新（不猜）；**两节的行共用同一份失败可见反馈**：动作失败时命中该行的 `role="alert"` 行内提示（`安装失败`/`卸载失败` + `enterpriseLocalErrorCode` 的稳定码，照「技能」tab 的 `own-skill-inlineError` 口径），失败后该行开关不再禁用、可原地重试；技能目录与已装清单由 hook 入口分别经 `store.api.skills()` 与 `store.api.installedSkills()` **并行**取（已装态取数失败只降级为全部未装，不拖垮目录），纯函数体只收直传的行；**三节默认态**：组件节、企业插件节与企业技能节**默认全部展开**（用户口径「分组折叠默认展开」与「默认显示」——进页面就看得见后台预置的全部技能与插件），三节各占 `ENTERPRISE_MARKET_DEFAULT_EXPANDED` 的一个独立字段，可分别调整；用户仍可手动折叠
+ * [INPUT]: 依赖 React（useState/useEffect）、品牌位图 brand、lucide-react 三枚组件图标、官方 ui-primitives 的 Switch/Tag/StateDot（pinned 0.1.5-rc.2 的 .d.ts 已导出，不走 official-ui 收窄接缝；**该 pin 不含 `SegmentedTabs`**，故 page 视图的页签条照 `account-view.tsx` 既有 tablist 手写自绘，pin 对齐是另一个待用户拍板的开放项）、account-state 的 `enterpriseSessionUsable` 与 account-store 的 `EnterpriseAccountSnapshot`（shared 面、订阅只在 WithStore 包装内）、local-api-decode 的技能 DTO（`EnterpriseRuntimeSkill` 目录 + 已装记录 `EnterpriseInstalledSkill`——技能行开关的「已装」只认后者这一份 Host 真值）与失败码唯一投影 `enterpriseLocalErrorCode`（行内失败提示的 code 来源，与技能 tab 同源）、消费官方 `plugins.item` owner props（`view`/`form`）；中心当前版本只从**详情投影** `store.api.skillDetail(id)` 取（列表投影的 `versionId` 恒为空串），且只对已装行取——未装行没有本机版本可比，不白跑请求
+ * [OUTPUT]: 提供官方插件页「官方」分组里的「插件市场」入口卡片与**三页签商店整页**（page 视图顶部手写页签条 = 企业技能 / 企业插件 / 组件，默认选中「企业技能」；三个 `role="tabpanel"` 只有当前页签挂载内容，页签内容直接复用原三节的行渲染、不重写节内实现），以及可脱离 DOM 测试的页签真源（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`）、组件清单/计数摘要/组件状态纯投影、企业插件行投影、企业技能行投影（官方两行卡片：标题 + 描述，并带中心当前版本 `latestVersionId`）、「有更新」判定纯投影 `enterpriseMarketSkillHasUpdate` 与判定入口 `enterpriseMarketSkillRowHasUpdate`、开关左侧那枚辅助标签的纯投影 `enterpriseMarketSkillUpdateTag` 与文案常量 `ENTERPRISE_MARKET_SKILL_UPDATE_LABEL`、技能行受管态纯投影 `enterpriseMarketSkillState`（`AVAILABLE`/`INSTALLED`/`UPDATE_AVAILABLE`/`INSTALLING`/`REMOVING`）、**唯一剩下可折叠的「组件」页签折叠态** `ENTERPRISE_MARKET_DEFAULT_EXPANDED`、失败可见反馈 `EnterpriseMarketActionError` 与文案投影 `enterpriseMarketActionErrorLabel`，以及注册常量；卡片摘要与详情页正文**不重复同一句**——摘要只在 `summary` 视图出现（官方必渲染的那一份），详情页只留页签条与三个面板
+ * [POS]: ui 的企业扩展市场入口，只占官方 `plugins.item` 槽位（卡片一句话走 `summary`、**整页三页签商店**走 `page`），不注册侧栏入口与独立市场弹层；**page 视图 = 页签条（企业技能 | 企业插件 | 组件，默认「企业技能」）+ 三个 `role="tabpanel"`**：页签条手写（`role="tablist"`/`role="tab"`/`aria-selected`/`aria-controls`/`aria-labelledby`/`id` 三处配对、roving `tabIndex`、←/→/Home/End 走焦并选中、选中态 2px 下划线），**不用官方 `SegmentedTabs`**（工程编译期 pin 的 primitives 0.1.5-rc.2 不含它，import 即 TS 报错；pin 对齐待用户拍板），三个面板**只有当前页签的内容挂载**（其余只留一个 `hidden` 空壳，让 `aria-controls` 恒能解析）；store 与开登录回调均为可选注入（共享注册面经 `client.tsx` 的 `inject` 给本条目注入 store，缺席时降级为占位态，注入后自动升级为真值态）；组件行 `reserved` 只剩配方一行，插件与技能行随企业会话真值，两个目录节（企业插件/企业技能）都只在对应大组件开启且目录非空时出现，企业插件行维持原样（状态点 + 文案 + 官方 `Switch` 一键安装/卸载），企业技能行右侧 = **[辅助标签按钮] [Switch]**（标签在前）：官方两行卡片（第 1 行标题 `own-market-cardId`、第 2 行描述 `own-market-cardDesc` 单行省略，不出现元信息行）+ 那枚**始终存在**的官方 `Switch`：`checked` = 该技能已装（`installedSkills` 命中本行）、在途（`INSTALLING`/`REMOVING`）`disabled`、`label` 给动作语义（`安装企业技能 X`/`卸载企业技能 X`）、`onChange(next)` 原样交回 `onToggleSkill(skill, next)`，开关仍是该行的主控件；**开关左侧的辅助标签**是真实 `<button type="button">`（`own-market-skillTag`，键盘可达、`:focus-visible` 焦点环、`data-enterprise-skill-tag='UPDATE_AVAILABLE'`），**只在「有更新」时出现**（`enterpriseMarketSkillRowHasUpdate`：本机已装记录的 `versionId` 与行上的 `latestVersionId` 都非空且不等），`aria-label` = `更新企业技能 X`、`title` = 「点此更新到中心当前版本」、点击 = `onToggleSkill(skill, true)`（重装到中心当前版本），在途 `disabled` 但**不消失**（用户看得见「正在更新」）；未装行、已装且同版本行、以及未装行的在途一律不出这枚标签——右侧就一个 `Switch`；`installedSkills`（Host 回传的已装记录）/`pendingSkill`（行键 + 方向）/`onToggleSkill` 三个直传输入决定 `data-enterprise-skill-state` 与那枚开关的 checked/disabled，动作返回的已装清单覆盖本地真值、失败即退回未装（界面不保留乐观已装）；技能列表列的是后台分配（预置）的**全部**技能——不按「已装」过滤，未装的也照列，装不装由用户拨这枚开关决定；版本身份只投影 `versionId` 这一份（`sha256` 按 `skill-api-decode` 的契约在解码时校验形状后即丢，界面拿不到中心哈希，故「有更新」**不比 sha256**）——中心列表投影的 `versionId` 恒为空串、只有 `GET /skills/{id}` 详情才是真值，故 hook 入口**只对已装行**逐个取详情（`store.api.skillDetail(packageId)`）按 id 归并成行上的 `latestVersionId`，取不到/失败即留空串＝该行不判更新（不猜）；**两节的行共用同一份失败可见反馈**：动作失败时命中该行的 `role="alert"` 行内提示（`安装失败`/`卸载失败` + `enterpriseLocalErrorCode` 的稳定码，照「技能」tab 的 `own-skill-inlineError` 口径），失败后该行开关不再禁用、可原地重试；技能目录与已装清单由 hook 入口分别经 `store.api.skills()` 与 `store.api.installedSkills()` **并行**取（已装态取数失败只降级为全部未装，不拖垮目录），纯函数体只收直传的行；**页签化后的折叠态**：企业技能 / 企业插件两节的节头折叠**已删除**（显隐由页签承担，这两节只剩一行计数），唯一还带折叠语义的是**「组件」页签内部的组件清单**（仍是 `groupToggle` 节头 + `ENTERPRISE_MARKET_DEFAULT_EXPANDED` 单字段初值＝展开，`enterpriseMarketSectionOpen` 纯投影仍照官方 `?? false` 口径，`EnterpriseMarketSectionId` 随之收敛为 `'components'` 一个成员）；
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { Package, Sparkles, BookMarked, ChevronDown } from 'lucide-react'
 import { StateDot, Switch, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { ReactNode } from 'react'
+import type { KeyboardEvent, ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import { enterpriseSessionUsable, useAccount } from './account-state.js'
 import type { EnterpriseAccountStore } from './account-store.js'
@@ -36,12 +36,46 @@ export const ENTERPRISE_MARKET_COMPONENTS = [
   { id: 'presets', label: '配方', module: 'dsh-preset / .dshpreset', note: '企业配方广场', reserved: true },
 ] as const
 
-/** 详情页页签排期清单，按交付顺序；插件与技能已进入排期，配方仍为预留页签。 */
+/**
+ * 组件交付排期清单，按交付顺序（插件与技能已排期，配方仍预留）。
+ * **历史规划元数据，不驱动任何渲染**：页签化之后真正的页签真源是下面的 `ENTERPRISE_MARKET_TABS`。
+ */
 export const ENTERPRISE_MARKET_PLAN = [
   { id: 'plugins', label: '插件', note: '官方 / 已安装 / 企业插件 三分组' },
   { id: 'skills', label: '技能', note: '已排期' },
   { id: 'presets', label: '配方', note: '预留' },
 ] as const
+
+/** `page` 视图三个页签的 id（页签条顺序即 `ENTERPRISE_MARKET_TABS` 的数组顺序）。 */
+export type EnterpriseMarketTabId = 'skills' | 'plugins' | 'components'
+
+/**
+ * 页签条真源：**顺序即渲染顺序**，第一项同时是默认选中项（见 `ENTERPRISE_MARKET_DEFAULT_TAB`）。
+ * 文案与原来三节的节标题同词（企业技能 / 企业插件 / 组件）——页签已经承担「显隐」，
+ * 故企业技能 / 企业插件两节内部不再出折叠按钮、只留一行计数。
+ */
+export const ENTERPRISE_MARKET_TABS = [
+  { id: 'skills', label: '企业技能' },
+  { id: 'plugins', label: '企业插件' },
+  { id: 'components', label: '组件' },
+] as const
+
+/** 默认页签＝「企业技能」：用户的主战场，后台分配（预置）的技能一进页面就该看得见。 */
+export const ENTERPRISE_MARKET_DEFAULT_TAB: EnterpriseMarketTabId = 'skills'
+
+/** 页签条的无障碍名（`role="tablist"` 的 `aria-label`）。 */
+export const ENTERPRISE_MARKET_TABLIST_LABEL = '企业市场'
+
+/**
+ * 页签 ↔ 面板的固定 id 配对：`id` / `aria-controls` / `aria-labelledby` 三处同源，避免手抄漂移。
+ * 纯函数体**不能调 `useId`**（那会把 `EnterpriseMarketEntry` 变成 hook 组件，破坏「可直接函数调用测试」的既有形状）；
+ * 而本页同一时刻只有一份实例（官方 `plugins.item` 的 page 视图只渲染当前 item），故用常量 id 足够。
+ */
+export const ENTERPRISE_MARKET_TAB_IDS: Record<EnterpriseMarketTabId, { readonly tab: string; readonly panel: string }> = {
+  skills: { tab: 'market-tab-skills', panel: 'market-panel-skills' },
+  plugins: { tab: 'market-tab-plugins', panel: 'market-panel-plugins' },
+  components: { tab: 'market-tab-components', panel: 'market-panel-components' },
+}
 
 /** 计数摘要分段，照官方 `partsSummary` 口径。 */
 export type EnterpriseMarketSummary = { readonly total: number; readonly ready: number; readonly reserved: number }
@@ -132,35 +166,44 @@ export interface EnterpriseMarketEntryProps {
    */
   readonly skillActionError?: EnterpriseMarketActionError | undefined
   /**
-   * 各节的折叠态（照官方 `PluginInventorySettingsTab`：`aria-expanded` + 默认折叠）。缺席视为全展开
-   * （纯函数直调测试不传即得完整树）；真运行时由 `EnterpriseMarketPage` 的 `useState` 供给，其初值
-   * 是 `ENTERPRISE_MARKET_DEFAULT_EXPANDED`——**三节默认全部展开**（用户口径「分组折叠默认展开」）。
+   * 「组件」页签内部那份组件清单的折叠态（页签化后**只剩这一节还带折叠语义**）。
+   * 缺席视为展开（纯函数直调测试不传即得完整树）；真运行时由 `EnterpriseMarketPage` 的 `useState`
+   * 供给，其初值是 `ENTERPRISE_MARKET_DEFAULT_EXPANDED`。
    */
-  readonly expandedSections?: { readonly components: boolean; readonly enterprisePlugins: boolean; readonly enterpriseSkills: boolean } | undefined
-  /** 折叠切换回调（点节头按钮触发）；缺席时节头按钮禁用（不提供死按钮）。 */
+  readonly expandedSections?: { readonly components: boolean } | undefined
+  /** 折叠切换回调（点组件节节头按钮触发）；缺席时节头按钮禁用（不提供死按钮）。 */
   readonly onToggleSection?: ((section: EnterpriseMarketSectionId) => void) | undefined
+  /**
+   * 当前选中的页签（`page` 视图）。缺席按 `ENTERPRISE_MARKET_DEFAULT_TAB`（「企业技能」）。
+   * 真运行时由 `EnterpriseMarketPage` 的 `useState` 供给——本纯函数体不持状态（保持可直接函数调用测试）。
+   */
+  readonly activeTab?: EnterpriseMarketTabId | undefined
+  /**
+   * 页签切换回调。页签条**恒可交互**（roving `tabIndex` + ←/→/Home/End 走焦并选中）：选中态与键盘可达
+   * 是 tablist 自身的语义，把当前页签做成禁用项会让人以为它坏了；真运行时恒由 hook 入口供给，
+   * 缺席时点击是 no-op（只读页签条，不会在真运行时出现）。
+   */
+  readonly onSelectTab?: ((tab: EnterpriseMarketTabId) => void) | undefined
 }
 
-/** 可折叠的节 id 联合：组件节 / 企业插件节 / 企业技能节（三节共用同一份节头与折叠语义）。 */
-export type EnterpriseMarketSectionId = 'components' | 'enterprisePlugins' | 'enterpriseSkills'
+/**
+ * 可折叠节的 id 联合。页签化之后**只剩「组件」页签内部那份组件清单还带折叠语义**：
+ * 企业技能 / 企业插件两节的显隐已由页签承担，故这两个成员随折叠一起收敛掉（不留死字段）。
+ */
+export type EnterpriseMarketSectionId = 'components'
 
-/** 节头的可点按钮 id 与内容区 id（`aria-controls` 用），三节各自独立。 */
+/** 节头的可点按钮 id 与内容区 id（`aria-controls` 用）；页签化后只有组件节用得到。 */
 export const ENTERPRISE_MARKET_SECTION_IDS = {
   components: 'components',
-  enterprisePlugins: 'enterprise-plugins',
-  enterpriseSkills: 'enterprise-skills',
 } as const
 
 /**
- * 三节的初始展开态（`EnterpriseMarketPage` 的 `useState` 初值）。**只有「企业技能」节默认展开**：
- * 用户口径是「技能列表默认显示」——进页面就该看见后台分配（预置）的全部技能，再用行右侧的开关决定装不装；
- * 「包含的组件」与企业插件节照官方 `PluginInventory` 默认折叠。三节各占一个独立字段，
- * 所以改技能节的默认态不会连带改另两节。
+ * 唯一剩下可折叠的那一节（「组件」页签内部的组件清单）的初始展开态（`EnterpriseMarketPage` 的 `useState` 初值）。
+ * 页签化之后企业技能 / 企业插件两节已无折叠语义，故本常量随之收敛为单字段：
+ * 进「组件」页签就直接看得见插件/技能/配方三行，用户仍可手动折叠。
  */
 export const ENTERPRISE_MARKET_DEFAULT_EXPANDED: Record<EnterpriseMarketSectionId, boolean> = {
   components: true,
-  enterprisePlugins: true,
-  enterpriseSkills: true,
 }
 
 /** 「企业插件」节的一行：企业后台上传的插件（catalog）+ 本机安装态。 */
@@ -352,9 +395,10 @@ export function enterpriseMarketSkillSectionVisible(
 
 /**
  * 一节当前是否展开（照官方 `PluginInventorySettingsTab` 的 `searching || (open ?? false)`：
- * 官方搜索时强制展开，我们当前无搜索故退化为 `open ?? defaultOpen`；默认全折叠）。
- * @param expandedSections - 当前折叠态（缺席＝全展开，测试直调不传即得完整树）。
- * @param section - 节 id。
+ * 官方搜索时强制展开，我们当前无搜索故退化为 `open ?? defaultOpen`）。
+ * 页签化后只剩「组件」页签内部的组件清单还问这个问题（企业技能/企业插件两节的显隐已由页签承担）。
+ * @param expandedSections - 当前折叠态（缺席＝按 `defaultOpen`，测试直调不传即得完整树）。
+ * @param section - 节 id（现在只有 `'components'`）。
  * @param defaultOpen - 缺席时的默认展开值。
  * @returns 是否展开。
  */
@@ -481,6 +525,20 @@ const styles = `
 .own-market-skillTag:hover:not(:disabled){background:var(--dsw-alias-border-l2,#e4e7ec);color:var(--dsw-alias-label-primary,#101828)}
 .own-market-skillTag:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:2px}
 .own-market-skillTag:disabled{cursor:default;opacity:.6}
+/* page 视图顶部的页签条（手写，不用官方 SegmentedTabs——工程 pin 的 primitives 0.1.5-rc.2 不含它）：
+   口径逐值照 account-view.tsx 既有 tablist（底部 1px 分隔线 + 选中项 2px 下划线 + 同字号/行高），
+   hover/focus-visible 也沿用同一套 token，不新造视觉。 */
+.own-market-tabs{display:flex;align-items:flex-end;gap:22px;min-width:0;margin-top:2px;border-bottom:1px solid var(--dsw-alias-border-l2,#e4e7ec)}
+.own-market-tab{background:transparent;border:0;border-bottom:2px solid transparent;color:var(--dsw-alias-label-tertiary,#667085);cursor:pointer;font:inherit;font-size:13px;line-height:20px;margin-bottom:-1px;padding:7px 1px 8px}
+.own-market-tab:hover{color:var(--dsw-alias-label-primary,#101828)}
+.own-market-tab:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:2px}
+.own-market-tab[aria-selected='true']{border-bottom-color:var(--dsw-alias-label-primary,#101828);color:var(--dsw-alias-label-primary,#101828);font-weight:500}
+/* 面板：非当前页签只留一个 hidden 空壳（内容整段不挂载），显式补一条 [hidden] 规则，
+   免得将来给 .own-market-panel 加上 display 类选择器后覆盖 UA 的 [hidden]{display:none}（本仓已踩过）。 */
+.own-market-panel{min-width:0}
+.own-market-panel[hidden]{display:none}
+/* 页签化后的节计数行：企业技能 / 企业插件两节已无折叠，只有组件节的节头按钮（.own-market-groupToggle）还带折叠。 */
+.own-market-sectionMeta{display:flex;align-items:baseline;gap:10px;min-width:0}
 /* 行内失败提示（企业插件行/企业技能行共用）：取值照「技能」tab 的 .own-skill-inlineError（error 色 + 12/19 + 左对齐 + 无内衬）。
    那份 CSS 归 skill-market 的 <style> 持有、切到本页时并不在 DOM，故这里补一份同值规则，不借道未挂载的样式表。 */
 .own-market-inlineError{padding:0;text-align:left;font-size:12px;line-height:19px;overflow-wrap:anywhere;color:var(--dsw-alias-state-error-primary,#c4320a)}
@@ -535,13 +593,13 @@ export function BadgeView({ version }: { readonly version?: string | undefined }
 
 /**
  * 官方插件页「官方」分组里的「插件市场」入口（纯函数：无 hook、无订阅，测试直接调用）。
- * @param props - 官方 `plugins.item` 的 owner props，`view` 区分卡片与详情正文；`sessionUsable`/`onOpenLogin`/`enterprisePlugins`/`enterpriseSkills` 为可选注入。
- * @returns `summary` 时为单行卡片文案，`page` 时为带「开关 + 组件列表 + 企业插件节 + 企业技能节」的详情页正文。
+ * @param props - 官方 `plugins.item` 的 owner props，`view` 区分卡片与详情正文；`sessionUsable`/`onOpenLogin`/`enterprisePlugins`/`enterpriseSkills`/`activeTab`/`onSelectTab` 为可选注入。
+ * @returns `summary` 时为单行卡片文案，`page` 时为带「页签条（企业技能 | 企业插件 | 组件）+ 三个面板」的整页正文。
  */
 export function EnterpriseMarketEntry({
   view, sessionUsable = false, onOpenLogin, enterprisePlugins = [], enterpriseSkills = [], onTogglePlugin,
   installedSkills, pendingSkill, onToggleSkill, pluginActionError, skillActionError,
-  expandedSections = undefined, onToggleSection,
+  expandedSections = undefined, onToggleSection, activeTab = ENTERPRISE_MARKET_DEFAULT_TAB, onSelectTab,
 }: EnterpriseMarketEntryProps): ReactNode {
   if (view === 'summary') return <span className="own-market-entry-summary">{ENTERPRISE_MARKET_SUMMARY}</span>
   const hasLoginAction = typeof onOpenLogin === 'function'
@@ -554,16 +612,12 @@ export function EnterpriseMarketEntry({
   }))
   const pluginsEnabled = enterpriseMarketComponentEnabled('plugins', sessionUsable)
   const pluginRowsVisible = enterpriseMarketPluginSectionVisible(pluginsEnabled, enterprisePlugins)
-  // 「企业技能」节与企业插件节同规则：只在「技能」大组件开启（= 会话可用）且目录非空时出现。
+  // 「企业技能」页签与企业插件页签同规则：只在「技能」大组件开启（= 会话可用）且目录非空时出内容。
   const skillsEnabled = enterpriseMarketComponentEnabled('skills', sessionUsable)
   const skillRowsVisible = enterpriseMarketSkillSectionVisible(skillsEnabled, enterpriseSkills)
-  // 折叠：真运行时的初值见 `ENTERPRISE_MARKET_DEFAULT_EXPANDED`（**只有技能节默认展开**）；纯函数不传
-  // `expandedSections` 时三节全展开（测试直调得完整树），故这里三处 `defaultOpen` 都给 true。
-  const sectionOpen: Record<EnterpriseMarketSectionId, boolean> = {
-    components: enterpriseMarketSectionOpen(expandedSections, 'components', true),
-    enterprisePlugins: enterpriseMarketSectionOpen(expandedSections, 'enterprisePlugins', true),
-    enterpriseSkills: enterpriseMarketSectionOpen(expandedSections, 'enterpriseSkills', true),
-  }
+  // 折叠：页签化之后**只剩「组件」页签内部那一节**还带折叠；真运行时的初值见
+  // `ENTERPRISE_MARKET_DEFAULT_EXPANDED`，纯函数不传 `expandedSections` 时按展开处理（测试直调得完整树）。
+  const componentsOpen = enterpriseMarketSectionOpen(expandedSections, 'components', true)
   const canToggle = typeof onToggleSection === 'function'
   /**
    * 一行的失败行内提示：只有行键命中时才出现，`role="alert"` 交给读屏立刻播报，稳定错误码放在 `code` 里。
@@ -575,13 +629,13 @@ export function EnterpriseMarketEntry({
       ? <div className="own-market-inlineError" role="alert">{enterpriseMarketActionErrorLabel(error)} <code>{error.code}</code></div>
       : null
   )
-  /** 一节的节头：照官方 groupToggle button（chevron + 标题 + 计数同排，aria-expanded/controls）。 */
+  /** 组件节的节头（唯一还带折叠的一节）：照官方 groupToggle button（chevron + 标题 + 计数同排，aria-expanded/controls）。 */
   const sectionHead = (section: EnterpriseMarketSectionId, title: string, count: ReactNode): ReactNode => (
     <div className="own-market-sectionHead">
       <button
         type="button"
         className="own-market-groupToggle"
-        aria-expanded={sectionOpen[section]}
+        aria-expanded={componentsOpen}
         aria-controls={`market-section-${ENTERPRISE_MARKET_SECTION_IDS[section]}`}
         disabled={!canToggle}
         title={canToggle ? undefined : '折叠动作未接通'}
@@ -593,104 +647,89 @@ export function EnterpriseMarketEntry({
       <span className="own-market-sectionCount">{count}</span>
     </div>
   )
+  /**
+   * 已页签化的两节（企业技能 / 企业插件）的节计数行：**不再有折叠按钮**（显隐由页签承担），
+   * 只留一行 `N 个`，让「这一页签里有多少条」仍然看得见。
+   */
+  const sectionMeta = (count: ReactNode): ReactNode => (
+    <div className="own-market-sectionMeta">
+      <span className="own-market-sectionCount">{count}</span>
+    </div>
+  )
+  /**
+   * 页签条的键盘走焦：纯函数体不能持 `ref`（调 `useRef` 就变成 hook 组件、直调测试即崩），
+   * 故在 keydown 里从事件源向上找 `[role="tablist"]`、按同序取第 `index` 个 `[role="tab"]` 调 `focus()`。
+   * 只在真浏览器事件里执行；直调函数组件的测试不触发（`closest` 缺席即返回）。
+   */
+  const focusTab = (source: EventTarget | null, index: number): void => {
+    const element = source as HTMLElement | null
+    if (element === null || typeof element.closest !== 'function') return
+    const tablist = element.closest('[role="tablist"]')
+    tablist?.querySelectorAll<HTMLElement>('[role="tab"]')[index]?.focus()
+  }
+  /** ←/→ 循环、Home/End 跳首尾，且都是「走焦 + 选中」一步到位（WAI-ARIA tabs 的自动激活口径）。 */
+  const onTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number): void => {
+    let nextIndex: number
+    switch (event.key) {
+      case 'ArrowRight': nextIndex = (index + 1) % ENTERPRISE_MARKET_TABS.length; break
+      case 'ArrowLeft': nextIndex = (index - 1 + ENTERPRISE_MARKET_TABS.length) % ENTERPRISE_MARKET_TABS.length; break
+      case 'Home': nextIndex = 0; break
+      case 'End': nextIndex = ENTERPRISE_MARKET_TABS.length - 1; break
+      default: return
+    }
+    const next = ENTERPRISE_MARKET_TABS[nextIndex]
+    if (next === undefined) return
+    event.preventDefault()
+    onSelectTab?.(next.id)
+    focusTab(event.currentTarget, nextIndex)
+  }
   return (
     <section className="own-market-entry" aria-label={ENTERPRISE_MARKET_ENTRY_LABEL}>
       <style>{styles}</style>
-      <section className="own-market-section">
-        {sectionHead('components', '包含的组件', enterpriseMarketComponentSummaryText(rows, sessionUsable))}
-        {/* 条件渲染而非 hidden 属性：`.own-market-rows{display:flex}` 类选择器会覆盖 UA 的
-            `[hidden]{display:none}`（author > UA），hidden 属性存在但列表不消失——照官方 groupBody
-            的 `{open ? <div> : null}` 写法，收起时列表真正不进 DOM。 */}
-        {sectionOpen.components ? (
-          <ul className="own-market-rows" id={`market-section-${ENTERPRISE_MARKET_SECTION_IDS.components}`}>
-            {rows.map(row => (
-              <li
-                key={row.id}
-                className="own-market-row"
-                data-market-component={row.id}
-                data-state={row.enabled ? 'on' : 'off'}
-              >
-                <div className="own-market-rowLine">
-                  <span className="own-market-rowIcon"><ComponentGlyph id={row.id} /></span>
-                  <div className="own-market-rowMain">
-                    <span className="own-market-rowId">{row.label}</span>
-                    <span className="own-market-rowNote">{row.note}</span>
-                    <code className="own-market-rowModule">{row.module}</code>
-                  </div>
-                  <span className="own-market-rowState">
-                    <StateDot state={row.dot} />
-                    {row.state}
-                  </span>
-                  <Switch
-                    checked={row.enabled}
-                    label={`启用组件 ${row.label}`}
-                    disabled={row.switchDisabled}
-                    title={row.reserved ? `预留：${row.label}组件未接入` : row.enabled ? '请在企业账号中退出登录' : '登录企业账号后启用'}
-                    onChange={() => { onOpenLogin?.() }}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </section>
-      {/* 「企业插件」节：仅当上面的「插件」大组件开启时出现，列企业后台上传的真实插件目录。 */}
-      {pluginRowsVisible ? (
-        <section className="own-market-section" data-market-section="enterprise-plugins">
-          {sectionHead('enterprisePlugins', '企业插件', `${enterprisePlugins.length} 个`)}
-          {sectionOpen.enterprisePlugins ? (
-            <ul className="own-market-rows" id={`market-section-${ENTERPRISE_MARKET_SECTION_IDS.enterprisePlugins}`}>
-              {enterprisePlugins.map(plugin => (
-                <li
-                  key={plugin.packageName}
-                  className="own-market-row"
-                  data-enterprise-plugin-package={plugin.packageName}
-                  data-enterprise-plugin-state={plugin.state}
-                >
-                  <div className="own-market-rowLine">
-                    <span className="own-market-rowIcon"><Package size={18} aria-hidden="true" /></span>
-                    {/* 两行文案，照官方已安装卡片 CardHead（title 行 + description 行）：
-                        第 1 行 = 包名（= 官方 title），第 2 行 = 一句话说明（= 官方 description，单行 ellipsis）。
-                        不再放 mono 模块名——那是详情页 RowsSection 的 rowMain 结构，官方卡片没有。 */}
-                    <div className="own-market-rowMain">
-                      <span className="own-market-cardId">{plugin.packageName}</span>
-                      <span className="own-market-cardDesc">
-                        {plugin.inCatalog ? `企业发布 · v${plugin.version ?? ''}` : '已不在企业目录中'}
-                      </span>
-                    </div>
-                    <span className="own-market-rowState">
-                      <StateDot state={enterprisePluginDot(plugin.state)} />
-                      {enterprisePluginStatePresentation(plugin.state).title}
-                    </span>
-                    <Switch
-                      checked={plugin.state === 'ACTIVE'}
-                      label={`安装企业插件 ${plugin.packageName}`}
-                      disabled={!onTogglePlugin || plugin.installErrorCode !== undefined
-                        || plugin.state === 'INSTALLING' || plugin.state === 'DOWNLOADING' || plugin.state === 'REMOVING' || plugin.state === 'ROLLBACK'}
-                      title={plugin.installErrorCode !== undefined ? '该插件当前不可安装'
-                        : plugin.state === 'ACTIVE' ? '点此卸载' : '点此安装'}
-                      onChange={(next) => { onTogglePlugin?.(plugin, next) }}
-                    />
-                  </div>
-                  {/* 安装/卸载失败的可见反馈：这是原先「拨了没反应」的那一处——动作失败只有 store 收着码，
-                      本页一个字都没说。失败后开关照旧可拨（上面的 disabled 不含本提示）。 */}
-                  {rowError(pluginActionError, plugin.packageName)}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </section>
-      ) : null}
-      {/* 「企业技能」节：与企业插件节同规则——「技能」大组件开启（= 会话可用）且目录非空才出现。
-          行 = 官方两行卡片（标题 + 描述）+ 右侧 [有更新时的辅助标签] [官方 Switch]（开关与企业插件行同款）；
-          一键安装/卸载到官方 `~/.dsh/skills`，已装态与「有更新」都只认 Host 回传的真值
-          （`installedSkills` 的 `versionId` × 行上的 `latestVersionId`；本页不猜版本、不留乐观已装）。
-          列的是后台分配（预置）的全部技能——未装的照列，装不装由用户拨这枚开关决定。 */}
-      {skillRowsVisible ? (
-        <section className="own-market-section" data-market-section="enterprise-skills">
-          {sectionHead('enterpriseSkills', '企业技能', `${enterpriseSkills.length} 个`)}
-          {sectionOpen.enterpriseSkills ? (
-            <ul className="own-market-rows" id={`market-section-${ENTERPRISE_MARKET_SECTION_IDS.enterpriseSkills}`}>
+      {/* 页签条放在 page 视图顶部：企业技能 | 企业插件 | 组件，默认选中「企业技能」。
+          手写 tablist（照 account-view.tsx 既有写法）——官方 `SegmentedTabs` 在工程编译期 pin 的
+          primitives 0.1.5-rc.2 里不存在，直接 import 会 TS 报错（pin 对齐是另一个待用户拍板项）。
+          aria 契约：容器 `role="tablist"` + `aria-label`；页签 `role="tab"` + `aria-selected` +
+          `aria-controls`（指向面板 id）+ roving `tabIndex`；←/→/Home/End 走焦并选中。 */}
+      <div role="tablist" aria-label={ENTERPRISE_MARKET_TABLIST_LABEL} className="own-market-tabs">
+        {ENTERPRISE_MARKET_TABS.map((tab, index) => {
+          const selected = tab.id === activeTab
+          return (
+            <button
+              key={tab.id}
+              id={ENTERPRISE_MARKET_TAB_IDS[tab.id].tab}
+              type="button"
+              role="tab"
+              className="own-market-tab"
+              aria-selected={selected}
+              aria-controls={ENTERPRISE_MARKET_TAB_IDS[tab.id].panel}
+              tabIndex={selected ? 0 : -1}
+              onClick={() => { onSelectTab?.(tab.id) }}
+              onKeyDown={(event) => { onTabKeyDown(event, index) }}
+            >{tab.label}</button>
+          )
+        })}
+      </div>
+      {/* 三个面板按页签顺序严格配对（`id` ↔ `aria-controls` ↔ `aria-labelledby` 三处同源）。
+          非当前页签只留一个 `hidden` 空壳：既让 `aria-controls` 恒能解析，又保证**内容整段不挂载**
+          ——页签已经承担「显隐」，不必为隐藏的页签再渲染一次。 */}
+      <div
+        id={ENTERPRISE_MARKET_TAB_IDS.skills.panel}
+        role="tabpanel"
+        aria-labelledby={ENTERPRISE_MARKET_TAB_IDS.skills.tab}
+        hidden={activeTab !== 'skills'}
+        className="own-market-panel"
+      >
+        {/* 「企业技能」页签内容（默认页签，用户主战场）：与企业插件节同规则——「技能」大组件开启
+            （= 会话可用）且目录非空才出现。行 = 官方两行卡片（标题 + 描述）+ 右侧 [有更新时的辅助标签]
+            [官方 Switch]（开关与企业插件行同款）；一键安装/卸载到官方 `~/.dsh/skills`，已装态与「有更新」
+            都只认 Host 回传的真值（`installedSkills` 的 `versionId` × 行上的 `latestVersionId`；本页不猜版本、
+            不留乐观已装）。列的是后台分配（预置）的全部技能——未装的照列，装不装由用户拨这枚开关决定。
+            节头折叠已删（显隐由页签承担），只留一行计数。 */}
+        {activeTab === 'skills' && skillRowsVisible ? (
+          <section className="own-market-section" data-market-section="enterprise-skills">
+            {sectionMeta(`${enterpriseSkills.length} 个`)}
+            <ul className="own-market-rows">
               {enterpriseSkills.map(skill => {
                 const skillState = enterpriseMarketSkillState(installedSkills, pendingSkill, skill)
                 // 开关口径照企业插件行（同一枚官方 Switch）：`checked` = 该技能已落盘（卸载在途、有更新时都算已装，
@@ -758,9 +797,112 @@ export function EnterpriseMarketEntry({
                 )
               })}
             </ul>
-          ) : null}
-        </section>
-      ) : null}
+          </section>
+        ) : null}
+      </div>
+      <div
+        id={ENTERPRISE_MARKET_TAB_IDS.plugins.panel}
+        role="tabpanel"
+        aria-labelledby={ENTERPRISE_MARKET_TAB_IDS.plugins.tab}
+        hidden={activeTab !== 'plugins'}
+        className="own-market-panel"
+      >
+        {/* 「企业插件」页签内容：仅当「插件」大组件开启时出现，列企业后台上传的真实插件目录。
+            行渲染、失败反馈、开关口径一字未动（只是从「同页分节」搬进本页签），节头折叠已删、只留计数。 */}
+        {activeTab === 'plugins' && pluginRowsVisible ? (
+          <section className="own-market-section" data-market-section="enterprise-plugins">
+            {sectionMeta(`${enterprisePlugins.length} 个`)}
+            <ul className="own-market-rows">
+              {enterprisePlugins.map(plugin => (
+                <li
+                  key={plugin.packageName}
+                  className="own-market-row"
+                  data-enterprise-plugin-package={plugin.packageName}
+                  data-enterprise-plugin-state={plugin.state}
+                >
+                  <div className="own-market-rowLine">
+                    <span className="own-market-rowIcon"><Package size={18} aria-hidden="true" /></span>
+                    {/* 两行文案，照官方已安装卡片 CardHead（title 行 + description 行）：
+                        第 1 行 = 包名（= 官方 title），第 2 行 = 一句话说明（= 官方 description，单行 ellipsis）。
+                        不再放 mono 模块名——那是详情页 RowsSection 的 rowMain 结构，官方卡片没有。 */}
+                    <div className="own-market-rowMain">
+                      <span className="own-market-cardId">{plugin.packageName}</span>
+                      <span className="own-market-cardDesc">
+                        {plugin.inCatalog ? `企业发布 · v${plugin.version ?? ''}` : '已不在企业目录中'}
+                      </span>
+                    </div>
+                    <span className="own-market-rowState">
+                      <StateDot state={enterprisePluginDot(plugin.state)} />
+                      {enterprisePluginStatePresentation(plugin.state).title}
+                    </span>
+                    <Switch
+                      checked={plugin.state === 'ACTIVE'}
+                      label={`安装企业插件 ${plugin.packageName}`}
+                      disabled={!onTogglePlugin || plugin.installErrorCode !== undefined
+                        || plugin.state === 'INSTALLING' || plugin.state === 'DOWNLOADING' || plugin.state === 'REMOVING' || plugin.state === 'ROLLBACK'}
+                      title={plugin.installErrorCode !== undefined ? '该插件当前不可安装'
+                        : plugin.state === 'ACTIVE' ? '点此卸载' : '点此安装'}
+                      onChange={(next) => { onTogglePlugin?.(plugin, next) }}
+                    />
+                  </div>
+                  {/* 安装/卸载失败的可见反馈：这是原先「拨了没反应」的那一处——动作失败只有 store 收着码，
+                      本页一个字都没说。失败后开关照旧可拨（上面的 disabled 不含本提示）。 */}
+                  {rowError(pluginActionError, plugin.packageName)}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+      </div>
+      <div
+        id={ENTERPRISE_MARKET_TAB_IDS.components.panel}
+        role="tabpanel"
+        aria-labelledby={ENTERPRISE_MARKET_TAB_IDS.components.tab}
+        hidden={activeTab !== 'components'}
+        className="own-market-panel"
+      >
+        {/* 「组件」页签内容：这是页签化后**唯一还带折叠语义**的一节（组件清单本来就有折叠）。 */}
+        {activeTab === 'components' ? (
+          <section className="own-market-section">
+            {sectionHead('components', '包含的组件', enterpriseMarketComponentSummaryText(rows, sessionUsable))}
+            {/* 条件渲染而非 hidden 属性：`.own-market-rows{display:flex}` 类选择器会覆盖 UA 的
+                `[hidden]{display:none}`（author > UA），hidden 属性存在但列表不消失——照官方 groupBody
+                的 `{open ? <div> : null}` 写法，收起时列表真正不进 DOM。 */}
+            {componentsOpen ? (
+              <ul className="own-market-rows" id={`market-section-${ENTERPRISE_MARKET_SECTION_IDS.components}`}>
+                {rows.map(row => (
+                  <li
+                    key={row.id}
+                    className="own-market-row"
+                    data-market-component={row.id}
+                    data-state={row.enabled ? 'on' : 'off'}
+                  >
+                    <div className="own-market-rowLine">
+                      <span className="own-market-rowIcon"><ComponentGlyph id={row.id} /></span>
+                      <div className="own-market-rowMain">
+                        <span className="own-market-rowId">{row.label}</span>
+                        <span className="own-market-rowNote">{row.note}</span>
+                        <code className="own-market-rowModule">{row.module}</code>
+                      </div>
+                      <span className="own-market-rowState">
+                        <StateDot state={row.dot} />
+                        {row.state}
+                      </span>
+                      <Switch
+                        checked={row.enabled}
+                        label={`启用组件 ${row.label}`}
+                        disabled={row.switchDisabled}
+                        title={row.reserved ? `预留：${row.label}组件未接入` : row.enabled ? '请在企业账号中退出登录' : '登录企业账号后启用'}
+                        onChange={() => { onOpenLogin?.() }}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </section>
+        ) : null}
+      </div>
     </section>
   )
 }
@@ -770,20 +912,24 @@ export function EnterpriseMarketEntry({
  * 把会话可用性、插件目录与开登录回调喂给纯函数体 `EnterpriseMarketEntry`。`store` 缺席时开关恒禁用（不提供假切换）。
  *
  * 技能目录不在 store 快照里，故由本入口按会话可用性就地取（`store.api.skills()`，同源固定路径）；
- * 取数失败/未登录都收敛成空目录——「企业技能」节据此不出现，不残留半个错误态。
+ * 取数失败/未登录都收敛成空目录——「企业技能」页签据此不出内容，不残留半个错误态。
  * 已装态与目录**并行**取（`store.api.installedSkills()`），并**只对已装行**再补一次详情
  * （`store.api.skillDetail(id)`：中心列表投影的 `versionId` 恒为空串，判定「有更新」只能靠详情里的它）；
  * 已装只用来决定那枚开关的 checked / disabled 与辅助标签出不出现，本页不做乐观切换。
+ * **页签状态也自持在这里**（`useState<EnterpriseMarketTabId>`，初值 `ENTERPRISE_MARKET_DEFAULT_TAB`
+ * ＝「企业技能」）：纯函数体不持状态，页签的选中态只能由本 hook 入口供给（与折叠态同一写法）。
  * @param props - `view` 透传官方视图；`store` 由共享注册面（`client.tsx` 的 `plugins.item` inject）注入。
- * @returns 官方插件页「插件市场」入口，`page` 视图下头部总开关与组件行开关都真实可用。
+ * @returns 官方插件页「插件市场」入口，`page` 视图下页签条 + 组件行开关都真实可用。
  */
 export function EnterpriseMarketPage({ view, store }: { readonly view: 'summary' | 'page'; readonly store?: EnterpriseAccountStore | undefined }): ReactNode {
   const snapshot = useAccount(store as EnterpriseAccountStore)
   const dialog = useEnterpriseLoginDialog(store as EnterpriseAccountStore)
   const sessionUsable = enterpriseSessionUsable(snapshot.status?.state)
-  // 折叠态：初值取 `ENTERPRISE_MARKET_DEFAULT_EXPANDED`——**只有企业技能节默认展开**（用户口径
-  // 「技能列表默认显示」），组件节与企业插件节照官方 `PluginInventory` 默认折叠；本组件是唯一 hook 入口，
-  // 纯函数体不持状态。
+  // 页签：初值取 `ENTERPRISE_MARKET_DEFAULT_TAB`——**默认落在「企业技能」**（用户的主战场：
+  // 后台分配/预置的技能一进页面就列出来），组件与「企业插件」要靠点页签才进去。
+  const [activeTab, setActiveTab] = useState<EnterpriseMarketTabId>(ENTERPRISE_MARKET_DEFAULT_TAB)
+  // 折叠态：初值取 `ENTERPRISE_MARKET_DEFAULT_EXPANDED`——页签化后**只剩「组件」页签内部**那一节
+  // 还带折叠（默认展开）；本组件是唯一 hook 入口，纯函数体不持状态。
   const [expandedSections, setExpandedSections] = useState<Record<EnterpriseMarketSectionId, boolean>>(ENTERPRISE_MARKET_DEFAULT_EXPANDED)
   const onToggleSection = (section: EnterpriseMarketSectionId): void => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }))
@@ -903,6 +1049,8 @@ export function EnterpriseMarketPage({ view, store }: { readonly view: 'summary'
         skillActionError={skillActionError}
         expandedSections={expandedSections}
         onToggleSection={onToggleSection}
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
       />
       <EnterpriseLoginDialog store={store as EnterpriseAccountStore} open={dialog.open} onClose={dialog.closeDialog} />
     </>

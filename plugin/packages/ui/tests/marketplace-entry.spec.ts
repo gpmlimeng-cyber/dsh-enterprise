@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 marketplace-entry 的注册常量、组件清单/摘要/状态/开关语义纯投影、企业插件行投影、企业技能行投影（含详情归并的中心版本 `latestVersionId`）与可见性门控、技能节受管态纯投影 `enterpriseMarketSkillState`、「有更新」判定 `enterpriseMarketSkillHasUpdate`/`enterpriseMarketSkillRowHasUpdate` 与辅助标签投影 `enterpriseMarketSkillUpdateTag`、三节默认展开态常量 `ENTERPRISE_MARKET_DEFAULT_EXPANDED`、失败行内提示投影 `enterpriseMarketActionErrorLabel`、入口组件与版本签组件本身，以及 local-api-decode 的 `EnterpriseRuntimeSkill`/`EnterpriseInstalledSkill` 形状
- * [OUTPUT]: 验证入口身份常量、卡片一句话的单行约束、组件清单（插件/技能/配方）顺序与 reserved 语义、计数摘要口径、summary/page 两视图结构（含「包含的组件」标题与逐行开关，且 page 不重画标题/desc）、版本签只对本条目 subject 出、企业插件节的归并与门控，以及**企业技能节的官方两行卡片**（标题 + 描述各自成行、描述单行省略、旧元信息行退场）/可见性门控/计数/折叠开关/**默认展开**（`ENTERPRISE_MARKET_DEFAULT_EXPANDED` 三值全 true，未装的技能也照列）/右侧那枚官方 `Switch`（`checked` 反映已装、在途 `disabled`、`label` 给动作语义、`onChange(next)` 两个方向都回调）与受管态投影（未装/已装/有更新/在途），以及**开关左侧那枚辅助标签**（只在「有更新」时出现、`aria-label`=`更新企业技能 X`、点击走安装方向、在途 `disabled` 不消失、未装/已装同版本一律不出现、标签严格排在 Switch 左侧），以及**「有更新」独立用例**（只有两侧 `versionId` 参与、`sha256` 换值不改结论、缺任一侧不判），以及**只改技能行**的回归锁（技能行恢复 Switch + 补辅助标签、企业插件行一字未动），以及**两节行上的失败可见反馈**（失败 → 该行 role="alert" + 稳定错误码、只落失败行、失败后开关仍可拨重试、成功路径不出现该提示）
+ * [INPUT]: 依赖 marketplace-entry 的注册常量、**页签真源**（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`）、组件清单/摘要/状态/开关语义纯投影、企业插件行投影、企业技能行投影（含详情归并的中心版本 `latestVersionId`）与可见性门控、技能节受管态纯投影 `enterpriseMarketSkillState`、「有更新」判定 `enterpriseMarketSkillHasUpdate`/`enterpriseMarketSkillRowHasUpdate` 与辅助标签投影 `enterpriseMarketSkillUpdateTag`、**组件页签折叠态常量** `ENTERPRISE_MARKET_DEFAULT_EXPANDED`、失败行内提示投影 `enterpriseMarketActionErrorLabel`、入口组件与版本签组件本身，以及 local-api-decode 的 `EnterpriseRuntimeSkill`/`EnterpriseInstalledSkill` 形状
+ * [OUTPUT]: 验证入口身份常量、卡片一句话的单行约束、**page 视图的三页签商店结构**（页签条手写 `role="tablist"`、三个页签的 `aria-selected`/`aria-controls`/roving `tabIndex`/`id` 与三个 `role="tabpanel"` 的 `aria-labelledby` 严格配对、**默认选中「企业技能」**、切换后**只渲染该页签内容**、←/→/Home/End 走焦并选中、鼠标点击回调）、组件清单（插件/技能/配方）顺序与 reserved 语义、计数摘要口径、summary/page 两视图结构（page 上的组件行在「组件」页签里，且 page 不重画标题/desc）、版本签只对本条目 subject 出、企业插件页签的归并与门控，以及**企业技能页签的官方两行卡片**（标题 + 描述各自成行、描述单行省略、旧元信息行退场）/可见性门控/计数/右侧那枚官方 `Switch`（`checked` 反映已装、在途 `disabled`、`label` 给动作语义、`onChange(next)` 两个方向都回调）与受管态投影（未装/已装/有更新/在途），以及**开关左侧那枚辅助标签**（只在「有更新」时出现、`aria-label`=`更新企业技能 X`、点击走安装方向、在途 `disabled` 不消失、未装/已装同版本一律不出现、标签严格排在 Switch 左侧），以及**「有更新」独立用例**（只有两侧 `versionId` 参与、`sha256` 换值不改结论、缺任一侧不判），以及**只改技能行**的回归锁（技能行有 Switch + 辅助标签、企业插件行一字未动），以及**两节行上的失败可见反馈**（失败 → 该行 role="alert" + 稳定错误码、只落失败行、失败后开关仍可拨重试、成功路径不出现该提示），以及**页签化后唯一剩下的组件节折叠**（`ENTERPRISE_MARKET_DEFAULT_EXPANDED` 单字段、aria 契约、折叠态列表不进 DOM）
  * [POS]: dsh-ui 插件市场入口的产品词汇门禁，真实渲染与视觉由 Harness 快照与真机验收覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,6 +13,7 @@ import type { EnterpriseInstalledSkill, EnterpriseRuntimeSkill } from '../src/lo
 import {
   ENTERPRISE_MARKET_COMPONENTS,
   ENTERPRISE_MARKET_DEFAULT_EXPANDED,
+  ENTERPRISE_MARKET_DEFAULT_TAB,
   ENTERPRISE_MARKET_ENTRY_ID,
   ENTERPRISE_MARKET_ENTRY_LABEL,
   ENTERPRISE_MARKET_ENTRY_ORDER,
@@ -20,6 +21,9 @@ import {
   ENTERPRISE_MARKET_SKILL_UPDATE_LABEL,
   ENTERPRISE_MARKET_SKILL_UPDATE_TAG,
   ENTERPRISE_MARKET_SUMMARY,
+  ENTERPRISE_MARKET_TAB_IDS,
+  ENTERPRISE_MARKET_TABLIST_LABEL,
+  ENTERPRISE_MARKET_TABS,
   BadgeView,
   EnterpriseMarketBadge,
   EnterpriseMarketEntry,
@@ -138,7 +142,7 @@ describe('enterprise marketplace entry', () => {
     expect(plan[2].note).toBe('预留')
   })
 
-  it('renders the single-line summary for the card and the component page for the detail view', () => {
+  it('renders the single-line summary for the card and the three-tab store page for the detail view', () => {
     const summary = EnterpriseMarketEntry({ view: 'summary' })
     expect(isValidElement(summary)).toBe(true)
     expect(textOf(summary)).toBe(ENTERPRISE_MARKET_SUMMARY)
@@ -146,9 +150,121 @@ describe('enterprise marketplace entry', () => {
     const page = EnterpriseMarketEntry({ view: 'page' })
     expect(isValidElement(page)).toBe(true)
     expect(isValidElement(page) ? page.props['aria-label'] : undefined).toBe(ENTERPRISE_MARKET_ENTRY_LABEL)
+    // page 视图现在是一条页签条 + 三个面板；页签文案就是原三节的标题。
     const text = textOf(page)
-    for (const tab of ENTERPRISE_MARKET_PLAN) expect(text).toContain(tab.label)
-    expect(text).toContain('预留')
+    for (const tab of ENTERPRISE_MARKET_TABS) expect(text).toContain(tab.label)
+    // 卡片摘要仍只出现在 summary 视图（page 里一个字都不重复）。
+    expect(text).not.toContain(ENTERPRISE_MARKET_SUMMARY)
+  })
+
+  // 本刀的核心：page 视图顶部一条手写页签条，三个页签 + 三个面板严格配对，默认选中「企业技能」。
+  it('renders a hand-written tablist with the three page tabs and 企业技能 selected by default', () => {
+    expect(ENTERPRISE_MARKET_TABS.map(tab => tab.id)).toEqual(['skills', 'plugins', 'components'])
+    expect(ENTERPRISE_MARKET_TABS.map(tab => tab.label)).toEqual(['企业技能', '企业插件', '组件'])
+    expect(ENTERPRISE_MARKET_DEFAULT_TAB).toBe('skills')
+    expect(ENTERPRISE_MARKET_TABS[0]?.id).toBe(ENTERPRISE_MARKET_DEFAULT_TAB)
+
+    const page = EnterpriseMarketEntry({ view: 'page' })
+    // 容器：手写 tablist（官方 SegmentedTabs 在编译期 pin 的 primitives 0.1.5-rc.2 里不存在，不许 import）。
+    const tablists = collectByRole(page, 'tablist')
+    expect(tablists).toHaveLength(1)
+    expect(tablists[0]?.['aria-label']).toBe(ENTERPRISE_MARKET_TABLIST_LABEL)
+    const tabs = collectByRole(page, 'tab')
+    expect(tabs.map(tab => tab['children'])).toEqual(['企业技能', '企业插件', '组件'])
+    // 默认选中 + roving tabIndex（只有当前页签可 Tab 到，其余靠方向键）。
+    expect(tabs.map(tab => tab['aria-selected'])).toEqual([true, false, false])
+    expect(tabs.map(tab => tab['tabIndex'])).toEqual([0, -1, -1])
+  })
+
+  it('pairs every tab with its tabpanel and mounts only the selected panel content', () => {
+    const enterpriseSkills = enterpriseMarketSkillRows([SKILL])
+    const enterprisePlugins = [{ packageName: 'ent-a', version: '1.2.0', state: 'ACTIVE', inCatalog: true }] as const
+    for (const tab of ENTERPRISE_MARKET_TABS) {
+      const tree = EnterpriseMarketEntry({
+        view: 'page',
+        sessionUsable: true,
+        activeTab: tab.id,
+        enterpriseSkills,
+        enterprisePlugins: enterprisePlugins as never,
+      })
+      const ids = ENTERPRISE_MARKET_TAB_IDS[tab.id]
+      const tabs = collectByRole(tree, 'tab')
+      // 页签 id ↔ aria-controls ↔ 面板 id ↔ 面板 aria-labelledby 四处同源，且只有当前页签是选中态。
+      expect(tabs.map(node => node['id'])).toEqual([
+        ENTERPRISE_MARKET_TAB_IDS.skills.tab,
+        ENTERPRISE_MARKET_TAB_IDS.plugins.tab,
+        ENTERPRISE_MARKET_TAB_IDS.components.tab,
+      ])
+      expect(tabs.map(node => node['aria-controls'])).toEqual([
+        ENTERPRISE_MARKET_TAB_IDS.skills.panel,
+        ENTERPRISE_MARKET_TAB_IDS.plugins.panel,
+        ENTERPRISE_MARKET_TAB_IDS.components.panel,
+      ])
+      expect(tabs.filter(node => node['aria-selected'] === true).map(node => node['id'])).toEqual([ids.tab])
+      const panels = collectByRole(tree, 'tabpanel')
+      expect(panels.map(node => node['id'])).toEqual([
+        ENTERPRISE_MARKET_TAB_IDS.skills.panel,
+        ENTERPRISE_MARKET_TAB_IDS.plugins.panel,
+        ENTERPRISE_MARKET_TAB_IDS.components.panel,
+      ])
+      expect(panels.map(node => node['aria-labelledby'])).toEqual([
+        ENTERPRISE_MARKET_TAB_IDS.skills.tab,
+        ENTERPRISE_MARKET_TAB_IDS.plugins.tab,
+        ENTERPRISE_MARKET_TAB_IDS.components.tab,
+      ])
+      // 每个 aria-controls 都能解析到一个真实面板；非当前页签的面板 hidden，且**内容整段不挂载**。
+      for (const node of tabs) expect(panels.some(panel => panel['id'] === node['aria-controls'])).toBe(true)
+      expect(panels.filter(panel => panel['hidden'] === true).map(panel => panel['id']))
+        .toEqual(panels.filter(panel => panel['id'] !== ids.panel).map(panel => panel['id']))
+      const text = textOf(tree)
+      if (tab.id === 'skills') {
+        expect(text).toContain('会议纪要技能组')
+        expect(text).not.toContain('包含的组件')
+        expect(text).not.toContain('ent-a')
+      } else if (tab.id === 'plugins') {
+        expect(text).toContain('ent-a')
+        expect(text).not.toContain('会议纪要技能组')
+        expect(text).not.toContain('包含的组件')
+      } else {
+        expect(text).toContain('包含的组件')
+        expect(text).not.toContain('会议纪要技能组')
+        expect(text).not.toContain('ent-a')
+      }
+    }
+  })
+
+  it('switches the active tab from clicks and from the arrow/home/end keys', () => {
+    const onSelectTab = vi.fn()
+    const tree = EnterpriseMarketEntry({ view: 'page', onSelectTab })
+    const tabs = collectButtonProps(tree).filter(button => button['role'] === 'tab')
+    expect(tabs).toHaveLength(3)
+    // 点击：三个页签各自把 (tabId) 交回调用方。
+    for (const [index, tab] of ENTERPRISE_MARKET_TABS.entries()) {
+      tabs[index]?.['onClick']?.()
+      expect(onSelectTab).toHaveBeenLastCalledWith(tab.id)
+    }
+    // 键盘：←/→ 循环、Home/End 跳首尾；都是「走焦 + 选中」一步到位，且拦住默认滚动。
+    const press = (index: number, key: string): { preventDefault: () => void } => {
+      const event = { key, preventDefault: vi.fn(), currentTarget: null }
+      tabs[index]?.['onKeyDown']?.(event)
+      return event
+    }
+    expect(press(0, 'ArrowRight').preventDefault).toHaveBeenCalled()
+    expect(onSelectTab).toHaveBeenLastCalledWith('plugins')
+    expect(press(0, 'ArrowLeft').preventDefault).toHaveBeenCalled()
+    expect(onSelectTab).toHaveBeenLastCalledWith('components')
+    expect(press(2, 'ArrowRight').preventDefault).toHaveBeenCalled()
+    expect(onSelectTab).toHaveBeenLastCalledWith('skills')
+    expect(press(2, 'Home').preventDefault).toHaveBeenCalled()
+    expect(onSelectTab).toHaveBeenLastCalledWith('skills')
+    expect(press(0, 'End').preventDefault).toHaveBeenCalled()
+    expect(onSelectTab).toHaveBeenLastCalledWith('components')
+    // 其余键不拦、不改选中（Tab / Enter / 空格交给浏览器与 onClick）。
+    const ignored = press(0, 'Tab')
+    expect(ignored.preventDefault).not.toHaveBeenCalled()
+    const calls = onSelectTab.mock.calls.length
+    press(0, 'Enter')
+    expect(onSelectTab.mock.calls.length).toBe(calls)
   })
 
   it('lists exactly three components in order with only presets reserved', () => {
@@ -191,27 +307,30 @@ describe('enterprise marketplace entry', () => {
     expect(enterpriseMarketComponentSummaryText(ENTERPRISE_MARKET_COMPONENTS, false)).toBe('共 3 个 · 1 预留')
   })
 
-  it('renders the detail page with the official component-section heading and per-row switch labels', () => {
-    const page = EnterpriseMarketEntry({ view: 'page' })
+  it('renders the 组件 tab with the official component-section heading and per-row switch labels', () => {
+    // 组件清单已搬进「组件」页签：只有选中该页签时才在树上（页签承担显隐）。
+    const page = EnterpriseMarketEntry({ view: 'page', activeTab: 'components' })
     expect(isValidElement(page)).toBe(true)
     const text = textOf(page)
     expect(text).toContain('包含的组件')
     expect(text).toContain(enterpriseMarketComponentSummaryText(ENTERPRISE_MARKET_COMPONENTS, false))
     for (const row of ENTERPRISE_MARKET_COMPONENTS) expect(text).toContain(row.label)
     // 回归锁：详情页正文不重复标题与摘要——标题 h3 由官方 ItemDetail 用 item.label 渲染（我们不再画），
-    // 卡片摘要只在 summary 视图出现，desc 已按产品决策删除，详情页只剩版本签 + 组件列表。
+    // 卡片摘要只在 summary 视图出现，desc 已按产品决策删除，「组件」页签里只有组件清单。
     expect(text).not.toContain('企业插件、技能与配方的统一入口')
     expect(text).not.toContain(ENTERPRISE_MARKET_SUMMARY)
     expect(text).not.toContain(ENTERPRISE_MARKET_ENTRY_LABEL)
+    // 未选中「组件」时这份清单整段不挂载（默认页签是「企业技能」）。
+    expect(textOf(EnterpriseMarketEntry({ view: 'page' }))).not.toContain('包含的组件')
   })
 
-  // 回归锁：注入 store（有 onOpenLogin 回调）后，头部总开关与插件行开关必须可点；
+  // 回归锁：注入 store（有 onOpenLogin 回调）后，组件行开关必须可点；
   // 此前 client.tsx 未给 plugins.item 注 inject 导致三开关恒 disabled（点了没反应）的 bug 不许再犯。
-  it('keeps the header and plugins-row switches clickable when a login action is wired (no dead control)', () => {
+  it('keeps the component-row switches clickable when a login action is wired (no dead control)', () => {
     const onOpenLogin = vi.fn()
-    const page = EnterpriseMarketEntry({ view: 'page', sessionUsable: false, onOpenLogin })
+    const page = EnterpriseMarketEntry({ view: 'page', activeTab: 'components', sessionUsable: false, onOpenLogin })
     expect(isValidElement(page)).toBe(true)
-    // page 里只有三行组件开关（头部总开关已挪到 plugins.detail.badge 槽，由 BadgeView 测试）。
+    // 「组件」页签里只有三行组件开关（头部总开关已挪到 plugins.detail.badge 槽，由 BadgeView 测试）。
     const switches = collectSwitchProps(page)
     expect(switches).toHaveLength(3)
     // 插件行与技能行开关未登录且有回调 → 必须可点（disabled false），配方恒禁用（预留）。
@@ -283,29 +402,30 @@ describe('enterprise marketplace entry', () => {
     expect(enterprisePluginDot('EXPECTED')).toBe('idle')
   })
 
-  // page 在「插件」组件 ON 时渲染企业插件节、OFF 时不渲染（含 catalog 数据）。
-  it('appends the enterprise plugin section in page only when the plugins component is on', () => {
+  // 「企业插件」页签在「插件」组件 ON 时渲染插件行、OFF 时不渲染（含 catalog 数据）。
+  it('renders the enterprise plugin rows in the 企业插件 tab only when the plugins component is on', () => {
     const enterprisePlugins = [
       { packageName: 'ent-a', version: '1.2.0', state: 'ACTIVE', inCatalog: true },
       { packageName: 'ent-b', version: '2.0.0', state: 'EXPECTED', inCatalog: true },
     ] as const
-    // OFF：sessionUsable=false → 「插件」组件未开启 → 不出企业插件节。
-    const off = EnterpriseMarketEntry({ view: 'page', sessionUsable: false, enterprisePlugins: enterprisePlugins as never })
-    expect(textOf(off)).not.toContain('企业插件')
+    // OFF：sessionUsable=false → 「插件」组件未开启 → 本页签里什么都没有（连节容器都不出）。
+    const off = EnterpriseMarketEntry({ view: 'page', activeTab: 'plugins', sessionUsable: false, enterprisePlugins: enterprisePlugins as never })
     expect(textOf(off)).not.toContain('ent-a')
-    // ON：sessionUsable=true → 「插件」组件开启 → 出企业插件节 + 逐个包名 + 「企业插件」标题。
-    const on = EnterpriseMarketEntry({ view: 'page', sessionUsable: true, enterprisePlugins: enterprisePlugins as never })
+    expect(collectSectionByHook(off, 'enterprise-plugins')).toBeUndefined()
+    // ON：sessionUsable=true → 「插件」组件开启 → 出插件行 + 逐个包名 + 计数。
+    const on = EnterpriseMarketEntry({ view: 'page', activeTab: 'plugins', sessionUsable: true, enterprisePlugins: enterprisePlugins as never })
     const text = textOf(on)
-    expect(text).toContain('企业插件')
     expect(text).toContain('ent-a')
     expect(text).toContain('ent-b')
     expect(text).toContain('企业发布 · v1.2.0')
-    // 两节的 section 都在：包含的组件 + 企业插件。
-    expect(text).toContain('包含的组件')
+    expect(text).toContain('2 个')
+    expect(collectSectionByHook(on, 'enterprise-plugins')).not.toBeUndefined()
     // 回归锁：企业插件卡片只两行文案（包名 + 一句话说明），照官方已安装卡片 CardHead——
-    // 不含详情页 RowsSection 的 mono 模块名行（那是 rowMain 结构，官方卡片没有）。
+    // 不含详情页 RowsSection 的 mono 模块名行（那是 rowMain 结构，官方卡片没有）；
+    // 也不越界渲染别页签的内容（组件清单只在「组件」页签）。
     expect(text).not.toContain('enterprise plugins · catalog')
     expect(text).not.toContain('已装 · v')
+    expect(text).not.toContain('包含的组件')
   })
 
   // 「企业技能」节：目录 → 官方两行卡片行（标题 + 描述），后台预置的全部技能照列、不做过滤或归并。
@@ -341,18 +461,17 @@ describe('enterprise marketplace entry', () => {
     expect(enterpriseMarketSkillSectionVisible(false, [])).toBe(false)
   })
 
-  // page 在「技能」组件 ON 且目录非空时渲染企业技能节、OFF 时不渲染；技能行 === 官方两行卡片
+  // 默认页签（「企业技能」）在「技能」组件 ON 且目录非空时渲染技能行、OFF 时不渲染；技能行 === 官方两行卡片
   // （第 1 行标题、第 2 行描述，描述单行省略）+ 右侧那枚官方 Switch（辅助标签只在「有更新」时补位）。
   it('renders the two-line skill card with the official Switch as the row primary control', () => {
     const enterpriseSkills = enterpriseMarketSkillRows([SKILL])
-    // OFF：sessionUsable=false → 「技能」组件未开启 → 不出企业技能节。
+    // OFF：sessionUsable=false → 「技能」组件未开启 → 默认页签里什么内容都没有（节容器都不出）。
     const off = EnterpriseMarketEntry({ view: 'page', sessionUsable: false, enterpriseSkills })
-    expect(textOf(off)).not.toContain('企业技能')
+    expect(collectSectionByHook(off, 'enterprise-skills')).toBeUndefined()
     expect(textOf(off)).not.toContain('会议纪要技能组')
-    // ON：标题 + 计数（`N 个`）+ 两行文案。
+    // ON：两行文案 + 计数（`N 个`）。
     const on = EnterpriseMarketEntry({ view: 'page', sessionUsable: true, enterpriseSkills })
     const text = textOf(on)
-    expect(text).toContain('企业技能')
     expect(text).toContain('1 个')
     // 两行结构：第 1 行标题、第 2 行描述各自成行（照官方已安装卡片 CardHead）。
     expect(collectByClassName(on, 'own-market-cardId').map(props => props['children'])).toEqual(['会议纪要技能组'])
@@ -368,20 +487,20 @@ describe('enterprise marketplace entry', () => {
     expect(cssRuleBody(css, '.own-market-cardId')).toContain('text-overflow:ellipsis')
     // 旧元信息行退场：不再堆「DSH 版本 · 大小 · N 个技能」（未装行右侧就一个开关）。
     expect(text).not.toContain('DSH 0.1.7-rc.2')
-    // 右侧恢复为官方 Switch：3 个组件行开关 + 1 个技能行开关；技能行不再占 rowState 版式，
+    // 本页签里没有组件行（三行组件开关在「组件」页签）：技能行也不占 rowState 版式，
     // 且**未装行不出任何辅助标签**（那枚按钮只在「有更新」时出现，见下面的独立用例）。
-    expect(collectByClassName(on, 'own-market-rowState')).toHaveLength(3)
+    expect(collectByClassName(on, 'own-market-rowState')).toEqual([])
     expect(collectByClassName(on, 'own-market-skillTag')).toEqual([])
     expect(collectDataValues(on, 'data-enterprise-skill-tag')).toEqual([])
     const switches = collectSwitchProps(on)
-    expect(switches).toHaveLength(4)
+    expect(switches).toHaveLength(1)
     const skillSwitch = switches.find(props => String(props['label']).includes('会议纪要技能组'))
     expect(skillSwitch).toBeDefined()
     // 未注入动作即禁用（不提供假入口），但语义照旧是「安装」方向。
     expect(skillSwitch?.['checked']).toBe(false)
     expect(skillSwitch?.['disabled']).toBe(true)
     expect(skillSwitch?.['label']).toBe('安装企业技能 会议纪要技能组')
-    // 数据钩子命名与企业插件节同风格（`enterprise-skills`）。
+    // 数据钩子命名与企业插件节同风格（`enterprise-skills`）；别页签的节不在树上。
     expect(collectSectionByHook(on, 'enterprise-skills')).not.toBeUndefined()
     expect(collectSectionByHook(on, 'enterprise-plugins')).toBeUndefined()
     // 受管态仍如实落在行上（`AVAILABLE` = 未装可装，那枚开关据此关闭）。
@@ -648,37 +767,39 @@ describe('enterprise marketplace entry', () => {
   })
 
   // 回归锁（本轮改动的边界）：技能行右侧 = 官方 Switch（**始终在**）＋仅在有更新时出现的辅助标签，
-  // 企业插件行**完全未动**（同样一枚 Switch）。
+  // 企业插件行**完全未动**（同样一枚 Switch）。两行现在各在自己的页签里，故分两次渲染锁同一批语义。
   it('gives the skill row a Switch again and leaves the plugin row switch untouched', () => {
     const enterpriseSkills = enterpriseMarketSkillRows([SKILL])
     const enterprisePlugins = [{ packageName: 'ent-a', version: '1.2.0', state: 'ACTIVE', inCatalog: true }] as const
     const onTogglePlugin = vi.fn()
-    const tree = EnterpriseMarketEntry({
+    // 「企业插件」页签：插件行照旧「状态点 + 文案 + Switch」，checked/title/onChange 口径一字未改。
+    const pluginsTab = EnterpriseMarketEntry({
       view: 'page',
+      activeTab: 'plugins',
       sessionUsable: true,
       enterprisePlugins: enterprisePlugins as never,
-      enterpriseSkills,
-      installedSkills: [installedSkill('v2')],
       onTogglePlugin,
-      onToggleSkill: vi.fn(),
     })
-    // Switch 恰好 3 个组件行开关 + 1 个插件行开关 + 1 个技能行开关 = 5。
-    const labels = collectSwitchProps(tree).map(props => String(props['label']))
-    expect(labels).toHaveLength(5)
-    expect(labels).toContain('安装企业插件 ent-a')
-    expect(labels).toContain('卸载企业技能 会议纪要技能组')
-    // 插件行照旧「状态点 + 文案 + Switch」，其 checked/title/onChange 口径一字未改。
-    const pluginSwitch = collectSwitchProps(tree).find(props => props['label'] === '安装企业插件 ent-a')!
+    const pluginSwitch = collectSwitchProps(pluginsTab).find(props => props['label'] === '安装企业插件 ent-a')!
+    expect(collectSwitchProps(pluginsTab).map(props => String(props['label']))).toEqual(['安装企业插件 ent-a'])
     expect(pluginSwitch['checked']).toBe(true)
     expect(pluginSwitch['title']).toBe('点此卸载')
     expect(pluginSwitch['disabled']).toBe(false)
     pluginSwitch['onChange']?.(false)
     expect(onTogglePlugin).toHaveBeenCalledWith(expect.objectContaining({ packageName: 'ent-a' }), false)
-    // 已装同版本行（行上没有中心版本 → 不判更新）右侧只有那枚开关：不出辅助标签、也没有 `data-enterprise-skill-tag` 钩子。
-    expect(collectByClassName(tree, 'own-market-skillTag')).toEqual([])
-    expect(collectDataValues(tree, 'data-enterprise-skill-tag')).toEqual([])
-    // 技能行未占 rowState 版式（那是组件行的状态点位）。
-    expect(collectDataValues(tree, 'data-enterprise-skill-state')).toEqual(['INSTALLED'])
+    // 「企业技能」页签：已装同版本行（行上没有中心版本 → 不判更新）右侧只有那枚开关：
+    // 不出辅助标签、也没有 `data-enterprise-skill-tag` 钩子；技能行未占 rowState 版式（那是组件行的状态点位）。
+    const skillsTab = EnterpriseMarketEntry({
+      view: 'page',
+      sessionUsable: true,
+      enterpriseSkills,
+      installedSkills: [installedSkill('v2')],
+      onToggleSkill: vi.fn(),
+    })
+    expect(collectSwitchProps(skillsTab).map(props => String(props['label']))).toEqual(['卸载企业技能 会议纪要技能组'])
+    expect(collectByClassName(skillsTab, 'own-market-skillTag')).toEqual([])
+    expect(collectDataValues(skillsTab, 'data-enterprise-skill-tag')).toEqual([])
+    expect(collectDataValues(skillsTab, 'data-enterprise-skill-state')).toEqual(['INSTALLED'])
   })
 
   // 企业插件行原先也只有「目录不可装」的禁用 + title 提示，动作失败同样一个字都不说（失败码只留在 store 里，
@@ -691,6 +812,7 @@ describe('enterprise marketplace entry', () => {
     const onTogglePlugin = vi.fn()
     const tree = EnterpriseMarketEntry({
       view: 'page',
+      activeTab: 'plugins',
       sessionUsable: true,
       enterprisePlugins: enterprisePlugins as never,
       onTogglePlugin,
@@ -709,98 +831,59 @@ describe('enterprise marketplace entry', () => {
   })
 
   // 成功路径（没有失败事实直传）不得出现任何提示：提示只在失败时出现，成功时一个字都不多说。
+  // 两个行页签各渲染一次（同一份输入，只是选中页签不同），两处都必须干净。
   it('renders no inline alert when no action failed (success path stays clean)', () => {
     const enterpriseSkills = enterpriseMarketSkillRows([SKILL])
     const enterprisePlugins = [{ packageName: 'ent-a', version: '1.2.0', state: 'ACTIVE', inCatalog: true }] as const
+    for (const tab of ['skills', 'plugins'] as const) {
+      const tree = EnterpriseMarketEntry({
+        view: 'page',
+        activeTab: tab,
+        sessionUsable: true,
+        enterprisePlugins: enterprisePlugins as never,
+        enterpriseSkills,
+        installedSkills: [installedSkill('v1')],
+        onTogglePlugin: vi.fn(),
+        onToggleSkill: vi.fn(),
+      })
+      expect(collectAlerts(tree)).toEqual([])
+      expect(textOf(tree)).not.toContain('安装失败')
+      expect(textOf(tree)).not.toContain('卸载失败')
+    }
+    // 成功路径上开关只是如实反映 Host 真值（已装 → 打开）。
     const tree = EnterpriseMarketEntry({
       view: 'page',
       sessionUsable: true,
-      enterprisePlugins: enterprisePlugins as never,
       enterpriseSkills,
       installedSkills: [installedSkill('v1')],
-      onTogglePlugin: vi.fn(),
       onToggleSkill: vi.fn(),
     })
-    expect(collectAlerts(tree)).toEqual([])
-    expect(textOf(tree)).not.toContain('安装失败')
-    expect(textOf(tree)).not.toContain('卸载失败')
-    // 成功路径上开关只是如实反映 Host 真值（已装 → 打开）。
     const skillSwitch = collectSwitchProps(tree).find(props => String(props['label']).includes('会议纪要技能组'))!
     expect(skillSwitch['checked']).toBe(true)
   })
 
-  // 折叠（照官方 PluginInventory groupToggle）：企业技能节与另两节共用同一份 aria 契约与折叠语义。
-  it('toggles the enterprise-skills section with the same aria contract as the other two sections', () => {
-    const enterpriseSkills = enterpriseMarketSkillRows([SKILL])
-    expect(ENTERPRISE_MARKET_SECTION_IDS.enterpriseSkills).toBe('enterprise-skills')
-    expect(enterpriseMarketSectionOpen(undefined, 'enterpriseSkills')).toBe(false)
-    expect(enterpriseMarketSectionOpen(
-      { components: false, enterprisePlugins: false, enterpriseSkills: true },
-      'enterpriseSkills',
-    )).toBe(true)
-
-    const collapsed = EnterpriseMarketEntry({
-      view: 'page',
-      sessionUsable: true,
-      enterpriseSkills,
-      expandedSections: { components: false, enterprisePlugins: false, enterpriseSkills: false },
-      onToggleSection: vi.fn(),
-    })
-    const collapsedBtn = collectButtonProps(collapsed)
-      .find(button => button['aria-controls'] === 'market-section-enterprise-skills')
-    expect(collapsedBtn).toBeDefined()
-    expect(collapsedBtn?.['aria-expanded']).toBe(false)
-    // 收起时列表整段不进 DOM，但节头/标题/计数仍在。
-    expect(collectElementById(collapsed, 'market-section-enterprise-skills')).toBeUndefined()
-    expect(textOf(collapsed)).toContain('企业技能')
-
-    const expanded = EnterpriseMarketEntry({
-      view: 'page',
-      sessionUsable: true,
-      enterpriseSkills,
-      expandedSections: { components: false, enterprisePlugins: false, enterpriseSkills: true },
-      onToggleSection: vi.fn(),
-    })
-    expect(collectButtonProps(expanded)
-      .find(button => button['aria-controls'] === 'market-section-enterprise-skills')?.['aria-expanded']).toBe(true)
-    expect(collectElementById(expanded, 'market-section-enterprise-skills')).not.toBeUndefined()
-
-    const spy = vi.fn()
-    const clickable = EnterpriseMarketEntry({
-      view: 'page',
-      sessionUsable: true,
-      enterpriseSkills,
-      expandedSections: { components: false, enterprisePlugins: false, enterpriseSkills: false },
-      onToggleSection: spy,
-    })
-    collectButtonProps(clickable)
-      .find(button => button['aria-controls'] === 'market-section-enterprise-skills')?.onClick?.()
-    expect(spy).toHaveBeenCalledWith('enterpriseSkills')
-  })
-
-  // 折叠（照官方 PluginInventory groupToggle）：显式给 expandedSections 时按值、aria-expanded/controls 齐全。
-  it('honours an explicit expandedSections map and toggles aria-expanded per section', () => {
+  // 折叠（照官方 PluginInventory groupToggle）：页签化后**只剩「组件」页签内部那一节**还带折叠语义；
+  // 企业技能 / 企业插件两节的节头折叠随页签化退场（显隐由页签承担，这两节只剩一行计数）——
+  // 原来锁「企业技能节折叠 aria 契约」的那条用例绑定的正是被移除的行为，故删除（语义由上面的页签用例接管）。
+  it('honours an explicit expandedSections map and toggles aria-expanded on the only collapsible section', () => {
     // 缺席（bare call）→ 纯投影默认折叠（照官方 `?? false`）；页面纯函数体不传 expandedSections 时会传 defaultOpen=true（测试直调得完整树）。
     expect(enterpriseMarketSectionOpen(undefined, 'components')).toBe(false)
-    expect(enterpriseMarketSectionOpen(undefined, 'enterprisePlugins')).toBe(false)
-    expect(enterpriseMarketSectionOpen(undefined, 'enterpriseSkills')).toBe(false)
     expect(enterpriseMarketSectionOpen(undefined, 'components', true)).toBe(true)
     // 显式 provided → 按值。
-    const allClosed = { components: false, enterprisePlugins: false, enterpriseSkills: false }
-    expect(enterpriseMarketSectionOpen(allClosed, 'components')).toBe(false)
-    expect(enterpriseMarketSectionOpen({ ...allClosed, components: true }, 'components')).toBe(true)
-    expect(enterpriseMarketSectionOpen({ ...allClosed, components: true }, 'enterprisePlugins')).toBe(false)
+    expect(enterpriseMarketSectionOpen({ components: false }, 'components')).toBe(false)
+    expect(enterpriseMarketSectionOpen({ components: true }, 'components')).toBe(true)
     expect(ENTERPRISE_MARKET_SECTION_IDS.components).toBe('components')
-    expect(ENTERPRISE_MARKET_SECTION_IDS.enterprisePlugins).toBe('enterprise-plugins')
+    // 节 id 真源已收敛为唯一还带折叠的「组件」一节：另两个节名随折叠一起删掉，不留死字段。
+    expect(Object.keys(ENTERPRISE_MARKET_SECTION_IDS)).toEqual(['components'])
 
-    // 折叠态：两节内容都 hidden，但节头按钮 + 标题 + 计数仍在（可再点开）。
+    // 折叠态：组件清单整段不进 DOM，但节头按钮 + 标题 + 计数仍在（可再点开）。
     const collapsed = EnterpriseMarketEntry({
       view: 'page',
-      expandedSections: allClosed,
+      activeTab: 'components',
+      expandedSections: { components: false },
       onToggleSection: vi.fn(),
     })
-    const collapsedButtons = collectButtonProps(collapsed)
-    const compBtn = collapsedButtons.find(b => b['aria-controls'] === 'market-section-components')
+    const compBtn = collectButtonProps(collapsed).find(b => b['aria-controls'] === 'market-section-components')
     expect(compBtn).toBeDefined()
     expect(compBtn?.['aria-expanded']).toBe(false)
     // 折叠时列表整段不进 DOM（条件渲染，照官方 groupBody）——`.own-market-rows{display:flex}` 会覆盖
@@ -811,33 +894,31 @@ describe('enterprise marketplace entry', () => {
     // 展开态：aria-expanded=true、列表在 DOM。
     const expanded = EnterpriseMarketEntry({
       view: 'page',
-      expandedSections: { components: true, enterprisePlugins: true, enterpriseSkills: true },
+      activeTab: 'components',
+      expandedSections: { components: true },
       onToggleSection: vi.fn(),
     })
-    const expandedButtons = collectButtonProps(expanded)
-    expect(expandedButtons.find(b => b['aria-controls'] === 'market-section-components')?.['aria-expanded']).toBe(true)
+    expect(collectButtonProps(expanded).find(b => b['aria-controls'] === 'market-section-components')?.['aria-expanded']).toBe(true)
     expect(collectElementById(expanded, 'market-section-components')).not.toBeUndefined()
     // 点节头触发 onToggleSection。
     const spy = vi.fn()
     const clickable = EnterpriseMarketEntry({
       view: 'page',
-      expandedSections: allClosed,
+      activeTab: 'components',
+      expandedSections: { components: false },
       onToggleSection: spy,
     })
     collectButtonProps(clickable).find(b => b['aria-controls'] === 'market-section-components')?.onClick?.()
     expect(spy).toHaveBeenCalledWith('components')
   })
 
-  // 用户口径「分组折叠默认展开」：真运行时的初值 = `ENTERPRISE_MARKET_DEFAULT_EXPANDED`——**三节全展开**，
-  // 后台分配（预置）的全部技能（含未装的）一进页面就列出来，用户再用行右侧那枚开关决定装不装。
-  it('expands all three sections by default', () => {
-    // 用户口径「分组折叠默认展开」：三节各占一个独立字段，全部为 true。
-    expect(ENTERPRISE_MARKET_DEFAULT_EXPANDED).toEqual({
-      components: true,
-      enterprisePlugins: true,
-      enterpriseSkills: true,
-    })
+  // 页签化后的默认态：`ENTERPRISE_MARKET_DEFAULT_EXPANDED` 只剩一个字段（组件节默认展开）；
+  // 「一进页面就看得见后台分配（预置）的全部技能」这条用户口径改由**默认页签 = 企业技能**承担。
+  it('defaults to the 企业技能 tab and keeps the components section expanded by default', () => {
+    expect(ENTERPRISE_MARKET_DEFAULT_TAB).toBe('skills')
+    expect(ENTERPRISE_MARKET_DEFAULT_EXPANDED).toEqual({ components: true })
     const enterpriseSkills = enterpriseMarketSkillRows([SKILL])
+    // 不传 activeTab（真运行时初值 = 默认页签）：技能列表直接在树上，未装的也照列。
     const tree = EnterpriseMarketEntry({
       view: 'page',
       sessionUsable: true,
@@ -845,14 +926,20 @@ describe('enterprise marketplace entry', () => {
       expandedSections: ENTERPRISE_MARKET_DEFAULT_EXPANDED,
       onToggleSection: vi.fn(),
     })
-    // 三节默认都展开可见（技能列表未装的也照列，不按已装过滤）。
-    expect(collectElementById(tree, 'market-section-enterprise-skills')).not.toBeUndefined()
-    expect(collectElementById(tree, 'market-section-components')).not.toBeUndefined()
     expect(textOf(tree)).toContain('会议纪要技能组')
+    expect(collectElementById(tree, 'market-section-components')).toBeUndefined()
     // 默认态下技能行那枚开关就在树上（未装 → 关闭、可拨）。
     const skillSwitch = collectSwitchProps(tree).find(props => String(props['label']).includes('会议纪要技能组'))!
     expect(skillSwitch['checked']).toBe(false)
     expect(skillSwitch['disabled']).toBe(true)
+    // 「组件」页签默认展开：切到它就直接看见组件清单（折叠按钮仍是展开态）。
+    const componentsTab = EnterpriseMarketEntry({
+      view: 'page',
+      activeTab: 'components',
+      expandedSections: ENTERPRISE_MARKET_DEFAULT_EXPANDED,
+      onToggleSection: vi.fn(),
+    })
+    expect(collectElementById(componentsTab, 'market-section-components')).not.toBeUndefined()
   })
 })
 
@@ -865,6 +952,19 @@ function collectButtonProps(node: ReactNode, acc: Record<string, any>[] = []): R
   if (typeof node.type === 'function') collectButtonProps((node.type as (p: unknown) => ReactNode)(props), acc)
   for (const value of Object.values(props)) {
     if (value !== null && typeof value === 'object') collectButtonProps(value as ReactNode, acc)
+  }
+  return acc
+}
+
+/** 收集树里 `role` 匹配的元素 props（页签条 / 页签 / 面板的 aria 配对断言），递归展开函数组件子树。 */
+function collectByRole(node: ReactNode, role: string, acc: Record<string, any>[] = []): Record<string, any>[] {
+  if (Array.isArray(node)) { for (const child of node) collectByRole(child, role, acc); return acc }
+  if (!isValidElement(node)) return acc
+  const props = node.props as Record<string, unknown>
+  if (props['role'] === role) acc.push(props as Record<string, any>)
+  if (typeof node.type === 'function') collectByRole((node.type as (p: unknown) => ReactNode)(props), role, acc)
+  for (const value of Object.values(props)) {
+    if (value !== null && typeof value === 'object') collectByRole(value as ReactNode, role, acc)
   }
   return acc
 }
