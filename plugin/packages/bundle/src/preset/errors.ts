@@ -12,6 +12,11 @@
  * `ENT_PRESET_*` 是本纵深新增的一族。每一枚都对应一条**真实会抛**的边界，不预造没人抛的码：
  * 配方包形状非法、合成落盘失败、需要授权、指纹已变、重复点击正在进行中、官方安装失败、官方安装被取消、
  * 官方卸载失败、本机状态文件损坏。
+ *
+ * `ENT_PRESET_ARTIFACT_UNAVAILABLE`（宿主接线刀新增）是**取配方正文**那一段的唯一失败码：中心详情与
+ * 授权下载（`bundle/src/preset-source.ts`）拿不到与详情逐字相符的 `.dshpreset`（下载失败/大小不符/
+ * hash 不符/包内 `presetId` 与详情不符）时抛它。它与技能侧 `ENT_SKILL_DOWNLOAD_FAILED`/`_SIZE_MISMATCH`/
+ * `_HASH_MISMATCH` 三枚同义，只是收敛成一枚；**不是**"请求非法"，故映射 503 而不是 400。
  */
 export type EnterprisePresetErrorCode =
   | 'ENT_INVALID_REQUEST'
@@ -20,6 +25,7 @@ export type EnterprisePresetErrorCode =
   | 'ENT_PRESET_BUNDLE_WRITE_FAILED'
   | 'ENT_PRESET_AUTHORIZATION_REQUIRED'
   | 'ENT_PRESET_AUTHORIZATION_STALE'
+  | 'ENT_PRESET_ARTIFACT_UNAVAILABLE'
   | 'ENT_PRESET_INSTALL_IN_PROGRESS'
   | 'ENT_PRESET_INSTALL_FAILED'
   | 'ENT_PRESET_INSTALL_CANCELLED'

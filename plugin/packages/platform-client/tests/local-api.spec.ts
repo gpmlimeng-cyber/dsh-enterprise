@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 platform-client 本地 API 注册器与 Node 原生 HTTP server/fetch，路由分发复用同目录的引擎语义匹配器 `engine-route-match.ts`，并直接读 `contracts/fixtures/runtime-preset-*.json` 的契约真 fixture
- * [OUTPUT]: 验证方法/content-type/体积/DTO、平台/插件状态、显式刷新、无常驻 SSE、探针退役与 disposer、**三条技能动作 exact 路由（形状/入参门禁/409 与 503 错误投影/405 Allow/端口缺席即不注册）**，以及**第四条技能路由 `/skills/content`（只读已装技能正文）的注册形状/键集门禁（缺参·多参·重复·非雪花·非 kebab 一律 400 且不进端口）/404·413·409·503 错误投影/405 Allow**，并用引擎语义锁死「三条详情 prefix 不带尾斜杠」——品牌位图 / 会话恢复 / 配方详情对子路径可达，且带尾斜杠的旧形状会漏掉子路径；同时锁死 `/skills/install|uninstall|installed` 靠 exact 表抢在 bundle 侧 `/skills` 详情 prefix 之前；**配方两端口回的不再是手写假体而是契约真 fixture**，让"服务端真实投影形状"进入这条测试（本刀：假体与真投影不同形正是关闭键集冲突被掩盖的原因）
+ * [OUTPUT]: 验证方法/content-type/体积/DTO、平台/插件状态、显式刷新、无常驻 SSE、探针退役与 disposer、**三条技能动作 exact 路由（形状/入参门禁/409 与 503 错误投影/405 Allow/端口缺席即不注册）**，以及**第四条技能路由 `/skills/content`（只读已装技能正文）的注册形状/键集门禁（缺参·多参·重复·非雪花·非 kebab 一律 400 且不进端口）/404·413·409·503 错误投影/405 Allow**，**配方一键启用三条子路径 `/presets/<id>/{enable,disable,status}`（由既有 `/presets` prefix 分派、注册面零新增字符串、关闭键集 400、雪花/kebab 闸门、405 Allow、端口缺席即 400、稳定码→状态投影与 onError 留痕）**，并用引擎语义锁死「三条详情 prefix 不带尾斜杠」——品牌位图 / 会话恢复 / 配方详情对子路径可达，且带尾斜杠的旧形状会漏掉子路径；同时锁死 `/skills/install|uninstall|installed` 靠 exact 表抢在 bundle 侧 `/skills` 详情 prefix 之前；**配方两端口回的不再是手写假体而是契约真 fixture**，让"服务端真实投影形状"进入这条测试（本刀：假体与真投影不同形正是关闭键集冲突被掩盖的原因）；并把**配方一键启用那一族的每一枚稳定码 → HTTP 状态**逐条钉在唯一那张映射表上
  * [POS]: platform-client Host/Client 协作回归测试，以真实 HTTP 锁定官方 webServer 契约；prefix 形状的判定不再用「裸 startsWith」假匹配器，而是逐行复刻引擎 `match()`，否则线上空体 404 在测试里是绿的
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -63,6 +63,31 @@ describe('enterprise local error status mapping', () => {
     // 声明合法但中心当前没有可分发目标 → 409（补齐/改钉后可重试）。
     expect(enterpriseLocalErrorStatus(withCode('ENT_PRESET_REQUIRES_MISSING'))).toBe(409)
     expect(enterpriseLocalErrorStatus(withCode('ENT_PRESET_REQUIRES_NOT_PUBLISHED'))).toBe(409)
+  })
+
+  /**
+   * 配方**一键启用**那一家族的码（bundle 的 `preset/errors.ts` 抛出）。这一张表是**唯一**一处
+   * 决定"员工端看到什么状态"的地方，所以逐条钉住；语义见 `local-api.ts` 里 `enterpriseLocalErrorStatus` 的注释。
+   */
+  it('maps the preset one-click-enable codes to 400/403/404/409/503', () => {
+    const withCode = (code: string): Error => Object.assign(new Error(code), { code })
+    // 请求非法 / 配方制品不是一份合法配方 → 400。
+    expect(enterpriseLocalErrorStatus(withCode('ENT_INVALID_REQUEST'))).toBe(400)
+    expect(enterpriseLocalErrorStatus(withCode('ENT_PRESET_RECIPE_INVALID'))).toBe(400)
+    // 未授权 = 需要员工先确认披露（权限族）。
+    expect(enterpriseLocalErrorStatus(withCode('ENT_PRESET_AUTHORIZATION_REQUIRED'))).toBe(403)
+    // 指纹已变 / 进行中 / 官方取消 / 本机状态损坏 = 请求合法、当前状态不允许（重看或重试即可）。
+    expect(enterpriseLocalErrorStatus(withCode('ENT_PRESET_AUTHORIZATION_STALE'))).toBe(409)
+    expect(enterpriseLocalErrorStatus(withCode('ENT_PRESET_INSTALL_IN_PROGRESS'))).toBe(409)
+    expect(enterpriseLocalErrorStatus(withCode('ENT_PRESET_INSTALL_CANCELLED'))).toBe(409)
+    expect(enterpriseLocalErrorStatus(withCode('ENT_PRESET_STATE_INVALID'))).toBe(409)
+    // 本机没有这个声明（stop/disable 一个没装过的配方）。
+    expect(enterpriseLocalErrorStatus(withCode('ENT_RESOURCE_NOT_FOUND'))).toBe(404)
+    // 官方安装/卸载失败、制品拿不到、合成 bundle 写不下 = 本机或上游失败，可重试。
+    expect(enterpriseLocalErrorStatus(withCode('ENT_PRESET_INSTALL_FAILED'))).toBe(503)
+    expect(enterpriseLocalErrorStatus(withCode('ENT_PRESET_UNINSTALL_FAILED'))).toBe(503)
+    expect(enterpriseLocalErrorStatus(withCode('ENT_PRESET_BUNDLE_WRITE_FAILED'))).toBe(503)
+    expect(enterpriseLocalErrorStatus(withCode('ENT_PRESET_ARTIFACT_UNAVAILABLE'))).toBe(503)
   })
 })
 
@@ -550,5 +575,227 @@ describe('enterprise local API', () => {
     expect(branding.asset).toHaveBeenCalledWith('light')
     expect(asset.status).toBe(404)
     await expect(asset.json()).resolves.toEqual({ error: { code: 'ENT_RESOURCE_NOT_FOUND' } })
+  })
+
+  /**
+   * 配方**一键启用**三条子路径：`/presets/<id>/{enable,disable,status}`。
+   *
+   * ⚠ 它们**不是**三条新注册的路由：`/enterprise/api/v1/local/presets` 这条 prefix 已注册给配方详情，
+   * 引擎 `register()` 对同 kind 同 path 直接抛 `duplicate prefix route`（启动即崩），exact 表又表达不了
+   * 动态 `<id>`。因此形状与 bundle 侧用 `/skills` prefix 分派本机文件子路径**完全同款**：注册面零新增
+   * 字符串（与既有 exact/prefix 两张表零重叠），三条子路径由同一条 handler 按后缀分派。
+   */
+  describe('preset one-click enable sub-paths', () => {
+    const PRESETS = '/enterprise/api/v1/local/presets'
+    const PACKAGE = '1902500000000000001'
+    const FINGERPRINT = 'a'.repeat(64)
+
+    function presetPorts(): {
+      readonly enable: ReturnType<typeof vi.fn>
+      readonly disable: ReturnType<typeof vi.fn>
+      readonly status: ReturnType<typeof vi.fn>
+    } {
+      return {
+        enable: vi.fn(async () => ({ ok: true, application: 'hot', needsNewSession: true })),
+        disable: vi.fn(async () => ({ ok: true, declarationId: 'ent-demo', linkRemoved: true })),
+        status: vi.fn(async () => ({
+          authorization: { state: 'needs-authorization' },
+          disclosure: { fingerprint: FINGERPRINT, bundles: [], mounts: [] },
+          inFlight: false,
+        })),
+      }
+    }
+
+    function post(path: string, body: string, contentType = 'application/json'): Promise<Response> {
+      return fetch(`${baseUrl}${path}`, {
+        body,
+        headers: contentType === '' ? {} : { 'content-type': contentType },
+        method: 'POST',
+      })
+    }
+
+    it('由既有 /presets prefix 分派三条子路径，注册面零新增字符串', async () => {
+      const ports = presetPorts()
+      registerEnterpriseLocalApi(webServer, {
+        platform,
+        pluginStatus,
+        presetDisable: ports.disable,
+        presetEnable: ports.enable,
+        presetStatus: ports.status,
+      })
+      // 注册面：prefix 仍只有既有那一条；三条子路径在引擎语义下命中同一条 prefix。
+      expect([...routes.values()].filter(route => route.kind === 'prefix').map(route => route.path))
+        .toEqual([PRESETS])
+      for (const pathname of [`${PRESETS}/${PACKAGE}/enable`, `${PRESETS}/ent-demo/disable`, `${PRESETS}/${PACKAGE}/status`]) {
+        expect(engineRouteMatch([...routes.values()], pathname)?.path, pathname).toBe(PRESETS)
+      }
+      // 详情路由一字未动。
+      expect(engineRouteMatch([...routes.values()], `${PRESETS}/${PACKAGE}`)).toBe(
+        routes.get(`prefix:${PRESETS}`),
+      )
+
+      const enabled = await post(`${PRESETS}/${PACKAGE}/enable`, '{}')
+      expect(enabled.status).toBe(200)
+      await expect(enabled.json()).resolves.toEqual({
+        data: { ok: true, application: 'hot', needsNewSession: true },
+      })
+      expect(ports.enable).toHaveBeenCalledWith(PACKAGE, undefined)
+
+      // 员工在披露弹层确认过的那份指纹原样转交（bundle 侧据此写授权、并挡住"确认后指纹已变"）。
+      const confirmed = await post(`${PRESETS}/${PACKAGE}/enable`, JSON.stringify({ confirmFingerprint: FINGERPRINT }))
+      expect(confirmed.status).toBe(200)
+      expect(ports.enable).toHaveBeenLastCalledWith(PACKAGE, FINGERPRINT)
+
+      const disabled = await post(`${PRESETS}/ent-demo/disable`, '{}')
+      expect(disabled.status).toBe(200)
+      await expect(disabled.json()).resolves.toEqual({
+        data: { ok: true, declarationId: 'ent-demo', linkRemoved: true },
+      })
+      expect(ports.disable).toHaveBeenCalledWith('ent-demo')
+
+      const status = await fetch(`${baseUrl}${PRESETS}/${PACKAGE}/status`)
+      expect(status.status).toBe(200)
+      expect(ports.status).toHaveBeenCalledWith(PACKAGE)
+      // 三条子路径都不碰平台取数（详情/列表一次都没被误打）。
+      expect(platform.getPreset).not.toHaveBeenCalled()
+      expect(platform.listPresets).not.toHaveBeenCalled()
+    })
+
+    it('enable 的请求体是关闭键集：未知键/类型不对一律 400 且不进端口', async () => {
+      const ports = presetPorts()
+      registerEnterpriseLocalApi(webServer, { platform, pluginStatus, presetEnable: ports.enable })
+      for (const body of [
+        JSON.stringify({ confirmFingerprint: FINGERPRINT, extra: 1 }),
+        JSON.stringify({ confirmFingerprints: FINGERPRINT }),
+        JSON.stringify({ confirmFingerprint: 'A'.repeat(64) }),
+        JSON.stringify({ confirmFingerprint: FINGERPRINT.slice(0, 63) }),
+        JSON.stringify({ confirmFingerprint: 7 }),
+        '[]',
+        'null',
+        'not json',
+      ]) {
+        const response = await post(`${PRESETS}/${PACKAGE}/enable`, body)
+        expect(response.status, body).toBe(400)
+        await expect(response.json()).resolves.toEqual({ error: { code: 'ENT_INVALID_REQUEST' } })
+      }
+      // 没有 content-type 同样拒（与既有动作路由同一把尺）。
+      expect((await post(`${PRESETS}/${PACKAGE}/enable`, '{}', '')).status).toBe(400)
+      expect(ports.enable).not.toHaveBeenCalled()
+
+      // 空对象**是**合法形状：只按已授权状态尝试启用。
+      expect((await post(`${PRESETS}/${PACKAGE}/enable`, '{}')).status).toBe(200)
+      expect(ports.enable).toHaveBeenCalledWith(PACKAGE, undefined)
+    })
+
+    it('disable 的请求体必须是空对象，id 必须过 kebab 声明 id 闸门', async () => {
+      const ports = presetPorts()
+      registerEnterpriseLocalApi(webServer, { platform, pluginStatus, presetDisable: ports.disable })
+      for (const path of [`${PRESETS}/Ent-Demo/disable`, `${PRESETS}/-bad/disable`, `${PRESETS}/bad-/disable`]) {
+        const response = await post(path, '{}')
+        expect(response.status, path).toBe(400)
+      }
+      for (const body of [JSON.stringify({ declarationId: 'ent-demo' }), '[]']) {
+        expect((await post(`${PRESETS}/ent-demo/disable`, body)).status, body).toBe(400)
+      }
+      expect(ports.disable).not.toHaveBeenCalled()
+
+      expect((await post(`${PRESETS}/ent-demo/disable`, '{}')).status).toBe(200)
+      expect(ports.disable).toHaveBeenCalledWith('ent-demo')
+    })
+
+    it('enable/status 的 id 必须过雪花闸门，且绝不带着它去打上游', async () => {
+      const ports = presetPorts()
+      registerEnterpriseLocalApi(webServer, {
+        platform,
+        pluginStatus,
+        presetEnable: ports.enable,
+        presetStatus: ports.status,
+      })
+      for (const path of [`${PRESETS}/abc/enable`, `${PRESETS}/0/enable`, `${PRESETS}/ent-demo/status`, `${PRESETS}//status`]) {
+        const response = path.endsWith('/status')
+          ? await fetch(`${baseUrl}${path}`)
+          : await post(path, '{}')
+        expect(response.status, path).toBe(400)
+      }
+      expect(ports.enable).not.toHaveBeenCalled()
+      expect(ports.status).not.toHaveBeenCalled()
+      expect(platform.getPreset).not.toHaveBeenCalled()
+    })
+
+    it('端口缺席（组合层没接线）三条子路径一律 400，且不打详情/列表', async () => {
+      registerEnterpriseLocalApi(webServer, { platform, pluginStatus })
+      const attempts: [string, Promise<Response>][] = [
+        [`${PRESETS}/${PACKAGE}/enable`, post(`${PRESETS}/${PACKAGE}/enable`, '{}')],
+        [`${PRESETS}/ent-demo/disable`, post(`${PRESETS}/ent-demo/disable`, '{}')],
+        [`${PRESETS}/${PACKAGE}/status`, fetch(`${baseUrl}${PRESETS}/${PACKAGE}/status`)],
+      ]
+      for (const [path, attempt] of attempts) {
+        const response = await attempt
+        expect(response.status, path).toBe(400)
+        await expect(response.json()).resolves.toEqual({ error: { code: 'ENT_INVALID_REQUEST' } })
+      }
+      expect(platform.getPreset).not.toHaveBeenCalled()
+      expect(platform.listPresets).not.toHaveBeenCalled()
+    })
+
+    it('方法不对一律 405 + Allow，且一次都不进端口', async () => {
+      const ports = presetPorts()
+      registerEnterpriseLocalApi(webServer, {
+        platform,
+        pluginStatus,
+        presetDisable: ports.disable,
+        presetEnable: ports.enable,
+        presetStatus: ports.status,
+      })
+      const cases: [string, string, string][] = [
+        [`${PRESETS}/${PACKAGE}/enable`, 'GET', 'POST'],
+        [`${PRESETS}/${PACKAGE}/disable`, 'PUT', 'POST'],
+        [`${PRESETS}/${PACKAGE}/status`, 'POST', 'GET'],
+      ]
+      for (const [path, method, allow] of cases) {
+        const response = await fetch(`${baseUrl}${path}`, { method })
+        expect(response.status, `${method} ${path}`).toBe(405)
+        expect(response.headers.get('allow')).toBe(allow)
+        await expect(response.json()).resolves.toEqual({ error: { code: 'ENT_INVALID_REQUEST' } })
+      }
+      expect(ports.enable).not.toHaveBeenCalled()
+      expect(ports.disable).not.toHaveBeenCalled()
+      expect(ports.status).not.toHaveBeenCalled()
+    })
+
+    it('端口抛出的稳定码经唯一那张表投影，并留痕操作名与原始 error', async () => {
+      const required = Object.assign(new Error('user must confirm'), { code: 'ENT_PRESET_AUTHORIZATION_REQUIRED' })
+      const enable = vi.fn(async () => { throw required })
+      const stale = vi.fn(async () => { throw Object.assign(new Error('stale'), { code: 'ENT_PRESET_AUTHORIZATION_STALE' }) })
+      const unavailable = vi.fn(async () => {
+        throw Object.assign(new Error('artifact'), { code: 'ENT_PRESET_ARTIFACT_UNAVAILABLE' })
+      })
+      const onError = vi.fn<(operation: string, error: unknown, status: number) => void>()
+      const dispose = registerEnterpriseLocalApi(webServer, {
+        onError,
+        platform,
+        pluginStatus,
+        presetDisable: stale,
+        presetEnable: enable,
+        presetStatus: unavailable,
+      })
+
+      const forbidden = await post(`${PRESETS}/${PACKAGE}/enable`, '{}')
+      expect(forbidden.status).toBe(403)
+      await expect(forbidden.json()).resolves.toEqual({ error: { code: 'ENT_PRESET_AUTHORIZATION_REQUIRED' } })
+      expect(onError).toHaveBeenCalledWith(`POST ${PRESETS}/${PACKAGE}/enable`, required, 403)
+
+      expect((await post(`${PRESETS}/ent-demo/disable`, '{}')).status).toBe(409)
+      expect((await fetch(`${baseUrl}${PRESETS}/${PACKAGE}/status`)).status).toBe(503)
+
+      // 端口抛的不是稳定码（内建 TypeError）时折成 400/ENT_INVALID_REQUEST，绝不把内建消息写出去。
+      dispose()
+      const builtin = vi.fn(async () => { throw new TypeError('boom') })
+      const disposeBuiltin = registerEnterpriseLocalApi(webServer, { platform, pluginStatus, presetEnable: builtin })
+      const response = await post(`${PRESETS}/${PACKAGE}/enable`, '{}')
+      expect(response.status).toBe(400)
+      await expect(response.json()).resolves.toEqual({ error: { code: 'ENT_INVALID_REQUEST' } })
+      disposeBuiltin()
+    })
   })
 })

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Harness `ctx.webServer.register()` route port、平台操作端口、组合层注入的插件动作端口与技能安装端口、品牌只读端口与可选投影留痕端口
- * [OUTPUT]: 提供账号/配置按需刷新、插件操作、**企业技能安装/卸载/已装态/已装正文**、本地品牌投影与原生登录（来源列表 / 凭证代提交 / 改密代提交）的严格同源 JSON 路由，无常驻状态连接；凭证正文只按固定键集读入并原样转发，绝不进日志；每个把异常投影成 HTTP 状态的回调都经 `onError` 上报操作名与原始 error；三条详情 prefix（品牌位图 / 会话恢复 / 配方详情）的注册 path 一律**不带尾斜杠**，技能四条路由是 `/skills` prefix 的 exact 子路径（`ENTERPRISE_SKILL_*_LOCAL_PATH`，含只读的 `/skills/content`）；并对外导出稳定码→HTTP 状态的**唯一**映射 `enterpriseLocalErrorStatus`——bundle 侧两条本机技能文件子路由（`/skills/<id>/files`、`/skills/<id>/file`）与这里的 `/skills/content` 必须共用同一张表
+ * [OUTPUT]: 提供账号/配置按需刷新、插件操作、**企业技能安装/卸载/已装态/已装正文**、**企业配方一键启用的三条子路径（`/presets/<id>/{enable,disable,status}`，由既有 `/presets` prefix 按后缀分派、注册面零新增字符串）**、本地品牌投影与原生登录（来源列表 / 凭证代提交 / 改密代提交）的严格同源 JSON 路由，无常驻状态连接；凭证正文只按固定键集读入并原样转发，绝不进日志；每个把异常投影成 HTTP 状态的回调都经 `onError` 上报操作名与原始 error；三条详情 prefix（品牌位图 / 会话恢复 / 配方详情）的注册 path 一律**不带尾斜杠**，技能四条路由是 `/skills` prefix 的 exact 子路径（`ENTERPRISE_SKILL_*_LOCAL_PATH`，含只读的 `/skills/content`）；并对外导出稳定码→HTTP 状态的**唯一**映射 `enterpriseLocalErrorStatus`——bundle 侧两条本机技能文件子路由（`/skills/<id>/files`、`/skills/<id>/file`）与这里的 `/skills/content`、以及配方一键启用三条子路径必须共用同一张表
  * [POS]: platform-client 的 Host/Client 同源协作边界，只序列化脱敏 DTO 并把认证 HTTP 留在 Host Service；路由形状受引擎 `match()`（`lib/index.js:322`）约束——exact 表整路径优先、prefix 只认 `pathname === prefix` 或 `pathname.startsWith(prefix + '/')`、多条命中取最长，故带尾斜杠的 prefix 会在引擎层空体 404 而根本不进 handler，而 `/skills/install` 这类子路径动作必须靠 exact 表抢在 `/skills` prefix 之前。`/skills/content` 的两个查询参数（包 id / 技能目录名）在这里只按形状收窄后原样转交：**名字不是路径**，是不是本包的、落点怎么拼、有没有符号链接逃逸，一律由 bundle 侧的已装记录与 `realpath` 判定
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -73,6 +73,25 @@ export const ENTERPRISE_SKILL_CONTENT_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/c
 const ENTERPRISE_ID_PATTERN = /^[1-9][0-9]{0,18}$/
 const SKILL_NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
+/**
+ * 配方一键启用三条**子路径动作**的固定后缀：`/presets/<id>/{enable,disable,status}`。
+ *
+ * ⚠ 为什么必须由**已有的** `/presets` prefix 分派，而不是再 `register()` 三条路由：
+ * 引擎 `dsh-host-webserver` 的 `register()`（`lib/index.js:177-180`）对**同 kind 同 path** 直接抛
+ * `webserver: duplicate prefix route`（启动即崩），而 `/enterprise/api/v1/local/presets` 这条 prefix
+ * 已由本文件注册给配方详情；exact 表又表达不了动态 `<id>`（`match()` 只按整路径查 exact 表）。
+ * 于是形状与 `bundle/src/skill-route.ts` 用 `/skills` prefix 分派本机文件子路径**完全同款**：
+ * 注册面零新增字符串（与既有 exact/prefix 两张表零重叠），三条子路径由同一条 handler 按后缀分派。
+ */
+const PRESET_ENABLE_SUFFIX = '/enable'
+const PRESET_DISABLE_SUFFIX = '/disable'
+const PRESET_STATUS_SUFFIX = '/status'
+
+/** 配方**声明 id**（= 官方 Loader row id 去掉 `preset-` 前缀；与 bundle 的 `DECLARATION_ID_PATTERN` 同规约）。 */
+const PRESET_DECLARATION_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+/** 披露弹层确认过的那份集合指纹（与 bundle 的指纹同形状）。 */
+const PRESET_FINGERPRINT_PATTERN = /^[0-9a-f]{64}$/
+
 /** Harness `ctx.webServer` Service 公开的 route 结构。 */
 export interface WebServerRoutePort {
   readonly host: '127.0.0.1' | '0.0.0.0'
@@ -140,6 +159,17 @@ export interface EnterpriseLocalApiOptions {
    * 一律由 bundle 侧判定**（那里才有本机已装记录与技能根）。
    */
   readonly skillContent?: (packageId: string, name: string) => Promise<unknown>
+  /**
+   * 企业配方**一键启用**（bundle 的 `preset-service.ts`）；缺席时 `<id>/enable` 如实按非法请求拒。
+   *
+   * 入参 `confirmFingerprint` 是员工在披露弹层里确认过的那份**集合指纹**：交上来即「确认并授权」，
+   * 不交则只按已授权状态尝试启用（未授权/指纹已变由 bundle 侧如实拒）。返回值原样进 `{data}`。
+   */
+  readonly presetEnable?: (presetPackageId: string, confirmFingerprint?: string) => Promise<unknown>
+  /** 企业配方**停用**（bundle 的 `preset-service.ts`）；`declarationId` 是 kebab 声明 id。 */
+  readonly presetDisable?: (declarationId: string) => Promise<unknown>
+  /** `/presets/<id>/status` 的真值（三态授权 + 进行中 + 披露清单）；只读、不写任何授权。 */
+  readonly presetStatus?: (presetPackageId: string) => Promise<unknown>
   /** 由组合层绑定整包卸载；返回的重启动作必须在 HTTP 成功响应写出后才执行。 */
   readonly uninstallPlugin?: () => Promise<{ readonly restart?: () => void }>
   /** 由组合层绑定会话同步；缺省时不注册 /sessions* 路由。 */
@@ -220,6 +250,22 @@ export function enterpriseLocalErrorStatus(error: unknown): number {
   // "声明合法但中心当前没有可分发目标"→409，管理员补齐或改钉后重试）。
   if (code === 'ENT_PRESET_DEPENDENCIES_INVALID' || code === 'ENT_PRESET_DEPENDENCY_KIND_UNSUPPORTED') return 400
   if (code === 'ENT_PRESET_REQUIRES_MISSING' || code === 'ENT_PRESET_REQUIRES_NOT_PUBLISHED') return 409
+  // 配方**一键启用**的稳定码族（bundle 的 `preset/errors.ts` 抛出，经 `preset-service.ts` 收敛成一枚码）：
+  //  · 未授权 = 需要员工先确认披露（权限族，与 ENT_PERMISSION_DENIED 同域）→ 403；
+  //  · 指纹已变 = 员工确认过的那份披露与当前配方已不一致 / 进行中 = 同配方已在装或卸（与 ENT_PLUGIN_BUSY 同族）→ 409；
+  //  · 本机状态文件损坏、官方安装被取消 → 409（请求合法，本机状态不允许这次调用，重新看一眼/重试即可）；
+  //  · 配方形状非法（含制品包内身份与详情不符）→ 400；
+  //  · 官方安装/卸载失败、制品拿不到、合成 bundle 写不下 → 503（本机或上游失败，可重试）。
+  if (code === 'ENT_PRESET_AUTHORIZATION_REQUIRED') return 403
+  if (code === 'ENT_PRESET_AUTHORIZATION_STALE'
+    || code === 'ENT_PRESET_INSTALL_IN_PROGRESS'
+    || code === 'ENT_PRESET_INSTALL_CANCELLED'
+    || code === 'ENT_PRESET_STATE_INVALID') return 409
+  if (code === 'ENT_PRESET_RECIPE_INVALID') return 400
+  if (code === 'ENT_PRESET_INSTALL_FAILED'
+    || code === 'ENT_PRESET_UNINSTALL_FAILED'
+    || code === 'ENT_PRESET_BUNDLE_WRITE_FAILED'
+    || code === 'ENT_PRESET_ARTIFACT_UNAVAILABLE') return 503
   return 503
 }
 
@@ -280,6 +326,34 @@ function requiredStrings(value: unknown, keys: readonly string[], maxLength: num
     result[key] = field
   }
   return result
+}
+
+/**
+ * `POST <local>/presets/<id>/enable` 的请求体：**关闭键集**，只有两种合法形状。
+ *
+ *  · `{}`（键集为空）——只按已授权状态尝试启用；未授权/指纹已变由 bundle 侧如实拒。
+ *  · `{confirmFingerprint}`——员工在披露弹层确认过的那份集合指纹；bundle 侧据此写授权。
+ *
+ * 多一个键、少一个键、键名前缀相同（如 `confirmFingerprints`）、值不是 64 位小写十六进制一律
+ * `TypeError`（投影 400）——任何越界字段都不得进入授权写入。
+ *
+ * @param request - 已通过 content-type/体积门禁的请求流。
+ * @returns 确认指纹；空对象时 undefined。
+ */
+async function readPresetEnableBody(request: IncomingMessage): Promise<string | undefined> {
+  const value = await readJson(request)
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new TypeError('preset enable body must be an object')
+  }
+  const body = value as Record<string, unknown>
+  const keys = Object.keys(body).sort().join(',')
+  if (keys === '') return undefined
+  const fingerprint = body['confirmFingerprint']
+  if (keys !== 'confirmFingerprint'
+    || typeof fingerprint !== 'string' || !PRESET_FINGERPRINT_PATTERN.test(fingerprint)) {
+    throw new TypeError('preset enable body is invalid')
+  }
+  return fingerprint
 }
 
 function registerJsonAction(
@@ -722,6 +796,64 @@ export function registerEnterpriseLocalApi(
       }))
     }
 
+    /**
+     * 配方一键启用三条子路径的分派（**注册面零新增字符串**，见 `PRESET_ENABLE_SUFFIX` 的注释）。
+     *
+     *  · `POST <id>/enable` → `presetEnable(id, confirmFingerprint?)`（`id` 是中心雪花）；
+     *  · `POST <id>/disable` → `presetDisable(id)`（`id` 是**声明 id**，kebab）；
+     *  · `GET  <id>/status` → `presetStatus(id)`（`id` 是中心雪花）；
+     *  · 端口缺席（组合层没接线）→ 400，与 `bundle/src/skill-route.ts` 的本机文件端口同款口径：
+     *    如实按非法请求拒，不暴露、不猜、不打上游。
+     *
+     * 失败投影只走 `enterpriseLocalErrorStatus` 这**唯一一张**表；`onError` 留操作名与原始 error。
+     */
+    const dispatchPresetAction = async (
+      request: IncomingMessage,
+      response: ServerResponse,
+      action: 'enable' | 'disable' | 'status',
+      rest: string,
+    ): Promise<void> => {
+      const id = rest.slice(0, -`/${action}`.length)
+      const operation = `${action === 'status' ? 'GET' : 'POST'} ${LOCAL_API_PREFIX}/presets/${rest}`
+      const missing = (action === 'enable' && options.presetEnable === undefined)
+        || (action === 'disable' && options.presetDisable === undefined)
+        || (action === 'status' && options.presetStatus === undefined)
+      if (missing) {
+        writeJson(response, 400, { error: { code: 'ENT_INVALID_REQUEST' } })
+        return
+      }
+      if ((action === 'status' && request.method !== 'GET')
+        || (action !== 'status' && request.method !== 'POST')) {
+        methodNotAllowed(response, action === 'status' ? 'GET' : 'POST')
+        return
+      }
+      try {
+        if (action === 'disable') {
+          if (!PRESET_DECLARATION_ID_PATTERN.test(id)) throw new TypeError('invalid preset declaration id')
+          await requireEmptyObject(request)
+          writeJson(response, 200, { data: await options.presetDisable?.(id) })
+          return
+        }
+        if (!ENTERPRISE_ID_PATTERN.test(id)) throw new TypeError('invalid preset package id')
+        if (action === 'status') {
+          writeJson(response, 200, { data: await options.presetStatus?.(id) })
+          return
+        }
+        const confirmFingerprint = await readPresetEnableBody(request)
+        writeJson(response, 200, { data: await options.presetEnable?.(id, confirmFingerprint) })
+      } catch (error) {
+        const status = enterpriseLocalErrorStatus(error)
+        options.onError?.(operation, error, status)
+        writeJson(response, status, {
+          error: {
+            code: status === 413 ? 'ENT_REQUEST_TOO_LARGE'
+              : status === 400 ? 'ENT_INVALID_REQUEST'
+                : errorCode(error),
+          },
+        })
+      }
+    }
+
     disposers.push(webServer.register({
       kind: 'exact',
       path: `${LOCAL_API_PREFIX}/presets`,
@@ -745,14 +877,22 @@ export function registerEnterpriseLocalApi(
       // 不带尾斜杠：否则 /presets/<id> 到不了本 handler（`/presets` 裸路径由上面的 exact 路由优先命中）。
       path: PRESET_DETAIL_PREFIX_ROUTE,
       handler: async (request, response) => {
+        const rest = requestUrl(request).pathname.slice(`${LOCAL_API_PREFIX}/presets/`.length)
+        const action = rest.endsWith(PRESET_ENABLE_SUFFIX) ? 'enable'
+          : rest.endsWith(PRESET_DISABLE_SUFFIX) ? 'disable'
+            : rest.endsWith(PRESET_STATUS_SUFFIX) ? 'status'
+              : undefined
+        if (action !== undefined) {
+          await dispatchPresetAction(request, response, action, rest)
+          return
+        }
         if (request.method !== 'GET') {
           methodNotAllowed(response, 'GET')
           return
         }
         try {
-          const packageId = requestUrl(request).pathname.slice(`${LOCAL_API_PREFIX}/presets/`.length)
-          if (!/^[1-9][0-9]{0,18}$/.test(packageId)) throw new TypeError('invalid preset package id')
-          const value = await options.platform.getPreset(packageId)
+          if (!ENTERPRISE_ID_PATTERN.test(rest)) throw new TypeError('invalid preset package id')
+          const value = await options.platform.getPreset(rest)
           writeJson(response, 200, { data: value })
         } catch (error) {
           const status = enterpriseLocalErrorStatus(error)

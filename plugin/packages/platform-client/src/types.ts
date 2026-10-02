@@ -93,6 +93,12 @@ export interface EnterprisePlatformInternals {
   readonly skillStatus?: EnterpriseLocalApiOptions['skillStatus']
   /** 读一条**已装**技能的 SKILL.md 正文（点技能行看详情时用）；缺席即不注册那条只读路由。 */
   readonly skillContent?: EnterpriseLocalApiOptions['skillContent']
+  /** 企业配方一键启用（由 bundle 侧实现）；缺席时 `/presets/<id>/enable` 如实按非法请求拒。 */
+  readonly presetEnable?: EnterpriseLocalApiOptions['presetEnable']
+  /** 企业配方停用（按**声明 id**）；缺席时 `/presets/<id>/disable` 如实按非法请求拒。 */
+  readonly presetDisable?: EnterpriseLocalApiOptions['presetDisable']
+  /** 配方启用前的真值（三态授权 / 进行中 / 披露清单）；缺席时 `/presets/<id>/status` 如实按非法请求拒。 */
+  readonly presetStatus?: EnterpriseLocalApiOptions['presetStatus']
   readonly uninstallPlugin?: () => Promise<{ readonly restart?: () => void }>
   readonly sessionSync?: EnterpriseLocalApiOptions['sessionSync']
 }
