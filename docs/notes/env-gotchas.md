@@ -47,3 +47,11 @@
 - 规矩：**同一文件同一时刻只允许一个写入者**；派单时明确"保留文件"（本轮就成功保留了
   `SidebarNav.tsx`/`product-routes.ts`/`console-shell.tsx` 给另一路）。
 - 提交按**地盘**（包/目录）切分，别把别人的在制品卷进自己的提交。
+
+## 七、设备侧构建前置条件：pnpm 10.12.1 撞上 `packageManager: pnpm@11.7.0`
+
+| 项 | 内容 |
+|---|---|
+| **症状** | 本机 `pnpm` 是 **10.12.1**，而 `plugin/package.json` 声明 `packageManager: pnpm@11.7.0`。在 `plugin/` 下跑 `npm run pack:bundle` 时，pnpm 触发**「托管版本自升级」**（想自己下载 11.7.0），Android 上直接抛 **`bad ELF magic`**；且 **任何嵌套 pnpm 必挂**（`pack:bundle` → `pnpm --filter … build`，以及 `packages/bundle/scripts/build.mjs` 里的 `pnpm exec tsc` 都是嵌套）⇒ 依赖构建链整体跑不动，`lib/` 生不出来。 |
+| **唯一实测有效修法** | 打包前在 `plugin/pnpm-workspace.yaml` **末尾临时追加一行**：`managePackageManagerVersions: false`（先备份该文件）⇒ `pack:bundle` 可跑通（实测退出码 0）。**打完包立刻删掉这一行、还原到与 HEAD 逐字节一致**（`git diff` 必须为空）——不污染 CI 的 `packageManager` 版本强制语义。 |
+| **生效范围** | 仅**本机设备侧**打包需要；CI 不采用该行。附带：`ESBUILD_BINARY_PATH` 必须用 `/data/user/0/...` 形态（`/data/data/...` 会 `EACCES`，见第一节），且一律走 `node_modules/.bin/*`、vitest 加 `--pool=threads`。 |
