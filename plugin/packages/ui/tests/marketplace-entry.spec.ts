@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 marketplace-entry 的**两套呈现外壳**（`EnterpriseMarketLegacyShell` 旧外观 / `EnterpriseMarketStoreShell` 新外观）、两个 hook 入口（`EnterpriseMarketLegacyPage`/`EnterpriseMarketStorePage`）与共享逻辑层（`enterpriseMarketShellModel`、`enterpriseMarketSkillRowFacts`/`enterpriseMarketPluginRowFacts`、HERO 文案投影）、注册常量、**行版式唯一子块** `EnterpriseMarketCatalogRow`（应用商店两个目录页签与「组件」页签三行共用）、**页签真源**（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`）、组件清单/摘要/状态/开关语义纯投影、企业插件行投影、企业技能行投影（含详情归并的中心版本 `latestVersionId`，以及标题行两枚标签的取值：列表投影的 `sourceDshVersion` 与可选 `category`）与可见性门控、标题行标签纯投影 `enterpriseMarketSkillVersionTag`/`enterpriseMarketSkillCategoryTag`、技能节受管态纯投影 `enterpriseMarketSkillState`、「有更新」判定 `enterpriseMarketSkillHasUpdate`/`enterpriseMarketSkillRowHasUpdate` 与辅助标签投影 `enterpriseMarketSkillUpdateTag`、**组件页签折叠态常量** `ENTERPRISE_MARKET_DEFAULT_EXPANDED`、失败行内提示投影 `enterpriseMarketActionErrorLabel`、入口组件与版本签组件本身、**页签文案计数投影** `enterpriseMarketTabLabel`，以及 local-api-decode 的 `EnterpriseRuntimeSkill`/`EnterpriseInstalledSkill` 形状与应用商店共享身份常量（`ENTERPRISE_STORE_PANEL_ID`/`ENTERPRISE_STORE_ENTRY_LABEL`/`ENTERPRISE_STORE_ENTRY_ORDER`/`ENTERPRISE_STORE_PANEL_VIEW`）、侧栏图标 `EnterpriseStoreIcon`，以及 `client.tsx` 的 `apply`/`inject` 真注册面（最小 slots double）
- * [OUTPUT]: 验证入口身份常量、卡片一句话的单行约束、**page 视图的三页签商店结构**（页签条手写 `role="tablist"`、三个页签的 `aria-selected`/`aria-controls`/roving `tabIndex`/`id` 与三个 `role="tabpanel"` 的 `aria-labelledby` 严格配对、**默认选中「企业技能」**、切换后**只渲染该页签内容**、←/→/Home/End 走焦并选中、鼠标点击回调）、组件清单（插件/技能/配方）顺序与 reserved 语义、计数摘要口径、summary/page 两视图结构（page 上的组件行在「组件」页签里，且 page 不重画标题/desc）、版本签只对本条目 subject 出、企业插件页签的归并与门控，以及**企业技能页签的两行文案**（旧外壳走 9723a97 的官方两行卡片 `.own-market-cardId`/`.own-market-cardDesc`；新外壳走与「组件」页签**同一枚子块** `EnterpriseMarketCatalogRow` 渲染的通栏行 `.own-market-rowId`/`.own-market-rowNote`：第 1 行标题 + 紧随的**版本签 `sourceDshVersion`** 与**可选分类签 `category`**——分类缺席/null/空串时该签不出现、第 1 行 nowrap 单行锁 20px 行高故加签不撑高、标题先省略标签保持可见；第 2 行描述各自成行、描述单行省略、旧元信息行退场）/可见性门控/计数/右侧那枚官方 `Switch`（`checked` 反映已装、在途 `disabled`、`label` 给动作语义、`onChange(next)` 两个方向都回调）与受管态投影（未装/已装/有更新/在途），以及**开关左侧那枚辅助标签**（只在「有更新」时出现、`aria-label`=`更新企业技能 X`、点击走安装方向、在途 `disabled` 不消失、未装/已装同版本一律不出现、标签严格排在 Switch 左侧），以及**「有更新」独立用例**（只有两侧 `versionId` 参与、`sha256` 换值不改结论、缺任一侧不判），以及**只改技能行**的回归锁（技能行有 Switch + 辅助标签、企业插件行一字未动），以及**两节行上的失败可见反馈**（失败 → 该行 role="alert" + 稳定错误码、只落失败行、失败后开关仍可拨重试、成功路径不出现该提示），以及**页签化后唯一剩下的组件节折叠**（`ENTERPRISE_MARKET_DEFAULT_EXPANDED` 单字段、aria 契约、折叠态列表不进 DOM），以及**详情页顶部压缩的取值锁**（badge 只剩版本号一签 + 包名、「预览版」签不再出现；`.own-market-storeTabs` `margin-top:0` + `flex-wrap:nowrap`、`.own-market-section` `margin-top:12px`、`.own-market-storeTab` `white-space:nowrap`/13-20；`.own-market-sectionMeta` 类规则整条删除且 DOM 不再有该容器，计数改由页签文案承载「企业技能 3」），以及**二期结构切片的注册形状门禁**（`main` key 与 `sidebar.panellist` id 同值 = `enterprise-store`、order 20 排在官方实测 plugins=0/schedules=10 之后、label「应用商店」、图标为函数组件、`inject` 声明含 `layout`）与**双外观拆分的门禁**（`plugins.item` 的注册组件 !== `main` 的注册组件，且分别为 `EnterpriseMarketLegacyPage`/`EnterpriseMarketStorePage`；面板注册面注入的 `view` 恒为 `ENTERPRISE_STORE_PANEL_VIEW='page'`、`plugins.item` 的 inject 恰为 `{store}` 且两处 store 同源；同一组输入下两套外壳的页签 id/文案/aria 配对/开关动作名/数据钩子逐项一致，而关键结构各自符合各自外观：旧外壳出 `own-market-cardId` 且无 `.own-market-rowLine`/`own-market-storeHero`，新外壳出通栏行 `.own-market-rowLine` 且**有** HERO；两套外壳的语义类断言（页签 aria 与键盘、组件节折叠、开关各态、两枚签、失败提示与可重试、计数口径）**逐个外壳各跑一遍**，外观类断言各自指名外壳）。**版式统一（应用商店目录行 = 组件行）**：新外壳两个目录页签的行改由**同一枚子块** `EnterpriseMarketCatalogRow` 渲染——DOM 锁「子块元素 type 相同 + 行内子槽顺序与类名逐项相同（`own-market-rowIcon` / `own-market-rowMain` / `own-market-rowState` / `Switch`）+ 子块入参槽位同构（attributes/icon/main/dot/state/actions）+ 源码级单点（`className="own-market-rowLine"` 全文件恰好一处）」，CSS 锁通栏行取值（`.own-market-rows` flex column、`.own-market-row` `padding:12px 2px` + 0.5px 行底分隔线、`.own-market-rowLine` gap 16、`.own-market-rowIcon` 40×40、`.own-market-rowId` 13.5/20-500、`.own-market-rowNote` 12/19、`.own-market-rowState` 12.5/18）并**双向反向锁**卡片那一套整组退场（`own-market-cardShell`/`cardGrid`/`cardContent`/`cardMainRow`/`cardTrailing`/`cardTitle`/`cardDescription`/`cardActions`/`phaseDot`/`configTag` 的类规则与 DOM 都为空；两列网格与 `@container`/`@media 520` 单列兜底整组不在）；状态词改落在 `.own-market-rowState`（技能 已装/未装、插件 已启用/未启用、组件 可用/预留，行尾不再挂 Tag 药丸），补充状态词（安装中/有更新/处理失败…）仍走 `.own-market-rowStatus`。**测试数字：49 → 50 条（本文件：3 条改写 + 1 条新增「同一枚子块」版式统一门禁；整包 237 → 238 条）**
+ * [INPUT]: 依赖 marketplace-entry 的**两套呈现外壳**（`EnterpriseMarketLegacyShell` 旧外观 / `EnterpriseMarketStoreShell` 新外观）、两个 hook 入口（`EnterpriseMarketLegacyPage`/`EnterpriseMarketStorePage`）与共享逻辑层（`enterpriseMarketShellModel`、`enterpriseMarketSkillRowFacts`/`enterpriseMarketPluginRowFacts`、HERO 文案投影）、注册常量、**页签真源**（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`）、组件清单/摘要/状态/开关语义纯投影、企业插件行投影、企业技能行投影（含详情归并的中心版本 `latestVersionId`，以及标题行两枚标签的取值：列表投影的 `sourceDshVersion` 与可选 `category`）与可见性门控、标题行标签纯投影 `enterpriseMarketSkillVersionTag`/`enterpriseMarketSkillCategoryTag`、技能节受管态纯投影 `enterpriseMarketSkillState`、「有更新」判定 `enterpriseMarketSkillHasUpdate`/`enterpriseMarketSkillRowHasUpdate` 与辅助标签投影 `enterpriseMarketSkillUpdateTag`、**组件页签折叠态常量** `ENTERPRISE_MARKET_DEFAULT_EXPANDED`、失败行内提示投影 `enterpriseMarketActionErrorLabel`、入口组件与版本签组件本身、**页签文案计数投影** `enterpriseMarketTabLabel`，以及 local-api-decode 的 `EnterpriseRuntimeSkill`/`EnterpriseInstalledSkill` 形状与应用商店共享身份常量（`ENTERPRISE_STORE_PANEL_ID`/`ENTERPRISE_STORE_ENTRY_LABEL`/`ENTERPRISE_STORE_ENTRY_ORDER`/`ENTERPRISE_STORE_PANEL_VIEW`）、侧栏图标 `EnterpriseStoreIcon`，以及 `client.tsx` 的 `apply`/`inject` 真注册面（最小 slots double）
+ * [OUTPUT]: 验证入口身份常量、卡片一句话的单行约束、**page 视图的三页签商店结构**（页签条手写 `role="tablist"`、三个页签的 `aria-selected`/`aria-controls`/roving `tabIndex`/`id` 与三个 `role="tabpanel"` 的 `aria-labelledby` 严格配对、**默认选中「企业技能」**、切换后**只渲染该页签内容**、←/→/Home/End 走焦并选中、鼠标点击回调）、组件清单（插件/技能/配方）顺序与 reserved 语义、计数摘要口径、summary/page 两视图结构（page 上的组件行在「组件」页签里，且 page 不重画标题/desc）、版本签只对本条目 subject 出、企业插件页签的归并与门控，以及**企业技能页签的官方两行卡片**（第 1 行标题 + 紧随的**版本签 `sourceDshVersion`** 与**可选分类签 `category`**——分类缺席/null/空串时该签不出现、第 1 行 nowrap 单行锁 20px 行高故加签不撑高、标题先省略标签保持可见；第 2 行描述各自成行、描述单行省略、旧元信息行退场）/可见性门控/计数/右侧那枚官方 `Switch`（`checked` 反映已装、在途 `disabled`、`label` 给动作语义、`onChange(next)` 两个方向都回调）与受管态投影（未装/已装/有更新/在途），以及**开关左侧那枚辅助标签**（只在「有更新」时出现、`aria-label`=`更新企业技能 X`、点击走安装方向、在途 `disabled` 不消失、未装/已装同版本一律不出现、标签严格排在 Switch 左侧），以及**「有更新」独立用例**（只有两侧 `versionId` 参与、`sha256` 换值不改结论、缺任一侧不判），以及**只改技能行**的回归锁（技能行有 Switch + 辅助标签、企业插件行一字未动），以及**两节行上的失败可见反馈**（失败 → 该行 role="alert" + 稳定错误码、只落失败行、失败后开关仍可拨重试、成功路径不出现该提示），以及**页签化后唯一剩下的组件节折叠**（`ENTERPRISE_MARKET_DEFAULT_EXPANDED` 单字段、aria 契约、折叠态列表不进 DOM），以及**详情页顶部压缩的取值锁**（badge 只剩版本号一签 + 包名、「预览版」签不再出现；`.own-market-storeTabs` `margin-top:0` + `flex-wrap:nowrap`、`.own-market-section` `margin-top:12px`、`.own-market-storeTab` `white-space:nowrap`/13-20；`.own-market-sectionMeta` 类规则整条删除且 DOM 不再有该容器，计数改由页签文案承载「企业技能 3」），以及**二期结构切片的注册形状门禁**（`main` key 与 `sidebar.panellist` id 同值 = `enterprise-store`、order 20 排在官方实测 plugins=0/schedules=10 之后、label「应用商店」、图标为函数组件、`inject` 声明含 `layout`）与**双外观拆分的门禁**（`plugins.item` 的注册组件 !== `main` 的注册组件，且分别为 `EnterpriseMarketLegacyPage`/`EnterpriseMarketStorePage`；面板注册面注入的 `view` 恒为 `ENTERPRISE_STORE_PANEL_VIEW='page'`、`plugins.item` 的 inject 恰为 `{store}` 且两处 store 同源；同一组输入下两套外壳的页签 id/文案/aria 配对/开关动作名/数据钩子逐项一致，**两套外壳的目录行现在共用同一枚子块 `EnterpriseMarketInlineRows`**（行 DOM 大纲逐行相同、行类名与行取值逐项一致；旧外壳产出与改动前的结构快照逐行相同、`<style>` 文本长度未变），呈现差异只剩「HERO + 搜索框 + 根内边距」三件（各自专门用例锁死）；两套外壳的语义类断言（页签 aria 与键盘、组件节折叠、开关各态、两枚签、失败提示与可重试、计数口径）**逐个外壳各跑一遍**，外观类断言各自指名外壳）
  * [POS]: dsh-ui 插件市场入口与独立应用商店座位（主内容区面板 + 侧栏一级入口）的产品词汇门禁，真实渲染与视觉由 Harness 快照与真机验收覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -37,8 +37,8 @@ import {
   EnterpriseStoreIcon,
   BadgeView,
   EnterpriseMarketBadge,
-  EnterpriseMarketCatalogRow,
   EnterpriseMarketHero,
+  EnterpriseMarketInlineRows,
   EnterpriseMarketLegacyPage,
   EnterpriseMarketLegacyShell,
   EnterpriseMarketRowError,
@@ -124,6 +124,99 @@ function textOf(node: ReactNode): string {
   return textOf(node.props.children as ReactNode)
 }
 
+/**
+ * **改动前**捕获的旧外壳产出快照：DOM 大纲（技能页签 / 企业插件页签）+ `<style>` 文本的长度与 FNV-1a 校验和。
+ * 三份值都由「抽子块之前」的实现产出（见本轮比对的隔离副本证据），随后在这里**逐行/逐字节锁死**：
+ * 抽子块只是搬代码，旧外壳的用户可见输出一个字符都不许变。
+ */
+const LEGACY_SHELL_OUTLINE: readonly string[] = [
+  "section[className=own-market-entry][aria-label=插件市场]",
+  "  style(6880 chars)",
+  "  div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
+  "    button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=true][aria-controls=market-panel-skills][tabIndex=0][onClick=[fn]][onKeyDown=[fn]]",
+  "      #text:企业技能 1",
+  "    button[id=market-tab-plugins][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-plugins][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
+  "      #text:企业插件 2",
+  "    button[id=market-tab-components][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-components][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
+  "      #text:组件 3",
+  "  div[id=market-panel-skills][role=tabpanel][aria-labelledby=market-tab-skills][hidden=false][className=own-market-panel]",
+  "    section[className=own-market-section][data-market-section=enterprise-skills]",
+  "      ul[className=own-market-rows]",
+  "        li[className=own-market-row][data-enterprise-skill-package=1902500000000000001][data-enterprise-skill-id=meeting-notes][data-enterprise-skill-state=UPDATE_AVAILABLE]",
+  "          div[className=own-market-rowLine]",
+  "            span[className=own-market-rowIcon]",
+  "              #opaque:[object Object]",
+  "            div[className=own-market-rowMain]",
+  "              span[className=own-market-cardHead]",
+  "                span[className=own-market-cardId own-market-skillTitle]",
+  "                  #text:会议纪要技能组",
+  "                Tag[className=own-market-tag own-market-skillVersionTag][tone=neutral]",
+  "                  #text:0.1.7-rc.2",
+  "                Tag[className=own-market-tag own-market-skillCategoryTag][tone=info]",
+  "                  #text:研发工具",
+  "              span[className=own-market-cardDesc]",
+  "                #text:把会议录音与转写整理成结构化纪要。",
+  "            button[type=button][className=own-market-skillTag][data-enterprise-skill-tag=UPDATE_AVAILABLE][aria-label=更新企业技能 会议纪要技能组][disabled=false][title=点此更新到中心当前版本][onClick=[fn]]",
+  "              #text:有更新",
+  "            Switch[checked=true][label=卸载企业技能 会议纪要技能组][disabled=false][title=点此卸载][onChange=[fn]]",
+  "          div[className=own-market-inlineError][role=alert]",
+  "            #text:安装失败",
+  "            #text: ",
+  "            code",
+  "              #text:ENT_ARTIFACT_INTEGRITY_FAILED",
+  "  div[id=market-panel-plugins][role=tabpanel][aria-labelledby=market-tab-plugins][hidden=true][className=own-market-panel]",
+  "  div[id=market-panel-components][role=tabpanel][aria-labelledby=market-tab-components][hidden=true][className=own-market-panel]",
+]
+const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
+  "section[className=own-market-entry][aria-label=插件市场]",
+  "  style(6880 chars)",
+  "  div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
+  "    button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-skills][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
+  "      #text:企业技能 1",
+  "    button[id=market-tab-plugins][type=button][role=tab][className=own-market-storeTab][aria-selected=true][aria-controls=market-panel-plugins][tabIndex=0][onClick=[fn]][onKeyDown=[fn]]",
+  "      #text:企业插件 2",
+  "    button[id=market-tab-components][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-components][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
+  "      #text:组件 3",
+  "  div[id=market-panel-skills][role=tabpanel][aria-labelledby=market-tab-skills][hidden=true][className=own-market-panel]",
+  "  div[id=market-panel-plugins][role=tabpanel][aria-labelledby=market-tab-plugins][hidden=false][className=own-market-panel]",
+  "    section[className=own-market-section][data-market-section=enterprise-plugins]",
+  "      ul[className=own-market-rows]",
+  "        li[className=own-market-row][data-enterprise-plugin-package=ent-a][data-enterprise-plugin-state=ACTIVE]",
+  "          div[className=own-market-rowLine]",
+  "            span[className=own-market-rowIcon]",
+  "              #opaque:[object Object]",
+  "            div[className=own-market-rowMain]",
+  "              span[className=own-market-cardId]",
+  "                #text:ent-a",
+  "              span[className=own-market-cardDesc]",
+  "                #text:企业发布 · v1.2.0",
+  "            span[className=own-market-rowState]",
+  "              StateDot[state=done]",
+  "              #text:已安装",
+  "            Switch[checked=true][label=安装企业插件 ent-a][disabled=false][title=点此卸载][onChange=[fn]]",
+  "          div[className=own-market-inlineError][role=alert]",
+  "            #text:卸载失败",
+  "            #text: ",
+  "            code",
+  "              #text:ENT_PLUGIN_SIGNATURE_INVALID",
+  "        li[className=own-market-row][data-enterprise-plugin-package=ent-b][data-enterprise-plugin-state=FAILED]",
+  "          div[className=own-market-rowLine]",
+  "            span[className=own-market-rowIcon]",
+  "              #opaque:[object Object]",
+  "            div[className=own-market-rowMain]",
+  "              span[className=own-market-cardId]",
+  "                #text:ent-b",
+  "              span[className=own-market-cardDesc]",
+  "                #text:已不在企业目录中",
+  "            span[className=own-market-rowState]",
+  "              StateDot[state=error]",
+  "              #text:处理失败",
+  "            Switch[checked=false][label=安装企业插件 ent-b][disabled=false][title=点此安装][onChange=[fn]]",
+  "  div[id=market-panel-components][role=tabpanel][aria-labelledby=market-tab-components][hidden=true][className=own-market-panel]",
+]
+const LEGACY_STYLE_LENGTH = 6880
+const LEGACY_STYLE_CHECKSUM = 1238437972
+
 /** 「企业技能」节的目录 fixture：与 skill-market.spec 的列表投影同形（列表态 versionId/skills 为空）。 */
 const SKILL: EnterpriseRuntimeSkill = {
   id: '1902500000000000001',
@@ -174,12 +267,11 @@ function installedSkill(versionId: string, id: string = SKILL.id): EnterpriseIns
 
 /**
  * 两套**外观外壳**（同一份逻辑、两套呈现）：`plugins.item` 的详情页走旧外壳（9723a97 那一版），
- * 侧栏「应用商店」面板走新外壳（HERO + 搜索框 + **与「组件」页签同一套通栏行**）。
- * 所有「语义类」断言都对这张表逐个跑——两套外壳都不能少任何一条能力；
- * 「外观类」断言各自指名外壳（旧：`.own-market-cardId`/`.own-market-cardDesc` 那套官方两行卡片；
- * 新：与组件行**同一枚子块** `EnterpriseMarketCatalogRow` 渲染的 `.own-market-rowId`/`.own-market-rowNote`
- * 通栏行——卡片外壳与两列网格那一套已整组删除）。
- * 两套外壳的行内动作现在**落在同一个容器**（`.own-market-rowLine` 的直属动作），故不再有 layout 分叉。
+ * 侧栏「应用商店」面板走新外壳（HERO + 搜索框 + 根内边距）。
+ * **版式统一后两套外壳的目录行是同一套**：同一枚子块 `EnterpriseMarketInlineRows` 渲染、同一串行类名、
+ * 同一份行取值（`rowStyles`），故这张表里三枚类名对两套外观**同值**——两套外观的差别只剩
+ * 「HERO + 搜索框 + 根内边距」三件（由专门的用例逐项锁死）。
+ * 所有「语义类」断言都对这张表逐个跑——两套外壳都不能少任何一条能力。
  */
 const MARKET_SHELLS = [
   {
@@ -193,8 +285,8 @@ const MARKET_SHELLS = [
     label: '新外观（应用商店 main 面板）',
     shell: EnterpriseMarketStoreShell,
     listClass: 'own-market-rows',
-    titleClass: 'own-market-rowId',
-    descClass: 'own-market-rowNote',
+    titleClass: 'own-market-cardId',
+    descClass: 'own-market-cardDesc',
   },
 ] as const
 
@@ -524,8 +616,7 @@ describe('enterprise marketplace entry', () => {
       const tabs = collectByRole(page, 'tab')
       expect(tabs.map(tab => tab['children']), label).toEqual(['企业技能 1', '企业插件 0', '组件 3'])
       expect(collectSectionByHook(page, 'enterprise-skills'), label).not.toBeUndefined()
-      // 行标题类名各自指认外壳：旧外观 `own-market-cardId`（官方两行卡片）、
-      // 新外观 `own-market-rowId`（与「组件」页签三行**同一枚子块**渲染的通栏行）。
+      // 行标题类名两套外壳**同源**（同一枚子块渲染同一串类名，版式统一的落点）：都是 9723a97 那套 `.own-market-cardId`。
       expect(collectByClassName(page, titleClass).map(props => props['children']), label).toEqual(['会议纪要技能组'])
     }
     // 纯投影口径：基础词 + 计数，页签文案不会被写成「N 个」那种长写法。
@@ -641,8 +732,8 @@ describe('enterprise marketplace entry', () => {
 
   // 默认页签（「企业技能」）在「技能」组件 ON 且目录非空时渲染技能行、OFF 时不渲染；
   // 两套外壳的**语义**（门控 / 计数并入页签 / 标题+描述两行 / 官方 Switch 是主控件 / 数据钩子）必须一致，
-  // 只有行版式的类名各指各的（旧 `.own-market-cardId`+`.own-market-cardDesc`；
-  // 新 = 与「组件」页签同一枚子块渲染的通栏行 `.own-market-rowId`+`.own-market-rowNote`，没有卡片网格）。
+  // 而且（版式统一后）**行版式的类名与取值也完全一致**：两套外壳的目录行都由同一枚子块
+  // `EnterpriseMarketInlineRows` 渲染，故下面同一组类名断言对两套外壳各跑一遍。
   it('renders the skill tab with the official Switch as the row primary control in both shells', () => {
     const enterpriseSkills = enterpriseMarketSkillRows([SKILL])
     for (const { label, shell, titleClass, descClass } of MARKET_SHELLS) {
@@ -657,7 +748,7 @@ describe('enterprise marketplace entry', () => {
       // 节内独立计数行确实不存在（新外壳的 HERO 另有「共 1 个企业技能」这句 chip 文案，
       // 故「正文不含 `N 个`」不再是这条语义的代理断言——改锁那个容器本身）。
       expect(collectByClassName(on, 'own-market-sectionMeta'), label).toEqual([])
-      // 两行结构：第 1 行标题、第 2 行描述各自成行（新外壳走组件行那套通栏行类名，旧外壳走自己的卡片类名）。
+      // 两行结构：第 1 行标题、第 2 行描述各自成行（类名各自指认外壳，证明两套外观不同源）。
       expect(collectByClassName(on, titleClass).map(props => props['children']), label).toEqual(['会议纪要技能组'])
       expect(collectByClassName(on, descClass).map(props => props.children), label)
         .toEqual(['把会议录音与转写整理成结构化纪要。'])
@@ -690,49 +781,38 @@ describe('enterprise marketplace entry', () => {
       wiredSwitch['onChange']?.(true)
       expect(onToggleSkill, label).toHaveBeenCalledWith(expect.objectContaining({ id: '1902500000000000001' }), true)
     }
-    // **新外壳**的版式落点 = 与「组件」页签**同一套通栏行**（同一枚子块 `EnterpriseMarketCatalogRow`）：
-    // 标题走上位组件行那份 `.own-market-rowId`（13.5/20-500），描述走上位 `.own-market-rowNote`（12/19 secondary），
-    // 行尾是「状态点 + 状态词」（组件行同口径）——原先那套官方插件清单卡片取值
-    //（`.own-market-cardTitle` 14/20 + `.own-market-cardDescription` 12/18 两行 clamp + `.own-market-cardTrailing`）
-    // 整组删除，`.own-market-rowState` 从「组件行专用」变成三处共用。
+    // **版式统一的核心口径**：新外壳不再有卡片网格/卡片外壳/卡片标题，目录行与旧外壳**同一套**——
+    // 行类名逐项相同、行取值 CSS 逐字节相同（同一枚子块 `EnterpriseMarketInlineRows` 渲染同一份 `rowStyles`）。
     const store = EnterpriseMarketStoreShell({ view: 'page', sessionUsable: true, enterpriseSkills })
-    const css = collectStyleText(store)
-    expect(cssRuleBody(css, '.own-market-rowId')).toContain('font-size:13.5px')
-    expect(cssRuleBody(css, '.own-market-rowId')).toContain('line-height:20px')
-    expect(cssRuleBody(css, '.own-market-rowId')).toContain('font-weight:500')
-    expect(cssRuleBody(css, '.own-market-rowNote')).toContain('font-size:12px')
-    expect(cssRuleBody(css, '.own-market-rowNote')).toContain('line-height:19px')
-    expect(cssRuleBody(css, '.own-market-rowState')).toContain('font-size:12.5px')
-    expect(collectByClassName(store, 'own-market-rowLine')).toHaveLength(1)
-    expect(collectByClassName(store, 'own-market-rowIcon')).toHaveLength(1)
-    expect(collectByClassName(store, 'own-market-rowState')).toHaveLength(1)
-    // 卡片那一套在新外壳里一个类都不剩（DOM 与 CSS 双向反向锁）。
-    for (const gone of [
+    expect(collectByClassName(store, 'own-market-rows')).toHaveLength(1)
+    expect(collectByClassName(store, 'own-market-cardId').map(props => props['children'])).toEqual(['会议纪要技能组'])
+    expect(collectByClassName(store, 'own-market-cardDesc').map(props => props.children))
+      .toEqual(['把会议录音与转写整理成结构化纪要。'])
+    // 卡片时代那套类名与规则**整组退场**（DOM 与 CSS 都不留死骨头）。
+    const CARD_ERA_CLASSES = [
       'own-market-cardShell', 'own-market-cardGrid', 'own-market-cardContent', 'own-market-cardMainRow',
-      'own-market-cardTrailing', 'own-market-cardTitle', 'own-market-cardDescription', 'own-market-cardActions',
-      'own-market-phaseDot', 'own-market-configTag',
-    ]) {
-      expect(collectByClassName(store, gone), gone).toEqual([])
-      expect(cssRuleBody(css, `.${gone}`), gone).toBe('')
+      'own-market-cardTitle', 'own-market-cardDescription', 'own-market-cardTrailing', 'own-market-cardActions',
+      'own-market-phaseDot', 'own-market-configTag', 'own-market-rowStatus',
+    ] as const
+    const storeCss = collectStyleText(store)
+    for (const dead of CARD_ERA_CLASSES) {
+      expect(collectByClassName(store, dead), dead).toEqual([])
+      expect(cssRuleBody(storeCss, `.${dead}`), dead).toBe('')
     }
-    // 旧外壳那套取值仍在（9723a97 的 cardId 14/20-500-省略、cardDesc 13/18 单行 clamp）。
+    // 卡片时代那套「两列网格 + 窄屏单列」也随卡片一起退场（通栏行按容器宽度自适应，不再需要 520 断点）。
+    expect(storeCss).not.toContain('@container')
+    expect(storeCss).not.toContain('max-width:520px')
+    // 行取值与旧外壳逐字节同源（同一份 `rowStyles`，两套外壳都渲染它）。
     const legacy = EnterpriseMarketLegacyShell({ view: 'page', sessionUsable: true, enterpriseSkills })
     const legacyCss = collectStyleText(legacy)
     expect(cssRuleBody(legacyCss, '.own-market-cardId')).toContain('font-size:14px')
     expect(cssRuleBody(legacyCss, '.own-market-cardId')).toContain('text-overflow:ellipsis')
     expect(cssRuleBody(legacyCss, '.own-market-cardDesc')).toContain('font-size:13px')
     expect(cssRuleBody(legacyCss, '.own-market-cardDesc')).toContain('-webkit-line-clamp:1')
-    // 旧外壳的行容器/行线本来就是 baseStyles 那份（它自己的两行卡片也落在 .own-market-rowLine 里），
-    // 但它**不消费**新外壳这刀新增的那套取值：标题仍是自己的 `.own-market-cardId`（不是组件行的 `.own-market-rowId`），
-    // 也没有卡片网格/展开区类名（两套外观互不串味）。
-    expect(collectByClassName(legacy, 'own-market-cardId')).toHaveLength(1)
-    expect(collectByClassName(legacy, 'own-market-rowId')).toEqual([])
-    expect(collectByClassName(legacy, 'own-market-rowState')).toEqual([])
-    expect(collectByClassName(legacy, 'own-market-cardShell')).toEqual([])
-    expect(collectByClassName(legacy, 'own-market-cardGrid')).toEqual([])
+    for (const selector of ['.own-market-cardId', '.own-market-cardDesc']) {
+      expect(cssRuleBody(storeCss, selector), selector).toBe(cssRuleBody(legacyCss, selector))
+    }
     expect(collectByClassName(legacy, 'own-market-cardDetails')).toEqual([])
-    expect(cssRuleBody(legacyCss, '.own-market-cardShell')).toBe('')
-    expect(cssRuleBody(legacyCss, '.own-market-cardGrid')).toBe('')
   })
 
   // 标题行（第 1 行）新增两枚只读标签：**版本签**取列表投影本来就有的 `sourceDshVersion`（无需服务端改动）、
@@ -782,11 +862,11 @@ describe('enterprise marketplace entry', () => {
         expect(isValidElement(bareKids[1]) ? (bareKids[1].props as Record<string, unknown>)['children'] : undefined, label).toBe('0.1.7-rc.2')
       }
     }
-    // 第 2 行描述不受标签影响（新外壳走组件行那份 `.own-market-rowNote`；旧外壳的 cardDesc 上面已锁）。
+    // 第 2 行描述不受标签影响：两套外壳共用同一枚子块、同一枚 `.own-market-cardDesc`（与旧外壳一字不差）。
     const store = EnterpriseMarketStoreShell({
       view: 'page', sessionUsable: true, enterpriseSkills: enterpriseMarketSkillRows([SKILL_WITH_CATEGORY]),
     })
-    expect(collectByClassName(store, 'own-market-rowNote').map(props => props.children))
+    expect(collectByClassName(store, 'own-market-cardDesc').map(props => props.children))
       .toEqual(['把会议录音与转写整理成结构化纪要。'])
     // 纯投影：缺席/null/空串/纯空白都归一成 undefined（标题行标签的最后一道防线），有值原样返回。
     expect(enterpriseMarketSkillCategoryTag(undefined)).toBeUndefined()
@@ -819,43 +899,38 @@ describe('enterprise marketplace entry', () => {
       expect(cssRuleBody(css, '.own-market-skillTitle'), label).toContain('min-width:0')
       expect(cssRuleBody(css, '.own-market-tag'), label).toContain('flex:none')
     }
-    // 第 1 行的省略口径：新外壳的标题类就是组件行那份 `.own-market-rowId`（13.5/20-500，无 nowrap/ellipsis），
-    // 与两枚签同处共用的 `.own-market-cardHead`（那份 head 才是 nowrap + overflow:hidden 的锁高容器）；
-    // 旧外壳仍是自己的 `.own-market-cardId`（14/20-500 + nowrap + ellipsis）。
+    // 第 1 行的省略口径：两套外壳共用**同一枚**标题类 `.own-market-cardId`（14/20-500 + nowrap + ellipsis）。
     const store = EnterpriseMarketStoreShell({
       view: 'page', sessionUsable: true, enterpriseSkills: enterpriseMarketSkillRows([SKILL_WITH_CATEGORY]),
     })
     const storeCss = collectStyleText(store)
-    expect(cssRuleBody(storeCss, '.own-market-rowId')).toContain('font-size:13.5px')
-    expect(cssRuleBody(storeCss, '.own-market-rowId')).toContain('overflow-wrap:anywhere')
-    expect(String(collectByClassName(store, 'own-market-skillTitle')[0]?.['className'])).toContain('own-market-rowId')
+    expect(cssRuleBody(storeCss, '.own-market-cardId')).toContain('white-space:nowrap')
+    expect(cssRuleBody(storeCss, '.own-market-cardId')).toContain('text-overflow:ellipsis')
+    // 结构锁（**两套外壳同一套行**）：rowMain 里恰好两行（标题行 head + 描述行 cardDesc），
+    // 标签变多只影响标题行内部，不会多出第三段；动作与失败提示落在 rowMain 之外的同一条 rowLine 上。
+    for (const { label, shell } of MARKET_SHELLS) {
+      const tree = shell({
+        view: 'page', sessionUsable: true, enterpriseSkills: enterpriseMarketSkillRows([SKILL_WITH_CATEGORY]),
+      })
+      const main = collectByClassName(tree, 'own-market-rowMain')[0]
+      const kids = main?.['children'] as ReactNode[]
+      expect(kids, label).toHaveLength(2)
+      expect(String((kids[0] as { props?: Record<string, unknown> }).props?.['className']), label).toContain('own-market-cardHead')
+      expect(String((kids[1] as { props?: Record<string, unknown> }).props?.['className']), label).toContain('own-market-cardDesc')
+      // rowLine 的直属子元素 = 图标 + 主体 + 右侧动作（本 fixture 未装、无更新 → 只有那枚官方 Switch）。
+      const row = collectByDataProp(tree, 'data-enterprise-skill-package', SKILL.id)[0] as { props?: Record<string, unknown> } | undefined
+      const line = collectByClassName(row?.['props']?.['children'] as ReactNode, 'own-market-rowLine')[0]
+      const lineKids = ((line?.['children'] ?? []) as ReactNode[]).filter(child => child !== null && child !== undefined)
+      expect(lineKids, label).toHaveLength(3)
+      expect((lineKids[2] as { type?: unknown }).type, label).toBe(Switch as unknown)
+      expect(collectByClassName(row?.['props']?.['children'] as ReactNode, 'own-market-inlineError'), label).toEqual([])
+    }
     const legacy = EnterpriseMarketLegacyShell({
       view: 'page', sessionUsable: true, enterpriseSkills: enterpriseMarketSkillRows([SKILL_WITH_CATEGORY]),
     })
     const legacyCss = collectStyleText(legacy)
     expect(cssRuleBody(legacyCss, '.own-market-cardId')).toContain('white-space:nowrap')
     expect(cssRuleBody(legacyCss, '.own-market-cardId')).toContain('text-overflow:ellipsis')
-    // 结构锁（新外壳，与组件行同构）：rowMain = 标题行 + 描述行（恰好两段；组件行那第三段是 mono 模块名，
-    // 市场目录行没有）。标签变多只影响标题行内部，不会多出第三段；动作与失败提示都在行线上、不在主体里。
-    const storeMain = collectByClassName(store, 'own-market-rowMain')[0]
-    const storeKids = storeMain?.['children'] as ReactNode[]
-    expect(storeKids).toHaveLength(2)
-    expect(String((storeKids[0] as { props?: Record<string, unknown> }).props?.['className'])).toContain('own-market-cardHead')
-    expect(String((storeKids[1] as { props?: Record<string, unknown> }).props?.['className'])).toContain('own-market-rowNote')
-    // 结构锁（组件行，同一枚子块）：rowMain 恰好三段（标题 / 说明 / mono 模块名）。
-    const components = EnterpriseMarketStoreShell({ view: 'page', activeTab: 'components', expandedSections: { components: true } })
-    const componentMain = collectByClassName(components, 'own-market-rowMain')[0]
-    const componentKids = componentMain?.['children'] as ReactNode[]
-    expect(componentKids).toHaveLength(3)
-    expect(String((componentKids[0] as { props?: Record<string, unknown> }).props?.['className'])).toContain('own-market-rowId')
-    expect(String((componentKids[1] as { props?: Record<string, unknown> }).props?.['className'])).toContain('own-market-rowNote')
-    expect(String((componentKids[2] as { props?: Record<string, unknown> }).props?.['className'])).toContain('own-market-rowModule')
-    // 结构锁（旧外壳）：rowMain 里也恰好两行（标题行 head + 描述行 cardDesc）。
-    const legacyMain = collectByClassName(legacy, 'own-market-rowMain')[0]
-    const legacyKids = legacyMain?.['children'] as ReactNode[]
-    expect(legacyKids).toHaveLength(2)
-    expect(String((legacyKids[0] as { props?: Record<string, unknown> }).props?.['className'])).toContain('own-market-cardHead')
-    expect(String((legacyKids[1] as { props?: Record<string, unknown> }).props?.['className'])).toContain('own-market-cardDesc')
   })
 
   // 已装记录与在途动作是两个彼此独立的输入：判定「已装/在途」只认 Host 真值，从不乐观猜测；
@@ -907,7 +982,7 @@ describe('enterprise marketplace entry', () => {
   })
 
   // 开关左侧那枚辅助标签：只在「有更新」时出现（其余态右侧就一个 Switch），点击 = 安装中心当前版本。
-  // 两套外壳的**落点**相同（都在 `.own-market-rowLine` 里，标签严格在 Switch 左侧），事实与行为逐项一致。
+  // 版式统一后两套外壳的**落点是同一条 `.own-market-rowLine`**（辅助动作严格排在开关左侧），事实与行为逐项一致。
   it('renders the auxiliary update label left of the switch only when an update exists', () => {
     const updatable = updatableRow()
     const outdated = installedSkill('1902500000000000100')
@@ -937,8 +1012,9 @@ describe('enterprise marketplace entry', () => {
       // 点击 = 安装中心当前版本（`next=true`），不是卸载、也不是 no-op。
       tags[0]?.['onClick']?.()
       expect(onToggleSkill, label).toHaveBeenCalledWith(expect.objectContaining({ id: updatable.id }), true)
-      // 顺序锁：标签严格排在 Switch **左侧**（开关仍是该行主控件，不许反过来）——两套外壳同一份行内动作区。
-      const order = actionOrder(rowLineActionChildren(tree, updatable.id))
+      // 顺序锁：标签严格排在 Switch **左侧**（开关仍是该行主控件，不许反过来）——两套外壳同一枚 rowLine。
+      const kids = rowLineChildren(tree, updatable.id)
+      const order = actionOrder(kids)
       expect(order.tag, label).toBeGreaterThanOrEqual(0)
       expect(order.switch, label).toBeGreaterThan(order.tag)
       // 有更新时行上的受管态钩子如实报 `UPDATE_AVAILABLE`；那枚开关仍开着（盘上装着旧版本）、可拨（拨下去 = 卸载）。
@@ -1144,7 +1220,7 @@ describe('enterprise marketplace entry', () => {
       pluginSwitch['onChange']?.(false)
       expect(onTogglePlugin, label).toHaveBeenCalledWith(expect.objectContaining({ packageName: 'ent-a' }), false)
       // 「企业技能」页签：已装同版本行（行上没有中心版本 → 不判更新）右侧只有那枚开关：
-      // 不出辅助标签、也没有 `data-enterprise-skill-tag` 钩子（辅助动作只在「有更新」时出现）。
+      // 不出辅助标签、也没有 `data-enterprise-skill-tag` 钩子；技能行未占 rowState 版式（那是组件行的状态点位）。
       const skillsTab = shell({
         view: 'page',
         sessionUsable: true,
@@ -1156,10 +1232,8 @@ describe('enterprise marketplace entry', () => {
       expect(collectByClassName(skillsTab, 'own-market-skillTag'), label).toEqual([])
       expect(collectDataValues(skillsTab, 'data-enterprise-skill-tag'), label).toEqual([])
       expect(collectDataValues(skillsTab, 'data-enterprise-skill-state'), label).toEqual(['INSTALLED'])
-      // 旧外壳的技能行走它自己的官方两行卡片（不出状态区）；新外壳的技能行**正是**组件行那格
-      // `.own-market-rowState`（状态点 + 状态词），故这里按外壳分别锁（见下面的「版式统一」用例）。
-      expect(collectByClassName(skillsTab, 'own-market-rowState'), label)
-        .toHaveLength(shell === EnterpriseMarketLegacyShell ? 0 : 1)
+      // 技能行不使用组件行那套 `.own-market-rowState`（旧外壳只在插件行用它）。
+      expect(collectByClassName(skillsTab, 'own-market-rowState'), label).toEqual([])
     }
   })
 
@@ -1312,69 +1386,59 @@ describe('enterprise marketplace entry', () => {
     }
   })
 
-  // ══ 版式统一的门禁 —— **只锁新外壳**（旧外壳走 9723a97 的官方两行卡片，见上面的 MARKET_SHELLS 循环）══
-  // 应用商店的两个目录页签行 = 与「组件」页签**同一枚子块** `EnterpriseMarketCatalogRow` 渲染的通栏行：
-  // 行容器 + 行分隔线 + 40×40 图标框 + 标题 13.5/20-500 + 描述 12/19 + 右侧「状态点 + 状态词」，
-  // 动作（[有更新] + Switch）直接落在 `.own-market-rowLine` 里。卡片外壳/两列网格/窄屏单列/卡片内动作条整组退场。
-  it('renders every store directory row as the shared 通栏行 (no card shell, no grid left)', () => {
-    const page = EnterpriseMarketStoreShell({ view: 'page', sessionUsable: true, enterpriseSkills: enterpriseMarketSkillRows([SKILL]) })
-    const css = collectStyleText(page)
-    // 通栏行 = `baseStyles` 里那套行版式（与组件页签三行**同一份取值**）：flex column 列表 + 行底 0.5px 分隔线。
-    expect(cssRuleBody(css, '.own-market-rows')).toContain('display:flex')
-    expect(cssRuleBody(css, '.own-market-rows')).toContain('flex-direction:column')
-    const row = cssRuleBody(css, '.own-market-row')
-    expect(row).toContain('padding:12px 2px')
-    expect(row).toContain('border-bottom:0.5px solid var(--dsw-alias-border-l2')
-    // 行线：图标 + 主体 + 状态区 + 动作同排（gap 16）。
-    const line = cssRuleBody(css, '.own-market-rowLine')
-    expect(line).toContain('display:flex')
-    expect(line).toContain('align-items:center')
-    expect(line).toContain('gap:16px')
-    // 图标框 = 官方 .rowIcon 40×40（与组件行同款，不是卡片里的无框图）。
-    const icon = cssRuleBody(css, '.own-market-rowIcon')
-    expect(icon).toContain('width:40px')
-    expect(icon).toContain('height:40px')
-    expect(icon).toContain('border-radius:8px')
-    // 标题/状态词 = 组件行那套取值（13.5/20-500 与 12.5/18），不是卡片的 14/20 + Tag 药丸。
-    expect(cssRuleBody(css, '.own-market-rowId')).toContain('font-size:13.5px')
-    expect(cssRuleBody(css, '.own-market-rowId')).toContain('line-height:20px')
-    expect(cssRuleBody(css, '.own-market-rowId')).toContain('font-weight:500')
-    expect(cssRuleBody(css, '.own-market-rowState')).toContain('font-size:12.5px')
-    expect(cssRuleBody(css, '.own-market-rowState')).toContain('gap:6px')
-    // 描述 = 组件行那份 `.own-market-rowNote`（12/19 secondary）。
-    expect(cssRuleBody(css, '.own-market-rowNote')).toContain('font-size:12px')
-    expect(cssRuleBody(css, '.own-market-rowNote')).toContain('line-height:19px')
-    // 卡片那一整套（外壳 / 网格 / 内容块 / 两端对齐主行 / 行尾 Tag / 卡片标题与描述 / 动作条 / 折叠态描边）
-    // 在新外壳的 CSS 里**一个都不剩**。
-    for (const gone of [
-      'own-market-cardShell', 'own-market-cardGrid', 'own-market-cardContent', 'own-market-cardMainRow',
-      'own-market-cardTrailing', 'own-market-cardTitle', 'own-market-cardDescription', 'own-market-cardActions',
-      'own-market-phaseDot', 'own-market-configTag',
-    ]) {
-      expect(cssRuleBody(css, `.${gone}`), gone).toBe('')
-      expect(collectByClassName(page, gone), gone).toEqual([])
+  // ══ 本刀（去折叠）的门禁 —— **只锁新外壳**（旧外壳走 9723a97 的官方两行卡片，见上面的 MARKET_SHELLS 循环）══
+  // 新外壳行版式源自参考对象 `jingyunstudio/jingyun-dsh` 的 `MarketplaceSection.tsx`（卡片 + 列表上方搜索框），
+  // **但排版取值一律照官方** `@deepseek-ai/dsh-client-ui-settings-plugin-inventory` 的 `qSYn7G_*`。
+  // 用户裁决 A 去掉了卡片折叠：动作常显，故 `[data-open]` 展开态、chevron、展开区、skillId 行与焦点环一并退场。
+  it('locks the shared inline row values on every directory row in both shells', () => {
+    for (const { label, shell } of MARKET_SHELLS) {
+      const page = shell({ view: 'page', sessionUsable: true, enterpriseSkills: enterpriseMarketSkillRows([SKILL]) })
+      const css = collectStyleText(page)
+      // 行 = 通栏行（行底 0.5px 分隔线 + 40×40 图标框 + 两行文案），不是卡片。
+      expect(cssRuleBody(css, '.own-market-rows'), label).toContain('display:flex')
+      expect(cssRuleBody(css, '.own-market-row'), label).toContain('border-bottom:0.5px solid')
+      expect(cssRuleBody(css, '.own-market-rowLine'), label).toContain('display:flex')
+      expect(cssRuleBody(css, '.own-market-rowIcon'), label).toContain('width:40px')
+      expect(cssRuleBody(css, '.own-market-rowMain'), label).toContain('flex-direction:column')
+      const rowId = cssRuleBody(css, '.own-market-cardId')
+      expect(rowId, label).toContain('font-size:14px')
+      expect(rowId, label).toContain('font-weight:500')
+      expect(rowId, label).toContain('line-height:20px')
+      expect(rowId, label).toContain('text-overflow:ellipsis')
+      const desc = cssRuleBody(css, '.own-market-cardDesc')
+      expect(desc, label).toContain('font-size:13px')
+      expect(desc, label).toContain('line-height:18px')
+      expect(desc, label).toContain('-webkit-line-clamp:1')
+      // 官方插件清单**卡片**那套取值一条都不许回来（DOM 与 CSS 双查）。
+      for (const dead of [
+        'own-market-cardShell', 'own-market-cardGrid', 'own-market-cardContent', 'own-market-cardMainRow',
+        'own-market-cardTitle', 'own-market-cardDescription', 'own-market-cardTrailing', 'own-market-cardActions',
+        'own-market-phaseDot', 'own-market-configTag', 'own-market-rowStatus',
+      ]) {
+        expect(cssRuleBody(css, `.${dead}`), `${label}/${dead}`).toBe('')
+        expect(collectByClassName(page, dead), `${label}/${dead}`).toEqual([])
+      }
+      // 「两列网格 + 窄屏单列」随卡片一起退场（通栏行按容器宽度自适应，不再需要 520 断点）。
+      expect(css, label).not.toContain('@container')
+      expect(css, label).not.toContain('max-width:520px')
+      // DOM 结构锁：恰好一条通栏行列表、一行、一枚图标框与一条行线；chevron 一件都没有。
+      expect(collectByClassName(page, 'own-market-rows'), label).toHaveLength(1)
+      expect(collectByClassName(page, 'own-market-row'), label).toHaveLength(1)
+      expect(collectByClassName(page, 'own-market-rowIcon'), label).toHaveLength(1)
+      expect(collectByClassName(page, 'own-market-rowLine'), label).toHaveLength(1)
+      expect(collectByClassName(page, 'own-market-cardChevron'), label).toEqual([])
+      // 组件页签的 rows 版式不受影响：同一串行类名、恒三行（它本来就长这样，本刀没动它）。
+      const components = shell({ view: 'page', activeTab: 'components' })
+      expect(collectByClassName(components, 'own-market-rows'), label).toHaveLength(1)
+      expect(collectByClassName(components, 'own-market-row'), label).toHaveLength(3)
+      expect(collectByClassName(components, 'own-market-rowModule'), label).toHaveLength(3)
     }
-    // 两列网格与它的窄屏兜底（容器查询 + 同断点 media）也整组退场：行是通栏的，没有换列这回事。
-    expect(css).not.toContain('grid-template-columns')
-    expect(css).not.toContain('@container')
-    expect(css).not.toContain('@media (max-width:520px)')
-    expect(css).not.toContain("[data-open='true']")
-    // DOM 结构锁：每一行都是「一个 `.own-market-row` + 一条 `.own-market-rowLine`」，动作与失败提示都在行内。
-    expect(collectByClassName(page, 'own-market-rows')).toHaveLength(1)
-    for (const name of ['own-market-row', 'own-market-rowLine', 'own-market-rowIcon', 'own-market-rowMain', 'own-market-rowId', 'own-market-rowNote', 'own-market-rowState']) {
-      expect(collectByClassName(page, name), name).toHaveLength(1)
-    }
-    // 状态区 = 官方 StateDot + 状态词（两件成对），行尾不再有 Tag、也不再有 chevron。
-    expect(collectStateDotProps(page)).toHaveLength(1)
-    expect(collectByClassName(page, 'own-market-cardChevron')).toEqual([])
-    // 组件的三行版式仍走它自己的工作台（见另用例），但**类名与取值同源**——这里反向确认目录行没有另起一套。
-    expect(collectByClassName(page, 'own-market-rowState')[0]?.['children']).toBeDefined()
   })
 
-  // 通栏行**没有折叠**（用户裁决 A 的去折叠语义在本刀继续成立）：行上直接是图标 + 标题/签 + 描述 +
-  // 「状态点 + 状态词 + [有更新] + Switch」，没有任何展开/收起机制——chevron、`aria-expanded`/`aria-controls`、
-  // 展开区、`skillId` 行都不在树上。行键 / 展开区 id / 开合三个纯投影**仍留在共享层**（按「不夹带清理」保留），
-  // 这里继续锁它们的取值，同时锁死「新外壳不再消费它们」：`expandedRow` 传 null 还是某个行键，产出逐项相同。
+  // 卡片**不折叠**（用户裁决 A）：新外壳目录卡片上直接就是标题/签/状态点/描述与两个动作（[有更新] + Switch），
+  // 没有任何展开/收起机制——chevron、`aria-expanded`/`aria-controls`、展开区、`skillId` 行都不在树上。
+  // 行键 / 展开区 id / 开合三个纯投影**仍留在共享层**（控制器那份状态按「不夹带清理」保留），这里继续锁它们的取值；
+  // 同时锁死「新外壳不再消费它们」：`expandedRow` 传 null 还是某个行键，卡片产出逐项相同。
   it('renders every store-shell row without any disclosure: actions are always visible on the row', () => {
     const rows = enterpriseMarketSkillRows([
       SKILL,
@@ -1396,28 +1460,33 @@ describe('enterprise marketplace entry', () => {
       view: 'page', sessionUsable: true, enterpriseSkills: rows, expandedRow, onToggleSkill: vi.fn(), onToggleRow: vi.fn(),
     }))
     for (const tree of shapes) {
-      // 动作**常显在行线上**：两行各一枚官方 Switch，且都落在 `.own-market-rowLine` 里。
+      // 动作**常显**：两行各一枚官方 Switch，且各自落在本行的 `.own-market-rowLine` 里。
       expect(collectSwitchProps(tree).map(props => String(props['label']))).toEqual([
         '安装企业技能 会议纪要技能组',
         '安装企业技能 代码评审技能组',
       ])
-      expect(collectByClassName(tree, 'own-market-rowLine')).toHaveLength(2)
+      const lines = collectByClassName(tree, 'own-market-rowLine')
+      expect(lines).toHaveLength(2)
+      for (const line of lines) {
+        const kids = (line['children'] ?? []) as ReactNode[]
+        expect(kids.some(child => isValidElement(child) && child.type === (Switch as unknown))).toBe(true)
+      }
       // 展开机制一件都不在：chevron / 展开区 / `skillId` 行 / 行上的 `data-open`。
       expect(collectByClassName(tree, 'own-market-cardChevron')).toEqual([])
       expect(collectByClassName(tree, 'own-market-cardDetails')).toEqual([])
       expect(collectByClassName(tree, 'own-market-entryValue')).toEqual([])
       expect(collectByClassName(tree, 'own-market-row').map(props => props['data-open'])).toEqual([undefined, undefined])
-      // 行线不是 disclosure 控件：没有 `aria-expanded` / `aria-controls` / `onClick`（点了不会发生任何事）。
-      const lines = collectByClassName(tree, 'own-market-rowLine')
-      expect(lines.map(props => props['aria-expanded'])).toEqual([undefined, undefined])
-      expect(lines.map(props => props['aria-controls'])).toEqual([undefined, undefined])
-      expect(lines.map(props => props['onClick'])).toEqual([undefined, undefined])
+      // 行主体不是 disclosure 按钮：没有 `aria-expanded` / `aria-controls` / `onClick`（点了不会发生任何事）。
+      const mains = collectByClassName(tree, 'own-market-rowMain')
+      expect(mains.map(props => props['aria-expanded'])).toEqual([undefined, undefined])
+      expect(mains.map(props => props['aria-controls'])).toEqual([undefined, undefined])
+      expect(mains.map(props => props['onClick'])).toEqual([undefined, undefined])
       // `skillId` 不再作为可见文本出现（那行 `code-review` 被用户明确判为无用）。
       expect(textOf(tree)).not.toContain('code-review')
     }
-    // 行容器是 `<li>`（不是整行可点的 `<button>`）：按钮里嵌不进官方 Switch 与 [有更新] 按钮。
-    expect(collectButtonProps(shapes[0]!).filter(props => String(props['className'] ?? '').includes('own-market-row'))).toEqual([])
-    // 插件行同一套：`expandedRow: null` 时安装/卸载开关照样在行线上（没有展开区可收起它）。
+    // 行主体是 `div`（不是 `<button>`）：整行可点的按钮里嵌不进官方 Switch 与 [有更新] 按钮。
+    expect(collectButtonProps(shapes[0]!).filter(props => String(props['className'] ?? '').includes('own-market-rowMain'))).toEqual([])
+    // 插件行同一套：`expandedRow: null` 时安装/卸载开关照样在行上（没有展开区可收起它）。
     const plugins = EnterpriseMarketStoreShell({
       view: 'page', activeTab: 'plugins', sessionUsable: true, expandedRow: null,
       enterprisePlugins: [{ packageName: 'ent-a', version: '1.2.0', state: 'ACTIVE', inCatalog: true }] as never,
@@ -1429,84 +1498,9 @@ describe('enterprise marketplace entry', () => {
     expect(collectByClassName(plugins, 'own-market-rowLine')).toHaveLength(1)
   })
 
-  // **版式统一的核心门禁**：应用商店的技能/插件行与「组件」页签的三行是**同一枚子块**渲染的行——
-  // 逐条证明：① 行的元素 type 完全相同（`EnterpriseMarketCatalogRow`，不是各写一份 JSX）；
-  // ② 行容器的类名与子槽顺序逐项相同（图标 / 主体 / 状态区 / 动作）；③ 源码里行版式只有**一处**渲染点。
-  it('renders the store directory rows from the very same row block as the components tab', async () => {
-    const store = EnterpriseMarketStoreShell({ view: 'page', sessionUsable: true, enterpriseSkills: enterpriseMarketSkillRows([SKILL]) })
-    const components = EnterpriseMarketStoreShell({
-      view: 'page', activeTab: 'components', sessionUsable: true, expandedSections: { components: true },
-    })
-    // ① 同一枚子块：两处的行元素 type 都是 `EnterpriseMarketCatalogRow`。
-    const skillRows = collectByType(store, EnterpriseMarketCatalogRow)
-    const componentRows = collectByType(components, EnterpriseMarketCatalogRow)
-    expect(skillRows).toHaveLength(1)
-    expect(componentRows).toHaveLength(3)
-    // 子块的入参槽位也同构：图标 / 主体 / 状态点 / 状态词 / 行尾动作（技能行两个动作、组件行只有开关）。
-    for (const [label, node] of [['技能行', skillRows[0]], ['组件行', componentRows[0]]] as const) {
-      const slotProps = (node as { props: Record<string, unknown> }).props
-      for (const slot of ['attributes', 'icon', 'main', 'dot', 'state', 'actions']) {
-        expect(slotProps[slot], `${label} / ${slot}`).not.toBeUndefined()
-      }
-    }
-    // 行容器（`<li class="own-market-row">`）与列表容器（`<ul class="own-market-rows">`）的类名也相同。
-    expect(collectByClassName(store, 'own-market-rows')).toHaveLength(1)
-    expect(collectByClassName(components, 'own-market-rows')).toHaveLength(1)
-    for (const tree of [store, components]) {
-      expect(collectByClassName(tree, 'own-market-row').length).toBeGreaterThan(0)
-    }
-    // ② 行内子槽的顺序与身份逐项相同：图标 / 主体 / 状态区 / 动作（fragment 槽）——两处同构。
-    const slotsOf = (tree: ReactNode): readonly string[] => {
-      const line = collectByClassName(tree, 'own-market-rowLine')[0]
-      return toChildArray(line?.['children'] as ReactNode)
-        .filter(child => child !== null && child !== undefined && child !== false)
-        .map(child => {
-          if (Array.isArray(child)) return 'main' // 主体若是数组子槽（本子块传的是数组）也照实标出
-          if (!isValidElement(child)) return typeof child
-          if (typeof child.type === 'symbol') return 'actions' // 行尾动作 = fragment 子槽
-          const className = (child.props as Record<string, unknown>)['className']
-          return typeof className === 'string' ? className : String(child.type)
-        })
-    }
-    const expectedSlots = ['own-market-rowIcon', 'own-market-rowMain', 'own-market-rowState', 'actions']
-    expect(slotsOf(store)).toEqual(expectedSlots)
-    expect(slotsOf(components)).toEqual(expectedSlots)
-    // 可选补充状态词（在途/有更新/失败…）是这一套里唯一多出来的一格，只在需要留意时出现。
-    const outdatedForSlots = EnterpriseMarketStoreShell({
-      view: 'page', sessionUsable: true, enterpriseSkills: [updatableRow()],
-      installedSkills: [installedSkill('1902500000000000100')], onToggleSkill: vi.fn(),
-    })
-    expect(slotsOf(outdatedForSlots))
-      .toEqual(['own-market-rowIcon', 'own-market-rowMain', 'own-market-rowState', 'own-market-rowStatus', 'actions'])
-    // 两处的行内动作展平后也同构：目录行 = [有更新] + Switch（无更新时那一格是 null），组件行 = Switch。
-    const switchLabelsOf = (tree: ReactNode): readonly string[] =>
-      collectByClassName(tree, 'own-market-rowLine')
-        .flatMap(line => flattenActionChildren(toChildArray(line['children'] as ReactNode)))
-        .filter((child): child is ReturnType<typeof isValidElement> & object => isValidElement(child))
-        .filter(child => (child as { type?: unknown }).type === (Switch as unknown))
-        .map(child => String(((child as { props?: Record<string, unknown> }).props ?? {})['label']))
-    expect(switchLabelsOf(store)).toEqual(['安装企业技能 会议纪要技能组'])
-    expect(switchLabelsOf(components)).toEqual(['启用组件 插件', '启用组件 技能', '启用组件 配方'])
-    // 状态区的内容也同构：官方 StateDot + 一枚状态词（技能 = 已装/未装，组件 = 可用/预留）。
-    expect(collectStateDotProps(store).map(props => props['state'])).toEqual(['idle'])
-    expect(collectStateDotProps(components).map(props => props['state'])).toEqual(['done', 'done', 'idle'])
-    const stateWordOf = (tree: ReactNode, index = 0): string =>
-      toChildArray(collectByClassName(tree, 'own-market-rowState')[index]?.['children'] as ReactNode)
-        .filter((child): child is string => typeof child === 'string').join('')
-    expect(stateWordOf(store)).toBe('未装')
-    expect(stateWordOf(components)).toBe('可用')
-    // ③ 源码级不变量：`className="own-market-rowLine"` 全文件只剩 3 处——1 处是这枚**唯一子块**，
-    // 另 2 处是旧外壳自己那两条行线（旧外观一行不许动，故它不消费子块）。新外壳再抄一份行版式 → 立刻变 4。
-    const source = stripComments(await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8'))
-    expect(source.split('className="own-market-rowLine"').length - 1).toBe(3)
-    // 旧外壳不消费这枚子块（它自己的官方两行卡片留在原地），故「旧外壳一行未动」有结构证据。
-    const legacy = EnterpriseMarketLegacyShell({ view: 'page', sessionUsable: true, enterpriseSkills: enterpriseMarketSkillRows([SKILL]) })
-    expect(collectByType(legacy, EnterpriseMarketCatalogRow)).toEqual([])
-    expect(collectByClassName(legacy, 'own-market-row').length).toBe(1)
-  })
-
-  // 动作仍在**同一行内部**：`[有更新]` 与官方 `Switch` 都落在该行的 `.own-market-rowLine` 之内，
-  // 失败提示也在同一行；技能行与插件行各锁一遍（没有把动作搬到行外另起一条）。
+  // **新增锁（本轮改动的核心）**：动作**在同一张卡片内部**——`[有更新]` 与官方 `Switch` 都落在该卡片的
+  // `.own-market-cardContent` 之内（不是搬到卡片外面另起一条），失败提示也在同一张卡里；
+  // 技能卡片与插件卡片各锁一遍（「动作常显」= 常显在**卡片上**，不是常显在别处）。
   it('keeps both row actions inside the same row as the title and the description', () => {
     const row = updatableRow()
     const tree = EnterpriseMarketStoreShell({
@@ -1514,16 +1508,16 @@ describe('enterprise marketplace entry', () => {
       installedSkills: [installedSkill('1902500000000000100')], onToggleSkill: vi.fn(),
       skillActionError: { id: row.id, action: 'install', code: 'ENT_ARTIFACT_INTEGRITY_FAILED' },
     })
-    const skillRow = collectByDataProp(tree, 'data-enterprise-skill-package', row.id)[0]
-    expect(collectByClassName(skillRow, 'own-market-rowLine')).toHaveLength(1)
-    // 标题行 / 描述行 / 状态区都在同一行里；有更新按钮、官方 Switch、失败提示也在同一行里。
-    for (const name of ['own-market-cardHead', 'own-market-rowNote', 'own-market-rowState']) {
-      expect(collectByClassName(skillRow, name), name).toHaveLength(1)
-    }
-    expect(collectTagProps(skillRow)).toHaveLength(1)
-    expect(collectSwitchProps(skillRow)).toHaveLength(1)
-    expect(collectAlerts(skillRow)).toHaveLength(1)
-    // 全树只有这一条行线：动作没有在行外重复挂载一份。
+    const rowNode = collectByDataProp(tree, 'data-enterprise-skill-package', row.id)[0] as { props?: Record<string, unknown> } | undefined
+    const kids = (rowNode?.props?.['children'] ?? []) as ReactNode[]
+    // 行线 / 标题行 / 描述行都在同一个 `<li>` 里；有更新按钮、官方 Switch 与失败提示也都在本行里。
+    expect(collectByClassName(kids, 'own-market-rowLine')).toHaveLength(1)
+    expect(collectByClassName(kids, 'own-market-cardHead')).toHaveLength(1)
+    expect(collectByClassName(kids, 'own-market-cardDesc')).toHaveLength(1)
+    expect(collectTagProps(kids)).toHaveLength(1)
+    expect(collectSwitchProps(kids)).toHaveLength(1)
+    expect(collectAlerts(kids)).toHaveLength(1)
+    // 全树只有这一条行线：动作没有在行外重复挂载一份（也没有并行的「卡片内动作条」）。
     expect(collectByClassName(tree, 'own-market-rowLine')).toHaveLength(1)
     // 插件行同理：安装/卸载开关落在同一条行线里。
     const plugins = EnterpriseMarketStoreShell({
@@ -1531,13 +1525,13 @@ describe('enterprise marketplace entry', () => {
       enterprisePlugins: [{ packageName: 'ent-a', version: '1.2.0', state: 'ACTIVE', inCatalog: true }] as never,
       onTogglePlugin: vi.fn(),
     })
-    const pluginRow = collectByDataProp(plugins, 'data-enterprise-plugin-package', 'ent-a')[0]
-    expect(collectByClassName(pluginRow, 'own-market-rowLine')).toHaveLength(1)
-    expect(collectByClassName(pluginRow, 'own-market-rowNote')).toHaveLength(1)
-    expect(collectSwitchProps(pluginRow)).toHaveLength(1)
+    const pluginRow = collectByDataProp(plugins, 'data-enterprise-plugin-package', 'ent-a')[0] as { props?: Record<string, unknown> } | undefined
+    const pluginKids = (pluginRow?.props?.['children'] ?? []) as ReactNode[]
+    expect(collectByClassName(pluginKids, 'own-market-rowLine')).toHaveLength(1)
+    expect(collectSwitchProps(pluginKids)).toHaveLength(1)
   })
 
-  // 搜索框：位置照参考对象（**列表上方**、列表之前）、350ms 防抖（在 hook 入口，纯函数体只抛原始输入）、
+  // 搜索框：位置照参考对象（**列表上方**、卡片之前）、350ms 防抖（在 hook 入口，纯函数体只抛原始输入）、
   // 过滤是**纯客户端**的（不发请求、不新增本机路由）；只给两个目录页签配（「组件」恒三行，理由见常量注释）。
   it('filters only the active directory tab through a 350ms-debounced client-side search box', async () => {
     expect(ENTERPRISE_MARKET_SEARCH_DEBOUNCE_MS).toBe(350)
@@ -1578,7 +1572,9 @@ describe('enterprise marketplace entry', () => {
     const page = EnterpriseMarketStoreShell({ view: 'page', sessionUsable: true, enterpriseSkills: skills, onSearchInput })
     const catalogKids = collectByClassName(page, 'own-market-catalog')[0]?.['children'] as ReactNode[]
     expect(String((catalogKids[0] as { props?: Record<string, unknown> }).props?.['className'])).toContain('own-market-catalogSearch')
-    expect(String((catalogKids[1] as { props?: Record<string, unknown> }).props?.['className'])).toContain('own-market-rows')
+    // 搜索框之后就是**通栏行列表**：第二个孩子是共享行子块本身（行类名在它的产出上，故按渲染结果断言）。
+    expect((catalogKids[1] as { type?: unknown }).type).toBe(EnterpriseMarketInlineRows as unknown)
+    expect(collectByClassName(catalogKids, 'own-market-rows')).toHaveLength(1)
     const input = collectByClassName(page, 'own-market-catalogSearchInput')[0]
     expect(input?.['type']).toBe('search')
     expect(input?.['placeholder']).toBe('搜索企业技能…')
@@ -1589,7 +1585,7 @@ describe('enterprise marketplace entry', () => {
     // 都会把框重置回旧值（用户会觉得「打字被吞」）；防抖只影响过滤。
     const typing = EnterpriseMarketStoreShell({ view: 'page', sessionUsable: true, enterpriseSkills: skills, searchValue: { skills: '代码' }, searchQuery: { skills: '' } })
     expect(collectByClassName(typing, 'own-market-catalogSearchInput')[0]?.['value']).toBe('代码')
-    expect(collectByClassName(typing, 'own-market-rowLine')).toHaveLength(2)
+    expect(collectByClassName(typing, 'own-market-row')).toHaveLength(2)
     expect(collectByClassName(page, 'own-market-catalogSearchInput')[0]?.['value']).toBe('')
 
     // 过滤后**只有命中的行**在 DOM；页签计数仍说目录总行数（页签口径不变）；一条不剩时给空态文案且列表整段不渲染。
@@ -1602,7 +1598,7 @@ describe('enterprise marketplace entry', () => {
     expect(collectByClassName(empty, 'own-market-rows')).toEqual([])
     // 清空关键词即恢复全部（空串 = 不过滤）。
     const cleared = EnterpriseMarketStoreShell({ view: 'page', sessionUsable: true, enterpriseSkills: skills, searchQuery: { skills: '' } })
-    expect(collectByClassName(cleared, 'own-market-rowLine')).toHaveLength(2)
+    expect(collectByClassName(cleared, 'own-market-row')).toHaveLength(2)
     // 页签分槽：技能页签的框只回技能的关键词，插件页签各有自己的框与自己的槽。
     const pluginsPage = EnterpriseMarketStoreShell({ view: 'page', activeTab: 'plugins', sessionUsable: true, enterprisePlugins: plugins as never, onSearchInput })
     expect(collectByClassName(pluginsPage, 'own-market-catalogSearchInput')[0]?.['placeholder']).toBe('搜索企业插件…')
@@ -1633,13 +1629,11 @@ describe('enterprise marketplace entry', () => {
     expect(source).not.toContain('fetch(')
   })
 
-  // 行内状态区：语义照官方 `StateDot`（活跃=已装/可用 → done、未观察=未装 → idle、需留意 → warning），
+  // 行尾状态点：语义照官方 `StateDot`（活跃=已装/可用 → done、未观察=未装 → idle、需留意 → warning），
   // **在途用官方 `StateDot state="ongoing"`（旋转弧）** —— 官方与参考对象都没有的在途反馈，属我们补短板；
-  // 状态点旁那行**状态词**照组件行的落点（`.own-market-rowState` 里 StateDot + 文字），
-  // 目录行说「已装/未装」（插件 = 已启用/未启用），组件行说「可用/预留」——**同一格、同一套口径**，
-  // 行尾不再挂 Tag 药丸（原先那枚 configTag 的文案原封不动落进这一格）。
-  it('maps every directory row to the official StateDot semantics, state word and status text', () => {
-    // 技能行五态 → 状态点 / 状态词 / 补充状态文案（安静态不重复说话：事实已由状态词说清）。
+  // 旁边那枚「启用/已装」标签照参考对象的 configTag 语义，视觉改用官方 `Tag` 原语（不自绘颜色）。
+  it('maps every directory row to the official StateDot semantics, config tag and status text', () => {
+    // 技能行五态 → 状态点 / 标签 / 状态文案（安静态不重复说话：事实已由标签说清）。
     expect(enterpriseMarketSkillDot('AVAILABLE')).toBe('idle')
     expect(enterpriseMarketSkillDot('INSTALLED')).toBe('done')
     expect(enterpriseMarketSkillDot('UPDATE_AVAILABLE')).toBe('warning')
@@ -1665,75 +1659,60 @@ describe('enterprise marketplace entry', () => {
     expect(enterpriseMarketPluginStatusLabel('FAILED')).toBe('处理失败')
     expect(enterpriseMarketPluginStatusLabel('RESTART_REQUIRED')).toBe('等待重启')
 
-    // 未装技能行：idle 点 + 状态词「未装」 + 没有多余文字；行上带可断言的启用态钩子。
-    const tree = EnterpriseMarketStoreShell({ view: 'page', sessionUsable: true, enterpriseSkills: enterpriseMarketSkillRows([SKILL]), onToggleSkill: vi.fn() })
-    expect(collectStateDotProps(tree).map(props => props['state'])).toEqual(['idle'])
-    expect(rowStateWords(tree)).toEqual(['未装'])
-    expect(collectByClassName(tree, 'own-market-rowStatus')).toEqual([])
-    expect(collectByClassName(tree, 'own-market-configTag')).toEqual([])
-    expect(collectDataValues(tree, 'data-enterprise-row-enabled')).toEqual(['false'])
-    // 在途：状态点转 ongoing（旋转弧）、状态词仍是「未装」、补充状态文字「安装中」——行上就能看见「正在进行」。
-    const busy = EnterpriseMarketStoreShell({
-      view: 'page', sessionUsable: true, enterpriseSkills: enterpriseMarketSkillRows([SKILL]),
-      pendingSkill: { packageId: SKILL.id, next: true }, onToggleSkill: vi.fn(),
-    })
-    expect(collectStateDotProps(busy).map(props => props['state'])).toEqual(['ongoing'])
-    expect(rowStateWords(busy)).toEqual(['未装'])
-    expect(collectByClassName(busy, 'own-market-rowStatus').map(props => props['children'])).toEqual(['安装中'])
-    expect(collectDataValues(busy, 'data-enterprise-skill-state')).toEqual(['INSTALLING'])
-    // 已装旧版本：warning 点 + 状态词「已装」+ 「有更新」文字（三者互补：盘上事实 vs 相对中心的结论）。
-    const outdated = EnterpriseMarketStoreShell({
-      view: 'page', sessionUsable: true, enterpriseSkills: [updatableRow()],
-      installedSkills: [installedSkill('1902500000000000100')], onToggleSkill: vi.fn(),
-    })
-    expect(collectStateDotProps(outdated).map(props => props['state'])).toEqual(['warning'])
-    expect(rowStateWords(outdated)).toEqual(['已装'])
-    expect(collectByClassName(outdated, 'own-market-rowStatus').map(props => props['children'])).toEqual(['有更新'])
-    // 插件行：ACTIVE → done + 状态词「已启用」且无多余文字；FAILED → error 点 + 状态词「未启用」+ 官方「处理失败」。
-    const activePlugin = EnterpriseMarketStoreShell({
-      view: 'page', activeTab: 'plugins', sessionUsable: true,
-      enterprisePlugins: [{ packageName: 'ent-a', version: '1.2.0', state: 'ACTIVE', inCatalog: true }] as never,
-    })
-    expect(collectStateDotProps(activePlugin).map(props => props['state'])).toEqual(['done'])
-    expect(rowStateWords(activePlugin)).toEqual(['已启用'])
-    expect(collectByClassName(activePlugin, 'own-market-rowStatus')).toEqual([])
-    const failedPlugin = EnterpriseMarketStoreShell({
-      view: 'page', activeTab: 'plugins', sessionUsable: true,
-      enterprisePlugins: [{ packageName: 'ent-a', version: '1.2.0', state: 'FAILED', inCatalog: true }] as never,
-    })
-    expect(collectStateDotProps(failedPlugin).map(props => props['state'])).toEqual(['error'])
-    expect(rowStateWords(failedPlugin)).toEqual(['未启用'])
-    expect(collectByClassName(failedPlugin, 'own-market-rowStatus').map(props => props['children'])).toEqual(['处理失败'])
-    // 旧外壳的**落点**不同、**事实同源**：技能行走它自己的官方两行卡片——不出状态点，也不出新外壳那格状态词
-    // （9723a97 那一版没有这两件），插件行恒出「状态点 + 官方状态词」（安静态也说）——两者读同一批 facts（dot/stateTitle）。
-    const legacySkills = EnterpriseMarketLegacyShell({ view: 'page', sessionUsable: true, enterpriseSkills: enterpriseMarketSkillRows([SKILL]) })
-    expect(collectStateDotProps(legacySkills)).toEqual([])
-    expect(collectByClassName(legacySkills, 'own-market-rowState')).toEqual([])
-    expect(collectByClassName(legacySkills, 'own-market-configTag')).toEqual([])
-    expect(collectByClassName(legacySkills, 'own-market-rowStatus')).toEqual([])
-    const activeLegacyPlugin = EnterpriseMarketLegacyShell({
-      view: 'page', activeTab: 'plugins', sessionUsable: true,
-      enterprisePlugins: [{ packageName: 'ent-a', version: '1.2.0', state: 'ACTIVE', inCatalog: true }] as never,
-    })
-    const failedLegacyPlugin = EnterpriseMarketLegacyShell({
-      view: 'page', activeTab: 'plugins', sessionUsable: true,
-      enterprisePlugins: [{ packageName: 'ent-a', version: '1.2.0', state: 'FAILED', inCatalog: true }] as never,
-    })
-    // 状态点语义与状态词与「新外壳」逐项一致（同一份 `enterprisePluginDot` + 同一份官方状态词表）。
-    expect(collectStateDotProps(activeLegacyPlugin).map(props => props['state']))
-      .toEqual(collectStateDotProps(activePlugin).map(props => props['state']))
-    expect(collectStateDotProps(failedLegacyPlugin).map(props => props['state']))
-      .toEqual(collectStateDotProps(failedPlugin).map(props => props['state']))
-    // 旧外壳的落点是「状态点旁**恒**出一行官方状态词」：`ACTIVE` 的原值是「已安装」（不是新外壳那格状态词的「已启用」）。
-    expect(rowStateWords(activeLegacyPlugin)).toEqual(['已安装'])
-    expect(rowStateWords(failedLegacyPlugin)).toEqual(['处理失败'])
-    expect(textOf(activeLegacyPlugin)).toContain('已安装')
-    expect(textOf(failedLegacyPlugin)).toContain('处理失败')
+    // 版式统一后**两套外壳的目录行逐项一致**：技能行不出状态点/事实标签——9723a97 那一版就没有这两件，
+    // 技能行的「已装与否」由官方 `Switch.checked` 承载、「有更新」由那枚辅助标签承载（事实仍在行上，
+    // 见 `data-enterprise-skill-state` 与下面的在途断言）；插件行则**恒出**「状态点 + 官方状态词」（点与词成对）。
+    for (const { label, shell } of MARKET_SHELLS) {
+      const skills = shell({ view: 'page', sessionUsable: true, enterpriseSkills: enterpriseMarketSkillRows([SKILL]), onToggleSkill: vi.fn() })
+      expect(collectStateDotProps(skills), label).toEqual([])
+      expect(collectByClassName(skills, 'own-market-configTag'), label).toEqual([])
+      expect(collectByClassName(skills, 'own-market-rowStatus'), label).toEqual([])
+      expect(collectDataValues(skills, 'data-enterprise-skill-state'), label).toEqual(['AVAILABLE'])
+      // 未装行的开关：`checked=false`、可拨（行仍由 switch 主控）。
+      expect(collectSwitchProps(skills)[0]?.['checked'], label).toBe(false)
+      // 在途：受管态如实报在途，但**不**因为「在途」而在技能行多长出一枚状态点/一行状态文字。
+      const busy = shell({
+        view: 'page', sessionUsable: true, enterpriseSkills: enterpriseMarketSkillRows([SKILL]),
+        pendingSkill: { packageId: SKILL.id, next: true }, onToggleSkill: vi.fn(),
+      })
+      expect(collectStateDotProps(busy), label).toEqual([])
+      expect(collectByClassName(busy, 'own-market-rowStatus'), label).toEqual([])
+      expect(collectDataValues(busy, 'data-enterprise-skill-state'), label).toEqual(['INSTALLING'])
+      // 已装旧版本：`UPDATE_AVAILABLE` 如实落在行上，辅助标签出现（状态词不再另说一句）。
+      const outdated = shell({
+        view: 'page', sessionUsable: true, enterpriseSkills: [updatableRow()],
+        installedSkills: [installedSkill('1902500000000000100')], onToggleSkill: vi.fn(),
+      })
+      expect(collectDataValues(outdated, 'data-enterprise-skill-state'), label).toEqual(['UPDATE_AVAILABLE'])
+      expect(collectTagProps(outdated), label).toHaveLength(1)
+      expect(collectStateDotProps(outdated), label).toEqual([])
+      // 插件行：ACTIVE → done + 官方状态词「已安装」（不是 Tag 药丸那枚「已启用」）；FAILED → error + 「处理失败」。
+      const active = shell({
+        view: 'page', activeTab: 'plugins', sessionUsable: true,
+        enterprisePlugins: [{ packageName: 'ent-a', version: '1.2.0', state: 'ACTIVE', inCatalog: true }] as never,
+      })
+      expect(collectStateDotProps(active).map(props => props['state']), label).toEqual(['done'])
+      expect(collectByClassName(active, 'own-market-rowState'), label).toHaveLength(1)
+      expect(collectByClassName(active, 'own-market-configTag'), label).toEqual([])
+      expect(collectByClassName(active, 'own-market-rowStatus'), label).toEqual([])
+      expect(textOf(active), label).toContain('已安装')
+      const failed = shell({
+        view: 'page', activeTab: 'plugins', sessionUsable: true,
+        enterprisePlugins: [{ packageName: 'ent-a', version: '1.2.0', state: 'FAILED', inCatalog: true }] as never,
+      })
+      expect(collectStateDotProps(failed).map(props => props['state']), label).toEqual(['error'])
+      expect(textOf(failed), label).toContain('处理失败')
+      // 「点与词成对」：状态点旁**必须**有可见状态词，绝不允许只出点不出词。
+      const stateKids = (collectByClassName(failed, 'own-market-rowState')[0]?.['children'] ?? []) as ReactNode[]
+      expect(stateKids.some(child => isValidElement(child) && child.type === (StateDot as unknown)), label).toBe(true)
+      expect(textOf(stateKids), label).toContain('处理失败')
+    }
+
   })
 
-  // **能力回归锁（新外壳，去折叠后）**：五条「必须保留的能力」一个不少，只是落点从展开区搬到卡片上——
-  // ① 版本签/分类签 → 标题行；② 有更新辅助动作 / ③ 安装卸载开关 / ④ 状态点 + 状态词 / ⑤ 失败提示 → **行内常显**（无收起态）；
-  // ⑥ 组件页签的折叠语义、三行清单与无障碍契约不变（那一节的折叠不属本次改动）。
+  // **能力回归锁（新外壳）**：五条「必须保留的能力」一个不少，落点与旧外壳**逐项相同**（同一枚行子块）——
+  // ① 版本签/分类签 → 标题行；② 有更新辅助动作 / ③ 安装卸载开关 / ④ 失败提示 → **行内常显**（没有收起态）；
+  // ⑤ 组件页签的折叠语义、三行清单与无障碍契约不变（那一节的折叠不属本次改动）。
   it('keeps every pre-existing capability on the store-shell row (no disclosure remains)', () => {
     const row = updatableRow()
     const shared = {
@@ -1749,15 +1728,13 @@ describe('enterprise marketplace entry', () => {
     // ① 标题行：标题 + 版本签 + 分类签（分类缺席时那一格是 null，不塞占位）。
     expect((collectByClassName(tree, 'own-market-cardHead')[0]?.['children'] as ReactNode[])).toHaveLength(3)
     expect(collectByClassName(tree, 'own-market-skillVersionTag')).toHaveLength(1)
-    // ②③④⑤ 几件事**全在行内常显**：有更新按钮 + 官方 Switch + 状态点/状态词 + role="alert" 各恰好一件。
+    // ②③④ 三件事**全在行上常显**：有更新按钮 + 官方 Switch + role="alert" 各恰好一件。
     expect(textOf(tree)).toContain('有更新')
     expect(collectTagProps(tree)).toHaveLength(1)
     expect(collectSwitchProps(tree)).toHaveLength(1)
     expect(collectAlerts(tree)).toHaveLength(1)
-    expect(collectStateDotProps(tree)).toHaveLength(1)
-    expect(rowStateWords(tree)).toEqual(['已装'])
-    // 行内动作的相对顺序不变：辅助动作在 Switch **左侧**（开关仍是主控件）。
-    const actionKids = rowLineActionChildren(tree, row.id)
+    // 行线上的相对顺序不变：辅助动作在 Switch **左侧**（开关仍是主控件）。
+    const actionKids = rowLineChildren(tree, row.id)
     const tagIndex = actionKids.findIndex(child => isValidElement(child) && (child.props as Record<string, unknown>)['data-enterprise-skill-tag'] !== undefined)
     const switchIndex = actionKids.findIndex(child => isValidElement(child) && child.type === (Switch as unknown))
     expect(tagIndex).toBeGreaterThanOrEqual(0)
@@ -1771,15 +1748,14 @@ describe('enterprise marketplace entry', () => {
     expect(collectSwitchProps(collapsed)).toHaveLength(1)
     expect(collectAlerts(collapsed)).toHaveLength(1)
     expect(collectTagProps(collapsed)).toHaveLength(1)
-    expect(rowStateWords(collapsed)).toEqual(['已装'])
     expect(collectByClassName(collapsed, 'own-market-rowLine')).toHaveLength(1)
-    // 展开机制本身一件都不在（chevron / 展开区 / skillId 行 / `aria-controls` 配对 / 卡片外壳）。
-    for (const absent of ['own-market-cardDetails', 'own-market-cardChevron', 'own-market-entryValue', 'own-market-cardShell', 'own-market-cardGrid', 'own-market-cardActions']) {
+    // 展开机制本身一件都不在（chevron / 展开区 / skillId 行 / `aria-controls` 配对）。
+    for (const absent of ['own-market-cardDetails', 'own-market-cardChevron', 'own-market-entryValue']) {
       expect(collectByClassName(tree, absent), absent).toEqual([])
       expect(collectByClassName(collapsed, absent), absent).toEqual([])
     }
-    expect(collectByClassName(tree, 'own-market-rowLine')[0]?.['aria-controls']).toBeUndefined()
-    // ⑥ 组件页签：折叠语义与三行清单、开关动作名一字未动；搜索框没进这个页签。
+    expect(collectByClassName(tree, 'own-market-rowMain')[0]?.['aria-controls']).toBeUndefined()
+    // ⑤ 组件页签：折叠语义与三行清单、开关动作名一字未动；搜索框没进这个页签。
     const components = EnterpriseMarketStoreShell({ view: 'page', activeTab: 'components', expandedSections: { components: true }, onToggleSection: vi.fn() })
     expect(collectElementById(components, 'market-section-components')).not.toBeUndefined()
     expect(collectSwitchProps(components).map(props => props['label'])).toEqual(['启用组件 插件', '启用组件 技能', '启用组件 配方'])
@@ -1814,16 +1790,13 @@ describe('enterprise marketplace entry', () => {
     expect(collectTagProps(tree)).toHaveLength(1)
     expect(collectSwitchProps(tree)).toHaveLength(1)
     expect(collectAlerts(tree)).toHaveLength(1)
-    // 行内**没有**展开区/卡片网格/搜索框（那几件都是新外观的落点）；行线是 baseStyles 那份共用的，
-    // 但标题仍是旧外壳自己的 `.own-market-cardId`、状态区这一格旧外壳技能行不出。
+    // 行内**没有**展开区/卡片网格/搜索框（那三件是新外观的落点）。
     expect(collectByClassName(tree, 'own-market-cardDetails')).toEqual([])
     expect(collectByClassName(tree, 'own-market-cardShell')).toEqual([])
     expect(collectByClassName(tree, 'own-market-cardGrid')).toEqual([])
     expect(collectByClassName(tree, 'own-market-catalogSearch')).toEqual([])
-    expect(collectByClassName(tree, 'own-market-cardId')).toHaveLength(1)
-    expect(collectByClassName(tree, 'own-market-rowState')).toEqual([])
     // 辅助动作严格排在 Switch **左侧**（开关仍是主控件）。
-    const lineKids = rowLineActionChildren(tree, row.id)
+    const lineKids = rowLineChildren(tree, row.id)
     const order = actionOrder(lineKids)
     expect(order.tag).toBeGreaterThanOrEqual(0)
     expect(order.switch).toBeGreaterThan(order.tag)
@@ -1892,7 +1865,7 @@ describe('enterprise marketplace entry', () => {
   })
 
   // 容器内边距（用户反馈「四周缺少间距」）：侧栏「应用商店」是我们**自己注册的 main 面板**，官方不像
-  // `plugins.item` 的 `DetailTop` 那样给它带外层内边距，故 HERO / 页签条 / 搜索框 / 目录行原先整页贴着
+  // `plugins.item` 的 `DetailTop` 那样给它带外层内边距，故 HERO / 页签条 / 搜索框 / 卡片网格原先整页贴着
   // 屏幕左右边缘。修在**新外壳的根容器**上；旧外壳外面有官方内边距，一行都不能加——本用例同时反向锁死它。
   it('pads the store shell root container and keeps the legacy shell free of that padding', () => {
     const props = {
@@ -1904,7 +1877,7 @@ describe('enterprise marketplace entry', () => {
     const store = EnterpriseMarketStoreShell(props)
     const legacy = EnterpriseMarketLegacyShell(props)
     const css = collectStyleText(store)
-    // 规则原文（写进 `storeStyles` 的那一条）：左右 14px = HERO 内衬 14px（原先卡片内衬的横向 14px 同值）；
+    // 规则原文（写进 `storeStyles` 的那一条）：左右 14px = 行图标框与 HERO 的横向内衬口径；
     // 顶部 14px 同一口径（HERO 不贴内容区上沿）；底部 20px = HERO 的 radius-xl(20px) 量级（最后一行不贴底）。
     expect(cssRuleBody(css, '.own-market-entry.own-market-storePage'))
       .toBe('padding:14px 14px 20px;box-sizing:border-box')
@@ -1918,11 +1891,9 @@ describe('enterprise marketplace entry', () => {
     // 不横向溢出：`.own-market-entry *` 的既有 border-box 口径对本页所有后代成立，根节点自己再显式声明一次
     // （块级 `width:auto` + border-box 下内边距落在容器内部，不产生横向滚动）。
     expect(cssRuleBody(css, '.own-market-entry *')).toBe('box-sizing:border-box')
-    // 通栏行没有「换列」这回事：两列网格与它的窄屏兜底（容器查询 + 同断点 media）已随卡片外壳一起删除，
-    // 故这一层也不再需要容器查询上下文。
+    // 「两列网格 + 窄屏单列」那套已随卡片整组退场：通栏行按容器宽度自适应，本层不再有容器查询/断点。
     expect(css).not.toContain('@container')
-    expect(css).not.toContain('@media (max-width:520px)')
-    expect(collectByClassName(store, 'own-market-cardGrid')).toEqual([])
+    expect(css).not.toContain('max-width:520px')
     // 反向断言（防把官方那层间距重复叠上）：旧外壳既没有这枚类，也没有这条内边距规则。
     expect(isValidElement(legacy) ? legacy.props.className : undefined).toBe('own-market-entry')
     expect(collectByClassName(legacy, 'own-market-storePage')).toEqual([])
@@ -2024,9 +1995,10 @@ describe('enterprise marketplace entry', () => {
     const count = (re: RegExp): number => (source.match(re) ?? []).length
     // 模型：1 处定义 + 恰好两套外壳各 1 处调用 = 3。
     expect(count(/enterpriseMarketShellModel\(/g)).toBe(3)
-    // 行 facts 唯一入口：1 处定义 + 两套外壳各 1 处 = 3。
-    expect(count(/enterpriseMarketSkillRowFacts\(/g)).toBe(3)
-    expect(count(/enterpriseMarketPluginRowFacts\(/g)).toBe(3)
+    // 行 facts 唯一入口：1 处定义 + **共享行子块 `EnterpriseMarketInlineRows` 各 1 处** = 2
+    //（版式统一前是「两套外壳各画一遍」= 3；现在两套外壳都走同一枚子块，行 facts 的调用点随之收成一处）。
+    expect(count(/enterpriseMarketSkillRowFacts\(/g)).toBe(2)
+    expect(count(/enterpriseMarketPluginRowFacts\(/g)).toBe(2)
     // 防抖定时器、安装/卸载动作、过滤写回各只有一份（复制逻辑会在这里翻倍）。
     expect(count(/setTimeout\(/g)).toBe(1)
     expect(count(/setSearchQuery\(/g)).toBe(1)
@@ -2037,38 +2009,115 @@ describe('enterprise marketplace entry', () => {
     expect(count(/useEnterpriseMarketController\(/g)).toBe(2)
   })
 
+  // ══ 版式统一门禁 ①：两套外壳现在用**同一套行**（同一枚子块 / 行 DOM 逐行相同 / 类名逐项相同）════════
+  it('renders one and the same row set in both shells (single sub-block, identical row DOM)', async () => {
+    const props = {
+      view: 'page' as const,
+      sessionUsable: true,
+      enterpriseSkills: [updatableRow()],
+      enterprisePlugins: [{ packageName: 'ent-a', version: '1.2.0', state: 'ACTIVE', inCatalog: true }] as never,
+      installedSkills: [installedSkill('1902500000000000100')],
+      skillActionError: { id: SKILL.id, action: 'install' as const, code: 'ENT_ARTIFACT_INTEGRITY_FAILED' },
+      pluginActionError: { id: 'ent-a', action: 'uninstall' as const, code: 'ENT_PLUGIN_SIGNATURE_INVALID' },
+      onToggleSkill: vi.fn(),
+      onTogglePlugin: vi.fn(),
+    }
+    const legacy = EnterpriseMarketLegacyShell(props)
+    const store = EnterpriseMarketStoreShell(props)
+    // ①a 结构级：两棵树里 `.own-market-rows` 那一块（连行、连行内动作与失败提示）逐行相同。
+    expect(rowsOutline(store)).toEqual(rowsOutline(legacy))
+    expect(rowsOutline(store).length).toBeGreaterThan(10)
+    // ①b 类名级：两套外壳都出同一串行类名，且都不再出卡片时代那套。
+    for (const [label, tree] of [['legacy', legacy], ['store', store]] as const) {
+      for (const name of [
+        'own-market-rows', 'own-market-row', 'own-market-rowLine', 'own-market-rowIcon', 'own-market-rowMain',
+        'own-market-cardHead', 'own-market-cardId', 'own-market-cardDesc', 'own-market-inlineError',
+      ]) {
+        expect(collectByClassName(tree, name).length, `${label}/${name}`).toBeGreaterThan(0)
+      }
+      for (const dead of ['own-market-cardShell', 'own-market-cardGrid', 'own-market-cardTitle', 'own-market-cardDescription', 'own-market-cardActions']) {
+        expect(collectByClassName(tree, dead), `${label}/${dead}`).toEqual([])
+      }
+    }
+    // ①c 源码级：行渲染只有**一处实现**，且两套外壳各调用它两次（各自两个目录页签）——
+    // 「一致」是同一段渲染的结构性一致，将来谁想再各画一份，这条门禁会先红。
+    const source = stripComments(await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8'))
+    expect(source).toContain('export function EnterpriseMarketInlineRows(')
+    expect((source.match(/<EnterpriseMarketInlineRows /g) ?? []).length).toBe(4)
+    const legacyBody = source.slice(source.indexOf('export function EnterpriseMarketLegacyShell'), source.indexOf('export function EnterpriseMarketStoreShell'))
+    const storeBody = source.slice(source.indexOf('export function EnterpriseMarketStoreShell'))
+    expect((legacyBody.match(/<EnterpriseMarketInlineRows /g) ?? []).length).toBe(2)
+    expect((storeBody.match(/<EnterpriseMarketInlineRows /g) ?? []).length).toBe(2)
+  })
+
+  // ══ 版式统一门禁 ②：旧外壳（官方插件页「插件市场」）的输出**一字未变** ══════════════════════════════
+  // 抽子块只是把旧外壳原来那段行 JSX **搬**进共享实现，不改它的任何一个类名/属性/文本；下面把旧外壳
+  // 整棵 DOM 大纲（含 `<style>` 文本长度）与**改动前捕获的结构快照**逐行比对，并锁死那份 CSS 的校验和。
+  it('pins the legacy shell output to the pre-refactor structure (extraction changed nothing)', () => {
+    const props = {
+      view: 'page' as const,
+      sessionUsable: true,
+      enterpriseSkills: enterpriseMarketSkillRows([SKILL_WITH_CATEGORY], [SKILL_DETAIL]),
+      enterprisePlugins: [
+        { packageName: 'ent-a', version: '1.2.0', state: 'ACTIVE', inCatalog: true },
+        { packageName: 'ent-b', version: null, state: 'FAILED', inCatalog: false },
+      ] as never,
+      installedSkills: [installedSkill('1902500000000000100')],
+      skillActionError: { id: SKILL.id, action: 'install' as const, code: 'ENT_ARTIFACT_INTEGRITY_FAILED' },
+      pluginActionError: { id: 'ent-a', action: 'uninstall' as const, code: 'ENT_PLUGIN_SIGNATURE_INVALID' },
+      onToggleSkill: () => undefined,
+      onTogglePlugin: () => undefined,
+    }
+    const skillsTree = EnterpriseMarketLegacyShell(props)
+    expect(domOutline(skillsTree)).toEqual(LEGACY_SHELL_OUTLINE)
+    expect(domOutline(EnterpriseMarketLegacyShell({ ...props, activeTab: 'plugins' }))).toEqual(LEGACY_PLUGINS_OUTLINE)
+    expect(collectStyleText(skillsTree).length).toBe(LEGACY_STYLE_LENGTH)
+    expect(styleChecksum(collectStyleText(skillsTree))).toBe(LEGACY_STYLE_CHECKSUM)
+  })
+
   // 类名隔离的源码级不变量（本轮发现的真实隐患）：本页与「企业设置 → 插件」（`plugin-market.tsx`）都注入
   // 同名前缀的 `<style>`，而两者用的是**全局单类选择器**——同一个类名会被后挂载的那份 CSS 覆盖
   // （例如 `plugin-market` 的 `.own-market-card` 会把本页卡片改成 1px/8px/padding:16、`.own-market-search input`
   // 会以更高特异性压掉本页输入框的描边）。故本文件的类名必须与同包其他源文件**零交集**。
   it('keeps this page\'s style class names disjoint from every other source file', async () => {
     const mine = declaredClassNames(await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8'))
-    // 抽取器先自证有效：两套外观各自新起的类名必须能被抽出来（新外壳的卡片网格 + 旧外壳的官方两行卡片 + HERO）。
-    expect(mine.has('own-market-rowLine')).toBe(true)
-    expect(mine.has('own-market-rowState')).toBe(true)
+    // 抽取器先自证有效：抽取器必须能拿到两套外观真正渲染的那串类名（通栏行 + 搜索框 + HERO）。
+    expect(mine.has('own-market-rows')).toBe(true)
+    expect(mine.has('own-market-row')).toBe(true)
     expect(mine.has('own-market-catalogSearch')).toBe(true)
     expect(mine.has('own-market-storeTabs')).toBe(true)
     expect(mine.has('own-market-cardId')).toBe(true)
     expect(mine.has('own-market-cardDesc')).toBe(true)
     expect(mine.has('own-market-storeHero')).toBe(true)
     expect(mine.has('own-market-storeHeroChip')).toBe(true)
-    // 两套外壳的行版式类名：旧外观仍是自己的官方两行卡片（cardId/cardDesc）；新外观走**组件行那一套通栏行**。
-    // 卡片外壳/网格那套已经**整个文件都不存在**（两套外壳的 CSS 里都没有），故两边都是 false。
+    // 卡片时代那套类名**整组删除**（死样式不留）：源文件里一个都不许再有声明。
+    for (const dead of [
+      'own-market-cardShell', 'own-market-cardGrid', 'own-market-cardContent', 'own-market-cardMainRow',
+      'own-market-cardTitle', 'own-market-cardDescription', 'own-market-cardTrailing', 'own-market-cardActions',
+      'own-market-phaseDot', 'own-market-configTag', 'own-market-rowStatus',
+    ]) {
+      expect(mine.has(dead), dead).toBe(false)
+    }
+    // 两套外壳**共用同一套行取值**：`rowStyles` 与 `baseStyles` 两边都渲染，故行类名两边都在；
+    // 卡片类名两边都不在（版式统一的落点：新外壳不再有自己的行版式）。
     // （`declaredClassNames` 按模板字面量抽取，故把 `<style>` 里的 CSS 重新包成一对反引号。）
     const cssClassesOf = (tree: ReactNode): Set<string> => declaredClassNames(`\`${collectStyleText(tree)}\``)
     const legacyOnly = cssClassesOf(EnterpriseMarketLegacyShell({ view: 'page' }))
     const storeOnly = cssClassesOf(EnterpriseMarketStoreShell({ view: 'page' }))
-    expect(legacyOnly.has('own-market-cardId')).toBe(true)
-    expect(legacyOnly.has('own-market-rowLine')).toBe(true)
-    expect(legacyOnly.has('own-market-storeHero')).toBe(false)
-    expect(storeOnly.has('own-market-cardId')).toBe(false)
-    expect(storeOnly.has('own-market-storeHero')).toBe(true)
-    for (const gone of ['own-market-cardShell', 'own-market-cardGrid', 'own-market-cardContent', 'own-market-cardMainRow', 'own-market-cardTrailing', 'own-market-cardTitle', 'own-market-cardDescription', 'own-market-cardActions', 'own-market-phaseDot', 'own-market-configTag']) {
-      expect(legacyOnly.has(gone), gone).toBe(false)
-      expect(storeOnly.has(gone), gone).toBe(false)
+    for (const shared of ['own-market-rows', 'own-market-row', 'own-market-rowLine', 'own-market-rowMain', 'own-market-cardId', 'own-market-cardDesc']) {
+      expect(legacyOnly.has(shared), `legacy/${shared}`).toBe(true)
+      expect(storeOnly.has(shared), `store/${shared}`).toBe(true)
     }
-    // 共用部分（baseStyles）两边都在：页签条、节容器与**通栏行版式**只有一份实现。
-    for (const shared of ['own-market-storeTabs', 'own-market-storeTab', 'own-market-section', 'own-market-cardHead', 'own-market-rowLine', 'own-market-rowId', 'own-market-rowNote', 'own-market-rowState', 'own-market-inlineError']) {
+    expect(legacyOnly.has('own-market-cardShell')).toBe(false)
+    expect(storeOnly.has('own-market-cardShell')).toBe(false)
+    expect(legacyOnly.has('own-market-cardGrid')).toBe(false)
+    expect(storeOnly.has('own-market-cardGrid')).toBe(false)
+    expect(legacyOnly.has('own-market-storeHero')).toBe(false)
+    expect(storeOnly.has('own-market-storeHero')).toBe(true)
+    expect(legacyOnly.has('own-market-catalogSearch')).toBe(false)
+    expect(storeOnly.has('own-market-catalogSearch')).toBe(true)
+    // 共用部分（baseStyles）两边都在：页签条与节容器只有一份实现。
+    for (const shared of ['own-market-storeTabs', 'own-market-storeTab', 'own-market-section', 'own-market-cardHead', 'own-market-inlineError']) {
       expect(legacyOnly.has(shared), shared).toBe(true)
       expect(storeOnly.has(shared), shared).toBe(true)
     }
@@ -2090,12 +2139,12 @@ describe('enterprise marketplace entry', () => {
  * 二期结构切片 **+ 双外观拆分**：官方插件页「官方」分组里的「插件市场」卡片与侧栏一级入口「应用商店」
  * 对应的主内容区面板是**两条入口**，且**各用各的呈现外壳**：
  *  · `plugins.item` → `EnterpriseMarketLegacyPage` → `EnterpriseMarketLegacyShell`（旧外观：9723a97 那一版官方两行卡片）；
- *  · `main`(key `enterprise-store`) → `EnterpriseMarketStorePage` → `EnterpriseMarketStoreShell`（新外观：HERO + 搜索 + 与组件页签同一套通栏行）。
+ *  · `main`(key `enterprise-store`) → `EnterpriseMarketStorePage` → `EnterpriseMarketStoreShell`（新外观：HERO + 卡片网格 + 搜索）。
  * 这里锁三件事：
  *  ① **注册形状**——slot 名、`main.key` 与 `sidebar.panellist.id` 同值、order=20、label「应用商店」、图标存在、
  *     `inject` 声明含 `layout`（四个注册面与 `inject` 形状相对拆分前**一字未改**）；
- *  ② **两条入口指向不同组件**——`plugins.item` 的组件 !== `main` 的组件，且各自渲染出的关键结构符合各自外观
- *     （旧外壳出 `.own-market-cardId` 且**无** HERO/通栏行；新外壳出 `.own-market-rowLine` 通栏行且**有** HERO）；
+ *  ② **两条入口指向不同组件**——`plugins.item` 的组件 !== `main` 的组件；两套外壳的**目录行已经统一**
+ *     （同一枚子块 `EnterpriseMarketInlineRows` 渲染，行 DOM 大纲逐行相同），呈现差异只剩 HERO/搜索框/根内边距三件；
  *  ③ **同一份逻辑**——两条入口共用同一个控制器/同一份 store，故同一组输入下页签计数、失败码、行事实逐项一致。
  */
 describe('the enterprise store panel and its sidebar entry', () => {
@@ -2161,17 +2210,20 @@ describe('the enterprise store panel and its sidebar entry', () => {
     }
     const legacy = EnterpriseMarketLegacyShell(props)
     const store = EnterpriseMarketStoreShell(props)
-    // 呈现差异（关键结构各自符合各自外观）：旧 = 官方两行卡片；新 = 与组件页签同一套通栏行 + HERO。
+    // ① 行版式**一致**：两套外壳的目录行由同一枚子块渲染，行类名与行块 DOM 大纲逐项相同。
     expect(collectByClassName(legacy, 'own-market-cardId')).toHaveLength(1)
-    expect(collectByClassName(legacy, 'own-market-rowId')).toEqual([])
+    expect(collectByClassName(store, 'own-market-cardId')).toHaveLength(1)
+    expect(rowsOutline(store)).toEqual(rowsOutline(legacy))
+    // ② 两套外观的差别只剩三件：HERO / 搜索框 / 根内边距（都只有新外壳有，见各自的专门用例）。
     expect(collectByClassName(legacy, 'own-market-storeHero')).toEqual([])
-    expect(collectByClassName(legacy, 'own-market-cardShell')).toEqual([])
-    expect(collectByClassName(legacy, 'own-market-cardGrid')).toEqual([])
-    expect(collectByClassName(store, 'own-market-rowLine')).toHaveLength(1)
     expect(collectByClassName(store, 'own-market-storeHero')).toHaveLength(1)
-    expect(collectByClassName(store, 'own-market-cardId')).toEqual([])
-    expect(collectByClassName(store, 'own-market-cardShell')).toEqual([])
-    expect(collectByClassName(store, 'own-market-cardGrid')).toEqual([])
+    expect(collectByClassName(legacy, 'own-market-catalogSearch')).toEqual([])
+    expect(collectByClassName(store, 'own-market-catalogSearch')).toHaveLength(1)
+    // ③ 卡片时代那套类名两边都不存在（一律退场，不留半套）。
+    for (const dead of ['own-market-cardShell', 'own-market-cardGrid', 'own-market-cardTitle', 'own-market-cardDescription', 'own-market-cardActions']) {
+      expect(collectByClassName(legacy, dead), `legacy/${dead}`).toEqual([])
+      expect(collectByClassName(store, dead), `store/${dead}`).toEqual([])
+    }
     // 语义相同（同一份逻辑）：页签 id/文案/aria 配对/开关动作名。
     const semanticShapeOf = (tree: ReactNode) => ({
       tablist: collectByRole(tree, 'tablist').map(node => node['aria-label']),
@@ -2414,50 +2466,6 @@ function collectTagProps(node: ReactNode, acc: Record<string, any>[] = []): Reco
 }
 
 /**
- * 某行**行内动作区**的直属子元素（`[有更新]` 与官方 `Switch` 都落在 `.own-market-rowLine` 里）。
- * 行版式统一后两套外壳的动作落点相同（旧外壳本来就在行线上，新外壳从卡片动作条收敛回行线），故共用这一份；
- * 新外壳技能行的两个动作包在一枚 fragment 里（「有更新」缺席时那一格是 `null`），故先展平一层再断言顺序。
- */
-function rowLineActionChildren(tree: ReactNode, rowId: string): ReactNode[] {
-  const row = collectByDataProp(tree, 'data-enterprise-skill-package', rowId)[0] as { props?: Record<string, unknown> } | undefined
-  const kids = row?.props?.['children'] as ReactNode[] | undefined
-  const line = collectByClassName(kids as ReactNode, 'own-market-rowLine')[0]
-  return flattenActionChildren(toChildArray(line?.['children'] as ReactNode))
-}
-
-/**
- * 取行内状态区的**状态词**（`.own-market-rowState` = 官方 StateDot + 状态词；StateDot 是 `vi.fn()` mock，
- * 取其中字符串孩子）。版式统一后组件行与市场两个目录页签的行共用这一格，故状态词口径可逐处断言。
- */
-function rowStateWords(tree: ReactNode): string[] {
-  return collectByClassName(tree, 'own-market-rowState').map(props =>
-    toChildArray(props['children'] as ReactNode)
-      .filter((child): child is string => typeof child === 'string')
-      .join(''),
-  )
-}
-
-/** 把 `children` 归一成数组（单个元素 / 数组 / undefined 三种形态）。 */
-function toChildArray(children: ReactNode): ReactNode[] {
-  if (children === undefined || children === null) return []
-  return Array.isArray(children) ? (children as ReactNode[]) : [children]
-}
-
-/** 展平「行内动作区」的孩子：数组与 fragment（`<>…</>`）都算，顺序即渲染顺序。 */
-function flattenActionChildren(children: readonly ReactNode[]): ReactNode[] {
-  const flat: ReactNode[] = []
-  for (const child of children) {
-    if (Array.isArray(child)) { flat.push(...flattenActionChildren(child as ReactNode[])); continue }
-    if (isValidElement(child) && typeof child.type === 'symbol') {
-      flat.push(...flattenActionChildren(toChildArray((child.props as { children?: ReactNode }).children)))
-      continue
-    }
-    flat.push(child)
-  }
-  return flat
-}
-
-/**
  * 收集树里某个 `data-*` 属性**取值命中**的**元素本身**（不是 props），用于继续向下取 children。
  * 与 `collectDataValues` 同族，但保留节点——锁「某一行的动作子元素顺序」时要继续下钻。
  */
@@ -2474,6 +2482,18 @@ function collectByDataProp(node: ReactNode, prop: string, value: unknown, acc: R
 }
 
 /**
+ * 某行的动作区 = `.own-market-rowLine` 的直属子元素（`[有更新]` 与 `[Switch]` 都落在这条行线上）。
+ * 版式统一后两套外壳的行是**同一条 rowLine**，「旧取 rowLine、新取卡片动作条」的分叉已消失，故只剩这一个取法。
+ */
+function rowLineChildren(tree: ReactNode, rowId: string): ReactNode[] {
+  const row = collectByDataProp(tree, 'data-enterprise-skill-package', rowId)[0] as { props?: Record<string, unknown> } | undefined
+  const kids = row?.props?.['children'] as ReactNode[] | undefined
+  const line = collectByClassName(kids as ReactNode, 'own-market-rowLine')[0]
+  const lineKids = line?.['children']
+  return Array.isArray(lineKids) ? (lineKids as ReactNode[]) : []
+}
+
+/**
  * 一行动作区里「辅助标签」与「官方 Switch」的下标（两套外壳共用同一套判定）。
  * 顺序锁的语义是「辅助动作严格排在 Switch 左侧」——`switch` 必须大于 `tag`。
  */
@@ -2484,23 +2504,59 @@ function actionOrder(children: readonly ReactNode[]): { readonly tag: number; re
   }
 }
 
+/** 三个官方原语在本 spec 里是 `vi.fn()`：大纲里记录它们的 props，而不是调它们。 */
+const MOCK_PRIMITIVES: readonly (readonly [unknown, string])[] = [[Switch, 'Switch'], [Tag, 'Tag'], [StateDot, 'StateDot']]
+
 /**
- * 收集树里 `type` 命中的**元素本身**（按组件函数身份匹配），用于锁「两处的行由同一枚子块渲染」。
- * 与 `collectByClassName` 同一套走法：真函数组件先就地渲染一次再下钻，`vi.fn()` mock 退回按 props 递归。
+ * 整棵树的 DOM 大纲（**函数组件按透明处理**——它们在真实 DOM 里没有节点）：每行 = `标签[属性]` 或 `#text:…`。
+ * 这份大纲既用于「旧外壳输出一字未变」的固定结构快照（②），也用于「两套外壳行逐项一致」的结构比对（①）：
+ * 抽子块/拆组件这类纯重构不会在上面产生假差异，而任何一处类名、属性、文本或顺序的改动都会立刻显形。
  */
-function collectByType(node: ReactNode, type: unknown, acc: ReactNode[] = []): ReactNode[] {
-  if (Array.isArray(node)) { for (const child of node) collectByType(child, type, acc); return acc }
-  if (!isValidElement(node)) return acc
-  if (node.type === type) { acc.push(node); return acc }
+function domOutline(node: ReactNode, depth = 0): string[] {
+  const pad = '  '.repeat(depth)
+  if (node === null || node === undefined || node === false || node === true) return []
+  if (typeof node === 'string' || typeof node === 'number') return [`${pad}#text:${String(node)}`]
+  if (Array.isArray(node)) return node.flatMap(child => domOutline(child, depth))
+  if (!isValidElement(node)) return []
   const props = node.props as Record<string, unknown>
-  if (typeof node.type === 'function') {
-    const rendered = (node.type as (p: unknown) => ReactNode)(props)
-    if (rendered !== undefined && rendered !== null) return collectByType(rendered as ReactNode, type, acc)
+  const type = node.type as unknown
+  if (type === 'style') return [`${pad}style(${String(props['children'] ?? '').length} chars)`]
+  const attrs = Object.entries(props)
+    .filter(([key, value]) => key !== 'children' && value !== undefined && value !== null)
+    .map(([key, value]) => `[${key}=${typeof value === 'function' ? '[fn]' : String(value)}]`)
+    .join('')
+  for (const [mock, name] of MOCK_PRIMITIVES) {
+    if (type === mock) return [`${pad}${name}${attrs}`, ...domOutline(props['children'] as ReactNode, depth + 1)]
   }
+  if (typeof type === 'function') return domOutline((type as (p: unknown) => ReactNode)(props), depth)
+  if (typeof type !== 'string') return [`${pad}#opaque:${String(type)}`]
+  return [`${pad}${type}${attrs}`, ...domOutline(props['children'] as ReactNode, depth + 1)]
+}
+
+/** 收集所有 `ul.own-market-rows` 行块根（函数组件透明；命中即不再下钻，避免把嵌套列表算两次）。 */
+function collectRowRoots(node: ReactNode, acc: ReactNode[] = []): ReactNode[] {
+  if (Array.isArray(node)) { for (const child of node) collectRowRoots(child, acc); return acc }
+  if (!isValidElement(node)) return acc
+  const props = node.props as Record<string, unknown>
+  const className = props['className']
+  if (typeof className === 'string' && className.split(/\s+/).includes('own-market-rows')) { acc.push(node); return acc }
+  if (typeof node.type === 'function') { collectRowRoots((node.type as (p: unknown) => ReactNode)(props), acc); return acc }
   for (const value of Object.values(props)) {
-    if (value !== null && typeof value === 'object') collectByType(value as ReactNode, type, acc)
+    if (value !== null && typeof value === 'object') collectRowRoots(value as ReactNode, acc)
   }
   return acc
+}
+
+/** 行块大纲：两套外壳的目录行（连行内动作与失败提示）必须逐行相同——版式统一的结构级取证。 */
+function rowsOutline(tree: ReactNode): string[] {
+  return collectRowRoots(tree).flatMap(root => domOutline(root))
+}
+
+/** `<style>` 文本的 FNV-1a 校验和（旧外壳那份 CSS 的字节级快照）。 */
+function styleChecksum(text: string): number {
+  let hash = 2166136261
+  for (const char of text) { hash ^= char.codePointAt(0)!; hash = Math.imul(hash, 16777619) >>> 0 }
+  return hash
 }
 
 /** 收集 `className` 命中的元素 props（按空格分隔的类名之一匹配），用于锁两行卡片结构。 */
