@@ -859,3 +859,28 @@ preset/
 
 **本机实证（只读）**
 - `/data/user/0/com.deepcode.shell/files/home/.dsh/.agent-presets/phone-control/{preset.yml,agent.cordis.yml,skills/phone-control/SKILL.md}`（老目录格式仍存在，但已无人读取）
+
+---
+
+## 决策记录
+
+### D1 · 一键启用采用【方案 A】(用户裁定 2026-10-02)
+
+用户原话回「a」。即:**接受把"装 bundle 需要完全访问权限或批准"纳入正常流程**,以换取真正的
+"一键启用"（满足产品宪法「开箱即用 · 小白零门槛」）。
+
+**设计约束**（依据 `docs/research/agent-preset-best-practices.md` 的社区事实标准 +
+`docs/notes/product-charter.md`）：
+
+1. **首次启用弹一次授权**，授权界面必须逐项列出：这份配方会安装哪些插件、各自能做什么
+   （读/写/对外发送）、是否需要联网；附一句免责（我们不扫描内容，社区同样如此）。
+2. **一次授权、后续免打扰**：同一份配方（同一插件集合）不再重复弹；
+   **插件集合发生变化时必须重新确认**（集合指纹变化 = 重新授权）。
+3. **随时可停用/卸载**；停用后不残留运行中的能力。
+4. **失败不禁用按钮**：再点即重试；失败按 `error-messages` 的人话 + 下一步呈现。
+5. **员工侧术语**：不出现 bundle / patch / Cordis / preset；统一说「启用」「停用」「连接」。
+
+**前置条件（P0 的开工门槛）**：方案 §M 已标明"替代路径未真机验证"。
+→ 必须先完成 spike：① 从 Web 客户端侧发起装 bundle 是否与会话内 `plugin_manager` 同一条面；
+② 装完 Host 是否需重启；③ 官方 preset picker 是否列出它、以什么名字分组；
+④ 新会话能否选中；⑤ 能否干净卸载。**spike 不通过则本决策需重议。**
