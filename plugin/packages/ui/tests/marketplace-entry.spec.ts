@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 marketplace-entry 的**唯一目录页外壳** `EnterpriseMarketLegacyShell`（点技能行本体在该视图内整页切换到**技能详情子页面** `EnterpriseSkillDetailPage`）、共享行子块 `EnterpriseMarketSkillRowActions`/`EnterpriseMarketInlineRows`、五个详情纯投影（`enterpriseSkillTreeRows`/`enterpriseSkillDefaultFilePath`/`enterpriseSkillFileCountText`/`enterpriseSkillTreeState`/`enterpriseSkillPreviewState`）、唯一 hook 入口 `EnterpriseMarketLegacyPage` 与共享逻辑层（`enterpriseMarketShellModel`、`enterpriseMarketSkillRowFacts`/`enterpriseMarketPluginRowFacts`）、注册常量、**页签真源**（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`）、组件清单/摘要/状态/开关语义纯投影、企业插件行投影、企业技能行投影（含详情归并的中心版本 `latestVersionId` 与标题行两枚标签取值）、标题行标签纯投影、技能节受管态纯投影、「有更新」判定与辅助标签投影、**组件页签折叠态常量** `ENTERPRISE_MARKET_DEFAULT_EXPANDED`、失败行内提示投影、入口组件与版本签组件本身、页签文案计数投影，以及 local-api-decode 的 `EnterpriseRuntimeSkill`/`EnterpriseInstalledSkill`/`EnterpriseSkillFileEntry`/`EnterpriseInstalledSkillFile` 形状，以及 `client.tsx` 的 `apply`/`inject` 真注册面（最小 slots double）
- * [OUTPUT]: 验证入口身份常量、卡片一句话的单行约束、**page 视图的三页签结构**（页签条手写 `role="tablist"`、三个页签的 `aria-selected`/`aria-controls`/roving `tabIndex`/`id` 与三个 `role="tabpanel"` 的 `aria-labelledby` 严格配对、**默认选中「企业技能」**、切换后**只渲染该页签内容**、←/→/Home/End 走焦并选中、鼠标点击回调）、组件清单（插件/技能/配方）顺序与 reserved 语义、计数摘要口径、summary/page 两视图结构、版本签只对本条目 subject 出、企业插件页签的归并与门控，以及**企业技能页签的官方两行卡片**（标题 + 版本签 + 可选分类签、描述单行省略、右侧官方 `Switch`、开关左侧那枚辅助「有更新」标签）、受管态与「有更新」的独立判定、**两节行上的失败可见反馈**、**页签化后唯一剩下的组件节折叠**、**详情页顶部压缩的取值锁**、**类名隔离的源码级不变量**；**本刀（详情子页面 + 文件树）新增**：①「点行本体切到详情子页面、点动作永不触发」——两枚动作是行本体的同级兄弟、面包屑是唯一返回入口、`skillPage` 非空时列表/页签整段不挂载；②「框架逐项照官方详情页」——面包屑（可见文案 + `aria-label`）、`h3` 标题 + 版本徽标、等宽标识行（`skillId`）、描述、`detailSections`/`detailSection` 的结构与 CSS 取值（20/28-500、12/18-tertiary、28px/32px 间距、rotate(90deg) 的 chevron）；③「左文件树」——`enterpriseSkillTreeRows` 的层级投影（depth/parent/name、先序确定性排序）、目录行不是按钮而文件行是按钮、缩进取自 depth；④「默认选中并预览 SKILL.md」——`enterpriseSkillDefaultFilePath` 只在树里真有那条路径时才选它；⑤「未安装零请求」——`enterpriseSkillTreeState`/`enterpriseSkillPreviewState` 的未装态优先于任何 loading/失败、界面只说「安装后可浏览文件」；⑥「读取失败给稳定码 + 重试」与「预览是纯文本安全渲染（全文件无 `dangerouslySetInnerHTML`）」；⑦**弹层已彻底移除**的反向锁（源码无 `Modal`、无 `EnterpriseSkillDetailDialog`，任何函数调用都收不到 Modal 元素）；**本刀（版本签只显示版本）新增**：⑧ 纯投影 `enterpriseMarketSkillVersionLabel` 的短号规则与边界（5 个真实值 + 无 `@` / 多个 `@` / 仅 `@` / 尾部 `@` / 空串 / 不 trim 逐条锁死）；⑨ 行上签的**可见文案 = 短号**、**完整坐标挂在紧包它的 `.own-market-skillVersionHint` 的 `title` 上**（签本体确实在那枚节点里、正文里不再出现整串），详情页那枚徽标照旧整串显示（列表短号 / 详情全坐标）；⑩ 标题行结构快照与两套外壳共用 CSS 的长度/校验和按新结构**再基线化一次**（style 7840→8178 chars，校验和随之更新） **本刀（目录页签三态）**：新增八条——加载中不空白、空说清为什么空（不是失败）、失败带唯一提示组件 + 可用重试（点它真的调回调）、三态互斥只出一个 `data-market-list-state`、组件关闭仍整段不出现、次级降级一句 `role="status"` 且不遮行、无回调不给死按钮，并把取数 effect 的 `controller.abort()` 计数按新结构改为 2（目录取数搬进共享取数源）。 **本刀（资料库行）**：组件清单断言由三行改四行——「资料库」行顺序/标签/`gate='local'`、本机开关的「未开启 ↔ 可用」状态词与悬浮说明、写入口缺席/在途/写失败三种禁用口径（写失败不禁用）、计数摘要四段（含 `1 未开启`）、三个页签计数文案与组件页签行/开关数同步改 4，并新增 `enterpriseMarketComponentGate`/`enterpriseMarketComponentSwitchTitle` 的纯投影断言。
+ * [OUTPUT]: 验证入口身份常量、卡片一句话的单行约束、**page 视图的三页签结构**（页签条手写 `role="tablist"`、三个页签的 `aria-selected`/`aria-controls`/roving `tabIndex`/`id` 与三个 `role="tabpanel"` 的 `aria-labelledby` 严格配对、**默认选中「企业技能」**、切换后**只渲染该页签内容**、←/→/Home/End 走焦并选中、鼠标点击回调）、组件清单（插件/技能/配方）顺序与 reserved 语义、计数摘要口径、summary/page 两视图结构、版本签只对本条目 subject 出、企业插件页签的归并与门控，以及**企业技能页签的官方两行卡片**（标题 + 版本签 + 可选分类签、描述单行省略、右侧官方 `Switch`、开关左侧那枚辅助「有更新」标签）、受管态与「有更新」的独立判定、**两节行上的失败可见反馈**、**页签化后唯一剩下的组件节折叠**、**详情页顶部压缩的取值锁**、**类名隔离的源码级不变量**；**本刀（详情子页面 + 文件树）新增**：①「点行本体切到详情子页面、点动作永不触发」——两枚动作是行本体的同级兄弟、面包屑是唯一返回入口、`skillPage` 非空时列表/页签整段不挂载；②「框架逐项照官方详情页」——面包屑（可见文案 + `aria-label`）、`h3` 标题 + 版本徽标、等宽标识行（`skillId`）、描述、`detailSections`/`detailSection` 的结构与 CSS 取值（20/28-500、12/18-tertiary、28px/32px 间距、rotate(90deg) 的 chevron）；③「左文件树」——`enterpriseSkillTreeRows` 的层级投影（depth/parent/name、先序确定性排序）、目录行不是按钮而文件行是按钮、缩进取自 depth；④「默认选中并预览 SKILL.md」——`enterpriseSkillDefaultFilePath` 只在树里真有那条路径时才选它；⑤「未安装零请求」——`enterpriseSkillTreeState`/`enterpriseSkillPreviewState` 的未装态优先于任何 loading/失败、界面只说「安装后可浏览文件」；⑥「读取失败给稳定码 + 重试」与「预览是纯文本安全渲染（全文件无 `dangerouslySetInnerHTML`）」；⑦**弹层已彻底移除**的反向锁（源码无 `Modal`、无 `EnterpriseSkillDetailDialog`，任何函数调用都收不到 Modal 元素）；**本刀（版本签只显示版本）新增**：⑧ 纯投影 `enterpriseMarketSkillVersionLabel` 的短号规则与边界（5 个真实值 + 无 `@` / 多个 `@` / 仅 `@` / 尾部 `@` / 空串 / 不 trim 逐条锁死）；⑨ 行上签的**可见文案 = 短号**、**完整坐标挂在紧包它的 `.own-market-skillVersionHint` 的 `title` 上**（签本体确实在那枚节点里、正文里不再出现整串），详情页那枚徽标照旧整串显示（列表短号 / 详情全坐标）；⑩ 标题行结构快照与两套外壳共用 CSS 的长度/校验和按新结构**再基线化一次**（style 7840→8178 chars，校验和随之更新） **本刀（目录页签三态）**：新增八条——加载中不空白、空说清为什么空（不是失败）、失败带唯一提示组件 + 可用重试（点它真的调回调）、三态互斥只出一个 `data-market-list-state`、组件关闭仍整段不出现、次级降级一句 `role="status"` 且不遮行、无回调不给死按钮，并把取数 effect 的 `controller.abort()` 计数按新结构改为 2（目录取数搬进共享取数源）。 **本刀（资料库行）**：组件清单断言由三行改四行——「资料库」行顺序/标签/`gate='local'`、本机开关的「未开启 ↔ 可用」状态词与悬浮说明、写入口缺席/在途/写失败三种禁用口径（写失败不禁用）、计数摘要四段（含 `1 未开启`）、三个页签计数文案与组件页签行/开关数同步改 4，并新增 `enterpriseMarketComponentGate`/`enterpriseMarketComponentSwitchTitle` 的纯投影断言。 **本刀（企业标签）新增三条**：①「描述行」——`EnterpriseMarketSummaryLine` 的 children 恰好是 `[企业胶囊, ENTERPRISE_MARKET_SUMMARY]`、`textOf` = `企业 技能 · 配方`、正文与常量都不含「企业插件」（`enterpriseMarketEntrySummary()` 也照新值锁死）；②「详情徽章」——`BadgeView` 出**两枚** `own-market-tag`（第 1 枚「企业」`tone=info`、第 2 枚版本签 `tone=neutral`，位置与顺序逐项锁死），并用新助手 `collectOfficialTagProps`（按 `node.type === Tag` 取证，与 `domOutline` 的 `MOCK_PRIMITIVES` 同一套身份判定）断言「这枚徽章用的是官方 `Tag` **原语本体**、props 恰好只有 `{className,tone,children}`、`EnterpriseMarketBadgeTag()` 直调产出同一枚元素」，无版本时只剩企业徽章；③**反向锁「不新增 CSS 类」**——源码里 `.own-market-tag{` 只有一处声明、规则正文仍是 `flex:none;font-variant-numeric:tabular-nums`、整份 `<style>` 长度 10507 与 FNV-1a 校验和 3008014743 不变、被声明的类名集合里没有为徽章新造的名字。**本文件 66 → 68 条，ui 包 423 → 425 条。**
  * [POS]: dsh-ui 插件市场入口（唯一入口：官方插件页「插件市场」卡片）的产品词汇与交互门禁，真实渲染与视觉由 Harness 快照与真机验收覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,6 +13,7 @@ import { StateDot, Button, Switch, Tag } from '@deepseek-ai/dsh-client-ui-primit
 import type { EnterpriseInstalledSkill, EnterpriseSkillFileEntry, EnterpriseRuntimeSkill } from '../src/local-api-decode.js'
 import { apply, inject } from '../src/client.js'
 import {
+  ENTERPRISE_MARKET_BADGE_TEXT,
   ENTERPRISE_MARKET_COMPONENTS,
   ENTERPRISE_MARKET_DEFAULT_EXPANDED,
   ENTERPRISE_MARKET_DEFAULT_TAB,
@@ -28,6 +29,7 @@ import {
   ENTERPRISE_MARKET_TABS,
   BadgeView,
   EnterpriseMarketBadge,
+  EnterpriseMarketBadgeTag,
   EnterpriseMarketInlineRows,
   EnterpriseMarketLegacyPage,
   EnterpriseMarketLegacyShell,
@@ -353,6 +355,32 @@ describe('enterprise marketplace entry', () => {
     expect(summary.trim()).toBe(summary)
     expect(summary).not.toContain('\n')
     expect(summary.length).toBeGreaterThan(0)
+    // **本刀（企业标签）**：句首的「企业插件」四字由「企业」徽章承载，正文不许再说一遍——
+    // 常量与徽章文案是两个**不重叠**的词，描述行里不会出现「企业插件」。
+    expect(summary).toBe('技能 · 配方')
+    expect(summary).not.toContain('企业插件')
+    expect(summary).not.toContain(ENTERPRISE_MARKET_BADGE_TEXT)
+    expect(ENTERPRISE_MARKET_BADGE_TEXT).toBe('企业')
+  })
+
+  it('renders the description line as a 企业 pill plus 技能 · 配方, with no 企业插件 anywhere in it', () => {
+    // 描述行 = 官方 `plugins.item` 的 `summary` 视图（官方把它渲染在列表卡描述与详情页正文两处）。
+    for (const { label, shell } of MARKET_SHELLS) {
+      const summary = shell({ view: 'summary' })
+      expect(isValidElement(summary), label).toBe(true)
+      // 外壳返回的是那枚**函数组件元素**，按测试既有手法就地调一次拿到真正的那行 `<span>`。
+      const outer = summary as unknown as { type: (props: unknown) => ReactNode; props: unknown }
+      const line = outer.type(outer.props) as { props: { className?: string; children?: ReactNode } }
+      expect(line.props.className, label).toBe('own-market-entry-summary')
+      const children = line.props.children as ReactNode[]
+      // 句首就是那枚胶囊（同一枚官方 Tag 元素），正文紧随其后——不是「文字里带个企业」。
+      expect(collectOfficialTagProps(children[0] as ReactNode).map(props => props['children']), label).toEqual([ENTERPRISE_MARKET_BADGE_TEXT])
+      expect(children[1], label).toBe(ENTERPRISE_MARKET_SUMMARY)
+      const text = textOf(summary)
+      expect(text, label).toBe(`${ENTERPRISE_MARKET_BADGE_TEXT} ${ENTERPRISE_MARKET_SUMMARY}`)
+      expect(text, label).not.toContain('企业插件')
+      expect(text, label).not.toContain('企业插件。')
+    }
   })
 
   it('lists the page tabs as 插件/技能/配方 with 配方 the only reserved tab', () => {
@@ -370,7 +398,8 @@ describe('enterprise marketplace entry', () => {
     for (const { label, shell } of MARKET_SHELLS) {
       const summary = shell({ view: 'summary' })
       expect(isValidElement(summary), label).toBe(true)
-      expect(textOf(summary), label).toBe(ENTERPRISE_MARKET_SUMMARY)
+      // **本刀（企业标签）**：描述行 = 「企业」胶囊 + 正文（textOf 把两件子节点用空格接起来）。
+      expect(textOf(summary), label).toBe(`${ENTERPRISE_MARKET_BADGE_TEXT} ${ENTERPRISE_MARKET_SUMMARY}`)
 
       const page = shell({ view: 'page' })
       expect(isValidElement(page), label).toBe(true)
@@ -668,19 +697,35 @@ describe('enterprise marketplace entry', () => {
     }
   })
 
-  // 版本号 + 包名走官方 plugins.detail.badge 槽（titleRow 里 h3 旁）：只对本条目 subject 生效；
+  // 「企业」徽章 + 版本号 + 包名走官方 plugins.detail.badge 槽（titleRow 里 h3 旁）：只对本条目 subject 生效；
   // 「预览版」文字签已按顶部压缩删掉（纯噪音、无信息量），标题行也没有可拨总开关。
-  it('gates the badge on the plugin-market subject and renders version + package name only (no 预览版, no switch)', () => {
+  //
+  // **座位实物（取证）**：`@deepseek-ai/dsh-client-ui-plugin-manager` 把该槽声明成 `kind:'list'`/`scope:'root'`
+  // （`lib/types/client/slot-contract.d.ts:131`，运行时清单 `lib/client.js:3510`），渲染点在官方 `ItemDetail` 的
+  // `titleRow`（`lib/client.js:2138` 的 `renderSlot("plugins.detail.badge", { subject })`，subject = `{kind:'item', id}`）；
+  // 我们这行「插件市场」走的正是 `ItemDetail`（`lib/client.js:3177` 的 `ItemCard` → `lib/client.js:3333`），
+  // 所以这枚徽章**进得去**详情页，不是白挂的座位。
+  it('gates the badge on the plugin-market subject and renders the 企业 badge + version + package name (no 预览版, no switch)', () => {
     // subject 过滤：其余 subject 一律 null（hook 前就返回，不碰状态）。
     expect(EnterpriseMarketBadge({ subject: { kind: 'item', id: 'shell' } })).toBeNull()
     expect(EnterpriseMarketBadge({ subject: { kind: 'bundle', pkg: { name: 'x' } } })).toBeNull()
-    // 纯呈现（BadgeView 不调 hook）：有版本 → 恰好一枚版本签 + 包名行；无版本 → 只剩包名行。
+    // 纯呈现（BadgeView 不调 hook）：有版本 → 企业徽章 + 版本签 + 包名行；无版本 → 徽章 + 包名行。
     const withVersion = BadgeView({ version: '0.1.0' })
     expect(textOf(withVersion)).toContain('v0.1.0')
     expect(textOf(withVersion)).not.toContain('预览版')
     const tags = collectByClassName(withVersion, 'own-market-tag')
-    expect(tags).toHaveLength(1)
-    expect(tags[0]?.['children']).toBe('v0.1.0')
+    expect(tags).toHaveLength(2)
+    // 第 1 枚是「企业」徽章（h3 标题正后方），第 2 枚才是版本签。
+    expect(tags.map(props => props['children'])).toEqual([ENTERPRISE_MARKET_BADGE_TEXT, 'v0.1.0'])
+    expect(tags.map(props => props['tone'])).toEqual(['info', 'neutral'])
+    // **「与官方实验性签样式一致」的可验证口径**：徽章是官方 `Tag` **原语本体的元素**（不是自绘 span），
+    // tone 与官方「实验性」签同款 `info`，且官方公开面（tone/className/children）之外一个属性都不给。
+    const tagElements = collectOfficialTagProps(withVersion)
+    expect(tagElements).toHaveLength(2)
+    expect(tagElements[0]).toEqual({ className: 'own-market-tag', tone: 'info', children: ENTERPRISE_MARKET_BADGE_TEXT })
+    expect(Object.keys(tagElements[0] ?? {}).sort()).toEqual(['children', 'className', 'tone'])
+    // **唯一渲染**：BadgeTag 直接调用出来的就是同一枚元素（详情页徽章与描述行胶囊共用这一份）。
+    expect(collectOfficialTagProps(EnterpriseMarketBadgeTag())[0]).toEqual(tagElements[0])
     // 包名行照旧（本刀不动它：它是我们 badge 槽里换行的一行，不是官方 chrome 的字号/间距）。
     expect(collectByClassName(withVersion, 'own-market-badge-name')).toHaveLength(1)
     expect(textOf(withVersion)).toContain(ENTERPRISE_MARKET_ENTRY_ID)
@@ -688,12 +733,38 @@ describe('enterprise marketplace entry', () => {
     expect(collectSwitchProps(withVersion)).toHaveLength(0)
     const withoutVersion = BadgeView({})
     expect(textOf(withoutVersion)).not.toContain('预览版')
-    expect(collectByClassName(withoutVersion, 'own-market-tag')).toHaveLength(0)
+    // 无版本时**只剩**企业徽章（版本签那一枚不在）。
+    const bareTags = collectByClassName(withoutVersion, 'own-market-tag')
+    expect(bareTags).toHaveLength(1)
+    expect(bareTags[0]?.['children']).toBe(ENTERPRISE_MARKET_BADGE_TEXT)
+    expect(bareTags[0]?.['tone']).toBe('info')
+    expect(textOf(withoutVersion)).toContain(ENTERPRISE_MARKET_BADGE_TEXT)
     expect(textOf(withoutVersion)).not.toContain('v')
     // 版本签口径照官方 versionTag 'v{version}'。
     expect(enterpriseMarketVersionTag('1.2.3')).toBe('v1.2.3')
     expect(enterpriseMarketVersionTag(undefined)).toBeUndefined()
     expect(enterpriseMarketVersionTag('')).toBeUndefined()
+  })
+
+  // **反向锁（本刀「不新增 CSS 类」）**：徽章与描述行胶囊只用官方原语 + 本文件**既有**的 `.own-market-tag`，
+  // 源码里那个类的声明块仍然只有一条、那份 `<style>` 仍是详情子页面那一刀的字节级基线。
+  it('adds no CSS class for the 企业 badge: only the existing .own-market-tag declaration is reused', async () => {
+    const source = await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8')
+    // `.own-market-tag` 在源码里只有**一处**声明（没有为徽章另开第二条规则）。
+    expect(source.match(/\.own-market-tag\{/g)).toHaveLength(1)
+    const page = EnterpriseMarketLegacyShell({ view: 'page' })
+    const css = collectStyleText(page)
+    // 那一处声明的正文只有布局两件（flex:none + 等宽数字）——颜色与尺寸全归官方 `Tag` 与 tone。
+    expect(cssRuleBody(css, '.own-market-tag')).toBe('flex:none;font-variant-numeric:tabular-nums')
+    // 整份 `<style>` 与改动前逐字节相同：长度与 FNV-1a 校验和都没动。
+    expect(css.length).toBe(LEGACY_STYLE_LENGTH)
+    expect(styleChecksum(css)).toBe(LEGACY_STYLE_CHECKSUM)
+    // 被声明的类名集合里**没有**为这枚徽章新造的名字，而既有那个类还在。
+    const declared = declaredClassNames(source)
+    for (const invented of ['own-market-badgeTag', 'own-market-enterprise', 'own-market-enterpriseTag', 'own-market-tagInfo', 'own-market-badge']) {
+      expect(declared.has(invented), invented).toBe(false)
+    }
+    expect(declared.has('own-market-tag')).toBe(true)
   })
 
   // 详情页顶部压缩的取值锁（本刀核心视觉）：页签条 top 间距 2→0、首个节 top 间距 24→12、
@@ -2835,6 +2906,27 @@ function collectByTagName(node: ReactNode, tag: string, acc: Record<string, any>
   }
   for (const value of Object.values(props)) {
     if (value !== null && typeof value === 'object') collectByTagName(value as ReactNode, tag, acc)
+  }
+  return acc
+}
+
+/**
+ * 收集元素树里所有**官方 `Tag` 原语本体**的元素 props（`node.type === Tag`，与 `domOutline` 里
+ * `MOCK_PRIMITIVES` 的同一套身份判定）——用于把「这枚徽章用的是官方原语，不是自绘胶囊」变成可验证断言。
+ * 注意与下面同名不同义的 `collectTagProps` 无关：那个收的是带 `data-enterprise-skill-tag` 的「有更新」按钮。
+ */
+function collectOfficialTagProps(node: ReactNode, acc: Record<string, any>[] = []): Record<string, any>[] {
+  if (Array.isArray(node)) { for (const child of node) collectOfficialTagProps(child, acc); return acc }
+  if (!isValidElement(node)) return acc
+  const props = node.props as Record<string, unknown>
+  if (node.type === (Tag as unknown)) acc.push(props as Record<string, any>)
+  if (typeof node.type === 'function') {
+    // 真组件只走它的**产出**（props 里的 children 已经在产出里，再按 props 走一遍会重复计数）。
+    const rendered = (node.type as (p: unknown) => ReactNode)(props)
+    if (rendered !== undefined && rendered !== null) return collectOfficialTagProps(rendered as ReactNode, acc)
+  }
+  for (const value of Object.values(props)) {
+    if (value !== null && typeof value === 'object') collectOfficialTagProps(value as ReactNode, acc)
   }
   return acc
 }

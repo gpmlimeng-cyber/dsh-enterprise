@@ -14,3 +14,7 @@ INTER-LICENSE.txt: 随字体发布的 SIL Open Font License 原文。
 LUCIDE-LICENSE.txt: 随 index.html 内联 Lucide 图标保留的 ISC 授权原文。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+
+> 落点变更（2026-10-02）：`owndsh-whale-mono-m2.png` 与 `owndsh-whale-mono-m2-animated.png`
+> 已从 `console/public/`（会进构建产物）移到 `console/design/`（不参与构建，仅留档/派生真源）。
+> 仓库根 `README.md` 的引用已同步改为 `console/design/…` 相对路径，文档渲染不受影响。

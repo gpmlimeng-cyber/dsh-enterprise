@@ -11,7 +11,7 @@
 
 <div align="center">
 
-<img src="console/public/owndsh-whale-mono-m2-animated.png" alt="DSH Enterprise 图标" width="128" height="128">
+<img src="console/design/owndsh-whale-mono-m2-animated.png" alt="DSH Enterprise 图标" width="128" height="128">
 
 <h1>DSH Enterprise</h1>
 <h2>DSH Enterprise · Truly Own Your DeepSeek-Harness.</h2>
