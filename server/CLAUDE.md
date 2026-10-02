@@ -27,3 +27,25 @@ script/: 保留标准流日志的 OwnDsh Server 手工启停脚本；基础建�
 本目录是锁定提交 `7180b529776834fee912113b23f0bd7a387a8222` 的源码快照，不含上游 `.git`。企业改动必须保持 Maven 模块边界，并在触及业务文件时补齐对应 L3 契约。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+
+## 跑 DB 类测试(Testcontainers)
+
+服务/集成测试用 `PostgresTestDatabase` 起真 PostgreSQL。两个前提,否则会以**极具误导性的方式**失败:
+
+1. **挂 Docker socket**:`-v /var/run/docker.sock:/var/run/docker.sock`
+2. **预拉镜像**:`docker pull postgres:17-alpine`
+
+只做 1 不做 2 时,Testcontainers 会去远端拉 `postgres:17-alpine`,在网络不稳的机器上
+**2 分钟拉取超时**,最终报 `ContainerFetchException: Can't get Docker image`,看起来像
+"环境不支持 Testcontainers"。**实际只是镜像没预拉。** 预拉后同一测试 8.8 秒通过。
+
+参考命令:
+
+```bash
+docker run --rm -v $(pwd):/workspace -v ~/.m2:/root/.m2 -v /var/run/docker.sock:/var/run/docker.sock \
+  -w /workspace/server maven:3.9.11-eclipse-temurin-21-alpine \
+  mvn -B -ntp -Pdev -pl owndsh-modules/owndsh-enterprise -am test -Dtest=<类名>
+```
+
+> 另注:所有测试类必须带 `@Tag("dev")`。`server/pom.xml` 的 surefire 配了
+> `<groups>${profiles.active}</groups>`,漏 tag 的类会被**整类静默排除**(`BUILD SUCCESS` 但 `Tests run: 0`)。
