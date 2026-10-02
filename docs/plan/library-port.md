@@ -756,3 +756,26 @@
   故**我们不需要重复挂载**。
 - 实测脚本与证据归档：`~/.sshwork/libport-probe/`（`probe.mjs`、`edge.mjs`、`disk-manifest.txt`、
   样本记录、`dump-config.out`）；一次性 profile `lptmp1` 已 `rm -rf` 并给出未残留证据。
+
+---
+
+## 附录 · 入口形态要求（用户指定，2026-10-02）
+
+> 用户原话：「资料库作为**侧边栏独立一级入口菜单**」
+
+**硬要求**：资料库必须是 Harness 侧边栏里的**独立一级入口**（与「插件」并列），
+**不得**藏在插件市场内部、**不得**只做成设置页里的一个 tab。
+
+**落点（按官方 slot 机制）**：
+- 侧边栏入口 → **`sidebar.panellist`**（list 槽），注册一份 `{ id, title, icon, order }`；
+  `id` 取 **`library`**（新 id；旧的「应用商店」相关 id 已在早前按用户要求移除，不要复用）。
+- 页面主体 → **`main`**（keyed/root 槽），**key 必须与 `sidebar.panellist` 的 id 同名**（官方约定）。
+- 右栏预览（P1）→ `sidebarRightTabs.register({ id, kind, title })` + `'sidebar.right.pane.tab'`；
+  ⚠️ 切换用 `openTab(kind, { params })`，**不要**用不在公开 `ISidebarRight` 上的 `openTabIn`。
+- `@` 触发器（P1）→ `ctx.inputTriggers.registerSource`；输入框左侧按钮 → `'conversation.input.left'`。
+
+**验收（入口层面）**：
+1. 侧边栏出现一个独立条目「资料库」，点击进入页面主体（不经过插件市场、不经过设置）。
+2. 该条目与其它侧边栏条目同级：有图标、有标题、有 order、键盘可达、当前项高亮正确。
+3. 页面三态齐备（加载/空/失败 + 重试），**不留白屏、不给死按钮**；未接入的部分要**禁用并说明原因**。
+4. 员工侧文案遵循产品宪法术语降维（不出现 asset/revision/KV/per-record 等词）。
