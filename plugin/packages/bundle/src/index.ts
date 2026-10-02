@@ -476,6 +476,11 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
   // 由官方 skill-filesystem 的 watcher 直接生效（无需重启）。
   ctx.effect(() => registerEnterpriseSkillRoutes(ctx.webServer, platform, (message, error) => {
     ctx.logger.warn(`owndsh: ${message}`, error)
+  }, {
+    // 本机文件家族（详情子页面的文件树 + 单文件预览）：端口就是同一个 `skillInstall`，
+    // 路径门禁/落点等式/文本读取全在 `skill-install.ts` 那一份实现里，路由只做分派。
+    files: packageId => skillInstall.files(packageId),
+    file: (packageId, path) => skillInstall.file(packageId, path),
   }), 'enterpriseSkills.routes')
   // 反馈提交透传：浏览器无令牌，由 Host 代取 Access Token 转交中心 multipart 提交；
   // 附件在本地就按中心同名口径限流（≤3 张 / 单张 ≤2 MiB / 位图魔数），

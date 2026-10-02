@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 client apply 的官方 slot 注册、login-dialog 的弹窗状态机/入口投影/关闭语义/提交计划与 account-state 的账号投影
- * [OUTPUT]: 锁定全屏门禁退场（不再注册 shell.overlay 阻断层；座位面为 settings.section/launcher + plugins.item/plugins.detail.badge + 应用商店的 main/sidebar.panellist 共六处）、账号区登录入口、弹窗开关与取消语义、登录成功自动关闭、脱敏快照与含 ENT_SETTINGS_UNAVAILABLE 的错误码中文文案
+ * [OUTPUT]: 锁定全屏门禁退场（不再注册 shell.overlay 阻断层；座位面收敛为 settings.section/launcher + plugins.item/plugins.detail.badge 共四处——独立应用商店的 main/sidebar.panellist 两处已随侧栏入口撤销）、账号区登录入口、弹窗开关与取消语义、登录成功自动关闭、脱敏快照与含 ENT_SETTINGS_UNAVAILABLE 的错误码中文文案
  * [POS]: dsh-ui 登录入口的无 React 契约回归，真实 DOM 交互与视觉由 Harness 手工冒烟覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -46,7 +46,7 @@ const bootstrap: EnterpriseAccountBootstrap = {
 
 /** 产品决策：进入系统不再有任何全屏门禁，未登录也能正常使用宿主。 */
 describe('the full-screen access gate is retired', () => {
-  it('registers the two settings seats, the plugins-page market entry and the store panel/entry, never a shell.overlay blocker', () => {
+  it('registers the two settings seats and the plugins-page market entry, never a store seat or a shell.overlay blocker', () => {
     const injected: string[] = []
     const registrations: Record<string, unknown>[] = []
     apply({
@@ -65,10 +65,10 @@ describe('the full-screen access gate is retired', () => {
       'settings.launcher',
       'plugins.item',
       'plugins.detail.badge',
-      // 二期结构切片：应用商店 = 侧栏一级入口 + 主内容区整页面板（两处座位）。
-      'main',
-      'sidebar.panellist',
     ])
+    // 本刀撤销侧栏「应用商店」：独立应用商店的两处座位（main 面板 + sidebar.panellist 入口）不再注册。
+    expect(injected).not.toContain('main')
+    expect(injected).not.toContain('sidebar.panellist')
     expect(injected).not.toContain('shell.overlay')
     expect(registrations.map(options => options['name'])).not.toContain('shell.overlay')
   })

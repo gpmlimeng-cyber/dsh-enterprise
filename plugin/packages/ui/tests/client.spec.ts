@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 dsh-ui Client apply 与 `inject` 声明、账号菜单组件、插件市场入口与结构化 slots test double
- * [OUTPUT]: 验证 settings.section/settings.launcher/plugins.item/plugins.detail.badge/main/sidebar.panellist 六处注册身份与共享 store 注入（设置区、个人中心、市场入口、商店面板同一 store，市场入口靠它让详情页开关/登录弹窗取真值，badge 槽位只注入 store）、**两条入口注册的是两个不同的呈现外壳组件**（`plugins.item` → `EnterpriseMarketLegacyPage`（旧外观）、`main` → `EnterpriseMarketStorePage`（新外观），面板侧 inject 额外给 `view:'page'`——两条入口各用各的外观、共用同一份控制器逻辑）、独立应用商店的 key/id 同值（`main.key === sidebar.panellist.id === 'enterprise-store'`、order 20、label「应用商店」、图标为函数组件）、`inject` 声明含 `layout`，个人中心座位独有的官方主题源／桌面能力面／官方快捷键源（纯 Web 下动作面缺席、更新不可读、快捷键空快照），且 shell.overlay、旧 footer 入口与设置页页签均未注册
- * [POS]: dsh-ui Client 组合回归测试，锁定「官方设置区 + 官方个人中心座位 + 官方插件页入口卡片（旧外观）+ 侧栏一级入口／主内容区面板（新外观）共用同一份商店逻辑」路线且不把 Host Context 传入 React
+ * [OUTPUT]: 验证 settings.section/settings.launcher/plugins.item/plugins.detail.badge 四处注册身份与共享 store 注入（设置区、个人中心、市场入口与 badge 槽同一 store，badge 槽位只注入 store）、`plugins.item` 注册的是**旧外观**外壳 `EnterpriseMarketLegacyPage`（官方插件页「官方」分组里的「插件市场」卡片＝本刀之后**唯一**的市场入口），并**反向锁死**独立应用商店的两处注册**已撤**——`main`（`enterprise-store` 整页面板）与 `sidebar.panellist`（「应用商店」一级入口）都不再出现，注册总数 6 → 4，导出的 `inject` 声明收敛为 `['slots','remote']`（`layout` 随两处注册一并撤掉），个人中心座位独有的官方主题源／桌面能力面／官方快捷键源（纯 Web 下动作面缺席、更新不可读、快捷键空快照），且 shell.overlay、旧 footer 入口与设置页页签均未注册
+ * [POS]: dsh-ui Client 组合回归测试，锁定「官方设置区 + 官方个人中心座位 + 官方插件页入口卡片（旧外观，唯一市场入口）共用同一份商店逻辑」路线且不把 Host Context 传入 React
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -11,9 +11,7 @@ import {
   EnterpriseAccountMenu,
   EnterpriseMarketBadge,
   EnterpriseMarketLegacyPage,
-  EnterpriseMarketStorePage,
   EnterpriseSettingsSection,
-  EnterpriseStoreIcon,
   inject,
 } from '../src/client.js'
 
@@ -50,37 +48,31 @@ describe('enterprise Client plugin', () => {
     expect(remoteEvents).toContain('llm/adapters-updated')
     // 不硬注入 ui-theme 与 shortcuts：只各等一次服务出现来补发通知，服务缺席时插件照常激活。
     expect(serviceWaits).toEqual([['theme'], ['shortcuts']])
-    // `layout` 是本刀新增的声明：官方 ui-layout 的导航服务（跳回官方插件列表要用 selectPanel）。
-    expect(inject).toEqual(['slots', 'remote', 'layout'])
+    // `layout` 本刀已撤：它当初只为「从商店跳回官方插件列表」声明，而唯一使用场景（`enterprise-store` 面板）已删，
+    // 全仓没有任何一处消费 `ctx.layout`／`selectPanel`，故声明面收敛回两项。
+    expect(inject).toEqual(['slots', 'remote'])
 
+    // 本刀撤掉独立应用商店的两处注册：注册面从六处回到四处，只留官方插件页那一处市场入口。
     expect(slotsInject.mock.calls.map(call => call[0])).toEqual([
       'settings.section',
       'settings.launcher',
       'plugins.item',
       'plugins.detail.badge',
-      'main',
-      'sidebar.panellist',
     ])
     expect(registrations.map(item => item.options)).toMatchObject([
       { name: 'settings.section', id: 'enterprise', order: 25, label: '企业设置' },
       { name: 'settings.launcher' },
       { name: 'plugins.item', id: 'plugin-market', order: 50, label: '插件市场' },
       { name: 'plugins.detail.badge', id: 'plugin-market' },
-      // 独立应用商店：main 的 key 与 sidebar 行的 id 同值（官方「list id ↔ 同名 main 面板」契约）。
-      { name: 'main', key: 'enterprise-store' },
-      { name: 'sidebar.panellist', id: 'enterprise-store', order: 20, label: '应用商店' },
     ])
     expect(registrations.map(item => item.component)).toEqual([
       EnterpriseSettingsSection,
       EnterpriseAccountMenu,
-      // `plugins.item` 的详情页走**旧外观**外壳（9723a97 那一版官方两行卡片）。
+      // `plugins.item` 的详情页走**旧外观**外壳（9723a97 那一版官方两行卡片）——本刀之后它是唯一注册的市场入口。
       EnterpriseMarketLegacyPage,
       EnterpriseMarketBadge,
-      // 商店面板走**新外观**外壳（HERO + 官方卡片网格 + 搜索 + 行展开）。
-      EnterpriseMarketStorePage,
-      EnterpriseStoreIcon,
     ])
-    // 设置区、个人中心、市场入口三个座位共享同一个脱敏 store；badge 槽位无 inject（版本签纯呈现）。
+    // 设置区、个人中心、市场入口三个座位共享同一个脱敏 store；badge 槽位也无 inject 之外的多余源。
     const stores = registrations.slice(0, 3).map(item => (item.options['inject'] as () => { store: unknown })().store)
     expect(stores[0]).toBe(stores[1])
     expect(stores[2]).toBe(stores[0])
@@ -89,19 +81,12 @@ describe('enterprise Client plugin', () => {
     expect(market()).toEqual({ store: stores[2] })
     const badge = registrations[3]!.options['inject'] as () => Record<string, unknown>
     expect(badge()).toEqual({ store: stores[2] })
-    // **双外观拆分**：商店面板与插件页市场条目注册的是**两个不同**的组件（各用各的呈现外壳），
-    // 但两者共享同一份控制器逻辑与同一个 store；面板侧只多注入一个恒定等价的 view='page'。
-    const panel = registrations[4]!.options['inject'] as () => Record<string, unknown>
-    expect(panel()).toEqual({ store: stores[2], view: 'page' })
-    expect(registrations[4]!.component).toBe(EnterpriseMarketStorePage)
-    expect(registrations[2]!.component).toBe(EnterpriseMarketLegacyPage)
-    expect(registrations[4]!.component).not.toBe(registrations[2]!.component)
-    // 侧栏条目只带 list metadata（id/order/label），没有自有注入面；图标是函数组件（owner props: {size, active}）。
-    expect(registrations[5]!.options['inject']).toBeUndefined()
-    expect(registrations[5]!.options['id']).toBe(registrations[4]!.options['key'])
-    expect(registrations[5]!.options['order']).toBe(20)
-    expect(typeof registrations[5]!.component).toBe('function')
-    expect(registrations[5]!.component).toBe(EnterpriseStoreIcon)
+    // 【撤销锁】独立应用商店的两处注册面（`main` 面板 + `sidebar.panellist` 一级入口）必须都不再存在：
+    // 注册里没有 `enterprise-store` 的 key/id、也没有那个 view='page' 的恒定注入（slot 名在用例尾部再锁一次）。
+    expect(registrations.map(item => item.options['key'] ?? item.options['id'])).not.toContain('enterprise-store')
+    expect(registrations.map(item => item.options['inject']).filter(Boolean)
+      .map(read => (read as () => Record<string, unknown>)()))
+      .not.toContainEqual(expect.objectContaining({ view: 'page' }))
     // 外观选项组住在个人中心菜单里：只有该座位拿到官方主题源，设置区不碰主题。
     const section = registrations[0]!.options['inject'] as () => Record<string, unknown>
     const launcher = registrations[1]!.options['inject'] as () => {
@@ -129,11 +114,11 @@ describe('enterprise Client plugin', () => {
     expect(registrations.map(item => item.options['name'])).not.toContain('shell.overlay')
     // 官方账户行整行停用后，个人中心只由 launcher 座位承载，不再挂 footer 动作，避免第二入口。
     expect(registrations.map(item => item.options['name'])).not.toContain('sidebar.footer.action')
-    // 二期结构切片后：应用商店有自己的侧栏一级入口与主内容区面板（同一个 id/key），
-    // 但卡片仍留在官方插件页（plugins.item 未撤），且不顶替官方插件页、不占设置页页签。
+    // 本刀撤销侧栏「应用商店」：独立应用商店的两处注册面（`sidebar.panellist` 一级入口 + `main` 整页面板）
+    // 都不再注册，但卡片仍留在官方插件页（plugins.item 未撤）、也不占设置页页签。
     const names = registrations.map(item => item.options['name'])
-    expect(names).toContain('sidebar.panellist')
-    expect(names).toContain('main')
+    expect(names).not.toContain('sidebar.panellist')
+    expect(names).not.toContain('main')
     expect(names).toContain('plugins.item')
     expect(names).not.toContain('settings.plugins.tab')
   })

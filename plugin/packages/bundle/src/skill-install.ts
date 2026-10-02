@@ -1,12 +1,12 @@
 /**
  * [INPUT]: 依赖 platform-client 的 `resolveEnterpriseDshHome`（与官方 `dsh-home-paths` 同一套 `显式 → $DSH_HOME → ~/.dsh` 优先级）、plugin-distribution 的 `downloadVerifiedArtifact`（size+SHA-256 强制校验 + `.part` 原子改名）、本包的 `projectSkillEnvelope` 与 `decodeDshSkillArchive`
- * [OUTPUT]: 对外提供 `createEnterpriseSkillInstall`（`status`/`action`/**`content`** 三个端口）与可单测的 `installedSkillStatus`/`installSkillPackage`（首次安装与**同包新版本原子升级**同一条路）/`uninstallSkillPackage`/**`installedSkillContent`**（读一条已装技能的 SKILL.md 正文）、`SKILL_LOCAL_ROOT_SEGMENTS`/`SKILL_CONTENT_FILENAME` 与状态文件形状
- * [POS]: bundle 技能纵深的**落盘所有者**——中心详情给出权威 `versionId`/`sha256`/技能名集合，Host 代取令牌下载并校验，再解到 `<dshHome>/enterprise/skill-staging/<uuid>` 后逐个**原子改名**进 `<dshHome>/skills/`；本机已装**同一个 packageId 的旧版本**时同一条路就是**原子升级**（旧目录先挪到 `<staging>-previous/<name>` 备份位、新目录再改名到位、失败原样挪回、成功后清掉旧版本孤儿目录），落点冲突预检只拒「同名目录被**别的包**占用」与「同名目录存在但不在本包记录里」，绝不就地半覆盖；这条路径正是官方 `dsh-skill-filesystem` 的 `user-dsh` 根（rank 400），watcher 深度 1 直发现，因此装完无需重启。官方 0.2.0-rc.2 全量核对后**不存在** skills 安装 RPC（`docs/compose/spec/skill-catalog.md` S2.1 已冻结同一结论），故这里落盘不违背「复用官方能力」：官方对技能的唯一能力面就是这套发现契约，本文件只写它承认的形状，且不执行包内任何内容。**另加一条只读线**（`installedSkillContent`）：界面点技能行看详情时读**已装**技能的 `SKILL.md` 正文——客户端只交包 id 与技能名（都不是路径），名字必须命中本包已装记录、落点由 Host 自己拼，再经 `lstat` + `realpath` 逐字比对挡住符号链接逃逸，大小复用包内 SKILL.md 的 256 KiB 上限
+ * [OUTPUT]: 对外提供 `createEnterpriseSkillInstall`（`status`/`action`/**`content`/`files`/`file`** 五个端口）与可单测的 `installedSkillStatus`/`installSkillPackage`（首次安装与**同包新版本原子升级**同一条路）/`uninstallSkillPackage`/**`installedSkillContent`**（读一条已装技能的 SKILL.md 正文）/**`installedSkillFiles`**（列一条已装技能包在本机真树上的全部条目）/**`installedSkillFile`**（读已装技能里的文本文件），以及三者**共用**的路径实现 **`requireRelativeSkillPath`**（唯一的相对路径门禁）与 **`resolveInstalledSkillTarget`**（唯一的落点解析：记录归属 + `lstat` + `realpath` 三重等式 + 256 KiB 上限）、`SKILL_LOCAL_ROOT_SEGMENTS`/`SKILL_CONTENT_FILENAME`/`SKILL_FILE_MAX_ENTRIES`/`SKILL_FILE_MAX_DEPTH` 与状态文件形状
+ * [POS]: bundle 技能纵深的**落盘所有者**——中心详情给出权威 `versionId`/`sha256`/技能名集合，Host 代取令牌下载并校验，再解到 `<dshHome>/enterprise/skill-staging/<uuid>` 后逐个**原子改名**进 `<dshHome>/skills/`；本机已装**同一个 packageId 的旧版本**时同一条路就是**原子升级**（旧目录先挪到 `<staging>-previous/<name>` 备份位、新目录再改名到位、失败原样挪回、成功后清掉旧版本孤儿目录），落点冲突预检只拒「同名目录被**别的包**占用」与「同名目录存在但不在本包记录里」，绝不就地半覆盖；这条路径正是官方 `dsh-skill-filesystem` 的 `user-dsh` 根（rank 400），watcher 深度 1 直发现，因此装完无需重启。官方 0.2.0-rc.2 全量核对后**不存在** skills 安装 RPC（`docs/compose/spec/skill-catalog.md` S2.1 已冻结同一结论），故这里落盘不违背「复用官方能力」：官方对技能的唯一能力面就是这套发现契约，本文件只写它承认的形状，且不执行包内任何内容。**另加一条只读家族（三个入口）**：技能详情子页面要读**已装**技能的本机文件——① `/skills/content` 读 `SKILL.md` 正文、② `/skills/<id>/files` 列本机真树、③ `/skills/<id>/file?path=` 读单个文本文件；客户端交来的永远只是**键形状**（包 id 雪花、相对路径），三者**共用同一份 `requireRelativeSkillPath` + `resolveInstalledSkillTarget` + 文本读取**：名字必须命中本包已装记录、落点由 Host 自己拼，再经 `lstat`（不跟随符号链接）+ `realpath` 逐字比对挡住符号链接逃逸，单文件复用包内 SKILL.md 的 256 KiB 上限，二进制（非法 UTF-8 或夹 NUL）按稳定码拒而不是丢进界面
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { randomUUID } from 'node:crypto'
-import { lstat, mkdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, readdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { resolveEnterpriseDshHome } from '@dshent/platform-client'
 import { downloadVerifiedArtifact } from '@dshent/plugin-distribution'
@@ -465,9 +465,46 @@ export async function uninstallSkillPackage(
 }
 
 /**
- * 已装技能的正文文件名：官方 `skill-filesystem` 的发现面约定（`skills/<name>/SKILL.md`）。
+ * 已装技能的正文文件名：官方 `skill-filesystem` 的发现面约定（`skills/<name>/SKILL.md`），
+ * 同时是技能详情子页面**默认选中并预览**的那个文件（界面把已装记录的 `names[0]` 与它拼成默认路径）。
  */
 export const SKILL_CONTENT_FILENAME = 'SKILL.md'
+
+/** 相对路径总长上限（与包内制品路径上限 `SKILL_PATH_MAX_LENGTH` 同量级）。 */
+const SKILL_FILE_PATH_MAX_LENGTH = 1024
+/** 单段路径长度上限（多数文件系统的 NAME_MAX）。 */
+const SKILL_FILE_SEGMENT_MAX_LENGTH = 255
+/**
+ * 一个已装技能包的**文件树条目数上限**：目录是磁盘输入，病态目录不该把响应体撑爆；
+ * 超限复用既有的 `ENT_SKILL_CONTENT_TOO_LARGE`（413，与单文件超限同一族），不新增码。
+ */
+export const SKILL_FILE_MAX_ENTRIES = 1000
+/** 相对技能目录的**嵌套深度上限**：超过即判本机落盘状态可疑（409），不给深目录留口子。 */
+export const SKILL_FILE_MAX_DEPTH = 8
+
+/** `GET /enterprise/api/v1/local/skills/<id>/files` 的一条**本机真实**条目。 */
+export interface EnterpriseSkillFileEntry {
+  /** 相对 `<dshHome>/skills` 的 `/` 分隔路径（目录不带尾斜杠）。 */
+  readonly path: string
+  readonly kind: 'file' | 'directory'
+  /** 普通文件的真实字节数；目录恒 0（键集对三种消费者统一，界面不必分叉判形状）。 */
+  readonly sizeBytes: number
+}
+
+/** `GET .../skills/<id>/files` 的本地投影（树来自本机真目录，未装即 404，绝不编造）。 */
+export interface EnterpriseSkillFiles {
+  readonly packageId: string
+  /** 按 `path` 码元升序**确定性**排序（同一棵树两次请求逐字节相同）。 */
+  readonly entries: readonly EnterpriseSkillFileEntry[]
+}
+
+/** `GET .../skills/<id>/file?path=` 的本地投影：**纯文本**约定（二进制一律拒，见 `readInstalledSkillText`）。 */
+export interface EnterpriseInstalledSkillFile {
+  readonly packageId: string
+  readonly path: string
+  readonly sizeBytes: number
+  readonly text: string
+}
 
 /** `GET /enterprise/api/v1/local/skills/content` 的本地投影：一条已装技能的正文。 */
 export interface EnterpriseInstalledSkillContent {
@@ -487,62 +524,185 @@ async function realpathOrUndefined(path: string): Promise<string | undefined> {
 }
 
 /**
- * 读一条**已装**技能的 `SKILL.md` 正文（只读，界面点技能行看详情时用它）。
+ * **三个只读入口共用的相对路径门禁**（`/skills/content` 的 `name`、`/skills/<id>/file` 的 `path`、
+ * 以及文件树里每一条路径的形状判定都只经它，路由层与界面层**不许再写第二套**）：
+ *  ① 非字符串 / 空串 / 超过 1024 字 → 400；
+ *  ② 反斜杠、以 `/` 开头、盘符开头（`C:`）→ 400（Windows 形状的路径永远不是本机技能树里的合法键）；
+ *  ③ 一切控制字符（含 NUL，`<0x20` 与 `0x7f`）→ 400；
+ *  ④ **URL 编码绕过**：查询串只 `decode` 一次，解码之后仍出现 `%` 说明请求方在二次编码
+ *     （`%252e%252e` → `%2e%2e`）或文件名本身需要编码——两种都 fail-closed 拒掉，而不是「再解一次看看」；
+ *     界面发送时用 `encodeURIComponent`，因此**正常路径解码后不含 `%`**；
+ *  ⑤ 空段、`.`、`..` 段 → 400（规范化在这一步就完成，后面拼路径只吃已验证的段）；
+ *  ⑥ 单段 >255、总长 >1024 → 400；
+ *  ⑦ 首段必须是官方 kebab 技能目录名且 ≤64——「哪个技能目录」永远只能取本包已装记录里的键形状。
  *
- * **路径安全是 fail-closed 的，且客户端给的字符串永远不是路径片段**：
- *  ① 包 id 与技能名先各自按既有规约收窄（雪花 / 官方 kebab），`..`、绝对路径、盘符、反斜杠、
- *     控制字符、超长名在拼任何路径之前就被拒；
- *  ② 技能名还必须**出现在该包自己的已装记录里**（记录来自 Host 私有状态文件，且读盘时已按 kebab 规约
- *     重新校验过），记录里没有的名字一律按「未找到」处理——绝不拿调用方的字符串去拼文件系统；
- *  ③ 落点由 Host 自己拼成 `<技能根>/<name>/SKILL.md`，随后 `lstat` 不跟随符号链接：
- *     `SKILL.md` 本身是符号链接、或不是普通文件，直接判本机状态可疑；
- *  ④ `realpath` 三重规范化后必须**逐字等于** `<真实技能根>/<name>/SKILL.md`——技能根、技能目录、
- *     正文文件任何一层出现符号链接逃逸都会让这条等式不成立（宁可拒读，也不把技能目录外的文件送给界面）；
- *  ⑤ 大小上限复用包内 SKILL.md 的同一条常量（256 KiB），读前按 `stat` 查一次、读后按实际字节再查一次，
- *     两次调用之间被换掉的文件也带不出超限正文；
- *  ⑥ 正文按 UTF-8 **fatal** 解码，非法字节一律判本机状态可疑，不让替换字符悄悄进界面。
- *
- * @param options - 平台面、可选 dshHome、时钟与留痕端口。
- * @param packageId - 中心技能包雪花 id（对应「企业技能」行上的 `id`）。
- * @param name - 技能目录名（kebab）；必须属于该包已装记录。
- * @returns 包 id、技能名与该技能的 SKILL.md 正文。
- * @throws {EnterpriseSkillInstallError} `ENT_INVALID_REQUEST`（包 id / 技能名形状非法）、
- *   `ENT_RESOURCE_NOT_FOUND`（本包未装 / 名字不属于本包 / 文件不在）、
- *   `ENT_SKILL_CONTENT_TOO_LARGE`（超 256 KiB）、`ENT_SKILL_CONTENT_INVALID`（非普通文件 / 逃逸 / 非 UTF-8）。
+ * @param value - 客户端交来的相对路径（`/` 分隔，**已由路由解码一次**）。
+ * @returns 已验证的段数组（顺序原样）。
+ * @throws {EnterpriseSkillInstallError} `ENT_INVALID_REQUEST`：任一条不满足。
  */
-export async function installedSkillContent(
-  options: EnterpriseSkillInstallOptions,
-  packageId: string,
-  name: string,
-): Promise<EnterpriseInstalledSkillContent> {
-  const deps = resolveDependencies(options)
-  const id = requirePackageId(packageId)
-  // 请求侧的名字门禁：先把 `..`/绝对路径/盘符/反斜杠/控制字符/超长名判成 400（请求本身非法），
-  // 与「磁盘上的状态文件坏了」(`ENT_SKILL_STATE_INVALID`) 分开——后者是 5xx 级的本机故障。
-  if (typeof name !== 'string' || name.length === 0 || name.length > 64 || !SKILL_NAME_PATTERN.test(name)) {
-    throw badRequest('name must be a kebab-case skill name')
+export function requireRelativeSkillPath(value: unknown): readonly string[] {
+  if (typeof value !== 'string' || value.length === 0 || value.length > SKILL_FILE_PATH_MAX_LENGTH) {
+    throw badRequest('path must be a relative skill file path')
   }
-  // 名字再过一次与磁盘状态同一个收窄函数（同一把尺，形状门禁不可能分叉）。
-  const skill = requireSkillName(name)
-  const records = await readRecords(deps)
-  const record = records.find(item => item.packageId === id)
+  if (value.includes('\\')) throw badRequest('path must use forward slashes')
+  if (value.startsWith('/')) throw badRequest('path must be relative')
+  if (/^[A-Za-z]:/.test(value)) throw badRequest('path must not start with a drive letter')
+  for (const character of value) {
+    const code = character.codePointAt(0) ?? 0
+    if (code < 0x20 || code === 0x7f) throw badRequest('path must not contain control characters')
+  }
+  const segments = value.split('/')
+  for (const segment of segments) {
+    if (segment.length === 0) throw badRequest('path must not contain empty segments')
+    if (segment === '.' || segment === '..') throw badRequest('path must not escape the skill directory')
+    if (segment.length > SKILL_FILE_SEGMENT_MAX_LENGTH) throw badRequest('path segment is too long')
+    if (segment.includes('%')) throw badRequest('path must not contain percent-encoded segments')
+  }
+  const skill = segments[0]!
+  if (skill.length > 64 || !SKILL_NAME_PATTERN.test(skill)) {
+    throw badRequest('path must start with a kebab-case skill directory name')
+  }
+  return segments
+}
+
+/**
+ * `/skills/content` 的 `name` 参数契约：**仍是同一份门禁**，只额外要求恰好一段
+ * （那个参数语义上是技能目录名而不是路径；两段以上在拼路径之前就拒，避免把路径语义悄悄带进来）。
+ *
+ * @param value - 客户端交来的技能目录名。
+ * @returns 已验证的技能目录名。
+ * @throws {EnterpriseSkillInstallError} `ENT_INVALID_REQUEST`：形状非法或不是恰好一段。
+ */
+function requireSkillNameArgument(value: unknown): string {
+  const segments = requireRelativeSkillPath(value)
+  if (segments.length !== 1) throw badRequest('name must be a single kebab-case skill directory name')
+  return segments[0]!
+}
+
+/** 已装技能包在磁盘上的根（记录 + 真实技能根），三个只读入口共用的第一层。 */
+interface ResolvedSkillRoot {
+  readonly packageId: string
+  readonly record: InstalledSkillRecord
+  /** `<dshHome>/skills`（未规范化，用于拼落点）。 */
+  readonly root: string
+  /** `realpath(<dshHome>/skills)`：下面一切落点等式都以它为准。 */
+  readonly resolvedRoot: string
+}
+
+/** 解析「本包已装记录 + 真实技能根」；三者共用，故包未装 / 技能根不在都只有这一处判定。 */
+async function resolveInstalledSkillRoot(
+  deps: ResolvedDependencies,
+  packageId: string,
+): Promise<ResolvedSkillRoot> {
+  const id = requirePackageId(packageId)
+  const record = (await readRecords(deps)).find(item => item.packageId === id)
   if (record === undefined) {
     throw new EnterpriseSkillInstallError('ENT_RESOURCE_NOT_FOUND', 'this skill package is not installed')
-  }
-  // 名字只能来自**本包自己的已装记录**：不在记录里的名字按未找到处理，不做任何路径尝试。
-  if (!record.names.includes(skill)) {
-    throw new EnterpriseSkillInstallError('ENT_RESOURCE_NOT_FOUND', 'this skill does not belong to the installed package')
   }
   const root = skillRoot(deps)
   const resolvedRoot = await realpathOrUndefined(root)
   if (resolvedRoot === undefined) {
     throw new EnterpriseSkillInstallError('ENT_RESOURCE_NOT_FOUND', 'the installed skill root is missing')
   }
-  const target = join(root, skill, SKILL_CONTENT_FILENAME)
+  return { packageId: id, record, root, resolvedRoot }
+}
+
+/** 已落盘的一个技能目录（记录里的名字 + 真实目录），三个只读入口共用的第二层。 */
+interface ResolvedSkillDirectory {
+  readonly packageId: string
+  readonly skillName: string
+  /** `<dshHome>/skills/<name>`（未规范化）。 */
+  readonly absolutePath: string
+  /** `realpath` 之后必须逐字等于它的那个落点。 */
+  readonly resolvedDirectory: string
+}
+
+/**
+ * 把一个技能目录解析成**已落盘的真实目录**：名字必须属于本包记录；目录必须真的存在、
+ * 是普通目录（`lstat` 不跟随符号链接），且 `realpath` 逐字等于 `<真实技能根>/<name>`。
+ */
+async function resolveSkillDirectoryFromRoot(
+  deps: ResolvedDependencies,
+  base: ResolvedSkillRoot,
+  skillName: string,
+): Promise<ResolvedSkillDirectory> {
+  // 名字只能来自**本包自己的已装记录**：不在记录里的名字按未找到处理，不做任何路径尝试。
+  if (!base.record.names.includes(skillName)) {
+    throw new EnterpriseSkillInstallError('ENT_RESOURCE_NOT_FOUND', 'this skill does not belong to the installed package')
+  }
+  const absolutePath = join(base.root, skillName)
+  const resolvedDirectory = join(base.resolvedRoot, skillName)
   let stats
   try {
-    // lstat 不跟随符号链接：正文文件本身是符号链接即拒，绝不让它指到技能目录之外。
-    stats = await lstat(target)
+    // lstat 不跟随符号链接：技能目录本身是符号链接即拒（下面那条 realpath 等式也会兜住）。
+    stats = await lstat(absolutePath)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new EnterpriseSkillInstallError('ENT_RESOURCE_NOT_FOUND', 'the installed skill directory is missing')
+    }
+    throw skillInstallError(error, 'ENT_SKILL_CONTENT_INVALID', 'the installed skill directory could not be inspected')
+  }
+  if (!stats.isDirectory()) {
+    throw new EnterpriseSkillInstallError('ENT_SKILL_CONTENT_INVALID', 'the installed skill path is not a directory')
+  }
+  const resolved = await realpathOrUndefined(absolutePath)
+  if (resolved !== resolvedDirectory) {
+    throw new EnterpriseSkillInstallError('ENT_SKILL_CONTENT_INVALID', 'the installed skill directory escapes its skill root')
+  }
+  return { packageId: base.packageId, skillName, absolutePath, resolvedDirectory }
+}
+
+/** 一个已落盘、且已通过全部等式的技能文件（三个只读入口共用的第三层）。 */
+export interface ResolvedSkillTarget {
+  readonly packageId: string
+  readonly skillName: string
+  /** 相对 `<dshHome>/skills` 的规范路径。 */
+  readonly relativePath: string
+  readonly absolutePath: string
+  readonly resolvedPath: string
+  readonly resolvedDirectory: string
+  readonly sizeBytes: number
+}
+
+/**
+ * **三个只读入口共用的路径解析**：包 id + 相对路径 → 一件已落盘的真实文件。
+ *
+ * 路径安全全在这里完成、且是 fail-closed 的（客户端给的字符串永远只是**键形状**，不是路径片段）：
+ *  ① 包 id 雪花门禁 + 相对路径门禁（见 `requireRelativeSkillPath`：`..`/绝对路径/盘符/反斜杠/控制字符/
+ *     空段/超长/`%` 编码绕过一律在拼任何路径之前就被拒）；
+ *  ② 首段（技能目录名）必须**出现在该包自己的已装记录里**（记录来自 Host 私有状态文件，读盘时已按 kebab
+ *     规约重新校验过），记录里没有的名字一律 404——绝不拿调用方的字符串去拼文件系统；
+ *  ③ 技能根与技能目录各自 `realpath`，且技能目录必须**逐字等于** `<真实技能根>/<name>`；
+ *  ④ 落点由 Host 自己拼成 `<技能根>/<name>/<rest...>`，`lstat` 不跟随符号链接：不是普通文件即判
+ *     本机状态可疑（目录也算，`file` 路由不冒充目录清单）；
+ *  ⑤ 单文件大小上限复用包内 SKILL.md 的同一条常量（256 KiB），超限 413；
+ *  ⑥ `realpath` 规范化后必须**逐字等于** `<真实技能目录>/<rest...>`——技能根、技能目录、文件任何一层
+ *     出现符号链接逃逸都会让这条等式不成立（宁可拒读，也不把技能目录外的文件送给界面）。
+ *
+ * @param options - 平台面、可选 dshHome、时钟与留痕端口。
+ * @param packageId - 中心技能包雪花 id。
+ * @param relativePath - 相对 `<dshHome>/skills` 的 `/` 分隔路径（首段是技能目录名）。
+ * @returns 已验证的落点与字节数。
+ * @throws {EnterpriseSkillInstallError} `ENT_INVALID_REQUEST`（包 id / 路径形状非法）、
+ *   `ENT_RESOURCE_NOT_FOUND`（本包未装 / 名字不属于本包 / 目录或文件不在）、
+ *   `ENT_SKILL_CONTENT_TOO_LARGE`（>256 KiB）、`ENT_SKILL_CONTENT_INVALID`（非普通文件 / 逃逸）。
+ */
+export async function resolveInstalledSkillTarget(
+  options: EnterpriseSkillInstallOptions,
+  packageId: string,
+  relativePath: string,
+): Promise<ResolvedSkillTarget> {
+  const deps = resolveDependencies(options)
+  const segments = requireRelativeSkillPath(relativePath)
+  const skillName = segments[0]!
+  const rest = segments.slice(1)
+  const directory = await resolveSkillDirectoryFromRoot(deps, await resolveInstalledSkillRoot(deps, packageId), skillName)
+  const absolutePath = join(directory.absolutePath, ...rest)
+  const resolvedPath = join(directory.resolvedDirectory, ...rest)
+  let stats
+  try {
+    // lstat 不跟随符号链接：文件本身是符号链接即拒，绝不让它指到技能目录之外。
+    stats = await lstat(absolutePath)
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       throw new EnterpriseSkillInstallError('ENT_RESOURCE_NOT_FOUND', 'the installed skill file is missing')
@@ -555,19 +715,36 @@ export async function installedSkillContent(
   if (stats.size > SKILL_MD_MAX_BYTES) {
     throw new EnterpriseSkillInstallError('ENT_SKILL_CONTENT_TOO_LARGE', 'the installed skill file is too large')
   }
-  // 规范化后必须逐字等于 `<真实技能根>/<name>/SKILL.md`：任一层符号链接逃逸都让这条等式不成立。
-  const resolvedTarget = await realpathOrUndefined(target)
-  if (resolvedTarget !== join(resolvedRoot, skill, SKILL_CONTENT_FILENAME)) {
+  const resolved = await realpathOrUndefined(absolutePath)
+  if (resolved !== resolvedPath) {
     throw new EnterpriseSkillInstallError('ENT_SKILL_CONTENT_INVALID', 'the installed skill file escapes its skill directory')
   }
-  const bytes = await readFile(target)
-  // 读前查过一次，读后再按真实字节查一次：文件在两次调用之间被换掉也带不出超限正文。
+  return {
+    packageId: directory.packageId,
+    skillName,
+    relativePath: [skillName, ...rest].join('/'),
+    absolutePath,
+    resolvedPath,
+    resolvedDirectory: directory.resolvedDirectory,
+    sizeBytes: stats.size,
+  }
+}
+
+/**
+ * 三个只读入口共用的**文本读取**（`/skills/content`、`/skills/<id>/file` 都只经它读字节）：
+ * 读字节 → 按实际字节**再查一次** 256 KiB 上限（两次调用之间被换掉的文件也带不出超限正文）→
+ * UTF-8 **fatal** 解码（非法字节一律判本机状态可疑，不让替换字符悄悄进界面）→
+ * 拒绝解码后的 NUL：**这是纯文本约定**，能 fatal 解码但夹 NUL 的字节（位图/压缩包常见）仍按二进制拒，
+ * 界面据此显示稳定错误码（`ENT_SKILL_CONTENT_INVALID`）而不是把半截二进制当正文渲染。
+ */
+async function readInstalledSkillText(target: ResolvedSkillTarget): Promise<string> {
+  const bytes = await readFile(target.absolutePath)
   if (bytes.byteLength > SKILL_MD_MAX_BYTES) {
     throw new EnterpriseSkillInstallError('ENT_SKILL_CONTENT_TOO_LARGE', 'the installed skill file is too large')
   }
-  let content: string
+  let text: string
   try {
-    content = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+    text = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
   } catch (error) {
     throw new EnterpriseSkillInstallError(
       'ENT_SKILL_CONTENT_INVALID',
@@ -575,24 +752,182 @@ export async function installedSkillContent(
       { cause: error },
     )
   }
-  return { packageId: id, name: skill, content }
+  if (text.includes('\u0000')) {
+    throw new EnterpriseSkillInstallError('ENT_SKILL_CONTENT_INVALID', 'the installed skill file is binary, not text')
+  }
+  return text
 }
 
-/** bundle 注入 platform-client 的两个端口形状。 */
+/** 路径码元升序比较（确定性排序的唯一依据）。 */
+function compareEntryPath(left: EnterpriseSkillFileEntry, right: EnterpriseSkillFileEntry): number {
+  return left.path < right.path ? -1 : left.path > right.path ? 1 : 0
+}
+
+/**
+ * 递归收集一个技能目录下的条目（**树来自本机真目录**，不编造）。
+ *
+ * 每一层都用 `readdir(withFileTypes)` 拿名字、再用 `lstat` 拿真实类型（`readdir` 的 `dirent` 不参与类型判定，
+ * 避免 TOCTOU）：**任何符号链接或既非普通文件也非目录的条目一律 409**（fail-closed，不给逃逸留口子），
+ * 每个子项的 `realpath` 必须逐字等于 `<已规范化的父目录>/<name>`；目录按深度上限收敛，条目按总上限收敛。
+ *
+ * @param absolute - 当前目录的未规范化绝对路径。
+ * @param resolved - 当前目录的 `realpath`。
+ * @param relative - 当前目录相对 `<dshHome>/skills` 的路径。
+ * @param depth - 当前目录相对技能目录的深度（技能目录本身为 0，其子项为 1）。
+ * @param entries - 收集结果（调用方负责最终排序）。
+ */
+async function collectSkillEntries(
+  absolute: string,
+  resolved: string,
+  relative: string,
+  depth: number,
+  entries: EnterpriseSkillFileEntry[],
+): Promise<void> {
+  if (depth > SKILL_FILE_MAX_DEPTH) {
+    throw new EnterpriseSkillInstallError('ENT_SKILL_CONTENT_INVALID', 'the installed skill directory is nested too deeply')
+  }
+  let items
+  try {
+    items = await readdir(absolute, { withFileTypes: true })
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new EnterpriseSkillInstallError('ENT_RESOURCE_NOT_FOUND', 'the installed skill directory is missing')
+    }
+    throw skillInstallError(error, 'ENT_SKILL_CONTENT_INVALID', 'the installed skill directory could not be listed')
+  }
+  const ordered = [...items].sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0))
+  for (const item of ordered) {
+    if (entries.length >= SKILL_FILE_MAX_ENTRIES) {
+      throw new EnterpriseSkillInstallError('ENT_SKILL_CONTENT_TOO_LARGE', 'the installed skill file tree is too large')
+    }
+    const path = `${relative}/${item.name}`
+    const childAbsolute = join(absolute, item.name)
+    const childResolved = join(resolved, item.name)
+    let stats
+    try {
+      stats = await lstat(childAbsolute)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        throw new EnterpriseSkillInstallError('ENT_RESOURCE_NOT_FOUND', 'an installed skill entry disappeared while listing')
+      }
+      throw skillInstallError(error, 'ENT_SKILL_CONTENT_INVALID', 'an installed skill entry could not be inspected')
+    }
+    if (stats.isSymbolicLink() || (!stats.isDirectory() && !stats.isFile())) {
+      throw new EnterpriseSkillInstallError('ENT_SKILL_CONTENT_INVALID', 'the installed skill tree contains a non-regular entry')
+    }
+    const childReal = await realpathOrUndefined(childAbsolute)
+    if (childReal !== childResolved) {
+      throw new EnterpriseSkillInstallError('ENT_SKILL_CONTENT_INVALID', 'an installed skill entry escapes its skill directory')
+    }
+    if (stats.isDirectory()) {
+      entries.push({ path, kind: 'directory', sizeBytes: 0 })
+      await collectSkillEntries(childAbsolute, childResolved, path, depth + 1, entries)
+    } else {
+      entries.push({ path, kind: 'file', sizeBytes: stats.size })
+    }
+  }
+}
+
+/**
+ * 列出一个**已装**技能包在本机真实目录里的全部条目（只读；界面详情子页面的文件树用它）。
+ *
+ * 树的根是本包记录里的技能目录（`record.names`），因此只可能看见**本包自己**落盘的目录；
+ * 记录的每个名字都必须真的落盘（缺失即 404：本包落盘不完整，如实说而不是给半棵树）。
+ *
+ * @param options - 平台面、可选 dshHome、时钟与留痕端口。
+ * @param packageId - 中心技能包雪花 id。
+ * @returns 包 id 与按路径确定性排序的条目清单。
+ * @throws {EnterpriseSkillInstallError} `ENT_INVALID_REQUEST`（包 id 形状非法）、
+ *   `ENT_RESOURCE_NOT_FOUND`（本包未装 / 技能根或技能目录不在）、
+ *   `ENT_SKILL_CONTENT_TOO_LARGE`（条目数超上限）、`ENT_SKILL_CONTENT_INVALID`（符号链接 / 非常规条目 / 嵌套过深）。
+ */
+export async function installedSkillFiles(
+  options: EnterpriseSkillInstallOptions,
+  packageId: string,
+): Promise<EnterpriseSkillFiles> {
+  const deps = resolveDependencies(options)
+  const base = await resolveInstalledSkillRoot(deps, packageId)
+  const entries: EnterpriseSkillFileEntry[] = []
+  for (const name of base.record.names) {
+    const directory = await resolveSkillDirectoryFromRoot(deps, base, name)
+    if (entries.length >= SKILL_FILE_MAX_ENTRIES) {
+      throw new EnterpriseSkillInstallError('ENT_SKILL_CONTENT_TOO_LARGE', 'the installed skill file tree is too large')
+    }
+    entries.push({ path: name, kind: 'directory', sizeBytes: 0 })
+    await collectSkillEntries(directory.absolutePath, directory.resolvedDirectory, name, 1, entries)
+  }
+  entries.sort(compareEntryPath)
+  return { packageId: base.packageId, entries }
+}
+
+/**
+ * 读一条**已装**技能里的**文本**文件（只读；界面点文件树时用它）。
+ *
+ * 路径解析与门禁全部复用 `resolveInstalledSkillTarget`，文本读取复用 `readInstalledSkillText`——
+ * 与 `/skills/content` 是同一条路，唯一差别只是路径来自文件树里的真实条目而不是技能名。
+ *
+ * @param options - 平台面、可选 dshHome、时钟与留痕端口。
+ * @param packageId - 中心技能包雪花 id。
+ * @param path - 相对 `<dshHome>/skills` 的 `/` 分隔路径（首段是技能目录名）。
+ * @returns 包 id、规范路径、字节数与文本正文。
+ * @throws {EnterpriseSkillInstallError} 与 `resolveInstalledSkillTarget` / `readInstalledSkillText` 同族。
+ */
+export async function installedSkillFile(
+  options: EnterpriseSkillInstallOptions,
+  packageId: string,
+  path: string,
+): Promise<EnterpriseInstalledSkillFile> {
+  const target = await resolveInstalledSkillTarget(options, packageId, path)
+  const text = await readInstalledSkillText(target)
+  return { packageId: target.packageId, path: target.relativePath, sizeBytes: target.sizeBytes, text }
+}
+
+/**
+ * 读一条**已装**技能的 `SKILL.md` 正文（只读，界面点技能行看详情时用它）。
+ *
+ * 这是与上面两条同族的第三条只读入口：`name` 只是一个**单段技能目录名**，Host 自己把它与
+ * `SKILL_CONTENT_FILENAME` 拼成相对路径后，**走同一份 `resolveInstalledSkillTarget` + `readInstalledSkillText`**——
+ * 路径门禁、记录归属、lstat/realpath 三重等式、256 KiB 上限、UTF-8 fatal 都是那一份实现，本函数不再自写一套。
+ *
+ * @param options - 平台面、可选 dshHome、时钟与留痕端口。
+ * @param packageId - 中心技能包雪花 id（对应「企业技能」行上的 `id`）。
+ * @param name - 技能目录名（kebab，恰好一段）；必须属于该包已装记录。
+ * @returns 包 id、技能名与该技能的 SKILL.md 正文。
+ * @throws {EnterpriseSkillInstallError} `ENT_INVALID_REQUEST`（包 id / 技能名形状非法）、
+ *   `ENT_RESOURCE_NOT_FOUND`（本包未装 / 名字不属于本包 / 文件不在）、
+ *   `ENT_SKILL_CONTENT_TOO_LARGE`（超 256 KiB）、`ENT_SKILL_CONTENT_INVALID`（非普通文件 / 逃逸 / 非 UTF-8）。
+ */
+export async function installedSkillContent(
+  options: EnterpriseSkillInstallOptions,
+  packageId: string,
+  name: string,
+): Promise<EnterpriseInstalledSkillContent> {
+  const skill = requireSkillNameArgument(name)
+  const target = await resolveInstalledSkillTarget(options, packageId, `${skill}/${SKILL_CONTENT_FILENAME}`)
+  const content = await readInstalledSkillText(target)
+  return { packageId: target.packageId, name: target.skillName, content }
+}
+
+/** bundle 注入 platform-client 的三个端口形状。 */
 export interface EnterpriseSkillInstall {
   /** 已装技能清单。 */
   status(): Promise<EnterpriseInstalledSkills>
   /** 安装或卸载；两者都返回**动作后**的最新已装态。 */
   action(action: 'install' | 'uninstall', packageId: string): Promise<EnterpriseInstalledSkills>
-  /** 读一条**已装**技能的 SKILL.md 正文（只读；名字必须是该包已装记录里的一个）。 */
+  /** 读一条**已装**技能的 SKILL.md 正文（只读；名字必须是该包已装记录里的一个，恰好一段）。 */
   content(packageId: string, name: string): Promise<EnterpriseInstalledSkillContent>
+  /** 列一条**已装**技能包在本机真树上的全部条目（只读；树根是本包自己的已装技能目录）。 */
+  files(packageId: string): Promise<EnterpriseSkillFiles>
+  /** 读一条**已装**技能里的文本文件（只读；与 `content` 共用同一份路径解析与文本读取）。 */
+  file(packageId: string, path: string): Promise<EnterpriseInstalledSkillFile>
 }
 
 /**
- * 构造技能安装端口（供 `registerEnterpriseLocalApi` 的 `skillStatus`/`skillAction`/`skillContent` 注入）。
+ * 构造技能安装端口（供 `registerEnterpriseLocalApi` 的 `skillStatus`/`skillAction`/`skillContent`
+ * 与 `registerEnterpriseSkillRoutes` 的 `local.files`/`local.file` 注入）。
  *
  * @param options - 平台面、可选 dshHome、时钟与留痕端口。
- * @returns 三个端口的实现。
+ * @returns 五个端口的实现。
  */
 export function createEnterpriseSkillInstall(options: EnterpriseSkillInstallOptions): EnterpriseSkillInstall {
   return {
@@ -601,5 +936,7 @@ export function createEnterpriseSkillInstall(options: EnterpriseSkillInstallOpti
       ? installSkillPackage(options, packageId)
       : uninstallSkillPackage(options, packageId),
     content: (packageId, name) => installedSkillContent(options, packageId, name),
+    files: packageId => installedSkillFiles(options, packageId),
+    file: (packageId, path) => installedSkillFile(options, packageId, path),
   }
 }

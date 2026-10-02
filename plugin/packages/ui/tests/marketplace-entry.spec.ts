@@ -143,12 +143,12 @@ function textOf(node: ReactNode): string {
  *  · 技能行行线 = 「可点行本体（图标 + 两行文案）」+「`[有更新]`」+「官方 `Switch`」三者**同级**，
  *    动作既不在可点按钮内、也没有因为可点而消失；
  *  · 企业插件行**一字未动**（本轮不给插件行详情入口）；
- *  · 两套外壳共用的那份 CSS 也随之定值（`rowStyles` 多了 `.own-market-rowOpen` 三条规则）。
+ *  · 两套外壳共用的那份 CSS 也随之定值（`rowStyles` 多了 `.own-market-rowOpen` 的四条规则（本体 / hover / focus-visible / disabled））。
  * 任何人再改行结构/类名/属性/顺序或那份 CSS，这里都会立刻显形。
  */
 const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(7719 chars)",
+  "  style(7840 chars)",
   "  div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
   "    button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=true][aria-controls=market-panel-skills][tabIndex=0][onClick=[fn]][onKeyDown=[fn]]",
   "      #text:企业技能 1",
@@ -187,7 +187,7 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
 ]
 const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(7719 chars)",
+  "  style(7840 chars)",
   "  div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
   "    button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-skills][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
   "      #text:企业技能 1",
@@ -232,8 +232,8 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "            Switch[checked=false][label=安装企业插件 ent-b][disabled=false][title=点此安装][onChange=[fn]]",
   "  div[id=market-panel-components][role=tabpanel][aria-labelledby=market-tab-components][hidden=true][className=own-market-panel]",
 ]
-const LEGACY_STYLE_LENGTH = 7719
-const LEGACY_STYLE_CHECKSUM = 1712167734
+const LEGACY_STYLE_LENGTH = 7840
+const LEGACY_STYLE_CHECKSUM = 3766019190
 
 /** 「企业技能」节的目录 fixture：与 skill-market.spec 的列表投影同形（列表态 versionId/skills 为空）。 */
 const SKILL: EnterpriseRuntimeSkill = {
@@ -2183,114 +2183,6 @@ describe('enterprise marketplace entry', () => {
  *     （同一枚子块 `EnterpriseMarketInlineRows` 渲染，行 DOM 大纲逐行相同），呈现差异只剩 HERO/搜索框/根内边距三件；
  *  ③ **同一份逻辑**——两条入口共用同一个控制器/同一份 store，故同一组输入下页签计数、失败码、行事实逐项一致。
  */
-describe('the enterprise store panel and its sidebar entry', () => {
-  it('registers the main panel and the sidebar entry with matching id/key, order 20 and the 应用商店 label', () => {
-    const { injected, registrations } = runClientRegistrations()
-    // `layout` 是「从商店跳回官方插件列表」（ctx.layout.selectPanel('plugins')）的必要声明。
-    expect([...inject]).toEqual(['slots', 'remote', 'layout'])
-    expect(injected).toContain('main')
-    expect(injected).toContain('sidebar.panellist')
-
-    const panel = registrations.find(entry => entry.options['name'] === 'main')!
-    const sidebar = registrations.find(entry => entry.options['name'] === 'sidebar.panellist')!
-    expect(panel.options).toMatchObject({ name: 'main', key: 'enterprise-store' })
-    expect(sidebar.options).toMatchObject({
-      name: 'sidebar.panellist',
-      id: 'enterprise-store',
-      order: 20,
-      label: '应用商店',
-    })
-    // 官方契约「每个 list id 对应同名 main 面板」：两处必须同值，否则点击命中 selectPanel 的「未注册」抛错。
-    expect(sidebar.options['id']).toBe(panel.options['key'])
-    expect(sidebar.options['id']).toBe(ENTERPRISE_STORE_PANEL_ID)
-    expect(ENTERPRISE_STORE_ENTRY_LABEL).toBe('应用商店')
-    expect(ENTERPRISE_STORE_ENTRY_ORDER).toBe(20)
-    // 排在官方实测占用（plugins=0、schedules=10）之后。
-    expect(ENTERPRISE_STORE_ENTRY_ORDER).toBeGreaterThan(10)
-    // 图标：侧栏 owner props 是 { size, active }，本组件消费 size（函数组件、真实元素）。
-    expect(typeof sidebar.component).toBe('function')
-    expect(sidebar.component).toBe(EnterpriseStoreIcon)
-    const icon = EnterpriseStoreIcon({ size: 18 })
-    expect(isValidElement(icon)).toBe(true)
-    expect(isValidElement(icon) ? icon.props['size'] : undefined).toBe(18)
-  })
-
-  it('wires the two entries to two different shells (plugins.item → legacy, main → store)', async () => {
-    const { registrations } = runClientRegistrations()
-    const item = registrations.find(entry => entry.options['name'] === 'plugins.item')!
-    const panel = registrations.find(entry => entry.options['name'] === 'main')!
-    // ① 门禁的核心：两条入口**不是**同一个组件（拆分前它俩指向同一个 `EnterpriseMarketPage`）。
-    expect(item.component).not.toBe(panel.component)
-    expect(item.component).toBe(EnterpriseMarketLegacyPage)
-    expect(panel.component).toBe(EnterpriseMarketStorePage)
-    expect(EnterpriseMarketLegacyPage).not.toBe(EnterpriseMarketStorePage)
-    // ② 两个入口壳各自把「哪个呈现外壳」交给同一个宿主：源码级断言（hook 组件不能直接函数调用渲染）。
-    //    这保证注册面指向的外壳与测试里渲染的外壳是同一对，不会出现「改了注册但测试锁的是另一个」。
-    const clientSource = await readFile(new URL('../src/client.tsx', import.meta.url), 'utf8')
-    expect(clientSource).toContain('EnterpriseMarketLegacyPage')
-    expect(clientSource).toContain('EnterpriseMarketStorePage')
-    expect(clientSource).not.toContain('EnterpriseMarketPage as')
-    // ③ 面板侧不读官方 owner props，而在注册面注入等价 props：view 恒为 'page'、store 与卡片同源；卡片侧只注入 store。
-    const panelProps = (panel.options['inject'] as () => Record<string, unknown>)()
-    const itemProps = (item.options['inject'] as () => Record<string, unknown>)()
-    expect(panelProps['view']).toBe(ENTERPRISE_STORE_PANEL_VIEW)
-    expect(ENTERPRISE_STORE_PANEL_VIEW).toBe('page')
-    expect(itemProps).toEqual({ store: itemProps['store'] })
-    expect(panelProps['store']).toBe(itemProps['store'])
-    // ④ 两条入口的**呈现**不同、**语义**相同：同一组 props 下关键结构逐项对照。
-    const props = {
-      view: 'page' as const,
-      sessionUsable: true,
-      enterpriseSkills: enterpriseMarketSkillRows([SKILL]),
-      enterprisePlugins: [{ packageName: 'ent-a', version: '1.2.0', state: 'ACTIVE', inCatalog: true }] as never,
-    }
-    const legacy = EnterpriseMarketLegacyShell(props)
-    const store = EnterpriseMarketStoreShell(props)
-    // ① 行版式**一致**：两套外壳的目录行由同一枚子块渲染，行类名与行块 DOM 大纲逐项相同。
-    expect(collectByClassName(legacy, 'own-market-cardId')).toHaveLength(1)
-    expect(collectByClassName(store, 'own-market-cardId')).toHaveLength(1)
-    expect(rowsOutline(store)).toEqual(rowsOutline(legacy))
-    // ② 两套外观的差别只剩三件：HERO / 搜索框 / 根内边距（都只有新外壳有，见各自的专门用例）。
-    expect(collectByClassName(legacy, 'own-market-storeHero')).toEqual([])
-    expect(collectByClassName(store, 'own-market-storeHero')).toHaveLength(1)
-    expect(collectByClassName(legacy, 'own-market-catalogSearch')).toEqual([])
-    expect(collectByClassName(store, 'own-market-catalogSearch')).toHaveLength(1)
-    // ③ 卡片时代那套类名两边都不存在（一律退场，不留半套）。
-    for (const dead of ['own-market-cardShell', 'own-market-cardGrid', 'own-market-cardTitle', 'own-market-cardDescription', 'own-market-cardActions']) {
-      expect(collectByClassName(legacy, dead), `legacy/${dead}`).toEqual([])
-      expect(collectByClassName(store, dead), `store/${dead}`).toEqual([])
-    }
-    // 语义相同（同一份逻辑）：页签 id/文案/aria 配对/开关动作名。
-    const semanticShapeOf = (tree: ReactNode) => ({
-      tablist: collectByRole(tree, 'tablist').map(node => node['aria-label']),
-      tabs: collectByRole(tree, 'tab').map(node => ({
-        id: node['id'],
-        label: node['children'],
-        selected: node['aria-selected'],
-        controls: node['aria-controls'],
-        tabIndex: node['tabIndex'],
-      })),
-      panels: collectByRole(tree, 'tabpanel').map(node => ({
-        id: node['id'],
-        labelledby: node['aria-labelledby'],
-        hidden: node['hidden'],
-      })),
-      switches: collectSwitchProps(tree).map(node => node['label']),
-      skillStates: collectDataValues(tree, 'data-enterprise-skill-state'),
-      pluginStates: collectDataValues(tree, 'data-enterprise-plugin-state'),
-    })
-    expect(semanticShapeOf(store)).toEqual(semanticShapeOf(legacy))
-    // 两套外壳都必须产出「一条 role="tablist" + 三个企业页签 + 三个面板」。
-    for (const [label, tree] of [['legacy', legacy], ['store', store]] as const) {
-      expect(collectByRole(tree, 'tablist'), label).toHaveLength(1)
-      expect(collectByRole(tree, 'tablist')[0]?.['aria-label'], label).toBe(ENTERPRISE_MARKET_TABLIST_LABEL)
-      expect(collectByRole(tree, 'tab').map(node => node['children']), label)
-        .toEqual(['企业技能 1', '企业插件 1', '组件 3'])
-      expect(collectByRole(tree, 'tab').map(node => node['aria-selected']), label).toEqual([true, false, false])
-      expect(collectByRole(tree, 'tabpanel'), label).toHaveLength(ENTERPRISE_MARKET_TABS.length)
-    }
-  })
-})
 
 /**
  * **技能详情（本刀的新功能）**：点技能行**本体**（图标 + 标题 + 描述那一片）打开官方 `Modal` 弹层。
@@ -2412,6 +2304,8 @@ describe('enterprise skill detail dialog', () => {
       expect(cssRuleBody(css, '.own-market-rowOpen'), label).toContain('display:flex')
       expect(cssRuleBody(css, '.own-market-rowOpen'), label).toContain('flex:1')
       expect(cssRuleBody(css, '.own-market-rowOpen:focus-visible'), label).toContain('outline:')
+      // 回调缺席时是 disabled：光标必须收回（否则「看着能点、点了没反应」）。
+      expect(cssRuleBody(css, '.own-market-rowOpen:disabled'), label).toContain('cursor:default')
       // hover 高亮那条规则有两条选择器（标题 + 描述），故直接锁规则原文而不走单选择器取值器。
       expect(css, label).toContain('.own-market-rowOpen:hover .own-market-cardId')
       expect(css, label).toContain('color:var(--dsw-alias-accent-primary')
@@ -2608,6 +2502,11 @@ describe('enterprise skill detail dialog', () => {
     // 弹层渲染在**两条入口共用的宿主**里（不属于任何一套外观，也不进外壳 props）。
     expect((source.match(/<EnterpriseSkillDetailDialog /g) ?? []).length).toBe(1)
     expect((source.match(/<EnterpriseSkillDetailView[\s]/g) ?? []).length).toBe(1)
+    // 详情目标只存**技能包 id**：行对象在渲染时从**当前**目录投影里取，故目录刷新后弹层不会停在旧副本上，
+    // 条目消失（会话不可用/下架）时弹层自己就不渲染——界面里不存在第二份「同一技能」的数据。
+    expect(source).toContain('onOpenSkillDetail: (row) => { setSkillDetailId(row.id) }')
+    expect(source).toContain('enterpriseSkills.find(item => item.id === skillDetailId)')
+    expect(source).not.toContain('setSkillDetailRow')
   })
 })
 

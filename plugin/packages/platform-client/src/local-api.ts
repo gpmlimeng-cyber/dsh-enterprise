@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Harness `ctx.webServer.register()` route port、平台操作端口、组合层注入的插件动作端口与技能安装端口、品牌只读端口与可选投影留痕端口
- * [OUTPUT]: 提供账号/配置按需刷新、插件操作、**企业技能安装/卸载/已装态/已装正文**、本地品牌投影与原生登录（来源列表 / 凭证代提交 / 改密代提交）的严格同源 JSON 路由，无常驻状态连接；凭证正文只按固定键集读入并原样转发，绝不进日志；每个把异常投影成 HTTP 状态的回调都经 `onError` 上报操作名与原始 error；三条详情 prefix（品牌位图 / 会话恢复 / 配方详情）的注册 path 一律**不带尾斜杠**，技能四条路由是 `/skills` prefix 的 exact 子路径（`ENTERPRISE_SKILL_*_LOCAL_PATH`，含只读的 `/skills/content`）
+ * [OUTPUT]: 提供账号/配置按需刷新、插件操作、**企业技能安装/卸载/已装态/已装正文**、本地品牌投影与原生登录（来源列表 / 凭证代提交 / 改密代提交）的严格同源 JSON 路由，无常驻状态连接；凭证正文只按固定键集读入并原样转发，绝不进日志；每个把异常投影成 HTTP 状态的回调都经 `onError` 上报操作名与原始 error；三条详情 prefix（品牌位图 / 会话恢复 / 配方详情）的注册 path 一律**不带尾斜杠**，技能四条路由是 `/skills` prefix 的 exact 子路径（`ENTERPRISE_SKILL_*_LOCAL_PATH`，含只读的 `/skills/content`）；并对外导出稳定码→HTTP 状态的**唯一**映射 `enterpriseLocalErrorStatus`——bundle 侧两条本机技能文件子路由（`/skills/<id>/files`、`/skills/<id>/file`）与这里的 `/skills/content` 必须共用同一张表
  * [POS]: platform-client 的 Host/Client 同源协作边界，只序列化脱敏 DTO 并把认证 HTTP 留在 Host Service；路由形状受引擎 `match()`（`lib/index.js:322`）约束——exact 表整路径优先、prefix 只认 `pathname === prefix` 或 `pathname.startsWith(prefix + '/')`、多条命中取最长，故带尾斜杠的 prefix 会在引擎层空体 404 而根本不进 handler，而 `/skills/install` 这类子路径动作必须靠 exact 表抢在 `/skills` prefix 之前。`/skills/content` 的两个查询参数（包 id / 技能目录名）在这里只按形状收窄后原样转交：**名字不是路径**，是不是本包的、落点怎么拼、有没有符号链接逃逸，一律由 bundle 侧的已装记录与 `realpath` 判定
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -186,7 +186,18 @@ function errorCode(error: unknown): string {
   return 'ENT_PLATFORM_UNAVAILABLE'
 }
 
-function actionErrorStatus(error: unknown): number {
+/**
+ * 稳定错误码 → HTTP 状态的**唯一**映射（本地路由的失败投影）。
+ *
+ * 原先它是本文件私有的 `actionErrorStatus`，现在对外导出：`bundle/src/skill-route.ts` 的两条
+ * **本机技能文件**子路由（`/skills/<id>/files`、`/skills/<id>/file`）必须与本文件的
+ * `/skills/content` 用同一张表，否则同一种失败会在两条同族路由上给出两个状态码。
+ * 只读形状，不含任何路由副作用。
+ *
+ * @param error - 路由 handler 里逃出来的异常（带受控 `code` 的稳定错误或内建类型错误）。
+ * @returns 该失败投影成的 HTTP 状态码。
+ */
+export function enterpriseLocalErrorStatus(error: unknown): number {
   if (error instanceof RangeError) return 413
   if (error instanceof SyntaxError || error instanceof TypeError) return 400
   const code = errorCode(error)
@@ -282,7 +293,7 @@ function registerJsonAction(
         await requireEmptyObject(request)
         writeJson(response, 200, { data: await action() })
       } catch (error) {
-        const status = actionErrorStatus(error)
+        const status = enterpriseLocalErrorStatus(error)
         onError?.(`POST ${LOCAL_API_PREFIX}${path}`, error, status)
         writeJson(response, status, {
           error: { code: status === 413 ? 'ENT_REQUEST_TOO_LARGE' : status === 400 ? 'ENT_INVALID_REQUEST' : errorCode(error) },
@@ -325,7 +336,7 @@ export function registerEnterpriseLocalApi(
           const input = parseServerUrlInput(await readJson(request))
           writeJson(response, 200, { data: await options.platform.setServerUrl(input.serverUrl) })
         } catch (error) {
-          const status = actionErrorStatus(error)
+          const status = enterpriseLocalErrorStatus(error)
           options.onError?.(`POST ${LOCAL_API_PREFIX}/server`, error, status)
           writeJson(response, status, {
             error: { code: status === 400 ? 'ENT_INVALID_REQUEST' : errorCode(error) },
@@ -356,8 +367,8 @@ export function registerEnterpriseLocalApi(
         try {
           writeJson(response, 200, { data: options.platform.loginForm() })
         } catch (error) {
-          options.onError?.(`GET ${LOCAL_API_PREFIX}/auth/form`, error, actionErrorStatus(error))
-          writeJson(response, actionErrorStatus(error), { error: { code: errorCode(error) } })
+          options.onError?.(`GET ${LOCAL_API_PREFIX}/auth/form`, error, enterpriseLocalErrorStatus(error))
+          writeJson(response, enterpriseLocalErrorStatus(error), { error: { code: errorCode(error) } })
         }
       },
     }))
@@ -379,7 +390,7 @@ export function registerEnterpriseLocalApi(
             password: body['password'] as string,
           }) })
         } catch (error) {
-          const status = actionErrorStatus(error)
+          const status = enterpriseLocalErrorStatus(error)
           // 凭证永不进日志：这里只留操作名、原始 error（不含正文）与状态码。
           options.onError?.(operation, error, status)
           writeJson(response, status, {
@@ -405,7 +416,7 @@ export function registerEnterpriseLocalApi(
             newPassword: body['newPassword'] as string,
           }) })
         } catch (error) {
-          const status = actionErrorStatus(error)
+          const status = enterpriseLocalErrorStatus(error)
           options.onError?.(operation, error, status)
           writeJson(response, status, {
             error: { code: status === 400 ? 'ENT_INVALID_REQUEST' : status === 413 ? 'ENT_REQUEST_TOO_LARGE' : errorCode(error) },
@@ -430,7 +441,7 @@ export function registerEnterpriseLocalApi(
             writeJson(response, 200, { data: { uninstalled: true, restartRequested: restart !== undefined } })
             restart?.()
           } catch (error) {
-            const status = actionErrorStatus(error)
+            const status = enterpriseLocalErrorStatus(error)
             writeJson(response, status, {
               error: { code: status === 413 ? 'ENT_REQUEST_TOO_LARGE' : status === 400 ? 'ENT_INVALID_REQUEST' : errorCode(error) },
             })
@@ -519,7 +530,7 @@ export function registerEnterpriseLocalApi(
             await options.pluginAction(action, body['packageName'], body['pluginVersionId'] as string | undefined)
             writeJson(response, 200, { data: options.pluginStatus() })
           } catch (error) {
-            const status = actionErrorStatus(error)
+            const status = enterpriseLocalErrorStatus(error)
             writeJson(response, status, { error: {
               code: status === 413 ? 'ENT_REQUEST_TOO_LARGE' : status === 400 ? 'ENT_INVALID_REQUEST' : errorCode(error),
             } })
@@ -553,7 +564,7 @@ export function registerEnterpriseLocalApi(
           try {
             writeJson(response, 200, { data: await skillStatus() })
           } catch (error) {
-            const status = actionErrorStatus(error)
+            const status = enterpriseLocalErrorStatus(error)
             options.onError?.(`GET ${ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH}`, error, status)
             writeJson(response, status, { error: { code: status === 400 ? 'ENT_INVALID_REQUEST' : errorCode(error) } })
           }
@@ -587,7 +598,7 @@ export function registerEnterpriseLocalApi(
           try {
             writeJson(response, 200, { data: await skillContent(packageId, name) })
           } catch (error) {
-            const status = actionErrorStatus(error)
+            const status = enterpriseLocalErrorStatus(error)
             options.onError?.(`GET ${ENTERPRISE_SKILL_CONTENT_LOCAL_PATH}`, error, status)
             writeJson(response, status, { error: {
               code: status === 400 ? 'ENT_INVALID_REQUEST' : errorCode(error),
@@ -621,7 +632,7 @@ export function registerEnterpriseLocalApi(
               }
               writeJson(response, 200, { data: await skillAction(action, body['packageId']) })
             } catch (error) {
-              const status = actionErrorStatus(error)
+              const status = enterpriseLocalErrorStatus(error)
               options.onError?.(`POST ${path}`, error, status)
               writeJson(response, status, { error: {
                 code: status === 413 ? 'ENT_REQUEST_TOO_LARGE' : status === 400 ? 'ENT_INVALID_REQUEST' : errorCode(error),
@@ -656,7 +667,7 @@ export function registerEnterpriseLocalApi(
           try {
             writeJson(response, 200, { data: { items: await sessionSync.list() } })
           } catch (error) {
-            const status = actionErrorStatus(error)
+            const status = enterpriseLocalErrorStatus(error)
             writeJson(response, status, { error: {
               code: errorCode(error) === 'ENT_SESSION_SYNC_DISABLED' ? 'ENT_SESSION_SYNC_DISABLED' : errorCode(error),
             } })
@@ -695,7 +706,7 @@ export function registerEnterpriseLocalApi(
               },
             })
           } catch (error) {
-            const status = actionErrorStatus(error)
+            const status = enterpriseLocalErrorStatus(error)
             writeJson(response, status, {
               error: { code: status === 400 ? 'ENT_INVALID_REQUEST' : errorCode(error) },
             })
@@ -716,7 +727,7 @@ export function registerEnterpriseLocalApi(
           const value = await options.platform.listPresets()
           writeJson(response, 200, { data: value })
         } catch (error) {
-          const status = actionErrorStatus(error)
+          const status = enterpriseLocalErrorStatus(error)
           writeJson(response, status, { error: { code: errorCode(error) } })
         }
       },
@@ -737,7 +748,7 @@ export function registerEnterpriseLocalApi(
           const value = await options.platform.getPreset(packageId)
           writeJson(response, 200, { data: value })
         } catch (error) {
-          const status = actionErrorStatus(error)
+          const status = enterpriseLocalErrorStatus(error)
           writeJson(response, status, { error: { code: errorCode(error) } })
         }
       },

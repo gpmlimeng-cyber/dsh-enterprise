@@ -1,12 +1,12 @@
 /**
- * [INPUT]: 依赖 Node HTTP 类型、platform-client 的 `ctx.webServer` route port 与异常摘要串
- * [OUTPUT]: 对外提供企业技能目录的本地只读镜像 `registerEnterpriseSkillRoutes`（列表 exact + 详情 prefix，**详情 prefix 不带尾斜杠**以适配引擎的路径段前缀匹配），以及可单测的失败投影 `projectSkillFailure` 与信封投影 `projectSkillEnvelope`
- * [POS]: bundle 的员工技能**取数**层——Access Token 只存在于平台 Service，本文件既不接触凭据也不重算可见性，只把中心 runtime 技能列表/详情重封成本地 `{data}` 信封；路线形状受引擎 `dsh-host-webserver` 的 `match()` 约束（见 `LOCAL_DETAIL_ROUTE`）。**只读**：一键安装（下载 + SHA-256 校验 + 落盘）不在这条 prefix 面上，而在 `skill-install.ts` 经 platform-client 的 `/skills/{install,uninstall,installed}` exact 子路径完成——本文件的详情 handler 用 `^[1-9][0-9]{0,18}$` 拒掉一切非雪花段，因此即便 exact 表整张消失，`install` 也只会得到 400 而不是被打上游
+ * [INPUT]: 依赖 Node HTTP 类型、platform-client 的 `ctx.webServer` route port、稳定码→状态码唯一映射 `enterpriseLocalErrorStatus` 与异常摘要串
+ * [OUTPUT]: 对外提供企业技能目录的本地只读镜像 `registerEnterpriseSkillRoutes`（列表 exact + `/skills` prefix；**该 prefix 同时分派两条本机技能文件子路径** `<packageId>/files` 与 `<packageId>/file?path=`，注册面仍恰好两条路由），以及可单测的失败投影 `projectSkillFailure` 与信封投影 `projectSkillEnvelope`
+ * [POS]: bundle 的员工技能**取数**层——Access Token 只存在于平台 Service，本文件既不接触凭据也不重算可见性，只把中心 runtime 技能列表/详情重封成本地 `{data}` 信封；路线形状受引擎 `dsh-host-webserver` 的 `match()` 约束（见 `LOCAL_DETAIL_ROUTE`）：**exact 表只认整条字面路径**（动态 `<packageId>` 无法注册成 exact），**prefix 表同一 path 只能注册一次**，而 `/skills` 这条 prefix 已由本文件持有，因此两条本机文件子路径必须由同一条 prefix handler 按剩余段分派（`local` 端口缺席即 400，fail-closed 不暴露）；**只读**：一键安装（下载 + SHA-256 校验 + 落盘）不在这条 prefix 面上，而在 `skill-install.ts` 经 platform-client 的 `/skills/{install,uninstall,installed,content}` exact 子路径完成——本文件对包 id 一律用 `^[1-9][0-9]{0,18}$` 收窄，因此即便 exact 表整张消失，`install` 也只会得到 400 而不是被打上游；**路径安全不在这里实现**：相对路径的门禁与落点解析只在 `skill-install.ts`（`requireRelativeSkillPath` / `resolveInstalledSkillTarget`），本文件只做「段形状 + 查询键集」的分派
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { thrownErrorDiagnostics, type WebServerRoutePort } from '@dshent/platform-client'
+import { enterpriseLocalErrorStatus, thrownErrorDiagnostics, type WebServerRoutePort } from '@dshent/platform-client'
 
 /** 中心 runtime 技能列表；与 contracts 的 paths/skill 真源同名（详情即此后缀雪花 id）。 */
 export const ENTERPRISE_SKILLS_LIST_PATH = '/enterprise/api/v1/skills'
@@ -43,6 +43,24 @@ const PACKAGE_ID = /^[1-9][0-9]{0,18}$/
 export interface EnterpriseSkillPlatformPort {
   request(input: string, init?: RequestInit): Promise<Response>
 }
+
+/**
+ * 两条**本机技能文件**子路径的端口（由组合层绑定 `createEnterpriseSkillInstall(...)` 的 `files`/`file`）。
+ *
+ * 形状故意最小：路由只负责「段形状 + 查询键集」的分派与错误投影，**相对路径的门禁与落点解析
+ * 全部在 bundle 的 `skill-install.ts`**（`requireRelativeSkillPath` / `resolveInstalledSkillTarget`），
+ * 与既有的 platform-client `/skills/content` 是同一份实现——本文件不许再写第二套路径判定。
+ */
+export interface EnterpriseSkillLocalFilePort {
+  /** `GET <local>/skills/<packageId>/files`：列该已装技能包在本机真树上的条目。 */
+  files(packageId: string): Promise<unknown>
+  /** `GET <local>/skills/<packageId>/file?path=<相对路径>`：读一个文本文件。 */
+  file(packageId: string, path: string): Promise<unknown>
+}
+
+/** 两条子路径的固定后缀（与 `LOCAL_DETAIL_PREFIX` 一起切出包 id）。 */
+const LOCAL_FILES_SUFFIX = '/files'
+const LOCAL_FILE_SUFFIX = '/file'
 
 const JSON_CONTENT_TYPE = 'application/json; charset=utf-8'
 /** 与 account-state 的错误码形状门禁同源：只回显受控标识符，任意外字符串不进响应体。 */
@@ -148,6 +166,15 @@ function pathnameOf(request: IncomingMessage): string {
 }
 
 /**
+ * 解析请求 URL（只为读查询串）。
+ * 基址用不可路由的伪 host：这里**只**取 `searchParams`，绝不用它拼任何上游地址；
+ * `URLSearchParams` 会把查询值**解码一次**，二次编码因此会在 bundle 侧的路径门禁里显形（`%` 仍在）。
+ */
+function requestUrl(request: IncomingMessage): URL {
+  return new URL(request.url ?? '/', 'http://enterprise.local')
+}
+
+/**
  * 在 Harness `ctx.webServer` 上注册企业技能目录的同源只读路由。
  *
  * 浏览器不可见 Access Token，因此取数只能由 Host 代取：`GET <local>/skills` 与
@@ -155,18 +182,27 @@ function pathnameOf(request: IncomingMessage): string {
  * 成功把 `{data}` 透传给 UI；上游 401 投影 401（未登录/会话过期），其余失败投影 503。
  * 所有投影在写状态行之前就算好响应体，异常不逃到 Cordis 顶层。
  *
+ * **本机文件家族（两条同族子路径，共用同一条 prefix handler）**：
+ *  · `GET <local>/skills/{packageId}/files` → 该已装技能包在本机真树上的条目清单（路径 + 字节数 + 类型）；
+ *  · `GET <local>/skills/{packageId}/file?path=<相对路径>` → 该文件的**文本**正文（二进制按稳定码拒）。
+ * 两条都不碰网络，失败状态码走 platform-client 的 `enterpriseLocalErrorStatus`，与
+ * `/skills/content` 同族同表；路径门禁与落点解析只在 `skill-install.ts` 那一份实现里（本文件不重复判定）。
+ *
  * 只读：技能包下载与落盘（`/versions/{id}/download` + `~/.dsh/skills`）不在此面内，
- * 由 `skill-install.ts` 经三条 `/skills/*` exact 动作路由承担（Host 代取令牌并校验 SHA-256）。
+ * 由 `skill-install.ts` 经四条 `/skills/*` exact 路由承担（Host 代取令牌并校验 SHA-256）。
  *
  * @param webServer - `ctx.webServer` route port。
  * @param platform - 代取令牌的平台请求面（组合层传 `EnterprisePlatformService`）。
  * @param onError - 投影留痕端口；组合层把它接到 Host logger。
+ * @param local - 两条**本机技能文件**子路径的端口（组合层传 `createEnterpriseSkillInstall(...)`）；
+ *   缺席时这两条子路径一律 400（不暴露），其余行为一字不变。
  * @returns 注销这两条路由的 disposer。
  */
 export function registerEnterpriseSkillRoutes(
   webServer: WebServerRoutePort,
   platform: EnterpriseSkillPlatformPort,
   onError?: (message: string, error: unknown) => void,
+  local?: EnterpriseSkillLocalFilePort,
 ): () => void {
   const proxy = async (
     response: ServerResponse,
@@ -194,6 +230,66 @@ export function registerEnterpriseSkillRoutes(
     writeJson(response, status, body)
   }
 
+  /** 失败投影：状态码走 platform-client 的**唯一**那张表，响应体只回受控形状的稳定码。 */
+  const fail = (response: ServerResponse, error: unknown, operation: string): void => {
+    const status = enterpriseLocalErrorStatus(error)
+    const code = errorCodeOf(error)
+    writeJson(response, status, {
+      error: { code: status === 400 ? 'ENT_INVALID_REQUEST' : code !== undefined && CODE_SHAPE.test(code) ? code : 'ENT_PLATFORM_UNAVAILABLE' },
+    })
+    onError?.(`enterprise skill local file request projected to ${status}`
+      + ` [operation=${operation} step=local-file status=${status}]`
+      + ` ${thrownErrorDiagnostics(error)}`, error)
+  }
+
+  /**
+   * 两条本机文件子路径的分派（**不新增路由**：exact 表表达不了动态包 id，prefix 表同一 path 只能注册一次，
+   * 而 `/skills` prefix 已由本文件持有）。这里只做「段形状 + 查询键集」：
+   *  · `<id>/files` → `local.files(id)`
+   *  · `<id>/file?path=<相对路径>` → `local.file(id, path)`（查询键必须**恰好**一个 `path`）
+   *  · 其余（含 `local` 端口缺席）→ 400
+   * **相对路径的形状与落点安全不在本文件**：那是 `skill-install.ts` 的 `requireRelativeSkillPath` +
+   * `resolveInstalledSkillTarget`（与 `/skills/content` 同一份实现），路由层不重复判定。
+   */
+  const dispatchLocalFiles = async (
+    request: IncomingMessage,
+    response: ServerResponse,
+    rest: string,
+  ): Promise<void> => {
+    const operation = `GET ${ENTERPRISE_SKILL_LOCAL_PATH}/${rest}`
+    if (local === undefined) {
+      // 组合层没有绑定本机文件端口：如实按非法请求拒（不暴露、不猜、不打上游）。
+      writeJson(response, 400, { error: { code: 'ENT_INVALID_REQUEST' } })
+      return
+    }
+    const files = rest.endsWith(LOCAL_FILES_SUFFIX)
+    const suffix = files ? LOCAL_FILES_SUFFIX : LOCAL_FILE_SUFFIX
+    const packageId = rest.slice(0, -suffix.length)
+    if (!PACKAGE_ID.test(packageId)) {
+      // 浏览器只可能拿列表里的 id 来取文件；非法形状在本地就拒，绝不带着任意路径打上游。
+      writeJson(response, 400, { error: { code: 'ENT_INVALID_REQUEST' } })
+      return
+    }
+    try {
+      if (files) {
+        writeJson(response, 200, { data: await local.files(packageId) })
+        return
+      }
+      const query = requestUrl(request).searchParams
+      const keys = [...query.keys()]
+      const path = query.get('path')
+      // 查询键集必须**恰好**是 `path`（多给、少给、重复一律 400）：越界参数不得进入这条只读路由。
+      // 值本身只按「非空」收窄；`..`/绝对路径/控制字符/`%` 编码绕过等形状判定在 bundle 侧同一份门禁里。
+      if (keys.length !== 1 || keys[0] !== 'path' || path === null || path.length === 0) {
+        writeJson(response, 400, { error: { code: 'ENT_INVALID_REQUEST' } })
+        return
+      }
+      writeJson(response, 200, { data: await local.file(packageId, path) })
+    } catch (error) {
+      fail(response, error, operation)
+    }
+  }
+
   const disposeList = webServer.register({
     kind: 'exact',
     path: ENTERPRISE_SKILL_LOCAL_PATH,
@@ -215,16 +311,21 @@ export function registerEnterpriseSkillRoutes(
         methodNotAllowed(response, 'GET')
         return
       }
-      const packageId = pathnameOf(request).slice(LOCAL_DETAIL_PREFIX.length)
-      if (!PACKAGE_ID.test(packageId)) {
+      const rest = pathnameOf(request).slice(LOCAL_DETAIL_PREFIX.length)
+      // 两条本机文件子路径由这条既有 prefix 分派（见 dispatchLocalFiles 的注释）。
+      if (rest.endsWith(LOCAL_FILES_SUFFIX) || rest.endsWith(LOCAL_FILE_SUFFIX)) {
+        await dispatchLocalFiles(request, response, rest)
+        return
+      }
+      if (!PACKAGE_ID.test(rest)) {
         // 浏览器只可能拿列表里的 id 来取详情；非法形状在本地就拒，绝不带着任意路径打上游。
         writeJson(response, 400, { error: { code: 'ENT_INVALID_REQUEST' } })
         return
       }
       await proxy(
         response,
-        `${ENTERPRISE_SKILL_LOCAL_PATH}/${packageId}`,
-        `${ENTERPRISE_SKILLS_LIST_PATH}/${packageId}`,
+        `${ENTERPRISE_SKILL_LOCAL_PATH}/${rest}`,
+        `${ENTERPRISE_SKILLS_LIST_PATH}/${rest}`,
       )
     },
   })

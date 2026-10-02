@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 接收技能制品下载、ZIP 解包、包契约核对、本机落点与状态文件四类边界的失败分类
  * [OUTPUT]: 对外提供只携带稳定 `ENT_*` code 的 `EnterpriseSkillInstallError`、封闭的 code 联合与归一化函数 `skillInstallError`
- * [POS]: bundle 技能安装纵深的失败防泄漏边界——错误里不放响应正文、不放宿主绝对路径、不放子进程输出，浏览器只拿到 `error.code`；code 与 platform-client 的 `actionErrorStatus` 投影表一一对应
+ * [POS]: bundle 技能安装纵深的失败防泄漏边界——错误里不放响应正文、不放宿主绝对路径、不放子进程输出，浏览器只拿到 `error.code`；code 与 platform-client 的 `enterpriseLocalErrorStatus` 投影表一一对应
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 

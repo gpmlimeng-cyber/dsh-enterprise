@@ -12,6 +12,7 @@ import {
   ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH,
   ENTERPRISE_SKILL_INSTALL_LOCAL_PATH,
   ENTERPRISE_SKILL_UNINSTALL_LOCAL_PATH,
+  enterpriseLocalErrorStatus,
   registerEnterpriseLocalApi,
   type EnterpriseLocalPlatformPort,
   type EnterpriseLocalSessionPort,
@@ -19,6 +20,24 @@ import {
   type WebServerRoutePort,
 } from '../src/index.js'
 import { engineRouteMatch, type RegisteredRoute } from './engine-route-match.js'
+
+/**
+ * 稳定码 → HTTP 状态的**唯一**映射现在是对外出口：bundle 侧两条本机技能文件子路由
+ * （`/skills/<id>/files`、`/skills/<id>/file`）与这里的 `/skills/content` 必须共用同一张表，
+ * 否则同一种失败会在两条同族路由上给出两个状态码。这里把四条本机技能相关的码逐条钉住。
+ */
+describe('enterprise local error status mapping', () => {
+  it('maps the local skill file family codes to the same statuses the content route uses', () => {
+    const withCode = (code: string): Error => Object.assign(new Error(code), { code })
+    expect(enterpriseLocalErrorStatus(withCode('ENT_INVALID_REQUEST'))).toBe(400)
+    expect(enterpriseLocalErrorStatus(withCode('ENT_RESOURCE_NOT_FOUND'))).toBe(404)
+    expect(enterpriseLocalErrorStatus(withCode('ENT_SKILL_CONTENT_INVALID'))).toBe(409)
+    expect(enterpriseLocalErrorStatus(withCode('ENT_SKILL_CONTENT_TOO_LARGE'))).toBe(413)
+    // 未知/无码一律 503（绝不把内码或任意异常折成 2xx）。
+    expect(enterpriseLocalErrorStatus(new Error('socket hang up'))).toBe(503)
+    expect(enterpriseLocalErrorStatus(withCode('EACCES'))).toBe(503)
+  })
+})
 
 /**
  * 会话同步端口假件。`restore` 留出独立引用，用来断言 sourceSessionId 确实是从 URL 路径段切出来的，
