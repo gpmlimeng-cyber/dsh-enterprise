@@ -1,33 +1,44 @@
 /**
- * [INPUT]: 依赖 `plugin-install-progress.ts` 的真进度/落地交代唯一投影、`account-store.ts` 的「安装中」轮询、
+ * [INPUT]: 依赖 `plugin-install-progress.ts` 的真进度/落地交代唯一投影（含**按真状态算的**取消三件）、
+ *          `account-store.ts` 的「安装中」轮询与 `cancelPlugin` 取消动作、
  *          `marketplace-entry.tsx` 的共享行子块（插件行落点）、`plugin-market.tsx` 的卡片/详情落点（两个纯组件）、
  *          `plugin-install-gate.ts` 的在途清单与 `local-api` 的错误类；无 DOM（与 marketplace-entry.spec 同一套树工具）
- * [OUTPUT]: 锁六件事——① **真进度只能来自真状态**：`enterprisePluginProgress` 只在「本机真的在走工序」或
+ * [OUTPUT]: 锁七件事——① **真进度只能来自真状态**：`enterprisePluginProgress` 只在「本机真的在走工序」或
  *          「本客户端真的发出过动作」时产出，安静行一律 `undefined`；② **绝不假装进度**：产物里没有百分比、
  *          渲染出来的 `role="progressbar"` 没有 `aria-valuenow`（不确定态），那条动画只动 `transform`、不动 `width`
  *          （源码级反向锁：谁把它改成会填满的条就先红）；③ **阶段推进与三态收束**：`DOWNLOADING → VERIFIED → INSTALLING`
  *          阶段文字真的换，收束到 done（ACTIVE）/ 需重启（RESTART_REQUIRED）/ 失败（FAILED，交给唯一提示组件 + 可重试）；
- *          ④ **不给假取消**：上游没有可达的取消面（本仓受管安装走 `dsh plugin` 子进程，不经官方 pluginManager），
- *          故只有一句「不能取消」的可见交代、没有任何取消按钮；⑤ **无障碍与 reduced-motion**：`role="progressbar"`
- *          + `aria-live="polite"` + `aria-valuetext`（阶段文字），`@media (prefers-reduced-motion:reduce)` 关掉动效后
- *          **阶段文字仍是独立文本节点**；进度刻意不占 `role="status"|"alert"`，故既有「禁用即须有可见说明」那条
- *          反向锁的计数不受影响；⑥ **接线是真的**：store 在动作在途时轮询的是我们自己那条**只读** `GET /plugins`
+ *          ④ **取消按真状态给**（本刀）：官方取消句柄只在 `INSTALLING` 那一格真实存在 ⇒ 只有它能取消，
+ *          别的在途态给**可见原因**、卸载方向明说没有取消面、取消请求在途时按钮不可用且以 `role="status"` 播报；
+ *          ⑤ **无障碍与 reduced-motion**：`role="progressbar"` + `aria-live="polite"` + `aria-valuetext`（阶段文字），
+ *          取消按钮有 `aria-label`，`@media (prefers-reduced-motion:reduce)` 关掉动效后**阶段文字仍是独立文本节点**；
+ *          进度刻意不占 `role="status"|"alert"`，故既有「禁用即须有可见说明」那条反向锁的计数不受影响；
+ *          ⑥ **接线是真的**：store 在动作在途时轮询的是我们自己那条**只读** `GET /plugins`
  *          （真源：`plugin-distribution` 每走一步都写真实受管态），读不到只把稳定码摆出来（不静默、不误判成安装失败），
- *          装完自停，页面刷新撞上在途安装时自动接上。
- * [POS]: 「企业插件安装的动态过程效果」这一刀的机械门禁：把「真进度而不是假动画」从口号变成可执行断言
+ *          装完自停，页面刷新撞上在途安装时自动接上；⑦ **真取消端到端**（本刀）：`cancelPlugin` 只对那一行发一次
+ *          `POST /plugins/cancel`，响应收下即回到安装前真状态、进度停表，那次安装请求以
+ *          `ENT_PLUGIN_INSTALL_CANCELLED` 收束（可见反馈 + 可重试）；取消请求自己失败时把稳定码摆进快照（不静默、
+ *          不改写不相关的码）。
+ * [POS]: 「企业插件安装的动态过程效果」+「真取消」两刀的机械门禁：把「真进度而不是假动画」「真取消而不是假按钮」
+ *        从口号变成可执行断言
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { isValidElement, type ReactElement, type ReactNode } from 'react'
 import { readFile } from 'node:fs/promises'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Switch } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import { EnterpriseAccountStore } from '../src/account-store.js'
+import { enterpriseErrorRetryable } from '../src/error-messages.js'
 import type { EnterpriseLocalApi, EnterprisePluginStatus, EnterpriseLocalStatus, ManagedPluginState } from '../src/local-api.js'
 import { EnterpriseLocalApiError } from '../src/local-api.js'
 import { ENTERPRISE_PLUGIN_IN_FLIGHT_STATES } from '../src/plugin-install-gate.js'
 import {
-  ENTERPRISE_PLUGIN_PROGRESS_CANCEL_NOTICE,
+  ENTERPRISE_PLUGIN_CANCELABLE_STATES,
+  ENTERPRISE_PLUGIN_PROGRESS_CANCEL_EARLY,
+  ENTERPRISE_PLUGIN_PROGRESS_CANCEL_PENDING,
+  ENTERPRISE_PLUGIN_PROGRESS_CANCEL_REMOVE,
+  ENTERPRISE_PLUGIN_PROGRESS_CANCELLING,
   ENTERPRISE_PLUGIN_PROGRESS_MAX_IDLE_TICKS,
   ENTERPRISE_PLUGIN_PROGRESS_PENDING_INSTALL,
   ENTERPRISE_PLUGIN_PROGRESS_PENDING_REMOVE,
@@ -133,6 +144,17 @@ function pluginRow(tree: ReactNode, name: string): ReactNode {
   return found
 }
 
+/**
+ * 子树里全部官方 `Button`（mock 后只剩 props）。
+ *
+ * 取消入口就是它——本仓不给取消另造一套控件（既有的官方 `Button` 原语 + 既有类名，一个新 CSS 类都没加）。
+ */
+function buttonsWithin(node: ReactNode): Record<string, unknown>[] {
+  const acc: Record<string, unknown>[] = []
+  walkTree(node, element => { if (element.type === (Button as unknown)) acc.push(element.props) })
+  return acc
+}
+
 /** 一行插件（目录版 + 本机态）的构造器。 */
 function row(overrides: Partial<EnterpriseMarketPluginRow> = {}): EnterpriseMarketPluginRow {
   return { packageName: 'ent-a', version: '1.2.0', state: 'EXPECTED', inCatalog: true, ...overrides }
@@ -208,15 +230,57 @@ describe('真进度只能来自真状态（纯投影）', () => {
     expect(ask({ state: 'FAILED', busy: { action: 'install', packageName: 'ent-a' } })).toBeUndefined()
   })
 
-  it('carries the two hard truths: never determinate, never cancellable', () => {
+  it('carries the hard truth of "no percentages", and lets the real handle decide cancellation', () => {
     const progress = ask({ state: 'DOWNLOADING', stageText: '正在下载' })
     expect(progress?.indeterminate).toBe(true)
+    // 「在途」**不等于**「能取消」：官方取消句柄要到 `INSTALLING` 那一步才挂上（见下面那条清单用例）。
     expect(progress?.cancelable).toBe(false)
-    expect(progress?.cancelNotice).toBe(ENTERPRISE_PLUGIN_PROGRESS_CANCEL_NOTICE)
+    expect(progress?.canceling).toBe(false)
+    expect(progress?.cancelNotice).toBe(ENTERPRISE_PLUGIN_PROGRESS_CANCEL_EARLY)
     // 那一路读不到时多一句**可见**交代（不是静默）。
     expect(progress?.readFailedNotice).toBeUndefined()
     expect(ask({ state: 'DOWNLOADING', stageText: '正在下载', readErrorCode: 'ENT_LOCAL_UNAVAILABLE' })?.readFailedNotice)
       .toBe(ENTERPRISE_PLUGIN_PROGRESS_READ_FAILED)
+  })
+
+  it('gives the cancel entry exactly where the official cancel handle exists, and a visible reason everywhere else', () => {
+    // ① 唯一能取消的那一格：`INSTALLING`（官方 `installHandle` 就是在这里挂上的）。此时**没有**任何解释句——
+    //    那枚按钮自己把话说清（不能取消时才轮到 `cancelNotice`）。
+    expect(ENTERPRISE_PLUGIN_CANCELABLE_STATES).toEqual(['INSTALLING'])
+    const installing = ask({ state: 'INSTALLING', stageText: '正在安装' })
+    expect(installing?.cancelable).toBe(true)
+    expect(installing?.canceling).toBe(false)
+    expect(installing?.cancelNotice).toBeUndefined()
+    // ② 句柄之前的四个态：取消打不到任何东西 ⇒ 不画按钮，改给一句「走到正在安装后就能取消」。
+    for (const early of ['ROLLBACK', 'DOWNLOAD_PENDING', 'DOWNLOADING', 'VERIFIED'] as const) {
+      const current = ask({ state: early, stageText: `阶段-${early}` })
+      expect(current?.cancelable, early).toBe(false)
+      expect(current?.cancelNotice, early).toBe(ENTERPRISE_PLUGIN_PROGRESS_CANCEL_EARLY)
+    }
+    // ③ 请求刚提交（Host 还没报到在途阶段）：同理，只是换一句更准的（连下载都还没开始）。
+    const pendingInstall = ask({ busy: { action: 'install', packageName: 'ent-a' } })
+    expect(pendingInstall?.cancelable).toBe(false)
+    expect(pendingInstall?.cancelNotice).toBe(ENTERPRISE_PLUGIN_PROGRESS_CANCEL_PENDING)
+    // ④ 卸载方向压根没有安装句柄（官方 `cancelInstall` 只管安装那一跑）：如实说「完成前不能中断」。
+    for (const removing of ['REMOVE_PENDING', 'REMOVING'] as const) {
+      const current = ask({ state: removing, stageText: '正在卸载' })
+      expect(current?.cancelable, removing).toBe(false)
+      expect(current?.cancelNotice, removing).toBe(ENTERPRISE_PLUGIN_PROGRESS_CANCEL_REMOVE)
+    }
+    const ownRemove = ask({ busy: { action: 'remove', packageName: 'ent-a' } })
+    expect(ownRemove?.cancelable).toBe(false)
+    expect(ownRemove?.cancelNotice).toBe(ENTERPRISE_PLUGIN_PROGRESS_CANCEL_REMOVE)
+    // ⑤ 取消请求在路上：按钮**留着**但不可用（有可见进行态，不是死控件）；`cancelable` 仍如实为 true
+    //    （状态没变、句柄还在），变的是「我们已经在请它取消了」这件事实（`canceling`）。
+    const canceling = ask({ state: 'INSTALLING', stageText: '正在安装', cancelBusy: { packageName: 'ent-a' } })
+    expect(canceling?.canceling).toBe(true)
+    expect(canceling?.cancelable).toBe(true)
+    expect(canceling?.cancelNotice).toBe(ENTERPRISE_PLUGIN_PROGRESS_CANCELLING)
+    // ⑥ 归行口径与 `busy` 逐字相同：别的行的取消请求不算这一行在取消。
+    const otherRow = ask({ state: 'INSTALLING', stageText: '正在安装', cancelBusy: { packageName: 'ent-b' } })
+    expect(otherRow?.canceling).toBe(false)
+    expect(otherRow?.cancelable).toBe(true)
+    expect(otherRow?.cancelNotice).toBeUndefined()
   })
 
   it('keeps the progress list a strict superset of the switch-lock list, and excludes every settled state', () => {
@@ -225,6 +289,10 @@ describe('真进度只能来自真状态（纯投影）', () => {
     }
     for (const settled of ['EXPECTED', 'ACTIVE', 'RESTART_REQUIRED', 'FAILED'] as const) {
       expect(ENTERPRISE_PLUGIN_PROGRESS_STATES, settled).not.toContain(settled)
+    }
+    // 可取消清单是**在途清单的子集**：取消只可能发生在有工序在跑的行上（且只有安装方向的那一格）。
+    for (const state of ENTERPRISE_PLUGIN_CANCELABLE_STATES) {
+      expect(ENTERPRISE_PLUGIN_PROGRESS_STATES, state).toContain(state)
     }
   })
 
@@ -235,7 +303,7 @@ describe('真进度只能来自真状态（纯投影）', () => {
     // ① 投影产物的键集**封闭**：没有 percent / ratio / value 这类「完成度」字段可塞。
     const progress = enterprisePluginProgress({ packageName: 'ent-a', state: 'DOWNLOADING', stageText: '正在下载' })!
     expect(Object.keys(progress).sort()).toEqual([
-      'cancelNotice', 'cancelable', 'indeterminate', 'owned', 'phase', 'stageText', 'state',
+      'cancelNotice', 'cancelable', 'canceling', 'indeterminate', 'owned', 'phase', 'stageText', 'state',
     ])
     expect(typeof (progress as unknown as Record<string, unknown>)['indeterminate']).toBe('boolean')
     // ② 这条链的**代码**（剥掉注释）里没有百分比；也没有任何 aria-valuenow/min/max 的用法
@@ -312,14 +380,63 @@ describe('企业插件行的「安装中」过程效果', () => {
     expect(switches).toHaveLength(2)
     expect(switches.find(item => String(item['label']).includes('ent-b'))?.['disabled']).toBe(false)
     expect(switches.find(item => String(item['label']).includes('ent-a'))?.['disabled']).toBe(true)
-    // 「不能取消」是**一句话**，不是一枚按钮：整行里没有任何取消按钮，也没有 cancelable 为 true 的钩子。
-    expect(bars[0]?.['data-enterprise-plugin-progress-cancelable']).toBe('false')
+    // 「能不能取消」由 Host 真受管态算：`INSTALLING` 正是官方取消句柄真的在的那一格 ⇒ 钩子为 true；
+    // 但写入口缺席（纯函数直调）时**连按钮都不画**——没写入口就不给死按钮（本仓既有降级口径）。
+    expect(bars[0]?.['data-enterprise-plugin-progress-cancelable']).toBe('true')
+    expect(bars[0]?.['data-enterprise-plugin-progress-canceling']).toBe('false')
     expect(bars[0]?.['data-enterprise-plugin-progress-indeterminate']).toBe('true')
-    expect(textWithin(pluginRow(tree, 'ent-a'))).toContain(ENTERPRISE_PLUGIN_PROGRESS_CANCEL_NOTICE)
-    expect(textWithin(pluginRow(tree, 'ent-a'))).not.toContain('取消安装')
-    const buttons: Record<string, unknown>[] = []
-    walkTree(tree, element => { if (element.type === (Switch as unknown)) return; if (element.props['className'] === 'own-market-progressButton') buttons.push(element.props) })
-    expect(buttons).toEqual([])
+    expect(buttonsWithin(tree)).toEqual([])
+    // 不能取消时才轮到那句「为什么」——能取消的行一个字都不多说。
+    expect(textWithin(pluginRow(tree, 'ent-a'))).not.toContain(ENTERPRISE_PLUGIN_PROGRESS_CANCEL_EARLY)
+  })
+
+  it('renders a real cancel entry only while the official handle exists, with a name and a visible reason when it does not', () => {
+    // ① 句柄真的在（`INSTALLING`）+ 写入口在场 ⇒ 一枚**真按钮**：可见文案 + 明确 accessible name，点它只交回本行。
+    const onCancelPlugin = vi.fn()
+    const tree = EnterpriseMarketLegacyShell(shellProps(row({ state: 'INSTALLING' }), { onCancelPlugin }))
+    const entry = buttonsWithin(pluginRow(tree, 'ent-a'))[0]
+    expect(entry?.['aria-label']).toBe('取消安装 ent-a')
+    expect(entry?.['disabled']).toBe(false)
+    expect(textWithin(pluginRow(tree, 'ent-a'))).toContain('取消安装')
+    ;(entry?.['onClick'] as () => void)()
+    expect(onCancelPlugin).toHaveBeenCalledTimes(1)
+    expect((onCancelPlugin.mock.calls[0]?.[0] as { packageName: string }).packageName).toBe('ent-a')
+    // ② 句柄还没交出来（下载中）⇒ **不画**按钮，改给一句可见原因（说清什么时候可以取消）。
+    const early = EnterpriseMarketLegacyShell(shellProps(row({ state: 'DOWNLOADING' }), { onCancelPlugin: vi.fn() }))
+    expect(buttonsWithin(pluginRow(early, 'ent-a'))).toEqual([])
+    expect(textWithin(pluginRow(early, 'ent-a'))).toContain(ENTERPRISE_PLUGIN_PROGRESS_CANCEL_EARLY)
+    // ③ 卸载方向没有取消面：同样不画按钮，并明说完成前不能中断。
+    const removing = EnterpriseMarketLegacyShell(shellProps(row({ state: 'REMOVING' }), { onCancelPlugin: vi.fn() }))
+    expect(buttonsWithin(pluginRow(removing, 'ent-a'))).toEqual([])
+    expect(textWithin(pluginRow(removing, 'ent-a'))).toContain(ENTERPRISE_PLUGIN_PROGRESS_CANCEL_REMOVE)
+    // ④ 取消请求在路上：按钮留着但**不可用**，并有可见进行态（`role="status"` 播报）——不是死控件。
+    const canceling = EnterpriseMarketLegacyShell(shellProps(row({ state: 'INSTALLING' }), {
+      onCancelPlugin: vi.fn(), pluginCancelBusy: { packageName: 'ent-a' },
+    }))
+    const cancelingRow = pluginRow(canceling, 'ent-a')
+    const cancelingEntry = buttonsWithin(cancelingRow)[0]
+    expect(cancelingEntry?.['disabled']).toBe(true)
+    expect(cancelingEntry?.['aria-label']).toBe('正在取消 ent-a 的安装')
+    expect(noticesWithin(cancelingRow)).toContain(ENTERPRISE_PLUGIN_PROGRESS_CANCELLING)
+    // ⑤ 已落定：整段进度（按钮 + 原因）一起退场，不残留一枚永久取消键。
+    const settled = EnterpriseMarketLegacyShell(shellProps(row({ state: 'ACTIVE' }), {
+      onCancelPlugin: vi.fn(), pluginCancelBusy: { packageName: 'ent-a' },
+    }))
+    expect(collectByAttr(settled, 'data-enterprise-plugin-progress')).toEqual([])
+    expect(buttonsWithin(settled)).toEqual([])
+    // ⑥ 取消后的可见反馈走**既有**那一枚行内提示（唯一提示组件）：人话 + 下一步 + 技术信息里的码；
+    //    「取消」那一支不给「安装失败」前缀（用户是自己按的取消，挂失败前缀就是自相矛盾）。
+    const cancelledRow = pluginRow(EnterpriseMarketLegacyShell(shellProps(row({ state: 'EXPECTED' }), {
+      pluginActionError: { id: 'ent-a', action: 'cancel', code: 'ENT_PLUGIN_INSTALL_CANCELLED' },
+    })), 'ent-a')
+    expect(textWithin(cancelledRow)).toContain('这次安装被取消了。')
+    expect(textWithin(cancelledRow)).toContain('下一步：')
+    expect(textWithin(cancelledRow)).toContain('请重试。')
+    expect(textWithin(cancelledRow)).not.toContain('安装失败')
+    expect(collectByAttr(cancelledRow, 'data-enterprise-error-code').map(props => props['data-enterprise-error-code']))
+      .toEqual(['ENT_PLUGIN_INSTALL_CANCELLED'])
+    // 它在既有那枚 `role="status"|"alert"` 提示里被播报（不是新造一个通道）。
+    expect(noticesWithin(cancelledRow).some(text => text.includes('这次安装被取消了。'))).toBe(true)
   })
 
   it('advances the stage text with the real Host stage, one word at a time', () => {
@@ -399,7 +516,7 @@ describe('企业插件行的「安装中」过程效果', () => {
     expect(collectByAttr(line, 'data-enterprise-plugin-progress')).toHaveLength(1)
   })
 
-  it('renders the same progress and the same words from the shared projection in both places', async () => {
+  it('renders the same progress, the same words and the same cancel entry from the shared projection in both places', async () => {
     const progress = enterprisePluginProgress({ packageName: 'ent-a', state: 'DOWNLOADING', stageText: '正在下载' })!
     const settled = ENTERPRISE_PLUGIN_SETTLED_INSTALLED
     // 官方插件页里的插件市场（行落点）
@@ -412,8 +529,28 @@ describe('企业插件行的「安装中」过程效果', () => {
       expect(bar?.['aria-valuetext'], label).toBe('正在下载')
       expect(bar?.['aria-live'], label).toBe('polite')
       expect(textWithin(tree), label).toContain('正在下载')
-      expect(textWithin(tree), label).toContain(ENTERPRISE_PLUGIN_PROGRESS_CANCEL_NOTICE)
+      // 同一句「为什么还不能取消」——两处不可能一处给按钮、另一处给理由。
+      expect(textWithin(tree), label).toContain(ENTERPRISE_PLUGIN_PROGRESS_CANCEL_EARLY)
+      expect(buttonsWithin(tree), label).toEqual([])
     }
+    // 可取消时两处都出**同一枚**真按钮（可见文案与 accessible name 逐字相同），且都只调同一个写入口。
+    const cancelable = enterprisePluginProgress({ packageName: 'ent-a', state: 'INSTALLING', stageText: '正在安装' })!
+    const onRowCancel = vi.fn()
+    const onCardCancel = vi.fn()
+    const rowEntry = buttonsWithin(EnterprisePluginProgressNotes({
+      id: 'ent-a', facts: { progress: cancelable } as never, onCancel: onRowCancel,
+    }))[0]
+    const cardEntry = buttonsWithin(EnterprisePluginCardProgressNotes({
+      name: 'ent-a', progress: cancelable, onCancel: onCardCancel,
+    }))[0]
+    for (const [label, entry] of [['row', rowEntry], ['card', cardEntry]] as const) {
+      expect(entry?.['aria-label'], label).toBe('取消安装 ent-a')
+      expect(entry?.['disabled'], label).toBe(false)
+    }
+    ;(rowEntry?.['onClick'] as () => void)()
+    ;(cardEntry?.['onClick'] as () => void)()
+    expect(onRowCancel).toHaveBeenCalledTimes(1)
+    expect(onCardCancel).toHaveBeenCalledTimes(1)
     expect(collectByAttr(EnterprisePluginSettledNote({ id: 'ent-a', facts: { settledNotice: settled } as never }), 'data-enterprise-plugin-settled')).toHaveLength(1)
     expect(collectByAttr(EnterprisePluginCardSettledNote({ name: 'ent-a', notice: settled }), 'data-enterprise-plugin-settled')).toHaveLength(1)
     // 没有进度 / 没有交代时两处都整段不进 DOM（安静行不加噪音）。
@@ -421,7 +558,7 @@ describe('企业插件行的「安装中」过程效果', () => {
     expect(EnterprisePluginSettledNote({ id: 'ent-a', facts: {} as never })).toBeNull()
     expect(EnterprisePluginCardProgressNotes({ name: 'ent-a', progress: undefined })).toBeNull()
     expect(EnterprisePluginCardSettledNote({ name: 'ent-a', notice: undefined })).toBeNull()
-    // 源码级：两处都只经**同一份**投影取进度与交代（没有第二套阶段词、也没有第二份百分比）。
+    // 源码级：两处都只经**同一份**投影取进度、交代与取消三件（没有第二套阶段词、也没有第二份百分比）。
     const market = await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8')
     const tab = await readFile(new URL('../src/plugin-market.tsx', import.meta.url), 'utf8')
     const code = (source: string): string => stripBlocks(source).replace(/\/\/[^\n]*/g, '')
@@ -431,6 +568,11 @@ describe('企业插件行的「安装中」过程效果', () => {
       expect(source, name).toContain('enterprisePluginSettledNotice(')
       // 两处卡片/行都靠 `role="progressbar"`（不确定态），谁也不许自己造第二个会填满的条。
       expect(source.match(/role="progressbar"/g)?.length, name).toBe(1)
+      // 取消入口两处同形：只在 `cancelable` 时出一枚官方按钮，文案与 accessible name 都从这一份投影取
+      // （两处各写一套是不可能的：判据只有 `progress.cancelable` / `progress.canceling` 两枚布尔）。
+      expect(source, name).toContain('progress.cancelable')
+      expect(source, name).toContain('progress.canceling')
+      expect(source, name).toContain('取消安装 ')
     }
     // 设置页那份 CSS 也必须尊重「减少动态效果」。
     expect(tab).toContain('@media (prefers-reduced-motion: reduce)')
@@ -470,6 +612,7 @@ function fakeApi(overrides: Partial<EnterpriseLocalApi> = {}): EnterpriseLocalAp
     plugins: vi.fn(async () => pluginStatus('EXPECTED')),
     installPlugin: vi.fn(async () => pluginStatus('RESTART_REQUIRED')),
     removePlugin: vi.fn(async () => pluginStatus('EXPECTED')),
+    cancelPlugin: vi.fn(async () => pluginStatus('EXPECTED')),
     ...overrides,
   } as unknown as EnterpriseLocalApi
 }
@@ -639,5 +782,100 @@ describe('「安装中」真进度的接线（store 轮询只读状态路由）'
         packageName: 'ent-a', state: 'DOWNLOADING', stageText: '正在下载',
       })?.stageText).toBe('正在下载')
     } finally { vi.useRealTimers() }
+  })
+})
+
+/* ───────────────────────── 真取消：store → 同源 POST /plugins/cancel ─────────────────────────
+ *
+ * 这一节锁「真取消」的三条：① 只对那一行发**一次**取消（方法/路径/body 的逐字断言在 `local-api.spec.ts`）；
+ * ② 取消响应与只读 GET 同形 ⇒ 收下即回到**安装前**的真状态，那次安装请求以 `ENT_PLUGIN_INSTALL_CANCELLED`
+ * 收束（可见反馈 + 可重试），进度随之停表；③ 取消请求自己失败时把稳定码摆进快照（不静默、不改写不相关的码）。
+ */
+
+describe('取消在途安装（store 的真取消动作）', () => {
+  it('sends one cancel for the row, mirrors the Host status back, and lets the install settle as cancelled', async () => {
+    vi.useFakeTimers()
+    try {
+      let current = pluginStatus('INSTALLING')
+      const plugins = vi.fn(async () => current)
+      // 真的取消掉：Host 已把本机记录**回到安装前那一条**，取消响应与只读 GET 同形地把它交回来。
+      const cancelPlugin = vi.fn(async () => { current = pluginStatus('EXPECTED'); return current })
+      let failInstall!: (error: unknown) => void
+      const api = fakeApi({
+        plugins,
+        cancelPlugin,
+        installPlugin: vi.fn(() => new Promise<EnterprisePluginStatus>((_resolve, reject) => { failInstall = reject })),
+      })
+      const store = new EnterpriseAccountStore(api)
+      await store.refresh()
+      const installing = store.installPlugin('ent-a', '1001')
+      await vi.advanceTimersByTimeAsync(ENTERPRISE_PLUGIN_PROGRESS_POLL_MS)
+      expect(store.getSnapshot().pluginStatus?.plugins[0]?.state).toBe('INSTALLING')
+      // 这一行此刻**真的能取消**（官方句柄就在这一格），界面据此给那枚按钮。
+      expect(enterprisePluginProgress({
+        packageName: 'ent-a', state: 'INSTALLING', stageText: '正在安装',
+        busy: store.getSnapshot().pluginBusy, cancelBusy: store.getSnapshot().pluginCancelBusy,
+      })?.cancelable).toBe(true)
+      // 取消：只发一次，只带那一行的包名（真实路径与 body 由 local-api.spec 逐字断言）。
+      const cancelled = store.cancelPlugin('ent-a')
+      expect(store.getSnapshot().pluginCancelBusy).toEqual({ packageName: 'ent-a' })
+      await expect(cancelled).resolves.toBe(true)
+      expect(cancelPlugin).toHaveBeenCalledTimes(1)
+      expect(cancelPlugin).toHaveBeenCalledWith('ent-a', expect.any(AbortSignal))
+      // 响应收下即回到安装前：投影回到 `EXPECTED`，取消请求自己也收摊。
+      expect(store.getSnapshot().pluginStatus?.plugins[0]?.state).toBe('EXPECTED')
+      expect(store.getSnapshot().pluginCancelBusy).toBeUndefined()
+      // 那次安装请求自己收束：取消**不是**「装成功」⇒ 不许有任何落地交代。
+      failInstall(new EnterpriseLocalApiError('ENT_PLUGIN_INSTALL_CANCELLED', 409))
+      await installing
+      expect(store.getSnapshot().pluginBusy).toBeUndefined()
+      expect(store.getSnapshot().pluginSettled).toBeUndefined()
+      // 可见反馈：取消的收束就是那枚稳定码（唯一提示组件翻成人话 + 下一步），且它是可重试的瞬时态。
+      expect(store.getSnapshot().pluginErrorCode).toBe('ENT_PLUGIN_INSTALL_CANCELLED')
+      expect(enterpriseErrorRetryable(store.getSnapshot().pluginErrorCode)).toBe(true)
+      // 进度停表：状态已回到安装前、没有在途工序 ⇒ 投影整段退场，且一拍都不再读。
+      expect(enterprisePluginProgress({
+        packageName: 'ent-a', state: store.getSnapshot().pluginStatus?.plugins[0]?.state ?? 'EXPECTED', stageText: '未安装',
+      })).toBeUndefined()
+      const settledCalls = plugins.mock.calls.length
+      await vi.advanceTimersByTimeAsync(ENTERPRISE_PLUGIN_PROGRESS_POLL_MS * 5)
+      expect(plugins.mock.calls.length).toBe(settledCalls)
+    } finally { vi.useRealTimers() }
+  })
+
+  it('never fires a second cancel while one is already in flight', async () => {
+    vi.useFakeTimers()
+    try {
+      let finish!: (value: EnterprisePluginStatus) => void
+      const cancelPlugin = vi.fn(() => new Promise<EnterprisePluginStatus>(resolve => { finish = resolve }))
+      const api = fakeApi({ cancelPlugin })
+      const store = new EnterpriseAccountStore(api)
+      await store.refresh()
+      const first = store.cancelPlugin('ent-a')
+      // 第二次点击（真运行时那枚按钮此刻已经是 disabled）不许再发一条请求。
+      await expect(store.cancelPlugin('ent-a')).resolves.toBe(false)
+      expect(cancelPlugin).toHaveBeenCalledTimes(1)
+      finish(pluginStatus('EXPECTED'))
+      await expect(first).resolves.toBe(true)
+      expect(store.getSnapshot().pluginCancelBusy).toBeUndefined()
+    } finally { vi.useRealTimers() }
+  })
+
+  it('surfaces a failed cancel as a stable code without touching unrelated codes', async () => {
+    // 账号侧的取数照常成功（`bootstrap` 给一个不会失败的空投影），这样「无关的码一个都没动」才是真断言。
+    const api = fakeApi({
+      bootstrap: vi.fn(async () => undefined),
+      cancelPlugin: vi.fn(async () => { throw new EnterpriseLocalApiError('ENT_LOCAL_UNAVAILABLE', 503) }),
+    })
+    const store = new EnterpriseAccountStore(api)
+    await store.refresh()
+    await expect(store.cancelPlugin('ent-a')).resolves.toBe(false)
+    // 失败不静默：稳定码原样进快照（唯一提示组件会给它一句人话 + 下一步），且它可原地再试。
+    expect(store.getSnapshot().pluginErrorCode).toBe('ENT_LOCAL_UNAVAILABLE')
+    expect(enterpriseErrorRetryable('ENT_LOCAL_UNAVAILABLE')).toBe(true)
+    expect(store.getSnapshot().pluginCancelBusy).toBeUndefined()
+    // 只碰本动作族那一格：进度那一路的码与账号的码一个都不改。
+    expect(store.getSnapshot().pluginProgressErrorCode).toBeUndefined()
+    expect(store.getSnapshot().errorCode).toBeUndefined()
   })
 })

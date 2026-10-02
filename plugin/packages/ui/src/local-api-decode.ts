@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 branding 的同源 LOGO 来源门禁与 `EnterpriseBrandingDocument` 形状、decode-primitives 的严格解码内核、skill-api-decode 的技能 DTO 与解码 **本刀**：修 `decodeEnterprisePresets` 的 `sizeBytes` 上界判定写反（原先任何非零大小的配方都被判畸形），改为与插件目录同款的 `<= 0`；**配方收尾刀**：`decodeEnterprisePresets` 补契约切片 B 的 `dependencies`（放**可选位**，旧服务端不输出也照旧可解），按契约 `PresetDependency` 逐条校验并把键集抽成导出的常量供漂移门禁比对。
- * [OUTPUT]: 对外提供连接/受管插件状态枚举、本地 API DTO 类型与严格解码（账号、品牌、插件、配方、Session、四窗口用量、反馈回执、原生登录的来源列表与凭证/改密结果、**企业技能已装态 / 已装正文 / 本机文件树 / 树里单个文本文件**）、配方引用 `EnterpriseRuntimePresetDependency` 与四份**运行时键集常量**（`ENTERPRISE_PRESET_ROW_REQUIRED_KEYS` / `ENTERPRISE_PRESET_ROW_OPTIONAL_KEYS` / `ENTERPRISE_PRESET_DEPENDENCY_KEYS` / `ENTERPRISE_PRESET_DEPENDENCY_OPTIONAL_KEYS`，是 `tests/preset-decode.spec.ts` 契约漂移门禁的被测真源）、`EnterpriseLocalApi` 契约、失败码投影 `enterpriseLocalErrorCode`，并再导出 `EnterpriseLocalApiError` 与 skill-api-decode 的全部技能契约 **本刀（配方一键启用）**：新增 `decodeEnterprisePresetEnable` / `decodeEnterprisePresetDisable` / `decodeEnterprisePresetStatus` 与它们的 DTO（披露清单 `EnterprisePresetDisclosure`、已装记录 `EnterpriseInstalledPreset`、授权三态 `EnterprisePresetAuthorization`、官方原值 `EnterprisePresetOfficialApplication`）与九份**键集常量**（enable/disable 的必填+可选、status 的必填、已装八键、披露三件、`officialError` 的两键）——形状真源是 Host 的 `bundle/src/preset-service.ts` 三个脱敏视图，未知键一律拒，`status.installed` 是**必填位上的可空值**。
+ * [OUTPUT]: 对外提供连接/受管插件状态枚举、本地 API DTO 类型与严格解码（账号、品牌、插件、配方、Session、四窗口用量、反馈回执、原生登录的来源列表与凭证/改密结果、**企业技能已装态 / 已装正文 / 本机文件树 / 树里单个文本文件**）、配方引用 `EnterpriseRuntimePresetDependency` 与四份**运行时键集常量**（`ENTERPRISE_PRESET_ROW_REQUIRED_KEYS` / `ENTERPRISE_PRESET_ROW_OPTIONAL_KEYS` / `ENTERPRISE_PRESET_DEPENDENCY_KEYS` / `ENTERPRISE_PRESET_DEPENDENCY_OPTIONAL_KEYS`，是 `tests/preset-decode.spec.ts` 契约漂移门禁的被测真源）、`EnterpriseLocalApi` 契约（含本刀新增的**取消**端口 `cancelPlugin(packageName, signal)`——响应与只读 `GET /plugins` 同形，故复用同一个严格解码器、**零新增字段**）、失败码投影 `enterpriseLocalErrorCode`，并再导出 `EnterpriseLocalApiError` 与 skill-api-decode 的全部技能契约 **本刀（配方一键启用）**：新增 `decodeEnterprisePresetEnable` / `decodeEnterprisePresetDisable` / `decodeEnterprisePresetStatus` 与它们的 DTO（披露清单 `EnterprisePresetDisclosure`、已装记录 `EnterpriseInstalledPreset`、授权三态 `EnterprisePresetAuthorization`、官方原值 `EnterprisePresetOfficialApplication`）与九份**键集常量**（enable/disable 的必填+可选、status 的必填、已装八键、披露三件、`officialError` 的两键）——形状真源是 Host 的 `bundle/src/preset-service.ts` 三个脱敏视图，未知键一律拒，`status.installed` 是**必填位上的可空值**。
  * [POS]: dsh-ui 的浏览器取数契约层——只定义「主机可以说什么」与「什么不许说」，不含任何 fetch；网络执行留在 local-api.ts，界面只消费本文件的投影结果。逼近 800 行后按业务纵切出技能分片与共享内核，本文件仍是唯一对外真源 **本刀**：这三条是**本机动作**（不是中心契约），故键集常量单独导出、由 `tests/preset-enable-decode.spec.ts` 做封闭键集断言；本文件仍是唯一 DTO 真源。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -372,6 +372,15 @@ export interface EnterpriseLocalApi {
   uninstallSkill(packageId: string, signal: AbortSignal): Promise<readonly EnterpriseInstalledSkill[]>
   installPlugin(packageName: string, pluginVersionId: string, signal: AbortSignal): Promise<EnterprisePluginStatus>
   removePlugin(packageName: string, signal: AbortSignal): Promise<EnterprisePluginStatus>
+  /**
+   * 取消**在途**的企业插件安装。
+   *
+   * 只发一条同源 POST（`/plugins/cancel`，正文关闭键集恰好 `{packageName}`）；**响应与只读 `GET /plugins`
+   * 完全同形**（`{data: pluginStatus()}`，零新增字段 ⇒ 解码器不用改），故这里复用同一个严格解码器。
+   * 真的取消掉时 Host 已把本机记录**回到安装前那一条**（本次安装请求会以 `ENT_PLUGIN_INSTALL_CANCELLED`
+   * 收束，那条失败由唯一提示组件显示）；「没有在跑的东西可取消」也如实回 200 + 当前状态，不假装成功。
+   */
+  cancelPlugin(packageName: string, signal: AbortSignal): Promise<EnterprisePluginStatus>
   startLogin(signal: AbortSignal): Promise<{ readonly flowId: string }>
   cancelLogin(signal: AbortSignal): Promise<{ readonly cancelled: boolean }>
   /** 原生登录（安卓）本轮的认证来源；没有进行中的原生事务时按 400 拒绝。 */

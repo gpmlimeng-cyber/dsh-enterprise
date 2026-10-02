@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 dsh-ui 同源 local-api、标准 Response 与 EventSource test double
- * [OUTPUT]: 验证账号/插件/技能严格解码、地址/卸载固定路径、脱敏投影、显式刷新与秘密字段拒绝，**已装技能正文取数**（同源 `/skills/content` + 两个标识符查询参数按 `encodeURIComponent` 编码、键集封闭拒绝宿主路径与超限正文），以及**本刀新增的详情子页面两条取数**——本机**文件树** `/skills/<id>/files` 与**树里单个文本文件** `/skills/<id>/file?path=`（相对路径只进查询串且一律 `encodeURIComponent`、Host 多塞宿主绝对路径或树内重复路径即 `ENT_LOCAL_RESPONSE_INVALID`）
+ * [OUTPUT]: 验证账号/插件/技能严格解码、地址/卸载固定路径、脱敏投影、显式刷新与秘密字段拒绝，**已装技能正文取数**（同源 `/skills/content` + 两个标识符查询参数按 `encodeURIComponent` 编码、键集封闭拒绝宿主路径与超限正文），以及**本刀新增的详情子页面两条取数**——本机**文件树** `/skills/<id>/files` 与**树里单个文本文件** `/skills/<id>/file?path=`（相对路径只进查询串且一律 `encodeURIComponent`、Host 多塞宿主绝对路径或树内重复路径即 `ENT_LOCAL_RESPONSE_INVALID`） **本刀（企业插件真取消）新增**：`cancelPlugin` 的方法 / 路径 / body 逐字断言（`POST /enterprise/api/v1/local/plugins/cancel`、正文关闭键集恰好 `{packageName}`、路径常量与 Host 注册面同值），以及「响应仍是同一个严格解码器（多一个字段即畸形）」
  * [POS]: dsh-ui 浏览器网络边界测试，确保浏览器只能消费 Host 脱敏 DTO
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,6 +13,7 @@ import {
   decodeEnterprisePluginStatus,
   decodeEnterpriseLocalStatus,
   ENTERPRISE_CONNECTION_STATES,
+  ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH,
   MANAGED_PLUGIN_STATES,
 } from '../src/local-api.js'
 
@@ -149,6 +150,30 @@ describe('enterprise local browser API', () => {
     expect(fetcher).toHaveBeenLastCalledWith('/enterprise/api/v1/local/plugins/remove', expect.objectContaining({
       method: 'POST', body: JSON.stringify({ packageName: item.packageName }), signal,
     }))
+  })
+
+  // 取消在途安装（本刀）：与 install/remove 同族同源——方法 / 路径 / body 逐字断言；
+  // 响应就是只读 `GET /plugins` 那份**同形**投影（Host 零新增字段），故走的仍是同一个严格解码器。
+  it('sends the cancel command to its exact same-origin route with the closed one-key body', async () => {
+    const item = {
+      pluginVersionId: '880', packageName: '@example/tools', version: '1.0.0', sizeBytes: 100,
+      operatingSystems: ['darwin'],
+    }
+    const status = { assignmentRevision: 7, catalog: [item], plugins: [] }
+    const fetcher = vi.fn(async () => ok(status))
+    const api = createEnterpriseLocalApi(fetcher)
+    const signal = new AbortController().signal
+    await expect(api.cancelPlugin(item.packageName, signal)).resolves.toEqual(status)
+    // 路径常量与 Host 的 exact 注册面逐字相同（`platform-client` 的 `ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH`）。
+    expect(ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH).toBe('/enterprise/api/v1/local/plugins/cancel')
+    expect(fetcher).toHaveBeenLastCalledWith(ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH, expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ packageName: item.packageName }), cache: 'no-store', signal,
+    }))
+    // 正文是**关闭键集**：恰好一个键、键名逐字（多一个键 Host 侧就 400）。
+    expect(Object.keys(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body)))).toEqual(['packageName'])
+    // 响应走同一个严格解码器：多加一个字段即整条判畸形（「零新增字段」的机械保证）。
+    const leaky = createEnterpriseLocalApi(vi.fn(async () => ok({ ...status, cancelled: true })))
+    await expect(leaky.cancelPlugin(item.packageName, signal)).rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
   })
 
   it('uses same-origin fixed paths and strict empty-object POST actions', async () => {

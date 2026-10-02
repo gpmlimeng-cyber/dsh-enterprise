@@ -1,14 +1,15 @@
 /**
  * [INPUT]: 只依赖 `local-api-decode.ts` 的受管态类型（不读网络、不读 React、不读宿主路径；也不需要 import 运行时值）
- * [OUTPUT]: 企业插件安装/卸载的**真进度**唯一投影 `enterprisePluginProgress`、**落地交代**唯一投影 `enterprisePluginSettledNotice`、在途受管态清单 `ENTERPRISE_PLUGIN_PROGRESS_STATES`、轮询间隔 `ENTERPRISE_PLUGIN_PROGRESS_POLL_MS` 与那一组可见文案常量
+ * [OUTPUT]: 企业插件安装/卸载的**真进度**唯一投影 `enterprisePluginProgress`（阶段 + 不确定态 + **按真状态算的** `cancelable`/`canceling`/取消原因）、**落地交代**唯一投影 `enterprisePluginSettledNotice`、在途受管态清单 `ENTERPRISE_PLUGIN_PROGRESS_STATES`、**官方取消句柄真实存在的那一个受管态** `ENTERPRISE_PLUGIN_CANCELABLE_STATES`、轮询间隔 `ENTERPRISE_PLUGIN_PROGRESS_POLL_MS` 与那一组可见文案常量
  * [POS]: ui 员工侧「安装中」这件事的**唯一口径真源**——`marketplace-entry.tsx`（官方插件页里的插件市场，插件行）与 `plugin-market.tsx`（企业设置 → 插件，卡片行 + 详情）两处渲染都只调这一份，阶段文字更只有一份（`plugin-market.tsx` 的官方状态词表 `enterprisePluginStatePresentation`），故两处不可能各说一套。
  *
  * **真进度从哪来（本仓唯一一条可达的路，已按实物核实）**：
- *   ① 本仓的受管插件安装**不**走官方 `pluginManager`——`bundle/src/index.ts:551` 的 `pluginAction` 端口转给
- *      `plugin-distribution/src/service.ts:203` 的 `install()`，后者经 `reconcileInstalled`（同文件 `:430`）
- *      调 `installManagedPlugin`（`dsh plugin` 子进程）。官方那套 `plugin-manager/install-state` /
- *      `install-log` 事件与 `waitForInstall` / `cancelInstall` 因此**对这个安装面一次都不会触发**：
- *      没有 requestId 可等、也没有可取消的句柄。把 `cancelInstall` 画成按钮就是假按钮。
+ *   ① 本仓的受管插件安装**已经改走官方 `pluginManager`**（`bundle/src/manager-wiring.ts` 晚绑定官方服务；
+ *      `plugin-distribution/src/service.ts` 的 `installThroughOfficialManager` 用**我们自己生成的 requestId**
+ *      调官方 `installBundle`）——官方那套 `plugin-manager/install-state` / `install-log` 事件与
+ *      `waitForInstall` / `cancelInstall` 因此**对这个安装面真的会触发**，取消有真实句柄可下。
+ *      ⚠ 但官方的三相位（`installing` / `applying` / `cancelling`）**不进线协议**（受管态是闭集、零新增字段），
+ *      界面上唯一看得到的仍是本仓自己的受管态 ⇒ 下面 ② 那条只读状态路由是界面侧**唯一**的真进度源。
  *   ② Host 在 `reconcileInstalled` 里**每走一步都先把真状态写进本机记录**
  *      （`this.put(… 'DOWNLOAD_PENDING' → 'DOWNLOADING' → 'VERIFIED' → 'INSTALLING' → 'RESTART_REQUIRED')`，
  *      卸载侧 `:513` 的 `REMOVE_PENDING → 'REMOVING' → 'RESTART_REQUIRED'`；换版本还先走 `'ROLLBACK'`），
@@ -21,8 +22,16 @@
  * 恒 `indeterminate: true` 的不确定态指示；界面据此只画**流光**（不确定态），
  * 不画会走满的进度条、也不产出任何 `0%…100%` 数字——阶段推进时变的是**文字**，不是百分比。
  *
- * **不给假取消**：`cancelable` 恒为 `false`（上游没有可达的取消面，见①），并把「不能取消」写成
- * 一句**可见**交代，而不是画一枚点了没用的按钮。
+ * **取消：能取消时才给真按钮，不能取消时给可见原因**：
+ *   官方 `cancelInstall(requestId)` 的句柄只在**一个**受管态里存在——`INSTALLING`
+ *   （`service.ts:683` 在 `installBundle` 之前那一刻挂上、`:690` 的 `finally` 摘掉；`cancel()` 也只认这枚句柄）。
+ *   · `ROLLBACK` / `DOWNLOAD_PENDING` / `DOWNLOADING` / `VERIFIED` 都还没把句柄交出来（此时取消是一次 no-op）；
+ *   · 卸载方向（`REMOVE_PENDING` / `REMOVING`）压根没有安装句柄（官方 `cancelInstall` 只管安装那一跑）。
+ *   故 `cancelable` 是**按真状态算的**（不是恒真、也不是恒假）：能取消时界面给一枚真按钮，
+ *   不能取消时给**一句可见原因**（`cancelNotice`），而不是一枚点了没用的按钮。
+ *   取消请求在途时（store 的 `pluginCancelBusy`）本层出 `canceling: true` 与「正在取消…」那句，
+ *   界面据此禁用按钮并播报；**取消的结果**不由本层宣判——它由那次安装请求自己的收束
+ *   （抛 `ENT_PLUGIN_INSTALL_CANCELLED`）经唯一提示组件呈现。
  *
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -71,19 +80,44 @@ export const ENTERPRISE_PLUGIN_PROGRESS_POLL_MS = 1200
  */
 export const ENTERPRISE_PLUGIN_PROGRESS_MAX_IDLE_TICKS = 25
 
+/**
+ * 官方取消句柄**真实存在**的那一个受管态：只有 `INSTALLING`。
+ *
+ * 真源是 `plugin-distribution/src/service.ts`：`installThroughOfficialManager` 在调官方 `installBundle`
+ * **之前那一刻**才把 `installHandle = { packageName, requestId }` 挂上（`:683`）、在 `finally` 里摘掉（`:690`），
+ * 而写到这个句柄之前的最后一步正是 `await this.put(assignment, 'INSTALLING')`（`:663`）。于是：
+ *   · `ROLLBACK` / `DOWNLOAD_PENDING` / `DOWNLOADING` / `VERIFIED` —— 句柄还没挂上，取消会落到
+ *     `cancel()` 的 `not-running` 分支（一次诚实的 no-op，不是取消）；
+ *   · `REMOVE_PENDING` / `REMOVING` —— 卸载路径**从不**挂安装句柄（`installHandle` 只在安装链上写），
+ *     官方 `cancelInstall` 只管安装那一跑。
+ * 所以这张清单只有一格：它是「界面此刻给不给那枚取消按钮」的**唯一**判据，多一格就是假按钮。
+ */
+export const ENTERPRISE_PLUGIN_CANCELABLE_STATES: readonly ManagedPluginState[] = ['INSTALLING']
+
 /** 请求已提交、Host 还没报到在途阶段时的那句话（安装方向）。 */
 export const ENTERPRISE_PLUGIN_PROGRESS_PENDING_INSTALL = '正在处理安装请求…'
 /** 同上（卸载方向）。 */
 export const ENTERPRISE_PLUGIN_PROGRESS_PENDING_REMOVE = '正在处理卸载请求…'
 
 /**
- * 「这一步不能取消」的**可见**交代。
+ * 「现在还不能取消」的**可见**原因（安装请求刚提交、官方句柄还没交出来）。
  *
- * 为什么是交代而不是按钮：官方 `cancelInstall` 只对官方 pluginManager 自己发起的安装有效，
- * 而本仓的受管插件安装走 `dsh plugin` 子进程（见文件头①）——上游没有把取消面交出来，
- * 画一枚点了没用的「取消」正是产品宪法禁止的假控件。于是把话说明白。
+ * 为什么是交代而不是按钮：这一刻取消打不到任何东西（见 `ENTERPRISE_PLUGIN_CANCELABLE_STATES`），
+ * 画一枚点了没用的按钮正是产品宪法禁止的假控件。于是把话说明白，并给出**什么时候可以**。
  */
-export const ENTERPRISE_PLUGIN_PROGRESS_CANCEL_NOTICE = '这一步开始后不能取消，完成后会在这里告诉你结果。'
+export const ENTERPRISE_PLUGIN_PROGRESS_CANCEL_PENDING = '安装请求已提交，走到「正在安装」后就能取消。'
+/** 同上：Host 已报到在途工序，但还没到挂上官方取消句柄的那一步。 */
+export const ENTERPRISE_PLUGIN_PROGRESS_CANCEL_EARLY = '下载与校验还在进行，走到「正在安装」后就能取消。'
+/** 卸载方向没有取消面（官方 `cancelInstall` 只管安装那一跑）。 */
+export const ENTERPRISE_PLUGIN_PROGRESS_CANCEL_REMOVE = '卸载已经开始，完成前不能中断。'
+
+/**
+ * 取消请求**已在路上**时的可见交代。
+ *
+ * 它与「不能取消」的原因共用同一个落点（进度条旁边那句），但语义不同：这是**正在做**，
+ * 界面另外把那枚按钮置为不可用（有可见交代，不是死控件），并以 `role="status"` 播报。
+ */
+export const ENTERPRISE_PLUGIN_PROGRESS_CANCELLING = '正在取消这次安装…'
 
 /** 进度这一路读不到时的可见交代（安装本身仍在进行，下一拍会自动重读）。 */
 export const ENTERPRISE_PLUGIN_PROGRESS_READ_FAILED = '进度暂时读不到，安装仍在进行，稍后会自动重读。'
@@ -128,6 +162,12 @@ export interface EnterprisePluginProgressInput {
   readonly stageText: string
   /** 进度这一路读不到时的稳定码（store 的 `pluginProgressErrorCode`）；有值即多出一句可见交代。 */
   readonly readErrorCode?: string | undefined
+  /**
+   * **本客户端刚发出、还没结束**的取消请求（store 的 `pluginCancelBusy`）。
+   *
+   * 与 `busy` 同一口径：只有 `packageName` 命中本行才算「正在取消这一行」。缺席 = 本客户端没在取消。
+   */
+  readonly cancelBusy?: { readonly packageName: string } | undefined
 }
 
 /** 一行的「安装中」投影；`undefined` = 这一行没有正在进行的安装/卸载。 */
@@ -144,10 +184,25 @@ export interface EnterprisePluginProgress {
    * 界面据此只画不确定态流光；任何会走满的进度条都属于「假装」。
    */
   readonly indeterminate: true
-  /** 恒为 `false`：上游没有可达的取消面，界面**不给**取消按钮。 */
-  readonly cancelable: false
-  /** 「不能取消」那句可见交代（恒有）。 */
-  readonly cancelNotice: string
+  /**
+   * 此刻**真的**能取消吗（按真状态算，不是恒真也不是恒假）。
+   *
+   * `true` 只在两个条件同时成立时给出：方向是**安装**、且受管态命中
+   * `ENTERPRISE_PLUGIN_CANCELABLE_STATES`（官方取消句柄真实存在的那一格）。界面据此决定
+   * 「给一枚真按钮」还是「给一句可见原因」——见 {@link EnterprisePluginProgress.cancelNotice}。
+   * 它只描述**这一行的状态**：取消请求已经在路上时（`canceling`）它仍然是 `true`（状态没变），
+   * 界面把那枚按钮留着、置为不可用即可，**不**把入口整枚撤掉。
+   */
+  readonly cancelable: boolean
+  /** 本客户端刚发出的取消请求还在路上（`cancelBusy` 命中本行）：按钮置为不可用并播报「正在取消…」。 */
+  readonly canceling: boolean
+  /**
+   * 「现在不能取消」或「正在取消」的**可见**交代；`undefined` = 现在能取消（那枚按钮自己把话说清）。
+   *
+   * 两个分支刻意分开：不能取消时是**原因**（什么时候可以 / 为什么这条路没有取消面），
+   * 正在取消时是**进行态**（界面另以 `role="status"` 播报，且按钮保持可见但不可用）。
+   */
+  readonly cancelNotice: string | undefined
   /** 进度读不到时的可见交代；`undefined` = 这一路正常。 */
   readonly readFailedNotice?: string | undefined
 }
@@ -159,6 +214,17 @@ function progressAction(input: EnterprisePluginProgressInput, owned: boolean): '
 }
 
 /**
+ * 「现在为什么取消不了」那一句（纯查表，只有一个入口，故两处渲染取到同一个词）。
+ *
+ * 三个分支对应三种**不同**的事实：请求刚提交（句柄还没交出来）、已报到在途工序但还没到
+ * 挂句柄那一步、以及卸载方向压根没有取消面。它们各说各的真话，不合并成一句含糊的「暂不可取消」。
+ */
+function cancelNoticeText(action: 'install' | 'remove', phase: EnterprisePluginProgressPhase): string {
+  if (action === 'remove') return ENTERPRISE_PLUGIN_PROGRESS_CANCEL_REMOVE
+  return phase === 'pending' ? ENTERPRISE_PLUGIN_PROGRESS_CANCEL_PENDING : ENTERPRISE_PLUGIN_PROGRESS_CANCEL_EARLY
+}
+
+/**
  * 一行插件的**安装中**投影（纯函数，测试直调）。
  *
  * 判定只有两件现场事实，且都真的来自 Host：
@@ -166,6 +232,8 @@ function progressAction(input: EnterprisePluginProgressInput, owned: boolean): '
  *   ②「是我们刚点的」= `busy.packageName` 命中这一行（请求还没结束）。
  * ①缺席而②在场 = 请求已提交、Host 还没报到在途阶段 ⇒ `pending`（**不**编一个假阶段出来）。
  * 已经收束到终态（`FAILED`）时整段返回 `undefined`：那一行的收束由失败提示组件负责，不叠「正在处理」。
+ * 取消三件（`cancelable` / `canceling` / `cancelNotice`）也都只从这三件现场事实推出来，不猜、不恒真，
+ * 判据与理由写在 `ENTERPRISE_PLUGIN_CANCELABLE_STATES` 与 `cancelNoticeText` 旁边。
  *
  * @param input - 见 {@link EnterprisePluginProgressInput}。
  * @returns 进度投影；`undefined` = 这一行没有正在进行的安装/卸载。
@@ -178,16 +246,27 @@ export function enterprisePluginProgress(input: EnterprisePluginProgressInput): 
   // 已经失败：收束交给唯一提示组件（`role="alert"` + 稳定码），再叠一句「正在处理」只会自相矛盾。
   if (!working && input.state === 'FAILED') return undefined
   const action = progressAction(input, owned)
+  const phase: EnterprisePluginProgressPhase = working ? 'working' : 'pending'
+  // 取消这一族的三枚事实都按**真状态**算：句柄在不在（`cancelable`）、本客户端的取消请求在不在路上
+  // （`canceling`，只认命中本行的那一份）、以及取消不了时**为什么**（`cancelNotice`）。
+  const canceling = input.cancelBusy !== undefined && input.cancelBusy.packageName === input.packageName
+  // `cancelable` 说的是**这一行的真状态**（官方句柄在不在），与「我们是不是已经请它取消了」无关：
+  // 取消请求在途时这一行**仍然**是可取消那一格，界面据此把那枚按钮留着并置为不可用（`canceling`），
+  // 而不是把按钮整枚撤掉——那样用户会以为取消入口消失了。
+  const cancelable = action === 'install' && ENTERPRISE_PLUGIN_CANCELABLE_STATES.includes(input.state)
   return {
-    phase: working ? 'working' : 'pending',
+    phase,
     stageText: working
       ? input.stageText
       : action === 'remove' ? ENTERPRISE_PLUGIN_PROGRESS_PENDING_REMOVE : ENTERPRISE_PLUGIN_PROGRESS_PENDING_INSTALL,
     state: input.state,
     owned,
     indeterminate: true,
-    cancelable: false,
-    cancelNotice: ENTERPRISE_PLUGIN_PROGRESS_CANCEL_NOTICE,
+    cancelable,
+    canceling,
+    cancelNotice: canceling
+      ? ENTERPRISE_PLUGIN_PROGRESS_CANCELLING
+      : cancelable ? undefined : cancelNoticeText(action, phase),
     ...(input.readErrorCode === undefined ? {} : { readFailedNotice: ENTERPRISE_PLUGIN_PROGRESS_READ_FAILED }),
   }
 }

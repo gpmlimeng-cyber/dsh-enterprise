@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖浏览器 fetch 与 FormData/Blob、local-api-decode 的全部严格解码与失败码投影
- * [OUTPUT]: 对外提供 `createEnterpriseLocalApi`（固定同源路径的取数与动作，含请 Host 打开帮助中心的 `openHelp`、读**已装**技能正文的 `skillContent`，以及详情子页面用的 `skillFiles`（本机文件树）与 `skillFile`（树里一个文本文件））、五条同源技能路径常量（`ENTERPRISE_SKILL_{INSTALL,UNINSTALL,INSTALLED,CONTENT}_LOCAL_PATH` 与 `enterpriseSkillFilesPath`/`enterpriseSkillFilePath` 两条**动态**本机文件路径构造器）与 local-api-decode 的全部导出 **本刀（配方一键启用）**：新增三件配方动作 `presetStatus` / `enablePreset` / `disablePreset`（路径与 body 严格照路由形状：`GET …/presets/<雪花 id>/status`、`POST …/presets/<雪花 id>/enable`（body 关闭键集 `{}` 或恰好 `{confirmFingerprint}`）、`POST …/presets/<声明 id>/disable`（body 恒 `{}`））与三个路径构造器 `enterprisePreset{Enable,Status,Disable}Path` + 三条子路径共用的注册面前缀 `ENTERPRISE_PRESET_ACTION_LOCAL_PATH`。
- * [POS]: dsh-ui 的浏览器网络边界——只发同源固定路径请求，调用方无法注入平台 origin 或 Authorization；DTO 契约与解码在 local-api-decode.ts，本文件只管发与收 **本刀**：`/presets` 那三条子路径由 Host 的同一个 prefix 按后缀分派，本文件只多三件固定路径的收发，边界口径（只同源、只发固定路径、键集封闭）一字未改。
+ * [OUTPUT]: 对外提供 `createEnterpriseLocalApi`（固定同源路径的取数与动作，含请 Host 打开帮助中心的 `openHelp`、读**已装**技能正文的 `skillContent`，以及详情子页面用的 `skillFiles`（本机文件树）与 `skillFile`（树里一个文本文件））、五条同源技能路径常量（`ENTERPRISE_SKILL_{INSTALL,UNINSTALL,INSTALLED,CONTENT}_LOCAL_PATH` 与 `enterpriseSkillFilesPath`/`enterpriseSkillFilePath` 两条**动态**本机文件路径构造器）与 local-api-decode 的全部导出 **本刀（配方一键启用）**：新增三件配方动作 `presetStatus` / `enablePreset` / `disablePreset`（路径与 body 严格照路由形状：`GET …/presets/<雪花 id>/status`、`POST …/presets/<雪花 id>/enable`（body 关闭键集 `{}` 或恰好 `{confirmFingerprint}`）、`POST …/presets/<声明 id>/disable`（body 恒 `{}`））与三个路径构造器 `enterprisePreset{Enable,Status,Disable}Path` + 三条子路径共用的注册面前缀 `ENTERPRISE_PRESET_ACTION_LOCAL_PATH`） **本刀（企业插件真取消）**：新增 `cancelPlugin(packageName, signal)`——同源 POST `/enterprise/api/v1/local/plugins/cancel`，正文关闭键集恰好 `{packageName}`，响应与只读 `GET /plugins` **完全同形**（复用同一个严格解码器，**零新增字段**），并导出与 Host exact 注册面逐字同值的常量 `ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH`。
+ * [POS]: dsh-ui 的浏览器网络边界——只发同源固定路径请求，调用方无法注入平台 origin 或 Authorization；DTO 契约与解码在 local-api-decode.ts，本文件只管发与收 **本刀**：`/presets` 那三条子路径由 Host 的同一个 prefix 按后缀分派，本文件只多三件固定路径的收发，边界口径（只同源、只发固定路径、键集封闭）一字未改。 **本刀（企业插件真取消）**：`/plugins/cancel` 是本族第三件动作（与 `install`/`remove` 同源同族），浏览器侧只多一次 POST 收发；取消的**结果**不由这条响应判定（响应同形、零新增字段），而是由那次安装请求自己的收束（`ENT_PLUGIN_INSTALL_CANCELLED`）读出来——故本文件不解析任何取消语义。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -46,6 +46,12 @@ export * from './local-api-decode.js'
 export type { EnterpriseBrandingDocument }
 
 const LOCAL_API_PREFIX = '/enterprise/api/v1/local'
+
+/**
+ * 取消动作**相对**本地 API 前缀的路径（与 `install`/`remove` 两位内联兄弟同形）。
+ * 它只出现一次：下面那条导出的注册面常量由它拼出来，`requestJson` 再拼上固定前缀。
+ */
+const PLUGIN_CANCEL_PATH = '/plugins/cancel'
 
 function errorCode(value: unknown): string {
   const code = decodeEnterpriseErrorCode(value)
@@ -207,6 +213,12 @@ export function createEnterpriseLocalApi(
     removePlugin: async (packageName, signal) => decodeEnterprisePluginStatus(
       await requestJson('/plugins/remove', jsonInit('POST', { packageName }, signal), fetcher),
     ),
+    // 取消**在途**安装：与 install/remove 同族同源，正文是关闭键集 `{packageName}`；
+    // 响应与只读 `GET /plugins` **完全同形**（Host 侧零新增字段），故解码器一字不改。
+    // 相对路径只在这里与导出的注册面常量各出现一次（`${PLUGIN_CANCEL_PATH}` 拼接）。
+    cancelPlugin: async (packageName, signal) => decodeEnterprisePluginStatus(
+      await requestJson(PLUGIN_CANCEL_PATH, jsonInit('POST', { packageName }, signal), fetcher),
+    ),
     installedSkills: async signal => decodeEnterpriseInstalledSkills(
       await requestJson('/skills/installed', getInit(signal), fetcher),
     ),
@@ -268,6 +280,16 @@ export function createEnterpriseLocalApi(
     ),
   }
 }
+
+/**
+ * 受管插件**取消**动作的 exact 同源路径：`POST /enterprise/api/v1/local/plugins/cancel`。
+ *
+ * 与 `platform-client` 的 `ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH` **逐字相同**（Host 侧 exact 路由注册面）；
+ * 正文是关闭键集恰好 `{packageName}`，响应与只读 `GET /plugins` 完全同形（Host 侧零新增字段）。
+ * 与 `install`/`remove` 两条内联路径不同，这一条单独导出是给测试与文档核对的——
+ * 「取消真的打到了那一条路由」这件事必须是可逐字断言的。
+ */
+export const ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH = `${LOCAL_API_PREFIX}${PLUGIN_CANCEL_PATH}`
 
 /** 保持在同源路径上的反馈提交路径常量；测试与文档用它核对 Host 的注册路径。 */
 export const ENTERPRISE_FEEDBACK_LOCAL_PATH = `${LOCAL_API_PREFIX}/feedback`

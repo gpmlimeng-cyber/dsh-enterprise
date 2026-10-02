@@ -1,12 +1,12 @@
 /**
  * [INPUT]: 依赖共享 EnterpriseAccountStore 的企业目录/本机事实、Harness Modal/Button 与 Lucide 图标
- * [OUTPUT]: 提供设置页内的插件搜索/已安装筛选、版本详情、显式安装/卸载及状态文案。**本刀（失败文案降维）**：删除本文件的插件码表，失败一律渲染 `EnterpriseErrorNotice`（人话 + 「下一步：」+「技术信息」里的稳定码），兜底不再把码拼进可见句子 **本刀（目录三态 + 可重试）**：新增纯投影 `enterprisePluginCatalogState` / `enterprisePluginCatalogEmptyText` / `enterprisePluginCatalogVersionText`，目录四态（未登录 / 加载中 / 失败 / 空（三种原因）/ 就绪）显式化；失败态给唯一提示组件 + 真重发的重试，目录没取到时详情那一格不再谎称「已下架」。 **本刀（死开关改造）**：安装按钮原先 `disabled={busy || !connected || fatal !== undefined || item.installErrorCode !== undefined || waiting}` 且一句 `title` 都没有——禁用了却一个字不说，是产品宪法禁止的死控件。现改为：① 新增纯投影 `enterprisePluginRowGate`（唯一入口）与 `EnterprisePluginRowGate`/`EnterprisePluginGateNotes`，禁用原因全部来自新叶 `plugin-install-gate.ts` 的 `enterprisePluginLockReason`（目录判定 / 在途 / 等重启 / 别的操作用着 / 状态读不到），`installErrorCode` 只拦安装、不拦卸载；② 每一枚禁用都配**行上可见**的一句（`role="status"`，落点复用既有 `.own-market-sub`，不新增 CSS）与一句悬浮说明 `enterprisePluginSwitchTitle`；③ 平台彻底退出决策面：目录声明的 `operatingSystems` 与设备系统都不再进来（数据面字段照旧随行携带），卡片行与详情弹窗**一个字都不提系统**——「声明含当前平台 / 不含 / 根本没有该字段」三种形态渲染逐字相同；④ 不可达的 `!connected` 条件删掉（连不上时 `catalog`/`local` 皆空、一行都渲染不出来），并写清这条推理。 **本刀（企业插件安装的动态过程效果）**：卡片行与详情弹窗新增「安装中」那一条**真进度**（`EnterprisePluginCardProgressNotes` 与 `EnterprisePluginCardSettledNote`，两处共用同一个 `pluginProgressFacts` 入参），阶段文字直接取本文件那张 `STATES`（故与行脚状态词是同一张表、不可能漂）；`role="progressbar"` + `aria-live="polite"` + `aria-valuetext`（不确定态、无 aria-valuenow），CSS 另加 `own-plugin-progress*` 一族与一条 `@media (prefers-reduced-motion:reduce)`；进度与交代都由 `plugin-install-progress.ts` 的唯一投影算出，本文件不自造阶段词、不编百分比。
+ * [OUTPUT]: 提供设置页内的插件搜索/已安装筛选、版本详情、显式安装/卸载及状态文案。**本刀（失败文案降维）**：删除本文件的插件码表，失败一律渲染 `EnterpriseErrorNotice`（人话 + 「下一步：」+「技术信息」里的稳定码），兜底不再把码拼进可见句子 **本刀（目录三态 + 可重试）**：新增纯投影 `enterprisePluginCatalogState` / `enterprisePluginCatalogEmptyText` / `enterprisePluginCatalogVersionText`，目录四态（未登录 / 加载中 / 失败 / 空（三种原因）/ 就绪）显式化；失败态给唯一提示组件 + 真重发的重试，目录没取到时详情那一格不再谎称「已下架」。 **本刀（死开关改造）**：安装按钮原先 `disabled={busy || !connected || fatal !== undefined || item.installErrorCode !== undefined || waiting}` 且一句 `title` 都没有——禁用了却一个字不说，是产品宪法禁止的死控件。现改为：① 新增纯投影 `enterprisePluginRowGate`（唯一入口）与 `EnterprisePluginRowGate`/`EnterprisePluginGateNotes`，禁用原因全部来自新叶 `plugin-install-gate.ts` 的 `enterprisePluginLockReason`（目录判定 / 在途 / 等重启 / 别的操作用着 / 状态读不到），`installErrorCode` 只拦安装、不拦卸载；② 每一枚禁用都配**行上可见**的一句（`role="status"`，落点复用既有 `.own-market-sub`，不新增 CSS）与一句悬浮说明 `enterprisePluginSwitchTitle`；③ 平台彻底退出决策面：目录声明的 `operatingSystems` 与设备系统都不再进来（数据面字段照旧随行携带），卡片行与详情弹窗**一个字都不提系统**——「声明含当前平台 / 不含 / 根本没有该字段」三种形态渲染逐字相同；④ 不可达的 `!connected` 条件删掉（连不上时 `catalog`/`local` 皆空、一行都渲染不出来），并写清这条推理。 **本刀（企业插件安装的动态过程效果）**：卡片行与详情弹窗新增「安装中」那一条**真进度**（`EnterprisePluginCardProgressNotes` 与 `EnterprisePluginCardSettledNote`，两处共用同一个 `pluginProgressFacts` 入参），阶段文字直接取本文件那张 `STATES`（故与行脚状态词是同一张表、不可能漂）；`role="progressbar"` + `aria-live="polite"` + `aria-valuetext`（不确定态、无 aria-valuenow），CSS 另加 `own-plugin-progress*` 一族与一条 `@media (prefers-reduced-motion:reduce)`；进度与交代都由 `plugin-install-progress.ts` 的唯一投影算出，本文件不自造阶段词、不编百分比。 **本刀（企业插件真取消）**：进度条旁边新增一枚**真取消按钮**（官方 `Button` 原语 + Lucide `X`，**零新增 CSS 类**）——只在 `progress.cancelable`（官方取消句柄真实存在的那个受管态）**且写入口在场**时才画，点它就是 `store.cancelPlugin(name)`（同源 `POST /plugins/cancel`，正文关闭键集 `{packageName}`）；取消请求在途时按钮保持可见但 `disabled`、文案改「正在取消…」，同一落点以 `role="status"` 播报那句进行态（**不是**死控件）；不能取消时**不画**按钮、改画 `progress.cancelNotice` 那句可见原因（「走到『正在安装』后就能取消」/「卸载已经开始，完成前不能中断」）；卡片行与详情弹窗共用同一个 `cancelInstall` 写入口与同一份投影，故两处行为不可能分叉。
  * [POS]: ui 的员工插件管理视图，由「企业设置」的插件 tab 承载，数据与执行由 DSH Enterprise Host 拥有
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
-import { Check, Download, Package, RefreshCw, Search, Trash2 } from 'lucide-react'
+import { Check, Download, Package, RefreshCw, Search, Trash2, X } from 'lucide-react'
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import type { EnterpriseAccountStore } from './account-store.js'
 import { ConfirmAction } from './confirm-action.js'
@@ -21,6 +21,7 @@ import {
 // 「安装中」那一条**真进度**的唯一投影（与官方插件页里的插件市场共用同一份；
 // 阶段文字就取下面那张 `STATES` 状态词表，故两处不可能各说一套）。
 import {
+  ENTERPRISE_PLUGIN_PROGRESS_CANCELLING,
   enterprisePluginProgress,
   enterprisePluginSettledNotice,
   type EnterprisePluginBusyFact,
@@ -212,10 +213,18 @@ export function EnterprisePluginGateNotes({ gate, subject }: {
  * ② `aria-live="polite"`：阶段一推进就播报；
  * ③ 那条流光 `aria-hidden`——动效只是"还在动"的暗示，关掉它（`prefers-reduced-motion`）信息一字不少。
  * 没有进度时整段不进 DOM。
+ *
+ * **本刀（真取消）**：`progress.cancelable` 为真时给一枚**真按钮**（官方 `Button` 原语，不新增任何 CSS 类），
+ * 点它就是 `onCancel(name)` → store 的同源 `POST /plugins/cancel`；取消请求在途时按钮保持可见但 `disabled`
+ * 并改文案为「正在取消…」（不是死控件：旁边那句进行态交代就是它的可见原因）。
+ * 不能取消时**不画**按钮（那一刻点了也打不到东西），改画 `progress.cancelNotice` 那句可见原因；
+ * 取消请求在途时同一落点换成「正在取消…」并以 `role="status"` 播报。
+ * `onCancel` 缺席（纯函数直调 / 老调用方）时整枚按钮不渲染——照本仓「没写入口就不画死按钮」的降级口径。
  */
-export function EnterprisePluginCardProgressNotes({ name, progress }: {
+export function EnterprisePluginCardProgressNotes({ name, progress, onCancel }: {
   readonly name: string
   readonly progress: EnterprisePluginProgress | undefined
+  readonly onCancel?: ((packageName: string) => void) | undefined
 }): ReactNode {
   if (progress === undefined) return null
   return (
@@ -226,6 +235,7 @@ export function EnterprisePluginCardProgressNotes({ name, progress }: {
       data-enterprise-plugin-progress-stage={progress.state}
       data-enterprise-plugin-progress-indeterminate={progress.indeterminate ? 'true' : 'false'}
       data-enterprise-plugin-progress-cancelable={progress.cancelable ? 'true' : 'false'}
+      data-enterprise-plugin-progress-canceling={progress.canceling ? 'true' : 'false'}
     >
       <span
         className="own-plugin-progressFlow"
@@ -238,8 +248,26 @@ export function EnterprisePluginCardProgressNotes({ name, progress }: {
       {progress.readFailedNotice === undefined ? null : (
         <span className="own-plugin-progressNote">{progress.readFailedNotice}</span>
       )}
-      {/* 上游没有可达的取消面 ⇒ 只给一句「不能取消」的交代，**不画**点了没用的取消按钮。 */}
-      <span className="own-plugin-progressNote">{progress.cancelNotice}</span>
+      {/* 真取消入口：只有官方取消句柄真的在（`cancelable`）且写入口在场时才画。 */}
+      {progress.cancelable && onCancel !== undefined ? (
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={progress.canceling}
+          title={progress.canceling ? ENTERPRISE_PLUGIN_PROGRESS_CANCELLING : `取消安装 ${name}`}
+          aria-label={progress.canceling ? `正在取消 ${name} 的安装` : `取消安装 ${name}`}
+          icon={<X size={14} aria-hidden />}
+          onClick={() => { onCancel(name) }}
+        >
+          {progress.canceling ? '正在取消…' : '取消安装'}
+        </Button>
+      ) : null}
+      {/* 取消不了就说清为什么（可见、不静默）；正在取消时这里是进行态并以 `role="status"` 播报。 */}
+      {progress.cancelNotice === undefined ? null : (
+        <span className="own-plugin-progressNote" role={progress.canceling ? 'status' : undefined}>
+          {progress.cancelNotice}
+        </span>
+      )}
     </div>
   )
 }
@@ -270,6 +298,7 @@ function pluginProgressFacts(snapshot: {
   readonly pluginBusy?: EnterprisePluginBusyFact | undefined
   readonly pluginSettled?: EnterprisePluginSettledFact | undefined
   readonly pluginProgressErrorCode?: string | undefined
+  readonly pluginCancelBusy?: { readonly packageName: string } | undefined
 }, name: string, state: ManagedPluginState): {
   readonly progress: EnterprisePluginProgress | undefined
   readonly settledNotice: string | undefined
@@ -281,6 +310,8 @@ function pluginProgressFacts(snapshot: {
       state,
       stageText: STATES[state].title,
       readErrorCode: snapshot.pluginProgressErrorCode,
+      // 取消请求在途那份事实也进来：它决定按钮是「可点」还是「正在取消…（不可用）」。
+      cancelBusy: snapshot.pluginCancelBusy,
     }),
     settledNotice: enterprisePluginSettledNotice({ packageName: name, settled: snapshot.pluginSettled }),
   }
@@ -396,6 +427,13 @@ export function EnterprisePluginMarket({ store }: {
    */
   const progressFor = (name: string): { readonly progress: EnterprisePluginProgress | undefined; readonly settledNotice: string | undefined } =>
     pluginProgressFacts(snapshot, name, local.get(name)?.state ?? 'EXPECTED')
+  /**
+   * 取消在途安装的唯一写入口（卡片行与详情弹窗共用这一枚）。
+   *
+   * 失败不外抛也不吞：store 把稳定码写进 `pluginErrorCode`，本页已有那条失败提示会把它原样呈现，
+   * 而按钮仍在（状态没变）⇒ 用户直接再点一次就是重试。
+   */
+  const cancelInstall = (name: string): void => { void store.cancelPlugin(name) }
   /** 详情弹窗那一行的进度/交代（关闭弹窗就是 `undefined`，连算都不用算）。 */
   const detailPending = selected === undefined ? undefined : progressFor(selected)
   const actions = (name: string) => {
@@ -471,8 +509,9 @@ export function EnterprisePluginMarket({ store }: {
           {item?.installErrorCode ? <EnterpriseErrorNotice className="own-market-sub" code={item.installErrorCode} /> : null}
           {/* 动作点不动时**在行上**说清为什么（原因只来自那一份平台无关的门禁）。 */}
           <EnterprisePluginGateNotes gate={gateFor(name)} subject={name} />
-          {/* 「安装中」这一行的**真进度**（阶段文字 + 不确定态流光 + 「不能取消」交代）：没有工序就整段不进 DOM。 */}
-          <EnterprisePluginCardProgressNotes name={name} progress={pending.progress} />
+          {/* 「安装中」这一行的**真进度**（阶段文字 + 不确定态流光 + 真取消入口/取消不了的原因）：
+              没有工序就整段不进 DOM。 */}
+          <EnterprisePluginCardProgressNotes name={name} progress={pending.progress} onCancel={cancelInstall} />
           {/* 刚结束那一次动作的落地交代（完成 / 需重启）：`role="status"` 把「安装中 → 完成」接上。 */}
           <EnterprisePluginCardSettledNote name={name} notice={pending.settledNotice} />
           {record?.lastErrorCode ? <EnterpriseErrorNotice className="own-market-sub own-market-error" code={record.lastErrorCode} /> : null}
@@ -497,7 +536,7 @@ export function EnterprisePluginMarket({ store }: {
           （同一份 store 快照、同一枚 `pluginProgressFacts`），不会出现「行上在装、详情说没在装」。 */}
       {selected === undefined || detailPending === undefined ? null : (
         <>
-          <EnterprisePluginCardProgressNotes name={selected} progress={detailPending.progress} />
+          <EnterprisePluginCardProgressNotes name={selected} progress={detailPending.progress} onCancel={cancelInstall} />
           <EnterprisePluginCardSettledNote name={selected} notice={detailPending.settledNotice} />
         </>
       )}

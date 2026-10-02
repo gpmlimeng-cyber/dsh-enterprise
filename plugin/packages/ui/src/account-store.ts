@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖同源 JSON API 和宿主事件触发的状态读取
- * [OUTPUT]: 提供按需账号/插件操作、明确的地址保存结果与共享 snapshot；仅登录期间有界查询；原样承载宿主在 AUTHORIZING 下发的 `authorizeUrl`（不产生副作用，由登录弹窗消费） **本刀（企业插件安装的动态过程效果）**：新增「安装中」的**真进度**轮询——动作在途时按 `ENTERPRISE_PLUGIN_PROGRESS_POLL_MS` 反复读**我们自己那条只读** `GET /plugins`（Host 每走一步工序都先写真实受管态、这条路由同步投影它），把 Host 真走到的阶段刷进快照；`pluginSettled` 记动作收束时的**真实受管态**（收束交代的唯一真源）；`pluginProgressErrorCode` 单独承载「进度这一路读不到」（**不**改写 `pluginErrorCode`，因为读不到进度不等于安装失败，且下一拍会自愈重读）；装完自停（`#pluginProgressActive` 判据），store 卸载时也停表。
+ * [OUTPUT]: 提供按需账号/插件操作、明确的地址保存结果与共享 snapshot；仅登录期间有界查询；原样承载宿主在 AUTHORIZING 下发的 `authorizeUrl`（不产生副作用，由登录弹窗消费） **本刀（企业插件安装的动态过程效果）**：新增「安装中」的**真进度**轮询——动作在途时按 `ENTERPRISE_PLUGIN_PROGRESS_POLL_MS` 反复读**我们自己那条只读** `GET /plugins`（Host 每走一步工序都先写真实受管态、这条路由同步投影它），把 Host 真走到的阶段刷进快照；`pluginSettled` 记动作收束时的**真实受管态**（收束交代的唯一真源）；`pluginProgressErrorCode` 单独承载「进度这一路读不到」（**不**改写 `pluginErrorCode`，因为读不到进度不等于安装失败，且下一拍会自愈重读）；装完自停（`#pluginProgressActive` 判据），store 卸载时也停表。 **本刀（企业插件真取消）**：新增 `cancelPlugin(packageName)`——同源 `POST /plugins/cancel`（正文关闭键集 `{packageName}`，响应与只读 `GET /plugins` 同形 ⇒ 收下即回到安装前的真状态）；`pluginCancelBusy` 单独承载「本客户端的取消请求还在路上」（**不**改写 `pluginBusy`：安装还在跑与请在途取消是两件事实），失败把稳定码写进 `pluginErrorCode`（唯一提示组件出人话 + 下一步，按钮仍在即可重试），并刻意**不**碰 `pluginProgressErrorCode` / 账号 `errorCode` 这些不相关的码；本方法**不**自行宣判「已取消」（那次安装请求会以 `ENT_PLUGIN_INSTALL_CANCELLED` 自己收束）。
  * [POS]: dsh-ui 的浏览器状态控制器，在官方 slot 与 Settings tabs 间共享事实且隔离网络细节 **本刀**：进度轮询只读、可达、有界（在途才轮、无工序即停），并刻意与动作成败解耦。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -47,6 +47,14 @@ export interface EnterpriseAccountSnapshot {
    * 只在那一行多出一句可见的「进度暂时读不到…」（失败不静默）。
    */
   readonly pluginProgressErrorCode?: string
+  /**
+   * **本客户端刚发出、还没结束**的取消请求（哪一行）。
+   *
+   * 它与 `pluginBusy` 必然共存（取消只对在途的那一行有意义），但**不改写** `pluginBusy`：
+   * 「安装还在跑」与「我们刚请 Host 取消它」是两件不同的事实，界面要把两件都摆出来
+   * （进度条照旧按 Host 报的真阶段走，旁边多一句「正在取消…」并把那枚按钮置为不可用）。
+   */
+  readonly pluginCancelBusy?: { readonly packageName: string }
   readonly busy?: EnterpriseAccountAction
   readonly errorCode?: string
   readonly uninstallRestartRequested?: boolean
@@ -169,6 +177,44 @@ export class EnterpriseAccountStore {
 
   async removePlugin(packageName: string): Promise<void> {
     await this.#pluginAction('remove', packageName, signal => this.#api.removePlugin(packageName, signal))
+  }
+
+  /**
+   * 取消**在途**的一次受管插件安装（本机 `POST /plugins/cancel`，正文关闭键集 `{packageName}`）。
+   *
+   * 四条口径与安装/卸载动作**刻意不同**，逐条写在这里：
+   *  ① **不串行化**：取消的意义就是打断正在跑的那一次安装，故 `pluginBusy` 在场**不是**拒绝理由
+   *     （唯一被拒的是「已经有一个取消请求在路上」——那种情况下界面那枚按钮本来就是禁用的，
+   *     所以这条 early-return 在任何可达路径上都不会变成一次静默 no-op）；
+   *  ② **失败不静默**：取消请求本身失败（本机路由 5xx / 校验 400）时把稳定码写进 `pluginErrorCode`
+   *     ——唯一提示组件会把它翻成人话 + 下一步，按钮仍在（状态没变）⇒ 用户可以直接再点一次（可重试）；
+   *  ③ **不改写不相关的码**：只碰 `pluginErrorCode`（本插件动作族的那一格），
+   *     `pluginProgressErrorCode`（只读轮询那一路）与账号的 `errorCode` / `sessionErrorCode` 一律不动；
+   *  ④ **只反映真值**：成功时把响应里那份**与只读 `GET /plugins` 完全同形**的受管投影原样收下
+   *     （真的取消掉时 Host 已把记录回到安装前那一条 ⇒ 界面随之回到安装前），
+   *     本方法**不**自行宣判「已取消」——那次安装请求会以 `ENT_PLUGIN_INSTALL_CANCELLED` 自己收束。
+   */
+  async cancelPlugin(packageName: string): Promise<boolean> {
+    if (this.#snapshot.pluginCancelBusy !== undefined) return false
+    const signal = this.#accountSignal()
+    // 新一次动作开始：清掉上一次的动作失败码（与 `#pluginAction` 同一口径，取消也属于这一族动作）。
+    const { pluginErrorCode: _error, ...snapshot } = this.#snapshot
+    this.#set({ ...snapshot, pluginCancelBusy: { packageName } })
+    try {
+      const pluginStatus = await this.#api.cancelPlugin(packageName, signal)
+      if (!signal.aborted && this.#snapshot.status !== undefined && connected(this.#snapshot.status)) {
+        this.#set({ ...this.#snapshot, pluginStatus })
+      }
+      return !signal.aborted
+    } catch (error) {
+      if (!signal.aborted) this.#set({ ...this.#snapshot, pluginErrorCode: enterpriseLocalErrorCode(error) })
+      return false
+    } finally {
+      if (!signal.aborted) {
+        const { pluginCancelBusy: _busy, ...settled } = this.#snapshot
+        this.#set(settled)
+      }
+    }
   }
 
   async #pluginAction(
@@ -408,6 +454,10 @@ export class EnterpriseAccountStore {
         ? { pluginErrorCode: this.#snapshot.pluginErrorCode }
         : {}),
       ...(retain && this.#snapshot.pluginBusy !== undefined ? { pluginBusy: this.#snapshot.pluginBusy } : {}),
+      // 取消请求在途那份事实与 `pluginBusy` 同生共死：它只在一次在途动作的窗口里有意义。
+      ...(retain && this.#snapshot.pluginCancelBusy !== undefined
+        ? { pluginCancelBusy: this.#snapshot.pluginCancelBusy }
+        : {}),
       // 「落地交代」与「进度读不到的码」与已取到的受管态同生共死：同一次动作的两条尾巴，掉一个另一个就没主了。
       ...(retain && this.#snapshot.pluginSettled !== undefined ? { pluginSettled: this.#snapshot.pluginSettled } : {}),
       ...(retain && this.#snapshot.pluginProgressErrorCode !== undefined

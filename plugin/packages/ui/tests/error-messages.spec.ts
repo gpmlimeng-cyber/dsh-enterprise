@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 error-messages 的唯一码 → 人话映射（含兜底）、error-notice 的「技术信息」钩子常量，以及 src 下全部界面源码里的 `ENT_*` 字面量
- * [OUTPUT]: 验证映射是**纯投影**且处处一致：逐码给出非空的「发生了什么 + 下一步」、文案里不出现裸码、未映射/空串/畸形形状一律落兜底人话、码原样保留可取；并锁死「ui src 里出现的每个码都在唯一映射里」
+ * [OUTPUT]: 验证映射是**纯投影**且处处一致：逐码给出非空的「发生了什么 + 下一步」、文案里不出现裸码、未映射/空串/畸形形状一律落兜底人话、码原样保留可取；并锁死「ui src 里出现的每个码都在唯一映射里」 **本刀（企业插件真取消）**：码清单加 `ENT_PLUGIN_INSTALL_CANCELLED`（并逐字锁它的文案与 `retryable: true`）
  * [POS]: 失败自愈的机械门禁——宪法「禁止把技术码砸给用户」与「一处定义、处处复用」的可执行版本
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -31,6 +31,8 @@ const REQUIRED_CODES = [
   'ENT_PLUGIN_ARCHIVE_TOO_LARGE', 'ENT_PLUGIN_SIGNATURE_INVALID', 'ENT_PLUGIN_INCOMPATIBLE', 'ENT_PLUGIN_BUSY',
   'ENT_PLUGIN_CLI_FAILED', 'ENT_PLUGIN_COMMAND_FAILED', 'ENT_PLUGIN_LOADER_INACTIVE', 'ENT_PLUGIN_STATE_INVALID',
   'ENT_PLUGIN_NOT_ASSIGNED', 'ENT_PLUGIN_CORE_PROTECTED',
+  // 取消在途安装（员工自己按下的取消**不是**失败：本机什么都没变 ⇒ 下一步就是再试一次）
+  'ENT_PLUGIN_INSTALL_CANCELLED',
   // 配方
   'ENT_PRESET_INVALID_PACKAGE', 'ENT_PRESET_NOT_PUBLISHED', 'ENT_PRESET_TOO_LARGE', 'ENT_PRESET_VISIBILITY_DENIED',
   // 本地路由 / 会话 / 账号 / 反馈 / 品牌 / 更新
@@ -66,6 +68,11 @@ describe('enterprise error vocabulary (single projection)', () => {
       expect(view.action.endsWith('。'), code).toBe(true)
       expect(typeof view.retryable, code).toBe('boolean')
     }
+    // 取消在途安装那一枚：员工自己按下的取消**不是**失败（Host 已把记录回到安装前），
+    // 故文案就是「这次安装被取消了。请重试。」——人话 + 下一步，且按语义可重试。
+    expect(enterpriseErrorMessage('ENT_PLUGIN_INSTALL_CANCELLED')).toBe('这次安装被取消了。')
+    expect(enterpriseErrorAction('ENT_PLUGIN_INSTALL_CANCELLED')).toBe('请重试。')
+    expect(enterpriseErrorRetryable('ENT_PLUGIN_INSTALL_CANCELLED')).toBe(true)
   })
 
   it('keeps the same sentence per code no matter which accessor is used', () => {
@@ -102,6 +109,7 @@ describe('enterprise error vocabulary (single projection)', () => {
     for (const transient of [
       'ENT_PLATFORM_UNAVAILABLE', 'ENT_LOCAL_UNAVAILABLE', 'ENT_NETWORK_ERROR', 'ENT_PLUGIN_BUSY',
       'ENT_SKILL_DOWNLOAD_FAILED', 'ENT_SKILL_INSTALL_FAILED', 'ENT_UPSTREAM_TIMEOUT',
+      'ENT_PLUGIN_INSTALL_CANCELLED',
     ]) {
       expect(enterpriseErrorRetryable(transient), transient).toBe(true)
     }

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 接收任意 `ENT_*` 稳定错误码（来源可以是本地路由投影、store 快照、动作 promise 的 catch）
- * [OUTPUT]: 对外提供**唯一一份**错误码 → 员工可读呈现的纯投影：`enterpriseErrorPresentation`（人话 + 下一步动作 + 是否可重试 + 码原样保留）、`enterpriseErrorMessage` / `enterpriseErrorAction` / `enterpriseErrorRetryable` 与三条兜底常量。**本刀（资料库入口）**：新增三码——`ENT_LIBRARY_UNAVAILABLE`（资料库还没接线：页面失败态的「接入中」）、`ENT_LIBRARY_SETTING_READ_FAILED` / `ENT_LIBRARY_SETTING_SAVE_FAILED`（本机设置读/写失败：组件行那枚开关的失败态与重试），一律人话 + 下一步、不含裸码 **本刀（配方一键启用）**：新增十一枚配方启用码（`ENT_PRESET_AUTHORIZATION_REQUIRED` / `_AUTHORIZATION_STALE` / `_INSTALL_IN_PROGRESS` / `_INSTALL_CANCELLED` / `_STATE_INVALID` / `_RECIPE_INVALID` / `_INSTALL_FAILED` / `_UNINSTALL_FAILED` / `_BUNDLE_WRITE_FAILED` / `_ARTIFACT_UNAVAILABLE`）与降级链第二级那枚 `ENT_PRESET_LAUNCH_FAILED`（没打开新会话 → 请改用「复制导入指令」）。
+ * [OUTPUT]: 对外提供**唯一一份**错误码 → 员工可读呈现的纯投影：`enterpriseErrorPresentation`（人话 + 下一步动作 + 是否可重试 + 码原样保留）、`enterpriseErrorMessage` / `enterpriseErrorAction` / `enterpriseErrorRetryable` 与三条兜底常量。**本刀（资料库入口）**：新增三码——`ENT_LIBRARY_UNAVAILABLE`（资料库还没接线：页面失败态的「接入中」）、`ENT_LIBRARY_SETTING_READ_FAILED` / `ENT_LIBRARY_SETTING_SAVE_FAILED`（本机设置读/写失败：组件行那枚开关的失败态与重试），一律人话 + 下一步、不含裸码 **本刀（配方一键启用）**：新增十一枚配方启用码（`ENT_PRESET_AUTHORIZATION_REQUIRED` / `_AUTHORIZATION_STALE` / `_INSTALL_IN_PROGRESS` / `_INSTALL_CANCELLED` / `_STATE_INVALID` / `_RECIPE_INVALID` / `_INSTALL_FAILED` / `_UNINSTALL_FAILED` / `_BUNDLE_WRITE_FAILED` / `_ARTIFACT_UNAVAILABLE`）与降级链第二级那枚 `ENT_PRESET_LAUNCH_FAILED`（没打开新会话 → 请改用「复制导入指令」）。**本刀（企业插件真取消）**：新增一枚 `ENT_PLUGIN_INSTALL_CANCELLED`（「这次安装被取消了。请重试。」，`retryable: true`）——取消是员工自己的动作、本机什么都没变（Host 已把记录回到安装前），故它的收束就是再试一次，与配方族那枚同判。
  * [POS]: ui 的员工侧文案降维层（失败自愈）——产品宪法「必须给稳定错误码时，也要配对一句人话与下一步动作，禁止把技术码直接砸给用户」的唯一落点；界面只消费本模块，不再各写一份码表
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -128,6 +128,9 @@ const ENTERPRISE_ERROR_TABLE: Readonly<Record<string, { readonly message: string
   ENT_PLUGIN_SIGNATURE_INVALID: { message: '企业插件的信任配置不可用。', action: '请联系企业管理员。', retryable: false },
   ENT_PLUGIN_INCOMPATIBLE: { message: '这个插件与当前客户端不兼容。', action: '请联系企业管理员更换版本。', retryable: false },
   ENT_PLUGIN_BUSY: { message: '另一项插件操作正在进行。', action: '请等它结束后重试。', retryable: true },
+  // 员工自己按下的取消**不是**失败：本机什么都没变（Host 已把记录回到安装前那一条），所以下一步就是再试一次。
+  // 与配方族那枚 `ENT_PRESET_INSTALL_CANCELLED` 同判（瞬时态、可重试）。
+  ENT_PLUGIN_INSTALL_CANCELLED: { message: '这次安装被取消了。', action: '请重试。', retryable: true },
   ENT_PLUGIN_CLI_FAILED: { message: '插件安装工具执行失败。', action: '请重试；仍然失败请联系企业管理员。', retryable: true },
   ENT_PLUGIN_COMMAND_FAILED: { message: '插件安装命令执行失败。', action: '请重试；仍然失败请联系企业管理员。', retryable: true },
   ENT_PLUGIN_LOADER_INACTIVE: { message: '插件没有启动起来。', action: '请重试，或卸载这个插件。', retryable: true },
