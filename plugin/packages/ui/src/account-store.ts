@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖同源 JSON API 和宿主事件触发的状态读取
- * [OUTPUT]: 提供按需账号/插件操作、明确的地址保存结果与共享 snapshot；仅登录期间有界查询；原样承载宿主在 AUTHORIZING 下发的 `authorizeUrl`（不产生副作用，由登录弹窗消费）
- * [POS]: dsh-ui 的浏览器状态控制器，在官方 slot 与 Settings tabs 间共享事实且隔离网络细节
+ * [OUTPUT]: 提供按需账号/插件操作、明确的地址保存结果与共享 snapshot；仅登录期间有界查询；原样承载宿主在 AUTHORIZING 下发的 `authorizeUrl`（不产生副作用，由登录弹窗消费） **本刀（企业插件安装的动态过程效果）**：新增「安装中」的**真进度**轮询——动作在途时按 `ENTERPRISE_PLUGIN_PROGRESS_POLL_MS` 反复读**我们自己那条只读** `GET /plugins`（Host 每走一步工序都先写真实受管态、这条路由同步投影它），把 Host 真走到的阶段刷进快照；`pluginSettled` 记动作收束时的**真实受管态**（收束交代的唯一真源）；`pluginProgressErrorCode` 单独承载「进度这一路读不到」（**不**改写 `pluginErrorCode`，因为读不到进度不等于安装失败，且下一拍会自愈重读）；装完自停（`#pluginProgressActive` 判据），store 卸载时也停表。
+ * [POS]: dsh-ui 的浏览器状态控制器，在官方 slot 与 Settings tabs 间共享事实且隔离网络细节 **本刀**：进度轮询只读、可达、有界（在途才轮、无工序即停），并刻意与动作成败解耦。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -14,6 +14,12 @@ import type {
   EnterpriseSessionSyncStatus,
 } from './local-api.js'
 import { enterpriseLocalErrorCode } from './local-api.js'
+import {
+  ENTERPRISE_PLUGIN_PROGRESS_MAX_IDLE_TICKS,
+  ENTERPRISE_PLUGIN_PROGRESS_POLL_MS,
+  ENTERPRISE_PLUGIN_PROGRESS_STATES,
+  type EnterprisePluginSettledFact,
+} from './plugin-install-progress.js'
 
 export type EnterpriseAccountAction = 'configure' | 'login' | 'cancel' | 'logout' | 'uninstall'
 
@@ -25,6 +31,22 @@ export interface EnterpriseAccountSnapshot {
   readonly pluginsLoading?: boolean
   readonly pluginErrorCode?: string
   readonly pluginBusy?: { readonly action: 'install' | 'remove'; readonly packageName: string }
+  /**
+   * 刚结束那一次安装/卸载的**落地事实**（按最终真实受管态记下）。
+   *
+   * 它**不是**乐观猜测也不编造：值取自动作收束后 `pluginStatus.plugins[].state`（Host 真值），
+   * 再由 `plugin-install-progress.ts` 的唯一投影翻成「安装完成，重新打开客户端后生效。」这类可见交代。
+   * 下一次动作开始时清掉（与配方的 `applied` 回执同一口径）。
+   */
+  readonly pluginSettled?: EnterprisePluginSettledFact
+  /**
+   * 「安装中」那一路**进度**读不到时的稳定码。
+   *
+   * 与动作失败刻意分开：进度是一条**只读轮询**（同源 `GET /plugins`），它读不到**不等于**安装失败——
+   * 安装请求仍在本机跑，下一拍还会自动重读（自愈）。故它不改写 `pluginErrorCode`、也不让任何行被判成失败，
+   * 只在那一行多出一句可见的「进度暂时读不到…」（失败不静默）。
+   */
+  readonly pluginProgressErrorCode?: string
   readonly busy?: EnterpriseAccountAction
   readonly errorCode?: string
   readonly uninstallRestartRequested?: boolean
@@ -51,6 +73,11 @@ export class EnterpriseAccountStore {
   #refreshGeneration = 0
   #bootstrapLoading = false
   #pluginsLoading = false
+  /** 「安装中」真进度的轮询状态：是否在轮、代次（作废迟到结果）、当前那一枚定时器、已轮拍数（上限用）。 */
+  #pluginPolling = false
+  #pluginPollGeneration = 0
+  #pluginPollTicks = 0
+  #pluginPollTimer: ReturnType<typeof setTimeout> | undefined
 
   constructor(api: EnterpriseLocalApi) {
     this.#api = api
@@ -151,25 +178,116 @@ export class EnterpriseAccountStore {
     if (this.#snapshot.pluginBusy !== undefined || this.#snapshot.busy !== undefined
       || this.#snapshot.status === undefined || !connected(this.#snapshot.status)) return
     const signal = this.#accountSignal()
-    const { pluginErrorCode: _error, ...snapshot } = this.#snapshot
+    // 新一次动作开始：清掉上一次的失败码、进度读不到的码与**上一次的落地交代**（交代只属于刚结束的那次）。
+    const {
+      pluginErrorCode: _error, pluginSettled: _settled, pluginProgressErrorCode: _progress, ...snapshot
+    } = this.#snapshot
     this.#set({ ...snapshot, pluginBusy: { action, packageName } })
+    // 「安装中」的真进度：请求在途的这段时间里轮询那条只读状态路由，让 Host 真正走到的工序阶段上屏。
+    this.#syncPluginProgressPoll()
+    let failed = false
     try {
       const pluginStatus = await operation(signal)
       if (!signal.aborted && this.#snapshot.status !== undefined && connected(this.#snapshot.status)) {
         this.#set({ ...this.#snapshot, pluginStatus })
       }
     } catch (error) {
+      failed = true
       if (signal.aborted) return
       await this.refresh()
       if (signal.aborted) return
       if (this.#snapshot.status !== undefined && connected(this.#snapshot.status)) await this.#loadPlugins()
       if (!signal.aborted) this.#set({ ...this.#snapshot, pluginErrorCode: enterpriseLocalErrorCode(error) })
     } finally {
+      this.#stopPluginProgressPoll()
       if (!signal.aborted) {
-        const { pluginBusy: _busy, ...settled } = this.#snapshot
-        this.#set(settled)
+        const { pluginBusy: _busy, pluginProgressErrorCode: _progress, ...settled } = this.#snapshot
+        const settledFact = failed ? undefined : this.#pluginSettledFact(action, packageName)
+        this.#set({ ...settled, ...(settledFact === undefined ? {} : { pluginSettled: settledFact }) })
       }
     }
+  }
+
+  /**
+   * 一次动作**收束后**的落地事实（真值投影，不猜）。
+   *
+   * 值就是收束时 `pluginStatus` 里这一行的真实受管态；卸载方向在记录被 Host 删干净
+   * （`reconcileAbsent` 的既有行为）时记 `EXPECTED` = 本机不再装着——这是事实，不是乐观值。
+   * 只有落在「这次动作真的成功了」的那几个终态上才产出，其余（失败 / 还没到终态）返回 `undefined`，
+   * 由失败提示组件或下一次轮询负责。
+   */
+  #pluginSettledFact(action: 'install' | 'remove', packageName: string): EnterprisePluginSettledFact | undefined {
+    const state = this.#snapshot.pluginStatus?.plugins.find(item => item.packageName === packageName)?.state
+      ?? (action === 'remove' ? 'EXPECTED' : undefined)
+    if (action === 'install') {
+      return state === 'ACTIVE' || state === 'RESTART_REQUIRED' ? { action, packageName, state } : undefined
+    }
+    return state === 'EXPECTED' || state === 'RESTART_REQUIRED' ? { action, packageName, state } : undefined
+  }
+
+  /** 现在还有工序要跟吗：本机有动作在途，或只读投影里有任一受管态落在「工序中间」。 */
+  #pluginProgressActive(): boolean {
+    if (this.#snapshot.pluginBusy !== undefined) return true
+    return (this.#snapshot.pluginStatus?.plugins ?? [])
+      .some(item => ENTERPRISE_PLUGIN_PROGRESS_STATES.includes(item.state))
+  }
+
+  #stopPluginProgressPoll(): void {
+    clearTimeout(this.#pluginPollTimer)
+    this.#pluginPollTimer = undefined
+    this.#pluginPolling = false
+    // 代次自增 = 在途的那一拍回来时按过期丢弃（不会回填、也不会再排下一拍）。
+    this.#pluginPollGeneration += 1
+  }
+
+  /**
+   * 「安装中」真进度的轮询：**只读**同源 `GET /plugins`，一次只跑一个循环。
+   *
+   * 四件事的取舍写在这里：
+   *  ① 只读不改：它**不**写任何状态，也**不**参与成功/失败判定（那个由动作本身的响应负责）；
+   *  ② 读不到不静默：失败把稳定码写进 `pluginProgressErrorCode`（界面在那一行说「进度暂时读不到…」），
+   *     循环**不退出**——下一拍继续重读（自愈），且这个失败**不**影响正在进行的安装；
+   *  ③ 自停：一旦没有工序在跑（动作结束且没有任何在途受管态）就停表，不留常驻轮询；
+   *  ④ 有界：**只是观察到**本机在途（没有我们自己的动作在飞）时最多轮 `ENTERPRISE_PLUGIN_PROGRESS_MAX_IDLE_TICKS` 拍
+   *     ——Host 若在工序中崩过，落盘的受管态会永远停在中间那一格，无界轮询就成了常驻空转；
+   *     有界之后进度仍停在最后报到的**真阶段**上（真事实，只是不再推进），下一次刷新/重试重开一轮。
+   */
+  #syncPluginProgressPoll(): void {
+    if (!this.#pluginProgressActive()) {
+      this.#stopPluginProgressPoll()
+      return
+    }
+    if (this.#pluginPolling) return
+    // 新一轮：计数从零起（上一轮可能因上限或动作收束而停下）。
+    if (this.#pluginPollTicks >= ENTERPRISE_PLUGIN_PROGRESS_MAX_IDLE_TICKS) this.#pluginPollTicks = 0
+    this.#pluginPolling = true
+    const generation = this.#pluginPollGeneration
+    const signal = this.#accountSignal()
+    const tick = async (): Promise<void> => {
+      if (signal.aborted || generation !== this.#pluginPollGeneration || !this.#pluginPolling) return
+      if (!this.#pluginProgressActive()) {
+        this.#stopPluginProgressPoll()
+        return
+      }
+      try {
+        const pluginStatus = await this.#api.plugins(signal)
+        if (signal.aborted || generation !== this.#pluginPollGeneration) return
+        const { pluginProgressErrorCode: _code, ...rest } = this.#snapshot
+        this.#set({ ...rest, pluginStatus })
+      } catch (error) {
+        if (signal.aborted || generation !== this.#pluginPollGeneration) return
+        this.#set({ ...this.#snapshot, pluginProgressErrorCode: enterpriseLocalErrorCode(error) })
+      }
+      if (signal.aborted || generation !== this.#pluginPollGeneration || !this.#pluginPolling) return
+      // 只有「观察到」的那种在途才计数：我们自己的动作在飞时不设上限（动作收束自然会停）。
+      if (this.#snapshot.pluginBusy === undefined) this.#pluginPollTicks += 1
+      if (this.#snapshot.pluginBusy === undefined && this.#pluginPollTicks >= ENTERPRISE_PLUGIN_PROGRESS_MAX_IDLE_TICKS) {
+        this.#stopPluginProgressPoll()
+        return
+      }
+      this.#pluginPollTimer = setTimeout(() => { void tick() }, ENTERPRISE_PLUGIN_PROGRESS_POLL_MS)
+    }
+    this.#pluginPollTimer = setTimeout(() => { void tick() }, ENTERPRISE_PLUGIN_PROGRESS_POLL_MS)
   }
 
   async startLogin(): Promise<void> {
@@ -204,6 +322,8 @@ export class EnterpriseAccountStore {
     this.#lifetime?.abort()
     this.#lifetime = undefined
     this.#resetAccountRequests()
+    // 卸载 store（最后一个订阅者走人）时也把「安装中」的进度轮询停掉，不留常驻定时器。
+    this.#stopPluginProgressPoll()
     clearTimeout(this.#loginTimer)
     this.#loginTimer = undefined
     this.#loginDeadline = 0
@@ -288,6 +408,11 @@ export class EnterpriseAccountStore {
         ? { pluginErrorCode: this.#snapshot.pluginErrorCode }
         : {}),
       ...(retain && this.#snapshot.pluginBusy !== undefined ? { pluginBusy: this.#snapshot.pluginBusy } : {}),
+      // 「落地交代」与「进度读不到的码」与已取到的受管态同生共死：同一次动作的两条尾巴，掉一个另一个就没主了。
+      ...(retain && this.#snapshot.pluginSettled !== undefined ? { pluginSettled: this.#snapshot.pluginSettled } : {}),
+      ...(retain && this.#snapshot.pluginProgressErrorCode !== undefined
+        ? { pluginProgressErrorCode: this.#snapshot.pluginProgressErrorCode }
+        : {}),
       ...(this.#snapshot.busy === undefined ? {} : { busy: this.#snapshot.busy }),
       ...(status.errorCode === undefined ? {} : { errorCode: status.errorCode }),
     })
@@ -325,6 +450,9 @@ export class EnterpriseAccountStore {
       if (!signal.aborted && this.#snapshot.status !== undefined && connected(this.#snapshot.status)) {
         const { pluginsLoading: _pluginsLoading, ...settled } = this.#snapshot
         this.#set({ ...settled, pluginStatus })
+        // 取回来的投影里若已经有工序在跑（例如页面刷新时正好撞上一次安装），进度轮询从这一刻接上：
+        // 界面于是看得见**真的**阶段推进，而不是一条冻在某一格的静态文字。
+        this.#syncPluginProgressPoll()
       }
     } catch (error) {
       if (!signal.aborted) {

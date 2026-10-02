@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖共享 EnterpriseAccountStore 的企业目录/本机事实、Harness Modal/Button 与 Lucide 图标
- * [OUTPUT]: 提供设置页内的插件搜索/已安装筛选、版本详情、显式安装/卸载及状态文案。**本刀（失败文案降维）**：删除本文件的插件码表，失败一律渲染 `EnterpriseErrorNotice`（人话 + 「下一步：」+「技术信息」里的稳定码），兜底不再把码拼进可见句子 **本刀（目录三态 + 可重试）**：新增纯投影 `enterprisePluginCatalogState` / `enterprisePluginCatalogEmptyText` / `enterprisePluginCatalogVersionText`，目录四态（未登录 / 加载中 / 失败 / 空（三种原因）/ 就绪）显式化；失败态给唯一提示组件 + 真重发的重试，目录没取到时详情那一格不再谎称「已下架」。 **本刀（死开关改造）**：安装按钮原先 `disabled={busy || !connected || fatal !== undefined || item.installErrorCode !== undefined || waiting}` 且一句 `title` 都没有——禁用了却一个字不说，是产品宪法禁止的死控件。现改为：① 新增纯投影 `enterprisePluginRowGate`（唯一入口）与 `EnterprisePluginRowGate`/`EnterprisePluginGateNotes`，禁用原因全部来自新叶 `plugin-install-gate.ts` 的 `enterprisePluginLockReason`（目录判定 / 在途 / 等重启 / 别的操作用着 / 状态读不到），`installErrorCode` 只拦安装、不拦卸载；② 每一枚禁用都配**行上可见**的一句（`role="status"`，落点复用既有 `.own-market-sub`，不新增 CSS）与一句悬浮说明 `enterprisePluginSwitchTitle`；③ 平台彻底退出决策面：目录声明的 `operatingSystems` 与设备系统都不再进来（数据面字段照旧随行携带），卡片行与详情弹窗**一个字都不提系统**——「声明含当前平台 / 不含 / 根本没有该字段」三种形态渲染逐字相同；④ 不可达的 `!connected` 条件删掉（连不上时 `catalog`/`local` 皆空、一行都渲染不出来），并写清这条推理。
+ * [OUTPUT]: 提供设置页内的插件搜索/已安装筛选、版本详情、显式安装/卸载及状态文案。**本刀（失败文案降维）**：删除本文件的插件码表，失败一律渲染 `EnterpriseErrorNotice`（人话 + 「下一步：」+「技术信息」里的稳定码），兜底不再把码拼进可见句子 **本刀（目录三态 + 可重试）**：新增纯投影 `enterprisePluginCatalogState` / `enterprisePluginCatalogEmptyText` / `enterprisePluginCatalogVersionText`，目录四态（未登录 / 加载中 / 失败 / 空（三种原因）/ 就绪）显式化；失败态给唯一提示组件 + 真重发的重试，目录没取到时详情那一格不再谎称「已下架」。 **本刀（死开关改造）**：安装按钮原先 `disabled={busy || !connected || fatal !== undefined || item.installErrorCode !== undefined || waiting}` 且一句 `title` 都没有——禁用了却一个字不说，是产品宪法禁止的死控件。现改为：① 新增纯投影 `enterprisePluginRowGate`（唯一入口）与 `EnterprisePluginRowGate`/`EnterprisePluginGateNotes`，禁用原因全部来自新叶 `plugin-install-gate.ts` 的 `enterprisePluginLockReason`（目录判定 / 在途 / 等重启 / 别的操作用着 / 状态读不到），`installErrorCode` 只拦安装、不拦卸载；② 每一枚禁用都配**行上可见**的一句（`role="status"`，落点复用既有 `.own-market-sub`，不新增 CSS）与一句悬浮说明 `enterprisePluginSwitchTitle`；③ 平台彻底退出决策面：目录声明的 `operatingSystems` 与设备系统都不再进来（数据面字段照旧随行携带），卡片行与详情弹窗**一个字都不提系统**——「声明含当前平台 / 不含 / 根本没有该字段」三种形态渲染逐字相同；④ 不可达的 `!connected` 条件删掉（连不上时 `catalog`/`local` 皆空、一行都渲染不出来），并写清这条推理。 **本刀（企业插件安装的动态过程效果）**：卡片行与详情弹窗新增「安装中」那一条**真进度**（`EnterprisePluginCardProgressNotes` 与 `EnterprisePluginCardSettledNote`，两处共用同一个 `pluginProgressFacts` 入参），阶段文字直接取本文件那张 `STATES`（故与行脚状态词是同一张表、不可能漂）；`role="progressbar"` + `aria-live="polite"` + `aria-valuetext`（不确定态、无 aria-valuenow），CSS 另加 `own-plugin-progress*` 一族与一条 `@media (prefers-reduced-motion:reduce)`；进度与交代都由 `plugin-install-progress.ts` 的唯一投影算出，本文件不自造阶段词、不编百分比。
  * [POS]: ui 的员工插件管理视图，由「企业设置」的插件 tab 承载，数据与执行由 DSH Enterprise Host 拥有
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -18,6 +18,15 @@ import {
   enterprisePluginSwitchTitle,
   type EnterprisePluginLockReason,
 } from './plugin-install-gate.js'
+// 「安装中」那一条**真进度**的唯一投影（与官方插件页里的插件市场共用同一份；
+// 阶段文字就取下面那张 `STATES` 状态词表，故两处不可能各说一套）。
+import {
+  enterprisePluginProgress,
+  enterprisePluginSettledNotice,
+  type EnterprisePluginBusyFact,
+  type EnterprisePluginProgress,
+  type EnterprisePluginSettledFact,
+} from './plugin-install-progress.js'
 
 const STATES: Record<ManagedPluginState, { title: string; description: string; color: string }> = {
   EXPECTED: { title: '未安装', description: '可选择安装', color: '#667085' },
@@ -192,6 +201,91 @@ export function EnterprisePluginGateNotes({ gate, subject }: {
   )
 }
 
+/**
+ * 「**安装中**」那一条真进度（本页落点：卡片行与详情弹窗共用同一个入参形状）。
+ *
+ * 语义与官方插件页里那一条**逐项同源**（同一份 `plugin-install-progress.ts` 投影、同一串文案常量），
+ * 只有承载类名不同——两份 `<style>` 都是全局单类选择器、类名必须与同包其他源文件零交集，
+ * 故这里用它自己的 `own-plugin-progress*` 一族，而不是复用别页的类名（复用会互相覆盖）。
+ * ① `role="progressbar"` 且**不给** `aria-valuenow`：这是「不知道还剩多少」的不确定态，
+ *    `aria-valuetext` 里放**真阶段文字**，读屏因此听到「正在下载」而不是任何百分比；
+ * ② `aria-live="polite"`：阶段一推进就播报；
+ * ③ 那条流光 `aria-hidden`——动效只是"还在动"的暗示，关掉它（`prefers-reduced-motion`）信息一字不少。
+ * 没有进度时整段不进 DOM。
+ */
+export function EnterprisePluginCardProgressNotes({ name, progress }: {
+  readonly name: string
+  readonly progress: EnterprisePluginProgress | undefined
+}): ReactNode {
+  if (progress === undefined) return null
+  return (
+    <div
+      className="own-plugin-progress"
+      data-enterprise-plugin-progress={name}
+      data-enterprise-plugin-progress-phase={progress.phase}
+      data-enterprise-plugin-progress-stage={progress.state}
+      data-enterprise-plugin-progress-indeterminate={progress.indeterminate ? 'true' : 'false'}
+      data-enterprise-plugin-progress-cancelable={progress.cancelable ? 'true' : 'false'}
+    >
+      <span
+        className="own-plugin-progressFlow"
+        role="progressbar"
+        aria-live="polite"
+        aria-label={`${name} 安装进度`}
+        aria-valuetext={progress.stageText}
+      />
+      <span className="own-plugin-progressText">{progress.stageText}</span>
+      {progress.readFailedNotice === undefined ? null : (
+        <span className="own-plugin-progressNote">{progress.readFailedNotice}</span>
+      )}
+      {/* 上游没有可达的取消面 ⇒ 只给一句「不能取消」的交代，**不画**点了没用的取消按钮。 */}
+      <span className="own-plugin-progressNote">{progress.cancelNotice}</span>
+    </div>
+  )
+}
+
+/**
+ * 一次安装/卸载**刚结束**的落地交代（完成 / 需重启的明确收束）。
+ *
+ * `role="status"`（不是 `alert`）：不打断，但读屏要能接着进度那条收到「安装完成…」。
+ * 失败不走这里——失败由本页既有的 `EnterpriseErrorNotice`（`role="alert"` + 稳定码）负责。
+ */
+export function EnterprisePluginCardSettledNote({ name, notice }: {
+  readonly name: string
+  readonly notice: string | undefined
+}): ReactNode {
+  if (notice === undefined) return null
+  return (
+    <div className="own-plugin-progressSettled" role="status" data-enterprise-plugin-settled={name}>{notice}</div>
+  )
+}
+
+/**
+ * 一行插件的进度与交代（本页唯一取值入口，卡片行与详情弹窗都调它，避免两处各算一份）。
+ *
+ * 阶段文字取 `STATES[state].title`——与卡片行页脚那句状态词**同一张表**，所以「行上说正在下载、
+ * 进度说下载中」这种漂移在本页结构上不可能发生。
+ */
+function pluginProgressFacts(snapshot: {
+  readonly pluginBusy?: EnterprisePluginBusyFact | undefined
+  readonly pluginSettled?: EnterprisePluginSettledFact | undefined
+  readonly pluginProgressErrorCode?: string | undefined
+}, name: string, state: ManagedPluginState): {
+  readonly progress: EnterprisePluginProgress | undefined
+  readonly settledNotice: string | undefined
+} {
+  return {
+    progress: enterprisePluginProgress({
+      packageName: name,
+      busy: snapshot.pluginBusy,
+      state,
+      stageText: STATES[state].title,
+      readErrorCode: snapshot.pluginProgressErrorCode,
+    }),
+    settledNotice: enterprisePluginSettledNotice({ packageName: name, settled: snapshot.pluginSettled }),
+  }
+}
+
 const bytes = (value: number) => value < 1024 * 1024 ? `${Math.ceil(value / 1024)} KiB` : `${(value / 1024 / 1024).toFixed(1)} MiB`
 
 const styles = `
@@ -214,6 +308,20 @@ const styles = `
 .own-market-notice{padding:10px 0;line-height:20px;overflow-wrap:anywhere;color:var(--dsw-alias-label-secondary,#667085)}
 .own-market-error{color:var(--dsw-alias-state-error-primary,#c4320a)}
 .own-market-facts{display:grid;grid-template-columns:minmax(70px,auto) minmax(0,1fr);gap:12px 20px;font-size:13px;margin:0}.own-market-facts dt{color:var(--dsw-alias-label-secondary,#667085)}.own-market-facts dd{margin:0;overflow-wrap:anywhere}
+/* ── 「安装中」那一条真进度（卡片行与详情弹窗共用） ───────────────────────────────
+   类名带 own-plugin- 前缀：本页与官方插件页那份 style 都是全局单类选择器、又必须零交集，
+   故这条进度用它自己的一族（与另一处那条 own-market-progress* 是**同一份投影、两个落点**）。
+   画的是**不确定态**流光而不是会填满的进度条——这条链从 Host 只拿得到阶段、拿不到百分比
+   （留档在 plugin-install-progress.ts 的文件头）；动效只是装饰，阶段文字是独立文本节点。 */
+.own-plugin-progress{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0;padding:2px 0}
+.own-plugin-progressFlow{position:relative;display:block;flex:0 1 96px;width:96px;height:4px;border-radius:2px;background:var(--dsw-alias-background-secondary,#f2f4f7);overflow:hidden}
+.own-plugin-progressFlow::after{content:'';position:absolute;top:0;bottom:0;width:40%;border-radius:2px;background:var(--dsw-alias-accent-primary,#2563eb);animation:own-plugin-progress-flow 1.3s ease-in-out infinite}
+.own-plugin-progressText{color:var(--dsw-alias-label-secondary,#667085);font-size:12px;line-height:19px}
+.own-plugin-progressNote{color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:12px;line-height:19px;overflow-wrap:anywhere}
+.own-plugin-progressSettled{color:var(--dsw-alias-label-secondary,#667085);font-size:12px;line-height:19px;overflow-wrap:anywhere}
+@keyframes own-plugin-progress-flow{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}
+/* 尊重「减少动态效果」：滑动关掉、装饰层改成静态淡色；阶段文字与进度条语义一字不少。 */
+@media (prefers-reduced-motion: reduce){.own-plugin-progressFlow::after{width:100%;opacity:.4;animation:none;transform:none}}
 `
 
 export function EnterprisePluginMarket({ store }: {
@@ -281,6 +389,15 @@ export function EnterprisePluginMarket({ store }: {
     busy,
     fatal: fatal !== undefined,
   })
+  /**
+   * 一行插件的**真进度**与落地交代（本页唯一取值入口）。
+   * 入参是同一份 store 快照（在途动作 / 轮询刷新的真实受管态 / 那一路读不到的码），
+   * 卡片行与详情弹窗都调它，故两处不可能各算一份进度。
+   */
+  const progressFor = (name: string): { readonly progress: EnterprisePluginProgress | undefined; readonly settledNotice: string | undefined } =>
+    pluginProgressFacts(snapshot, name, local.get(name)?.state ?? 'EXPECTED')
+  /** 详情弹窗那一行的进度/交代（关闭弹窗就是 `undefined`，连算都不用算）。 */
+  const detailPending = selected === undefined ? undefined : progressFor(selected)
   const actions = (name: string) => {
     const item = available.get(name)
     const record = local.get(name)
@@ -341,6 +458,8 @@ export function EnterprisePluginMarket({ store }: {
         const item = available.get(name)
         const record = local.get(name)
         const presentation = record ? STATES[record.state] : undefined
+        // 这一行的进度与交代只算一次（同一份 store 快照 + 本行真实受管态），下面两处落点读同一份。
+        const pending = progressFor(name)
         return <article className="own-market-card" key={name} data-enterprise-plugin-package={name} data-enterprise-plugin-state={record?.state ?? 'AVAILABLE'}>
           <button type="button" className="own-market-title" aria-haspopup="dialog" onClick={() => setSelected(name)}>
             <span className="own-market-glyph"><Package size={20} aria-hidden /></span>
@@ -352,6 +471,10 @@ export function EnterprisePluginMarket({ store }: {
           {item?.installErrorCode ? <EnterpriseErrorNotice className="own-market-sub" code={item.installErrorCode} /> : null}
           {/* 动作点不动时**在行上**说清为什么（原因只来自那一份平台无关的门禁）。 */}
           <EnterprisePluginGateNotes gate={gateFor(name)} subject={name} />
+          {/* 「安装中」这一行的**真进度**（阶段文字 + 不确定态流光 + 「不能取消」交代）：没有工序就整段不进 DOM。 */}
+          <EnterprisePluginCardProgressNotes name={name} progress={pending.progress} />
+          {/* 刚结束那一次动作的落地交代（完成 / 需重启）：`role="status"` 把「安装中 → 完成」接上。 */}
+          <EnterprisePluginCardSettledNote name={name} notice={pending.settledNotice} />
           {record?.lastErrorCode ? <EnterpriseErrorNotice className="own-market-sub own-market-error" code={record.lastErrorCode} /> : null}
           <footer><span style={{ color: presentation?.color ?? 'var(--dsw-alias-label-secondary,#667085)' }}>{presentation?.title ?? '可选安装'}</span>{actions(name)}</footer>
         </article>
@@ -370,6 +493,14 @@ export function EnterprisePluginMarket({ store }: {
         {selected === undefined || gateFor(selected).installLockNotice === undefined
           ? null : <><dt>暂时不能安装</dt><dd>{gateFor(selected).installLockNotice}</dd></>}
       </dl>
+      {/* 详情弹窗里**同一份**进度与交代：卡片行装到一半时用户点进详情，看到的阶段与行上逐字相同
+          （同一份 store 快照、同一枚 `pluginProgressFacts`），不会出现「行上在装、详情说没在装」。 */}
+      {selected === undefined || detailPending === undefined ? null : (
+        <>
+          <EnterprisePluginCardProgressNotes name={selected} progress={detailPending.progress} />
+          <EnterprisePluginCardSettledNote name={selected} notice={detailPending.settledNotice} />
+        </>
+      )}
     </Modal>
   </section>
 }
