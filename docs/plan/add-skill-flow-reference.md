@@ -311,7 +311,7 @@ const inputSentence = inputProblem === null ? null
 
 #### C.3.1 一个框 + 一个上传按钮（不引入第二个文本框）
 
-> **与并行方案的最终对账（2026-10-02，两份文档均已存在）**：`docs/plan/skill-install-sources.md:801–803`（§G.1）
+> **与并行方案的最终对账（2026-10-02，两份文档均已存在）**：`docs/plan/skill-install-sources.md:803–804`（§G.1）
 > 已明确把本文定为权威——原话：「**逐元素布局、弹层结构与 spec 输入语法以 `docs/plan/add-skill-flow-reference.md` 为准**
 > （那是官方「添加插件」流程的参照规格）」。同时它在同节规定**入口是两枚按钮**（工具栏「从文件安装」+「从地址安装」）。
 > **所以最终形态是**：入口两枚按钮（它定），
@@ -429,7 +429,7 @@ const inputSentence = inputProblem === null ? null
      + 它的 §G.2 通路二「多技能时给候选选择」处理，本节不重复设计。
 ```
 
-**理由**：`skill-install-sources.md:855–860`（§G.4/§G.3）与二期规划 `:294` 已立下「只显示稳定错误码 + 固定文案，
+**理由**：`skill-install-sources.md:860`（§G.4）与二期规划 `:294` 已立下「只显示稳定错误码 + 固定文案，
 不自造长句解释」的纪律；「二选一」是一个**没有码可归属**的中间态，会破坏这条纪律。
 本节据此让位。
 
@@ -758,46 +758,75 @@ parses YAML frontmatter, and loads bodies through `ctx.fs` when a filesystem ser
 ## G. 与既有规划文档的关系
 
 > ⚠️ **口径纠正（含并行提交的时效说明）**
-> 任务点名两份文档，实际状态是：
-> - `docs/plan/skill-ingest-center.md` —— **已存在**（871 行，本次研读期间由并行代理创建；本文档写完后已重新对账过一次）。
-> - `docs/plan/skill-install-sources.md` —— **本次结束时仍不存在**（`ls docs/plan/` 与全盘 `find / -name "skill-install-sources*"` 均零命中）；
->   但 `skill-ingest-center.md:21` 的 `[POS]` 明确写着「客户端侧方案由 `docs/plan/skill-install-sources.md` 负责」，
->   即它**正在被另一个代理写**。因此本规格与它的对账**留到它落地后补**（见 §H-10）。
+> 任务点名的两份文档，本次研读期间**先后由并行代理创建**，在本文件定稿时**均已存在**：
+> - `docs/plan/skill-ingest-center.md` —— 871 行（本次研读期间出现，已对账）。
+> - `docs/plan/skill-install-sources.md` —— 1090 行（**在本文件写出后、定稿前出现**，已完成第二轮对账）。
+>   ⚠️ **重要**：它 §G.1（`:803–804`）**已经引用本文**并明确
+>   「**逐元素布局、弹层结构与 spec 输入语法以 `docs/plan/add-skill-flow-reference.md` 为准**」。
+>   即：**本文已从「参照规格」升格为客户端弹层细节的权威源**；反过来，入口按钮的数量/位置、
+>   错误码、provenance 字段、校验闸门**以它为准**。本文已按此重写 §C.3.1–§C.3.3。
 >
-> 下面按**已存在的四份**文档对账。**本次未修改它们中的任何一份**（`git status` 只多出本文件一个未跟踪项）。
+> 下面按**已存在的五份**文档对账。**本次未修改它们中的任何一份**：
+> `git status` 里 `plugin/packages/**`（含 `ui/`）的 10 个 `M` 全部是**其它代理**的未提交改动，
+> 本次唯一新增项是 `?? docs/plan/add-skill-flow-reference.md`。
 
 ### G.1 对账表
 
 | 既有文档 | 它与本规格的关系 | 本规格该并入哪一节 |
 |---|---|---|
-| `docs/plan/enterprise-marketplace-phase2.md`（企业应用商店二期，`status: planning`） | **最直接**：它已冻结「侧栏一级菜单 + 主内容区多页签」的承载形态、三层可见性、「浏览自由·安装受控」的判定点与错误码。本规格是它的 **UX 细化层**，填掉「一个框怎么收四个来源」这一块空白 | §2.2 页签清单的「**企业技能**」行；§6 客户端需补能力表新增一行 **C10「技能添加弹层（规格见 docs/plan/add-skill-flow-reference.md）」**；其 §4.2 的 ① 行渲染判定（`entitled=false` → 「申请」）应成为本弹层失败态的第 3 类归因 |
-| `docs/plan/skill-ingest-center.md`（企业中心多渠道导入，871 行） | **架构互补、枚举强耦合**：它管**服务端/控制台**怎么把外部渠道导进企业目录（离线适配器路线），并明确「**客户端（员工个人设备）的用户自发安装与「粘贴地址安装」交互不在本文范围**」（`:22–24`）——**那正是本规格**。两者共享同一个「一个来源 = 一个适配器」抽象（它 §B.1） | 它 **§B.1 要求 R1（`:178`）**冻结的 `sourceType` 枚举是本规格 §C.3.2 的**上游约束**（已在该节写入映射表）；它 **§F.3 进度与失败反馈（`:611`）** 的「不做乐观 UI」「失败必须带稳定错误码」与本规格 §D 的官方节奏**必须合流**，建议在它 §F.3 补一句「客户端侧对照 `docs/plan/add-skill-flow-reference.md` §D」 |
+| **`docs/plan/skill-install-sources.md`**（客户端「本地上传 + 粘贴地址」，1090 行） | **⭐ 最直接、且已互相引用**：它就是本规格要服务的那份客户端方案。它把「逐元素布局 / 弹层结构 / spec 输入语法」**显式让给本文**（`:803–804`），自己只保留四条不可让步口径（不与受控目录混排 / 必须有安装前确认 / 必须有稳定错误码与来源徽标 / 不做远端版本检查） | 本文 §C.3.1（入口两枚按钮）、§C.3.2（判定跑在 Host）、§C.3.3（`ENT_SKILL_SOURCE_NO_SKILL` / `ENT_SKILL_SOURCE_AMBIGUOUS`）都是**为它让位后**的修订；它的 §G.2/§G.4 步骤表与本文 §D 的阶段模型**应当合成一张表**（映射见 §G.2 第 5 条） |
+| `docs/plan/skill-ingest-center.md`（企业中心多渠道导入，871 行） | **架构互补、枚举强耦合**：它管**服务端/控制台**怎么把外部渠道导进企业目录（离线适配器路线），并明确「**客户端（员工个人设备）的用户自发安装与「粘贴地址安装」交互不在本文范围**」（`:22–24`）——**那正是本规格**。两者共享同一个「一个来源 = 一个适配器」抽象（它 §B.1） | 它 **§B.1 要求 R1（`:178`）**冻结的 `sourceType` 枚举是本规格 §C.3.2 的**上游约束**（映射表已在该节写入，并标出**与客户端枚举的真实冲突**）；它 **§F.3 进度与失败反馈（`:611`）** 的「不做乐观 UI」「失败必须带稳定错误码」与本规格 §D 的官方节奏**必须合流** |
+| `docs/plan/enterprise-marketplace-phase2.md`（企业应用商店二期，`status: planning`） | **较直接**：它已冻结「侧栏一级菜单 + 主内容区多页签」的承载形态、三层可见性、「浏览自由·安装受控」的判定点与错误码。本规格是它的 **UX 细化层**，填掉「一个框怎么收多个来源」这一块空白 | §2.2 页签清单的「**企业技能**」行；§6 客户端需补能力表新增一行 **C10「技能添加弹层（规格见 docs/plan/add-skill-flow-reference.md）」**；其 §4.2 的 ① 行渲染判定（`entitled=false` → 「申请」）应成为本弹层失败态的第 3 类归因 |
 | `docs/plan/borrow-from-skillhub.md`（SkillHub 借鉴取舍） | **互补**：它管「内容与治理概念怎么吸收」（格式转换器、审核状态机、namespace、不要直连 API）。本规格**不含**任何服务端/来源治理主张，只管客户端 UX | 其 §2「设计上值得抄的」不改；建议在其 §6 关系表加一行指向本文件，标注「**UX 层参照**（技能添加弹层）」，与它的「证据层/执行层」并列 |
 | `docs/compose/spec/skill-catalog.md`（技能目录，`status: delivered`） | **实现层真源**：`.dshskill` 包契约、`/skills/{installed,install,uninstall}` 三条本机路由、原子落盘顺序、四条边界、「官方无 `skills/install` RPC」的核对结论 | 本规格 §C.3.1 的「默认 `.dshskill`」与 §F.2 #2/#7 均引自它；§E.6 与它 §S2.7 的结论一致 |
 
 **额外交叉印证（四处独立得出同一结论）**：本规格 §E.6 的「官方无技能安装能力面」，
-与 `docs/compose/spec/skill-catalog.md:120`、`docs/plan/skill-ingest-center.md:138–152`（§A.3）
-**三份文档、同一结论**，且三者引用的官方证据是同一批（`dsh-plugin-manager` 只有 `installBundle`/`removeBundle`；
-技能唯一能力面是 `dsh-skill-filesystem` 的发现契约）。此结论可视为**已冻结**。
+与 `docs/compose/spec/skill-catalog.md:120`、`docs/plan/skill-ingest-center.md:138–152`（§A.3）、
+`docs/plan/skill-install-sources.md:72–82`（§0.3）**四份文档、同一结论**，且引用的官方证据是同一批
+（`dsh-plugin-manager` 只有 `installBundle`/`removeBundle`；技能唯一能力面是 `dsh-skill-filesystem` 的发现契约）。
+此结论可视为**已冻结**。
 
 ### G.2 有无冲突口径
 
-**没有发现实质冲突**，但有 **4 处需要显式对齐**（第 1 条是与 `skill-ingest-center.md` 新出现的**硬耦合**）：
+**没有会阻塞实施的冲突，但有 5 处需要显式对齐**；前两条是**真实分歧**（需人工裁定），其余是措辞/位置对齐。
 
-1. **⭐ `sourceType` 枚举必须两端同名（新增，硬约束）。** `skill-ingest-center.md:178` 的 R1 已冻结
-   `LOCAL_FILE / URL_ARCHIVE / SKILLHUB_CN / SKILLHUB_XFYUN / GITHUB_REPO / NPM_PACKAGE`，理由是
-   「provenance 要写进 `ent_skill_import`/`ent_skill_version`，命名漂移会污染审计与检索」。
-   本规格的判定顺序**必须直接产出这六个值**（映射表已写进 §C.3.2）。**这是本规格唯一被外部文档强制的部分。**
-2. **「谁能装」的位置不同，且不矛盾。** 二期规划把「可安装性」放在**服务端下发的 `entitled` 布尔**（§4.2 ①/②）；
+1. **🔴 `sourceType` 枚举两份文档不一致（真实分歧，需裁定）。**
+   · 中心侧 `skill-ingest-center.md:178`（R1）：`LOCAL_FILE / URL_ARCHIVE / SKILLHUB_CN / SKILLHUB_XFYUN / GITHUB_REPO / NPM_PACKAGE`（6 值，UPPER_SNAKE），理由是「provenance 要写进 `ent_skill_import`/`ent_skill_version`，**不允许各自起名**」。
+   · 客户端侧 `skill-install-sources.md:770`：`sourceType = 'upload' | 'skillhub' | 'github' | 'npm'`（4 值，小写；其适配器 id 见 `:497`）。
+   两个实质性差异：**① 命名风格与取值都不同；② 客户端侧缺 `URL_ARCHIVE`，且未区分 `SKILLHUB_CN` / `SKILLHUB_XFYUN`**——而它自己的 §0.5（`:104–122`）又强调「两个站必须分清」。
+   约束的适用范围也待定：两端 provenance 落在**不同记录**（客户端自装记录 vs 中心导入表）。
+   **本文不裁定**，只把映射表放在 §C.3.2，选定后回填即可。已记入 §H-12。
+2. **🔴 「成功」的呈现口径不一致（真实分歧，需裁定）。**
+   · 官方范式（本规格 §D.6）：成功后**留在弹层**的 `done` 屏，给「立即启用」/「完成」，用户自己决定下一步。
+   · `skill-install-sources.md:862`（§G.4）：「成功：行进入『本机技能』分区，来源徽标 + 可打开详情；**不弹成功对话框**（与既有安装动作一致）」。
+   · 但同文 §G.2 通路一/二都写了**「安装前确认」弹层**（`:188–198`, `:218–228`），所以它的实际形态是
+     「确认弹层 → 关闭 → 行出现在列表」。
+   **建议**：采纳它的「关闭 + 行进列表」，但**保留官方 `done` 屏的一个子集**——即确认弹层在落盘成功后
+   就地变成一行结果（「已安装 · 2 个技能」+「关闭」），而不是瞬间消失；理由：官方 `idle→…→done` 的节奏
+   让用户明确知道「什么时候算完」，而「静默消失」在**落盘类长任务**上易被误解为失败。**这一条需产品拍板。**
+3. **「谁能装」的位置不同，且不矛盾。** 二期规划把「可安装性」放在**服务端下发的 `entitled` 布尔**（§4.2 ①/②）；
    本规格（照官方）把「能不能点安装」放在**客户端输入合法性 + 宿主检查结果**。结论：二者是**串联的两道门**——
    `entitled=false` 时**行上就没有安装入口**（改「申请」），因此本弹层在 `entitled=true` 的行上才被打开。
    **本规格不覆盖授权，授权仍由二期规划 §4.2 唯一裁定。**
-3. **「失败归因的措辞权」不同，需要统一。** 二期口径是「界面只显示不自造文案」「一律沿用 `enterpriseLocalErrorCode`」（§4.2 错误码口径），
-   `skill-ingest-center.md:611–618`（§F.3）也重申「失败必须带 `error_code`」「**不要**做乐观 UI」；
-   而官方范式是「客户端按 problem/kind 选中文模板、把宿主英文 reason 拼进去」。建议：**技能侧沿用二期口径**（稳定错误码投影），
-   只在**纯输入识别失败**（尚未发出服务端请求）时用官方那种内联句式「无法识别这个地址：{reason}」。
-4. **「是否保留复制装配指令」**。`skill-catalog.md` §S2.6/§S2.7：一期唯一主动作是复制装配指令，二期增量加了「安装」按钮，
-   **复制装配指令作为第二条路保留**。本规格的弹层是**第三条路（从地址安装）**，不要把它做成唯一入口。
+4. **「失败归因的措辞权」不同，需要统一。** 二期口径是「界面只显示不自造文案」「一律沿用 `enterpriseLocalErrorCode`」（§4.2 错误码口径），
+   `skill-ingest-center.md:611–618`（§F.3）与 `skill-install-sources.md:860`（§G.4）都重申「失败必须带稳定错误码」「不做乐观 UI」；
+   而官方范式是「客户端按 problem/kind 选中文模板、把宿主英文 reason 拼进去」。**结论：技能侧一律用稳定错误码**
+   （官方那套「拼英文 reason」不进界面），只在**纯输入识别失败**（尚未发出任何请求）时用官方那种内联句式
+   「无法识别这个地址：{reason}」。§C.3.3 已按此改。
+5. **阶段模型可以合成一张表（建议，无分歧）。** 官方 10 个 phase（本规格 §D.1）与它的三态文案
+   （`skill-install-sources.md:858` `上传中/取包中 → 校验中 → 安装中`）**是对同一件事的两种粒度描述**，
+   映射如下，建议在它 §G.4 里直接引用本表：
+
+   | 它的三态 | 官方 phase（本规格） | 可取消性 |
+   |---|---|---|
+   | `上传中 / 取包中` | `checking`（识别+解析）→ `starting` → `running`（取字节） | **可取消**（官方 `checking` 可 abort，`client.js:1367–1371`；官方 `starting/running` 可请求取消，`:1374–1378`） |
+   | `校验中` | `running`（校验属于同一段，官方没有单独阶段，用 `TerminalBlock` 的「运行中」表达，`client.js:3049`） | 同上 |
+   | `安装中` | `applying`（官方**不可取消**，`client.js:2882`、`:3009`） | **不可取消**——与它 §G.4「校验与落盘的原子阶段**不可取消**（避免半状态）」**完全一致** |
+
+6. **「复制装配指令」这条路必须保留。** `skill-catalog.md` §S2.6/§S2.7：一期唯一主动作是「复制装配指令」，
+   二期增量才加了「安装」按钮，且**复制装配指令作为第二条路保留**。本规格的弹层是**第三条路（从地址安装）**，
+   三者在同一页签上并存，**不要把从地址安装做成唯一入口**。
+
 
 ### G.3 建议的落地位置（不改本文档外的任何文件，供后续实施参考）
 
@@ -839,13 +868,24 @@ parses YAML frontmatter, and loads bodies through `ctx.fs` when a filesystem ser
    `directory-picker` / `FileUpload` 零命中）。我们技能版的「选择文件」应该用哪一套原语，**未定**——建议单独做一次原语取证。
 9. **压缩包上限**：官方对 tarball 的大小/条目数上限**未在客户端或 `installBundle` 里看到**（由 pnpm 自己决定）；
    我们技能侧的上限应由 `skill-catalog.md` §S2.7 的 50MiB/200MiB/1万条目/256KiB 那套承接，**不在本规格内**。
-10. **`docs/plan/skill-install-sources.md` 尚不存在（并行代理正在写）**：`skill-ingest-center.md:21` 的 `[POS]`
-    明确「客户端侧方案由 `docs/plan/skill-install-sources.md` 负责」。**本规格与它的对账未完成**：
-    若它落地后对「一个框 / 判定顺序 / 来源枚举 / 失败文案」有不同口径，**以它为准或以本文为准需要一次人工裁定**。
-    建议落地者做一次三方对齐（本文 + `skill-install-sources.md` + `skill-ingest-center.md:178` 的 R1）。
-11. **员工端「一站式的来源适配器」跑在哪一侧**：`skill-ingest-center.md` §B.3 只裁定了**中心侧**适配器放离线工具；
-    员工端（本弹层）的 resolve/fetch/convert 究竟在**本机 Host 路由**、**企业中心服务端**、还是**浏览器直连**，
-    本文**未裁定**（本文只规定 UX 与判定顺序）。这是一个必须在 `skill-install-sources.md` 里定的问题。
+10. **`docs/plan/skill-install-sources.md` 与本文的权威边界（已解决，留档）**：它 `:803–804` 已把
+    「逐元素布局 / 弹层结构 / spec 输入语法」让给本文，自己保留入口两枚按钮 / 稳定错误码 / provenance /
+    校验闸门 / 四条不可让步口径。**这一条不再是开放项**，仅留档说明边界。原先本节写的
+    「对账未完成」已由第二轮对账（§G）取代。
+11. **员工端「一站式的来源适配器」跑在哪一侧（部分解决）**：`skill-install-sources.md` §B.2/§B.3 已裁定
+    「UI 只发同源固定路径与字面量；**Host 负责一切网络、路径、校验与落盘**」，§0.6 又定了挂在
+    `registerEnterpriseLocalApi`（前缀 `/enterprise/api/v1/local`）并说明上传必须走 multipart（JSON 路由只有 256 KiB 上限）。
+    因此**「跑在 Host 侧本机路由」已经定了**；仍不确定的是**适配器的代码落在哪个包**
+    （`skill-install-sources.md` §C.4 提了扩展点但本文未核）。已记入 §H-13。
+12. **🔴 `sourceType` 枚举两份文档不一致，待人工裁定**：见 §G.2 第 1 条。取值集合与命名风格都不同
+    （`LOCAL_FILE/URL_ARCHIVE/SKILLHUB_CN/SKILLHUB_XFYUN/GITHUB_REPO/NPM_PACKAGE` vs `upload/skillhub/github/npm`），
+    而客户端侧还缺 `URL_ARCHIVE` 且未区分两个 skillhub 站。**这是本次对账发现的最硬的一处分歧**，
+    必须在实施前由文档所有者拍板（本文只提供映射位，不裁定）。
+13. **适配器代码落点未核**：`skill-ingest-center.md` §B.2 把**中心侧**适配器放离线工具
+    （建议 `scripts/skill-import/`，并排除 `plugin/packages/*`）；但 `skill-install-sources.md` 的**员工端**
+    适配器按 §0.6 必须落在插件包内（`registerEnterpriseLocalApi` 家族）。**同一个「适配器」概念在两个消费方
+    落在两个不同的地方**——共享代码如何组织（同构纯函数放哪、如何被两处引用）**未核**，需要一次专项设计。
+14. **「成功」呈现的两处口径需要产品拍板**：见 §G.2 第 2 条（官方「留在弹层」vs 它「不弹成功对话框」）。
 
 ---
 
