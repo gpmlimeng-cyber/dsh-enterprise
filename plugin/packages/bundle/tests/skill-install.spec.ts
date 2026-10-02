@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 `src/skill-install.ts` 的安装编排、`src/skill-errors.ts` 的稳定码、`@dshent/plugin-distribution` 的下载内核（经编排间接覆盖）与 `tests/zip-fixture.ts` 的 ZIP 构造器
- * [OUTPUT]: 在真实临时 dshHome 上锁定安装成功（落点/原子改名/暂存清理/内容寻址缓存/幂等）、sha256 与大小不符、网络失败、上游受控码穿透、路径逃逸、包契约不符、落点冲突、失败回滚、已装态（含盘上文件消失）、卸载与找不到、状态文件损坏 fail-closed、入参门禁与「不执行包内内容」的源码守卫
- * [POS]: bundle 技能一键安装的端到端回归门禁；有人改成先落盘再校验、把 sha256 校验去掉、允许覆盖同名技能目录、或让状态文件损坏时静默重写，本文件都会红
+ * [OUTPUT]: 在真实临时 dshHome 上锁定安装成功（落点/原子改名/暂存清理/内容寻址缓存/幂等）、**同一包新版本的原子升级**（新旧内容替换、旧孤儿目录清理、清单只留一条、幂等；升级要占别的包的技能名仍拒；升级无法记账时旧版本原样回来）、sha256 与大小不符、网络失败、上游受控码穿透、路径逃逸、包契约不符、落点冲突、失败回滚、已装态（含盘上文件消失）、卸载与找不到、状态文件损坏 fail-closed、入参门禁与「不执行包内内容」的源码守卫
+ * [POS]: bundle 技能一键安装的端到端回归门禁；有人改成先落盘再校验、把 sha256 校验去掉、允许覆盖别的包或来路不明的同名技能目录、把「同包新版本」也当落点冲突拒掉、升级失败不回滚旧版本、或让状态文件损坏时静默重写，本文件都会红
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -39,9 +39,9 @@ async function makeHome(): Promise<string> {
   return path
 }
 
-function skillEntries(prefix: string, names: readonly string[]): ZipFixtureEntry[] {
+function skillEntries(prefix: string, names: readonly string[], skillId = `${prefix}-pkg`): ZipFixtureEntry[] {
   return [
-    { path: 'manifest.json', content: JSON.stringify({ format: 'dsh-skill', version: '1', id: `${prefix}-pkg`, name: '企业技能包', sourceDshVersion: '0.2.0-rc.2' }) },
+    { path: 'manifest.json', content: JSON.stringify({ format: 'dsh-skill', version: '1', id: skillId, name: '企业技能包', sourceDshVersion: '0.2.0-rc.2' }) },
     ...names.map(name => ({
       path: `skills/${name}/SKILL.md`,
       content: `---\nname: ${name}\ndescription: ${prefix} 技能\n---\n正文\n`,
@@ -303,7 +303,128 @@ describe('enterprise skill install', () => {
       .resolves.toMatchObject({ skills: [{ packageId: PACKAGE_ID }] })
   })
 
+  // 升级路：本机已装**同一个 packageId 的旧版本**时再装一次 = 原子升级，绝不是落点冲突。
+  // 这条用例是「市场行左侧那枚『有更新』标签」能不能真的走通的最后一环——此前会被预检直接拒成
+  // ENT_SKILL_NAME_CONFLICT（连自己旧版本的目录都算「已存在」）。
+  it('upgrades the same package to a newer version atomically, replacing its own directories', async () => {
+    const dshHome = await makeHome()
+    const v1 = buildZip(skillEntries('meeting', ['meeting-actions', 'meeting-notes']))
+    const first = platformFixture(
+      detailEnvelope({ archive: v1, names: ['meeting-actions', 'meeting-notes'], skillId: 'meeting-pkg', versionId: VERSION_ID }),
+      () => new Response(v1),
+    )
+    await installSkillPackage({ platform: first.platform, dshHome }, PACKAGE_ID)
+    expect(await readFile(join(dshHome, 'skills', 'meeting-notes', 'SKILL.md'), 'utf8')).toContain('meeting 技能')
+
+    // 新版本：同一个 packageId / skillId，技能名集合变了（少一个、多一个），内容也不同。
+    const v2 = buildZip(skillEntries('meeting-v2', ['meeting-notes', 'meeting-brief'], 'meeting-pkg'))
+    const second = platformFixture(
+      detailEnvelope({ archive: v2, names: ['meeting-notes', 'meeting-brief'], skillId: 'meeting-pkg', versionId: '1902500000000000102' }),
+      () => new Response(v2),
+    )
+    const status = await installSkillPackage({ platform: second.platform, dshHome }, PACKAGE_ID)
+    expect(status.skills).toHaveLength(1)
+    expect(status.skills[0]).toMatchObject({
+      packageId: PACKAGE_ID,
+      versionId: '1902500000000000102',
+    })
+    // 技能名集合换成新版本的（少一个、多一个），顺序按解包事实，这里只锁集合。
+    expect([...status.skills[0]!.names].sort()).toEqual(['meeting-brief', 'meeting-notes'])
+    // 内容真的换成新版本（不是就地半覆盖后新旧混着），新技能目录落盘、旧孤儿目录被清掉。
+    expect(await readFile(join(dshHome, 'skills', 'meeting-notes', 'SKILL.md'), 'utf8')).toContain('meeting-v2 技能')
+    expect(await exists(join(dshHome, 'skills', 'meeting-brief', 'SKILL.md'))).toBe(true)
+    expect(await exists(join(dshHome, 'skills', 'meeting-actions'))).toBe(false)
+    // 清单只有一条记录（升级是替换而不是追加），暂存/备份位都清干净。
+    const state = JSON.parse(await readFile(join(dshHome, STATE_RELATIVE), 'utf8')) as { records: { versionId: string }[] }
+    expect(state.records).toHaveLength(1)
+    expect(state.records[0]?.versionId).toBe('1902500000000000102')
+    expect(await stagingIsEmpty(dshHome)).toBe(true)
+    // 升级后同 sha256 再点一次仍是幂等成功：不再重下、不再重写。
+    second.request.mockClear()
+    await expect(installSkillPackage({ platform: second.platform, dshHome }, PACKAGE_ID))
+      .resolves.toMatchObject({ skills: [expect.objectContaining({ versionId: '1902500000000000102' })] })
+    expect(second.request).toHaveBeenCalledTimes(1)
+  })
+
+  // 升级不得越界：新版本要用的技能名被**别的包**占用时照样拒绝，本包旧版本一根毫毛都不动。
+  it('still refuses an upgrade that would take a name owned by another package', async () => {
+    const dshHome = await makeHome()
+    const own = buildZip(skillEntries('meeting', ['meeting-actions']))
+    const ownFixture = platformFixture(
+      detailEnvelope({ archive: own, names: ['meeting-actions'], skillId: 'meeting-pkg', versionId: VERSION_ID }),
+      () => new Response(own),
+    )
+    const foreign = buildZip(skillEntries('code-review', ['code-review']))
+    const foreignFixture = platformFixture(
+      detailEnvelope({
+        archive: foreign, names: ['code-review'], skillId: 'code-review-pkg',
+        packageId: OTHER_PACKAGE_ID, versionId: '1902500000000000103',
+      }),
+      () => new Response(foreign),
+    )
+    await installSkillPackage({ platform: ownFixture.platform, dshHome }, PACKAGE_ID)
+    await installSkillPackage({ platform: foreignFixture.platform, dshHome }, OTHER_PACKAGE_ID)
+
+    // 本包新版本想把别的包占着的 `code-review` 收进来：只能拒绝。
+    const next = buildZip(skillEntries('meeting-v2', ['meeting-actions', 'code-review'], 'meeting-pkg'))
+    const upgrade = platformFixture(
+      detailEnvelope({
+        archive: next, names: ['meeting-actions', 'code-review'], skillId: 'meeting-pkg',
+        versionId: '1902500000000000104',
+      }),
+      () => new Response(next),
+    )
+    await expect(installSkillPackage({ platform: upgrade.platform, dshHome }, PACKAGE_ID))
+      .rejects.toMatchObject({ code: 'ENT_SKILL_NAME_CONFLICT' })
+    // 两个包都还在原版本、原内容，落点零改动。
+    const status = await installedSkillStatus({ platform: ownFixture.platform, dshHome })
+    expect(status.skills.map(skill => skill.packageId).sort()).toEqual([PACKAGE_ID, OTHER_PACKAGE_ID].sort())
+    expect(status.skills.find(skill => skill.packageId === PACKAGE_ID)?.versionId).toBe(VERSION_ID)
+    expect(await readFile(join(dshHome, 'skills', 'meeting-actions', 'SKILL.md'), 'utf8')).toContain('meeting 技能')
+    expect(await readFile(join(dshHome, 'skills', 'code-review', 'SKILL.md'), 'utf8')).toContain('code-review 技能')
+    expect(await exists(join(dshHome, 'skills', 'meeting-v2'))).toBe(false)
+  })
+
+  // 升级失败回滚：新目录已改名到位、清单还没写上就炸 → 旧版本必须**原样回来**，绝不变成空目录或半装态。
+  it('restores the previous version when an upgrade cannot be recorded', async () => {
+    const dshHome = await makeHome()
+    const v1 = buildZip(skillEntries('meeting', ['meeting-actions', 'meeting-notes']))
+    const first = platformFixture(
+      detailEnvelope({ archive: v1, names: ['meeting-actions', 'meeting-notes'], skillId: 'meeting-pkg', versionId: VERSION_ID }),
+      () => new Response(v1),
+    )
+    await installSkillPackage({ platform: first.platform, dshHome }, PACKAGE_ID)
+
+    const v2 = buildZip(skillEntries('meeting-v2', ['meeting-notes', 'meeting-brief'], 'meeting-pkg'))
+    const second = platformFixture(
+      detailEnvelope({ archive: v2, names: ['meeting-notes', 'meeting-brief'], skillId: 'meeting-pkg', versionId: '1902500000000000102' }),
+      () => new Response(v2),
+    )
+    const logged: string[] = []
+    await expect(installSkillPackage({
+      platform: second.platform,
+      dshHome,
+      now: () => { throw new Error('clock exploded') },
+      // 升级路径上的失败**不允许**走「留痕后成功」的旁路：只接住日志，结论仍是整条拒绝。
+      onError: message => { logged.push(message) },
+    }, PACKAGE_ID)).rejects.toMatchObject({ code: 'ENT_SKILL_INSTALL_FAILED' })
+    expect(logged).toEqual([])
+
+    // 旧版本原样回来：内容还是 v1、旧目录还在、新版本多出来的目录没留下。
+    expect(await readFile(join(dshHome, 'skills', 'meeting-notes', 'SKILL.md'), 'utf8')).toContain('meeting 技能')
+    expect(await exists(join(dshHome, 'skills', 'meeting-actions', 'SKILL.md'))).toBe(true)
+    expect(await exists(join(dshHome, 'skills', 'meeting-brief'))).toBe(false)
+    expect(await stagingIsEmpty(dshHome)).toBe(true)
+    // 清单没动过：仍是 v1，状态查询如实报 v1。
+    const state = JSON.parse(await readFile(join(dshHome, STATE_RELATIVE), 'utf8')) as { records: { versionId: string }[] }
+    expect(state.records).toHaveLength(1)
+    expect(state.records[0]?.versionId).toBe(VERSION_ID)
+    await expect(installedSkillStatus({ platform: first.platform, dshHome }))
+      .resolves.toMatchObject({ skills: [expect.objectContaining({ versionId: VERSION_ID })] })
+  })
+
   it('rolls the freshly renamed directories back when the install cannot be recorded', async () => {
+    const dshHome = await makeHome()
     const archive = buildZip(skillEntries('meeting', ['meeting-notes', 'meeting-actions']))
     const fixture = platformFixture(
       detailEnvelope({ archive, names: ['meeting-actions', 'meeting-notes'], skillId: 'meeting-pkg' }),
