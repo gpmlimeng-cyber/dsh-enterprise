@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 skill-market 的装配指令/条目与元信息纯投影，以及 local-api 再导出的技能严格解码
- * [OUTPUT]: 验证装配指令文案要点（下载 URL/名称/skillId/~/.dsh/skills 落点/落盘前确认）、调用策略标签、列表与详情投影（含 sha256 丢弃、null 归一）、**已装态解码与逐行安装态投影（已装/未装/在途文案与按钮语义）**、三条安装动作的同源路径常量、畸形拒绝与浏览器不接触令牌/不绕开 local-api
+ * [OUTPUT]: 验证装配指令文案要点（下载 URL/名称/skillId/~/.dsh/skills 落点/落盘前确认）、调用策略标签、列表与详情投影（含 sha256 丢弃、null 归一、**可选分类 category 的严格解码与缺席归一**）、**已装态解码与逐行安装态投影（已装/未装/在途文案与按钮语义）**、三条安装动作的同源路径常量、畸形拒绝与浏览器不接触令牌/不绕开 local-api
  * [POS]: dsh-ui 技能 tab 的产品词汇与边界门禁，真实 DOM 与视觉由 Harness 快照与真机验收覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -63,6 +63,31 @@ describe('enterprise skill market', () => {
     ]) {
       expect(() => decodeEnterpriseSkills(broken)).toThrow('ENT_LOCAL_RESPONSE_INVALID')
     }
+  })
+
+  it('decodes the optional skill category strictly and normalizes absence to no key', () => {
+    // 合法：非空分类串照原样投影（列表与详情两条路同一口径）。
+    expect(decodeEnterpriseSkills([{ ...SUMMARY, category: '研发工具' }])[0]?.category).toBe('研发工具')
+    expect(decodeEnterpriseSkillDetail({ ...DETAIL, category: '研发工具' }).category).toBe('研发工具')
+    // 缺席 / null / 空串：一律归一成「没有这个键」（界面据此不渲染分类签，安静缺席是预期行为）。
+    for (const value of [undefined, null, '']) {
+      const row = decodeEnterpriseSkills([{ ...SUMMARY, category: value }])[0]
+      expect(row).toEqual({ ...SUMMARY, versionId: '', skills: [] })
+      expect(Object.keys(row ?? {}).includes('category')).toBe(false)
+      const detail = decodeEnterpriseSkillDetail({ ...DETAIL, category: value })
+      expect(Object.keys(detail).includes('category')).toBe(false)
+    }
+    // 类型不对（数字/对象/布尔/数组）一律抛稳定失败码，绝不让畸形值滑进界面。
+    for (const broken of [42, {}, true, ['研发工具']]) {
+      expect(() => decodeEnterpriseSkills([{ ...SUMMARY, category: broken }])).toThrow('ENT_LOCAL_RESPONSE_INVALID')
+      expect(() => decodeEnterpriseSkillDetail({ ...DETAIL, category: broken })).toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    // category 进白名单 ≠ 放开键集：多塞别的未知字段照样整条判失败。
+    expect(() => decodeEnterpriseSkills([{ ...SUMMARY, category: '研发工具', tag: 'x' }]))
+      .toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    // 分类串也不是无上限的：超长判畸形。
+    expect(() => decodeEnterpriseSkills([{ ...SUMMARY, category: 'x'.repeat(65) }]))
+      .toThrow('ENT_LOCAL_RESPONSE_INVALID')
   })
 
   it('projects skill detail entries with invocation policy and drops the artifact sha256', () => {

@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 decode-primitives 的键集封闭判定、record/nonEmptyString/timestamp/enterpriseId 与唯一失败码类
- * [OUTPUT]: 对外提供技能包 DTO（`EnterpriseRuntimeSkill`/`EnterpriseSkillEntry`/`EnterpriseInstalledSkill`）与严格解码 `decodeEnterpriseSkills`（列表）、`decodeEnterpriseSkillDetail`（详情）与 `decodeEnterpriseInstalledSkills`（本机已装态）
- * [POS]: dsh-ui 浏览器契约层的技能分片——从逼近 800 行的 local-api-decode 拆出，专管企业技能目录投影；只保留 frontmatter 脱敏事实，SKILL.md 正文、artifact 路径与 SHA-256 在这里校验形状后即丢，永不进入界面；已装态是本机真值（Host 状态文件 + 落盘存在性），这里只校验形状与技能名规约
+ * [OUTPUT]: 对外提供技能包 DTO（`EnterpriseRuntimeSkill`/`EnterpriseSkillEntry`/`EnterpriseInstalledSkill`）与严格解码 `decodeEnterpriseSkills`（列表，可选分类 `category` 进白名单）、`decodeEnterpriseSkillDetail`（详情）与 `decodeEnterpriseInstalledSkills`（本机已装态）
+ * [POS]: dsh-ui 浏览器契约层的技能分片——从逼近 800 行的 local-api-decode 拆出，专管企业技能目录投影；只保留 frontmatter 脱敏事实，SKILL.md 正文、artifact 路径与 SHA-256 在这里校验形状后即丢，永不进入界面；**可选分类 `category`（服务端新增字段，列表与详情投影都会有）在这里严格校验形状并把「缺席/null/空串」统一归一成「没有这个键」**（照 `whenToUse` 的既有归一策略，为缺失设计）；已装态是本机真值（Host 状态文件 + 落盘存在性），这里只校验形状与技能名规约
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -31,6 +31,12 @@ export interface EnterpriseRuntimeSkill {
   readonly displayName: string
   /** 服务端 manifest.json 的 description 选填，投影时空值归一为空串（界面固定占位）。 */
   readonly description: string
+  /**
+   * 服务端新增的**可选分类**（列表与详情投影都会有）。**为缺失设计**：本层把缺席 / JSON null / 空串
+   * 一律归一成「没有这个键」（照上面 `whenToUse` 的同一策略），故界面只需判 `undefined`；
+   * 类型不是 string/null、或超过 64 字符一律判 `ENT_LOCAL_RESPONSE_INVALID`。
+   */
+  readonly category?: string
   readonly sourceDshVersion: string
   readonly sizeBytes: number
   readonly skillCount: number
@@ -43,6 +49,12 @@ export interface EnterpriseRuntimeSkill {
 const SKILL_SUMMARY_KEYS = [
   'id', 'skillId', 'displayName', 'description', 'sourceDshVersion', 'sizeBytes', 'skillCount', 'updatedAt',
 ] as const
+
+/**
+ * 摘要的可选键：只有服务端新增的分类 `category`。它**不**进必填键集——字段尚未上线时整条投影必须照旧可解，
+ * 这正是「为缺失设计」；但只要它出现，类型就必须是 string（或 null），否则整条判畸形。
+ */
+const SKILL_SUMMARY_OPTIONAL_KEYS = ['category'] as const
 
 const SKILL_DETAIL_KEYS = [...SKILL_SUMMARY_KEYS, 'versionId', 'sha256', 'skills'] as const
 
@@ -59,15 +71,18 @@ const SKILL_MAX_SIZE_BYTES = 52_428_800
 /**
  * 校验并投影摘要字段（不含键集判定：调用方先按 `hasExactKeys` 选择列表/详情键集）。
  *
- * 两处刻意放宽，都为了兼容真实服务端输出而不牺牲边界安全：
+ * 三处刻意放宽，都为了兼容真实服务端输出而不牺牲边界安全：
  * - `description` 允许 JSON null（manifest.json 的 description 选填），投影为空串；
- * - 非 string 非 null 的描述、非正大小、越界技能数与非法时间戳一律判畸形。
+ * - `category` 允许缺席 / JSON null / 空串（服务端新增的可选分类），三者都归一成「没有这个键」；
+ * - 非 string 非 null 的描述与分类、非正大小、越界技能数与非法时间戳一律判畸形。
  */
 function decodeSkillSummaryFields(row: JsonRecord): EnterpriseRuntimeSkill {
   if (!enterpriseId(row['id'])
     || !nonEmptyString(row['skillId']) || row['skillId'].length > 128 || !SKILL_PACKAGE_REF.test(row['skillId'])
     || !nonEmptyString(row['displayName']) || row['displayName'].length > 120
     || !(row['description'] === null || (typeof row['description'] === 'string' && row['description'].length <= 2000))
+    || !(row['category'] === undefined || row['category'] === null
+      || (typeof row['category'] === 'string' && row['category'].length <= 64))
     || !nonEmptyString(row['sourceDshVersion']) || row['sourceDshVersion'].length > 64
     || !Number.isSafeInteger(row['sizeBytes']) || Number(row['sizeBytes']) <= 0 || Number(row['sizeBytes']) > SKILL_MAX_SIZE_BYTES
     || !Number.isSafeInteger(row['skillCount']) || Number(row['skillCount']) < 1 || Number(row['skillCount']) > 200
@@ -79,6 +94,8 @@ function decodeSkillSummaryFields(row: JsonRecord): EnterpriseRuntimeSkill {
     skillId: row['skillId'],
     displayName: row['displayName'],
     description: typeof row['description'] === 'string' ? row['description'] : '',
+    // 分类：只有真拿到非空串才产出这个键；缺席/null/空串一概不产出（界面据此不渲染分类签，不塞占位）。
+    ...(nonEmptyString(row['category']) ? { category: row['category'] } : {}),
     sourceDshVersion: row['sourceDshVersion'],
     sizeBytes: Number(row['sizeBytes']),
     skillCount: Number(row['skillCount']),
@@ -114,6 +131,7 @@ function decodeSkillEntry(value: unknown): EnterpriseSkillEntry {
  *
  * 未知字段（含详情专有的 versionId/sha256/skills）、负数或越界大小、非法时间戳一律抛
  * `ENT_LOCAL_RESPONSE_INVALID`；超过 200 条视为畸形而非截断。
+ * `category` 是唯一可选键：缺席/null/空串都照旧解出（不产出该键），类型不对（非 string/null）才判畸形。
  */
 export function decodeEnterpriseSkills(value: unknown): readonly EnterpriseRuntimeSkill[] {
   if (!Array.isArray(value) || value.length > 200) {
@@ -121,7 +139,7 @@ export function decodeEnterpriseSkills(value: unknown): readonly EnterpriseRunti
   }
   return value.map(item => {
     const row = record(item)
-    if (row === undefined || !hasExactKeys(row, SKILL_SUMMARY_KEYS)) {
+    if (row === undefined || !hasExactKeys(row, SKILL_SUMMARY_KEYS, SKILL_SUMMARY_OPTIONAL_KEYS)) {
       throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
     }
     return decodeSkillSummaryFields(row)
@@ -132,12 +150,12 @@ export function decodeEnterpriseSkills(value: unknown): readonly EnterpriseRunti
  * 严格解码技能包详情（`GET /enterprise/api/v1/skills/{skillPackageId}` 的 `data`）。
  *
  * 详情键集 = 摘要字段 + versionId + sha256 + skills；`sha256` 只作形状门禁后丢弃，
- * 条目只保留 frontmatter 事实（正文从不在这份契约里）。
+ * 条目只保留 frontmatter 事实（正文从不在这份契约里）。可选分类 `category` 与列表同一口径。
  */
 export function decodeEnterpriseSkillDetail(value: unknown): EnterpriseRuntimeSkill {
   const row = record(value)
   if (row === undefined
-    || !hasExactKeys(row, SKILL_DETAIL_KEYS)
+    || !hasExactKeys(row, SKILL_DETAIL_KEYS, SKILL_SUMMARY_OPTIONAL_KEYS)
     || !enterpriseId(row['versionId'])
     || typeof row['sha256'] !== 'string' || !SKILL_SHA256.test(row['sha256'])
     || !Array.isArray(row['skills']) || row['skills'].length > 200) {

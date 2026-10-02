@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 React（useState/useEffect）、品牌位图 brand、lucide-react 三枚组件图标、官方 ui-primitives 的 Switch/Tag/StateDot（pinned 0.1.5-rc.2 的 .d.ts 已导出，不走 official-ui 收窄接缝；**该 pin 不含 `SegmentedTabs`**，故 page 视图的页签条照 `account-view.tsx` 既有 tablist 手写自绘，pin 对齐是另一个待用户拍板的开放项）、account-state 的 `enterpriseSessionUsable` 与 account-store 的 `EnterpriseAccountSnapshot`（shared 面、订阅只在 WithStore 包装内）、local-api-decode 的技能 DTO（`EnterpriseRuntimeSkill` 目录 + 已装记录 `EnterpriseInstalledSkill`——技能行开关的「已装」只认后者这一份 Host 真值）与失败码唯一投影 `enterpriseLocalErrorCode`（行内失败提示的 code 来源，与技能 tab 同源）、消费官方 `plugins.item` owner props（`view`/`form`）；中心当前版本只从**详情投影** `store.api.skillDetail(id)` 取（列表投影的 `versionId` 恒为空串），且只对已装行取——未装行没有本机版本可比，不白跑请求
- * [OUTPUT]: 提供官方插件页「官方」分组里的「插件市场」入口卡片与**三页签商店整页**（page 视图顶部手写页签条 = 企业技能 / 企业插件 / 组件，默认选中「企业技能」；三个 `role="tabpanel"` 只有当前页签挂载内容，页签内容直接复用原三节的行渲染、不重写节内实现），以及可脱离 DOM 测试的页签真源（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`）、组件清单/计数摘要/组件状态纯投影、企业插件行投影、企业技能行投影（官方两行卡片：标题 + 描述，并带中心当前版本 `latestVersionId`）、「有更新」判定纯投影 `enterpriseMarketSkillHasUpdate` 与判定入口 `enterpriseMarketSkillRowHasUpdate`、开关左侧那枚辅助标签的纯投影 `enterpriseMarketSkillUpdateTag` 与文案常量 `ENTERPRISE_MARKET_SKILL_UPDATE_LABEL`、技能行受管态纯投影 `enterpriseMarketSkillState`（`AVAILABLE`/`INSTALLED`/`UPDATE_AVAILABLE`/`INSTALLING`/`REMOVING`）、**唯一剩下可折叠的「组件」页签折叠态** `ENTERPRISE_MARKET_DEFAULT_EXPANDED`、失败可见反馈 `EnterpriseMarketActionError` 与文案投影 `enterpriseMarketActionErrorLabel`，以及注册常量；卡片摘要与详情页正文**不重复同一句**——摘要只在 `summary` 视图出现（官方必渲染的那一份），详情页只留页签条与三个面板
- * [POS]: ui 的企业扩展市场入口，只占官方 `plugins.item` 槽位（卡片一句话走 `summary`、**整页三页签商店**走 `page`），不注册侧栏入口与独立市场弹层；**page 视图 = 页签条（企业技能 | 企业插件 | 组件，默认「企业技能」）+ 三个 `role="tabpanel"`**：页签条手写（`role="tablist"`/`role="tab"`/`aria-selected`/`aria-controls`/`aria-labelledby`/`id` 三处配对、roving `tabIndex`、←/→/Home/End 走焦并选中、选中态 2px 下划线），**不用官方 `SegmentedTabs`**（工程编译期 pin 的 primitives 0.1.5-rc.2 不含它，import 即 TS 报错；pin 对齐待用户拍板），三个面板**只有当前页签的内容挂载**（其余只留一个 `hidden` 空壳，让 `aria-controls` 恒能解析）；store 与开登录回调均为可选注入（共享注册面经 `client.tsx` 的 `inject` 给本条目注入 store，缺席时降级为占位态，注入后自动升级为真值态）；组件行 `reserved` 只剩配方一行，插件与技能行随企业会话真值，两个目录节（企业插件/企业技能）都只在对应大组件开启且目录非空时出现，企业插件行维持原样（状态点 + 文案 + 官方 `Switch` 一键安装/卸载），企业技能行右侧 = **[辅助标签按钮] [Switch]**（标签在前）：官方两行卡片（第 1 行标题 `own-market-cardId`、第 2 行描述 `own-market-cardDesc` 单行省略，不出现元信息行）+ 那枚**始终存在**的官方 `Switch`：`checked` = 该技能已装（`installedSkills` 命中本行）、在途（`INSTALLING`/`REMOVING`）`disabled`、`label` 给动作语义（`安装企业技能 X`/`卸载企业技能 X`）、`onChange(next)` 原样交回 `onToggleSkill(skill, next)`，开关仍是该行的主控件；**开关左侧的辅助标签**是真实 `<button type="button">`（`own-market-skillTag`，键盘可达、`:focus-visible` 焦点环、`data-enterprise-skill-tag='UPDATE_AVAILABLE'`），**只在「有更新」时出现**（`enterpriseMarketSkillRowHasUpdate`：本机已装记录的 `versionId` 与行上的 `latestVersionId` 都非空且不等），`aria-label` = `更新企业技能 X`、`title` = 「点此更新到中心当前版本」、点击 = `onToggleSkill(skill, true)`（重装到中心当前版本），在途 `disabled` 但**不消失**（用户看得见「正在更新」）；未装行、已装且同版本行、以及未装行的在途一律不出这枚标签——右侧就一个 `Switch`；`installedSkills`（Host 回传的已装记录）/`pendingSkill`（行键 + 方向）/`onToggleSkill` 三个直传输入决定 `data-enterprise-skill-state` 与那枚开关的 checked/disabled，动作返回的已装清单覆盖本地真值、失败即退回未装（界面不保留乐观已装）；技能列表列的是后台分配（预置）的**全部**技能——不按「已装」过滤，未装的也照列，装不装由用户拨这枚开关决定；版本身份只投影 `versionId` 这一份（`sha256` 按 `skill-api-decode` 的契约在解码时校验形状后即丢，界面拿不到中心哈希，故「有更新」**不比 sha256**）——中心列表投影的 `versionId` 恒为空串、只有 `GET /skills/{id}` 详情才是真值，故 hook 入口**只对已装行**逐个取详情（`store.api.skillDetail(packageId)`）按 id 归并成行上的 `latestVersionId`，取不到/失败即留空串＝该行不判更新（不猜）；**两节的行共用同一份失败可见反馈**：动作失败时命中该行的 `role="alert"` 行内提示（`安装失败`/`卸载失败` + `enterpriseLocalErrorCode` 的稳定码，照「技能」tab 的 `own-skill-inlineError` 口径），失败后该行开关不再禁用、可原地重试；技能目录与已装清单由 hook 入口分别经 `store.api.skills()` 与 `store.api.installedSkills()` **并行**取（已装态取数失败只降级为全部未装，不拖垮目录），纯函数体只收直传的行；**页签化后的折叠态**：企业技能 / 企业插件两节的节头折叠**已删除**（显隐由页签承担，这两节只剩一行计数），唯一还带折叠语义的是**「组件」页签内部的组件清单**（仍是 `groupToggle` 节头 + `ENTERPRISE_MARKET_DEFAULT_EXPANDED` 单字段初值＝展开，`enterpriseMarketSectionOpen` 纯投影仍照官方 `?? false` 口径，`EnterpriseMarketSectionId` 随之收敛为 `'components'` 一个成员）；
+ * [OUTPUT]: 提供官方插件页「官方」分组里的「插件市场」入口卡片与**三页签商店整页**（page 视图顶部手写页签条 = 企业技能 / 企业插件 / 组件，默认选中「企业技能」；三个 `role="tabpanel"` 只有当前页签挂载内容，页签内容直接复用原三节的行渲染、不重写节内实现），以及可脱离 DOM 测试的页签真源（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`）、组件清单/计数摘要/组件状态纯投影、企业插件行投影、企业技能行投影（官方两行卡片：**第 1 行标题 + 紧随的版本签 `sourceDshVersion` + 可选分类签 `category`**、第 2 行描述，并带中心当前版本 `latestVersionId`）与标题行标签纯投影 `enterpriseMarketSkillVersionTag`/`enterpriseMarketSkillCategoryTag`、「有更新」判定纯投影 `enterpriseMarketSkillHasUpdate` 与判定入口 `enterpriseMarketSkillRowHasUpdate`、开关左侧那枚辅助标签的纯投影 `enterpriseMarketSkillUpdateTag` 与文案常量 `ENTERPRISE_MARKET_SKILL_UPDATE_LABEL`、技能行受管态纯投影 `enterpriseMarketSkillState`（`AVAILABLE`/`INSTALLED`/`UPDATE_AVAILABLE`/`INSTALLING`/`REMOVING`）、**唯一剩下可折叠的「组件」页签折叠态** `ENTERPRISE_MARKET_DEFAULT_EXPANDED`、失败可见反馈 `EnterpriseMarketActionError` 与文案投影 `enterpriseMarketActionErrorLabel`，以及注册常量；卡片摘要与详情页正文**不重复同一句**——摘要只在 `summary` 视图出现（官方必渲染的那一份），详情页只留页签条与三个面板
+ * [POS]: ui 的企业扩展市场入口，只占官方 `plugins.item` 槽位（卡片一句话走 `summary`、**整页三页签商店**走 `page`），不注册侧栏入口与独立市场弹层；**page 视图 = 页签条（企业技能 | 企业插件 | 组件，默认「企业技能」）+ 三个 `role="tabpanel"`**：页签条手写（`role="tablist"`/`role="tab"`/`aria-selected`/`aria-controls`/`aria-labelledby`/`id` 三处配对、roving `tabIndex`、←/→/Home/End 走焦并选中、选中态 2px 下划线），**不用官方 `SegmentedTabs`**（工程编译期 pin 的 primitives 0.1.5-rc.2 不含它，import 即 TS 报错；pin 对齐待用户拍板），三个面板**只有当前页签的内容挂载**（其余只留一个 `hidden` 空壳，让 `aria-controls` 恒能解析）；store 与开登录回调均为可选注入（共享注册面经 `client.tsx` 的 `inject` 给本条目注入 store，缺席时降级为占位态，注入后自动升级为真值态）；组件行 `reserved` 只剩配方一行，插件与技能行随企业会话真值，两个目录节（企业插件/企业技能）都只在对应大组件开启且目录非空时出现，企业插件行维持原样（状态点 + 文案 + 官方 `Switch` 一键安装/卸载），企业技能行右侧 = **[辅助标签按钮] [Switch]**（标签在前）：官方两行卡片（第 1 行标题 `own-market-cardId`——标题行是 nowrap 单行 `.own-market-cardHead`（行高锁 20px），标题后紧跟**两枚只读标签**：版本签取列表投影的 `sourceDshVersion`、分类签取新增可选字段 `category`（缺席/null/空串时整枚签不渲染，安静缺席、不塞占位）——标签过多时标题先省略、两枚签保持可见，行高不变；第 2 行描述 `own-market-cardDesc` 单行省略，不出现元信息行）+ 那枚**始终存在**的官方 `Switch`：`checked` = 该技能已装（`installedSkills` 命中本行）、在途（`INSTALLING`/`REMOVING`）`disabled`、`label` 给动作语义（`安装企业技能 X`/`卸载企业技能 X`）、`onChange(next)` 原样交回 `onToggleSkill(skill, next)`，开关仍是该行的主控件；**开关左侧的辅助标签**是真实 `<button type="button">`（`own-market-skillTag`，键盘可达、`:focus-visible` 焦点环、`data-enterprise-skill-tag='UPDATE_AVAILABLE'`），**只在「有更新」时出现**（`enterpriseMarketSkillRowHasUpdate`：本机已装记录的 `versionId` 与行上的 `latestVersionId` 都非空且不等），`aria-label` = `更新企业技能 X`、`title` = 「点此更新到中心当前版本」、点击 = `onToggleSkill(skill, true)`（重装到中心当前版本），在途 `disabled` 但**不消失**（用户看得见「正在更新」）；未装行、已装且同版本行、以及未装行的在途一律不出这枚标签——右侧就一个 `Switch`；`installedSkills`（Host 回传的已装记录）/`pendingSkill`（行键 + 方向）/`onToggleSkill` 三个直传输入决定 `data-enterprise-skill-state` 与那枚开关的 checked/disabled，动作返回的已装清单覆盖本地真值、失败即退回未装（界面不保留乐观已装）；技能列表列的是后台分配（预置）的**全部**技能——不按「已装」过滤，未装的也照列，装不装由用户拨这枚开关决定；版本身份只投影 `versionId` 这一份（`sha256` 按 `skill-api-decode` 的契约在解码时校验形状后即丢，界面拿不到中心哈希，故「有更新」**不比 sha256**）——中心列表投影的 `versionId` 恒为空串、只有 `GET /skills/{id}` 详情才是真值，故 hook 入口**只对已装行**逐个取详情（`store.api.skillDetail(packageId)`）按 id 归并成行上的 `latestVersionId`，取不到/失败即留空串＝该行不判更新（不猜）；**两节的行共用同一份失败可见反馈**：动作失败时命中该行的 `role="alert"` 行内提示（`安装失败`/`卸载失败` + `enterpriseLocalErrorCode` 的稳定码，照「技能」tab 的 `own-skill-inlineError` 口径），失败后该行开关不再禁用、可原地重试；技能目录与已装清单由 hook 入口分别经 `store.api.skills()` 与 `store.api.installedSkills()` **并行**取（已装态取数失败只降级为全部未装，不拖垮目录），纯函数体只收直传的行；**页签化后的折叠态**：企业技能 / 企业插件两节的节头折叠**已删除**（显隐由页签承担，这两节只剩一行计数），唯一还带折叠语义的是**「组件」页签内部的组件清单**（仍是 `groupToggle` 节头 + `ENTERPRISE_MARKET_DEFAULT_EXPANDED` 单字段初值＝展开，`enterpriseMarketSectionOpen` 纯投影仍照官方 `?? false` 口径，`EnterpriseMarketSectionId` 随之收敛为 `'components'` 一个成员）；
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -262,6 +262,18 @@ export interface EnterpriseMarketSkillRow {
   /** 空描述归一为固定占位，与技能 tab 详情弹窗同一句话。 */
   readonly description: string
   /**
+   * **列表投影里就有**的 DSH 来源版本（`EnterpriseRuntimeSkill.sourceDshVersion`，形如 `0.1.7-rc.3`）：
+   * 它就是「企业技能」行第 1 行紧跟标题那枚**版本签**的取值，**不需要任何服务端改动**。
+   * 解码层已保证它是非空串，故行上恒带；万一为空则不出这枚签（`enterpriseMarketSkillVersionTag`）。
+   */
+  readonly sourceDshVersion: string
+  /**
+   * 服务端新增的**可选分类**（`category`，列表与详情投影都会有）。**为缺失设计**：解码层已把
+   * 缺席 / null / 空串一律归一成「没有这个键」，故这里缺席 ＝ 没有分类 ＝ 第 1 行不出分类签
+   * （安静缺席是预期行为，绝不塞占位文案、也不猜分类）。
+   */
+  readonly category?: string
+  /**
    * 中心当前版本的 `versionId`（判定「有更新」的另一侧）。**列表投影不带这个字段**——`skill-api-decode`
    * 的列表解码把 `versionId` 写死为空串，只有 `GET /skills/{id}` 详情投影才是真值；故由 hook 入口
    * **只对已装行**逐个取详情后经 `enterpriseMarketSkillRows(skills, details)` 按 id 归并进来。
@@ -273,6 +285,7 @@ export interface EnterpriseMarketSkillRow {
 /**
  * 技能目录 → 可渲染的「企业技能」行（纯函数，按目录顺序原样投影，**不做任何过滤**）。
  * 后台分配（预置）的技能全都要列出来，装没装只影响该行右侧那枚开关的 checked，不影响这行出不出现。
+ * 版本签直接取列表投影的 `sourceDshVersion`，分类签取可选字段 `category`（有非空值才产出该键）。
  * @param skills - `store.api.skills()` 的列表投影（摘要；`versionId` 恒为空串）。
  * @param details - 可选的中心详情投影（`store.api.skillDetail(id)`），只用来补中心当前版本；
  *   按 id 归并，缺该行详情即留空串——未装行不需要它（没有本机版本可比）。
@@ -287,8 +300,35 @@ export function enterpriseMarketSkillRows(
     skillId: skill.skillId,
     displayName: skill.displayName,
     description: skill.description === '' ? '（暂无描述）' : skill.description,
+    sourceDshVersion: skill.sourceDshVersion,
+    // 分类照解码层同一口径：只有非空串才产出这个键（缺席/null/空串都不产出，界面据此不出分类签）。
+    ...(skill.category !== undefined && skill.category !== '' ? { category: skill.category } : {}),
     latestVersionId: latestById.get(skill.id) ?? '',
   }))
+}
+
+/**
+ * 「企业技能」行**第 1 行**（标题行）版本签的可见文案。
+ * 取值就是列表投影里已有的 `sourceDshVersion`（形如 `0.1.7-rc.3`），**不加 `v` 前缀**——`v{version}` 是
+ * 本入口详情页 badge 的口径（`enterpriseMarketVersionTag`），行上的版本签照字段原值说，不造第二套字面。
+ * @param sourceDshVersion - 行上的 `sourceDshVersion`。
+ * @returns 标签文案；空串返回 undefined（不渲染空签，也不塞占位）。
+ */
+export function enterpriseMarketSkillVersionTag(sourceDshVersion: string): string | undefined {
+  return sourceDshVersion === '' ? undefined : sourceDshVersion
+}
+
+/**
+ * 「企业技能」行**第 1 行**（标题行）分类签的可见文案。
+ * **为缺失设计**：字段尚未上线时这里恒得 undefined，分类签就安静缺席（预期行为）——绝不塞占位文案、不猜分类。
+ * 这是标题行标签的**最后一道防线**：解码层已把 null/空串归一为缺席，这里再兜一次 `undefined`/`null`/纯空白，
+ * 使「直接构造行」的调用方也不会画出空药丸。分类名不做任何加工，原值照说。
+ * @param category - 行上的可选分类（`EnterpriseMarketSkillRow.category`）。
+ * @returns 标签文案；没有分类返回 undefined。
+ */
+export function enterpriseMarketSkillCategoryTag(category: string | null | undefined): string | undefined {
+  if (category === undefined || category === null) return undefined
+  return category.trim() === '' ? undefined : category
 }
 
 /**
@@ -515,6 +555,13 @@ const styles = `
 .own-market-cardId{font-size:14px;line-height:20px;font-weight:500;color:var(--dsw-alias-label-primary,#101828);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .own-market-row[data-state='off'] .own-market-cardId{color:var(--dsw-alias-label-secondary,#667085)}
 .own-market-cardDesc{color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:13px;line-height:18px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden}
+/* 「企业技能」行第 1 行 = 标题 + 版本签 + 分类签：**单行 nowrap flex**，行高锁 20px（= 标题行高，
+   官方 Tag 固定 19px 高＝1px 上下内衬 + 17px 行高，故加签不改变这一行的高度，行的 40px 总高
+   ＝ 标题 20 + gap 2 + 描述 18 也不变）。标签过多时**标题先让步**：标题 flex:0 1 auto + min-width:0
+   继承卡片标题的 nowrap/ellipsis 先省略，两枚签 .own-market-tag 的 flex:none 保持可见；
+   head 自身 overflow:hidden 兜底，绝不换行、绝不撑高。 */
+.own-market-cardHead{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;min-width:0;line-height:20px;overflow:hidden}
+.own-market-skillTitle{flex:0 1 auto;min-width:0}
 .own-market-rowState{display:inline-flex;flex-shrink:0;align-items:center;gap:6px;color:var(--dsw-alias-label-secondary,#667085);font-size:12.5px;line-height:18px;white-space:nowrap}
 .own-market-row[data-state='off'] .own-market-rowState{color:var(--dsw-alias-label-secondary,#667085)}
 .own-market-rowStateFailed{color:var(--dsw-alias-state-error-primary,#c4320a)}
@@ -740,6 +787,10 @@ export function EnterpriseMarketEntry({
                 // 在途时它**保留但禁用**（用户看得见「正在更新」），未装行 / 已装同版本行/未装行的在途一律不出。
                 const hasUpdate = enterpriseMarketSkillRowHasUpdate(installedSkills, skill)
                 const updateTag = enterpriseMarketSkillUpdateTag(skill.displayName)
+                // 第 1 行标题后那两枚标签的取值：版本签取列表投影的 `sourceDshVersion`（无需服务端改动）；
+                // 分类签取新增可选字段 `category`——没有（缺席/null/空串）时这里就是 undefined，签**整枚不渲染**。
+                const versionTag = enterpriseMarketSkillVersionTag(skill.sourceDshVersion)
+                const categoryTag = enterpriseMarketSkillCategoryTag(skill.category)
                 return (
                   <li
                     key={skill.id}
@@ -754,7 +805,20 @@ export function EnterpriseMarketEntry({
                           第 1 行 = displayName（= 官方 title，14/20-500-省略），
                           第 2 行 = description（= 官方 description，13/18-tertiary-**单行**省略，不换行撑高卡片）。 */}
                       <div className="own-market-rowMain">
-                        <span className="own-market-cardId">{skill.displayName}</span>
+                        {/* 第 1 行 = 官方卡片标题 + 紧随其后的两枚**只读标签**（复用官方 `Tag` 原语，
+                            tone 照本文件 badge 槽既有口径：版本签 neutral、分类签 info），整行 nowrap 单行
+                            （`.own-market-cardHead`）——标签过多时标题先省略、两枚签保持可见，行高不变。
+                            分类缺席/null/空串时整枚签不渲染（安静缺席、不塞占位）；第 2 行描述与右侧
+                            [有更新辅助标签] [Switch] 的既有结构与行为一字未动。 */}
+                        <span className="own-market-cardHead">
+                          <span className="own-market-cardId own-market-skillTitle">{skill.displayName}</span>
+                          {versionTag === undefined ? null : (
+                            <Tag className="own-market-tag own-market-skillVersionTag" tone="neutral">{versionTag}</Tag>
+                          )}
+                          {categoryTag === undefined ? null : (
+                            <Tag className="own-market-tag own-market-skillCategoryTag" tone="info">{categoryTag}</Tag>
+                          )}
+                        </span>
                         <span className="own-market-cardDesc">{skill.description}</span>
                       </div>
                       {/* 开关**左侧**的辅助标签：只在「有更新」时出现（其余态右侧就一个 Switch）。
