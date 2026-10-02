@@ -140,9 +140,11 @@ public final class PluginCatalogService {
                     ).orElse(null);
                     boolean packageCreated = pluginPackage == null;
                     if (pluginPackage == null) {
+                        // description 与 displayName 同源（都从这一个制品的 package.json 读）且同口径：
+                        // **只在 package 首次创建时写入**，之后的版本不覆盖它（可空 = 包没有描述）。
                         pluginPackage = new PluginPackage(
                             positiveId(), context.tenantId(), inspected.packageName(), inspected.displayName(),
-                            PluginPackage.Status.ACTIVE, 0
+                            inspected.description(), PluginPackage.Status.ACTIVE, 0
                         );
                         plugins.insertPackage(pluginPackage);
                     }

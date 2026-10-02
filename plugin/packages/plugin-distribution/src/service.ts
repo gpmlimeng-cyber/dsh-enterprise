@@ -281,11 +281,17 @@ export class EnterprisePluginDistributionService extends Service {
           }
           // 降级警告只记 Host 日志，**不进** status() 线协议：加一个 catalog 字段就得同批改
           // 客户端 schema 与 UI，本刀刻意不造这种连锁（见本会话教训）。
+          // 本刀（description）正是那种「连锁字段」，故它是**同批**改完的那一个：契约（PluginDescription）→
+          // platform-client 的 bootstrap `.strict()` → 这里的 catalog 投影 → ui 的解码白名单与卡片，
+          // 四处一起上，不存在「服务端先发字段、客户端不认」的中间态。
           for (const warning of warnings) {
             this.reportCompatibilityWarning(item.packageName, item.version, warning)
           }
           return {
             pluginVersionId: item.pluginVersionId, packageName: item.packageName, version: item.version,
+            // 制品 package.json 的 description：服务端**没有就整个键缺席**（不造空串），故这里同样只在
+            // 真拿到非空值时带着走——下游（ui 解码白名单是关闭键集）据此把「没有这个键」当唯一缺失口径。
+            ...(item.description === undefined ? {} : { description: item.description }),
             sizeBytes: item.sizeBytes, operatingSystems: [...item.compatibility.operatingSystems],
             ...(installErrorCode === undefined ? {} : { installErrorCode }),
           }

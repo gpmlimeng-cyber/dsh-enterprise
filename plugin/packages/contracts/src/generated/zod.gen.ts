@@ -2007,6 +2007,11 @@ export const zPluginAssignmentId = zPluginPluginAssignmentId;
 
 export const zPluginAssignmentStatus = z.enum(['ACTIVE', 'DISABLED']);
 
+/**
+ * npm `package.json` 的 `description`（≤300）。**可选属性**：包里没写、只写了空白、或该键不是字符串时， 服务端一律**省略这个键**（既不造空串、也不编造），员工端据此如实降级。 它是 **package 级**事实（与 `displayName` 同源、同一条读取路径），随首个上传的制品写入、不随版本变化， 故不出现在 `PluginVersion` 上。
+ */
+export const zPluginDescription = z.string().min(1).max(300);
+
 export const zPluginDesiredState = z.enum(['INSTALLED', 'ABSENT']);
 
 export const zPluginInventoryAck = z.object({
@@ -2161,6 +2166,7 @@ export const zPluginPluginPackage = z.object({
     id: zPluginPluginPackageId,
     packageName: zPluginPackageName,
     displayName: z.string().min(1).max(120),
+    description: zPluginDescription.optional(),
     status: zPluginPackageStatus,
     revision: zRevision,
     versions: z.array(zPluginPluginVersion).max(100),
@@ -2194,6 +2200,7 @@ export const zRuntimePluginAssignment = z.object({
     pluginVersionId: zPluginPluginVersionId,
     packageName: zPluginPackageName,
     version: zPluginSemanticVersion,
+    description: zPluginDescription.optional(),
     sizeBytes: z.coerce.bigint().gte(BigInt(1)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
     sha256: zPluginSha256,
     signatureBase64: z.union([

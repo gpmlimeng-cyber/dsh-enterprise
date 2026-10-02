@@ -2065,6 +2065,11 @@ export type PluginPluginCompatibility = {
     operatingSystems: Array<PluginOperatingSystem>;
 };
 
+/**
+ * npm `package.json` 的 `description`（≤300）。**可选属性**：包里没写、只写了空白、或该键不是字符串时， 服务端一律**省略这个键**（既不造空串、也不编造），员工端据此如实降级。 它是 **package 级**事实（与 `displayName` 同源、同一条读取路径），随首个上传的制品写入、不随版本变化， 故不出现在 `PluginVersion` 上。
+ */
+export type PluginDescription = string;
+
 export type PluginDesiredState = 'INSTALLED' | 'ABSENT';
 
 export type PluginInventoryAck = {
@@ -2097,6 +2102,7 @@ export type PluginPluginPackage = {
     id: PluginPluginPackageId;
     packageName: PluginPackageName;
     displayName: string;
+    description?: PluginDescription;
     status: PluginPackageStatus;
     revision: Revision;
     versions: Array<PluginPluginVersion>;
@@ -2155,6 +2161,7 @@ export type RuntimePluginAssignment = {
     pluginVersionId: PluginPluginVersionId;
     packageName: PluginPackageName;
     version: PluginSemanticVersion;
+    description?: PluginDescription;
     sizeBytes: number;
     sha256: PluginSha256;
     /**

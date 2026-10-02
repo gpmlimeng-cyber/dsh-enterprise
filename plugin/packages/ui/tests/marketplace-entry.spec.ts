@@ -228,10 +228,15 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "            span[className=own-market-rowIcon]",
   "              #opaque:[object Object]",
   "            div[className=own-market-rowMain]",
-  "              span[className=own-market-cardId]",
-  "                #text:ent-a",
+  "              span[className=own-market-cardHead]",
+  "                span[className=own-market-cardId own-market-skillTitle]",
+  "                  #text:ent-a",
+  "                Tag[className=own-market-tag][tone=info]",
+  "                  #text:企业",
+  "                Tag[className=own-market-tag own-market-skillVersionTag][tone=neutral]",
+  "                  #text:v1.2.0",
   "              span[className=own-market-cardDesc]",
-  "                #text:企业发布 · v1.2.0",
+  "                #text:企业插件分发的示例描述。",
   "            span[className=own-market-rowState]",
   "              StateDot[state=done]",
   "              #text:已安装",
@@ -252,8 +257,11 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "            span[className=own-market-rowIcon]",
   "              #opaque:[object Object]",
   "            div[className=own-market-rowMain]",
-  "              span[className=own-market-cardId]",
-  "                #text:ent-b",
+  "              span[className=own-market-cardHead]",
+  "                span[className=own-market-cardId own-market-skillTitle]",
+  "                  #text:ent-b",
+  "                Tag[className=own-market-tag][tone=info]",
+  "                  #text:企业",
   "              span[className=own-market-cardDesc]",
   "                #text:已不在企业目录中",
   "            span[className=own-market-rowState]",
@@ -819,7 +827,7 @@ describe('enterprise marketplace entry', () => {
   // 「企业插件」节：catalog + 本机态归并、仅当「插件」组件 ON 且有记录时渲染。
   it('merges catalog and local records into enterprise plugin rows', () => {
     const catalog = [
-      { pluginVersionId: 'v1', packageName: 'ent-a', version: '1.2.0', sizeBytes: 1024, operatingSystems: ['darwin'] },
+      { pluginVersionId: 'v1', packageName: 'ent-a', version: '1.2.0', description: '甲插件的描述。', sizeBytes: 1024, operatingSystems: ['darwin'] },
       { pluginVersionId: 'v2', packageName: 'ent-b', version: '2.0.0', sizeBytes: 2048, operatingSystems: ['darwin'] },
     ] as const
     const local = [
@@ -831,10 +839,15 @@ describe('enterprise marketplace entry', () => {
     expect(rows.map(r => r.packageName)).toEqual(['ent-a', 'ent-b', 'ent-c'])
     // ent-a：只在目录 → 可选安装、版本取目录、inCatalog。
     expect(rows[0]).toMatchObject({ version: '1.2.0', state: 'EXPECTED', inCatalog: true })
+    // 描述照解码层同一口径带上来：有就带上（第二行据此说描述）。
+    expect(rows[0]?.description).toBe('甲插件的描述。')
+    // 目录里没有描述的行**不产出这个键**（缺席＝没有描述＝第二行说「暂无描述」，不塞空串）。
+    expect(rows[1]).not.toHaveProperty('description')
     // ent-b：目录 + 本机 ACTIVE → 本机态覆盖。
     expect(rows[1]).toMatchObject({ version: '2.0.0', state: 'ACTIVE', inCatalog: true })
-    // ent-c：只在本机（已下架）→ inCatalog false，版本取本机。
+    // ent-c：只在本机（已下架）→ inCatalog false，版本取本机；目录事实缺席，故也没有描述。
     expect(rows[2]).toMatchObject({ version: null, state: 'RESTART_REQUIRED', inCatalog: false })
+    expect(rows[2]).not.toHaveProperty('description')
   })
 
   it('renders the enterprise plugin section only when the plugins component is on and rows exist', () => {
@@ -853,7 +866,8 @@ describe('enterprise marketplace entry', () => {
   // 「企业插件」页签在「插件」组件 ON 时渲染插件行、OFF 时不渲染（含 catalog 数据）。
   it('renders the enterprise plugin rows in the 企业插件 tab only when the plugins component is on', () => {
     const enterprisePlugins = [
-      { packageName: 'ent-a', version: '1.2.0', state: 'ACTIVE', inCatalog: true },
+      { packageName: 'ent-a', version: '1.2.0', description: '把代码审查规则带进新会话。', state: 'ACTIVE', inCatalog: true },
+      // 第二行没有描述：**必须**如实降级成「暂无描述」，不许空白、不许拿版本充数。
       { packageName: 'ent-b', version: '2.0.0', state: 'EXPECTED', inCatalog: true },
     ] as const
     for (const { label, shell } of MARKET_SHELLS) {
@@ -868,7 +882,22 @@ describe('enterprise marketplace entry', () => {
       const text = textOf(on)
       expect(text, label).toContain('ent-a')
       expect(text, label).toContain('ent-b')
-      expect(text, label).toContain('企业发布 · v1.2.0')
+      // **第二行 = 插件描述**（本刀）：有描述说描述，没有描述如实降级。
+      expect(text, label).toContain('把代码审查规则带进新会话。')
+      expect(text, label).toContain('暂无描述')
+      // **版本信息一个字都没丢**：它从第二行搬到了标题行那枚短号签上（`v{version}` 仍是官方 badge 槽同一枚字面），
+      // 而旧第二行的那句「企业发布 · v…」作为**行上文案**已经退场（组件清单里的说明文字另有出处，不在行上）。
+      expect(text, label).toContain('v1.2.0')
+      expect(text, label).toContain('v2.0.0')
+      expect(text, label).not.toContain('企业发布 · v')
+      // 标题行的两枚签与技能行**同款同枚**：企业签（info）+ 版本短号签（neutral），类名照技能那一串。
+      const heads = collectByClassName(on, 'own-market-cardHead')
+      expect(heads, label).toHaveLength(2)
+      const tags = collectOfficialTagProps(collectSectionByHook(on, 'enterprise-plugins'))
+      expect(tags.map(props => props['children']), label)
+        .toEqual(['企业', 'v1.2.0', '企业', 'v2.0.0'])
+      expect(tags.map(props => props['tone']), label).toEqual(['info', 'neutral', 'info', 'neutral'])
+      expect(tags[1]?.['className'], label).toBe('own-market-tag own-market-skillVersionTag')
       // 计数已并入页签文案（原先节内那行独立的 `2 个` 已删）：这里锁「企业插件 2」。
       expect(text, label).toContain(enterpriseMarketTabLabel('企业插件', 2))
       // 节内独立计数行确实不存在（新外壳的 HERO 会另有「2 个企业插件」这句 chip 文案，故不能再用 `2 个` 当代理断言）。
@@ -2104,13 +2133,18 @@ describe('enterprise marketplace entry', () => {
   // 上一轮这条用例证明的是「抽共享行子块一字未变」；本轮技能行**按设计**多了一枚可点行本体
   // （`button.own-market-rowOpen` 把图标 + 两行文案包起来，动作仍是它的同级兄弟），故快照与 CSS
   // 长度/校验和重新基线化，并明确锁住「插件行一字未动、动作没被藏起来」。
+  // **本刀（卡片第二行改描述 + 标题行标签照技能）再基线化一次插件行那两段大纲**：插件行标题行从
+  // 「只有 cardId」改成「cardHead = cardId + 「企业」签 + 版本短号签」，第二行从「企业发布 · v1.2.0」
+  // 改成**描述**（本 fixture 里 ent-a 带描述、ent-b 已下架故仍是「已不在企业目录中」）。
+  // 这是**再基线化、不是放宽判据**：锁的形态一字未改（仍是逐行逐字的大纲 + `<style>` 两道字节级判据），
+  // 且 `style(12028 chars)` 与校验和**一字未动**——本刀一个 CSS 类都没加（见 plugin-card.spec 的反向锁）。
   it('pins the legacy shell output to the current structure (clickable row body, actions still siblings)', () => {
     const props = {
       view: 'page' as const,
       sessionUsable: true,
       enterpriseSkills: enterpriseMarketSkillRows([SKILL_WITH_CATEGORY], [SKILL_DETAIL]),
       enterprisePlugins: [
-        { packageName: 'ent-a', version: '1.2.0', state: 'ACTIVE', inCatalog: true },
+        { packageName: 'ent-a', version: '1.2.0', description: '企业插件分发的示例描述。', state: 'ACTIVE', inCatalog: true },
         { packageName: 'ent-b', version: null, state: 'FAILED', inCatalog: false },
       ] as never,
       installedSkills: [installedSkill('1902500000000000100')],

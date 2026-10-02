@@ -63090,6 +63090,12 @@
                                     "maxLength": 64,
                                     "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
                                   },
+                                  "description": {
+                                    "description": "npm `package.json` 的 `description`（≤300）。**可选属性**：包里没写、只写了空白、或该键不是字符串时， 服务端一律**省略这个键**（既不造空串、也不编造），员工端据此如实降级。 它是 **package 级**事实（与 `displayName` 同源、同一条读取路径），随首个上传的制品写入、不随版本变化， 故不出现在 `PluginVersion` 上。",
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  },
                                   "sizeBytes": {
                                     "type": "integer",
                                     "format": "int64",
@@ -99755,6 +99761,12 @@
                                 "minLength": 1,
                                 "maxLength": 120
                               },
+                              "description": {
+                                "description": "npm `package.json` 的 `description`（≤300）。**可选属性**：包里没写、只写了空白、或该键不是字符串时， 服务端一律**省略这个键**（既不造空串、也不编造），员工端据此如实降级。 它是 **package 级**事实（与 `displayName` 同源、同一条读取路径），随首个上传的制品写入、不随版本变化， 故不出现在 `PluginVersion` 上。",
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 300
+                              },
                               "status": {
                                 "type": "string",
                                 "enum": [
@@ -106180,6 +106192,12 @@
                                 "minLength": 1,
                                 "maxLength": 64,
                                 "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+                              },
+                              "description": {
+                                "description": "npm `package.json` 的 `description`（≤300）。**可选属性**：包里没写、只写了空白、或该键不是字符串时， 服务端一律**省略这个键**（既不造空串、也不编造），员工端据此如实降级。 它是 **package 级**事实（与 `displayName` 同源、同一条读取路径），随首个上传的制品写入、不随版本变化， 故不出现在 `PluginVersion` 上。",
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 300
                               },
                               "sizeBytes": {
                                 "type": "integer",
@@ -142871,6 +142889,12 @@
                       "maxLength": 64,
                       "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
                     },
+                    "description": {
+                      "description": "npm `package.json` 的 `description`（≤300）。**可选属性**：包里没写、只写了空白、或该键不是字符串时， 服务端一律**省略这个键**（既不造空串、也不编造），员工端据此如实降级。 它是 **package 级**事实（与 `displayName` 同源、同一条读取路径），随首个上传的制品写入、不随版本变化， 故不出现在 `PluginVersion` 上。",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
+                    },
                     "sizeBytes": {
                       "type": "integer",
                       "format": "int64",
@@ -143382,6 +143406,12 @@
                           "minLength": 1,
                           "maxLength": 64,
                           "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+                        },
+                        "description": {
+                          "description": "npm `package.json` 的 `description`（≤300）。**可选属性**：包里没写、只写了空白、或该键不是字符串时， 服务端一律**省略这个键**（既不造空串、也不编造），员工端据此如实降级。 它是 **package 级**事实（与 `displayName` 同源、同一条读取路径），随首个上传的制品写入、不随版本变化， 故不出现在 `PluginVersion` 上。",
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300
                         },
                         "sizeBytes": {
                           "type": "integer",
@@ -147050,6 +147080,12 @@
             "minLength": 1,
             "maxLength": 120
           },
+          "description": {
+            "description": "npm `package.json` 的 `description`（≤300）。**可选属性**：包里没写、只写了空白、或该键不是字符串时， 服务端一律**省略这个键**（既不造空串、也不编造），员工端据此如实降级。 它是 **package 级**事实（与 `displayName` 同源、同一条读取路径），随首个上传的制品写入、不随版本变化， 故不出现在 `PluginVersion` 上。",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -147316,6 +147352,12 @@
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 120
+                },
+                "description": {
+                  "description": "npm `package.json` 的 `description`（≤300）。**可选属性**：包里没写、只写了空白、或该键不是字符串时， 服务端一律**省略这个键**（既不造空串、也不编造），员工端据此如实降级。 它是 **package 级**事实（与 `displayName` 同源、同一条读取路径），随首个上传的制品写入、不随版本变化， 故不出现在 `PluginVersion` 上。",
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
                 },
                 "status": {
                   "type": "string",
@@ -147628,6 +147670,12 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 120
+                    },
+                    "description": {
+                      "description": "npm `package.json` 的 `description`（≤300）。**可选属性**：包里没写、只写了空白、或该键不是字符串时， 服务端一律**省略这个键**（既不造空串、也不编造），员工端据此如实降级。 它是 **package 级**事实（与 `displayName` 同源、同一条读取路径），随首个上传的制品写入、不随版本变化， 故不出现在 `PluginVersion` 上。",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
                     },
                     "status": {
                       "type": "string",
@@ -148111,6 +148159,12 @@
                   "maxLength": 64,
                   "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
                 },
+                "description": {
+                  "description": "npm `package.json` 的 `description`（≤300）。**可选属性**：包里没写、只写了空白、或该键不是字符串时， 服务端一律**省略这个键**（既不造空串、也不编造），员工端据此如实降级。 它是 **package 级**事实（与 `displayName` 同源、同一条读取路径），随首个上传的制品写入、不随版本变化， 故不出现在 `PluginVersion` 上。",
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
                 "sizeBytes": {
                   "type": "integer",
                   "format": "int64",
@@ -148263,6 +148317,12 @@
                       "minLength": 1,
                       "maxLength": 64,
                       "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+                    },
+                    "description": {
+                      "description": "npm `package.json` 的 `description`（≤300）。**可选属性**：包里没写、只写了空白、或该键不是字符串时， 服务端一律**省略这个键**（既不造空串、也不编造），员工端据此如实降级。 它是 **package 级**事实（与 `displayName` 同源、同一条读取路径），随首个上传的制品写入、不随版本变化， 故不出现在 `PluginVersion` 上。",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
                     },
                     "sizeBytes": {
                       "type": "integer",

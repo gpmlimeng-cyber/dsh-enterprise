@@ -58,6 +58,15 @@ import {
 } from './list-state.js'
 import type { EnterprisePresetLaunchPort } from './preset-launch.js'
 import { EnterpriseLoginDialog, useEnterpriseLoginDialog } from './login-dialog.js'
+// 卡片标识/文案叶子（与「企业设置 → 插件」卡片**共用同一份**）：徽章组件、版本签字面、描述降级句。
+// 这里既 import（本文件自己要用）又 re-export（保持原公开面与既有 import 路径不变）。
+import {
+  ENTERPRISE_MARKET_BADGE_TEXT,
+  ENTERPRISE_PLUGIN_DESCRIPTION_EMPTY,
+  EnterpriseMarketBadgeTag,
+  enterpriseMarketVersionTag,
+  enterprisePluginDescriptionText,
+} from './enterprise-card-text.js'
 
 /** 本入口在官方插件页占用的 slot id，同时是卡片 DOM 的 `data-plugin-item` 与详情页路由键。 */
 export const ENTERPRISE_MARKET_ENTRY_ID = 'plugin-market'
@@ -69,10 +78,17 @@ export const ENTERPRISE_MARKET_ENTRY_LABEL = '插件市场'
 export const ENTERPRISE_MARKET_ENTRY_ORDER = 50
 
 /**
- * 「企业」标签文案：**详情页标题行的官方 `plugins.detail.badge` 槽**、**官方列表卡标题行的 DOM 装饰签**
- * 与**描述行**（已按用户裁决恢复为纯文本）说的是同一枚词，故只有这一份常量（漂成两个词是 bug）。
+ * 「企业」标签文案 / 徽章 / 版本签字面 / 描述降级句**都不再在本文件声明**——它们已下沉到叶子模块
+ * `enterprise-card-text.tsx`（「企业设置 → 插件」卡片与本页因此共用同一份，不可能漂成两个词），
+ * 本文件按原公开面**再导出**，故既有调用方与用例的 import 路径一字未变。
  */
-export const ENTERPRISE_MARKET_BADGE_TEXT = '企业'
+export {
+  ENTERPRISE_MARKET_BADGE_TEXT,
+  ENTERPRISE_PLUGIN_DESCRIPTION_EMPTY,
+  EnterpriseMarketBadgeTag,
+  enterpriseMarketVersionTag,
+  enterprisePluginDescriptionText,
+} from './enterprise-card-text.js'
 
 /**
  * 卡片与详情页描述行共用的那句话；官方会把 `summary` 渲染两次，故必须保持单行。
@@ -482,6 +498,13 @@ export interface EnterpriseMarketPluginRow {
   /** 企业目录是否仍提供（false = 已下架但本机仍装着）。 */
   readonly inCatalog: boolean
   /**
+   * 制品 `package.json` 的 `description`（契约 `PluginDescription`，≤300）：**卡片第二行**的取值。
+   * **为缺失设计**：解码层已把缺席/null/空串归一成「没有这个键」，故这里缺席 ＝ 没有描述
+   * ＝ 第二行如实说「暂无描述」（不空白、不编造、不拿版本充数）。已下架的行里没有目录事实，
+   * 第二行照旧说「已不在企业目录中」（那一句是既有口径，不丢）。
+   */
+  readonly description?: string | undefined
+  /**
    * 目录里这一版**声明的操作系统**（契约三平台名，取值门禁在 `local-api-decode.ts:720`）。
    * **数据面字段：只随行携带，不参与任何判断、也不上屏**——插件行的可拨性与文案与它完全无关
    * （声明含当前平台 / 不含 / 根本没有该字段，三种形态渲染结果逐字相同）。
@@ -506,6 +529,9 @@ export function enterpriseMarketPluginRows(
       version: cat?.version ?? rec?.version ?? null,
       state: rec?.state ?? 'EXPECTED',
       inCatalog: cat !== undefined,
+      // 描述照解码层同一口径：只有真拿到非空串才产出这个键（缺席/null/空串都不产出，
+      // 界面第二行据此说「暂无描述」而不是画一行空白）。目录缺席（已下架）时自然也没有描述。
+      ...(cat?.description === undefined ? {} : { description: cat.description }),
       operatingSystems: cat?.operatingSystems,
       installErrorCode: cat?.installErrorCode,
     }
@@ -2248,33 +2274,12 @@ export function EnterpriseMarketBadge({ subject, store }: {
   return <BadgeView version={snapshot.status?.bundleVersion} />
 }
 
-/** 版本签文案，照官方 `versionTag: 'v{version}'` 口径；缺版本时返回 undefined（不渲染版本签）。 */
-export function enterpriseMarketVersionTag(bundleVersion: string | undefined): string | undefined {
-  return bundleVersion === undefined || bundleVersion === '' ? undefined : `v${bundleVersion}`
-}
-
 /**
- * 「企业」徽章的**唯一** React 渲染：官方 `plugins.detail.badge` 槽（详情页 `titleRow` 里 `h3` 正后方）
- * 用它。（列表卡标题行那一枚**不是** React 渲染的：官方 `ItemCard` 的 `CardHead` 不接受 `tags`，
- * 只能由 `market-entry-badge.ts` 在官方渲染完成后克隆官方 Tag 实物插进 `titleRow`——见那个文件的 [POS]
- * 与它逐条写明的脆弱点。描述行按用户裁决已恢复纯文本，不再出胶囊。）
- *
- * **与官方「实验性」签（`PluginManagerPage` 的 `statusTag`）的对齐口径**：官方那枚的实物是
- * `<Tag className={css.statusTag} tone="info">{t('statusBeta')}</Tag>`，`Tag` 运行时渲染成
- * `<span class={clsx(css.tag, className)} data-tone="info">`。本徽章用**同一枚官方原语**、**同一个 `tone="info"`**，
- * 且**除 `tone`/`className`/`children` 外一个属性都不给**（官方 `Tag` 的公开面就这三件，多给也会被丢弃）。
- *
- * **为什么拿不到官方那个 `statusTag` 类（已取证）**：它是官方包内 CSS module 的哈希类名，
- * `@deepseek-ai/dsh-client-ui-plugin-manager/lib/client.js:1692` 里 `statusTag: "X_2TxG_statusTag"`，
- * 而该包的公开出口只有 `NS`/`PANEL_ID`/`apply`/`inject`（同文件末尾），类名不外露；该包的 `./src/*` 出口
- * 指向的 `src/` 目录并未随包发布（安装树里没有 `src/`）；哈希名还会随官方构建变化。故按「不新增 CSS 类、
- * 样式一字不改」的纪律：**React 实体**（本函数）退到官方 primitives 的公开面（`Tag` + `tone="info"`），
- * 只用本文件既有定位类 `.own-market-tag` 参与 flex 布局；**列表标题行那一枚**走 DOM 克隆官方签实物
- * （连官方哈希 `statusTag` 类一起克隆），那条路上的尺寸与「实验性」逐像素一致。
+ * 版本签文案（`v{version}`）与「企业」徽章组件的**声明已下沉**到叶子模块 `enterprise-card-text.tsx`：
+ * 「企业设置 → 插件」卡片标题行（`plugin-market.tsx`）与本页的列表行/详情徽章现在读**同一份**实现，
+ * 不可能漂成两套字面。本文件只在文件顶部 import + re-export（公开面与既有 import 路径一字未变），
+ * 这里不再重复声明。
  */
-export function EnterpriseMarketBadgeTag(): ReactNode {
-  return <Tag className="own-market-tag" tone="info">{ENTERPRISE_MARKET_BADGE_TEXT}</Tag>
-}
 
 /**
  * badge 槽的纯呈现（照智能体团队 titleRow：企业徽章 + 版本号 + 包名），不调 hook —— 测试直接调用。
@@ -3692,6 +3697,8 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
 <ul className="own-market-rows">
         {model.visiblePlugins.map(plugin => {
           const facts = enterpriseMarketPluginRowFacts(props, plugin)
+          // 版本短号签的文案只算一次（无版本即 undefined = 整枚签不渲染）：与详情页 badge 槽同一枚字面。
+          const versionLabel = enterpriseMarketVersionTag(plugin.version ?? undefined)
           return (
             <li
               key={plugin.packageName}
@@ -3704,9 +3711,23 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
               <div className="own-market-rowLine">
                 <span className="own-market-rowIcon"><Package size={18} aria-hidden="true" /></span>
                 <div className="own-market-rowMain">
-                  <span className="own-market-cardId">{plugin.packageName}</span>
+                  {/* 第 1 行 = 标题 + 「企业」签 + 版本短号签——**与技能行的标题行同款同枚**（同一串类名、
+                      同一个 tone、同一枚官方 `Tag` 原语、每个类名都取自本文件既有声明，故一个新类都没有）。
+                      版本信息因此**没丢**：它从第二行搬到了这枚签上，字面仍是 `v{version}`（官方 badge 槽同一枚字面）。 */}
+                  <span className="own-market-cardHead">
+                    <span className="own-market-cardId own-market-skillTitle">{plugin.packageName}</span>
+                    <EnterpriseMarketBadgeTag />
+                    {versionLabel === undefined ? null : (
+                      <Tag className="own-market-tag own-market-skillVersionTag" tone="neutral">{versionLabel}</Tag>
+                    )}
+                  </span>
+                  {/* 第 2 行 = **插件描述**（原先这里是「企业发布 · v…」，版本已上移到标题签）。
+                      有描述说描述；没有描述如实说「暂无描述」（不空白、不编造）；已下架的行照旧说
+                      「已不在企业目录中」（那一句是既有口径，与有没有描述无关）。 */}
                   <span className="own-market-cardDesc">
-                    {plugin.inCatalog ? `企业发布 · v${plugin.version ?? ''}` : '已不在企业目录中'}
+                    {plugin.inCatalog
+                      ? enterprisePluginDescriptionText(plugin.description)
+                      : '已不在企业目录中'}
                   </span>
                 </div>
                 {/* 状态点旁**恒**出一行官方状态词（安静态也说），文案取自本仓唯一那份官方状态词表。 */}

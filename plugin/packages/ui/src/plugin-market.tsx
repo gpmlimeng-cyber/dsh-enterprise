@@ -1,15 +1,22 @@
 /**
  * [INPUT]: 依赖共享 EnterpriseAccountStore 的企业目录/本机事实、Harness Modal/Button 与 Lucide 图标
- * [OUTPUT]: 提供设置页内的插件搜索/已安装筛选、版本详情、显式安装/卸载及状态文案。**本刀（失败文案降维）**：删除本文件的插件码表，失败一律渲染 `EnterpriseErrorNotice`（人话 + 「下一步：」+「技术信息」里的稳定码），兜底不再把码拼进可见句子 **本刀（目录三态 + 可重试）**：新增纯投影 `enterprisePluginCatalogState` / `enterprisePluginCatalogEmptyText` / `enterprisePluginCatalogVersionText`，目录四态（未登录 / 加载中 / 失败 / 空（三种原因）/ 就绪）显式化；失败态给唯一提示组件 + 真重发的重试，目录没取到时详情那一格不再谎称「已下架」。 **本刀（死开关改造）**：安装按钮原先 `disabled={busy || !connected || fatal !== undefined || item.installErrorCode !== undefined || waiting}` 且一句 `title` 都没有——禁用了却一个字不说，是产品宪法禁止的死控件。现改为：① 新增纯投影 `enterprisePluginRowGate`（唯一入口）与 `EnterprisePluginRowGate`/`EnterprisePluginGateNotes`，禁用原因全部来自新叶 `plugin-install-gate.ts` 的 `enterprisePluginLockReason`（目录判定 / 在途 / 等重启 / 别的操作用着 / 状态读不到），`installErrorCode` 只拦安装、不拦卸载；② 每一枚禁用都配**行上可见**的一句（`role="status"`，落点复用既有 `.own-market-sub`，不新增 CSS）与一句悬浮说明 `enterprisePluginSwitchTitle`；③ 平台彻底退出决策面：目录声明的 `operatingSystems` 与设备系统都不再进来（数据面字段照旧随行携带），卡片行与详情弹窗**一个字都不提系统**——「声明含当前平台 / 不含 / 根本没有该字段」三种形态渲染逐字相同；④ 不可达的 `!connected` 条件删掉（连不上时 `catalog`/`local` 皆空、一行都渲染不出来），并写清这条推理。 **本刀（企业插件安装的动态过程效果）**：卡片行与详情弹窗新增「安装中」那一条**真进度**（`EnterprisePluginCardProgressNotes` 与 `EnterprisePluginCardSettledNote`，两处共用同一个 `pluginProgressFacts` 入参），阶段文字直接取本文件那张 `STATES`（故与行脚状态词是同一张表、不可能漂）；`role="progressbar"` + `aria-live="polite"` + `aria-valuetext`（不确定态、无 aria-valuenow），CSS 另加 `own-plugin-progress*` 一族与一条 `@media (prefers-reduced-motion:reduce)`；进度与交代都由 `plugin-install-progress.ts` 的唯一投影算出，本文件不自造阶段词、不编百分比。 **本刀（企业插件真取消）**：进度条旁边新增一枚**真取消按钮**（官方 `Button` 原语 + Lucide `X`，**零新增 CSS 类**）——只在 `progress.cancelable`（官方取消句柄真实存在的那个受管态）**且写入口在场**时才画，点它就是 `store.cancelPlugin(name)`（同源 `POST /plugins/cancel`，正文关闭键集 `{packageName}`）；取消请求在途时按钮保持可见但 `disabled`、文案改「正在取消…」，同一落点以 `role="status"` 播报那句进行态（**不是**死控件）；不能取消时**不画**按钮、改画 `progress.cancelNotice` 那句可见原因（「走到『正在安装』后就能取消」/「卸载已经开始，完成前不能中断」）；卡片行与详情弹窗共用同一个 `cancelInstall` 写入口与同一份投影，故两处行为不可能分叉。
+ * [OUTPUT]: 提供设置页内的插件搜索/已安装筛选、版本详情、显式安装/卸载及状态文案。 **本刀（卡片第二行改描述 + 标题行标签照技能）**：卡片标题行由「只有包名」改成 **标题 + 「企业」签 + 版本短号签**（新增纯函数组件 `EnterprisePluginCardHead`，标签用技能行**同一枚**官方 `Tag` 原语、**同一串类名** `own-market-tag`/`own-market-skillVersionTag`、同一个 tone，字面仍取 `enterpriseMarketVersionTag` 的 `v{version}`），卡片**第二行**由「企业发布 · v…」改成**插件描述**（`enterprisePluginDescriptionText`，缺失如实说「暂无描述」）；版本信息一个字没丢（它在标题签上，详情弹窗「企业版本」那一格照旧）；第三行（体积）与页脚（状态词 + 动作区）一字未动；**CSS 一个新类都没加**（`styles` 字符串逐字节不变，类名一律沿用两个消费侧既有声明）。 **本刀（失败文案降维）**：删除本文件的插件码表，失败一律渲染 `EnterpriseErrorNotice`（人话 + 「下一步：」+「技术信息」里的稳定码），兜底不再把码拼进可见句子 **本刀（目录三态 + 可重试）**：新增纯投影 `enterprisePluginCatalogState` / `enterprisePluginCatalogEmptyText` / `enterprisePluginCatalogVersionText`，目录四态（未登录 / 加载中 / 失败 / 空（三种原因）/ 就绪）显式化；失败态给唯一提示组件 + 真重发的重试，目录没取到时详情那一格不再谎称「已下架」。 **本刀（死开关改造）**：安装按钮原先 `disabled={busy || !connected || fatal !== undefined || item.installErrorCode !== undefined || waiting}` 且一句 `title` 都没有——禁用了却一个字不说，是产品宪法禁止的死控件。现改为：① 新增纯投影 `enterprisePluginRowGate`（唯一入口）与 `EnterprisePluginRowGate`/`EnterprisePluginGateNotes`，禁用原因全部来自新叶 `plugin-install-gate.ts` 的 `enterprisePluginLockReason`（目录判定 / 在途 / 等重启 / 别的操作用着 / 状态读不到），`installErrorCode` 只拦安装、不拦卸载；② 每一枚禁用都配**行上可见**的一句（`role="status"`，落点复用既有 `.own-market-sub`，不新增 CSS）与一句悬浮说明 `enterprisePluginSwitchTitle`；③ 平台彻底退出决策面：目录声明的 `operatingSystems` 与设备系统都不再进来（数据面字段照旧随行携带），卡片行与详情弹窗**一个字都不提系统**——「声明含当前平台 / 不含 / 根本没有该字段」三种形态渲染逐字相同；④ 不可达的 `!connected` 条件删掉（连不上时 `catalog`/`local` 皆空、一行都渲染不出来），并写清这条推理。 **本刀（企业插件安装的动态过程效果）**：卡片行与详情弹窗新增「安装中」那一条**真进度**（`EnterprisePluginCardProgressNotes` 与 `EnterprisePluginCardSettledNote`，两处共用同一个 `pluginProgressFacts` 入参），阶段文字直接取本文件那张 `STATES`（故与行脚状态词是同一张表、不可能漂）；`role="progressbar"` + `aria-live="polite"` + `aria-valuetext`（不确定态、无 aria-valuenow），CSS 另加 `own-plugin-progress*` 一族与一条 `@media (prefers-reduced-motion:reduce)`；进度与交代都由 `plugin-install-progress.ts` 的唯一投影算出，本文件不自造阶段词、不编百分比。 **本刀（企业插件真取消）**：进度条旁边新增一枚**真取消按钮**（官方 `Button` 原语 + Lucide `X`，**零新增 CSS 类**）——只在 `progress.cancelable`（官方取消句柄真实存在的那个受管态）**且写入口在场**时才画，点它就是 `store.cancelPlugin(name)`（同源 `POST /plugins/cancel`，正文关闭键集 `{packageName}`）；取消请求在途时按钮保持可见但 `disabled`、文案改「正在取消…」，同一落点以 `role="status"` 播报那句进行态（**不是**死控件）；不能取消时**不画**按钮、改画 `progress.cancelNotice` 那句可见原因（「走到『正在安装』后就能取消」/「卸载已经开始，完成前不能中断」）；卡片行与详情弹窗共用同一个 `cancelInstall` 写入口与同一份投影，故两处行为不可能分叉。
  * [POS]: ui 的员工插件管理视图，由「企业设置」的插件 tab 承载，数据与执行由 DSH Enterprise Host 拥有
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Modal, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import { Check, Download, Package, RefreshCw, Search, Trash2, X } from 'lucide-react'
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import type { EnterpriseAccountStore } from './account-store.js'
 import { ConfirmAction } from './confirm-action.js'
+// 卡片标题行的标识与第二行的文案都取自**叶子** `enterprise-card-text.tsx`（与官方插件页的技能行/插件行
+// 共用同一份）：标签的类名与 tone、版本字面 `v{version}`、描述缺失的降级句都只有那一处真源。
+import {
+  EnterpriseMarketBadgeTag,
+  enterpriseMarketVersionTag,
+  enterprisePluginDescriptionText,
+} from './enterprise-card-text.js'
 import { EnterpriseErrorNotice } from './error-notice.js'
 import type { ManagedPluginState } from './local-api.js'
 import {
@@ -355,6 +362,41 @@ const styles = `
 @media (prefers-reduced-motion: reduce){.own-plugin-progressFlow::after{width:100%;opacity:.4;animation:none;transform:none}}
 `
 
+/**
+ * 卡片**标题行 + 第二行**的唯一实现（纯函数、无 hook —— 测试可直接直调，卡片本体含 hook 直调不了）。
+ *
+ * 版式与取值：
+ * · 标题行 = **标题 + 「企业」签 + 版本短号签**。标签的样式/机制**照技能卡片那一枚复用**：同一个官方 `Tag`
+ *   原语、同一串类名（`.own-market-tag` / `.own-market-skillVersionTag`）、同一个 tone（企业=info、版本=neutral）；
+ *   版本字面仍取 `enterpriseMarketVersionTag` 的 `v{version}`（官方 badge 槽同一枚字面），故版本信息
+ *   从第二行搬到这枚签上**一个字都没丢**（详情弹窗的「企业版本」那一格照旧）。
+ *   `.own-market-tag` 的**声明**只有 `marketplace-entry.tsx` 一处（那份 CSS 在这个表面不挂载），故这行
+ *   的 flex 版式用**同一组取值的内联布局**表达（display/gap/minWidth，无颜色无字号）——**不新增 CSS 类**。
+ * · 第二行 = **插件描述**；没有描述按 `enterprisePluginDescriptionText` 如实降级成「暂无描述」
+ *   （不空白、不编造、不拿版本充数）。
+ */
+export function EnterprisePluginCardHead({ packageName, version, description }: {
+  readonly packageName: string
+  readonly version: string | null | undefined
+  readonly description: string | null | undefined
+}): ReactNode {
+  const versionLabel = enterpriseMarketVersionTag(version ?? undefined)
+  return (
+    <span style={{ minWidth: 0 }}>
+      {/* 标题先行、标题先让步：标题可换行（`.own-market-title strong` 的 overflow-wrap:anywhere），
+          两枚签 flex:none 保持完整可见。 */}
+      <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+        <strong style={{ minWidth: 0 }}>{packageName}</strong>
+        <EnterpriseMarketBadgeTag />
+        {versionLabel === undefined ? null : (
+          <Tag className="own-market-tag own-market-skillVersionTag" tone="neutral">{versionLabel}</Tag>
+        )}
+      </span>
+      <span className="own-market-sub">{enterprisePluginDescriptionText(description)}</span>
+    </span>
+  )
+}
+
 export function EnterprisePluginMarket({ store }: {
   readonly store: EnterpriseAccountStore
 }): ReactNode {
@@ -501,7 +543,13 @@ export function EnterprisePluginMarket({ store }: {
         return <article className="own-market-card" key={name} data-enterprise-plugin-package={name} data-enterprise-plugin-state={record?.state ?? 'AVAILABLE'}>
           <button type="button" className="own-market-title" aria-haspopup="dialog" onClick={() => setSelected(name)}>
             <span className="own-market-glyph"><Package size={20} aria-hidden /></span>
-            <span style={{ minWidth: 0 }}><strong>{name}</strong><span className="own-market-sub">企业发布 · v{item?.version ?? record?.version}</span></span>
+            {/* 标题行（标题 + 企业签 + 版本短号签）与**第二行（插件描述）**都在这一枚纯函数里；
+                第三行（体积）与页脚（状态词 + 动作区）在下面，一字未动。 */}
+            <EnterprisePluginCardHead
+              packageName={name}
+              version={item?.version ?? record?.version ?? undefined}
+              description={item?.description}
+            />
           </button>
           {/* 只报体积：平台已退出决策面，行上不再出现任何平台词（声明含/不含当前平台渲染逐字相同）。 */}
           <div className="own-market-sub">{item ? bytes(item.sizeBytes) : '已不在企业目录中'}</div>

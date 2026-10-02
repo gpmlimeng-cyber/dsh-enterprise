@@ -302,7 +302,10 @@ class T13ApiContractTest {
 
     private static PluginPackage pluginPackage() {
         return new PluginPackage(
-            PACKAGE_ID, "000000", "@example/t13-tools", "T13 Tools", PluginPackage.Status.ACTIVE, 3
+            PACKAGE_ID, "000000", "@example/t13-tools", "T13 Tools",
+            // description 与 displayName 同源同路径：这里给一个真值，让管理端 PackageView 的**有描述**形态
+            // 也过一遍 JSON Schema（没有描述时必须整个键缺席，那一条由 PluginViewsDescriptionTest 锁）。
+            "T13 契约测试用插件。", PluginPackage.Status.ACTIVE, 3
         );
     }
 
@@ -331,7 +334,7 @@ class T13ApiContractTest {
 
     private static EffectivePluginResolver.ResolvedAssignments resolvedAssignments() {
         return new EffectivePluginResolver.ResolvedAssignments(9, List.of(new RuntimePluginAssignment(
-            VERSION_ID, "@example/t13-tools", "1.0.0", DOWNLOAD_BYTES.length, SHA256,
+            VERSION_ID, "@example/t13-tools", "1.0.0", "T13 契约测试用插件。", DOWNLOAD_BYTES.length, SHA256,
             new byte[64], compatibility(), false, PluginAssignment.DesiredState.INSTALLED
         )));
     }

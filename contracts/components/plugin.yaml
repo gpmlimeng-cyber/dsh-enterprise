@@ -1,5 +1,5 @@
 # [INPUT]: 依赖根协议的资源 ID、revision、cursor、requestId 与严格成功 envelope
-# [OUTPUT]: 提供插件 compatibility、含完整 assignment 集合的 catalog、含空字符串未签名表示的下载元数据与设备库存 schemas
+# [OUTPUT]: 提供插件 compatibility、含完整 assignment 集合的 catalog、含空字符串未签名表示的下载元数据、package 级可选 description 与设备库存 schemas
 # [POS]: contracts/components 的插件分发真源，保留 assignment 线协议并以可见范围承载员工自主安装
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 
@@ -59,6 +59,15 @@ PluginSemanticVersion:
 PluginSha256:
   type: string
   pattern: '^[0-9a-f]{64}$'
+PluginDescription:
+  description: >-
+    npm `package.json` 的 `description`（≤300）。**可选属性**：包里没写、只写了空白、或该键不是字符串时，
+    服务端一律**省略这个键**（既不造空串、也不编造），员工端据此如实降级。
+    它是 **package 级**事实（与 `displayName` 同源、同一条读取路径），随首个上传的制品写入、不随版本变化，
+    故不出现在 `PluginVersion` 上。
+  type: string
+  minLength: 1
+  maxLength: 300
 PluginCompatibility:
   type: object
   additionalProperties: false
@@ -145,6 +154,8 @@ PluginPackage:
       type: string
       minLength: 1
       maxLength: 120
+    # 可选：制品 package.json 的 description（服务端读不到就整个键缺席，绝不发空串）。
+    description: {$ref: '#/PluginDescription'}
     status: {$ref: '#/PluginPackageStatus'}
     revision:
       $ref: '../enterprise-openapi.yaml#/components/schemas/Revision'
@@ -259,6 +270,9 @@ RuntimePluginAssignment:
     pluginVersionId: {$ref: '#/PluginVersionId'}
     packageName: {$ref: '#/PluginPackageName'}
     version: {$ref: '#/PluginSemanticVersion'}
+    # 员工端卡片第二行的取值：制品 package.json 的 description。**可选**：没有就整个键缺席
+    # （员工端解码为「没有这个键」并如实降级），绝不下发空串占位。
+    description: {$ref: '#/PluginDescription'}
     sizeBytes:
       type: integer
       format: int64

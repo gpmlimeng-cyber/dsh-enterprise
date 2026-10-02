@@ -239,6 +239,25 @@ describe('generated enterprise contracts', () => {
     }).success).toBe(true)
   })
 
+  // 本刀（卡片第二行改插件描述）：契约里 `description` 是**可选** string（≤300），且「没有描述」只能靠
+  // **省略这个键**表达——空串 / null / 超长一律非法（服务端读不到就不发，员工端据此如实降级）。
+  it('keeps the runtime plugin description optional, bounded at 300, and never null or empty', async () => {
+    const fixture = JSON.parse(
+      await readFile(resolve(CONTRACT_ROOT, 'fixtures', 'plugin-assignments-success.json'), 'utf8'),
+    ) as { data: { assignments: { description?: unknown }[] } }
+    const assignment = fixture.data.assignments[0]!
+    expect(assignment.description).toBe('企业插件分发示例：把代码审查规则带进新会话。')
+    expect(zRuntimePluginAssignmentsResponse.safeParse(fixture).success).toBe(true)
+    delete assignment.description
+    expect(zRuntimePluginAssignmentsResponse.safeParse(fixture).success).toBe(true)
+    for (const description of ['', null, 'x'.repeat(301)]) {
+      assignment.description = description
+      expect(zRuntimePluginAssignmentsResponse.safeParse(fixture).success, JSON.stringify(description)).toBe(false)
+    }
+    assignment.description = 'y'.repeat(300)
+    expect(zRuntimePluginAssignmentsResponse.safeParse(fixture).success).toBe(true)
+  })
+
   it('exports strict T16 Session schemas and preserves the official v0 header', async () => {
     const fixtures = [
       ['session-batch-success.json', zSessionBatchAcceptedResponse],

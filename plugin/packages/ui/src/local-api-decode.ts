@@ -113,6 +113,12 @@ export interface EnterprisePluginCatalogItem {
   readonly pluginVersionId: string
   readonly packageName: string
   readonly version: string
+  /**
+   * 制品 `package.json` 的 `description`（契约 `PluginDescription`，≤300）。
+   * **为缺失设计**：本层把缺席 / JSON null / 空串一律归一成「没有这个键」（与技能侧可选
+   * `category` 同一口径），卡片第二行据此如实降级成「暂无描述」——绝不塞占位、绝不编造。
+   */
+  readonly description?: string
   readonly sizeBytes: number
   readonly operatingSystems: readonly string[]
   readonly installErrorCode?: string
@@ -723,14 +729,28 @@ export function decodeEnterprisePluginStatus(value: unknown): EnterprisePluginSt
   const entries = catalog.map(value => {
     const item = record(value)
     if (item === undefined || !hasExactKeys(item,
-      ['pluginVersionId', 'packageName', 'version', 'sizeBytes', 'operatingSystems'], ['installErrorCode'])
+      ['pluginVersionId', 'packageName', 'version', 'sizeBytes', 'operatingSystems'],
+      ['description', 'installErrorCode'])
       || !enterpriseId(item['pluginVersionId']) || !nonEmptyString(item['packageName'])
       || !nonEmptyString(item['version']) || !Number.isSafeInteger(item['sizeBytes']) || Number(item['sizeBytes']) <= 0
       || !Array.isArray(item['operatingSystems']) || item['operatingSystems'].some(os => !['darwin', 'linux', 'win32'].includes(os))
+      // 描述与技能侧可选 `category` **同一口径**：缺席 / JSON null / 非空串 ≤300 三种合法形态，
+      // 非 string 非 null 或超过契约上限一律判畸形（不静默截断、不猜）。
+      || !(item['description'] === undefined || item['description'] === null
+        || (typeof item['description'] === 'string' && item['description'].length <= 300))
       || item['installErrorCode'] !== undefined && !nonEmptyString(item['installErrorCode'])) {
       throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
     }
-    return item as unknown as EnterprisePluginCatalogItem
+    return {
+      pluginVersionId: item['pluginVersionId'] as string,
+      packageName: item['packageName'] as string,
+      version: item['version'] as string,
+      sizeBytes: Number(item['sizeBytes']),
+      operatingSystems: item['operatingSystems'] as readonly string[],
+      // 只有真拿到非空串才产出这个键；缺席/null/空串一概不产出（卡片据此说「暂无描述」，不是空白）。
+      ...(nonEmptyString(item['description']) ? { description: item['description'] } : {}),
+      ...(item['installErrorCode'] === undefined ? {} : { installErrorCode: item['installErrorCode'] as string }),
+    }
   })
   if (new Set(entries.map(item => item.packageName)).size !== entries.length) throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
   return {

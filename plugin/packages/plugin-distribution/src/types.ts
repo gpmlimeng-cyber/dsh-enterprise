@@ -56,6 +56,12 @@ export interface PluginDistributionStatus {
     readonly pluginVersionId: string
     readonly packageName: string
     readonly version: string
+    /**
+     * 制品 `package.json` 的 `description`（契约 `PluginDescription`，≤300）。
+     * **可选**：bootstrap 那一侧没有这个键时这里就没有这个键（绝不补空串、不编造）——
+     * ui 的解码白名单把「缺席」当唯一缺失口径，卡片第二行据此如实降级成「暂无描述」。
+     */
+    readonly description?: string
     readonly sizeBytes: number
     readonly operatingSystems: readonly string[]
     readonly installErrorCode?: string

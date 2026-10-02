@@ -1,11 +1,12 @@
 /**
  * [INPUT]: 投影 plugin catalog/version/assignment/runtime/inventory 领域对象。
- * [OUTPUT]: 对外提供字符串化 snowflake、完整 catalog assignments、Base64 Ed25519（未签名为空字符串）与无 artifact 路径的严格 HTTP views。
+ * [OUTPUT]: 对外提供字符串化 snowflake、完整 catalog assignments、**可选 description（缺席即不下发该键）**、Base64 Ed25519（未签名为空字符串）与无 artifact 路径的严格 HTTP views。
  * [POS]: plugin/web 的统一安全投影，管理端和 runtime 共享签名/compatibility 字段语义。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 package com.owndsh.enterprise.plugin.web;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.owndsh.enterprise.plugin.application.EffectivePluginResolver;
 import com.owndsh.enterprise.plugin.application.PluginCatalogService;
 import com.owndsh.enterprise.plugin.domain.DevicePluginInventory;
@@ -25,7 +26,8 @@ public final class PluginViews {
     public static PackageView packageView(PluginCatalogService.CatalogItem value) {
         return new PackageView(
             Long.toString(value.pluginPackage().id()), value.pluginPackage().packageName(),
-            value.pluginPackage().displayName(), value.pluginPackage().status().name(),
+            value.pluginPackage().displayName(), value.pluginPackage().description(),
+            value.pluginPackage().status().name(),
             value.pluginPackage().revision(), value.versions().stream().map(PluginViews::version).toList(),
             value.assignments().stream().map(PluginViews::assignment).toList()
         );
@@ -55,7 +57,8 @@ public final class PluginViews {
 
     public static RuntimeAssignmentView runtime(RuntimePluginAssignment value) {
         return new RuntimeAssignmentView(
-            Long.toString(value.pluginVersionId()), value.packageName(), value.version(), value.sizeBytes(),
+            Long.toString(value.pluginVersionId()), value.packageName(), value.version(), value.description(),
+            value.sizeBytes(),
             value.sha256(), Base64.getEncoder().encodeToString(value.signature()), value.compatibility(),
             value.desiredState() == PluginAssignment.DesiredState.INSTALLED
                 ? "/enterprise/api/v1/plugins/versions/" + value.pluginVersionId() + "/download"
@@ -76,6 +79,11 @@ public final class PluginViews {
         String id,
         String packageName,
         String displayName,
+        /**
+         * 制品 package.json 的可选 description。契约里它是**可选属性**：为 null 时必须**整个键缺席**
+         * （见下面 `@JsonInclude(NON_NULL)` 的说明），故这里不能序列化成 `"description": null`。
+         */
+        @JsonInclude(JsonInclude.Include.NON_NULL) String description,
         String status,
         long revision,
         List<VersionView> versions,
@@ -114,10 +122,19 @@ public final class PluginViews {
     public record RuntimeAssignmentsView(long revision, List<RuntimeAssignmentView> assignments) {
     }
 
+    /**
+     * 员工端分配投影（bootstrap 与 `/plugins/assignments` 共用）。
+     *
+     * <p>`description` 上那条 `@JsonInclude(NON_NULL)` 是**必须的**：契约里 `PluginDescription` 是
+     * **可选**属性（`description?: string`），而包没有描述时领域对象是 null；不加这一条会序列化出
+     * `"description": null`，既违反契约、也会被两端生成的 strict Zod（`.optional()`）判为畸形。
+     * 注意这里**只注解这一个分量**——同一条记录里的 `downloadUrl` 是「必需但可为 null」，绝不能被顺手隐掉。
+     */
     public record RuntimeAssignmentView(
         String pluginVersionId,
         String packageName,
         String version,
+        @JsonInclude(JsonInclude.Include.NON_NULL) String description,
         long sizeBytes,
         String sha256,
         String signatureBase64,

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Commons Compress 的 tar/gzip 与 zip 写入能力，以及冻结的 Harness rc.7 peer 版本。
- * [OUTPUT]: 为插件服务测试提供确定性的合法预构建 pnpm tgz/zip 字节（含 GitHub 风格包装目录变体），以及形态合法且非产品锁定的 Harness commit 常量。
+ * [OUTPUT]: 为插件服务测试提供确定性的合法预构建 pnpm tgz/zip 字节（含 GitHub 风格包装目录变体）、**可注入 description JSON 字面量的同形 tgz**（description 读取路径夹具），以及形态合法且非产品锁定的 Harness commit 常量。
  * [POS]: plugin 测试夹具边界，集中表达可被真实 inspector 接受的最小制品格式，也是 tgz 与 zip 两种上传形态的唯一构造点。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -29,30 +29,42 @@ final class PluginTestArtifacts {
     static final String HARNESS_COMMIT = "fb2c4b9e698e30edb738bca4cf0618587db7d203";
 
     static byte[] validArchive(String packageName, String version) throws Exception {
-        return tgz("", packageName, version);
+        return tgz("", packageName, version, null);
+    }
+
+    /**
+     * 形态合法、但 package.json 里带/不带 {@code description} 的 tgz（description 读取路径的夹具）。
+     *
+     * @param descriptionJson 直接塞进 package.json 的 **JSON 字面量**（例如 {@code "\"描述\""}）；
+     *                        {@code null} 表示**根本不写这个键**（= 包里没有描述）
+     */
+    static byte[] validArchiveWithDescription(String packageName, String version, String descriptionJson)
+        throws Exception {
+        return tgz("", packageName, version, descriptionJson);
     }
 
     /** 带顶层包装目录的 tgz，对应 npm pack 之外的"先解出一层目录"的归档形态。 */
     static byte[] wrappedTgzArchive(String wrapper, String packageName, String version) throws Exception {
-        return tgz(wrapper, packageName, version);
+        return tgz(wrapper, packageName, version, null);
     }
 
     /** npm 布局（package/ 前缀）的 zip：GitHub 发布包最常见的直接可用形态。 */
     static byte[] validZipArchive(String packageName, String version) throws Exception {
-        return zip("", packageName, version);
+        return zip("", packageName, version, null);
     }
 
     /** 带顶层包装目录的 zip，对应 GitHub "Source code" 自动生成的 `<repo>-<tag>/` 布局。 */
     static byte[] wrappedZipArchive(String wrapper, String packageName, String version) throws Exception {
-        return zip(wrapper, packageName, version);
+        return zip(wrapper, packageName, version, null);
     }
 
-    private static byte[] tgz(String wrapper, String packageName, String version) throws Exception {
+    private static byte[] tgz(String wrapper, String packageName, String version, String descriptionJson)
+        throws Exception {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (GzipCompressorOutputStream gzip = new GzipCompressorOutputStream(output);
              TarArchiveOutputStream tar = new TarArchiveOutputStream(gzip)) {
             tar.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX);
-            for (Map.Entry<String, byte[]> entry : payload(wrapper, packageName, version).entrySet()) {
+            for (Map.Entry<String, byte[]> entry : payload(wrapper, packageName, version, descriptionJson).entrySet()) {
                 TarArchiveEntry archiveEntry = new TarArchiveEntry(entry.getKey());
                 archiveEntry.setSize(entry.getValue().length);
                 archiveEntry.setModTime(0L);
@@ -64,10 +76,11 @@ final class PluginTestArtifacts {
         return output.toByteArray();
     }
 
-    private static byte[] zip(String wrapper, String packageName, String version) throws Exception {
+    private static byte[] zip(String wrapper, String packageName, String version, String descriptionJson)
+        throws Exception {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (ZipArchiveOutputStream zip = new ZipArchiveOutputStream(output)) {
-            for (Map.Entry<String, byte[]> entry : payload(wrapper, packageName, version).entrySet()) {
+            for (Map.Entry<String, byte[]> entry : payload(wrapper, packageName, version, descriptionJson).entrySet()) {
                 ZipArchiveEntry archiveEntry = new ZipArchiveEntry(entry.getKey());
                 // 显式写 Unix 权限位：DOS 风格中央目录会让归一化器走"无类型信息"分支，覆盖不到常规路径。
                 archiveEntry.setUnixMode(UnixStat.FILE_FLAG | 0644);
@@ -85,20 +98,25 @@ final class PluginTestArtifacts {
      *
      * @param wrapper 顶层包装目录名；空串表示直接落在 npm 要求的 `package/` 根下
      */
-    private static Map<String, byte[]> payload(String wrapper, String packageName, String version) {
+    private static Map<String, byte[]> payload(
+        String wrapper, String packageName, String version, String descriptionJson
+    ) {
         String prefix = wrapper.isEmpty() ? "package/" : wrapper + "/";
         Map<String, byte[]> entries = new LinkedHashMap<>();
-        entries.put(prefix + "package.json", packageJson(packageName, version).getBytes(StandardCharsets.UTF_8));
+        entries.put(prefix + "package.json",
+            packageJson(packageName, version, descriptionJson).getBytes(StandardCharsets.UTF_8));
         entries.put(prefix + "cordis.patch.yml", "- id: test\n".getBytes(StandardCharsets.UTF_8));
         entries.put(prefix + "lib/index.js", "export const value = 1\n".getBytes(StandardCharsets.UTF_8));
         return entries;
     }
 
-    private static String packageJson(String packageName, String version) {
+    private static String packageJson(String packageName, String version, String descriptionJson) {
+        // descriptionJson 是**原样的 JSON 片段**：null 表示这个键根本不出现（= 包里没有描述）。
+        String description = descriptionJson == null ? "" : "\n              \"description\":" + descriptionJson + ",";
         return """
             {
               "name":"%s",
-              "displayName":"T13 Test Plugin",
+              "displayName":"T13 Test Plugin",%s
               "version":"%s",
               "type":"module",
               "dsh":{"bundle":{"patch":"./cordis.patch.yml"}},
@@ -106,6 +124,6 @@ final class PluginTestArtifacts {
               "dependencies":{},
               "peerDependencies":{"@deepseek-ai/dsh-llm":"0.1.0-rc.7"}
             }
-            """.formatted(packageName, version);
+            """.formatted(packageName, description, version);
     }
 }

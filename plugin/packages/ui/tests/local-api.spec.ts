@@ -152,6 +152,36 @@ describe('enterprise local browser API', () => {
     }))
   })
 
+  // 本刀（卡片第二行改描述）：catalog 里新增的**可选** `description` 照技能侧可选 `category` 的同一口径归一——
+  // 缺席 / null / 空串一律「没有这个键」（卡片据此说「暂无描述」），非 string 非 null 或超过契约上限判畸形。
+  it('normalizes the optional catalog description exactly like the optional skill category', () => {
+    const base = {
+      pluginVersionId: '880', packageName: '@example/tools', version: '1.0.0', sizeBytes: 100,
+      operatingSystems: ['darwin'],
+    }
+    const status = { assignmentRevision: 7, plugins: [] }
+    // 有描述：收下并保留原值（不改写、不 trim、不截断）。
+    const described = decodeEnterprisePluginStatus({ ...status, catalog: [{ ...base, description: '把代码审查规则带进新会话。' }] })
+    expect(described.catalog?.[0]?.description).toBe('把代码审查规则带进新会话。')
+    // 三种「没有描述」的形态都归一成**没有这个键**（不是空串、不是 null）。
+    for (const description of [undefined, null, '']) {
+      const decoded = decodeEnterprisePluginStatus({
+        ...status,
+        catalog: [{ ...base, ...(description === undefined ? {} : { description }) }],
+      })
+      expect(decoded.catalog?.[0], String(description)).not.toHaveProperty('description')
+    }
+    // 形状不对（非 string 非 null）与超过契约上限（300）一律判畸形，绝不静默截断或猜。
+    for (const description of [7, {}, 'x'.repeat(301)]) {
+      expect(() => decodeEnterprisePluginStatus({ ...status, catalog: [{ ...base, description }] }))
+        .toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    // 边界：正好 300 字收下（与契约 `PluginDescription.maxLength` 对齐）。
+    const boundary = 'y'.repeat(300)
+    expect(decodeEnterprisePluginStatus({ ...status, catalog: [{ ...base, description: boundary }] })
+      .catalog?.[0]?.description).toBe(boundary)
+  })
+
   // 取消在途安装（本刀）：与 install/remove 同族同源——方法 / 路径 / body 逐字断言；
   // 响应就是只读 `GET /plugins` 那份**同形**投影（Host 零新增字段），故走的仍是同一个严格解码器。
   it('sends the cancel command to its exact same-origin route with the closed one-key body', async () => {

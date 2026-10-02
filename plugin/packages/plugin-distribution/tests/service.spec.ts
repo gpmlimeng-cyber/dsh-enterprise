@@ -350,6 +350,23 @@ describe('EnterprisePluginDistributionService', () => {
     expect(env.subprocess.specs).toEqual([])
   })
 
+  it('carries the artifact description into the local catalog and omits the key when the server has none', async () => {
+    const content = Buffer.from('described managed bundle')
+    // 服务端发了 description（契约 PluginDescription，可选）→ 本地 catalog 原样带出来（UI 卡片第二行的取值）。
+    const described = { ...assignment(testKey, content), description: '把代码审查规则带进新会话。' }
+    const platform = new FakePlatform(bootstrap(1, [described]), new Map([[described.downloadUrl!, content]]))
+    const env = await environment({ platform })
+    await env.service.settled()
+    expect(env.service.status().catalog[0]?.description).toBe('把代码审查规则带进新会话。')
+    // 服务端（例如未升级的那一侧）不发这个键 → 本地 catalog **不产出这个键**（下游据此说「暂无描述」，
+    // 绝不补空串：ui 的解码白名单是关闭键集，「缺席」才是唯一缺失口径）。
+    const plain = assignment(testKey, content)
+    const otherPlatform = new FakePlatform(bootstrap(1, [plain]), new Map([[plain.downloadUrl!, content]]))
+    const other = await environment({ platform: otherPlatform })
+    await other.service.settled()
+    expect(other.service.status().catalog[0]).not.toHaveProperty('description')
+  })
+
   it('keeps the catalog switch usable when the runtime engine version has no mapped commit', async () => {
     const content = Buffer.from('unmapped engine managed bundle')
     const desired = assignment(testKey, content)

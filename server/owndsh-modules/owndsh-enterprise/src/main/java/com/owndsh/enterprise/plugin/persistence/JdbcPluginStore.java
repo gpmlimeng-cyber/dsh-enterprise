@@ -27,7 +27,7 @@ import java.util.Optional;
 
 public final class JdbcPluginStore implements PluginStore {
     private static final String PACKAGE_COLUMNS =
-        "id, tenant_id, package_name, display_name, status, revision";
+        "id, tenant_id, package_name, display_name, description, status, revision";
     private static final String VERSION_COLUMNS = """
         v.id, v.tenant_id, v.package_id, p.package_name, v.version, v.artifact_ref,
         v.size_bytes, v.sha256, v.signature, v.compatibility_json, v.status,
@@ -45,8 +45,8 @@ public final class JdbcPluginStore implements PluginStore {
     private static final String LIST_PACKAGES =
         "select " + PACKAGE_COLUMNS + " from ent_plugin_package where tenant_id=? and id>? order by id limit ?";
     private static final String INSERT_PACKAGE = """
-        insert into ent_plugin_package(id,tenant_id,package_name,display_name,status,revision)
-        values (?,?,?,?,?,?)
+        insert into ent_plugin_package(id,tenant_id,package_name,display_name,description,status,revision)
+        values (?,?,?,?,?,?,?)
         """;
     private static final String INCREMENT_PACKAGE = """
         update ent_plugin_package set revision=revision+1
@@ -89,7 +89,7 @@ public final class JdbcPluginStore implements PluginStore {
         """;
     private static final String EFFECTIVE_ASSIGNMENTS = """
         with ranked as (
-            select v.id as plugin_version_id, p.package_name, v.version, v.size_bytes,
+            select v.id as plugin_version_id, p.package_name, v.version, p.description, v.size_bytes,
                    v.sha256, v.signature, v.compatibility_json, a.required, a.desired_state, v.status as version_status,
                    row_number() over (
                        partition by a.package_id
@@ -106,7 +106,7 @@ public final class JdbcPluginStore implements PluginStore {
                   or (a.subject_type='ALL' and a.subject_id is null)
               )
         )
-        select plugin_version_id, package_name, version, size_bytes, sha256, signature,
+        select plugin_version_id, package_name, version, description, size_bytes, sha256, signature,
                compatibility_json, required, desired_state
         from ranked where priority=1 and (version_status='PUBLISHED' or desired_state='ABSENT') order by package_name
         """;
@@ -163,7 +163,7 @@ public final class JdbcPluginStore implements PluginStore {
     public void insertPackage(PluginPackage value) {
         jdbc.update(
             INSERT_PACKAGE, value.id(), value.tenantId(), value.packageName(), value.displayName(),
-            value.status().name(), value.revision()
+            value.description(), value.status().name(), value.revision()
         );
     }
 
@@ -256,7 +256,8 @@ public final class JdbcPluginStore implements PluginStore {
             EFFECTIVE_ASSIGNMENTS,
             (resultSet, rowNumber) -> new RuntimePluginAssignment(
                 resultSet.getLong("plugin_version_id"), resultSet.getString("package_name"),
-                resultSet.getString("version"), resultSet.getLong("size_bytes"), resultSet.getString("sha256"),
+                resultSet.getString("version"), resultSet.getString("description"),
+                resultSet.getLong("size_bytes"), resultSet.getString("sha256"),
                 resultSet.getBytes("signature"), compatibility(resultSet.getString("compatibility_json")),
                 resultSet.getBoolean("required"),
                 PluginAssignment.DesiredState.valueOf(resultSet.getString("desired_state"))
@@ -287,7 +288,8 @@ public final class JdbcPluginStore implements PluginStore {
     private PluginPackage mapPackage(ResultSet resultSet, int rowNumber) throws SQLException {
         return new PluginPackage(
             resultSet.getLong("id"), resultSet.getString("tenant_id"), resultSet.getString("package_name"),
-            resultSet.getString("display_name"), PluginPackage.Status.valueOf(resultSet.getString("status")),
+            resultSet.getString("display_name"), resultSet.getString("description"),
+            PluginPackage.Status.valueOf(resultSet.getString("status")),
             resultSet.getLong("revision")
         );
     }

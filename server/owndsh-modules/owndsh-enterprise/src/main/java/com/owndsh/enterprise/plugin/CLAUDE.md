@@ -9,7 +9,7 @@ EnterprisePluginProperties.java: artifact root、默认 false 的 signingEnabled
 artifact/: 不信任 tgz/zip 的容器归一化与流式校验、RFC 8785 签名声明和内容寻址文件存储；局部地图见 artifact/CLAUDE.md。
 domain/: package/version/assignment/compatibility/inventory 的不可变领域事实与封闭状态机；局部地图见 domain/CLAUDE.md。
 application/: 上传、发布、退休、分配、生效解析、下载授权和库存替换事务编排；局部地图见 application/CLAUDE.md。
-persistence/: 插件 V2/V8 表的 PostgreSQL adapters 和优先级解析查询；局部地图见 persistence/CLAUDE.md。
+persistence/: 插件 V2/V8/V40 表的 PostgreSQL adapters 和优先级解析查询；局部地图见 persistence/CLAUDE.md。
 web/: 管理与 runtime Controller、严格 DTO、Range 下载和安全投影；局部地图见 web/CLAUDE.md。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
