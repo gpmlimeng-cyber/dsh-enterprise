@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 Cordis/Schemastery、Harness credentials/LLM/subprocess/inventory、官方 dsh-deepseek-account-platform、官方 settings 的 volatile Config 投影、platform-client 的地址写入诊断串与本地路由端口、plugin-distribution 的企业插件分发 Service 与其制品下载内核、官方运行时身份与企业业务模块
- * [OUTPUT]: 对外提供 Web/Desktop 共用 bundle apply、官方 settings 的 volatile Server/账户后台地址字段、默认关闭的插件验签开关、Host 凭据持久化、企业插件安装/卸载、**企业技能一键安装端口与已装技能只读正文端口**、**企业配方一键启用端口（经官方 `ctx.get('pluginManager')` 的安装面 + 既有运行时下载面取配方正文；服务缺席 fail-closed 不接线）**、条件 Session 同步注册，以及用 settings 自定义地址热重挂官方账户插件；安卓按 `browserHandoff: 'client'` 把登录浏览器交接给浏览器半（宿主进程没有可用的开源路径），地址不可持久化的每个判定点都写 warn/error 宿主日志
- * [POS]: bundle 的唯一 Host Loader 入口，组合平台认证、官方企业模型、账户后台地址、环境原生插件调和与企业技能落盘（`skill-install.ts`）**与企业配方一键启用（`preset/`核心 + `preset-source.ts` + `preset-service.ts`）**；Session 同步仅在 sessionPolicy.enabled 时挂载
+ * [OUTPUT]: 对外提供 Web/Desktop 共用 bundle apply、官方 settings 的 volatile Server/账户后台地址字段、默认关闭的插件验签开关、Host 凭据持久化、企业插件安装/卸载、**企业技能一键安装端口与已装技能只读正文端口**、**企业配方一键启用端口（官方 inject 声明 + 延迟解析取 `pluginManager` 安装面 + 三个实时解引用的本机路由端口 + 既有运行时下载面取配方正文；服务时序上不可用则 fail-closed，等它出现再接线）**、条件 Session 同步注册，以及用 settings 自定义地址热重挂官方账户插件；安卓按 `browserHandoff: 'client'` 把登录浏览器交接给浏览器半（宿主进程没有可用的开源路径），地址不可持久化的每个判定点都写 warn/error 宿主日志
+ * [POS]: bundle 的唯一 Host Loader 入口，组合平台认证、官方企业模型、账户后台地址、环境原生插件调和与企业技能落盘（`skill-install.ts`）**与企业配方一键启用（`preset/`核心 + `preset-source.ts` + `preset-service.ts` + `preset/wiring.ts` 的时序边界）**；Session 同步仅在 sessionPolicy.enabled 时挂载
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -56,10 +56,12 @@ import { createEnterpriseSkillInstall } from './skill-install.js'
 import { registerEnterpriseSkillRoutes } from './skill-route.js'
 import {
   createEnterprisePresetInstall,
-  officialPresetInstallPortFromContext,
-  presetProfileDirFromContext,
-  type EnterprisePresetInstall,
+  createLateBoundPresetService,
+  deferEnterprisePresetWiring,
+  type LateBoundPresetService,
+  type PresetInstallPort,
 } from './preset/index.js'
+import { EnterprisePresetError } from './preset/errors.js'
 import { createEnterprisePresetRecipeSource } from './preset-source.js'
 import { createEnterprisePresetService, type EnterprisePresetService } from './preset-service.js'
 
@@ -428,51 +430,80 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
     },
   })
   /**
-   * 配方一键启用（D1=A）的宿主接线，**fail-closed**：
+   * 配方一键启用（D1=A）的宿主接线：**延迟解析 + 晚绑定 + fail-closed**。
    *
-   * · 安装面唯一来源是官方服务 `ctx.get('pluginManager')`（spike §4 实证：普通 Host 插件即可达，
-   *   服务面**零弹层**）。拿不到服务、或当前进程不在 profile 里（`profileContext.dir` 缺席，
-   *   官方 `installBundle` 就没有 `node_modules` 落点）时，**不猜、不降级成 CLI/pnpm 第二条安装通道**：
-   *   一个端口都不交给本地路由，三条配方路由如实按非法请求拒（本机路由家族见 platform-client
-   *   `local-api.ts` 的 `/presets` prefix 分派），并由这里留一条 warn 说明到底缺哪一个。
+   * · 安装面唯一来源是官方服务 `pluginManager`（spike §4 实证：普通 Host 插件即可达，
+   *   服务面**零弹层**）。但它与本 bundle 是同一棵 loader 树里**并发 create** 的两个条目
+   *   （`cordis-plugin-loader/src/config/group.ts` 的 `Group.update()` 用 `Promise.all`），
+   *   而我们的 `inject`（本文件第 82 行）里没有 `pluginManager` —— apply() 会跑在服务
+   *   provide **之前**。所以这里有两处**不能再「定生死」**的地方，缺一不可：
+   *   ① 取服务：走官方 inject 口径 `deferEnterprisePresetWiring`，服务出现后回调被重新装载；
+   *   ② 交端口：下面那三个 `presetEnable/presetDisable/presetStatus` **无条件**交给
+   *      `EnterprisePlatformService`，它们每次调用都实时解引用 `presetHolder`——
+   *      若仍在 `{...}` 展开里一次性快照，服务就绪也进不了路由（第二个冻结点）。
+   * · 就绪与未就绪由 `requirePresetService()` 判：未就绪抛 `ENT_PRESET_INSTALL_FAILED`
+   *   （唯一码→状态表给 503，可重试）；**绝不**猜、**绝不**降级成 CLI/pnpm 第二条安装通道。
+   *   本进程根本不在 profile 里（`profileContext.dir` 缺席，官方 `installBundle` 没有
+   *   `node_modules` 落点）时同样停在这个等待态，并由 `deferEnterprisePresetWiring` 留
+   *   `step=deferred / step=wired / step=unavailable` 三条判定点日志说明缺哪一个、何时就绪。
    * · 配方正文只从**既有**运行时授权下载 operation 取（`preset-source.ts` 头部列了契约与实现出处），
    *   与技能安装共用同一个下载内核，绝不新造第二个下载通道。
    * · 授权门（三态 + 集合指纹）由核心承担；本层只把核心的**结果对象**翻成稳定错误码抛出，
    *   让 platform-client 那张唯一的码→状态映射表给出 HTTP 状态。
    */
-  const presetPort = officialPresetInstallPortFromContext(ctx)
-  const presetProfileDir = presetProfileDirFromContext(ctx)
-  let presetService: EnterprisePresetService | undefined
-  if (presetPort === undefined || presetProfileDir === undefined) {
-    ctx.logger.warn('owndsh: preset one-click enable is not wired on this profile'
-      + ' [operation=wirePreset step=unavailable'
-      + ` pluginManager=${presetPort === undefined ? 'absent' : 'ready'}`
-      + ` profileDir=${presetProfileDir === undefined ? 'absent' : 'ready'}]`)
-  } else {
-    const presetInstall: EnterprisePresetInstall = createEnterprisePresetInstall({
-      port: presetPort,
-      profileDir: presetProfileDir,
-      onError: (message, error) => {
-        ctx.logger.warn(`owndsh: ${message}`, error)
-      },
+  let presetHolder: LateBoundPresetService<EnterprisePresetService> | undefined
+  const wirePreset = (port: PresetInstallPort, profileDir: string): void => {
+    // 持有者**一次创建、长期不变**；只有它内部的"当前服务"随官方服务出现/撤下而变。
+    presetHolder ??= createLateBoundPresetService<EnterprisePresetService>({
+      create: (wiredPort, wiredProfileDir) => createEnterprisePresetService({
+        // 两处都晚绑定：`platform` 在本行之后才被赋值，闭包只在**调用时**解引用它。
+        install: createEnterprisePresetInstall({
+          port: wiredPort,
+          profileDir: wiredProfileDir,
+          onError: (message, error) => {
+            ctx.logger.warn(`owndsh: ${message}`, error)
+          },
+        }),
+        source: createEnterprisePresetRecipeSource({
+          platform: {
+            getPreset: (presetPackageId, signal) => platform.getPreset(presetPackageId, signal),
+            request: (input, init) => platform.request(input, init),
+          },
+          onError: (message, error) => {
+            ctx.logger.warn(`owndsh: ${message}`, error)
+          },
+        }),
+        onError: (message, error) => {
+          ctx.logger.warn(`owndsh: ${message}`, error)
+        },
+      }),
     })
-    const presetSource = createEnterprisePresetRecipeSource({
-      // 晚绑定：`platform` 在本行之后才被赋值，两个闭包都只在**调用时**解引用它。
-      platform: {
-        getPreset: (presetPackageId, signal) => platform.getPreset(presetPackageId, signal),
-        request: (input, init) => platform.request(input, init),
-      },
-      onError: (message, error) => {
-        ctx.logger.warn(`owndsh: ${message}`, error)
-      },
-    })
-    presetService = createEnterprisePresetService({
-      install: presetInstall,
-      source: presetSource,
-      onError: (message, error) => {
-        ctx.logger.warn(`owndsh: ${message}`, error)
-      },
-    })
+    presetHolder.wire(port, profileDir)
+  }
+  deferEnterprisePresetWiring(ctx, {
+    onWired: wirePreset,
+    onUnwired: () => {
+      // 服务被官方撤下：新端口立刻回到 fail-closed 的等待态（已装配方仍在盘上，status 不因此丢）。
+      presetHolder?.unwire()
+    },
+    log: (level, message, error) => {
+      // 「服务就绪」的可见判据：apply 那刻的真实可见性（step=deferred）、端口交给路由的那一刻
+      // （step=wired / pluginManager=ready profileDir=ready）、以及服务缺席（step=unavailable）都在这里。
+      if (level === 'error') ctx.logger.error(message, error)
+      else if (level === 'info') ctx.logger.info(message)
+      else ctx.logger.warn(message)
+    },
+  })
+  /** 三条配方路由的实时解引用：仍未就绪就 fail-closed（稳定码 → 唯一那张表给 503，绝不静默降级）。 */
+  const requirePresetService = (): EnterprisePresetService => {
+    const service = presetHolder?.service()
+    if (service === undefined) {
+      throw new EnterprisePresetError(
+        'ENT_PRESET_INSTALL_FAILED',
+        'the official plugin manager is not available on this profile yet',
+      )
+    }
+    return service
   }
   platform = new EnterprisePlatformService(ctx, {
     ...(config.baseUrl === undefined ? {} : { baseUrl: config.baseUrl }),
@@ -490,14 +521,14 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
     skillAction: (action, packageId) => skillInstall.action(action, packageId),
     // 只读正文端口：点技能行看详情时读**已装**技能的 SKILL.md（路径安全全在 skill-install.ts 里 fail-closed）。
     skillContent: (packageId, name) => skillInstall.content(packageId, name),
-    // 配方一键启用（三条本机路由：`/presets/<id>/{enable,disable,status}`）。服务缺席时**一个端口都不传**，
-    // 那三条子路径就照 skill-route「端口缺席即 400」同款口径如实拒——绝不猜一个安装面出来。
-    ...(presetService === undefined ? {} : {
-      presetEnable: (presetPackageId: string, confirmFingerprint?: string) =>
-        presetService!.enable(presetPackageId, confirmFingerprint),
-      presetDisable: (declarationId: string) => presetService!.disable(declarationId),
-      presetStatus: (presetPackageId: string) => presetService!.status(presetPackageId),
-    }),
+    // 配方一键启用（三条本机路由：`/presets/<id>/{enable,disable,status}`）。三个端口**无条件**接线：
+    // 它们在**调用时**才解引用 `presetHolder`，因此官方 pluginManager 稍后就绪时端口会真的进到路由。
+    // 仍未就绪则由 `requirePresetService()` fail-closed：抛 `ENT_PRESET_INSTALL_FAILED`（唯一那张
+    // 码→状态表给 503，语义正是「本机/上游暂不可用，可重试」），**不是**静默不接线、更不是去猜第二个安装通道。
+    presetEnable: (presetPackageId: string, confirmFingerprint?: string) =>
+      requirePresetService().enable(presetPackageId, confirmFingerprint),
+    presetDisable: (declarationId: string) => requirePresetService().disable(declarationId),
+    presetStatus: (presetPackageId: string) => requirePresetService().status(presetPackageId),
     sessionSync: sessionLocalPort,
     pluginAction: async (action, packageName, pluginVersionId) => {
       if (pluginDistribution === undefined) throw new Error('DSH Enterprise plugin distribution is unavailable')
