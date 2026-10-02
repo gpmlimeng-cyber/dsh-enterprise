@@ -258,7 +258,9 @@ function manifestSkillId(text: string): string {
   }
   if (typeof value !== 'object' || value === null || Array.isArray(value)) throw invalid('manifest.json is not an object')
   const manifest = value as Record<string, unknown>
-  if (manifest['format'] !== 'dsh-skill' || manifest['version'] !== 1) {
+  // 中心与服务端 SkillArtifactInspector 一致：version 是【字符串】"1"（服务端用
+  // "1".equals(version) 判定）。此前这里比的是数字 1，导致所有真实制品被判非法。
+  if (manifest['format'] !== 'dsh-skill' || manifest['version'] !== '1') {
     throw invalid('manifest.json is not a dsh-skill v1 manifest')
   }
   const id = manifest['id']
@@ -287,6 +289,9 @@ export function decodeDshSkillArchive(bytes: Buffer): EnterpriseSkillArchive {
   const skills = new Map<string, SkillArchiveFile[]>()
   for (const entry of entries) {
     if (entry.path === 'manifest.json') continue
+    // `zip -r` 打包目录树时会显式写入父目录条目 `skills/`：它不是技能条目，
+    // 若照常按 `/` 切分会得到空技能名而被 kebab 正则误判为非法（真实制品复现过）。
+    if (entry.path === 'skills/' || entry.path === 'skills') continue
     const segments = entry.path.split('/')
     if (segments[0] !== 'skills' || segments.length < 2) {
       throw invalid('archive contains a path outside manifest.json and skills/')

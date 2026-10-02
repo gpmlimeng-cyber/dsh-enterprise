@@ -45,7 +45,7 @@ describe('enterprise skill install over the real local API', () => {
   it('installs, reports and uninstalls a skill package through the same-origin routes', async () => {
     const dshHome = await makeHome()
     const archive = buildZip([
-      { path: 'manifest.json', content: JSON.stringify({ format: 'dsh-skill', version: 1, id: 'meeting-pkg', name: '会议纪要技能组' }) },
+      { path: 'manifest.json', content: JSON.stringify({ format: 'dsh-skill', version: '1', id: 'meeting-pkg', name: '会议纪要技能组' }) },
       { path: 'skills/meeting-notes/SKILL.md', content: '---\nname: meeting-notes\ndescription: 整理会议纪要\n---\n正文\n' },
     ])
     const detail = {

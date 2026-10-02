@@ -14,7 +14,7 @@ import {
 } from '../src/skill-archive.js'
 import { buildZip, type ZipFixtureEntry } from './zip-fixture.js'
 
-const MANIFEST = { format: 'dsh-skill', version: 1, id: 'meeting-notes', name: '会议纪要技能组', sourceDshVersion: '0.2.0-rc.2' }
+const MANIFEST = { format: 'dsh-skill', version: '1', id: 'meeting-notes', name: '会议纪要技能组', sourceDshVersion: '0.2.0-rc.2' }
 
 /** 一个合规包：两个技能，其中一个带 `references/` 资源。 */
 function goodEntries(): ZipFixtureEntry[] {
@@ -144,7 +144,7 @@ describe('dshskill archive decoding', () => {
       { path: 'skills/a/SKILL.md', content: 'x' },
     ]],
     ['manifest is not dsh-skill v1', [
-      { path: 'manifest.json', content: JSON.stringify({ ...MANIFEST, version: 2 }) },
+      { path: 'manifest.json', content: JSON.stringify({ ...MANIFEST, version: '2' }) },
       { path: 'skills/a/SKILL.md', content: 'x' },
     ]],
     ['manifest id is invalid', [

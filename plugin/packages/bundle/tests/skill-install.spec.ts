@@ -41,7 +41,7 @@ async function makeHome(): Promise<string> {
 
 function skillEntries(prefix: string, names: readonly string[]): ZipFixtureEntry[] {
   return [
-    { path: 'manifest.json', content: JSON.stringify({ format: 'dsh-skill', version: 1, id: `${prefix}-pkg`, name: '企业技能包', sourceDshVersion: '0.2.0-rc.2' }) },
+    { path: 'manifest.json', content: JSON.stringify({ format: 'dsh-skill', version: '1', id: `${prefix}-pkg`, name: '企业技能包', sourceDshVersion: '0.2.0-rc.2' }) },
     ...names.map(name => ({
       path: `skills/${name}/SKILL.md`,
       content: `---\nname: ${name}\ndescription: ${prefix} 技能\n---\n正文\n`,
@@ -232,7 +232,7 @@ describe('enterprise skill install', () => {
     // 逃逸必须藏在**技能名之后的资源段**里：这样包契约（`skills/<kebab>/...`）本身是合法的，
     // 唯一能拦住它的就是解压前的路径分段校验——逃逸藏在名字位时会被 kebab 规约顺手挡掉，因而测不出真回归。
     const drafts = buildZip([
-      { path: 'manifest.json', content: JSON.stringify({ format: 'dsh-skill', version: 1, id: 'meeting-pkg' }) },
+      { path: 'manifest.json', content: JSON.stringify({ format: 'dsh-skill', version: '1', id: 'meeting-pkg' }) },
       { path: 'skills/meeting-notes/SKILL.md', content: 'x' },
       { path: 'skills/meeting-notes/../../evil/SKILL.md', content: 'escaped' },
     ])
