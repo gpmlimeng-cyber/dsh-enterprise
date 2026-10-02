@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖浏览器 fetch 与 FormData/Blob、local-api-decode 的全部严格解码与失败码投影
- * [OUTPUT]: 对外提供 `createEnterpriseLocalApi`（固定同源路径的取数与动作，含请 Host 打开帮助中心的 `openHelp` 与读**已装**技能正文的 `skillContent`）、三条同源路径常量（`ENTERPRISE_FEEDBACK_LOCAL_PATH`/`ENTERPRISE_HELP_OPEN_LOCAL_PATH`/`ENTERPRISE_SKILL_CONTENT_LOCAL_PATH`）与 local-api-decode 的全部导出
+ * [OUTPUT]: 对外提供 `createEnterpriseLocalApi`（固定同源路径的取数与动作，含请 Host 打开帮助中心的 `openHelp`、读**已装**技能正文的 `skillContent`，以及详情子页面用的 `skillFiles`（本机文件树）与 `skillFile`（树里一个文本文件））、五条同源技能路径常量（`ENTERPRISE_SKILL_{INSTALL,UNINSTALL,INSTALLED,CONTENT}_LOCAL_PATH` 与 `enterpriseSkillFilesPath`/`enterpriseSkillFilePath` 两条**动态**本机文件路径构造器）与 local-api-decode 的全部导出
  * [POS]: dsh-ui 的浏览器网络边界——只发同源固定路径请求，调用方无法注入平台 origin 或 Authorization；DTO 契约与解码在 local-api-decode.ts，本文件只管发与收
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -17,6 +17,8 @@ import {
   decodeEnterpriseErrorCode,
   decodeEnterpriseInstalledSkills,
   decodeEnterpriseInstalledSkillContent,
+  decodeEnterpriseInstalledSkillFile,
+  decodeEnterpriseInstalledSkillFiles,
   decodeEnterpriseLocalStatus,
   decodeEnterpriseLoginCancel,
   decodeEnterpriseLoginForm,
@@ -194,6 +196,15 @@ export function createEnterpriseLocalApi(
         fetcher,
       ),
     ),
+    // 本机技能文件家族两条（与 `/skills/content` 同族、同源、同一条 Host 路径解析）：
+    // ① 文件树按**包 id** 取（路径段由 Host 自己拼，与我们无关）；
+    // ② 读文件按**包 id + 相对路径**取，路径只能来自①回传的条目——界面从不接受用户输入的路径。
+    skillFiles: async (packageId, signal) => decodeEnterpriseInstalledSkillFiles(
+      await requestJson(enterpriseSkillFilesPath(packageId), getInit(signal), fetcher),
+    ),
+    skillFile: async (packageId, path, signal) => decodeEnterpriseInstalledSkillFile(
+      await requestJson(enterpriseSkillFilePath(packageId, path), getInit(signal), fetcher),
+    ),
     installSkill: async (packageId, signal) => decodeEnterpriseInstalledSkills(
       await requestJson('/skills/install', jsonInit('POST', { packageId }, signal), fetcher),
     ),
@@ -258,3 +269,33 @@ export const ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills
  * 界面只会把 Host 自己回传的已装记录里的名字填进来，绝不接受用户输入的路径。
  */
 export const ENTERPRISE_SKILL_CONTENT_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/content`
+
+/**
+ * 本机技能**文件树**的路径构造器：`/skills/<包 id>/files`（**相对本地 API 前缀**，与其余调用点同形）。
+ *
+ * 它交给 `requestJson`，由后者拼上固定的 `LOCAL_API_PREFIX` —— 拼完就是 Host 注册面
+ * （`bundle/src/skill-route.ts` 的 `/skills` prefix handler 按剩余段分派）上那条 `<id>/files` 子路径。
+ * 路径里唯一的变量是包 id（中心雪花，经 `encodeURIComponent` 后拼接）；任何非雪花输入都只会变成
+ * 路径段里的字面量，而 Host 侧还有一道雪花正则与已装记录归属判定，绝不带着任意字符串拼文件系统路径。
+ *
+ * @param packageId - 中心技能包雪花 id（来自已装记录）。
+ * @returns 相对本地 API 前缀的路径（与 Host 注册面的子路径逐字对应）。
+ */
+export function enterpriseSkillFilesPath(packageId: string): string {
+  return `/skills/${encodeURIComponent(packageId)}/files`
+}
+
+/**
+ * 本机技能**单个文件**的路径构造器：`/skills/<包 id>/file?path=<相对路径>`（**相对本地 API 前缀**）。
+ *
+ * 两个变量都是**标识符而不是路径片段**：包 id 走路径段、相对路径走查询串，两者各自
+ * `encodeURIComponent`（`../` 之类只会变成查询串里的字面量，永远不成为路径片段）。
+ * 界面只会把文件树回传过的路径填进来——它从不自己拼路径、也不接受用户输入的路径。
+ *
+ * @param packageId - 中心技能包雪花 id（来自已装记录）。
+ * @param path - 来自文件树条目的相对路径（`/` 分隔，首段是技能目录名）。
+ * @returns 相对本地 API 前缀的路径（与 Host 注册面的子路径逐字对应）。
+ */
+export function enterpriseSkillFilePath(packageId: string, path: string): string {
+  return `/skills/${encodeURIComponent(packageId)}/file?path=${encodeURIComponent(path)}`
+}

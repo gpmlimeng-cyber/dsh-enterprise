@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 skill-market 的装配指令/条目与元信息纯投影，以及 local-api 再导出的技能严格解码
- * [OUTPUT]: 验证**已装技能正文的严格解码**（`decodeEnterpriseInstalledSkillContent`：单键封闭、雪花包 id、kebab 技能名、正文 ≤256 KiB，宿主路径/超限/错类型一律 `ENT_LOCAL_RESPONSE_INVALID`）与四条技能同源路径常量、装配指令文案要点（下载 URL/名称/skillId/~/.dsh/skills 落点/落盘前确认）、调用策略标签、列表与详情投影（含 sha256 丢弃、null 归一、**可选分类 category 的严格解码与缺席归一**）、**已装态解码与逐行安装态投影（已装/未装/在途文案与按钮语义）**、三条安装动作的同源路径常量、畸形拒绝与浏览器不接触令牌/不绕开 local-api
+ * [INPUT]: 依赖 skill-market 的装配指令/条目与元信息纯投影，以及 local-api 再导出的技能严格解码（含**本机文件树 / 树里单个文本文件**与两条动态路径构造器）
+ * [OUTPUT]: 验证**已装技能正文的严格解码**（`decodeEnterpriseInstalledSkillContent`：单键封闭、雪花包 id、kebab 技能名、正文 ≤256 KiB，宿主路径/超限/错类型一律 `ENT_LOCAL_RESPONSE_INVALID`）与四条技能同源路径常量、装配指令文案要点（下载 URL/名称/skillId/~/.dsh/skills 落点/落盘前确认）、调用策略标签、列表与详情投影（含 sha256 丢弃、null 归一、**可选分类 category 的严格解码与缺席归一**）、**已装态解码与逐行安装态投影（已装/未装/在途文案与按钮语义）**、三条安装动作的同源路径常量、畸形拒绝与浏览器不接触令牌/不绕开 local-api；**本刀（详情子页面文件区）新增**本机**文件树**与**树里单个文本文件**两份投影的严格解码门禁（`decodeEnterpriseInstalledSkillFiles` / `decodeEnterpriseInstalledSkillFile`：键集封闭、路径形状收窄（绝对路径 / 反斜杠 / 盘符 / `..` / 空段 / `%` / 控制字符 / 超长段 / 非 kebab 首段）、目录 `sizeBytes` 恒 0、树内路径不重复、非 `file`/`directory` 类型、单文件 ≤256 KiB 与 262144 边界、条目数上限）与两条动态路径构造器 `enterpriseSkillFilesPath` / `enterpriseSkillFilePath` 的编码口径
  * [POS]: dsh-ui 技能 tab 的产品词汇与边界门禁，真实 DOM 与视觉由 Harness 快照与真机验收覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -15,6 +15,8 @@ import {
   enterpriseSkillMeta,
 } from '../src/skill-market.js'
 import {
+  decodeEnterpriseInstalledSkillFile,
+  decodeEnterpriseInstalledSkillFiles,
   decodeEnterpriseInstalledSkillContent,
   decodeEnterpriseInstalledSkills,
   decodeEnterpriseSkillDetail,
@@ -23,6 +25,8 @@ import {
   ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH,
   ENTERPRISE_SKILL_INSTALL_LOCAL_PATH,
   ENTERPRISE_SKILL_UNINSTALL_LOCAL_PATH,
+  enterpriseSkillFilePath,
+  enterpriseSkillFilesPath,
 } from '../src/local-api.js'
 
 vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({ Button: vi.fn(), Modal: vi.fn() }))
@@ -256,6 +260,89 @@ describe('enterprise skill market', () => {
     }
     // 上限边界本身合法（256 KiB）。
     expect(decodeEnterpriseInstalledSkillContent({ ...body, content: 'x'.repeat(262_144) }).content.length).toBe(262_144)
+  })
+
+  // 已装技能的**本机文件树 / 树里单个文本文件**（技能详情子页面左树右预览的两份输入）：
+  // 形状比别处更窄——键集封闭、路径必须是「相对 `/` 分隔的 kebab 技能目录 + 后代」、目录 sizeBytes 恒 0、
+  // 树内路径不重复、文件正文 ≤256 KiB；宿主绝对路径 / `..` / `%` 二次编码 / 非法类型一律整条判畸形。
+  it('decodes the installed skill file tree and a single text file strictly', () => {
+    const files = {
+      packageId: '7001',
+      entries: [
+        { path: 'code-review', kind: 'directory', sizeBytes: 0 },
+        { path: 'code-review/SKILL.md', kind: 'file', sizeBytes: 2048 },
+        { path: 'code-review/references/checklist.md', kind: 'file', sizeBytes: 512 },
+      ],
+    }
+    expect(decodeEnterpriseInstalledSkillFiles(files)).toEqual(files)
+    // 空树是合法投影（Host 侧真目录为空），不是畸形。
+    expect(decodeEnterpriseInstalledSkillFiles({ packageId: '7001', entries: [] })).toEqual({ packageId: '7001', entries: [] })
+    for (const broken of [
+      // 键集封闭：少键、多键、多塞宿主路径都整条判失败。
+      { packageId: '7001' },
+      { packageId: '7001', entries: [], root: '/data/user/0/x/skills' },
+      { ...files, entries: [{ path: 'code-review', kind: 'directory', sizeBytes: 0, absolutePath: '/x' }] },
+      // 包 id / 路径形状：非雪花、绝对路径、反斜杠、盘符、`..`、空段、`%`、控制字符、超长段、非 kebab 首段。
+      { ...files, packageId: '0' },
+      { ...files, entries: [{ path: '/etc/passwd', kind: 'file', sizeBytes: 1 }] },
+      { ...files, entries: [{ path: 'code-review\\SKILL.md', kind: 'file', sizeBytes: 1 }] },
+      { ...files, entries: [{ path: 'C:/x', kind: 'file', sizeBytes: 1 }] },
+      { ...files, entries: [{ path: '../SKILL.md', kind: 'file', sizeBytes: 1 }] },
+      { ...files, entries: [{ path: 'code-review//SKILL.md', kind: 'file', sizeBytes: 1 }] },
+      { ...files, entries: [{ path: 'code-review/%2e%2e/x', kind: 'file', sizeBytes: 1 }] },
+      { ...files, entries: [{ path: 'code-review/a\u0000b', kind: 'file', sizeBytes: 1 }] },
+      { ...files, entries: [{ path: `${'a'.repeat(256)}/x`, kind: 'file', sizeBytes: 1 }] },
+      { ...files, entries: [{ path: 'Code-Review/SKILL.md', kind: 'file', sizeBytes: 1 }] },
+      { ...files, entries: [{ path: `${'a'.repeat(65)}/SKILL.md`, kind: 'file', sizeBytes: 1 }] },
+      // 类型 / 字节数 / 重复路径：目录的 sizeBytes 必须恒 0，文件 ≤256 KiB，同一路径不许出现两次。
+      { ...files, entries: [{ path: 'code-review', kind: 'symlink', sizeBytes: 0 }] },
+      { ...files, entries: [{ path: 'code-review', kind: 'directory', sizeBytes: 7 }] },
+      { ...files, entries: [{ path: 'code-review/SKILL.md', kind: 'file', sizeBytes: -1 }] },
+      { ...files, entries: [{ path: 'code-review/SKILL.md', kind: 'file', sizeBytes: 262_145 }] },
+      { ...files, entries: [{ path: 'code-review/SKILL.md', kind: 'file', sizeBytes: 1 }, { path: 'code-review/SKILL.md', kind: 'file', sizeBytes: 2 }] },
+      { ...files, entries: 'nope' },
+      [],
+      'not-an-object',
+    ]) {
+      expect(() => decodeEnterpriseInstalledSkillFiles(broken)).toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    // 文件上限边界本身合法（256 KiB）。
+    expect(decodeEnterpriseInstalledSkillFiles({
+      ...files, entries: [{ path: 'code-review/SKILL.md', kind: 'file', sizeBytes: 262_144 }],
+    }).entries[0]?.sizeBytes).toBe(262_144)
+
+    const file = { packageId: '7001', path: 'code-review/SKILL.md', sizeBytes: 2048, text: '# 正文\n- 检查单' }
+    expect(decodeEnterpriseInstalledSkillFile(file)).toEqual(file)
+    expect(decodeEnterpriseInstalledSkillFile({ ...file, text: '' })).toEqual({ ...file, text: '' })
+    for (const broken of [
+      { ...file, name: 'code-review' },
+      { ...file, absolutePath: '/data/user/0/x/skills/code-review/SKILL.md' },
+      { packageId: '0', path: 'code-review/SKILL.md', sizeBytes: 1, text: 'x' },
+      { packageId: '7001', path: '../SKILL.md', sizeBytes: 1, text: 'x' },
+      { packageId: '7001', path: '/SKILL.md', sizeBytes: 1, text: 'x' },
+      { packageId: '7001', path: 'Code-Review/SKILL.md', sizeBytes: 1, text: 'x' },
+      { packageId: '7001', path: 'code-review/SKILL.md', sizeBytes: 1.5, text: 'x' },
+      { packageId: '7001', path: 'code-review/SKILL.md', sizeBytes: 1, text: 42 },
+      { packageId: '7001', path: 'code-review/SKILL.md', sizeBytes: 1, text: 'x'.repeat(262_145) },
+      { packageId: '7001', path: 'code-review/SKILL.md', sizeBytes: 1 },
+      [],
+    ]) {
+      expect(() => decodeEnterpriseInstalledSkillFile(broken)).toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    // 两条**动态**同源路径构造器：包 id 走路径段、相对路径走查询串，两者各自 `encodeURIComponent`
+    // （`../` 之类只会变成查询串里的字面量，永远不成为路径片段），且与 Host 注册面逐字对应。
+    // 构造器返回**相对本地 API 前缀**的路径（`requestJson` 负责拼固定前缀，拼完即 Host 注册面的完整路径）。
+    expect(enterpriseSkillFilesPath('7001')).toBe('/skills/7001/files')
+    expect(enterpriseSkillFilePath('7001', 'code-review/SKILL.md'))
+      .toBe('/skills/7001/file?path=code-review%2FSKILL.md')
+    expect(enterpriseSkillFilePath('7001', '../etc/passwd'))
+      .toBe('/skills/7001/file?path=..%2Fetc%2Fpasswd')
+    expect(enterpriseSkillFilesPath('../../x')).toBe('/skills/..%2F..%2Fx/files')
+    // 完整同源路径由「固定前缀 + 构造器」拼成，且两条都不带尾斜杠、都在 `/skills/` 子路径族里。
+    for (const path of [enterpriseSkillFilesPath('7001'), enterpriseSkillFilePath('7001', 'code-review/SKILL.md')]) {
+      expect(path.startsWith('/skills/')).toBe(true)
+      expect(path.endsWith('/')).toBe(false)
+    }
   })
 
   it('fetches only through the shared same-origin local API and never touches tokens', async () => {

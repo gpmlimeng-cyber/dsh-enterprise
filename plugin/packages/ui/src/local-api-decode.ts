@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 branding 的同源 LOGO 来源门禁与 `EnterpriseBrandingDocument` 形状、decode-primitives 的严格解码内核、skill-api-decode 的技能 DTO 与解码
- * [OUTPUT]: 对外提供连接/受管插件状态枚举、本地 API DTO 类型与严格解码（账号、品牌、插件、配方、Session、四窗口用量、反馈回执、原生登录的来源列表与凭证/改密结果、**企业技能已装态与已装正文**）、`EnterpriseLocalApi` 契约、失败码投影 `enterpriseLocalErrorCode`，并再导出 `EnterpriseLocalApiError` 与 skill-api-decode 的全部技能契约
+ * [OUTPUT]: 对外提供连接/受管插件状态枚举、本地 API DTO 类型与严格解码（账号、品牌、插件、配方、Session、四窗口用量、反馈回执、原生登录的来源列表与凭证/改密结果、**企业技能已装态 / 已装正文 / 本机文件树 / 树里单个文本文件**）、`EnterpriseLocalApi` 契约、失败码投影 `enterpriseLocalErrorCode`，并再导出 `EnterpriseLocalApiError` 与 skill-api-decode 的全部技能契约
  * [POS]: dsh-ui 的浏览器取数契约层——只定义「主机可以说什么」与「什么不许说」，不含任何 fetch；网络执行留在 local-api.ts，界面只消费本文件的投影结果。逼近 800 行后按业务纵切出技能分片与共享内核，本文件仍是唯一对外真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -17,7 +17,7 @@ import {
   timestamp,
 } from './decode-primitives.js'
 import type { JsonRecord } from './decode-primitives.js'
-import type { EnterpriseInstalledSkill, EnterpriseInstalledSkillContent, EnterpriseRuntimeSkill } from './skill-api-decode.js'
+import type { EnterpriseInstalledSkill, EnterpriseInstalledSkillContent, EnterpriseInstalledSkillFile, EnterpriseRuntimeSkill, EnterpriseSkillFiles } from './skill-api-decode.js'
 
 export { EnterpriseLocalApiError } from './decode-primitives.js'
 export * from './skill-api-decode.js'
@@ -267,6 +267,19 @@ export interface EnterpriseLocalApi {
    * 符号链接逃逸 / 超 256 KiB / 非 UTF-8 各有稳定错误码；未安装的行根本不发这条请求。
    */
   skillContent(packageId: string, name: string, signal: AbortSignal): Promise<EnterpriseInstalledSkillContent>
+  /**
+   * 列一条**已装**技能包在本机真树上的条目（详情子页面的**左文件树**用它）。
+   *
+   * 只传包 id：Host 从自己的已装记录出发读真目录，未装 / 记录不符一律 404；界面自己从不编树。
+   */
+  skillFiles(packageId: string, signal: AbortSignal): Promise<EnterpriseSkillFiles>
+  /**
+   * 读该树里的一个**文本**文件（详情子页面的**右文件预览**用它；默认那个就是 `SKILL.md`）。
+   *
+   * `path` 只能来自 `skillFiles` 回传的条目——界面从不拼路径，也不接受用户输入；
+   * 二进制 / 超 256 KiB / 符号链接逃逸在 Host 侧各有稳定错误码。
+   */
+  skillFile(packageId: string, path: string, signal: AbortSignal): Promise<EnterpriseInstalledSkillFile>
   /** 一键安装一个技能包；返回安装后的最新已装态（一次往返拿到真值）。 */
   installSkill(packageId: string, signal: AbortSignal): Promise<readonly EnterpriseInstalledSkill[]>
   /** 卸载一个已装技能包；返回卸载后的最新已装态。 */

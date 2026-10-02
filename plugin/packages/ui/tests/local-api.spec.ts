@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 dsh-ui 同源 local-api、标准 Response 与 EventSource test double
- * [OUTPUT]: 验证账号/插件/技能严格解码、地址/卸载固定路径、脱敏投影、显式刷新与秘密字段拒绝，以及**本刀新增的已装技能正文取数**（同源 `/skills/content` + 两个标识符查询参数按 `encodeURIComponent` 编码、键集封闭拒绝宿主路径与超限正文）
+ * [OUTPUT]: 验证账号/插件/技能严格解码、地址/卸载固定路径、脱敏投影、显式刷新与秘密字段拒绝，**已装技能正文取数**（同源 `/skills/content` + 两个标识符查询参数按 `encodeURIComponent` 编码、键集封闭拒绝宿主路径与超限正文），以及**本刀新增的详情子页面两条取数**——本机**文件树** `/skills/<id>/files` 与**树里单个文本文件** `/skills/<id>/file?path=`（相对路径只进查询串且一律 `encodeURIComponent`、Host 多塞宿主绝对路径或树内重复路径即 `ENT_LOCAL_RESPONSE_INVALID`）
  * [POS]: dsh-ui 浏览器网络边界测试，确保浏览器只能消费 Host 脱敏 DTO
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -251,6 +251,48 @@ describe('enterprise local browser API', () => {
     }), { headers: { 'content-type': 'application/json' } })))
     await expect(leaky.skillContent('7001', 'code-review', new AbortController().signal))
       .rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
+  })
+
+  // 本机技能**文件树**与**树里单个文件**（技能详情子页面左树右预览的两条同源取数）：路径段只放包 id、
+  // 相对路径只进查询串且一律 `encodeURIComponent`——界面从不拼宿主路径，也不接受用户输入。
+  it('reads the installed skill file tree and one text file over same-origin paths', async () => {
+    const files = {
+      packageId: '7001',
+      entries: [
+        { path: 'code-review', kind: 'directory', sizeBytes: 0 },
+        { path: 'code-review/SKILL.md', kind: 'file', sizeBytes: 2048 },
+      ],
+    }
+    const file = { packageId: '7001', path: 'code-review/SKILL.md', sizeBytes: 2048, text: '# 正文\n- 检查单' }
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input)
+      if (path.endsWith('/7001/files')) return ok(files)
+      if (path.startsWith('/enterprise/api/v1/local/skills/7001/file?')) return ok(file)
+      throw new Error(`unexpected path ${path}`)
+    })
+    const api = createEnterpriseLocalApi(fetcher)
+    const signal = new AbortController().signal
+    await expect(api.skillFiles('7001', signal)).resolves.toEqual(files)
+    await expect(api.skillFile('7001', 'code-review/SKILL.md', signal)).resolves.toEqual(file)
+    expect(fetcher.mock.calls.map(call => String(call[0]))).toEqual([
+      '/enterprise/api/v1/local/skills/7001/files',
+      '/enterprise/api/v1/local/skills/7001/file?path=code-review%2FSKILL.md',
+    ])
+    // 参数按标识符编码：`../` 之类只会变成查询串里的字面量，永远不会成为路径片段。
+    await api.skillFile('7001', '../etc/passwd', signal).catch(() => undefined)
+    expect(String(fetcher.mock.calls[2]?.[0]))
+      .toBe('/enterprise/api/v1/local/skills/7001/file?path=..%2Fetc%2Fpasswd')
+    // Host 多塞宿主绝对路径即整条判畸形（与其余投影同一条键集封闭口径）。
+    const leaky = createEnterpriseLocalApi(vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith('/files')) {
+        return ok({ ...files, entries: [...files.entries, { path: 'code-review/SKILL.md', kind: 'file', sizeBytes: 1 }] })
+      }
+      return new Response(JSON.stringify({ data: { ...file, absolutePath: '/data/user/0/x/skills/code-review/SKILL.md' } }), {
+        headers: { 'content-type': 'application/json' },
+      })
+    }))
+    await expect(leaky.skillFiles('7001', signal)).rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    await expect(leaky.skillFile('7001', 'code-review/SKILL.md', signal)).rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
   })
 
   it('refreshes account state with one JSON request', async () => {

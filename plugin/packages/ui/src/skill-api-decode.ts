@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 decode-primitives 的键集封闭判定、record/nonEmptyString/timestamp/enterpriseId 与唯一失败码类
- * [OUTPUT]: 对外提供技能包 DTO（`EnterpriseRuntimeSkill`/`EnterpriseSkillEntry`/`EnterpriseInstalledSkill`/**`EnterpriseInstalledSkillContent`**）与严格解码 `decodeEnterpriseSkills`（列表，可选分类 `category` 进白名单）、`decodeEnterpriseSkillDetail`（详情）、`decodeEnterpriseInstalledSkills`（本机已装态）与 `decodeEnterpriseInstalledSkillContent`（**已装技能的 SKILL.md 正文**：单键封闭 + 正文 ≤256 KiB）
+ * [OUTPUT]: 对外提供技能包 DTO（`EnterpriseRuntimeSkill` / `EnterpriseSkillEntry` / `EnterpriseInstalledSkill` / `EnterpriseInstalledSkillContent` / `EnterpriseSkillFiles` + `EnterpriseSkillFileEntry` / `EnterpriseInstalledSkillFile`）与严格解码 `decodeEnterpriseSkills`（列表，可选分类 `category` 进白名单）、`decodeEnterpriseSkillDetail`（详情）、`decodeEnterpriseInstalledSkills`（本机已装态）、`decodeEnterpriseInstalledSkillContent`（**已装技能的 SKILL.md 正文**：单键封闭 + 正文 ≤256 KiB）、`decodeEnterpriseInstalledSkillFiles`（**本机真树条目**：路径形状 + 类型 + 目录 sizeBytes 恒 0 + 条目数 ≤1000 + 路径去重）与 `decodeEnterpriseInstalledSkillFile`（**树里一个文本文件**：四键封闭 + 路径形状 + 正文 ≤256 KiB）
  * [POS]: dsh-ui 浏览器契约层的技能分片——从逼近 800 行的 local-api-decode 拆出，专管企业技能目录投影；只保留 frontmatter 脱敏事实，SKILL.md 正文、artifact 路径与 SHA-256 在这里校验形状后即丢，永不进入界面（**唯一例外**是下面那条「读已装技能正文」的只读投影：正文由用户主动点开详情才取，形状与上限在这里同样收窄）；**可选分类 `category`（服务端新增字段，列表与详情投影都会有）在这里严格校验形状并把「缺席/null/空串」统一归一成「没有这个键」**（照 `whenToUse` 的既有归一策略，为缺失设计）；已装态是本机真值（Host 状态文件 + 落盘存在性），这里只校验形状与技能名规约
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -262,4 +262,133 @@ export function decodeEnterpriseInstalledSkillContent(value: unknown): Enterpris
     throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
   }
   return { packageId: row['packageId'], name: row['name'], content: row['content'] }
+}
+
+/**
+ * 一条**本机技能文件树**条目（`GET /enterprise/api/v1/local/skills/<id>/files` 的 `data.entries` 项）。
+ *
+ * 与 Host 侧 `EnterpriseSkillFileEntry`（bundle 的 `skill-install.ts`）**逐字段同形**：
+ * `path` 是相对 `<dshHome>/skills` 的 `/` 分隔路径（目录不带尾斜杠），
+ * `kind` 只有两种取值，目录的 `sizeBytes` 恒 0（键集对三种消费者统一，界面不必分叉判形状）。
+ */
+export interface EnterpriseSkillFileEntry {
+  readonly path: string
+  readonly kind: 'file' | 'directory'
+  readonly sizeBytes: number
+}
+
+/**
+ * `GET /enterprise/api/v1/local/skills/<id>/files` 的本地投影。
+ *
+ * 树来自**本机真目录**（Host 侧 `installedSkillFiles`），界面从不自己编树、也不猜有哪些文件；
+ * 未安装的包在 Host 侧就是 404，因此界面这一侧拿不到任何条目。
+ */
+export interface EnterpriseSkillFiles {
+  readonly packageId: string
+  /** Host 已按 `path` 码元升序**确定性**排序；本层原样保留顺序（层级感由路径本身决定）。 */
+  readonly entries: readonly EnterpriseSkillFileEntry[]
+}
+
+/** `GET .../skills/<id>/file?path=` 的本地投影：**纯文本**约定（二进制在 Host 侧就按稳定码拒了）。 */
+export interface EnterpriseInstalledSkillFile {
+  readonly packageId: string
+  /** 与请求里的 `path` 逐字相同的规范相对路径。 */
+  readonly path: string
+  readonly sizeBytes: number
+  readonly text: string
+}
+
+/** 相对路径总长上限：与 Host 侧 `SKILL_FILE_PATH_MAX_LENGTH` 同值。 */
+const SKILL_FILE_PATH_MAX_LENGTH = 1024
+/** 单段路径长度上限：与 Host 侧 `SKILL_FILE_SEGMENT_MAX_LENGTH`（多数文件系统的 NAME_MAX）同值。 */
+const SKILL_FILE_SEGMENT_MAX_LENGTH = 255
+/** 文件树条目数上限：与 Host 侧 `SKILL_FILE_MAX_ENTRIES` 同值（超限在 Host 侧就是 413）。 */
+const SKILL_FILE_MAX_ENTRIES = 1000
+/** 单文件字节上限：与 Host 的 SKILL.md 上限（`SKILL_MD_MAX_BYTES = 262144`）逐字同值。 */
+const SKILL_FILE_MAX_BYTES = 262_144
+
+/**
+ * 本机技能相对路径的**形状收窄**（**不是安全边界**：路径安全判定在 Host 的 `requireRelativeSkillPath`）。
+ *
+ * 界面这一侧只回显 Host 自己在文件树里给过的路径、**从不拼路径**，故这里只保证拿到的字符串是它认识的形状：
+ * 非空且 ≤1024、`/` 分隔、不以 `/` 开头、无反斜杠、无 `%`（二次编码绕过的形状）、无控制字符、
+ * 无空段 / `.` / `..`、单段 ≤255，且首段是官方 kebab 技能目录名（≤64）。
+ * 任一条不满足即整条判 `ENT_LOCAL_RESPONSE_INVALID`——与其余投影同一条 fail-closed 口径。
+ */
+function relativeSkillFilePath(value: unknown): string | undefined {
+  if (!nonEmptyString(value) || value.length > SKILL_FILE_PATH_MAX_LENGTH) return undefined
+  if (value.startsWith('/') || value.includes('\\') || value.includes('%')) return undefined
+  const segments = value.split('/')
+  for (const segment of segments) {
+    if (segment.length === 0 || segment.length > SKILL_FILE_SEGMENT_MAX_LENGTH) return undefined
+    if (segment === '.' || segment === '..') return undefined
+    for (const character of segment) {
+      const code = character.codePointAt(0) ?? 0
+      if (code < 0x20 || code === 0x7f) return undefined
+    }
+  }
+  const skill = segments[0]!
+  if (skill.length > 64 || !SKILL_ENTRY_NAME.test(skill)) return undefined
+  return value
+}
+
+/**
+ * 严格解码本机技能**文件树**（`GET .../skills/<id>/files` 的 `data`）。
+ *
+ * 三处封闭：键集恰好 `{packageId, entries}`、每条恰好 `{path, kind, sizeBytes}`、
+ * 路径必须过上面的形状收窄且**树内不重复**（同一路径两次说明 Host 侧真树读崩了，不静默去重）。
+ * 目录的 `sizeBytes` 必须是 0（与 Host 的 `kind:'directory'` 条目同一条约定）；文件 ≤256 KiB。
+ */
+export function decodeEnterpriseInstalledSkillFiles(value: unknown): EnterpriseSkillFiles {
+  const row = record(value)
+  if (row === undefined
+    || !hasExactKeys(row, ['packageId', 'entries'])
+    || !enterpriseId(row['packageId'])
+    || !Array.isArray(row['entries']) || row['entries'].length > SKILL_FILE_MAX_ENTRIES) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  const entries: EnterpriseSkillFileEntry[] = []
+  const seen = new Set<string>()
+  for (const item of row['entries']) {
+    const entry = record(item)
+    if (entry === undefined || !hasExactKeys(entry, ['path', 'kind', 'sizeBytes'])) {
+      throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    const path = relativeSkillFilePath(entry['path'])
+    const kind = entry['kind']
+    const sizeBytes = entry['sizeBytes']
+    if (path === undefined || (kind !== 'file' && kind !== 'directory')
+      || !Number.isSafeInteger(sizeBytes) || Number(sizeBytes) < 0
+      || Number(sizeBytes) > (kind === 'directory' ? 0 : SKILL_FILE_MAX_BYTES)
+      || seen.has(path)) {
+      throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    seen.add(path)
+    entries.push({ path, kind, sizeBytes: Number(sizeBytes) })
+  }
+  return { packageId: row['packageId'], entries }
+}
+
+/**
+ * 严格解码本机技能树里的**一个文本文件**（`GET .../skills/<id>/file?path=` 的 `data`）。
+ *
+ * 四键封闭（Host 多塞宿主绝对路径即整条判失败）、路径同样过形状收窄、
+ * `text` 必须是字符串且 ≤256 KiB（与 Host 的字节上限同值）。
+ * 正文原样交给界面以**纯文本**渲染（`<pre>` 文本子节点，界面不解析 Markdown、不注入 HTML）。
+ */
+export function decodeEnterpriseInstalledSkillFile(value: unknown): EnterpriseInstalledSkillFile {
+  const row = record(value)
+  if (row === undefined
+    || !hasExactKeys(row, ['packageId', 'path', 'sizeBytes', 'text'])
+    || !enterpriseId(row['packageId'])
+    || typeof row['text'] !== 'string' || row['text'].length > SKILL_FILE_MAX_BYTES) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  const path = relativeSkillFilePath(row['path'])
+  const sizeBytes = row['sizeBytes']
+  if (path === undefined
+    || !Number.isSafeInteger(sizeBytes) || Number(sizeBytes) < 0 || Number(sizeBytes) > SKILL_FILE_MAX_BYTES) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  return { packageId: row['packageId'], path, sizeBytes: Number(sizeBytes), text: row['text'] }
 }
