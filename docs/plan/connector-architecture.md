@@ -641,6 +641,22 @@ decide(actor, cap, host):
 
 ---
 
+## 交叉引用:两处"未验证"已被配方线 spike 解决
+
+本文原列的两条不确定项,在本仓库另两条 spike 中已取得实证,实施时可直接采信、不必重做:
+
+1. **「客户端侧发起装 bundle 是否与会话内 `plugin_manager` 同一条面」——已验证**
+   证据:`docs/notes/preset-bundle-spike.md`(§3/§4)与 `docs/notes/preset-approval-spike.md`(§2/§4/§5):
+   - CLI 面与服务面**完全不在授权闸门内**(全树 `approveEscalation` 仅 6 个调用点,服务本体与 Web UI 零命中)
+   - **普通 Host 插件可达 `ctx.pluginManager`**(官方 `dsh-plugin-manager` 自己即 `inject=['tools','pluginManager','sandboxPolicy']`)
+   - 服务面自带 `install-log` / `install-state` / `waitForInstall` / `cancelInstall`,**任意权限档位都可跑、不必逼用户提权**
+   - 仅 Agent 工具面会弹授权,且**每次调用都弹、只能"允许一次"**(官方无 always)
+   ⇒ 连接器的"一次安装/启用"若需装 bundle,应走**我们自己的插件直调服务面**,而不是让 Agent 工具代做。
+
+2. **「宿主主动发起的长连接在 Android 后台/桌面休眠时的存活」——仍未验证**(保持为不确定项),
+   但可复用配方线 spike 建立的验证方法:另起临时 profile + 独立进程现场取证,不修改当前会话档位、不重启。
+
+
 ## 8. 开放问题 · 明确不做 · 不确定项
 
 ### 8.1 开放问题（5 条）
