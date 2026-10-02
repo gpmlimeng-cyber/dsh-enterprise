@@ -1,10 +1,11 @@
 /**
- * [INPUT]: 依赖 platform-client 本地 API 注册器与 Node 原生 HTTP server/fetch，路由分发复用同目录的引擎语义匹配器 `engine-route-match.ts`
- * [OUTPUT]: 验证方法/content-type/体积/DTO、平台/插件状态、显式刷新、无常驻 SSE、探针退役与 disposer、**三条技能动作 exact 路由（形状/入参门禁/409 与 503 错误投影/405 Allow/端口缺席即不注册）**，以及**第四条技能路由 `/skills/content`（只读已装技能正文）的注册形状/键集门禁（缺参·多参·重复·非雪花·非 kebab 一律 400 且不进端口）/404·413·409·503 错误投影/405 Allow**，并用引擎语义锁死「三条详情 prefix 不带尾斜杠」——品牌位图 / 会话恢复 / 配方详情对子路径可达，且带尾斜杠的旧形状会漏掉子路径；同时锁死 `/skills/install|uninstall|installed` 靠 exact 表抢在 bundle 侧 `/skills` 详情 prefix 之前
+ * [INPUT]: 依赖 platform-client 本地 API 注册器与 Node 原生 HTTP server/fetch，路由分发复用同目录的引擎语义匹配器 `engine-route-match.ts`，并直接读 `contracts/fixtures/runtime-preset-*.json` 的契约真 fixture
+ * [OUTPUT]: 验证方法/content-type/体积/DTO、平台/插件状态、显式刷新、无常驻 SSE、探针退役与 disposer、**三条技能动作 exact 路由（形状/入参门禁/409 与 503 错误投影/405 Allow/端口缺席即不注册）**，以及**第四条技能路由 `/skills/content`（只读已装技能正文）的注册形状/键集门禁（缺参·多参·重复·非雪花·非 kebab 一律 400 且不进端口）/404·413·409·503 错误投影/405 Allow**，并用引擎语义锁死「三条详情 prefix 不带尾斜杠」——品牌位图 / 会话恢复 / 配方详情对子路径可达，且带尾斜杠的旧形状会漏掉子路径；同时锁死 `/skills/install|uninstall|installed` 靠 exact 表抢在 bundle 侧 `/skills` 详情 prefix 之前；**配方两端口回的不再是手写假体而是契约真 fixture**，让"服务端真实投影形状"进入这条测试（本刀：假体与真投影不同形正是关闭键集冲突被掩盖的原因）
  * [POS]: platform-client Host/Client 协作回归测试，以真实 HTTP 锁定官方 webServer 契约；prefix 形状的判定不再用「裸 startsWith」假匹配器，而是逐行复刻引擎 `match()`，否则线上空体 404 在测试里是绿的
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+import { readFileSync } from 'node:fs'
 import { createServer, type Server } from 'node:http'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -20,6 +21,22 @@ import {
   type WebServerRoutePort,
 } from '../src/index.js'
 import { engineRouteMatch, type RegisteredRoute } from './engine-route-match.js'
+
+/**
+ * 契约真源 fixture：中心 runtime 投影的**真实形状**（`contracts/fixtures/runtime-preset-*.json`）。
+ *
+ * 此前这里是手写假体 `{id, presetId, displayName}`，与真投影不同形——正是这种"我以为的形状"掩盖了
+ * 员工端关闭键集与服务端投影之间的冲突（多发一个未声明键 ⇒ 整条判 `ENT_LOCAL_RESPONSE_INVALID`）。
+ * 现在平台端口回的就是契约官方样例，本机 API 只是原样透传，于是"服务端真实投影形状"进入了这条测试。
+ *
+ * 路径按该测试既有风格用 `import.meta.url` 解析：`tests/` 向上四层就是仓库根（`plugin/packages/<pkg>/tests`）。
+ */
+function contractFixture(name: string): unknown {
+  return JSON.parse(readFileSync(new URL(`../../../../contracts/fixtures/${name}`, import.meta.url), 'utf8')) as unknown
+}
+
+const RUNTIME_PRESET_SUMMARY = contractFixture('runtime-preset-summary-success.json')
+const RUNTIME_PRESET_DETAIL = contractFixture('runtime-preset-detail-success.json')
 
 /**
  * 稳定码 → HTTP 状态的**唯一**映射现在是对外出口：bundle 侧两条本机技能文件子路由
@@ -93,8 +110,8 @@ describe('enterprise local API', () => {
       cancelLogin: vi.fn(() => true),
       logout: vi.fn(async () => undefined),
       bootstrap: vi.fn(() => undefined),
-      listPresets: vi.fn(async () => []),
-      getPreset: vi.fn(async () => ({ id: '1', presetId: 'weekly', displayName: '周报' })),
+      listPresets: vi.fn(async () => [RUNTIME_PRESET_SUMMARY]),
+      getPreset: vi.fn(async () => RUNTIME_PRESET_DETAIL),
     }
     pluginStatus = vi.fn(() => ({
       assignmentRevision: 7,
@@ -504,9 +521,11 @@ describe('enterprise local API', () => {
     // ① 配方详情：GET /presets/<id>；裸 /presets 仍由 exact 列表路由回答。
     const preset = await fetch(`${baseUrl}/enterprise/api/v1/local/presets/1902500000000000001`)
     expect(preset.status).toBe(200)
-    await expect(preset.json()).resolves.toEqual({ data: { displayName: '周报', id: '1', presetId: 'weekly' } })
+    // 本机 API 只做同源透传：回的就是契约真 fixture（含 dependencies 等全部真投影键），不是手写假体。
+    await expect(preset.json()).resolves.toEqual({ data: RUNTIME_PRESET_DETAIL })
     expect(platform.getPreset).toHaveBeenCalledWith('1902500000000000001')
-    await expect((await fetch(`${baseUrl}/enterprise/api/v1/local/presets`)).json()).resolves.toEqual({ data: [] })
+    await expect((await fetch(`${baseUrl}/enterprise/api/v1/local/presets`)).json())
+      .resolves.toEqual({ data: [RUNTIME_PRESET_SUMMARY] })
     expect(platform.listPresets).toHaveBeenCalledOnce()
 
     // ② 远端会话恢复：POST /sessions/<id>/copies，id 必须从路径段切出来而不是被前缀整段吞掉。

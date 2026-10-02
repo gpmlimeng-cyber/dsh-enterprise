@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 branding 的同源 LOGO 来源门禁与 `EnterpriseBrandingDocument` 形状、decode-primitives 的严格解码内核、skill-api-decode 的技能 DTO 与解码 **本刀**：修 `decodeEnterprisePresets` 的 `sizeBytes` 上界判定写反（原先任何非零大小的配方都被判畸形），改为与插件目录同款的 `<= 0`。
- * [OUTPUT]: 对外提供连接/受管插件状态枚举、本地 API DTO 类型与严格解码（账号、品牌、插件、配方、Session、四窗口用量、反馈回执、原生登录的来源列表与凭证/改密结果、**企业技能已装态 / 已装正文 / 本机文件树 / 树里单个文本文件**）、`EnterpriseLocalApi` 契约、失败码投影 `enterpriseLocalErrorCode`，并再导出 `EnterpriseLocalApiError` 与 skill-api-decode 的全部技能契约
+ * [INPUT]: 依赖 branding 的同源 LOGO 来源门禁与 `EnterpriseBrandingDocument` 形状、decode-primitives 的严格解码内核、skill-api-decode 的技能 DTO 与解码 **本刀**：修 `decodeEnterprisePresets` 的 `sizeBytes` 上界判定写反（原先任何非零大小的配方都被判畸形），改为与插件目录同款的 `<= 0`；**配方收尾刀**：`decodeEnterprisePresets` 补契约切片 B 的 `dependencies`（放**可选位**，旧服务端不输出也照旧可解），按契约 `PresetDependency` 逐条校验并把键集抽成导出的常量供漂移门禁比对。
+ * [OUTPUT]: 对外提供连接/受管插件状态枚举、本地 API DTO 类型与严格解码（账号、品牌、插件、配方、Session、四窗口用量、反馈回执、原生登录的来源列表与凭证/改密结果、**企业技能已装态 / 已装正文 / 本机文件树 / 树里单个文本文件**）、配方引用 `EnterpriseRuntimePresetDependency` 与四份**运行时键集常量**（`ENTERPRISE_PRESET_ROW_REQUIRED_KEYS` / `ENTERPRISE_PRESET_ROW_OPTIONAL_KEYS` / `ENTERPRISE_PRESET_DEPENDENCY_KEYS` / `ENTERPRISE_PRESET_DEPENDENCY_OPTIONAL_KEYS`，是 `tests/preset-decode.spec.ts` 契约漂移门禁的被测真源）、`EnterpriseLocalApi` 契约、失败码投影 `enterpriseLocalErrorCode`，并再导出 `EnterpriseLocalApiError` 与 skill-api-decode 的全部技能契约
  * [POS]: dsh-ui 的浏览器取数契约层——只定义「主机可以说什么」与「什么不许说」，不含任何 fetch；网络执行留在 local-api.ts，界面只消费本文件的投影结果。逼近 800 行后按业务纵切出技能分片与共享内核，本文件仍是唯一对外真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -118,6 +118,26 @@ export interface EnterprisePluginCatalogItem {
   readonly installErrorCode?: string
 }
 
+/**
+ * 一份配方引用的一项技能或插件（契约 `PresetDependency` 的员工端只读投影）。
+ *
+ * 名字带 `Runtime` 前缀是刻意的：marketplace-entry 的「包含内容」投影另有一份从 `unknown` 读原始结构的
+ * `EnterpriseMarketPresetDependency`（宽口径、`kind`/`mode` 都是 string），而 client.tsx 同时 `export *`
+ * 这两个模块。两份类型各占一个不会被对方抢走的名字，整个出口因此不可能出现同名歧义（TS2308）。
+ *
+ * 只保留作者面的五个字段：`kind`/`id`/`mode`/`required` 与钉版本的 `versionId`。
+ * 契约里的留位第 6 键 `resolvedVersionId`（二期发布口解析"当时最新"后才填）本层**校验形状后丢弃**，
+ * 照「sha256 校验后不投影」的既有策略——它不是运行时真源，界面也不需要它。
+ */
+export interface EnterpriseRuntimePresetDependency {
+  readonly kind: 'skill' | 'plugin'
+  readonly id: string
+  readonly mode: 'pinned' | 'latest'
+  /** 只有服务端真带出雪花时才产出该键（`latest` 或缺席都不产出）。 */
+  readonly versionId?: string
+  readonly required: boolean
+}
+
 export interface EnterpriseRuntimePreset {
   readonly id: string
   readonly presetId: string
@@ -127,7 +147,47 @@ export interface EnterpriseRuntimePreset {
   readonly sizeBytes: number
   readonly updatedAt: string
   readonly versionId: string
+  /**
+   * 这份配方引用的技能/插件清单（契约 `RuntimePresetSummary.dependencies`，详情经 allOf 继承同一字段）。
+   *
+   * **为缺失设计**（照 `category` / `whenToUse` 的同一策略）：旧服务端不输出这个键时**不产出该键**，
+   * 而不是补一个空数组——"字段缺席"与"确实没有引用"是两件事，界面据此分别说「暂时无法读取包含内容」
+   * 与「不包含任何内容」，不把读不到说成没有。于是「先发 plugin 再发 server」的窗口里列表与详情照旧可解。
+   * 数组长度上限与契约 `maxItems` 一致（超 200 条整条失败，不截断）。
+   */
+  readonly dependencies?: readonly EnterpriseRuntimePresetDependency[]
 }
+
+/**
+ * 配方 runtime 行的键集真源：列表与详情共用同一份解码，所以这里是两者的**并集**。
+ *
+ * 导出是给契约漂移门禁用的——`tests/preset-decode.spec.ts` 逐字比对
+ * 「解码器白名单键集 == `contracts/generated/schemas/RuntimePresetSummary` ∪ `RuntimePresetDetail` 声明的键集」。
+ * 解码器必须使用这两份常量而不是内联数组，否则常量会与真正的白名单脱钩、门禁形同虚设。
+ *
+ * 「必填/可选」有意比契约松（契约里 `dependencies` 必填、详情的 `versionId`/`sha256` 必填）：
+ * 一个函数同时服务列表与详情、且要兼容旧服务端，把它们放可选位才能两种行都解得出；
+ * 漂移门禁锁的是**键集**（白名单不能多也不能少），必填性是单独的、写在测试里的显式错位断言。
+ */
+export const ENTERPRISE_PRESET_ROW_REQUIRED_KEYS = [
+  'id', 'presetId', 'displayName', 'description', 'sourceDshVersion', 'sizeBytes', 'updatedAt',
+] as const
+
+export const ENTERPRISE_PRESET_ROW_OPTIONAL_KEYS = ['versionId', 'sha256', 'dependencies'] as const
+
+/**
+ * 单条配方引用的键集真源（契约 `PresetDependency`）。
+ *
+ * `resolvedVersionId` 是契约声明的留位键：本切片服务端不输出它，但**契约声明了它**，
+ * 而员工端解码器是关闭键集——把它放进可选位，二期服务端开始输出时才不会让整条响应判畸形
+ * （这正是"员工端比服务端严 ⇒ 静默炸"那三起事故的同一种病）。
+ */
+export const ENTERPRISE_PRESET_DEPENDENCY_KEYS = ['kind', 'id', 'mode', 'required'] as const
+
+export const ENTERPRISE_PRESET_DEPENDENCY_OPTIONAL_KEYS = ['versionId', 'resolvedVersionId'] as const
+
+/** 契约 `RuntimePresetSummary.dependencies.maxItems`；超限按既有稳定码整条失败，绝不静默截断。 */
+const PRESET_MAX_DEPENDENCIES = 200
 
 export interface EnterpriseSessionSyncStatus {
   readonly enabled: boolean
@@ -710,6 +770,51 @@ export function decodeEnterpriseUsage(value: unknown): readonly EnterpriseQuotaU
   })
 }
 
+/**
+ * 严格解码一份配方的引用清单（契约 `PresetDependency` 数组）。
+ *
+ * 与契约逐字对齐的三条硬校验：`kind ∈ {skill,plugin}`、`mode ∈ {pinned,latest}`、`required` 是布尔；
+ * `versionId` / `resolvedVersionId` 可缺席，一旦出现就必须是雪花 ID。`id` 只按契约的
+ * `minLength 1 / maxLength 214` 收口（技能 id 与 npm 包名共用同一形状，按 kind 各写一套正则
+ * 就是自己加严）。长度超 200 按既有稳定码整条失败。
+ *
+ * **刻意不加严**：契约没有"pinned 必带 versionId""latest 不许带 versionId"这类条件约束，
+ * 员工端自己补一条就会重演三起契约漂移事故（员工端比服务端严 ⇒ 整条响应判畸形）。
+ */
+function decodePresetDependencies(value: unknown): readonly EnterpriseRuntimePresetDependency[] {
+  if (!Array.isArray(value) || value.length > PRESET_MAX_DEPENDENCIES) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  return value.map(item => {
+    const row = record(item)
+    if (row === undefined
+      || !hasExactKeys(row, ENTERPRISE_PRESET_DEPENDENCY_KEYS, ENTERPRISE_PRESET_DEPENDENCY_OPTIONAL_KEYS)) {
+      throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    const kind = row['kind']
+    const id = row['id']
+    const mode = row['mode']
+    const required = row['required']
+    const versionId = row['versionId']
+    if ((kind !== 'skill' && kind !== 'plugin')
+      || !nonEmptyString(id) || id.length > 214
+      || (mode !== 'pinned' && mode !== 'latest')
+      || typeof required !== 'boolean'
+      || (versionId !== undefined && !enterpriseId(versionId))
+      || (row['resolvedVersionId'] !== undefined && !enterpriseId(row['resolvedVersionId']))) {
+      throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    return {
+      kind,
+      id,
+      mode,
+      // 只有真拿到雪花才产出这个键；latest（服务端下发 null）与旧服务端缺席都不产出，界面据此不渲染钉版本。
+      ...(nonEmptyString(versionId) && enterpriseId(versionId) ? { versionId } : {}),
+      required,
+    }
+  })
+}
+
 /** 严格解码可见企业配方摘要；不投影 SHA、artifact 路径或包内 YAML。 */
 export function decodeEnterprisePresets(value: unknown): readonly EnterpriseRuntimePreset[] {
   if (!Array.isArray(value) || value.length > 200) {
@@ -718,9 +823,7 @@ export function decodeEnterprisePresets(value: unknown): readonly EnterpriseRunt
   return value.map(item => {
     const row = record(item)
     if (row === undefined
-      || !hasExactKeys(row, [
-        'id', 'presetId', 'displayName', 'description', 'sourceDshVersion', 'sizeBytes', 'updatedAt',
-      ], ['versionId', 'sha256'])
+      || !hasExactKeys(row, ENTERPRISE_PRESET_ROW_REQUIRED_KEYS, ENTERPRISE_PRESET_ROW_OPTIONAL_KEYS)
       || !enterpriseId(row['id']) || !nonEmptyString(row['presetId'])
       || !nonEmptyString(row['displayName']) || !nonEmptyString(row['description'])
       || !nonEmptyString(row['sourceDshVersion'])
@@ -738,6 +841,11 @@ export function decodeEnterprisePresets(value: unknown): readonly EnterpriseRunt
       sizeBytes: Number(row['sizeBytes']),
       updatedAt: row['updatedAt'],
       versionId: typeof row['versionId'] === 'string' ? row['versionId'] : '',
+      // 缺这个键就是旧服务端（切片 B 之前）：不补空数组也不编，如实"没有这个键"——
+      // 与 `category`/`whenToUse` 的归一策略一致，"读不到"和"确实为空"必须可区分。
+      ...(row['dependencies'] === undefined
+        ? {}
+        : { dependencies: decodePresetDependencies(row['dependencies']) }),
     }
   })
 }
