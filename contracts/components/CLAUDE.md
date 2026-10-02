@@ -17,6 +17,6 @@ skill.yaml: dsh-skill v1 技能包（含 builtin/featured 标记与可选 catego
 session.yaml: 官方 rc.7 format v0 header、精确 JSONL/hash、本人/admin metadata、正文页、tombstone 与恢复审计 schema 分片。
 branding.yaml: 公开品牌白名单与管理端品牌/revision/资产/发布/回滚 schema，公开面不含资产 ID、organization 或 artifact 路径。
 feedback.yaml: 反馈类型/状态、封闭 diagnostics 白名单、multipart 提交 metadata/form、提交回执与管理端列表项/详情/附件/状态流转 schema，不投影 artifact 路径与内容哈希。
-audit.yaml: 40-action 枚举、封闭 metadata 与 cursor；模型传输失败可携带已实测结算，明确拒绝可 RELEASED，恢复可由 usage 快照 SETTLED，反馈提交/状态流转各有专属 metadata。
+audit.yaml: 46-action 枚举（口径：以服务端 `audit/AuditAction.java` 的 `AuditAction.values()` 实测 46 项为准，契约 enum 逐字对齐并保持同序）、封闭 metadata 与 cursor；模型传输失败可携带已实测结算，明确拒绝可 RELEASED，恢复可由 usage 快照 SETTLED，反馈提交/状态流转各有专属 metadata。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
