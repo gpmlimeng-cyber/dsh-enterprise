@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖共享 EnterpriseAccountStore、Harness Modal/Button、Lucide 图标、display-format 的大小格式化与同源配方 API
- * [OUTPUT]: 提供设置页内的企业配方列表、详情安全提示与复制导入指令（不自动下载/导入）。**本刀（失败文案降维 + 术语降维）**：目录失败改渲染 `EnterpriseErrorNotice`（人话 + 下一步 + 技术信息里的码）；员工可见文案里的 `Preset` / `预设 ID` 换成「配方 / 标识」，卡片元信息加上「来源」标签；导入指令里只保留上游专名 `Preset Square Skill`（不改写） **本刀（列表三态 + 详情失败可见）**：新增唯一取数源 `createEnterprisePresetListSource` 与状态文案常量，列表改由 `useSyncExternalStore` 订阅（四态互斥 + 真重发的重试）；详情取数失败不再静默回落列表投影，改渲染「以下是列表里的信息」+ 唯一提示组件 + 重试。
- * [POS]: ui 的员工配方广场视图，由「企业设置」的配方 tab 承载；一期不扩展 plugin-distribution 状态机
+ * [OUTPUT]: 提供设置页内的企业配方列表、详情安全提示与复制导入指令（不自动下载/导入）。**本刀（失败文案降维 + 术语降维）**：目录失败改渲染 `EnterpriseErrorNotice`（人话 + 下一步 + 技术信息里的码）；员工可见文案里的 `Preset` / `预设 ID` 换成「配方 / 标识」，卡片元信息加上「来源」标签；导入指令里只保留上游专名 `Preset Square Skill`（不改写） **本刀（列表三态 + 详情失败可见）**：新增唯一取数源 `createEnterprisePresetListSource` 与状态文案常量，列表改由 `useSyncExternalStore` 订阅（四态互斥 + 真重发的重试）；详情取数失败不再静默回落列表投影，改渲染「以下是列表里的信息」+ 唯一提示组件 + 重试。 **本刀（企业配方页签）**：`buildPresetImportInstruction` 的入参由整份 `EnterpriseRuntimePreset` **收窄**成 `Pick<EnterpriseRuntimePreset, 'id' | 'presetId' | 'displayName' | 'versionId'>`——指令正文只用这四个字段，而「插件商店 → 企业配方」那枚行投影不绑定解码层后续新增的键（切片 B 的 `dependencies`），于是「同一个构造器、设置弹窗 + 商店页两个入口」不会因为契约再长一个键就编译不过；`createEnterprisePresetListSource` 与三句 `ENTERPRISE_PRESET_LIST_*` 文案**原样保留**，由 `marketplace-entry.tsx`（市场页的「企业配方」页签）直接 import 复用——本文件仍是它们的唯一实现，两个界面因此共用同一份取数源与同一份指令。
+ * [POS]: ui 的员工配方广场视图，由「企业设置」的配方 tab 承载（**保留**：不是唯一入口了——「插件商店 → 企业配方」页签与它共用取数源与指令构造器）；一期不扩展 plugin-distribution 状态机
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -43,8 +43,16 @@ const styles = `
 .own-preset-copy{width:100%;min-height:140px;resize:vertical;border:1px solid var(--dsw-alias-stroke-border-2,#d0d5dd);border-radius:8px;padding:12px;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--dsw-alias-label-primary,#101828);background:var(--dsw-alias-background-primary,#fff)}
 `
 
+/**
+ * 导入指令的**唯一**构造器（设置弹窗的复制按钮与「插件商店 → 企业配方」行的复制动作共用这一份）。
+ *
+ * 参数刻意收窄成**只要四个字段**（`id`/`presetId`/`displayName`/`versionId`）而不是整份
+ * `EnterpriseRuntimePreset`：一是这份指令正文根本不用别的字段，二是商店页那枚行投影
+ * （`enterpriseMarketPresetRow`）不绑定解码层后续新增的字段（例如切片 B 的 `dependencies`），
+ * 于是「同一个构造器、两个入口」不会因为服务端契约再长一个键就编译不过。
+ */
 export function buildPresetImportInstruction(
-  preset: EnterpriseRuntimePreset,
+  preset: Pick<EnterpriseRuntimePreset, 'id' | 'presetId' | 'displayName' | 'versionId'>,
   platformUrl: string | null,
 ): string {
   const base = (platformUrl ?? '').replace(/\/$/, '')

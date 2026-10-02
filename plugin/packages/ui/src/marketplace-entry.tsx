@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 依赖 React（useEffect/useMemo/useState/useSyncExternalStore）、lucide-react 图标（技能行 Sparkles + 插件行 Package + 组件行三枚 + 详情面包屑的 ChevronDown / 文件树的 Folder 与 FileText）、官方 ui-primitives 的 Button/Switch/Tag/StateDot（pinned 0.1.5-rc.2 的 .d.ts 已导出，不走 official-ui 收窄接缝；**该 pin 不含 `SegmentedTabs`**，故页签条照 `account-view.tsx` 既有 tablist 手写自绘）、display-format 的 `formatByteSize`（文件大小唯一口径：行内字节提示与预览体积提示都取它）、account-state 的 `enterpriseSessionUsable` 与 account-store 的 `EnterpriseAccountStore`（订阅只发生在控制器 `useEnterpriseMarketController` 里）、local-api-decode 的技能 DTO（`EnterpriseRuntimeSkill` 目录 + 已装记录 `EnterpriseInstalledSkill`——「已装」只认后者这一份 Host 真值；**文件树条目 `EnterpriseSkillFileEntry` 与树里单个文本文件 `EnterpriseInstalledSkillFile`**——详情子页面左树右预览的两种输入）与失败码唯一投影 `enterpriseLocalErrorCode`（行内与详情里的错误码来源，与「技能」tab 同源）、消费官方 `plugins.item` owner props（`view`/`form`）；中心当前版本只从**详情投影** `store.api.skillDetail(id)` 取（列表投影的 `versionId` 恒为空串），且只对已装行取——未装行没有本机版本可比，不白跑请求、error-notice 的员工侧统一失败提示 `EnterpriseErrorNotice`（人话 + 下一步动作 + 收进「技术信息」的稳定码，样式走行内 `--dsw-*` token，跨页复用不新增可覆盖类）与 error-messages 的唯一一份码 → 人话映射
+ * [INPUT]: 依赖 React（useEffect/useMemo/useState/useSyncExternalStore）、lucide-react 图标（技能行 Sparkles + 插件行 Package + 组件行三枚 + **配方行与配方详情的 BookMarked** + 详情面包屑的 ChevronDown / 文件树的 Folder 与 FileText）、官方 ui-primitives 的 Button/Switch/Tag/StateDot（pinned 0.1.5-rc.2 的 .d.ts 已导出，不走 official-ui 收窄接缝；**该 pin 不含 `SegmentedTabs`**，故页签条照 `account-view.tsx` 既有 tablist 手写自绘）、display-format 的 `formatByteSize`（文件大小唯一口径：行内字节提示与预览体积提示都取它）、account-state 的 `enterpriseSessionUsable` 与 account-store 的 `EnterpriseAccountStore`（订阅只发生在控制器 `useEnterpriseMarketController` 里）、local-api-decode 的技能 DTO（`EnterpriseRuntimeSkill` 目录 + 已装记录 `EnterpriseInstalledSkill`——「已装」只认后者这一份 Host 真值；**文件树条目 `EnterpriseSkillFileEntry` 与树里单个文本文件 `EnterpriseInstalledSkillFile`**——详情子页面左树右预览的两种输入）与失败码唯一投影 `enterpriseLocalErrorCode`（行内与详情里的错误码来源，与「技能」tab 同源）、**配方侧的两件复用件（均取自 `preset-market.tsx`，不新造第二份）**：配方目录取数源工厂 `createEnterprisePresetListSource`（「企业设置 → 配方」tab 用的同一个）与导入指令构造器 `buildPresetImportInstruction`（同一句指令，本页只复制不上屏）、消费官方 `plugins.item` owner props（`view`/`form`）；中心当前版本只从**详情投影** `store.api.skillDetail(id)` 取（列表投影的 `versionId` 恒为空串），且只对已装行取——未装行没有本机版本可比，不白跑请求、error-notice 的员工侧统一失败提示 `EnterpriseErrorNotice`（人话 + 下一步动作 + 收进「技术信息」的稳定码，样式走行内 `--dsw-*` token，跨页复用不新增可覆盖类）与 error-messages 的唯一一份码 → 人话映射
  * [REF]: **目录行的逐段真源是 `9723a97:plugin/packages/ui/src/marketplace-entry.tsx`**（技能行 = 官方两行卡片：第 1 行标题 `.own-market-cardId` + 版本签 + 分类签，第 2 行描述 `.own-market-cardDesc`，右侧 `[有更新] [Switch]`；插件行 = 图标 + 两行文案 + 状态点 + 官方状态词 + `Switch`；三个页签；组件节折叠），**不从记忆重写**；**详情子页面的框架真源是官方 `@deepseek-ai/dsh-client-ui-plugin-manager` 的 `ItemDetail`/`DetailTop` 与它那份 CSS module**（本机 node_modules 的 `lib/client.js`：`_detail`/`_detailTop`/`_crumb`+`_crumbIcon`/`_detailHead`+`_cardIcon`/`_detailMain`/`_detailTitle`/`_detailName`/`_detailDesc`/`_detailSections`/`_detailSection`/`_sectionHead`/`_sectionTitle`/`_sectionCount`），取值逐条抄进 `detailStyles` 的注释对照表；行版式统一那一刀留下的共享行子块 `EnterpriseMarketInlineRows` 与 `.own-market-storeTabs` 类名照旧。
- * [OUTPUT]: **一棵目录页外壳 + 一份逻辑 + 一个技能详情子页面**。**本刀（详情子页面 + 文件树）**：技能行**行本体**（图标 + 两行文案）是一枚真 `<button class="own-market-rowOpen">`——点它把面板**整页切到**详情子页面（`EnterpriseMarketLegacyShell` 按 `props.skillPage` 走两个 return 分支：详情那一支里列表 / 页签条 / 节容器**一字不挂载**）；`[有更新]` 与官方 `Switch` 是它在 `.own-market-rowLine` 里的**同级兄弟**（不在按钮内，故点动作既不用冒泡也不被藏起来），两者由**唯一一枚子块** `EnterpriseMarketSkillRowActions` 渲染（行上与详情里渲染的是同一枚子块、同一份 `facts`、同一个 `onToggleSkill`）。详情子页面是纯函数 `EnterpriseSkillDetailPage`（无 hook、可直接函数调用测试）：**面包屑「返回技能列表」**（`aria-label` 给完整动作语义，点它就是 `onBack` 回列表）+ `h3` 标题 + 版本徽标（官方 `Tag`）+ **等宽标识行**（`skillId`）+ 描述 + 分区 `detailSections` → `detailSection`（文件区：**左文件树 + 右文件预览**）。纯投影 `enterpriseSkillTreeRows`/`enterpriseSkillDefaultFilePath`/`enterpriseSkillFileCountText`/`enterpriseSkillTreeState`/`enterpriseSkillPreviewState` 与文案常量 `ENTERPRISE_SKILL_TREE_*`/`ENTERPRISE_SKILL_PREVIEW_*`/`ENTERPRISE_SKILL_DETAIL_{BACK_TEXT,BACK_LABEL,FILES_TITLE,RETRY}`/`ENTERPRISE_SKILL_CONTENT_FILENAME` 都在出口上；控制器新增详情目标 id 与四组文件状态（树条目 / 在途 / 错误、选中路径、预览正文 / 在途 / 错误）加两个取数 effect（**只在「详情打开 + 该包已装 + 有 store」时发请求**，未装一条都不发；取到树后默认选中并预览 `SKILL.md`；关详情 / 换包即 abort 且迟到结果不回填），并把 `skillPage` 塞进同一份 props。 以下为既有能力：**一份外壳 + 一份逻辑**。共享逻辑只有一处：控制器 hook `useEnterpriseMarketController`（store 订阅与取数、已装真值、安装/卸载动作、失败码归行、页签选中态、行开合态）、模型投影 `enterpriseMarketShellModel(props)`（组件清单行、目录门控、页签文案与计数、折叠态）与行级 facts `enterpriseMarketSkillRowFacts`/`enterpriseMarketPluginRowFacts`（受管态、开关口径、更新判定、两枚签取值、行键与开合、插件开关禁用口径）。目录行由共享子块 `EnterpriseMarketInlineRows` 铺出（技能行 = 图标 + 两行文案 + `[有更新]` + `Switch` + 失败提示；插件行 = 图标 + 两行文案 + 状态点与官方状态词 + `Switch` + 失败提示）。唯一入口 `EnterpriseMarketLegacyPage` 注册到官方 `plugins.item`，经宿主 `EnterpriseMarketShellHost` 接同一份控制器、同一棵外壳与同一个登录弹窗。其余出口：页签真源（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`/`enterpriseMarketTabLabel`）；组件清单与计数摘要投影（`ENTERPRISE_MARKET_COMPONENTS`/`ENTERPRISE_MARKET_PLAN`/`enterpriseMarketComponent` 六件投影）；行投影（`enterpriseMarketPluginRows`/`enterpriseMarketPluginSectionVisible`/`enterpriseMarketSkillRows`/`enterpriseMarketSkillSectionVisible`）；技能行标签与状态投影（`enterpriseMarketSkillVersionTag`/`enterpriseMarketSkillVersionLabel`/`enterpriseMarketSkillCategoryTag`/`enterpriseMarketSkillHasUpdate`/`enterpriseMarketSkillRowHasUpdate`/`enterpriseMarketSkillUpdateTag`/`ENTERPRISE_MARKET_SKILL_UPDATE_LABEL`/`ENTERPRISE_MARKET_SKILL_UPDATE_TAG`/`enterpriseMarketSkillState`/`enterpriseMarketSkillDot`/`enterpriseMarketSkillConfigTag`/`enterpriseMarketSkillStatusLabel`）；插件行状态投影（`enterprisePluginDot`/`enterpriseMarketPluginConfigTag`/`enterpriseMarketPluginStatusLabel`）；行键与开合投影（`enterpriseMarketRowKey`/`enterpriseMarketRowDetailsId`/`enterpriseMarketRowOpen`）；折叠真源（`ENTERPRISE_MARKET_DEFAULT_EXPANDED`/`enterpriseMarketSectionOpen`/`EnterpriseMarketSectionId`/`ENTERPRISE_MARKET_SECTION_IDS`）；失败可见反馈（`EnterpriseMarketActionError`/`enterpriseMarketActionErrorLabel`/`EnterpriseMarketRowError`）；badge 槽（`EnterpriseMarketBadge`/`BadgeView`/`enterpriseMarketVersionTag`）；注册常量 `ENTERPRISE_MARKET_ENTRY_ID`/`ENTERPRISE_MARKET_ENTRY_LABEL`/`ENTERPRISE_MARKET_ENTRY_ORDER`。卡片摘要与详情页正文**不重复同一句**——摘要只在 `summary` 视图出现（官方必渲染的那一份，`EnterpriseMarketSummaryLine`）。 **本刀（版本签只显示版本）**：技能行标题行的版本签**可见文案改成短号**——新增纯投影 `enterpriseMarketSkillVersionLabel`（含 `@` 取**最后一个** `@` 之后那段、不含 `@` 原样返回；空串/仅 `@`/尾部 `@` 一律 undefined = 不出签），行 facts 因此多一枚 `versionLabel`（原 `versionTag` 保留为**完整来源坐标**）；完整坐标挂在签外包装节点 `.own-market-skillVersionHint` 的 `title` 上（官方 `Tag` 的 .d.ts 只声明 tone/className/children、运行期也丢弃多给属性，故用一枚透明包装节点挂悬浮说明），详情页那枚徽标照旧显示**完整坐标**（信息更全）；签自身的类名（`.own-market-tag`/`.own-market-skillVersionTag`）/tone/位置（标题行、紧随标题、在分类签之前）一字未动，分类签与行上其余任何东西（动作区、状态点、开关、失败提示）一律不碰。 **本刀（失败文案降维 + 术语清扫）**：① **失败自愈**——五条员工可见失败路径（技能行装/卸、插件行装/卸、详情里的动作失败、文件树读取失败、文件正文读取失败）全部改渲染共享的 `EnterpriseErrorNotice`：一句人话（消息取 `error-messages.ts` 的唯一映射）+「下一步：…」+ `<details>`「技术信息」里原样保留稳定码（`data-enterprise-error-code`，支持排障照旧取得到）；行内提示的外层类名仍是 `.own-market-inlineError`（形制不变），`role="alert"` 不变，失败**不**禁用开关（再拨一次即重试）的口径不变。② **术语降维**——第三枚页签与它的节标题由「组件/包含的组件」改成「包含内容」，三行开关的无障碍名由 `启用组件 X` 改成 `启用X`、预留说明改成「预留：X暂未接入」；组件行里那条内部模块路径（`dsh-preset / .dshpreset` 等，含 preset 字样）**不再上屏**（数据仍留在 `ENTERPRISE_MARKET_COMPONENTS`，由反向锁用例守着它不上树，`.own-market-rowModule` 死样式一并删除）；详情页的版本徽标前补人话标签「来源」（`ENTERPRISE_SKILL_DETAIL_SOURCE_LABEL`，悬浮说明给出「来源站 / 发布方 @ 版本号」），等宽 `skillId` 行前补「标识」标签与悬浮说明（`ENTERPRISE_SKILL_DETAIL_NAME_LABEL` / `_NAME_TITLE`）；上游技能名里带技术缩写（MCP / YAML / manifest / Manifest / SKILL.md）时，旁边补一句「名称由技能发布方提供…」的人话（`enterpriseSkillUpstreamNameNote` 纯投影，名称与描述一律不改写，未命中不加噪音）。 **本刀（静默吞失败 → 显式失败态 + 可重试）**：新增唯一取数源工厂 `createEnterpriseSkillCatalogSource` 与唯一加载器 `loadEnterpriseSkillCatalog`（目录是主事实、失败原样抛；已装清单与逐行详情是次级事实、失败经 `enterpriseDegradedRead` 交出失败码）、四态投影 `enterpriseMarketPanelState` 与文案常量 `ENTERPRISE_MARKET_{SKILLS,PLUGINS}_{LOADING,EMPTY,FAILED}`、共享三态落点 `EnterpriseMarketListHint` 与次级降级交代 `EnterpriseMarketDegradedNotice`；控制器改为 `useSyncExternalStore` 订阅取数源（`skillsListState` + `onRetrySkills`），插件目录由 store 快照投影成 `pluginsListState` + `onRetryPlugins`——两个目录页签的加载/空/失败三态由此显式化，失败与空不再混同（失败 = 唯一提示组件 + 真重发）。 **本刀（资料库入口）**：组件清单新增第四行「资料库」——它是**可开关的功能**而不是预留件，`gate:'local'` 标明那枚 Switch 归**本机设置**（`library-gate` 的唯一真源，默认关）而不归企业会话，故开关可拨性、状态词（新增「未开启」）、悬浮说明（`enterpriseMarketComponentSwitchTitle`）与失败重试都在同一份投影里算；拨动走 `onToggleLibrary`（立刻生效、写失败在那一行渲染唯一提示组件 + **真的重发**的重试），`EnterpriseMarketShellProps`/控制器/host 因此新增 `libraryGate`/`onToggleLibrary`/`onRetryLibrarySave` 三件输入。
- * [POS]: ui 的企业市场入口（**唯一入口：官方插件页「官方」分组里的「插件市场」卡片**）。**本刀（详情子页面）**：技能行本体可点 → 面板整页切到该技能的详情子页面；**面板就是官方 `plugins.item` 的 page 视图、没有真实路由，故用一份视图状态切换（`skillDetailId` → `skillPage`），不硬造路由**。「返回技能列表」是唯一返回入口（面包屑按钮，键盘可达）。详情里的动作与行上**同源**：同一枚 `EnterpriseMarketSkillRowActions`、同一份 `enterpriseMarketSkillRowFacts`、同一个 `onToggleSkill` 回调、同一份 `skillActionError`，因此不存在第二套状态或第二个动作实现。文件树与预览只消费 Host 已有的两条只读子路由（`/enterprise/api/v1/local/skills/<id>/files` 与 `.../<id>/file?path=`，经 `store.api.skillFiles`/`store.api.skillFile` 发出）；**未安装就一条请求都不发**、如实说「安装后可浏览文件」，绝不伪造树；默认选中并预览 `SKILL.md`；预览是 `<pre>` 里的**纯文本子节点**（全文件无 `dangerouslySetInnerHTML`），长文件靠 `max-height` 滚动 + 字节提示；读取失败给 `role="alert"` + 稳定错误码 + 重试。**只读正文路由 `/skills/content` 按用户要求保留**（Host 侧注册与既有单测不动），本页统一走文件路由那一份路径实现。 以下为既有能力：企业插件行与组件行**不给**详情入口（用户只要求技能行；插件行本轮一字未动，组件行是交付排期清单）。**目录行的落点与行为**：点行本体进详情；`[有更新]`（真实 `<button>`，点击 = 更新到中心当前版本）与安装/卸载 `Switch` **常显在行上**且不触发详情；失败给 `role="alert"` + 稳定错误码且**不禁用**开关（再拨一次就是重试）。**三页签**（企业技能默认 / 企业插件 / 组件）共用 `EnterpriseMarketTabStrip` 一份实现：手写 `role="tablist"` + roving `tabIndex` + ←/→/Home/End 走焦并选中，`id`/`aria-controls`/`aria-labelledby` 三处同源；组件节是唯一还保留折叠语义的一节（折叠态列表整段不进 DOM）。**严禁**任何价格/交易/购买/购物车/客服之类的商业化字样——全树文本都不出现（由测试反向锁死）。`store` 与开登录回调均为可选注入：缺席时开关恒禁用、会话不可用时目录节不出现。**样式纪律**：本文件的类名与同包其他源文件**零交集**（两处 `<style>` 都是全局单类选择器，同名会互相覆盖）；主题只用 `--dsw-*` token，不新造颜色。 **本刀（版本签短号）**：真实 `sourceDshVersion` 是完整坐标（`skillhub.cn/dev-expert@2.0.3`），整串会把标题挤成一个字（真机截图已证）；故**列表里只显示版本号**（`enterpriseMarketSkillVersionLabel`，最后一个 `@` 之后），**完整坐标在签的 `title` 与详情徽标**；既有技能（无 `@` 的 `0.1.7-rc.2` 形态）显示形式一字不变，签的类名/tone/位置与行上其他东西不动。
+ * [OUTPUT]: **一棵目录页外壳 + 一份逻辑 + 一个技能详情子页面**。**本刀（详情子页面 + 文件树）**：技能行**行本体**（图标 + 两行文案）是一枚真 `<button class="own-market-rowOpen">`——点它把面板**整页切到**详情子页面（`EnterpriseMarketLegacyShell` 按 `props.skillPage` 走两个 return 分支：详情那一支里列表 / 页签条 / 节容器**一字不挂载**）；`[有更新]` 与官方 `Switch` 是它在 `.own-market-rowLine` 里的**同级兄弟**（不在按钮内，故点动作既不用冒泡也不被藏起来），两者由**唯一一枚子块** `EnterpriseMarketSkillRowActions` 渲染（行上与详情里渲染的是同一枚子块、同一份 `facts`、同一个 `onToggleSkill`）。详情子页面是纯函数 `EnterpriseSkillDetailPage`（无 hook、可直接函数调用测试）：**面包屑「返回技能列表」**（`aria-label` 给完整动作语义，点它就是 `onBack` 回列表）+ `h3` 标题 + 版本徽标（官方 `Tag`）+ **等宽标识行**（`skillId`）+ 描述 + 分区 `detailSections` → `detailSection`（文件区：**左文件树 + 右文件预览**）。纯投影 `enterpriseSkillTreeRows`/`enterpriseSkillDefaultFilePath`/`enterpriseSkillFileCountText`/`enterpriseSkillTreeState`/`enterpriseSkillPreviewState` 与文案常量 `ENTERPRISE_SKILL_TREE_*`/`ENTERPRISE_SKILL_PREVIEW_*`/`ENTERPRISE_SKILL_DETAIL_{BACK_TEXT,BACK_LABEL,FILES_TITLE,RETRY}`/`ENTERPRISE_SKILL_CONTENT_FILENAME` 都在出口上；控制器新增详情目标 id 与四组文件状态（树条目 / 在途 / 错误、选中路径、预览正文 / 在途 / 错误）加两个取数 effect（**只在「详情打开 + 该包已装 + 有 store」时发请求**，未装一条都不发；取到树后默认选中并预览 `SKILL.md`；关详情 / 换包即 abort 且迟到结果不回填），并把 `skillPage` 塞进同一份 props。 以下为既有能力：**一份外壳 + 一份逻辑**。共享逻辑只有一处：控制器 hook `useEnterpriseMarketController`（store 订阅与取数、已装真值、安装/卸载动作、失败码归行、页签选中态、行开合态）、模型投影 `enterpriseMarketShellModel(props)`（组件清单行、目录门控、页签文案与计数、折叠态）与行级 facts `enterpriseMarketSkillRowFacts`/`enterpriseMarketPluginRowFacts`（受管态、开关口径、更新判定、两枚签取值、行键与开合、插件开关禁用口径）。目录行由共享子块 `EnterpriseMarketInlineRows` 铺出（技能行 = 图标 + 两行文案 + `[有更新]` + `Switch` + 失败提示；插件行 = 图标 + 两行文案 + 状态点与官方状态词 + `Switch` + 失败提示）。唯一入口 `EnterpriseMarketLegacyPage` 注册到官方 `plugins.item`，经宿主 `EnterpriseMarketShellHost` 接同一份控制器、同一棵外壳与同一个登录弹窗。其余出口：页签真源（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`/`enterpriseMarketTabLabel`）；组件清单与计数摘要投影（`ENTERPRISE_MARKET_COMPONENTS`/`ENTERPRISE_MARKET_PLAN`/`enterpriseMarketComponent` 六件投影）；行投影（`enterpriseMarketPluginRows`/`enterpriseMarketPluginSectionVisible`/`enterpriseMarketSkillRows`/`enterpriseMarketSkillSectionVisible`）；技能行标签与状态投影（`enterpriseMarketSkillVersionTag`/`enterpriseMarketSkillVersionLabel`/`enterpriseMarketSkillCategoryTag`/`enterpriseMarketSkillHasUpdate`/`enterpriseMarketSkillRowHasUpdate`/`enterpriseMarketSkillUpdateTag`/`ENTERPRISE_MARKET_SKILL_UPDATE_LABEL`/`ENTERPRISE_MARKET_SKILL_UPDATE_TAG`/`enterpriseMarketSkillState`/`enterpriseMarketSkillDot`/`enterpriseMarketSkillConfigTag`/`enterpriseMarketSkillStatusLabel`）；插件行状态投影（`enterprisePluginDot`/`enterpriseMarketPluginConfigTag`/`enterpriseMarketPluginStatusLabel`）；行键与开合投影（`enterpriseMarketRowKey`/`enterpriseMarketRowDetailsId`/`enterpriseMarketRowOpen`）；折叠真源（`ENTERPRISE_MARKET_DEFAULT_EXPANDED`/`enterpriseMarketSectionOpen`/`EnterpriseMarketSectionId`/`ENTERPRISE_MARKET_SECTION_IDS`）；失败可见反馈（`EnterpriseMarketActionError`/`enterpriseMarketActionErrorLabel`/`EnterpriseMarketRowError`）；badge 槽（`EnterpriseMarketBadge`/`BadgeView`/`enterpriseMarketVersionTag`）；注册常量 `ENTERPRISE_MARKET_ENTRY_ID`/`ENTERPRISE_MARKET_ENTRY_LABEL`/`ENTERPRISE_MARKET_ENTRY_ORDER`。卡片摘要与详情页正文**不重复同一句**——摘要只在 `summary` 视图出现（官方必渲染的那一份，`EnterpriseMarketSummaryLine`）。 **本刀（版本签只显示版本）**：技能行标题行的版本签**可见文案改成短号**——新增纯投影 `enterpriseMarketSkillVersionLabel`（含 `@` 取**最后一个** `@` 之后那段、不含 `@` 原样返回；空串/仅 `@`/尾部 `@` 一律 undefined = 不出签），行 facts 因此多一枚 `versionLabel`（原 `versionTag` 保留为**完整来源坐标**）；完整坐标挂在签外包装节点 `.own-market-skillVersionHint` 的 `title` 上（官方 `Tag` 的 .d.ts 只声明 tone/className/children、运行期也丢弃多给属性，故用一枚透明包装节点挂悬浮说明），详情页那枚徽标照旧显示**完整坐标**（信息更全）；签自身的类名（`.own-market-tag`/`.own-market-skillVersionTag`）/tone/位置（标题行、紧随标题、在分类签之前）一字未动，分类签与行上其余任何东西（动作区、状态点、开关、失败提示）一律不碰。 **本刀（失败文案降维 + 术语清扫）**：① **失败自愈**——五条员工可见失败路径（技能行装/卸、插件行装/卸、详情里的动作失败、文件树读取失败、文件正文读取失败）全部改渲染共享的 `EnterpriseErrorNotice`：一句人话（消息取 `error-messages.ts` 的唯一映射）+「下一步：…」+ `<details>`「技术信息」里原样保留稳定码（`data-enterprise-error-code`，支持排障照旧取得到）；行内提示的外层类名仍是 `.own-market-inlineError`（形制不变），`role="alert"` 不变，失败**不**禁用开关（再拨一次即重试）的口径不变。② **术语降维**——第三枚页签与它的节标题由「组件/包含的组件」改成「包含内容」，三行开关的无障碍名由 `启用组件 X` 改成 `启用X`、预留说明改成「预留：X暂未接入」；组件行里那条内部模块路径（`dsh-preset / .dshpreset` 等，含 preset 字样）**不再上屏**（数据仍留在 `ENTERPRISE_MARKET_COMPONENTS`，由反向锁用例守着它不上树，`.own-market-rowModule` 死样式一并删除）；详情页的版本徽标前补人话标签「来源」（`ENTERPRISE_SKILL_DETAIL_SOURCE_LABEL`，悬浮说明给出「来源站 / 发布方 @ 版本号」），等宽 `skillId` 行前补「标识」标签与悬浮说明（`ENTERPRISE_SKILL_DETAIL_NAME_LABEL` / `_NAME_TITLE`）；上游技能名里带技术缩写（MCP / YAML / manifest / Manifest / SKILL.md）时，旁边补一句「名称由技能发布方提供…」的人话（`enterpriseSkillUpstreamNameNote` 纯投影，名称与描述一律不改写，未命中不加噪音）。 **本刀（静默吞失败 → 显式失败态 + 可重试）**：新增唯一取数源工厂 `createEnterpriseSkillCatalogSource` 与唯一加载器 `loadEnterpriseSkillCatalog`（目录是主事实、失败原样抛；已装清单与逐行详情是次级事实、失败经 `enterpriseDegradedRead` 交出失败码）、四态投影 `enterpriseMarketPanelState` 与文案常量 `ENTERPRISE_MARKET_{SKILLS,PLUGINS}_{LOADING,EMPTY,FAILED}`、共享三态落点 `EnterpriseMarketListHint` 与次级降级交代 `EnterpriseMarketDegradedNotice`；控制器改为 `useSyncExternalStore` 订阅取数源（`skillsListState` + `onRetrySkills`），插件目录由 store 快照投影成 `pluginsListState` + `onRetryPlugins`——两个目录页签的加载/空/失败三态由此显式化，失败与空不再混同（失败 = 唯一提示组件 + 真重发）。 **本刀（资料库入口）**：组件清单新增第四行「资料库」——它是**可开关的功能**而不是预留件，`gate:'local'` 标明那枚 Switch 归**本机设置**（`library-gate` 的唯一真源，默认关）而不归企业会话，故开关可拨性、状态词（新增「未开启」）、悬浮说明（`enterpriseMarketComponentSwitchTitle`）与失败重试都在同一份投影里算；拨动走 `onToggleLibrary`（立刻生效、写失败在那一行渲染唯一提示组件 + **真的重发**的重试），`EnterpriseMarketShellProps`/控制器/host 因此新增 `libraryGate`/`onToggleLibrary`/`onRetryLibrarySave` 三件输入。 **本刀（企业配方页签）**：页签真源由三枚改**四枚**——「企业技能 / 企业插件 / **企业配方** / 包含内容」，`EnterpriseMarketTabId` 与 `ENTERPRISE_MARKET_TAB_IDS` 同步加 `presets`（`market-tab-presets`/`market-panel-presets`），`EnterpriseMarketDirectoryTabId`（有行列表的页签）也含它；组件清单里「配方」那一行由 `reserved:true` 改为 `reserved:false`（交付已落地，`包含内容` 页签不再说「预留」，门控随之变成与技能/插件同一条会话口径），`EnterpriseMarketPlan` 是历史规划元数据、不动。配方**行数据**取自既有取数源 `createEnterprisePresetListSource`（与「企业设置 → 配方」tab 同一个工厂，经 `store.api` 发出，**不新造宿主路由、不碰 local-api**），经唯一行投影 `enterpriseMarketPresetRows` 成行、由**同一枚共享行子块** `EnterpriseMarketInlineRows` 的 `presets` 分支渲染（图标 + 两行文案 + 版本短号签 + 可选分类签 + 动作区），行 facts 唯一入口 `enterpriseMarketPresetRowFacts`；动作区**不给假开关**——配方今天没有安装链路，只给本机真能用的那一条「复制导入指令」（沿用 `buildPresetImportInstruction`，指令正文不上屏、复制后按钮文案变「已复制」，`EnterpriseMarketPresetRowActions` 一枚子块同时供行与详情）。配方**详情**沿用技能详情的子页面形态（`presetPage` 非空即整页切换：面包屑「返回配方列表」+ `BookMarked` 图标 + 与行同一枚动作子块 + `h3` 标题/来源徽标/标识行/描述 + 分区「这份配方包含」），点**行标题**（行本体那枚 `<button>`）进详情；包含内容由纯投影族 `enterprisePresetDependencies` → `enterprisePresetContentsGroups` → `enterprisePresetContentsState` 算，按 `kind` 归成「技能 / 插件 / 其它」三组（未知 kind 不被静默丢掉）、每条显示 `id` 与「必需 / 可选」，`dependencies` **字段缺席或形状不对**时如实说「暂时无法读取包含内容」（详情取数失败另给唯一提示组件 + **真的重发**的重试），绝不白屏也绝不编造包含内容。四枚页签的计数、三态（加载/空/失败）与重试与技能/插件页签同规则：新增文案常量 `ENTERPRISE_MARKET_PRESET_*`（加载/空/失败**直接复用** `preset-market.tsx` 的那三句，不各写一套）。
+ * [POS]: ui 的企业市场入口（**唯一入口：官方插件页「官方」分组里的「插件市场」卡片**）。**本刀（详情子页面）**：技能行本体可点 → 面板整页切到该技能的详情子页面；**面板就是官方 `plugins.item` 的 page 视图、没有真实路由，故用一份视图状态切换（`skillDetailId` → `skillPage`），不硬造路由**。「返回技能列表」是唯一返回入口（面包屑按钮，键盘可达）。详情里的动作与行上**同源**：同一枚 `EnterpriseMarketSkillRowActions`、同一份 `enterpriseMarketSkillRowFacts`、同一个 `onToggleSkill` 回调、同一份 `skillActionError`，因此不存在第二套状态或第二个动作实现。文件树与预览只消费 Host 已有的两条只读子路由（`/enterprise/api/v1/local/skills/<id>/files` 与 `.../<id>/file?path=`，经 `store.api.skillFiles`/`store.api.skillFile` 发出）；**未安装就一条请求都不发**、如实说「安装后可浏览文件」，绝不伪造树；默认选中并预览 `SKILL.md`；预览是 `<pre>` 里的**纯文本子节点**（全文件无 `dangerouslySetInnerHTML`），长文件靠 `max-height` 滚动 + 字节提示；读取失败给 `role="alert"` + 稳定错误码 + 重试。**只读正文路由 `/skills/content` 按用户要求保留**（Host 侧注册与既有单测不动），本页统一走文件路由那一份路径实现。 以下为既有能力：企业插件行与组件行**不给**详情入口（用户只要求技能行；插件行本轮一字未动，组件行是交付排期清单）。**目录行的落点与行为**：点行本体进详情；`[有更新]`（真实 `<button>`，点击 = 更新到中心当前版本）与安装/卸载 `Switch` **常显在行上**且不触发详情；失败给 `role="alert"` + 稳定错误码且**不禁用**开关（再拨一次就是重试）。**三页签**（企业技能默认 / 企业插件 / 组件）共用 `EnterpriseMarketTabStrip` 一份实现：手写 `role="tablist"` + roving `tabIndex` + ←/→/Home/End 走焦并选中，`id`/`aria-controls`/`aria-labelledby` 三处同源；组件节是唯一还保留折叠语义的一节（折叠态列表整段不进 DOM）。**严禁**任何价格/交易/购买/购物车/客服之类的商业化字样——全树文本都不出现（由测试反向锁死）。`store` 与开登录回调均为可选注入：缺席时开关恒禁用、会话不可用时目录节不出现。**样式纪律**：本文件的类名与同包其他源文件**零交集**（两处 `<style>` 都是全局单类选择器，同名会互相覆盖）；主题只用 `--dsw-*` token，不新造颜色。 **本刀（版本签短号）**：真实 `sourceDshVersion` 是完整坐标（`skillhub.cn/dev-expert@2.0.3`），整串会把标题挤成一个字（真机截图已证）；故**列表里只显示版本号**（`enterpriseMarketSkillVersionLabel`，最后一个 `@` 之后），**完整坐标在签的 `title` 与详情徽标**；既有技能（无 `@` 的 `0.1.7-rc.2` 形态）显示形式一字不变，签的类名/tone/位置与行上其他东西不动。 **本刀（企业配方页签）**：配方行与配方详情用的是**同一批**类名（`.own-market-row*`/`.own-market-cardHead`/`.own-market-cardId`/`.own-market-cardDesc`/`.own-market-detail*`/`.own-market-skillTag`），**一个新类名都不加**——版式取值与技能/插件行逐值同源，故本刀 CSS 一字未动（`baseStyles`/`rowStyles`/`detailStyles` 三份字符串与改动前逐字节相同）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -16,10 +16,21 @@ import type { EnterpriseAccountStore } from './account-store.js'
 import { formatByteSize } from './display-format.js'
 import { ENTERPRISE_LIBRARY_GATE_DEFAULT, type EnterpriseLibraryGate, type EnterpriseLibraryGateSnapshot } from './library-gate.js'
 import { enterprisePluginStatePresentation } from './plugin-market.js'
-import type { EnterpriseInstalledSkill, EnterpriseInstalledSkillFile, EnterpriseLocalApi, EnterprisePluginCatalogItem, EnterprisePluginItem, EnterpriseRuntimeSkill, EnterpriseSkillFileEntry, ManagedPluginState } from './local-api-decode.js'
+import type { EnterpriseInstalledSkill, EnterpriseInstalledSkillFile, EnterpriseLocalApi, EnterprisePluginCatalogItem, EnterprisePluginItem, EnterpriseRuntimePreset, EnterpriseRuntimeSkill, EnterpriseSkillFileEntry, ManagedPluginState } from './local-api-decode.js'
 import { enterpriseLocalErrorCode } from './local-api-decode.js'
 import { EnterpriseErrorNotice } from './error-notice.js'
 import { enterpriseErrorPresentation } from './error-messages.js'
+// 配方侧的两件**复用件**（都取自「企业设置 → 配方」那个 tab，本页不新造第二份）：
+//   · `createEnterprisePresetListSource` = 配方目录的**唯一**取数源工厂（与设置弹窗同一份实现，经 `store.api` 发出）；
+//   · `buildPresetImportInstruction` = 导入指令的**唯一**构造器（本页只把它写进剪贴板，指令正文不上屏）。
+//   · 三句加载/空/失败文案也直接取它那一份，免得同一个页签在设置里和商店里说两套话。
+import {
+  ENTERPRISE_PRESET_LIST_EMPTY,
+  ENTERPRISE_PRESET_LIST_FAILED,
+  ENTERPRISE_PRESET_LIST_LOADING,
+  buildPresetImportInstruction,
+  createEnterprisePresetListSource,
+} from './preset-market.js'
 import {
   ENTERPRISE_LIST_RETRY,
   ENTERPRISE_LIST_RETRY_LABEL,
@@ -50,17 +61,20 @@ export const ENTERPRISE_MARKET_SUMMARY = '企业插件 · 技能 · 配方'
  *   · `session` = 企业会话开关（登录后可用，界面不给假切换）；
  *   · `local`   = **本机设置**里的管理门（本刀新增的「资料库」：默认**关**，拨动即本机生效、不需要登录）。
  * `module` 是内部模块台账（**不上屏**，由反向锁用例守着它不出现在树上）。
+ * **本刀（企业配方页签）**：`presets` 行由 `reserved:true` 改 `false`——配方已经不是预留件：
+ * 它以「企业配方」页签与技能/插件并排出现在商店页里，故它那枚开关的语义与技能/插件行同一条
+ * （会话口径：未登录可点去登录、登录后禁用防假切换），`包含内容` 页签也不再说它是「预留」。
  */
 export const ENTERPRISE_MARKET_COMPONENTS = [
   { gate: 'session', id: 'plugins', label: '插件', module: 'enterprise plugins · remote.pluginManager', note: '企业发布的插件与官方插件包', reserved: false },
   { gate: 'session', id: 'skills', label: '技能', module: 'official skills/list', note: '企业发布的技能包与装配指令', reserved: false },
-  { gate: 'session', id: 'presets', label: '配方', module: 'dsh-preset / .dshpreset', note: '企业配方广场', reserved: true },
+  { gate: 'session', id: 'presets', label: '配方', module: 'dsh-preset / .dshpreset', note: '企业配方广场', reserved: false },
   { gate: 'local', id: 'library', label: '资料库', module: 'library · local settings', note: '把资料集中收好，随时取用', reserved: false },
 ] as const
 
 /**
- * 组件交付排期清单，按交付顺序（插件与技能已排期，配方仍预留）。
- * **历史规划元数据，不驱动任何渲染**：页签化之后真正的页签真源是下面的 `ENTERPRISE_MARKET_TABS`。
+ * 组件交付排期清单，按交付顺序（**历史规划元数据，不驱动任何渲染**——页签化之后真正的页签真源是
+ * `ENTERPRISE_MARKET_TABS`；本刀不动它，故这里的「配方 = 预留」只作为当时的排期记录保留）。
  */
 export const ENTERPRISE_MARKET_PLAN = [
   { id: 'plugins', label: '插件', note: '官方 / 已安装 / 企业插件 三分组' },
@@ -68,18 +82,21 @@ export const ENTERPRISE_MARKET_PLAN = [
   { id: 'presets', label: '配方', note: '预留' },
 ] as const
 
-/** `page` 视图三个页签的 id（页签条顺序即 `ENTERPRISE_MARKET_TABS` 的数组顺序）。 */
-export type EnterpriseMarketTabId = 'skills' | 'plugins' | 'components'
+/** `page` 视图**四枚**页签的 id（页签条顺序即 `ENTERPRISE_MARKET_TABS` 的数组顺序）。 */
+export type EnterpriseMarketTabId = 'skills' | 'plugins' | 'presets' | 'components'
 
 /**
  * 页签条真源：**顺序即渲染顺序**，第一项同时是默认选中项（见 `ENTERPRISE_MARKET_DEFAULT_TAB`）。
- * **术语降维**：第三枚页签原为「组件」（技术词）——现在叫「包含内容」，与节标题同词。
+ * **术语降维**：第四枚页签原为「组件」（技术词）——现在叫「包含内容」，与节标题同词。
+ * **本刀（企业配方页签）**：新增第三枚「企业配方」——用户指定的位次是**企业插件之后、包含内容之前**，
+ * id 取新 id `presets`（**不复用**已按用户要求移除的旧「应用商店」那批 id/文案）。
  * **`label` 只是基础词**：渲染时经 `enterpriseMarketTabLabel(label, count)` 补上计数
  * （原先企业技能 / 企业插件两节内部各占一行的 `N 个` 计数行已退场，数字并入页签，见该投影）。
  */
 export const ENTERPRISE_MARKET_TABS = [
   { id: 'skills', label: '企业技能' },
   { id: 'plugins', label: '企业插件' },
+  { id: 'presets', label: '企业配方' },
   { id: 'components', label: '包含内容' },
 ] as const
 
@@ -97,6 +114,7 @@ export const ENTERPRISE_MARKET_TABLIST_LABEL = '企业市场'
 export const ENTERPRISE_MARKET_TAB_IDS: Record<EnterpriseMarketTabId, { readonly tab: string; readonly panel: string }> = {
   skills: { tab: 'market-tab-skills', panel: 'market-panel-skills' },
   plugins: { tab: 'market-tab-plugins', panel: 'market-panel-plugins' },
+  presets: { tab: 'market-tab-presets', panel: 'market-panel-presets' },
   components: { tab: 'market-tab-components', panel: 'market-panel-components' },
 }
 
@@ -113,10 +131,10 @@ export function enterpriseMarketTabLabel(label: string, count: number): string {
 }
 
 /**
- * **目录类**页签（有行列表的那两个）：`EnterpriseMarketInlineRows` 与行 facts、行键投影都用它定位。
- * 「组件」页签恒四行（插件/技能/配方 + 资料库）、是台账式清单而不是目录，故不在这个联合里（它走 `EnterpriseMarketComponentsPanel`）。
+ * **目录类**页签（有行列表的那三个 = 技能 / 插件 / 配方）：`EnterpriseMarketInlineRows` 与行 facts、行键投影都用它定位。
+ * 「包含内容」页签恒四行（插件/技能/配方 + 资料库）、是台账式清单而不是目录，故不在这个联合里（它走 `EnterpriseMarketComponentsPanel`）。
  */
-export type EnterpriseMarketDirectoryTabId = 'skills' | 'plugins'
+export type EnterpriseMarketDirectoryTabId = 'skills' | 'plugins' | 'presets'
 
 /**
  * 行的开合状态真源（共享控制器 `useEnterpriseMarketController` 的 `useState<string | null>`）：
@@ -212,6 +230,40 @@ export interface EnterpriseMarketShellProps {
   readonly pluginsListState?: EnterpriseListState<readonly EnterpriseMarketPluginRow[]> | undefined
   /** 「企业插件」页签失败态的重试（请 store 重新取一次企业插件投影）。 */
   readonly onRetryPlugins?: (() => void) | undefined
+  /**
+   * 企业配方目录（`store.api.presets()` 经共享取数源 `createEnterprisePresetListSource` 取到的列表，
+   * 再由唯一行投影 `enterpriseMarketPresetRows` 铺成行）。
+   *
+   * 与「企业技能」「企业插件」同规则：仅当「配方」组件开启（= 会话可用）且目录非空时在
+   * 「企业配方」页签渲染；缺席 = 空目录。取数**不新造宿主路由、不碰 local-api**：设置的配方 tab
+   * 用的就是同一个取数源工厂。
+   */
+  readonly enterprisePresets?: readonly EnterpriseMarketPresetRow[] | undefined
+  /** 「企业配方」页签的取数状态（控制器订阅共享取数源得来）；与另两个目录页签同形，缺席即按行数旧口径回落。 */
+  readonly presetsListState?: EnterpriseListState<readonly EnterpriseMarketPresetRow[]> | undefined
+  /** 「企业配方」页签失败态的重试（真的重发一次取数）；缺席即不渲染重试按钮（不给死按钮）。 */
+  readonly onRetryPresets?: (() => void) | undefined
+  /**
+   * 打开某条**企业配方**的详情子页面（用户点行标题 = 行本体那枚按钮触发）。
+   * 与技能详情同口径：只交回被点的那一行，详情里的一切由宿主用**同一份**真值投影；
+   * 缺席时那枚按钮 `disabled` + `title='详情入口未接通'`（不给死按钮），真运行时恒由控制器供给。
+   */
+  readonly onOpenPresetDetail?: ((row: EnterpriseMarketPresetRow) => void) | undefined
+  /**
+   * 复制某条配方的导入指令（**配方今天唯一真能用的动作**：服务端还没有配方的一键落盘链路，
+   * 故这里绝不放一枚拨不动的安装开关）。指令正文由 `buildPresetImportInstruction`（与设置弹窗同一个构造器）
+   * 产出并写进剪贴板，**不上屏**（它含上游专名）；回调缺席即不渲染那枚按钮。
+   */
+  readonly onCopyPresetInstruction?: ((row: EnterpriseMarketPresetRow) => void) | undefined
+  /** 刚刚复制过的那条配方 id（复制成功的可见反馈：按钮文案从「复制导入指令」变「已复制」）。 */
+  readonly presetCopiedId?: string | undefined
+  /**
+   * **配方详情子页面**的输入（点配方行标题后才非空）：与技能详情同一形态——非空即整页切换
+   * （列表 / 页签条 / 各面板一字不挂载），`undefined` = 正常列表视图。里面的每一件事实都由共享控制器
+   * 用行上同一份真值构造（同一个 `EnterpriseMarketPresetRow`、同一份 `enterpriseMarketPresetRowFacts`、
+   * 同一份详情取数结果、同一枚行动作子块），因此详情里不存在第二套状态。
+   */
+  readonly presetPage?: EnterprisePresetPageProps | undefined
   /**
    * 本机已装技能记录（Host 真值）：「已装」只认这份记录里的 `packageId`；「有更新」只用它的 `versionId`
    * 比行上的 `latestVersionId`（两侧都非空且不等）。缺席时所有行显示未装、开关一律关，两层外壳都不猜。
@@ -481,6 +533,13 @@ export function createEnterpriseSkillCatalogSource(
 const ENTERPRISE_MARKET_CATALOG_LOADING: EnterpriseListState<EnterpriseSkillCatalog> = { kind: 'loading' }
 const ENTERPRISE_MARKET_CATALOG_SNAPSHOT = (): EnterpriseListState<EnterpriseSkillCatalog> => ENTERPRISE_MARKET_CATALOG_LOADING
 const ENTERPRISE_MARKET_CATALOG_SUBSCRIBE = (): (() => void) => () => undefined
+
+/**
+ * 没有 store 时**配方**取数源那份恒定的「加载中」快照（引用必须稳定，`useSyncExternalStore` 的要求）。
+ * 与技能那份分开是因为两者的 `T` 不同（技能是目录 + 已装 + 降级码，配方是配方列表原样）。
+ */
+const ENTERPRISE_MARKET_PRESET_LOADING: EnterpriseListState<readonly EnterpriseRuntimePreset[]> = { kind: 'loading' }
+const ENTERPRISE_MARKET_PRESET_SNAPSHOT = (): EnterpriseListState<readonly EnterpriseRuntimePreset[]> => ENTERPRISE_MARKET_PRESET_LOADING
 
 /** 没有注入资料库管理门（纯函数直调 / 老调用方）时用的恒定快照与空订阅：按产品默认**关**，引用必须稳定。 */
 const ENTERPRISE_MARKET_LIBRARY_GATE_SNAPSHOT: EnterpriseLibraryGateSnapshot = {
@@ -963,14 +1022,20 @@ export interface EnterpriseMarketShellModel {
   readonly skillsVisible: boolean
   /** 「企业插件」页签门控通过（插件组件开启**且**目录非空）。 */
   readonly pluginsVisible: boolean
+  /** 「企业配方」页签门控通过（配方组件开启**且**目录非空）——与另两个目录页签同一条口径。 */
+  readonly presetsVisible: boolean
   /** 「企业技能」页签内容区此刻该画什么（隐藏 / 加载中 / 空 / 失败 / 就绪——四态互斥）。 */
   readonly skillsPanel: EnterpriseMarketPanelState
   /** 「企业插件」页签内容区此刻该画什么（同上）。 */
   readonly pluginsPanel: EnterpriseMarketPanelState
+  /** 「企业配方」页签内容区此刻该画什么（同上）。 */
+  readonly presetsPanel: EnterpriseMarketPanelState
   /** 实际渲染的技能行（搜索框退场后 = 目录原样，顺序与条数都不动）。 */
   readonly visibleSkills: readonly EnterpriseMarketSkillRow[]
   /** 实际渲染的插件行（同上）。 */
   readonly visiblePlugins: readonly EnterpriseMarketPluginRow[]
+  /** 实际渲染的配方行（同上）。 */
+  readonly visiblePresets: readonly EnterpriseMarketPresetRow[]
 }
 
 /**
@@ -988,6 +1053,7 @@ export function enterpriseMarketShellModel(props: EnterpriseMarketShellProps): E
   const hasLibraryAction = typeof props.onToggleLibrary === 'function'
   const enterprisePlugins = props.enterprisePlugins ?? []
   const enterpriseSkills = props.enterpriseSkills ?? []
+  const enterprisePresets = props.enterprisePresets ?? []
   const componentRows: EnterpriseMarketComponentRow[] = ENTERPRISE_MARKET_COMPONENTS.map(row => ({
     ...row,
     enabled: enterpriseMarketComponentEnabled(row.id, sessionUsable, libraryEnabled),
@@ -1006,8 +1072,11 @@ export function enterpriseMarketShellModel(props: EnterpriseMarketShellProps): E
   // 两个目录页签的门控同规则：只在对应大组件开启（= 会话可用）且目录非空时出内容。
   const skillsEnabled = enterpriseMarketComponentEnabled('skills', sessionUsable)
   const pluginsEnabled = enterpriseMarketComponentEnabled('plugins', sessionUsable)
+  // 「企业配方」页签与它们**同一条**门控口径（配方行已由 reserved:true 改 false：它是已交付的页签，不是预留件）。
+  const presetsEnabled = enterpriseMarketComponentEnabled('presets', sessionUsable)
   const skillsVisible = enterpriseMarketSkillSectionVisible(skillsEnabled, enterpriseSkills)
   const pluginsVisible = enterpriseMarketPluginSectionVisible(pluginsEnabled, enterprisePlugins)
+  const presetsVisible = presetsEnabled && enterprisePresets.length > 0
   // 内容区四态：组件未开启 → 隐藏（既有门控一字不变）；开启后取数状态说话——加载中/空/失败/就绪各有一态，
   // 失败态与空态**绝不混同**（失败要人话 + 下一步 + 重试，空要说清为什么空）。
   const skillsPanel = enterpriseMarketPanelState<EnterpriseSkillCatalog>({
@@ -1026,14 +1095,25 @@ export function enterpriseMarketShellModel(props: EnterpriseMarketShellProps): E
     rowCount: enterprisePlugins.length,
     list: props.pluginsListState,
   })
+  // 配方页签的四态与另两个目录页签**同一条**规则（三句文案直接取设置弹窗那一份）。
+  const presetsPanel = enterpriseMarketPanelState<readonly EnterpriseMarketPresetRow[]>({
+    enabled: presetsEnabled,
+    loadingHint: ENTERPRISE_MARKET_PRESETS_LOADING,
+    emptyHint: ENTERPRISE_MARKET_PRESETS_EMPTY,
+    failedPrefix: ENTERPRISE_MARKET_PRESETS_FAILED,
+    rowCount: enterprisePresets.length,
+    list: props.presetsListState,
+  })
   // 目录行**不做任何过滤**：搜索框随独立应用商店外壳一起退场后，`visible*` 就是目录原样
   // （字段名保留是因为共享行子块与行键投影读它；将来若再要过滤，唯一落点仍是这一行）。
   const visibleSkills = [...enterpriseSkills]
   const visiblePlugins = [...enterprisePlugins]
+  const visiblePresets = [...enterprisePresets]
   // 页签计数取该页签**真正要渲染的行数**：目录门控不过即如实记 0，绝不在面板空白时还喊「有 N 条」。
   const tabCounts: Record<EnterpriseMarketTabId, number> = {
     skills: skillsVisible ? enterpriseSkills.length : 0,
     plugins: pluginsVisible ? enterprisePlugins.length : 0,
+    presets: presetsVisible ? enterprisePresets.length : 0,
     components: ENTERPRISE_MARKET_COMPONENTS.length,
   }
   return {
@@ -1054,10 +1134,13 @@ export function enterpriseMarketShellModel(props: EnterpriseMarketShellProps): E
     tabCounts,
     skillsVisible,
     pluginsVisible,
+    presetsVisible,
     skillsPanel,
     pluginsPanel,
+    presetsPanel,
     visibleSkills,
     visiblePlugins,
+    visiblePresets,
   }
 }
 
@@ -1168,6 +1251,279 @@ export function enterpriseMarketPluginRowFacts(props: EnterpriseMarketShellProps
     stateTitle: enterprisePluginStatePresentation(row.state).title,
     switchDisabled: props.onTogglePlugin === undefined || row.installErrorCode !== undefined
       || row.state === 'INSTALLING' || row.state === 'DOWNLOADING' || row.state === 'REMOVING' || row.state === 'ROLLBACK',
+  }
+}
+
+/* ══════════════════════════ 企业配方（本刀新增的第三枚目录页签） ══════════════════════════
+ *
+ * 与「企业设置 → 配方」那个 tab（`preset-market.tsx`）的**共用面**只有三处，且每处都只有一份实现：
+ *   ① 目录取数 = `createEnterprisePresetListSource`（那个 tab 用的**同一个工厂**；它自带一枚
+ *      `createEnterpriseLocalApi()` 实例、本页用共享 store 的那一枚，两者都打同一条同源路径
+ *      `/enterprise/api/v1/local/presets`）；
+ *   ② 导入指令 = `buildPresetImportInstruction`（同一句指令；本页只复制不上屏）；
+ *   ③ 加载/空/失败三句文案 = 那三个 `ENTERPRISE_PRESET_LIST_*` 常量。
+ * 行 facts（`enterpriseMarketPresetRowFacts`）与行渲染（`EnterpriseMarketInlineRows` 的 presets 分支）
+ * 在本页**各只有一份**：行上、详情里的动作读的是同一份 facts、同一枚子块。
+ */
+
+/** 「企业配方」页签的三条取数文案：直接复用设置弹窗那一份（同一个页签不许在商店里说第二套话）。 */
+export const ENTERPRISE_MARKET_PRESETS_LOADING = ENTERPRISE_PRESET_LIST_LOADING
+export const ENTERPRISE_MARKET_PRESETS_EMPTY = ENTERPRISE_PRESET_LIST_EMPTY
+export const ENTERPRISE_MARKET_PRESETS_FAILED = ENTERPRISE_PRESET_LIST_FAILED
+
+/** 配方行那枚动作药丸的两种文案（复制成功与否的可见反馈）。 */
+export const ENTERPRISE_PRESET_COPY_TEXT = '复制导入指令'
+export const ENTERPRISE_PRESET_COPIED_TEXT = '已复制'
+
+/** 配方详情的面包屑：可见文案照官方 `crumbText`（列表名），无障碍名给完整动作语义。 */
+export const ENTERPRISE_PRESET_DETAIL_BACK_TEXT = '配方列表'
+export const ENTERPRISE_PRESET_DETAIL_BACK_LABEL = '返回配方列表'
+/** 配方详情里「这份配方包含」那一节的标题（用户指定的措辞）。 */
+export const ENTERPRISE_PRESET_CONTENTS_TITLE = '这份配方包含'
+/** 详情取数中的轻提示（首帧就看得见，不空白）。 */
+export const ENTERPRISE_PRESET_CONTENTS_LOADING = '正在读取配方详情…'
+/**
+ * **字段缺席时的如实交代**：服务端 runtime 投影的 `dependencies` 这一刀正在落地（解码器那一路在改），
+ * 这份界面按「可能还没有这个字段」防御性处理——读不到就说这句话，**绝不白屏、也绝不假装「不包含」**。
+ */
+export const ENTERPRISE_PRESET_CONTENTS_UNAVAILABLE = '暂时无法读取包含内容'
+/** 详情读到了、字段也在，但这条配方确实没有依赖：如实说「不包含」而不是留白。 */
+export const ENTERPRISE_PRESET_CONTENTS_EMPTY = '这份配方不包含技能或插件'
+/** 包含内容读取失败的前缀（人话与下一步由唯一映射 `error-messages.ts` 给）。 */
+export const ENTERPRISE_PRESET_DETAIL_FAILED = '配方详情加载失败'
+/** 依赖项的「必需 / 可选」两种可见文案（只认服务端给的 `required` 布尔，不猜）。 */
+export const ENTERPRISE_PRESET_DEPENDENCY_REQUIRED = '必需'
+export const ENTERPRISE_PRESET_DEPENDENCY_OPTIONAL = '可选'
+
+/**
+ * 依赖类型 → 分组标签。`kind` 是服务端字段，界面只认识 `skill`/`plugin` 两种；
+ * **未知类型归入「其它」而不是被静默丢掉**（丢了就是假数据：界面会显得这份配方什么都没有）。
+ */
+export const ENTERPRISE_PRESET_DEPENDENCY_LABELS = { skill: '技能', plugin: '插件', other: '其它' } as const
+export type EnterprisePresetContentsGroupKind = keyof typeof ENTERPRISE_PRESET_DEPENDENCY_LABELS
+
+/**
+ * 一条配方的「包含内容」依赖项（服务端 runtime 投影 `dependencies` 的条目）。
+ *
+ * **为字段缺席/形状变化设计**：解码这一路正在给员工端加这个键名，故本页从 `unknown` 结构读它，
+ * 不在类型上绑死（不假设它一定会来、也不假设不会有第三种 `kind`）。
+ *
+ * 与解码层那份契约投影（`local-api-decode.ts` 的 `EnterprisePresetDependency`，`kind`/`mode` 是**闭合**联合）
+ * 有意不同：这里是**展示层的加宽形态**（`kind`/`mode` 都是 `string`）。理由正是解码器自己那条注释里的教训
+ * （「员工端比服务端严 ⇒ 静默炸」）：服务端若先多出一种 `kind`，解码那层会先拒；而**万一**有一份没走解码的
+ * 对象到了这里，界面也必须**显示得出来**（归入「其它」）而不是崩掉、更不是把这条依赖静默丢掉。
+ */
+export interface EnterpriseMarketPresetDependency {
+  /** 服务端给的类型（`skill`/`plugin`；未知值原样保留，由分组投影归入「其它」）。 */
+  readonly kind: string
+  /** 依赖的身份标识（技能标识 / 插件包名），就是界面上要显示的那串。 */
+  readonly id: string
+  /** 服务端给的取用方式（`pinned`/`latest`）；本页不上屏，但**原样保留**这份事实不丢。 */
+  readonly mode: string
+  /** 固定版本时的版本标识（只有 `mode === 'pinned'` 才有）；缺席即没有这个键。 */
+  readonly versionId?: string | undefined
+  /** 是否必需（只有**严格等于 `true`** 才算必需：服务端字段缺席/异常时不猜、按「可选」如实呈现）。 */
+  readonly required: boolean
+}
+
+/** 读配方详情对象上的 `dependencies` 原始值（`undefined` = 字段缺席 / 根本不是对象）。 */
+function enterprisePresetDependenciesField(preset: unknown): unknown {
+  if (preset === null || typeof preset !== 'object') return undefined
+  return (preset as { readonly dependencies?: unknown }).dependencies
+}
+
+/** 配方的可选分类（服务端**可能**新增的 `category`）：缺席/null/空白一律归一成「没有这个键」。 */
+export function enterprisePresetCategory(preset: unknown): string | undefined {
+  if (preset === null || typeof preset !== 'object') return undefined
+  const value = (preset as { readonly category?: unknown }).category
+  // 与技能行的分类签**同一个归一投影**（`enterpriseMarketSkillCategoryTag`）：不新造第二份分类口径。
+  return typeof value === 'string' ? enterpriseMarketSkillCategoryTag(value) : undefined
+}
+
+/**
+ * 一份配方的依赖清单（纯投影，**字段缺席按空数组看待**，测试可直调）。
+ *
+ * 三条口径：
+ *  ① `dependencies` 缺席 / 不是数组 / 条目形状不对 → 返回空数组（**不抛、不编**：界面另有「读不到」的如实交代）；
+ *  ② 只收「有非空字符串 `id`」的条目——没有身份的东西不上屏（也进不了分组）；
+ *  ③ `kind`/`mode`/`versionId` 原样保留、`required` 只认严格 `true`（界面据此说「必需/可选」，不猜）。
+ */
+export function enterprisePresetDependencies(preset: unknown): readonly EnterpriseMarketPresetDependency[] {
+  const field = enterprisePresetDependenciesField(preset)
+  if (!Array.isArray(field)) return []
+  const dependencies: EnterpriseMarketPresetDependency[] = []
+  for (const entry of field as readonly unknown[]) {
+    if (entry === null || typeof entry !== 'object') continue
+    const item = entry as Record<string, unknown>
+    const id = item['id']
+    if (typeof id !== 'string' || id === '') continue
+    const versionId = item['versionId']
+    dependencies.push({
+      kind: typeof item['kind'] === 'string' ? item['kind'] : '',
+      id,
+      mode: typeof item['mode'] === 'string' ? item['mode'] : '',
+      ...(typeof versionId === 'string' && versionId !== '' ? { versionId } : {}),
+      required: item['required'] === true,
+    })
+  }
+  return dependencies
+}
+
+/** 依赖清单里的一组（同一 `kind` 归一组，组内保持服务端给的顺序）。 */
+export interface EnterprisePresetContentsGroup {
+  readonly kind: EnterprisePresetContentsGroupKind
+  readonly label: string
+  readonly items: readonly EnterpriseMarketPresetDependency[]
+}
+
+/**
+ * 依赖清单 → 分组（纯投影）：**技能一组、插件一组**，其余类型归「其它」一组；
+ * 组序恒为 技能 → 插件 → 其它，空组不出现。未知类型因此**不会被丢掉**（丢掉就是假数据）。
+ */
+export function enterprisePresetContentsGroups(
+  dependencies: readonly EnterpriseMarketPresetDependency[],
+): readonly EnterprisePresetContentsGroup[] {
+  return (['skill', 'plugin', 'other'] as const)
+    .map(kind => ({
+      kind,
+      label: ENTERPRISE_PRESET_DEPENDENCY_LABELS[kind],
+      items: dependencies.filter(item => (kind === 'other'
+        ? item.kind !== 'skill' && item.kind !== 'plugin'
+        : item.kind === kind)),
+    }))
+    .filter(group => group.items.length > 0)
+}
+
+/** 「这份配方包含」那一节的四态（纯投影，测试可直调）：读取中 / 读不到 / 确实不包含 / 有分组。 */
+export type EnterprisePresetContentsState =
+  | { readonly kind: 'loading'; readonly hint: string }
+  | { readonly kind: 'unavailable'; readonly hint: string }
+  | { readonly kind: 'empty'; readonly hint: string }
+  | { readonly kind: 'available'; readonly groups: readonly EnterprisePresetContentsGroup[]; readonly count: number }
+
+/**
+ * 由「详情是否在途 + 详情取数结果」投影出「这份配方包含」这一节该说什么（纯函数）。
+ *
+ * 判定顺序写死为 **没取到 → 字段缺席/形状不对 → 空 → 有分组**：
+ *  · 详情还没到（在途）→ 轻提示；详情没取到且不在途（失败 / 未发请求）→ 「暂时无法读取包含内容」；
+ *  · 详情到了但 `dependencies` 这个键**缺席**（解码这一路还没带上它）或不是数组 → 同样如实说「暂时无法读取包含内容」，
+ *    **绝不**把那当成「这条配方什么都不包含」（那是编造）；
+ *  · 详情到了、字段也在、确实是空数组 → 说「这份配方不包含技能或插件」。
+ */
+export function enterprisePresetContentsState(input: {
+  readonly loading: boolean
+  readonly detail?: unknown | undefined
+}): EnterprisePresetContentsState {
+  if (input.detail === undefined || input.detail === null) {
+    return input.loading
+      ? { kind: 'loading', hint: ENTERPRISE_PRESET_CONTENTS_LOADING }
+      : { kind: 'unavailable', hint: ENTERPRISE_PRESET_CONTENTS_UNAVAILABLE }
+  }
+  if (!Array.isArray(enterprisePresetDependenciesField(input.detail))) {
+    return { kind: 'unavailable', hint: ENTERPRISE_PRESET_CONTENTS_UNAVAILABLE }
+  }
+  const dependencies = enterprisePresetDependencies(input.detail)
+  if (dependencies.length === 0) return { kind: 'empty', hint: ENTERPRISE_PRESET_CONTENTS_EMPTY }
+  return { kind: 'available', groups: enterprisePresetContentsGroups(dependencies), count: dependencies.length }
+}
+
+/** 节头右那枚计数文案（只在这一节真的有分组时出现）。 */
+export function enterprisePresetContentsCountText(count: number): string {
+  return `共 ${count} 项`
+}
+
+/** 一条依赖项的「必需 / 可选」可见文案（唯一判定点：只有严格 `true` 才是必需）。 */
+export function enterprisePresetDependencyRequiredText(required: boolean): string {
+  return required ? ENTERPRISE_PRESET_DEPENDENCY_REQUIRED : ENTERPRISE_PRESET_DEPENDENCY_OPTIONAL
+}
+
+/**
+ * 「企业配方」节的一行：企业后台上传的配方（`store.api.presets()` 的列表投影）。
+ *
+ * 版式与技能行**同级同款**（图标 + 两行文案 + 版本短号签 + 可选分类签 + 动作区），因此字段也照技能行的口径保留：
+ * 分类是服务端的**可选**字段（可能没有），版本短号取自 `sourceDshVersion`（完整坐标挂在签的 `title` 上）。
+ * 这里**多带** `sizeBytes`/`updatedAt`/`versionId` 不是给界面看的，而是让这一行仍然是一份**完整的配方投影**
+ * （复制导入指令要 `id`/`presetId`/`displayName`/`versionId`，见 `buildPresetImportInstruction`）。
+ */
+export interface EnterpriseMarketPresetRow {
+  /** 配方包雪花 id，同时是详情取数键（`store.api.presetDetail(id)`）与行键的一部分。 */
+  readonly id: string
+  /** manifest 的稳定标识，进详情里那行等宽「标识」。 */
+  readonly presetId: string
+  readonly displayName: string
+  /** 空描述归一为固定占位（与技能行同一句话的约定），不在行上留白。 */
+  readonly description: string
+  /** 完整来源坐标（行上签显示**短号**、`title` 给完整坐标，与技能行同一投影）。 */
+  readonly sourceDshVersion: string
+  readonly sizeBytes: number
+  readonly versionId: string
+  readonly updatedAt: string
+  /** 服务端**可能**新增的可选分类：缺席/null/空白即没有这个键（标题行不出分类签，安静缺席）。 */
+  readonly category?: string | undefined
+}
+
+/**
+ * 配方目录 → 可渲染的「企业配方」行（纯函数，按目录顺序原样投影，**不做任何过滤**）。
+ * @param presets - `createEnterprisePresetListSource` 取到的配方列表（与设置弹窗同一份取数）。
+ */
+export function enterpriseMarketPresetRows(presets: readonly EnterpriseRuntimePreset[] = []): EnterpriseMarketPresetRow[] {
+  return presets.map((preset) => {
+    // 分类走与技能行同一个归一投影（服务端还没这个字段时恒 undefined ⇒ 不出签，不塞占位、不猜分类）。
+    const category = enterprisePresetCategory(preset)
+    return {
+      id: preset.id,
+      presetId: preset.presetId,
+      displayName: preset.displayName,
+      description: preset.description === '' ? '（暂无描述）' : preset.description,
+      sourceDshVersion: preset.sourceDshVersion,
+      sizeBytes: preset.sizeBytes,
+      versionId: preset.versionId,
+      updatedAt: preset.updatedAt,
+      ...(category === undefined ? {} : { category }),
+    }
+  })
+}
+
+/**
+ * 配方行的**同一份**派生事实（行渲染与配方详情子页面共用；测试可直调）。
+ * 它**不含**任何安装/启用口径——配方今天没有那条链路，所以这里没有第二枚「假开关」的状态可算。
+ */
+export interface EnterpriseMarketPresetRowFacts {
+  /** 行键（`presets:{行 id}`，与共享控制器的开合态同一个投影）。 */
+  readonly rowKey: string
+  readonly detailsId: string
+  readonly open: boolean
+  /** 完整来源坐标（行上签的 `title` 用它；空串即 undefined = 不出签）。 */
+  readonly versionTag: string | undefined
+  /** 行上签的可见短号（最后一个 `@` 之后那段）。 */
+  readonly versionLabel: string | undefined
+  /** 分类签的可见文案（没有分类即 undefined = 整枚不渲染）。 */
+  readonly categoryTag: string | undefined
+  /** 「复制导入指令」这条动作是否接通（回调缺席即不渲染那枚按钮——不给死按钮）。 */
+  readonly canCopyInstruction: boolean
+  /** 刚刚复制过这一行（行上与详情里的按钮文案同时变「已复制」，因为读的是同一份事实）。 */
+  readonly copied: boolean
+}
+
+/**
+ * 配方行 facts 的唯一入口。
+ * @param props - 共享 props（要 `onCopyPresetInstruction`/`presetCopiedId`/`expandedRow`）。
+ * @param row - 已投影的配方行。
+ */
+export function enterpriseMarketPresetRowFacts(
+  props: EnterpriseMarketShellProps,
+  row: EnterpriseMarketPresetRow,
+): EnterpriseMarketPresetRowFacts {
+  const rowKey = enterpriseMarketRowKey('presets', row.id)
+  return {
+    rowKey,
+    detailsId: enterpriseMarketRowDetailsId('presets', row.id),
+    open: enterpriseMarketRowOpen(props.expandedRow, rowKey),
+    versionTag: enterpriseMarketSkillVersionTag(row.sourceDshVersion),
+    versionLabel: enterpriseMarketSkillVersionLabel(row.sourceDshVersion),
+    categoryTag: enterpriseMarketSkillCategoryTag(row.category),
+    canCopyInstruction: typeof props.onCopyPresetInstruction === 'function',
+    copied: props.presetCopiedId === row.id,
   }
 }
 
@@ -1726,6 +2082,46 @@ export function EnterpriseMarketSkillRowActions({ row, facts, onToggleSkill }: {
 }
 
 /**
+ * **配方行动作区的唯一实现**（`EnterpriseMarketPresetRowActions`）：与技能行不同的是——
+ * 配方今天**没有**安装/卸载这类企业会话动作（服务端还没有那条链路），故这里**绝不放一枚拨不动的开关**
+ * （用户口径：按配方现状，能用什么就给什么，不做假开关）。
+ *
+ * 它只给本机现在**真能用**的那一条：**复制导入指令**——正文由 `buildPresetImportInstruction`
+ * （与「企业设置 → 配方」弹窗**同一个**构造器）产出后写进剪贴板，指令正文本身不上屏
+ * （它含上游专名，而本页术语要求不上这些词）。
+ *
+ * 与技能侧同一条结构纪律：行本体（`EnterpriseMarketInlineRows` 的 presets 分支）与**配方详情子页面**
+ * 渲染的是**同一枚子块**，吃同一份 `facts`（唯一入口 `enterpriseMarketPresetRowFacts`）与同一个
+ * `onCopy` 回调——因此「详情里的动作与行上同源」是结构性的；回调缺席时**整枚不渲染**（不给死按钮）。
+ *
+ * @param row - 这一行的配方投影（动作语义从它取）。
+ * @param facts - 行 facts（`enterpriseMarketPresetRowFacts` 的产出）。
+ * @param onCopy - 与行上同一个回调；缺席即不渲染（没有写入口就连按钮都不画）。
+ * @returns 复制动作药丸，或 `null`。
+ */
+export function EnterpriseMarketPresetRowActions({ row, facts, onCopy }: {
+  readonly row: EnterpriseMarketPresetRow
+  readonly facts: EnterpriseMarketPresetRowFacts
+  readonly onCopy: ((row: EnterpriseMarketPresetRow) => void) | undefined
+}): ReactNode {
+  if (!facts.canCopyInstruction || onCopy === undefined) return null
+  return (
+    <button
+      type="button"
+      // 药丸的取值就是行上那枚辅助动作的取值（`baseStyles` 里只有 `.own-market-skillTag` 这一份药丸样式）：
+      // 直接复用，不新造第二枚药丸（也就不会多出一份会互相覆盖的全局单类 CSS）。
+      className="own-market-skillTag"
+      data-enterprise-preset-copy={row.id}
+      aria-label={`复制企业配方 ${row.displayName} 的导入指令`}
+      title={facts.copied ? '已复制到剪贴板' : '复制后粘贴给助手，即可按提示导入这条配方'}
+      onClick={() => { onCopy(row) }}
+    >
+      {facts.copied ? ENTERPRISE_PRESET_COPIED_TEXT : ENTERPRISE_PRESET_COPY_TEXT}
+    </button>
+  )
+}
+
+/**
  * 详情子页面里**一条文件树行**（纯投影、无 DOM，测试直调）。
  *
  * Host 回传的是**扁平**条目（`path` + `kind` + `sizeBytes`，按 `path` 码元升序），
@@ -2132,10 +2528,155 @@ export function EnterpriseSkillDetailPage(props: EnterpriseSkillPageProps): Reac
 }
 
 /**
+ * **配方详情子页面**交给纯呈现的那一组输入。
+ *
+ * **唯一构造点是共享控制器**（`useEnterpriseMarketController` 的 `presetPage`），因此这里每一件事实
+ * 都与行上同源：同一个 `EnterpriseMarketPresetRow`、同一份 `EnterpriseMarketPresetRowFacts`、
+ * 同一个 `onCopyPresetInstruction`、同一个 `presetCopiedId`；详情取数（`store.api.presetDetail(id)`）
+ * 也只由控制器那一个 effect 发（本组件**不持 hook、不发请求**，测试可直接函数调用）。
+ */
+export interface EnterprisePresetPageProps {
+  readonly row: EnterpriseMarketPresetRow
+  readonly facts: EnterpriseMarketPresetRowFacts
+  /**
+   * 详情取数结果（`store.api.presetDetail(id)`）。**类型就是 `unknown`**：本页只消费其中的
+   * `dependencies` 一个键，而解码这一路正在给员工端加这个键名——故这里刻意不绑死形状，
+   * 由纯投影 `enterprisePresetContentsState` 按「可能还没有这个字段」防御性读取。
+   */
+  readonly detail?: unknown | undefined
+  /** 详情在途（首帧就看得见轻提示，不空白）。 */
+  readonly detailLoading: boolean
+  /** 详情取数失败（稳定码）：唯一提示组件 + 重试；包含内容那一节同时如实说「暂时无法读取包含内容」。 */
+  readonly detailErrorCode?: string | undefined
+  /** 与行上同一个复制回调（缺席即详情里也不画那枚按钮）。 */
+  readonly onCopyInstruction?: ((row: EnterpriseMarketPresetRow) => void) | undefined
+  /** 详情取数失败后的重试（缺席即不渲染重试按钮，不给死路）。 */
+  readonly onReloadDetail?: (() => void) | undefined
+  /** 面包屑「返回配方列表」：把视图状态切回列表（唯一的返回入口）。 */
+  readonly onBack: () => void
+}
+
+/**
+ * **配方详情子页面**（纯函数、无 hook，可直接函数调用测试）。
+ *
+ * 与技能详情**同一形态**（同一套官方框架取值 + 同一个"整页切换、面包屑返回"的视图约定）：
+ *   ① 面包屑「返回配方列表」（`button.own-market-crumb` + 旋转 90° 的 chevron，`aria-label` 给完整动作语义）；
+ *   ② 头部（`detailHead`）：48×48 图标框 + 右侧动作区——动作渲染的正是**行上同一枚子块**
+ *      `EnterpriseMarketPresetRowActions`（同一份 facts、同一个 `onCopyInstruction`）；
+ *   ③ 正文头（`detailMain`）：`h3` 标题 + 来源徽标（官方 `Tag`，完整坐标）+ 等宽**标识行**（`presetId`）+ 描述；
+ *   ④ 分区（`detailSections` → `detailSection`）：**「这份配方包含」**一节 —— 按 `kind` 分组列出
+ *      技能 / 插件（未知类型归「其它」，不会被静默丢掉），每条显示 `id` 与「必需 / 可选」。
+ *
+ * 这一节的三条硬约束：
+ *   · `dependencies` **字段缺席**（解码这一路还没带上它）或形状不对 → 如实说「暂时无法读取包含内容」，
+ *     **绝不**当成「这条配方什么都不包含」（那是编造），也绝不白屏；
+ *   · 详情取数失败 → 同一句话 + 唯一提示组件（人话 + 下一步 + 「技术信息」里的码）+ **真的重发**的重试；
+ *   · 不新增 CSS：版式全部复用技能详情那套类名（列表/详情共用同一份 `<style>` 取值）。
+ */
+export function EnterprisePresetDetailPage(props: EnterprisePresetPageProps): ReactNode {
+  const contents = enterprisePresetContentsState({
+    loading: props.detailLoading,
+    ...(props.detail === undefined ? {} : { detail: props.detail }),
+  })
+  return (
+    <div className="own-market-detail" data-enterprise-preset-detail={props.row.id}>
+      {/* ① 面包屑 + 头部（图标 + 动作）：与技能详情同一套 `DetailTop` 取值。 */}
+      <div className="own-market-detailTop">
+        <button
+          type="button"
+          className="own-market-crumb"
+          aria-label={ENTERPRISE_PRESET_DETAIL_BACK_LABEL}
+          title={ENTERPRISE_PRESET_DETAIL_BACK_LABEL}
+          onClick={() => { props.onBack() }}
+        >
+          <ChevronDown className="own-market-crumbIcon" size={12} aria-hidden="true" />
+          <span>{ENTERPRISE_PRESET_DETAIL_BACK_TEXT}</span>
+        </button>
+        <div className="own-market-detailHead">
+          <span className="own-market-detailIcon" aria-hidden="true"><BookMarked size={24} /></span>
+          <div className="own-market-detailActions">
+            <EnterpriseMarketPresetRowActions row={props.row} facts={props.facts} onCopy={props.onCopyInstruction} />
+          </div>
+        </div>
+      </div>
+      {/* ③ 标题 + 来源徽标（完整坐标）+ 标识行 + 描述：来源/标识两枚人话标签与技能详情**同源**（同一份常量）。 */}
+      <div className="own-market-detailMain">
+        <div className="own-market-titleRow">
+          <h3 className="own-market-detailTitle">{props.row.displayName}</h3>
+          {props.facts.versionTag === undefined ? null : (
+            <span className="own-market-detailSource" title={ENTERPRISE_SKILL_DETAIL_SOURCE_TITLE}>
+              <span className="own-market-detailSourceLabel">{ENTERPRISE_SKILL_DETAIL_SOURCE_LABEL}</span>
+              <Tag className="own-market-tag own-market-skillVersionTag" tone="neutral">{props.facts.versionTag}</Tag>
+            </span>
+          )}
+        </div>
+        <p className="own-market-detailName">
+          <span className="own-market-detailNameLabel" title={ENTERPRISE_SKILL_DETAIL_NAME_TITLE}>{ENTERPRISE_SKILL_DETAIL_NAME_LABEL}</span>
+          <code>{props.row.presetId}</code>
+        </p>
+        <p className="own-market-detailDesc">{props.row.description}</p>
+      </div>
+      {/* ④ 分区：「这份配方包含」——按 kind 分组（技能 / 插件 / 其它），每条给 id 与「必需 / 可选」。 */}
+      <div className="own-market-detailSections">
+        <section
+          className="own-market-detailSection"
+          aria-label={ENTERPRISE_PRESET_CONTENTS_TITLE}
+          data-enterprise-preset-contents={props.row.id}
+          data-enterprise-preset-contents-state={contents.kind}
+        >
+          <div className="own-market-sectionHead">
+            <h4 className="own-market-sectionTitle">{ENTERPRISE_PRESET_CONTENTS_TITLE}</h4>
+            {contents.kind === 'available' ? (
+              <span className="own-market-sectionCount">{enterprisePresetContentsCountText(contents.count)}</span>
+            ) : null}
+          </div>
+          {contents.kind === 'available' ? contents.groups.map(group => (
+            <div key={group.kind} className="own-market-rowMain" data-enterprise-preset-group={group.kind}>
+              <span className="own-market-cardId">{group.label}</span>
+              <ul className="own-market-rows">
+                {group.items.map(item => (
+                  <li
+                    key={item.id}
+                    className="own-market-row"
+                    data-enterprise-preset-dependency={item.id}
+                    data-enterprise-preset-required={item.required ? 'true' : 'false'}
+                  >
+                    <div className="own-market-rowLine">
+                      <div className="own-market-rowMain">
+                        <span className="own-market-cardId">{item.id}</span>
+                        <span className="own-market-cardDesc">{enterprisePresetDependencyRequiredText(item.required)}</span>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )) : (
+            // 「读不到」与「确实不包含」都走这一行可见说明（文案由四态投影给）：**不空白、不编造**。
+            <p className="own-market-fileHint" role="status">{contents.hint}</p>
+          )}
+          {props.detailErrorCode === undefined ? null : (
+            <EnterpriseErrorNotice className="own-market-inlineError" code={props.detailErrorCode} prefix={ENTERPRISE_PRESET_DETAIL_FAILED} />
+          )}
+          {props.detailErrorCode === undefined || props.onReloadDetail === undefined ? null : (
+            <div className="own-market-fileRetry">
+              <Button size="sm" icon={<RefreshCw aria-hidden size={14} />} onClick={() => { props.onReloadDetail?.() }}>
+                {ENTERPRISE_SKILL_DETAIL_RETRY}
+              </Button>
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
+  )
+}
+
+/**
  * **目录行的唯一实现点**：按目录页签把整段 `<ul className="own-market-rows">`
  * 连行一起铺出来——技能行 = 行图标 + 两行文案（标题行 `.own-market-cardHead`：标题 + 版本签 + 可选分类签；
  * 描述行 `.own-market-cardDesc`）+ 右侧 `[有更新]` 与官方 `Switch` + 行下失败提示；插件行 = 行图标 + 两行文案 +
- * 状态点与官方状态词 + `Switch` + 行下失败提示。
+ * 状态点与官方状态词 + `Switch` + 行下失败提示；**配方行（本刀）** = 行图标 + 两行文案（标题行：标题 + 版本短号签
+ * + 可选分类签）+ 右侧「复制导入指令」+ **没有开关**（配方今天没有安装链路，不给假开关）。
  * 插件页「插件市场」（唯一入口）的目录行只经它渲染，故类名、取值、行 facts、
  * 动作落点（辅助动作严格排在开关左侧）与失败提示（`role="alert"` + 稳定错误码）在整页只有一份实现。
  * 纯函数、无 hook：事实一律来自 `enterpriseMarketShellModel` 与行 facts，本子块只负责铺版面。
@@ -2145,6 +2686,58 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
   readonly model: EnterpriseMarketShellModel
   readonly props: EnterpriseMarketShellProps
 }): ReactNode {
+  if (tab === 'presets') {
+    // 配方行与技能行**同级同款**：同一串行类名与同一份标题行取值（`.own-market-cardHead`/`cardId`/`cardDesc`
+    // + `.own-market-skillVersionHint` 包装完整坐标的 title），故本刀一个新类名都不加。
+    return (
+<ul className="own-market-rows">
+        {model.visiblePresets.map(preset => {
+          const facts = enterpriseMarketPresetRowFacts(props, preset)
+          return (
+            <li
+              key={preset.id}
+              className="own-market-row"
+              data-enterprise-preset-package={preset.id}
+              data-enterprise-preset-id={preset.presetId}
+            >
+              <div className="own-market-rowLine">
+                {/* **行标题可点开详情**（用户口径）：行本体（图标 + 两行文案）是一枚真 `<button>`，
+                    点它把面板整页切到配方详情子页面；动作是它的**同级兄弟**（结构性保证，不靠 stopPropagation）。
+                    回调缺席时 disabled + 说明性 title（照既有降级口径，不给死按钮）。 */}
+                <button
+                  type="button"
+                  className="own-market-rowOpen"
+                  data-enterprise-preset-open={preset.id}
+                  aria-label={`查看企业配方 ${preset.displayName} 详情`}
+                  disabled={props.onOpenPresetDetail === undefined}
+                  title={props.onOpenPresetDetail === undefined ? '详情入口未接通' : '查看详情'}
+                  onClick={() => { props.onOpenPresetDetail?.(preset) }}
+                >
+                  <span className="own-market-rowIcon"><BookMarked size={18} aria-hidden="true" /></span>
+                  <div className="own-market-rowMain">
+                    <span className="own-market-cardHead">
+                      <span className="own-market-cardId own-market-skillTitle">{preset.displayName}</span>
+                      {facts.versionLabel === undefined ? null : (
+                        <span className="own-market-skillVersionHint" title={facts.versionTag}>
+                          <Tag className="own-market-tag own-market-skillVersionTag" tone="neutral">{facts.versionLabel}</Tag>
+                        </span>
+                      )}
+                      {facts.categoryTag === undefined ? null : (
+                        <Tag className="own-market-tag own-market-skillCategoryTag" tone="info">{facts.categoryTag}</Tag>
+                      )}
+                    </span>
+                    <span className="own-market-cardDesc">{preset.description}</span>
+                  </div>
+                </button>
+                {/* 动作区：配方今天唯一真能用的那一条（复制导入指令）——**没有** Switch（不给假开关）。 */}
+                <EnterpriseMarketPresetRowActions row={preset} facts={facts} onCopy={props.onCopyPresetInstruction} />
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    )
+  }
   if (tab === 'skills') {
     return (
 <ul className="own-market-rows">
@@ -2252,12 +2845,14 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
  *  · 技能行 = 行图标 + 官方两行卡片（第 1 行 `.own-market-cardId` 标题 + 紧随的版本签/分类签、第 2 行 `.own-market-cardDesc` 描述）
  *    + 右侧 `[有更新（命中才出）] [Switch]` + 行下失败提示；
  *  · 插件行 = 行图标 + 两行文案 + 状态点 + 官方状态词 + `Switch` + 行下失败提示；
- *  · 三个页签共用 `EnterpriseMarketTabStrip`，组件节共用 `EnterpriseMarketComponentsPanel`。
+ *  · 配方行（本刀）= 行图标 + 两行文案 + 版本短号签 + 可选分类签 + 「复制导入指令」（无开关）；
+ *  · **四个页签**共用 `EnterpriseMarketTabStrip`，组件节共用 `EnterpriseMarketComponentsPanel`。
  *
  * **本刀（技能详情子页面）**：`props.skillPage` 非空时**整页切换**成 `EnterpriseSkillDetailPage`
  * ——列表、页签条、节容器整段**不渲染**（两个 return 分支，不是叠一层弹层），面包屑「返回技能列表」
  * 把视图状态清空即回到这里。它没有路由、没有新增 slot：面板本来就是官方 `plugins.item` 的 page 视图，
- * 切换只发生在这一个视图状态上。
+ * 切换只发生在这一个视图状态上。**配方详情（本刀）**：`props.presetPage` 走**同一条**形态
+ * （`EnterprisePresetDetailPage`，面包屑「返回配方列表」），两者由控制器保证互斥（同一时刻只可能有一个非空）。
  *
  * 纯函数、无 hook（`useState` 在共享控制器里）：事实一律来自 `enterpriseMarketShellModel` 与行 facts，本组件只负责铺版面。
  */
@@ -2269,6 +2864,15 @@ export function EnterpriseMarketLegacyShell(props: EnterpriseMarketShellProps): 
       <section className="own-market-entry" aria-label={ENTERPRISE_MARKET_ENTRY_LABEL}>
         <style>{baseStyles}{rowStyles}{detailStyles}</style>
         <EnterpriseSkillDetailPage {...props.skillPage} />
+      </section>
+    )
+  }
+  // 配方详情子页面：与技能详情**同一条**整页切换形态（同一份 `<style>`，因为不新增任何 CSS）。
+  if (props.presetPage !== undefined) {
+    return (
+      <section className="own-market-entry" aria-label={ENTERPRISE_MARKET_ENTRY_LABEL}>
+        <style>{baseStyles}{rowStyles}{detailStyles}</style>
+        <EnterprisePresetDetailPage {...props.presetPage} />
       </section>
     )
   }
@@ -2307,6 +2911,20 @@ export function EnterpriseMarketLegacyShell(props: EnterpriseMarketShellProps): 
               <EnterpriseMarketInlineRows tab="plugins" model={model} props={props} />
             ) : (
               <EnterpriseMarketListHint state={model.pluginsPanel} onRetry={props.onRetryPlugins} />
+            )}
+          </section>
+        ) : null}
+      </EnterpriseMarketPanel>
+      {/* 「企业配方」页签内容（本刀）：与「企业插件」同规则——「配方」组件开启（= 会话可用）且目录非空才出现，
+          列企业后台上传的真实配方目录（四态同技能/插件页签，取值来自与设置弹窗同一个取数源）。
+          行上**没有开关**：配方今天没有安装链路，动作区只给「复制导入指令」。 */}
+      <EnterpriseMarketPanel tab="presets" activeTab={model.activeTab}>
+        {model.activeTab === 'presets' && model.presetsPanel.kind !== 'hidden' ? (
+          <section className="own-market-section" data-market-section="enterprise-presets">
+            {model.presetsPanel.kind === 'ready' ? (
+              <EnterpriseMarketInlineRows tab="presets" model={model} props={props} />
+            ) : (
+              <EnterpriseMarketListHint state={model.presetsPanel} onRetry={props.onRetryPresets} />
             )}
           </section>
         ) : null}
@@ -2459,6 +3077,34 @@ export function useEnterpriseMarketController({ view, store, libraryGate }: {
   const onRetrySkills: (() => void) | undefined = catalogSource === undefined
     ? undefined
     : () => { catalogSource.retry() }
+  // 「企业配方」页签：取数源用的是**设置弹窗那份**取数源工厂（`createEnterprisePresetListSource`，
+  // 与「企业设置 → 配方」tab 逐字同一个），经同一个 `store.api` 发出——本页不新造宿主路由、不碰 local-api。
+  // 启动/中止纪律与技能目录完全一致：只在 `page` 视图 + 有 store + 会话可用时取，否则 `reset()`。
+  const presetSource = useMemo(
+    () => (catalogApi === undefined ? undefined : createEnterprisePresetListSource(catalogApi)),
+    [catalogApi],
+  )
+  const presetState: EnterpriseListState<readonly EnterpriseRuntimePreset[]> = useSyncExternalStore(
+    presetSource?.subscribe ?? ENTERPRISE_MARKET_CATALOG_SUBSCRIBE,
+    presetSource?.getSnapshot ?? ENTERPRISE_MARKET_PRESET_SNAPSHOT,
+    presetSource?.getSnapshot ?? ENTERPRISE_MARKET_PRESET_SNAPSHOT,
+  )
+  useEffect(() => {
+    if (presetSource === undefined) return
+    if (view !== 'page' || !sessionUsable) {
+      presetSource.reset()
+      return
+    }
+    presetSource.load()
+    return () => { presetSource.reset() }
+  }, [presetSource, view, sessionUsable])
+  const presetValue = presetState.kind === 'ready' || presetState.kind === 'empty' ? presetState.value : undefined
+  // 行投影只有这一处（`enterpriseMarketPresetRows`）：行的动作、详情页的动作都从它产出的行再算同一份 facts。
+  const enterprisePresets: readonly EnterpriseMarketPresetRow[] = enterpriseMarketPresetRows(presetValue ?? [])
+  // 配方页签的重试 = 取数源 `retry()`（真的重发一次配方目录取数）；没有 store 就没有按钮。
+  const onRetryPresets: (() => void) | undefined = presetSource === undefined
+    ? undefined
+    : () => { presetSource.retry() }
   // 失败可见反馈（两行共用同一份口径）：
   // · 技能侧：动作 promise 的 catch 直接拿到错误对象（行键 = 技能包 id）；
   // · 插件侧：`store.#pluginAction` 把失败**吞**进 `snapshot.pluginErrorCode`（不 rethrow，设置页插件
@@ -2606,7 +3252,54 @@ export function useEnterpriseMarketController({ view, store, libraryGate }: {
     return () => { controller.abort() }
   }, [api, detailPackageId, selectedEntry?.path, fileAttempt])
   /**
-   * 目录行与详情子页面**共用**的那一份 props（**不含** `skillPage`，否则自引用）：
+   * **配方详情的三件状态**（点配方行标题后才非空）：目标只存**行 id**（行对象在渲染时从当前目录投影里
+   * `find` 出来，目录刷新后详情不停在旧副本上）、详情取数结果、在途与失败码。
+   *
+   * 详情取数（`store.api.presetDetail(id)`）与技能详情同一纪律：只在「配方详情打开 + 有 store」时发，
+   * 关详情 / 换配方即 abort 且迟到结果不回填；失败**记稳定码**（由详情里那节出一句话 + 唯一提示组件 + 真重发），
+   * 绝不静默回落、也绝不把「没读到」当成「不包含」。
+   */
+  const [presetDetailId, setPresetDetailId] = useState<string>()
+  const [presetDetail, setPresetDetail] = useState<unknown>()
+  const [presetDetailLoading, setPresetDetailLoading] = useState(false)
+  const [presetDetailCode, setPresetDetailCode] = useState<string>()
+  const [presetDetailAttempt, setPresetDetailAttempt] = useState(0)
+  /** 刚刚复制过的那条配方（复制成功的可见反馈；同一份事实同时给行上与详情里的那枚按钮）。 */
+  const [presetCopiedId, setPresetCopiedId] = useState<string>()
+  useEffect(() => {
+    if (api === undefined || presetDetailId === undefined) {
+      setPresetDetail(undefined)
+      setPresetDetailCode(undefined)
+      setPresetDetailLoading(false)
+      return
+    }
+    const controller = new AbortController()
+    setPresetDetail(undefined)
+    setPresetDetailCode(undefined)
+    setPresetDetailLoading(true)
+    void api.presetDetail(presetDetailId, controller.signal)
+      .then(value => { if (!controller.signal.aborted) setPresetDetail(value) })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) setPresetDetailCode(enterpriseLocalErrorCode(error))
+      })
+      .finally(() => { if (!controller.signal.aborted) setPresetDetailLoading(false) })
+    return () => { controller.abort() }
+  }, [api, presetDetailId, presetDetailAttempt])
+  /**
+   * **复制导入指令**（配方今天唯一真能用的动作）：正文由 `buildPresetImportInstruction`
+   * ——与「企业设置 → 配方」弹窗**同一个**构造器——产出（同一句指令、同一个配方坐标），
+   * 写进剪贴板后把这条行 id 记下来（按钮文案随之变「已复制」）。
+   * 指令正文**不上屏**（它含上游专名，本页术语要求不上这些词）。
+   * 与 `preset-market.tsx` 的复制按钮同一条写法（那边也是 `void navigator.clipboard.writeText(...)`）。
+   */
+  const onCopyPresetInstruction: ((row: EnterpriseMarketPresetRow) => void) | undefined = hasStore
+    ? (row) => {
+      const instruction = buildPresetImportInstruction(row, snapshot.status?.platformUrl ?? null)
+      void navigator.clipboard.writeText(instruction).then(() => { setPresetCopiedId(row.id) })
+    }
+    : undefined
+  /**
+   * 目录行与详情子页面**共用**的那一份 props（**不含** `skillPage`/`presetPage`，否则自引用）：
    * 行 facts 的唯一入口吃它，详情里的动作再吃同一份 facts，两处因此不可能各说一套。
    */
   const baseShellProps: EnterpriseMarketShellProps = {
@@ -2619,11 +3312,17 @@ export function useEnterpriseMarketController({ view, store, libraryGate }: {
     ...(onRetryLibrarySave === undefined ? {} : { onRetryLibrarySave }),
     enterprisePlugins,
     enterpriseSkills,
+    enterprisePresets,
     // 两个目录页签的四态与重试（唯一事实源：技能来自取数源、插件来自账号 store 的投影）。
     skillsListState: catalogState,
     ...(onRetrySkills === undefined ? {} : { onRetrySkills }),
     pluginsListState,
     ...(onRetryPlugins === undefined ? {} : { onRetryPlugins }),
+    // 配方页签（本刀）：与另两个目录页签同形的四态 + 重试，动作只有「复制导入指令」这一条。
+    presetsListState: presetState,
+    ...(onRetryPresets === undefined ? {} : { onRetryPresets }),
+    onCopyPresetInstruction,
+    ...(presetCopiedId === undefined ? {} : { presetCopiedId }),
     onTogglePlugin,
     installedSkills,
     pendingSkill,
@@ -2638,7 +3337,10 @@ export function useEnterpriseMarketController({ view, store, libraryGate }: {
     onToggleRow,
     // 点行本体 = 把**那一行**记成当前详情目标；行的开关与 `[有更新]` 有自己的回调，不经过这里。
     // 点行本体只记**包 id**；行对象在渲染时从当前目录投影里取，详情与行因此永远看同一份数据。
-    onOpenSkillDetail: (row) => { setSkillDetailId(row.id) },
+    // **本刀（企业配方页签）**：配方行同理——点行标题只记配方 id，详情与行看同一份目录投影
+    // （故两个详情目标天然互斥：点配方行的标题只会把配方目标写进状态）。
+    onOpenSkillDetail: (row) => { setSkillDetailId(row.id); setPresetDetailId(undefined) },
+    onOpenPresetDetail: (row) => { setPresetDetailId(row.id); setSkillDetailId(undefined) },
   }
   /**
    * 详情子页面的输入**只在这里构造一次**：行投影、行 facts（与行上同一个函数）、已装记录（同一份
@@ -2667,9 +3369,28 @@ export function useEnterpriseMarketController({ view, store, libraryGate }: {
     onReloadFile: () => { setFileAttempt(current => current + 1) },
     onBack: () => { setSkillDetailId(undefined) },
   }
+  /**
+   * **配方详情子页面的输入只在这里构造一次**（与技能详情同一条纪律，理由逐条相同）：行投影来自当前配方目录、
+   * facts 走**行上同一个**入口 `enterpriseMarketPresetRowFacts`、动作是行上**同一个** `onCopyPresetInstruction`。
+   * 详情取数结果（只消费 `dependencies`）与在途/失败码来自上面那一个 effect；面包屑「返回配方列表」= 清掉目标 id。
+   */
+  const presetPageRow = presetDetailId === undefined
+    ? undefined
+    : enterprisePresets.find(item => item.id === presetDetailId)
+  const presetPage: EnterprisePresetPageProps | undefined = presetPageRow === undefined ? undefined : {
+    row: presetPageRow,
+    facts: enterpriseMarketPresetRowFacts(baseShellProps, presetPageRow),
+    ...(presetDetail === undefined ? {} : { detail: presetDetail }),
+    detailLoading: presetDetailLoading,
+    ...(presetDetailCode === undefined ? {} : { detailErrorCode: presetDetailCode }),
+    ...(onCopyPresetInstruction === undefined ? {} : { onCopyInstruction: onCopyPresetInstruction }),
+    onReloadDetail: () => { setPresetDetailAttempt(current => current + 1) },
+    onBack: () => { setPresetDetailId(undefined) },
+  }
   const shellProps: EnterpriseMarketShellProps = {
     ...baseShellProps,
     ...(skillPage === undefined ? {} : { skillPage }),
+    ...(presetPage === undefined ? {} : { presetPage }),
   }
   return {
     // 页面 props **只在这里构造一次**：目录行与详情子页面拿到的是同一个形状、同一批事实。
