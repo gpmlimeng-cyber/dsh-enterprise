@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖共享 EnterpriseAccountStore、Harness Modal/Button、Lucide 图标、display-format 的大小格式化与同源技能 API（列表/详情/**已装态与安装/卸载**）
  * [OUTPUT]: 提供设置页内的企业技能目录（搜索/卡片/详情弹窗）、调用策略与条目纯投影（`enterpriseSkillInvocationLabel`/`enterpriseSkillMeta`/`enterpriseSkillEntryRows`）、安装态投影 `enterpriseSkillInstallState`、`buildSkillInstruction` 装配指令与 `EnterpriseSkillMarket` 视图
- * [POS]: ui 的员工技能广场视图，由「企业设置」的技能 tab 承载；每行一个「安装」按钮经同源 `/skills/install` 由 Host 完成「下载 + SHA-256 校验 + 落盘到官方 `~/.dsh/skills`」，已装行显示已装态并可卸载；仍保留「复制装配指令」作为不装也能交给用户自己 Agent 会话的第二条路。默认不执行包内任何内容（安装 = 落盘），这一条在详情里如实写给用户
+ * [POS]: ui 的员工技能广场视图，由「企业设置」的技能 tab 承载；每行一个「安装」按钮经同源 `/skills/install` 由 Host 完成「下载 + SHA-256 校验 + 落盘到官方 `~/.dsh/skills`」，已装行显示已装态并可卸载；仍保留「复制装配指令」作为不装也能交给用户自己 Agent 会话的第二条路。默认不执行包内任何内容（安装 = 落盘），这一条在详情里如实写给用户。**本刀（失败文案降维 + 术语降维）**：目录加载失败与安装/卸载失败改渲染 `EnterpriseErrorNotice`（人话 + 「下一步：」+「技术信息」里的稳定码）；`技能 ID` 统一说成「标识」，卡片元信息加「来源」标签，装配指令里的 `技能 ID：` 同步改成 `标识：`
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -10,6 +10,7 @@ import { CircleCheck, Copy, LoaderCircle, PackagePlus, RefreshCw, Search, Shield
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import type { EnterpriseAccountStore } from './account-store.js'
 import { formatByteSize } from './display-format.js'
+import { EnterpriseErrorNotice } from './error-notice.js'
 import type { EnterpriseInstalledSkill, EnterpriseRuntimeSkill, EnterpriseSkillEntry } from './local-api.js'
 import { createEnterpriseLocalApi, enterpriseLocalErrorCode } from './local-api.js'
 
@@ -50,9 +51,9 @@ export function enterpriseSkillInvocationLabel(entry: EnterpriseSkillEntry): str
   return entry.modelInvocable ? '模型可调用' : '仅用户可调用'
 }
 
-/** 卡片元信息：DSH 来源版本 · 制品大小 · 包内技能数（与配方卡片同一份大小口径）。 */
+/** 卡片元信息：**来源版本**（标明这不是裸坐标）· 制品大小 · 包内技能数（与配方卡片同一份大小口径）。 */
 export function enterpriseSkillMeta(skill: EnterpriseRuntimeSkill): string {
-  return `DSH ${skill.sourceDshVersion} · ${formatByteSize(skill.sizeBytes)} · ${skill.skillCount} 个技能`
+  return `来源 DSH ${skill.sourceDshVersion} · ${formatByteSize(skill.sizeBytes)} · ${skill.skillCount} 个技能`
 }
 
 /** 详情里一个技能条目的可渲染投影（只出界面真正展示的四个事实）。 */
@@ -91,7 +92,7 @@ export function buildSkillInstruction(skill: EnterpriseRuntimeSkill, platformUrl
     '读取详情并检查安全信息后，在实际下载和落盘前向我确认。',
     `技能包：${downloadUrl}`,
     `名称：${skill.displayName}`,
-    `技能 ID：${skill.skillId}`,
+    `标识：${skill.skillId}`,
     '建议目标目录：~/.dsh/skills/（也能放项目 <projectRoot>/.dsh/skills/）',
     '落点形态：~/.dsh/skills/<name>/SKILL.md，frontmatter 必填 kebab-case 的 name 与 description',
     '生效方式：官方 skill-filesystem 按 rank 扫描，落盘后 watcher 自动发现，无需重启。',
@@ -253,7 +254,7 @@ export function EnterpriseSkillMarket({ store }: {
       ) : loading && items === undefined ? (
         <div className="own-skill-empty"><LoaderCircle aria-hidden size={16} /> 正在加载企业技能</div>
       ) : errorCode !== undefined ? (
-        <div className="own-skill-error" role="alert">技能目录加载失败 <code>{errorCode}</code></div>
+        <EnterpriseErrorNotice className="own-skill-error" code={errorCode} prefix="技能目录加载失败" />
       ) : filtered.length === 0 ? (
         <div className="own-skill-empty">暂无可见技能</div>
       ) : (
@@ -287,9 +288,11 @@ export function EnterpriseSkillMarket({ store }: {
                   </Button>
                 </div>
                 {actionError?.packageId === item.id
-                  ? <div className="own-skill-error own-skill-inlineError" role="alert">
-                    {state.action === 'install' ? '安装失败' : '卸载失败'} <code>{actionError.code}</code>
-                  </div>
+                  ? <EnterpriseErrorNotice
+                    className="own-skill-error own-skill-inlineError"
+                    code={actionError.code}
+                    prefix={state.action === 'install' ? '安装失败' : '卸载失败'}
+                  />
                   : null}
               </article>
             )
@@ -304,7 +307,7 @@ export function EnterpriseSkillMarket({ store }: {
               <span>技能包内的 SKILL.md 正文是 Agent 会加载并执行的自然语言指令，可能以 Agent 权限读写文件或调用工具。仅装配企业管理员发布的技能，并在装配前确认安全提示。「安装」只做下载、SHA-256 校验与落盘到 ~/.dsh/skills/，不会执行包内任何脚本；是否执行由你自己的 Agent 会话决定。</span>
             </div>
             <div className="own-skill-sub">{shown?.description === undefined || shown.description === '' ? '（暂无描述）' : shown.description}</div>
-            <div className="own-skill-sub">技能 ID：{shown?.skillId ?? selected.skillId}</div>
+            <div className="own-skill-sub">标识：{shown?.skillId ?? selected.skillId}</div>
             {detail === undefined ? <div className="own-skill-sub">正在读取技能详情…</div> : null}
             {entryRows.length === 0 ? null : (
               <ul className="own-skill-entries" aria-label="包含的技能">
@@ -344,9 +347,7 @@ export function EnterpriseSkillMarket({ store }: {
               )
             })()}
             {actionError?.packageId === selected.id
-              ? <div className="own-skill-error own-skill-inlineError" role="alert">
-                操作失败 <code>{actionError.code}</code>
-              </div>
+              ? <EnterpriseErrorNotice className="own-skill-error own-skill-inlineError" code={actionError.code} prefix="操作失败" />
               : null}
             <Button
               size="sm"

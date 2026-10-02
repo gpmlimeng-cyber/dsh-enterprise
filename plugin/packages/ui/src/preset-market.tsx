@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖共享 EnterpriseAccountStore、Harness Modal/Button、Lucide 图标、display-format 的大小格式化与同源配方 API
- * [OUTPUT]: 提供设置页内的企业配方列表、详情安全提示与复制导入指令（不自动下载/导入）
+ * [OUTPUT]: 提供设置页内的企业配方列表、详情安全提示与复制导入指令（不自动下载/导入）。**本刀（失败文案降维 + 术语降维）**：目录失败改渲染 `EnterpriseErrorNotice`（人话 + 下一步 + 技术信息里的码）；员工可见文案里的 `Preset` / `预设 ID` 换成「配方 / 标识」，卡片元信息加上「来源」标签；导入指令里只保留上游专名 `Preset Square Skill`（不改写）
  * [POS]: ui 的员工配方广场视图，由「企业设置」的配方 tab 承载；一期不扩展 plugin-distribution 状态机
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,6 +10,7 @@ import { BookOpen, Copy, LoaderCircle, RefreshCw, Search, ShieldAlert } from 'lu
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import type { EnterpriseAccountStore } from './account-store.js'
 import { formatByteSize } from './display-format.js'
+import { EnterpriseErrorNotice } from './error-notice.js'
 import type { EnterpriseRuntimePreset } from './local-api.js'
 import { createEnterpriseLocalApi } from './local-api.js'
 
@@ -42,11 +43,11 @@ export function buildPresetImportInstruction(
     ? `${base}/enterprise/api/v1/presets/versions/${preset.versionId}/download`
     : `${base}/enterprise/api/v1/presets/${preset.id}`
   return [
-    '请先读取并遵循 Preset Square Skill，然后从 DSH Enterprise 下载并导入下面这个 Preset。',
+    '请先读取并遵循 Preset Square Skill，然后从 DSH Enterprise 下载并导入下面这个配方。',
     '读取详情并检查安全信息后，在实际下载和导入前向我确认。',
-    `Preset：${downloadUrl}`,
+    `配方：${downloadUrl}`,
     `名称：${preset.displayName}`,
-    `预设 ID：${preset.presetId}`,
+    `标识：${preset.presetId}`,
     `建议目标标识：${preset.presetId}-ent`,
   ].join('\n')
 }
@@ -127,7 +128,7 @@ export function EnterprisePresetMarket({ store }: {
       ) : loading && items === undefined ? (
         <div className="own-preset-empty"><LoaderCircle aria-hidden size={16} /> 正在加载企业配方</div>
       ) : errorCode !== undefined ? (
-        <div className="own-preset-error" role="alert">配方目录加载失败 <code>{errorCode}</code></div>
+        <EnterpriseErrorNotice className="own-preset-error" code={errorCode} prefix="配方目录加载失败" />
       ) : filtered.length === 0 ? (
         <div className="own-preset-empty">暂无可见配方</div>
       ) : (
@@ -141,7 +142,7 @@ export function EnterprisePresetMarket({ store }: {
                   <span className="own-preset-sub">{item.description}</span>
                 </span>
               </button>
-              <div className="own-preset-meta">DSH {item.sourceDshVersion} · {formatByteSize(item.sizeBytes)}</div>
+              <div className="own-preset-meta">来源 DSH {item.sourceDshVersion} · {formatByteSize(item.sizeBytes)}</div>
             </article>
           ))}
         </div>
@@ -151,7 +152,7 @@ export function EnterprisePresetMarket({ store }: {
           <div ref={details} style={{ display: 'grid', gap: 12, padding: 12 }}>
             <div className="own-preset-trust">
               <ShieldAlert aria-hidden size={16} />
-              <span>自定义 Preset 是可执行配置，可能加载插件并以 Agent 权限访问文件。仅导入企业管理员批准的配方，并在导入前确认安全提示。</span>
+              <span>自定义配方是可执行的配置，可能加载插件并以 Agent 权限访问文件。仅导入企业管理员批准的配方，并在导入前确认安全提示。</span>
             </div>
             <div className="own-preset-sub">{detail?.description ?? selected.description}</div>
             <div className="own-preset-sub">预设 ID：{detail?.presetId ?? selected.presetId}</div>

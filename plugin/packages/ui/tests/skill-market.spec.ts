@@ -133,7 +133,7 @@ describe('enterprise skill market', () => {
     expect(instruction).toContain('https://enterprise.example.com/enterprise/api/v1/skills/versions/9001/download')
     expect(instruction).not.toContain('.com//enterprise')
     expect(instruction).toContain('名称：企业代码评审技能包')
-    expect(instruction).toContain('技能 ID：code-review-ent')
+    expect(instruction).toContain('标识：code-review-ent')
     expect(instruction).toContain('建议目标目录：~/.dsh/skills/')
     expect(instruction).toContain('读取详情并检查安全信息后，在实际下载和落盘前向我确认')
     expect(instruction).toContain('kebab-case')
@@ -153,7 +153,7 @@ describe('enterprise skill market', () => {
       { name: 'code-review', description: '按检查单评审改动', policy: '模型可调用' },
       { name: 'release-notes', description: '生成发布说明', whenToUse: '用户要求发布说明时', policy: '仅用户可调用' },
     ])
-    expect(enterpriseSkillMeta(decodeEnterpriseSkillDetail(DETAIL))).toBe('DSH 0.2.0-rc.2 · 2.0 KiB · 2 个技能')
+    expect(enterpriseSkillMeta(decodeEnterpriseSkillDetail(DETAIL))).toBe('来源 DSH 0.2.0-rc.2 · 2.0 KiB · 2 个技能')
   })
 
   it('decodes the installed skill state and rejects any leaked host fact', () => {

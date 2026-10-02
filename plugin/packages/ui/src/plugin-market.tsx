@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖共享 EnterpriseAccountStore 的企业目录/本机事实、Harness Modal/Button 与 Lucide 图标
- * [OUTPUT]: 提供设置页内的插件搜索/已安装筛选、版本详情、显式安装/卸载及状态文案
+ * [OUTPUT]: 提供设置页内的插件搜索/已安装筛选、版本详情、显式安装/卸载及状态文案。**本刀（失败文案降维）**：删除本文件的插件码表，失败一律渲染 `EnterpriseErrorNotice`（人话 + 「下一步：」+「技术信息」里的稳定码），兜底不再把码拼进可见句子
  * [POS]: ui 的员工插件管理视图，由「企业设置」的插件 tab 承载，数据与执行由 DSH Enterprise Host 拥有
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,6 +10,7 @@ import { Check, Download, Package, RefreshCw, Search, Trash2 } from 'lucide-reac
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import type { EnterpriseAccountStore } from './account-store.js'
 import { ConfirmAction } from './confirm-action.js'
+import { EnterpriseErrorNotice } from './error-notice.js'
 import type { ManagedPluginState } from './local-api.js'
 
 const STATES: Record<ManagedPluginState, { title: string; description: string; color: string }> = {
@@ -28,19 +29,8 @@ const STATES: Record<ManagedPluginState, { title: string; description: string; c
 
 export const enterprisePluginStatePresentation = (state: ManagedPluginState) => STATES[state]
 
-const ERRORS: Record<string, string> = {
-  ENT_PLUGIN_SIGNATURE_INVALID: '企业插件信任配置不可用，请联系管理员',
-  ENT_PLUGIN_INCOMPATIBLE: '与当前客户端不兼容',
-  ENT_PERMISSION_DENIED: '插件已下架或可见范围已变更，请刷新',
-  ENT_PLUGIN_BUSY: '另一项插件操作正在进行',
-  ENT_PLUGIN_HASH_MISMATCH: '插件文件校验失败，请重试',
-  ENT_PLUGIN_CLI_FAILED: '插件安装工具执行失败，请重试',
-  ENT_PLUGIN_LOADER_INACTIVE: '插件未能启动，请重试或卸载',
-  ENT_AUTH_REQUIRED: '请先登录企业账号',
-}
 const OS: Record<string, string> = { darwin: 'macOS', linux: 'Linux', win32: 'Windows' }
 const bytes = (value: number) => value < 1024 * 1024 ? `${Math.ceil(value / 1024)} KiB` : `${(value / 1024 / 1024).toFixed(1)} MiB`
-const errorMessage = (code: string) => ERRORS[code] ?? `插件操作失败 (${code})`
 
 const styles = `
 .own-market{color:var(--dsw-alias-label-primary,#101828);font-size:13px;letter-spacing:0;min-width:0}
@@ -138,7 +128,7 @@ export function EnterprisePluginMarket({ store }: {
         icon={<RefreshCw size={16} aria-hidden />} onClick={() => { void store.refreshPlugins() }} />
     </div>
     {restartRequired ? <div className="own-market-notice" role="status">插件变更已保存，完全退出并重新打开客户端后生效。</div> : null}
-    {snapshot.pluginErrorCode || fatal ? <div className="own-market-notice own-market-error" role="alert">{errorMessage(snapshot.pluginErrorCode ?? fatal!)}</div> : null}
+    {snapshot.pluginErrorCode || fatal ? <EnterpriseErrorNotice className="own-market-notice own-market-error" code={(snapshot.pluginErrorCode ?? fatal)!} /> : null}
     {status?.lastReportErrorCode ? <div className="own-market-notice" role="status">设备状态暂未上报</div> : null}
     {!connected ? <div className="own-market-empty">登录企业账号后可用</div> : snapshot.pluginsLoading && !status ? <div className="own-market-empty" role="status">正在加载插件</div> : rows.length === 0 ? <div className="own-market-empty">{query ? '没有匹配的插件' : view === 'installed' ? '尚未安装企业插件' : '暂无可用企业插件'}</div> : null}
     <div className="own-market-grid">
@@ -152,8 +142,8 @@ export function EnterprisePluginMarket({ store }: {
             <span style={{ minWidth: 0 }}><strong>{name}</strong><span className="own-market-sub">企业发布 · v{item?.version ?? record?.version}</span></span>
           </button>
           <div className="own-market-sub">{item ? `${item.operatingSystems.map(os => OS[os]).join(' / ')} · ${bytes(item.sizeBytes)}` : '已不在企业目录中'}</div>
-          {item?.installErrorCode ? <div className="own-market-sub">{errorMessage(item.installErrorCode)}</div> : null}
-          {record?.lastErrorCode ? <div className="own-market-sub own-market-error">{errorMessage(record.lastErrorCode)}</div> : null}
+          {item?.installErrorCode ? <EnterpriseErrorNotice className="own-market-sub" code={item.installErrorCode} /> : null}
+          {record?.lastErrorCode ? <EnterpriseErrorNotice className="own-market-sub own-market-error" code={record.lastErrorCode} /> : null}
           <footer><span style={{ color: presentation?.color ?? 'var(--dsw-alias-label-secondary,#667085)' }}>{presentation?.title ?? '可选安装'}</span>{actions(name)}</footer>
         </article>
       })}
@@ -166,7 +156,7 @@ export function EnterprisePluginMarket({ store }: {
         <dt>本机版本</dt><dd>{selectedLocal?.desiredState === 'INSTALLED' ? selectedLocal.version : '未安装'}</dd>
         <dt>发布方</dt><dd>企业管理员</dd>
         {selectedItem ? <><dt>系统</dt><dd>{selectedItem.operatingSystems.map(os => OS[os]).join(' / ')}</dd><dt>大小</dt><dd>{bytes(selectedItem.sizeBytes)}</dd></> : null}
-        {selectedItem?.installErrorCode ? <><dt>安装状态</dt><dd>{errorMessage(selectedItem.installErrorCode)}</dd></> : null}
+        {selectedItem?.installErrorCode ? <><dt>安装状态</dt><dd><EnterpriseErrorNotice code={selectedItem.installErrorCode} /></dd></> : null}
       </dl>
     </Modal>
   </section>

@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 React（useEffect/useState）、lucide-react 图标（技能行 Sparkles + 插件行 Package + 组件行三枚 + 详情面包屑的 ChevronDown / 文件树的 Folder 与 FileText）、官方 ui-primitives 的 Button/Switch/Tag/StateDot（pinned 0.1.5-rc.2 的 .d.ts 已导出，不走 official-ui 收窄接缝；**该 pin 不含 `SegmentedTabs`**，故页签条照 `account-view.tsx` 既有 tablist 手写自绘）、display-format 的 `formatByteSize`（文件大小唯一口径：行内字节提示与预览体积提示都取它）、account-state 的 `enterpriseSessionUsable` 与 account-store 的 `EnterpriseAccountStore`（订阅只发生在控制器 `useEnterpriseMarketController` 里）、local-api-decode 的技能 DTO（`EnterpriseRuntimeSkill` 目录 + 已装记录 `EnterpriseInstalledSkill`——「已装」只认后者这一份 Host 真值；**文件树条目 `EnterpriseSkillFileEntry` 与树里单个文本文件 `EnterpriseInstalledSkillFile`**——详情子页面左树右预览的两种输入）与失败码唯一投影 `enterpriseLocalErrorCode`（行内与详情里的错误码来源，与「技能」tab 同源）、消费官方 `plugins.item` owner props（`view`/`form`）；中心当前版本只从**详情投影** `store.api.skillDetail(id)` 取（列表投影的 `versionId` 恒为空串），且只对已装行取——未装行没有本机版本可比，不白跑请求
+ * [INPUT]: 依赖 React（useEffect/useState）、lucide-react 图标（技能行 Sparkles + 插件行 Package + 组件行三枚 + 详情面包屑的 ChevronDown / 文件树的 Folder 与 FileText）、官方 ui-primitives 的 Button/Switch/Tag/StateDot（pinned 0.1.5-rc.2 的 .d.ts 已导出，不走 official-ui 收窄接缝；**该 pin 不含 `SegmentedTabs`**，故页签条照 `account-view.tsx` 既有 tablist 手写自绘）、display-format 的 `formatByteSize`（文件大小唯一口径：行内字节提示与预览体积提示都取它）、account-state 的 `enterpriseSessionUsable` 与 account-store 的 `EnterpriseAccountStore`（订阅只发生在控制器 `useEnterpriseMarketController` 里）、local-api-decode 的技能 DTO（`EnterpriseRuntimeSkill` 目录 + 已装记录 `EnterpriseInstalledSkill`——「已装」只认后者这一份 Host 真值；**文件树条目 `EnterpriseSkillFileEntry` 与树里单个文本文件 `EnterpriseInstalledSkillFile`**——详情子页面左树右预览的两种输入）与失败码唯一投影 `enterpriseLocalErrorCode`（行内与详情里的错误码来源，与「技能」tab 同源）、消费官方 `plugins.item` owner props（`view`/`form`）；中心当前版本只从**详情投影** `store.api.skillDetail(id)` 取（列表投影的 `versionId` 恒为空串），且只对已装行取——未装行没有本机版本可比，不白跑请求、error-notice 的员工侧统一失败提示 `EnterpriseErrorNotice`（人话 + 下一步动作 + 收进「技术信息」的稳定码，样式走行内 `--dsw-*` token，跨页复用不新增可覆盖类）与 error-messages 的唯一一份码 → 人话映射
  * [REF]: **目录行的逐段真源是 `9723a97:plugin/packages/ui/src/marketplace-entry.tsx`**（技能行 = 官方两行卡片：第 1 行标题 `.own-market-cardId` + 版本签 + 分类签，第 2 行描述 `.own-market-cardDesc`，右侧 `[有更新] [Switch]`；插件行 = 图标 + 两行文案 + 状态点 + 官方状态词 + `Switch`；三个页签；组件节折叠），**不从记忆重写**；**详情子页面的框架真源是官方 `@deepseek-ai/dsh-client-ui-plugin-manager` 的 `ItemDetail`/`DetailTop` 与它那份 CSS module**（本机 node_modules 的 `lib/client.js`：`_detail`/`_detailTop`/`_crumb`+`_crumbIcon`/`_detailHead`+`_cardIcon`/`_detailMain`/`_detailTitle`/`_detailName`/`_detailDesc`/`_detailSections`/`_detailSection`/`_sectionHead`/`_sectionTitle`/`_sectionCount`），取值逐条抄进 `detailStyles` 的注释对照表；行版式统一那一刀留下的共享行子块 `EnterpriseMarketInlineRows` 与 `.own-market-storeTabs` 类名照旧。
- * [OUTPUT]: **一棵目录页外壳 + 一份逻辑 + 一个技能详情子页面**。**本刀（详情子页面 + 文件树）**：技能行**行本体**（图标 + 两行文案）是一枚真 `<button class="own-market-rowOpen">`——点它把面板**整页切到**详情子页面（`EnterpriseMarketLegacyShell` 按 `props.skillPage` 走两个 return 分支：详情那一支里列表 / 页签条 / 节容器**一字不挂载**）；`[有更新]` 与官方 `Switch` 是它在 `.own-market-rowLine` 里的**同级兄弟**（不在按钮内，故点动作既不用冒泡也不被藏起来），两者由**唯一一枚子块** `EnterpriseMarketSkillRowActions` 渲染（行上与详情里渲染的是同一枚子块、同一份 `facts`、同一个 `onToggleSkill`）。详情子页面是纯函数 `EnterpriseSkillDetailPage`（无 hook、可直接函数调用测试）：**面包屑「返回技能列表」**（`aria-label` 给完整动作语义，点它就是 `onBack` 回列表）+ `h3` 标题 + 版本徽标（官方 `Tag`）+ **等宽标识行**（`skillId`）+ 描述 + 分区 `detailSections` → `detailSection`（文件区：**左文件树 + 右文件预览**）。纯投影 `enterpriseSkillTreeRows`/`enterpriseSkillDefaultFilePath`/`enterpriseSkillFileCountText`/`enterpriseSkillTreeState`/`enterpriseSkillPreviewState` 与文案常量 `ENTERPRISE_SKILL_TREE_*`/`ENTERPRISE_SKILL_PREVIEW_*`/`ENTERPRISE_SKILL_DETAIL_{BACK_TEXT,BACK_LABEL,FILES_TITLE,RETRY}`/`ENTERPRISE_SKILL_CONTENT_FILENAME` 都在出口上；控制器新增详情目标 id 与四组文件状态（树条目 / 在途 / 错误、选中路径、预览正文 / 在途 / 错误）加两个取数 effect（**只在「详情打开 + 该包已装 + 有 store」时发请求**，未装一条都不发；取到树后默认选中并预览 `SKILL.md`；关详情 / 换包即 abort 且迟到结果不回填），并把 `skillPage` 塞进同一份 props。 以下为既有能力：**一份外壳 + 一份逻辑**。共享逻辑只有一处：控制器 hook `useEnterpriseMarketController`（store 订阅与取数、已装真值、安装/卸载动作、失败码归行、页签选中态、行开合态）、模型投影 `enterpriseMarketShellModel(props)`（组件清单行、目录门控、页签文案与计数、折叠态）与行级 facts `enterpriseMarketSkillRowFacts`/`enterpriseMarketPluginRowFacts`（受管态、开关口径、更新判定、两枚签取值、行键与开合、插件开关禁用口径）。目录行由共享子块 `EnterpriseMarketInlineRows` 铺出（技能行 = 图标 + 两行文案 + `[有更新]` + `Switch` + 失败提示；插件行 = 图标 + 两行文案 + 状态点与官方状态词 + `Switch` + 失败提示）。唯一入口 `EnterpriseMarketLegacyPage` 注册到官方 `plugins.item`，经宿主 `EnterpriseMarketShellHost` 接同一份控制器、同一棵外壳与同一个登录弹窗。其余出口：页签真源（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`/`enterpriseMarketTabLabel`）；组件清单与计数摘要投影（`ENTERPRISE_MARKET_COMPONENTS`/`ENTERPRISE_MARKET_PLAN`/`enterpriseMarketComponent` 六件投影）；行投影（`enterpriseMarketPluginRows`/`enterpriseMarketPluginSectionVisible`/`enterpriseMarketSkillRows`/`enterpriseMarketSkillSectionVisible`）；技能行标签与状态投影（`enterpriseMarketSkillVersionTag`/`enterpriseMarketSkillVersionLabel`/`enterpriseMarketSkillCategoryTag`/`enterpriseMarketSkillHasUpdate`/`enterpriseMarketSkillRowHasUpdate`/`enterpriseMarketSkillUpdateTag`/`ENTERPRISE_MARKET_SKILL_UPDATE_LABEL`/`ENTERPRISE_MARKET_SKILL_UPDATE_TAG`/`enterpriseMarketSkillState`/`enterpriseMarketSkillDot`/`enterpriseMarketSkillConfigTag`/`enterpriseMarketSkillStatusLabel`）；插件行状态投影（`enterprisePluginDot`/`enterpriseMarketPluginConfigTag`/`enterpriseMarketPluginStatusLabel`）；行键与开合投影（`enterpriseMarketRowKey`/`enterpriseMarketRowDetailsId`/`enterpriseMarketRowOpen`）；折叠真源（`ENTERPRISE_MARKET_DEFAULT_EXPANDED`/`enterpriseMarketSectionOpen`/`EnterpriseMarketSectionId`/`ENTERPRISE_MARKET_SECTION_IDS`）；失败可见反馈（`EnterpriseMarketActionError`/`enterpriseMarketActionErrorLabel`/`EnterpriseMarketRowError`）；badge 槽（`EnterpriseMarketBadge`/`BadgeView`/`enterpriseMarketVersionTag`）；注册常量 `ENTERPRISE_MARKET_ENTRY_ID`/`ENTERPRISE_MARKET_ENTRY_LABEL`/`ENTERPRISE_MARKET_ENTRY_ORDER`。卡片摘要与详情页正文**不重复同一句**——摘要只在 `summary` 视图出现（官方必渲染的那一份，`EnterpriseMarketSummaryLine`）。 **本刀（版本签只显示版本）**：技能行标题行的版本签**可见文案改成短号**——新增纯投影 `enterpriseMarketSkillVersionLabel`（含 `@` 取**最后一个** `@` 之后那段、不含 `@` 原样返回；空串/仅 `@`/尾部 `@` 一律 undefined = 不出签），行 facts 因此多一枚 `versionLabel`（原 `versionTag` 保留为**完整来源坐标**）；完整坐标挂在签外包装节点 `.own-market-skillVersionHint` 的 `title` 上（官方 `Tag` 的 .d.ts 只声明 tone/className/children、运行期也丢弃多给属性，故用一枚透明包装节点挂悬浮说明），详情页那枚徽标照旧显示**完整坐标**（信息更全）；签自身的类名（`.own-market-tag`/`.own-market-skillVersionTag`）/tone/位置（标题行、紧随标题、在分类签之前）一字未动，分类签与行上其余任何东西（动作区、状态点、开关、失败提示）一律不碰。
+ * [OUTPUT]: **一棵目录页外壳 + 一份逻辑 + 一个技能详情子页面**。**本刀（详情子页面 + 文件树）**：技能行**行本体**（图标 + 两行文案）是一枚真 `<button class="own-market-rowOpen">`——点它把面板**整页切到**详情子页面（`EnterpriseMarketLegacyShell` 按 `props.skillPage` 走两个 return 分支：详情那一支里列表 / 页签条 / 节容器**一字不挂载**）；`[有更新]` 与官方 `Switch` 是它在 `.own-market-rowLine` 里的**同级兄弟**（不在按钮内，故点动作既不用冒泡也不被藏起来），两者由**唯一一枚子块** `EnterpriseMarketSkillRowActions` 渲染（行上与详情里渲染的是同一枚子块、同一份 `facts`、同一个 `onToggleSkill`）。详情子页面是纯函数 `EnterpriseSkillDetailPage`（无 hook、可直接函数调用测试）：**面包屑「返回技能列表」**（`aria-label` 给完整动作语义，点它就是 `onBack` 回列表）+ `h3` 标题 + 版本徽标（官方 `Tag`）+ **等宽标识行**（`skillId`）+ 描述 + 分区 `detailSections` → `detailSection`（文件区：**左文件树 + 右文件预览**）。纯投影 `enterpriseSkillTreeRows`/`enterpriseSkillDefaultFilePath`/`enterpriseSkillFileCountText`/`enterpriseSkillTreeState`/`enterpriseSkillPreviewState` 与文案常量 `ENTERPRISE_SKILL_TREE_*`/`ENTERPRISE_SKILL_PREVIEW_*`/`ENTERPRISE_SKILL_DETAIL_{BACK_TEXT,BACK_LABEL,FILES_TITLE,RETRY}`/`ENTERPRISE_SKILL_CONTENT_FILENAME` 都在出口上；控制器新增详情目标 id 与四组文件状态（树条目 / 在途 / 错误、选中路径、预览正文 / 在途 / 错误）加两个取数 effect（**只在「详情打开 + 该包已装 + 有 store」时发请求**，未装一条都不发；取到树后默认选中并预览 `SKILL.md`；关详情 / 换包即 abort 且迟到结果不回填），并把 `skillPage` 塞进同一份 props。 以下为既有能力：**一份外壳 + 一份逻辑**。共享逻辑只有一处：控制器 hook `useEnterpriseMarketController`（store 订阅与取数、已装真值、安装/卸载动作、失败码归行、页签选中态、行开合态）、模型投影 `enterpriseMarketShellModel(props)`（组件清单行、目录门控、页签文案与计数、折叠态）与行级 facts `enterpriseMarketSkillRowFacts`/`enterpriseMarketPluginRowFacts`（受管态、开关口径、更新判定、两枚签取值、行键与开合、插件开关禁用口径）。目录行由共享子块 `EnterpriseMarketInlineRows` 铺出（技能行 = 图标 + 两行文案 + `[有更新]` + `Switch` + 失败提示；插件行 = 图标 + 两行文案 + 状态点与官方状态词 + `Switch` + 失败提示）。唯一入口 `EnterpriseMarketLegacyPage` 注册到官方 `plugins.item`，经宿主 `EnterpriseMarketShellHost` 接同一份控制器、同一棵外壳与同一个登录弹窗。其余出口：页签真源（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`/`enterpriseMarketTabLabel`）；组件清单与计数摘要投影（`ENTERPRISE_MARKET_COMPONENTS`/`ENTERPRISE_MARKET_PLAN`/`enterpriseMarketComponent` 六件投影）；行投影（`enterpriseMarketPluginRows`/`enterpriseMarketPluginSectionVisible`/`enterpriseMarketSkillRows`/`enterpriseMarketSkillSectionVisible`）；技能行标签与状态投影（`enterpriseMarketSkillVersionTag`/`enterpriseMarketSkillVersionLabel`/`enterpriseMarketSkillCategoryTag`/`enterpriseMarketSkillHasUpdate`/`enterpriseMarketSkillRowHasUpdate`/`enterpriseMarketSkillUpdateTag`/`ENTERPRISE_MARKET_SKILL_UPDATE_LABEL`/`ENTERPRISE_MARKET_SKILL_UPDATE_TAG`/`enterpriseMarketSkillState`/`enterpriseMarketSkillDot`/`enterpriseMarketSkillConfigTag`/`enterpriseMarketSkillStatusLabel`）；插件行状态投影（`enterprisePluginDot`/`enterpriseMarketPluginConfigTag`/`enterpriseMarketPluginStatusLabel`）；行键与开合投影（`enterpriseMarketRowKey`/`enterpriseMarketRowDetailsId`/`enterpriseMarketRowOpen`）；折叠真源（`ENTERPRISE_MARKET_DEFAULT_EXPANDED`/`enterpriseMarketSectionOpen`/`EnterpriseMarketSectionId`/`ENTERPRISE_MARKET_SECTION_IDS`）；失败可见反馈（`EnterpriseMarketActionError`/`enterpriseMarketActionErrorLabel`/`EnterpriseMarketRowError`）；badge 槽（`EnterpriseMarketBadge`/`BadgeView`/`enterpriseMarketVersionTag`）；注册常量 `ENTERPRISE_MARKET_ENTRY_ID`/`ENTERPRISE_MARKET_ENTRY_LABEL`/`ENTERPRISE_MARKET_ENTRY_ORDER`。卡片摘要与详情页正文**不重复同一句**——摘要只在 `summary` 视图出现（官方必渲染的那一份，`EnterpriseMarketSummaryLine`）。 **本刀（版本签只显示版本）**：技能行标题行的版本签**可见文案改成短号**——新增纯投影 `enterpriseMarketSkillVersionLabel`（含 `@` 取**最后一个** `@` 之后那段、不含 `@` 原样返回；空串/仅 `@`/尾部 `@` 一律 undefined = 不出签），行 facts 因此多一枚 `versionLabel`（原 `versionTag` 保留为**完整来源坐标**）；完整坐标挂在签外包装节点 `.own-market-skillVersionHint` 的 `title` 上（官方 `Tag` 的 .d.ts 只声明 tone/className/children、运行期也丢弃多给属性，故用一枚透明包装节点挂悬浮说明），详情页那枚徽标照旧显示**完整坐标**（信息更全）；签自身的类名（`.own-market-tag`/`.own-market-skillVersionTag`）/tone/位置（标题行、紧随标题、在分类签之前）一字未动，分类签与行上其余任何东西（动作区、状态点、开关、失败提示）一律不碰。 **本刀（失败文案降维 + 术语清扫）**：① **失败自愈**——五条员工可见失败路径（技能行装/卸、插件行装/卸、详情里的动作失败、文件树读取失败、文件正文读取失败）全部改渲染共享的 `EnterpriseErrorNotice`：一句人话（消息取 `error-messages.ts` 的唯一映射）+「下一步：…」+ `<details>`「技术信息」里原样保留稳定码（`data-enterprise-error-code`，支持排障照旧取得到）；行内提示的外层类名仍是 `.own-market-inlineError`（形制不变），`role="alert"` 不变，失败**不**禁用开关（再拨一次即重试）的口径不变。② **术语降维**——第三枚页签与它的节标题由「组件/包含的组件」改成「包含内容」，三行开关的无障碍名由 `启用组件 X` 改成 `启用X`、预留说明改成「预留：X暂未接入」；组件行里那条内部模块路径（`dsh-preset / .dshpreset` 等，含 preset 字样）**不再上屏**（数据仍留在 `ENTERPRISE_MARKET_COMPONENTS`，由反向锁用例守着它不上树，`.own-market-rowModule` 死样式一并删除）；详情页的版本徽标前补人话标签「来源」（`ENTERPRISE_SKILL_DETAIL_SOURCE_LABEL`，悬浮说明给出「来源站 / 发布方 @ 版本号」），等宽 `skillId` 行前补「标识」标签与悬浮说明（`ENTERPRISE_SKILL_DETAIL_NAME_LABEL` / `_NAME_TITLE`）；上游技能名里带技术缩写（MCP / YAML / manifest / Manifest / SKILL.md）时，旁边补一句「名称由技能发布方提供…」的人话（`enterpriseSkillUpstreamNameNote` 纯投影，名称与描述一律不改写，未命中不加噪音）。
  * [POS]: ui 的企业市场入口（**唯一入口：官方插件页「官方」分组里的「插件市场」卡片**）。**本刀（详情子页面）**：技能行本体可点 → 面板整页切到该技能的详情子页面；**面板就是官方 `plugins.item` 的 page 视图、没有真实路由，故用一份视图状态切换（`skillDetailId` → `skillPage`），不硬造路由**。「返回技能列表」是唯一返回入口（面包屑按钮，键盘可达）。详情里的动作与行上**同源**：同一枚 `EnterpriseMarketSkillRowActions`、同一份 `enterpriseMarketSkillRowFacts`、同一个 `onToggleSkill` 回调、同一份 `skillActionError`，因此不存在第二套状态或第二个动作实现。文件树与预览只消费 Host 已有的两条只读子路由（`/enterprise/api/v1/local/skills/<id>/files` 与 `.../<id>/file?path=`，经 `store.api.skillFiles`/`store.api.skillFile` 发出）；**未安装就一条请求都不发**、如实说「安装后可浏览文件」，绝不伪造树；默认选中并预览 `SKILL.md`；预览是 `<pre>` 里的**纯文本子节点**（全文件无 `dangerouslySetInnerHTML`），长文件靠 `max-height` 滚动 + 字节提示；读取失败给 `role="alert"` + 稳定错误码 + 重试。**只读正文路由 `/skills/content` 按用户要求保留**（Host 侧注册与既有单测不动），本页统一走文件路由那一份路径实现。 以下为既有能力：企业插件行与组件行**不给**详情入口（用户只要求技能行；插件行本轮一字未动，组件行是交付排期清单）。**目录行的落点与行为**：点行本体进详情；`[有更新]`（真实 `<button>`，点击 = 更新到中心当前版本）与安装/卸载 `Switch` **常显在行上**且不触发详情；失败给 `role="alert"` + 稳定错误码且**不禁用**开关（再拨一次就是重试）。**三页签**（企业技能默认 / 企业插件 / 组件）共用 `EnterpriseMarketTabStrip` 一份实现：手写 `role="tablist"` + roving `tabIndex` + ←/→/Home/End 走焦并选中，`id`/`aria-controls`/`aria-labelledby` 三处同源；组件节是唯一还保留折叠语义的一节（折叠态列表整段不进 DOM）。**严禁**任何价格/交易/购买/购物车/客服之类的商业化字样——全树文本都不出现（由测试反向锁死）。`store` 与开登录回调均为可选注入：缺席时开关恒禁用、会话不可用时目录节不出现。**样式纪律**：本文件的类名与同包其他源文件**零交集**（两处 `<style>` 都是全局单类选择器，同名会互相覆盖）；主题只用 `--dsw-*` token，不新造颜色。 **本刀（版本签短号）**：真实 `sourceDshVersion` 是完整坐标（`skillhub.cn/dev-expert@2.0.3`），整串会把标题挤成一个字（真机截图已证）；故**列表里只显示版本号**（`enterpriseMarketSkillVersionLabel`，最后一个 `@` 之后），**完整坐标在签的 `title` 与详情徽标**；既有技能（无 `@` 的 `0.1.7-rc.2` 形态）显示形式一字不变，签的类名/tone/位置与行上其他东西不动。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -17,6 +17,7 @@ import { formatByteSize } from './display-format.js'
 import { enterprisePluginStatePresentation } from './plugin-market.js'
 import type { EnterpriseInstalledSkill, EnterpriseInstalledSkillFile, EnterprisePluginCatalogItem, EnterprisePluginItem, EnterpriseRuntimeSkill, EnterpriseSkillFileEntry, ManagedPluginState } from './local-api-decode.js'
 import { enterpriseLocalErrorCode } from './local-api-decode.js'
+import { EnterpriseErrorNotice } from './error-notice.js'
 import { EnterpriseLoginDialog, useEnterpriseLoginDialog } from './login-dialog.js'
 
 /** 本入口在官方插件页占用的 slot id，同时是卡片 DOM 的 `data-plugin-item` 与详情页路由键。 */
@@ -53,14 +54,14 @@ export type EnterpriseMarketTabId = 'skills' | 'plugins' | 'components'
 
 /**
  * 页签条真源：**顺序即渲染顺序**，第一项同时是默认选中项（见 `ENTERPRISE_MARKET_DEFAULT_TAB`）。
- * 文案与原来三节的节标题同词（企业技能 / 企业插件 / 组件）——页签已经承担「显隐」。
+ * **术语降维**：第三枚页签原为「组件」（技术词）——现在叫「包含内容」，与节标题同词。
  * **`label` 只是基础词**：渲染时经 `enterpriseMarketTabLabel(label, count)` 补上计数
  * （原先企业技能 / 企业插件两节内部各占一行的 `N 个` 计数行已退场，数字并入页签，见该投影）。
  */
 export const ENTERPRISE_MARKET_TABS = [
   { id: 'skills', label: '企业技能' },
   { id: 'plugins', label: '企业插件' },
-  { id: 'components', label: '组件' },
+  { id: 'components', label: '包含内容' },
 ] as const
 
 /** 默认页签＝「企业技能」：用户的主战场，后台分配（预置）的技能一进页面就该看得见。 */
@@ -923,7 +924,6 @@ const baseStyles = `
 .own-market-rowMain{display:flex;flex:1;flex-direction:column;gap:2px;min-width:0}
 .own-market-rowId{font-size:13.5px;line-height:20px;font-weight:500;color:var(--dsw-alias-label-primary,#101828);overflow-wrap:anywhere}
 .own-market-row[data-state='off'] .own-market-rowId{color:var(--dsw-alias-label-secondary,#667085)}
-.own-market-rowModule{font-family:var(--dsw-font-mono,ui-monospace,SFMono-Regular,Menlo,monospace);font-size:11.5px;line-height:16px;color:var(--dsw-alias-label-tertiary,#98a2b3);overflow-wrap:anywhere}
 .own-market-rowNote{color:var(--dsw-alias-label-secondary,#667085);font-size:12px;line-height:19px;overflow-wrap:anywhere}
 /* 标题 + 两枚签：**单行 nowrap flex**，行高锁 20px（官方 Tag 固定 19px 高 < 20px，故加签不改变这一行的高度）。
    标签过多时**标题先让步**：标题 flex:0 1 auto + min-width:0 先省略，两枚签 .own-market-tag 的 flex:none 保持可见；
@@ -1055,6 +1055,14 @@ const detailStyles = `
 .own-market-fileText{margin:0;max-height:360px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:10px 12px;border:.5px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:var(--dsw-radius-md,12px);background:var(--dsw-alias-background-secondary,#f2f4f7);font:11.5px/17px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--dsw-alias-label-primary,#101828)}
 .own-market-fileHint{margin:0;color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:12px;line-height:19px}
 .own-market-fileRetry{display:flex;align-items:center;gap:8px}
+/* 术语降维新增（详情页专用，列表那份 <style> 不带这些规则）：
+   · 来源徽标的包装节点 + 「来源」小标签：完整坐标前给一个人话标签；
+   · 「标识」小标签：skillId 那行的人话标签（悬停给说明）；
+   · 上游名称解释行：名称里带技术缩写时补一句，只在命中时渲染。 */
+.own-market-detailSource{display:inline-flex;align-items:center;gap:4px}
+.own-market-detailSourceLabel{color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:12px;line-height:18px}
+.own-market-detailNameLabel{margin-right:6px;color:var(--dsw-alias-label-tertiary,#98a2b3)}
+.own-market-upstreamNote{margin:2px 0 0;color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:11.5px;line-height:18px}
 `
 
 /** 组件行图标：三枚 lucide 图标按 id 定位，避免借用官方 `*Regular` 图标。 */
@@ -1202,7 +1210,14 @@ export function EnterpriseMarketRowError({ error, id }: {
   readonly id: string
 }): ReactNode {
   if (error?.id !== id) return null
-  return <div className="own-market-inlineError" role="alert">{enterpriseMarketActionErrorLabel(error)} <code>{error.code}</code></div>
+  // 术语降维 + 失败自愈：人话 + 下一步动作 + 「技术信息」里的稳定码（唯一映射见 error-messages.ts）。
+  return (
+    <EnterpriseErrorNotice
+      className="own-market-inlineError"
+      code={error.code}
+      prefix={enterpriseMarketActionErrorLabel(error)}
+    />
+  )
 }
 
 /**
@@ -1229,7 +1244,7 @@ function EnterpriseMarketComponentsPanel({ model, onToggleSection, onOpenLogin }
           onClick={() => { onToggleSection?.('components') }}
         >
           <ChevronDown className="own-market-chevron" size={12} aria-hidden="true" />
-          <span className="own-market-groupTitle">包含的组件</span>
+          <span className="own-market-groupTitle">内容清单</span>
         </button>
         <span className="own-market-sectionCount">{model.componentSummaryText}</span>
       </div>
@@ -1247,7 +1262,9 @@ function EnterpriseMarketComponentsPanel({ model, onToggleSection, onOpenLogin }
                 <div className="own-market-rowMain">
                   <span className="own-market-rowId">{row.label}</span>
                   <span className="own-market-rowNote">{row.note}</span>
-                  <code className="own-market-rowModule">{row.module}</code>
+                  {/* 术语降维：`row.module`（如 `dsh-preset / .dshpreset`）是内部模块路径，
+                      按产品宪法「manifest / YAML / preset / bundle 不上屏」**不再渲染**；
+                      它只留在 `ENTERPRISE_MARKET_COMPONENTS` 里作交付台账（有反向锁用例守着它不上树）。 */}
                 </div>
                 <span className="own-market-rowState">
                   <StateDot state={row.dot} />
@@ -1255,9 +1272,9 @@ function EnterpriseMarketComponentsPanel({ model, onToggleSection, onOpenLogin }
                 </span>
                 <Switch
                   checked={row.enabled}
-                  label={`启用组件 ${row.label}`}
+                  label={`启用${row.label}`}
                   disabled={row.switchDisabled}
-                  title={row.reserved ? `预留：${row.label}组件未接入` : row.enabled ? '请在企业账号中退出登录' : '登录企业账号后启用'}
+                  title={row.reserved ? `预留：${row.label}暂未接入` : row.enabled ? '请在企业账号中退出登录' : '登录企业账号后启用'}
                   onChange={() => { onOpenLogin?.() }}
                 />
               </div>
@@ -1475,6 +1492,41 @@ export const ENTERPRISE_SKILL_DETAIL_BACK_TEXT = '技能列表'
 export const ENTERPRISE_SKILL_DETAIL_BACK_LABEL = '返回技能列表'
 /** 文件区那节的标题（官方 `_sectionTitle` 的位置：h4 + 右侧计数）。 */
 export const ENTERPRISE_SKILL_DETAIL_FILES_TITLE = '技能文件'
+/**
+ * 详情里那枚坐标徽标的人话标签（术语降维）：完整坐标（如 `skillhub.cn/dev-expert@2.0.3`）
+ * 不再是一条裸字符串，前面补「来源」二字，员工一眼知道这枚签在说什么。
+ */
+export const ENTERPRISE_SKILL_DETAIL_SOURCE_LABEL = '来源'
+/** 来源徽标的悬浮说明（说明坐标由「来源站 / 发布方 @ 版本号」构成）。 */
+export const ENTERPRISE_SKILL_DETAIL_SOURCE_TITLE = '来源与版本：由发布方提供的坐标（来源站 / 发布方 @ 版本号）'
+/**
+ * 等宽标识行的人话标签（术语降维）：`skillId`（如 `code-review`）是技能的内部标识，
+ * 官方详情页在这里只有一条裸等宽字符串；我们保留位置与取值，但补一个「标识」标签与悬浮说明。
+ */
+export const ENTERPRISE_SKILL_DETAIL_NAME_LABEL = '标识'
+/** 标识行的悬浮说明（回答员工「这串东西是什么」）。 */
+export const ENTERPRISE_SKILL_DETAIL_NAME_TITLE = '这是该技能的内部标识，安装与排障时会用到'
+/**
+ * 上游技能名里可能出现的技术缩写（**上游正式名称的一部分，一律不改写**）；
+ * 命中时在旁边补一句人话解释，避免员工被名称里的缩写劝退。
+ */
+export const ENTERPRISE_SKILL_UPSTREAM_TECH_WORDS = ['MCP', 'YAML', 'manifest', 'Manifest', 'SKILL.md'] as const
+/** 命中上游技术缩写时补的那一句人话（只说「名字是发布方给的」，不解释、不改写名称）。 */
+export const ENTERPRISE_SKILL_UPSTREAM_NAME_NOTE = '名称由技能发布方提供，其中的英文缩写属于该技能的自有名称。'
+
+/**
+ * 上游技能名是否需要在旁边补一句人话解释（纯投影，可单测）。
+ * 只认上游名称里出现的技术缩写；不改写名称、不改写描述。
+ *
+ * @param displayName - 技能在目录里的显示名（原样来自中心/上游）。
+ * @returns 需要时返回那句人话，否则 undefined（安静缺席，不无差别加噪音）。
+ */
+export function enterpriseSkillUpstreamNameNote(displayName: string): string | undefined {
+  return ENTERPRISE_SKILL_UPSTREAM_TECH_WORDS.some(word => displayName.includes(word))
+    ? ENTERPRISE_SKILL_UPSTREAM_NAME_NOTE
+    : undefined
+}
+
 /** 读取失败时那枚重试按钮的文案（树与预览共用同一个词，不各说一套）。 */
 export const ENTERPRISE_SKILL_DETAIL_RETRY = '重试'
 
@@ -1542,6 +1594,7 @@ export function EnterpriseSkillDetailPage(props: EnterpriseSkillPageProps): Reac
     ...(props.file === undefined ? {} : { file: props.file }),
   })
   const versionTag = props.facts.versionTag
+  const upstreamNameNote = enterpriseSkillUpstreamNameNote(props.row.displayName)
   return (
     <div className="own-market-detail" data-enterprise-skill-detail={props.row.id}>
       {/* ① 面包屑 + 头部（图标 + 动作）：逐项照官方 DetailTop。 */}
@@ -1563,19 +1616,30 @@ export function EnterpriseSkillDetailPage(props: EnterpriseSkillPageProps): Reac
           </div>
         </div>
       </div>
-      {/* ③ 标题 + 版本徽标 / 等宽标识行 / 描述：官方 detailMain 的三段。 */}
+      {/* ③ 标题 + **来源/版本**徽标（术语降维：完整坐标前加人话标签「来源」，不再是一条裸字符串） / 标识行 / 描述。 */}
       <div className="own-market-detailMain">
         <div className="own-market-titleRow">
           <h3 className="own-market-detailTitle">{props.row.displayName}</h3>
-          {versionTag === undefined ? null : <Tag className="own-market-tag" tone="neutral">{versionTag}</Tag>}
+          {versionTag === undefined ? null : (
+            <span className="own-market-detailSource" title={ENTERPRISE_SKILL_DETAIL_SOURCE_TITLE}>
+              <span className="own-market-detailSourceLabel">{ENTERPRISE_SKILL_DETAIL_SOURCE_LABEL}</span>
+              <Tag className="own-market-tag own-market-skillVersionTag" tone="neutral">{versionTag}</Tag>
+            </span>
+          )}
         </div>
-        <p className="own-market-detailName"><code>{props.row.skillId}</code></p>
+        {upstreamNameNote === undefined ? null : <p className="own-market-upstreamNote">{upstreamNameNote}</p>}
+        <p className="own-market-detailName">
+          <span className="own-market-detailNameLabel" title={ENTERPRISE_SKILL_DETAIL_NAME_TITLE}>{ENTERPRISE_SKILL_DETAIL_NAME_LABEL}</span>
+          <code>{props.row.skillId}</code>
+        </p>
         <p className="own-market-detailDesc">{props.row.description}</p>
       </div>
       {props.actionError === undefined ? null : (
-        <div className="own-market-inlineError" role="alert">
-          {enterpriseMarketActionErrorLabel(props.actionError)} <code>{props.actionError.code}</code>
-        </div>
+        <EnterpriseErrorNotice
+          className="own-market-inlineError"
+          code={props.actionError.code}
+          prefix={enterpriseMarketActionErrorLabel(props.actionError)}
+        />
       )}
       {/* ④ 分区：文件区一节 = 左文件树 + 右文件预览。 */}
       <div className="own-market-detailSections">
@@ -1633,9 +1697,7 @@ export function EnterpriseSkillDetailPage(props: EnterpriseSkillPageProps): Reac
                 <p className="own-market-fileHint">{tree.hint}</p>
               )}
               {tree.kind === 'failed' ? (
-                <div className="own-market-inlineError" role="alert">
-                  {ENTERPRISE_SKILL_TREE_FAILED} <code>{tree.code}</code>
-                </div>
+                <EnterpriseErrorNotice className="own-market-inlineError" code={tree.code} prefix={ENTERPRISE_SKILL_TREE_FAILED} />
               ) : null}
               {tree.kind === 'failed' && props.onReloadFiles !== undefined ? (
                 <div className="own-market-fileRetry">
@@ -1666,9 +1728,7 @@ export function EnterpriseSkillDetailPage(props: EnterpriseSkillPageProps): Reac
                 <p className="own-market-fileHint">{preview.hint}</p>
               )}
               {preview.kind === 'failed' ? (
-                <div className="own-market-inlineError" role="alert">
-                  {ENTERPRISE_SKILL_PREVIEW_FAILED} <code>{preview.code}</code>
-                </div>
+                <EnterpriseErrorNotice className="own-market-inlineError" code={preview.code} prefix={ENTERPRISE_SKILL_PREVIEW_FAILED} />
               ) : null}
               {preview.kind === 'failed' && props.onReloadFile !== undefined ? (
                 <div className="own-market-fileRetry">

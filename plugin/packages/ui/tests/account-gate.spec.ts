@@ -189,20 +189,25 @@ it('keeps the shared snapshot free of secrets and tokens', () => {
   expect(JSON.stringify(snapshot)).not.toMatch(/token|secret|password/i)
 })
 
-/** 已知错误码给中文人话并附受控标识符，未命中只给兜底，未知形状的字符串不回显。 */
+/** 已知错误码给中文人话并附受控标识符，未命中只给兜底人话，未知形状的字符串不回显。 */
 describe('error codes stay inside the local vocabulary', () => {
   it('maps known codes, falls back for unknown ones, and drops unvalidated text', () => {
-    expect(enterpriseErrorDisplay('ENT_AUTH_TIMEOUT')).toEqual({ message: '登录等待超时，请重试。', code: 'ENT_AUTH_TIMEOUT' })
-    expect(enterpriseErrorDisplay('ENT_SOMETHING_NEW')).toEqual({ message: '企业服务操作失败。', code: 'ENT_SOMETHING_NEW' })
-    expect(enterpriseErrorDisplay('<img src=x onerror=alert(1)>')).toEqual({ message: '企业服务操作失败。' })
+    // 文案的唯一真源已搬到 src/error-messages.ts；这里锁的是 account-state 那条兼容接缝
+    // （message 仍来自同一份映射，值随降维后的措辞更新）。
+    expect(enterpriseErrorDisplay('ENT_AUTH_TIMEOUT')).toEqual({ message: '登录等待超时。', code: 'ENT_AUTH_TIMEOUT' })
+    expect(enterpriseErrorDisplay('ENT_SOMETHING_NEW')).toEqual({ message: '操作没有完成。', code: 'ENT_SOMETHING_NEW' })
+    expect(enterpriseErrorDisplay('<img src=x onerror=alert(1)>')).toEqual({ message: '操作没有完成。' })
+    // 兜底与任何已知码一样：人话里**不含裸码**（详见 error-messages.spec.ts 的全码遍历断言）。
+    expect(enterpriseErrorDisplay('ENT_SOMETHING_NEW').message).not.toContain('ENT_')
+    expect(enterpriseErrorDisplay('<img src=x onerror=alert(1)>').message).not.toContain('ENT_')
   })
 
   it('gives the settings-persistence code a Chinese message from the same table', () => {
     // 该码由本地路由在「本 profile 的企业设置不可持久化」时返回（平台层同名稳定码）。
     expect(enterpriseErrorDisplay('ENT_SETTINGS_UNAVAILABLE')).toEqual({
-      message: '企业设置暂时无法保存，请稍后重试。',
+      message: '企业设置暂时无法保存。',
       code: 'ENT_SETTINGS_UNAVAILABLE',
     })
-    expect(enterpriseErrorMessage('ENT_SETTINGS_UNAVAILABLE')).toBe('企业设置暂时无法保存，请稍后重试。')
+    expect(enterpriseErrorMessage('ENT_SETTINGS_UNAVAILABLE')).toBe('企业设置暂时无法保存。')
   })
 })

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 React、Lucide Globe/Save/LoaderCircle、CSS 语法类型与 local-api 的 accountOrigin/setAccountOrigin 契约
- * [OUTPUT]: 提供账户后台地址编辑器与客户端侧 origin 预校验 resolveAccountOrigin、错误码文案表
+ * [OUTPUT]: 提供账户后台地址编辑器与客户端侧 origin 预校验 resolveAccountOrigin；错误码文案委托 error-messages 的唯一映射（本面不再持有码表）
  * [POS]: dsh-ui 账户设置里唯一的地址输入面，地址只在本组件与 Host 之间往返，不写任何浏览器存储也不回显未解码字符串
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,6 +9,7 @@ import { Globe, LoaderCircle, Save } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { EnterpriseAccountOrigin, EnterpriseLocalApi } from './local-api.js'
 import { EnterpriseLocalApiError } from './local-api.js'
+import { enterpriseErrorMessage } from './error-messages.js'
 
 type AccountOriginTarget = 'platform' | 'inference'
 
@@ -18,8 +19,9 @@ export type AccountOriginResolution =
   | { readonly kind: 'missing'; readonly targets: readonly AccountOriginTarget[] }
 
 const TARGETS = {
-  platform: { label: '账户后台地址（platformOrigin）', key: 'platformOrigin' as const },
-  inference: { label: '推理后台地址（inferenceOrigin）', key: 'inferenceOrigin' as const },
+  // 术语降维：键名（platformOrigin / inferenceOrigin）是内部配置键，只在管理员侧出现；员工只看到地址用途。
+  platform: { label: '账户后台地址', key: 'platformOrigin' as const },
+  inference: { label: '推理后台地址', key: 'inferenceOrigin' as const },
 }
 
 /** 与 Host 侧 platformOrigin() 一致的 loopback 白名单；此外的明文 HTTP 就地拦截，不发请求。 */
@@ -65,15 +67,10 @@ export function resolveAccountOrigin(
   return { kind: 'origin', origin: platform }
 }
 
-/** 未命中的错误码回落到通用兜底，绝不透传服务端 message。 */
-const ERRORS: Readonly<Record<string, string>> = {
-  ENT_INVALID_REQUEST: '地址必须是 HTTPS，或指向本机的 loopback HTTP 地址。',
-  ENT_INVALID_ACCOUNT_ORIGIN: '地址必须是 HTTPS，或指向本机的 loopback HTTP 地址。',
-  ENT_ACCOUNT_ORIGIN_WRITE_FAILED: '账户后台地址写入失败，请检查 Harness 配置目录权限后重试。',
-  ENT_ACCOUNT_REMOUNT_FAILED: '地址已保存，但官方账户行未能重新挂载，请重启 Harness。',
-  ENT_AUTH_REQUIRED: '需要重新登录企业账号。',
-  ENT_PERMISSION_DENIED: '当前账号无权修改账户后台地址。',
-}
+/**
+ * 未命中的错误码落到 `error-messages.ts` 的兜底人话（**不再在本文件维护码表**）；
+ * 这一面是输入校验而非动作失败，故沿用行内状态位、不额外展示稳定码（码仍在 store 状态里可取）。
+ */
 
 const input: CSSProperties = {
   background: 'var(--dsw-alias-bg-layer-2, #fff)',
@@ -143,7 +140,7 @@ export function AccountOriginEditor({ api, disabled = false }: {
 
   const busy = saving || disabled
   const notice = localError
-    ?? (errorCode === undefined ? undefined : ERRORS[errorCode] ?? '账户后台地址保存失败。')
+    ?? (errorCode === undefined ? undefined : enterpriseErrorMessage(errorCode))
 
   const submit = (): void => {
     const resolution = resolveAccountOrigin(values.platform, values.inference)

@@ -369,3 +369,65 @@
 |---|---|---|
 | `ENT_SKILL_ARCHIVE_INVALID` 等错误码未进映射表 → 落 503；用户上传坏文件报 503 是错的 | **真**（客户端面）。映射表只列 12 个码，其余 `return 503`（`platform-client/src/local-api.ts:200-217`，`:216`）；技能链至少 7 个码会掉进去（`bundle/src/skill-errors.ts:18-31`）。语义错在把「终态不可重试」投影成「服务不可用」。 | 见 P0-2 |
 | `skill-archive.ts:239` 的 `inflateRawSync` 未传 `maxOutputLength` → 压缩炸弹可绕过上限 | **真**。`:221-223` 只累加**声明**大小，`:239` 无条件全量 inflate，实际长度到 `:244` 才比对 → 「声明小、实际膨胀大」在比对之前就吃掉内存。**修复代价很低**：传 `{ maxOutputLength: Math.min(SKILL_MD_MAX_BYTES, 剩余总额) }`，Node 会抛 `ERR_BUFFER_TOO_LARGE`（被 `:240-242` 的 catch 收成 `ENT_SKILL_ARCHIVE_INVALID`）。**约 0.3–0.5 人日**（改 1 行 + 1 个炸弹用例 + 回归）；SIS:560 已给同一建议，SIS:885 的 P0-1（2.5–4 人日）里已含它。 | 见 §4 C-10 |
+
+---
+
+## 7. 本次已修 / 未修（2026-10 · 员工侧失败文案降维 + 术语清扫）
+
+> 本节**只追加**，不改写上面的审计原文。范围：工程师按用户任务书做的**文案与呈现**一刀，
+> 边界是「不改数据、不改接口、不改错误码语义、不改任何动作行为」。
+> 改动落在 `plugin/packages/ui`：新增 `src/error-messages.ts`（唯一码表）与 `src/error-notice.tsx`（唯一提示组件），
+> 五条员工可见失败路径接线，术语降维（页签「组件」→「包含内容」等）。
+
+### 7.1 已修（本次解决）
+
+| 体验债 | 处置 | 证据 |
+|---|---|---|
+| **P0-1 失败只有一个 `ENT_*` 码，没有人话** | **已修（文案层）**：新增**唯一一份**码 → 人话映射 `error-messages.ts`（`message` + `action` + `retryable` + 原样 `code` + `known`，未命中一律兜底人话，绝不漏出裸码）；五条员工可见失败路径（技能行装/卸、插件行装/卸、详情动作失败、文件树读取失败、正文读取失败）与技能 tab、配方 tab、账号区、登录弹窗、反馈弹窗全部改渲染 `EnterpriseErrorNotice`：**一句人话 + 「下一步：…」 + `<details>`「技术信息」里的稳定码**（码不删除、排障仍可取，`data-enterprise-error-code`） | `src/error-messages.ts`、`src/error-notice.tsx`；`tests/error-messages.spec.ts`（全码遍历 + 兜底 + 空串 + 裸码反向断言）、`tests/employee-copy.spec.ts`（五条路径全树可见文本无裸 `ENT_`） |
+| **P0-1 附带：同一失败多处两套措辞** | **已修**：`account-state.ts` / `account-origin.tsx` / `plugin-market.tsx` 三处自持码表全部删除，统一委托唯一映射；`plugin-market` 的兜底不再把码拼进可见句子 | `src/account-state.ts`、`src/account-origin.tsx`、`src/plugin-market.tsx`；`tests/employee-copy.spec.ts` 的「唯一实现」用例（全 src 扫描 `'ENT_…':` 形式码表只允许出现在 `error-messages.ts`） |
+| **P0-7（文案侧）必然失败的点击没有解释** | **部分已修**：`retryable` 已进唯一映射（终态码标记 `false`，含大小/哈希/包契约/内容超限/可见范围/权限），文案不再劝必然失败的重试；**树行禁用/标注与重试按钮门控未做**（属动作行为，越界） | 见 7.2 |
+| **术语：技能详情的等宽 `skillId` 行是裸标识** | **已修**：保留位置与取值，前面补人话标签「标识」+ 悬浮说明「这是该技能的内部标识，安装与排障时会用到」（`ENTERPRISE_SKILL_DETAIL_NAME_LABEL` / `_NAME_TITLE`）；技能 tab 与装配指令里的 `技能 ID` 同步改「标识」 | `src/marketplace-entry.tsx`、`src/skill-market.tsx`；`tests/employee-copy.spec.ts`、`tests/marketplace-entry.spec.ts`（标签 + 位置断言） |
+| **术语：详情里的来源/版本坐标是裸字符串** | **已修**：完整坐标前加人话标签「来源」并给悬浮说明「来源站 / 发布方 @ 版本号」；技能/配方卡片元信息加「来源」前缀 | 同上 |
+| **术语：页签与分区名「组件」偏技术** | **已修**：页签 →「包含内容」、节标题 →「内容清单」、开关无障碍名 `启用组件 X` → `启用X`、预留说明改「预留：X暂未接入」（`id` 仍是 `components`，不碰数据与接口） | `src/marketplace-entry.tsx`；`tests/marketplace-entry.spec.ts`（改名断言同步 + 结构大纲再基线化） |
+| **术语：组件行把内部模块路径（含 `preset`）印在员工脸上** | **已修**：`dsh-preset / .dshpreset`、`enterprise plugins · remote.pluginManager` 等内部模块路径**不再上屏**（数据仍留在 `ENTERPRISE_MARKET_COMPONENTS` 作交付台账，删除死样式 `.own-market-rowModule`），新增反向锁（类名 + 文本两路都不许出现） | `src/marketplace-entry.tsx`；`tests/marketplace-entry.spec.ts`、`tests/employee-copy.spec.ts` |
+| **术语：配置键名出现在员工侧标签** | **已修**：账户后台地址的两个标签去掉 `（platformOrigin）` / `（inferenceOrigin）` 键名后缀 | `src/account-origin.tsx` |
+| **术语：配方 tab 的可见文案里有 `Preset`** | **已修**：员工可见文案里的 `Preset` / `预设 ID` 改「配方 / 标识」（含导入指令）；上游专名 `Preset Square Skill` 原样保留并在测试里显式豁免 | `src/preset-market.tsx`；`docs/compose/spec/preset-square.md`（指令示例同步） |
+| **术语：上游技能名里的技术缩写对员工不友好** | **已修（解释而非改写）**：`enterpriseSkillUpstreamNameNote` 纯投影——名称命中 MCP / YAML / manifest / Manifest / SKILL.md 时，旁边补一句「名称由技能发布方提供，其中的英文缩写属于该技能的自有名称」；**名称与描述一字不改**，未命中不加噪音 | `src/marketplace-entry.tsx`；`tests/employee-copy.spec.ts` |
+| **体验债清单本身缺一条**：员工侧没有「反目标词」的机械门禁 | **已补**：`tests/employee-copy.spec.ts` 用宪法反目标技术词整表反向断言三个页签 + 详情页的全树可见文本；`tests/error-messages.spec.ts` 用「ui src 里出现的每个 `ENT_` 码都必须能翻成人话」守住一处定义 | 新用例见上 |
+
+### 7.2 未修（本次边界外，或本次明确不动）
+
+| 体验债 | 为什么没动 |
+|---|---|
+| **P0-2 未进映射表的码落到 503**（`ENT_SKILL_ARCHIVE_INVALID` 等 → 503 语义错） | 属 `platform-client/src/local-api.ts` 的 HTTP 状态投影，不是文案；改它会动状态码语义与既有测试，本次边界明确排除 |
+| **P0-3 列表取数失败被静默吞掉**（`.catch(() => [])` → 「企业技能 0」+ 空白） | 要新增 loading/failed/未登录三态与页签门控，属状态机改动；本次只保证「一旦出现失败态，文案是人话 + 有下一步」。这是本次**最想指出**的剩余硬伤 |
+| **P0-4 列表无加载态、计数 0 → N** | 同上（状态机 + 骨架），非文案 |
+| **P0-5 文件树不可折叠 / 无虚拟化 / 大文件预览** | 结构与性能改造，风险与工作量都远超本次边界 |
+| **P0-6 品牌首帧先出官方鱼标** | 缓存/注入方案，非文案；另：品牌取数失败是**静默回落官方品牌**（无员工可见文案），故本条路径不存在「裸码砸脸」问题，本次无需接线 |
+| **P0-7（行为侧）必然失败的点击仍可点、仍给「重试」** | 树行禁用/标注与重试按钮门控会改动作行为，本次明确不动；只在文案里把「终态码不可重试」这一事实交出来（`retryable`） |
+| **P1-8 并发点击静默 no-op** | 行为改动 |
+| **P1-9 卸载无确认 / 不可取消 / 重试不分级** | 行为改动（含新增取消入口） |
+| **P1-10 搜索缺失 + 同一目录两套界面** | 功能补齐 |
+| **P1-11「有更新」迟到与 N+1** | 需要服务端/解码补 `versionId` |
+| **P1-12 详情无焦点管理 + 硬件返回键不回列表** | 结构与路由行为 |
+| **P1-13 企业分发行缺「来源 / 许可 / sha256」** | 新增信任区（数据已丢 sha256 那条线要动解码策略）；本次只做了「来源」这一枚**人话标签**，不是信任区 |
+| **P2-14 硬编码颜色 `#fff7ed` / `#9a3412`** | 暗色主题 token 改造，不在文案/术语范围（本刀新增的提示组件已刻意只用行内 `--dsw-*` token） |
+| **P2-15 搜索框只有 placeholder** | 无障碍改造，非文案 |
+| **P2-16 全局单类 `<style>` 的机制风险** | 本刀**没有加剧**：新提示组件用行内 token 样式、不新增可覆盖类；原两处收敛仍待独立一刀 |
+| **P2-17 控制台上传无进度 / 确认前无预览** | 管理端 `console/`，本次明确不动 |
+| **P2-18 目录取数无超时** | 合入 P0-4 状态机改造 |
+
+### 7.3 术语口径的**未采纳项**（显式说明，避免下次重复讨论）
+
+| 词 | 处置 | 理由 |
+|---|---|---|
+| `plugin` → 「能力」（宪法术语表） | **未采纳**，员工侧仍说「插件」 | 本仓员工侧的中文产品词就是「插件/技能/配方」（页签、开关、设置 tab 已自成体系）；宪法该条针对的是英文技术词 `plugin` 直出。改「能力」会牵动页签、设置 tab、`client.tsx` 注册 label 与大量既有断言，收益不抵风险；若产品正式改名，建议单开一刀全量替换 |
+| `preset` → 「智能体」（宪法术语表） | **未采纳**，员工侧说「配方」 | 同上：本仓既有中文产品词是「配方」（配方广场 / 企业配方 / 搜索企业配方）。本次只清掉字面 `Preset` / `预设 ID` / `.dshpreset` / `dsh-preset` |
+| 上游名称/描述里的技术缩写（MCP 等） | **显式豁免，不改写**，只旁注一句人话 | 产品边界：上游来的名称/描述/正文一律不改写 |
+| `技术信息` 折叠区里的稳定码 | **保留**（不删除） | 用户明确要求「码必须仍可取到」，支持与排障依赖它 |
+
+### 7.4 本次新增/调整的用例数字
+
+- ui 包：**264 → 281 条**（新增 `tests/error-messages.spec.ts` 7 条与 `tests/employee-copy.spec.ts` 10 条）。
+- 调整断言（不删语义）：`tests/marketplace-entry.spec.ts`（页签/节标题/开关名改名、详情「来源」「标识」结构、组件行模块路径改反向锁、结构大纲与共用 CSS 长度 8178→7975 / 校验和 2058624246→555768760 再基线化）、`tests/skill-market.spec.ts`（`标识：` / `来源 DSH …`）、`tests/account-gate.spec.ts`（码文案改降维措辞 + 两条「兜底人话不含裸码」）。
+- 测试仍逐条锁定既有语义：失败行内提示的 `role="alert"`、外层 `.own-market-inlineError` 类名、失败不禁用开关（可原地重试）、未安装零请求、纯文本安全渲染等一条未删。

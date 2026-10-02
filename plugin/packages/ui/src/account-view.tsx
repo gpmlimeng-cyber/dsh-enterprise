@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 React、Lucide、Harness Button、AccountOriginEditor、brand 品牌位图、account-actions 的登出与卸载确认、account-state 的共享投影与 login-dialog 的弹窗入口、plugin/preset/skill 三个市场视图，以及 EnterpriseAccountStore 的脱敏 snapshot
- * [OUTPUT]: 提供账号设置区（账号状态/登录入口/插件/配方/技能 tabs）、只读账号信息投影与共享登出确认；不再提供任何全屏门禁
+ * [OUTPUT]: 提供账号设置区（账号状态/登录入口/插件/配方/技能 tabs）、只读账号信息投影与共享登出确认；不再提供任何全屏门禁。**本刀（失败文案降维）**：账号区的失败提示改渲染 `EnterpriseErrorNotice`（人话 + 「下一步：」+「技术信息」折叠区里的稳定码），码表唯一真源搬到 `error-messages.ts`
  * [POS]: dsh-ui 的账号设置呈现层，官方账号区缺席时账号信息在本层自洽，登录统一交给登录弹窗，不接触 Host Context、Token 或执行细节
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -52,6 +52,7 @@ export { LogoutConfirmation, UninstallAction } from './account-actions.js'
 export { DSHENT_ANIMATED_ICON, DSHENT_ICON } from './brand.js'
 import { EnterpriseAccountStore } from './account-store.js'
 import { DSHENT_ICON } from './brand.js'
+import { EnterpriseErrorNotice } from './error-notice.js'
 import { enterpriseLoginEntry, EnterpriseLoginDialog, useEnterpriseLoginDialog } from './login-dialog.js'
 import { EnterprisePluginMarket } from './plugin-market.js'
 export { enterprisePluginStatePresentation } from './plugin-market.js'
@@ -222,9 +223,11 @@ function EnterpriseAccountContent({ store }: EnterpriseStoreInjected): ReactNode
   const errorDisplay = error === undefined ? undefined : enterpriseErrorDisplay(error)
 
   return <div style={panel} className="own-account">
-    {errorDisplay === undefined ? null : <div role="alert" style={{ color: 'var(--dsw-alias-status-error, #c4320a)', fontSize: 13, lineHeight: '20px', paddingBottom: 12 }}>
-      {errorDisplay.message}{errorDisplay.code === undefined ? null : <> <code>{errorDisplay.code}</code></>}
-    </div>}
+    {errorDisplay === undefined ? null : errorDisplay.code === undefined
+      ? <div role="alert" style={{ color: 'var(--dsw-alias-status-error, #c4320a)', fontSize: 13, lineHeight: '20px', paddingBottom: 12 }}>
+        {errorDisplay.message}
+      </div>
+      : <EnterpriseErrorNotice code={errorDisplay.code} style={{ color: 'var(--dsw-alias-status-error, #c4320a)', fontSize: 13, lineHeight: '20px', paddingBottom: 12 }} />}
     <div className="own-account-summary" style={{ alignItems: 'center', background: 'var(--dsw-alias-bg-layer-1, #f8fafc)', border: '1px solid var(--dsw-alias-border-l2, #e4e7ec)', borderRadius: 10, display: 'flex', gap: 10, padding: 12 }}>
       <div style={{ alignItems: 'center', background: 'var(--dsw-alias-bg-layer-2, #f2f4f7)', borderRadius: '50%', color: 'var(--dsw-alias-label-secondary, #475467)', display: 'flex', flexShrink: 0, height: 34, justifyContent: 'center', width: 34 }}>
         <UserRound aria-hidden size={18} />

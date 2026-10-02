@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 React 的 useSyncExternalStore/createElement、Lucide 图标、local-api 的连接状态联合与 EnterpriseAccountStore 的脱敏 snapshot 类型
- * [OUTPUT]: 对外提供共享脱敏订阅 useAccount、状态文案与错误码文案映射、状态图标投影 enterpriseStateIcon、经形状校验的错误呈现 enterpriseErrorDisplay、会话可用/登录中/Server 可编辑判定，以及账号信息投影 enterpriseAccountIdentity
+ * [OUTPUT]: 对外提供共享脱敏订阅 useAccount、状态文案、**委托给 error-messages 唯一映射**的错误码文案、状态图标投影 enterpriseStateIcon、经形状校验的错误呈现 enterpriseErrorDisplay、会话可用/登录中/Server 可编辑判定，以及账号信息投影 enterpriseAccountIdentity
  * [POS]: dsh-ui 的账号语义真源，被账号设置视图、登录弹窗与侧栏入口共同消费，只读投影且不持有网络或 Host Context
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { createElement, useSyncExternalStore, type ReactNode } from 'react'
 import type { EnterpriseAccountSnapshot, EnterpriseAccountStore } from './account-store.js'
+import { enterpriseErrorMessage as errorMessageOf } from './error-messages.js'
 import type { EnterpriseConnectionState } from './local-api.js'
 
 /** 官方 slot 与弹窗共用同一份脱敏快照；订阅即触发 store 的按需状态读取。 */
@@ -105,23 +106,23 @@ export const ENTERPRISE_LOADING_PRESENTATION: StatePresentation = {
   icon: 'progress',
 }
 
-const ERROR_MESSAGES: Readonly<Record<string, string>> = {
-  ENT_INVALID_REQUEST: '请输入有效的 HTTP 或 HTTPS Server 地址。',
-  ENT_INVALID_ACCOUNT_ORIGIN: '地址必须是 HTTPS，或指向本机的 loopback HTTP 地址。',
-  ENT_ACCOUNT_ORIGIN_WRITE_FAILED: '账户后台地址写入失败，请检查 Harness 配置目录权限后重试。',
-  ENT_ACCOUNT_REMOUNT_FAILED: '地址已保存，但官方账户行未能重新挂载，请重启 Harness。',
-  ENT_AUTH_CANCELLED: '登录已取消。',
-  ENT_AUTH_REQUIRED: '需要重新登录企业账号。',
-  ENT_AUTH_SESSION_EXPIRED: '企业登录已过期。',
-  ENT_AUTH_TIMEOUT: '登录等待超时，请重试。',
-  ENT_DEVICE_REVOKED: '此设备已被管理员撤销。',
-  ENT_FEEDBACK_INVALID: '反馈内容不完整，请填写描述并勾选同意后重试。',
-  ENT_FEEDBACK_ATTACHMENT_INVALID: '仅支持 PNG/JPEG/WebP 图片，最多 3 张。',
-  ENT_FEEDBACK_ATTACHMENT_TOO_LARGE: '单张图片不能超过 2 MiB。',
-  ENT_SETTINGS_UNAVAILABLE: '企业设置暂时无法保存，请稍后重试。',
-  ENT_LOCAL_RESPONSE_INVALID: '本地企业服务返回了无效数据。',
-  ENT_PLATFORM_UNAVAILABLE: '暂时无法连接企业服务。',
-  ENT_LOCAL_UNAVAILABLE: '暂时无法连接本机 Harness，请重试。',
+/**
+ * 员工可读的错误文案**不再在本文件维护**：唯一一份码 → 人话映射在 `error-messages.ts`
+ * （技能/插件/配方/账号/反馈共用同一句，未映射的码有兜底人话、绝不漏出裸码）。
+ */
+export function enterpriseErrorMessage(code: string): string {
+  return errorMessageOf(code)
+}
+
+/**
+ * 错误呈现的唯一入口：中文文案始终来自唯一映射；原始错误码只在符合受控标识符形状时附带回显，
+ * 未知或不合法形状一律丢弃，Host 返回的任意字符串不进入界面。
+ * 文案与「接下来做什么」分两句给（人话在 `message`，下一步在 `error-messages` 的 action），
+ * 界面统一经 `EnterpriseErrorNotice` 渲染。
+ */
+export function enterpriseErrorDisplay(code: string): { readonly message: string; readonly code?: string } {
+  const message = enterpriseErrorMessage(code)
+  return ERROR_CODE_SHAPE.test(code) ? { message, code } : { message }
 }
 
 const LOGIN_TRANSITIONS: readonly EnterpriseConnectionState[] = ['AUTHORIZING', 'ENROLLING', 'BOOTSTRAPPING']
@@ -141,20 +142,8 @@ export function enterpriseStateIcon(presentation: StatePresentation, size = 20, 
   return createElement(icons[presentation.icon], props)
 }
 
-export function enterpriseErrorMessage(code: string): string {
-  return ERROR_MESSAGES[code] ?? '企业服务操作失败。'
-}
-
+/** 受控错误码形状门禁：只有这个形状的码才带回显，Host 塞进来的任意字符串不作数。 */
 const ERROR_CODE_SHAPE = /^[A-Z][A-Z0-9_]{2,63}$/
-
-/**
- * 错误呈现的唯一入口：中文文案始终来自本地映射；原始错误码只在符合受控标识符形状时附带回显，
- * 未知或不合法形状一律丢弃，Host 返回的任意字符串不进入界面。
- */
-export function enterpriseErrorDisplay(code: string): { readonly message: string; readonly code?: string } {
-  const message = enterpriseErrorMessage(code)
-  return ERROR_CODE_SHAPE.test(code) ? { message, code } : { message }
-}
 
 /** 企业会话是否已可用；这是功能可见性的判定，不再是任何全屏阻断的依据。 */
 export function enterpriseSessionUsable(state?: EnterpriseConnectionState): boolean {

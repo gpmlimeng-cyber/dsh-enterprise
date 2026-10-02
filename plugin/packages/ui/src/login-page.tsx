@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 React、Lucide、Harness Input/Button、branding 的品牌视图与元素工厂、account-state 的状态/错误/可编辑投影、account-actions 的登出与卸载确认，以及 EnterpriseAccountStore 的脱敏 snapshot 和动作
  * [OUTPUT]: 对外提供登录页正文 EnterpriseLoginPage、原生登录表单与纯投影 enterpriseLoginServerEditorVisible/enterpriseLoginPageAction/enterprisePasswordPolicyError；AUTHORIZING 且状态带 `authorizeUrl`（安卓原生登录）时渲染账号密码/改密表单
- * [POS]: dsh-ui 登录弹窗的正文呈现层，照搬原全屏登录页的内容与信息架构（品牌、状态、错误、Server 编辑、动作、页脚元信息、卸载），只被 login-dialog 组合，自身不含遮罩、焦点陷阱或任何阻断宿主的效果；原生表单是本层唯一的凭证输入面，凭证经本机路由交给宿主转发，本层不落盘、不记日志
+ * [POS]: dsh-ui 登录弹窗的正文呈现层，照搬原全屏登录页的内容与信息架构（品牌、状态、错误、Server 编辑、动作、页脚元信息、卸载），只被 login-dialog 组合，自身不含遮罩、焦点陷阱或任何阻断宿主的效果；原生表单是本层唯一的凭证输入面，凭证经本机路由交给宿主转发，本层不落盘、不记日志。**本刀（失败文案降维）**：带稳定码的失败改渲染 `EnterpriseErrorNotice`（人话 + 下一步 + 技术信息里的码），纯输入校验的字符串仍走行内 `<p role="alert">`
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -33,6 +33,7 @@ import {
 import type { EnterpriseAccountSnapshot, EnterpriseAccountStore } from './account-store.js'
 import { DSHENT_ANIMATED_ICON, DSHENT_ICON } from './brand.js'
 import { EnterpriseBrandMark, type EnterpriseBrandingView } from './branding.js'
+import { EnterpriseErrorNotice } from './error-notice.js'
 import type { EnterpriseConnectionState } from './local-api.js'
 
 /**
@@ -518,9 +519,9 @@ export function EnterpriseLoginPage(props: EnterpriseLoginPageProps): ReactNode 
       onEditServer={() => { props.onServerEditingChange(true) }}
       store={props.store}
     /> : null}
-    {errorDisplay === undefined ? null : <p role="alert" style={alert}>
-      {errorDisplay.message}{errorDisplay.code === undefined ? null : <> <code>{errorDisplay.code}</code></>}
-    </p>}
+    {errorDisplay === undefined ? null : errorDisplay.code === undefined
+      ? <p role="alert" style={alert}>{errorDisplay.message}</p>
+      : <EnterpriseErrorNotice code={errorDisplay.code} style={alert} />}
     {props.showServerEditor || mustConfigure
       ? <ServerUrlEditor
         busy={busy}

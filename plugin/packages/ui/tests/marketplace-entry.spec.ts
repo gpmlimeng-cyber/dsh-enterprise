@@ -38,7 +38,12 @@ import {
   ENTERPRISE_SKILL_DETAIL_BACK_LABEL,
   ENTERPRISE_SKILL_DETAIL_BACK_TEXT,
   ENTERPRISE_SKILL_DETAIL_FILES_TITLE,
+  ENTERPRISE_SKILL_DETAIL_NAME_LABEL,
+  ENTERPRISE_SKILL_DETAIL_NAME_TITLE,
   ENTERPRISE_SKILL_DETAIL_RETRY,
+  ENTERPRISE_SKILL_DETAIL_SOURCE_LABEL,
+  ENTERPRISE_SKILL_DETAIL_SOURCE_TITLE,
+  ENTERPRISE_SKILL_UPSTREAM_NAME_NOTE,
   ENTERPRISE_SKILL_PREVIEW_EMPTY,
   ENTERPRISE_SKILL_PREVIEW_FAILED,
   ENTERPRISE_SKILL_PREVIEW_LOADING,
@@ -87,6 +92,7 @@ import {
   enterpriseSkillPreviewState,
   enterpriseSkillTreeRows,
   enterpriseSkillTreeState,
+  enterpriseSkillUpstreamNameNote,
   ENTERPRISE_MARKET_SECTION_IDS,
 } from '../src/marketplace-entry.js'
 
@@ -139,14 +145,14 @@ function textOf(node: ReactNode): string {
  */
 const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(8178 chars)",
+  "  style(7975 chars)",
   "  div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
   "    button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=true][aria-controls=market-panel-skills][tabIndex=0][onClick=[fn]][onKeyDown=[fn]]",
   "      #text:企业技能 1",
   "    button[id=market-tab-plugins][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-plugins][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
   "      #text:企业插件 2",
   "    button[id=market-tab-components][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-components][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
-  "      #text:组件 3",
+  "      #text:包含内容 3",
   "  div[id=market-panel-skills][role=tabpanel][aria-labelledby=market-tab-skills][hidden=false][className=own-market-panel]",
   "    section[className=own-market-section][data-market-section=enterprise-skills]",
   "      ul[className=own-market-rows]",
@@ -170,23 +176,29 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "              #text:有更新",
   "            Switch[checked=true][label=卸载企业技能 会议纪要技能组][disabled=false][title=点此卸载][onChange=[fn]]",
   "          div[className=own-market-inlineError][role=alert]",
-  "            #text:安装失败",
-  "            #text: ",
-  "            code",
-  "              #text:ENT_ARTIFACT_INTEGRITY_FAILED",
+  "            span[className=own-error-message][style=[object Object]]",
+  "              #text:安装失败：更新包校验没有通过。",
+  "            span[className=own-error-action][style=[object Object]]",
+  "              #text:下一步：",
+  "              #text:请重新检查更新；仍然失败请联系企业管理员。",
+  "            details[className=own-error-tech][style=[object Object]][data-enterprise-error-tech=ENT_ARTIFACT_INTEGRITY_FAILED]",
+  "              summary[style=[object Object]]",
+  "                #text:技术信息",
+  "              code[style=[object Object]][data-enterprise-error-code=ENT_ARTIFACT_INTEGRITY_FAILED]",
+  "                #text:ENT_ARTIFACT_INTEGRITY_FAILED",
   "  div[id=market-panel-plugins][role=tabpanel][aria-labelledby=market-tab-plugins][hidden=true][className=own-market-panel]",
   "  div[id=market-panel-components][role=tabpanel][aria-labelledby=market-tab-components][hidden=true][className=own-market-panel]",
 ]
 const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(8178 chars)",
+  "  style(7975 chars)",
   "  div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
   "    button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-skills][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
   "      #text:企业技能 1",
   "    button[id=market-tab-plugins][type=button][role=tab][className=own-market-storeTab][aria-selected=true][aria-controls=market-panel-plugins][tabIndex=0][onClick=[fn]][onKeyDown=[fn]]",
   "      #text:企业插件 2",
   "    button[id=market-tab-components][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-components][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
-  "      #text:组件 3",
+  "      #text:包含内容 3",
   "  div[id=market-panel-skills][role=tabpanel][aria-labelledby=market-tab-skills][hidden=true][className=own-market-panel]",
   "  div[id=market-panel-plugins][role=tabpanel][aria-labelledby=market-tab-plugins][hidden=false][className=own-market-panel]",
   "    section[className=own-market-section][data-market-section=enterprise-plugins]",
@@ -205,10 +217,16 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "              #text:已安装",
   "            Switch[checked=true][label=安装企业插件 ent-a][disabled=false][title=点此卸载][onChange=[fn]]",
   "          div[className=own-market-inlineError][role=alert]",
-  "            #text:卸载失败",
-  "            #text: ",
-  "            code",
-  "              #text:ENT_PLUGIN_SIGNATURE_INVALID",
+  "            span[className=own-error-message][style=[object Object]]",
+  "              #text:卸载失败：企业插件的信任配置不可用。",
+  "            span[className=own-error-action][style=[object Object]]",
+  "              #text:下一步：",
+  "              #text:请联系企业管理员。",
+  "            details[className=own-error-tech][style=[object Object]][data-enterprise-error-tech=ENT_PLUGIN_SIGNATURE_INVALID]",
+  "              summary[style=[object Object]]",
+  "                #text:技术信息",
+  "              code[style=[object Object]][data-enterprise-error-code=ENT_PLUGIN_SIGNATURE_INVALID]",
+  "                #text:ENT_PLUGIN_SIGNATURE_INVALID",
   "        li[className=own-market-row][data-enterprise-plugin-package=ent-b][data-enterprise-plugin-state=FAILED]",
   "          div[className=own-market-rowLine]",
   "            span[className=own-market-rowIcon]",
@@ -224,8 +242,8 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "            Switch[checked=false][label=安装企业插件 ent-b][disabled=false][title=点此安装][onChange=[fn]]",
   "  div[id=market-panel-components][role=tabpanel][aria-labelledby=market-tab-components][hidden=true][className=own-market-panel]",
 ]
-const LEGACY_STYLE_LENGTH = 8178
-const LEGACY_STYLE_CHECKSUM = 2058624246
+const LEGACY_STYLE_LENGTH = 7975
+const LEGACY_STYLE_CHECKSUM = 555768760
 
 /** 「企业技能」节的目录 fixture：与 skill-market.spec 的列表投影同形（列表态 versionId/skills 为空）。 */
 const SKILL: EnterpriseRuntimeSkill = {
@@ -344,7 +362,7 @@ describe('enterprise marketplace entry', () => {
       for (const tab of ENTERPRISE_MARKET_TABS) expect(text, label).toContain(tab.label)
       expect(text, label).toContain(enterpriseMarketTabLabel('企业技能', 0))
       expect(text, label).toContain(enterpriseMarketTabLabel('企业插件', 0))
-      expect(text, label).toContain(enterpriseMarketTabLabel('组件', ENTERPRISE_MARKET_COMPONENTS.length))
+      expect(text, label).toContain(enterpriseMarketTabLabel('包含内容', ENTERPRISE_MARKET_COMPONENTS.length))
       // 卡片摘要仍只出现在 summary 视图（page 里一个字都不重复）。
       expect(text, label).not.toContain(ENTERPRISE_MARKET_SUMMARY)
     }
@@ -353,7 +371,7 @@ describe('enterprise marketplace entry', () => {
   // 本刀的核心：page 视图顶部一条手写页签条，三个页签 + 三个面板严格配对，默认选中「企业技能」。
   it('renders a hand-written tablist with the three page tabs and 企业技能 selected by default', () => {
     expect(ENTERPRISE_MARKET_TABS.map(tab => tab.id)).toEqual(['skills', 'plugins', 'components'])
-    expect(ENTERPRISE_MARKET_TABS.map(tab => tab.label)).toEqual(['企业技能', '企业插件', '组件'])
+    expect(ENTERPRISE_MARKET_TABS.map(tab => tab.label)).toEqual(['企业技能', '企业插件', '包含内容'])
     expect(ENTERPRISE_MARKET_DEFAULT_TAB).toBe('skills')
     expect(ENTERPRISE_MARKET_TABS[0]?.id).toBe(ENTERPRISE_MARKET_DEFAULT_TAB)
 
@@ -367,7 +385,7 @@ describe('enterprise marketplace entry', () => {
       const tabs = collectByRole(page, 'tab')
       // 页签文案 = 基础词 + 紧凑计数（企业技能/企业插件无目录时如实为 0，组件 = 清单长度 3）：
       // 原先两节内部的独立计数行已删，数字并入页签（详情页顶部少一行）。
-      expect(tabs.map(tab => tab['children']), label).toEqual(['企业技能 0', '企业插件 0', '组件 3'])
+      expect(tabs.map(tab => tab['children']), label).toEqual(['企业技能 0', '企业插件 0', '包含内容 3'])
       expect(tabs.map(tab => tab['children']), label).toEqual(ENTERPRISE_MARKET_TABS.map(tab => enterpriseMarketTabLabel(
         tab.label,
         tab.id === 'components' ? ENTERPRISE_MARKET_COMPONENTS.length : 0,
@@ -424,14 +442,14 @@ describe('enterprise marketplace entry', () => {
       const text = textOf(tree)
       if (tab.id === 'skills') {
         expect(text, where).toContain('会议纪要技能组')
-        expect(text, where).not.toContain('包含的组件')
+        expect(text, where).not.toContain('内容清单')
         expect(text, where).not.toContain('ent-a')
       } else if (tab.id === 'plugins') {
         expect(text, where).toContain('ent-a')
         expect(text, where).not.toContain('会议纪要技能组')
-        expect(text, where).not.toContain('包含的组件')
+        expect(text, where).not.toContain('内容清单')
       } else {
-        expect(text, where).toContain('包含的组件')
+        expect(text, where).toContain('内容清单')
         expect(text, where).not.toContain('会议纪要技能组')
         expect(text, where).not.toContain('ent-a')
       }
@@ -522,7 +540,7 @@ describe('enterprise marketplace entry', () => {
       const page = shell({ view: 'page', activeTab: 'components' })
       expect(isValidElement(page), label).toBe(true)
       const text = textOf(page)
-      expect(text, label).toContain('包含的组件')
+      expect(text, label).toContain('内容清单')
       expect(text, label).toContain(enterpriseMarketComponentSummaryText(ENTERPRISE_MARKET_COMPONENTS, false))
       for (const row of ENTERPRISE_MARKET_COMPONENTS) expect(text, label).toContain(row.label)
       // 回归锁：正文不重复标题与摘要——标题 h3 由官方 ItemDetail 用 item.label 渲染（我们不再画），
@@ -531,7 +549,7 @@ describe('enterprise marketplace entry', () => {
       expect(text, label).not.toContain(ENTERPRISE_MARKET_SUMMARY)
       expect(text, label).not.toContain(ENTERPRISE_MARKET_ENTRY_LABEL)
       // 未选中「组件」时这份清单整段不挂载（默认页签是「企业技能」）。
-      expect(textOf(shell({ view: 'page' })), label).not.toContain('包含的组件')
+      expect(textOf(shell({ view: 'page' })), label).not.toContain('内容清单')
     }
   })
 
@@ -548,14 +566,14 @@ describe('enterprise marketplace entry', () => {
       expect(switches, label).toHaveLength(3)
       // 插件行与技能行开关未登录且有回调 → 必须可点（disabled false），配方恒禁用（预留）。
       // 注意：Switch 的无障碍名走 `label` prop（vi.fn() mock 不展开成 aria-label），切换动作走 `onChange`。
-      const pluginsSwitch = switches.find(props => props.label === '启用组件 插件')
+      const pluginsSwitch = switches.find(props => props.label === '启用插件')
       expect(pluginsSwitch, label).toBeDefined()
       expect(pluginsSwitch?.checked, label).toBe(false)
       expect(pluginsSwitch?.disabled, label).toBe(false)
-      const skillsSwitch = switches.find(props => props.label === '启用组件 技能')
+      const skillsSwitch = switches.find(props => props.label === '启用技能')
       expect(skillsSwitch?.checked, label).toBe(false)
       expect(skillsSwitch?.disabled, label).toBe(false)
-      const presetsSwitch = switches.find(props => props.label === '启用组件 配方')
+      const presetsSwitch = switches.find(props => props.label === '启用配方')
       expect(presetsSwitch?.disabled, label).toBe(true)
       // page 不含头部总开关（badge 槽只有只读的版本号 + 包名，功能开关就是这三行）。
       expect(switches.find(props => props.label === '启用插件市场'), label).toBeUndefined()
@@ -616,14 +634,14 @@ describe('enterprise marketplace entry', () => {
       expect(tabRule, label).toContain('line-height:20px')
       // 计数确实落在页签上（企业技能 1），且压缩没有动到节里的行内容。
       const tabs = collectByRole(page, 'tab')
-      expect(tabs.map(tab => tab['children']), label).toEqual(['企业技能 1', '企业插件 0', '组件 3'])
+      expect(tabs.map(tab => tab['children']), label).toEqual(['企业技能 1', '企业插件 0', '包含内容 3'])
       expect(collectSectionByHook(page, 'enterprise-skills'), label).not.toBeUndefined()
       // 行标题类名两套外壳**同源**（同一枚子块渲染同一串类名，版式统一的落点）：都是 9723a97 那套 `.own-market-cardId`。
       expect(collectByClassName(page, titleClass).map(props => props['children']), label).toEqual(['会议纪要技能组'])
     }
     // 纯投影口径：基础词 + 计数，页签文案不会被写成「N 个」那种长写法。
     expect(enterpriseMarketTabLabel('企业技能', 3)).toBe('企业技能 3')
-    expect(enterpriseMarketTabLabel('组件', 3)).toBe('组件 3')
+    expect(enterpriseMarketTabLabel('包含内容', 3)).toBe('包含内容 3')
   })
 
   // 「企业插件」节：catalog + 本机态归并、仅当「插件」组件 ON 且有记录时渲染。
@@ -672,7 +690,7 @@ describe('enterprise marketplace entry', () => {
       expect(textOf(off), label).not.toContain('ent-a')
       expect(collectSectionByHook(off, 'enterprise-plugins'), label).toBeUndefined()
       // 计数口径锁：页签数字取**真正要渲染的行数**（门控不过即 0），绝不出现「页签说 2 条、面板空白」。
-      expect(collectByRole(off, 'tab').map(tab => tab['children']), label).toEqual(['企业技能 0', '企业插件 0', '组件 3'])
+      expect(collectByRole(off, 'tab').map(tab => tab['children']), label).toEqual(['企业技能 0', '企业插件 0', '包含内容 3'])
       // ON：sessionUsable=true → 「插件」组件开启 → 出插件行 + 逐个包名 + 计数。
       const on = shell({ view: 'page', activeTab: 'plugins', sessionUsable: true, enterprisePlugins: enterprisePlugins as never })
       const text = textOf(on)
@@ -689,7 +707,7 @@ describe('enterprise marketplace entry', () => {
       // 也不越界渲染别页签的内容（组件清单只在「组件」页签）。
       expect(text, label).not.toContain('enterprise plugins · catalog')
       expect(text, label).not.toContain('已装 · v')
-      expect(text, label).not.toContain('包含的组件')
+      expect(text, label).not.toContain('内容清单')
     }
   })
 
@@ -1416,7 +1434,7 @@ describe('enterprise marketplace entry', () => {
       // 折叠时列表整段不进 DOM（条件渲染，照官方 groupBody）——`.own-market-rows{display:flex}` 会覆盖
       // UA 的 `[hidden]{display:none}`，故不用 hidden 属性，直接不渲染 <ul>。节头/标题/计数仍在文本里。
       expect(collectElementById(collapsed, 'market-section-components'), label).toBeUndefined()
-      expect(textOf(collapsed), label).toContain('包含的组件')
+      expect(textOf(collapsed), label).toContain('内容清单')
 
       // 展开态：aria-expanded=true、列表在 DOM。
       const expanded = shell({
@@ -1513,11 +1531,16 @@ describe('enterprise marketplace entry', () => {
       expect(collectByClassName(page, 'own-market-rowIcon'), label).toHaveLength(1)
       expect(collectByClassName(page, 'own-market-rowLine'), label).toHaveLength(1)
       expect(collectByClassName(page, 'own-market-cardChevron'), label).toEqual([])
-      // 组件页签的 rows 版式不受影响：同一串行类名、恒三行（它本来就长这样，本刀没动它）。
+      // 组件页签的 rows 版式不受影响：同一串行类名、恒三行（它本来就长这样，本刀没动它的行版式）。
       const components = shell({ view: 'page', activeTab: 'components' })
       expect(collectByClassName(components, 'own-market-rows'), label).toHaveLength(1)
       expect(collectByClassName(components, 'own-market-row'), label).toHaveLength(3)
-      expect(collectByClassName(components, 'own-market-rowModule'), label).toHaveLength(3)
+      // **术语降维的反向锁**：内部模块路径（`dsh-preset / .dshpreset` 等）不再上屏——
+      // 类名与文本两路都取证，防它以后被顺手加回来（数据仍留在 ENTERPRISE_MARKET_COMPONENTS 里作交付台账）。
+      expect(collectByClassName(components, 'own-market-rowModule'), label).toEqual([])
+      for (const row of ENTERPRISE_MARKET_COMPONENTS) {
+        expect(textOf(components), label).not.toContain(row.module)
+      }
     }
   })
 
@@ -1748,8 +1771,8 @@ describe('enterprise marketplace entry', () => {
     // 组件页签：折叠语义 + 三行清单 + 开关动作名与另一套外壳逐项一致。
     const components = EnterpriseMarketLegacyShell({ view: 'page', activeTab: 'components', expandedSections: { components: true }, onToggleSection: vi.fn() })
     expect(collectElementById(components, 'market-section-components')).not.toBeUndefined()
-    expect(collectSwitchProps(components).map(props => props['label'])).toEqual(['启用组件 插件', '启用组件 技能', '启用组件 配方'])
-    expect(textOf(components)).toContain('包含的组件')
+    expect(collectSwitchProps(components).map(props => props['label'])).toEqual(['启用插件', '启用技能', '启用配方'])
+    expect(textOf(components)).toContain('内容清单')
   })
 
   // 商业化字样反向断言：两套外壳（含 summary 与三个页签、含失败态与已装态）的全树文本与样式文本
@@ -2245,12 +2268,25 @@ describe('enterprise skill detail page', () => {
     const badge = collectByClassName(tree, 'own-market-titleRow')[0]
     const badgeKids = (badge?.['children'] as ReactNode[]).filter(child => child !== null && child !== undefined)
     expect(badgeKids).toHaveLength(2)
-    expect((badgeKids[1] as { props?: Record<string, unknown> }).props?.['children']).toBe(input.facts.versionTag)
+    // **术语降维**：完整坐标不再是一条裸字符串——签被「来源」标签的包装节点包成一个单元
+    // （标签在前、坐标签在后；`title` 说明它由「来源站 / 发布方 @ 版本号」构成）。
+    const source = ((badgeKids[1] as { props?: Record<string, any> }).props ?? {})
+    expect(source['className']).toBe('own-market-detailSource')
+    expect(source['title']).toBe(ENTERPRISE_SKILL_DETAIL_SOURCE_TITLE)
+    const sourceKids = source['children'] as ReactNode[]
+    expect(((sourceKids[0] as { props?: Record<string, any> }).props ?? {})['children']).toBe(ENTERPRISE_SKILL_DETAIL_SOURCE_LABEL)
+    expect(((sourceKids[1] as { props?: Record<string, any> }).props ?? {})['children']).toBe(input.facts.versionTag)
     // 版本徽标只在 titleRow 那一处；行上那枚「有更新」辅助动作在详情里照旧恰好一枚（动作同源，不重复挂）。
     expect(collectTagProps(tree)).toHaveLength(1)
-    // ③ 等宽标识行 = `skillId`（官方 `_detailName`：tertiary 12/18 + `<code>` mono）。
+    // ③ 等宽标识行 = `skillId`（官方 `_detailName`：tertiary 12/18 + `<code>` mono）；
+    //    **术语降维**：前面补一个人话标签「标识」并带悬浮说明（位置与取值都不变，只是不再是一串裸等宽字符）。
     const nameRow = collectByClassName(tree, 'own-market-detailName')[0]
-    expect(nameRow?.['children']).toMatchObject({ type: 'code', props: { children: input.row.skillId } })
+    const nameKids = nameRow?.['children'] as ReactNode[]
+    const nameLabel = (nameKids[0] as { props?: Record<string, any> }).props ?? {}
+    expect(nameLabel['className']).toBe('own-market-detailNameLabel')
+    expect(nameLabel['children']).toBe(ENTERPRISE_SKILL_DETAIL_NAME_LABEL)
+    expect(nameLabel['title']).toBe(ENTERPRISE_SKILL_DETAIL_NAME_TITLE)
+    expect(nameKids[1]).toMatchObject({ type: 'code', props: { children: input.row.skillId } })
     // ④ 描述（官方 `_detailDesc`）。
     expect(collectByClassName(tree, 'own-market-detailDesc').map(props => props['children'])).toEqual([input.row.description])
     // ⑤ 分区（官方 `_detailSections` → `_detailSection`）：文件区那一节 + 节头（标题 + 计数）。

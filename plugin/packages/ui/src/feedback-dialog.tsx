@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 React、Lucide 的 ImagePlus/LoaderCircle/X、Harness 共享 Modal/Button、account-state 的共享脱敏订阅与既有错误码文案、local-api 的反馈草稿/回执 DTO 与失败码投影
+ * [INPUT]: 依赖 React、Lucide 的 ImagePlus/LoaderCircle/X、Harness 共享 Modal/Button、account-state 的共享脱敏订阅与错误呈现接缝、error-notice 的统一失败提示、local-api 的反馈草稿/回执 DTO 与失败码投影
  * [OUTPUT]: 对外提供「帮助与反馈」弹窗 `EnterpriseFeedbackDialog`、开关控制器 `useEnterpriseFeedbackDialog`，以及表单纯投影（counter/occurredAt 显隐/魔数判型/附件与提交校验/draft 构造）
- * [POS]: dsh-ui 的个人中心反馈面板——字段与条件显隐照 feedback-feature-spec §1，提交经同源 `/enterprise/api/v1/local/feedback` 由 Host 代取令牌转交中心；浏览器不发 diagnostics（Host 采集），附件在本层先做类型/大小/张数预校验给出可见提示
+ * [POS]: dsh-ui 的个人中心反馈面板——字段与条件显隐照 feedback-feature-spec §1，提交经同源 `/enterprise/api/v1/local/feedback` 由 Host 代取令牌转交中心；浏览器不发 diagnostics（Host 采集），附件在本层先做类型/大小/张数预校验给出可见提示；**本刀**：提交失败改渲染 `EnterpriseErrorNotice`（人话 + 下一步 + 技术信息里的稳定码）
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -24,6 +24,7 @@ import {
   useAccount,
 } from './account-state.js'
 import type { EnterpriseAccountStore } from './account-store.js'
+import { EnterpriseErrorNotice } from './error-notice.js'
 import {
   enterpriseLocalErrorCode,
   type EnterpriseFeedbackDraft,
@@ -517,9 +518,9 @@ export function EnterpriseFeedbackDialog(props: EnterpriseFeedbackDialogProps): 
           </label>
           {errorDisplay === undefined
             ? null
-            : <p className="own-feedback-error" role="alert">
-              {errorDisplay.message}{errorDisplay.code === undefined ? null : `（${errorDisplay.code}）`}
-            </p>}
+            : errorDisplay.code === undefined
+              ? <p className="own-feedback-error" role="alert">{errorDisplay.message}</p>
+              : <EnterpriseErrorNotice code={errorDisplay.code} className="own-feedback-error" />}
         </>
         : null}
     </div>

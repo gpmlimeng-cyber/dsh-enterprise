@@ -168,13 +168,16 @@ preset/
 - 一期唯一主动作：**复制导入指令**（不自动下载、不自动 import）。指令文案固定为：
 
 ```text
-请先读取并遵循 Preset Square Skill，然后从 DSH Enterprise 下载并导入下面这个 Preset。
+请先读取并遵循 Preset Square Skill，然后从 DSH Enterprise 下载并导入下面这个配方。
 读取详情并检查安全信息后，在实际下载和导入前向我确认。
-Preset：{downloadUrl}
+配方：{downloadUrl}
 名称：{displayName}
-预设 ID：{presetId}
+标识：{presetId}
 建议目标标识：{presetId}-ent   # 本地已有同 id 时 Desktop 要求新 id，避免覆盖
 ```
+
+> 2026-10 员工侧术语降维刀：上面这段**员工可见**的指令文案按产品宪法术语降维——`Preset` → 「配方」、`预设 ID` → 「标识」；
+> `Preset Square Skill` 是上游 Skill 的正式专名，**不改写**。实现见 `plugin/packages/ui/src/preset-market.tsx` 的 `buildPresetImportInstruction`。
 
 `downloadUrl` 形如 `{ENT_PUBLIC_BASE_URL}/enterprise/api/v1/presets/versions/{versionId}/download`。  
 Agent 侧约定：用企业已登录 Access Token 下载二进制，再调用 Desktop loopback `POST $DSH_WEB_URL/api/agent-preset.import?agentPreset=<targetId>&install=1`，**禁止**把 ZIP base64 进模型上下文或手解压进 preset root。该约定写入员工 tab 旁的静态说明，不新增第二套 Skill 包。
