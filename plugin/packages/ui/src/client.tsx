@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖官方 slots/remote/connection 生命周期事件、EnterpriseAccountStore，以及宿主 ui-theme 与 shortcuts 服务（按需读取，不作硬注入），不创建传输连接
- * [OUTPUT]: 注册账号/插件设置、官方 settings.launcher 座位上的账号菜单，以及官方插件页「官方」分组里的「插件市场」入口卡片；宿主模型/凭据变化后按需读取状态，让请求触发的认证失效立即呈现；向菜单注入官方主题只读源、桌面能力面（动作 + 更新状态）与官方快捷键注册表只读源
+ * [OUTPUT]: 注册账号/插件设置、官方 settings.launcher 座位上的账号菜单，以及官方插件页「官方」分组里的「插件市场」入口卡片与详情页标题行（`plugins.detail.badge` 槽只出「版本号 + 包名」，无「预览版」签、无可拨总开关）；宿主模型/凭据变化后按需读取状态，让请求触发的认证失效立即呈现；向菜单注入官方主题只读源、桌面能力面（动作 + 更新状态）与官方快捷键注册表只读源
  * [POS]: dsh-ui 的浏览器组合根，只向 React 注入共享脱敏 store、主题源、桌面能力面与快捷键源，不注册任何全屏阻断层、侧栏入口或独立市场弹层，也不传递 Host Context
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -133,8 +133,9 @@ export function apply(ctx: SlotContextPort): void {
     label: ENTERPRISE_MARKET_ENTRY_LABEL,
     inject: () => ({ store }),
   }, EnterpriseMarketPage as (props: never) => ReactNode))
-  // 「预览版」签 + 总开关走官方 plugins.detail.badge 槽（titleRow 里 h3 旁），与标题同排；
-  // 注入共享 store 让开关读会话状态并开登录弹窗；对非本条目 subject 返回 null（官方槽语义）。
+  // 详情页标题行（官方 titleRow 的 h3 旁）只出「版本号 + 包名」——纯噪音的「预览版」文字签已删，
+  // 标题行也没有可拨总开关（产品决策：拨不动的开关像坏的；功能开关在各行与「组件」页签里）。
+  // 注入共享 store 让版本签读组件版本；对非本条目 subject 返回 null（官方槽语义）。
   ctx.slots.inject('plugins.detail.badge', () => ctx.slots.register({
     name: 'plugins.detail.badge',
     id: ENTERPRISE_MARKET_ENTRY_ID,

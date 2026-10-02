@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 marketplace-entry 的注册常量、**页签真源**（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`）、组件清单/摘要/状态/开关语义纯投影、企业插件行投影、企业技能行投影（含详情归并的中心版本 `latestVersionId`，以及标题行两枚标签的取值：列表投影的 `sourceDshVersion` 与可选 `category`）与可见性门控、标题行标签纯投影 `enterpriseMarketSkillVersionTag`/`enterpriseMarketSkillCategoryTag`、技能节受管态纯投影 `enterpriseMarketSkillState`、「有更新」判定 `enterpriseMarketSkillHasUpdate`/`enterpriseMarketSkillRowHasUpdate` 与辅助标签投影 `enterpriseMarketSkillUpdateTag`、**组件页签折叠态常量** `ENTERPRISE_MARKET_DEFAULT_EXPANDED`、失败行内提示投影 `enterpriseMarketActionErrorLabel`、入口组件与版本签组件本身，以及 local-api-decode 的 `EnterpriseRuntimeSkill`/`EnterpriseInstalledSkill` 形状
- * [OUTPUT]: 验证入口身份常量、卡片一句话的单行约束、**page 视图的三页签商店结构**（页签条手写 `role="tablist"`、三个页签的 `aria-selected`/`aria-controls`/roving `tabIndex`/`id` 与三个 `role="tabpanel"` 的 `aria-labelledby` 严格配对、**默认选中「企业技能」**、切换后**只渲染该页签内容**、←/→/Home/End 走焦并选中、鼠标点击回调）、组件清单（插件/技能/配方）顺序与 reserved 语义、计数摘要口径、summary/page 两视图结构（page 上的组件行在「组件」页签里，且 page 不重画标题/desc）、版本签只对本条目 subject 出、企业插件页签的归并与门控，以及**企业技能页签的官方两行卡片**（第 1 行标题 + 紧随的**版本签 `sourceDshVersion`** 与**可选分类签 `category`**——分类缺席/null/空串时该签不出现、第 1 行 nowrap 单行锁 20px 行高故加签不撑高、标题先省略标签保持可见；第 2 行描述各自成行、描述单行省略、旧元信息行退场）/可见性门控/计数/右侧那枚官方 `Switch`（`checked` 反映已装、在途 `disabled`、`label` 给动作语义、`onChange(next)` 两个方向都回调）与受管态投影（未装/已装/有更新/在途），以及**开关左侧那枚辅助标签**（只在「有更新」时出现、`aria-label`=`更新企业技能 X`、点击走安装方向、在途 `disabled` 不消失、未装/已装同版本一律不出现、标签严格排在 Switch 左侧），以及**「有更新」独立用例**（只有两侧 `versionId` 参与、`sha256` 换值不改结论、缺任一侧不判），以及**只改技能行**的回归锁（技能行有 Switch + 辅助标签、企业插件行一字未动），以及**两节行上的失败可见反馈**（失败 → 该行 role="alert" + 稳定错误码、只落失败行、失败后开关仍可拨重试、成功路径不出现该提示），以及**页签化后唯一剩下的组件节折叠**（`ENTERPRISE_MARKET_DEFAULT_EXPANDED` 单字段、aria 契约、折叠态列表不进 DOM）
+ * [INPUT]: 依赖 marketplace-entry 的注册常量、**页签真源**（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`）、组件清单/摘要/状态/开关语义纯投影、企业插件行投影、企业技能行投影（含详情归并的中心版本 `latestVersionId`，以及标题行两枚标签的取值：列表投影的 `sourceDshVersion` 与可选 `category`）与可见性门控、标题行标签纯投影 `enterpriseMarketSkillVersionTag`/`enterpriseMarketSkillCategoryTag`、技能节受管态纯投影 `enterpriseMarketSkillState`、「有更新」判定 `enterpriseMarketSkillHasUpdate`/`enterpriseMarketSkillRowHasUpdate` 与辅助标签投影 `enterpriseMarketSkillUpdateTag`、**组件页签折叠态常量** `ENTERPRISE_MARKET_DEFAULT_EXPANDED`、失败行内提示投影 `enterpriseMarketActionErrorLabel`、入口组件与版本签组件本身、**页签文案计数投影** `enterpriseMarketTabLabel`，以及 local-api-decode 的 `EnterpriseRuntimeSkill`/`EnterpriseInstalledSkill` 形状
+ * [OUTPUT]: 验证入口身份常量、卡片一句话的单行约束、**page 视图的三页签商店结构**（页签条手写 `role="tablist"`、三个页签的 `aria-selected`/`aria-controls`/roving `tabIndex`/`id` 与三个 `role="tabpanel"` 的 `aria-labelledby` 严格配对、**默认选中「企业技能」**、切换后**只渲染该页签内容**、←/→/Home/End 走焦并选中、鼠标点击回调）、组件清单（插件/技能/配方）顺序与 reserved 语义、计数摘要口径、summary/page 两视图结构（page 上的组件行在「组件」页签里，且 page 不重画标题/desc）、版本签只对本条目 subject 出、企业插件页签的归并与门控，以及**企业技能页签的官方两行卡片**（第 1 行标题 + 紧随的**版本签 `sourceDshVersion`** 与**可选分类签 `category`**——分类缺席/null/空串时该签不出现、第 1 行 nowrap 单行锁 20px 行高故加签不撑高、标题先省略标签保持可见；第 2 行描述各自成行、描述单行省略、旧元信息行退场）/可见性门控/计数/右侧那枚官方 `Switch`（`checked` 反映已装、在途 `disabled`、`label` 给动作语义、`onChange(next)` 两个方向都回调）与受管态投影（未装/已装/有更新/在途），以及**开关左侧那枚辅助标签**（只在「有更新」时出现、`aria-label`=`更新企业技能 X`、点击走安装方向、在途 `disabled` 不消失、未装/已装同版本一律不出现、标签严格排在 Switch 左侧），以及**「有更新」独立用例**（只有两侧 `versionId` 参与、`sha256` 换值不改结论、缺任一侧不判），以及**只改技能行**的回归锁（技能行有 Switch + 辅助标签、企业插件行一字未动），以及**两节行上的失败可见反馈**（失败 → 该行 role="alert" + 稳定错误码、只落失败行、失败后开关仍可拨重试、成功路径不出现该提示），以及**页签化后唯一剩下的组件节折叠**（`ENTERPRISE_MARKET_DEFAULT_EXPANDED` 单字段、aria 契约、折叠态列表不进 DOM），以及**详情页顶部压缩的取值锁**（badge 只剩版本号一签 + 包名、「预览版」签不再出现；`.own-market-tabs` `margin-top:0` + `flex-wrap:nowrap`、`.own-market-section` `margin-top:12px`、`.own-market-tab` `white-space:nowrap`/13-20；`.own-market-sectionMeta` 类规则整条删除且 DOM 不再有该容器，计数改由页签文案承载「企业技能 3」）
  * [POS]: dsh-ui 插件市场入口的产品词汇门禁，真实渲染与视觉由 Harness 快照与真机验收覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -47,6 +47,7 @@ import {
   enterpriseMarketSkillState,
   enterpriseMarketSkillUpdateTag,
   enterpriseMarketSkillVersionTag,
+  enterpriseMarketTabLabel,
   enterpriseMarketVersionTag,
   enterprisePluginDot,
   ENTERPRISE_MARKET_SECTION_IDS,
@@ -158,9 +159,13 @@ describe('enterprise marketplace entry', () => {
     const page = EnterpriseMarketEntry({ view: 'page' })
     expect(isValidElement(page)).toBe(true)
     expect(isValidElement(page) ? page.props['aria-label'] : undefined).toBe(ENTERPRISE_MARKET_ENTRY_LABEL)
-    // page 视图现在是一条页签条 + 三个面板；页签文案就是原三节的标题。
+    // page 视图现在是一条页签条 + 三个面板；页签文案 = 基础词 + 计数（无数据时企业技能/企业插件为 0、
+    // 组件恒为清单长度 3）——计数原先独占一行，现在并入页签（顶部压缩）。
     const text = textOf(page)
     for (const tab of ENTERPRISE_MARKET_TABS) expect(text).toContain(tab.label)
+    expect(text).toContain(enterpriseMarketTabLabel('企业技能', 0))
+    expect(text).toContain(enterpriseMarketTabLabel('企业插件', 0))
+    expect(text).toContain(enterpriseMarketTabLabel('组件', ENTERPRISE_MARKET_COMPONENTS.length))
     // 卡片摘要仍只出现在 summary 视图（page 里一个字都不重复）。
     expect(text).not.toContain(ENTERPRISE_MARKET_SUMMARY)
   })
@@ -178,7 +183,13 @@ describe('enterprise marketplace entry', () => {
     expect(tablists).toHaveLength(1)
     expect(tablists[0]?.['aria-label']).toBe(ENTERPRISE_MARKET_TABLIST_LABEL)
     const tabs = collectByRole(page, 'tab')
-    expect(tabs.map(tab => tab['children'])).toEqual(['企业技能', '企业插件', '组件'])
+    // 页签文案 = 基础词 + 紧凑计数（企业技能/企业插件无目录时如实为 0，组件 = 清单长度 3）：
+    // 原先两节内部的独立计数行已删，数字并入页签（详情页顶部少一行）。
+    expect(tabs.map(tab => tab['children'])).toEqual(['企业技能 0', '企业插件 0', '组件 3'])
+    expect(tabs.map(tab => tab['children'])).toEqual(ENTERPRISE_MARKET_TABS.map(tab => enterpriseMarketTabLabel(
+      tab.label,
+      tab.id === 'components' ? ENTERPRISE_MARKET_COMPONENTS.length : 0,
+    )))
     // 默认选中 + roving tabIndex（只有当前页签可 Tab 到，其余靠方向键）。
     expect(tabs.map(tab => tab['aria-selected'])).toEqual([true, false, false])
     expect(tabs.map(tab => tab['tabIndex'])).toEqual([0, -1, -1])
@@ -338,7 +349,8 @@ describe('enterprise marketplace entry', () => {
     const onOpenLogin = vi.fn()
     const page = EnterpriseMarketEntry({ view: 'page', activeTab: 'components', sessionUsable: false, onOpenLogin })
     expect(isValidElement(page)).toBe(true)
-    // 「组件」页签里只有三行组件开关（头部总开关已挪到 plugins.detail.badge 槽，由 BadgeView 测试）。
+    // 「组件」页签里只有三行组件开关（详情页没有头部总开关：badge 槽只出只读的「版本号 + 包名」，
+    // 见上面的 BadgeView 用例——那里断言标题行没有任何 Switch）。
     const switches = collectSwitchProps(page)
     expect(switches).toHaveLength(3)
     // 插件行与技能行开关未登录且有回调 → 必须可点（disabled false），配方恒禁用（预留）。
@@ -352,28 +364,68 @@ describe('enterprise marketplace entry', () => {
     expect(skillsSwitch?.disabled).toBe(false)
     const presetsSwitch = switches.find(props => props.label === '启用组件 配方')
     expect(presetsSwitch?.disabled).toBe(true)
-    // page 不再含头部总开关（它在 badge 槽）。
+    // page 不再含头部总开关（badge 槽只有只读的版本号 + 包名，功能开关就是这三行）。
     expect(switches.find(props => props.label === '启用插件市场')).toBeUndefined()
   })
 
-  // 版本号 + 标签走官方 plugins.detail.badge 槽（titleRow 里 h3 旁，照智能体团队）：只对本条目 subject 生效。
-  it('gates the badge on the plugin-market subject and renders version+label tags (no switch)', () => {
+  // 版本号 + 包名走官方 plugins.detail.badge 槽（titleRow 里 h3 旁）：只对本条目 subject 生效；
+  // 「预览版」文字签已按顶部压缩删掉（纯噪音、无信息量），标题行也没有可拨总开关。
+  it('gates the badge on the plugin-market subject and renders version + package name only (no 预览版, no switch)', () => {
     // subject 过滤：其余 subject 一律 null（hook 前就返回，不碰状态）。
     expect(EnterpriseMarketBadge({ subject: { kind: 'item', id: 'shell' } })).toBeNull()
     expect(EnterpriseMarketBadge({ subject: { kind: 'bundle', pkg: { name: 'x' } } })).toBeNull()
-    // 纯呈现（BadgeView 不调 hook）：有版本 → 版本签 + 标签；无版本 → 只有标签。
+    // 纯呈现（BadgeView 不调 hook）：有版本 → 恰好一枚版本签 + 包名行；无版本 → 只剩包名行。
     const withVersion = BadgeView({ version: '0.1.0' })
     expect(textOf(withVersion)).toContain('v0.1.0')
-    expect(textOf(withVersion)).toContain('预览版')
+    expect(textOf(withVersion)).not.toContain('预览版')
+    const tags = collectByClassName(withVersion, 'own-market-tag')
+    expect(tags).toHaveLength(1)
+    expect(tags[0]?.['children']).toBe('v0.1.0')
+    // 包名行照旧（本刀不动它：它是我们 badge 槽里换行的一行，不是官方 chrome 的字号/间距）。
+    expect(collectByClassName(withVersion, 'own-market-badge-name')).toHaveLength(1)
+    expect(textOf(withVersion)).toContain(ENTERPRISE_MARKET_ENTRY_ID)
     // 标题行只有签、无可拨开关（拨不动的开关像坏的，产品决策去掉）。
     expect(collectSwitchProps(withVersion)).toHaveLength(0)
     const withoutVersion = BadgeView({})
-    expect(textOf(withoutVersion)).toContain('预览版')
+    expect(textOf(withoutVersion)).not.toContain('预览版')
+    expect(collectByClassName(withoutVersion, 'own-market-tag')).toHaveLength(0)
     expect(textOf(withoutVersion)).not.toContain('v')
     // 版本签口径照官方 versionTag 'v{version}'。
     expect(enterpriseMarketVersionTag('1.2.3')).toBe('v1.2.3')
     expect(enterpriseMarketVersionTag(undefined)).toBeUndefined()
     expect(enterpriseMarketVersionTag('')).toBeUndefined()
+  })
+
+  // 详情页顶部压缩的取值锁（本刀核心视觉）：页签条 top 间距 2→0、首个节 top 间距 24→12、
+  // 独立计数行（`.own-market-sectionMeta`）整段退场、页签文案自带计数且行高不变（nowrap + 13/20）。
+  // 这些数字一旦被改回去（例如又加回 24 / 又插回一行计数），本用例必须红。
+  it('locks the compressed detail-page top spacing and the count-in-tab labels', () => {
+    const page = EnterpriseMarketEntry({ view: 'page', sessionUsable: true, enterpriseSkills: enterpriseMarketSkillRows([SKILL]) })
+    const css = collectStyleText(page)
+    // 顶部间距：两个取值都收紧到压缩后的定值（节内 gap 不动，仍是 12）。
+    const tabsRule = cssRuleBody(css, '.own-market-tabs')
+    expect(tabsRule).toContain('margin-top:0')
+    expect(tabsRule).toContain('flex-wrap:nowrap')
+    const sectionRule = cssRuleBody(css, '.own-market-section')
+    expect(sectionRule).toContain('margin-top:12px')
+    expect(sectionRule).not.toContain('margin-top:24px')
+    expect(sectionRule).toContain('gap:12px')
+    // 独立计数行退场：类规则整条删除（不留死样式），DOM 里也不再出现该容器。
+    expect(cssRuleBody(css, '.own-market-sectionMeta')).toBe('')
+    expect(collectByClassName(page, 'own-market-sectionMeta')).toEqual([])
+    // 页签行高不变：单行 nowrap，13/20——计数并入文案后不换行、不撑高页签条。
+    const tabRule = cssRuleBody(css, '.own-market-tab')
+    expect(tabRule).toContain('white-space:nowrap')
+    expect(tabRule).toContain('font-size:13px')
+    expect(tabRule).toContain('line-height:20px')
+    // 计数确实落在页签上（企业技能 1），且压缩没有动到节里的行内容。
+    const tabs = collectByRole(page, 'tab')
+    expect(tabs.map(tab => tab['children'])).toEqual(['企业技能 1', '企业插件 0', '组件 3'])
+    expect(collectSectionByHook(page, 'enterprise-skills')).not.toBeUndefined()
+    expect(collectByClassName(page, 'own-market-cardId').map(props => props['children'])).toEqual(['会议纪要技能组'])
+    // 纯投影口径：基础词 + 计数，页签文案不会被写成「N 个」那种长写法。
+    expect(enterpriseMarketTabLabel('企业技能', 3)).toBe('企业技能 3')
+    expect(enterpriseMarketTabLabel('组件', 3)).toBe('组件 3')
   })
 
   // 「企业插件」节：catalog + 本机态归并、仅当「插件」组件 ON 且有记录时渲染。
@@ -420,13 +472,17 @@ describe('enterprise marketplace entry', () => {
     const off = EnterpriseMarketEntry({ view: 'page', activeTab: 'plugins', sessionUsable: false, enterprisePlugins: enterprisePlugins as never })
     expect(textOf(off)).not.toContain('ent-a')
     expect(collectSectionByHook(off, 'enterprise-plugins')).toBeUndefined()
+    // 计数口径锁：页签数字取**真正要渲染的行数**（门控不过即 0），绝不出现「页签说 2 条、面板空白」。
+    expect(collectByRole(off, 'tab').map(tab => tab['children'])).toEqual(['企业技能 0', '企业插件 0', '组件 3'])
     // ON：sessionUsable=true → 「插件」组件开启 → 出插件行 + 逐个包名 + 计数。
     const on = EnterpriseMarketEntry({ view: 'page', activeTab: 'plugins', sessionUsable: true, enterprisePlugins: enterprisePlugins as never })
     const text = textOf(on)
     expect(text).toContain('ent-a')
     expect(text).toContain('ent-b')
     expect(text).toContain('企业发布 · v1.2.0')
-    expect(text).toContain('2 个')
+    // 计数已并入页签文案（原先节内那行独立的 `2 个` 已删）：这里锁「企业插件 2」。
+    expect(text).toContain(enterpriseMarketTabLabel('企业插件', 2))
+    expect(text).not.toContain('2 个')
     expect(collectSectionByHook(on, 'enterprise-plugins')).not.toBeUndefined()
     // 回归锁：企业插件卡片只两行文案（包名 + 一句话说明），照官方已安装卡片 CardHead——
     // 不含详情页 RowsSection 的 mono 模块名行（那是 rowMain 结构，官方卡片没有）；
@@ -483,10 +539,11 @@ describe('enterprise marketplace entry', () => {
     const off = EnterpriseMarketEntry({ view: 'page', sessionUsable: false, enterpriseSkills })
     expect(collectSectionByHook(off, 'enterprise-skills')).toBeUndefined()
     expect(textOf(off)).not.toContain('会议纪要技能组')
-    // ON：两行文案 + 计数（`N 个`）。
+    // ON：两行文案 + 计数（原先那行独立的 `1 个` 已删，计数并入页签文案 `企业技能 1`）。
     const on = EnterpriseMarketEntry({ view: 'page', sessionUsable: true, enterpriseSkills })
     const text = textOf(on)
-    expect(text).toContain('1 个')
+    expect(text).toContain(enterpriseMarketTabLabel('企业技能', 1))
+    expect(text).not.toContain('1 个')
     // 两行结构：第 1 行标题、第 2 行描述各自成行（照官方已安装卡片 CardHead）。
     expect(collectByClassName(on, 'own-market-cardId').map(props => props['children'])).toEqual(['会议纪要技能组'])
     expect(collectByClassName(on, 'own-market-cardDesc').map(props => props.children))
