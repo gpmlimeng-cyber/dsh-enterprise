@@ -161,6 +161,8 @@ paths:
     $ref: './paths/skill.yaml#/SkillVersionRetire'
   /enterprise/admin/v1/skills/{skillPackageId}/assignments/batch:
     $ref: './paths/skill.yaml#/SkillAssignmentBatch'
+  /enterprise/admin/v1/skills/{skillPackageId}/marks:
+    $ref: './paths/skill.yaml#/SkillPackageMarks'
   /enterprise/api/v1/skills:
     $ref: './paths/skill.yaml#/RuntimeSkillCollection'
   /enterprise/api/v1/skills/{skillPackageId}:
@@ -441,6 +443,12 @@ x-enterprise-fixtures:
   - file: fixtures/runtime-preset-detail-success.json
     schema: RuntimePresetDetail
     valid: true
+  - file: fixtures/runtime-preset-summary-success.json
+    schema: RuntimePresetSummary
+    valid: true
+  - file: fixtures/runtime-preset-summary-unknown-dependency-kind.json
+    schema: RuntimePresetSummary
+    valid: false
   - file: fixtures/skill-version-success.json
     schema: SkillVersionResponse
     valid: true
@@ -986,9 +994,11 @@ components:
     SkillAssignment: {$ref: './components/skill.yaml#/SkillAssignment'}
     SkillAssignmentSpec: {$ref: './components/skill.yaml#/SkillAssignmentSpec'}
     SkillAssignmentBatchRequest: {$ref: './components/skill.yaml#/SkillAssignmentBatchRequest'}
+    SkillMarksRequest: {$ref: './components/skill.yaml#/SkillMarksRequest'}
     SkillPackage: {$ref: './components/skill.yaml#/SkillPackage'}
     SkillPackagePageData: {$ref: './components/skill.yaml#/SkillPackagePageData'}
     SkillPackageListResponse: {$ref: './components/skill.yaml#/SkillPackageListResponse'}
+    SkillPackageResponse: {$ref: './components/skill.yaml#/SkillPackageResponse'}
     RuntimeSkillSummary: {$ref: './components/skill.yaml#/RuntimeSkillSummary'}
     RuntimeSkillDetail: {$ref: './components/skill.yaml#/RuntimeSkillDetail'}
     PluginPackageId: {$ref: './components/plugin.yaml#/PluginPackageId'}

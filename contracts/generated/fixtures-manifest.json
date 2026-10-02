@@ -277,6 +277,18 @@
       "zodExport": "zRuntimePresetDetail"
     },
     {
+      "file": "fixtures/runtime-preset-summary-success.json",
+      "schema": "RuntimePresetSummary",
+      "valid": true,
+      "zodExport": "zRuntimePresetSummary"
+    },
+    {
+      "file": "fixtures/runtime-preset-summary-unknown-dependency-kind.json",
+      "schema": "RuntimePresetSummary",
+      "valid": false,
+      "zodExport": "zRuntimePresetSummary"
+    },
+    {
       "file": "fixtures/skill-version-success.json",
       "schema": "SkillVersionResponse",
       "valid": true,
@@ -427,5 +439,5 @@
       "zodExport": "zFeedbackDetailResponse"
     }
   ],
-  "protocolSha256": "79da20863575de2031b6224214c040bbd26ffb4d86c5738a1d192a978d21f99d"
+  "protocolSha256": "dd2d5ac1f2afdfcf12543d6f31e36a5aa81629100c74d485f0d33ed2034de73e"
 }

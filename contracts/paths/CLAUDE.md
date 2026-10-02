@@ -15,7 +15,7 @@ plugin.yaml: T13 六个管理与三个 runtime operation，冻结 multipart、re
 preset.yaml: 配方广场五个管理与三个 runtime operation，冻结 .dshpreset multipart、ALL/USER 可见范围原子替换与逐请求下载授权。
 skill.yaml: 技能目录六个管理与三个 runtime operation，冻结 .dshskill multipart、包内多 SKILL.md 条目投影、ALL/USER 可见范围原子替换、builtin/featured 标记写入、包级可选 category 投影与逐请求下载授权。
 session.yaml: T16 三个管理与五个 runtime operation，冻结设备源绑定、正文独立权限、导出 hash 与 tombstone 边界。
-branding.yaml: 品牌 B1 公开只读 JSON/不可变位图与五个管理 operation，公开面 security 为空且不暴露资产 ID 与 artifact 路径。
+branding.yaml: 品牌 B1 公开只读 JSON/不可变位图与六个管理 operation，公开面 security 为空且不暴露资产 ID 与 artifact 路径。
 feedback.yaml: 问题反馈一个员工 multipart 提交 operation 与四个管理 operation（keyset 列表/详情/If-Match 状态流转/附件流），冻结 ≤3 张位图 part、可选幂等键与 ent:feedback 权限边界。
 audit.yaml: T19 单一管理只读 operation，冻结九维筛选、cursor 和 ent:audit:read 权限边界。
 

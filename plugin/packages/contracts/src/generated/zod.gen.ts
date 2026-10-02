@@ -2277,7 +2277,7 @@ export const zPresetPresetVersionId = z.string().regex(/^[1-9][0-9]{0,18}$/);
 export const zPresetVersionId = zPresetPresetVersionId;
 
 /**
- * 配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。
+ * 配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。 同一形状同时被 runtime 摘要/详情投影复用（员工端只读清单，不含发布口校验语义）。
  */
 export const zPresetPresetDependency = z.object({
     kind: z.enum(['skill', 'plugin']),
@@ -2354,7 +2354,8 @@ export const zPresetRuntimePresetSummary = z.object({
     description: z.string().max(2000),
     sourceDshVersion: zPresetPresetSourceDshVersion,
     sizeBytes: z.coerce.bigint().gte(BigInt(1)).lte(BigInt(52428800)),
-    updatedAt: z.iso.datetime({ offset: true })
+    updatedAt: z.iso.datetime({ offset: true }),
+    dependencies: z.array(zPresetPresetDependency).max(200)
 }).strict();
 
 export const zRuntimePresetSummary = zPresetRuntimePresetSummary;
@@ -2915,6 +2916,13 @@ export const zSkillSkillEntry = z.object({
 
 export const zSkillEntry = zSkillSkillEntry;
 
+export const zSkillSkillMarksRequest = z.object({
+    builtin: z.boolean(),
+    featured: z.boolean()
+}).strict();
+
+export const zSkillMarksRequest = zSkillSkillMarksRequest;
+
 export const zSkillSkillPackageId = z.string().regex(/^[1-9][0-9]{0,18}$/);
 
 export const zSkillPackageId = zSkillSkillPackageId;
@@ -3049,6 +3057,13 @@ export const zSkillSkillPackageListResponse = z.object({
 }).strict();
 
 export const zSkillPackageListResponse = zSkillSkillPackageListResponse;
+
+export const zSkillSkillPackageResponse = z.object({
+    data: zSkillSkillPackage,
+    requestId: zRequestId
+}).strict();
+
+export const zSkillPackageResponse = zSkillSkillPackageResponse;
 
 export const zSkillSkillVersionResponse = z.object({
     data: zSkillSkillVersion,
@@ -3269,6 +3284,8 @@ export const zRuntimeSkillItem = z.unknown();
 export const zSkillAssignmentBatch = z.unknown();
 
 export const zSkillCollection = z.unknown();
+
+export const zSkillPackageMarks = z.unknown();
 
 export const zSkillVersionPublish = z.unknown();
 
@@ -4682,6 +4699,22 @@ export const zReplaceSkillAssignmentsResponse = z.object({
     data: z.array(zSkillSkillAssignment).max(200),
     requestId: zRequestId
 }).strict();
+
+export const zUpdateSkillPackageMarksBody = zSkillSkillMarksRequest;
+
+export const zUpdateSkillPackageMarksHeaders = z.object({
+    'Idempotency-Key': z.uuid().length(36).regex(/^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$/),
+    'If-Match': zRevision
+});
+
+export const zUpdateSkillPackageMarksPath = z.object({
+    skillPackageId: zSkillSkillPackageId
+});
+
+/**
+ * Skill package with the persisted builtin/featured marks.
+ */
+export const zUpdateSkillPackageMarksResponse = zSkillSkillPackageResponse;
 
 export const zListRuntimeSkillsQuery = z.object({
     sort: z.enum(['newest']).optional().default('newest')

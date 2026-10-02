@@ -1,0 +1,17 @@
+{
+  "id": "1901500000000000003",
+  "presetId": "weekly-digest",
+  "displayName": "周报整理",
+  "description": "把会议纪要与待办整理成企业周报草稿。",
+  "sourceDshVersion": "0.1.0-rc.7",
+  "sizeBytes": 20480,
+  "updatedAt": "2026-09-16T09:00:00Z",
+  "dependencies": [
+    {
+      "kind": "connector",
+      "id": "expense-reimbursement",
+      "mode": "latest",
+      "required": true
+    }
+  ]
+}

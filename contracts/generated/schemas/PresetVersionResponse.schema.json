@@ -79,7 +79,7 @@
           "type": "array",
           "maxItems": 200,
           "items": {
-            "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。",
+            "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。 同一形状同时被 runtime 摘要/详情投影复用（员工端只读清单，不含发布口校验语义）。",
             "type": "object",
             "additionalProperties": false,
             "required": [

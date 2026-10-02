@@ -82299,7 +82299,7 @@
                                       "type": "array",
                                       "maxItems": 200,
                                       "items": {
-                                        "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。",
+                                        "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。 同一形状同时被 runtime 摘要/详情投影复用（员工端只读清单，不含发布口校验语义）。",
                                         "type": "object",
                                         "additionalProperties": false,
                                         "required": [
@@ -83060,7 +83060,7 @@
                           "type": "array",
                           "maxItems": 200,
                           "items": {
-                            "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。",
+                            "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。 同一形状同时被 runtime 摘要/详情投影复用（员工端只读清单，不含发布口校验语义）。",
                             "type": "object",
                             "additionalProperties": false,
                             "required": [
@@ -83204,7 +83204,7 @@
                           "type": "array",
                           "maxItems": 200,
                           "items": {
-                            "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。",
+                            "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。 同一形状同时被 runtime 摘要/详情投影复用（员工端只读清单，不含发布口校验语义）。",
                             "type": "object",
                             "additionalProperties": false,
                             "required": [
@@ -84311,7 +84311,7 @@
                           "type": "array",
                           "maxItems": 200,
                           "items": {
-                            "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。",
+                            "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。 同一形状同时被 runtime 摘要/详情投影复用（员工端只读清单，不含发布口校验语义）。",
                             "type": "object",
                             "additionalProperties": false,
                             "required": [
@@ -85418,7 +85418,7 @@
                           "type": "array",
                           "maxItems": 200,
                           "items": {
-                            "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。",
+                            "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。 同一形状同时被 runtime 摘要/详情投影复用（员工端只读清单，不含发布口校验语义）。",
                             "type": "object",
                             "additionalProperties": false,
                             "required": [
@@ -87777,7 +87777,8 @@
                           "description",
                           "sourceDshVersion",
                           "sizeBytes",
-                          "updatedAt"
+                          "updatedAt",
+                          "dependencies"
                         ],
                         "properties": {
                           "id": {
@@ -87813,6 +87814,57 @@
                           "updatedAt": {
                             "type": "string",
                             "format": "date-time"
+                          },
+                          "dependencies": {
+                            "description": "这份配方引用的技能/插件清单（与 PresetVersion.dependencies 同一 PresetDependency 形状）， 供员工端在启用前一次请求看清「N 技能 · M 插件」。无引用即空数组。 引用是元数据而不是包内正文：这里不出现 artifact 路径、包内 YAML、SHA-256 或签名材料。 详情 RuntimePresetDetail 经 allOf 继承本字段，因此列表与详情共用同一字段名与同一套客户端解码。",
+                            "type": "array",
+                            "maxItems": 200,
+                            "items": {
+                              "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。 同一形状同时被 runtime 摘要/详情投影复用（员工端只读清单，不含发布口校验语义）。",
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "kind",
+                                "id",
+                                "mode",
+                                "required"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "skill",
+                                    "plugin"
+                                  ]
+                                },
+                                "id": {
+                                  "description": "技能 skillId（`^[A-Za-z0-9][A-Za-z0-9._-]*$`，≤128）或 npm package name（≤214）。",
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 214
+                                },
+                                "mode": {
+                                  "description": "pinned 钉 versionId；latest 跟该资产当前最新 PUBLISHED。",
+                                  "type": "string",
+                                  "enum": [
+                                    "pinned",
+                                    "latest"
+                                  ]
+                                },
+                                "versionId": {
+                                  "type": "string",
+                                  "pattern": "^[1-9][0-9]{0,18}$"
+                                },
+                                "required": {
+                                  "type": "boolean"
+                                },
+                                "resolvedVersionId": {
+                                  "type": "string",
+                                  "pattern": "^[1-9][0-9]{0,18}$",
+                                  "description": "留位字段（方案 §D 的可选第 6 键）：服务端在发布口解析\"当时最新\"后填充，只做展示与变更提示， 不是运行时真源。当前切片不填充，故服务端不会输出该键；manifest 里作者声明它会被验包拒绝。"
+                                }
+                              }
+                            }
                           }
                         }
                       }
@@ -88336,7 +88388,8 @@
                             "description",
                             "sourceDshVersion",
                             "sizeBytes",
-                            "updatedAt"
+                            "updatedAt",
+                            "dependencies"
                           ],
                           "properties": {
                             "id": {
@@ -88372,6 +88425,57 @@
                             "updatedAt": {
                               "type": "string",
                               "format": "date-time"
+                            },
+                            "dependencies": {
+                              "description": "这份配方引用的技能/插件清单（与 PresetVersion.dependencies 同一 PresetDependency 形状）， 供员工端在启用前一次请求看清「N 技能 · M 插件」。无引用即空数组。 引用是元数据而不是包内正文：这里不出现 artifact 路径、包内 YAML、SHA-256 或签名材料。 详情 RuntimePresetDetail 经 allOf 继承本字段，因此列表与详情共用同一字段名与同一套客户端解码。",
+                              "type": "array",
+                              "maxItems": 200,
+                              "items": {
+                                "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。 同一形状同时被 runtime 摘要/详情投影复用（员工端只读清单，不含发布口校验语义）。",
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "kind",
+                                  "id",
+                                  "mode",
+                                  "required"
+                                ],
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "skill",
+                                      "plugin"
+                                    ]
+                                  },
+                                  "id": {
+                                    "description": "技能 skillId（`^[A-Za-z0-9][A-Za-z0-9._-]*$`，≤128）或 npm package name（≤214）。",
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 214
+                                  },
+                                  "mode": {
+                                    "description": "pinned 钉 versionId；latest 跟该资产当前最新 PUBLISHED。",
+                                    "type": "string",
+                                    "enum": [
+                                      "pinned",
+                                      "latest"
+                                    ]
+                                  },
+                                  "versionId": {
+                                    "type": "string",
+                                    "pattern": "^[1-9][0-9]{0,18}$"
+                                  },
+                                  "required": {
+                                    "type": "boolean"
+                                  },
+                                  "resolvedVersionId": {
+                                    "type": "string",
+                                    "pattern": "^[1-9][0-9]{0,18}$",
+                                    "description": "留位字段（方案 §D 的可选第 6 键）：服务端在发布口解析\"当时最新\"后填充，只做展示与变更提示， 不是运行时真源。当前切片不填充，故服务端不会输出该键；manifest 里作者声明它会被验包拒绝。"
+                                  }
+                                }
+                              }
                             }
                           }
                         },
@@ -94488,6 +94592,1492 @@
                             "examples": [
                               7
                             ]
+                          }
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "description": "Server-generated req_ prefix followed by one canonical ULID.",
+                      "pattern": "^req_[0-9A-HJKMNP-TV-Z]{26}$",
+                      "examples": [
+                        "req_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request correlation ID.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "description": "Server-generated req_ prefix followed by one canonical ULID.",
+                  "pattern": "^req_[0-9A-HJKMNP-TV-Z]{26}$",
+                  "examples": [
+                    "req_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "ENT_INVALID_REQUEST",
+                            "ENT_INVALID_REDIRECT_URI",
+                            "ENT_PKCE_REQUIRED",
+                            "ENT_PLUGIN_ARTIFACT_INVALID",
+                            "ENT_PRESET_INVALID_PACKAGE",
+                            "ENT_PRESET_DEPENDENCIES_INVALID",
+                            "ENT_PRESET_DEPENDENCY_KIND_UNSUPPORTED",
+                            "ENT_SKILL_INVALID_PACKAGE",
+                            "ENT_BRANDING_ASSET_INVALID",
+                            "ENT_FEEDBACK_INVALID",
+                            "ENT_FEEDBACK_ATTACHMENT_INVALID",
+                            "ENT_SESSION_FORMAT_UNSUPPORTED",
+                            "ENT_AUTH_REQUIRED",
+                            "ENT_AUTH_CODE_INVALID",
+                            "ENT_PKCE_INVALID",
+                            "ENT_AUTH_SESSION_EXPIRED",
+                            "ENT_PERMISSION_DENIED",
+                            "ENT_DEVICE_REVOKED",
+                            "ENT_MODEL_NOT_ASSIGNED",
+                            "ENT_PLUGIN_NOT_ASSIGNED",
+                            "ENT_PRESET_NOT_PUBLISHED",
+                            "ENT_PRESET_VISIBILITY_DENIED",
+                            "ENT_SKILL_NOT_PUBLISHED",
+                            "ENT_SKILL_VISIBILITY_DENIED",
+                            "ENT_RESOURCE_NOT_OWNED",
+                            "ENT_RESOURCE_NOT_FOUND",
+                            "ENT_SESSION_CONTENT_EXPIRED",
+                            "ENT_REVISION_CONFLICT",
+                            "ENT_LAST_ENTERPRISE_ADMIN",
+                            "ENT_LAST_MEMBER_IDENTITY",
+                            "ENT_REQUEST_IN_PROGRESS",
+                            "ENT_REQUEST_ALREADY_COMPLETED",
+                            "ENT_SESSION_SEQ_GAP",
+                            "ENT_SESSION_DIVERGED",
+                            "ENT_SESSION_SOURCE_DEVICE_CONFLICT",
+                            "ENT_IDENTITY_ALREADY_LINKED",
+                            "ENT_DEVICE_ALREADY_BOUND",
+                            "ENT_FEEDBACK_STATE_CONFLICT",
+                            "ENT_PRESET_REQUIRES_MISSING",
+                            "ENT_PRESET_REQUIRES_NOT_PUBLISHED",
+                            "ENT_REQUEST_TOO_LARGE",
+                            "ENT_PLUGIN_ARCHIVE_TOO_LARGE",
+                            "ENT_PRESET_TOO_LARGE",
+                            "ENT_SKILL_TOO_LARGE",
+                            "ENT_BRANDING_ASSET_TOO_LARGE",
+                            "ENT_FEEDBACK_ATTACHMENT_TOO_LARGE",
+                            "ENT_SESSION_BATCH_TOO_LARGE",
+                            "ENT_QUOTA_FIVE_HOURS_EXCEEDED",
+                            "ENT_QUOTA_DAILY_EXCEEDED",
+                            "ENT_QUOTA_WEEKLY_EXCEEDED",
+                            "ENT_QUOTA_MONTHLY_EXCEEDED",
+                            "ENT_QUOTA_RPM_EXCEEDED",
+                            "ENT_QUOTA_CONCURRENCY_EXCEEDED",
+                            "ENT_UPSTREAM_RATE_LIMITED",
+                            "ENT_UPSTREAM_QUOTA_EXCEEDED",
+                            "ENT_UPSTREAM_AUTH_FAILED",
+                            "ENT_UPSTREAM_INVALID_RESPONSE",
+                            "ENT_PLATFORM_UNAVAILABLE",
+                            "ENT_UPSTREAM_UNAVAILABLE",
+                            "ENT_UPSTREAM_TIMEOUT"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 500
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "Server-generated req_ prefix followed by one canonical ULID.",
+                          "pattern": "^req_[0-9A-HJKMNP-TV-Z]{26}$",
+                          "examples": [
+                            "req_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                          ]
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "violations"
+                              ],
+                              "properties": {
+                                "violations": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 50,
+                                  "items": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                      "field",
+                                      "reason"
+                                    ],
+                                    "properties": {
+                                      "field": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 128
+                                      },
+                                      "reason": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "actualRevision",
+                                "expectedRevision"
+                              ],
+                              "properties": {
+                                "actualRevision": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991,
+                                  "description": "Monotonic compare-and-swap revision safe in JavaScript.",
+                                  "examples": [
+                                    7
+                                  ]
+                                },
+                                "expectedRevision": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991,
+                                  "description": "Monotonic compare-and-swap revision safe in JavaScript.",
+                                  "examples": [
+                                    7
+                                  ]
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "policyId",
+                                "resetsAt"
+                              ],
+                              "properties": {
+                                "policyId": {
+                                  "type": "string",
+                                  "pattern": "^[1-9][0-9]{0,18}$"
+                                },
+                                "resetsAt": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "originalRequestId",
+                                "result"
+                              ],
+                              "properties": {
+                                "originalRequestId": {
+                                  "type": "string",
+                                  "description": "Server-generated req_ prefix followed by one canonical ULID.",
+                                  "pattern": "^req_[0-9A-HJKMNP-TV-Z]{26}$",
+                                  "examples": [
+                                    "req_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                                  ]
+                                },
+                                "result": {
+                                  "type": "string",
+                                  "enum": [
+                                    "IN_PROGRESS",
+                                    "COMPLETED"
+                                  ]
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request correlation ID.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "description": "Server-generated req_ prefix followed by one canonical ULID.",
+                  "pattern": "^req_[0-9A-HJKMNP-TV-Z]{26}$",
+                  "examples": [
+                    "req_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "ENT_INVALID_REQUEST",
+                            "ENT_INVALID_REDIRECT_URI",
+                            "ENT_PKCE_REQUIRED",
+                            "ENT_PLUGIN_ARTIFACT_INVALID",
+                            "ENT_PRESET_INVALID_PACKAGE",
+                            "ENT_PRESET_DEPENDENCIES_INVALID",
+                            "ENT_PRESET_DEPENDENCY_KIND_UNSUPPORTED",
+                            "ENT_SKILL_INVALID_PACKAGE",
+                            "ENT_BRANDING_ASSET_INVALID",
+                            "ENT_FEEDBACK_INVALID",
+                            "ENT_FEEDBACK_ATTACHMENT_INVALID",
+                            "ENT_SESSION_FORMAT_UNSUPPORTED",
+                            "ENT_AUTH_REQUIRED",
+                            "ENT_AUTH_CODE_INVALID",
+                            "ENT_PKCE_INVALID",
+                            "ENT_AUTH_SESSION_EXPIRED",
+                            "ENT_PERMISSION_DENIED",
+                            "ENT_DEVICE_REVOKED",
+                            "ENT_MODEL_NOT_ASSIGNED",
+                            "ENT_PLUGIN_NOT_ASSIGNED",
+                            "ENT_PRESET_NOT_PUBLISHED",
+                            "ENT_PRESET_VISIBILITY_DENIED",
+                            "ENT_SKILL_NOT_PUBLISHED",
+                            "ENT_SKILL_VISIBILITY_DENIED",
+                            "ENT_RESOURCE_NOT_OWNED",
+                            "ENT_RESOURCE_NOT_FOUND",
+                            "ENT_SESSION_CONTENT_EXPIRED",
+                            "ENT_REVISION_CONFLICT",
+                            "ENT_LAST_ENTERPRISE_ADMIN",
+                            "ENT_LAST_MEMBER_IDENTITY",
+                            "ENT_REQUEST_IN_PROGRESS",
+                            "ENT_REQUEST_ALREADY_COMPLETED",
+                            "ENT_SESSION_SEQ_GAP",
+                            "ENT_SESSION_DIVERGED",
+                            "ENT_SESSION_SOURCE_DEVICE_CONFLICT",
+                            "ENT_IDENTITY_ALREADY_LINKED",
+                            "ENT_DEVICE_ALREADY_BOUND",
+                            "ENT_FEEDBACK_STATE_CONFLICT",
+                            "ENT_PRESET_REQUIRES_MISSING",
+                            "ENT_PRESET_REQUIRES_NOT_PUBLISHED",
+                            "ENT_REQUEST_TOO_LARGE",
+                            "ENT_PLUGIN_ARCHIVE_TOO_LARGE",
+                            "ENT_PRESET_TOO_LARGE",
+                            "ENT_SKILL_TOO_LARGE",
+                            "ENT_BRANDING_ASSET_TOO_LARGE",
+                            "ENT_FEEDBACK_ATTACHMENT_TOO_LARGE",
+                            "ENT_SESSION_BATCH_TOO_LARGE",
+                            "ENT_QUOTA_FIVE_HOURS_EXCEEDED",
+                            "ENT_QUOTA_DAILY_EXCEEDED",
+                            "ENT_QUOTA_WEEKLY_EXCEEDED",
+                            "ENT_QUOTA_MONTHLY_EXCEEDED",
+                            "ENT_QUOTA_RPM_EXCEEDED",
+                            "ENT_QUOTA_CONCURRENCY_EXCEEDED",
+                            "ENT_UPSTREAM_RATE_LIMITED",
+                            "ENT_UPSTREAM_QUOTA_EXCEEDED",
+                            "ENT_UPSTREAM_AUTH_FAILED",
+                            "ENT_UPSTREAM_INVALID_RESPONSE",
+                            "ENT_PLATFORM_UNAVAILABLE",
+                            "ENT_UPSTREAM_UNAVAILABLE",
+                            "ENT_UPSTREAM_TIMEOUT"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 500
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "Server-generated req_ prefix followed by one canonical ULID.",
+                          "pattern": "^req_[0-9A-HJKMNP-TV-Z]{26}$",
+                          "examples": [
+                            "req_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                          ]
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "violations"
+                              ],
+                              "properties": {
+                                "violations": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 50,
+                                  "items": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                      "field",
+                                      "reason"
+                                    ],
+                                    "properties": {
+                                      "field": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 128
+                                      },
+                                      "reason": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "actualRevision",
+                                "expectedRevision"
+                              ],
+                              "properties": {
+                                "actualRevision": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991,
+                                  "description": "Monotonic compare-and-swap revision safe in JavaScript.",
+                                  "examples": [
+                                    7
+                                  ]
+                                },
+                                "expectedRevision": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991,
+                                  "description": "Monotonic compare-and-swap revision safe in JavaScript.",
+                                  "examples": [
+                                    7
+                                  ]
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "policyId",
+                                "resetsAt"
+                              ],
+                              "properties": {
+                                "policyId": {
+                                  "type": "string",
+                                  "pattern": "^[1-9][0-9]{0,18}$"
+                                },
+                                "resetsAt": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "originalRequestId",
+                                "result"
+                              ],
+                              "properties": {
+                                "originalRequestId": {
+                                  "type": "string",
+                                  "description": "Server-generated req_ prefix followed by one canonical ULID.",
+                                  "pattern": "^req_[0-9A-HJKMNP-TV-Z]{26}$",
+                                  "examples": [
+                                    "req_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                                  ]
+                                },
+                                "result": {
+                                  "type": "string",
+                                  "enum": [
+                                    "IN_PROGRESS",
+                                    "COMPLETED"
+                                  ]
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request correlation ID.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "description": "Server-generated req_ prefix followed by one canonical ULID.",
+                  "pattern": "^req_[0-9A-HJKMNP-TV-Z]{26}$",
+                  "examples": [
+                    "req_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "ENT_INVALID_REQUEST",
+                            "ENT_INVALID_REDIRECT_URI",
+                            "ENT_PKCE_REQUIRED",
+                            "ENT_PLUGIN_ARTIFACT_INVALID",
+                            "ENT_PRESET_INVALID_PACKAGE",
+                            "ENT_PRESET_DEPENDENCIES_INVALID",
+                            "ENT_PRESET_DEPENDENCY_KIND_UNSUPPORTED",
+                            "ENT_SKILL_INVALID_PACKAGE",
+                            "ENT_BRANDING_ASSET_INVALID",
+                            "ENT_FEEDBACK_INVALID",
+                            "ENT_FEEDBACK_ATTACHMENT_INVALID",
+                            "ENT_SESSION_FORMAT_UNSUPPORTED",
+                            "ENT_AUTH_REQUIRED",
+                            "ENT_AUTH_CODE_INVALID",
+                            "ENT_PKCE_INVALID",
+                            "ENT_AUTH_SESSION_EXPIRED",
+                            "ENT_PERMISSION_DENIED",
+                            "ENT_DEVICE_REVOKED",
+                            "ENT_MODEL_NOT_ASSIGNED",
+                            "ENT_PLUGIN_NOT_ASSIGNED",
+                            "ENT_PRESET_NOT_PUBLISHED",
+                            "ENT_PRESET_VISIBILITY_DENIED",
+                            "ENT_SKILL_NOT_PUBLISHED",
+                            "ENT_SKILL_VISIBILITY_DENIED",
+                            "ENT_RESOURCE_NOT_OWNED",
+                            "ENT_RESOURCE_NOT_FOUND",
+                            "ENT_SESSION_CONTENT_EXPIRED",
+                            "ENT_REVISION_CONFLICT",
+                            "ENT_LAST_ENTERPRISE_ADMIN",
+                            "ENT_LAST_MEMBER_IDENTITY",
+                            "ENT_REQUEST_IN_PROGRESS",
+                            "ENT_REQUEST_ALREADY_COMPLETED",
+                            "ENT_SESSION_SEQ_GAP",
+                            "ENT_SESSION_DIVERGED",
+                            "ENT_SESSION_SOURCE_DEVICE_CONFLICT",
+                            "ENT_IDENTITY_ALREADY_LINKED",
+                            "ENT_DEVICE_ALREADY_BOUND",
+                            "ENT_FEEDBACK_STATE_CONFLICT",
+                            "ENT_PRESET_REQUIRES_MISSING",
+                            "ENT_PRESET_REQUIRES_NOT_PUBLISHED",
+                            "ENT_REQUEST_TOO_LARGE",
+                            "ENT_PLUGIN_ARCHIVE_TOO_LARGE",
+                            "ENT_PRESET_TOO_LARGE",
+                            "ENT_SKILL_TOO_LARGE",
+                            "ENT_BRANDING_ASSET_TOO_LARGE",
+                            "ENT_FEEDBACK_ATTACHMENT_TOO_LARGE",
+                            "ENT_SESSION_BATCH_TOO_LARGE",
+                            "ENT_QUOTA_FIVE_HOURS_EXCEEDED",
+                            "ENT_QUOTA_DAILY_EXCEEDED",
+                            "ENT_QUOTA_WEEKLY_EXCEEDED",
+                            "ENT_QUOTA_MONTHLY_EXCEEDED",
+                            "ENT_QUOTA_RPM_EXCEEDED",
+                            "ENT_QUOTA_CONCURRENCY_EXCEEDED",
+                            "ENT_UPSTREAM_RATE_LIMITED",
+                            "ENT_UPSTREAM_QUOTA_EXCEEDED",
+                            "ENT_UPSTREAM_AUTH_FAILED",
+                            "ENT_UPSTREAM_INVALID_RESPONSE",
+                            "ENT_PLATFORM_UNAVAILABLE",
+                            "ENT_UPSTREAM_UNAVAILABLE",
+                            "ENT_UPSTREAM_TIMEOUT"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 500
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "Server-generated req_ prefix followed by one canonical ULID.",
+                          "pattern": "^req_[0-9A-HJKMNP-TV-Z]{26}$",
+                          "examples": [
+                            "req_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                          ]
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "violations"
+                              ],
+                              "properties": {
+                                "violations": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 50,
+                                  "items": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                      "field",
+                                      "reason"
+                                    ],
+                                    "properties": {
+                                      "field": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 128
+                                      },
+                                      "reason": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "actualRevision",
+                                "expectedRevision"
+                              ],
+                              "properties": {
+                                "actualRevision": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991,
+                                  "description": "Monotonic compare-and-swap revision safe in JavaScript.",
+                                  "examples": [
+                                    7
+                                  ]
+                                },
+                                "expectedRevision": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991,
+                                  "description": "Monotonic compare-and-swap revision safe in JavaScript.",
+                                  "examples": [
+                                    7
+                                  ]
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "policyId",
+                                "resetsAt"
+                              ],
+                              "properties": {
+                                "policyId": {
+                                  "type": "string",
+                                  "pattern": "^[1-9][0-9]{0,18}$"
+                                },
+                                "resetsAt": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "originalRequestId",
+                                "result"
+                              ],
+                              "properties": {
+                                "originalRequestId": {
+                                  "type": "string",
+                                  "description": "Server-generated req_ prefix followed by one canonical ULID.",
+                                  "pattern": "^req_[0-9A-HJKMNP-TV-Z]{26}$",
+                                  "examples": [
+                                    "req_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                                  ]
+                                },
+                                "result": {
+                                  "type": "string",
+                                  "enum": [
+                                    "IN_PROGRESS",
+                                    "COMPLETED"
+                                  ]
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request correlation ID.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "description": "Server-generated req_ prefix followed by one canonical ULID.",
+                  "pattern": "^req_[0-9A-HJKMNP-TV-Z]{26}$",
+                  "examples": [
+                    "req_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "ENT_INVALID_REQUEST",
+                            "ENT_INVALID_REDIRECT_URI",
+                            "ENT_PKCE_REQUIRED",
+                            "ENT_PLUGIN_ARTIFACT_INVALID",
+                            "ENT_PRESET_INVALID_PACKAGE",
+                            "ENT_PRESET_DEPENDENCIES_INVALID",
+                            "ENT_PRESET_DEPENDENCY_KIND_UNSUPPORTED",
+                            "ENT_SKILL_INVALID_PACKAGE",
+                            "ENT_BRANDING_ASSET_INVALID",
+                            "ENT_FEEDBACK_INVALID",
+                            "ENT_FEEDBACK_ATTACHMENT_INVALID",
+                            "ENT_SESSION_FORMAT_UNSUPPORTED",
+                            "ENT_AUTH_REQUIRED",
+                            "ENT_AUTH_CODE_INVALID",
+                            "ENT_PKCE_INVALID",
+                            "ENT_AUTH_SESSION_EXPIRED",
+                            "ENT_PERMISSION_DENIED",
+                            "ENT_DEVICE_REVOKED",
+                            "ENT_MODEL_NOT_ASSIGNED",
+                            "ENT_PLUGIN_NOT_ASSIGNED",
+                            "ENT_PRESET_NOT_PUBLISHED",
+                            "ENT_PRESET_VISIBILITY_DENIED",
+                            "ENT_SKILL_NOT_PUBLISHED",
+                            "ENT_SKILL_VISIBILITY_DENIED",
+                            "ENT_RESOURCE_NOT_OWNED",
+                            "ENT_RESOURCE_NOT_FOUND",
+                            "ENT_SESSION_CONTENT_EXPIRED",
+                            "ENT_REVISION_CONFLICT",
+                            "ENT_LAST_ENTERPRISE_ADMIN",
+                            "ENT_LAST_MEMBER_IDENTITY",
+                            "ENT_REQUEST_IN_PROGRESS",
+                            "ENT_REQUEST_ALREADY_COMPLETED",
+                            "ENT_SESSION_SEQ_GAP",
+                            "ENT_SESSION_DIVERGED",
+                            "ENT_SESSION_SOURCE_DEVICE_CONFLICT",
+                            "ENT_IDENTITY_ALREADY_LINKED",
+                            "ENT_DEVICE_ALREADY_BOUND",
+                            "ENT_FEEDBACK_STATE_CONFLICT",
+                            "ENT_PRESET_REQUIRES_MISSING",
+                            "ENT_PRESET_REQUIRES_NOT_PUBLISHED",
+                            "ENT_REQUEST_TOO_LARGE",
+                            "ENT_PLUGIN_ARCHIVE_TOO_LARGE",
+                            "ENT_PRESET_TOO_LARGE",
+                            "ENT_SKILL_TOO_LARGE",
+                            "ENT_BRANDING_ASSET_TOO_LARGE",
+                            "ENT_FEEDBACK_ATTACHMENT_TOO_LARGE",
+                            "ENT_SESSION_BATCH_TOO_LARGE",
+                            "ENT_QUOTA_FIVE_HOURS_EXCEEDED",
+                            "ENT_QUOTA_DAILY_EXCEEDED",
+                            "ENT_QUOTA_WEEKLY_EXCEEDED",
+                            "ENT_QUOTA_MONTHLY_EXCEEDED",
+                            "ENT_QUOTA_RPM_EXCEEDED",
+                            "ENT_QUOTA_CONCURRENCY_EXCEEDED",
+                            "ENT_UPSTREAM_RATE_LIMITED",
+                            "ENT_UPSTREAM_QUOTA_EXCEEDED",
+                            "ENT_UPSTREAM_AUTH_FAILED",
+                            "ENT_UPSTREAM_INVALID_RESPONSE",
+                            "ENT_PLATFORM_UNAVAILABLE",
+                            "ENT_UPSTREAM_UNAVAILABLE",
+                            "ENT_UPSTREAM_TIMEOUT"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 500
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "Server-generated req_ prefix followed by one canonical ULID.",
+                          "pattern": "^req_[0-9A-HJKMNP-TV-Z]{26}$",
+                          "examples": [
+                            "req_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                          ]
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "violations"
+                              ],
+                              "properties": {
+                                "violations": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 50,
+                                  "items": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                      "field",
+                                      "reason"
+                                    ],
+                                    "properties": {
+                                      "field": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 128
+                                      },
+                                      "reason": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "actualRevision",
+                                "expectedRevision"
+                              ],
+                              "properties": {
+                                "actualRevision": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991,
+                                  "description": "Monotonic compare-and-swap revision safe in JavaScript.",
+                                  "examples": [
+                                    7
+                                  ]
+                                },
+                                "expectedRevision": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991,
+                                  "description": "Monotonic compare-and-swap revision safe in JavaScript.",
+                                  "examples": [
+                                    7
+                                  ]
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "policyId",
+                                "resetsAt"
+                              ],
+                              "properties": {
+                                "policyId": {
+                                  "type": "string",
+                                  "pattern": "^[1-9][0-9]{0,18}$"
+                                },
+                                "resetsAt": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "originalRequestId",
+                                "result"
+                              ],
+                              "properties": {
+                                "originalRequestId": {
+                                  "type": "string",
+                                  "description": "Server-generated req_ prefix followed by one canonical ULID.",
+                                  "pattern": "^req_[0-9A-HJKMNP-TV-Z]{26}$",
+                                  "examples": [
+                                    "req_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                                  ]
+                                },
+                                "result": {
+                                  "type": "string",
+                                  "enum": [
+                                    "IN_PROGRESS",
+                                    "COMPLETED"
+                                  ]
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, idempotency, or state conflict.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request correlation ID.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "description": "Server-generated req_ prefix followed by one canonical ULID.",
+                  "pattern": "^req_[0-9A-HJKMNP-TV-Z]{26}$",
+                  "examples": [
+                    "req_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "ENT_INVALID_REQUEST",
+                            "ENT_INVALID_REDIRECT_URI",
+                            "ENT_PKCE_REQUIRED",
+                            "ENT_PLUGIN_ARTIFACT_INVALID",
+                            "ENT_PRESET_INVALID_PACKAGE",
+                            "ENT_PRESET_DEPENDENCIES_INVALID",
+                            "ENT_PRESET_DEPENDENCY_KIND_UNSUPPORTED",
+                            "ENT_SKILL_INVALID_PACKAGE",
+                            "ENT_BRANDING_ASSET_INVALID",
+                            "ENT_FEEDBACK_INVALID",
+                            "ENT_FEEDBACK_ATTACHMENT_INVALID",
+                            "ENT_SESSION_FORMAT_UNSUPPORTED",
+                            "ENT_AUTH_REQUIRED",
+                            "ENT_AUTH_CODE_INVALID",
+                            "ENT_PKCE_INVALID",
+                            "ENT_AUTH_SESSION_EXPIRED",
+                            "ENT_PERMISSION_DENIED",
+                            "ENT_DEVICE_REVOKED",
+                            "ENT_MODEL_NOT_ASSIGNED",
+                            "ENT_PLUGIN_NOT_ASSIGNED",
+                            "ENT_PRESET_NOT_PUBLISHED",
+                            "ENT_PRESET_VISIBILITY_DENIED",
+                            "ENT_SKILL_NOT_PUBLISHED",
+                            "ENT_SKILL_VISIBILITY_DENIED",
+                            "ENT_RESOURCE_NOT_OWNED",
+                            "ENT_RESOURCE_NOT_FOUND",
+                            "ENT_SESSION_CONTENT_EXPIRED",
+                            "ENT_REVISION_CONFLICT",
+                            "ENT_LAST_ENTERPRISE_ADMIN",
+                            "ENT_LAST_MEMBER_IDENTITY",
+                            "ENT_REQUEST_IN_PROGRESS",
+                            "ENT_REQUEST_ALREADY_COMPLETED",
+                            "ENT_SESSION_SEQ_GAP",
+                            "ENT_SESSION_DIVERGED",
+                            "ENT_SESSION_SOURCE_DEVICE_CONFLICT",
+                            "ENT_IDENTITY_ALREADY_LINKED",
+                            "ENT_DEVICE_ALREADY_BOUND",
+                            "ENT_FEEDBACK_STATE_CONFLICT",
+                            "ENT_PRESET_REQUIRES_MISSING",
+                            "ENT_PRESET_REQUIRES_NOT_PUBLISHED",
+                            "ENT_REQUEST_TOO_LARGE",
+                            "ENT_PLUGIN_ARCHIVE_TOO_LARGE",
+                            "ENT_PRESET_TOO_LARGE",
+                            "ENT_SKILL_TOO_LARGE",
+                            "ENT_BRANDING_ASSET_TOO_LARGE",
+                            "ENT_FEEDBACK_ATTACHMENT_TOO_LARGE",
+                            "ENT_SESSION_BATCH_TOO_LARGE",
+                            "ENT_QUOTA_FIVE_HOURS_EXCEEDED",
+                            "ENT_QUOTA_DAILY_EXCEEDED",
+                            "ENT_QUOTA_WEEKLY_EXCEEDED",
+                            "ENT_QUOTA_MONTHLY_EXCEEDED",
+                            "ENT_QUOTA_RPM_EXCEEDED",
+                            "ENT_QUOTA_CONCURRENCY_EXCEEDED",
+                            "ENT_UPSTREAM_RATE_LIMITED",
+                            "ENT_UPSTREAM_QUOTA_EXCEEDED",
+                            "ENT_UPSTREAM_AUTH_FAILED",
+                            "ENT_UPSTREAM_INVALID_RESPONSE",
+                            "ENT_PLATFORM_UNAVAILABLE",
+                            "ENT_UPSTREAM_UNAVAILABLE",
+                            "ENT_UPSTREAM_TIMEOUT"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 500
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "Server-generated req_ prefix followed by one canonical ULID.",
+                          "pattern": "^req_[0-9A-HJKMNP-TV-Z]{26}$",
+                          "examples": [
+                            "req_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                          ]
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "violations"
+                              ],
+                              "properties": {
+                                "violations": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 50,
+                                  "items": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                      "field",
+                                      "reason"
+                                    ],
+                                    "properties": {
+                                      "field": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 128
+                                      },
+                                      "reason": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "actualRevision",
+                                "expectedRevision"
+                              ],
+                              "properties": {
+                                "actualRevision": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991,
+                                  "description": "Monotonic compare-and-swap revision safe in JavaScript.",
+                                  "examples": [
+                                    7
+                                  ]
+                                },
+                                "expectedRevision": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991,
+                                  "description": "Monotonic compare-and-swap revision safe in JavaScript.",
+                                  "examples": [
+                                    7
+                                  ]
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "policyId",
+                                "resetsAt"
+                              ],
+                              "properties": {
+                                "policyId": {
+                                  "type": "string",
+                                  "pattern": "^[1-9][0-9]{0,18}$"
+                                },
+                                "resetsAt": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "originalRequestId",
+                                "result"
+                              ],
+                              "properties": {
+                                "originalRequestId": {
+                                  "type": "string",
+                                  "description": "Server-generated req_ prefix followed by one canonical ULID.",
+                                  "pattern": "^req_[0-9A-HJKMNP-TV-Z]{26}$",
+                                  "examples": [
+                                    "req_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                                  ]
+                                },
+                                "result": {
+                                  "type": "string",
+                                  "enum": [
+                                    "IN_PROGRESS",
+                                    "COMPLETED"
+                                  ]
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/enterprise/admin/v1/skills/{skillPackageId}/marks": {
+      "parameters": [
+        {
+          "name": "skillPackageId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,18}$"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "updateSkillPackageMarks",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Caller-generated UUID v4 reused only for one logical write.",
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "minLength": 36,
+              "maxLength": 36,
+              "pattern": "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "description": "Current resource revision used for compare-and-swap updates.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "description": "Monotonic compare-and-swap revision safe in JavaScript.",
+              "examples": [
+                7
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "builtin",
+                  "featured"
+                ],
+                "properties": {
+                  "builtin": {
+                    "type": "boolean"
+                  },
+                  "featured": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Skill package with the persisted builtin/featured marks.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "skillId",
+                        "displayName",
+                        "builtin",
+                        "featured",
+                        "status",
+                        "revision",
+                        "versions",
+                        "assignments"
+                      ],
+                      "properties": {
+                        "builtin": {
+                          "type": "boolean"
+                        },
+                        "featured": {
+                          "type": "boolean"
+                        },
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]{0,18}$"
+                        },
+                        "skillId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+                        },
+                        "displayName": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 120
+                        },
+                        "description": {
+                          "type": "string",
+                          "maxLength": 2000
+                        },
+                        "category": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "minLength": 1,
+                          "maxLength": 32
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "ACTIVE",
+                            "DISABLED"
+                          ]
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Monotonic compare-and-swap revision safe in JavaScript.",
+                          "examples": [
+                            7
+                          ]
+                        },
+                        "versions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "id",
+                              "packageId",
+                              "skillId",
+                              "sourceDshVersion",
+                              "sizeBytes",
+                              "sha256",
+                              "status",
+                              "skillCount",
+                              "createdAt",
+                              "revision"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]{0,18}$"
+                              },
+                              "packageId": {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]{0,18}$"
+                              },
+                              "skillId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+                              },
+                              "sourceDshVersion": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              },
+                              "sizeBytes": {
+                                "type": "integer",
+                                "format": "int64",
+                                "minimum": 1,
+                                "maximum": 52428800
+                              },
+                              "sha256": {
+                                "type": "string",
+                                "pattern": "^[0-9a-f]{64}$"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "VALIDATED",
+                                  "PUBLISHED",
+                                  "RETIRED"
+                                ]
+                              },
+                              "skillCount": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 200
+                              },
+                              "skills": {
+                                "type": "array",
+                                "maxItems": 200,
+                                "items": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "name",
+                                    "description",
+                                    "modelInvocable",
+                                    "userInvocable"
+                                  ],
+                                  "properties": {
+                                    "name": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 64,
+                                      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                                    },
+                                    "description": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 1024
+                                    },
+                                    "whenToUse": {
+                                      "type": "string",
+                                      "maxLength": 2048
+                                    },
+                                    "modelInvocable": {
+                                      "type": "boolean"
+                                    },
+                                    "userInvocable": {
+                                      "type": "boolean"
+                                    }
+                                  }
+                                }
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "revision": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991,
+                                "description": "Monotonic compare-and-swap revision safe in JavaScript.",
+                                "examples": [
+                                  7
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "assignments": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "id",
+                              "packageId",
+                              "subjectType",
+                              "status",
+                              "revision"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]{0,18}$"
+                              },
+                              "packageId": {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]{0,18}$"
+                              },
+                              "subjectType": {
+                                "type": "string",
+                                "enum": [
+                                  "ALL",
+                                  "USER"
+                                ]
+                              },
+                              "subjectId": {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]{0,18}$"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "ACTIVE",
+                                  "DISABLED"
+                                ]
+                              },
+                              "revision": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991,
+                                "description": "Monotonic compare-and-swap revision safe in JavaScript.",
+                                "examples": [
+                                  7
+                                ]
+                              }
+                            }
                           }
                         }
                       }
@@ -128848,6 +130438,16 @@
       "valid": true
     },
     {
+      "file": "fixtures/runtime-preset-summary-success.json",
+      "schema": "RuntimePresetSummary",
+      "valid": true
+    },
+    {
+      "file": "fixtures/runtime-preset-summary-unknown-dependency-kind.json",
+      "schema": "RuntimePresetSummary",
+      "valid": false
+    },
+    {
       "file": "fixtures/skill-version-success.json",
       "schema": "SkillVersionResponse",
       "valid": true
@@ -142030,7 +143630,7 @@
             "type": "array",
             "maxItems": 200,
             "items": {
-              "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。",
+              "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。 同一形状同时被 runtime 摘要/详情投影复用（员工端只读清单，不含发布口校验语义）。",
               "type": "object",
               "additionalProperties": false,
               "required": [
@@ -142079,7 +143679,7 @@
         }
       },
       "PresetDependency": {
-        "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。",
+        "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。 同一形状同时被 runtime 摘要/详情投影复用（员工端只读清单，不含发布口校验语义）。",
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -142203,7 +143803,7 @@
                 "type": "array",
                 "maxItems": 200,
                 "items": {
-                  "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。",
+                  "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。 同一形状同时被 runtime 摘要/详情投影复用（员工端只读清单，不含发布口校验语义）。",
                   "type": "object",
                   "additionalProperties": false,
                   "required": [
@@ -142484,7 +144084,7 @@
                   "type": "array",
                   "maxItems": 200,
                   "items": {
-                    "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。",
+                    "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。 同一形状同时被 runtime 摘要/详情投影复用（员工端只读清单，不含发布口校验语义）。",
                     "type": "object",
                     "additionalProperties": false,
                     "required": [
@@ -142718,7 +144318,7 @@
                         "type": "array",
                         "maxItems": 200,
                         "items": {
-                          "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。",
+                          "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。 同一形状同时被 runtime 摘要/详情投影复用（员工端只读清单，不含发布口校验语义）。",
                           "type": "object",
                           "additionalProperties": false,
                           "required": [
@@ -142997,7 +144597,7 @@
                             "type": "array",
                             "maxItems": 200,
                             "items": {
-                              "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。",
+                              "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。 同一形状同时被 runtime 摘要/详情投影复用（员工端只读清单，不含发布口校验语义）。",
                               "type": "object",
                               "additionalProperties": false,
                               "required": [
@@ -143156,7 +144756,8 @@
           "description",
           "sourceDshVersion",
           "sizeBytes",
-          "updatedAt"
+          "updatedAt",
+          "dependencies"
         ],
         "properties": {
           "id": {
@@ -143192,6 +144793,57 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "dependencies": {
+            "description": "这份配方引用的技能/插件清单（与 PresetVersion.dependencies 同一 PresetDependency 形状）， 供员工端在启用前一次请求看清「N 技能 · M 插件」。无引用即空数组。 引用是元数据而不是包内正文：这里不出现 artifact 路径、包内 YAML、SHA-256 或签名材料。 详情 RuntimePresetDetail 经 allOf 继承本字段，因此列表与详情共用同一字段名与同一套客户端解码。",
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。 同一形状同时被 runtime 摘要/详情投影复用（员工端只读清单，不含发布口校验语义）。",
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "id",
+                "mode",
+                "required"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "skill",
+                    "plugin"
+                  ]
+                },
+                "id": {
+                  "description": "技能 skillId（`^[A-Za-z0-9][A-Za-z0-9._-]*$`，≤128）或 npm package name（≤214）。",
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 214
+                },
+                "mode": {
+                  "description": "pinned 钉 versionId；latest 跟该资产当前最新 PUBLISHED。",
+                  "type": "string",
+                  "enum": [
+                    "pinned",
+                    "latest"
+                  ]
+                },
+                "versionId": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]{0,18}$"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "resolvedVersionId": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "description": "留位字段（方案 §D 的可选第 6 键）：服务端在发布口解析\"当时最新\"后填充，只做展示与变更提示， 不是运行时真源。当前切片不填充，故服务端不会输出该键；manifest 里作者声明它会被验包拒绝。"
+                }
+              }
+            }
           }
         }
       },
@@ -143207,7 +144859,8 @@
               "description",
               "sourceDshVersion",
               "sizeBytes",
-              "updatedAt"
+              "updatedAt",
+              "dependencies"
             ],
             "properties": {
               "id": {
@@ -143243,6 +144896,57 @@
               "updatedAt": {
                 "type": "string",
                 "format": "date-time"
+              },
+              "dependencies": {
+                "description": "这份配方引用的技能/插件清单（与 PresetVersion.dependencies 同一 PresetDependency 形状）， 供员工端在启用前一次请求看清「N 技能 · M 插件」。无引用即空数组。 引用是元数据而不是包内正文：这里不出现 artifact 路径、包内 YAML、SHA-256 或签名材料。 详情 RuntimePresetDetail 经 allOf 继承本字段，因此列表与详情共用同一字段名与同一套客户端解码。",
+                "type": "array",
+                "maxItems": 200,
+                "items": {
+                  "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。 同一形状同时被 runtime 摘要/详情投影复用（员工端只读清单，不含发布口校验语义）。",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "id",
+                    "mode",
+                    "required"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "skill",
+                        "plugin"
+                      ]
+                    },
+                    "id": {
+                      "description": "技能 skillId（`^[A-Za-z0-9][A-Za-z0-9._-]*$`，≤128）或 npm package name（≤214）。",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 214
+                    },
+                    "mode": {
+                      "description": "pinned 钉 versionId；latest 跟该资产当前最新 PUBLISHED。",
+                      "type": "string",
+                      "enum": [
+                        "pinned",
+                        "latest"
+                      ]
+                    },
+                    "versionId": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]{0,18}$"
+                    },
+                    "required": {
+                      "type": "boolean"
+                    },
+                    "resolvedVersionId": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]{0,18}$",
+                      "description": "留位字段（方案 §D 的可选第 6 键）：服务端在发布口解析\"当时最新\"后填充，只做展示与变更提示， 不是运行时真源。当前切片不填充，故服务端不会输出该键；manifest 里作者声明它会被验包拒绝。"
+                    }
+                  }
+                }
               }
             }
           },
@@ -143713,6 +145417,22 @@
                 }
               }
             }
+          }
+        }
+      },
+      "SkillMarksRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "builtin",
+          "featured"
+        ],
+        "properties": {
+          "builtin": {
+            "type": "boolean"
+          },
+          "featured": {
+            "type": "boolean"
           }
         }
       },
@@ -144505,6 +146225,254 @@
                         "type": "null"
                       }
                     ]
+                  }
+                }
+              }
+            }
+          },
+          "requestId": {
+            "type": "string",
+            "description": "Server-generated req_ prefix followed by one canonical ULID.",
+            "pattern": "^req_[0-9A-HJKMNP-TV-Z]{26}$",
+            "examples": [
+              "req_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+            ]
+          }
+        }
+      },
+      "SkillPackageResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "skillId",
+              "displayName",
+              "builtin",
+              "featured",
+              "status",
+              "revision",
+              "versions",
+              "assignments"
+            ],
+            "properties": {
+              "builtin": {
+                "type": "boolean"
+              },
+              "featured": {
+                "type": "boolean"
+              },
+              "id": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]{0,18}$"
+              },
+              "skillId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+              },
+              "displayName": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 2000
+              },
+              "category": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1,
+                "maxLength": 32
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ACTIVE",
+                  "DISABLED"
+                ]
+              },
+              "revision": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Monotonic compare-and-swap revision safe in JavaScript.",
+                "examples": [
+                  7
+                ]
+              },
+              "versions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "packageId",
+                    "skillId",
+                    "sourceDshVersion",
+                    "sizeBytes",
+                    "sha256",
+                    "status",
+                    "skillCount",
+                    "createdAt",
+                    "revision"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]{0,18}$"
+                    },
+                    "packageId": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]{0,18}$"
+                    },
+                    "skillId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+                    },
+                    "sourceDshVersion": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "sizeBytes": {
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 1,
+                      "maximum": 52428800
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "VALIDATED",
+                        "PUBLISHED",
+                        "RETIRED"
+                      ]
+                    },
+                    "skillCount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 200
+                    },
+                    "skills": {
+                      "type": "array",
+                      "maxItems": 200,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "name",
+                          "description",
+                          "modelInvocable",
+                          "userInvocable"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64,
+                            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                          },
+                          "description": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 1024
+                          },
+                          "whenToUse": {
+                            "type": "string",
+                            "maxLength": 2048
+                          },
+                          "modelInvocable": {
+                            "type": "boolean"
+                          },
+                          "userInvocable": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991,
+                      "description": "Monotonic compare-and-swap revision safe in JavaScript.",
+                      "examples": [
+                        7
+                      ]
+                    }
+                  }
+                }
+              },
+              "assignments": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "packageId",
+                    "subjectType",
+                    "status",
+                    "revision"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]{0,18}$"
+                    },
+                    "packageId": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]{0,18}$"
+                    },
+                    "subjectType": {
+                      "type": "string",
+                      "enum": [
+                        "ALL",
+                        "USER"
+                      ]
+                    },
+                    "subjectId": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]{0,18}$"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ACTIVE",
+                        "DISABLED"
+                      ]
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991,
+                      "description": "Monotonic compare-and-swap revision safe in JavaScript.",
+                      "examples": [
+                        7
+                      ]
+                    }
                   }
                 }
               }

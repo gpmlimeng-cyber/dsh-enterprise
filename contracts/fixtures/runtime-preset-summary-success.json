@@ -1,0 +1,30 @@
+{
+  "id": "1901500000000000002",
+  "presetId": "code-review-assistant",
+  "displayName": "代码评审助手",
+  "description": "按团队清单评审改动并给出可执行的修改建议。",
+  "sourceDshVersion": "0.2.0-rc.2",
+  "sizeBytes": 16384,
+  "updatedAt": "2026-10-01T02:00:00Z",
+  "dependencies": [
+    {
+      "kind": "skill",
+      "id": "code-review",
+      "mode": "latest",
+      "required": true
+    },
+    {
+      "kind": "skill",
+      "id": "expense-reimbursement",
+      "mode": "pinned",
+      "versionId": "1901500000000000902",
+      "required": false
+    },
+    {
+      "kind": "plugin",
+      "id": "@deepseek-ai/dsh-agent-preset",
+      "mode": "latest",
+      "required": false
+    }
+  ]
+}

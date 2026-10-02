@@ -7,5 +7,20 @@
   "sizeBytes": 20480,
   "updatedAt": "2026-09-16T09:00:00Z",
   "versionId": "1901500000000000101",
-  "sha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+  "sha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+  "dependencies": [
+    {
+      "kind": "skill",
+      "id": "expense-reimbursement",
+      "mode": "pinned",
+      "versionId": "1901500000000000902",
+      "required": true
+    },
+    {
+      "kind": "plugin",
+      "id": "@deepseek-ai/dsh-agent-preset",
+      "mode": "latest",
+      "required": false
+    }
+  ]
 }

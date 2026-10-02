@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 V30 表、V39 dependencies 列、Spring JDBC 与 Jackson（dependencies jsonb 序列化）。
- * [OUTPUT]: 实现 preset catalog/version/assignment、可见 runtime 查询与技能/插件引用解析。
+ * [OUTPUT]: 实现 preset catalog/version/assignment、带引用清单的可见 runtime 查询与技能/插件引用解析。
  * [POS]: preset/persistence 的 PostgreSQL adapter，USER 优先于 ALL。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -37,11 +37,6 @@ public final class JdbcPresetStore implements PresetStore {
         (Long) rs.getObject("subject_id"),
         PresetAssignment.Status.valueOf(rs.getString("status")), rs.getLong("revision")
     );
-    private static final RowMapper<RuntimePreset> RUNTIME = (rs, i) -> new RuntimePreset(
-        rs.getLong("package_id"), rs.getString("preset_id"), rs.getString("display_name"),
-        rs.getString("description"), rs.getLong("version_id"), rs.getString("source_dsh_version"),
-        rs.getLong("size_bytes"), rs.getString("sha256"), rs.getTimestamp("updated_at").toInstant()
-    );
 
     private final JdbcTemplate jdbc;
     private final JsonMapper json;
@@ -53,6 +48,17 @@ public final class JdbcPresetStore implements PresetStore {
         rs.getLong("size_bytes"), rs.getString("sha256"), dependencies(rs.getString("dependencies")),
         PresetVersion.Status.valueOf(rs.getString("status")), rs.getLong("created_by"),
         rs.getTimestamp("created_at").toInstant(), rs.getLong("revision")
+    );
+
+    /**
+     * runtime mapper 同样是实例字段：员工端摘要/详情要带出同一份 dependencies jsonb，
+     * 因此两条可见性 SQL 都必须 select v.dependencies。
+     */
+    private final RowMapper<RuntimePreset> runtimeMapper = (rs, i) -> new RuntimePreset(
+        rs.getLong("package_id"), rs.getString("preset_id"), rs.getString("display_name"),
+        rs.getString("description"), rs.getLong("version_id"), rs.getString("source_dsh_version"),
+        rs.getLong("size_bytes"), rs.getString("sha256"), rs.getTimestamp("updated_at").toInstant(),
+        dependencies(rs.getString("dependencies"))
     );
 
     public JdbcPresetStore(JdbcTemplate jdbc, JsonMapper json) {
@@ -210,7 +216,8 @@ public final class JdbcPresetStore implements PresetStore {
         return jdbc.query(
             """
             select p.id as package_id, p.preset_id, p.display_name, p.description,
-                   v.id as version_id, v.source_dsh_version, v.size_bytes, v.sha256, v.created_at as updated_at
+                   v.id as version_id, v.source_dsh_version, v.size_bytes, v.sha256, v.dependencies,
+                   v.created_at as updated_at
             from ent_preset_package p
             join ent_preset_version v on v.id = (
                 select v2.id from ent_preset_version v2
@@ -228,7 +235,7 @@ public final class JdbcPresetStore implements PresetStore {
               )
             order by v.created_at desc, p.id desc
             """,
-            RUNTIME, tenantId, userId
+            runtimeMapper, tenantId, userId
         );
     }
 
@@ -237,7 +244,8 @@ public final class JdbcPresetStore implements PresetStore {
         return one(jdbc.query(
             """
             select p.id as package_id, p.preset_id, p.display_name, p.description,
-                   v.id as version_id, v.source_dsh_version, v.size_bytes, v.sha256, v.created_at as updated_at
+                   v.id as version_id, v.source_dsh_version, v.size_bytes, v.sha256, v.dependencies,
+                   v.created_at as updated_at
             from ent_preset_package p
             join ent_preset_version v on v.id = (
                 select v2.id from ent_preset_version v2
@@ -254,7 +262,7 @@ public final class JdbcPresetStore implements PresetStore {
                   )
               )
             """,
-            RUNTIME, tenantId, packageId, userId
+            runtimeMapper, tenantId, packageId, userId
         ));
     }
 

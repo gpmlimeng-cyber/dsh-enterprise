@@ -367,11 +367,15 @@ export type SkillAssignmentSpec = SkillSkillAssignmentSpec;
 
 export type SkillAssignmentBatchRequest = SkillSkillAssignmentBatchRequest;
 
+export type SkillMarksRequest = SkillSkillMarksRequest;
+
 export type SkillPackage = SkillSkillPackage;
 
 export type SkillPackagePageData = SkillSkillPackagePageData;
 
 export type SkillPackageListResponse = SkillSkillPackageListResponse;
+
+export type SkillPackageResponse = SkillSkillPackageResponse;
 
 export type RuntimeSkillSummary = SkillRuntimeSkillSummary;
 
@@ -2196,7 +2200,7 @@ export type PresetPresetAssignmentSpec = {
 export type PresetPresetAssignmentStatus = 'ACTIVE' | 'DISABLED';
 
 /**
- * 配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。
+ * 配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。 同一形状同时被 runtime 摘要/详情投影复用（员工端只读清单，不含发布口校验语义）。
  */
 export type PresetPresetDependency = {
     kind: 'skill' | 'plugin';
@@ -2292,6 +2296,10 @@ export type PresetRuntimePresetSummary = {
     sourceDshVersion: PresetPresetSourceDshVersion;
     sizeBytes: number;
     updatedAt: string;
+    /**
+     * 这份配方引用的技能/插件清单（与 PresetVersion.dependencies 同一 PresetDependency 形状）， 供员工端在启用前一次请求看清「N 技能 · M 插件」。无引用即空数组。 引用是元数据而不是包内正文：这里不出现 artifact 路径、包内 YAML、SHA-256 或签名材料。 详情 RuntimePresetDetail 经 allOf 继承本字段，因此列表与详情共用同一字段名与同一套客户端解码。
+     */
+    dependencies: Array<PresetPresetDependency>;
 };
 
 export type QuotaBootstrapQuota = {
@@ -2737,6 +2745,11 @@ export type SkillSkillEntry = {
 
 export type SkillSkillEntryName = string;
 
+export type SkillSkillMarksRequest = {
+    builtin: boolean;
+    featured: boolean;
+};
+
 export type SkillSkillPackage = {
     builtin: boolean;
     featured: boolean;
@@ -2764,6 +2777,11 @@ export type SkillSkillPackagePageData = {
 };
 
 export type SkillSkillPackageRef = string;
+
+export type SkillSkillPackageResponse = {
+    data: SkillSkillPackage;
+    requestId: RequestId;
+};
 
 export type SkillSkillPackageStatus = 'ACTIVE' | 'DISABLED';
 
@@ -3013,6 +3031,8 @@ export type RuntimeSkillItem = unknown;
 export type SkillAssignmentBatch = unknown;
 
 export type SkillCollection = unknown;
+
+export type SkillPackageMarks = unknown;
 
 export type SkillVersionPublish = unknown;
 
@@ -7211,6 +7231,59 @@ export type ReplaceSkillAssignmentsResponses = {
 };
 
 export type ReplaceSkillAssignmentsResponse = ReplaceSkillAssignmentsResponses[keyof ReplaceSkillAssignmentsResponses];
+
+export type UpdateSkillPackageMarksData = {
+    body: SkillSkillMarksRequest;
+    headers: {
+        /**
+         * Caller-generated UUID v4 reused only for one logical write.
+         */
+        'Idempotency-Key': string;
+        /**
+         * Current resource revision used for compare-and-swap updates.
+         */
+        'If-Match': Revision;
+    };
+    path: {
+        skillPackageId: SkillSkillPackageId;
+    };
+    query?: never;
+    url: '/enterprise/admin/v1/skills/{skillPackageId}/marks';
+};
+
+export type UpdateSkillPackageMarksErrors = {
+    /**
+     * Invalid request.
+     */
+    400: EnterpriseErrorResponse;
+    /**
+     * Authentication failed.
+     */
+    401: EnterpriseErrorResponse;
+    /**
+     * Permission denied.
+     */
+    403: EnterpriseErrorResponse;
+    /**
+     * Resource not found.
+     */
+    404: EnterpriseErrorResponse;
+    /**
+     * Revision, idempotency, or state conflict.
+     */
+    409: EnterpriseErrorResponse;
+};
+
+export type UpdateSkillPackageMarksError = UpdateSkillPackageMarksErrors[keyof UpdateSkillPackageMarksErrors];
+
+export type UpdateSkillPackageMarksResponses = {
+    /**
+     * Skill package with the persisted builtin/featured marks.
+     */
+    200: SkillSkillPackageResponse;
+};
+
+export type UpdateSkillPackageMarksResponse = UpdateSkillPackageMarksResponses[keyof UpdateSkillPackageMarksResponses];
 
 export type ListRuntimeSkillsData = {
     body?: never;
