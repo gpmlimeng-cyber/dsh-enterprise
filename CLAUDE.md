@@ -15,6 +15,7 @@ deploy/ - 后台和控制台的 Compose、nginx、安装/备份/升级脚本；T
 docs/ - 产品预研、MVP 实施规格与逐任务验收证据
 plugin/ - 自研 Harness 插件工作区。各端只引用这里打出的包，不在 apps 里再写一份
 scripts/ - 开发与运维脚本（含 gen-secrets.sh 密钥生成）
+tools/ - 独立运维工具链（skillhub.cn 第三方技能导入，含许可闸门与转换门禁）
 upstream/ - 第三方运行时版本锁（不保存第三方源码）；插件基线为官方 Harness Desktop，见 dsh-desktop.lock.json
 </directory>
 
