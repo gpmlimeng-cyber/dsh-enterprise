@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:fs/promises、node:os/node:path（临时 dshHome 落在 `~/.sshwork`，本机硬约束：`/tmp` 不可写）、node:crypto，以及 src/preset 的公开类型
- * [OUTPUT]: 对外提供 `makePresetHome`（临时 dshHome）、`createFakePresetPort`（**假安装端口**：可编排成功/失败/进行中，并按官方行为在装成后留下 link、卸载后**不**清 link）、`SPIKE_RECIPE_YML`/`makeRecipe` 夹具
+ * [OUTPUT]: 对外提供 `makePresetHome`（临时 dshHome）、`createFakePresetPort`（**假安装端口**：可编排成功/失败/进行中，并按官方行为在装成后留下 link、卸载后**不**清 link）、`SPIKE_RECIPE_YML`/`FULL_RECIPE_YML`/`ROOT_MAPPING_YML`/`makeRecipe` 夹具
  * [POS]: tests 下的配方纵测试支撑（**不是产品代码**，`tsconfig.json` 的 `include` 只收 `src/**`，故它只被 vitest 转译、不进 bundle 产物）。用假端口是刻意的：本刀要证的是编排层（幂等/并发/三态/残壳清理），真官方安装面另由 `scripts/preset-e2e.mjs` 在一次性临时 profile 上跑
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -46,6 +46,33 @@ export const FULL_RECIPE_YML = `# 夹具：覆盖官方 Loader 方言
   config:
     - id: plan-mode
       name: '@deepseek-ai/dsh-plan-mode'
+`
+
+/**
+ * 根 mapping 形状的配方正文（**真机制品的样子**）：显示字段 + `plugins:` 行 + `skills:` 声明。
+ *
+ * `skills` 键按规划 §K2 绝不进 bundle；`plugins:` 里的 `cordis:group`+`isolate`/嵌套 config 用来证明
+ * 根 mapping 这条路也逐字保留官方方言。
+ */
+export const ROOT_MAPPING_YML = `name: 根 mapping 显示名
+description: 根 mapping 的说明
+order: 70
+plugins:
+  - id: persona
+    name: '@deepseek-ai/dsh-persona'
+    config:
+      prefix: from mapping
+  - id: planning
+    name: cordis:group
+    group: true
+    isolate:
+      planMode: true
+    config:
+      - id: plan-mode
+        name: '@deepseek-ai/dsh-plan-mode'
+skills:
+  - weekly-report
+  - release-notes
 `
 
 /** 造一份配方；缺省用 spike 夹具。 */

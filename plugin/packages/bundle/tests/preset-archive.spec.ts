@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖同目录手写 ZIP 构造器 `zip-fixture.ts`、src/preset-archive.ts 的解码器与核心的稳定码
- * [OUTPUT]: 锁定 `.dshpreset` 布局判定——合规包出 `PresetRecipe`（`yml` 优先、`.yaml` 回落）、根之外路径/缺 `manifest.json`/缺 `preset/agent.cordis.yml`/空正文/manifest 形状非法一律 `ENT_PRESET_RECIPE_INVALID`，且**容器层失败**（CRC、加密、ZIP64、符号链接）也被翻成同一个稳定码（`cause` 保留共享内核的 `ZipArchiveError`）
+ * [INPUT]: 依赖同目录手写 ZIP 构造器 `zip-fixture.ts`、src/preset-archive.ts 的解码器、核心合成段（只用于"容器→核心"那条缝）与核心的稳定码
+ * [OUTPUT]: 锁定 `.dshpreset` 布局判定——合规包出 `PresetRecipe`（`yml` 优先、`.yaml` 回落）、根之外路径/缺 `manifest.json`/缺 `preset/agent.cordis.yml`/空正文/manifest 形状非法一律 `ENT_PRESET_RECIPE_INVALID`、**可选的 `preset/preset.yml`** 只按官方显示元数据口径抄事实（未知键/坏值/读不成一律降级为没有元数据，绝不因此拒包）、且**容器层失败**（CRC、加密、ZIP64、符号链接）也被翻成同一个稳定码（`cause` 保留共享内核的 `ZipArchiveError`）
  * [POS]: 配方纵深「制品解包边界」门禁。ZIP 容器层本身由 `skill-archive.spec.ts` 用同一批畸形包覆盖（同一条共享内核）；本文件只证**配方布局**那把尺，以及两种包格式共用内核这件事没有把技能的错误码漏进配方族
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest'
 import { ZipArchiveError } from '../src/zip-archive.js'
 import { decodeDshPresetArchive, PRESET_AGENT_YML_MAX_BYTES } from '../src/preset-archive.js'
+import { renderPresetBundle } from '../src/preset/index.js'
 import { buildZip, type ZipFixtureEntry } from './zip-fixture.js'
 
 const AGENT_YML = `- id: persona
@@ -122,6 +123,29 @@ describe('decodeDshPresetArchive', () => {
       { content: Buffer.alloc(PRESET_AGENT_YML_MAX_BYTES + 1, 0x61), path: 'preset/agent.cordis.yml' },
     ])
     expect(() => decodeDshPresetArchive(oversized))
+      .toThrowError(expect.objectContaining({ code: 'ENT_PRESET_RECIPE_INVALID' }))
+  })
+
+  it('包内 preset/preset.yml 只按官方显示元数据口径抄事实：未知键忽略、读不成就是没有元数据', () => {
+    const withMetadata = presetZip([{
+      content: 'name: 手机操控\ndescription: 官方元数据说明\norder: 50\nversion: 1\nid: ent-demo\nunknown: x\n',
+      path: 'preset/preset.yml',
+    }])
+    // 只按名取 name/description/order/id；`version` 与未知键既不是官方元数据键、也不是我们的口径 ⇒ 不进事实。
+    expect(decodeDshPresetArchive(withMetadata).recipe.localMetadata)
+      .toEqual({ id: 'ent-demo', name: '手机操控', description: '官方元数据说明', order: 50 })
+
+    // 官方口径「Every read failure degrades to no metadata」：畸形元数据只降级，绝不因此拒一份合法配方。
+    for (const content of ['43\n', '- a\n- b\n', 'order: 1.5\n', 'name: [flow]\n', 'name:\n  缩进块\n']) {
+      expect(decodeDshPresetArchive(presetZip([{ content, path: 'preset/preset.yml' }])).recipe.localMetadata,
+        JSON.stringify(content)).toBeUndefined()
+    }
+  })
+
+  it('preset/preset.yml 与 manifest 的 id 打架：解包照抄、合成 fail-closed（同一份制品不许两个身份）', () => {
+    const archive = decodeDshPresetArchive(presetZip([{ content: 'id: other-preset\n', path: 'preset/preset.yml' }]))
+    expect(archive.recipe.localMetadata).toEqual({ id: 'other-preset' })
+    expect(() => renderPresetBundle(archive.recipe))
       .toThrowError(expect.objectContaining({ code: 'ENT_PRESET_RECIPE_INVALID' }))
   })
 
