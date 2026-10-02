@@ -158,7 +158,7 @@ function textOf(node: ReactNode): string {
  */
 const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(8462 chars)",
+  "  style(10507 chars)",
   "  div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
   "    button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=true][aria-controls=market-panel-skills][tabIndex=0][onClick=[fn]][onKeyDown=[fn]]",
   "      #text:企业技能 1",
@@ -207,7 +207,7 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
 ]
 const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(8462 chars)",
+  "  style(10507 chars)",
   "  div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
   "    button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-skills][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
   "      #text:企业技能 1",
@@ -261,8 +261,8 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "  div[id=market-panel-presets][role=tabpanel][aria-labelledby=market-tab-presets][hidden=true][className=own-market-panel]",
   "  div[id=market-panel-components][role=tabpanel][aria-labelledby=market-tab-components][hidden=true][className=own-market-panel]",
 ]
-const LEGACY_STYLE_LENGTH = 8462
-const LEGACY_STYLE_CHECKSUM = 2395543646
+const LEGACY_STYLE_LENGTH = 10507
+const LEGACY_STYLE_CHECKSUM = 3008014743
 
 /** 「企业技能」节的目录 fixture：与 skill-market.spec 的列表投影同形（列表态 versionId/skills 为空）。 */
 const SKILL: EnterpriseRuntimeSkill = {
@@ -2681,18 +2681,20 @@ describe('enterprise skill detail page', () => {
     // 关详情 / 换包即中止在途请求，且迟到结果不回填。
     // **本刀（静默吞失败 → 显式失败态 + 可重试）**：技能目录那条取数从本文件的 effect 搬进了共享取数源
     // （`createEnterpriseSkillCatalogSource` → `list-state.ts` 的 `createEnterpriseListSource`，它自己负责
-    // 「中止在途 + 丢弃迟到结果」），故本文件里的 `controller.abort()` 只剩两个详情取数 effect 各一处；
+    // 「中止在途 + 丢弃迟到结果」），故本文件里的 `controller.abort()` 只剩各个取数 effect 各一处；
     // 目录取数不再在这里手写请求/兜底——下面两条同时锁住「没有人把第二套目录取数加回本文件」。
-    // 三个详情取数 effect（文件树 / 文件正文 / **配方详情**）各一处「关详情即中止」。
-    expect((source.match(/controller\.abort\(\)/g) ?? []).length).toBe(3)
+    // **本刀（配方一键启用）**：多了一处「逐行读本机真值（status）」的 effect，它也带一处关页面即中止，
+    // 故计数 3 → 4（文件树 / 文件正文 / 配方详情三处 + 配方真值一处）。
+    expect((source.match(/controller\.abort\(\)/g) ?? []).length).toBe(4)
     expect(source).toContain('createEnterpriseSkillCatalogSource')
     expect((source.match(/api\.skills\(/g) ?? []).length).toBe(1)
     expect((source.match(/api\.installedSkills\(/g) ?? []).length).toBe(1)
     expect((source.match(/controller\.signal\.aborted/g) ?? []).length).toBeGreaterThanOrEqual(6)
-    // 失败不静默：四处 catch（技能动作 / 文件树 / 文件正文 / **配方详情**）都把错误经 `enterpriseLocalErrorCode`
-    // 投影成稳定码，交给纯视图出 role="alert" 或行内提示；本条用例关心的两个文件取数各占一处。
-    //（目录那一条改由 `enterpriseDegradedRead`（list-state.ts）投影稳定码，故本文件里只剩这四处。）
-    expect((source.match(/enterpriseLocalErrorCode\(error\)/g) ?? []).length).toBe(4)
+    // 失败不静默：每一处 catch（技能动作 / 文件树 / 文件正文 / **配方详情** / **配方真值** /
+    // **配方启用** / **配方停用**）都把错误经 `enterpriseLocalErrorCode` 投影成稳定码，交给纯视图出
+    // role="alert" 或行内提示；本条用例关心的两个文件取数各占一处。
+    //（目录那一条改由 `enterpriseDegradedRead`（list-state.ts）投影稳定码，故本文件里只剩这七处。）
+    expect((source.match(/enterpriseLocalErrorCode\(error\)/g) ?? []).length).toBe(7)
     // 界面不拼宿主路径、不读文件系统（那是 Host 的活）：两个 effect 只把**键**（包 id / 树里那条路径）交出去。
     //（`~/.dsh/skills` 那句只出现在行上那枚开关的悬浮文案里，是给用户看的落盘说明，不是我们构造的路径。）
     expect(source).not.toContain('readFileSync')

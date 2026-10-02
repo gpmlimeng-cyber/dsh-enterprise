@@ -31,6 +31,7 @@ const ALLOWED_CATCH_FILES: Readonly<Record<string, string>> = {
   'login-dialog.tsx': '登录发起失败 → 就地渲染 ENT_LOCAL_UNAVAILABLE 的显式失败态',
   'login-page.tsx': '登录轮询/凭证校验失败 → setError(人话) 的显式失败态',
   'marketplace-entry.tsx': '详情文件树 / 文件正文取数失败 → 记稳定码 + 渲染失败态与重试（本轮改后不再有静默分支）',
+  'preset-launch.ts': '降级链第二级（跳新会话并填入指令）的官方结构面调用：`openWorkspace` 抛错时返回 `false` 这个**结果值**给调用方（UI 据此出 ENT_PRESET_LAUNCH_FAILED 的显式行内提示 + 下一步），不是把取数失败变成默认值',
   'preset-market.tsx': '配方详情取数失败 → 记稳定码 + 渲染「列表级信息」+ 重试（本轮改后不再静默回落列表投影）',
   'shortcuts-open.ts': '快捷键能力探测：探测失败返回 "threw" 这个**结果值**给调用方',
   'skill-market.tsx': '技能详情取数失败 → 记稳定码 + 渲染「列表级信息」+ 重试（本轮改后不再静默回落列表投影）',

@@ -1,8 +1,8 @@
 /**
  * [INPUT]: 依赖 React（useEffect/useMemo/useState/useSyncExternalStore）、lucide-react 图标（技能行 Sparkles + 插件行 Package + 组件行三枚 + **配方行与配方详情的 BookMarked** + 详情面包屑的 ChevronDown / 文件树的 Folder 与 FileText）、官方 ui-primitives 的 Button/Switch/Tag/StateDot（pinned 0.1.5-rc.2 的 .d.ts 已导出，不走 official-ui 收窄接缝；**该 pin 不含 `SegmentedTabs`**，故页签条照 `account-view.tsx` 既有 tablist 手写自绘）、display-format 的 `formatByteSize`（文件大小唯一口径：行内字节提示与预览体积提示都取它）、account-state 的 `enterpriseSessionUsable` 与 account-store 的 `EnterpriseAccountStore`（订阅只发生在控制器 `useEnterpriseMarketController` 里）、local-api-decode 的技能 DTO（`EnterpriseRuntimeSkill` 目录 + 已装记录 `EnterpriseInstalledSkill`——「已装」只认后者这一份 Host 真值；**文件树条目 `EnterpriseSkillFileEntry` 与树里单个文本文件 `EnterpriseInstalledSkillFile`**——详情子页面左树右预览的两种输入）与失败码唯一投影 `enterpriseLocalErrorCode`（行内与详情里的错误码来源，与「技能」tab 同源）、**配方侧的两件复用件（均取自 `preset-market.tsx`，不新造第二份）**：配方目录取数源工厂 `createEnterprisePresetListSource`（「企业设置 → 配方」tab 用的同一个）与导入指令构造器 `buildPresetImportInstruction`（同一句指令，本页只复制不上屏）、消费官方 `plugins.item` owner props（`view`/`form`）；中心当前版本只从**详情投影** `store.api.skillDetail(id)` 取（列表投影的 `versionId` 恒为空串），且只对已装行取——未装行没有本机版本可比，不白跑请求、error-notice 的员工侧统一失败提示 `EnterpriseErrorNotice`（人话 + 下一步动作 + 收进「技术信息」的稳定码，样式走行内 `--dsw-*` token，跨页复用不新增可覆盖类）与 error-messages 的唯一一份码 → 人话映射
  * [REF]: **目录行的逐段真源是 `9723a97:plugin/packages/ui/src/marketplace-entry.tsx`**（技能行 = 官方两行卡片：第 1 行标题 `.own-market-cardId` + 版本签 + 分类签，第 2 行描述 `.own-market-cardDesc`，右侧 `[有更新] [Switch]`；插件行 = 图标 + 两行文案 + 状态点 + 官方状态词 + `Switch`；三个页签；组件节折叠），**不从记忆重写**；**详情子页面的框架真源是官方 `@deepseek-ai/dsh-client-ui-plugin-manager` 的 `ItemDetail`/`DetailTop` 与它那份 CSS module**（本机 node_modules 的 `lib/client.js`：`_detail`/`_detailTop`/`_crumb`+`_crumbIcon`/`_detailHead`+`_cardIcon`/`_detailMain`/`_detailTitle`/`_detailName`/`_detailDesc`/`_detailSections`/`_detailSection`/`_sectionHead`/`_sectionTitle`/`_sectionCount`），取值逐条抄进 `detailStyles` 的注释对照表；行版式统一那一刀留下的共享行子块 `EnterpriseMarketInlineRows` 与 `.own-market-storeTabs` 类名照旧。
- * [OUTPUT]: **一棵目录页外壳 + 一份逻辑 + 一个技能详情子页面**。**本刀（详情子页面 + 文件树）**：技能行**行本体**（图标 + 两行文案）是一枚真 `<button class="own-market-rowOpen">`——点它把面板**整页切到**详情子页面（`EnterpriseMarketLegacyShell` 按 `props.skillPage` 走两个 return 分支：详情那一支里列表 / 页签条 / 节容器**一字不挂载**）；`[有更新]` 与官方 `Switch` 是它在 `.own-market-rowLine` 里的**同级兄弟**（不在按钮内，故点动作既不用冒泡也不被藏起来），两者由**唯一一枚子块** `EnterpriseMarketSkillRowActions` 渲染（行上与详情里渲染的是同一枚子块、同一份 `facts`、同一个 `onToggleSkill`）。详情子页面是纯函数 `EnterpriseSkillDetailPage`（无 hook、可直接函数调用测试）：**面包屑「返回技能列表」**（`aria-label` 给完整动作语义，点它就是 `onBack` 回列表）+ `h3` 标题 + 版本徽标（官方 `Tag`）+ **等宽标识行**（`skillId`）+ 描述 + 分区 `detailSections` → `detailSection`（文件区：**左文件树 + 右文件预览**）。纯投影 `enterpriseSkillTreeRows`/`enterpriseSkillDefaultFilePath`/`enterpriseSkillFileCountText`/`enterpriseSkillTreeState`/`enterpriseSkillPreviewState` 与文案常量 `ENTERPRISE_SKILL_TREE_*`/`ENTERPRISE_SKILL_PREVIEW_*`/`ENTERPRISE_SKILL_DETAIL_{BACK_TEXT,BACK_LABEL,FILES_TITLE,RETRY}`/`ENTERPRISE_SKILL_CONTENT_FILENAME` 都在出口上；控制器新增详情目标 id 与四组文件状态（树条目 / 在途 / 错误、选中路径、预览正文 / 在途 / 错误）加两个取数 effect（**只在「详情打开 + 该包已装 + 有 store」时发请求**，未装一条都不发；取到树后默认选中并预览 `SKILL.md`；关详情 / 换包即 abort 且迟到结果不回填），并把 `skillPage` 塞进同一份 props。 以下为既有能力：**一份外壳 + 一份逻辑**。共享逻辑只有一处：控制器 hook `useEnterpriseMarketController`（store 订阅与取数、已装真值、安装/卸载动作、失败码归行、页签选中态、行开合态）、模型投影 `enterpriseMarketShellModel(props)`（组件清单行、目录门控、页签文案与计数、折叠态）与行级 facts `enterpriseMarketSkillRowFacts`/`enterpriseMarketPluginRowFacts`（受管态、开关口径、更新判定、两枚签取值、行键与开合、插件开关禁用口径）。目录行由共享子块 `EnterpriseMarketInlineRows` 铺出（技能行 = 图标 + 两行文案 + `[有更新]` + `Switch` + 失败提示；插件行 = 图标 + 两行文案 + 状态点与官方状态词 + `Switch` + 失败提示）。唯一入口 `EnterpriseMarketLegacyPage` 注册到官方 `plugins.item`，经宿主 `EnterpriseMarketShellHost` 接同一份控制器、同一棵外壳与同一个登录弹窗。其余出口：页签真源（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`/`enterpriseMarketTabLabel`）；组件清单与计数摘要投影（`ENTERPRISE_MARKET_COMPONENTS`/`ENTERPRISE_MARKET_PLAN`/`enterpriseMarketComponent` 六件投影）；行投影（`enterpriseMarketPluginRows`/`enterpriseMarketPluginSectionVisible`/`enterpriseMarketSkillRows`/`enterpriseMarketSkillSectionVisible`）；技能行标签与状态投影（`enterpriseMarketSkillVersionTag`/`enterpriseMarketSkillVersionLabel`/`enterpriseMarketSkillCategoryTag`/`enterpriseMarketSkillHasUpdate`/`enterpriseMarketSkillRowHasUpdate`/`enterpriseMarketSkillUpdateTag`/`ENTERPRISE_MARKET_SKILL_UPDATE_LABEL`/`ENTERPRISE_MARKET_SKILL_UPDATE_TAG`/`enterpriseMarketSkillState`/`enterpriseMarketSkillDot`/`enterpriseMarketSkillConfigTag`/`enterpriseMarketSkillStatusLabel`）；插件行状态投影（`enterprisePluginDot`/`enterpriseMarketPluginConfigTag`/`enterpriseMarketPluginStatusLabel`）；行键与开合投影（`enterpriseMarketRowKey`/`enterpriseMarketRowDetailsId`/`enterpriseMarketRowOpen`）；折叠真源（`ENTERPRISE_MARKET_DEFAULT_EXPANDED`/`enterpriseMarketSectionOpen`/`EnterpriseMarketSectionId`/`ENTERPRISE_MARKET_SECTION_IDS`）；失败可见反馈（`EnterpriseMarketActionError`/`enterpriseMarketActionErrorLabel`/`EnterpriseMarketRowError`）；badge 槽（`EnterpriseMarketBadge`/`BadgeView`/`enterpriseMarketVersionTag`）；注册常量 `ENTERPRISE_MARKET_ENTRY_ID`/`ENTERPRISE_MARKET_ENTRY_LABEL`/`ENTERPRISE_MARKET_ENTRY_ORDER`。卡片摘要与详情页正文**不重复同一句**——摘要只在 `summary` 视图出现（官方必渲染的那一份，`EnterpriseMarketSummaryLine`）。 **本刀（版本签只显示版本）**：技能行标题行的版本签**可见文案改成短号**——新增纯投影 `enterpriseMarketSkillVersionLabel`（含 `@` 取**最后一个** `@` 之后那段、不含 `@` 原样返回；空串/仅 `@`/尾部 `@` 一律 undefined = 不出签），行 facts 因此多一枚 `versionLabel`（原 `versionTag` 保留为**完整来源坐标**）；完整坐标挂在签外包装节点 `.own-market-skillVersionHint` 的 `title` 上（官方 `Tag` 的 .d.ts 只声明 tone/className/children、运行期也丢弃多给属性，故用一枚透明包装节点挂悬浮说明），详情页那枚徽标照旧显示**完整坐标**（信息更全）；签自身的类名（`.own-market-tag`/`.own-market-skillVersionTag`）/tone/位置（标题行、紧随标题、在分类签之前）一字未动，分类签与行上其余任何东西（动作区、状态点、开关、失败提示）一律不碰。 **本刀（失败文案降维 + 术语清扫）**：① **失败自愈**——五条员工可见失败路径（技能行装/卸、插件行装/卸、详情里的动作失败、文件树读取失败、文件正文读取失败）全部改渲染共享的 `EnterpriseErrorNotice`：一句人话（消息取 `error-messages.ts` 的唯一映射）+「下一步：…」+ `<details>`「技术信息」里原样保留稳定码（`data-enterprise-error-code`，支持排障照旧取得到）；行内提示的外层类名仍是 `.own-market-inlineError`（形制不变），`role="alert"` 不变，失败**不**禁用开关（再拨一次即重试）的口径不变。② **术语降维**——第三枚页签与它的节标题由「组件/包含的组件」改成「包含内容」，三行开关的无障碍名由 `启用组件 X` 改成 `启用X`、预留说明改成「预留：X暂未接入」；组件行里那条内部模块路径（`dsh-preset / .dshpreset` 等，含 preset 字样）**不再上屏**（数据仍留在 `ENTERPRISE_MARKET_COMPONENTS`，由反向锁用例守着它不上树，`.own-market-rowModule` 死样式一并删除）；详情页的版本徽标前补人话标签「来源」（`ENTERPRISE_SKILL_DETAIL_SOURCE_LABEL`，悬浮说明给出「来源站 / 发布方 @ 版本号」），等宽 `skillId` 行前补「标识」标签与悬浮说明（`ENTERPRISE_SKILL_DETAIL_NAME_LABEL` / `_NAME_TITLE`）；上游技能名里带技术缩写（MCP / YAML / manifest / Manifest / SKILL.md）时，旁边补一句「名称由技能发布方提供…」的人话（`enterpriseSkillUpstreamNameNote` 纯投影，名称与描述一律不改写，未命中不加噪音）。 **本刀（静默吞失败 → 显式失败态 + 可重试）**：新增唯一取数源工厂 `createEnterpriseSkillCatalogSource` 与唯一加载器 `loadEnterpriseSkillCatalog`（目录是主事实、失败原样抛；已装清单与逐行详情是次级事实、失败经 `enterpriseDegradedRead` 交出失败码）、四态投影 `enterpriseMarketPanelState` 与文案常量 `ENTERPRISE_MARKET_{SKILLS,PLUGINS}_{LOADING,EMPTY,FAILED}`、共享三态落点 `EnterpriseMarketListHint` 与次级降级交代 `EnterpriseMarketDegradedNotice`；控制器改为 `useSyncExternalStore` 订阅取数源（`skillsListState` + `onRetrySkills`），插件目录由 store 快照投影成 `pluginsListState` + `onRetryPlugins`——两个目录页签的加载/空/失败三态由此显式化，失败与空不再混同（失败 = 唯一提示组件 + 真重发）。 **本刀（资料库入口）**：组件清单新增第四行「资料库」——它是**可开关的功能**而不是预留件，`gate:'local'` 标明那枚 Switch 归**本机设置**（`library-gate` 的唯一真源，默认关）而不归企业会话，故开关可拨性、状态词（新增「未开启」）、悬浮说明（`enterpriseMarketComponentSwitchTitle`）与失败重试都在同一份投影里算；拨动走 `onToggleLibrary`（立刻生效、写失败在那一行渲染唯一提示组件 + **真的重发**的重试），`EnterpriseMarketShellProps`/控制器/host 因此新增 `libraryGate`/`onToggleLibrary`/`onRetryLibrarySave` 三件输入。 **本刀（企业配方页签）**：页签真源由三枚改**四枚**——「企业技能 / 企业插件 / **企业配方** / 包含内容」，`EnterpriseMarketTabId` 与 `ENTERPRISE_MARKET_TAB_IDS` 同步加 `presets`（`market-tab-presets`/`market-panel-presets`），`EnterpriseMarketDirectoryTabId`（有行列表的页签）也含它；组件清单里「配方」那一行由 `reserved:true` 改为 `reserved:false`（交付已落地，`包含内容` 页签不再说「预留」，门控随之变成与技能/插件同一条会话口径），`EnterpriseMarketPlan` 是历史规划元数据、不动。配方**行数据**取自既有取数源 `createEnterprisePresetListSource`（与「企业设置 → 配方」tab 同一个工厂，经 `store.api` 发出，**不新造宿主路由、不碰 local-api**），经唯一行投影 `enterpriseMarketPresetRows` 成行、由**同一枚共享行子块** `EnterpriseMarketInlineRows` 的 `presets` 分支渲染（图标 + 两行文案 + 版本短号签 + 可选分类签 + 动作区），行 facts 唯一入口 `enterpriseMarketPresetRowFacts`；动作区**不给假开关**——配方今天没有安装链路，只给本机真能用的那一条「复制导入指令」（沿用 `buildPresetImportInstruction`，指令正文不上屏、复制后按钮文案变「已复制」，`EnterpriseMarketPresetRowActions` 一枚子块同时供行与详情）。配方**详情**沿用技能详情的子页面形态（`presetPage` 非空即整页切换：面包屑「返回配方列表」+ `BookMarked` 图标 + 与行同一枚动作子块 + `h3` 标题/来源徽标/标识行/描述 + 分区「这份配方包含」），点**行标题**（行本体那枚 `<button>`）进详情；包含内容由纯投影族 `enterprisePresetDependencies` → `enterprisePresetContentsGroups` → `enterprisePresetContentsState` 算，按 `kind` 归成「技能 / 插件 / 其它」三组（未知 kind 不被静默丢掉）、每条显示 `id` 与「必需 / 可选」，`dependencies` **字段缺席或形状不对**时如实说「暂时无法读取包含内容」（详情取数失败另给唯一提示组件 + **真的重发**的重试），绝不白屏也绝不编造包含内容。四枚页签的计数、三态（加载/空/失败）与重试与技能/插件页签同规则：新增文案常量 `ENTERPRISE_MARKET_PRESET_*`（加载/空/失败**直接复用** `preset-market.tsx` 的那三句，不各写一套）。
- * [POS]: ui 的企业市场入口（**唯一入口：官方插件页「官方」分组里的「插件市场」卡片**）。**本刀（详情子页面）**：技能行本体可点 → 面板整页切到该技能的详情子页面；**面板就是官方 `plugins.item` 的 page 视图、没有真实路由，故用一份视图状态切换（`skillDetailId` → `skillPage`），不硬造路由**。「返回技能列表」是唯一返回入口（面包屑按钮，键盘可达）。详情里的动作与行上**同源**：同一枚 `EnterpriseMarketSkillRowActions`、同一份 `enterpriseMarketSkillRowFacts`、同一个 `onToggleSkill` 回调、同一份 `skillActionError`，因此不存在第二套状态或第二个动作实现。文件树与预览只消费 Host 已有的两条只读子路由（`/enterprise/api/v1/local/skills/<id>/files` 与 `.../<id>/file?path=`，经 `store.api.skillFiles`/`store.api.skillFile` 发出）；**未安装就一条请求都不发**、如实说「安装后可浏览文件」，绝不伪造树；默认选中并预览 `SKILL.md`；预览是 `<pre>` 里的**纯文本子节点**（全文件无 `dangerouslySetInnerHTML`），长文件靠 `max-height` 滚动 + 字节提示；读取失败给 `role="alert"` + 稳定错误码 + 重试。**只读正文路由 `/skills/content` 按用户要求保留**（Host 侧注册与既有单测不动），本页统一走文件路由那一份路径实现。 以下为既有能力：企业插件行与组件行**不给**详情入口（用户只要求技能行；插件行本轮一字未动，组件行是交付排期清单）。**目录行的落点与行为**：点行本体进详情；`[有更新]`（真实 `<button>`，点击 = 更新到中心当前版本）与安装/卸载 `Switch` **常显在行上**且不触发详情；失败给 `role="alert"` + 稳定错误码且**不禁用**开关（再拨一次就是重试）。**三页签**（企业技能默认 / 企业插件 / 组件）共用 `EnterpriseMarketTabStrip` 一份实现：手写 `role="tablist"` + roving `tabIndex` + ←/→/Home/End 走焦并选中，`id`/`aria-controls`/`aria-labelledby` 三处同源；组件节是唯一还保留折叠语义的一节（折叠态列表整段不进 DOM）。**严禁**任何价格/交易/购买/购物车/客服之类的商业化字样——全树文本都不出现（由测试反向锁死）。`store` 与开登录回调均为可选注入：缺席时开关恒禁用、会话不可用时目录节不出现。**样式纪律**：本文件的类名与同包其他源文件**零交集**（两处 `<style>` 都是全局单类选择器，同名会互相覆盖）；主题只用 `--dsw-*` token，不新造颜色。 **本刀（版本签短号）**：真实 `sourceDshVersion` 是完整坐标（`skillhub.cn/dev-expert@2.0.3`），整串会把标题挤成一个字（真机截图已证）；故**列表里只显示版本号**（`enterpriseMarketSkillVersionLabel`，最后一个 `@` 之后），**完整坐标在签的 `title` 与详情徽标**；既有技能（无 `@` 的 `0.1.7-rc.2` 形态）显示形式一字不变，签的类名/tone/位置与行上其他东西不动。 **本刀（企业配方页签）**：配方行与配方详情用的是**同一批**类名（`.own-market-row*`/`.own-market-cardHead`/`.own-market-cardId`/`.own-market-cardDesc`/`.own-market-detail*`/`.own-market-skillTag`），**一个新类名都不加**——版式取值与技能/插件行逐值同源，故本刀 CSS 一字未动（`baseStyles`/`rowStyles`/`detailStyles` 三份字符串与改动前逐字节相同）。
+ * [OUTPUT]: **一棵目录页外壳 + 一份逻辑 + 一个技能详情子页面**。**本刀（详情子页面 + 文件树）**：技能行**行本体**（图标 + 两行文案）是一枚真 `<button class="own-market-rowOpen">`——点它把面板**整页切到**详情子页面（`EnterpriseMarketLegacyShell` 按 `props.skillPage` 走两个 return 分支：详情那一支里列表 / 页签条 / 节容器**一字不挂载**）；`[有更新]` 与官方 `Switch` 是它在 `.own-market-rowLine` 里的**同级兄弟**（不在按钮内，故点动作既不用冒泡也不被藏起来），两者由**唯一一枚子块** `EnterpriseMarketSkillRowActions` 渲染（行上与详情里渲染的是同一枚子块、同一份 `facts`、同一个 `onToggleSkill`）。详情子页面是纯函数 `EnterpriseSkillDetailPage`（无 hook、可直接函数调用测试）：**面包屑「返回技能列表」**（`aria-label` 给完整动作语义，点它就是 `onBack` 回列表）+ `h3` 标题 + 版本徽标（官方 `Tag`）+ **等宽标识行**（`skillId`）+ 描述 + 分区 `detailSections` → `detailSection`（文件区：**左文件树 + 右文件预览**）。纯投影 `enterpriseSkillTreeRows`/`enterpriseSkillDefaultFilePath`/`enterpriseSkillFileCountText`/`enterpriseSkillTreeState`/`enterpriseSkillPreviewState` 与文案常量 `ENTERPRISE_SKILL_TREE_*`/`ENTERPRISE_SKILL_PREVIEW_*`/`ENTERPRISE_SKILL_DETAIL_{BACK_TEXT,BACK_LABEL,FILES_TITLE,RETRY}`/`ENTERPRISE_SKILL_CONTENT_FILENAME` 都在出口上；控制器新增详情目标 id 与四组文件状态（树条目 / 在途 / 错误、选中路径、预览正文 / 在途 / 错误）加两个取数 effect（**只在「详情打开 + 该包已装 + 有 store」时发请求**，未装一条都不发；取到树后默认选中并预览 `SKILL.md`；关详情 / 换包即 abort 且迟到结果不回填），并把 `skillPage` 塞进同一份 props。 以下为既有能力：**一份外壳 + 一份逻辑**。共享逻辑只有一处：控制器 hook `useEnterpriseMarketController`（store 订阅与取数、已装真值、安装/卸载动作、失败码归行、页签选中态、行开合态）、模型投影 `enterpriseMarketShellModel(props)`（组件清单行、目录门控、页签文案与计数、折叠态）与行级 facts `enterpriseMarketSkillRowFacts`/`enterpriseMarketPluginRowFacts`（受管态、开关口径、更新判定、两枚签取值、行键与开合、插件开关禁用口径）。目录行由共享子块 `EnterpriseMarketInlineRows` 铺出（技能行 = 图标 + 两行文案 + `[有更新]` + `Switch` + 失败提示；插件行 = 图标 + 两行文案 + 状态点与官方状态词 + `Switch` + 失败提示）。唯一入口 `EnterpriseMarketLegacyPage` 注册到官方 `plugins.item`，经宿主 `EnterpriseMarketShellHost` 接同一份控制器、同一棵外壳与同一个登录弹窗。其余出口：页签真源（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`/`enterpriseMarketTabLabel`）；组件清单与计数摘要投影（`ENTERPRISE_MARKET_COMPONENTS`/`ENTERPRISE_MARKET_PLAN`/`enterpriseMarketComponent` 六件投影）；行投影（`enterpriseMarketPluginRows`/`enterpriseMarketPluginSectionVisible`/`enterpriseMarketSkillRows`/`enterpriseMarketSkillSectionVisible`）；技能行标签与状态投影（`enterpriseMarketSkillVersionTag`/`enterpriseMarketSkillVersionLabel`/`enterpriseMarketSkillCategoryTag`/`enterpriseMarketSkillHasUpdate`/`enterpriseMarketSkillRowHasUpdate`/`enterpriseMarketSkillUpdateTag`/`ENTERPRISE_MARKET_SKILL_UPDATE_LABEL`/`ENTERPRISE_MARKET_SKILL_UPDATE_TAG`/`enterpriseMarketSkillState`/`enterpriseMarketSkillDot`/`enterpriseMarketSkillConfigTag`/`enterpriseMarketSkillStatusLabel`）；插件行状态投影（`enterprisePluginDot`/`enterpriseMarketPluginConfigTag`/`enterpriseMarketPluginStatusLabel`）；行键与开合投影（`enterpriseMarketRowKey`/`enterpriseMarketRowDetailsId`/`enterpriseMarketRowOpen`）；折叠真源（`ENTERPRISE_MARKET_DEFAULT_EXPANDED`/`enterpriseMarketSectionOpen`/`EnterpriseMarketSectionId`/`ENTERPRISE_MARKET_SECTION_IDS`）；失败可见反馈（`EnterpriseMarketActionError`/`enterpriseMarketActionErrorLabel`/`EnterpriseMarketRowError`）；badge 槽（`EnterpriseMarketBadge`/`BadgeView`/`enterpriseMarketVersionTag`）；注册常量 `ENTERPRISE_MARKET_ENTRY_ID`/`ENTERPRISE_MARKET_ENTRY_LABEL`/`ENTERPRISE_MARKET_ENTRY_ORDER`。卡片摘要与详情页正文**不重复同一句**——摘要只在 `summary` 视图出现（官方必渲染的那一份，`EnterpriseMarketSummaryLine`）。 **本刀（版本签只显示版本）**：技能行标题行的版本签**可见文案改成短号**——新增纯投影 `enterpriseMarketSkillVersionLabel`（含 `@` 取**最后一个** `@` 之后那段、不含 `@` 原样返回；空串/仅 `@`/尾部 `@` 一律 undefined = 不出签），行 facts 因此多一枚 `versionLabel`（原 `versionTag` 保留为**完整来源坐标**）；完整坐标挂在签外包装节点 `.own-market-skillVersionHint` 的 `title` 上（官方 `Tag` 的 .d.ts 只声明 tone/className/children、运行期也丢弃多给属性，故用一枚透明包装节点挂悬浮说明），详情页那枚徽标照旧显示**完整坐标**（信息更全）；签自身的类名（`.own-market-tag`/`.own-market-skillVersionTag`）/tone/位置（标题行、紧随标题、在分类签之前）一字未动，分类签与行上其余任何东西（动作区、状态点、开关、失败提示）一律不碰。 **本刀（失败文案降维 + 术语清扫）**：① **失败自愈**——五条员工可见失败路径（技能行装/卸、插件行装/卸、详情里的动作失败、文件树读取失败、文件正文读取失败）全部改渲染共享的 `EnterpriseErrorNotice`：一句人话（消息取 `error-messages.ts` 的唯一映射）+「下一步：…」+ `<details>`「技术信息」里原样保留稳定码（`data-enterprise-error-code`，支持排障照旧取得到）；行内提示的外层类名仍是 `.own-market-inlineError`（形制不变），`role="alert"` 不变，失败**不**禁用开关（再拨一次即重试）的口径不变。② **术语降维**——第三枚页签与它的节标题由「组件/包含的组件」改成「包含内容」，三行开关的无障碍名由 `启用组件 X` 改成 `启用X`、预留说明改成「预留：X暂未接入」；组件行里那条内部模块路径（`dsh-preset / .dshpreset` 等，含 preset 字样）**不再上屏**（数据仍留在 `ENTERPRISE_MARKET_COMPONENTS`，由反向锁用例守着它不上树，`.own-market-rowModule` 死样式一并删除）；详情页的版本徽标前补人话标签「来源」（`ENTERPRISE_SKILL_DETAIL_SOURCE_LABEL`，悬浮说明给出「来源站 / 发布方 @ 版本号」），等宽 `skillId` 行前补「标识」标签与悬浮说明（`ENTERPRISE_SKILL_DETAIL_NAME_LABEL` / `_NAME_TITLE`）；上游技能名里带技术缩写（MCP / YAML / manifest / Manifest / SKILL.md）时，旁边补一句「名称由技能发布方提供…」的人话（`enterpriseSkillUpstreamNameNote` 纯投影，名称与描述一律不改写，未命中不加噪音）。 **本刀（静默吞失败 → 显式失败态 + 可重试）**：新增唯一取数源工厂 `createEnterpriseSkillCatalogSource` 与唯一加载器 `loadEnterpriseSkillCatalog`（目录是主事实、失败原样抛；已装清单与逐行详情是次级事实、失败经 `enterpriseDegradedRead` 交出失败码）、四态投影 `enterpriseMarketPanelState` 与文案常量 `ENTERPRISE_MARKET_{SKILLS,PLUGINS}_{LOADING,EMPTY,FAILED}`、共享三态落点 `EnterpriseMarketListHint` 与次级降级交代 `EnterpriseMarketDegradedNotice`；控制器改为 `useSyncExternalStore` 订阅取数源（`skillsListState` + `onRetrySkills`），插件目录由 store 快照投影成 `pluginsListState` + `onRetryPlugins`——两个目录页签的加载/空/失败三态由此显式化，失败与空不再混同（失败 = 唯一提示组件 + 真重发）。 **本刀（资料库入口）**：组件清单新增第四行「资料库」——它是**可开关的功能**而不是预留件，`gate:'local'` 标明那枚 Switch 归**本机设置**（`library-gate` 的唯一真源，默认关）而不归企业会话，故开关可拨性、状态词（新增「未开启」）、悬浮说明（`enterpriseMarketComponentSwitchTitle`）与失败重试都在同一份投影里算；拨动走 `onToggleLibrary`（立刻生效、写失败在那一行渲染唯一提示组件 + **真的重发**的重试），`EnterpriseMarketShellProps`/控制器/host 因此新增 `libraryGate`/`onToggleLibrary`/`onRetryLibrarySave` 三件输入。 **本刀（企业配方页签）**：页签真源由三枚改**四枚**——「企业技能 / 企业插件 / **企业配方** / 包含内容」，`EnterpriseMarketTabId` 与 `ENTERPRISE_MARKET_TAB_IDS` 同步加 `presets`（`market-tab-presets`/`market-panel-presets`），`EnterpriseMarketDirectoryTabId`（有行列表的页签）也含它；组件清单里「配方」那一行由 `reserved:true` 改为 `reserved:false`（交付已落地，`包含内容` 页签不再说「预留」，门控随之变成与技能/插件同一条会话口径），`EnterpriseMarketPlan` 是历史规划元数据、不动。配方**行数据**取自既有取数源 `createEnterprisePresetListSource`（与「企业设置 → 配方」tab 同一个工厂，经 `store.api` 发出，**不新造宿主路由、不碰 local-api**），经唯一行投影 `enterpriseMarketPresetRows` 成行、由**同一枚共享行子块** `EnterpriseMarketInlineRows` 的 `presets` 分支渲染（图标 + 两行文案 + 版本短号签 + 可选分类签 + 动作区），行 facts 唯一入口 `enterpriseMarketPresetRowFacts`；动作区**不给假开关**——配方今天没有安装链路，只给本机真能用的那一条「复制导入指令」（沿用 `buildPresetImportInstruction`，指令正文不上屏、复制后按钮文案变「已复制」，`EnterpriseMarketPresetRowActions` 一枚子块同时供行与详情）。配方**详情**沿用技能详情的子页面形态（`presetPage` 非空即整页切换：面包屑「返回配方列表」+ `BookMarked` 图标 + 与行同一枚动作子块 + `h3` 标题/来源徽标/标识行/描述 + 分区「这份配方包含」），点**行标题**（行本体那枚 `<button>`）进详情；包含内容由纯投影族 `enterprisePresetDependencies` → `enterprisePresetContentsGroups` → `enterprisePresetContentsState` 算，按 `kind` 归成「技能 / 插件 / 其它」三组（未知 kind 不被静默丢掉）、每条显示 `id` 与「必需 / 可选」，`dependencies` **字段缺席或形状不对**时如实说「暂时无法读取包含内容」（详情取数失败另给唯一提示组件 + **真的重发**的重试），绝不白屏也绝不编造包含内容。四枚页签的计数、三态（加载/空/失败）与重试与技能/插件页签同规则：新增文案常量 `ENTERPRISE_MARKET_PRESET_*`（加载/空/失败**直接复用** `preset-market.tsx` 的那三句，不各写一套）。 **本刀（配方一键启用：真开关 + 自造授权弹层 + 三级降级链）**：配方行动作区由「复制导入指令」换成与技能/插件行**同款**的官方 `Switch` 并接上三条本机子路径——三态由纯投影 `enterprisePresetSwitchState` 算（`EnterpriseMarketPresetRowState` 按行 id 持有 `status`/`loading`/两条失败码），`EnterpriseMarketPresetRowFacts` 新增 `state`/`stateLabel`/`enabled`/`busy`/`switchDisabled`/`switchTitle`/`fallback`/`needsApproval`；**自造授权弹层** `EnterprisePresetApprovalDialog`（纯函数、`role="dialog"` 覆盖层）逐项列出 `disclosure.bundles`/`disclosure.mounts`、免责声明与官方原型逐字同句、一次授权绑当前 `fingerprint`（确认时经 `enablePreset(id, confirmFingerprint)` 回传）、指纹已变时如实说「内容变了，需要重新确认」；**三级降级链**由 `enterprisePresetFallbackPlan`（① 一键启用 → ② 新会话 + 填入指令 → ③ 复制到剪贴板）唯一决策、`enterprisePresetRouteUnsupported` 只把「路由没接线 / 本机没有落点」与不可重试的终态失败算成结构性不可用（两枚授权码除外），每一级都渲染 `EnterpriseMarketPresetFallbackNote` 那一句可见说明（不静默降级），第二级的接线（`preset-launch.ts`）经 `onOpenPresetInNewSession` 注入、缺席即如实降到第三级；新增 `EnterpriseMarketPresetRowActions` 的 `onToggle`/`onOpenInNewSession`/`onCopy` 三输入、`EnterprisePresetDetailPage` 的 `onTogglePreset`/`onOpenInNewSession`/`actionErrorCode` 与宿主里的授权弹层挂载点。 **本刀（收尾：启用成功的落地交代）**：`restart-required`/`needsNewSession` 原先只解码不上屏，现补成可见事实——`EnterpriseMarketPresetRowState.applied` 持有成功回执（`EnterprisePresetAppliedReceipt`：`application`/`officialApplication?`/`needsNewSession`/`alreadyInstalled?`），纯投影 `enterprisePresetAppliedNotice` 出三句常量之一（`ENTERPRISE_PRESET_APPLIED_{HOT,RESTART,OTHER}_TEXT`，三句都含「将在新会话生效」；另加 `ENTERPRISE_PRESET_APPLIED_EXISTING_TEXT` 交代「本次没有重复安装」），由 `EnterpriseMarketPresetAppliedNote` 以 `role="status"` 渲染在行下与详情里（同一份 facts、没有回执就整段不进 DOM），下一次动作开始时清掉。
+ * [POS]: ui 的企业市场入口（**唯一入口：官方插件页「官方」分组里的「插件市场」卡片**）。**本刀（详情子页面）**：技能行本体可点 → 面板整页切到该技能的详情子页面；**面板就是官方 `plugins.item` 的 page 视图、没有真实路由，故用一份视图状态切换（`skillDetailId` → `skillPage`），不硬造路由**。「返回技能列表」是唯一返回入口（面包屑按钮，键盘可达）。详情里的动作与行上**同源**：同一枚 `EnterpriseMarketSkillRowActions`、同一份 `enterpriseMarketSkillRowFacts`、同一个 `onToggleSkill` 回调、同一份 `skillActionError`，因此不存在第二套状态或第二个动作实现。文件树与预览只消费 Host 已有的两条只读子路由（`/enterprise/api/v1/local/skills/<id>/files` 与 `.../<id>/file?path=`，经 `store.api.skillFiles`/`store.api.skillFile` 发出）；**未安装就一条请求都不发**、如实说「安装后可浏览文件」，绝不伪造树；默认选中并预览 `SKILL.md`；预览是 `<pre>` 里的**纯文本子节点**（全文件无 `dangerouslySetInnerHTML`），长文件靠 `max-height` 滚动 + 字节提示；读取失败给 `role="alert"` + 稳定错误码 + 重试。**只读正文路由 `/skills/content` 按用户要求保留**（Host 侧注册与既有单测不动），本页统一走文件路由那一份路径实现。 以下为既有能力：企业插件行与组件行**不给**详情入口（用户只要求技能行；插件行本轮一字未动，组件行是交付排期清单）。**目录行的落点与行为**：点行本体进详情；`[有更新]`（真实 `<button>`，点击 = 更新到中心当前版本）与安装/卸载 `Switch` **常显在行上**且不触发详情；失败给 `role="alert"` + 稳定错误码且**不禁用**开关（再拨一次就是重试）。**三页签**（企业技能默认 / 企业插件 / 组件）共用 `EnterpriseMarketTabStrip` 一份实现：手写 `role="tablist"` + roving `tabIndex` + ←/→/Home/End 走焦并选中，`id`/`aria-controls`/`aria-labelledby` 三处同源；组件节是唯一还保留折叠语义的一节（折叠态列表整段不进 DOM）。**严禁**任何价格/交易/购买/购物车/客服之类的商业化字样——全树文本都不出现（由测试反向锁死）。`store` 与开登录回调均为可选注入：缺席时开关恒禁用、会话不可用时目录节不出现。**样式纪律**：本文件的类名与同包其他源文件**零交集**（两处 `<style>` 都是全局单类选择器，同名会互相覆盖）；主题只用 `--dsw-*` token，不新造颜色。 **本刀（版本签短号）**：真实 `sourceDshVersion` 是完整坐标（`skillhub.cn/dev-expert@2.0.3`），整串会把标题挤成一个字（真机截图已证）；故**列表里只显示版本号**（`enterpriseMarketSkillVersionLabel`，最后一个 `@` 之后），**完整坐标在签的 `title` 与详情徽标**；既有技能（无 `@` 的 `0.1.7-rc.2` 形态）显示形式一字不变，签的类名/tone/位置与行上其他东西不动。 **本刀（企业配方页签）**：配方行与配方详情用的是**同一批**类名（`.own-market-row*`/`.own-market-cardHead`/`.own-market-cardId`/`.own-market-cardDesc`/`.own-market-detail*`/`.own-market-skillTag`），**一个新类名都不加**——版式取值与技能/插件行逐值同源，故本刀 CSS 一字未动（`baseStyles`/`rowStyles`/`detailStyles` 三份字符串与改动前逐字节相同）。 **本刀**：三级降级链的调度与事实全在共享控制器一处（逐行读 `status`、真开关的 enable/disable、授权弹层的确认与取消），行上与详情里读的是同一份 facts、同一批回调；弹层不新增路由、不新增 slot。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -16,10 +16,10 @@ import type { EnterpriseAccountStore } from './account-store.js'
 import { formatByteSize } from './display-format.js'
 import { ENTERPRISE_LIBRARY_GATE_DEFAULT, type EnterpriseLibraryGate, type EnterpriseLibraryGateSnapshot } from './library-gate.js'
 import { enterprisePluginStatePresentation } from './plugin-market.js'
-import type { EnterpriseInstalledSkill, EnterpriseInstalledSkillFile, EnterpriseLocalApi, EnterprisePluginCatalogItem, EnterprisePluginItem, EnterpriseRuntimePreset, EnterpriseRuntimeSkill, EnterpriseSkillFileEntry, ManagedPluginState } from './local-api-decode.js'
+import type { EnterpriseInstalledSkill, EnterpriseInstalledSkillFile, EnterpriseLocalApi, EnterprisePluginCatalogItem, EnterprisePluginItem, EnterprisePresetApplicationKind, EnterprisePresetAuthorization, EnterprisePresetDisclosure, EnterprisePresetOfficialApplication, EnterprisePresetStatus, EnterpriseRuntimePreset, EnterpriseRuntimeSkill, EnterpriseSkillFileEntry, ManagedPluginState } from './local-api-decode.js'
 import { enterpriseLocalErrorCode } from './local-api-decode.js'
 import { EnterpriseErrorNotice } from './error-notice.js'
-import { enterpriseErrorPresentation } from './error-messages.js'
+import { enterpriseErrorPresentation, enterpriseErrorRetryable } from './error-messages.js'
 // 配方侧的两件**复用件**（都取自「企业设置 → 配方」那个 tab，本页不新造第二份）：
 //   · `createEnterprisePresetListSource` = 配方目录的**唯一**取数源工厂（与设置弹窗同一份实现，经 `store.api` 发出）；
 //   · `buildPresetImportInstruction` = 导入指令的**唯一**构造器（本页只把它写进剪贴板，指令正文不上屏）。
@@ -39,6 +39,7 @@ import {
   type EnterpriseListSource,
   type EnterpriseListState,
 } from './list-state.js'
+import type { EnterprisePresetLaunchPort } from './preset-launch.js'
 import { EnterpriseLoginDialog, useEnterpriseLoginDialog } from './login-dialog.js'
 
 /** 本入口在官方插件页占用的 slot id，同时是卡片 DOM 的 `data-plugin-item` 与详情页路由键。 */
@@ -250,13 +251,45 @@ export interface EnterpriseMarketShellProps {
    */
   readonly onOpenPresetDetail?: ((row: EnterpriseMarketPresetRow) => void) | undefined
   /**
-   * 复制某条配方的导入指令（**配方今天唯一真能用的动作**：服务端还没有配方的一键落盘链路，
-   * 故这里绝不放一枚拨不动的安装开关）。指令正文由 `buildPresetImportInstruction`（与设置弹窗同一个构造器）
-   * 产出并写进剪贴板，**不上屏**（它含上游专名）；回调缺席即不渲染那枚按钮。
+   * 复制某条配方的导入指令（**降级链的第三级，只能是第三级**）。
+   *
+   * 指令正文由 `buildPresetImportInstruction`（与设置弹窗同一个构造器）产出并写进剪贴板、**不上屏**
+   * （它含上游专名）；回调缺席即不渲染那枚按钮。只有在一键安装与「新建会话并填入指令」都不可用时
+   * 它才成为那一行真正给出的动作，且必须配一句可见的「为什么走了这条路」（见 `fallback.note`）。
    */
   readonly onCopyPresetInstruction?: ((row: EnterpriseMarketPresetRow) => void) | undefined
   /** 刚刚复制过的那条配方 id（复制成功的可见反馈：按钮文案从「复制导入指令」变「已复制」）。 */
   readonly presetCopiedId?: string | undefined
+  /**
+   * **降级链第二级**：跳到新会话并把导入指令填进输入框（用户只需按发送）。
+   *
+   * 这条链的官方机制已查实（`@deepseek-ai/dsh-client-ui-workspace` 的 `UiWorkspace.openWorkspace`
+   * 第二参 `beforeOpen(sessionId)` + `@deepseek-ai/dsh-client-ui-conversation` 的
+   * `conversation.input.shell(id).actions.setDraft(text)`），由 `client.tsx` 在 apply 里接线后注入；
+   * **缺席**即这一级不可用，降级链如实说明并落到第三级（绝不静默降级、也绝不假装点了有反应）。
+   */
+  readonly onOpenPresetInNewSession?: ((row: EnterpriseMarketPresetRow) => void) | undefined
+  /**
+   * 一条配方的**本机动作真值**（按配方包 id 归行）：`GET <local>/presets/<id>/status` 的结果、
+   * 是否在途、以及 status / 动作两条失败码。行 facts 与授权弹层都只读它。
+   */
+  readonly presetStates?: Readonly<Record<string, EnterpriseMarketPresetRowState>> | undefined
+  /**
+   * 一行配方的**真开关**：`next` 就是官方 Switch 拨动后的目标态。
+   *
+   * 控制器接到后的编排（唯一一处）：`next === false` → 停用（用 status 里的声明 id）；
+   * `next === true` 且**已授权** → 直接启用；`next === true` 且**未授权/指纹已变** → **先弹授权层**
+   * （绝不替用户顺手授权），员工确认后才带 `confirmFingerprint` 发 enable。
+   * 缺席时开关禁用（不给假切换），降级链随之走到第二级或第三级。
+   */
+  readonly onTogglePreset?: ((row: EnterpriseMarketPresetRow, next: boolean) => void) | undefined
+  /** 当前有一条配方动作在途的那一行 id（进行中的开关不可连点；**失败不禁用重试**）。 */
+  readonly pendingPresetId?: string | undefined
+  /**
+   * 配方行最近一次启用/停用失败（命中 `id` 的行渲染 `role="alert"` 行内提示 + 稳定码）。
+   * 与技能/插件同口径：出现失败提示**不**禁用开关，再拨一次就是重试。
+   */
+  readonly presetActionError?: EnterpriseMarketActionError | undefined
   /**
    * **配方详情子页面**的输入（点配方行标题后才非空）：与技能详情同一形态——非空即整页切换
    * （列表 / 页签条 / 各面板一字不挂载），`undefined` = 正常列表视图。里面的每一件事实都由共享控制器
@@ -1254,16 +1287,18 @@ export function enterpriseMarketPluginRowFacts(props: EnterpriseMarketShellProps
   }
 }
 
-/* ══════════════════════════ 企业配方（本刀新增的第三枚目录页签） ══════════════════════════
+/* ══════════════════════════ 企业配方（第三枚目录页签 + 一键启用） ══════════════════════════
  *
  * 与「企业设置 → 配方」那个 tab（`preset-market.tsx`）的**共用面**只有三处，且每处都只有一份实现：
  *   ① 目录取数 = `createEnterprisePresetListSource`（那个 tab 用的**同一个工厂**；它自带一枚
  *      `createEnterpriseLocalApi()` 实例、本页用共享 store 的那一枚，两者都打同一条同源路径
  *      `/enterprise/api/v1/local/presets`）；
- *   ② 导入指令 = `buildPresetImportInstruction`（同一句指令；本页只复制不上屏）；
+ *   ② 导入指令 = `buildPresetImportInstruction`（同一句指令；本页只在**第三级兜底**时复制，正文不上屏）；
  *   ③ 加载/空/失败三句文案 = 那三个 `ENTERPRISE_PRESET_LIST_*` 常量。
- * 行 facts（`enterpriseMarketPresetRowFacts`）与行渲染（`EnterpriseMarketInlineRows` 的 presets 分支）
- * 在本页**各只有一份**：行上、详情里的动作读的是同一份 facts、同一枚子块。
+ *
+ * **本刀（真开关 + 授权弹层 + 三级降级链）**：配方行的动作区由「复制导入指令」这条唯一的药丸
+ * 换成与技能/插件行同款的官方 `Switch`，并把三条本机子路径（`status` / `enable` / `disable`）接起来。
+ * 三级降级链与「为什么走了这条路」的可见说明见 `enterprisePresetFallbackPlan`。
  */
 
 /** 「企业配方」页签的三条取数文案：直接复用设置弹窗那一份（同一个页签不许在商店里说第二套话）。 */
@@ -1271,9 +1306,108 @@ export const ENTERPRISE_MARKET_PRESETS_LOADING = ENTERPRISE_PRESET_LIST_LOADING
 export const ENTERPRISE_MARKET_PRESETS_EMPTY = ENTERPRISE_PRESET_LIST_EMPTY
 export const ENTERPRISE_MARKET_PRESETS_FAILED = ENTERPRISE_PRESET_LIST_FAILED
 
-/** 配方行那枚动作药丸的两种文案（复制成功与否的可见反馈）。 */
+/** 第三级兜底那枚按钮的两种文案（复制成功与否的可见反馈）。 */
 export const ENTERPRISE_PRESET_COPY_TEXT = '复制导入指令'
 export const ENTERPRISE_PRESET_COPIED_TEXT = '已复制'
+
+/* ─────────────────────────── 三级降级链（用户指定的下限） ───────────────────────────
+ *
+ * 口径来源：`docs/plan/enterprise-presets.md` 末尾附录「动作区必须是一键安装，下限是跳新会话并填入指令」。
+ *   ① 一键安装（行上那枚真开关 → `POST /presets/<id>/enable`）
+ *   ② 一键安装不可用时：跳到新会话并把导入指令**填进输入框**（用户只需按发送）
+ *   ③ 复制到剪贴板（**只能是第三级**）
+ * 每级之间切换必须**可见说明为什么走了这条路**（不静默降级）。
+ */
+
+/** 降级链的三级；数字即优先级（① 最优）。 */
+export const ENTERPRISE_PRESET_FALLBACK_LEVELS = ['one-click', 'new-session', 'clipboard'] as const
+export type EnterprisePresetFallbackLevel = typeof ENTERPRISE_PRESET_FALLBACK_LEVELS[number]
+
+/** 第二级 / 第三级那两枚按钮的可见文案（唯一实现，行上与详情里共用）。 */
+export const ENTERPRISE_PRESET_NEW_SESSION_TEXT = '在新会话里打开'
+export const ENTERPRISE_PRESET_NEW_SESSION_LABEL = '新建会话并填入导入指令'
+export const ENTERPRISE_PRESET_COPY_LABEL = '复制企业配方的导入指令'
+
+/** 走了第二级时的可见说明（模板里 `{reason}` 是一键启用不可用的原因）。 */
+export function enterprisePresetNewSessionReason(reason: string): string {
+  return `一键启用暂时不可用（${reason}）。已改为在新会话里填入导入指令，你只需按发送。`
+}
+
+/** 走了第三级时的可见说明。 */
+export function enterprisePresetClipboardReason(reason: string): string {
+  return `一键启用与新建会话都不可用（${reason}）。已改为复制导入指令，请粘贴给助手。`
+}
+
+/**
+ * 三级降级链的**唯一**决策点（纯函数、无 React、可直接直调）。
+ *
+ * 判定顺序写死为 ① → ② → ③：**只要有一键安装就不降级**（哪怕 ② 也可用）；
+ * 只有 ① 不可用才看 ②，只有 ② 也不可用才落到 ③。`reason` 只填**第一枚**导致降级的硬原因，
+ * 界面把它原样拼进可见说明里——因此每一级都有「为什么走了这条路」这一手事实，不存在静默降级。
+ */
+export interface EnterprisePresetFallbackPlan {
+  readonly level: EnterprisePresetFallbackLevel
+  /** 一键启用不可用的硬原因（`level === 'one-click'` 时为 undefined）。 */
+  readonly reason: string | undefined
+  /** 那一级的可见说明（`level === 'one-click'` 时不渲染任何降级说明）。 */
+  readonly note: string | undefined
+}
+
+export function enterprisePresetFallbackPlan(input: {
+  /** 一键启用这条链是否真的可用（端口在 + 路由被 Host 认 + 上一次失败不是终态）。 */
+  readonly oneClickAvailable: boolean
+  /** 一键启用不可用的原因（人话，一句话）。 */
+  readonly oneClickReason?: string | undefined
+  /** 第二级（跳新会话并填入指令）是否接通。 */
+  readonly newSessionAvailable: boolean
+  /** 第三级（复制到剪贴板）是否接通。 */
+  readonly clipboardAvailable: boolean
+}): EnterprisePresetFallbackPlan {
+  const reason = input.oneClickReason ?? '当前版本暂不支持在这台设备上一键启用'
+  if (input.oneClickAvailable) return { level: 'one-click', reason: undefined, note: undefined }
+  if (input.newSessionAvailable) {
+    return { level: 'new-session', reason, note: enterprisePresetNewSessionReason(reason) }
+  }
+  if (input.clipboardAvailable) {
+    return { level: 'clipboard', reason, note: enterprisePresetClipboardReason(reason) }
+  }
+  // 三级全不可用：仍然是**显式**的说明，绝不留一枚点了没反应的按钮。
+  return {
+    level: 'clipboard',
+    reason,
+    note: `一键启用与新建会话都不可用（${reason}），这台设备上也复制不了。请联系企业管理员。`,
+  }
+}
+
+/**
+ * 路由/端口级「一键启用不在这台设备上」的稳定码集合。
+ *
+ * 只有这几种才算**结构性不可用**（该走降级链）；安装/卸载失败（`ENT_PRESET_INSTALL_FAILED` 等）
+ * 是**可重试**的运行时失败，仍留在第一级让员工「再拨一次即重试」（D1 第 4 条）。
+ */
+const ENTERPRISE_PRESET_ROUTE_UNSUPPORTED_CODES: readonly string[] = [
+  // Host 那条子路径没接线（`dispatchPresetAction` 对缺席端口如实按非法请求拒）→ 400。
+  'ENT_INVALID_REQUEST',
+  // 这条配方在本机没有可用的落点（路由/制品都不在）→ 404。
+  'ENT_RESOURCE_NOT_FOUND',
+]
+
+/** 这个码是否说明「这台设备上的一键启用整条链没接通」（而不是一次可重试的失败）。 */
+export function enterprisePresetRouteUnsupported(code: string | undefined): boolean {
+  return code !== undefined && ENTERPRISE_PRESET_ROUTE_UNSUPPORTED_CODES.includes(code)
+}
+
+/**
+ * 两枚「下一步是员工重新确认」的授权码。
+ *
+ * 它们在 `error-messages.ts` 里是 `retryable: false`（同样的请求再发一次必然还是被拒），
+ * 但这不是「一键启用不可用」——第一级自己就有重确认的流程（弹层）。
+ * 把它们算进降级链会把员工从「重新确认」直接甩到复制指令，那是把可恢复的状态说成不可用。
+ */
+const ENTERPRISE_PRESET_RECONFIRM_CODES: readonly string[] = [
+  'ENT_PRESET_AUTHORIZATION_REQUIRED',
+  'ENT_PRESET_AUTHORIZATION_STALE',
+]
 
 /** 配方详情的面包屑：可见文案照官方 `crumbText`（列表名），无障碍名给完整动作语义。 */
 export const ENTERPRISE_PRESET_DETAIL_BACK_TEXT = '配方列表'
@@ -1485,9 +1619,114 @@ export function enterpriseMarketPresetRows(presets: readonly EnterpriseRuntimePr
 }
 
 /**
- * 配方行的**同一份**派生事实（行渲染与配方详情子页面共用；测试可直调）。
- * 它**不含**任何安装/启用口径——配方今天没有那条链路，所以这里没有第二枚「假开关」的状态可算。
+ * 一条配方在本机上的**动作真值**（控制器按行 id 持有；行 facts 只读它、不自己发请求）。
+ *
+ * 三件事实分开持有是有意的：`status` 决定三态与披露内容、`loading` 决定开关能不能拨、
+ * `errorCode` 决定「这台设备上的一键启用整条链是否接通」——把三者揉成一个字段就再也说不清
+ * 「还没读到」与「读到了但没授权」的区别（那正是本刀要消灭的含混）。
  */
+export interface EnterpriseMarketPresetRowState {
+  /** `GET /presets/<id>/status` 的成功结果；缺席 = 还没读到。 */
+  readonly status?: EnterprisePresetStatus | undefined
+  /** status 在途（首帧与重试都算）：开关不可连点，但不给「假的已授权」。 */
+  readonly loading: boolean
+  /** status 取数失败的稳定码（路由未接线时会在这里出现 400）。 */
+  readonly errorCode?: string | undefined
+  /** 最近一次 enable/disable 失败的稳定码（与 status 的失败分开记）。 */
+  readonly actionErrorCode?: string | undefined
+  /**
+   * 最近一次**成功**启用回执里的落地事实（`application` / `needsNewSession` / `alreadyInstalled`）。
+   *
+   * 它与 `status` 分开持有：`status` 只说「装没装上」，**说不出「什么时候生效」**——而
+   * `docs/notes/preset-approval-spike.md` §5.1 第 3 条要求官方两种落地方式都诚实呈现
+   * （`applied` = 热生效 / `restart-required` = 要重启）。少了这一枚，员工点完启用只看得到开关翻了一下，
+   * 那正是「不静默」要消灭的含混。下一次动作开始时清掉（不残留一句对已经变了的状态的断言）。
+   */
+  readonly applied?: EnterprisePresetAppliedReceipt | undefined
+}
+
+/**
+ * 一次**成功**启用回执里给员工看的那几件落地事实（`POST …/enable` 的 200 投影）。
+ *
+ * 字段逐个照 `local-api-decode.ts` 的 `EnterprisePresetEnableResult`：这里只留「什么时候生效」这一手，
+ * `installedNames` / `disclosure` / `fingerprint` 不在这里重复持有（它们的真源是 `status`）。
+ */
+export interface EnterprisePresetAppliedReceipt {
+  /** 官方落地方式三态（`hot` = 立刻生效、`restart-required` = 要重启、`other` = 其余官方原值）。 */
+  readonly application: EnterprisePresetApplicationKind
+  /** 官方原值（`applied` / `restart-required` / `overridden` / …）；Host 只在拿到时才产出这个键。 */
+  readonly officialApplication?: EnterprisePresetOfficialApplication | undefined
+  /** Host 的「已存在会话不会改变」事实——成功路径**恒**为 true（`install.ts:536` / `:465`）。 */
+  readonly needsNewSession: boolean
+  /** 同配方同指纹且 link 仍在：本次没有真的再装一遍。 */
+  readonly alreadyInstalled?: boolean | undefined
+}
+
+/**
+ * 启用成功后的可见交代（三种落地方式各一句，**三句都含**「将在新会话生效」这句硬事实）。
+ *
+ * 为什么三句都要说：Host 的成功路径 `needsNewSession` 恒为 true（`install.ts:536` 与 `:465`），
+ * 即「已经打开的会话拿不到新配方」永远成立；`restart-required` 只比它多一件「要先重开客户端」。
+ */
+export const ENTERPRISE_PRESET_APPLIED_HOT_TEXT = '已启用，将在新会话生效；已经打开的会话不会改变。'
+export const ENTERPRISE_PRESET_APPLIED_RESTART_TEXT = '已启用。需要重新打开客户端，将在新会话生效。'
+export const ENTERPRISE_PRESET_APPLIED_OTHER_TEXT = '已启用，将在新会话生效。'
+/** 同配方同指纹、本次没有重复安装时补在前面的一句（`alreadyInstalled`）。 */
+export const ENTERPRISE_PRESET_APPLIED_EXISTING_TEXT = '这条配方之前已经装好，本次没有重复安装。'
+
+/**
+ * 落地方式 → 那一句可见交代（纯函数；没有回执就没有这句话，绝不拿 `undefined` 上屏）。
+ *
+ * @param receipt - 成功启用回执；缺席（还没启过 / 动作已重新开始）即 `undefined`。
+ * @returns 可见交代原文，或 `undefined` = 这一段不进 DOM。
+ */
+export function enterprisePresetAppliedNotice(
+  receipt: EnterprisePresetAppliedReceipt | undefined,
+): string | undefined {
+  if (receipt === undefined) return undefined
+  const main = receipt.application === 'restart-required'
+    ? ENTERPRISE_PRESET_APPLIED_RESTART_TEXT
+    : receipt.application === 'hot'
+      ? ENTERPRISE_PRESET_APPLIED_HOT_TEXT
+      : ENTERPRISE_PRESET_APPLIED_OTHER_TEXT
+  return receipt.alreadyInstalled === true ? `${ENTERPRISE_PRESET_APPLIED_EXISTING_TEXT}${main}` : main
+}
+
+/** 没有本机真值时的兜底（行 facts 在缺 `presetStates[id]` 时读它）：与「还没读到」同义。 */
+const ENTERPRISE_PRESET_ROW_STATE_UNKNOWN: EnterpriseMarketPresetRowState = { loading: true }
+
+/** 开关的三态（未授权 → 关、已授权未装 → 关、已装 → 开；指纹已变单独一态以便弹层说明）。 */
+export const ENTERPRISE_PRESET_SWITCH_STATES = [
+  'unknown', 'needs-authorization', 'authorized', 'installed', 'fingerprint-changed',
+] as const
+export type EnterprisePresetSwitchState = typeof ENTERPRISE_PRESET_SWITCH_STATES[number]
+
+/** 开关右侧那枚只读状态词（安静态也说，与插件行的「状态点 + 官方状态词」同款）。 */
+export const ENTERPRISE_PRESET_STATE_LABELS: Readonly<Record<EnterprisePresetSwitchState, string | undefined>> = {
+  unknown: undefined,
+  'needs-authorization': '未确认',
+  authorized: '未启用',
+  installed: '已启用',
+  'fingerprint-changed': '内容已更新',
+}
+
+/**
+ * 三态判定（纯函数）：**已装**压过其余一切（它就是「开」），其次看授权三态。
+ *
+ * `installed` 取的是 Host 的已装记录（`status.installed !== null`），不是本地乐观值——
+ * 界面绝不比磁盘更乐观（与技能行同一条纪律）。
+ */
+export function enterprisePresetSwitchState(input: {
+  readonly authorization: EnterprisePresetAuthorization | undefined
+  readonly installed: boolean
+  readonly reading: boolean
+}): EnterprisePresetSwitchState {
+  if (input.installed) return 'installed'
+  if (input.authorization === undefined || input.reading) return 'unknown'
+  return input.authorization
+}
+
+/** 配方行的**同一份**派生事实（行渲染与配方详情子页面共用；测试可直调）。 */
 export interface EnterpriseMarketPresetRowFacts {
   /** 行键（`presets:{行 id}`，与共享控制器的开合态同一个投影）。 */
   readonly rowKey: string
@@ -1499,15 +1738,43 @@ export interface EnterpriseMarketPresetRowFacts {
   readonly versionLabel: string | undefined
   /** 分类签的可见文案（没有分类即 undefined = 整枚不渲染）。 */
   readonly categoryTag: string | undefined
-  /** 「复制导入指令」这条动作是否接通（回调缺席即不渲染那枚按钮——不给死按钮）。 */
+  /** 开关的三态（`unknown` = 真值还没读到）。 */
+  readonly state: EnterprisePresetSwitchState
+  /** 只读状态词（`unknown` 即 undefined = 那枚词不出）。 */
+  readonly stateLabel: string | undefined
+  /** 官方 `Switch.checked`：**已装 = 开**（未授权与已授权未装都是关）。 */
+  readonly enabled: boolean
+  /** 进行中（status 在途 / 本机报告 inFlight / 本行动作在途）：开关不可连点。 */
+  readonly busy: boolean
+  /** 开关禁用口径：没有写入口 / 真值还没读到 / 进行中——**失败不禁用**（再拨即重试）。 */
+  readonly switchDisabled: boolean
+  /** 开关的悬浮说明（唯一口径，行上与详情里同源）。 */
+  readonly switchTitle: string
+  /** 三级降级链的决策结果（可见说明从它的 `note` 取）。 */
+  readonly fallback: EnterprisePresetFallbackPlan
+  /** 这条行**是否要弹授权层**（点开关时）：未授权或指纹已变。 */
+  readonly needsApproval: boolean
+  /** 第三级那枚按钮是否接通（回调缺席即不渲染——不给死按钮）。 */
   readonly canCopyInstruction: boolean
   /** 刚刚复制过这一行（行上与详情里的按钮文案同时变「已复制」，因为读的是同一份事实）。 */
   readonly copied: boolean
+  /** 第二级那枚按钮是否接通（官方「新建会话 + 填入输入框」的端口的接线结果）。 */
+  readonly canOpenInNewSession: boolean
+  /**
+   * 最近一次**成功**启用后的可见交代（「将在新会话生效」那一句）；`undefined` = 这段不进 DOM。
+   * 行上与详情里读的是同一份 facts，故两处不可能各说一句。
+   */
+  readonly appliedNotice: string | undefined
 }
 
 /**
  * 配方行 facts 的唯一入口。
- * @param props - 共享 props（要 `onCopyPresetInstruction`/`presetCopiedId`/`expandedRow`）。
+ *
+ * 它是**行上 / 详情里 / 授权弹层**三处读同一份事实的唯一落点：
+ * 三态、可拨性、降级级别与可见说明全部只在这里算一次。
+ *
+ * @param props - 共享 props（要 `presetStates`/`onTogglePreset`/`onOpenPresetInNewSession`/
+ *   `onCopyPresetInstruction`/`presetCopiedId`/`expandedRow`）。
  * @param row - 已投影的配方行。
  */
 export function enterpriseMarketPresetRowFacts(
@@ -1515,6 +1782,56 @@ export function enterpriseMarketPresetRowFacts(
   row: EnterpriseMarketPresetRow,
 ): EnterpriseMarketPresetRowFacts {
   const rowKey = enterpriseMarketRowKey('presets', row.id)
+  const local: EnterpriseMarketPresetRowState = props.presetStates?.[row.id] ?? ENTERPRISE_PRESET_ROW_STATE_UNKNOWN
+  const status = local.status
+  const reading = status === undefined && local.loading
+  const state = enterprisePresetSwitchState({
+    authorization: status?.authorization,
+    installed: status?.installed !== null && status?.installed !== undefined,
+    reading,
+  })
+  const writePort = typeof props.onTogglePreset === 'function'
+  // 进行中：status 在途、Host 报告 inFlight、或本行正有一个动作在途 → 不可连点（D1：但**不禁用重试**）。
+  const busy = reading || local.loading || status?.inFlight === true || props.pendingPresetId === row.id
+  const clipboardAvailable = typeof props.onCopyPresetInstruction === 'function'
+  const newSessionAvailable = typeof props.onOpenPresetInNewSession === 'function'
+  // 「一键启用不在这台设备上」的两条硬证据：写入口缺席、或真值/动作的失败码说明路由没接线。
+  const routeUnsupported = enterprisePresetRouteUnsupported(local.errorCode)
+    || enterprisePresetRouteUnsupported(local.actionErrorCode)
+  /**
+   * 终态失败（再试一次必然还是同一个结果）才算「这条链在这台设备上走不通」。
+   *
+   * **两枚授权码除外**：`AUTHORIZATION_REQUIRED` / `_STALE` 在 error-messages 里都是 `retryable: false`
+   * （再发同样的请求必然还是被拒），但它们的**下一步是员工重新确认**——那是第一级自己的流程，
+   * 不是「一键启用不可用」。把它们算进降级会把员工从「弹层重确认」直接甩到复制指令，那是错的。
+   */
+  const failureCode = local.actionErrorCode ?? local.errorCode
+  const actionTerminal = failureCode !== undefined
+    && !ENTERPRISE_PRESET_RECONFIRM_CODES.includes(failureCode)
+    && !enterpriseErrorRetryable(failureCode)
+  const oneClickAvailable = writePort && !routeUnsupported && !actionTerminal
+  const oneClickReason = !writePort
+    ? '这台设备上的入口还没接通'
+    : routeUnsupported
+      ? '这台设备上的入口还没接好'
+      : local.actionErrorCode !== undefined
+        ? enterpriseErrorPresentation(local.actionErrorCode).message
+        : undefined
+  const fallback = enterprisePresetFallbackPlan({
+    oneClickAvailable,
+    ...(oneClickReason === undefined ? {} : { oneClickReason }),
+    newSessionAvailable,
+    clipboardAvailable,
+  })
+  const switchDisabled = !oneClickAvailable || busy || status === undefined
+  const enabled = state === 'installed'
+  /**
+   * 成功启用后的可见交代：只在**有成功回执**时出。
+   *
+   * 它与失败提示并存于同一行（一行说结果、一行说没成），但成功那一刻本来就没有失败码可残留
+   * （`runPresetEnable` 开头会清 `presetActionError`），故界面上不会同时看到两句话。
+   */
+  const appliedNotice = enterprisePresetAppliedNotice(local.applied)
   return {
     rowKey,
     detailsId: enterpriseMarketRowDetailsId('presets', row.id),
@@ -1522,8 +1839,28 @@ export function enterpriseMarketPresetRowFacts(
     versionTag: enterpriseMarketSkillVersionTag(row.sourceDshVersion),
     versionLabel: enterpriseMarketSkillVersionLabel(row.sourceDshVersion),
     categoryTag: enterpriseMarketSkillCategoryTag(row.category),
-    canCopyInstruction: typeof props.onCopyPresetInstruction === 'function',
+    state,
+    stateLabel: ENTERPRISE_PRESET_STATE_LABELS[state],
+    enabled,
+    busy,
+    switchDisabled,
+    switchTitle: !oneClickAvailable
+      ? fallback.note ?? '这台设备上暂时不能一键启用'
+      : status === undefined
+        ? '正在读取这条配方在本机上的状态'
+        : busy
+          ? '动作进行中，暂不可操作'
+          : enabled
+            ? '点此停用'
+            : state === 'authorized'
+              ? '点此启用'
+              : '点此查看它会带来什么，确认后启用',
+    fallback,
+    needsApproval: !enabled && (state === 'needs-authorization' || state === 'fingerprint-changed'),
+    canCopyInstruction: clipboardAvailable,
     copied: props.presetCopiedId === row.id,
+    canOpenInNewSession: newSessionAvailable,
+    appliedNotice,
   }
 }
 
@@ -1568,6 +1905,22 @@ const baseStyles = `
 .own-market-rowId{font-size:13.5px;line-height:20px;font-weight:500;color:var(--dsw-alias-label-primary,#101828);overflow-wrap:anywhere}
 .own-market-row[data-state='off'] .own-market-rowId{color:var(--dsw-alias-label-secondary,#667085)}
 .own-market-rowNote{color:var(--dsw-alias-label-secondary,#667085);font-size:12px;line-height:19px;overflow-wrap:anywhere}
+/* 降级链那两句可见说明与行内失败提示共用同一行落点（行下、动作之后），形制一致、只换配色。 */
+.own-market-rowNote[data-enterprise-preset-fallback-level='clipboard']{color:var(--dsw-alias-state-warn-primary,#b54708)}
+/* ── 自造授权弹层（配方一键启用） ────────────────────────────────────────────────
+   官方 Web 界面面根本没有「装插件」的授权弹层（只有一句信任声明），故这一层是我们自己的：
+   覆盖层 + 居中卡片，类名一律 .own-market-approval*，与同包其他源文件零交集。 */
+.own-market-approvalBackdrop{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--dsw-alias-bg-mask-1,rgba(16,24,40,.45))}
+.own-market-approval{display:flex;flex-direction:column;gap:12px;width:min(100%,520px);max-height:100%;overflow:auto;padding:20px;border-radius:12px;background:var(--dsw-alias-background-primary,#fff);color:var(--dsw-alias-label-primary,#101828);box-shadow:var(--dsw-shadow-lv2,0 12px 32px rgba(16,24,40,.18))}
+.own-market-approvalTitle{margin:0;font-size:15px;line-height:22px;font-weight:600}
+.own-market-approvalSubject{margin:0;font-size:13.5px;line-height:20px;font-weight:500;overflow-wrap:anywhere}
+.own-market-approvalStale{margin:0;padding:8px 10px;border-radius:6px;background:var(--dsw-alias-background-secondary,#f2f4f7);color:var(--dsw-alias-state-warn-primary,#b54708);font-size:12.5px;line-height:19px}
+.own-market-approvalList{display:flex;flex-direction:column;gap:6px;min-width:0}
+.own-market-approvalListTitle{margin:0;font-size:12.5px;line-height:19px;font-weight:500;color:var(--dsw-alias-label-secondary,#667085)}
+.own-market-approvalItems{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.own-market-approvalItem{display:flex;flex-direction:column;gap:2px;min-width:0;padding:8px 10px;border:0.5px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:6px}
+.own-market-approvalDisclaimer{margin:0;padding:10px 12px;border-radius:8px;background:var(--dsw-alias-background-secondary,#f2f4f7);color:var(--dsw-alias-state-warn-primary,#b54708);font-size:12.5px;line-height:19px}
+.own-market-approvalActions{display:flex;justify-content:flex-end;gap:8px}
 /* 标题 + 两枚签：**单行 nowrap flex**，行高锁 20px（官方 Tag 固定 19px 高 < 20px，故加签不改变这一行的高度）。
    标签过多时**标题先让步**：标题 flex:0 1 auto + min-width:0 先省略，两枚签 .own-market-tag 的 flex:none 保持可见；
    head 自身 overflow:hidden 兜底，绝不换行、绝不撑高。两套外壳的标题行都用这一份取值。
@@ -2082,42 +2435,241 @@ export function EnterpriseMarketSkillRowActions({ row, facts, onToggleSkill }: {
 }
 
 /**
- * **配方行动作区的唯一实现**（`EnterpriseMarketPresetRowActions`）：与技能行不同的是——
- * 配方今天**没有**安装/卸载这类企业会话动作（服务端还没有那条链路），故这里**绝不放一枚拨不动的开关**
- * （用户口径：按配方现状，能用什么就给什么，不做假开关）。
- *
- * 它只给本机现在**真能用**的那一条：**复制导入指令**——正文由 `buildPresetImportInstruction`
- * （与「企业设置 → 配方」弹窗**同一个**构造器）产出后写进剪贴板，指令正文本身不上屏
- * （它含上游专名，而本页术语要求不上这些词）。
+ * **配方行动作区的唯一实现**（`EnterpriseMarketPresetRowActions`）：一枚与技能/插件行**同款**的官方 `Switch`
+ * （三态：未授权 → 关、已授权未装 → 关、已装 → 开），外加**降级链**在 ① 不可用时给的那两枚动作。
  *
  * 与技能侧同一条结构纪律：行本体（`EnterpriseMarketInlineRows` 的 presets 分支）与**配方详情子页面**
- * 渲染的是**同一枚子块**，吃同一份 `facts`（唯一入口 `enterpriseMarketPresetRowFacts`）与同一个
- * `onCopy` 回调——因此「详情里的动作与行上同源」是结构性的；回调缺席时**整枚不渲染**（不给死按钮）。
+ * 渲染的是**同一枚子块**，吃同一份 `facts`（唯一入口 `enterpriseMarketPresetRowFacts`）与同一批回调——
+ * 「详情里的动作与行上同源」因此是结构性的；三态、可拨性、降级级别与可见说明全部只在 facts 里算一次。
+ *
+ * 三件不可让步的口径：
+ *   · **绝不静默降级**：只要走了第二级或第三级，就一定会有一句 `facts.fallback.note` 上屏
+ *     （由 `EnterpriseMarketPresetFallbackNote` 渲染在行下），说明为什么没走一键启用；
+ *   · **失败不禁用**：`switchDisabled` 只看「没写入口 / 进行中 / 真值没读到」，**不看**失败码——
+ *     再拨一次就是重试（D1 第 4 条）；
+ *   · **不给死按钮**：任何回调缺席就整枚不渲染，而不是画一枚点了没反应的控件。
  *
  * @param row - 这一行的配方投影（动作语义从它取）。
  * @param facts - 行 facts（`enterpriseMarketPresetRowFacts` 的产出）。
- * @param onCopy - 与行上同一个回调；缺席即不渲染（没有写入口就连按钮都不画）。
- * @returns 复制动作药丸，或 `null`。
+ * @param onToggle - 真开关的拨动（与行上同一个回调）；缺席即降级链往下走。
+ * @param onOpenInNewSession - 降级链第二级（跳新会话并填入指令）；缺席即这一级不可用。
+ * @param onCopy - 降级链第三级（复制到剪贴板）；缺席即不渲染那枚按钮。
+ * @returns 动作元素数组（Switch 或降级动作）。
  */
-export function EnterpriseMarketPresetRowActions({ row, facts, onCopy }: {
+export function EnterpriseMarketPresetRowActions({ row, facts, onToggle, onOpenInNewSession, onCopy }: {
   readonly row: EnterpriseMarketPresetRow
   readonly facts: EnterpriseMarketPresetRowFacts
+  readonly onToggle: ((row: EnterpriseMarketPresetRow, next: boolean) => void) | undefined
+  readonly onOpenInNewSession: ((row: EnterpriseMarketPresetRow) => void) | undefined
   readonly onCopy: ((row: EnterpriseMarketPresetRow) => void) | undefined
 }): ReactNode {
-  if (!facts.canCopyInstruction || onCopy === undefined) return null
+  // ① 一键启用不可用：给出 ②（优先）与 ③（兜底），绝不放一枚拨不动的开关。
+  if (facts.fallback.level !== 'one-click') {
+    return [
+      facts.canOpenInNewSession && onOpenInNewSession !== undefined ? (
+        <button
+          key="new-session"
+          type="button"
+          className="own-market-skillTag"
+          data-enterprise-preset-new-session={row.id}
+          aria-label={`${ENTERPRISE_PRESET_NEW_SESSION_LABEL}：${row.displayName}`}
+          title={ENTERPRISE_PRESET_NEW_SESSION_LABEL}
+          onClick={() => { onOpenInNewSession(row) }}
+        >
+          {ENTERPRISE_PRESET_NEW_SESSION_TEXT}
+        </button>
+      ) : null,
+      facts.canCopyInstruction && onCopy !== undefined ? (
+        <button
+          key="copy"
+          type="button"
+          className="own-market-skillTag"
+          data-enterprise-preset-copy={row.id}
+          aria-label={`${ENTERPRISE_PRESET_COPY_LABEL}：${row.displayName}`}
+          title={facts.copied ? '已复制到剪贴板' : '复制后粘贴给助手，即可按提示导入这条配方'}
+          onClick={() => { onCopy(row) }}
+        >
+          {facts.copied ? ENTERPRISE_PRESET_COPIED_TEXT : ENTERPRISE_PRESET_COPY_TEXT}
+        </button>
+      ) : null,
+    ]
+  }
+  // ① 一键启用可用：右侧官方 Switch 是该行**唯一**主控件（与技能/插件行同款、同位置）。
+  return [
+    <Switch
+      key="switch"
+      checked={facts.enabled}
+      label={`${facts.enabled ? '停用' : '启用'}企业配方 ${row.displayName}`}
+      disabled={onToggle === undefined || facts.switchDisabled}
+      title={onToggle === undefined ? '企业账号未登录，暂不可操作' : facts.switchTitle}
+      onChange={(next) => { onToggle?.(row, next) }}
+    />,
+  ]
+}
+
+/**
+ * 降级链那一句**可见说明**（第二级 / 第三级时才有；① 可用时整个元素不进 DOM）。
+ *
+ * 它就是为了「三级之间切换必须可见说明为什么走了这条路」而存在的：`note` 由
+ * `enterprisePresetFallbackPlan` 唯一产出，行上与详情里读的是同一份 facts，因此不存在第二条说明。
+ */
+export function EnterpriseMarketPresetFallbackNote({ facts, id }: {
+  readonly facts: EnterpriseMarketPresetRowFacts
+  readonly id: string
+}): ReactNode {
+  if (facts.fallback.note === undefined) return null
   return (
-    <button
-      type="button"
-      // 药丸的取值就是行上那枚辅助动作的取值（`baseStyles` 里只有 `.own-market-skillTag` 这一份药丸样式）：
-      // 直接复用，不新造第二枚药丸（也就不会多出一份会互相覆盖的全局单类 CSS）。
-      className="own-market-skillTag"
-      data-enterprise-preset-copy={row.id}
-      aria-label={`复制企业配方 ${row.displayName} 的导入指令`}
-      title={facts.copied ? '已复制到剪贴板' : '复制后粘贴给助手，即可按提示导入这条配方'}
-      onClick={() => { onCopy(row) }}
+    <p
+      className="own-market-rowNote"
+      role="status"
+      data-enterprise-preset-fallback={id}
+      data-enterprise-preset-fallback-level={facts.fallback.level}
     >
-      {facts.copied ? ENTERPRISE_PRESET_COPIED_TEXT : ENTERPRISE_PRESET_COPY_TEXT}
-    </button>
+      {facts.fallback.note}
+    </p>
+  )
+}
+
+/**
+ * **启用成功后**那一句可见交代（「将在新会话生效」）。
+ *
+ * 它就是为了让官方两种落地方式（热生效 / 需重启）都诚实呈现（`docs/notes/preset-approval-spike.md`
+ * §5.1 第 3 条）而存在的：没有它，员工点完启用只看得到开关翻了一下，**看不到「什么时候在哪生效」**
+ * ——那正是本刀要消灭的含混。原文由 `enterprisePresetAppliedNotice` 唯一产出，行上与详情里同源。
+ */
+export function EnterpriseMarketPresetAppliedNote({ facts, id }: {
+  readonly facts: EnterpriseMarketPresetRowFacts
+  readonly id: string
+}): ReactNode {
+  if (facts.appliedNotice === undefined) return null
+  return (
+    <p
+      className="own-market-rowNote"
+      role="status"
+      data-enterprise-preset-applied={id}
+    >
+      {facts.appliedNotice}
+    </p>
+  )
+}
+
+/** 授权弹层的免责声明（逐字对齐官方原型的信息密度；官方那句是 zh 版）。 */
+export const ENTERPRISE_PRESET_APPROVAL_DISCLAIMER = '请确认插件来源可信。插件在本机以你的权限运行，来源不明的插件可能损坏 DeepSeek Harness，或读取和泄露你的数据。'
+/** 弹层标题（不带技术词）。 */
+export const ENTERPRISE_PRESET_APPROVAL_TITLE = '确认启用这条配方'
+/** 会装的东西那一节标题（与官方安装确认同款口径：逐项列出「会装什么」）。 */
+export const ENTERPRISE_PRESET_APPROVAL_BUNDLES_TITLE = '会安装的内容'
+/** 会挂载的模块那一节标题。 */
+export const ENTERPRISE_PRESET_APPROVAL_MOUNTS_TITLE = '会挂载的模块'
+/** 指纹已变时那句可见说明（**必须**说清是「内容变了」而不是泛泛的重试）。 */
+export const ENTERPRISE_PRESET_APPROVAL_STALE_NOTE = '这条配方的内容变了，需要重新确认后才能启用。'
+/** 两枚按钮的文案（弹层自己造，不必照抄官方那套「允许一次」的 per-call 语义）。 */
+export const ENTERPRISE_PRESET_APPROVAL_CONFIRM = '确认并启用'
+export const ENTERPRISE_PRESET_APPROVAL_CANCEL = '取消'
+/** 清单确实为空时的如实交代（不白屏、也不假装列过了）。 */
+export const ENTERPRISE_PRESET_APPROVAL_EMPTY = '这条配方没有额外要安装或挂载的内容。'
+
+/**
+ * 授权弹层的输入（**唯一构造点**是共享控制器：所有事实都取自行上同一份真值）。
+ */
+export interface EnterprisePresetApprovalProps {
+  readonly row: EnterpriseMarketPresetRow
+  readonly facts: EnterpriseMarketPresetRowFacts
+  /** 这次要员工确认的那份披露清单（`status.disclosure`；与随后 enable 校验的是同一次渲染）。 */
+  readonly disclosure: EnterprisePresetDisclosure
+  /** 指纹已变（员工此前确认的是另一份内容）→ 弹层出 `ENTERPRISE_PRESET_APPROVAL_STALE_NOTE`。 */
+  readonly fingerprintChanged: boolean
+  /** 上一次确认尝试的失败码（如确认瞬间内容又变了 → `ENT_PRESET_AUTHORIZATION_STALE`）。 */
+  readonly errorCode?: string | undefined
+  /** 提交中：两枚按钮禁用防连点；失败后重新可用（失败不禁用重试）。 */
+  readonly busy: boolean
+  readonly onConfirm: () => void
+  readonly onCancel: () => void
+}
+
+/**
+ * **自造授权弹层**（`docs/notes/preset-approval-spike.md` §5.3：官方只在 Agent 工具面有一套 per-call 弹层，
+ * Web 界面面根本没有，授权 UX 归我们）。
+ *
+ * 与官方那句信任声明**同等信息密度**，并且比它多两件事：
+ *   ① **逐项披露**——会装哪些内容（`disclosure.bundles`：名称 + 简述）、会挂载哪些模块（`disclosure.mounts`）；
+ *   ② **一次授权绑当前指纹**——员工点确认时回传的是 `disclosure.fingerprint`，Host 侧要求它与当前配方逐字
+ *      相等；内容变了就是 `ENT_PRESET_AUTHORIZATION_STALE`，弹层会说明「内容变了，需要重新确认」。
+ *
+ * 它是纯函数（无 hook、不发请求），因此可以直接函数调用测试；渲染用自造的 `role="dialog"` 覆盖层
+ * 而不是官方 `Modal`——授权弹层里**不该**出现任何「允许一次」这样的 per-call 语义，那是官方闸门的短板。
+ */
+export function EnterprisePresetApprovalDialog(props: EnterprisePresetApprovalProps): ReactNode {
+  const titleId = `enterprise-preset-approval-title-${props.row.id}`
+  return (
+    <div className="own-market-approvalBackdrop" data-enterprise-preset-approval={props.row.id}>
+      <div className="own-market-approval" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+        <h3 className="own-market-approvalTitle" id={titleId}>{ENTERPRISE_PRESET_APPROVAL_TITLE}</h3>
+        <p className="own-market-approvalSubject" data-enterprise-preset-approval-subject={props.row.id}>
+          {props.row.displayName}
+        </p>
+        {props.fingerprintChanged ? (
+          <p className="own-market-approvalStale" role="status" data-enterprise-preset-approval-stale="true">
+            {ENTERPRISE_PRESET_APPROVAL_STALE_NOTE}
+          </p>
+        ) : null}
+        <div className="own-market-approvalList" data-enterprise-preset-approval-bundles={props.row.id}>
+          <h4 className="own-market-approvalListTitle">{ENTERPRISE_PRESET_APPROVAL_BUNDLES_TITLE}</h4>
+          {props.disclosure.bundles.length === 0 ? (
+            <p className="own-market-rowNote">{ENTERPRISE_PRESET_APPROVAL_EMPTY}</p>
+          ) : (
+            <ul className="own-market-approvalItems">
+              {props.disclosure.bundles.map(item => (
+                <li className="own-market-approvalItem" key={item.name} data-enterprise-preset-approval-bundle={item.name}>
+                  <span className="own-market-cardId">{item.name}</span>
+                  <span className="own-market-cardDesc">{item.summary}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="own-market-approvalList" data-enterprise-preset-approval-mounts={props.row.id}>
+          <h4 className="own-market-approvalListTitle">{ENTERPRISE_PRESET_APPROVAL_MOUNTS_TITLE}</h4>
+          {props.disclosure.mounts.length === 0 ? (
+            <p className="own-market-rowNote">{ENTERPRISE_PRESET_APPROVAL_EMPTY}</p>
+          ) : (
+            <ul className="own-market-approvalItems">
+              {props.disclosure.mounts.map(item => (
+                <li className="own-market-approvalItem" key={item.name} data-enterprise-preset-approval-mount={item.name}>
+                  <span className="own-market-cardId">{item.name}</span>
+                  <span className="own-market-cardDesc">{item.summary}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        {/* 免责声明：与官方原型逐字同句（信息密度对齐），不额外承诺「已通过安全检测」（我们没做扫描）。 */}
+        <p className="own-market-approvalDisclaimer" data-enterprise-preset-approval-disclaimer="true">
+          {ENTERPRISE_PRESET_APPROVAL_DISCLAIMER}
+        </p>
+        {props.errorCode === undefined ? null : (
+          <EnterpriseErrorNotice className="own-market-inlineError" code={props.errorCode} prefix="启用失败" />
+        )}
+        <div className="own-market-approvalActions">
+          <Button
+            size="sm"
+            disabled={props.busy}
+            onClick={() => { props.onCancel() }}
+          >
+            {ENTERPRISE_PRESET_APPROVAL_CANCEL}
+          </Button>
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={props.busy}
+            data-enterprise-preset-approval-confirm={props.row.id}
+            onClick={() => { props.onConfirm() }}
+          >
+            {ENTERPRISE_PRESET_APPROVAL_CONFIRM}
+          </Button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -2548,8 +3100,14 @@ export interface EnterprisePresetPageProps {
   readonly detailLoading: boolean
   /** 详情取数失败（稳定码）：唯一提示组件 + 重试；包含内容那一节同时如实说「暂时无法读取包含内容」。 */
   readonly detailErrorCode?: string | undefined
-  /** 与行上同一个复制回调（缺席即详情里也不画那枚按钮）。 */
+  /** 与行上**同一枚**真开关的拨动回调（缺席即降级链往下走，与列表里同源）。 */
+  readonly onTogglePreset?: ((row: EnterpriseMarketPresetRow, next: boolean) => void) | undefined
+  /** 与行上**同一枚**降级动作（第二级：跳新会话并填入指令）。 */
+  readonly onOpenInNewSession?: ((row: EnterpriseMarketPresetRow) => void) | undefined
+  /** 与行上**同一枚**降级动作（第三级：复制导入指令）。 */
   readonly onCopyInstruction?: ((row: EnterpriseMarketPresetRow) => void) | undefined
+  /** 详情里的启用/停用失败（稳定码）：与行上同一份 `presetActionError`。 */
+  readonly actionErrorCode?: string | undefined
   /** 详情取数失败后的重试（缺席即不渲染重试按钮，不给死路）。 */
   readonly onReloadDetail?: (() => void) | undefined
   /** 面包屑「返回配方列表」：把视图状态切回列表（唯一的返回入口）。 */
@@ -2595,10 +3153,23 @@ export function EnterprisePresetDetailPage(props: EnterprisePresetPageProps): Re
         <div className="own-market-detailHead">
           <span className="own-market-detailIcon" aria-hidden="true"><BookMarked size={24} /></span>
           <div className="own-market-detailActions">
-            <EnterpriseMarketPresetRowActions row={props.row} facts={props.facts} onCopy={props.onCopyInstruction} />
+            <EnterpriseMarketPresetRowActions
+              row={props.row}
+              facts={props.facts}
+              onToggle={props.onTogglePreset}
+              onOpenInNewSession={props.onOpenInNewSession}
+              onCopy={props.onCopyInstruction}
+            />
           </div>
         </div>
       </div>
+      {/* 降级链的可见说明（① 可用时这一句整段不进 DOM；走了 ②/③ 就必须说清为什么）。 */}
+      <EnterpriseMarketPresetFallbackNote facts={props.facts} id={props.row.id} />
+      {/* 启用成功后的落地交代（「将在新会话生效」）：没有成功回执时整段不进 DOM。 */}
+      <EnterpriseMarketPresetAppliedNote facts={props.facts} id={props.row.id} />
+      {props.actionErrorCode === undefined ? null : (
+        <EnterpriseErrorNotice className="own-market-inlineError" code={props.actionErrorCode} prefix="启用失败" />
+      )}
       {/* ③ 标题 + 来源徽标（完整坐标）+ 标识行 + 描述：来源/标识两枚人话标签与技能详情**同源**（同一份常量）。 */}
       <div className="own-market-detailMain">
         <div className="own-market-titleRow">
@@ -2729,9 +3300,22 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
                     <span className="own-market-cardDesc">{preset.description}</span>
                   </div>
                 </button>
-                {/* 动作区：配方今天唯一真能用的那一条（复制导入指令）——**没有** Switch（不给假开关）。 */}
-                <EnterpriseMarketPresetRowActions row={preset} facts={facts} onCopy={props.onCopyPresetInstruction} />
+                {/* 动作区：与技能/插件行**同款**的真开关（三态由 facts 算），
+                    一键启用不可用时由降级链给出 ②/③ 两枚动作——绝不放一枚拨不动的开关。 */}
+                <EnterpriseMarketPresetRowActions
+                  row={preset}
+                  facts={facts}
+                  onToggle={props.onTogglePreset}
+                  onOpenInNewSession={props.onOpenPresetInNewSession}
+                  onCopy={props.onCopyPresetInstruction}
+                />
               </div>
+              {/* 降级链的可见说明（① 可用时整段不进 DOM）。 */}
+              <EnterpriseMarketPresetFallbackNote facts={facts} id={preset.id} />
+              {/* 启用成功后的落地交代（「将在新会话生效」）：行上与详情里读同一份 facts。 */}
+              <EnterpriseMarketPresetAppliedNote facts={facts} id={preset.id} />
+              {/* 启用/停用失败的可见反馈：与技能/插件行同款（`role="alert"` + 稳定码），且**不**禁用开关。 */}
+              <EnterpriseMarketRowError error={props.presetActionError} id={preset.id} />
             </li>
           )
         })}
@@ -2947,6 +3531,8 @@ export function EnterpriseMarketLegacyShell(props: EnterpriseMarketShellProps): 
 export interface EnterpriseMarketController {
   /** 页面 props（控制器是唯一构造点；详情子页面的输入就是其中的 `skillPage`）。 */
   readonly shellProps: EnterpriseMarketShellProps
+  /** 授权弹层的输入（`undefined` = 没有待确认的配方；宿主据此决定要不要挂那一层）。 */
+  readonly presetApproval?: EnterprisePresetApprovalProps | undefined
   /** 登录弹窗当前是否打开。 */
   readonly loginOpen: boolean
   /** 关闭登录弹窗（含「登录中先取消」的既有语义，由 login-dialog 自己判）。 */
@@ -2969,7 +3555,7 @@ export interface EnterpriseMarketController {
  * @param props - `view` 透传入口侧视图（`summary` 不预取技能目录）；`store` 由注册面的 `inject` 注入。
  * @returns 一份外壳 props + 登录弹窗的最小接线。
  */
-export function useEnterpriseMarketController({ view, store, libraryGate }: {
+export function useEnterpriseMarketController({ view, store, libraryGate, presetLaunch }: {
   readonly view: 'summary' | 'page'
   readonly store?: EnterpriseAccountStore | undefined
   /**
@@ -2978,6 +3564,17 @@ export function useEnterpriseMarketController({ view, store, libraryGate }: {
    * 与这一行开关读的是同一份状态（不存在第二个副本）。
    */
   readonly libraryGate?: EnterpriseLibraryGate | undefined
+  /**
+   * **降级链第二级**的接线（跳到新会话并填入导入指令）。
+   *
+   * 官方机制（`docs/notes/preset-approval-spike.md` 之后查实）：
+   * `@deepseek-ai/dsh-client-ui-workspace` 的 `UiWorkspace.openWorkspace(workspaceId, beforeOpen)` 第二参
+   * 在选定会话后同步回调 `sessionId`，再经 `@deepseek-ai/dsh-client-ui-conversation` 的
+   * `conversation.input.shell(sessionId).actions.setDraft(text)` 把指令**填进输入框**（不发送）。
+   * 这段接线在 `preset-launch.ts`，由 `client.tsx` 在 apply 里建；**缺席 = 这一级不可用**，
+   * 降级链会如实说明为什么走了第三级（绝不静默降级）。
+   */
+  readonly presetLaunch?: EnterprisePresetLaunchPort | undefined
 }): EnterpriseMarketController {
   const snapshot = useAccount(store as EnterpriseAccountStore)
   const dialog = useEnterpriseLoginDialog(store as EnterpriseAccountStore)
@@ -3286,10 +3883,11 @@ export function useEnterpriseMarketController({ view, store, libraryGate }: {
     return () => { controller.abort() }
   }, [api, presetDetailId, presetDetailAttempt])
   /**
-   * **复制导入指令**（配方今天唯一真能用的动作）：正文由 `buildPresetImportInstruction`
+   * **复制导入指令**（**降级链的第三级，只能是第三级**）：正文由 `buildPresetImportInstruction`
    * ——与「企业设置 → 配方」弹窗**同一个**构造器——产出（同一句指令、同一个配方坐标），
    * 写进剪贴板后把这条行 id 记下来（按钮文案随之变「已复制」）。
    * 指令正文**不上屏**（它含上游专名，本页术语要求不上这些词）。
+   * 它只在 ① 一键启用 与 ② 新建会话都不可用时，才成为那一行真正给出的动作（并由 `fallback.note` 说明为什么）。
    * 与 `preset-market.tsx` 的复制按钮同一条写法（那边也是 `void navigator.clipboard.writeText(...)`）。
    */
   const onCopyPresetInstruction: ((row: EnterpriseMarketPresetRow) => void) | undefined = hasStore
@@ -3298,6 +3896,160 @@ export function useEnterpriseMarketController({ view, store, libraryGate }: {
       void navigator.clipboard.writeText(instruction).then(() => { setPresetCopiedId(row.id) })
     }
     : undefined
+  /**
+   * **配方一键启用**（本刀）：本机真值、真开关与授权弹层的唯一编排点。
+   *
+   * 三条纪律：
+   *   ① **真值先读**：行上三态只能来自 `GET /presets/<雪花 id>/status`（授权三态 + 已装记录 + 披露清单），
+   *      绝不乐观切换——界面绝不比磁盘更乐观（与技能行同一条）；
+   *   ② **不替用户授权**：未授权 / 指纹已变时点开关**只弹授权层**，员工确认后才带 `confirmFingerprint`
+   *      发 enable（`confirmFingerprint` 就是弹层展示的那份 `disclosure.fingerprint`）；
+   *   ③ **失败不禁用**：失败只记行内提示 + 稳定码，开关照旧可拨（再拨一次即重试，D1 第 4 条）。
+   */
+  const [presetStates, setPresetStates] = useState<Record<string, EnterpriseMarketPresetRowState>>({})
+  const [pendingPresetId, setPendingPresetId] = useState<string>()
+  const [presetActionError, setPresetActionError] = useState<EnterpriseMarketActionError>()
+  /** 授权弹层的当前目标（只存行 id，行对象在渲染时从当前目录投影里取，故目录刷新后不会停在旧副本上）。 */
+  const [presetApprovalId, setPresetApprovalId] = useState<string>()
+  const [presetApprovalRunning, setPresetApprovalRunning] = useState(false)
+  const [presetApprovalCode, setPresetApprovalCode] = useState<string>()
+  /**
+   * 逐行读一次本机真值（`status`）。目录一变（换会话 / 刷新 / 新增配方）就重读一轮；
+   * 迟到结果按 `AbortSignal` 丢弃。行数即请求数（配方目录本来就不大），故不需要虚拟化取数。
+   */
+  const presetIdList = enterprisePresets.map(item => item.id).join(',')
+  useEffect(() => {
+    if (api === undefined || view !== 'page' || !sessionUsable) return
+    const ids = presetIdList === '' ? [] : presetIdList.split(',')
+    if (ids.length === 0) return
+    const controller = new AbortController()
+    setPresetStates((previous) => {
+      const next: Record<string, EnterpriseMarketPresetRowState> = { ...previous }
+      for (const id of ids) next[id] = { ...(next[id] ?? { loading: false }), loading: true, errorCode: undefined }
+      return next
+    })
+    for (const id of ids) {
+      void api.presetStatus(id, controller.signal).then(
+        (status) => {
+          if (controller.signal.aborted) return
+          setPresetStates(previous => ({ ...previous, [id]: { status, loading: false } }))
+        },
+        (error: unknown) => {
+          if (controller.signal.aborted) return
+          setPresetStates(previous => ({
+            ...previous,
+            [id]: { ...(previous[id] ?? { loading: false }), loading: false, errorCode: enterpriseLocalErrorCode(error) },
+          }))
+        },
+      )
+    }
+    return () => { controller.abort() }
+  }, [api, presetIdList, view, sessionUsable])
+  /**
+   * 一条配方的 enable / disable **动作编排**（唯一一处）。
+   *
+   * `fingerprint` **只在**员工于授权弹层点过「确认并启用」时才非空：它就是弹层展示的那一枚
+   * `disclosure.fingerprint`，Host 侧会要求它与当前配方逐字相等，否则回 `ENT_PRESET_AUTHORIZATION_STALE`。
+   * 成功或失败后都重读一次该行的 `status`（成功 = 新真值；失败 = 让界面回到真值而不是留在乐观态）。
+   */
+  const runPresetEnable = (rowId: string, fingerprint: string | undefined): void => {
+    if (api === undefined) return
+    setPendingPresetId(rowId)
+    setPresetActionError(undefined)
+    setPresetApprovalCode(undefined)
+    // 上一次成功的那句「将在新会话生效」在这里退场：新的动作开始，它就不再是对当前状态的断言。
+    setPresetStates(previous => ({ ...previous, [rowId]: { ...(previous[rowId] ?? { loading: false }), applied: undefined } }))
+    const signal = AbortSignal.timeout(180_000)
+    void api.enablePreset(rowId, fingerprint, signal)
+      .then((result) => {
+        setPresetApprovalId(undefined)
+        // 成功回执里那一手「什么时候生效」先落进本行状态——`status` 只说装没装上，说不出这件事。
+        // 随后重读的 `status` 用**合并**写（否则刚记下的回执会被一次重读抹掉）。
+        const applied: EnterprisePresetAppliedReceipt = {
+          application: result.application,
+          ...(result.officialApplication === undefined ? {} : { officialApplication: result.officialApplication }),
+          needsNewSession: result.needsNewSession,
+          ...(result.alreadyInstalled === undefined ? {} : { alreadyInstalled: result.alreadyInstalled }),
+        }
+        setPresetStates(previous => ({
+          ...previous,
+          [rowId]: { ...(previous[rowId] ?? { loading: false }), applied, loading: false, errorCode: undefined },
+        }))
+        return api.presetStatus(rowId, signal).then(
+          status => setPresetStates(previous => ({
+            ...previous,
+            [rowId]: { ...(previous[rowId] ?? { loading: false }), status, loading: false },
+          })),
+          () => undefined,
+        )
+      })
+      .catch((error: unknown) => {
+        const code = enterpriseLocalErrorCode(error)
+        setPresetActionError({ id: rowId, action: 'install', code })
+        if (code === 'ENT_PRESET_AUTHORIZATION_STALE') {
+          // 确认的瞬间内容又变了：弹层**留在原地**并如实说「内容变了」，同时刷新披露（不给死按钮）。
+          setPresetApprovalRunning(false)
+          setPresetApprovalCode(code)
+          void api.presetStatus(rowId, AbortSignal.timeout(30_000)).then(
+            status => setPresetStates(previous => ({ ...previous, [rowId]: { status, loading: false } })),
+            () => undefined,
+          )
+        }
+      })
+      .finally(() => setPendingPresetId(undefined))
+  }
+  const rendererActionUnavailable = api === undefined || !hasStore
+  const onTogglePreset: ((row: EnterpriseMarketPresetRow, next: boolean) => void) | undefined =
+    rendererActionUnavailable ? undefined : (row, next) => {
+      // 进行中不许连点（D1：但**失败不禁用**，因为失败不设 pending）。
+      if (pendingPresetId !== undefined) return
+      const status = presetStates[row.id]?.status
+      if (!next) {
+        const declarationId = status?.declarationId
+        if (declarationId === undefined) {
+          // 停用需要 Host 归一化后的声明 id；真值没读到就如实说，而不是拿雪花 id 去猜。
+          setPresetActionError({ id: row.id, action: 'uninstall', code: 'ENT_PRESET_STATE_INVALID' })
+          return
+        }
+        setPendingPresetId(row.id)
+        setPresetActionError(undefined)
+        // 停用是「状态已变」的动作：上一次成功那句落地交代随之退场（不再是对当前状态的断言）。
+        setPresetStates(previous => ({ ...previous, [row.id]: { ...(previous[row.id] ?? { loading: false }), applied: undefined } }))
+        const signal = AbortSignal.timeout(180_000)
+        void api!.disablePreset(declarationId, signal)
+          .then(() => api!.presetStatus(row.id, signal).then(
+            value => setPresetStates(previous => ({ ...previous, [row.id]: { status: value, loading: false } })),
+            () => undefined,
+          ))
+          .catch((error: unknown) => {
+            setPresetActionError({ id: row.id, action: 'uninstall', code: enterpriseLocalErrorCode(error) })
+          })
+          .finally(() => setPendingPresetId(undefined))
+        return
+      }
+      if (status !== undefined && status.authorization === 'authorized') {
+        runPresetEnable(row.id, undefined)
+        return
+      }
+      // 未授权 / 指纹已变：**只弹授权层**，绝不替用户顺手授权（一次授权绑当前指纹）。
+      setPresetApprovalCode(undefined)
+      setPresetApprovalRunning(false)
+      setPresetApprovalId(row.id)
+    }
+  /**
+   * **降级链第二级**（跳到新会话并把导入指令填进输入框）：指令正文与第三级是**同一个**构造器产出的同一句，
+   * 只是落点不同（那边写剪贴板、这边交给官方 `uiWorkspace` + `conversation` 的接线端口）。
+   * 端口缺席 → 这一级不可用，降级链如实说明并落到第三级；端口返回 false / 抛错 → 行内给一句人话 + 稳定码。
+   */
+  const onOpenPresetInNewSession: ((row: EnterpriseMarketPresetRow) => void) | undefined =
+    presetLaunch === undefined || !hasStore ? undefined : (row) => {
+      const instruction = buildPresetImportInstruction(row, snapshot.status?.platformUrl ?? null)
+      setPresetActionError(undefined)
+      const failed = (): void => {
+        setPresetActionError({ id: row.id, action: 'install', code: 'ENT_PRESET_LAUNCH_FAILED' })
+      }
+      void presetLaunch(instruction).then(ok => { if (!ok) failed() }, failed)
+    }
   /**
    * 目录行与详情子页面**共用**的那一份 props（**不含** `skillPage`/`presetPage`，否则自引用）：
    * 行 facts 的唯一入口吃它，详情里的动作再吃同一份 facts，两处因此不可能各说一套。
@@ -3318,11 +4070,17 @@ export function useEnterpriseMarketController({ view, store, libraryGate }: {
     ...(onRetrySkills === undefined ? {} : { onRetrySkills }),
     pluginsListState,
     ...(onRetryPlugins === undefined ? {} : { onRetryPlugins }),
-    // 配方页签（本刀）：与另两个目录页签同形的四态 + 重试，动作只有「复制导入指令」这一条。
+    // 配方页签（本刀）：与另两个目录页签同形的四态 + 重试；动作是行上那枚**真开关**，
+    // 降级链的第二/第三级各自只在接通时才渲染（缺席绝不画死按钮）。
     presetsListState: presetState,
     ...(onRetryPresets === undefined ? {} : { onRetryPresets }),
     onCopyPresetInstruction,
     ...(presetCopiedId === undefined ? {} : { presetCopiedId }),
+    ...(onOpenPresetInNewSession === undefined ? {} : { onOpenPresetInNewSession }),
+    presetStates,
+    ...(onTogglePreset === undefined ? {} : { onTogglePreset }),
+    ...(pendingPresetId === undefined ? {} : { pendingPresetId }),
+    ...(presetActionError === undefined ? {} : { presetActionError }),
     onTogglePlugin,
     installedSkills,
     pendingSkill,
@@ -3383,7 +4141,10 @@ export function useEnterpriseMarketController({ view, store, libraryGate }: {
     ...(presetDetail === undefined ? {} : { detail: presetDetail }),
     detailLoading: presetDetailLoading,
     ...(presetDetailCode === undefined ? {} : { detailErrorCode: presetDetailCode }),
+    ...(onTogglePreset === undefined ? {} : { onTogglePreset }),
+    ...(onOpenPresetInNewSession === undefined ? {} : { onOpenInNewSession: onOpenPresetInNewSession }),
     ...(onCopyPresetInstruction === undefined ? {} : { onCopyInstruction: onCopyPresetInstruction }),
+    ...(presetActionError?.id === presetPageRow.id ? { actionErrorCode: presetActionError.code } : {}),
     onReloadDetail: () => { setPresetDetailAttempt(current => current + 1) },
     onBack: () => { setPresetDetailId(undefined) },
   }
@@ -3392,28 +4153,63 @@ export function useEnterpriseMarketController({ view, store, libraryGate }: {
     ...(skillPage === undefined ? {} : { skillPage }),
     ...(presetPage === undefined ? {} : { presetPage }),
   }
+  /**
+   * **授权弹层的输入只在这里构造一次**：行对象从当前目录投影里 `find`（目录刷新后不停在旧副本上）、
+   * facts 走**行上同一个**入口、披露清单取**同一份** `status.disclosure`——因此弹层里列的逐项内容
+   * 与随后 `enable` 校验的指纹必然来自 Host 的同一次渲染。
+   * 目录里已经没有这个 id（下架 / 会话不可用）时它自己就是 undefined，弹层自然关闭。
+   */
+  const presetApprovalRow = presetApprovalId === undefined
+    ? undefined
+    : enterprisePresets.find(item => item.id === presetApprovalId)
+  const presetApprovalStatus = presetApprovalId === undefined ? undefined : presetStates[presetApprovalId]?.status
+  const presetApproval: EnterprisePresetApprovalProps | undefined =
+    presetApprovalRow === undefined || presetApprovalStatus === undefined ? undefined : {
+      row: presetApprovalRow,
+      facts: enterpriseMarketPresetRowFacts(baseShellProps, presetApprovalRow),
+      disclosure: presetApprovalStatus.disclosure,
+      fingerprintChanged: presetApprovalStatus.authorization === 'fingerprint-changed',
+      ...(presetApprovalCode === undefined ? {} : { errorCode: presetApprovalCode }),
+      busy: presetApprovalRunning || pendingPresetId === presetApprovalRow.id,
+      // 确认 = 把弹层展示的那一枚指纹原样回传（一次授权绑当前指纹）；Host 会要求它与当前配方逐字相等。
+      onConfirm: () => {
+        setPresetApprovalRunning(true)
+        runPresetEnable(presetApprovalRow.id, presetApprovalStatus.fingerprint)
+      },
+      // 取消不留任何状态：清掉目标即可，授权写入**只**发生在 Host 收到 confirmFingerprint 时。
+      onCancel: () => { setPresetApprovalId(undefined) },
+    }
   return {
     // 页面 props **只在这里构造一次**：目录行与详情子页面拿到的是同一个形状、同一批事实。
     shellProps,
+    ...(presetApproval === undefined ? {} : { presetApproval }),
     loginOpen: dialog.open,
     closeLogin: dialog.closeDialog,
   }
 }
 
 /**
- * 唯一的宿主：含 hook 的接线——控制器 → 目录页外壳（或它里面的详情子页面）→ 登录弹窗。
+ * 唯一的宿主：含 hook 的接线——控制器 → 目录页外壳（或它里面的详情子页面）→ 登录弹窗 + 授权弹层。
  * 详情子页面由外壳按 `shellProps.skillPage` **整页切换**渲染，故本宿主不必再持第二份详情状态；
- * 视图状态（哪个技能、树/预览读到哪）全部在控制器里，这里只负责把两件弹窗/页面挂上。
+ * 视图状态（哪个技能、树/预览读到哪、哪条配方正在等确认）全部在控制器里，这里只负责把三件弹窗/页面挂上。
  */
-export function EnterpriseMarketShellHost({ view, store, libraryGate }: {
+export function EnterpriseMarketShellHost({ view, store, libraryGate, presetLaunch }: {
   readonly view: 'summary' | 'page'
   readonly store?: EnterpriseAccountStore | undefined
   readonly libraryGate?: EnterpriseLibraryGate | undefined
+  /**
+   * 降级链第二级的接线（由 `client.tsx` 在 apply 里建，见 `preset-launch.ts`）。
+   * 缺席 = 这台设备上这一级不可用，降级链如实说明并落到第三级。
+   */
+  readonly presetLaunch?: EnterprisePresetLaunchPort | undefined
 }): ReactNode {
-  const controller = useEnterpriseMarketController({ view, store, libraryGate })
+  const controller = useEnterpriseMarketController({ view, store, libraryGate, presetLaunch })
   return (
     <>
       <EnterpriseMarketLegacyShell {...controller.shellProps} />
+      {controller.presetApproval === undefined
+        ? null
+        : <EnterprisePresetApprovalDialog {...controller.presetApproval} />}
       <EnterpriseLoginDialog store={store as EnterpriseAccountStore} open={controller.loginOpen} onClose={controller.closeLogin} />
     </>
   )
@@ -3421,12 +4217,13 @@ export function EnterpriseMarketShellHost({ view, store, libraryGate }: {
 
 /**
  * 官方 `plugins.item` 的真实入口（**唯一入口**）：官方插件页「官方」分组里的「插件市场」卡片点进去的详情页。
- * @param props - `view` 由官方透传（卡片 `summary` / 详情 `page`）；`store` 与 `libraryGate` 由注册面的 `inject` 注入。
+ * @param props - `view` 由官方透传（卡片 `summary` / 详情 `page`）；`store`/`libraryGate`/`presetLaunch` 由注册面的 `inject` 注入。
  */
-export function EnterpriseMarketLegacyPage({ view, store, libraryGate }: {
+export function EnterpriseMarketLegacyPage({ view, store, libraryGate, presetLaunch }: {
   readonly view: 'summary' | 'page'
   readonly store?: EnterpriseAccountStore | undefined
   readonly libraryGate?: EnterpriseLibraryGate | undefined
+  readonly presetLaunch?: EnterprisePresetLaunchPort | undefined
 }): ReactNode {
-  return <EnterpriseMarketShellHost view={view} store={store} libraryGate={libraryGate} />
+  return <EnterpriseMarketShellHost view={view} store={store} libraryGate={libraryGate} presetLaunch={presetLaunch} />
 }

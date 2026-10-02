@@ -7,13 +7,18 @@
  *          （preset-market.tsx 仍挂着设置弹窗的配方 tab，且两页用的是**同一个**取数源工厂）
  * [OUTPUT]: 「企业配方页签」这一刀的验收门禁：① 四枚页签且「企业配方」位次在**企业插件之后、包含内容之前**，
  *           四页签的 aria 四向配对与 ←/→/Home/End 键盘路径仍成立；② 配方行**复用唯一共享行子块**渲染
- *           （图标 + 两行文案 + 版本**短号**签 + 可选分类签，完整坐标只在 `title`），动作区只有「复制导入指令」、
- *           **没有 Switch**（不给假开关），复制后文案变「已复制」，回调缺席时整枚不渲染；③ 点**行标题**进配方详情
+ *           （图标 + 两行文案 + 版本**短号**签 + 可选分类签，完整坐标只在 `title`）；动作区是**真开关**
+ *           （三态：未授权关 / 已授权未装关 / 已装开，指纹已变单独一态）、进行中不可连点**但失败不禁用**、
+ *           ① 不可用时按 `enterprisePresetFallbackPlan` 走 ②（新会话 + 填入指令）再走 ③（剪贴板）且
+ *           **每一级都有可见说明**（不静默降级）、③ 只在 ① 不可用时才渲染（① 可用时一枚都不出）；
+ *           ③ 点**行标题**进配方详情
  *           子页面、面包屑「返回配方列表」是唯一返回入口（且详情里没有列表的页签/行）；④ 详情「这份配方包含」
  *           在 `dependencies` **存在**（按 kind 分组、显示 id 与「必需 / 可选」，未知 kind 归「其它」不丢）
  *           与**缺席**（可见说明「暂时无法读取包含内容」，不白屏、不假装「不包含」）两种情况下的表现；
  *           ⑤ 反向锁：市场页里**不存在**旧「应用商店」相关 id/文案，行渲染仍只有一处实现，
- *           配方页可见文本不出现宪法反目标技术词（preset / Preset / YAML / manifest / 组件 …）。
+ *           配方页可见文本不出现宪法反目标技术词（preset / Preset / YAML / manifest / 组件 …）；
+ *           ⑥ **启用成功后的落地交代**：「将在新会话生效」那一句按官方两种落地方式分别出（热生效 /
+ *           需重启），没有成功回执时整段不进 DOM，行上与详情里读同一份 facts。
  * [POS]: 市场页「企业配方」页签与配方详情的行为取证点（dsh-ui 没有 DOM 渲染测试，本文件是这一刀的门禁）
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -22,7 +27,7 @@ import { readFile } from 'node:fs/promises'
 import { isValidElement, type ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { Button, Switch, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { EnterpriseRuntimePreset } from '../src/local-api-decode.js'
+import type { EnterprisePresetDisclosure, EnterprisePresetStatus, EnterpriseRuntimePreset } from '../src/local-api-decode.js'
 import {
   ENTERPRISE_MARKET_COMPONENTS,
   ENTERPRISE_MARKET_TAB_IDS,
@@ -36,19 +41,33 @@ import {
   ENTERPRISE_PRESET_DETAIL_BACK_TEXT,
   ENTERPRISE_PRESET_DEPENDENCY_OPTIONAL,
   ENTERPRISE_PRESET_DEPENDENCY_REQUIRED,
+  ENTERPRISE_PRESET_NEW_SESSION_TEXT,
+  ENTERPRISE_PRESET_APPLIED_EXISTING_TEXT,
+  ENTERPRISE_PRESET_APPLIED_HOT_TEXT,
+  ENTERPRISE_PRESET_APPLIED_OTHER_TEXT,
+  ENTERPRISE_PRESET_APPLIED_RESTART_TEXT,
+  ENTERPRISE_PRESET_APPROVAL_CANCEL,
+  ENTERPRISE_PRESET_APPROVAL_CONFIRM,
+  ENTERPRISE_PRESET_APPROVAL_DISCLAIMER,
+  ENTERPRISE_PRESET_APPROVAL_STALE_NOTE,
+  ENTERPRISE_PRESET_APPROVAL_TITLE,
   EnterpriseMarketInlineRows,
   EnterpriseMarketLegacyShell,
+  EnterprisePresetApprovalDialog,
   EnterprisePresetDetailPage,
   enterpriseMarketPresetRowFacts,
   enterpriseMarketPresetRows,
   enterpriseMarketShellModel,
   enterpriseMarketTabLabel,
   enterprisePresetCategory,
+  enterprisePresetAppliedNotice,
   enterprisePresetContentsCountText,
   enterprisePresetContentsGroups,
   enterprisePresetContentsState,
   enterprisePresetDependencies,
   enterprisePresetDependencyRequiredText,
+  enterprisePresetNewSessionReason,
+  enterprisePresetRouteUnsupported,
 } from '../src/marketplace-entry.js'
 
 vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
@@ -154,6 +173,48 @@ function stripComments(source: string): string {
 type ShellProps = Parameters<typeof EnterpriseMarketLegacyShell>[0]
 
 const presetRow = (preset: EnterpriseRuntimePreset = PRESET) => enterpriseMarketPresetRows([preset])[0]!
+
+/* ── 一键启用的本机真值 fixture（形状 = `GET /presets/<id>/status` 的 200 响应） ── */
+
+/** 一份披露清单：会装的一个 bundle + 会挂载的一个模块（弹层逐项列的就是它）。 */
+const PRESET_DISCLOSURE: EnterprisePresetDisclosure = {
+  fingerprint: 'a'.repeat(64),
+  bundles: [{ name: 'dsh-ent-preset-review-agent', summary: '带检查单的评审配方', digest: 'b'.repeat(64) }],
+  mounts: [{ name: '@deepseek-ai/dsh-agent-preset', summary: '挂载行 preset-review-agent' }],
+}
+
+/** 一条 status 响应（默认 = 未授权未装）；`over` 覆盖要取证的那一项。 */
+function presetStatus(over: Partial<EnterprisePresetStatus> = {}): EnterprisePresetStatus {
+  return {
+    presetPackageId: PRESET.id,
+    declarationId: 'review-agent',
+    fingerprint: 'a'.repeat(64),
+    authorization: 'needs-authorization',
+    inFlight: false,
+    disclosure: PRESET_DISCLOSURE,
+    installed: null,
+    ...over,
+  }
+}
+
+/** 已装记录（`status.installed` 的真值）；`over` 覆盖要取证的字段。 */
+function presetInstall(over: Record<string, unknown> = {}): NonNullable<EnterprisePresetStatus['installed']> {
+  return {
+    declarationId: 'review-agent',
+    recipeId: 'review-agent',
+    displayName: '代码评审配方',
+    packageName: 'dsh-ent-preset-review-agent',
+    fingerprint: 'a'.repeat(64),
+    version: '1.0.0',
+    installedAt: '2026-09-30T08:00:00Z',
+    officialApplication: 'applied',
+    ...over,
+  } as NonNullable<EnterprisePresetStatus['installed']>
+}
+
+/** 一行的本机动作真值（控制器按行 id 持有的那份）。 */
+const presetState = (status?: EnterprisePresetStatus, extra: Record<string, unknown> = {}) =>
+  ({ ...(status === undefined ? {} : { status }), loading: false, ...extra })
 
 /**
  * 配方详情子页面的输入（与控制器里那份构造同形：行 + **行上同一份** facts + 详情取数结果 + 同一枚动作回调）。
@@ -284,17 +345,167 @@ describe('企业配方 rows reuse the single shared row block', () => {
     expect(tags(tree).map(tag => tag['children'])).toEqual(['2.0.3', '研发工具'])
   })
 
-  it('gives the preset row the real action it has (copy the import instruction) and never a fake switch', () => {
+  it('gives the preset row a real Switch once the one-click action is wired (three states, no copy pill)', () => {
+    const row = presetRow(PRESET)
+    const onTogglePreset = vi.fn()
+    const base: ShellProps = {
+      view: 'page',
+      sessionUsable: true,
+      enterprisePresets: [row],
+      onTogglePreset,
+      // ① 一键启用接通：还额外给一个复制回调，也**不该**在行上出那枚第三级按钮（它是兜底，不是主控件）。
+      onCopyPresetInstruction: vi.fn(),
+      presetStates: { [row.id]: presetState(presetStatus()) },
+    }
+    const tree = EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel(base), props: base })
+    // 真开关（与技能/插件行同款）：未授权未装 ⇒ 关。
+    expect(switches(tree)).toHaveLength(1)
+    expect(switches(tree)[0]?.['checked']).toBe(false)
+    expect(switches(tree)[0]?.['disabled']).toBe(false)
+    expect(switches(tree)[0]?.['label']).toBe('启用企业配方 代码评审配方')
+    // ① 可用时第三级那枚按钮**不出现**（③ 只能是第三级），也没有任何降级说明。
+    expect(byData(tree, 'data-enterprise-preset-copy')).toEqual([])
+    expect(byData(tree, 'data-enterprise-preset-fallback')).toEqual([])
+    switches(tree)[0]?.['onChange']?.(true)
+    expect(onTogglePreset).toHaveBeenCalledWith(row, true)
+
+    // 已授权未装：还是关，但悬浮说明变成「点此启用」。
+    const authorized = { ...base, presetStates: { [row.id]: presetState(presetStatus({ authorization: 'authorized' })) } }
+    const authorizedTree = EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel(authorized), props: authorized })
+    expect(switches(authorizedTree)[0]?.['checked']).toBe(false)
+    expect(switches(authorizedTree)[0]?.['title']).toBe('点此启用')
+
+    // 已装：开；拨下去 = 停用（同一次回调、next=false）。
+    const installed = { ...base, presetStates: { [row.id]: presetState(presetStatus({ authorization: 'authorized', installed: presetInstall() })) } }
+    const installedTree = EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel(installed), props: installed })
+    expect(switches(installedTree)[0]?.['checked']).toBe(true)
+    expect(switches(installedTree)[0]?.['title']).toBe('点此停用')
+    switches(installedTree)[0]?.['onChange']?.(false)
+    expect(onTogglePreset).toHaveBeenLastCalledWith(row, false)
+
+    // 指纹已变：仍是关（要重新确认），状态词与悬浮说明如实交代。
+    const stale = { ...base, presetStates: { [row.id]: presetState(presetStatus({ authorization: 'fingerprint-changed' })) } }
+    const staleTree = EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel(stale), props: stale })
+    expect(switches(staleTree)[0]?.['checked']).toBe(false)
+    const staleFacts = enterpriseMarketPresetRowFacts(stale, row)
+    expect(staleFacts.state).toBe('fingerprint-changed')
+    expect(staleFacts.needsApproval).toBe(true)
+    expect(staleFacts.stateLabel).toBe('内容已更新')
+  })
+
+  it('keeps the switch un-clickable while busy but never disables retry after a failure', () => {
+    const row = presetRow(PRESET)
+    const onTogglePreset = vi.fn()
+    const base: ShellProps = {
+      view: 'page',
+      sessionUsable: true,
+      enterprisePresets: [row],
+      onTogglePreset,
+      presetStates: { [row.id]: presetState(presetStatus({ authorization: 'authorized' })) },
+    }
+    // 进行中（本机报告 inFlight）⇒ 不可连点。
+    const busy = { ...base, presetStates: { [row.id]: presetState(presetStatus({ authorization: 'authorized', inFlight: true })) } }
+    expect(switches(EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel(busy), props: busy }))[0]?.['disabled']).toBe(true)
+    // 本地动作在途（`pendingPresetId` 命中该行）⇒ 同样不可连点。
+    expect(switches(EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel({ ...base, pendingPresetId: row.id }), props: { ...base, pendingPresetId: row.id } }))[0]?.['disabled']).toBe(true)
+    // **D1：失败不禁用** —— 行上有失败码时开关照旧可拨（再拨一次就是重试）。
+    const failed = { ...base, presetActionError: { id: row.id, action: 'install' as const, code: 'ENT_PRESET_INSTALL_FAILED' } }
+    const failedTree = EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel(failed), props: failed })
+    expect(switches(failedTree)[0]?.['disabled']).toBe(false)
+    expect(byRole(failedTree, 'alert').length).toBeGreaterThan(0)
+    // 真值还没读到（`status` 缺席）⇒ 不可拨（不知道拨下去会做什么，但也绝不给「假的已授权」）。
+    const unknown = { ...base, presetStates: { [row.id]: presetState() } }
+    const unknownFacts = enterpriseMarketPresetRowFacts(unknown, row)
+    expect(unknownFacts.state).toBe('unknown')
+    expect(unknownFacts.switchDisabled).toBe(true)
+    expect(unknownFacts.enabled).toBe(false)
+  })
+
+  it('falls back visibly: level ① unavailable → level ② (new session) before level ③ (clipboard)', () => {
+    const row = presetRow(PRESET)
+    // ① 不可用（没有写入口）+ ② 接通 ⇒ 走第二级，且**必须**有一句「为什么没走一键启用」的可见说明。
+    const onOpenPresetInNewSession = vi.fn()
+    const onCopyPresetInstruction = vi.fn()
+    const second: ShellProps = {
+      view: 'page',
+      sessionUsable: true,
+      enterprisePresets: [row],
+      onOpenPresetInNewSession,
+      onCopyPresetInstruction,
+      presetStates: { [row.id]: presetState(presetStatus()) },
+    }
+    const secondTree = EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel(second), props: second })
+    const facts2 = enterpriseMarketPresetRowFacts(second, row)
+    expect(facts2.fallback.level).toBe('new-session')
+    expect(facts2.fallback.note).toBe(enterprisePresetNewSessionReason(facts2.fallback.reason!))
+    const newSession = byData(secondTree, 'data-enterprise-preset-new-session')
+    expect(newSession).toHaveLength(1)
+    expect(textOf(secondTree)).toContain(ENTERPRISE_PRESET_NEW_SESSION_TEXT)
+    newSession[0]?.['onClick']?.()
+    expect(onOpenPresetInNewSession).toHaveBeenCalledWith(row)
+    // 第二级优先：即使第三级也接通，第三级仍只在旁边（它是兜底，不是主控件）。
+    const note = byData(secondTree, 'data-enterprise-preset-fallback')[0]
+    expect(note?.['data-enterprise-preset-fallback-level']).toBe('new-session')
+    expect(textOf(secondTree)).toContain('一键启用暂时不可用')
+    // 没有 Switch（① 不可用就绝不画一枚拨不动的开关）。
+    expect(switches(secondTree)).toEqual([])
+
+    // ② 也不可用 ⇒ 落到第三级，且说明换了一句（说清两级都不可用）。
+    const third: ShellProps = {
+      view: 'page',
+      sessionUsable: true,
+      enterprisePresets: [row],
+      onCopyPresetInstruction,
+      presetStates: { [row.id]: presetState(presetStatus()) },
+    }
+    const thirdTree = EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel(third), props: third })
+    const facts3 = enterpriseMarketPresetRowFacts(third, row)
+    expect(facts3.fallback.level).toBe('clipboard')
+    expect(byData(thirdTree, 'data-enterprise-preset-fallback')[0]?.['data-enterprise-preset-fallback-level']).toBe('clipboard')
+    expect(textOf(thirdTree)).toContain('一键启用与新建会话都不可用')
+
+    // 三级全不可用：仍然是**显式**的说明（绝不留一枚点了没反应的控件）。
+    const none: ShellProps = { view: 'page', sessionUsable: true, enterprisePresets: [row], presetStates: { [row.id]: presetState(presetStatus()) } }
+    const noneTree = EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel(none), props: none })
+    expect(byData(noneTree, 'data-enterprise-preset-copy')).toEqual([])
+    expect(byData(noneTree, 'data-enterprise-preset-new-session')).toEqual([])
+    expect(textOf(noneTree)).toContain('请联系企业管理员')
+  })
+
+  it('treats a route-level failure code as "one-click unavailable" but a retryable one as a retry', () => {
+    const row = presetRow(PRESET)
+    const withCode = (code: string): ShellProps => ({
+      view: 'page',
+      sessionUsable: true,
+      enterprisePresets: [row],
+      onTogglePreset: vi.fn(),
+      onCopyPresetInstruction: vi.fn(),
+      presetStates: { [row.id]: presetState(presetStatus(), { errorCode: code }) },
+    })
+    // Host 那条子路径没接线（400）⇒ 结构性不可用 ⇒ 走降级链（而不是给一枚拨了没反应的开关）。
+    expect(enterpriseMarketPresetRowFacts(withCode('ENT_INVALID_REQUEST'), row).fallback.level).toBe('clipboard')
+    // 一次可重试的失败（503）⇒ 留在第一级，让员工「再拨一次即重试」。
+    expect(enterpriseMarketPresetRowFacts(withCode('ENT_PRESET_INSTALL_FAILED'), row).fallback.level).toBe('one-click')
+    // 终态的安装失败（不可重试）⇒ 也如实降级。
+    const terminal = withCode('ENT_PRESET_RECIPE_INVALID')
+    expect(enterpriseMarketPresetRowFacts(terminal, row).fallback.level).toBe('clipboard')
+    expect(enterprisePresetRouteUnsupported('ENT_INVALID_REQUEST')).toBe(true)
+    expect(enterprisePresetRouteUnsupported('ENT_RESOURCE_NOT_FOUND')).toBe(true)
+    expect(enterprisePresetRouteUnsupported(undefined)).toBe(false)
+  })
+
+  it('keeps the third-level copy feedback and renders nothing when the callback is missing (no dead button)', () => {
     const row = presetRow(PRESET)
     const onCopyPresetInstruction = vi.fn()
-    const props: ShellProps = { view: 'page', sessionUsable: true, enterprisePresets: [row], onCopyPresetInstruction }
+    const props: ShellProps = {
+      view: 'page',
+      sessionUsable: true,
+      enterprisePresets: [row],
+      onCopyPresetInstruction,
+      presetStates: { [row.id]: presetState(presetStatus()) },
+    }
     const model = enterpriseMarketShellModel(props)
     const tree = EnterpriseMarketInlineRows({ tab: 'presets', model, props })
-
-    // **反向锁**：配方今天没有安装链路 ⇒ 行上一枚 Switch 都没有（不给假开关、也不做假已装态）。
-    expect(switches(tree)).toEqual([])
-    expect(byData(tree, 'data-enterprise-preset-state')).toEqual([])
-    // 动作区只有本机真能用的那一条：复制导入指令（回调带上被点的那一行）。
     const copy = byData(tree, 'data-enterprise-preset-copy')
     expect(copy).toHaveLength(1)
     expect(textOf(tree)).toContain(ENTERPRISE_PRESET_COPY_TEXT)
@@ -304,13 +515,68 @@ describe('企业配方 rows reuse the single shared row block', () => {
     // 复制成功后的可见反馈与行 facts 同源（按钮文案变「已复制」）。
     expect(enterpriseMarketPresetRowFacts({ ...props, presetCopiedId: row.id }, row).copied).toBe(true)
     const copied = EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel({ ...props, presetCopiedId: row.id }), props: { ...props, presetCopiedId: row.id } })
-    expect(textOf(copied)).toContain(ENTERPRISE_PRESET_COPIED_TEXT)
-    expect(textOf(copied)).not.toContain(ENTERPRISE_PRESET_COPY_TEXT)
+    expect(byData(copied, 'data-enterprise-preset-copy')[0]?.['children']).toBe(ENTERPRISE_PRESET_COPIED_TEXT)
 
     // 回调缺席（纯函数直调 / 旧调用方）时整枚不渲染——**不给死按钮**。
     const bare = EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel({ view: 'page', enterprisePresets: [row] }), props: { view: 'page', enterprisePresets: [row] } })
     expect(byData(bare, 'data-enterprise-preset-copy')).toEqual([])
     expect(switches(bare)).toEqual([])
+  })
+
+  it('says 将在新会话生效 after a successful enable, in the wording of the official application kind', () => {
+    const row = presetRow(PRESET)
+    const withAppl = (applied: Record<string, unknown>): ShellProps => ({
+      view: 'page',
+      sessionUsable: true,
+      enterprisePresets: [row],
+      onTogglePreset: vi.fn(),
+      presetStates: { [row.id]: presetState(presetStatus({ authorization: 'authorized', installed: presetInstall() }), { applied }) },
+    })
+    // ① 没启过（没有回执）：这一整段不进 DOM——绝不编一句「已启用」。
+    const bare = EnterpriseMarketInlineRows({
+      tab: 'presets',
+      model: enterpriseMarketShellModel({ view: 'page', enterprisePresets: [row], onTogglePreset: vi.fn() }),
+      props: { view: 'page', enterprisePresets: [row], onTogglePreset: vi.fn() },
+    })
+    expect(byData(bare, 'data-enterprise-preset-applied')).toEqual([])
+    expect(textOf(bare)).not.toContain('将在新会话生效')
+    expect(enterprisePresetAppliedNotice(undefined)).toBeUndefined()
+
+    // ② 官方 `restart-required`：必须说清「要重新打开客户端」且含那句硬事实。
+    const restart = withAppl({ application: 'restart-required', officialApplication: 'restart-required', needsNewSession: true })
+    const restartTree = EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel(restart), props: restart })
+    const restartNote = byData(restartTree, 'data-enterprise-preset-applied')
+    expect(restartNote).toHaveLength(1)
+    expect(restartNote[0]?.['role']).toBe('status')
+    expect(textOf(restartTree)).toContain('将在新会话生效')
+    expect(textOf(restartTree)).toContain('需要重新打开客户端')
+    expect(enterprisePresetAppliedNotice({ application: 'restart-required', needsNewSession: true }))
+      .toBe(ENTERPRISE_PRESET_APPLIED_RESTART_TEXT)
+
+    // ③ 官方 `applied`（热生效）：同一句硬事实 + 一句「已打开的会话不会改变」（两态都诚实呈现）。
+    const hot = withAppl({ application: 'hot', officialApplication: 'applied', needsNewSession: true })
+    const hotTree = EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel(hot), props: hot })
+    expect(textOf(hotTree)).toContain('将在新会话生效')
+    expect(textOf(hotTree)).toContain('已经打开的会话不会改变')
+    expect(enterprisePresetAppliedNotice({ application: 'hot', needsNewSession: true }))
+      .toBe(ENTERPRISE_PRESET_APPLIED_HOT_TEXT)
+
+    // ④ 官方 `overridden` 那种 `other`：仍然只说那句硬事实，不把官方英文原值砸给员工。
+    const other = withAppl({ application: 'other', officialApplication: 'overridden', needsNewSession: true })
+    const otherTree = EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel(other), props: other })
+    expect(textOf(otherTree)).toContain(ENTERPRISE_PRESET_APPLIED_OTHER_TEXT)
+    expect(textOf(otherTree)).not.toContain('overridden')
+
+    // ⑤ 同配方同指纹、本次没重装：前面补一句（Host 的 `alreadyInstalled`）。
+    expect(enterprisePresetAppliedNotice({ application: 'hot', needsNewSession: true, alreadyInstalled: true }))
+      .toBe(`${ENTERPRISE_PRESET_APPLIED_EXISTING_TEXT}${ENTERPRISE_PRESET_APPLIED_HOT_TEXT}`)
+    expect(enterprisePresetAppliedNotice({ application: 'hot', needsNewSession: true, alreadyInstalled: false }))
+      .toBe(ENTERPRISE_PRESET_APPLIED_HOT_TEXT)
+
+    // ⑥ 行上与详情里读的是同一份 facts ⇒ 同一句话（详情子页面也出这一句）。
+    const detail = EnterprisePresetDetailPage(presetPageInput({ facts: enterpriseMarketPresetRowFacts(restart, row), onTogglePreset: vi.fn() }))
+    expect(byData(detail, 'data-enterprise-preset-applied')).toHaveLength(1)
+    expect(textOf(detail)).toContain(ENTERPRISE_PRESET_APPLIED_RESTART_TEXT)
   })
 
   it('drops the version tag / category tag quietly when the optional facts are missing (no placeholder text)', () => {
@@ -372,16 +638,164 @@ describe('企业配方 detail sub-page', () => {
     expect(byData(tree, 'data-enterprise-preset-open')).toEqual([])
   })
 
-  it('keeps the copy action in the detail head, from the same facts and the same callback as the row', () => {
+  it('renders the same action block in the detail head, from the same facts and the same callbacks as the row', () => {
+    // ① 一键启用接通：详情头部同样是一枚真开关（与行上同一枚子块、同一份 facts、同一个回调）。
+    const row = presetRow(PRESET)
+    const onTogglePreset = vi.fn()
+    const detailProps: ShellProps = {
+      view: 'page',
+      enterprisePresets: [row],
+      onTogglePreset,
+      onCopyPresetInstruction: vi.fn(),
+      presetStates: { [row.id]: presetState(presetStatus({ authorization: 'authorized' })) },
+    }
+    const wired = EnterprisePresetDetailPage({
+      row,
+      facts: enterpriseMarketPresetRowFacts(detailProps, row),
+      detailLoading: false,
+      onTogglePreset,
+      onBack: vi.fn(),
+    })
+    expect(switches(wired)).toHaveLength(1)
+    expect(byData(wired, 'data-enterprise-preset-copy')).toEqual([])
+    switches(wired)[0]?.['onChange']?.(true)
+    expect(onTogglePreset).toHaveBeenCalledWith(row, true)
+
+    // ② 一键启用不可用：详情头部给第二级 + 第三级，并且**同源地**渲染那一句降级说明。
+    const onOpenPresetInNewSession = vi.fn()
     const onCopyInstruction = vi.fn()
-    const page = presetPageInput({ detail: DETAIL, onCopyInstruction })
-    const tree = EnterprisePresetDetailPage(page)
-    const copy = byData(tree, 'data-enterprise-preset-copy')
+    const falloutProps: ShellProps = {
+      view: 'page',
+      enterprisePresets: [row],
+      onOpenPresetInNewSession,
+      onCopyPresetInstruction: onCopyInstruction,
+      presetStates: { [row.id]: presetState(presetStatus()) },
+    }
+    const fallbackPage = EnterprisePresetDetailPage({
+      row,
+      facts: enterpriseMarketPresetRowFacts(falloutProps, row),
+      detailLoading: false,
+      onOpenInNewSession: onOpenPresetInNewSession,
+      onCopyInstruction,
+      onBack: vi.fn(),
+    })
+    const copy = byData(fallbackPage, 'data-enterprise-preset-copy')
     expect(copy).toHaveLength(1)
     copy[0]?.['onClick']?.()
-    expect(onCopyInstruction).toHaveBeenCalledWith(page.row)
+    expect(onCopyInstruction).toHaveBeenCalledWith(row)
+    expect(byData(fallbackPage, 'data-enterprise-preset-new-session')).toHaveLength(1)
+    expect(byData(fallbackPage, 'data-enterprise-preset-fallback')).toHaveLength(1)
     // 同一份 facts：复制过的那一行在详情里的按钮文案同样是「已复制」。
-    expect(textOf(EnterprisePresetDetailPage({ ...page, facts: { ...page.facts, copied: true } }))).toContain(ENTERPRISE_PRESET_COPIED_TEXT)
+    expect(byData(EnterprisePresetDetailPage({
+      row,
+      facts: { ...enterpriseMarketPresetRowFacts(falloutProps, row), copied: true },
+      detailLoading: false,
+      onCopyInstruction,
+      onBack: vi.fn(),
+    }), 'data-enterprise-preset-copy')[0]?.['children']).toBe(ENTERPRISE_PRESET_COPIED_TEXT)
+  })
+})
+
+/* ═══════════ ③b 授权弹层：逐项披露 / confirmFingerprint / 指纹已变重确认 ═══════════ */
+
+describe('自造授权弹层（配方一键启用）', () => {
+  const row = presetRow(PRESET)
+  const facts = enterpriseMarketPresetRowFacts({ view: 'page', enterprisePresets: [row] }, row)
+
+  it('lists every bundle and mount it would install, with the official-density disclaimer', () => {
+    const tree = EnterprisePresetApprovalDialog({
+      row,
+      facts,
+      disclosure: PRESET_DISCLOSURE,
+      fingerprintChanged: false,
+      busy: false,
+      onConfirm: vi.fn(),
+      onCancel: vi.fn(),
+    })
+    // 弹层身份 + 语义（自造覆盖层，不是官方 Modal）。
+    const dialog = byRole(tree, 'dialog')[0]
+    expect(dialog?.['aria-modal']).toBe('true')
+    expect(textOf(tree)).toContain(ENTERPRISE_PRESET_APPROVAL_TITLE)
+    // 逐项披露：会装哪些 bundle（名称 + 简述）、会挂载哪些模块（名称 + 简述）。
+    const bundles = byData(tree, 'data-enterprise-preset-approval-bundle')
+    expect(bundles.map(item => item['data-enterprise-preset-approval-bundle'])).toEqual(['dsh-ent-preset-review-agent'])
+    const mounts = byData(tree, 'data-enterprise-preset-approval-mount')
+    expect(mounts.map(item => item['data-enterprise-preset-approval-mount'])).toEqual(['@deepseek-ai/dsh-agent-preset'])
+    expect(textOf(tree)).toContain('带检查单的评审配方')
+    // 免责声明与官方原型**逐字同句**（信息密度对齐）。
+    expect(byData(tree, 'data-enterprise-preset-approval-disclaimer')[0]?.['children']).toBe(ENTERPRISE_PRESET_APPROVAL_DISCLAIMER)
+    // 指纹没变时**不**出那句「内容变了」。
+    expect(byData(tree, 'data-enterprise-preset-approval-stale')).toEqual([])
+    // 两枚按钮：取消 / 确认并启用（官方那套 per-call「允许一次」的语义不照抄）。
+    const buttons = primitives(tree, Button)
+    expect(buttons).toHaveLength(2)
+    expect(buttons[0]?.['children']).toBe(ENTERPRISE_PRESET_APPROVAL_CANCEL)
+    expect(buttons[1]?.['children']).toBe(ENTERPRISE_PRESET_APPROVAL_CONFIRM)
+  })
+
+  it('does not carry any body text about an empty list when the disclosure is empty, and stays honest', () => {
+    const tree = EnterprisePresetApprovalDialog({
+      row,
+      facts,
+      disclosure: { fingerprint: 'a'.repeat(64), bundles: [], mounts: [] },
+      fingerprintChanged: false,
+      busy: false,
+      onConfirm: vi.fn(),
+      onCancel: vi.fn(),
+    })
+    expect(byData(tree, 'data-enterprise-preset-approval-bundle')).toEqual([])
+    expect(textOf(tree)).toContain('没有额外要安装或挂载的内容')
+  })
+
+  it('says 内容变了 when the confirmed fingerprint no longer matches, and routes the two buttons', () => {
+    const onConfirm = vi.fn()
+    const onCancel = vi.fn()
+    const tree = EnterprisePresetApprovalDialog({
+      row,
+      facts,
+      disclosure: PRESET_DISCLOSURE,
+      fingerprintChanged: true,
+      errorCode: 'ENT_PRESET_AUTHORIZATION_STALE',
+      busy: false,
+      onConfirm,
+      onCancel,
+    })
+    // 指纹已变：明说「内容变了，需要重新确认」，并把上一次确认的失败码摆在弹层里（可重开、不给死按钮）。
+    expect(byData(tree, 'data-enterprise-preset-approval-stale')[0]?.['children']).toBe(ENTERPRISE_PRESET_APPROVAL_STALE_NOTE)
+    expect(byData(tree, 'data-enterprise-error-code')[0]?.['data-enterprise-error-code']).toBe('ENT_PRESET_AUTHORIZATION_STALE')
+    const buttons = primitives(tree, Button)
+    buttons[0]?.['onClick']?.()
+    expect(onCancel).toHaveBeenCalledTimes(1)
+    buttons[1]?.['onClick']?.()
+    expect(onConfirm).toHaveBeenCalledTimes(1)
+  })
+
+  it('disables both buttons while the confirmation is in flight (no double tap), and re-enables after failure', () => {
+    const base = { row, facts, disclosure: PRESET_DISCLOSURE, fingerprintChanged: false, onConfirm: vi.fn(), onCancel: vi.fn() }
+    const busyTree = EnterprisePresetApprovalDialog({ ...base, busy: true })
+    expect(primitives(busyTree, Button).map(button => button['disabled'])).toEqual([true, true])
+    const idleTree = EnterprisePresetApprovalDialog({ ...base, busy: false })
+    expect(primitives(idleTree, Button).map(button => button['disabled'])).toEqual([false, false])
+  })
+
+  it('carries the confirmed fingerprint, not the stale one, when the facts came from status', () => {
+    // facts 里的 `needsApproval` 就是「点开关要先弹层」的判定；弹层回传的指纹取自**同一份** status.disclosure。
+    const needs = enterpriseMarketPresetRowFacts({
+      view: 'page',
+      enterprisePresets: [row],
+      onTogglePreset: vi.fn(),
+      presetStates: { [row.id]: presetState(presetStatus({ authorization: 'needs-authorization' })) },
+    }, row)
+    expect(needs.needsApproval).toBe(true)
+    // 已装的行不该再要确认（拨下去是停用，不是启用）。
+    const done = enterpriseMarketPresetRowFacts({
+      view: 'page',
+      enterprisePresets: [row],
+      onTogglePreset: vi.fn(),
+      presetStates: { [row.id]: presetState(presetStatus({ authorization: 'needs-authorization', installed: presetInstall() })) },
+    }, row)
+    expect(done.needsApproval).toBe(false)
+    expect(done.enabled).toBe(true)
   })
 })
 
@@ -479,10 +893,21 @@ describe('reverse locks for the 企业配方 tab', () => {
     // 行渲染只有一处实现，三个目录页签（技能 / 插件 / 配方）各调用它一次。
     expect(count(/export function EnterpriseMarketInlineRows\(/g)).toBe(1)
     expect(count(/<EnterpriseMarketInlineRows /g)).toBe(3)
-    // 配方行 facts 唯一入口：1 处定义 + 行渲染 1 处 + 详情输入构造 1 处 = 3（详情与行不可能各算一套）。
-    expect(count(/enterpriseMarketPresetRowFacts\(/g)).toBe(3)
+    // 配方行 facts 唯一入口：1 处定义 + 行渲染 1 处 + 详情输入构造 1 处 + **授权弹层输入构造 1 处** = 4
+    // （行上 / 详情里 / 弹层里读的都是同一份，不存在第二套算法）。
+    expect(count(/enterpriseMarketPresetRowFacts\(/g)).toBe(4)
     // 配方行投影唯一入口：1 处定义 + 控制器 1 处 = 2（没有第二处造行的写法）。
     expect(count(/enterpriseMarketPresetRows\(/g)).toBe(2)
+    // 授权弹层只有一枚实现，且只由宿主挂一次（行上与详情里都不各挂一份）。
+    expect(count(/export function EnterprisePresetApprovalDialog\(/g)).toBe(1)
+    expect(count(/<EnterprisePresetApprovalDialog /g)).toBe(1)
+    // **降级链的三级各只有一处渲染点**：真开关（唯一子块里）、第二级按钮、第三级按钮。
+    expect(count(/<EnterpriseMarketPresetRowActions/g)).toBe(2)
+    expect(count(/data-enterprise-preset-new-session=/g)).toBe(1)
+    expect(count(/data-enterprise-preset-copy=/g)).toBe(1)
+    // 三级的判定只在一个纯函数里（`enterprisePresetFallbackPlan`）：1 处定义 + 1 处调用。
+    expect(count(/enterprisePresetFallbackPlan\(/g)).toBe(2)
+    expect(count(/enterprisePresetRouteUnsupported\(/g)).toBe(3)
     // 取数源用的是设置弹窗那**一个**工厂：本文件只调用一处（控制器里那一处 useMemo），没有自造 fetch。
     expect(count(/createEnterprisePresetListSource\(/g)).toBe(1)
     expect(source).not.toContain('/enterprise/api/v1/local/presets')

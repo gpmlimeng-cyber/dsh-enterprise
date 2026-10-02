@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 branding 的同源 LOGO 来源门禁与 `EnterpriseBrandingDocument` 形状、decode-primitives 的严格解码内核、skill-api-decode 的技能 DTO 与解码 **本刀**：修 `decodeEnterprisePresets` 的 `sizeBytes` 上界判定写反（原先任何非零大小的配方都被判畸形），改为与插件目录同款的 `<= 0`；**配方收尾刀**：`decodeEnterprisePresets` 补契约切片 B 的 `dependencies`（放**可选位**，旧服务端不输出也照旧可解），按契约 `PresetDependency` 逐条校验并把键集抽成导出的常量供漂移门禁比对。
- * [OUTPUT]: 对外提供连接/受管插件状态枚举、本地 API DTO 类型与严格解码（账号、品牌、插件、配方、Session、四窗口用量、反馈回执、原生登录的来源列表与凭证/改密结果、**企业技能已装态 / 已装正文 / 本机文件树 / 树里单个文本文件**）、配方引用 `EnterpriseRuntimePresetDependency` 与四份**运行时键集常量**（`ENTERPRISE_PRESET_ROW_REQUIRED_KEYS` / `ENTERPRISE_PRESET_ROW_OPTIONAL_KEYS` / `ENTERPRISE_PRESET_DEPENDENCY_KEYS` / `ENTERPRISE_PRESET_DEPENDENCY_OPTIONAL_KEYS`，是 `tests/preset-decode.spec.ts` 契约漂移门禁的被测真源）、`EnterpriseLocalApi` 契约、失败码投影 `enterpriseLocalErrorCode`，并再导出 `EnterpriseLocalApiError` 与 skill-api-decode 的全部技能契约
- * [POS]: dsh-ui 的浏览器取数契约层——只定义「主机可以说什么」与「什么不许说」，不含任何 fetch；网络执行留在 local-api.ts，界面只消费本文件的投影结果。逼近 800 行后按业务纵切出技能分片与共享内核，本文件仍是唯一对外真源
+ * [OUTPUT]: 对外提供连接/受管插件状态枚举、本地 API DTO 类型与严格解码（账号、品牌、插件、配方、Session、四窗口用量、反馈回执、原生登录的来源列表与凭证/改密结果、**企业技能已装态 / 已装正文 / 本机文件树 / 树里单个文本文件**）、配方引用 `EnterpriseRuntimePresetDependency` 与四份**运行时键集常量**（`ENTERPRISE_PRESET_ROW_REQUIRED_KEYS` / `ENTERPRISE_PRESET_ROW_OPTIONAL_KEYS` / `ENTERPRISE_PRESET_DEPENDENCY_KEYS` / `ENTERPRISE_PRESET_DEPENDENCY_OPTIONAL_KEYS`，是 `tests/preset-decode.spec.ts` 契约漂移门禁的被测真源）、`EnterpriseLocalApi` 契约、失败码投影 `enterpriseLocalErrorCode`，并再导出 `EnterpriseLocalApiError` 与 skill-api-decode 的全部技能契约 **本刀（配方一键启用）**：新增 `decodeEnterprisePresetEnable` / `decodeEnterprisePresetDisable` / `decodeEnterprisePresetStatus` 与它们的 DTO（披露清单 `EnterprisePresetDisclosure`、已装记录 `EnterpriseInstalledPreset`、授权三态 `EnterprisePresetAuthorization`、官方原值 `EnterprisePresetOfficialApplication`）与九份**键集常量**（enable/disable 的必填+可选、status 的必填、已装八键、披露三件、`officialError` 的两键）——形状真源是 Host 的 `bundle/src/preset-service.ts` 三个脱敏视图，未知键一律拒，`status.installed` 是**必填位上的可空值**。
+ * [POS]: dsh-ui 的浏览器取数契约层——只定义「主机可以说什么」与「什么不许说」，不含任何 fetch；网络执行留在 local-api.ts，界面只消费本文件的投影结果。逼近 800 行后按业务纵切出技能分片与共享内核，本文件仍是唯一对外真源 **本刀**：这三条是**本机动作**（不是中心契约），故键集常量单独导出、由 `tests/preset-enable-decode.spec.ts` 做封闭键集断言；本文件仍是唯一 DTO 真源。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -314,6 +314,32 @@ export interface EnterpriseLocalApi {
   plugins(signal: AbortSignal): Promise<EnterprisePluginStatus>
   presets(signal: AbortSignal): Promise<readonly EnterpriseRuntimePreset[]>
   presetDetail(packageId: string, signal: AbortSignal): Promise<EnterpriseRuntimePreset>
+  /**
+   * 配方**启用前的真值**（授权三态 / 是否进行中 / 披露清单 / 已装记录）。
+   *
+   * 只发一条同源 GET（`/presets/<雪花 id>/status`），只读、不写任何授权；
+   * 授权弹层与行上开关的三态都从它算——因此「员工确认过的那份披露」与「随后真正会装的东西」
+   * 来自 Host 的**同一次渲染**，不可能各说一套。
+   */
+  presetStatus(presetPackageId: string, signal: AbortSignal): Promise<EnterprisePresetStatus>
+  /**
+   * **一键启用**一条配方。
+   *
+   * @param presetPackageId - 中心配方包雪花 id。
+   * @param confirmFingerprint - 员工在披露弹层确认过的那一枚集合指纹；**缺席**表示只按已授权状态尝试
+   *   （未授权 / 指纹已变由 Host 如实拒，绝不替用户顺手授权）；传了就要求它与 Host 当前指纹逐字相等，
+   *   否则回 `ENT_PRESET_AUTHORIZATION_STALE`。请求体是**关闭键集**：`{}` 或恰好 `{confirmFingerprint}`。
+   */
+  enablePreset(
+    presetPackageId: string,
+    confirmFingerprint: string | undefined,
+    signal: AbortSignal,
+  ): Promise<EnterprisePresetEnableResult>
+  /**
+   * **停用**一条配方；`declarationId` 是 Host 归一化后的声明 id（kebab，来自 status / enable 回执），
+   * 不是雪花包 id。请求体恒为 `{}`（关闭键集）。
+   */
+  disablePreset(declarationId: string, signal: AbortSignal): Promise<EnterprisePresetDisableResult>
   /** 可见技能包摘要；Host 代取中心 `/skills`，条目只含 frontmatter 脱敏事实。 */
   skills(signal: AbortSignal): Promise<readonly EnterpriseRuntimeSkill[]>
   /** 单个技能包详情（含包内条目与 versionId）；下载仍由 Host 代取，浏览器只拿投影。 */
@@ -848,6 +874,351 @@ export function decodeEnterprisePresets(value: unknown): readonly EnterpriseRunt
         : { dependencies: decodePresetDependencies(row['dependencies']) }),
     }
   })
+}
+
+/* ══════════════════════════ 配方一键启用（enable / disable / status） ══════════════════════════
+ *
+ * 这三条响应的**形状真源**不是中心契约（那是配方目录），而是 Host 侧 `bundle/src/preset-service.ts`
+ * 的三个脱敏视图（`EnterprisePresetEnableView` / `EnterprisePresetDisableView` / `EnterprisePresetStatusView`）。
+ * 因此键集必须与那三个 interface **逐字同形**：员工端的关闭键集比 Host 严一格，
+ * 整条响应就判 `ENT_LOCAL_RESPONSE_INVALID`（本仓已踩三次的同一种病）。
+ *
+ * 键集常量导出给 `tests/preset-enable-decode.spec.ts` 做**封闭键集断言**。
+ */
+
+/** 授权三态（与 Host 侧 `PresetAuthorizationState` 逐字同形）。 */
+export const ENTERPRISE_PRESET_AUTHORIZATIONS = ['needs-authorization', 'authorized', 'fingerprint-changed'] as const
+export type EnterprisePresetAuthorization = typeof ENTERPRISE_PRESET_AUTHORIZATIONS[number]
+
+/** 官方落地结果给界面的三态（`hot` = 官方 `applied`；官方原值另存 `officialApplication`）。 */
+export const ENTERPRISE_PRESET_APPLICATIONS = ['hot', 'restart-required', 'other'] as const
+export type EnterprisePresetApplicationKind = typeof ENTERPRISE_PRESET_APPLICATIONS[number]
+
+/** 官方 `ChangeResult.application` 的五个原值（「到底怎么生效的」这一手事实只在这里）。 */
+export const ENTERPRISE_PRESET_OFFICIAL_APPLICATIONS = [
+  'applied', 'restart-required', 'overridden', 'failed', 'cancelled',
+] as const
+export type EnterprisePresetOfficialApplication = typeof ENTERPRISE_PRESET_OFFICIAL_APPLICATIONS[number]
+
+/** 披露弹层里「这次会装」的一条（我们合成的最小 bundle）。 */
+export interface EnterprisePresetDisclosureBundle {
+  readonly name: string
+  readonly summary: string
+  /** bundle 内容摘要（内容变 = 指纹变 = 必须重新确认）。 */
+  readonly digest: string
+}
+
+/** 披露弹层里「这份配方会挂载」的一条。 */
+export interface EnterprisePresetDisclosureMount {
+  readonly name: string
+  readonly summary: string
+}
+
+/** 披露清单：弹层逐项列给它，`fingerprint` 就是员工确认后回传的那一枚。 */
+export interface EnterprisePresetDisclosure {
+  readonly fingerprint: string
+  readonly bundles: readonly EnterprisePresetDisclosureBundle[]
+  readonly mounts: readonly EnterprisePresetDisclosureMount[]
+}
+
+/** 一条**已装**配方（Host 侧脱敏投影：只有 `bundleDir` 被拿掉，其余逐字保留）。 */
+export interface EnterpriseInstalledPreset {
+  /** 归一化声明 id（kebab）；停用用**它**而不是包 id。 */
+  readonly declarationId: string
+  readonly recipeId: string
+  readonly displayName: string
+  readonly packageName: string
+  readonly fingerprint: string
+  readonly version: string
+  readonly installedAt: string
+  /** 官方原值（`applied` / `restart-required` / …）。 */
+  readonly officialApplication: EnterprisePresetOfficialApplication
+}
+
+/** `POST <local>/presets/<雪花 id>/enable` 的 200 响应体。 */
+export interface EnterprisePresetEnableResult {
+  readonly application: EnterprisePresetApplicationKind
+  /** 官方原值；Host 只在拿到时才产出这个键。 */
+  readonly officialApplication?: EnterprisePresetOfficialApplication
+  readonly installedNames: readonly string[]
+  readonly needsNewSession: boolean
+  readonly declarationId: string
+  readonly fingerprint: string
+  readonly disclosure: EnterprisePresetDisclosure
+  /** 同配方同指纹且 link 仍在：本次没有真的再装一遍。 */
+  readonly alreadyInstalled?: boolean
+  /** 官方失败的**受控**码（自由文本诊断只进 Host 日志）。 */
+  readonly officialError?: { readonly code?: string }
+}
+
+/** `POST <local>/presets/<声明 id>/disable` 的 200 响应体。 */
+export interface EnterprisePresetDisableResult {
+  readonly application: EnterprisePresetApplicationKind
+  readonly officialApplication?: EnterprisePresetOfficialApplication
+  readonly declarationId: string
+  readonly removedNames: readonly string[]
+  readonly linkRemoved: boolean
+}
+
+/** `GET <local>/presets/<雪花 id>/status` 的 200 响应体（授权弹层的真值来源）。 */
+export interface EnterprisePresetStatus {
+  readonly presetPackageId: string
+  readonly declarationId: string
+  readonly fingerprint: string
+  readonly authorization: EnterprisePresetAuthorization
+  readonly inFlight: boolean
+  readonly disclosure: EnterprisePresetDisclosure
+  /** 未装即 `null`（**必填位**上的可空值，不是「可缺席」）。 */
+  readonly installed: EnterpriseInstalledPreset | null
+}
+
+/** enable 响应的键集真源（必填 / 可选）。 */
+export const ENTERPRISE_PRESET_ENABLE_REQUIRED_KEYS = [
+  'application', 'installedNames', 'needsNewSession', 'declarationId', 'fingerprint', 'disclosure',
+] as const
+export const ENTERPRISE_PRESET_ENABLE_OPTIONAL_KEYS = [
+  'officialApplication', 'alreadyInstalled', 'officialError',
+] as const
+
+/** disable 响应的键集真源（必填 / 可选）。 */
+export const ENTERPRISE_PRESET_DISABLE_REQUIRED_KEYS = [
+  'application', 'declarationId', 'removedNames', 'linkRemoved',
+] as const
+export const ENTERPRISE_PRESET_DISABLE_OPTIONAL_KEYS = ['officialApplication'] as const
+
+/** status 响应的键集真源（七键全部必填；`installed` 的值可以为 null）。 */
+export const ENTERPRISE_PRESET_STATUS_REQUIRED_KEYS = [
+  'presetPackageId', 'declarationId', 'fingerprint', 'authorization', 'inFlight', 'disclosure', 'installed',
+] as const
+
+/** 已装记录的键集真源（八键全部必填）。 */
+export const ENTERPRISE_PRESET_INSTALLED_KEYS = [
+  'declarationId', 'recipeId', 'displayName', 'packageName', 'fingerprint', 'version', 'installedAt', 'officialApplication',
+] as const
+
+/** 披露清单的键集真源。 */
+export const ENTERPRISE_PRESET_DISCLOSURE_KEYS = ['fingerprint', 'bundles', 'mounts'] as const
+export const ENTERPRISE_PRESET_DISCLOSURE_BUNDLE_KEYS = ['name', 'summary', 'digest'] as const
+export const ENTERPRISE_PRESET_DISCLOSURE_MOUNT_KEYS = ['name', 'summary'] as const
+/** `officialError`：Host 侧类型里 `code` 是**可选**的（结构上允许空对象），故放可选位。 */
+export const ENTERPRISE_PRESET_OFFICIAL_ERROR_REQUIRED_KEYS = [] as const
+export const ENTERPRISE_PRESET_OFFICIAL_ERROR_OPTIONAL_KEYS = ['code'] as const
+
+/** 一枚集合指纹：64 位小写十六进制（与 Host 的 `HEX64_PATTERN` 同形）。 */
+const PRESET_FINGERPRINT_SHAPE = /^[0-9a-f]{64}$/
+/** 归一化声明 id：小写 kebab（与 Host 的 `DECLARATION_ID_PATTERN` 同形）。 */
+const PRESET_DECLARATION_ID_SHAPE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+/** 官方失败码的受控形状（Host 的 `readOfficialError` 就是这么收窄的）。 */
+const PRESET_OFFICIAL_CODE_SHAPE = /^[a-z][a-z0-9-]{0,63}$/
+/** npm 包名形状（`installedNames` / `removedNames` / `packageName` 共用）。 */
+const PRESET_PACKAGE_NAME_SHAPE = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/
+/** 披露清单的条数上限（列表同族的 200 口径）。 */
+const PRESET_MAX_DISCLOSURE_ITEMS = 200
+/** 披露条目文本上限（Host 的配方描述上限是 2000，留一点余量）。 */
+const PRESET_MAX_DISCLOSURE_TEXT = 2048
+/** 名字类字段上限（与协议里 `installedNames` 同族）。 */
+const PRESET_MAX_NAME_LENGTH = 214
+
+function presetInvalid(): never {
+  throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+}
+
+function presetFingerprint(value: unknown): value is string {
+  return typeof value === 'string' && PRESET_FINGERPRINT_SHAPE.test(value)
+}
+
+function presetDeclarationId(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= 64 && PRESET_DECLARATION_ID_SHAPE.test(value)
+}
+
+/** 一个包名（非空、有界、形状受控）。 */
+function presetPackageName(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= PRESET_MAX_NAME_LENGTH && PRESET_PACKAGE_NAME_SHAPE.test(value)
+}
+
+/** 一组名字（`installedNames` / `removedNames`）：每一项都是包名，条数有界。 */
+function decodePresetNames(value: unknown): readonly string[] {
+  if (!Array.isArray(value) || value.length > PRESET_MAX_DISCLOSURE_ITEMS) presetInvalid()
+  if (!value.every(item => presetPackageName(item))) presetInvalid()
+  return value as string[]
+}
+
+/** 披露清单里的一段人话（`summary`）：允许空串（Host 侧用 manifest.name 兜底，但空串不是畸形）。 */
+function presetSummary(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= PRESET_MAX_DISCLOSURE_TEXT
+}
+
+/**
+ * 逐项校验披露清单。
+ *
+ * `bundles[].digest` 按 **64 位小写十六进制**收口：Host 的 `presetDisclosure` 只在
+ * `presetBundleSetFingerprint` 已经校验过 bundle digest 的前提下产出它，故这里出现别的形状
+ * 就是「Host 说了它自己保证不会说的话」——判畸形而不是放行一个假摘要。
+ */
+function decodePresetDisclosure(value: unknown): EnterprisePresetDisclosure {
+  const row = record(value)
+  if (row === undefined || !hasExactKeys(row, ENTERPRISE_PRESET_DISCLOSURE_KEYS)
+    || !presetFingerprint(row['fingerprint'])) presetInvalid()
+  const bundlesValue = row['bundles']
+  const mountsValue = row['mounts']
+  if (!Array.isArray(bundlesValue) || bundlesValue.length > PRESET_MAX_DISCLOSURE_ITEMS
+    || !Array.isArray(mountsValue) || mountsValue.length > PRESET_MAX_DISCLOSURE_ITEMS) presetInvalid()
+  const bundles = bundlesValue.map((item) => {
+    const bundle = record(item)
+    if (bundle === undefined || !hasExactKeys(bundle, ENTERPRISE_PRESET_DISCLOSURE_BUNDLE_KEYS)
+      || !presetPackageName(bundle['name'])
+      || !presetSummary(bundle['summary'])
+      || !presetFingerprint(bundle['digest'])) presetInvalid()
+    return {
+      name: bundle['name'] as string,
+      summary: bundle['summary'] as string,
+      digest: bundle['digest'] as string,
+    }
+  })
+  const mounts = mountsValue.map((item) => {
+    const mount = record(item)
+    if (mount === undefined || !hasExactKeys(mount, ENTERPRISE_PRESET_DISCLOSURE_MOUNT_KEYS)
+      || !nonEmptyString(mount['name']) || mount['name'].length > PRESET_MAX_NAME_LENGTH
+      || !presetSummary(mount['summary'])) presetInvalid()
+    return { name: mount['name'] as string, summary: mount['summary'] as string }
+  })
+  return { fingerprint: row['fingerprint'] as string, bundles, mounts }
+}
+
+/** `application` 三态（Host 的 `PresetApplicationKind`）。 */
+function decodePresetApplicationKind(value: unknown): EnterprisePresetApplicationKind {
+  if (!(ENTERPRISE_PRESET_APPLICATIONS as readonly unknown[]).includes(value)) presetInvalid()
+  return value as EnterprisePresetApplicationKind
+}
+
+/** 官方原值（只有拿到时才产出键；形状不认识**不**降级成 `other`——那会把 Host 的畸形说成事实）。 */
+function decodePresetOfficialApplication(
+  value: unknown,
+): EnterprisePresetOfficialApplication | undefined {
+  if (value === undefined) return undefined
+  if (!(ENTERPRISE_PRESET_OFFICIAL_APPLICATIONS as readonly unknown[]).includes(value)) presetInvalid()
+  return value as EnterprisePresetOfficialApplication
+}
+
+/** 官方失败的受控码（`{code}` 或空对象）。 */
+function decodePresetOfficialError(value: unknown): { readonly code?: string } | undefined {
+  if (value === undefined) return undefined
+  const row = record(value)
+  if (row === undefined
+    || !hasExactKeys(row, ENTERPRISE_PRESET_OFFICIAL_ERROR_REQUIRED_KEYS, ENTERPRISE_PRESET_OFFICIAL_ERROR_OPTIONAL_KEYS)) {
+    presetInvalid()
+  }
+  const code = row['code']
+  if (code === undefined) return {}
+  if (typeof code !== 'string' || !PRESET_OFFICIAL_CODE_SHAPE.test(code)) presetInvalid()
+  return { code }
+}
+
+/** 一条已装记录（八键必填；`version` 只按非空有界字符串收口，不在这里复刻 semver 判据）。 */
+function decodeInstalledPreset(value: unknown): EnterpriseInstalledPreset {
+  const row = record(value)
+  if (row === undefined || !hasExactKeys(row, ENTERPRISE_PRESET_INSTALLED_KEYS)
+    || !presetDeclarationId(row['declarationId'])
+    || !presetDeclarationId(row['recipeId'])
+    || !nonEmptyString(row['displayName']) || row['displayName'].length > 120
+    || !presetPackageName(row['packageName'])
+    || !presetFingerprint(row['fingerprint'])
+    || !nonEmptyString(row['version']) || row['version'].length > 64
+    || !timestamp(row['installedAt'])
+    || !(ENTERPRISE_PRESET_OFFICIAL_APPLICATIONS as readonly unknown[]).includes(row['officialApplication'])) {
+    presetInvalid()
+  }
+  return {
+    declarationId: row['declarationId'] as string,
+    recipeId: row['recipeId'] as string,
+    displayName: row['displayName'] as string,
+    packageName: row['packageName'] as string,
+    fingerprint: row['fingerprint'] as string,
+    version: row['version'] as string,
+    installedAt: row['installedAt'] as string,
+    officialApplication: row['officialApplication'] as EnterprisePresetOfficialApplication,
+  }
+}
+
+/**
+ * 严格解码 **一键启用** 的 200 响应。
+ *
+ * 必填位是 Host 侧 `EnterprisePresetEnableView` 的必填六键；`officialApplication` / `alreadyInstalled` /
+ * `officialError` 在 Host 侧就是可选（缺席即**不产出那个键**，而不是补一个假值）。
+ */
+export function decodeEnterprisePresetEnable(value: unknown): EnterprisePresetEnableResult {
+  const row = record(value)
+  if (row === undefined
+    || !hasExactKeys(row, ENTERPRISE_PRESET_ENABLE_REQUIRED_KEYS, ENTERPRISE_PRESET_ENABLE_OPTIONAL_KEYS)
+    || !presetDeclarationId(row['declarationId'])
+    || !presetFingerprint(row['fingerprint'])
+    || typeof row['needsNewSession'] !== 'boolean'
+    || (row['alreadyInstalled'] !== undefined && typeof row['alreadyInstalled'] !== 'boolean')) {
+    presetInvalid()
+  }
+  const application = decodePresetApplicationKind(row['application'])
+  const officialApplication = decodePresetOfficialApplication(row['officialApplication'])
+  const officialError = decodePresetOfficialError(row['officialError'])
+  return {
+    application,
+    ...(officialApplication === undefined ? {} : { officialApplication }),
+    installedNames: decodePresetNames(row['installedNames']),
+    needsNewSession: row['needsNewSession'] as boolean,
+    declarationId: row['declarationId'] as string,
+    fingerprint: row['fingerprint'] as string,
+    disclosure: decodePresetDisclosure(row['disclosure']),
+    ...(row['alreadyInstalled'] === undefined ? {} : { alreadyInstalled: row['alreadyInstalled'] as boolean }),
+    ...(officialError === undefined ? {} : { officialError }),
+  }
+}
+
+/** 严格解码 **停用** 的 200 响应（必填四键 + 可选 `officialApplication`）。 */
+export function decodeEnterprisePresetDisable(value: unknown): EnterprisePresetDisableResult {
+  const row = record(value)
+  if (row === undefined
+    || !hasExactKeys(row, ENTERPRISE_PRESET_DISABLE_REQUIRED_KEYS, ENTERPRISE_PRESET_DISABLE_OPTIONAL_KEYS)
+    || !presetDeclarationId(row['declarationId'])
+    || typeof row['linkRemoved'] !== 'boolean') {
+    presetInvalid()
+  }
+  const application = decodePresetApplicationKind(row['application'])
+  const officialApplication = decodePresetOfficialApplication(row['officialApplication'])
+  return {
+    application,
+    ...(officialApplication === undefined ? {} : { officialApplication }),
+    declarationId: row['declarationId'] as string,
+    removedNames: decodePresetNames(row['removedNames']),
+    linkRemoved: row['linkRemoved'] as boolean,
+  }
+}
+
+/**
+ * 严格解码 **启用前真值**（`status`）：授权三态 + 进行中 + 披露清单 + 已装记录。
+ *
+ * `installed` 是**必填位上的可空值**（`null` = 本机没装）——这与 `dependencies` 那种
+ * 「可选 = 键可以缺席」是两件事：主机一定回这个键，只是值可以是 null。
+ */
+export function decodeEnterprisePresetStatus(value: unknown): EnterprisePresetStatus {
+  const row = record(value)
+  if (row === undefined
+    || !hasExactKeys(row, ENTERPRISE_PRESET_STATUS_REQUIRED_KEYS)
+    || !enterpriseId(row['presetPackageId'])
+    || !presetDeclarationId(row['declarationId'])
+    || !presetFingerprint(row['fingerprint'])
+    || !(ENTERPRISE_PRESET_AUTHORIZATIONS as readonly unknown[]).includes(row['authorization'])
+    || typeof row['inFlight'] !== 'boolean') {
+    presetInvalid()
+  }
+  const installed = row['installed']
+  return {
+    presetPackageId: row['presetPackageId'] as string,
+    declarationId: row['declarationId'] as string,
+    fingerprint: row['fingerprint'] as string,
+    authorization: row['authorization'] as EnterprisePresetAuthorization,
+    inFlight: row['inFlight'] as boolean,
+    disclosure: decodePresetDisclosure(row['disclosure']),
+    installed: installed === null ? null : decodeInstalledPreset(installed),
+  }
 }
 
 export function decodeSessionSyncStatus(value: unknown): EnterpriseSessionSyncStatus {

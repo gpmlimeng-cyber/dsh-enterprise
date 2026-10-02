@@ -89,12 +89,14 @@ describe('enterprise Client plugin', () => {
     expect(stores[0]).toBe(stores[1])
     expect(stores[2]).toBe(stores[0])
     // 只有个人中心座位另带主题/桌面/快捷键三份只读源；设置区、市场入口、badge 槽只注入 store
-    // （市场入口多一份资料库管理门——它是本机设置，与企业账号 store 不是一回事）。
+    // （市场入口多两份：资料库管理门——它是本机设置，与企业账号 store 不是一回事；
+    //   配方降级链第二级的 `presetLaunch`——跳到新会话并把导入指令填进输入框）。
     const market = registrations[2]!.options['inject'] as () => Record<string, unknown>
     const marketFace = market()
-    expect(Object.keys(marketFace).sort()).toEqual(['libraryGate', 'store'])
+    expect(Object.keys(marketFace).sort()).toEqual(['libraryGate', 'presetLaunch', 'store'])
     expect(marketFace['store']).toBe(stores[2])
     expect(typeof (marketFace['libraryGate'] as { setEnabled?: unknown }).setEnabled).toBe('function')
+    expect(typeof marketFace['presetLaunch']).toBe('function')
     const badge = registrations[3]!.options['inject'] as () => Record<string, unknown>
     expect(badge()).toEqual({ store: stores[2] })
     // 【撤销锁】独立应用商店的两处注册面（`main` 面板 + `sidebar.panellist` 一级入口）必须都不再存在：

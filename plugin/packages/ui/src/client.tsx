@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖官方 slots/remote/connection 生命周期事件、EnterpriseAccountStore、brand-occupants 的三个品牌占用者与品牌座位源（`createEnterpriseBrandingSeats`／`bindEnterpriseBrandSeat`），以及宿主 ui-theme 与 shortcuts 服务（按需读取，不作硬注入），不创建传输连接；**本刀新增**资料库的本地设置门 `createEnterpriseLibraryGate`、目录取数源 `createEnterpriseLibraryCatalogSource` 与两处座位的接线器 `bindEnterpriseLibrarySeats`
- * [OUTPUT]: 注册账号/插件设置、官方 settings.launcher 座位上的账号菜单、官方插件页「官方」分组里的「插件市场」入口卡片（注册 `EnterpriseMarketLegacyPage`：官方两行卡片 + **点技能行本体在该 page 视图内整页切换到技能详情子页面**，**这是唯一市场入口**）与详情页标题行（`plugins.detail.badge` 槽只出「版本号 + 包名」，无「预览版」签、无可拨总开关）；「独立应用商店」的两处注册（官方 `main` 槽上的 `enterprise-store` 整页面板与 `sidebar.panellist` 一级入口，order 20）已在上一刀撤掉，本刀把它留下的 store 外壳死代码（`EnterpriseMarketStorePage`／`EnterpriseStoreIcon`／`ENTERPRISE_STORE_*`／HERO 与其样式文案／只服务它的搜索框）从 `marketplace-entry.tsx` 一并删除；**本刀新增企业品牌的三处消费点**：侧栏品牌行的两格（`sidebar.brand.mark`／`sidebar.brand.name`，priority **-10** 遮蔽官方 priority 0 的鱼标与字标）与「新会话」Hero 的品牌位（`conversation.hero.brand.mark`，priority **0**，官方无占用者），三处都经 `bindEnterpriseBrandSeat` 由品牌视图驱动——有企业品牌才注册、未配置或取数失败就撤掉注册，官方鱼标／官方 HeroFish 原样接管（渲染器 single 槽只要有 occupant 就不再走 `opts.fallback`，故「占用者返回 null」不能当降级路径）；宿主模型/凭据变化后按需读取状态，让请求触发的认证失效立即呈现；向菜单注入官方主题只读源、桌面能力面（动作 + 更新状态）与官方快捷键注册表只读源 **本刀（资料库）**：`apply` 末尾新增资料库的两处座位接线——`createEnterpriseLibraryGate`（本机设置里的管理门，默认关）驱动 `bindEnterpriseLibrarySeats` 在 `sidebar.panellist`（id `library`）与 `main`（key 同名）上做**视图驱动的注册/注销**（关就真撤，复用 brand-occupants 那套手法），并建一份目录取数源经 `main` 的 inject 面交给页面；`plugins.item` 的 inject 面因此从 `{store}` 扩成 `{store, libraryGate}`（组件行那枚「资料库」开关与企业会话 store 是两回事）。
+ * [OUTPUT]: 注册账号/插件设置、官方 settings.launcher 座位上的账号菜单、官方插件页「官方」分组里的「插件市场」入口卡片（注册 `EnterpriseMarketLegacyPage`：官方两行卡片 + **点技能行本体在该 page 视图内整页切换到技能详情子页面**，**这是唯一市场入口**）与详情页标题行（`plugins.detail.badge` 槽只出「版本号 + 包名」，无「预览版」签、无可拨总开关）；「独立应用商店」的两处注册（官方 `main` 槽上的 `enterprise-store` 整页面板与 `sidebar.panellist` 一级入口，order 20）已在上一刀撤掉，本刀把它留下的 store 外壳死代码（`EnterpriseMarketStorePage`／`EnterpriseStoreIcon`／`ENTERPRISE_STORE_*`／HERO 与其样式文案／只服务它的搜索框）从 `marketplace-entry.tsx` 一并删除；**本刀新增企业品牌的三处消费点**：侧栏品牌行的两格（`sidebar.brand.mark`／`sidebar.brand.name`，priority **-10** 遮蔽官方 priority 0 的鱼标与字标）与「新会话」Hero 的品牌位（`conversation.hero.brand.mark`，priority **0**，官方无占用者），三处都经 `bindEnterpriseBrandSeat` 由品牌视图驱动——有企业品牌才注册、未配置或取数失败就撤掉注册，官方鱼标／官方 HeroFish 原样接管（渲染器 single 槽只要有 occupant 就不再走 `opts.fallback`，故「占用者返回 null」不能当降级路径）；宿主模型/凭据变化后按需读取状态，让请求触发的认证失效立即呈现；向菜单注入官方主题只读源、桌面能力面（动作 + 更新状态）与官方快捷键注册表只读源 **本刀（资料库）**：`apply` 末尾新增资料库的两处座位接线——`createEnterpriseLibraryGate`（本机设置里的管理门，默认关）驱动 `bindEnterpriseLibrarySeats` 在 `sidebar.panellist`（id `library`）与 `main`（key 同名）上做**视图驱动的注册/注销**（关就真撤，复用 brand-occupants 那套手法），并建一份目录取数源经 `main` 的 inject 面交给页面；`plugins.item` 的 inject 面因此从 `{store}` 扩成 `{store, libraryGate}`（组件行那枚「资料库」开关与企业会话 store 是两回事）。 **本刀（配方一键启用）**：`plugins.item` 的 inject 面再增一件 `presetLaunch`——降级链第二级（跳到新会话并把导入指令填进输入框）的接线，由 `createEnterprisePresetLauncher(() => enterprisePresetSessionPortsFrom({uiWorkspace, workspaces, sessions, conversation}))` 在**每次点击时**经 `ctx.get` 现读官方那四件结构面（缺一即这一级不可用，界面如实说明并落到第三级）。
  * [POS]: dsh-ui 的浏览器组合根，只向 React 注入共享脱敏 store、主题源、桌面能力面与快捷键源，并把企业品牌的三个展示位挂到官方已声明的槽位上（品牌读取与 logo 渲染仍归 branding.ts，本文件不复制品牌逻辑），不注册任何全屏阻断层，也不自建第二份逻辑
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -24,6 +24,7 @@ import { bindEnterpriseLibrarySeats } from './library-entry.js'
 import { createEnterpriseLibraryGate } from './library-gate.js'
 import { createEnterpriseLibraryCatalogSource } from './library-panel.js'
 import { createEnterpriseLocalApi } from './local-api.js'
+import { createEnterprisePresetLauncher, enterprisePresetSessionPortsFrom } from './preset-launch.js'
 import {
   ENTERPRISE_MARKET_ENTRY_ID,
   ENTERPRISE_MARKET_ENTRY_LABEL,
@@ -58,6 +59,7 @@ export * from './marketplace-entry.js'
 export * from './menu-model.js'
 export * from './menu-styles.js'
 export * from './plugin-market.js'
+export * from './preset-launch.js'
 export * from './session-view.js'
 export * from './shortcuts-open.js'
 export * from './shortcuts-view.js'
@@ -159,7 +161,19 @@ export function apply(ctx: SlotContextPort): void {
     label: ENTERPRISE_MARKET_ENTRY_LABEL,
     // `libraryGate` 是「包含内容」里「资料库」那一行的管理开关（本机设置）：与设置区/个人中心共享的
     // 企业账号 store 不是一回事——一个是企业会话真值，一个是本机开关，故各注入各的。
-    inject: () => ({ store, libraryGate }),
+    // `presetLaunch` 是配方**降级链第二级**的接线（跳到新会话并把导入指令填进输入框）：官方那两件服务
+    // （`uiWorkspace` 的 `openWorkspace` 与 `conversation` 的会话输入面板）在别的包里、且可能晚于本插件挂载，
+    // 故这里**每次点击时才 `ctx.get` 一次**（与 theme/shortcuts 同一条「按需读取、缺席即降级」的既有手法）。
+    inject: () => ({
+      store,
+      libraryGate,
+      presetLaunch: createEnterprisePresetLauncher(() => enterprisePresetSessionPortsFrom({
+        uiWorkspace: ctx.get('uiWorkspace'),
+        workspaces: ctx.get('workspaces'),
+        sessions: ctx.get('sessions'),
+        conversation: ctx.get('conversation'),
+      })),
+    }),
   }, EnterpriseMarketLegacyPage as (props: never) => ReactNode))
   // 详情页标题行（官方 titleRow 的 h3 旁）只出「版本号 + 包名」——纯噪音的「预览版」文字签已删，
   // 标题行也没有可拨总开关（产品决策：拨不动的开关像坏的；功能开关在各行与「组件」页签里）。

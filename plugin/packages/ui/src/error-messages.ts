@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 接收任意 `ENT_*` 稳定错误码（来源可以是本地路由投影、store 快照、动作 promise 的 catch）
- * [OUTPUT]: 对外提供**唯一一份**错误码 → 员工可读呈现的纯投影：`enterpriseErrorPresentation`（人话 + 下一步动作 + 是否可重试 + 码原样保留）、`enterpriseErrorMessage` / `enterpriseErrorAction` / `enterpriseErrorRetryable` 与三条兜底常量。**本刀（资料库入口）**：新增三码——`ENT_LIBRARY_UNAVAILABLE`（资料库还没接线：页面失败态的「接入中」）、`ENT_LIBRARY_SETTING_READ_FAILED` / `ENT_LIBRARY_SETTING_SAVE_FAILED`（本机设置读/写失败：组件行那枚开关的失败态与重试），一律人话 + 下一步、不含裸码
+ * [OUTPUT]: 对外提供**唯一一份**错误码 → 员工可读呈现的纯投影：`enterpriseErrorPresentation`（人话 + 下一步动作 + 是否可重试 + 码原样保留）、`enterpriseErrorMessage` / `enterpriseErrorAction` / `enterpriseErrorRetryable` 与三条兜底常量。**本刀（资料库入口）**：新增三码——`ENT_LIBRARY_UNAVAILABLE`（资料库还没接线：页面失败态的「接入中」）、`ENT_LIBRARY_SETTING_READ_FAILED` / `ENT_LIBRARY_SETTING_SAVE_FAILED`（本机设置读/写失败：组件行那枚开关的失败态与重试），一律人话 + 下一步、不含裸码 **本刀（配方一键启用）**：新增十一枚配方启用码（`ENT_PRESET_AUTHORIZATION_REQUIRED` / `_AUTHORIZATION_STALE` / `_INSTALL_IN_PROGRESS` / `_INSTALL_CANCELLED` / `_STATE_INVALID` / `_RECIPE_INVALID` / `_INSTALL_FAILED` / `_UNINSTALL_FAILED` / `_BUNDLE_WRITE_FAILED` / `_ARTIFACT_UNAVAILABLE`）与降级链第二级那枚 `ENT_PRESET_LAUNCH_FAILED`（没打开新会话 → 请改用「复制导入指令」）。
  * [POS]: ui 的员工侧文案降维层（失败自愈）——产品宪法「必须给稳定错误码时，也要配对一句人话与下一步动作，禁止把技术码直接砸给用户」的唯一落点；界面只消费本模块，不再各写一份码表
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -140,6 +140,23 @@ const ENTERPRISE_ERROR_TABLE: Readonly<Record<string, { readonly message: string
   ENT_PRESET_NOT_PUBLISHED: { message: '这个配方还没有发布。', action: '请联系企业管理员确认发布状态。', retryable: false },
   ENT_PRESET_TOO_LARGE: { message: '配方超出企业允许的大小。', action: '请联系企业管理员重新发布。', retryable: false },
   ENT_PRESET_VISIBILITY_DENIED: { message: '这个配方不在你的可见范围内。', action: '请联系企业管理员开通可见范围。', retryable: false },
+  // 配方**一键启用**的码族（bundle 的 `preset/errors.ts` 抛出，经 platform-client 的
+  // `enterpriseLocalErrorStatus` 投影成 400/403/409/503）。retryable 只对**同一输入再试可能不同**的为 true：
+  // 未授权 / 指纹已变要员工先做一次确认（再试同样的请求必然还是被拒），故 false；
+  // 「进行中」「取消」与三枚本机/上游失败都是瞬时态，故 true。
+  ENT_PRESET_AUTHORIZATION_REQUIRED: { message: '这条配方还没有在你的设备上确认过。', action: '请先查看它会带来什么，确认后即可启用。', retryable: false },
+  ENT_PRESET_AUTHORIZATION_STALE: { message: '这条配方的内容已经变了。', action: '请重新查看并确认一次，再启用。', retryable: false },
+  ENT_PRESET_INSTALL_IN_PROGRESS: { message: '这条配方正在处理中。', action: '请等它结束后再操作。', retryable: true },
+  ENT_PRESET_INSTALL_CANCELLED: { message: '这次启用被取消了。', action: '请重新启用。', retryable: true },
+  ENT_PRESET_STATE_INVALID: { message: '本机的配方记录已损坏。', action: '请重试；仍然失败请联系企业管理员。', retryable: false },
+  ENT_PRESET_RECIPE_INVALID: { message: '这条配方的内容不符合规范，无法启用。', action: '请联系企业管理员重新发布这个配方。', retryable: false },
+  ENT_PRESET_INSTALL_FAILED: { message: '配方没有启用成功。', action: '请重试；仍然失败请联系企业管理员。', retryable: true },
+  ENT_PRESET_UNINSTALL_FAILED: { message: '配方没有停用干净。', action: '请重试；仍然失败请联系企业管理员。', retryable: true },
+  ENT_PRESET_BUNDLE_WRITE_FAILED: { message: '本机没有写出这条配方需要的文件。', action: '请重试；仍然失败请检查本机的存储权限。', retryable: true },
+  ENT_PRESET_ARTIFACT_UNAVAILABLE: { message: '暂时取不到这条配方的文件。', action: '请检查网络后重试；仍然失败请联系企业管理员。', retryable: true },
+  // 降级链第二级（跳到新会话并填入指令）自己那枚失败码：本机没有可落的新会话/输入框（离线、没有工作区、
+  // 官方那两件服务缺席或版本不匹配）。它**不代表**一键启用不可用，只说明这一级没走成 → 请改用第三级。
+  ENT_PRESET_LAUNCH_FAILED: { message: '没能为你打开一个新的会话。', action: '请改用「复制导入指令」，粘贴给助手即可。', retryable: true },
 
   // ── 企业品牌 ─────────────────────────────────────────────────────────────────
   ENT_BRANDING_ASSET_INVALID: { message: '企业标识图片无法使用。', action: '请联系企业管理员重新上传。', retryable: false },
