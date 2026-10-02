@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖成员/身份源 operation、用户组/身份接入管理器、console 权限、TanStack Query 与产品表格/对话框，共享 lib/crypto 生成 HTTP/HTTPS 通用幂等键。
- * [OUTPUT]: 提供 LOCAL 成员创建、成员目录、LDAP 单人导入、用户组、身份接入、角色/状态和身份绑定治理。
+ * [INPUT]: 依赖成员/身份源 operation、用户组/身份接入管理器、console 权限、TanStack Query、产品表格/对话框与 RowTitleLink，共享 lib/crypto 生成 HTTP/HTTPS 通用幂等键。
+ * [OUTPUT]: 提供 LOCAL 成员创建、成员目录（点成员标题或行末箭头都打开成员详情）、LDAP 单人导入、用户组、身份接入、角色/状态和身份绑定治理。
  * [POS]: features/members 的产品治理工作台；Server 独占 revision、身份源组同步、最后管理员和设备撤销裁决。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -35,6 +35,7 @@ import { SegmentedControl } from '@/components/atoms/SegmentedControl';
 import { StatusPill } from '@/components/atoms/StatusPill';
 import { ProductDataTable, type ProductTableColumn } from '@/components/product/DataTable';
 import { ProductDialog } from '@/components/product/Dialog';
+import { RowTitleLink } from '@/components/product/RowTitleLink';
 import { loadMemberPage } from '@/features/member-select';
 import { AccessGroupManagement } from './access-group-management';
 import { IdentitySourceManagement } from './identity-source-management';
@@ -175,14 +176,24 @@ async function loadLinkSources() {
   return page.items.filter((source) => source.status === 'ACTIVE' && source.type !== 'LOCAL');
 }
 
-function memberColumns(onOpen: (member: MemberSummary) => void): ReadonlyArray<ProductTableColumn<MemberSummary>> {
+/**
+ * 成员行标题是详情入口，行末箭头是既有的等价入口，两个都保留。
+ * 导出仅为让 spec 直接锁住"有详情才可点"的标题契约。
+ */
+export function memberColumns(onOpen: (member: MemberSummary) => void): ReadonlyArray<ProductTableColumn<MemberSummary>> {
   return [
   {
     accessorKey: 'displayName',
     header: '成员',
     cell: ({ row }) => (
       <div className="min-w-0">
-        <div className="truncate font-medium text-ink" title={row.original.displayName}>{row.original.displayName}</div>
+        <RowTitleLink
+          ariaLabel={`查看 ${row.original.displayName} 的详情`}
+          className="block truncate"
+          onOpen={() => onOpen(row.original)}
+        >
+          <span className="truncate" title={row.original.displayName}>{row.original.displayName}</span>
+        </RowTitleLink>
         <div className="truncate font-mono text-[11px] text-ink-3" title={row.original.username}>{row.original.username}</div>
       </div>
     ),

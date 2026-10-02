@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖生成的技能管理 operation、浏览器原生 multipart、成员目录、console 权限事实、TanStack Query、ProductDataTable、lib/crypto 幂等键与 features/skills 编辑器。
- * [OUTPUT]: 提供 .dshskill 上传 serializer、包级列表行投影 toSkillPackageRow、技能工作台，以及上传、发布、退休与全量范围替换的动作编排。
+ * [INPUT]: 依赖生成的技能管理 operation、浏览器原生 multipart、成员目录、console 权限事实、TanStack Query、ProductDataTable、RowTitleLink、lib/crypto 幂等键与 features/skills 编辑器。
+ * [OUTPUT]: 提供 .dshskill 上传 serializer、包级列表行投影 toSkillPackageRow、技能工作台，以及"点标题开技能包详情"的共享入口与上传、发布、退休、全量范围替换的动作编排。
  * [POS]: features/skills 的产品工作台；一个技能包聚合多个 SKILL.md 条目，服务端独占验包、状态机、CAS 与逐请求下载授权。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -27,6 +27,7 @@ import { randomUuid } from '@/lib/crypto';
 import { Button } from '@/components/atoms/Button';
 import { StatusPill } from '@/components/atoms/StatusPill';
 import { ProductDataTable, type ProductTableColumn } from '@/components/product/DataTable';
+import { RowTitleLink } from '@/components/product/RowTitleLink';
 import { useMembers } from '@/features/member-select';
 import {
   latestSkillVersionFrom,
@@ -99,6 +100,8 @@ export type SkillPackageRow = Omit<SkillSkillPackage, 'status'> & {
 /**
  * 包级行：把 versions/assignments 折叠成工作台需要的七列。
  * 服务端没有 updatedAt，故沿用最新版本的 createdAt（版本只增不改，语义等价）。
+ * 「技能包」标题是详情入口：onOpenTitle 由工作台注入 openDetail，标题因此与行末「详情」按钮等价；
+ * 不再需要详情时传空回调即可让标题退回纯文本（不留下看着能点却点不动的死按钮）。
  */
 export function toSkillPackageRow(skillPackage: SkillSkillPackage): SkillPackageRow {
   const latest = latestSkillVersionFrom(skillPackage.versions);
@@ -113,13 +116,20 @@ export function toSkillPackageRow(skillPackage: SkillSkillPackage): SkillPackage
   };
 }
 
-const skillColumns: ReadonlyArray<ProductTableColumn<SkillPackageRow>> = [
+function skillColumns(onOpenTitle: (row: SkillPackageRow) => void): ReadonlyArray<ProductTableColumn<SkillPackageRow>> {
+  return [
   {
     accessorKey: 'displayName',
     header: '技能包',
     cell: ({ row }) => (
       <div className="min-w-0">
-        <div className="truncate font-medium text-ink" title={row.original.displayName}>{row.original.displayName}</div>
+        <RowTitleLink
+          ariaLabel={`查看 ${row.original.displayName} 的详情`}
+          className="block truncate"
+          onOpen={() => onOpenTitle(row.original)}
+        >
+          <span className="truncate" title={row.original.displayName}>{row.original.displayName}</span>
+        </RowTitleLink>
         <div className="truncate font-mono text-[11px] text-ink-3" title={row.original.skillId}>{row.original.skillId}</div>
       </div>
     ),
@@ -156,7 +166,8 @@ const skillColumns: ReadonlyArray<ProductTableColumn<SkillPackageRow>> = [
     header: '更新时间',
     meta: { label: '更新时间', className: 'w-[160px]', cellClassName: 'w-[160px]' }
   }
-];
+  ];
+}
 
 /**
  * 操作列始终存在：读权限（ent:skill:read）也能看详情，写动作单独按 canWrite 与版本状态收窄。
@@ -170,7 +181,7 @@ function skillColumnsWithActions(
   onPublish: (version: SkillSkillVersion) => void,
   onRetire: (version: SkillSkillVersion) => void
 ): ReadonlyArray<ProductTableColumn<SkillPackageRow>> {
-  return [...skillColumns, {
+  return [...skillColumns(onDetail), {
     id: 'actions',
     header: '操作',
     enableGlobalFilter: false,

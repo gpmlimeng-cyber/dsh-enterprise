@@ -1,12 +1,12 @@
 /**
- * [INPUT]: 依赖上游 SidebarNav/ThemeToggle、DSH Enterprise 鲸鱼品牌资源、静态控制台路由与侧栏分组、同源产品官网 /home/、帮助中心 /help/ 与 API 文档 /api-docs/、TanStack navigation 与 Beautiful UI Harness tab bar 结构。
- * [OUTPUT]: 提供 DSH Enterprise 品牌工作区入口、角色过滤且按四个功能组 + 文档组分组的侧栏（组间分割线、空组不出线）、官网/帮助/接口文档外链入口、用户中心导航/Sign out、深浅主题、可关闭页面 tab、移动抽屉和内容窗口。
+ * [INPUT]: 依赖上游 SidebarNav/ThemeToggle、DSH Enterprise 鲸鱼品牌资源、静态控制台路由与主导航分组、product-routes 的底部工具项真源（同源产品官网 /home/、帮助中心 /help/ 与 API 文档 /api-docs/）、TanStack navigation 与 Beautiful UI Harness tab bar 结构。
+ * [OUTPUT]: 提供 DSH Enterprise 品牌工作区入口、角色过滤且按四个功能组分组的主导航侧栏（组间分割线、空组不出线）、侧栏最底部一行纯图标的官网/帮助/接口文档外链工具条（title + aria-label、新标签打开）、用户中心导航/Sign out、深浅主题、可关闭页面 tab、移动抽屉和内容窗口。
  * [POS]: app 的产品外壳；DOM、尺寸和交互直接由 Beautiful UI Harness 3ea4c181 迁移，工作区菜单只提供产品动作。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { Outlet, useNavigate, useRouteContext, useRouterState } from '@tanstack/react-router';
-import { BookOpen, CircleUserRound, CodeXml, ExternalLink, LogOut, Menu, UserPlus, X } from 'lucide-react';
+import { CircleUserRound, LogOut, Menu, UserPlus, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { logoutCurrentSession } from '@/auth/session';
 import SidebarNav, {
@@ -14,15 +14,21 @@ import SidebarNav, {
   type SidebarWorkspaceAction
 } from '@/components/primitives/SidebarNav';
 import { ThemeToggle } from '@/components/site/ThemeToggle';
-import { CONSOLE_ROUTES, isAccountRoute, isProductRoute, productRouteGroupsFor, productRoutesFor, type ProductRoute } from './product-routes';
+import {
+  CONSOLE_ROUTES,
+  PRODUCT_UTILITY_ROUTES,
+  isAccountRoute,
+  isProductRoute,
+  productRouteGroupsFor,
+  productRoutesFor,
+  type ProductRoute
+} from './product-routes';
 
-// 文档与官网是同源静态站点（不是 SPA 路由），
-// 新标签页打开，不进入页面 Tab 体系，也不参与 activeNav 高亮。
-const DOC_TARGETS: Record<string, string> = {
-  'docs-site': '/home/',
-  'docs-help': '/help/',
-  'docs-api': '/api-docs/'
-};
+// 底部工具条的目标地址来自 product-routes 真源：
+// 文档与官网是同源静态站点（不是 SPA 路由），新标签页打开，不进入页面 Tab 体系，也不参与 activeNav 高亮。
+const DOC_TARGETS: Record<string, string> = Object.fromEntries(
+  PRODUCT_UTILITY_ROUTES.map((item) => [item.key, item.href])
+);
 
 export function ConsoleShell() {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -40,28 +46,24 @@ export function ConsoleShell() {
 
   const go = (to: ProductRoute) => void navigate({ to });
   const closeMobileNav = () => dialogRef.current?.close();
-  // 侧栏分组：四个产品组由 product-routes 的角色过滤决定（整组无可见项时该组不会返回），
-  // 文档组恒非空，因此不会出现「首组前 / 末组后」或「空组留下」的孤立分割线。
-  const navGroups: SidebarNavGroup[] = [
-    ...productRouteGroupsFor(bootstrap.roles).map((group) => ({
-      key: group.key,
-      label: group.label,
-      items: group.items.map(({ to, label, icon: Icon }) => ({
-        key: to,
-        label,
-        icon: <Icon size={18} />
-      }))
-    })),
-    {
-      key: 'docs',
-      label: '文档与支持',
-      items: [
-        { key: 'docs-site', label: '产品官网', icon: <ExternalLink size={18} /> },
-        { key: 'docs-help', label: '帮助文档', icon: <BookOpen size={18} /> },
-        { key: 'docs-api', label: '接口文档', icon: <CodeXml size={18} /> }
-      ]
-    }
-  ];
+  // 主导航分组：四个产品组由 product-routes 的角色过滤决定（整组无可见项时该组不会返回），
+  // 因此不会出现「首组前 / 末组后」或「空组留下」的孤立分割线；
+  // 「文档与支持」已按行业通用做法摘出主导航，改由 SidebarNav 的 utilityItems 在侧栏底部渲染成一行纯图标。
+  const navGroups: SidebarNavGroup[] = productRouteGroupsFor(bootstrap.roles).map((group) => ({
+    key: group.key,
+    label: group.label,
+    items: group.items.map(({ to, label, icon: Icon }) => ({
+      key: to,
+      label,
+      icon: <Icon size={18} />
+    }))
+  }));
+  // 底部工具条只换承载位置：key / label / 图标 / 外链目标全部取自 product-routes 真源，行为与摘出前一致。
+  const utilityItems = PRODUCT_UTILITY_ROUTES.map(({ key, label, icon: Icon }) => ({
+    key,
+    label,
+    icon: <Icon size={18} />
+  }));
   const workspaceActions: SidebarWorkspaceAction[] = [];
   if (availableRoutes.some((route) => route.to === '/members')) {
     workspaceActions.push({ label: '邀请成员', icon: <UserPlus size={16} />, onClick: () => go('/members') });
@@ -110,6 +112,7 @@ export function ConsoleShell() {
         if (mobile) closeMobileNav();
       }}
       primaryAction={null}
+      utilityItems={utilityItems}
       workspace={{
         key: 'enterprise',
         name: 'DSH企业版',

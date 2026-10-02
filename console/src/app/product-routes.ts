@@ -1,11 +1,11 @@
 /**
  * [INPUT]: 依赖 OpenAPI 固定角色类型与 Lucide 免费图标。
- * [OUTPUT]: 提供九个导航页面、隐藏用户中心的静态元数据、四个静态侧栏分组（组名 + 组内路由）、路径判断、按角色过滤后的非空分组与多角色页面并集。
- * [POS]: app 的唯一控制台路由、前端页面可见性与侧栏分组真源，Server ent:* 权限仍独立裁决 API。
+ * [OUTPUT]: 提供九个导航页面、隐藏用户中心的静态元数据、四个主导航分组（组名 + 组内路由）、三个底部工具项（产品官网 / 帮助文档 / 接口文档的同源外链与语义图标）、路径判断、按角色过滤后的非空分组与多角色页面并集。
+ * [POS]: app 的唯一控制台路由、前端页面可见性与侧栏结构（主导航分组 + 底部工具条）真源，Server ent:* 权限仍独立裁决 API。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { Activity, BookOpen, Boxes, CircleUserRound, MessageSquare, Palette, Puzzle, ShieldCheck, Sparkles, Users, type LucideIcon } from 'lucide-react';
+import { Activity, BookOpen, Boxes, CircleUserRound, CodeXml, ExternalLink, MessageSquare, Palette, Puzzle, ShieldCheck, Sparkles, Users, type LucideIcon } from 'lucide-react';
 import type { AuthBuiltInRole } from '@/api/generated/types.gen';
 
 type ProductRouteDefinition = {
@@ -72,6 +72,34 @@ export function productRouteGroupsFor(roles: readonly AuthBuiltInRole[]): Produc
     return items.length > 0 ? [{ key: group.key, label: group.label, items }] : [];
   });
 }
+
+/**
+ * 侧栏底部工具项真源：产品官网 / 帮助文档 / 接口文档。
+ *
+ * 有意与 PRODUCT_ROUTES 分开建模，而不是把它们塞进某个主导航分组：
+ * · 它们不是 SPA 页面——没有 `allowedRoles`（角色矩阵一律不动），也不进 PRODUCT_ROUTES / CONSOLE_ROUTES，
+ *   因此路由守卫、页面 Tab、`isProductRoute` 与 `productRoutesFor` 完全不受影响；
+ * · `placement: 'utility'` 显式表达「这三项改由新建的侧栏底部纯图标条承载」，
+ *   所以从主导航分组里摘出的是承载位置，条目本身仍然完整保留在真源里（不是删除）；
+ * · `href` 继续承载现有外链目标（同源静态站点），保持「新标签 / 外部打开」的现状行为。
+ */
+export type ProductUtilityDefinition = {
+  key: string;
+  label: string;
+  icon: LucideIcon;
+  /** 同源静态站点地址（非 SPA 路由），沿用现状以 `_blank` + `noopener` 打开。 */
+  href: string;
+  /** 承载位置标记：唯一取值 `utility`，即侧栏底部纯图标工具条。 */
+  placement: 'utility';
+};
+
+export const PRODUCT_UTILITY_ROUTES = [
+  { key: 'docs-site', label: '产品官网', icon: ExternalLink, href: '/home/', placement: 'utility' },
+  { key: 'docs-help', label: '帮助文档', icon: BookOpen, href: '/help/', placement: 'utility' },
+  { key: 'docs-api', label: '接口文档', icon: CodeXml, href: '/api-docs/', placement: 'utility' }
+] as const satisfies readonly ProductUtilityDefinition[];
+
+export type ProductUtilityItem = (typeof PRODUCT_UTILITY_ROUTES)[number];
 
 export const ACCOUNT_ROUTE = { to: '/account', label: '用户中心', icon: CircleUserRound } as const;
 export const CONSOLE_ROUTES = [...PRODUCT_ROUTES, ACCOUNT_ROUTE] as const;

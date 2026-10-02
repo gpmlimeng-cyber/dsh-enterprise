@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Testing Library、Vitest、内存 history、静态角色元数据与完整产品 routeTree。
- * [OUTPUT]: 在仅有 getRandomValues 的 HTTP 环境验证五角色矩阵、侧栏分组与空组剔除、多身份登录、成员/LDAP/模型/策略写入、插件可见范围自主安装、技能目录页面及 Sign out。
+ * [OUTPUT]: 在仅有 getRandomValues 的 HTTP 环境验证五角色矩阵、侧栏主导航分组与空组剔除、底部纯图标工具条的文案/无障碍名/新标签外链行为、多身份登录、成员/LDAP/模型/策略写入、插件可见范围自主安装、技能目录页面及 Sign out。
  * [POS]: routes 的产品壳最小集成门禁，覆盖前端可见性但不替代 Server ent:* 权限测试。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -505,6 +505,58 @@ function mockApi(role: AuthBuiltInRole, logoutStatus = 200, permissions: string[
         requestId: 'req_quotas'
       });
     }
+    if (pathname.endsWith('/enterprise/admin/v1/skills')) {
+      return json({
+        data: {
+          items: [{
+            id: 'skill-package-1', skillId: 'weekly-report', displayName: '周报技能包',
+            status: 'ACTIVE', revision: 3,
+            versions: [{
+              id: 'skill-version-1', packageId: 'skill-package-1', skillId: 'weekly-report',
+              sourceDshVersion: '0.1.7-rc.2', sizeBytes: 2048, sha256: 'c'.repeat(64),
+              status: 'PUBLISHED', skillCount: 2, createdAt: '2026-09-01T00:00:00Z', revision: 2
+            }],
+            assignments: []
+          }],
+          page: { hasMore: false, limit: 100, nextCursor: null }
+        },
+        requestId: 'req_skills'
+      });
+    }
+    if (pathname.endsWith('/enterprise/admin/v1/feedback/feedback-1')) {
+      return json({
+        data: {
+          id: 'feedback-1', type: 'issue', status: 'new',
+          description: '导出按钮在移动端没有响应', contact: 'developer.one@example.org',
+          submitterId: '202', attachmentCount: 1,
+          occurredAt: '2026-09-02T03:00:00Z', revision: 1,
+          statusNote: null, statusChangedBy: null, statusChangedAt: null,
+          createdAt: '2026-09-02T03:05:00Z', updatedAt: '2026-09-02T03:05:00Z',
+          diagnostics: { hostVersion: '0.1.8', os: 'android-arm64' },
+          attachments: [{
+            id: 'attachment-1', seq: 1, url: 'https://example.invalid/feedback/1.png',
+            extension: 'png', contentType: 'image/png', width: 320, height: 240, sizeBytes: 2048
+          }]
+        },
+        requestId: 'req_feedback_detail'
+      });
+    }
+    if (pathname.endsWith('/enterprise/admin/v1/feedback')) {
+      return json({
+        data: {
+          items: [{
+            id: 'feedback-1', type: 'issue', status: 'new',
+            description: '导出按钮在移动端没有响应', contact: null,
+            submitterId: '202', attachmentCount: 1,
+            occurredAt: '2026-09-02T03:00:00Z', revision: 1,
+            statusNote: null, statusChangedBy: null, statusChangedAt: null,
+            createdAt: '2026-09-02T03:05:00Z', updatedAt: '2026-09-02T03:05:00Z'
+          }],
+          page: { hasMore: false, limit: 50, nextCursor: null }
+        },
+        requestId: 'req_feedback'
+      });
+    }
     if (pathname.endsWith('/enterprise/admin/v1/plugins')) {
       return json({
         data: {
@@ -672,21 +724,58 @@ describe('product console access', () => {
     const nav = screen.getAllByLabelText('产品导航')[0]! as HTMLElement;
     const sections = Array.from(nav.querySelectorAll('[data-nav-group]'))
       .map((element) => element.getAttribute('data-nav-group'));
-    expect(sections).toEqual(['models', 'audit', 'docs']);
+    // 「文档与支持」已从主导航摘出（改由底部纯图标条承载），主导航只剩角色可见的产品组
+    expect(sections).toEqual(['models', 'audit']);
     expect(nav.querySelector('[data-nav-group="content"]')).toBeNull();
     expect(nav.querySelector('[data-nav-group="org"]')).toBeNull();
+    expect(nav.querySelector('[data-nav-group="docs"]')).toBeNull();
 
     const list = nav.querySelector('[data-nav-group]')!.parentElement!;
     const sequence = Array.from(list.querySelectorAll(':scope > [data-nav-group], :scope > [data-nav-divider]'))
       .map((element) => (element.hasAttribute('data-nav-divider') ? 'divider' : `group:${element.getAttribute('data-nav-group')}`));
-    expect(sequence).toEqual(['group:models', 'divider', 'group:audit', 'divider', 'group:docs']);
-    expect(nav.querySelectorAll('[data-nav-divider]').length).toBe(2);
+    expect(sequence).toEqual(['group:models', 'divider', 'group:audit']);
+    expect(nav.querySelectorAll('[data-nav-divider]').length).toBe(1);
 
     const labelsIn = (key: string) => within(nav.querySelector(`[data-nav-group="${key}"]`) as HTMLElement)
       .getAllByRole('button').map((button) => button.textContent);
     expect(labelsIn('models')).toEqual(['模型', '访问策略']);
     expect(labelsIn('audit')).toEqual(['活动记录']);
-    expect(labelsIn('docs')).toEqual(['产品官网', '帮助文档', '接口文档']);
+
+    // 反向锁：三个文案不再作为主导航行出现，也不再渲染在任何主导航文字里
+    expect(within(list as HTMLElement).queryByRole('button', { name: '产品官网' })).toBeNull();
+    for (const label of ['产品官网', '帮助文档', '接口文档']) {
+      expect(nav.querySelector(`[data-nav-group] button[aria-label="${label}"]`)).toBeNull();
+      expect(within(list as HTMLElement).queryByText(label)).toBeNull();
+    }
+  });
+
+  it('keeps the three docs entries as one bottom row of pure icons that still open in a new tab', async () => {
+    const open = vi.fn();
+    vi.stubGlobal('open', open);
+    renderRoute('/', 'enterprise_admin');
+    expect(await screen.findByRole('heading', { name: '模型' })).toBeTruthy();
+
+    const nav = screen.getAllByLabelText('产品导航')[0]! as HTMLElement;
+    const strip = nav.querySelector('[data-nav-utilities]') as HTMLElement;
+    expect(strip).toBeTruthy();
+    // 纯图标：容器内没有文字，名称只由 title / aria-label 承载
+    expect(strip.textContent).toBe('');
+    expect(screen.queryByText('产品官网')).toBeNull();
+    expect(within(strip).getAllByRole('button').length).toBe(3);
+
+    const targets = [['产品官网', '/home/'], ['帮助文档', '/help/'], ['接口文档', '/api-docs/']] as const;
+    for (const [label, href] of targets) {
+      const button = within(strip).getByRole('button', { name: label });
+      expect(button.getAttribute('title')).toBe(label);
+      expect(button.tagName).toBe('BUTTON');
+      // 键盘可达：原生 button，焦点环沿用全局 :focus-visible
+      button.focus();
+      expect(document.activeElement).toBe(button);
+      fireEvent.click(button);
+      // 外链行为与摘出前一致：新标签、外部打开
+      expect(open).toHaveBeenLastCalledWith(href, '_blank', 'noopener');
+    }
+    expect(open).toHaveBeenCalledTimes(3);
   });
 
   it('renders the product member directory and continues with the Server cursor', async () => {
@@ -1164,6 +1253,75 @@ describe('product console access', () => {
       pathname: '/enterprise/admin/v1/plugins/plugin-1/assignments/batch'
     });
     expect(writes[0]!.idempotencyKey).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it('opens the skill package detail from the row title while the detail action button stays usable', async () => {
+    renderRoute('/skills', 'enterprise_admin');
+    expect(await screen.findByRole('button', { name: '查看 周报技能包 的详情' })).toBeTruthy();
+    expect(screen.getByText('weekly-report')).toBeTruthy();
+    expect(screen.queryByRole('dialog', { name: '技能包详情' })).toBeNull();
+
+    // 标题即入口：可读名带上该行主体名，而不是裸「详情」。
+    const title = screen.getByRole('button', { name: '查看 周报技能包 的详情' });
+    expect(title.tagName).toBe('BUTTON');
+    expect(title.textContent).toBe('周报技能包');
+    expect(title.tabIndex).toBe(0);
+
+    fireEvent.click(title);
+    const dialog = await screen.findByRole('dialog', { name: '技能包详情' });
+    expect(within(dialog).getByRole('heading', { name: '技能包详情' })).toBeTruthy();
+
+    // 关闭技能包详情后行末入口仍可用。页脚「关闭」与头部同名的关闭按钮用 aria-label 精确命中头部按钮。
+    fireEvent.click(within(dialog).getByLabelText('关闭'));
+
+    // 既有入口没有被新入口取代：行末「详情」按钮仍然可用。
+    expect(screen.getByRole('button', { name: '查看 weekly-report 详情' })).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '技能包详情' })).toBeNull());
+  });
+
+  it('opens the feedback detail from the row title with keyboard only', async () => {
+    renderRoute('/feedback', 'enterprise_admin');
+    expect(await screen.findByText('Developer One')).toBeTruthy();
+    expect(screen.queryByRole('dialog', { name: '反馈详情' })).toBeNull();
+
+    const title = await screen.findByRole('button', { name: '查看反馈 导出按钮在移动端没有响应 的详情' });
+    fireEvent.keyDown(title, { key: 'Enter' });
+
+    const dialog = await screen.findByRole('dialog', { name: '反馈详情' });
+    expect(await within(dialog).findByAltText('附件 1')).toBeTruthy();
+    // 既有「查看反馈 <id>」按钮保留，不因新增标题入口而被删除。
+    expect(screen.getByRole('button', { name: '查看反馈 feedback-1' })).toBeTruthy();
+  });
+
+  it('keeps table row titles plain and unclickable when the page has an edit form but no detail view', async () => {
+    renderRoute('/access', 'enterprise_admin', 200, ['ent:grant:write']);
+    expect(await screen.findByRole('button', { name: '编辑模型授权' })).toBeTruthy();
+
+    // 访问策略只有编辑/删除表单，没有详情：标题不得是可聚焦入口，也不得出现详情可读名。
+    expect(screen.queryByRole('button', { name: /的详情/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /gpt-5\.6-sol/ })).toBeNull();
+    expect(screen.getByText('gpt-5.6-sol').className).not.toContain('cursor-pointer');
+
+    // 整行也没有被包成可点区域：行内可点元素只有列头排序、行内动作与分页。
+    const row = screen.getByText('gpt-5.6-sol').closest('tr') as HTMLElement;
+    expect(row).not.toBeNull();
+    expect(within(row).queryAllByRole('button').map((button) => button.getAttribute('aria-label')))
+      .toEqual(['编辑模型授权', '删除模型授权']);
+  });
+
+  it('opens the member detail from the member row title', async () => {
+    renderRoute('/members', 'enterprise_admin', 200, ['ent:member:write']);
+    expect(await screen.findByText('Developer One')).toBeTruthy();
+
+    const title = screen.getByRole('button', { name: '查看 Developer One 的详情' });
+    expect(title.tagName).toBe('BUTTON');
+    expect(title.tabIndex).toBe(0);
+
+    fireEvent.keyDown(title, { key: ' ' });
+    const dialog = await screen.findByRole('dialog', { name: 'Developer One' });
+    expect(within(dialog).getByText('Developer Mac')).toBeTruthy();
+    // 既有行末箭头入口保留：读权限也能打开详情，新入口不是替代品。
+    expect(screen.getByRole('button', { name: '查看 Developer One' })).toBeTruthy();
   });
 });
 

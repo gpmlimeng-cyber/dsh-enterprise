@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 React portal/state、Lucide 免费图标、GlideMenu 与可选工作区品牌/导航数据。
- * [OUTPUT]: 对外提供保留上游默认行为且可注入产品导航、可选分组导航（组间分割线、空组自动消失）和工作区图标的 SidebarNav、SidebarNavItem、SidebarNavGroup、SidebarWorkspace 类型。
- * [POS]: components/primitives 的共享 Harness 侧栏；examples 使用上游默认平铺值，产品壳注入业务数据和分组。
+ * [INPUT]: 依赖 React portal/state、Lucide 免费图标、GlideMenu 与可选工作区品牌/导航/底部工具项数据。
+ * [OUTPUT]: 对外提供保留上游默认行为且可注入产品导航、可选分组导航（组间分割线、空组自动消失）、可选底部纯图标工具条（title + aria-label、折叠态转纵列）和工作区图标的 SidebarNav、SidebarNavItem、SidebarNavGroup、SidebarWorkspace 类型。
+ * [POS]: components/primitives 的共享 Harness 侧栏；examples 使用上游默认平铺值，产品壳注入业务数据、分组与底部工具项。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -71,6 +71,12 @@ type SidebarNavProps = {
   navItems?: SidebarNavItem[];
   /** 分组主导航；提供时忽略 navItems 的平铺渲染，组间以既有 `h-px bg-line` 分割线区隔 */
   navGroups?: SidebarNavGroup[];
+  /**
+   * 侧栏底部工具项（行业通用做法：把工具类外链收在侧栏最底部的一行纯图标里）。
+   * 只读 label + icon；渲染为原生 button，不进入主导航列表、组间分割线与高亮，
+   * 与主导航之间以一条分割线区隔，展开态横排、折叠态（52px 图标轨）转纵列。
+   */
+  utilityItems?: SidebarNavItem[];
   onNewChat?: () => void;
   onPick?: (id: string, label: string, prompt?: string) => void;
   /** controlled primary-nav selection (e.g. "home" | "invite") */
@@ -119,6 +125,33 @@ function GlideGroup({ children }: { children: ReactNode }) {
     >
       {children}
     </GlideMenu>
+  );
+}
+
+/**
+ * 侧栏底部工具条的单枚按钮：纯图标（不渲染任何文字），名称由 `title`（悬停提示）
+ * 与 `aria-label`（无障碍名）双重承载；是真按钮，因此天然可 Tab 聚焦，父级不挂点击事件。
+ */
+function UtilityIconButton({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      onClick={onClick}
+      className="ml-0.5 flex size-8 shrink-0 items-center justify-center rounded-[8px] text-ink-3
+        transition-[background-color,color,transform] duration-150 hover:bg-hover-2 hover:text-ink active:scale-[0.96]"
+    >
+      {icon}
+    </button>
   );
 }
 
@@ -227,6 +260,7 @@ export default function SidebarNav({
   historyLabel = "Chats",
   navItems = DEFAULT_NAV_ITEMS,
   navGroups,
+  utilityItems = [],
   onNewChat,
   onPick,
   activeNav,
@@ -301,7 +335,7 @@ export default function SidebarNav({
     <aside
       data-sidebar-collapsed={isCollapsed}
       aria-label={ariaLabel}
-      className={`relative flex shrink-0 overflow-hidden transition-[width] ${fill ? "h-full" : "h-[600px]"} ${className}`}
+      className={`group/sidebar relative flex shrink-0 overflow-hidden transition-[width] ${fill ? "h-full" : "h-[600px]"} ${className}`}
       style={{
         width: isCollapsed ? SIDEBAR_MOTION.collapsedWidth : SIDEBAR_MOTION.expandedWidth,
         transitionDuration: `${SIDEBAR_MOTION.duration}ms`,
@@ -501,6 +535,28 @@ export default function SidebarNav({
             {footerLabel}
           </button>
         </div>}
+
+        {/* 底部工具条：常驻侧栏最底部，与主导航之间一条分割线（沿用既有 border-line 取值）。
+            展开态是横向一行纯图标，左边距沿用主导航图标的 8px 内缩 + 2px 校正（图标圆心同为 x=26）；
+            折叠态（52px 图标轨）改为纵向一列并左对齐，使每枚图标仍居中于 x=26，不溢出也不被裁掉。 */}
+        {utilityItems.length > 0 && (
+          <div
+            data-nav-utilities
+            role="group"
+            aria-label="文档与支持"
+            className="mx-2 mt-3 flex shrink-0 flex-row gap-2 border-t border-line pb-1 pt-2
+              group-data-[sidebar-collapsed=true]/sidebar:flex-col group-data-[sidebar-collapsed=true]/sidebar:items-start"
+          >
+            {utilityItems.map((item) => (
+              <UtilityIconButton
+                key={item.key}
+                icon={item.icon}
+                label={item.label}
+                onClick={() => onNavigate?.(item.key)}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </aside>
   );

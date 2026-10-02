@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖生成的反馈管理 operation、console 权限事实、TanStack InfiniteQuery、成员目录、ProductDataTable 与反馈详情视图。
- * [OUTPUT]: 提供状态分段筛选、keyset 续页列表、详情弹窗与分诊/解决/忽略动作。
+ * [INPUT]: 依赖生成的反馈管理 operation、console 权限事实、TanStack InfiniteQuery、成员目录、ProductDataTable、RowTitleLink 与反馈详情视图。
+ * [OUTPUT]: 提供状态分段筛选、keyset 续页列表、"点标题开反馈详情"与行末详情按钮两个等价入口，以及分诊/解决/忽略动作。
  * [POS]: features/feedback 的产品反馈工作台；服务端独占状态机、revision CAS 与审计。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -21,6 +21,7 @@ import { Button } from '@/components/atoms/Button';
 import { SegmentedControl } from '@/components/atoms/SegmentedControl';
 import { StatusPill } from '@/components/atoms/StatusPill';
 import { ProductDataTable, type ProductTableColumn } from '@/components/product/DataTable';
+import { RowTitleLink } from '@/components/product/RowTitleLink';
 import { useMembers } from '@/features/member-select';
 import {
   FEEDBACK_STATUS_LABELS,
@@ -81,14 +82,24 @@ export function formatFeedbackDate(value: string | null | undefined) {
 
 type FeedbackRow = FeedbackItemDto & { submitterName: string };
 
-function feedbackColumns(onOpen: (row: FeedbackRow) => void): ReadonlyArray<ProductTableColumn<FeedbackRow>> {
+/**
+ * 反馈行标题是详情入口，行末「查看反馈 <id>」按钮是既有的等价入口，两个都保留。
+ * 导出仅为让 spec 直接锁住"有详情才可点"的标题契约。
+ */
+export function feedbackColumns(onOpen: (row: FeedbackRow) => void): ReadonlyArray<ProductTableColumn<FeedbackRow>> {
   return [
     {
       accessorKey: 'description',
       header: '反馈内容',
       cell: ({ row }) => (
         <div className="min-w-0">
-          <div className="truncate font-medium text-ink" title={row.original.description}>{row.original.description}</div>
+          <RowTitleLink
+            ariaLabel={`查看反馈 ${row.original.description} 的详情`}
+            className="block truncate"
+            onOpen={() => onOpen(row.original)}
+          >
+            <span className="truncate" title={row.original.description}>{row.original.description}</span>
+          </RowTitleLink>
           <div className="truncate font-mono text-[11px] text-ink-3">
             {FEEDBACK_TYPE_LABELS[row.original.type]} · {row.original.id}
           </div>
