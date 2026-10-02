@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 marketplace-entry 的注册常量、**页签真源**（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`）、组件清单/摘要/状态/开关语义纯投影、企业插件行投影、企业技能行投影（含详情归并的中心版本 `latestVersionId`，以及标题行两枚标签的取值：列表投影的 `sourceDshVersion` 与可选 `category`）与可见性门控、标题行标签纯投影 `enterpriseMarketSkillVersionTag`/`enterpriseMarketSkillCategoryTag`、技能节受管态纯投影 `enterpriseMarketSkillState`、「有更新」判定 `enterpriseMarketSkillHasUpdate`/`enterpriseMarketSkillRowHasUpdate` 与辅助标签投影 `enterpriseMarketSkillUpdateTag`、**组件页签折叠态常量** `ENTERPRISE_MARKET_DEFAULT_EXPANDED`、失败行内提示投影 `enterpriseMarketActionErrorLabel`、入口组件与版本签组件本身、**页签文案计数投影** `enterpriseMarketTabLabel`，以及 local-api-decode 的 `EnterpriseRuntimeSkill`/`EnterpriseInstalledSkill` 形状
- * [OUTPUT]: 验证入口身份常量、卡片一句话的单行约束、**page 视图的三页签商店结构**（页签条手写 `role="tablist"`、三个页签的 `aria-selected`/`aria-controls`/roving `tabIndex`/`id` 与三个 `role="tabpanel"` 的 `aria-labelledby` 严格配对、**默认选中「企业技能」**、切换后**只渲染该页签内容**、←/→/Home/End 走焦并选中、鼠标点击回调）、组件清单（插件/技能/配方）顺序与 reserved 语义、计数摘要口径、summary/page 两视图结构（page 上的组件行在「组件」页签里，且 page 不重画标题/desc）、版本签只对本条目 subject 出、企业插件页签的归并与门控，以及**企业技能页签的官方两行卡片**（第 1 行标题 + 紧随的**版本签 `sourceDshVersion`** 与**可选分类签 `category`**——分类缺席/null/空串时该签不出现、第 1 行 nowrap 单行锁 20px 行高故加签不撑高、标题先省略标签保持可见；第 2 行描述各自成行、描述单行省略、旧元信息行退场）/可见性门控/计数/右侧那枚官方 `Switch`（`checked` 反映已装、在途 `disabled`、`label` 给动作语义、`onChange(next)` 两个方向都回调）与受管态投影（未装/已装/有更新/在途），以及**开关左侧那枚辅助标签**（只在「有更新」时出现、`aria-label`=`更新企业技能 X`、点击走安装方向、在途 `disabled` 不消失、未装/已装同版本一律不出现、标签严格排在 Switch 左侧），以及**「有更新」独立用例**（只有两侧 `versionId` 参与、`sha256` 换值不改结论、缺任一侧不判），以及**只改技能行**的回归锁（技能行有 Switch + 辅助标签、企业插件行一字未动），以及**两节行上的失败可见反馈**（失败 → 该行 role="alert" + 稳定错误码、只落失败行、失败后开关仍可拨重试、成功路径不出现该提示），以及**页签化后唯一剩下的组件节折叠**（`ENTERPRISE_MARKET_DEFAULT_EXPANDED` 单字段、aria 契约、折叠态列表不进 DOM），以及**详情页顶部压缩的取值锁**（badge 只剩版本号一签 + 包名、「预览版」签不再出现；`.own-market-tabs` `margin-top:0` + `flex-wrap:nowrap`、`.own-market-section` `margin-top:12px`、`.own-market-tab` `white-space:nowrap`/13-20；`.own-market-sectionMeta` 类规则整条删除且 DOM 不再有该容器，计数改由页签文案承载「企业技能 3」）
- * [POS]: dsh-ui 插件市场入口的产品词汇门禁，真实渲染与视觉由 Harness 快照与真机验收覆盖
+ * [INPUT]: 依赖 marketplace-entry 的注册常量、**页签真源**（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`）、组件清单/摘要/状态/开关语义纯投影、企业插件行投影、企业技能行投影（含详情归并的中心版本 `latestVersionId`，以及标题行两枚标签的取值：列表投影的 `sourceDshVersion` 与可选 `category`）与可见性门控、标题行标签纯投影 `enterpriseMarketSkillVersionTag`/`enterpriseMarketSkillCategoryTag`、技能节受管态纯投影 `enterpriseMarketSkillState`、「有更新」判定 `enterpriseMarketSkillHasUpdate`/`enterpriseMarketSkillRowHasUpdate` 与辅助标签投影 `enterpriseMarketSkillUpdateTag`、**组件页签折叠态常量** `ENTERPRISE_MARKET_DEFAULT_EXPANDED`、失败行内提示投影 `enterpriseMarketActionErrorLabel`、入口组件与版本签组件本身、**页签文案计数投影** `enterpriseMarketTabLabel`，以及 local-api-decode 的 `EnterpriseRuntimeSkill`/`EnterpriseInstalledSkill` 形状与应用商店共享身份常量（`ENTERPRISE_STORE_PANEL_ID`/`ENTERPRISE_STORE_ENTRY_LABEL`/`ENTERPRISE_STORE_ENTRY_ORDER`/`ENTERPRISE_STORE_PANEL_VIEW`）、侧栏图标 `EnterpriseStoreIcon`，以及 `client.tsx` 的 `apply`/`inject` 真注册面（最小 slots double）
+ * [OUTPUT]: 验证入口身份常量、卡片一句话的单行约束、**page 视图的三页签商店结构**（页签条手写 `role="tablist"`、三个页签的 `aria-selected`/`aria-controls`/roving `tabIndex`/`id` 与三个 `role="tabpanel"` 的 `aria-labelledby` 严格配对、**默认选中「企业技能」**、切换后**只渲染该页签内容**、←/→/Home/End 走焦并选中、鼠标点击回调）、组件清单（插件/技能/配方）顺序与 reserved 语义、计数摘要口径、summary/page 两视图结构（page 上的组件行在「组件」页签里，且 page 不重画标题/desc）、版本签只对本条目 subject 出、企业插件页签的归并与门控，以及**企业技能页签的官方两行卡片**（第 1 行标题 + 紧随的**版本签 `sourceDshVersion`** 与**可选分类签 `category`**——分类缺席/null/空串时该签不出现、第 1 行 nowrap 单行锁 20px 行高故加签不撑高、标题先省略标签保持可见；第 2 行描述各自成行、描述单行省略、旧元信息行退场）/可见性门控/计数/右侧那枚官方 `Switch`（`checked` 反映已装、在途 `disabled`、`label` 给动作语义、`onChange(next)` 两个方向都回调）与受管态投影（未装/已装/有更新/在途），以及**开关左侧那枚辅助标签**（只在「有更新」时出现、`aria-label`=`更新企业技能 X`、点击走安装方向、在途 `disabled` 不消失、未装/已装同版本一律不出现、标签严格排在 Switch 左侧），以及**「有更新」独立用例**（只有两侧 `versionId` 参与、`sha256` 换值不改结论、缺任一侧不判），以及**只改技能行**的回归锁（技能行有 Switch + 辅助标签、企业插件行一字未动），以及**两节行上的失败可见反馈**（失败 → 该行 role="alert" + 稳定错误码、只落失败行、失败后开关仍可拨重试、成功路径不出现该提示），以及**页签化后唯一剩下的组件节折叠**（`ENTERPRISE_MARKET_DEFAULT_EXPANDED` 单字段、aria 契约、折叠态列表不进 DOM），以及**详情页顶部压缩的取值锁**（badge 只剩版本号一签 + 包名、「预览版」签不再出现；`.own-market-tabs` `margin-top:0` + `flex-wrap:nowrap`、`.own-market-section` `margin-top:12px`、`.own-market-tab` `white-space:nowrap`/13-20；`.own-market-sectionMeta` 类规则整条删除且 DOM 不再有该容器，计数改由页签文案承载「企业技能 3」），以及**二期结构切片的注册形状门禁**（`main` key 与 `sidebar.panellist` id 同值 = `enterprise-store`、order 20 排在官方实测 plugins=0/schedules=10 之后、label「应用商店」、图标为函数组件、`inject` 声明含 `layout`）与**一份实现两处入口门禁**（两处注册同一个 `EnterpriseMarketPage`、面板注册面注入的 `view` 恒为 `ENTERPRISE_STORE_PANEL_VIEW='page'` 且 store 与卡片同源；`plugins.item` 的 page 与新面板产出的三页签商店在 `role="tablist"`/三个页签的 id 与文案/aria 配对/开关动作名/全树可见文本上逐项一致）
+ * [POS]: dsh-ui 插件市场入口与独立应用商店座位（主内容区面板 + 侧栏一级入口）的产品词汇门禁，真实渲染与视觉由 Harness 快照与真机验收覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -10,6 +10,7 @@ import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { EnterpriseInstalledSkill, EnterpriseRuntimeSkill } from '../src/local-api-decode.js'
+import { apply, inject } from '../src/client.js'
 import {
   ENTERPRISE_MARKET_COMPONENTS,
   ENTERPRISE_MARKET_DEFAULT_EXPANDED,
@@ -24,6 +25,11 @@ import {
   ENTERPRISE_MARKET_TAB_IDS,
   ENTERPRISE_MARKET_TABLIST_LABEL,
   ENTERPRISE_MARKET_TABS,
+  ENTERPRISE_STORE_ENTRY_LABEL,
+  ENTERPRISE_STORE_ENTRY_ORDER,
+  ENTERPRISE_STORE_PANEL_ID,
+  ENTERPRISE_STORE_PANEL_VIEW,
+  EnterpriseStoreIcon,
   BadgeView,
   EnterpriseMarketBadge,
   EnterpriseMarketEntry,
@@ -1098,6 +1104,129 @@ describe('enterprise marketplace entry', () => {
     expect(collectElementById(componentsTab, 'market-section-components')).not.toBeUndefined()
   })
 })
+
+/**
+ * 二期结构切片：应用商店从「官方插件页内的一个 page」升级为「**侧栏一级入口 + 主内容区整页面板**」，
+ * 两条入口（`plugins.item` 的 card/page 与新的 `main` key `enterprise-store` + `sidebar.panellist`）并存。
+ * 这里锁两件事：
+ *  ① **注册形状**——slot 名、`main.key` 与 `sidebar.panellist.id` 同值、order=20、label「应用商店」、图标存在、
+ *     `inject` 声明含 `layout`；
+ *  ② **一份实现两处入口**——两处注册的是**同一个组件函数**（`EnterpriseMarketPage`），面板侧只在注册时注入
+ *     等价 props（`view` 恒为 `ENTERPRISE_STORE_PANEL_VIEW='page'`，与 item 的 page 同值、store 同源），
+ *     因此两处产出的三页签商店结构逐项一致（任何「复制一份实现」都会在这里分叉出来）。
+ */
+describe('the enterprise store panel and its sidebar entry', () => {
+  it('registers the main panel and the sidebar entry with matching id/key, order 20 and the 应用商店 label', () => {
+    const { injected, registrations } = runClientRegistrations()
+    // `layout` 是「从商店跳回官方插件列表」（ctx.layout.selectPanel('plugins')）的必要声明。
+    expect([...inject]).toEqual(['slots', 'remote', 'layout'])
+    expect(injected).toContain('main')
+    expect(injected).toContain('sidebar.panellist')
+
+    const panel = registrations.find(entry => entry.options['name'] === 'main')!
+    const sidebar = registrations.find(entry => entry.options['name'] === 'sidebar.panellist')!
+    expect(panel.options).toMatchObject({ name: 'main', key: 'enterprise-store' })
+    expect(sidebar.options).toMatchObject({
+      name: 'sidebar.panellist',
+      id: 'enterprise-store',
+      order: 20,
+      label: '应用商店',
+    })
+    // 官方契约「每个 list id 对应同名 main 面板」：两处必须同值，否则点击命中 selectPanel 的「未注册」抛错。
+    expect(sidebar.options['id']).toBe(panel.options['key'])
+    expect(sidebar.options['id']).toBe(ENTERPRISE_STORE_PANEL_ID)
+    expect(ENTERPRISE_STORE_ENTRY_LABEL).toBe('应用商店')
+    expect(ENTERPRISE_STORE_ENTRY_ORDER).toBe(20)
+    // 排在官方实测占用（plugins=0、schedules=10）之后。
+    expect(ENTERPRISE_STORE_ENTRY_ORDER).toBeGreaterThan(10)
+    // 图标：侧栏 owner props 是 { size, active }，本组件消费 size（函数组件、真实元素）。
+    expect(typeof sidebar.component).toBe('function')
+    expect(sidebar.component).toBe(EnterpriseStoreIcon)
+    const icon = EnterpriseStoreIcon({ size: 18 })
+    expect(isValidElement(icon)).toBe(true)
+    expect(isValidElement(icon) ? icon.props['size'] : undefined).toBe(18)
+  })
+
+  it('renders one and the same three-tab store through both entries', () => {
+    const { registrations } = runClientRegistrations()
+    const item = registrations.find(entry => entry.options['name'] === 'plugins.item')!
+    const panel = registrations.find(entry => entry.options['name'] === 'main')!
+    // ① 一份实现两处入口：两处注册的是**同一个组件函数**（没有复制第二份商店）。
+    expect(panel.component).toBe(item.component)
+    // ② 面板侧不读官方 owner props，而在注册面注入等价 props：view 恒为 'page'、store 与卡片同源。
+    const panelProps = (panel.options['inject'] as () => Record<string, unknown>)()
+    const itemProps = (item.options['inject'] as () => Record<string, unknown>)()
+    expect(panelProps['view']).toBe(ENTERPRISE_STORE_PANEL_VIEW)
+    expect(ENTERPRISE_STORE_PANEL_VIEW).toBe('page')
+    expect(panelProps['store']).toBe(itemProps['store'])
+
+    const props = {
+      sessionUsable: true,
+      enterpriseSkills: enterpriseMarketSkillRows([SKILL]),
+      enterprisePlugins: [{ packageName: 'ent-a', version: '1.2.0', state: 'ACTIVE', inCatalog: true }] as never,
+    }
+    // 树① = plugins.item 的 page 视图（官方把 owner props 的 view 传成 'page'）；
+    // 树② = 新面板（client.tsx 注入的正是上面读出的那个 view 值）。
+    const viaItemPage = EnterpriseMarketEntry({ view: 'page', ...props })
+    const viaStorePanel = EnterpriseMarketEntry({ view: panelProps['view'] as 'page', ...props })
+    /** 只取「关键结构」：页签条/页签/面板的 aria 配对、右侧开关的动作名与全树可见文本。 */
+    const shapeOf = (tree: ReactNode) => ({
+      tablist: collectByRole(tree, 'tablist').map(node => node['aria-label']),
+      tabs: collectByRole(tree, 'tab').map(node => ({
+        id: node['id'],
+        label: node['children'],
+        selected: node['aria-selected'],
+        controls: node['aria-controls'],
+        tabIndex: node['tabIndex'],
+      })),
+      panels: collectByRole(tree, 'tabpanel').map(node => ({
+        id: node['id'],
+        labelledby: node['aria-labelledby'],
+        hidden: node['hidden'],
+      })),
+      switches: collectSwitchProps(tree).map(node => node['label']),
+      text: textOf(tree),
+    })
+    for (const [shell, tree] of [['plugins.item page', viaItemPage], ['store panel', viaStorePanel]] as const) {
+      // 两处都必须产出「一条 role="tablist" + 三个企业页签」的商店。
+      expect(collectByRole(tree, 'tablist'), shell).toHaveLength(1)
+      expect(collectByRole(tree, 'tablist')[0]?.['aria-label'], shell).toBe(ENTERPRISE_MARKET_TABLIST_LABEL)
+      expect(collectByRole(tree, 'tab').map(node => node['children']), shell)
+        .toEqual(['企业技能 1', '企业插件 1', '组件 3'])
+      expect(collectByRole(tree, 'tab').map(node => node['aria-selected']), shell).toEqual([true, false, false])
+      expect(collectByRole(tree, 'tabpanel'), shell).toHaveLength(ENTERPRISE_MARKET_TABS.length)
+    }
+    // 同一份实现 + 同一个 view 值 → 同一份关键结构（页签 id/文案/aria 配对/开关动作名/全部可见文本）。
+    expect(shapeOf(viaStorePanel)).toEqual(shapeOf(viaItemPage))
+  })
+})
+
+/**
+ * 跑一遍真注册面（`client.tsx` 的 `apply`）并收集座位：`slots.inject(name, register)` 的名字顺序
+ * 与每次 `register(options, component)` 的形状。测试宿主没有官方 slots 台账，故只喂最小 double。
+ */
+function runClientRegistrations(): {
+  readonly injected: readonly string[]
+  readonly registrations: readonly { readonly options: Record<string, unknown>; readonly component: unknown }[]
+} {
+  const injected: string[] = []
+  const registrations: { options: Record<string, unknown>; component: unknown }[] = []
+  apply({
+    slots: {
+      inject: (name: string, register: () => unknown) => { injected.push(name); return register() },
+      register: (options: Record<string, unknown>, component: unknown) => {
+        registrations.push({ options, component })
+        return () => undefined
+      },
+    },
+    remote: { $on: () => () => undefined },
+    get: () => undefined,
+    inject: () => undefined,
+    on: () => () => undefined,
+    effect: (effect: () => unknown) => { effect() },
+  })
+  return { injected, registrations }
+}
 
 /** 收集元素树里所有 `<button>` 的 props（节头 groupToggle），递归展开函数组件子树。 */
 function collectButtonProps(node: ReactNode, acc: Record<string, any>[] = []): Record<string, any>[] {

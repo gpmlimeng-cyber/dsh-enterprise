@@ -153,15 +153,18 @@ active DSH Enterprise section place the Host settings navigation in a horizontal
 remains usable. Detail and confirmation dialogs keep keyboard focus inside and restore
 focus when closed; Escape leaves the surrounding Settings page open. Data and execution
 belong to DSH Enterprise.
-The marketplace entry is a card inside the official Plugins page's Official group, contributed
-through the official `plugins.item` slot one registration at a time: the card title and the
-detail page heading both come from the registration label, the card one-liner is the same
-`summary` render the detail page repeats as its description, and the detail body is the `page`
-render. This increment ships the entry only — the detail body is a reserved page listing the
-three planned tabs (插件 / 技能 / 配方) with only 插件 scheduled, so the official page is never
-shadowed, no sidebar entry is added, and `plugins.item`'s official occupants (the shell,
-agent-loop, subagent, and web-search configuration pages) keep their declarations. The card and
-the reserved page read no store, no network, and no Host Context.
+The enterprise store ships as one implementation behind two entries. The card inside the official
+Plugins page's Official group is contributed through the official `plugins.item` slot: the card
+title and the detail page heading both come from the registration label, the card one-liner is the
+same `summary` render the detail page repeats as its description, and the detail body is the `page`
+render — the three-tab store (企业技能 / 企业插件 / 组件, with 企业技能 selected by default). The
+second entry is a first-class store seat: a `main` panel keyed `enterprise-store` plus a
+`sidebar.panellist` row carrying the same id, order 20 (after the official plugins 0 / schedules 10
+rows) and the 应用商店 label. Both slots register the very same `EnterpriseMarketPage`, the panel's
+injected props only supplying the equivalent `view: 'page'`, so the two entries cannot drift apart.
+The official page is never shadowed and `plugins.item`'s official occupants (the shell, agent-loop,
+subagent, and web-search configuration pages) keep their declarations. Both entries receive the
+same shared enterprise account store through their slot's `inject`; no Host Context reaches React.
 The fixed same-origin `/enterprise/api/v1/local/plugins` projection separates the catalog
 from local installation facts. `/plugins/install` binds a package and version ID;
 `/plugins/remove` removes a locally managed package. Opening or refreshing never installs

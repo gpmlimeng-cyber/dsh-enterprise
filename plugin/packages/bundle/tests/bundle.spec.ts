@@ -95,10 +95,10 @@ describe('enterprise bundle', () => {
       slots: { inject: (_name: string, callback: () => unknown) => callback(), register },
     }
     client?.apply?.(ctx)
-    // 外观组读 ui-theme，快捷键面板读 ui-shortcuts；客户端注册四个 settings/plugins 座位
-    // （企业设置页 / 个人中心登录入口 / 官方插件页市场卡片 / 插件详情徽标）。
+    // 外观组读 ui-theme，快捷键面板读 ui-shortcuts；客户端注册六个 settings/plugins/main/sidebar 座位
+    // （企业设置页 / 个人中心登录入口 / 官方插件页市场卡片 / 插件详情徽标 / 应用商店面板 / 应用商店侧栏入口）。
     expect(injected).toEqual([['theme'], ['shortcuts']])
-    expect(register).toHaveBeenCalledTimes(4)
+    expect(register).toHaveBeenCalledTimes(6)
   })
 
   it('contains no ambient Remote shim or sibling source import', async () => {

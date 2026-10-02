@@ -56,7 +56,7 @@ P2-08C 将产品控制台会话收敛为服务端 Sa-Token 与 HttpOnly/SameSite
 
 品牌自定义：企业后台集中配置品牌（LOGO/企业名称/欢迎语/版本标识），员工端插件按配置呈现。服务端 `GET /enterprise/api/v1/branding` 免登录只读、只回白名单字段，返回 `revision` 与带 revision 的不可变资源地址；资源仅位图 MIME 白名单（显式拒 SVG 以免脚本面）、单文件 512KB 上限、平台同源，服务端不代拉任何远端 URL。管理端 `console` 品牌页由 `enterprise_admin` 上传/预览/发布/回滚并写审计（`V32__enterprise_branding.sql`）。客户端由 Host 侧取数（避免浏览器跨域）并缓存到 `$DSH_HOME/enterprise/branding.json` 与本地资源副本，经只读本地路由 `GET /enterprise/api/v1/local/branding`（资源 `/branding/asset/{light|dark|square}`）交给 UI；接口缺失/未配置/离线/超时/资源非法一律回落内置默认，不阻断界面。一期字段 `name`/`shortName`/`logo.{light,dark,square}`/`welcome.{headline,editionLabel}`；可见范围全局单例，表预留可空 `organization_id` 以便按组织扩展。
 
-企业插件市场：后端上传、发布与 ALL/USER 可见范围管理复用现有插件模块；员工在「DSH Enterprise 设置 → 插件」内搜索、查看详情并自主安装/切换版本/卸载。同一份数据的第二个入口是官方侧栏插件页「官方」分组里的「插件市场」卡片（官方 `plugins.item` 槽位，只加卡片、不顶替官方页面也不新增侧栏入口或独立市场弹层）；该入口先交付卡片，详情页按 插件/技能/配方 三页签分步交付，本期详情页为预留。revision 不再触发安装，历史 required 也不强制；删除范围或退休只停止新安装，显式 ABSENT 才撤回已有受管包。签名、兼容性、逐请求授权与库存边界保留。部署时必须升级员工插件，旧客户端不会仅因后台变更自动转为自选模式。
+企业插件市场：后端上传、发布与 ALL/USER 可见范围管理复用现有插件模块；员工在「DSH Enterprise 设置 → 插件」内搜索、查看详情并自主安装/切换版本/卸载。同一份数据的第二个入口是官方侧栏插件页「官方」分组里的「插件市场」卡片（官方 `plugins.item` 槽位，只加卡片、不顶替官方页面）；二期结构切片后另有**独立应用商店**的侧栏一级入口「应用商店」（官方 `sidebar.panellist`，id/order 20）与主内容区整页面板（官方 `main` key `enterprise-store`），两处注册的是同一个市场组件、点进去都是同一份三页签商店（企业技能/企业插件/组件，默认企业技能），官方卡片保留并存。revision 不再触发安装，历史 required 也不强制；删除范围或退休只停止新安装，显式 ABSENT 才撤回已有受管包。签名、兼容性、逐请求授权与库存边界保留。部署时必须升级员工插件，旧客户端不会仅因后台变更自动转为自选模式。
 
 企业配方广场：托管 Desktop `dsh-preset` v1 的 `.dshpreset` 包。控制台独立 `/presets` 纵向由 `plugin_admin`/`enterprise_admin` 上传、验包、发布/退休并原子替换 ALL/USER 可见范围；员工在「DSH Enterprise 设置 → 配方」浏览并复制导入指令，经 loopback `agent-preset.import` 安装。一期不做员工投稿、一键安装、设备配方库存与 Ed25519 签名；退休只停止新下载，不远程撤回本机已装配方。
 

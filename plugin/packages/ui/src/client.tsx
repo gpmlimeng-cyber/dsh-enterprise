@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖官方 slots/remote/connection 生命周期事件、EnterpriseAccountStore，以及宿主 ui-theme 与 shortcuts 服务（按需读取，不作硬注入），不创建传输连接
- * [OUTPUT]: 注册账号/插件设置、官方 settings.launcher 座位上的账号菜单，以及官方插件页「官方」分组里的「插件市场」入口卡片与详情页标题行（`plugins.detail.badge` 槽只出「版本号 + 包名」，无「预览版」签、无可拨总开关）；宿主模型/凭据变化后按需读取状态，让请求触发的认证失效立即呈现；向菜单注入官方主题只读源、桌面能力面（动作 + 更新状态）与官方快捷键注册表只读源
- * [POS]: dsh-ui 的浏览器组合根，只向 React 注入共享脱敏 store、主题源、桌面能力面与快捷键源，不注册任何全屏阻断层、侧栏入口或独立市场弹层，也不传递 Host Context
+ * [INPUT]: 依赖官方 slots/remote/connection 生命周期事件与官方 layout 服务（`inject` 声明，供「回到官方插件列表」一跳；本次未消费）、EnterpriseAccountStore，以及宿主 ui-theme 与 shortcuts 服务（按需读取，不作硬注入），不创建传输连接
+ * [OUTPUT]: 注册账号/插件设置、官方 settings.launcher 座位上的账号菜单、官方插件页「官方」分组里的「插件市场」入口卡片与详情页标题行（`plugins.detail.badge` 槽只出「版本号 + 包名」，无「预览版」签、无可拨总开关），以及独立应用商店的两处座位——官方 `main` 槽上的 `enterprise-store` 整页面板与 `sidebar.panellist` 上的「应用商店」一级入口（order 20，排在官方 plugins=0／schedules=10 之后）；面板与插件页卡片注册的是**同一个** `EnterpriseMarketPage`（面板侧只把 owner props 的 `view` 换成恒定 `ENTERPRISE_STORE_PANEL_VIEW='page'`），故两处入口渲染同一份三页签商店、共用同一个 store；宿主模型/凭据变化后按需读取状态，让请求触发的认证失效立即呈现；向菜单注入官方主题只读源、桌面能力面（动作 + 更新状态）与官方快捷键注册表只读源
+ * [POS]: dsh-ui 的浏览器组合根，只向 React 注入共享脱敏 store、主题源、桌面能力面与快捷键源，不注册任何全屏阻断层，也不自建第二份商店——侧栏一级入口与主内容区面板都只把同一份市场实现接到官方座位上（`sidebar.panellist.id` 与 `main.key` 同值）
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -15,8 +15,13 @@ import {
   ENTERPRISE_MARKET_ENTRY_ID,
   ENTERPRISE_MARKET_ENTRY_LABEL,
   ENTERPRISE_MARKET_ENTRY_ORDER,
+  ENTERPRISE_STORE_ENTRY_LABEL,
+  ENTERPRISE_STORE_ENTRY_ORDER,
+  ENTERPRISE_STORE_PANEL_ID,
+  ENTERPRISE_STORE_PANEL_VIEW,
   EnterpriseMarketBadge,
   EnterpriseMarketPage,
+  EnterpriseStoreIcon,
 } from './marketplace-entry.js'
 import { createEnterpriseShortcutsSource } from './shortcuts-view.js'
 import {
@@ -74,10 +79,14 @@ interface SlotContextPort {
   }
 }
 
-/** Required Client service; target declaration lifetime is handled by `slots.inject()`. */
-export const inject = ['slots', 'remote']
+/**
+ * Required Client services; target declaration lifetime is handled by `slots.inject()`.
+ * `layout` 是本期新增的声明：官方插件面板（`ui-layout`）provide 的导航服务，
+ * 「从应用商店跳回官方插件列表」要用 `ctx.layout.selectPanel('plugins')`（消费在后续一刀，本次只声明依赖）。
+ */
+export const inject = ['slots', 'remote', 'layout']
 
-/** 复用三个官方 slot 类型注册账号设置、个人中心菜单与插件页市场入口；网络能力只封装在共享 store 内。 */
+/** 复用官方 slot 类型注册账号设置、个人中心菜单、插件页市场卡片／详情徽标，以及应用商店的面板与侧栏入口；网络能力只封装在共享 store 内。 */
 export function apply(ctx: SlotContextPort): void {
   const store = new EnterpriseAccountStore(createEnterpriseLocalApi())
   // 官方主题服务由 ui-theme provide；这里只建只读源，真正读取发生在菜单渲染时。
@@ -124,8 +133,8 @@ export function apply(ctx: SlotContextPort): void {
     name: 'settings.launcher',
     inject: () => ({ desktop, shortcuts, shortcutsOpener, store, theme }),
   }, EnterpriseAccountMenu as (props: never) => ReactNode))
-  // 官方插件页「官方」分组里的入口卡片：只占官方 plugins.item 槽位，
-  // 不新增侧栏入口、不顶替官方插件页；注入共享 store 让详情页开关/登录弹窗真实可用。
+  // 官方插件页「官方」分组里的入口卡片：按 D3 保留为**第二入口**（卡片不改成跳转、不删除），点进去的
+  // `page` 与侧栏「应用商店」面板渲染同一份三页签商店；不顶替官方插件页，注入共享 store 让详情页开关/登录弹窗真实可用。
   ctx.slots.inject('plugins.item', () => ctx.slots.register({
     name: 'plugins.item',
     id: ENTERPRISE_MARKET_ENTRY_ID,
@@ -141,4 +150,24 @@ export function apply(ctx: SlotContextPort): void {
     id: ENTERPRISE_MARKET_ENTRY_ID,
     inject: () => ({ store }),
   }, EnterpriseMarketBadge as (props: never) => ReactNode))
+  // 二期结构切片：把商店从「官方插件页内的一个 page」升级为「独立应用商店 = 侧栏一级入口 + 主内容区整页面板」。
+  // 面板注册的是**与 plugins.item 同一个** `EnterpriseMarketPage`（同一份实现、同一个 store）——面板侧只把
+  // 官方 owner props 的 `view` 换成恒定等价值 `ENTERPRISE_STORE_PANEL_VIEW`（'page'），故两处入口都渲染
+  // 同一份三页签商店（企业技能 | 企业插件 | 组件，默认企业技能），不存在第二份商店实现。
+  // `main` 是 keyed 槽（key 域开放，实测只有官方 `conversation`/`plugins`/`schedules` 占用），
+  // 派发为 renderSlot('main', {}, { entryKey: activePanelId ?? 'conversation' })。
+  ctx.slots.inject('main', () => ctx.slots.register({
+    name: 'main',
+    key: ENTERPRISE_STORE_PANEL_ID,
+    inject: () => ({ store, view: ENTERPRISE_STORE_PANEL_VIEW }),
+  }, EnterpriseMarketPage as (props: never) => ReactNode))
+  // 侧栏一级入口：官方契约是「每个 list id 对应同名 main 面板」，故 id 必须等于上面的 main key
+  // （不同值会让点击命中 layout.selectPanel 的「未注册」抛错）。order=20 排在官方实测占用之后
+  // （plugins=0、schedules=10）；label 由侧栏解析成行标题与可访问名，图标拿官方 owner props { size, active }。
+  ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
+    name: 'sidebar.panellist',
+    id: ENTERPRISE_STORE_PANEL_ID,
+    order: ENTERPRISE_STORE_ENTRY_ORDER,
+    label: ENTERPRISE_STORE_ENTRY_LABEL,
+  }, EnterpriseStoreIcon as (props: never) => ReactNode))
 }
