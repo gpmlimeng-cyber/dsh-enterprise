@@ -239,9 +239,10 @@ describe('generated enterprise contracts', () => {
     }).success).toBe(true)
   })
 
-  // 本刀（卡片第二行改插件描述）：契约里 `description` 是**可选** string（≤300），且「没有描述」只能靠
+  // 本刀（卡片第二行改插件描述）：契约里 `description` 是**可选** string（≤1000），且「没有描述」只能靠
   // **省略这个键**表达——空串 / null / 超长一律非法（服务端读不到就不发，员工端据此如实降级）。
-  it('keeps the runtime plugin description optional, bounded at 300, and never null or empty', async () => {
+  // V41 把上限由 300 提到 1000：真实上架制品里就有 347 字符的描述（旧上限让它在源头被抹成 null）。
+  it('keeps the runtime plugin description optional, bounded at 1000, and never null or empty', async () => {
     const fixture = JSON.parse(
       await readFile(resolve(CONTRACT_ROOT, 'fixtures', 'plugin-assignments-success.json'), 'utf8'),
     ) as { data: { assignments: { description?: unknown }[] } }
@@ -250,11 +251,14 @@ describe('generated enterprise contracts', () => {
     expect(zRuntimePluginAssignmentsResponse.safeParse(fixture).success).toBe(true)
     delete assignment.description
     expect(zRuntimePluginAssignmentsResponse.safeParse(fixture).success).toBe(true)
-    for (const description of ['', null, 'x'.repeat(301)]) {
+    for (const description of ['', null, 'x'.repeat(1001)]) {
       assignment.description = description
       expect(zRuntimePluginAssignmentsResponse.safeParse(fixture).success, JSON.stringify(description)).toBe(false)
     }
-    assignment.description = 'y'.repeat(300)
+    assignment.description = 'y'.repeat(1000)
+    expect(zRuntimePluginAssignmentsResponse.safeParse(fixture).success).toBe(true)
+    // 真实值 347（@mengli114/dsh-settings-nav-collapse）：旧上限下的「超长」，新上限下的正常描述。
+    assignment.description = 'z'.repeat(347)
     expect(zRuntimePluginAssignmentsResponse.safeParse(fixture).success).toBe(true)
   })
 

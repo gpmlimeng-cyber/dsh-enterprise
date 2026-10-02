@@ -114,7 +114,7 @@ export interface EnterprisePluginCatalogItem {
   readonly packageName: string
   readonly version: string
   /**
-   * 制品 `package.json` 的 `description`（契约 `PluginDescription`，≤300）。
+   * 制品 `package.json` 的 `description`（契约 `PluginDescription`，≤1000）。
    * **为缺失设计**：本层把缺席 / JSON null / 空串一律归一成「没有这个键」（与技能侧可选
    * `category` 同一口径），卡片第二行据此如实降级成「暂无描述」——绝不塞占位、绝不编造。
    */
@@ -734,10 +734,11 @@ export function decodeEnterprisePluginStatus(value: unknown): EnterprisePluginSt
       || !enterpriseId(item['pluginVersionId']) || !nonEmptyString(item['packageName'])
       || !nonEmptyString(item['version']) || !Number.isSafeInteger(item['sizeBytes']) || Number(item['sizeBytes']) <= 0
       || !Array.isArray(item['operatingSystems']) || item['operatingSystems'].some(os => !['darwin', 'linux', 'win32'].includes(os))
-      // 描述与技能侧可选 `category` **同一口径**：缺席 / JSON null / 非空串 ≤300 三种合法形态，
+      // 描述与技能侧可选 `category` **同一口径**：缺席 / JSON null / 非空串 ≤1000 三种合法形态，
       // 非 string 非 null 或超过契约上限一律判畸形（不静默截断、不猜）。
+      // 上限与契约 `PluginDescription.maxLength` 同值（V41 由 300 提到 1000：真实制品有 347 字符的描述）。
       || !(item['description'] === undefined || item['description'] === null
-        || (typeof item['description'] === 'string' && item['description'].length <= 300))
+        || (typeof item['description'] === 'string' && item['description'].length <= 1000))
       || item['installErrorCode'] !== undefined && !nonEmptyString(item['installErrorCode'])) {
       throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
     }

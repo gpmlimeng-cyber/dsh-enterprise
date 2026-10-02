@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 投影 BootstrapService 的用户、ACTIVE 设备、revision、含协议/推理 profile 的有效模型/配额与插件分配；SessionPolicy 来自 enterprise.session 部署参数。
- * [OUTPUT]: 对外提供 T06 严格客户端所需的完整脱敏 bootstrap 外壳；sessionPolicy.enabled 默认 false（V1 停用），显式部署可开。
- * [POS]: model/web 的 runtime 配置输出边界；插件复用下载授权事实，Session 能力由 EnterpriseSessionProperties 宣告。
+ * [INPUT]: 投影 BootstrapService 的用户、ACTIVE 设备、revision、含协议/推理 profile 的有效模型/配额与插件分配（含可选 description）；SessionPolicy 来自 enterprise.session 部署参数。
+ * [OUTPUT]: 对外提供 T06 严格客户端所需的完整脱敏 bootstrap 外壳；插件分配与 `/plugins/assignments` 同键同口径（没有描述时整个 description 键缺席）；sessionPolicy.enabled 默认 false（V1 停用），显式部署可开。
+ * [POS]: model/web 的 runtime 配置输出边界；插件复用下载授权事实，且是**员工端本机目录的唯一数据源**——这里的键集必须与 PluginViews 的分配投影逐字一致；Session 能力由 EnterpriseSessionProperties 宣告。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 package com.owndsh.enterprise.model.web;
@@ -53,7 +53,12 @@ public record BootstrapView(
             new Plugins(
                 snapshot.plugins().revision(),
                 snapshot.plugins().assignments().stream().map(value -> new PluginAssignment(
-                    Long.toString(value.pluginVersionId()), value.packageName(), value.version(), value.sizeBytes(),
+                    Long.toString(value.pluginVersionId()), value.packageName(), value.version(),
+                    // 制品 package.json 的 description：与 `/plugins/assignments` 共用同一个领域事实
+                    // （RuntimePluginAssignment.description，可空）。**这一处曾是端到端最后一公里的缺口**：
+                    // 员工端本机目录（plugin-distribution 的 catalog）由 bootstrap 快照构建，
+                    // bootstrap 自己另有一套逐字段投影，漏了这个键就等于服务端有描述、界面永远「暂无描述」。
+                    value.description(), value.sizeBytes(),
                     value.sha256(), Base64.getEncoder().encodeToString(value.signature()), value.compatibility(),
                     value.desiredState().name().equals("INSTALLED")
                         ? "/enterprise/api/v1/plugins/versions/" + value.pluginVersionId() + "/download"
@@ -113,6 +118,14 @@ public record BootstrapView(
         String pluginVersionId,
         String packageName,
         String version,
+        /**
+         * 制品 package.json 的可选 description。与 `/plugins/assignments` 的
+         * {@code PluginViews.RuntimeAssignmentView} 同一条领域事实、同一口径：为 null 时**整个键缺席**
+         * （契约 `PluginDescription` 是可选属性，两端生成的 strict Zod 都拒 null），
+         * 故这里同样只把这一个分量标成 {@code @JsonInclude(NON_NULL)}——同记录里 required 的
+         * {@code downloadUrl} 是「必需但可为 null」，绝不能被顺手隐掉。
+         */
+        @JsonInclude(JsonInclude.Include.NON_NULL) String description,
         long sizeBytes,
         String sha256,
         String signatureBase64,

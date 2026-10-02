@@ -61,13 +61,17 @@ PluginSha256:
   pattern: '^[0-9a-f]{64}$'
 PluginDescription:
   description: >-
-    npm `package.json` 的 `description`（≤300）。**可选属性**：包里没写、只写了空白、或该键不是字符串时，
+    npm `package.json` 的 `description`（≤1000）。**可选属性**：包里没写、只写了空白、或该键不是字符串时，
     服务端一律**省略这个键**（既不造空串、也不编造），员工端据此如实降级。
     它是 **package 级**事实（与 `displayName` 同源、同一条读取路径），随首个上传的制品写入、不随版本变化，
     故不出现在 `PluginVersion` 上。
+    **上限为什么是 1000**：真实上架制品里已有 347 字符的描述（`@mengli114/dsh-settings-nav-collapse`），
+    旧的 300 让它在**上传那一刻**就被验包器归一成「没有描述」——数据在源头丢了，
+    员工端只能永远「暂无描述」，事后无法从服务端补救。1000 给真实长描述留 2.8 倍余量，
+    同时对卡片第二行（一行省略号）仍是一个有意义的护栏：它不是展示上限，而是「这显然不是一句描述」的边界。
   type: string
   minLength: 1
-  maxLength: 300
+  maxLength: 1000
 PluginCompatibility:
   type: object
   additionalProperties: false

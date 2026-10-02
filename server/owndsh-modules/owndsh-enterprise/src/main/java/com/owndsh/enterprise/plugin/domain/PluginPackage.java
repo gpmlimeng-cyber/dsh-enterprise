@@ -27,7 +27,7 @@ public record PluginPackage(
         "^(?:@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$"
     );
     /** 与契约 `PluginDescription.maxLength`、验包器 `MAX_DESCRIPTION_LENGTH` 同值。 */
-    private static final int MAX_DESCRIPTION_LENGTH = 300;
+    private static final int MAX_DESCRIPTION_LENGTH = 1000;
 
     public PluginPackage {
         if (id <= 0) throw new IllegalArgumentException("package ID 必须为正数");
@@ -35,7 +35,7 @@ public record PluginPackage(
         packageName = requireText(packageName, "packageName", 214);
         if (!PACKAGE_NAME.matcher(packageName).matches()) throw new IllegalArgumentException("packageName 非法");
         displayName = requireText(displayName, "displayName", 120);
-        // 描述可空；非空则必须是 ≤300 的非空白文本（验包器是唯一写入口，这里是聚合根的第二道闸）。
+        // 描述可空；非空则必须是 ≤1000 的非空白文本（验包器是唯一写入口，这里是聚合根的第二道闸）。
         if (description != null && (description.isBlank() || description.length() > MAX_DESCRIPTION_LENGTH)) {
             throw new IllegalArgumentException("description 非法");
         }

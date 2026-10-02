@@ -198,7 +198,8 @@ export const zBootstrapSnapshot = z.object({
       // 制品 package.json 的 description（契约 `PluginDescription`，**可选**）：
       // 服务端读不到就**整个键缺席**（绝不发 null/空串），故这里 `.optional()` 两种形态都收；
       // 这一份是 `.strict()` 的，服务端先发这个键而这里不认就会让整条 bootstrap 失败——两侧同批上线。
-      description: z.string().min(1).max(300).optional(),
+      // 上限跟契约 `PluginDescription.maxLength` 走（V41 由 300 提到 1000）：真实制品里有 347 字符的描述。
+      description: z.string().min(1).max(1000).optional(),
       sizeBytes: z.number().int().positive().safe(),
       sha256: pluginSha256,
       signatureBase64: z.union([z.literal(''), z.string().length(88).regex(/^[A-Za-z0-9+/]{86}==$/)]),

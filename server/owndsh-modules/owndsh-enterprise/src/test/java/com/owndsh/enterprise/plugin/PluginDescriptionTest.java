@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖真实 PluginArtifactInspector/PluginTestArtifacts（读 package.json 的 description）、
  *          PluginViews/PluginPackage/RuntimePluginAssignment（线协议投影）与 Jackson 3 JsonMapper。
- * [OUTPUT]: 对外证明两件事——① **读入**：验包器只把「非空、无 NUL、≤300」的 description 当描述，
+ * [OUTPUT]: 对外证明两件事——① **读入**：验包器只把「非空、无 NUL、≤1000」的 description 当描述，
  *          其余形态（缺席 / null / 空串 / 纯空白 / 非字符串 / 超长）一律按**没有描述**处理且**绝不因此拒包**
  *          （描述不是制品的合法性要件）；② **投影**：没有描述时视图里**整个 description 键缺席**
  *          （契约与两端 strict Zod 都要求可选键缺席，绝不发 null），而同一记录里「必需但可为 null」的
@@ -37,6 +37,16 @@ class PluginDescriptionTest {
     private static final String HARNESS_COMMIT = "99f6f02fecdb7dff40c3fbc9470f5907c29f74ca";
     private static final String SHA256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
     private static final String DESCRIPTION = "把代码审查规则带进新会话。";
+    /**
+     * 真实上架制品（@mengli114/dsh-settings-nav-collapse）的 package.json 描述，长度按码点 = 347。
+     * 旧的 300 上限让它在**上传那一刻**就被验包器归一成 null（库里一直是 NULL），
+     * 所以它既是「上限太小」的实证，也是 V41 回填的那条真值。
+     */
+    private static final String REAL_347 =
+        "DSH web client plugin: one toggle in the settings panel header collapses the settings navigation"
+            + " column into a narrow icon rail, so the settings content keeps a readable width on phones"
+            + " and other narrow viewports. The panel is located at runtime from the plugin's own node"
+            + " (no package-internal attribute), and the choice is remembered per browser.";
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
     @TempDir
@@ -55,15 +65,18 @@ class PluginDescriptionTest {
     void readsThePackageDescriptionAndTreatsEveryMissingFormAsAbsentWithoutRejectingTheUpload() throws Exception {
         // 有描述：原样读出来（不改写、不截断）。
         assertThat(inspectedDescription('"' + DESCRIPTION + '"')).isEqualTo(DESCRIPTION);
-        // 边界：正好 300 字照收（与契约 PluginDescription.maxLength 同值）。
-        assertThat(inspectedDescription('"' + "y".repeat(300) + '"')).hasSize(300);
-        // 逐条「没有描述」形态：缺席 / null / 空串 / 纯空白 / 数字 / 超长（301）——一律 null，且都不拒包。
+        // 边界：正好 1000 字照收（与契约 PluginDescription.maxLength 同值；V41 由 300 提到 1000）。
+        assertThat(inspectedDescription('"' + "y".repeat(1000) + '"')).hasSize(1000);
+        // 真实上架制品的那条 347 字符描述（@mengli114/dsh-settings-nav-collapse 的 package.json）：
+        // 旧的 300 上限让它在**上传那一刻**就被归一成 null（库里一直是 NULL），这条锁死它今后照收。
+        assertThat(inspectedDescription('"' + REAL_347 + '"')).hasSize(347);
+        // 逐条「没有描述」形态：缺席 / null / 空串 / 纯空白 / 数字 / 超长（1001）——一律 null，且都不拒包。
         assertThat(inspectedDescription(null)).isNull();
         assertThat(inspectedDescription("null")).isNull();
         assertThat(inspectedDescription("\"\"")).isNull();
         assertThat(inspectedDescription("\"   \"")).isNull();
         assertThat(inspectedDescription("7")).isNull();
-        assertThat(inspectedDescription('"' + "x".repeat(301) + '"')).isNull();
+        assertThat(inspectedDescription('"' + "x".repeat(1001) + '"')).isNull();
     }
 
     @Test
@@ -94,12 +107,12 @@ class PluginDescriptionTest {
 
     @Test
     void rejectsBlankOrOverLimitDescriptionsAtTheAggregateBoundary() {
-        // 聚合根是第二道闸：绕过验包器的写入也不能落地违契约/空白描述。
+        // 聚合根是第二道闸：绕过验包器的写入也不能落地违契约/空白描述（上界跟契约 = 1000）。
         assertThatThrownBy(() -> pluginPackage("   ")).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> pluginPackage("x".repeat(301))).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> pluginPackage("x".repeat(1001))).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> runtimeAssignment("   ", PluginAssignment.DesiredState.INSTALLED))
             .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> runtimeAssignment("x".repeat(301), PluginAssignment.DesiredState.INSTALLED))
+        assertThatThrownBy(() -> runtimeAssignment("x".repeat(1001), PluginAssignment.DesiredState.INSTALLED))
             .isInstanceOf(IllegalArgumentException.class);
     }
 

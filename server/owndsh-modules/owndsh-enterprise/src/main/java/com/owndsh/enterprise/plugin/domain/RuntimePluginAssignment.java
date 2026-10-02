@@ -26,13 +26,13 @@ public record RuntimePluginAssignment(
     PluginAssignment.DesiredState desiredState
 ) {
     /** 与契约 `PluginDescription.maxLength`、`PluginPackage.MAX_DESCRIPTION_LENGTH` 同值。 */
-    private static final int MAX_DESCRIPTION_LENGTH = 300;
+    private static final int MAX_DESCRIPTION_LENGTH = 1000;
 
     public RuntimePluginAssignment {
         if (pluginVersionId <= 0 || sizeBytes <= 0) throw new IllegalArgumentException("版本 ID/大小必须为正数");
         Objects.requireNonNull(packageName, "packageName");
         Objects.requireNonNull(version, "version");
-        // 描述可空；非空则必须是 ≤300 的非空白文本（越界/空白一律判非法，免得产出违契约的线协议）。
+        // 描述可空；非空则必须是 ≤1000 的非空白文本（越界/空白一律判非法，免得产出违契约的线协议）。
         if (description != null && (description.isBlank() || description.length() > MAX_DESCRIPTION_LENGTH)) {
             throw new IllegalArgumentException("description 非法");
         }

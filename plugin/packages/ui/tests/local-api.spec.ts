@@ -171,15 +171,24 @@ describe('enterprise local browser API', () => {
       })
       expect(decoded.catalog?.[0], String(description)).not.toHaveProperty('description')
     }
-    // 形状不对（非 string 非 null）与超过契约上限（300）一律判畸形，绝不静默截断或猜。
-    for (const description of [7, {}, 'x'.repeat(301)]) {
+    // 形状不对（非 string 非 null）与超过契约上限（1000）一律判畸形，绝不静默截断或猜。
+    for (const description of [7, {}, 'x'.repeat(1001)]) {
       expect(() => decodeEnterprisePluginStatus({ ...status, catalog: [{ ...base, description }] }))
         .toThrow('ENT_LOCAL_RESPONSE_INVALID')
     }
-    // 边界：正好 300 字收下（与契约 `PluginDescription.maxLength` 对齐）。
-    const boundary = 'y'.repeat(300)
+    // 边界：正好 1000 字收下（与契约 `PluginDescription.maxLength` 对齐）。
+    const boundary = 'y'.repeat(1000)
     expect(decodeEnterprisePluginStatus({ ...status, catalog: [{ ...base, description: boundary }] })
       .catalog?.[0]?.description).toBe(boundary)
+    // 真实制品那条 347 字符的描述（@mengli114/dsh-settings-nav-collapse）：旧的 300 闸连解码层都会
+    // 把它判成畸形（ENT_LOCAL_RESPONSE_INVALID），故这里用真值锁住它必须被整条照收。
+    const real347 = 'DSH web client plugin: one toggle in the settings panel header collapses the settings navigation'
+      + ' column into a narrow icon rail, so the settings content keeps a readable width on phones and other narrow'
+      + " viewports. The panel is located at runtime from the plugin's own node (no package-internal attribute), and"
+      + ' the choice is remembered per browser.'
+    expect(real347).toHaveLength(347)
+    expect(decodeEnterprisePluginStatus({ ...status, catalog: [{ ...base, description: real347 }] })
+      .catalog?.[0]?.description).toBe(real347)
   })
 
   // 取消在途安装（本刀）：与 install/remove 同族同源——方法 / 路径 / body 逐字断言；

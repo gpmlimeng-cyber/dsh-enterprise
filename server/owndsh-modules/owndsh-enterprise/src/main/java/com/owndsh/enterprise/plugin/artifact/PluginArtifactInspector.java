@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Commons Compress、Jackson 3、解压/entry 上限与外部注入的企业核心包清单。
- * [OUTPUT]: 对外提供已验证 package name/version/displayName、**可选 description（≤300，宽松口径：缺失/空/超长一律 null）** 和 bundle patch 的归档摘要。
+ * [OUTPUT]: 对外提供已验证 package name/version/displayName、**可选 description（≤1000，宽松口径：缺失/空/超长一律 null）** 和 bundle patch 的归档摘要。
  * [POS]: plugin/artifact 的单遍验包闸门，绝不把未知 entry 解压到文件系统；核心包名单由配置注入而非本类内嵌，杜绝双份真源再次漂移。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -26,7 +26,7 @@ import java.util.regex.Pattern;
 public final class PluginArtifactInspector {
     private static final int MAX_PACKAGE_JSON_BYTES = 1_048_576;
     /** 与契约 `PluginDescription.maxLength` 同值：本类只允许这个上限内的描述进库（超长按没有描述处理）。 */
-    private static final int MAX_DESCRIPTION_LENGTH = 300;
+    private static final int MAX_DESCRIPTION_LENGTH = 1000;
     private static final Set<String> FORBIDDEN_SCRIPTS = Set.of("preinstall", "install", "postinstall", "prepare");
     /**
      * 与配置校验共用的合法 npm package name 语法，避免同一规则在两处各写一份。
@@ -223,7 +223,7 @@ public final class PluginArtifactInspector {
      *       比「这一格少一句描述」坏得多（员工侧还有如实的「暂无描述」降级）；</li>
      *   <li>npm 允许 {@code "description": ""} 这类写法，用 {@link #optionalText} 的严格口径会把
      *       本来能正常安装的包判成非法（**兼容性回归**），故这里不抛；</li>
-     *   <li>契约（{@code PluginDescription}）只允许 ≤300 的字符串或**整个键缺席**，故超长一律按
+     *   <li>契约（{@code PluginDescription}）只允许 ≤1000 的字符串或**整个键缺席**，故超长一律按
      *       没有描述处理（不落库、不发线），而不是把整包拒掉、也不是截断成半句。</li>
      * </ol>
      * 「有没有描述」由此只有一个判定点，界面侧不必再猜。

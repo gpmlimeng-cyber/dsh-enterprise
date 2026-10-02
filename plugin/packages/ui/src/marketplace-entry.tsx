@@ -498,7 +498,7 @@ export interface EnterpriseMarketPluginRow {
   /** 企业目录是否仍提供（false = 已下架但本机仍装着）。 */
   readonly inCatalog: boolean
   /**
-   * 制品 `package.json` 的 `description`（契约 `PluginDescription`，≤300）：**卡片第二行**的取值。
+   * 制品 `package.json` 的 `description`（契约 `PluginDescription`，≤1000）：**卡片第二行**的取值。
    * **为缺失设计**：解码层已把缺席/null/空串归一成「没有这个键」，故这里缺席 ＝ 没有描述
    * ＝ 第二行如实说「暂无描述」（不空白、不编造、不拿版本充数）。已下架的行里没有目录事实，
    * 第二行照旧说「已不在企业目录中」（那一句是既有口径，不丢）。
