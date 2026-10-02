@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 接收 tenant、catalog/version CAS、完整 assignment 集合与可见 runtime 投影。
- * [OUTPUT]: 提供自然键幂等、USER/ALL 生效查询与主体存在性端口。
+ * [INPUT]: 接收 tenant、catalog/version/marks CAS、完整 assignment 集合与可见 runtime 投影。
+ * [OUTPUT]: 提供自然键幂等、标记与包级分类写入、USER/ALL 与 builtin 并集可见查询与主体存在性端口。
  * [POS]: skill application 的 PostgreSQL DIP 边界。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -26,6 +26,22 @@ public interface SkillStore {
     void insertPackage(SkillPackage skillPackage);
 
     boolean incrementPackageRevision(String tenantId, long packageId, long expectedRevision);
+
+    /** 以 revision 做 CAS，同时写入 builtin/featured 并递增 revision；命中 0 行表示并发冲突。 */
+    boolean updatePackageMarks(
+        String tenantId,
+        long packageId,
+        boolean builtin,
+        boolean featured,
+        long expectedRevision
+    );
+
+    /**
+     * 以 revision 做 CAS，写入包级 category（null 表示没有分类）并递增 revision；命中 0 行表示并发冲突。
+     *
+     * <p>上传新版本时用本方法替代单纯递增 revision：添加版本与刷新包级声明在同一语句内完成。</p>
+     */
+    boolean updatePackageCategory(String tenantId, long packageId, String category, long expectedRevision);
 
     Optional<SkillVersion> findExistingVersion(String tenantId, String skillId, String sourceDshVersion, String sha256);
 

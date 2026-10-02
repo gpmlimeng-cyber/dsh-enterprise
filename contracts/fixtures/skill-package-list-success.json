@@ -6,6 +6,8 @@
         "skillId": "meeting-notes",
         "displayName": "会议纪要技能组",
         "description": "把会议录音与转写整理成结构化纪要，并产出可跟踪的行动项。",
+        "builtin": true,
+        "featured": false,
         "status": "ACTIVE",
         "revision": 2,
         "versions": [

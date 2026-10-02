@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖事务、SkillStore、ZIP inspector/CAS store、revision、审计与 ID。
- * [OUTPUT]: 提供技能目录、幂等上传（含包内多技能条目）、发布/退休与可见范围原子替换。
+ * [OUTPUT]: 提供技能目录、幂等上传（含包内多技能条目与包级 category 落库）、发布/退休、builtin/featured 标记与可见范围原子替换。
  * [POS]: skill/application 的管理状态编排，文件系统补偿与数据库事务在此协调。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -118,7 +118,7 @@ public final class SkillCatalogService {
                     if (skillPackage == null) {
                         skillPackage = new SkillPackage(
                             positiveId(), context.tenantId(), inspected.skillId(), displayName,
-                            description, SkillPackage.Status.ACTIVE, 0
+                            description, inspected.category(), false, false, SkillPackage.Status.ACTIVE, 0
                         );
                         skills.insertPackage(skillPackage);
                     }
@@ -132,8 +132,12 @@ public final class SkillCatalogService {
                         context.actorId(), Instant.now(clock), 0
                     );
                     skills.insertVersion(uploaded);
-                    if (!skills.incrementPackageRevision(
-                        context.tenantId(), skillPackage.id(), skillPackage.revision()
+                    // 包级 category 以最后一次上传的 manifest 声明为准（含声明被移除时归 null）：
+                    // manifest 是分类的唯一真源，若只在建包时写入，修订分类后包级标签会永久漂移，
+                    // 前端显示的分类将不再是当前版本的声明值。该语句与 revision CAS 合并执行，
+                    // 添加版本时"递增包 revision"的既有语义不变。
+                    if (!skills.updatePackageCategory(
+                        context.tenantId(), skillPackage.id(), inspected.category(), skillPackage.revision()
                     )) {
                         throw packageConflict(context.tenantId(), skillPackage.id(), skillPackage.revision());
                     }
@@ -233,6 +237,42 @@ public final class SkillCatalogService {
                 new SkillAuditMetadata.Assignments(packageId, all, userCount)
             );
             return inserted;
+        }));
+    }
+
+    /**
+     * 写入 builtin/featured 两个标记：以包级 revision 做 CAS 并递增 revision。
+     *
+     * <p>本方法只落标记，不触碰 assignment。builtin 对员工端可见性的影响完全由
+     * SkillStore 的可见性查询以"assignment ∪ builtin"并集裁决，避免管理写路径与
+     * 运行时读路径各持一套判断。</p>
+     */
+    public CatalogItem updateMarks(
+        SkillMutationContext context,
+        long packageId,
+        long expectedRevision,
+        boolean builtin,
+        boolean featured
+    ) {
+        return requireResult(transactions.execute(status -> {
+            SkillPackage skillPackage = skills.findPackageByIdForUpdate(context.tenantId(), packageId)
+                .orElseThrow(SkillResourceNotFoundException::new);
+            if (skillPackage.revision() != expectedRevision) {
+                throw packageConflict(context.tenantId(), packageId, expectedRevision);
+            }
+            if (!skills.updatePackageMarks(context.tenantId(), packageId, builtin, featured, expectedRevision)) {
+                throw packageConflict(context.tenantId(), packageId, expectedRevision);
+            }
+            audit(
+                context, AuditAction.SKILL_MARKS_CHANGED, "SKILL_PACKAGE", packageId,
+                new SkillAuditMetadata.Marks(packageId, builtin, featured, expectedRevision + 1)
+            );
+            return new CatalogItem(
+                skills.findPackageById(context.tenantId(), packageId)
+                    .orElseThrow(SkillResourceNotFoundException::new),
+                skills.listVersions(context.tenantId(), packageId),
+                skills.listAssignments(context.tenantId(), packageId)
+            );
         }));
     }
 

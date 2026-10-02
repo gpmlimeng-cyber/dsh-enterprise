@@ -35,6 +35,14 @@
           "type": "string",
           "maxLength": 2000
         },
+        "category": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 32
+        },
         "sourceDshVersion": {
           "type": "string",
           "minLength": 1,

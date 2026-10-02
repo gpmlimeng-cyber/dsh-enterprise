@@ -79,6 +79,7 @@
     "@dshent/platform-client": "workspace:*",
     "@dshent/plugin-distribution": "workspace:*",
     "@dshent/session-sync": "workspace:*",
-    "@dshent/ui": "workspace:*"
+    "@dshent/ui": "workspace:*",
+    "zod": "4.4.3"
   }
 }

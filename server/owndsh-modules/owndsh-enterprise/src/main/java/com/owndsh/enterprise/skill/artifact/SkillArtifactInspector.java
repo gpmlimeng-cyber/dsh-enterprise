@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 SnakeYAML SafeConstructor 与解压/entry 上限，读取不可信 .dshskill ZIP。
- * [OUTPUT]: 对外提供已验证 manifest 字段与包内每个 SKILL.md 的 frontmatter 脱敏投影。
+ * [OUTPUT]: 对外提供已验证 manifest 字段（含可选 category）与包内每个 SKILL.md 的 frontmatter 脱敏投影。
  * [POS]: skill/artifact 的单遍验包闸门，不把 ZIP entry 解压到文件系统，也不保留技能正文。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -39,6 +39,8 @@ import java.util.zip.ZipInputStream;
  */
 public final class SkillArtifactInspector {
     private static final int MAX_MANIFEST_BYTES = 1_048_576;
+    /** manifest 可选 category 的长度上限，与契约 maxLength 32 逐字一致。 */
+    private static final int MAX_CATEGORY_LENGTH = 32;
     private static final int MAX_SKILL_MD_BYTES = 262_144;
     private static final int MAX_SKILLS = 200;
     /** 与官方 `dsh-skill` 的 SKILL_NAME 正则逐字一致。 */
@@ -153,6 +155,7 @@ public final class SkillArtifactInspector {
         String displayName = requiredText(root.get("name"), "name", 120);
         String sourceDshVersion = requiredText(root.get("sourceDshVersion"), "sourceDshVersion", 64);
         String description = optionalText(root.get("description"), 2000);
+        String category = optionalCategory(root.get("category"));
 
         List<SkillEntry> skills = new ArrayList<>(skillFiles.size());
         Set<String> names = new HashSet<>();
@@ -161,7 +164,9 @@ public final class SkillArtifactInspector {
             if (!names.add(skill.name())) throw invalid("包内技能名重复：" + skill.name());
             skills.add(skill);
         }
-        return new InspectedSkillPackage(skillId, displayName, description, sourceDshVersion, List.copyOf(skills));
+        return new InspectedSkillPackage(
+            skillId, displayName, description, category, sourceDshVersion, List.copyOf(skills)
+        );
     }
 
     /** 解析单个 SKILL.md 的 YAML frontmatter，规则对齐官方 `dsh-skill-filesystem`。 */
@@ -257,6 +262,26 @@ public final class SkillArtifactInspector {
         return value;
     }
 
+    /**
+     * 读取 manifest 的可选 category。
+     *
+     * <p>口径：缺席、JSON null 与空串都归一为 null（"没有分类"只有一种表示），
+     * 非空纯空白（如 {@code "   "}）是无效声明，整包拒绝而不是静默归一，
+     * 避免"提交了分类却看不到标签"的静默分歧；长度上限 32，超出即拒绝；
+     * 合法值原样透传、不做 trim（分类是声明真值，服务端不改写它）。</p>
+     */
+    private static String optionalCategory(JsonNode node) {
+        if (node == null || node.isNull()) return null;
+        if (!node.isString()) throw invalid("manifest 字段 category 必须是字符串");
+        String value = node.stringValue();
+        if (value.length() > MAX_CATEGORY_LENGTH) {
+            throw invalid("manifest 字段 category 超过 " + MAX_CATEGORY_LENGTH + " 字符");
+        }
+        if (value.isEmpty()) return null;
+        if (value.isBlank()) throw invalid("manifest 字段 category 不接受纯空白");
+        return value;
+    }
+
     private static SkillArtifactException invalid(String message) {
         return new SkillArtifactException(SkillArtifactException.Kind.INVALID, message);
     }
@@ -269,10 +294,17 @@ public final class SkillArtifactInspector {
         return new SkillArtifactException(SkillArtifactException.Kind.TOO_LARGE, message);
     }
 
+    /**
+     * 已验证的包级声明。
+     *
+     * <p>category 是 manifest 的可选分类：缺席、JSON null 与空串都归一为 null
+     * （表示没有分类），非空纯空白整包拒绝，合法值原样透传不做 trim。</p>
+     */
     public record InspectedSkillPackage(
         String skillId,
         String displayName,
         String description,
+        String category,
         String sourceDshVersion,
         List<SkillEntry> skills
     ) {

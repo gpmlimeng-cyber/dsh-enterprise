@@ -2698,6 +2698,7 @@ export type SkillRuntimeSkillSummary = {
     skillId: SkillSkillPackageRef;
     displayName: string;
     description: string;
+    category?: string | null;
     sourceDshVersion: SkillSkillSourceDshVersion;
     sizeBytes: number;
     skillCount: number;
@@ -2737,10 +2738,13 @@ export type SkillSkillEntry = {
 export type SkillSkillEntryName = string;
 
 export type SkillSkillPackage = {
+    builtin: boolean;
+    featured: boolean;
     id: SkillSkillPackageId;
     skillId: SkillSkillPackageRef;
     displayName: string;
     description?: string;
+    category?: string | null;
     status: SkillSkillPackageStatus;
     revision: Revision;
     versions: Array<SkillSkillVersion>;

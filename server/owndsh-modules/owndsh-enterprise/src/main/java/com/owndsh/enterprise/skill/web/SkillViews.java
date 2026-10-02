@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 投影 skill catalog/version/assignment/runtime 领域对象。
- * [OUTPUT]: 对外提供字符串化 snowflake、包内技能条目与无 artifact 路径的严格 HTTP views。
+ * [OUTPUT]: 对外提供字符串化 snowflake、包级可选 category、包内技能条目与无 artifact 路径的严格 HTTP views。
  * [POS]: skill/web 的统一安全投影，条目只出 frontmatter 元数据，永不出技能正文。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -26,6 +26,9 @@ public final class SkillViews {
             value.skillPackage().skillId(),
             value.skillPackage().displayName(),
             text(value.skillPackage().description()),
+            value.skillPackage().category(),
+            value.skillPackage().builtin(),
+            value.skillPackage().featured(),
             value.skillPackage().status().name(),
             value.skillPackage().revision(),
             value.versions().stream().map(SkillViews::version).toList(),
@@ -65,23 +68,30 @@ public final class SkillViews {
     public static RuntimeSummaryView runtime(RuntimeSkill value) {
         return new RuntimeSummaryView(
             Long.toString(value.packageId()), value.skillId(), value.displayName(), text(value.description()),
-            value.sourceDshVersion(), value.sizeBytes(), value.skillCount(), value.updatedAt()
+            value.category(), value.sourceDshVersion(), value.sizeBytes(), value.skillCount(), value.updatedAt()
         );
     }
 
     public static RuntimeDetailView runtimeDetail(RuntimeSkill value) {
         return new RuntimeDetailView(
             Long.toString(value.packageId()), value.skillId(), value.displayName(), text(value.description()),
-            Long.toString(value.versionId()), value.sourceDshVersion(), value.sizeBytes(), value.sha256(),
+            value.category(), Long.toString(value.versionId()), value.sourceDshVersion(),
+            value.sizeBytes(), value.sha256(),
             value.skillCount(), value.skills().stream().map(SkillViews::entry).toList(), value.updatedAt()
         );
     }
 
+    /**
+     * 管理端包投影。category 可空：null 表示该包没有分类，绝不改写成空串。
+     */
     public record PackageView(
         String id,
         String skillId,
         String displayName,
         String description,
+        String category,
+        boolean builtin,
+        boolean featured,
         String status,
         long revision,
         List<VersionView> versions,
@@ -125,11 +135,16 @@ public final class SkillViews {
     ) {
     }
 
+    /**
+     * 员工端列表投影。category 是本轮新增的可选分类：没有分类时序列化为 JSON null，
+     * 前端在缺席/null/空串时都不渲染分类标签，服务端不把它改写成空串。
+     */
     public record RuntimeSummaryView(
         String id,
         String skillId,
         String displayName,
         String description,
+        String category,
         String sourceDshVersion,
         long sizeBytes,
         int skillCount,
@@ -137,11 +152,15 @@ public final class SkillViews {
     ) {
     }
 
+    /**
+     * 员工端详情投影，与列表投影同源带出 category（同一 SkillPackage 的声明值）。
+     */
     public record RuntimeDetailView(
         String id,
         String skillId,
         String displayName,
         String description,
+        String category,
         String versionId,
         String sourceDshVersion,
         long sizeBytes,

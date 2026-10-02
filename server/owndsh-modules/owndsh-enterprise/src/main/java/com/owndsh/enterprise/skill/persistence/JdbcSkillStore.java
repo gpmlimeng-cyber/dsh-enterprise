@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 V35 表、Spring JDBC 与 Jackson（skills jsonb 序列化）。
- * [OUTPUT]: 实现 skill catalog/version/assignment 与可见 runtime 查询。
+ * [INPUT]: 依赖 V35/V36/V37 表、Spring JDBC 与 Jackson（skills jsonb 序列化）。
+ * [OUTPUT]: 实现 skill catalog/version/assignment/marks/category 与可见 runtime 查询（assignment 与 builtin 取并集）。
  * [POS]: skill/persistence 的 PostgreSQL adapter，USER 优先于 ALL；skills 列只承载 frontmatter 脱敏投影。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -34,7 +34,8 @@ public final class JdbcSkillStore implements SkillStore {
 
     private final RowMapper<SkillPackage> packageMapper = (rs, i) -> new SkillPackage(
         rs.getLong("id"), rs.getString("tenant_id"), rs.getString("skill_id"),
-        rs.getString("display_name"), rs.getString("description"),
+        rs.getString("display_name"), rs.getString("description"), rs.getString("category"),
+        rs.getBoolean("builtin"), rs.getBoolean("featured"),
         SkillPackage.Status.valueOf(rs.getString("status")), rs.getLong("revision")
     );
 
@@ -60,7 +61,8 @@ public final class JdbcSkillStore implements SkillStore {
      */
     private final RowMapper<RuntimeSkill> runtimeMapper = (rs, i) -> new RuntimeSkill(
         rs.getLong("package_id"), rs.getString("skill_id"), rs.getString("display_name"),
-        rs.getString("description"), rs.getLong("version_id"), rs.getString("source_dsh_version"),
+        rs.getString("description"), rs.getString("category"),
+        rs.getLong("version_id"), rs.getString("source_dsh_version"),
         rs.getLong("size_bytes"), rs.getString("sha256"), entries(rs.getString("skills")),
         rs.getTimestamp("updated_at").toInstant()
     );
@@ -104,9 +106,14 @@ public final class JdbcSkillStore implements SkillStore {
     @Override
     public void insertPackage(SkillPackage skillPackage) {
         jdbc.update(
-            "insert into ent_skill_package (id, tenant_id, skill_id, display_name, description, status, revision) values (?,?,?,?,?,?,?)",
+            """
+            insert into ent_skill_package
+            (id, tenant_id, skill_id, display_name, description, category, builtin, featured, status, revision)
+            values (?,?,?,?,?,?,?,?,?,?)
+            """,
             skillPackage.id(), skillPackage.tenantId(), skillPackage.skillId(), skillPackage.displayName(),
-            skillPackage.description(), skillPackage.status().name(), skillPackage.revision()
+            skillPackage.description(), skillPackage.category(), skillPackage.builtin(), skillPackage.featured(),
+            skillPackage.status().name(), skillPackage.revision()
         );
     }
 
@@ -115,6 +122,41 @@ public final class JdbcSkillStore implements SkillStore {
         return jdbc.update(
             "update ent_skill_package set revision = revision + 1 where tenant_id = ? and id = ? and revision = ?",
             tenantId, packageId, expectedRevision
+        ) == 1;
+    }
+
+    @Override
+    public boolean updatePackageMarks(
+        String tenantId,
+        long packageId,
+        boolean builtin,
+        boolean featured,
+        long expectedRevision
+    ) {
+        return jdbc.update(
+            """
+            update ent_skill_package
+            set builtin = ?, featured = ?, revision = revision + 1
+            where tenant_id = ? and id = ? and revision = ?
+            """,
+            builtin, featured, tenantId, packageId, expectedRevision
+        ) == 1;
+    }
+
+    @Override
+    public boolean updatePackageCategory(
+        String tenantId,
+        long packageId,
+        String category,
+        long expectedRevision
+    ) {
+        return jdbc.update(
+            """
+            update ent_skill_package
+            set category = ?, revision = revision + 1
+            where tenant_id = ? and id = ? and revision = ?
+            """,
+            category, tenantId, packageId, expectedRevision
         ) == 1;
     }
 
@@ -222,7 +264,7 @@ public final class JdbcSkillStore implements SkillStore {
     public List<RuntimeSkill> findVisiblePublished(String tenantId, long userId) {
         return jdbc.query(
             """
-            select p.id as package_id, p.skill_id, p.display_name, p.description,
+            select p.id as package_id, p.skill_id, p.display_name, p.description, p.category,
                    v.id as version_id, v.source_dsh_version, v.size_bytes, v.sha256, v.skills,
                    v.created_at as updated_at
             from ent_skill_package p
@@ -232,13 +274,16 @@ public final class JdbcSkillStore implements SkillStore {
                 order by v2.created_at desc, v2.id desc limit 1
             )
             where p.tenant_id = ? and p.status = 'ACTIVE' and v.status = 'PUBLISHED'
-              and exists (
-                select 1 from ent_skill_assignment a
-                where a.package_id = p.id and a.status = 'ACTIVE'
-                  and (
-                    (a.subject_type = 'ALL' and a.subject_id is null)
-                    or (a.subject_type = 'USER' and a.subject_id = ?)
-                  )
+              and (
+                p.builtin
+                or exists (
+                  select 1 from ent_skill_assignment a
+                  where a.package_id = p.id and a.status = 'ACTIVE'
+                    and (
+                      (a.subject_type = 'ALL' and a.subject_id is null)
+                      or (a.subject_type = 'USER' and a.subject_id = ?)
+                    )
+                )
               )
             order by v.created_at desc, p.id desc
             """,
@@ -250,7 +295,7 @@ public final class JdbcSkillStore implements SkillStore {
     public Optional<RuntimeSkill> findVisiblePublishedById(String tenantId, long userId, long packageId) {
         return one(jdbc.query(
             """
-            select p.id as package_id, p.skill_id, p.display_name, p.description,
+            select p.id as package_id, p.skill_id, p.display_name, p.description, p.category,
                    v.id as version_id, v.source_dsh_version, v.size_bytes, v.sha256, v.skills,
                    v.created_at as updated_at
             from ent_skill_package p
@@ -260,13 +305,16 @@ public final class JdbcSkillStore implements SkillStore {
                 order by v2.created_at desc, v2.id desc limit 1
             )
             where p.tenant_id = ? and p.id = ? and p.status = 'ACTIVE' and v.status = 'PUBLISHED'
-              and exists (
-                select 1 from ent_skill_assignment a
-                where a.package_id = p.id and a.status = 'ACTIVE'
-                  and (
-                    (a.subject_type = 'ALL' and a.subject_id is null)
-                    or (a.subject_type = 'USER' and a.subject_id = ?)
-                  )
+              and (
+                p.builtin
+                or exists (
+                  select 1 from ent_skill_assignment a
+                  where a.package_id = p.id and a.status = 'ACTIVE'
+                    and (
+                      (a.subject_type = 'ALL' and a.subject_id is null)
+                      or (a.subject_type = 'USER' and a.subject_id = ?)
+                    )
+                )
               )
             """,
             runtimeMapper, tenantId, packageId, userId
@@ -280,13 +328,16 @@ public final class JdbcSkillStore implements SkillStore {
             select v.*, p.skill_id as package_skill_id from ent_skill_version v
             join ent_skill_package p on p.id = v.package_id
             where v.tenant_id = ? and v.id = ? and v.status = 'PUBLISHED' and p.status = 'ACTIVE'
-              and exists (
-                select 1 from ent_skill_assignment a
-                where a.package_id = p.id and a.status = 'ACTIVE'
-                  and (
-                    (a.subject_type = 'ALL' and a.subject_id is null)
-                    or (a.subject_type = 'USER' and a.subject_id = ?)
-                  )
+              and (
+                p.builtin
+                or exists (
+                  select 1 from ent_skill_assignment a
+                  where a.package_id = p.id and a.status = 'ACTIVE'
+                    and (
+                      (a.subject_type = 'ALL' and a.subject_id is null)
+                      or (a.subject_type = 'USER' and a.subject_id = ?)
+                    )
+                )
               )
             """,
             versionMapper, tenantId, versionId, userId

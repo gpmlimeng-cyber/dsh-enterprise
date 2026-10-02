@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Jackson JsonMapper、SnakeYAML frontmatter 解析与不可信 .dshskill ZIP 字节流。
- * [OUTPUT]: 锁定 manifest 必填字段、路径逃逸拒绝、SKILL.md frontmatter 必填与调用策略、旧字段拒收与包内重名拒绝。
+ * [OUTPUT]: 锁定 manifest 必填字段与可选 category 口径（缺失/null/空串归一为 null、超长与纯空白拒绝）、路径逃逸拒绝、SKILL.md frontmatter 必填与调用策略、旧字段拒收与包内重名拒绝。
  * [POS]: skill/artifact 的单元验收，不依赖 PostgreSQL 与容器。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -193,14 +193,84 @@ class SkillArtifactInspectorTest {
         assertEquals("ENT_SKILL_TOO_LARGE", exception.errorCode());
     }
 
+    /** manifest 声明 category 时必须原样透传到已验包结果（不 trim、不改写）。 */
+    @Test
+    void projectsDeclaredCategoryFromManifest() throws Exception {
+        assertEquals("办公效率", inspector.inspect(archiveWithCategory("\"办公效率\"", "cat-declared")).category());
+    }
+
+    /** 缺席、JSON null 与空串都表示"没有分类"：统一归一为 null，服务端绝不透出空串。 */
+    @Test
+    void treatsAbsentNullAndEmptyCategoryAsNoCategory() throws Exception {
+        assertNull(inspector.inspect(archiveWithCategory(null, "cat-absent")).category());
+        assertNull(inspector.inspect(archiveWithCategory("null", "cat-null")).category());
+        assertNull(inspector.inspect(archiveWithCategory("\"\"", "cat-empty")).category());
+    }
+
+    /** 超过 32 字符是无效声明，整包拒绝而不是静默截断（契约 maxLength 32）。 */
+    @Test
+    void rejectsCategoryLongerThanThirtyTwoCharacters() throws Exception {
+        SkillArtifactException exception = assertThrows(
+            SkillArtifactException.class,
+            () -> inspector.inspect(archiveWithCategory("\"" + "x".repeat(33) + "\"", "cat-too-long"))
+        );
+        assertEquals("ENT_SKILL_INVALID_PACKAGE", exception.errorCode());
+        assertTrue(exception.getMessage().contains("category"));
+    }
+
+    /** 32 字符是闭区间上界，必须仍然接受。 */
+    @Test
+    void acceptsCategoryOfExactlyThirtyTwoCharacters() throws Exception {
+        String value = "x".repeat(32);
+        assertEquals(
+            value,
+            inspector.inspect(archiveWithCategory("\"" + value + "\"", "cat-boundary")).category()
+        );
+    }
+
+    /** 非空纯空白是非法声明：拒绝而不是静默归一为 null，避免"提交了分类却看不到标签"的静默分歧。 */
+    @Test
+    void rejectsBlankCategoryInsteadOfSilentlyNormalizingIt() throws Exception {
+        SkillArtifactException exception = assertThrows(
+            SkillArtifactException.class,
+            () -> inspector.inspect(archiveWithCategory("\"   \"", "cat-blank"))
+        );
+        assertEquals("ENT_SKILL_INVALID_PACKAGE", exception.errorCode());
+        assertTrue(exception.getMessage().contains("纯空白"));
+    }
+
+    /** category 与其余 manifest 字段同口径：必须是 JSON 字符串，数字/对象一律拒绝。 */
+    @Test
+    void rejectsNonStringCategory() throws Exception {
+        SkillArtifactException exception = assertThrows(
+            SkillArtifactException.class,
+            () -> inspector.inspect(archiveWithCategory("123", "cat-number"))
+        );
+        assertEquals("ENT_SKILL_INVALID_PACKAGE", exception.errorCode());
+        assertTrue(exception.getMessage().contains("category"));
+    }
+
+    private Path archiveWithCategory(String categoryJson, String skillId) throws IOException {
+        return writeZip(Map.of(
+            "manifest.json", manifest(skillId, "分类测试", "0.1.7-rc.2", categoryJson),
+            "skills/" + skillId + "/SKILL.md", skill(skillId, "Use when testing.").getBytes(StandardCharsets.UTF_8)
+        ));
+    }
+
     private static SkillEntry entry(List<SkillEntry> skills, String name) {
         return skills.stream().filter(value -> value.name().equals(name)).findFirst().orElseThrow();
     }
 
     private static byte[] manifest(String id, String name, String sourceDshVersion) {
+        return manifest(id, name, sourceDshVersion, null);
+    }
+
+    /** categoryJson 为 null 表示 manifest 完全不声明 category，否则原样插入 JSON 值（便于构造 null/数字/空白等负例）。 */
+    private static byte[] manifest(String id, String name, String sourceDshVersion, String categoryJson) {
+        String category = categoryJson == null ? "" : ",\"category\":" + categoryJson;
         return ("""
-            {"format":"dsh-skill","version":"1","id":"%s","name":"%s","description":"demo","sourceDshVersion":"%s"}
-            """.formatted(id, name, sourceDshVersion)).getBytes(StandardCharsets.UTF_8);
+            {"format":"dsh-skill","version":"1","id":"%s","name":"%s","description":"demo","sourceDshVersion":"%s"%s}
+            """.formatted(id, name, sourceDshVersion, category)).getBytes(StandardCharsets.UTF_8);
     }
 
     private static String skill(String name, String description) {

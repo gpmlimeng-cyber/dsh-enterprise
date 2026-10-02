@@ -1,5 +1,5 @@
 # [INPUT]: 依赖根协议资源 ID、revision、cursor、requestId 与严格成功 envelope；技能 frontmatter 语义对齐 DSH 官方 `dsh-skill`/`dsh-skill-filesystem` 的 name/description/调用策略解析。
-# [OUTPUT]: 提供 dsh-skill v1 技能包/版本/技能条目/可见范围与 runtime 摘要/详情 schema。
+# [OUTPUT]: 提供 dsh-skill v1 技能包（含可选 category 分类）/版本/技能条目/可见范围/标记写入与 runtime 摘要/详情 schema。
 # [POS]: contracts/components 的企业技能目录真源，不投影 artifact 路径、SKILL.md 正文、包内脚本或签名私钥。
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 
@@ -152,11 +152,25 @@ SkillAssignmentBatchRequest:
       minItems: 0
       maxItems: 200
       items: {$ref: '#/SkillAssignmentSpec'}
+# 标记写入体：两个字段都必须显式给出，缺席由服务端拒绝，避免"漏传即 false"。
+SkillMarksRequest:
+  type: object
+  additionalProperties: false
+  required: [builtin, featured]
+  properties:
+    builtin:
+      type: boolean
+    featured:
+      type: boolean
 SkillPackage:
   type: object
   additionalProperties: false
-  required: [id, skillId, displayName, status, revision, versions, assignments]
+  required: [id, skillId, displayName, builtin, featured, status, revision, versions, assignments]
   properties:
+    builtin:
+      type: boolean
+    featured:
+      type: boolean
     id: {$ref: '#/SkillPackageId'}
     skillId: {$ref: '#/SkillPackageRef'}
     displayName:
@@ -166,6 +180,11 @@ SkillPackage:
     description:
       type: string
       maxLength: 2000
+    # 可选分类：缺席或 null 表示没有分类；非空则必须是 ≤32 的可见字符串（纯空白在验包层被拒绝）。
+    category:
+      type: [string, 'null']
+      minLength: 1
+      maxLength: 32
     status: {$ref: '#/SkillPackageStatus'}
     revision:
       $ref: '../enterprise-openapi.yaml#/components/schemas/Revision'
@@ -194,6 +213,15 @@ SkillPackageListResponse:
     data: {$ref: '#/SkillPackagePageData'}
     requestId:
       $ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'
+# 标记写入的响应复用列表投影：单个 SkillPackage 包在统一成功 envelope 里。
+SkillPackageResponse:
+  type: object
+  additionalProperties: false
+  required: [data, requestId]
+  properties:
+    data: {$ref: '#/SkillPackage'}
+    requestId:
+      $ref: '../enterprise-openapi.yaml#/components/schemas/RequestId'
 RuntimeSkillSummary:
   type: object
   additionalProperties: false
@@ -208,6 +236,11 @@ RuntimeSkillSummary:
     description:
       type: string
       maxLength: 2000
+    # 员工端可选分类：缺席或 null 表示没有分类；前端在缺席/null/空串时都不渲染分类标签。
+    category:
+      type: [string, 'null']
+      minLength: 1
+      maxLength: 32
     sourceDshVersion: {$ref: '#/SkillSourceDshVersion'}
     sizeBytes:
       type: integer
@@ -221,6 +254,7 @@ RuntimeSkillSummary:
     updatedAt:
       type: string
       format: date-time
+# 详情 = 摘要 + 版本事实：category 由 RuntimeSkillSummary 分支一并继承，这里不重复声明。
 RuntimeSkillDetail:
   allOf:
     - $ref: '#/RuntimeSkillSummary'

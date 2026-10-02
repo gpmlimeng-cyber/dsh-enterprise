@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖已发布且对当前用户可见的 package/version 联合投影。
- * [OUTPUT]: 提供 runtime 浏览摘要与详情事实（含包内技能条目）。
+ * [OUTPUT]: 提供 runtime 浏览摘要与详情事实（含包级可选 category 与包内技能条目）。
  * [POS]: skill/domain 的员工只读模型，不含 artifact 路径与管理集合。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -15,6 +15,7 @@ public record RuntimeSkill(
     String skillId,
     String displayName,
     String description,
+    String category,
     long versionId,
     String sourceDshVersion,
     long sizeBytes,

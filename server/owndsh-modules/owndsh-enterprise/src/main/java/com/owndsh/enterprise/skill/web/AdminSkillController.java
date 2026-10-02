@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 SkillCatalogService、可信 enterprise-admin 上下文、认证 cursor 与 ent:skill 权限码。
- * [OUTPUT]: 提供 catalog list、multipart 上传、version publish/retire 与 visibility batch。
+ * [OUTPUT]: 提供 catalog list、multipart 上传、version publish/retire、visibility batch 与 builtin/featured 标记写入。
  * [POS]: skill/web 的管理 HTTP 入口，artifact 路径与 SKILL.md 正文永不进入响应。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -138,6 +138,32 @@ public final class AdminSkillController {
         return response(
             catalog.replaceAssignments(mutation(context), packageId, expectedRevision, body.specs())
                 .stream().map(SkillViews::assignment).toList(),
+            context
+        );
+    }
+
+    /**
+     * 写入 builtin/featured 标记。
+     *
+     * <p>与 assignments/batch 同类：包级写操作带 JSON 请求体，故同时要求
+     * {@code Idempotency-Key}（v4 幂等键格式门禁）与 {@code If-Match}（包级 revision CAS）；
+     * 响应复用列表的 PackageView 投影，标记字段与列表接口同源。</p>
+     */
+    @PostMapping("/{packageId}/marks")
+    @SaCheckPermission("ent:skill:write")
+    public EnterpriseResponse<SkillViews.PackageView> updateMarks(
+        @PathVariable long packageId,
+        @RequestHeader("Idempotency-Key") UUID idempotencyKey,
+        @RequestHeader("If-Match") long expectedRevision,
+        @RequestBody SkillMarksRequest body,
+        HttpServletRequest request
+    ) {
+        EnterpriseApiValidation.requireUuidV4(idempotencyKey, "Idempotency-Key");
+        EnterpriseRequestContext context = contexts.resolve(request);
+        return response(
+            SkillViews.packageView(catalog.updateMarks(
+                mutation(context), packageId, expectedRevision, body.requireBuiltin(), body.requireFeatured()
+            )),
             context
         );
     }

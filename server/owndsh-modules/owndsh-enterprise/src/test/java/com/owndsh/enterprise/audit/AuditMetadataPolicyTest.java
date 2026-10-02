@@ -130,6 +130,7 @@ class AuditMetadataPolicyTest {
             new SkillAuditMetadata.Publish(1, 2, 1),
             new SkillAuditMetadata.Retire(1, 2, 2),
             new SkillAuditMetadata.Assignments(1, true, 0),
+            new SkillAuditMetadata.Marks(1, true, false, 2),
             new SkillAuditMetadata.Download(2, 3, 4),
             new SessionAuditMetadata.BatchAppended(0, 1, 2),
             new SessionAuditMetadata.Exported(0, 1, 2),

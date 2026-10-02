@@ -2940,6 +2940,7 @@ export const zSkillRuntimeSkillSummary = z.object({
     skillId: zSkillSkillPackageRef,
     displayName: z.string().min(1).max(120),
     description: z.string().max(2000),
+    category: z.string().min(1).max(32).nullish(),
     sourceDshVersion: zSkillSkillSourceDshVersion,
     sizeBytes: z.coerce.bigint().gte(BigInt(1)).lte(BigInt(52428800)),
     skillCount: z.int().gte(1).lte(200),
@@ -3020,10 +3021,13 @@ export const zSkillSkillVersion = z.object({
 export const zSkillVersion = zSkillSkillVersion;
 
 export const zSkillSkillPackage = z.object({
+    builtin: z.boolean(),
+    featured: z.boolean(),
     id: zSkillSkillPackageId,
     skillId: zSkillSkillPackageRef,
     displayName: z.string().min(1).max(120),
     description: z.string().max(2000).optional(),
+    category: z.string().min(1).max(32).nullish(),
     status: zSkillSkillPackageStatus,
     revision: zRevision,
     versions: z.array(zSkillSkillVersion),
