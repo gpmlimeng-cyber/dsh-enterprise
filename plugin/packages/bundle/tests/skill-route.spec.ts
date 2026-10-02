@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 `src/skill-route.ts` 的路由注册器与投影纯函数、`@dshent/platform-client` 的 route port 类型、Node 原生 HTTP server/fetch
- * [OUTPUT]: 锁定企业技能目录本地只读路由的列表/详情 200 透传、非法包 id 本地 400、401/503 投影、405、以及 `versions/` 下载路径不被当作包 id
- * [POS]: bundle 的技能取数回归门禁；有人漏注册详情路由、把上游正文原样写出、把 401 折成 503，或让 `/versions/...` 误撞详情路由，本文件都会红
+ * [OUTPUT]: 锁定企业技能目录本地只读路由的列表/详情 200 透传、非法包 id 本地 400、401/503 投影、405、`versions/` 下载路径不被当作包 id，以及**详情 prefix 必须不带尾斜杠**（用引擎同款「路径段前缀」匹配函数锁死，含带尾斜杠漏匹配的反例）
+ * [POS]: bundle 的技能取数回归门禁；有人漏注册详情路由、把上游正文原样写出、把 401 折成 503、让 `/versions/...` 误撞详情路由，或把详情 prefix 改回带尾斜杠（线上 `/skills/<id>` 空体 404 的根因），本文件都会红
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -86,6 +86,27 @@ describe('skill route projection', () => {
 /** 注册的两条路由（exact + prefix）都要按真实 webServer 的语义分发。 */
 type RegisteredRoute = Parameters<WebServerRoutePort['register']>[0]
 
+/**
+ * 引擎 `dsh-host-webserver` 的匹配语义（`lib/index.js` 的 `match()`）逐行照抄：
+ * exact 表按整路径命中优先；miss 后在 prefix 表里只认「路径段前缀」——
+ * `pathname === prefix || pathname.startsWith(`${prefix}/`)`，多条命中取最长者。
+ *
+ * 之所以在测试里复刻而不是调用真引擎：真引擎是 Cordis Service，起它要重启 DSH（本机禁止）。
+ * 这份复刻是「详情 prefix 不许带尾斜杠」这条回归锁的判定核心——它必须与引擎一致，
+ * 改这里之前先重读 `@deepseek-ai/dsh-host-webserver/lib/index.js` 的 `match()`。
+ */
+function engineRouteMatch(routes: readonly RegisteredRoute[], pathname: string): RegisteredRoute | undefined {
+  const exact = routes.find(route => route.kind === 'exact' && route.path === pathname)
+  if (exact !== undefined) return exact
+  let best: RegisteredRoute | undefined
+  for (const route of routes) {
+    if (route.kind !== 'prefix') continue
+    if (pathname !== route.path && !pathname.startsWith(`${route.path}/`)) continue
+    if (best === undefined || route.path.length > best.path.length) best = route
+  }
+  return best
+}
+
 describe('GET /enterprise/api/v1/local/skills', () => {
   let server: Server
   let baseUrl: string
@@ -95,11 +116,7 @@ describe('GET /enterprise/api/v1/local/skills', () => {
 
   function dispatch(incoming: IncomingMessage, response: ServerResponse): void {
     const pathname = (incoming.url ?? '').split('?')[0] ?? ''
-    const exact = routes.find(route => route.kind === 'exact' && route.path === pathname)
-    const prefixed = routes
-      .filter(route => route.kind === 'prefix' && pathname.startsWith(route.path))
-      .sort((left, right) => right.path.length - left.path.length)[0]
-    const route = exact ?? prefixed
+    const route = engineRouteMatch(routes, pathname)
     if (route === undefined) {
       response.writeHead(404).end()
       return
@@ -141,8 +158,35 @@ describe('GET /enterprise/api/v1/local/skills', () => {
   it('注册列表 exact 与详情 prefix 两条路由', () => {
     expect(ENTERPRISE_SKILLS_LIST_PATH).toBe('/enterprise/api/v1/skills')
     expect(ENTERPRISE_SKILL_LOCAL_PATH).toBe('/enterprise/api/v1/local/skills')
+    // 详情 prefix 与列表路径逐字相同、**不带尾斜杠**——引擎只认路径段前缀，带尾斜杠会漏掉 /skills/<id>。
     expect(routes.map(route => `${route.kind} ${route.path}`).sort())
-      .toEqual(['exact /enterprise/api/v1/local/skills', 'prefix /enterprise/api/v1/local/skills/'])
+      .toEqual(['exact /enterprise/api/v1/local/skills', 'prefix /enterprise/api/v1/local/skills'])
+  })
+
+  // 回归锁：线上 `GET /skills/code-review` 空响应体 404 的根因是详情 prefix 注册成 `/skills/`——
+  // 引擎的 prefix 不是裸 startsWith，而是 `pathname === prefix || pathname.startsWith(prefix + '/')`，
+  // 于是 `/skills/<id>` 谁都不命中（不进 handler，故响应体为空）；只有 `/skills/` 恰好等于 prefix 才进
+  // handler（空包 id 被本地拒成 400）。这里用引擎同款匹配函数把「注册形状 + 匹配结果」一起锁死，
+  // 不依赖 DSH 重启、也不依赖真引擎实例。
+  it('详情 prefix 不带尾斜杠，引擎路径段语义才能命中 /skills/<id>', () => {
+    const detail = routes.find(route => route.kind === 'prefix')
+    expect(detail?.path).toBe(ENTERPRISE_SKILL_LOCAL_PATH)
+    expect(detail?.path.endsWith('/')).toBe(false)
+    // 子路径命中详情路由。
+    expect(engineRouteMatch(routes, `${ENTERPRISE_SKILL_LOCAL_PATH}/1902500000000000001`)).toBe(detail)
+    expect(engineRouteMatch(routes, `${ENTERPRISE_SKILL_LOCAL_PATH}/code-review`)).toBe(detail)
+    // 裸列表路径仍归 exact（引擎 exact 表优先于 prefix 表）。
+    expect(engineRouteMatch(routes, ENTERPRISE_SKILL_LOCAL_PATH)?.kind).toBe('exact')
+    // 尾斜杠空包 id 仍进详情 handler（本地 400），修复前修复后行为一致。
+    expect(engineRouteMatch(routes, `${ENTERPRISE_SKILL_LOCAL_PATH}/`)?.kind).toBe('prefix')
+    // 反例（修复前的注册形状）：带尾斜杠的 prefix 在引擎语义下漏掉 /skills/<id>。
+    const legacy: RegisteredRoute[] = [{
+      kind: 'prefix',
+      path: `${ENTERPRISE_SKILL_LOCAL_PATH}/`,
+      handler: () => undefined,
+    }]
+    expect(engineRouteMatch(legacy, `${ENTERPRISE_SKILL_LOCAL_PATH}/1902500000000000001`)).toBeUndefined()
+    expect(engineRouteMatch(legacy, `${ENTERPRISE_SKILL_LOCAL_PATH}/`)).toBe(legacy[0])
   })
 
   it('GET 列表 200 透传 data 且不泄漏 requestId，并由 Host 代取中心路径', async () => {

@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 platform-client 的品牌缓存/解析器与本地 API 注册器，以及 Node 原生 HTTP server/fetch 与真实临时目录
- * [OUTPUT]: 验证「接口缺失/未配置/离线/超时/缓存损坏 → 没有企业品牌可回落」、revision 去重与磁盘副本复用、`string | { url }` 双形 LOGO 槽位（含旧缓存同 revision 自愈）、位图 MIME/尺寸/同源三道资源门禁，以及本地只读品牌路由契约
- * [POS]: platform-client 的品牌数据边界回归测试，锁定取数、缓存与降级语义，并保证品牌故障不影响任何既有本地路由
+ * [INPUT]: 依赖 platform-client 的品牌缓存/解析器与本地 API 注册器，以及 Node 原生 HTTP server/fetch 与真实临时目录；品牌本地路由按同目录 `engine-route-match.ts` 的引擎语义分发
+ * [OUTPUT]: 验证「接口缺失/未配置/离线/超时/缓存损坏 → 没有企业品牌可回落」、revision 去重与磁盘副本复用、`string | { url }` 双形 LOGO 槽位（含旧缓存同 revision 自愈）、位图 MIME/尺寸/同源三道资源门禁，以及本地只读品牌路由契约——含 `/branding/asset/<slot>` 这条详情 prefix 必须不带尾斜杠（带尾斜杠旧形状漏匹配的反例一并锁死）
+ * [POS]: platform-client 的品牌数据边界回归测试，锁定取数、缓存与降级语义，并保证品牌故障不影响任何既有本地路由；路由分发用逐行复刻引擎 `match()` 的匹配器，替换掉原先会把 `/asset/light` 假判为命中的「裸 startsWith」
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -21,6 +21,7 @@ import {
   type EnterprisePlatformStatus,
   type WebServerRoutePort,
 } from '../src/index.js'
+import { engineRouteMatch, type RegisteredRoute } from './engine-route-match.js'
 
 const LATEST_REVISION = 13
 const PNG = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex')
@@ -414,7 +415,7 @@ describe('enterprise branding cache', () => {
 describe('enterprise branding local routes', () => {
   let server: Server
   let origin: string
-  let routes: Map<string, Parameters<WebServerRoutePort['register']>[0]>
+  let routes: Map<string, RegisteredRoute>
   let webServer: WebServerRoutePort
   let dshHome: string
 
@@ -430,10 +431,11 @@ describe('enterprise branding local routes', () => {
       },
     }
     const started = await startServer((request, response) => {
+      // 与引擎 `handle()` 同形：pathname（丢查询串）→ match() → 未命中即空体 404。
+      // 这里**不能**用裸 `path.startsWith(candidate.path)`：那会把 `/asset/light` 假判成带尾斜杠
+      // prefix 的命中，正是线上空体 404 在测试里显示为绿的掩盖者。
       const path = new URL(request.url ?? '/', 'http://127.0.0.1').pathname
-      const route = routes.get(`exact:${path}`) ?? [...routes.values()].find(candidate => (
-        candidate.kind === 'prefix' && (path === candidate.path || path.startsWith(candidate.path))
-      ))
+      const route = engineRouteMatch([...routes.values()], path)
       if (route === undefined) return void response.writeHead(404).end()
       void Promise.resolve(route.handler(request, response))
     })
@@ -500,6 +502,11 @@ describe('enterprise branding local routes', () => {
     expect((await fetch(`${origin}${BRANDING_ASSET_LOCAL_PATH}/light`, { method: 'POST' })).status).toBe(405)
     // 未登录也一样读得到：品牌读取从不依赖会话状态。
     expect(routes.has(`exact:${BRANDING_LOCAL_PATH}`)).toBe(true)
+    // 位图详情 prefix 的注册 path 必须与父路径逐字相同、**不带尾斜杠**；带尾斜杠旧形状下
+    // `/asset/light` 在引擎层就是空体 404（品牌位图取不到），上面那条 200 断言会跟着红。
+    expect(routes.has(`prefix:${BRANDING_ASSET_LOCAL_PATH}`)).toBe(true)
+    expect(routes.has(`prefix:${BRANDING_ASSET_LOCAL_PATH}/`)).toBe(false)
+    expect(engineRouteMatch([...routes.values()], `${BRANDING_ASSET_LOCAL_PATH}/light`)?.kind).toBe('prefix')
   })
 
   it('answers an empty profile with an explicit null, and registers nothing without the port', async () => {
@@ -508,6 +515,22 @@ describe('enterprise branding local routes', () => {
     dispose()
     registerEnterpriseLocalApi(webServer, { platform: platformPort(), pluginStatus: () => ({}) })
     expect(routes.has(`exact:${BRANDING_LOCAL_PATH}`)).toBe(false)
-    expect(routes.has(`prefix:${BRANDING_ASSET_LOCAL_PATH}/`)).toBe(false)
+    expect(routes.has(`prefix:${BRANDING_ASSET_LOCAL_PATH}`)).toBe(false)
+  })
+
+  it('counter-example: the legacy trailing-slash asset prefix is invisible to the engine', () => {
+    const handler = (): void => {}
+    const legacy: readonly RegisteredRoute[] = [
+      { handler, kind: 'exact', path: BRANDING_LOCAL_PATH },
+      { handler, kind: 'prefix', path: `${BRANDING_ASSET_LOCAL_PATH}/` },
+    ]
+    // 旧形状下 `/asset/light` 既不等于 prefix 也不以 `prefix + '/'` 开头 → 引擎层查不到路由 → 空体 404。
+    expect(engineRouteMatch(legacy, `${BRANDING_ASSET_LOCAL_PATH}/light`)).toBeUndefined()
+    // 唯一能进 handler 的是「恰好等于带尾斜杠 prefix」本身，slice 出空串 → 一律 404，永远取不到位图。
+    expect(engineRouteMatch(legacy, `${BRANDING_ASSET_LOCAL_PATH}/`)?.path)
+      .toBe(`${BRANDING_ASSET_LOCAL_PATH}/`)
+    // 反面对照：换成不带尾斜杠的新形状，同一条子路径立刻命中。
+    expect(engineRouteMatch([{ handler, kind: 'prefix', path: BRANDING_ASSET_LOCAL_PATH }],
+      `${BRANDING_ASSET_LOCAL_PATH}/light`)?.path).toBe(BRANDING_ASSET_LOCAL_PATH)
   })
 })

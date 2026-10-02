@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 React、品牌位图 brand、lucide-react 三枚组件图标、官方 ui-primitives 的 Switch/Tag/StateDot（pinned 0.1.5-rc.2 的 .d.ts 已导出，不走 official-ui 收窄接缝）、account-state 的 `enterpriseSessionUsable` 与 account-store 的 `EnterpriseAccountSnapshot`（shared 面、订阅只在 WithStore 包装内），消费官方 `plugins.item` owner props（`view`/`form`）
- * [OUTPUT]: 提供官方插件页「官方」分组里的「插件市场」入口卡片与带「开关 + 组件列表」的详情页（布局逐值照官方 PackageDetail+RowsSection 实物），以及可脱离 DOM 测试的组件清单/计数摘要/组件状态纯投影与注册常量；卡片摘要与详情页正文**不重复同一句**——摘要只在 `summary` 视图出现（官方必渲染的那一份），详情页只留标题与组件列表
- * [POS]: ui 的企业扩展市场入口，只占官方 `plugins.item` 槽位（卡片一句话走 `summary`、详情正文走 `page`），不注册侧栏入口与独立市场弹层；store 与开登录回调均为可选注入（共享注册面经 `client.tsx` 的 `inject` 给本条目注入 store，缺席时降级为占位态，注入后自动升级为真值态）；组件行 `reserved` 只剩配方一行，插件与技能行随企业会话真值
+ * [INPUT]: 依赖 React（useState/useEffect）、品牌位图 brand、lucide-react 三枚组件图标、官方 ui-primitives 的 Switch/Tag/StateDot（pinned 0.1.5-rc.2 的 .d.ts 已导出，不走 official-ui 收窄接缝）、account-state 的 `enterpriseSessionUsable` 与 account-store 的 `EnterpriseAccountSnapshot`（shared 面、订阅只在 WithStore 包装内）、skill-market 的技能元信息口径 `enterpriseSkillMeta`、消费官方 `plugins.item` owner props（`view`/`form`）
+ * [OUTPUT]: 提供官方插件页「官方」分组里的「插件市场」入口卡片与带「开关 + 组件列表 + 企业插件节 + 企业技能节」的详情页（布局逐值照官方 PackageDetail+RowsSection 实物），以及可脱离 DOM 测试的组件清单/计数摘要/组件状态纯投影、企业插件行投影、企业技能行投影（`enterpriseMarketSkillRows` 复用技能 tab 的元信息口径）与注册常量；卡片摘要与详情页正文**不重复同一句**——摘要只在 `summary` 视图出现（官方必渲染的那一份），详情页只留标题与组件列表
+ * [POS]: ui 的企业扩展市场入口，只占官方 `plugins.item` 槽位（卡片一句话走 `summary`、详情正文走 `page`），不注册侧栏入口与独立市场弹层；store 与开登录回调均为可选注入（共享注册面经 `client.tsx` 的 `inject` 给本条目注入 store，缺席时降级为占位态，注入后自动升级为真值态）；组件行 `reserved` 只剩配方一行，插件与技能行随企业会话真值，两个目录节（企业插件/企业技能）都只在对应大组件开启且目录非空时出现（技能目录由 hook 入口经 `store.api.skills()` 取，纯函数体只收直传的行）
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -9,11 +9,12 @@ import { Package, Sparkles, BookMarked, ChevronDown } from 'lucide-react'
 import { StateDot, Switch, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ReactNode } from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { enterpriseSessionUsable, useAccount } from './account-state.js'
 import type { EnterpriseAccountStore } from './account-store.js'
 import { enterprisePluginStatePresentation } from './plugin-market.js'
-import type { EnterprisePluginCatalogItem, EnterprisePluginItem, ManagedPluginState } from './local-api-decode.js'
+import { enterpriseSkillMeta } from './skill-market.js'
+import type { EnterprisePluginCatalogItem, EnterprisePluginItem, EnterpriseRuntimeSkill, ManagedPluginState } from './local-api-decode.js'
 import { EnterpriseLoginDialog, useEnterpriseLoginDialog } from './login-dialog.js'
 
 /** 本入口在官方插件页占用的 slot id，同时是卡片 DOM 的 `data-plugin-item` 与详情页路由键。 */
@@ -73,21 +74,34 @@ export interface EnterpriseMarketEntryProps {
    */
   readonly enterprisePlugins?: readonly EnterpriseMarketPluginRow[] | undefined
   /**
+   * 企业技能目录（`store.api.skills()` 的列表投影，经 hook 入口取数后直传）。
+   * 与本 props 的「企业插件」节同规则：仅当「技能」组件开启（`sessionUsable`）且目录非空时
+   * 追加「企业技能」节；本行只读（技能靠复制装配指令落盘，没有安装态，故不提供假切换）。
+   */
+  readonly enterpriseSkills?: readonly EnterpriseMarketSkillRow[] | undefined
+  /**
    * 企业插件的安装/卸载动作（`store.installPlugin` / `store.removePlugin`）；缺席时开关禁用。
    * 注：安装动作在 hook 入口调用后触发 store 刷新，本纯函数体不持 store。
    */
   readonly onTogglePlugin?: ((row: EnterpriseMarketPluginRow, next: boolean) => void) | undefined
   /**
-   * 两节的折叠态（照官方 `PluginInventorySettingsTab`：`aria-expanded` + 默认折叠）。缺席视为全展开
+   * 各节的折叠态（照官方 `PluginInventorySettingsTab`：`aria-expanded` + 默认折叠）。缺席视为全展开
    * （纯函数直调测试不传即得完整树）；真运行时由 `EnterpriseMarketPage` 的 `useState` 供给。
    */
-  readonly expandedSections?: { readonly components: boolean; readonly enterprisePlugins: boolean } | undefined
+  readonly expandedSections?: { readonly components: boolean; readonly enterprisePlugins: boolean; readonly enterpriseSkills: boolean } | undefined
   /** 折叠切换回调（点节头按钮触发）；缺席时节头按钮禁用（不提供死按钮）。 */
-  readonly onToggleSection?: ((section: 'components' | 'enterprisePlugins') => void) | undefined
+  readonly onToggleSection?: ((section: EnterpriseMarketSectionId) => void) | undefined
 }
 
-/** 节头的可点按钮 id 与内容区 id（`aria-controls` 用），两节各自独立。 */
-export const ENTERPRISE_MARKET_SECTION_IDS = { components: 'components', enterprisePlugins: 'enterprise-plugins' } as const
+/** 可折叠的节 id 联合：组件节 / 企业插件节 / 企业技能节（三节共用同一份节头与折叠语义）。 */
+export type EnterpriseMarketSectionId = 'components' | 'enterprisePlugins' | 'enterpriseSkills'
+
+/** 节头的可点按钮 id 与内容区 id（`aria-controls` 用），三节各自独立。 */
+export const ENTERPRISE_MARKET_SECTION_IDS = {
+  components: 'components',
+  enterprisePlugins: 'enterprise-plugins',
+  enterpriseSkills: 'enterprise-skills',
+} as const
 
 /** 「企业插件」节的一行：企业后台上传的插件（catalog）+ 本机安装态。 */
 export interface EnterpriseMarketPluginRow {
@@ -131,6 +145,47 @@ export function enterpriseMarketPluginSectionVisible(
 }
 
 /**
+ * 「企业技能」节的一行：企业后台上传的技能包。
+ * 只有阅读事实、没有受管状态——技能靠「复制装配指令」由用户自己的 Agent 会话落盘，
+ * Host 不代下载，故不设开关（照「拨不动的开关像坏的」的同一产品决策）。
+ */
+export interface EnterpriseMarketSkillRow {
+  /** 技能包雪花 id，同时是详情取数键（`store.api.skillDetail(id)`）。 */
+  readonly id: string
+  /** manifest.json 的稳定标识（kebab-case 等），进 `data-enterprise-skill-id`。 */
+  readonly skillId: string
+  readonly displayName: string
+  /** 空描述归一为固定占位，与技能 tab 详情弹窗同一句话。 */
+  readonly description: string
+  /** 元信息（`DSH 版本 · 制品大小 · N 个技能`），复用 skill-market 的 `enterpriseSkillMeta` 口径。 */
+  readonly meta: string
+}
+
+/**
+ * 技能目录 → 可渲染的「企业技能」行（纯函数，按目录顺序，不做归并——技能没有本机受管态）。
+ * 元信息复用「技能」tab 卡片同一份 `enterpriseSkillMeta`，避免两处各写一份大小/版本口径后分叉。
+ */
+export function enterpriseMarketSkillRows(
+  skills: readonly EnterpriseRuntimeSkill[] = [],
+): EnterpriseMarketSkillRow[] {
+  return skills.map(skill => ({
+    id: skill.id,
+    skillId: skill.skillId,
+    displayName: skill.displayName,
+    description: skill.description === '' ? '（暂无描述）' : skill.description,
+    meta: enterpriseSkillMeta(skill),
+  }))
+}
+
+/** 「企业技能」节是否该渲染（「技能」组件开启且目录非空），与企业插件节同规则。 */
+export function enterpriseMarketSkillSectionVisible(
+  skillsComponentEnabled: boolean,
+  rows: readonly EnterpriseMarketSkillRow[],
+): boolean {
+  return skillsComponentEnabled && rows.length > 0
+}
+
+/**
  * 一节当前是否展开（照官方 `PluginInventorySettingsTab` 的 `searching || (open ?? false)`：
  * 官方搜索时强制展开，我们当前无搜索故退化为 `open ?? defaultOpen`；默认全折叠）。
  * @param expandedSections - 当前折叠态（缺席＝全展开，测试直调不传即得完整树）。
@@ -139,8 +194,8 @@ export function enterpriseMarketPluginSectionVisible(
  * @returns 是否展开。
  */
 export function enterpriseMarketSectionOpen(
-  expandedSections: { readonly components: boolean; readonly enterprisePlugins: boolean } | undefined,
-  section: 'components' | 'enterprisePlugins',
+  expandedSections: Record<EnterpriseMarketSectionId, boolean> | undefined,
+  section: EnterpriseMarketSectionId,
   defaultOpen = false,
 ): boolean {
   if (expandedSections === undefined) return defaultOpen
@@ -305,11 +360,11 @@ export function BadgeView({ version }: { readonly version?: string | undefined }
 
 /**
  * 官方插件页「官方」分组里的「插件市场」入口（纯函数：无 hook、无订阅，测试直接调用）。
- * @param props - 官方 `plugins.item` 的 owner props，`view` 区分卡片与详情正文；`sessionUsable`/`onOpenLogin` 为可选注入。
- * @returns `summary` 时为单行卡片文案，`page` 时为带「开关 + 组件列表」的详情页正文。
+ * @param props - 官方 `plugins.item` 的 owner props，`view` 区分卡片与详情正文；`sessionUsable`/`onOpenLogin`/`enterprisePlugins`/`enterpriseSkills` 为可选注入。
+ * @returns `summary` 时为单行卡片文案，`page` 时为带「开关 + 组件列表 + 企业插件节 + 企业技能节」的详情页正文。
  */
 export function EnterpriseMarketEntry({
-  view, sessionUsable = false, onOpenLogin, enterprisePlugins = [], onTogglePlugin,
+  view, sessionUsable = false, onOpenLogin, enterprisePlugins = [], enterpriseSkills = [], onTogglePlugin,
   expandedSections = undefined, onToggleSection,
 }: EnterpriseMarketEntryProps): ReactNode {
   if (view === 'summary') return <span className="own-market-entry-summary">{ENTERPRISE_MARKET_SUMMARY}</span>
@@ -323,17 +378,23 @@ export function EnterpriseMarketEntry({
   }))
   const pluginsEnabled = enterpriseMarketComponentEnabled('plugins', sessionUsable)
   const pluginRowsVisible = enterpriseMarketPluginSectionVisible(pluginsEnabled, enterprisePlugins)
-  // 折叠：默认两节全折叠（照官方 PluginInventory）；纯函数不传 expandedSections 时全展开（测试直调得完整树）。
-  const componentsOpen = enterpriseMarketSectionOpen(expandedSections, 'components', true)
-  const enterprisePluginsOpen = enterpriseMarketSectionOpen(expandedSections, 'enterprisePlugins', true)
+  // 「企业技能」节与企业插件节同规则：只在「技能」大组件开启（= 会话可用）且目录非空时出现。
+  const skillsEnabled = enterpriseMarketComponentEnabled('skills', sessionUsable)
+  const skillRowsVisible = enterpriseMarketSkillSectionVisible(skillsEnabled, enterpriseSkills)
+  // 折叠：默认三节全折叠（照官方 PluginInventory）；纯函数不传 expandedSections 时全展开（测试直调得完整树）。
+  const sectionOpen: Record<EnterpriseMarketSectionId, boolean> = {
+    components: enterpriseMarketSectionOpen(expandedSections, 'components', true),
+    enterprisePlugins: enterpriseMarketSectionOpen(expandedSections, 'enterprisePlugins', true),
+    enterpriseSkills: enterpriseMarketSectionOpen(expandedSections, 'enterpriseSkills', true),
+  }
   const canToggle = typeof onToggleSection === 'function'
   /** 一节的节头：照官方 groupToggle button（chevron + 标题 + 计数同排，aria-expanded/controls）。 */
-  const sectionHead = (section: 'components' | 'enterprisePlugins', title: string, count: ReactNode): ReactNode => (
+  const sectionHead = (section: EnterpriseMarketSectionId, title: string, count: ReactNode): ReactNode => (
     <div className="own-market-sectionHead">
       <button
         type="button"
         className="own-market-groupToggle"
-        aria-expanded={section === 'components' ? componentsOpen : enterprisePluginsOpen}
+        aria-expanded={sectionOpen[section]}
         aria-controls={`market-section-${ENTERPRISE_MARKET_SECTION_IDS[section]}`}
         disabled={!canToggle}
         title={canToggle ? undefined : '折叠动作未接通'}
@@ -353,7 +414,7 @@ export function EnterpriseMarketEntry({
         {/* 条件渲染而非 hidden 属性：`.own-market-rows{display:flex}` 类选择器会覆盖 UA 的
             `[hidden]{display:none}`（author > UA），hidden 属性存在但列表不消失——照官方 groupBody
             的 `{open ? <div> : null}` 写法，收起时列表真正不进 DOM。 */}
-        {componentsOpen ? (
+        {sectionOpen.components ? (
           <ul className="own-market-rows" id={`market-section-${ENTERPRISE_MARKET_SECTION_IDS.components}`}>
             {rows.map(row => (
               <li
@@ -390,7 +451,7 @@ export function EnterpriseMarketEntry({
       {pluginRowsVisible ? (
         <section className="own-market-section" data-market-section="enterprise-plugins">
           {sectionHead('enterprisePlugins', '企业插件', `${enterprisePlugins.length} 个`)}
-          {enterprisePluginsOpen ? (
+          {sectionOpen.enterprisePlugins ? (
             <ul className="own-market-rows" id={`market-section-${ENTERPRISE_MARKET_SECTION_IDS.enterprisePlugins}`}>
               {enterprisePlugins.map(plugin => (
                 <li
@@ -430,13 +491,46 @@ export function EnterpriseMarketEntry({
           ) : null}
         </section>
       ) : null}
+      {/* 「企业技能」节：与企业插件节同规则——「技能」大组件开启（= 会话可用）且目录非空才出现。
+          只读行：技能不走安装/卸载（靠复制装配指令由用户自己的 Agent 会话落盘），故不放 Switch。 */}
+      {skillRowsVisible ? (
+        <section className="own-market-section" data-market-section="enterprise-skills">
+          {sectionHead('enterpriseSkills', '企业技能', `${enterpriseSkills.length} 个`)}
+          {sectionOpen.enterpriseSkills ? (
+            <ul className="own-market-rows" id={`market-section-${ENTERPRISE_MARKET_SECTION_IDS.enterpriseSkills}`}>
+              {enterpriseSkills.map(skill => (
+                <li
+                  key={skill.id}
+                  className="own-market-row"
+                  data-enterprise-skill-package={skill.id}
+                  data-enterprise-skill-id={skill.skillId}
+                >
+                  <div className="own-market-rowLine">
+                    <span className="own-market-rowIcon"><Sparkles size={18} aria-hidden="true" /></span>
+                    {/* 两行文案照官方已安装卡片 CardHead（title 行 + description 行）；右侧状态位放
+                        「DSH 版本 · 大小 · N 个技能」，与「企业设置 → 技能」卡片同一份 enterpriseSkillMeta 口径。 */}
+                    <div className="own-market-rowMain">
+                      <span className="own-market-cardId">{skill.displayName}</span>
+                      <span className="own-market-cardDesc">{skill.description}</span>
+                    </div>
+                    <span className="own-market-rowState">{skill.meta}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+      ) : null}
     </section>
   )
 }
 
 /**
  * 官方 `plugins.item` 的真实入口（唯一含 hook 的导出）：订阅企业账号 store、自持登录弹窗，
- * 把会话可用性与开登录回调喂给纯函数体 `EnterpriseMarketEntry`。`store` 缺席时开关恒禁用（不提供假切换）。
+ * 把会话可用性、插件目录与开登录回调喂给纯函数体 `EnterpriseMarketEntry`。`store` 缺席时开关恒禁用（不提供假切换）。
+ *
+ * 技能目录不在 store 快照里，故由本入口按会话可用性就地取（`store.api.skills()`，同源固定路径）；
+ * 取数失败/未登录都收敛成空目录——「企业技能」节据此不出现，不残留半个错误态。
  * @param props - `view` 透传官方视图；`store` 由共享注册面（`client.tsx` 的 `plugins.item` inject）注入。
  * @returns 官方插件页「插件市场」入口，`page` 视图下头部总开关与组件行开关都真实可用。
  */
@@ -444,12 +538,13 @@ export function EnterpriseMarketPage({ view, store }: { readonly view: 'summary'
   const snapshot = useAccount(store as EnterpriseAccountStore)
   const dialog = useEnterpriseLoginDialog(store as EnterpriseAccountStore)
   const sessionUsable = enterpriseSessionUsable(snapshot.status?.state)
-  // 折叠态：默认两节全折叠（照官方 PluginInventory `?? false`）；本组件是唯一 hook 入口，纯函数体不持状态。
-  const [expandedSections, setExpandedSections] = useState<{ components: boolean; enterprisePlugins: boolean }>({
+  // 折叠态：默认三节全折叠（照官方 PluginInventory `?? false`）；本组件是唯一 hook 入口，纯函数体不持状态。
+  const [expandedSections, setExpandedSections] = useState<Record<EnterpriseMarketSectionId, boolean>>({
     components: false,
     enterprisePlugins: false,
+    enterpriseSkills: false,
   })
-  const onToggleSection = (section: 'components' | 'enterprisePlugins'): void => {
+  const onToggleSection = (section: EnterpriseMarketSectionId): void => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }))
   }
   const hasStore = store !== undefined
@@ -458,6 +553,24 @@ export function EnterpriseMarketPage({ view, store }: { readonly view: 'summary'
   const catalog = pluginStatus?.catalog ?? []
   const local = pluginStatus?.plugins ?? []
   const enterprisePlugins = enterpriseMarketPluginRows(catalog, local)
+  // 技能目录：只在 `page` 视图（企业技能节的宿主）+ 有 store + 会话可用时取；卡片视图不预取。
+  // 会话不可用/取数失败一律回落空目录（节随之消失）；依赖变化即中止在途请求，避免迟到结果跨会话回填。
+  const [enterpriseSkills, setEnterpriseSkills] = useState<readonly EnterpriseMarketSkillRow[]>([])
+  useEffect(() => {
+    if (view !== 'page' || !hasStore || !sessionUsable) {
+      setEnterpriseSkills([])
+      return
+    }
+    const controller = new AbortController()
+    void store!.api.skills(controller.signal)
+      .then(items => {
+        if (!controller.signal.aborted) setEnterpriseSkills(enterpriseMarketSkillRows(items))
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setEnterpriseSkills([])
+      })
+    return () => { controller.abort() }
+  }, [view, hasStore, sessionUsable, store])
   const versionIdByPackage = new Map(catalog.map(item => [item.packageName, item.pluginVersionId]))
   const onTogglePlugin: ((row: EnterpriseMarketPluginRow, next: boolean) => void) | undefined = hasStore
     ? (row, next) => {
@@ -476,6 +589,7 @@ export function EnterpriseMarketPage({ view, store }: { readonly view: 'summary'
         sessionUsable={sessionUsable}
         onOpenLogin={openLogin}
         enterprisePlugins={enterprisePlugins}
+        enterpriseSkills={enterpriseSkills}
         onTogglePlugin={onTogglePlugin}
         expandedSections={expandedSections}
         onToggleSection={onToggleSection}

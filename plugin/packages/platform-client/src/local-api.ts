@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 Harness `ctx.webServer.register()` route port、平台操作端口、组合层注入的插件动作端口、品牌只读端口与可选投影留痕端口
- * [OUTPUT]: 提供账号/配置按需刷新、插件操作、本地品牌投影与原生登录（来源列表 / 凭证代提交 / 改密代提交）的严格同源 JSON 路由，无常驻状态连接；凭证正文只按固定键集读入并原样转发，绝不进日志；每个把异常投影成 HTTP 状态的回调都经 `onError` 上报操作名与原始 error
- * [POS]: platform-client 的 Host/Client 同源协作边界，只序列化脱敏 DTO 并把认证 HTTP 留在 Host Service
+ * [OUTPUT]: 提供账号/配置按需刷新、插件操作、本地品牌投影与原生登录（来源列表 / 凭证代提交 / 改密代提交）的严格同源 JSON 路由，无常驻状态连接；凭证正文只按固定键集读入并原样转发，绝不进日志；每个把异常投影成 HTTP 状态的回调都经 `onError` 上报操作名与原始 error；三条详情 prefix（品牌位图 / 会话恢复 / 配方详情）的注册 path 一律**不带尾斜杠**，以适配引擎 `dsh-host-webserver` 的「路径段前缀」匹配
+ * [POS]: platform-client 的 Host/Client 同源协作边界，只序列化脱敏 DTO 并把认证 HTTP 留在 Host Service；路由形状受引擎 `match()`（`lib/index.js`）约束——exact 表整路径优先、prefix 只认 `pathname === prefix` 或 `pathname.startsWith(prefix + '/')`、多条命中取最长，故带尾斜杠的 prefix 会在引擎层空体 404 而根本不进 handler
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -26,6 +26,27 @@ import type {
 const LOCAL_API_PREFIX = '/enterprise/api/v1/local'
 const JSON_CONTENT_TYPE = 'application/json; charset=utf-8'
 const MAX_LOCAL_BODY_BYTES = 256 * 1024
+
+/**
+ * 三条 **prefix** 路由的注册 path：与各自的父路径（品牌文档 / 会话列表 / 配方列表）**逐字相同，不带尾斜杠**。
+ *
+ * 引擎 `dsh-host-webserver` 的 `match()`（`lib/index.js`）只做「路径段前缀」匹配：
+ * `pathname === prefix || pathname.startsWith(`${prefix}/`)`；先查 exact 表（整路径命中即返回，不比长度），
+ * miss 后才在 prefix 表里取**最长**命中。因此注册成 `${...}/asset/`、`${...}/sessions/`、`${...}/presets/`
+ * 时，`/asset/light`、`/sessions/<id>/copies`、`/presets/<id>` 既不等于 prefix、也不以 `prefix + '/'` 开头，
+ * 引擎层直接回 404（**空响应体，handler 根本不会被调用**）——这正是品牌位图、远端会话恢复与配方详情
+ * 三条线空体 404 的根因，与 `bundle/src/skill-route.ts` 的详情路由同族（那里已修）。
+ *
+ * exact 与 prefix 是引擎里的**两张表**（`register()` 只对同 kind、同 path 抛重复），
+ * 所以 `/sessions`、`/presets` 上「列表 exact + 详情 prefix」共用同一字符串并不冲突，且 exact 优先命中；
+ * `/sessions/sync` 这条 sibling exact 同理不会被上面那条更短的 prefix 抢走。
+ *
+ * 下面这三条只用于 `register()`；handler 内 `slice()` 用的仍是**含斜杠**的边界串（`${...}/asset/` 等），
+ * 二者不是同一条串，切勿为了「去重」把它们合并回带尾斜杠的形状。
+ */
+const BRANDING_ASSET_PREFIX_ROUTE = BRANDING_ASSET_LOCAL_PATH
+const SESSION_RESTORE_PREFIX_ROUTE = `${LOCAL_API_PREFIX}/sessions`
+const PRESET_DETAIL_PREFIX_ROUTE = `${LOCAL_API_PREFIX}/presets`
 
 /** Harness `ctx.webServer` Service 公开的 route 结构。 */
 export interface WebServerRoutePort {
@@ -406,7 +427,8 @@ export function registerEnterpriseLocalApi(
       }))
       disposers.push(webServer.register({
         kind: 'prefix',
-        path: `${BRANDING_ASSET_LOCAL_PATH}/`,
+        // 不带尾斜杠：引擎按「路径段前缀」匹配，带尾斜杠会让 /branding/asset/<slot> 在引擎层就 404。
+        path: BRANDING_ASSET_PREFIX_ROUTE,
         handler: async (request, response) => {
           if (request.method !== 'GET') {
             methodNotAllowed(response, 'GET')
@@ -506,7 +528,8 @@ export function registerEnterpriseLocalApi(
       }))
       disposers.push(webServer.register({
         kind: 'prefix',
-        path: `${LOCAL_API_PREFIX}/sessions/`,
+        // 不带尾斜杠：否则 /sessions/<id>/copies 到不了本 handler（URL 里的 id 由下面的边界常量切出）。
+        path: SESSION_RESTORE_PREFIX_ROUTE,
         handler: async (request, response) => {
           if (request.method !== 'POST') {
             methodNotAllowed(response, 'POST')
@@ -564,7 +587,8 @@ export function registerEnterpriseLocalApi(
 
     disposers.push(webServer.register({
       kind: 'prefix',
-      path: `${LOCAL_API_PREFIX}/presets/`,
+      // 不带尾斜杠：否则 /presets/<id> 到不了本 handler（`/presets` 裸路径由上面的 exact 路由优先命中）。
+      path: PRESET_DETAIL_PREFIX_ROUTE,
       handler: async (request, response) => {
         if (request.method !== 'GET') {
           methodNotAllowed(response, 'GET')

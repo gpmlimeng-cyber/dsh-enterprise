@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 marketplace-entry 的注册常量、组件清单/摘要/状态/开关语义纯投影、入口组件与版本签组件本身
- * [OUTPUT]: 验证入口身份常量、卡片一句话的单行约束、组件清单（插件/技能/配方）顺序与 reserved 语义、计数摘要口径、summary/page 两视图结构（含「包含的组件」标题与逐行开关，且 page 不重画标题/desc）、版本签只对本条目 subject 出
+ * [INPUT]: 依赖 marketplace-entry 的注册常量、组件清单/摘要/状态/开关语义纯投影、企业技能行投影与可见性门控、入口组件与版本签组件本身，以及 local-api-decode 的 `EnterpriseRuntimeSkill` 形状
+ * [OUTPUT]: 验证入口身份常量、卡片一句话的单行约束、组件清单（插件/技能/配方）顺序与 reserved 语义、计数摘要口径、summary/page 两视图结构（含「包含的组件」标题与逐行开关，且 page 不重画标题/desc）、版本签只对本条目 subject 出、企业插件节的归并与门控，以及**企业技能节的只读行投影（复用技能 tab 元信息口径）/可见性门控/计数/折叠开关**（与企业插件节同规则）
  * [POS]: dsh-ui 插件市场入口的产品词汇门禁，真实渲染与视觉由 Harness 快照与真机验收覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,6 +9,7 @@ import { isValidElement } from 'react'
 import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { Switch } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { EnterpriseRuntimeSkill } from '../src/local-api-decode.js'
 import {
   ENTERPRISE_MARKET_COMPONENTS,
   ENTERPRISE_MARKET_ENTRY_ID,
@@ -30,6 +31,8 @@ import {
   enterpriseMarketPluginRows,
   enterpriseMarketPluginSectionVisible,
   enterpriseMarketSectionOpen,
+  enterpriseMarketSkillRows,
+  enterpriseMarketSkillSectionVisible,
   enterpriseMarketVersionTag,
   enterprisePluginDot,
   ENTERPRISE_MARKET_SECTION_IDS,
@@ -58,6 +61,20 @@ function textOf(node: ReactNode): string {
   if (!isValidElement(node)) return ''
   if (node.type === 'style') return ''
   return textOf(node.props.children as ReactNode)
+}
+
+/** 「企业技能」节的目录 fixture：与 skill-market.spec 的列表投影同形（列表态 versionId/skills 为空）。 */
+const SKILL: EnterpriseRuntimeSkill = {
+  id: '1902500000000000001',
+  skillId: 'meeting-notes',
+  displayName: '会议纪要技能组',
+  description: '把会议录音与转写整理成结构化纪要。',
+  sourceDshVersion: '0.1.7-rc.2',
+  sizeBytes: 40_960,
+  skillCount: 2,
+  updatedAt: '2026-09-30T08:00:00Z',
+  versionId: '',
+  skills: [],
 }
 
 describe('enterprise marketplace entry', () => {
@@ -255,23 +272,123 @@ describe('enterprise marketplace entry', () => {
     expect(text).not.toContain('已装 · v')
   })
 
+  // 「企业技能」节：目录 → 只读行（复用技能 tab 的元信息口径），与企业插件节同规则门控。
+  it('projects the enterprise skill catalog into read-only rows reusing the skill-tab meta 口径', () => {
+    const rows = enterpriseMarketSkillRows([
+      SKILL,
+      { ...SKILL, id: '1902500000000000002', skillId: 'code-review', displayName: '代码评审技能组', description: '' },
+    ])
+    expect(rows.map(row => row.id)).toEqual(['1902500000000000001', '1902500000000000002'])
+    // 元信息与「企业设置 → 技能」卡片同一份 enterpriseSkillMeta 口径（DSH 版本 · 大小 · N 个技能）。
+    expect(rows[0]).toEqual({
+      id: '1902500000000000001',
+      skillId: 'meeting-notes',
+      displayName: '会议纪要技能组',
+      description: '把会议录音与转写整理成结构化纪要。',
+      meta: 'DSH 0.1.7-rc.2 · 40.0 KiB · 2 个技能',
+    })
+    // 空描述归一为固定占位，与技能 tab 详情弹窗同一句话；目录顺序原样保留（技能无本机受管态，不做归并）。
+    expect(rows[1]?.description).toBe('（暂无描述）')
+    expect(enterpriseMarketSkillRows()).toEqual([])
+  })
+
+  it('renders the enterprise skill section only when the skills component is on and the catalog is non-empty', () => {
+    expect(enterpriseMarketSkillSectionVisible(true, [{ id: '1' } as never])).toBe(true)
+    expect(enterpriseMarketSkillSectionVisible(false, [{ id: '1' } as never])).toBe(false)
+    expect(enterpriseMarketSkillSectionVisible(true, [])).toBe(false)
+    expect(enterpriseMarketSkillSectionVisible(false, [])).toBe(false)
+  })
+
+  // page 在「技能」组件 ON 且目录非空时渲染企业技能节、OFF 时不渲染，且技能行是只读（无开关）。
+  it('appends the enterprise skill section in page only when the skills component is on, and keeps it read-only', () => {
+    const enterpriseSkills = enterpriseMarketSkillRows([SKILL])
+    // OFF：sessionUsable=false → 「技能」组件未开启 → 不出企业技能节。
+    const off = EnterpriseMarketEntry({ view: 'page', sessionUsable: false, enterpriseSkills })
+    expect(textOf(off)).not.toContain('企业技能')
+    expect(textOf(off)).not.toContain('会议纪要技能组')
+    // ON：标题 + 计数（`N 个`）+ 包名 + 元信息。
+    const on = EnterpriseMarketEntry({ view: 'page', sessionUsable: true, enterpriseSkills })
+    const text = textOf(on)
+    expect(text).toContain('企业技能')
+    expect(text).toContain('1 个')
+    expect(text).toContain('会议纪要技能组')
+    expect(text).toContain('把会议录音与转写整理成结构化纪要。')
+    expect(text).toContain('DSH 0.1.7-rc.2 · 40.0 KiB · 2 个技能')
+    // 数据钩子命名与企业插件节同风格（`enterprise-skills`）。
+    expect(collectSectionByHook(on, 'enterprise-skills')).not.toBeUndefined()
+    expect(collectSectionByHook(on, 'enterprise-plugins')).toBeUndefined()
+    // 只读：技能行不加开关（技能靠复制装配指令落盘，没有安装动作，不提供假切换）——开关仍只有三个组件行。
+    expect(collectSwitchProps(on)).toHaveLength(3)
+  })
+
+  // 折叠（照官方 PluginInventory groupToggle）：企业技能节与另两节共用同一份 aria 契约与折叠语义。
+  it('toggles the enterprise-skills section with the same aria contract as the other two sections', () => {
+    const enterpriseSkills = enterpriseMarketSkillRows([SKILL])
+    expect(ENTERPRISE_MARKET_SECTION_IDS.enterpriseSkills).toBe('enterprise-skills')
+    expect(enterpriseMarketSectionOpen(undefined, 'enterpriseSkills')).toBe(false)
+    expect(enterpriseMarketSectionOpen(
+      { components: false, enterprisePlugins: false, enterpriseSkills: true },
+      'enterpriseSkills',
+    )).toBe(true)
+
+    const collapsed = EnterpriseMarketEntry({
+      view: 'page',
+      sessionUsable: true,
+      enterpriseSkills,
+      expandedSections: { components: false, enterprisePlugins: false, enterpriseSkills: false },
+      onToggleSection: vi.fn(),
+    })
+    const collapsedBtn = collectButtonProps(collapsed)
+      .find(button => button['aria-controls'] === 'market-section-enterprise-skills')
+    expect(collapsedBtn).toBeDefined()
+    expect(collapsedBtn?.['aria-expanded']).toBe(false)
+    // 收起时列表整段不进 DOM，但节头/标题/计数仍在。
+    expect(collectElementById(collapsed, 'market-section-enterprise-skills')).toBeUndefined()
+    expect(textOf(collapsed)).toContain('企业技能')
+
+    const expanded = EnterpriseMarketEntry({
+      view: 'page',
+      sessionUsable: true,
+      enterpriseSkills,
+      expandedSections: { components: false, enterprisePlugins: false, enterpriseSkills: true },
+      onToggleSection: vi.fn(),
+    })
+    expect(collectButtonProps(expanded)
+      .find(button => button['aria-controls'] === 'market-section-enterprise-skills')?.['aria-expanded']).toBe(true)
+    expect(collectElementById(expanded, 'market-section-enterprise-skills')).not.toBeUndefined()
+
+    const spy = vi.fn()
+    const clickable = EnterpriseMarketEntry({
+      view: 'page',
+      sessionUsable: true,
+      enterpriseSkills,
+      expandedSections: { components: false, enterprisePlugins: false, enterpriseSkills: false },
+      onToggleSection: spy,
+    })
+    collectButtonProps(clickable)
+      .find(button => button['aria-controls'] === 'market-section-enterprise-skills')?.onClick?.()
+    expect(spy).toHaveBeenCalledWith('enterpriseSkills')
+  })
+
   // 折叠（照官方 PluginInventory groupToggle）：默认折叠、aria-expanded/controls 齐全、chevron 旋转。
-  it('collapses both sections by default when expandedSections is provided, and toggles aria-expanded', () => {
+  it('collapses all three sections by default when expandedSections is provided, and toggles aria-expanded', () => {
     // 缺席（bare call）→ 默认折叠（照官方 `?? false`）；页面纯函数体不传 expandedSections 时会传 defaultOpen=true（测试直调得完整树）。
     expect(enterpriseMarketSectionOpen(undefined, 'components')).toBe(false)
     expect(enterpriseMarketSectionOpen(undefined, 'enterprisePlugins')).toBe(false)
+    expect(enterpriseMarketSectionOpen(undefined, 'enterpriseSkills')).toBe(false)
     expect(enterpriseMarketSectionOpen(undefined, 'components', true)).toBe(true)
     // 显式 provided → 按值。
-    expect(enterpriseMarketSectionOpen({ components: false, enterprisePlugins: false }, 'components')).toBe(false)
-    expect(enterpriseMarketSectionOpen({ components: true, enterprisePlugins: false }, 'components')).toBe(true)
-    expect(enterpriseMarketSectionOpen({ components: true, enterprisePlugins: false }, 'enterprisePlugins')).toBe(false)
+    const allClosed = { components: false, enterprisePlugins: false, enterpriseSkills: false }
+    expect(enterpriseMarketSectionOpen(allClosed, 'components')).toBe(false)
+    expect(enterpriseMarketSectionOpen({ ...allClosed, components: true }, 'components')).toBe(true)
+    expect(enterpriseMarketSectionOpen({ ...allClosed, components: true }, 'enterprisePlugins')).toBe(false)
     expect(ENTERPRISE_MARKET_SECTION_IDS.components).toBe('components')
     expect(ENTERPRISE_MARKET_SECTION_IDS.enterprisePlugins).toBe('enterprise-plugins')
 
     // 折叠态：两节内容都 hidden，但节头按钮 + 标题 + 计数仍在（可再点开）。
     const collapsed = EnterpriseMarketEntry({
       view: 'page',
-      expandedSections: { components: false, enterprisePlugins: false },
+      expandedSections: allClosed,
       onToggleSection: vi.fn(),
     })
     const collapsedButtons = collectButtonProps(collapsed)
@@ -286,7 +403,7 @@ describe('enterprise marketplace entry', () => {
     // 展开态：aria-expanded=true、列表在 DOM。
     const expanded = EnterpriseMarketEntry({
       view: 'page',
-      expandedSections: { components: true, enterprisePlugins: true },
+      expandedSections: { components: true, enterprisePlugins: true, enterpriseSkills: true },
       onToggleSection: vi.fn(),
     })
     const expandedButtons = collectButtonProps(expanded)
@@ -296,7 +413,7 @@ describe('enterprise marketplace entry', () => {
     const spy = vi.fn()
     const clickable = EnterpriseMarketEntry({
       view: 'page',
-      expandedSections: { components: false, enterprisePlugins: false },
+      expandedSections: allClosed,
       onToggleSection: spy,
     })
     collectButtonProps(clickable).find(b => b['aria-controls'] === 'market-section-components')?.onClick?.()
@@ -326,6 +443,28 @@ function collectElementById(node: ReactNode, id: string): unknown {
   if (typeof node.type === 'function') { const r = collectElementById((node.type as (p: unknown) => ReactNode)(props), id); if (r !== undefined) return r }
   for (const value of Object.values(props)) {
     if (value !== null && typeof value === 'object') { const r = collectElementById(value as ReactNode, id); if (r !== undefined) return r }
+  }
+  return undefined
+}
+
+/** 找 `data-market-section` 匹配的节元素（锁两节的数据钩子命名）。 */
+function collectSectionByHook(node: ReactNode, hook: string): unknown {
+  if (Array.isArray(node)) {
+    for (const child of node) { const r = collectSectionByHook(child, hook); if (r !== undefined) return r }
+    return undefined
+  }
+  if (!isValidElement(node)) return undefined
+  const props = node.props as Record<string, unknown>
+  if (props['data-market-section'] === hook) return node
+  if (typeof node.type === 'function') {
+    const r = collectSectionByHook((node.type as (p: unknown) => ReactNode)(props), hook)
+    if (r !== undefined) return r
+  }
+  for (const value of Object.values(props)) {
+    if (value !== null && typeof value === 'object') {
+      const r = collectSectionByHook(value as ReactNode, hook)
+      if (r !== undefined) return r
+    }
   }
   return undefined
 }

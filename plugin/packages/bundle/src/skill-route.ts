@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 Node HTTP 类型、platform-client 的 `ctx.webServer` route port 与异常摘要串
- * [OUTPUT]: 对外提供企业技能目录的本地只读镜像 `registerEnterpriseSkillRoutes`，以及可单测的失败投影 `projectSkillFailure` 与信封投影 `projectSkillEnvelope`
- * [POS]: bundle 的员工技能取数层——Access Token 只存在于平台 Service，本文件既不接触凭据也不重算可见性，只把中心 runtime 技能列表/详情重封成本地 `{data}` 信封
+ * [OUTPUT]: 对外提供企业技能目录的本地只读镜像 `registerEnterpriseSkillRoutes`（列表 exact + 详情 prefix，**详情 prefix 不带尾斜杠**以适配引擎的路径段前缀匹配），以及可单测的失败投影 `projectSkillFailure` 与信封投影 `projectSkillEnvelope`
+ * [POS]: bundle 的员工技能取数层——Access Token 只存在于平台 Service，本文件既不接触凭据也不重算可见性，只把中心 runtime 技能列表/详情重封成本地 `{data}` 信封；路线形状受引擎 `dsh-host-webserver` 的 `match()` 约束（见 `LOCAL_DETAIL_ROUTE`）
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -14,7 +14,20 @@ export const ENTERPRISE_SKILLS_LIST_PATH = '/enterprise/api/v1/skills'
 /** 本地只读镜像路径；浏览器只认这条同源路由，取数仍由 Host 代取令牌。 */
 export const ENTERPRISE_SKILL_LOCAL_PATH = '/enterprise/api/v1/local/skills'
 
-/** 详情子路径前缀；列表用 exact、详情用 prefix，尾斜杠是两者的分界。 */
+/**
+ * 注册给引擎的详情 **prefix**：与列表路径逐字相同，**不带尾斜杠**。
+ *
+ * 引擎 `dsh-host-webserver` 的 `match()`（`lib/index.js`）只做「路径段前缀」：
+ * `pathname === prefix || pathname.startsWith(`${prefix}/`)`，且在 exact 表 miss 后取最长 prefix。
+ * 因此若这里注册成 `${...}/skills/`，`/skills/{packageId}` 既不等于 prefix 也不以
+ * `prefix + '/'` 开头，引擎层直接 404（空响应体，不进 handler）——这正是 `/skills/code-review`
+ * 线上 404、而 `/skills/`（恰好等于带尾斜杠的 prefix）能进 handler 回 400 的原因。
+ * 官方 `dsh-host-open-in-app` 的图标路由同样注册不带尾斜杠的 `/open-in-app/icon`。
+ * 裸列表路径由 exact 路由优先命中（引擎 exact 表先于 prefix 表），故两条路由共用同一字符串不冲突。
+ */
+const LOCAL_DETAIL_ROUTE = ENTERPRISE_SKILL_LOCAL_PATH
+
+/** packageId 的切分点（**含**斜杠）：详情路径去掉这段前缀就是包 id，与上面注册的 prefix 不是同一条串。 */
 const LOCAL_DETAIL_PREFIX = `${ENTERPRISE_SKILL_LOCAL_PATH}/`
 
 /**
@@ -195,7 +208,8 @@ export function registerEnterpriseSkillRoutes(
 
   const disposeDetail = webServer.register({
     kind: 'prefix',
-    path: LOCAL_DETAIL_PREFIX,
+    // 不带尾斜杠：引擎按「路径段前缀」匹配，带尾斜杠会让 /skills/<id> 在引擎层就 404。
+    path: LOCAL_DETAIL_ROUTE,
     handler: async (request, response) => {
       if (request.method !== 'GET') {
         methodNotAllowed(response, 'GET')

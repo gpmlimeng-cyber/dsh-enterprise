@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 platform-client 本地 API 注册器与 Node 原生 HTTP server/fetch
- * [OUTPUT]: 验证方法/content-type/体积/DTO、平台/插件状态、显式刷新、无常驻 SSE、探针退役与 disposer
- * [POS]: platform-client Host/Client 协作回归测试，以真实 HTTP 锁定官方 webServer 契约
+ * [INPUT]: 依赖 platform-client 本地 API 注册器与 Node 原生 HTTP server/fetch，路由分发复用同目录的引擎语义匹配器 `engine-route-match.ts`
+ * [OUTPUT]: 验证方法/content-type/体积/DTO、平台/插件状态、显式刷新、无常驻 SSE、探针退役与 disposer，并用引擎语义锁死「三条详情 prefix 不带尾斜杠」——品牌位图 / 会话恢复 / 配方详情对子路径可达，且带尾斜杠的旧形状会漏掉子路径
+ * [POS]: platform-client Host/Client 协作回归测试，以真实 HTTP 锁定官方 webServer 契约；prefix 形状的判定不再用「裸 startsWith」假匹配器，而是逐行复刻引擎 `match()`，否则线上空体 404 在测试里是绿的
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -10,14 +10,35 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   registerEnterpriseLocalApi,
   type EnterpriseLocalPlatformPort,
+  type EnterpriseLocalSessionPort,
   type EnterprisePlatformStatus,
   type WebServerRoutePort,
 } from '../src/index.js'
+import { engineRouteMatch, type RegisteredRoute } from './engine-route-match.js'
+
+/**
+ * 会话同步端口假件。`restore` 留出独立引用，用来断言 sourceSessionId 确实是从 URL 路径段切出来的，
+ * 而不是被某个更宽的 prefix 整段吞掉。
+ */
+function sessionSyncPort(): {
+  readonly port: EnterpriseLocalSessionPort
+  readonly restore: ReturnType<typeof vi.fn<(sourceSessionId: string, cwd: string) => Promise<{ restoredSessionId: string, sourceSessionId: string }>>>
+} {
+  const restore = vi.fn<(sourceSessionId: string, cwd: string) => Promise<{ restoredSessionId: string, sourceSessionId: string }>>(
+    async sourceSessionId => ({ restoredSessionId: 'restored-9', sourceSessionId }),
+  )
+  const port: EnterpriseLocalSessionPort = {
+    list: vi.fn(async () => []),
+    restore,
+    status: vi.fn(() => ({ deviceId: 'device-1', enabled: true, lastError: null, pendingSessionIds: [] })),
+  }
+  return { port, restore }
+}
 
 describe('enterprise local API', () => {
   let server: Server
   let baseUrl: string
-  let routes: Map<string, Parameters<WebServerRoutePort['register']>[0]>
+  let routes: Map<string, RegisteredRoute>
   let webServer: WebServerRoutePort
   let currentStatus: EnterprisePlatformStatus
   let platform: EnterpriseLocalPlatformPort
@@ -64,10 +85,9 @@ describe('enterprise local API', () => {
       },
     }
     server = createServer((request, response) => {
+      // 与引擎 `handle()` 同形：先取 URL pathname（丢查询串），再走 match()，未命中即空体 404。
       const path = new URL(request.url ?? '/', 'http://127.0.0.1').pathname
-      const route = routes.get(`exact:${path}`) ?? [...routes.values()].find(candidate => (
-        candidate.kind === 'prefix' && (path === candidate.path || path.startsWith(`${candidate.path}/`))
-      ))
+      const route = engineRouteMatch([...routes.values()], path)
       if (route === undefined) return void response.writeHead(404).end()
       void Promise.resolve(route.handler(request, response))
     })
@@ -205,5 +225,106 @@ describe('enterprise local API', () => {
     expect(oversized.status).toBe(413)
     dispose()
     expect((await fetch(`${baseUrl}/enterprise/api/v1/local/status`)).status).toBe(404)
+  })
+
+  it('registers the three detail prefixes without a trailing slash and keeps bare paths on the exact table', () => {
+    const { port: sessionSync } = sessionSyncPort()
+    const branding = { asset: vi.fn(async () => undefined), document: vi.fn(async () => null) }
+    registerEnterpriseLocalApi(webServer, { branding, platform, pluginStatus, sessionSync })
+    const registered = [...routes.values()]
+
+    // 三条 prefix 的注册 path 与各自父路径逐字相同（不带尾斜杠）——尾斜杠一旦回来，这里先红。
+    expect(registered.filter(route => route.kind === 'prefix').map(route => route.path).sort())
+      .toEqual([
+        '/enterprise/api/v1/local/branding/asset',
+        '/enterprise/api/v1/local/presets',
+        '/enterprise/api/v1/local/sessions',
+      ])
+
+    // 引擎语义下这三条子路径必须命中 prefix（旧形状会返回 undefined → 空体 404）。
+    for (const [pathname, expected] of [
+      ['/enterprise/api/v1/local/branding/asset/light', '/enterprise/api/v1/local/branding/asset'],
+      ['/enterprise/api/v1/local/sessions/1902500000000000001/copies', '/enterprise/api/v1/local/sessions'],
+      ['/enterprise/api/v1/local/presets/1902500000000000001', '/enterprise/api/v1/local/presets'],
+    ] as const) {
+      const matched = engineRouteMatch(registered, pathname)
+      expect(matched?.kind).toBe('prefix')
+      expect(matched?.path).toBe(expected)
+    }
+
+    // exact 表优先：裸列表路径不会落到同串 prefix 上，sibling `/sessions/sync` 也不会被更短的 prefix 抢走。
+    for (const pathname of [
+      '/enterprise/api/v1/local/presets',
+      '/enterprise/api/v1/local/sessions',
+      '/enterprise/api/v1/local/sessions/sync',
+    ]) {
+      expect(engineRouteMatch(registered, pathname)?.kind).toBe('exact')
+      expect(engineRouteMatch(registered, pathname)?.path).toBe(pathname)
+    }
+
+    // 边界反例：引擎要求边界处必须是 `/`，`/presetsXYZ` 不是 `/presets` 的子路径；
+    // 旧测试里的「裸 startsWith」假匹配器会把这类无关路径喂进 handler。
+    expect(engineRouteMatch(registered, '/enterprise/api/v1/local/presetsXYZ')).toBeUndefined()
+    expect(engineRouteMatch(registered, '/enterprise/api/v1/local/sessionsXYZ/copies')).toBeUndefined()
+  })
+
+  it('counter-example: the legacy trailing-slash prefix is invisible to the engine for every sub-path', () => {
+    const handler = (): void => {}
+    const legacy: readonly RegisteredRoute[] = [
+      { handler, kind: 'exact', path: '/enterprise/api/v1/local/branding' },
+      { handler, kind: 'prefix', path: '/enterprise/api/v1/local/branding/asset/' },
+      { handler, kind: 'exact', path: '/enterprise/api/v1/local/presets' },
+      { handler, kind: 'prefix', path: '/enterprise/api/v1/local/presets/' },
+      { handler, kind: 'exact', path: '/enterprise/api/v1/local/sessions' },
+      { handler, kind: 'prefix', path: '/enterprise/api/v1/local/sessions/' },
+    ]
+    for (const pathname of [
+      '/enterprise/api/v1/local/branding/asset/light',
+      '/enterprise/api/v1/local/presets/1902500000000000001',
+      '/enterprise/api/v1/local/sessions/1902500000000000001/copies',
+    ]) {
+      // 引擎层查不到路由 → `writeHead(404).end()` 的空体响应，handler 一次都不会被调用。
+      expect(engineRouteMatch(legacy, pathname)).toBeUndefined()
+    }
+    // 旧形状唯一能进 handler 的入口是「恰好等于带尾斜杠的 prefix」本身，于是 slice 出空串 → 一律 400/404。
+    expect(engineRouteMatch(legacy, '/enterprise/api/v1/local/presets/')?.path)
+      .toBe('/enterprise/api/v1/local/presets/')
+  })
+
+  it('serves the three detail sub-paths that the trailing-slash prefix family dropped as empty-body 404', async () => {
+    const { port: sessionSync, restore } = sessionSyncPort()
+    const branding = { asset: vi.fn(async () => undefined), document: vi.fn(async () => null) }
+    registerEnterpriseLocalApi(webServer, { branding, platform, pluginStatus, sessionSync })
+
+    // ① 配方详情：GET /presets/<id>；裸 /presets 仍由 exact 列表路由回答。
+    const preset = await fetch(`${baseUrl}/enterprise/api/v1/local/presets/1902500000000000001`)
+    expect(preset.status).toBe(200)
+    await expect(preset.json()).resolves.toEqual({ data: { displayName: '周报', id: '1', presetId: 'weekly' } })
+    expect(platform.getPreset).toHaveBeenCalledWith('1902500000000000001')
+    await expect((await fetch(`${baseUrl}/enterprise/api/v1/local/presets`)).json()).resolves.toEqual({ data: [] })
+    expect(platform.listPresets).toHaveBeenCalledOnce()
+
+    // ② 远端会话恢复：POST /sessions/<id>/copies，id 必须从路径段切出来而不是被前缀整段吞掉。
+    const restored = await fetch(`${baseUrl}/enterprise/api/v1/local/sessions/1902500000000000001/copies`, {
+      body: JSON.stringify({ cwd: '/data/user/0/com.deepcode.shell/files/home' }),
+      headers: { 'content-type': 'application/json' },
+      method: 'POST',
+    })
+    expect(restored.status).toBe(200)
+    await expect(restored.json()).resolves.toEqual({
+      data: { restoredSessionId: 'restored-9', sourceSessionId: '1902500000000000001' },
+    })
+    expect(restore).toHaveBeenCalledWith('1902500000000000001', '/data/user/0/com.deepcode.shell/files/home')
+    // sibling exact 路由不被新的更短 prefix 抢走。
+    await expect((await fetch(`${baseUrl}/enterprise/api/v1/local/sessions/sync`)).json()).resolves.toEqual({
+      data: { deviceId: 'device-1', enabled: true, lastError: null, pendingSessionIds: [] },
+    })
+
+    // ③ 品牌位图：GET /branding/asset/<slot>。真实字节由 branding.spec.ts 用真缓存端到端锁定，
+    //    这里只锁「handler 被引擎放行」：stub 的 asset() 被调用即证明不再止步于引擎层空体 404。
+    const asset = await fetch(`${baseUrl}/enterprise/api/v1/local/branding/asset/light?v=12`)
+    expect(branding.asset).toHaveBeenCalledWith('light')
+    expect(asset.status).toBe(404)
+    await expect(asset.json()).resolves.toEqual({ error: { code: 'ENT_RESOURCE_NOT_FOUND' } })
   })
 })
