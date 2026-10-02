@@ -48,7 +48,75 @@ ambient credential 与 `DSH_*`，因此本包显式只传回非秘密 `DSH_HOME`
 通用分发拒绝
 bundle、platform client、distribution 自身以及 contracts、LLM、Session、UI 等企业核心传递包。
 版本回滚与升级使用同一个校验策略和 exact tgz 安装路径，任一步失败都保持 `FAILED`，绝不标记 active。
-DSH Enterprise 本体按 Harness caret peer 范围运行；第三方制品仍坚持独立的精确 commit 白名单。当前插件基线是官方 Desktop `0.1.7-rc.2`（`477b4f420553e8a52c2fbccc464d7561b239c443`）。已映射旧版本 `0.1.1-rc.2`、`0.1.2-rc.1`（`a66e4702047846cdaa10c66c9d3df3951f5ea70d`）和 `0.1.5-rc.2`（`fb2c4b9e698e30edb738bca4cf0618587db7d203`）；其他未知版本以 `ENT_PLUGIN_INCOMPATIBLE` 拒绝安装。市场在安装前显示信任根/兼容性阻断原因。
+DSH Enterprise 本体按 Harness caret peer 范围运行；第三方制品仍坚持独立的精确 commit 白名单。制品白名单基线是官方 Desktop `0.1.7-rc.2`（`477b4f420553e8a52c2fbccc464d7561b239c443`）；客户端版本->commit 映射表另含 `0.1.1-rc.2`、`0.1.2-rc.1`（`a66e4702047846cdaa10c66c9d3df3951f5ea70d`）、`0.1.5-rc.2`（`fb2c4b9e698e30edb738bca4cf0618587db7d203`）与新补的 `0.2.0-rc.2`（`639ed015397290b3745d163aafe02ffee4aa3f84`，官方发行 tag `dsh-v0.2.0-rc.2` 指向的 commit）。市场在安装前显示信任根/兼容性阻断原因。
+
+### 兼容判定的四个子句（哪些拦、哪些只警告）
+
+`verifyAssignmentMetadata` 把"制品给出的正向否定"与"我们无法确证"分开处理：
+
+| # | 子句 | 语义 | 结果 |
+|---|------|------|------|
+| 1 | `enterpriseBundleRange` 不满足本机 bundle 版本 | 制品明确声明了它支持的版本范围 | **硬失败** `ENT_PLUGIN_INCOMPATIBLE` |
+| 2 | `operatingSystems` 不含本机归一化平台 | 制品明确声明了它支持的系统集合 | **硬失败** `ENT_PLUGIN_INCOMPATIBLE` |
+| 3 | 引擎 commit **已确知**但不在制品 `harnessCommits` 白名单 | 制品明确声明了它验证过的 commit 集合，已确知引擎落在集合外 | **硬失败** `ENT_PLUGIN_INCOMPATIBLE` |
+| 4 | `harnessCommit === undefined`（本机引擎版本不在客户端映射表里） | **我们无法确证** commit，即"不认识这个引擎版本" | **警告** `ENT_PLUGIN_HARNESS_COMMIT_UNKNOWN`，**不拦**安装 |
+
+验签（`verifyPluginSignatures=true`）永远是硬失败，与上表四条互不影响。
+
+**为什么子句 4 必须只警告（设计裁决）**：旧实现把四个子句并成一个 if，于是"映射表里没有本机引擎版本"被当成"不兼容"，**每一次引擎升级都会一次性打死整个企业商城**。不认识 ≠ 不兼容，因此降级为可解释警告；下载与安装照常进行，由真实运行结果裁决。警告只写 Host 日志（`ctx.logger.warn`），**不新增 status() 线协议字段**，避免服务端/客户端/UI 三处连锁改动。
+
+**诚实口径（不许悄悄映射）**：`bundle/src/index.ts` 的 `VERIFIED_HARNESS_COMMITS` 只写**查证到的事实**（官方发行 tag `dsh-v<version>` 指向的 commit，并以该 commit 的 `apps/cli/package.json.version` 交叉核对）。表里没有的版本一律**省略** `harnessCommit` 走子句 4，严禁把它硬编码成某个"看起来像基线"的旧 commit 来假装命中白名单。
+
+### 服务端 `harness_commits` 补齐与签名覆盖
+
+服务端签名声明 `PluginManifestSigner.SignatureManifest`（`server/owndsh-modules/owndsh-enterprise/src/main/java/com/owndsh/enterprise/plugin/artifact/PluginManifestSigner.java:91-107`）的字段是 `artifactId / packageName / version / sizeBytes / sha256 / compatibility`，其中 `compatibility` 即 `PluginCompatibility`（`.../plugin/domain/PluginCompatibility.java:14-18`，含 `harnessCommits / enterpriseBundleRange / operatingSystems`）。**结论：`harness_commits` 确实被 Ed25519 签名覆盖**，直接改库会让开启验签的部署在随后复查时得到 `ENT_PLUGIN_SIGNATURE_INVALID`。
+
+正当路径按部署状态分两种：
+
+- 部署为 `ENT_PLUGIN_SIGNING_ENABLED=false`（本仓库默认，返回 `signatureBase64: ""`，`signature` 列为零长 bytea）：该行本来就没有签名可破坏，补齐数据不触发验签失败；
+- 部署已开启签名：必须用**同私钥重新签名**（走服务端上传/重签流程或等价的签名工具），再要求客户端验签。开启只影响新上传版本、不补签历史版本这条既有口径不变。
+
+补齐后的断言必须显式落盘，不得悄悄映射。本次运维记录（2026-10-02，生产库 `src-postgres-1` / `owndsh`）：
+
+**改前（逐行原文，6 行，`octet_length(signature)` 全为 `0`）**
+
+```text
+@furayoshi/dsh-ui-models-invert-selection 1.0.1 PUBLISHED sha=c2863070616d sig=0
+  {"harnessCommits": ["477b4f420553e8a52c2fbccc464d7561b239c443"], "operatingSystems": ["darwin","linux","win32"], "enterpriseBundleRange": ">=0.1.0 <0.2.0"}
+@mengli114/dsh-settings-nav-collapse  1.0.1 PUBLISHED sha=af0827683683 sig=0   （同上 harnessCommits）
+dsh-i-have-adhd                       1.0.2 PUBLISHED sha=289acc87dc15 sig=0   （同上 harnessCommits）
+dsh-turnsnap                          1.0.0 PUBLISHED sha=f3edb6035f88 sig=0   （同上 harnessCommits）
+dsh-yorha-ui                          0.1.1 PUBLISHED sha=582322a67621 sig=0   （同上 harnessCommits）
+owndsh-test-hello                     0.1.0 PUBLISHED sha=860c02563000 sig=0
+  {"harnessCommits": ["a66e4702047846cdaa10c66c9d3df3951f5ea70d","b150a551b8d465e31e418e1b2eaf5e79bbb7d28e"], "operatingSystems": ["darwin","linux","win32"], "enterpriseBundleRange": ">=0.1.0 <0.2.0"}
+```
+
+**改后（同上 6 行；`sha256` / `status` / `operatingSystems` / `enterpriseBundleRange` 逐字未变）**
+
+```text
+5 行 -> "harnessCommits": ["477b4f420553e8a52c2fbccc464d7561b239c443","639ed015397290b3745d163aafe02ffee4aa3f84"]
+1 行 -> "harnessCommits": ["639ed015397290b3745d163aafe02ffee4aa3f84","a66e4702047846cdaa10c66c9d3df3951f5ea70d","b150a551b8d465e31e418e1b2eaf5e79bbb7d28e"]
+```
+
+执行语句（事务内带前后置断言：改前必须是 5+1 行、改后必须 6 行含 `639ed015…` 且 `operatingSystems`/`enterpriseBundleRange` 零改动，否则 `RAISE EXCEPTION` 整事务回滚）：
+
+```sql
+-- 显式兼容性断言：官方 Desktop 0.2.0-rc.2（commit 639ed015…）与这些制品所声明的
+-- harness_commits 基线（477b4f… / a66e4702…+b150a551…）视为兼容，故并入白名单。
+-- 依据：这些制品是纯 UI/行为插件，只依赖 Harness caret peer 范围；引擎 0.2.0-rc.2 的
+-- 破坏性变更不在本表插件触及的面内——此为**运维方断言**，不是厂商原始声明。
+UPDATE ent_plugin_version SET compatibility_json = jsonb_set(
+  compatibility_json, '{harnessCommits}',
+  '["477b4f420553e8a52c2fbccc464d7561b239c443","639ed015397290b3745d163aafe02ffee4aa3f84"]'::jsonb)
+WHERE compatibility_json->'harnessCommits' = '["477b4f420553e8a52c2fbccc464d7561b239c443"]'::jsonb;
+
+UPDATE ent_plugin_version SET compatibility_json = jsonb_set(
+  compatibility_json, '{harnessCommits}',
+  '["639ed015397290b3745d163aafe02ffee4aa3f84","a66e4702047846cdaa10c66c9d3df3951f5ea70d","b150a551b8d465e31e418e1b2eaf5e79bbb7d28e"]'::jsonb)
+WHERE compatibility_json->'harnessCommits' = '["a66e4702047846cdaa10c66c9d3df3951f5ea70d","b150a551b8d465e31e418e1b2eaf5e79bbb7d28e"]'::jsonb;
+```
+
+回滚：`pg_dump --data-only --column-inserts -t ent_plugin_version` 的整表备份已落盘（`<HOME>/.sshwork/lane-db-backup-ent_plugin_version.sql`，6 行），必要时 `TRUNCATE` 后 `\i` 该文件即可复原；改前快照另存同目录 `lane-db-before.txt`，改后 `lane-db-after.txt`。
 
 升级部署时必须同时更新员工 `dshent-plugin`：旧客户端把 `INSTALLED` 当成自动安装指令，仅升级后台或把 `required` 改为 false 无法改变旧客户端行为。本地状态文件保持兼容；空签名响应要求新版客户端，后台新保存的可见范围统一写入 `required=false`。
 本地状态文件无法校验时，调和器进入稳定的 `ENT_PLUGIN_STATE_INVALID` 终态并丢弃后续 pending revision，避免 Host 忙循环；修复状态后需重启 Harness 重新载入。

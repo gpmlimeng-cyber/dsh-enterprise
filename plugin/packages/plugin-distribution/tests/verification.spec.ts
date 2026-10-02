@@ -15,11 +15,16 @@ import {
   downloadAndVerifyArtifact,
   parseTrustedPluginPublicKey,
   signatureManifest,
+  verifyAssignmentMetadata,
   type EnterprisePlatformPort,
   type RuntimePluginAssignment,
 } from '../src/index.js'
 
 const HARNESS_COMMIT = '99f6f02fecdb7dff40c3fbc9470f5907c29f74ca'
+/** 另一个**已确知**的引擎 commit（官方 Desktop `0.2.0-rc.2` 发行 tag 指向的 commit）。 */
+const OTHER_HARNESS_COMMIT = '639ed015397290b3745d163aafe02ffee4aa3f84'
+/** 生产库那 5 条制品原始声明的白名单基线（官方 Desktop `0.1.7-rc.2` 的发行 commit）。 */
+const BASELINE_COMMIT = '477b4f420553e8a52c2fbccc464d7561b239c443'
 const homes: string[] = []
 
 afterEach(async () => {
@@ -180,10 +185,14 @@ describe('plugin artifact verification', () => {
     await expect(stat(part)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
-  it('rejects managed artifacts when the running Harness commit is not verified', async () => {
+  // 旧断言（"未验证的引擎 commit ⇒ ENT_PLUGIN_INCOMPATIBLE"）本身就是"每次引擎升级打死整个
+  // 企业商城"的病根：不认识某个引擎版本 ≠ 该制品不兼容。此用例保留但按新语义改写为
+  // "降级警告 + 照常下载通过"，硬失败边界由下面的已确知-不在白名单/OS/bundleRange 用例把守。
+  it('warns instead of blocking when the running Harness commit cannot be verified', async () => {
     const content = Buffer.from('future harness artifact')
     const { assignment, publicKey } = signedAssignment(content)
     const dshHome = await home()
+    const warnings: { readonly code: string; readonly message: string }[] = []
     await expect(downloadAndVerifyArtifact({
       platform: platform(() => new Response(content)),
       assignment,
@@ -192,7 +201,98 @@ describe('plugin artifact verification', () => {
       trustedPublicKey: parseTrustedPluginPublicKey(publicKey),
       bundleVersion: '0.1.0',
       operatingSystem: process.platform,
+      warn: warning => warnings.push(warning),
+    })).resolves.toBe(join(dshHome, 'enterprise', 'artifacts', `${assignment.sha256}.tgz`))
+    expect(warnings.map(warning => warning.code)).toEqual(['ENT_PLUGIN_HARNESS_COMMIT_UNKNOWN'])
+    expect(warnings[0]!.message).toContain(HARNESS_COMMIT)
+    await expect(readFile(join(dshHome, 'enterprise', 'artifacts', `${assignment.sha256}.tgz`)))
+      .resolves.toEqual(content)
+  })
+
+  it('still blocks when a known Harness commit is absent from the artifact whitelist', async () => {
+    const content = Buffer.from('unknown commit artifact')
+    const { assignment } = signedAssignment(content)
+    await expect(downloadAndVerifyArtifact({
+      platform: platform(() => new Response(content)),
+      assignment,
+      dshHome: await home(),
+      harnessCommit: OTHER_HARNESS_COMMIT,
+      bundleVersion: '0.1.0',
+      operatingSystem: process.platform,
     })).rejects.toMatchObject({ code: 'ENT_PLUGIN_INCOMPATIBLE' })
+  })
+
+  it('still blocks an artifact that does not declare this operating system', async () => {
+    const content = Buffer.from('darwin only artifact')
+    const { assignment } = signedAssignment(content, { operatingSystems: ['darwin'] })
+    const context = {
+      harnessCommit: HARNESS_COMMIT,
+      bundleVersion: '0.1.0',
+      operatingSystem: 'linux' as NodeJS.Platform,
+    }
+    expect(() => verifyAssignmentMetadata(assignment, undefined, context)).toThrowError(
+      expect.objectContaining({ code: 'ENT_PLUGIN_INCOMPATIBLE' }),
+    )
+    await expect(downloadAndVerifyArtifact({
+      platform: platform(() => new Response(content)),
+      assignment,
+      dshHome: await home(),
+      ...context,
+    })).rejects.toMatchObject({ code: 'ENT_PLUGIN_INCOMPATIBLE' })
+  })
+
+  it('verifies a mapped Harness commit without any warning', () => {
+    const content = Buffer.from('mapped commit artifact')
+    const { assignment } = signedAssignment(content)
+    expect(verifyAssignmentMetadata(assignment, undefined, {
+      harnessCommit: HARNESS_COMMIT, bundleVersion: '0.1.0', operatingSystem: 'linux',
+    })).toEqual([])
+    // android 归一化为 linux：同一条白名单命中，且仍然零警告。
+    expect(verifyAssignmentMetadata(assignment, undefined, {
+      harnessCommit: HARNESS_COMMIT, bundleVersion: '0.1.0', operatingSystem: 'android',
+    })).toEqual([])
+  })
+
+  it('accepts every enterprise catalog row from the real 0.2.0-rc.2 commit backfill', () => {
+    // 生产库 ent_plugin_version 的 6 行 compatibility 原文（2026-10-02 补齐 harnessCommits 之后）。
+    // 这直接复刻验收条件：真机引擎 0.2.0-rc.2 -> commit 639ed015…、真机 process.platform='android'
+    // （判定侧归一化为 linux）、企业 bundle 版本 0.1.0，六条必须全部零抛错零警告。
+    const rows: readonly (readonly [string, string, readonly string[]])[] = [
+      ['@furayoshi/dsh-ui-models-invert-selection', '1.0.1', [BASELINE_COMMIT, OTHER_HARNESS_COMMIT]],
+      ['@mengli114/dsh-settings-nav-collapse', '1.0.1', [BASELINE_COMMIT, OTHER_HARNESS_COMMIT]],
+      ['dsh-i-have-adhd', '1.0.2', [BASELINE_COMMIT, OTHER_HARNESS_COMMIT]],
+      ['dsh-turnsnap', '1.0.0', [BASELINE_COMMIT, OTHER_HARNESS_COMMIT]],
+      ['dsh-yorha-ui', '0.1.1', [BASELINE_COMMIT, OTHER_HARNESS_COMMIT]],
+      ['owndsh-test-hello', '0.1.0', [OTHER_HARNESS_COMMIT, 'a66e4702047846cdaa10c66c9d3df3951f5ea70d',
+        'b150a551b8d465e31e418e1b2eaf5e79bbb7d28e']],
+    ]
+    const base = signedAssignment(Buffer.from('catalog row')).assignment
+    for (const [packageName, version, harnessCommits] of rows) {
+      expect(verifyAssignmentMetadata({
+        ...base,
+        packageName,
+        version,
+        compatibility: {
+          harnessCommits: [...harnessCommits],
+          enterpriseBundleRange: '>=0.1.0 <0.2.0',
+          operatingSystems: ['darwin', 'linux', 'win32'],
+        },
+      }, undefined, {
+        harnessCommit: OTHER_HARNESS_COMMIT, bundleVersion: '0.1.0', operatingSystem: 'android',
+      }), packageName).toEqual([])
+    }
+  })
+
+  it('warns without blocking when the Harness commit is unknown, and the warning carries the verified set', () => {
+    const content = Buffer.from('unmapped engine artifact')
+    const { assignment } = signedAssignment(content)
+    const warnings = verifyAssignmentMetadata(assignment, undefined, {
+      bundleVersion: '0.1.0', operatingSystem: 'linux',
+    })
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toMatchObject({ code: 'ENT_PLUGIN_HARNESS_COMMIT_UNKNOWN' })
+    expect(warnings[0]!.message).toContain('cannot be confirmed')
+    expect(warnings[0]!.message).toContain(HARNESS_COMMIT)
   })
 
   it('removes an interrupted partial download without producing a final artifact', async () => {

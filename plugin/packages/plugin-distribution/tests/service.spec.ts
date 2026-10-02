@@ -152,6 +152,8 @@ async function environment(options: {
   readonly runMarker?: string
   readonly commandPort?: DshPluginCommandPort
   readonly verifyPluginSignatures?: boolean
+  /** `null` 表示"客户端映射表里没有本机引擎版本"，即故意不传 harnessCommit。 */
+  readonly harnessCommit?: string | null
   readonly trustedPluginPublicKey?: string | null
   readonly store?: ManagedPluginStore
 }): Promise<{
@@ -173,7 +175,7 @@ async function environment(options: {
       trustedPluginPublicKey: options.trustedPluginPublicKey
         ?? testKey.publicKey.export({ type: 'spki', format: 'der' }).toString('base64'),
     }),
-    harnessCommit: HARNESS_COMMIT,
+    ...(options.harnessCommit === null ? {} : { harnessCommit: options.harnessCommit ?? HARNESS_COMMIT }),
     bundleVersion: '0.1.0',
     profile: 'enterprise',
     dshCommand: 'dsh',
@@ -276,6 +278,36 @@ describe('EnterprisePluginDistributionService', () => {
     await env.service.install(desired.packageName, desired.pluginVersionId)
     expect(env.service.status().plugins[0]?.state).toBe('RESTART_REQUIRED')
     expect(env.subprocess.specs).toHaveLength(1)
+  })
+
+  it('keeps the catalog switch usable when the runtime engine version has no mapped commit', async () => {
+    const content = Buffer.from('unmapped engine managed bundle')
+    const desired = assignment(testKey, content)
+    const platform = new FakePlatform(bootstrap(1, [desired]), new Map([[desired.downloadUrl!, content]]))
+    // harnessCommit: null 等价于"真机引擎版本不在客户端映射表里"——今天 0.2.0-rc.2 打死的正是这一格。
+    const env = await environment({ platform, harnessCommit: null })
+
+    await env.service.settled()
+    expect(env.service.status().catalog[0]?.installErrorCode).toBeUndefined()
+    await env.service.install(desired.packageName, desired.pluginVersionId)
+    expect(env.service.status().plugins[0]).toMatchObject({
+      state: 'RESTART_REQUIRED', lastErrorCode: null,
+    })
+    expect(env.subprocess.specs).toHaveLength(1)
+  })
+
+  it('keeps blocking the catalog and installation when the artifact rejects this engine commit', async () => {
+    const content = Buffer.from('foreign engine managed bundle')
+    const desired = assignment(testKey, content)
+    const platform = new FakePlatform(bootstrap(1, [desired]), new Map([[desired.downloadUrl!, content]]))
+    // 已确知引擎 commit（0.2.0-rc.2 的发行 commit），但制品白名单只声明了 HARNESS_COMMIT。
+    const env = await environment({ platform, harnessCommit: '639ed015397290b3745d163aafe02ffee4aa3f84' })
+
+    await env.service.settled()
+    expect(env.service.status().catalog[0]?.installErrorCode).toBe('ENT_PLUGIN_INCOMPATIBLE')
+    await expect(env.service.install(desired.packageName, desired.pluginVersionId))
+      .rejects.toMatchObject({ code: 'ENT_PLUGIN_INCOMPATIBLE' })
+    expect(env.subprocess.specs).toHaveLength(0)
   })
 
   it('keeps managed installation fail-closed when verification is enabled without a trust root', async () => {

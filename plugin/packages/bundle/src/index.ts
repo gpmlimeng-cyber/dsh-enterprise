@@ -83,12 +83,30 @@ declare module '@deepseek-ai/dsh-settings' {
 export const name = 'owndsh'
 export const inject = ['webServer', 'credentials', 'settings', 'llm', 'subprocess', 'pluginInventory']
 
+/**
+ * 引擎版本 -> 官方发行 tag 指向的 commit。**只写查证到的事实，不写推测映射。**
+ *
+ * 事实来源：`github.com/deepseek-ai/deepseek-harness` 的 `git/ref/tags/dsh-v<version>`
+ * 指向的 commit（轻量 tag，`object.type === 'commit'`），并以该 commit 的
+ * `apps/cli/package.json.version` 交叉核对。用同一方法复核本表既有五条，五条逐字命中，
+ * 故新增条目沿用同一证据口径：
+ *   · `0.2.0-rc.2` -> `639ed015397290b3745d163aafe02ffee4aa3f84`
+ *     （tag `dsh-v0.2.0-rc.2`；该 commit 的 `apps/cli/package.json` 声明 `version: 0.2.0-rc.2`；
+ *      与本机已安装的 `node_modules/@deepseek-ai/dsh/package.json:2` 的 `0.2.0-rc.2` 一致）
+ *
+ * **诚实口径（不许悄悄映射）**：本表只回答"这个引擎版本对应哪个 commit"。
+ * 若某版本不在表里，说明我们**无法确证**它对应哪个 commit —— 那不等于"不兼容"，因此
+ * mountPluginDistribution 会省略 `harnessCommit`，由 `verification.ts`
+ * 降级为**非阻断警告**（见 `verifyAssignmentMetadata` 的子句 4）。
+ * 严禁把未知版本硬编码成某个"看起来像基线"的旧 commit 来假装通过白名单。
+ */
 const VERIFIED_HARNESS_COMMITS: Readonly<Record<string, string>> = {
   '0.1.1-rc.2': 'b150a551b8d465e31e418e1b2eaf5e79bbb7d28e',
   '0.1.2-rc.1': 'a66e4702047846cdaa10c66c9d3df3951f5ea70d',
   '0.1.5-rc.2': 'fb2c4b9e698e30edb738bca4cf0618587db7d203',
   '0.1.7-rc.1': '46a7f68b0922371ce7144b668b90e377d8e799f4',
   '0.1.7-rc.2': '477b4f420553e8a52c2fbccc464d7561b239c443',
+  '0.2.0-rc.2': '639ed015397290b3745d163aafe02ffee4aa3f84',
 }
 const HARNESS_VERSION = APP_IDENTITY.version
 const { version: BUNDLE_VERSION } = createRequire(import.meta.url)('../package.json') as { version: string }
@@ -642,6 +660,9 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
       ...(config.trustedPluginPublicKey === undefined ? {} : {
         trustedPluginPublicKey: config.trustedPluginPublicKey,
       }),
+      // 表里没有本机引擎版本时**故意不写** harnessCommit：这是"我们无法确证 commit"的诚实表达，
+      // 不是"不兼容"。verification.ts 子句 4 据此降级为非阻断警告（不认识引擎版本不拦安装）；
+      // 绝不在这里塞一个旧 commit 去蒙混白名单。补齐真实映射见 VERIFIED_HARNESS_COMMITS 的注释。
       ...(VERIFIED_HARNESS_COMMITS[HARNESS_VERSION] === undefined ? {} : {
         harnessCommit: VERIFIED_HARNESS_COMMITS[HARNESS_VERSION],
       }),

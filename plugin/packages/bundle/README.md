@@ -75,12 +75,16 @@ dsh plugin --profile web add --ignore-scripts dshent-plugin@latest
 
 ## 兼容性与边界
 
-当前插件基线是官方 DeepSeek Harness Desktop `0.1.7-rc.2`。DSH Enterprise 不替换官方 Web/Desktop UI，不访问员工工作区，也不实现第二套模型协议。
+当前制品白名单基线是官方 DeepSeek Harness Desktop `0.1.7-rc.2`（引擎映射表已含 `0.2.0-rc.2`）。DSH Enterprise 不替换官方 Web/Desktop UI，不访问员工工作区，也不实现第二套模型协议。
 
 登录和企业模型只需安装本包。管理员上传、发布并配置可见范围后，员工在「企业设置 → 插件」内自主安装、更新或卸载。不会自动安装，其他设备独立选择。安装或卸载后需完全退出并重新打开客户端。
 
 插件签名校验 `verifyPluginSignatures` 默认关闭，员工无需配置公钥；文件大小、SHA-256、目标系统和 Harness 兼容性仍会校验。需要验签的部署可在 profile 的 `owndsh.config` 中设置 `verifyPluginSignatures: true` 和部署专属 `trustedPluginPublicKey`，开启后缺公钥或签名错误会阻止安装。
 
-管理员上传时仍需选择目标系统和对应 Harness commit。当前基线是 `0.1.7-rc.2`（`477b4f420553e8a52c2fbccc464d7561b239c443`）。已映射的旧版本仍包括 `0.1.1-rc.2`、`0.1.2-rc.1` 和 `0.1.5-rc.2`。旧版 DSH Enterprise 可能仍强制要求公钥或自动调和插件，需要先升级员工插件才能使用当前行为。
+管理员上传时仍需选择目标系统和对应 Harness commit。制品白名单基线是 `0.1.7-rc.2`（`477b4f420553e8a52c2fbccc464d7561b239c443`）；客户端版本->commit 映射表另含 `0.1.1-rc.2`、`0.1.2-rc.1`、`0.1.5-rc.2`，以及按官方发行 tag `dsh-v0.2.0-rc.2` 查实的 `0.2.0-rc.2`（`639ed015397290b3745d163aafe02ffee4aa3f84`）。
+
+**引擎版本不在映射表里时只警告、不阻断安装**：这是刻意的设计裁决。旧实现把"我们无法确证本机引擎 commit"与"制品明确声明不支持"混为一谈，于是每次官方引擎升级都会一次性把整个企业商城的安装开关全部打灭。现在只有三类**正向否定**才拦：`enterpriseBundleRange` 不满足、`operatingSystems` 不含本机平台、引擎 commit 已确知但不在制品白名单；而"不认识这个引擎版本"降级为 Host 日志里的 `ENT_PLUGIN_HARNESS_COMMIT_UNKNOWN` 警告，安装照常进行。该警告不进 `status()` 线协议，因此不牵连客户端与界面。映射表只写查证到的事实，表里没有的版本一律省略 `harnessCommit`，绝不悄悄映射成旧 commit 假装命中白名单。
+
+旧版 DSH Enterprise 可能仍强制要求公钥或自动调和插件，需要先升级员工插件才能使用当前行为。
 
 项目与完整部署说明：[github.com/boe1900/owndsh](https://github.com/boe1900/owndsh)

@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 Node Web Response 流、crypto/fs、安装层验签开关与可选公钥、semver 和中心 RuntimePluginAssignment
- * [OUTPUT]: 对外提供**与制品类型无关的下载内核** `downloadVerifiedArtifact`（权威 size+sha256、`.part` 临时件、内容寻址原子改名、失败清理、可复用本地缓存、调用方自定失败码与 revalidate 钩子）与插件专用包装 `downloadAndVerifyArtifact`，以及强制大小/hash/兼容性校验、默认关闭的 Ed25519 验签与冻结 JCS 声明；兼容判定前将 android 归一化为 linux（仅判定侧，不改写签名 manifest）
- * [POS]: plugin-distribution 的制品校验边界；下载与缓存共用同一验签策略，通过后才进入安装流程。企业技能包（`.dshskill`）的下载也复用这个内核而不是另写一份落盘逻辑，因此「先 `.part`、边写边算 hash、大小/hash 不符绝不出最终文件」这条纪律只有一处实现；平台归一化使其在 Android（Linux 同源）运行时能匹配标 linux 的制品白名单
+ * [OUTPUT]: 对外提供**与制品类型无关的下载内核** `downloadVerifiedArtifact`（权威 size+sha256、`.part` 临时件、内容寻址原子改名、失败清理、可复用本地缓存、调用方自定失败码与 revalidate 钩子）与插件专用包装 `downloadAndVerifyArtifact`，以及强制大小/hash/兼容性校验、默认关闭的 Ed25519 验签与冻结 JCS 声明；兼容判定前将 android 归一化为 linux（仅判定侧，不改写签名 manifest）；`verifyAssignmentMetadata` 返回非阻断的 `CompatibilityWarning[]`——只有 bundleRange/OS 白名单/已确知 commit 不在白名单/验签才是硬失败，"本机引擎 commit 无法确证"只降级警告
+ * [POS]: plugin-distribution 的制品校验边界；下载与缓存共用同一验签策略，通过后才进入安装流程。企业技能包（`.dshskill`）的下载也复用这个内核而不是另写一份落盘逻辑，因此「先 `.part`、边写边算 hash、大小/hash 不符绝不出最终文件」这条纪律只有一处实现；平台归一化使其在 Android（Linux 同源）运行时能匹配标 linux 的制品白名单。兼容语义的分界线是「制品给出的正向否定」还是「我们无法确证」：前者拦截，后者警告放行——把后者当拦截会让每次引擎升级打死整个企业商城
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -19,6 +19,18 @@ export interface ArtifactCompatibilityContext {
   readonly operatingSystem?: NodeJS.Platform
 }
 
+/**
+ * 兼容性判定的**非阻断**警告：只表达"我们无法确证兼容"，绝不等价于"不兼容"。
+ *
+ * 目前只有一种来源：本机 Harness 引擎版本不在客户端的版本->commit 映射表里，
+ * 因此 `context.harnessCommit` 缺失（见 `verifyAssignmentMetadata` 子句 4）。
+ * 它是**进程内**类型，不进 `PluginDistributionStatus` 线协议，故不会造成服务端/客户端契约连锁。
+ */
+export interface CompatibilityWarning {
+  readonly code: 'ENT_PLUGIN_HARNESS_COMMIT_UNKNOWN'
+  readonly message: string
+}
+
 export interface DownloadArtifactOptions extends ArtifactCompatibilityContext {
   readonly platform: EnterprisePlatformPort
   readonly assignment: RuntimePluginAssignment
@@ -26,6 +38,8 @@ export interface DownloadArtifactOptions extends ArtifactCompatibilityContext {
   readonly verifyPluginSignatures?: boolean
   readonly trustedPublicKey?: KeyObject
   readonly signal?: AbortSignal
+  /** 兼容性降级警告的可选出口；不传即只由 `verifyAssignmentMetadata` 的返回值携带。 */
+  readonly warn?: (warning: CompatibilityWarning) => void
 }
 
 function compareUtf16(left: string, right: string): number {
@@ -90,21 +104,51 @@ function normalizeOperatingSystem(platform: NodeJS.Platform): 'darwin' | 'linux'
   return platform as 'darwin' | 'linux' | 'win32'
 }
 
+/**
+ * 逐子句判定一份 assignment 与本机运行时是否兼容。
+ *
+ * **硬失败**（抛 `ENT_PLUGIN_INCOMPATIBLE`，目录与安装都必须阻断）——三条都是制品给出的
+ * **正向否定**声明，已知事实与声明直接冲突：
+ *   1. `enterpriseBundleRange` 不满足本机企业 bundle 版本 —— 制品明确声明了它支持的版本范围；
+ *   2. `operatingSystems` 不含本机归一化后的平台 —— 制品明确声明了它支持的系统集合；
+ *   3. 本机引擎 commit **已确知**、且制品 `harnessCommits` 白名单不含它 —— 制品明确声明了它
+ *      验证过的引擎 commit 集合，已确知的引擎落在集合外是一次确定的否定。
+ *
+ * **只警告**（返回 {@link CompatibilityWarning}，不抛错、不阻断安装）：
+ *   4. `context.harnessCommit === undefined` —— 本机引擎版本不在客户端的版本->commit 映射表里，
+ *      即"我们不认识这个引擎版本"。**不认识 ≠ 不兼容**：旧实现把它并进上面那条四合一 if 一起
+ *      判 `ENT_PLUGIN_INCOMPATIBLE`，后果是**每一次引擎升级都会一次性打死整个企业商城**。
+ *      此处降级为可解释警告，继续走下载/安装，由真实运行结果裁决；补齐映射表才是根治
+ *      （见 `bundle/src/index.ts` 的 `VERIFIED_HARNESS_COMMITS`）。
+ *
+ * 子句 4 只放宽"无法确证"这一种情形，绝不放过上面 1/2/3 与下面的验签硬失败。
+ *
+ * @returns 非阻断警告列表；空数组表示全部子句通过且无降级。
+ */
 export function verifyAssignmentMetadata(
   assignment: RuntimePluginAssignment,
   trustedPublicKey: KeyObject | undefined,
   context: ArtifactCompatibilityContext,
   verifyPluginSignatures = false,
-): void {
+): readonly CompatibilityWarning[] {
   const compatibility = assignment.compatibility
   const operatingSystem = context.operatingSystem ?? process.platform
-  if (context.harnessCommit === undefined
-    || !compatibility.harnessCommits.includes(context.harnessCommit)
-    || !compatibility.operatingSystems.includes(normalizeOperatingSystem(operatingSystem))
-    || !satisfies(context.bundleVersion, compatibility.enterpriseBundleRange, { includePrerelease: true })) {
-    throw new PluginDistributionError('ENT_PLUGIN_INCOMPATIBLE', 'plugin assignment is incompatible with this runtime')
+  if (!satisfies(context.bundleVersion, compatibility.enterpriseBundleRange, { includePrerelease: true })) {
+    throw new PluginDistributionError('ENT_PLUGIN_INCOMPATIBLE', 'plugin assignment does not support this enterprise bundle version')
   }
-  if (!verifyPluginSignatures) return
+  if (!compatibility.operatingSystems.includes(normalizeOperatingSystem(operatingSystem))) {
+    throw new PluginDistributionError('ENT_PLUGIN_INCOMPATIBLE', 'plugin assignment does not support this operating system')
+  }
+  const warnings: CompatibilityWarning[] = []
+  if (context.harnessCommit === undefined) {
+    warnings.push({
+      code: 'ENT_PLUGIN_HARNESS_COMMIT_UNKNOWN',
+      message: `this runtime reports no verified Harness commit, so ${compatibility.harnessCommits.join(', ')} cannot be confirmed; installing without a compatibility guarantee`,
+    })
+  } else if (!compatibility.harnessCommits.includes(context.harnessCommit)) {
+    throw new PluginDistributionError('ENT_PLUGIN_INCOMPATIBLE', 'plugin assignment does not declare this Harness commit')
+  }
+  if (!verifyPluginSignatures) return warnings
   if (trustedPublicKey === undefined) {
     throw new PluginDistributionError('ENT_PLUGIN_SIGNATURE_INVALID', 'managed plugin trust root is not configured')
   }
@@ -113,6 +157,7 @@ export function verifyAssignmentMetadata(
   if (signature.length !== 64 || !verify(null, canonical, trustedPublicKey, signature)) {
     throw new PluginDistributionError('ENT_PLUGIN_SIGNATURE_INVALID', 'plugin assignment signature is invalid')
   }
+  return warnings
 }
 
 async function hashFile(path: string): Promise<{ readonly bytes: number; readonly sha256: string }> {
@@ -260,7 +305,10 @@ export async function downloadAndVerifyArtifact(options: DownloadArtifactOptions
     accept: 'application/octet-stream',
     ...(options.signal === undefined ? {} : { signal: options.signal }),
     revalidate: () => {
-      verifyAssignmentMetadata(assignment, options.trustedPublicKey, options, options.verifyPluginSignatures)
+      const warnings = verifyAssignmentMetadata(
+        assignment, options.trustedPublicKey, options, options.verifyPluginSignatures,
+      )
+      if (options.warn !== undefined) for (const warning of warnings) options.warn(warning)
     },
     failure: (kind, message, cause) => {
       const code = kind === 'size' ? 'ENT_PLUGIN_SIZE_MISMATCH'

@@ -25,6 +25,7 @@ import type {
   RuntimePluginAssignment,
 } from './types.js'
 import { downloadAndVerifyArtifact, parseTrustedPluginPublicKey, verifyAssignmentMetadata } from './verification.js'
+import type { CompatibilityWarning } from './verification.js'
 
 /** 企业安装包拥有、通用分发绝不能更新或卸载的完整产品代码集合。 */
 export const PROTECTED_ENTERPRISE_PACKAGES = new Set([
@@ -157,12 +158,18 @@ export class EnterprisePluginDistributionService extends Service {
         .filter(item => item.desiredState === 'INSTALLED' && !PROTECTED_ENTERPRISE_PACKAGES.has(item.packageName))
         .map(item => {
           let installErrorCode: string | undefined
+          let warnings: readonly CompatibilityWarning[] = []
           try {
-            verifyAssignmentMetadata(item, this.config.trustedPublicKey, {
+            warnings = verifyAssignmentMetadata(item, this.config.trustedPublicKey, {
               ...this.config, operatingSystem: this.operatingSystem,
             }, this.config.verifyPluginSignatures)
           } catch (error) {
             installErrorCode = distributionError(error, 'ENT_PLUGIN_INCOMPATIBLE', 'plugin is unavailable').code
+          }
+          // 降级警告只记 Host 日志，**不进** status() 线协议：加一个 catalog 字段就得同批改
+          // 客户端 schema 与 UI，本刀刻意不造这种连锁（见本会话教训）。
+          for (const warning of warnings) {
+            this.reportCompatibilityWarning(item.packageName, item.version, warning)
           }
           return {
             pluginVersionId: item.pluginVersionId, packageName: item.packageName, version: item.version,
@@ -175,6 +182,13 @@ export class EnterprisePluginDistributionService extends Service {
       ...(this.fatalErrorCode === undefined ? {} : { fatalErrorCode: this.fatalErrorCode }),
       ...(this.lastReportErrorCode === undefined ? {} : { lastReportErrorCode: this.lastReportErrorCode }),
     }
+  }
+
+  /** 兼容性降级（"无法确证"）只记 Host 日志：既有 wire 契约不含告警位，也不在本刀新增。 */
+  private reportCompatibilityWarning(packageName: string, version: string, warning: CompatibilityWarning): void {
+    this.pluginContext.logger.warn(
+      `owndsh: managed plugin ${packageName}@${version} proceeds with compatibility warning ${warning.code}: ${warning.message}`,
+    )
   }
 
   /** 测试与有界关闭使用：等待当前已排队 revision 完全停稳。 */
@@ -444,6 +458,7 @@ export class EnterprisePluginDistributionService extends Service {
       bundleVersion: this.config.bundleVersion,
       operatingSystem: this.operatingSystem,
       signal: this.abort.signal,
+      warn: warning => this.reportCompatibilityWarning(assignment.packageName, assignment.version, warning),
     })
     if (identity !== this.currentIdentity()) throw new PluginDistributionError(
       'ENT_PERMISSION_DENIED', 'enterprise account changed during installation',

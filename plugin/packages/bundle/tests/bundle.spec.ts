@@ -60,6 +60,18 @@ describe('enterprise bundle', () => {
     expect(source).not.toContain("const HARNESS_VERSION = '0.1.1-rc.2'")
   })
 
+  it('maps an engine release to its verified commit and never fabricates an unmapped one', async () => {
+    const source = await readFile(resolve(ROOT, 'src/index.ts'), 'utf8')
+    // 事实源：官方发行 tag `dsh-v0.2.0-rc.2` -> 639ed015…（该 commit 的 apps/cli/package.json 声明
+    // version 0.2.0-rc.2；同一 tag->commit 方法可逐字复现表内既有五条）。
+    expect(source).toContain("'0.2.0-rc.2': '639ed015397290b3745d163aafe02ffee4aa3f84'")
+    // 诚实口径：表里没有的版本必须**省略** harnessCommit（交给 verification 降级为警告），
+    // 而不是把它硬编码成某个旧 commit 去假装命中白名单。
+    expect(source).toContain('VERIFIED_HARNESS_COMMITS[HARNESS_VERSION] === undefined ? {} : {')
+    expect(source).not.toMatch(/'0\.2\.0-rc\.2': '(?!639ed015)[0-9a-f]{40}'/)
+    expect(source).not.toContain('harnessCommit: HARNESS_COMMIT')
+  })
+
   it('materializes the built lazy-CJS Client factory and registers the official settings slots', async () => {
     const source = await readFile(resolve(ROOT, 'lib/client.js'), 'utf8')
     expect(source).toContain("id: 'dshent-plugin'")
