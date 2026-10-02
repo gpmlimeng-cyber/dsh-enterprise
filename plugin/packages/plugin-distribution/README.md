@@ -1,16 +1,16 @@
 <!--
-[INPUT]: 依赖受管插件调和、制品验证、官方命令边界和显式整包卸载实现。
-[OUTPUT]: 提供默认免公钥安装、可选验签、安装/回滚/移除与新旧 Harness 库存兼容说明。
+[INPUT]: 依赖受管插件调和、制品验证、**官方 pluginManager 安装面**（installBundle/removeBundle/waitForInstall/cancelInstall）和显式整包卸载实现。
+[OUTPUT]: 提供默认免公钥安装、可选验签、安装/回滚/取消/移除与新旧 Harness 库存兼容说明。
 [POS]: @dshent/plugin-distribution 的公开语义入口，界定中心期望与本地 Loader 事实。
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
 
 # @dshent/plugin-distribution
 
-Harness Host 的受管插件调和 Service。它只消费 `ctx.enterprisePlatform` 的完整 bootstrap、
-普通 Web 使用兼容 Harness 的 `ctx.subprocess`/`ctx.pluginInventory`，Desktop 使用公开
-`desktopProfiles.current`/`desktopPnpm.runPlugin()`；本服务不会扫描或上传个人插件、配置、
-源码和本地路径。
+Harness Host 的受管插件调和 Service。它只消费 `ctx.enterprisePlatform` 的完整 bootstrap 与
+官方 `ctx.pluginInventory`；安装/卸载/取消一律走官方 `ctx.pluginManager`（由组合层经官方 inject
+声明**延迟**注入，见 `bundle/src/manager-wiring.ts`），**本包不再起任何 `dsh plugin` 子进程**，
+也不再需要 `ctx.subprocess`。本服务不会扫描或上传个人插件、配置、源码和本地路径。
 库存读取统一等待 `pluginInventory.list()`，同时支持 `0.1.1-rc.2` 的同步快照与
 `0.1.2-rc.1`、`0.1.5-rc.2` 的异步快照；重启确认、移除、库存上报和整包卸载均使用同一读取边界。
 
@@ -20,16 +20,28 @@ Harness Host 的受管插件调和 Service。它只消费 `ctx.enterprisePlatfor
 
 1. 重新请求中心 `/plugins/assignments` 校验可见范围和所选版本；缓存同样重新授权，再把制品流式写入 `$DSH_HOME/enterprise/artifacts/<sha256>.tgz.part`。
 2. 始终校验准确字节数、SHA-256 和 Harness/bundle/OS compatibility；仅在 `verifyPluginSignatures=true` 时额外使用固定 Ed25519 公钥验签。
-3. 原子改名为 `<sha256>.tgz`，再以 argv 调用
-   普通 Web 执行 `dsh plugin --profile <active-profile> add --ignore-scripts --save-exact <absolute-tgz>`，Desktop 委托当前 profile 的 `runPlugin()`。
-4. 原子写入 `$DSH_HOME/enterprise/managed-plugins.json`，保持 `RESTART_REQUIRED`，不 HMR、
-   不退出当前进程。
-5. 下一进程联合状态文件的旧进程标记与 `pluginInventory.list()` 的 active Loader row，
-   才把安装上报为 `ACTIVE`。ABSENT 同样要求下一进程确认 Loader row 消失后删除本地记录。
+3. 原子改名为 `<sha256>.tgz`，再把**这个本地绝对制品路径**交给官方
+   `pluginManager.installBundle(spec, { enabled: true, requestId })`：官方 `parseInstallSpec`
+   按 tarball 收本地绝对路径，非 git 形状连连接检查都跳过；`requestId` 由我们生成，
+   它同时是官方进度事件（`plugin-manager/install-state` / `install-log`）的认领键与取消句柄。
+4. 官方返回的 `application` **如实透出**：`applied`（hot，官方已在本进程应用）⇒ 记录 `ACTIVE`；
+   `restart-required` ⇒ 记录 `RESTART_REQUIRED` 并写下本进程标记；`failed`/`overridden`/未知 ⇒ 记录
+   `FAILED` 并把官方 `error.code`/`diagnostic` 原样留在 cause 与宿主日志里；`cancelled` ⇒ 记录回到
+   安装前那一条，抛 `ENT_PLUGIN_INSTALL_CANCELLED`。无论哪一态都原子写入
+   `$DSH_HOME/enterprise/managed-plugins.json`。
+5. `RESTART_REQUIRED` 的那一支由下一进程联合状态文件的旧进程标记与 `pluginInventory.list()` 的
+   active Loader row 才上报为 `ACTIVE`。ABSENT 同样要求下一进程确认 Loader row 消失后删除本地记录。
 
-用户调用 `remove(packageName)` 使用同一环境原生命令边界，卸载后不会被轮询或重启重新安装。普通 Web 固定 argv 为 `dsh plugin --profile <active-profile> remove <package-name>`；Desktop 委托 `runPlugin(['remove', packageName])`。子进程边界会清理
-ambient credential 与 `DSH_*`，因此本包显式只传回非秘密 `DSH_HOME`。stdout/stderr 仅作有界
-进程诊断，不进入状态文件或库存。
+用户调用 `remove(packageName)`（以及中心撤回、整包卸载）一律走官方
+`pluginManager.removeBundle(package-name)`，卸载后不会被轮询或重启重新安装。
+`node_modules` 残壳口径与旧的 `dsh plugin remove` **逐字不变**：那条 CLI 与这条服务面跑的是同一条
+pnpm remove；配方那条 `cleanPresetBundleLink` 只服务 `pnpm add <目录>` 造出的符号链接残壳，与此无关。
+
+取消：界面调 `cancel(packageName)` ⇒ 官方 `pluginManager.cancelInstall(requestId)`：
+`cancelled` = 官方已 abort 那一跑并等文件回滚完成（在途的 install 随之以
+`ENT_PLUGIN_INSTALL_CANCELLED` 收束、本机记录回到安装前）；`too-late` = 官方已进入应用阶段，
+改用 `waitForInstall` 不取消地取回官方真实结果并记进宿主日志；`not-running` = 没有这一枚在跑。
+官方 pnpm 输出只在**失败时**取尾巴记一条宿主日志（`step=official-log-exit`），绝不进状态文件或库存。
 
 `verifyPluginSignatures` 默认 `false`，员工只需填写 Server 地址并登录，无需配置公钥；关闭时也不解析配置中遗留的公钥。
 大小、SHA-256、兼容性、逐请求授权和核心包保护始终生效。HTTP 内网模式信任部署网络与所连接的 Server；SHA-256 用于校验字节完整性，不能阻止同时篡改包与元数据的中间人。
@@ -121,5 +133,6 @@ WHERE compatibility_json->'harnessCommits' = '["a66e4702047846cdaa10c66c9d3df395
 升级部署时必须同时更新员工 `dshent-plugin`：旧客户端把 `INSTALLED` 当成自动安装指令，仅升级后台或把 `required` 改为 false 无法改变旧客户端行为。本地状态文件保持兼容；空签名响应要求新版客户端，后台新保存的可见范围统一写入 `required=false`。
 本地状态文件无法校验时，调和器进入稳定的 `ENT_PLUGIN_STATE_INVALID` 终态并丢弃后续 pending revision，避免 Host 忙循环；修复状态后需重启 Harness 重新载入。
 
-员工可从企业界面显式卸载：Service 先通过同一官方命令边界移除当前已安装的受管包，清空受管状态，
-最后移除 `dshent-plugin`。调用层只在成功响应写回后请求 Desktop 官方重启；普通 Web 不管理宿主进程。
+员工可从企业界面显式卸载：Service 先通过官方 `pluginManager.removeBundle` 移除当前已安装的受管包，
+清空受管状态，最后移除 `dshent-plugin`。调用层只在成功响应写回后请求 Desktop 官方重启；
+普通 Web 不管理宿主进程。

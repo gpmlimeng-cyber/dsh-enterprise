@@ -87,6 +87,8 @@ export interface EnterprisePlatformInternals {
   readonly installation?: Omit<InstallationOptions, 'dshHome' | 'name'>
   readonly pluginStatus?: () => unknown
   readonly pluginAction?: EnterpriseLocalApiOptions['pluginAction']
+  /** 受管插件**取消**（bundle 侧转官方 `pluginManager.cancelInstall`）；缺席时那条动作路由如实拒。 */
+  readonly pluginCancel?: EnterpriseLocalApiOptions['pluginCancel']
   /** 企业技能安装/卸载（由 bundle 侧实现），返回安装后的最新已装态。 */
   readonly skillAction?: EnterpriseLocalApiOptions['skillAction']
   /** 企业技能已装清单；界面列表加载时读一次。 */

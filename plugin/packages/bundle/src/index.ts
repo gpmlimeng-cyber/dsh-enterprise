@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 Cordis/Schemastery、Harness credentials/LLM/subprocess/inventory、官方 dsh-deepseek-account-platform、官方 settings 的 volatile Config 投影、platform-client 的地址写入诊断串与本地路由端口、plugin-distribution 的企业插件分发 Service 与其制品下载内核、官方运行时身份与企业业务模块
- * [OUTPUT]: 对外提供 Web/Desktop 共用 bundle apply、官方 settings 的 volatile Server/账户后台地址字段、默认关闭的插件验签开关、Host 凭据持久化、企业插件安装/卸载、**企业技能一键安装端口与已装技能只读正文端口**、**企业配方一键启用端口（官方 inject 声明 + 延迟解析取 `pluginManager` 安装面 + 三个实时解引用的本机路由端口 + 既有运行时下载面取配方正文；服务时序上不可用则 fail-closed，等它出现再接线）**、条件 Session 同步注册，以及用 settings 自定义地址热重挂官方账户插件；安卓按 `browserHandoff: 'client'` 把登录浏览器交接给浏览器半（宿主进程没有可用的开源路径），地址不可持久化的每个判定点都写 warn/error 宿主日志
- * [POS]: bundle 的唯一 Host Loader 入口，组合平台认证、官方企业模型、账户后台地址、环境原生插件调和与企业技能落盘（`skill-install.ts`）**与企业配方一键启用（`preset/`核心 + `preset-source.ts` + `preset-service.ts` + `preset/wiring.ts` 的时序边界）**；Session 同步仅在 sessionPolicy.enabled 时挂载
+ * [INPUT]: 依赖 Cordis/Schemastery、Harness credentials/LLM/inventory、官方 dsh-deepseek-account-platform、官方 settings 的 volatile Config 投影、platform-client 的地址写入诊断串与本地路由端口、plugin-distribution 的企业插件分发 Service 与其制品下载内核、官方运行时身份与企业业务模块
+ * [OUTPUT]: 对外提供 Web/Desktop 共用 bundle apply、官方 settings 的 volatile Server/账户后台地址字段、默认关闭的插件验签开关、Host 凭据持久化、**企业插件安装/卸载/取消（官方 `pluginManager` 安装面，经 `manager-wiring.ts` 延迟接线；不再有 `dsh plugin` 子进程、不再 inject `subprocess`）**、**企业技能一键安装端口与已装技能只读正文端口**、**企业配方一键启用端口（官方 inject 声明 + 延迟解析取 `pluginManager` 安装面 + 三个实时解引用的本机路由端口 + 既有运行时下载面取配方正文；服务时序上不可用则 fail-closed，等它出现再接线）**、条件 Session 同步注册，以及用 settings 自定义地址热重挂官方账户插件；安卓按 `browserHandoff: 'client'` 把登录浏览器交接给浏览器半（宿主进程没有可用的开源路径），地址不可持久化的每个判定点都写 warn/error 宿主日志
+ * [POS]: bundle 的唯一 Host Loader 入口，组合平台认证、官方企业模型、账户后台地址、环境原生插件调和与企业技能落盘（`skill-install.ts`）**、企业配方一键启用（`preset/`核心 + `preset-source.ts` + `preset-service.ts` + `preset/wiring.ts` 的时序边界）与受管插件官方安装面（`manager-wiring.ts`，复用同一份 `deferOfficialServiceWiring`）**；Session 同步仅在 sessionPolicy.enabled 时挂载
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -26,8 +26,8 @@ import {
   type WebServerRoutePort,
 } from '@dshent/platform-client'
 import {
+  createLateBoundManagedPluginManagerPort,
   EnterprisePluginDistributionService,
-  type DshPluginCommandPort,
   type PluginDistributionContext,
 } from '@dshent/plugin-distribution'
 import {
@@ -62,6 +62,7 @@ import {
   type PresetInstallPort,
 } from './preset/index.js'
 import { EnterprisePresetError } from './preset/errors.js'
+import { deferEnterprisePluginManagerWiring } from './manager-wiring.js'
 import { createEnterprisePresetRecipeSource } from './preset-source.js'
 import { createEnterprisePresetService, type EnterprisePresetService } from './preset-service.js'
 
@@ -81,7 +82,10 @@ declare module '@deepseek-ai/dsh-settings' {
 }
 
 export const name = 'owndsh'
-export const inject = ['webServer', 'credentials', 'settings', 'llm', 'subprocess', 'pluginInventory']
+// 本刀之后 bundle **不再**声明 `subprocess`：安装/卸载/取消一律走官方 `pluginManager`，
+// 全仓没有任何一条代码路径再起 `dsh plugin` 子进程（`subprocess` 因此不再是一条真依赖，
+// 留着只会让本插件在缺 subprocess 的 profile 上白白不激活）。
+export const inject = ['webServer', 'credentials', 'settings', 'llm', 'pluginInventory']
 
 /**
  * 引擎版本 -> 官方发行 tag 指向的 commit。**只写查证到的事实，不写推测映射。**
@@ -166,44 +170,13 @@ interface EnterpriseHostContext extends Context {
   readonly webServer: WebServerRoutePort
   readonly credentials: CredentialProvider
   readonly llm: LlmRuntime
-  readonly subprocess: PluginDistributionContext['subprocess']
   readonly pluginInventory: PluginDistributionContext['pluginInventory']
   readonly sessions?: SessionStorePort
   readonly sessionPersistence?: SessionPersistencePort
 }
 
-interface DesktopProfilesPort {
-  readonly current: { readonly name: string }
-}
-
-interface DesktopPnpmPort {
-  runPlugin(argv: readonly string[], invokingDir: string, signal?: AbortSignal): {
-    readonly stdout: NodeJS.ReadableStream
-    readonly stderr: NodeJS.ReadableStream
-    readonly done: Promise<{ readonly exitCode: number | null; readonly signal: NodeJS.Signals | null }>
-  }
-}
-
-interface DesktopHostContext extends Context {
-  readonly desktopPnpm: DesktopPnpmPort
-}
-
 interface DesktopActionsPort {
   requestRestart(): Promise<void>
-}
-
-function desktopPluginCommandPort(desktopPnpm: DesktopPnpmPort): DshPluginCommandPort {
-  return {
-    async run(argv, invokingDir, signal): Promise<void> {
-      const operation = desktopPnpm.runPlugin(argv, invokingDir, signal)
-      operation.stdout.resume()
-      operation.stderr.resume()
-      const outcome = await operation.done
-      if (outcome.exitCode !== 0 || outcome.signal !== null) {
-        throw new Error(`Desktop plugin command failed: exit=${String(outcome.exitCode)} signal=${String(outcome.signal)}`)
-      }
-    },
-  }
 }
 
 /** base 行 `desktopPlatform` 表达式里的原生平台集合。 */
@@ -415,6 +388,12 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
   // 因此会话相关服务一律经 ctx.get() 取可选实例，保持「缺失即跳过同步挂载」的原意。
   const sessions = ctx.get('sessions') as EnterpriseHostContext['sessions']
   const sessionPersistence = ctx.get('sessionPersistence') as EnterpriseHostContext['sessionPersistence']
+  /**
+   * 官方安装面的**晚绑定持有者**：`mountPluginDistribution` 在本函数末尾同步构造分发服务，
+   * 而官方 plugin-manager 要到它自己的条目被 loader create 之后才 provide，故端口必须一次创建、
+   * 内部状态随服务出现/撤下而变（与 `presetHolder` 同一个「第二个冻结点」的解药）。
+   */
+  const pluginManagerHolder = createLateBoundManagedPluginManagerPort()
   let pluginDistribution: EnterprisePluginDistributionService | undefined
   let sessionSyncHandle: HostSessionSyncHandle | null = null
   let platform: EnterprisePlatformService
@@ -553,6 +532,13 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
       if (action === 'install') await pluginDistribution.install(packageName, pluginVersionId!)
       else await pluginDistribution.remove(packageName)
     },
+    // 取消是**真的**：`cancel(packageName)` 直接打官方 `pluginManager.cancelInstall(requestId)`，
+    // 官方会 abort 掉那一跑 pnpm 并等文件回滚，在途的 install 随即以「取消」收束。
+    // 未就绪的那一次（服务还没 provide）由 `pluginDistribution` 内部的 fail-closed 端口如实拒。
+    pluginCancel: async (packageName: string) => {
+      if (pluginDistribution === undefined) throw new Error('DSH Enterprise plugin distribution is unavailable')
+      return await pluginDistribution.cancel(packageName)
+    },
     uninstallPlugin: async () => {
       if (pluginDistribution === undefined) throw new Error('DSH Enterprise plugin distribution is unavailable')
       await pluginDistribution.uninstall()
@@ -652,8 +638,6 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
   }, 'enterpriseSessionSync.dispose()')
   const mountPluginDistribution = (
     distributionContext: PluginDistributionContext,
-    profile: string,
-    commandPort?: DshPluginCommandPort,
   ): void => {
     pluginDistribution = new EnterprisePluginDistributionService(distributionContext, {
       verifyPluginSignatures: config.verifyPluginSignatures ?? false,
@@ -667,24 +651,25 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
         harnessCommit: VERIFIED_HARNESS_COMMITS[HARNESS_VERSION],
       }),
       bundleVersion: BUNDLE_VERSION,
-      profile,
-      dshCommand: config.dshCommand,
-      subprocessGraceMs: config.disposeTimeoutMs,
-    }, commandPort === undefined ? {} : { commandPort })
-  }
-  const desktopProfiles = ctx.get('desktopProfiles') as DesktopProfilesPort | undefined
-  if (desktopProfiles === undefined) {
-    mountPluginDistribution(ctx as PluginDistributionContext, config.profile)
-  } else {
-    ctx.inject(['desktopPnpm'], desktopContext => {
-      const desktopHost = desktopContext as DesktopHostContext
-      mountPluginDistribution(
-        desktopHost as unknown as PluginDistributionContext,
-        desktopProfiles.current.name,
-        desktopPluginCommandPort(desktopHost.desktopPnpm),
-      )
+    }, {
+      // 官方安装面（`pluginManager`）：**调用时**实时解引用，服务稍后就绪也进得了安装路径
+      // （与配方那三端口同一个「第二个冻结点」的解药；一次性快照会让它永远缺席）。
+      pluginManager: pluginManagerHolder.port,
     })
   }
+  // 受管插件安装/卸载/取消也走官方服务面：与配方一键启用**同一套**延迟接线
+  // （`deferOfficialServiceWiring`），等同一对官方服务。apply() 那一刻服务还没 provide 时
+  // 端口不解散——`pluginManagerHolder.port` 每次调用都实时解引用，未就绪即 fail-closed。
+  deferEnterprisePluginManagerWiring(ctx, {
+    onWired: manager => { pluginManagerHolder.wire(manager) },
+    onUnwired: () => { pluginManagerHolder.unwire() },
+    log: (level, message, error) => {
+      if (level === 'error') ctx.logger.error(message, error)
+      else if (level === 'info') ctx.logger.info(message)
+      else ctx.logger.warn(message)
+    },
+  })
+  mountPluginDistribution(ctx as PluginDistributionContext)
   // 目标1：官方 `deepseek-account` base 行已停用，账户后台由企业 bundle 用用户自定义地址挂载同一实现。
   // 挂载点已在上面拿到读数（readPlatformOrigin），帮助中心路由与它共用同一份「当前平台地址」。
 }

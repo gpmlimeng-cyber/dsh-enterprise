@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 platform-client 本地 API 注册器与 Node 原生 HTTP server/fetch，路由分发复用同目录的引擎语义匹配器 `engine-route-match.ts`，并直接读 `contracts/fixtures/runtime-preset-*.json` 的契约真 fixture
- * [OUTPUT]: 验证方法/content-type/体积/DTO、平台/插件状态、显式刷新、无常驻 SSE、探针退役与 disposer、**三条技能动作 exact 路由（形状/入参门禁/409 与 503 错误投影/405 Allow/端口缺席即不注册）**，以及**第四条技能路由 `/skills/content`（只读已装技能正文）的注册形状/键集门禁（缺参·多参·重复·非雪花·非 kebab 一律 400 且不进端口）/404·413·409·503 错误投影/405 Allow**，**配方一键启用三条子路径 `/presets/<id>/{enable,disable,status}`（由既有 `/presets` prefix 分派、注册面零新增字符串、关闭键集 400、雪花/kebab 闸门、405 Allow、端口缺席即 400、稳定码→状态投影与 onError 留痕）**，并用引擎语义锁死「三条详情 prefix 不带尾斜杠」——品牌位图 / 会话恢复 / 配方详情对子路径可达，且带尾斜杠的旧形状会漏掉子路径；同时锁死 `/skills/install|uninstall|installed` 靠 exact 表抢在 bundle 侧 `/skills` 详情 prefix 之前；**配方两端口回的不再是手写假体而是契约真 fixture**，让"服务端真实投影形状"进入这条测试（本刀：假体与真投影不同形正是关闭键集冲突被掩盖的原因）；并把**配方一键启用那一族的每一枚稳定码 → HTTP 状态**逐条钉在唯一那张映射表上
+ * [OUTPUT]: 验证方法/content-type/体积/DTO、平台/插件状态、**受管插件取消动作（关闭键集/405/错误投影/响应与 GET 同形、零新增字段）**、显式刷新、无常驻 SSE、探针退役与 disposer、**三条技能动作 exact 路由（形状/入参门禁/409 与 503 错误投影/405 Allow/端口缺席即不注册）**，以及**第四条技能路由 `/skills/content`（只读已装技能正文）的注册形状/键集门禁（缺参·多参·重复·非雪花·非 kebab 一律 400 且不进端口）/404·413·409·503 错误投影/405 Allow**，**配方一键启用三条子路径 `/presets/<id>/{enable,disable,status}`（由既有 `/presets` prefix 分派、注册面零新增字符串、关闭键集 400、雪花/kebab 闸门、405 Allow、端口缺席即 400、稳定码→状态投影与 onError 留痕）**，并用引擎语义锁死「三条详情 prefix 不带尾斜杠」——品牌位图 / 会话恢复 / 配方详情对子路径可达，且带尾斜杠的旧形状会漏掉子路径；同时锁死 `/skills/install|uninstall|installed` 靠 exact 表抢在 bundle 侧 `/skills` 详情 prefix 之前；**配方两端口回的不再是手写假体而是契约真 fixture**，让"服务端真实投影形状"进入这条测试（本刀：假体与真投影不同形正是关闭键集冲突被掩盖的原因）；并把**配方一键启用那一族的每一枚稳定码 → HTTP 状态**逐条钉在唯一那张映射表上
  * [POS]: platform-client Host/Client 协作回归测试，以真实 HTTP 锁定官方 webServer 契约；prefix 形状的判定不再用「裸 startsWith」假匹配器，而是逐行复刻引擎 `match()`，否则线上空体 404 在测试里是绿的
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs'
 import { createServer, type Server } from 'node:http'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH,
   ENTERPRISE_SKILL_CONTENT_LOCAL_PATH,
   ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH,
   ENTERPRISE_SKILL_INSTALL_LOCAL_PATH,
@@ -245,6 +246,69 @@ describe('enterprise local API', () => {
     expect(pluginAction).toHaveBeenCalledWith('remove', '@example/tools', undefined)
     pluginAction.mockRejectedValueOnce(Object.assign(new Error('busy'), { code: 'ENT_PLUGIN_BUSY' }))
     expect((await post('remove', { packageName: '@example/tools' })).status).toBe(409)
+  })
+
+  it('cancels a managed installation through its own exact action without adding any response field', async () => {
+    const pluginAction = vi.fn(async () => undefined)
+    const pluginCancel = vi.fn(async () => ({ status: 'cancelled' }))
+    registerEnterpriseLocalApi(webServer, { platform, pluginStatus, pluginAction, pluginCancel })
+
+    // 注册形状：exact、path 与共享常量逐字相同（尾斜杠一旦回来这里先红）。
+    const cancelRoute = [...routes.values()].find(route => route.path === ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH)
+    expect(cancelRoute?.kind).toBe('exact')
+    expect(ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH).toBe('/enterprise/api/v1/local/plugins/cancel')
+
+    const post = (path: string, body: unknown) => fetch(`${baseUrl}${path}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+    })
+    const cancel = ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH
+    // 关闭键集：缺参、多参、可执行形状一律 400，且**一次都不进端口**。
+    for (const body of [
+      {}, { packageName: '--eval' }, { packageName: '@example/tools', command: 'dsh' },
+      { packageName: '@example/tools', pluginVersionId: '880' },
+    ]) expect((await post(cancel, body)).status).toBe(400)
+    expect(pluginCancel).not.toHaveBeenCalled()
+    // 非 JSON / 非 POST：如实 400 / 405（Allow 只报 POST）。
+    expect((await fetch(`${baseUrl}${cancel}`, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: '{}' })).status).toBe(400)
+    const methodNotAllowed = await fetch(`${baseUrl}${cancel}`)
+    expect(methodNotAllowed.status).toBe(405)
+    expect(methodNotAllowed.headers.get('allow')).toBe('POST')
+
+    const ok = await post(cancel, { packageName: '@example/tools' })
+    expect(ok.status).toBe(200)
+    expect(pluginCancel).toHaveBeenCalledWith('@example/tools')
+    // 响应与 `GET /plugins` **完全同形**：一个字段都不多（员工端解码器是关闭键集，多一个键整条就废）。
+    await expect(ok.json()).resolves.toEqual({ data: pluginStatus.mock.results[0]?.value })
+    expect(Object.keys((await (await post(cancel, { packageName: '@example/tools' })).json()).data).sort())
+      .toEqual(['assignmentRevision', 'plugins'])
+    // 取消掉的这次安装以「取消」收束 ⇒ 该码走唯一那张表判 409。
+    pluginCancel.mockRejectedValueOnce(Object.assign(new Error('cancelled'), { code: 'ENT_PLUGIN_INSTALL_CANCELLED' }))
+    expect((await post(cancel, { packageName: '@example/tools' })).status).toBe(409)
+
+    // 组合层没接线（旧 bundle）时如实按「分发不可用」拒（503），不是 404。
+    const bareRoutes = new Map<string, RegisteredRoute>()
+    const bareWebServer: WebServerRoutePort = {
+      register: (route) => {
+        bareRoutes.set(`${route.kind}:${route.path}`, route)
+        return () => { bareRoutes.delete(`${route.kind}:${route.path}`) }
+      },
+    }
+    registerEnterpriseLocalApi(bareWebServer, { platform, pluginStatus })
+    const bare = createServer((request, response) => {
+      const path = new URL(request.url ?? '/', 'http://127.0.0.1').pathname
+      const route = engineRouteMatch([...bareRoutes.values()], path)
+      if (route === undefined) return void response.writeHead(404).end()
+      void Promise.resolve(route.handler(request, response))
+    })
+    await new Promise<void>(resolve => bare.listen(0, '127.0.0.1', resolve))
+    const address = bare.address()
+    if (address === null || typeof address === 'string') throw new Error('missing test port')
+    const response = await fetch(`http://127.0.0.1:${address.port}${cancel}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ packageName: '@example/tools' }),
+    })
+    expect(response.status).toBe(503)
+    bare.closeAllConnections()
+    await new Promise<void>(resolve => bare.close(() => resolve()))
   })
 
   // 技能一键安装的三条 exact 动作路由：形状、入参门禁、错误投影与 405 契约都在真实 HTTP 上锁死。

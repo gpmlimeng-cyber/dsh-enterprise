@@ -34,9 +34,12 @@ describe('enterprise bundle', () => {
     expect(manifest.peerDependencies['@deepseek-ai/dsh-subprocess']).toBe('>=0.1.5-rc.2 <0.3.0')
     expect(manifest.peerDependencies['@deepseek-ai/dsh-host-plugin-inventory']).toBe('>=0.1.5-rc.2 <0.3.0')
     expect(manifest.peerDependencies['@deepseek-ai/schemastery']).toBe('^3.18.1')
+    // 本刀之后 `subprocess` 不再是一条真依赖：安装/卸载/取消全走官方 `pluginManager`，
+    // 没有任何一条路径再起 `dsh plugin` 子进程，故 inject 里没有它（peer 清单保持既有形状不动）。
     expect(inject).toEqual([
-      'webServer', 'credentials', 'settings', 'llm', 'subprocess', 'pluginInventory',
+      'webServer', 'credentials', 'settings', 'llm', 'pluginInventory',
     ])
+    expect(await readFile(resolve(ROOT, 'src/index.ts'), 'utf8')).not.toMatch(/DshPluginCommandPort|desktopPnpm/)
     expect(Config({
       baseUrl: 'https://enterprise.example.com',
       verifyPluginSignatures: true,

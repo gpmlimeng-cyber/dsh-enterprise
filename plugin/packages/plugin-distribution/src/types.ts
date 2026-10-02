@@ -1,13 +1,12 @@
 /**
- * [INPUT]: 依赖 platform-client bootstrap、contracts 受管状态与兼容 Harness subprocess/inventory 公共类型
- * [OUTPUT]: 对外提供含可选验签开关的分发 Config、企业目录/本机安装快照及平台/官方运行时窄 port
+ * [INPUT]: 依赖 platform-client bootstrap、contracts 受管状态与官方 Host plugin inventory 公共类型
+ * [OUTPUT]: 对外提供含可选验签开关的分发 Config（**不再有 CLI 相关的 profile/dshCommand/subprocessGraceMs**）、企业目录/本机安装快照及平台/官方运行时窄 port
  * [POS]: plugin-distribution 的依赖倒置层，使业务状态机只依赖官方能力契约而不耦合实现
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { PluginInventorySnapshot } from '@deepseek-ai/dsh-host-plugin-inventory'
-import type { SubprocessRuntime } from '@deepseek-ai/dsh-subprocess'
 import type { ManagedPluginState } from '@dshent/contracts'
 import type {
   BootstrapSnapshot,
@@ -72,13 +71,15 @@ export interface PluginDistributionConfig {
   /** 可选的已验证 Harness commit；未知运行时保持缺省并拒绝受管制品安装。 */
   readonly harnessCommit?: string
   readonly bundleVersion: string
-  readonly profile?: string
-  readonly dshCommand?: string
   readonly dshHome?: string
-  readonly subprocessGraceMs?: number
 }
 
+/**
+ * 官方安装面的**唯一**落点。
+ *
+ * 本 Service 不再需要 `subprocess`：安装/卸载/取消一律走官方 `pluginManager`（`./manager.ts` 的
+ * `ManagedPluginManagerPort`），由 bundle 组合层经官方 inject 声明**延迟**注入。
+ */
 export interface PluginDistributionContext extends Context {
-  readonly subprocess: SubprocessRuntime
   readonly pluginInventory: PluginInventoryPort
 }

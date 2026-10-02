@@ -64,12 +64,15 @@ export {
   PRESET_WIRING_SERVICES,
   createLateBoundPresetService,
   deferEnterprisePresetWiring,
+  deferOfficialServiceWiring,
   unavailablePresetInstallPort,
   type EnterprisePresetWiringContext,
   type EnterprisePresetWiringLog,
   type EnterprisePresetWiringOptions,
   type LateBoundPresetService,
   type LateBoundPresetServiceOptions,
+  type OfficialServiceWiringOptions,
+  type OfficialServiceWiringTexts,
 } from './wiring.js'
 
 // 安装段：端口、官方默认实现、安装器、卸载与残壳清理
