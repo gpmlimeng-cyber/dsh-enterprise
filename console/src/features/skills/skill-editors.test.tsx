@@ -50,6 +50,8 @@ function skillPackage(overrides: Partial<SkillSkillPackage>): SkillSkillPackage 
   return {
     id: '10',
     skillId: 'weekly-report',
+    builtin: false,
+    featured: false,
     displayName: '周报技能包',
     status: 'ACTIVE',
     revision: 3,
