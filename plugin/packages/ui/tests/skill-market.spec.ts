@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 skill-market 的装配指令/条目与元信息纯投影，以及 local-api 再导出的技能严格解码
- * [OUTPUT]: 验证装配指令文案要点（下载 URL/名称/skillId/~/.dsh/skills 落点/落盘前确认）、调用策略标签、列表与详情投影（含 sha256 丢弃、null 归一、**可选分类 category 的严格解码与缺席归一**）、**已装态解码与逐行安装态投影（已装/未装/在途文案与按钮语义）**、三条安装动作的同源路径常量、畸形拒绝与浏览器不接触令牌/不绕开 local-api
+ * [OUTPUT]: 验证**已装技能正文的严格解码**（`decodeEnterpriseInstalledSkillContent`：单键封闭、雪花包 id、kebab 技能名、正文 ≤256 KiB，宿主路径/超限/错类型一律 `ENT_LOCAL_RESPONSE_INVALID`）与四条技能同源路径常量、装配指令文案要点（下载 URL/名称/skillId/~/.dsh/skills 落点/落盘前确认）、调用策略标签、列表与详情投影（含 sha256 丢弃、null 归一、**可选分类 category 的严格解码与缺席归一**）、**已装态解码与逐行安装态投影（已装/未装/在途文案与按钮语义）**、三条安装动作的同源路径常量、畸形拒绝与浏览器不接触令牌/不绕开 local-api
  * [POS]: dsh-ui 技能 tab 的产品词汇与边界门禁，真实 DOM 与视觉由 Harness 快照与真机验收覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -15,9 +15,11 @@ import {
   enterpriseSkillMeta,
 } from '../src/skill-market.js'
 import {
+  decodeEnterpriseInstalledSkillContent,
   decodeEnterpriseInstalledSkills,
   decodeEnterpriseSkillDetail,
   decodeEnterpriseSkills,
+  ENTERPRISE_SKILL_CONTENT_LOCAL_PATH,
   ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH,
   ENTERPRISE_SKILL_INSTALL_LOCAL_PATH,
   ENTERPRISE_SKILL_UNINSTALL_LOCAL_PATH,
@@ -220,11 +222,40 @@ describe('enterprise skill market', () => {
     expect(ENTERPRISE_SKILL_INSTALL_LOCAL_PATH).toBe('/enterprise/api/v1/local/skills/install')
     expect(ENTERPRISE_SKILL_UNINSTALL_LOCAL_PATH).toBe('/enterprise/api/v1/local/skills/uninstall')
     expect(ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH).toBe('/enterprise/api/v1/local/skills/installed')
-    // 三条都是 `/skills` prefix 的子路径（靠 Host 侧 exact 表优先命中），因此**不以** `/skills/` 结尾。
-    for (const path of [ENTERPRISE_SKILL_INSTALL_LOCAL_PATH, ENTERPRISE_SKILL_UNINSTALL_LOCAL_PATH]) {
+    // 只读正文那条与三条动作同族：`/skills` 的子路径（靠 Host 侧 exact 表优先命中）、不带尾斜杠。
+    expect(ENTERPRISE_SKILL_CONTENT_LOCAL_PATH).toBe('/enterprise/api/v1/local/skills/content')
+    // 四条都是 `/skills` prefix 的子路径（靠 Host 侧 exact 表优先命中），因此**不以** `/skills/` 结尾。
+    for (const path of [ENTERPRISE_SKILL_INSTALL_LOCAL_PATH, ENTERPRISE_SKILL_UNINSTALL_LOCAL_PATH, ENTERPRISE_SKILL_CONTENT_LOCAL_PATH]) {
       expect(path.endsWith('/')).toBe(false)
       expect(path.startsWith('/enterprise/api/v1/local/skills/')).toBe(true)
     }
+  })
+
+  // 已装技能**正文**（点技能行看详情时读的本机只读投影）：形状比别处更窄——单键封闭、
+  // 包 id 雪花、技能名官方 kebab、正文 ≤256 KiB（与 Host 侧字节上限同值）。
+  it('decodes the installed skill body strictly and rejects host paths or oversized text', () => {
+    const body = { packageId: '7001', name: 'code-review', content: '# 正文\n- 检查单' }
+    expect(decodeEnterpriseInstalledSkillContent(body)).toEqual(body)
+    // 空正文是合法投影（界面自己说「正文为空」），不是畸形。
+    expect(decodeEnterpriseInstalledSkillContent({ ...body, content: '' })).toEqual({ ...body, content: '' })
+    for (const broken of [
+      // Host 多塞宿主路径 / 其它字段都整条判失败（正文投影只认这三个键）。
+      { ...body, path: '/data/user/0/com.deepcode.shell/files/home/.dsh/skills/code-review/SKILL.md' },
+      { ...body, skillId: 'code-review-ent' },
+      { packageId: '0', name: 'code-review', content: 'x' },
+      { packageId: '7001', name: 'Code Review', content: 'x' },
+      { packageId: '7001', name: '../etc/passwd', content: 'x' },
+      { packageId: '7001', name: 'a'.repeat(65), content: 'x' },
+      { packageId: '7001', name: 'code-review', content: 42 },
+      { packageId: '7001', name: 'code-review', content: 'x'.repeat(262_145) },
+      { packageId: '7001', name: 'code-review' },
+      [],
+      'not-an-object',
+    ]) {
+      expect(() => decodeEnterpriseInstalledSkillContent(broken)).toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    // 上限边界本身合法（256 KiB）。
+    expect(decodeEnterpriseInstalledSkillContent({ ...body, content: 'x'.repeat(262_144) }).content.length).toBe(262_144)
   })
 
   it('fetches only through the shared same-origin local API and never touches tokens', async () => {

@@ -10,7 +10,10 @@
  *
  * 前缀沿用既有 `ENT_*` 体系：`ENT_PLATFORM_*`/`ENT_AUTH_*` 来自平台 Service，
  * `ENT_INVALID_REQUEST`/`ENT_RESOURCE_NOT_FOUND` 与既有路由投影同名，
- * `ENT_SKILL_*` 是本纵深新增的一族（下载/大小/hash/包契约/落点冲突/状态文件/落盘失败）。
+ * `ENT_SKILL_*` 是本纵深新增的一族（下载/大小/hash/包契约/落点冲突/状态文件/落盘失败），
+ * 末尾两枚属**读已装正文**这一条只读线：超限 `ENT_SKILL_CONTENT_TOO_LARGE`、
+ * 落盘可疑（非普通文件 / 符号链接逃逸 / 非 UTF-8 正文）`ENT_SKILL_CONTENT_INVALID`；
+ * 「本包没装」与「名字不在本包记录里」都复用既有 `ENT_RESOURCE_NOT_FOUND`，不为同一种结果造第二枚码。
  */
 export type EnterpriseSkillInstallErrorCode =
   | 'ENT_INVALID_REQUEST'
@@ -24,6 +27,8 @@ export type EnterpriseSkillInstallErrorCode =
   | 'ENT_SKILL_NAME_CONFLICT'
   | 'ENT_SKILL_STATE_INVALID'
   | 'ENT_SKILL_INSTALL_FAILED'
+  | 'ENT_SKILL_CONTENT_TOO_LARGE'
+  | 'ENT_SKILL_CONTENT_INVALID'
 
 /** 只向路由与界面暴露固定 code；`cause` 留在 Host 侧日志，不进响应体。 */
 export class EnterpriseSkillInstallError extends Error {

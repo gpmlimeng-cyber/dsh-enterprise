@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 decode-primitives 的键集封闭判定、record/nonEmptyString/timestamp/enterpriseId 与唯一失败码类
- * [OUTPUT]: 对外提供技能包 DTO（`EnterpriseRuntimeSkill`/`EnterpriseSkillEntry`/`EnterpriseInstalledSkill`）与严格解码 `decodeEnterpriseSkills`（列表，可选分类 `category` 进白名单）、`decodeEnterpriseSkillDetail`（详情）与 `decodeEnterpriseInstalledSkills`（本机已装态）
- * [POS]: dsh-ui 浏览器契约层的技能分片——从逼近 800 行的 local-api-decode 拆出，专管企业技能目录投影；只保留 frontmatter 脱敏事实，SKILL.md 正文、artifact 路径与 SHA-256 在这里校验形状后即丢，永不进入界面；**可选分类 `category`（服务端新增字段，列表与详情投影都会有）在这里严格校验形状并把「缺席/null/空串」统一归一成「没有这个键」**（照 `whenToUse` 的既有归一策略，为缺失设计）；已装态是本机真值（Host 状态文件 + 落盘存在性），这里只校验形状与技能名规约
+ * [OUTPUT]: 对外提供技能包 DTO（`EnterpriseRuntimeSkill`/`EnterpriseSkillEntry`/`EnterpriseInstalledSkill`/**`EnterpriseInstalledSkillContent`**）与严格解码 `decodeEnterpriseSkills`（列表，可选分类 `category` 进白名单）、`decodeEnterpriseSkillDetail`（详情）、`decodeEnterpriseInstalledSkills`（本机已装态）与 `decodeEnterpriseInstalledSkillContent`（**已装技能的 SKILL.md 正文**：单键封闭 + 正文 ≤256 KiB）
+ * [POS]: dsh-ui 浏览器契约层的技能分片——从逼近 800 行的 local-api-decode 拆出，专管企业技能目录投影；只保留 frontmatter 脱敏事实，SKILL.md 正文、artifact 路径与 SHA-256 在这里校验形状后即丢，永不进入界面（**唯一例外**是下面那条「读已装技能正文」的只读投影：正文由用户主动点开详情才取，形状与上限在这里同样收窄）；**可选分类 `category`（服务端新增字段，列表与详情投影都会有）在这里严格校验形状并把「缺席/null/空串」统一归一成「没有这个键」**（照 `whenToUse` 的既有归一策略，为缺失设计）；已装态是本机真值（Host 状态文件 + 落盘存在性），这里只校验形状与技能名规约
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -233,4 +233,33 @@ export function decodeEnterpriseInstalledSkills(value: unknown): readonly Enterp
     throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
   }
   return row['skills'].map(decodeInstalledSkill)
+}
+
+/**
+ * 一条**已装**技能的正文（`GET /enterprise/api/v1/local/skills/content` 的 `data`）。
+ *
+ * 这是本包唯一会承载 SKILL.md **正文**的投影，因此边界写死：单键封闭（多一个宿主路径即整条判失败）、
+ * 包 id 雪花、技能名官方 kebab、正文是字符串且不超过 256 KiB（与 Host 侧的字节上限同值——
+ * 解码后是 UTF-16 码元，其数不可能超过字节数，故这条上界对两侧都成立）。
+ * 正文原样交给界面展示，本层**不解析** frontmatter、不做 Markdown 渲染。
+ */
+export interface EnterpriseInstalledSkillContent {
+  readonly packageId: string
+  readonly name: string
+  readonly content: string
+}
+
+/** 正文上限：与 Host 的 SKILL.md 字节上限（`SKILL_MD_MAX_BYTES = 262144`）逐字同值。 */
+const SKILL_CONTENT_MAX_LENGTH = 262_144
+
+export function decodeEnterpriseInstalledSkillContent(value: unknown): EnterpriseInstalledSkillContent {
+  const row = record(value)
+  if (row === undefined
+    || !hasExactKeys(row, ['packageId', 'name', 'content'])
+    || !enterpriseId(row['packageId'])
+    || typeof row['name'] !== 'string' || row['name'].length > 64 || !SKILL_ENTRY_NAME.test(row['name'])
+    || typeof row['content'] !== 'string' || row['content'].length > SKILL_CONTENT_MAX_LENGTH) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  return { packageId: row['packageId'], name: row['name'], content: row['content'] }
 }

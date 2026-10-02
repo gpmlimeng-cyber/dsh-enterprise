@@ -1,16 +1,17 @@
 /**
  * [INPUT]: 依赖 `src/skill-install.ts` 的安装编排、`src/skill-errors.ts` 的稳定码、`@dshent/plugin-distribution` 的下载内核（经编排间接覆盖）与 `tests/zip-fixture.ts` 的 ZIP 构造器
- * [OUTPUT]: 在真实临时 dshHome 上锁定安装成功（落点/原子改名/暂存清理/内容寻址缓存/幂等）、**同一包新版本的原子升级**（新旧内容替换、旧孤儿目录清理、清单只留一条、幂等；升级要占别的包的技能名仍拒；升级无法记账时旧版本原样回来）、sha256 与大小不符、网络失败、上游受控码穿透、路径逃逸、包契约不符、落点冲突、失败回滚、已装态（含盘上文件消失）、卸载与找不到、状态文件损坏 fail-closed、入参门禁与「不执行包内内容」的源码守卫
+ * [OUTPUT]: 在真实临时 dshHome 上锁定安装成功（落点/原子改名/暂存清理/内容寻址缓存/幂等）、**同一包新版本的原子升级**（新旧内容替换、旧孤儿目录清理、清单只留一条、幂等；升级要占别的包的技能名仍拒；升级无法记账时旧版本原样回来）、sha256 与大小不符、网络失败、上游受控码穿透、路径逃逸、包契约不符、落点冲突、失败回滚、已装态（含盘上文件消失）、卸载与找不到、状态文件损坏 fail-closed、入参门禁与「不执行包内内容」的源码守卫，以及**已装技能只读正文（`installedSkillContent`）**：合法路径逐字读回且完全不碰网络、名字必须命中本包已装记录（否则 404）、`..`/绝对路径/非 kebab 一律 400、符号链接逃逸（技能目录或 SKILL.md 本身）fail-closed、大小上限与包内 SKILL.md 同一条 256 KiB、非 UTF-8/非普通文件判本机状态可疑、文件不在 404
  * [POS]: bundle 技能一键安装的端到端回归门禁；有人改成先落盘再校验、把 sha256 校验去掉、允许覆盖别的包或来路不明的同名技能目录、把「同包新版本」也当落点冲突拒掉、升级失败不回滚旧版本、或让状态文件损坏时静默重写，本文件都会红
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { createHash } from 'node:crypto'
-import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  installedSkillContent,
   installedSkillStatus,
   installSkillPackage,
   uninstallSkillPackage,
@@ -521,5 +522,123 @@ describe('enterprise skill install', () => {
     expect(source).toContain('resolveEnterpriseDshHome')
     expect(source).toContain('downloadVerifiedArtifact')
     expect(source).toContain('decodeDshSkillArchive')
+  })
+})
+
+/**
+ * 已装技能**正文**（点技能行看详情时读的那条只读线）：在真实临时 dshHome 上验证
+ * ① 合法路径逐字读回；② **只有本包已装记录里的名字**才可能被读，其余一律 404；
+ * ③ 名字/包 id 形状非法一律 400（`..`、绝对路径、非 kebab 在拼任何路径之前就被拒）；
+ * ④ 符号链接逃逸（技能目录本身、或 SKILL.md 本身）fail-closed；
+ * ⑤ 大小上限复用包内 SKILL.md 的同一条 256 KiB，超限给稳定码；
+ * ⑥ 非 UTF-8 / 非普通文件判本机状态可疑；⑦ 读正文**完全不碰网络**。
+ */
+describe('enterprise installed skill content', () => {
+  const NAMES = ['meeting-actions', 'meeting-notes'] as const
+
+  /** 真装一个技能包（走完整下载 + 校验 + 解包 + 落盘），再读它的正文。 */
+  async function installInto(dshHome: string): Promise<void> {
+    const archive = buildZip(skillEntries('meeting', NAMES))
+    const fixture = platformFixture(
+      detailEnvelope({ archive, names: NAMES, skillId: 'meeting-pkg' }),
+      () => new Response(archive),
+    )
+    await installSkillPackage({ platform: fixture.platform, dshHome }, PACKAGE_ID)
+  }
+
+  /** 只读正文的 options：平台面故意做成「一碰就炸」，用来证明这条路完全不碰网络。 */
+  function offline(dshHome: string): { readonly platform: EnterpriseSkillInstallPlatformPort, readonly dshHome: string } {
+    return {
+      platform: { request: vi.fn(async () => { throw new Error('the content route must never touch the network') }) },
+      dshHome,
+    }
+  }
+
+  async function codeOf(promise: Promise<unknown>): Promise<string> {
+    try {
+      await promise
+      return 'NO_ERROR'
+    } catch (error) {
+      return (error as { code?: string }).code ?? 'NO_CODE'
+    }
+  }
+
+  it('reads a body that belongs to the package record and refuses every other name', async () => {
+    const dshHome = await makeHome()
+    await installInto(dshHome)
+    const options = offline(dshHome)
+
+    // 记录里的两个名字都能读：正文是磁盘上那份 SKILL.md 的原样内容，且**完全不碰网络**。
+    for (const name of NAMES) {
+      const content = await installedSkillContent(options, PACKAGE_ID, name)
+      expect(content.packageId).toBe(PACKAGE_ID)
+      expect(content.name).toBe(name)
+      expect(content.content).toContain(`name: ${name}`)
+    }
+    expect(options.platform.request).not.toHaveBeenCalled()
+
+    // 名字必须是**本包已装记录里的键**：kebab 形状完全合法、但不在记录里 → 404（绝不拿它拼路径）。
+    expect(await codeOf(installedSkillContent(options, PACKAGE_ID, 'release-notes'))).toBe('ENT_RESOURCE_NOT_FOUND')
+    // 本机没这个包的记录 → 404。
+    expect(await codeOf(installedSkillContent(options, OTHER_PACKAGE_ID, 'meeting-notes'))).toBe('ENT_RESOURCE_NOT_FOUND')
+
+    // 形状门禁（请求本身非法 → 400 族）：`..`、绝对路径、盘符、反斜杠、控制字符、空串、超长、大写。
+    for (const name of ['..', '../meeting-notes', '/etc/passwd', 'C:\\x', 'a\\b', 'a\u0000b', '', 'Meeting-Notes', 'a'.repeat(65), 'a/../b']) {
+      expect(await codeOf(installedSkillContent(options, PACKAGE_ID, name)), name).toBe('ENT_INVALID_REQUEST')
+    }
+    for (const packageId of ['0', '01902500000000000001', '../1', '1a', '', '1'.repeat(20)]) {
+      expect(await codeOf(installedSkillContent(options, packageId, 'meeting-notes')), packageId).toBe('ENT_INVALID_REQUEST')
+    }
+  })
+
+  it('fails closed when the skill directory or the SKILL.md itself escapes through a symlink', async () => {
+    const dshHome = await makeHome()
+    await installInto(dshHome)
+    const options = offline(dshHome)
+    const skillDir = join(dshHome, 'skills', 'meeting-notes')
+
+    // ① SKILL.md 本身是符号链接（指到技能目录之外）→ 本机状态可疑。
+    const outside = join(dshHome, 'outside.md')
+    await writeFile(outside, '---\nname: meeting-notes\n---\n外部文件\n', 'utf8')
+    await rm(join(skillDir, 'SKILL.md'), { force: true })
+    await symlink(outside, join(skillDir, 'SKILL.md'))
+    expect(await codeOf(installedSkillContent(options, PACKAGE_ID, 'meeting-notes'))).toBe('ENT_SKILL_CONTENT_INVALID')
+
+    // ② 整个技能目录是符号链接（指到技能根之外的同名目录）→ 规范化后落点不等于 `<真实根>/<name>/SKILL.md`。
+    const elsewhere = join(dshHome, 'elsewhere')
+    await mkdir(elsewhere, { recursive: true })
+    await writeFile(join(elsewhere, 'SKILL.md'), '---\nname: meeting-notes\n---\n别处\n', 'utf8')
+    await rm(skillDir, { force: true, recursive: true })
+    await symlink(elsewhere, skillDir)
+    expect(await codeOf(installedSkillContent(options, PACKAGE_ID, 'meeting-notes'))).toBe('ENT_SKILL_CONTENT_INVALID')
+    // 只读路径没有写副作用：别处那份文件一字未动。
+    expect(await readFile(join(elsewhere, 'SKILL.md'), 'utf8')).toContain('别处')
+  })
+
+  it('caps the body at the same 256 KiB as the archive contract and rejects non-text or missing files', async () => {
+    const dshHome = await makeHome()
+    await installInto(dshHome)
+    const options = offline(dshHome)
+    const body = join(dshHome, 'skills', 'meeting-notes', 'SKILL.md')
+
+    // 上限边界：256 KiB 恰好合法（与包内 SKILL.md 的上限是同一条常量）。
+    await writeFile(body, 'a'.repeat(262_144), 'utf8')
+    expect((await installedSkillContent(options, PACKAGE_ID, 'meeting-notes')).content.length).toBe(262_144)
+    // 多一个字节即超限。
+    await writeFile(body, 'a'.repeat(262_145), 'utf8')
+    expect(await codeOf(installedSkillContent(options, PACKAGE_ID, 'meeting-notes'))).toBe('ENT_SKILL_CONTENT_TOO_LARGE')
+
+    // 非 UTF-8（非法字节序列）→ 本机状态可疑（绝不让替换字符悄悄进界面）。
+    await writeFile(body, Buffer.from([0xff, 0xfe, 0xfd, 0x00, 0x80]))
+    expect(await codeOf(installedSkillContent(options, PACKAGE_ID, 'meeting-notes'))).toBe('ENT_SKILL_CONTENT_INVALID')
+
+    // 不是普通文件（目录）→ 本机状态可疑。
+    await rm(body, { force: true })
+    await mkdir(body)
+    expect(await codeOf(installedSkillContent(options, PACKAGE_ID, 'meeting-notes'))).toBe('ENT_SKILL_CONTENT_INVALID')
+
+    // 文件不在 → 404（不是 5xx：记录还在但盘上没了，是可操作的信息）。
+    await rm(body, { force: true, recursive: true })
+    expect(await codeOf(installedSkillContent(options, PACKAGE_ID, 'meeting-notes'))).toBe('ENT_RESOURCE_NOT_FOUND')
   })
 })

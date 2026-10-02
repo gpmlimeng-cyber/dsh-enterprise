@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 dsh-ui 同源 local-api、标准 Response 与 EventSource test double
- * [OUTPUT]: 验证账号/插件/技能严格解码、地址/卸载固定路径、脱敏投影、显式刷新与秘密字段拒绝
+ * [OUTPUT]: 验证账号/插件/技能严格解码、地址/卸载固定路径、脱敏投影、显式刷新与秘密字段拒绝，以及**本刀新增的已装技能正文取数**（同源 `/skills/content` + 两个标识符查询参数按 `encodeURIComponent` 编码、键集封闭拒绝宿主路径与超限正文）
  * [POS]: dsh-ui 浏览器网络边界测试，确保浏览器只能消费 Host 脱敏 DTO
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -223,6 +223,34 @@ describe('enterprise local browser API', () => {
       '/enterprise/api/v1/local/skills',
       '/enterprise/api/v1/local/skills/7001',
     ])
+  })
+
+  // 已装技能正文（点技能行看详情时发的唯一一条新请求）：同源固定路径 + 两个**标识符**查询参数
+  // （不是路径），参数一律 `encodeURIComponent` 后拼上——界面从不拼宿主路径。
+  it('reads an installed skill body over one same-origin path with encoded identifier query parameters', async () => {
+    const body = { packageId: '7001', name: 'code-review', content: '# 正文\n- 检查单' }
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input)
+      if (path.startsWith('/enterprise/api/v1/local/skills/content?')) {
+        return new Response(JSON.stringify({ data: body }), { headers: { 'content-type': 'application/json' } })
+      }
+      throw new Error(`unexpected path ${path}`)
+    })
+    const api = createEnterpriseLocalApi(fetcher)
+    await expect(api.skillContent('7001', 'code-review', new AbortController().signal)).resolves.toEqual(body)
+    expect(fetcher.mock.calls.map(call => String(call[0]))).toEqual([
+      '/enterprise/api/v1/local/skills/content?packageId=7001&name=code-review',
+    ])
+    // 参数按标识符编码：带 `../` 之类的输入只会变成查询串里的字面量，永远不会成为路径片段。
+    await api.skillContent('7001', '../../etc/passwd', new AbortController().signal).catch(() => undefined)
+    expect(String(fetcher.mock.calls[1]?.[0]))
+      .toBe('/enterprise/api/v1/local/skills/content?packageId=7001&name=..%2F..%2Fetc%2Fpasswd')
+    // Host 多塞宿主路径等正文之外的字面量即整条判畸形（与其余投影同一条键集封闭口径）。
+    const leaky = createEnterpriseLocalApi(vi.fn(async () => new Response(JSON.stringify({
+      data: { ...body, path: '/data/user/0/x/SKILL.md' },
+    }), { headers: { 'content-type': 'application/json' } })))
+    await expect(leaky.skillContent('7001', 'code-review', new AbortController().signal))
+      .rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
   })
 
   it('refreshes account state with one JSON request', async () => {

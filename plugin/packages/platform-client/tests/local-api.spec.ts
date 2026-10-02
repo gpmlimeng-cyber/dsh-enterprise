@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 platform-client 本地 API 注册器与 Node 原生 HTTP server/fetch，路由分发复用同目录的引擎语义匹配器 `engine-route-match.ts`
- * [OUTPUT]: 验证方法/content-type/体积/DTO、平台/插件状态、显式刷新、无常驻 SSE、探针退役与 disposer、**三条技能动作 exact 路由（形状/入参门禁/409 与 503 错误投影/405 Allow/端口缺席即不注册）**，并用引擎语义锁死「三条详情 prefix 不带尾斜杠」——品牌位图 / 会话恢复 / 配方详情对子路径可达，且带尾斜杠的旧形状会漏掉子路径；同时锁死 `/skills/install|uninstall|installed` 靠 exact 表抢在 bundle 侧 `/skills` 详情 prefix 之前
+ * [OUTPUT]: 验证方法/content-type/体积/DTO、平台/插件状态、显式刷新、无常驻 SSE、探针退役与 disposer、**三条技能动作 exact 路由（形状/入参门禁/409 与 503 错误投影/405 Allow/端口缺席即不注册）**，以及**第四条技能路由 `/skills/content`（只读已装技能正文）的注册形状/键集门禁（缺参·多参·重复·非雪花·非 kebab 一律 400 且不进端口）/404·413·409·503 错误投影/405 Allow**，并用引擎语义锁死「三条详情 prefix 不带尾斜杠」——品牌位图 / 会话恢复 / 配方详情对子路径可达，且带尾斜杠的旧形状会漏掉子路径；同时锁死 `/skills/install|uninstall|installed` 靠 exact 表抢在 bundle 侧 `/skills` 详情 prefix 之前
  * [POS]: platform-client Host/Client 协作回归测试，以真实 HTTP 锁定官方 webServer 契约；prefix 形状的判定不再用「裸 startsWith」假匹配器，而是逐行复刻引擎 `match()`，否则线上空体 404 在测试里是绿的
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,6 +8,7 @@
 import { createServer, type Server } from 'node:http'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  ENTERPRISE_SKILL_CONTENT_LOCAL_PATH,
   ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH,
   ENTERPRISE_SKILL_INSTALL_LOCAL_PATH,
   ENTERPRISE_SKILL_UNINSTALL_LOCAL_PATH,
@@ -262,6 +263,89 @@ describe('enterprise local API', () => {
     // 尾斜杠旧形状在引擎语义下漏掉一切子路径——这正是本仓修过的空体 404 家族。
     expect(engineRouteMatch([{ ...detail, path: '/enterprise/api/v1/local/skills/' }], ENTERPRISE_SKILL_INSTALL_LOCAL_PATH))
       .toBeUndefined()
+  })
+
+  // 已装技能**正文**的只读 exact 路由：`GET ?packageId=…&name=…`。
+  // 这里锁「路由只做形状收窄」这一点——两个参数都是标识符，非法形状一律 400 且**不进端口**，
+  // 名字不是路径、路由层不做任何路径拼接（真正的路径安全在 bundle 侧）。
+  it('serves an installed skill body over an exact GET route with identifier-only query parameters', async () => {
+    const skillContent = vi.fn(async (packageId: string, name: string) => ({
+      packageId, name, content: `# ${name}`,
+    }))
+    const onError = vi.fn()
+    registerEnterpriseLocalApi(webServer, { platform, pluginStatus, skillContent, onError })
+
+    // 注册形状：第四条技能路由同样是 exact（靠 exact 表抢在 bundle 侧 `/skills` 详情 prefix 之前）。
+    const route = routes.get(`exact:${ENTERPRISE_SKILL_CONTENT_LOCAL_PATH}`)
+    expect(route?.kind).toBe('exact')
+    expect(ENTERPRISE_SKILL_CONTENT_LOCAL_PATH).toBe('/enterprise/api/v1/local/skills/content')
+
+    const get = (query: string) => fetch(`${baseUrl}${ENTERPRISE_SKILL_CONTENT_LOCAL_PATH}${query}`)
+    // 合法：单键 `{data}` 信封，端口拿到的是**原样的两个标识符**（路由不改写、不归一化）。
+    const okResponse = await get('?packageId=1902500000000000001&name=meeting-notes')
+    expect(okResponse.status).toBe(200)
+    expect(okResponse.headers.get('cache-control')).toBe('no-store')
+    await expect(okResponse.json()).resolves.toEqual({
+      data: { packageId: '1902500000000000001', name: 'meeting-notes', content: '# meeting-notes' },
+    })
+    expect(skillContent).toHaveBeenCalledWith('1902500000000000001', 'meeting-notes')
+
+    // 入参门禁：缺参/多参/非雪花/非 kebab/超长/路径片段/大小写混合一律 400，且**端口一次都不进**。
+    for (const query of [
+      '', '?packageId=1902500000000000001', '?name=meeting-notes',
+      '?packageId=0&name=meeting-notes',
+      '?packageId=01902500000000000001&name=meeting-notes',
+      '?packageId=903&name=../../etc/passwd',
+      '?packageId=903&name=%2Fetc%2Fpasswd',
+      '?packageId=903&name=SKILL.md',
+      '?packageId=903&name=Meeting-Notes',
+      '?packageId=903&name=a'.concat('b'.repeat(64)),
+      '?packageId=903&name=meeting-notes&extra=1',
+      '?packageId=903&name=meeting-notes&packageId=904',
+    ]) {
+      const response = await get(query)
+      expect(response.status, query).toBe(400)
+      await expect(response.json(), query).resolves.toEqual({ error: { code: 'ENT_INVALID_REQUEST' } })
+    }
+    expect(skillContent).toHaveBeenCalledTimes(1)
+    expect(onError).not.toHaveBeenCalled()
+
+    // 失败投影：本包没装/名字不属于本包 → 404；超 256 KiB → 413；落盘可疑（逃逸/非 UTF-8）→ 409；其余 503。
+    const cases: readonly (readonly [string, number])[] = [
+      ['ENT_RESOURCE_NOT_FOUND', 404],
+      ['ENT_SKILL_CONTENT_TOO_LARGE', 413],
+      ['ENT_SKILL_CONTENT_INVALID', 409],
+      ['ENT_PLATFORM_UNAVAILABLE', 503],
+    ]
+    for (const [code, status] of cases) {
+      skillContent.mockRejectedValueOnce(Object.assign(new Error(code), { code }))
+      const response = await get('?packageId=903&name=meeting-notes')
+      expect(response.status, code).toBe(status)
+      await expect(response.json(), code).resolves.toEqual({ error: { code } })
+    }
+    expect(onError).toHaveBeenCalledTimes(cases.length)
+
+    // 405 契约：只认 GET（POST 不触发端口，并给出 Allow）。
+    const wrongMethod = await fetch(`${baseUrl}${ENTERPRISE_SKILL_CONTENT_LOCAL_PATH}?packageId=903&name=meeting-notes`, {
+      body: '{}', headers: { 'content-type': 'application/json' }, method: 'POST',
+    })
+    expect(wrongMethod.status).toBe(405)
+    expect(wrongMethod.headers.get('allow')).toBe('GET')
+
+    // 端口缺席即不注册；注册后也必须靠 exact 表抢在 bundle 侧 `/skills` 详情 prefix 之前。
+    const detailPrefix: RegisteredRoute = {
+      kind: 'prefix', path: '/enterprise/api/v1/local/skills', handler: () => undefined,
+    }
+    const contentRoute: RegisteredRoute = {
+      kind: 'exact', path: ENTERPRISE_SKILL_CONTENT_LOCAL_PATH, handler: () => undefined,
+    }
+    expect(engineRouteMatch([detailPrefix, contentRoute], ENTERPRISE_SKILL_CONTENT_LOCAL_PATH)).toBe(contentRoute)
+    expect(engineRouteMatch([detailPrefix, contentRoute], '/enterprise/api/v1/local/skills/1902500000000000001')).toBe(detailPrefix)
+  })
+
+  it('registers no skill content route without the port', () => {
+    registerEnterpriseLocalApi(webServer, { platform, pluginStatus })
+    expect(routes.has(`exact:${ENTERPRISE_SKILL_CONTENT_LOCAL_PATH}`)).toBe(false)
   })
 
   it('updates the Server origin and responds before invoking the optional restart after uninstall', async () => {

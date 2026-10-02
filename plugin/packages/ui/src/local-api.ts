@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖浏览器 fetch 与 FormData/Blob、local-api-decode 的全部严格解码与失败码投影
- * [OUTPUT]: 对外提供 `createEnterpriseLocalApi`（固定同源路径的取数与动作，含请 Host 打开帮助中心的 `openHelp`）、两条同源路径常量（`ENTERPRISE_FEEDBACK_LOCAL_PATH`/`ENTERPRISE_HELP_OPEN_LOCAL_PATH`）与 local-api-decode 的全部导出
+ * [OUTPUT]: 对外提供 `createEnterpriseLocalApi`（固定同源路径的取数与动作，含请 Host 打开帮助中心的 `openHelp` 与读**已装**技能正文的 `skillContent`）、三条同源路径常量（`ENTERPRISE_FEEDBACK_LOCAL_PATH`/`ENTERPRISE_HELP_OPEN_LOCAL_PATH`/`ENTERPRISE_SKILL_CONTENT_LOCAL_PATH`）与 local-api-decode 的全部导出
  * [POS]: dsh-ui 的浏览器网络边界——只发同源固定路径请求，调用方无法注入平台 origin 或 Authorization；DTO 契约与解码在 local-api-decode.ts，本文件只管发与收
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -16,6 +16,7 @@ import {
   decodeEnterpriseCredentialResult,
   decodeEnterpriseErrorCode,
   decodeEnterpriseInstalledSkills,
+  decodeEnterpriseInstalledSkillContent,
   decodeEnterpriseLocalStatus,
   decodeEnterpriseLoginCancel,
   decodeEnterpriseLoginForm,
@@ -186,6 +187,13 @@ export function createEnterpriseLocalApi(
     installedSkills: async signal => decodeEnterpriseInstalledSkills(
       await requestJson('/skills/installed', getInit(signal), fetcher),
     ),
+    skillContent: async (packageId, name, signal) => decodeEnterpriseInstalledSkillContent(
+      await requestJson(
+        `/skills/content?packageId=${encodeURIComponent(packageId)}&name=${encodeURIComponent(name)}`,
+        getInit(signal),
+        fetcher,
+      ),
+    ),
     installSkill: async (packageId, signal) => decodeEnterpriseInstalledSkills(
       await requestJson('/skills/install', jsonInit('POST', { packageId }, signal), fetcher),
     ),
@@ -239,7 +247,14 @@ export const ENTERPRISE_HELP_OPEN_LOCAL_PATH = `${LOCAL_API_PREFIX}/help/open`
  * 企业技能一键安装的三条同源路径常量；Host 侧（platform-client 的 exact 路由）注册路径必须与它们逐字相同。
  *
  * 三条都是 `/skills` prefix 的**子路径**，靠引擎 exact 表优先命中；界面只发这三条，不发任何宿主路径。
- */
-export const ENTERPRISE_SKILL_INSTALL_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/install`
+ */export const ENTERPRISE_SKILL_INSTALL_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/install`
 export const ENTERPRISE_SKILL_UNINSTALL_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/uninstall`
 export const ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/installed`
+
+/**
+ * 已装技能**正文**的只读路径常量；Host 侧（platform-client 的 exact 路由）注册路径必须与它逐字相同。
+ *
+ * 两个查询参数都是**标识符而不是路径**：包 id 是中心雪花、技能名是官方 kebab 目录名；
+ * 界面只会把 Host 自己回传的已装记录里的名字填进来，绝不接受用户输入的路径。
+ */
+export const ENTERPRISE_SKILL_CONTENT_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/content`

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 zod、生成契约、官方 settings 的 volatile Config 引用形状、installation 与本地 API 端口
- * [OUTPUT]: 对外提供 BootstrapSnapshot、平台状态/错误（含安卓授权页交接时随 AUTHORIZING 下发的 `authorizeUrl`）、volatile 引用识别与无验收探针的 Service 配置（含 `browserHandoff` 开关，以及组合层注入的企业插件动作端口 `pluginAction`/`pluginStatus` 与企业技能安装端口 `skillAction`/`skillStatus`）
+ * [OUTPUT]: 对外提供 BootstrapSnapshot、平台状态/错误（含安卓授权页交接时随 AUTHORIZING 下发的 `authorizeUrl`）、volatile 引用识别与无验收探针的 Service 配置（含 `browserHandoff` 开关，以及组合层注入的企业插件动作端口 `pluginAction`/`pluginStatus`、企业技能安装端口 `skillAction`/`skillStatus` 与只读正文端口 `skillContent`）
  * [POS]: platform-client 的公共契约层，隔离中心 HTTP 输入、Host 运行参数、官方 settings 引用与无秘密界面状态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -91,6 +91,8 @@ export interface EnterprisePlatformInternals {
   readonly skillAction?: EnterpriseLocalApiOptions['skillAction']
   /** 企业技能已装清单；界面列表加载时读一次。 */
   readonly skillStatus?: EnterpriseLocalApiOptions['skillStatus']
+  /** 读一条**已装**技能的 SKILL.md 正文（点技能行看详情时用）；缺席即不注册那条只读路由。 */
+  readonly skillContent?: EnterpriseLocalApiOptions['skillContent']
   readonly uninstallPlugin?: () => Promise<{ readonly restart?: () => void }>
   readonly sessionSync?: EnterpriseLocalApiOptions['sessionSync']
 }

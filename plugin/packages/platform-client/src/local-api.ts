@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 Harness `ctx.webServer.register()` route port、平台操作端口、组合层注入的插件动作端口与技能安装端口、品牌只读端口与可选投影留痕端口
- * [OUTPUT]: 提供账号/配置按需刷新、插件操作、**企业技能安装/卸载/已装态**、本地品牌投影与原生登录（来源列表 / 凭证代提交 / 改密代提交）的严格同源 JSON 路由，无常驻状态连接；凭证正文只按固定键集读入并原样转发，绝不进日志；每个把异常投影成 HTTP 状态的回调都经 `onError` 上报操作名与原始 error；三条详情 prefix（品牌位图 / 会话恢复 / 配方详情）的注册 path 一律**不带尾斜杠**，技能三条动作路由是 `/skills` prefix 的 exact 子路径（`ENTERPRISE_SKILL_*_LOCAL_PATH`）
- * [POS]: platform-client 的 Host/Client 同源协作边界，只序列化脱敏 DTO 并把认证 HTTP 留在 Host Service；路由形状受引擎 `match()`（`lib/index.js:322`）约束——exact 表整路径优先、prefix 只认 `pathname === prefix` 或 `pathname.startsWith(prefix + '/')`、多条命中取最长，故带尾斜杠的 prefix 会在引擎层空体 404 而根本不进 handler，而 `/skills/install` 这类子路径动作必须靠 exact 表抢在 `/skills` prefix 之前
+ * [OUTPUT]: 提供账号/配置按需刷新、插件操作、**企业技能安装/卸载/已装态/已装正文**、本地品牌投影与原生登录（来源列表 / 凭证代提交 / 改密代提交）的严格同源 JSON 路由，无常驻状态连接；凭证正文只按固定键集读入并原样转发，绝不进日志；每个把异常投影成 HTTP 状态的回调都经 `onError` 上报操作名与原始 error；三条详情 prefix（品牌位图 / 会话恢复 / 配方详情）的注册 path 一律**不带尾斜杠**，技能四条路由是 `/skills` prefix 的 exact 子路径（`ENTERPRISE_SKILL_*_LOCAL_PATH`，含只读的 `/skills/content`）
+ * [POS]: platform-client 的 Host/Client 同源协作边界，只序列化脱敏 DTO 并把认证 HTTP 留在 Host Service；路由形状受引擎 `match()`（`lib/index.js:322`）约束——exact 表整路径优先、prefix 只认 `pathname === prefix` 或 `pathname.startsWith(prefix + '/')`、多条命中取最长，故带尾斜杠的 prefix 会在引擎层空体 404 而根本不进 handler，而 `/skills/install` 这类子路径动作必须靠 exact 表抢在 `/skills` prefix 之前。`/skills/content` 的两个查询参数（包 id / 技能目录名）在这里只按形状收窄后原样转交：**名字不是路径**，是不是本包的、落点怎么拼、有没有符号链接逃逸，一律由 bundle 侧的已装记录与 `realpath` 判定
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -60,6 +60,18 @@ const PRESET_DETAIL_PREFIX_ROUTE = `${LOCAL_API_PREFIX}/presets`
 export const ENTERPRISE_SKILL_INSTALL_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/install`
 export const ENTERPRISE_SKILL_UNINSTALL_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/uninstall`
 export const ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/installed`
+/**
+ * 已装技能**正文**的只读 exact 路由：`GET <local>/skills/content?packageId=…&name=…`。
+ *
+ * 与上面三条动作路由同一族、同样靠 exact 表抢在 bundle 侧的 `/skills` 详情 prefix 之前；
+ * 两个查询参数都不是路径——名字在 bundle 侧只会被当成「本包已装记录里的键」，
+ * 因此即便有人手工构造请求，也拼不出技能目录之外的任何文件。
+ */
+export const ENTERPRISE_SKILL_CONTENT_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/content`
+
+/** 中心雪花 id 与官方 kebab 技能目录名的形状门禁（与 bundle 侧同规约，两处都是「先收窄再使用」）。 */
+const ENTERPRISE_ID_PATTERN = /^[1-9][0-9]{0,18}$/
+const SKILL_NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
 /** Harness `ctx.webServer` Service 公开的 route 结构。 */
 export interface WebServerRoutePort {
@@ -121,6 +133,13 @@ export interface EnterpriseLocalApiOptions {
   readonly skillAction?: (action: 'install' | 'uninstall', packageId: string) => Promise<unknown>
   /** 已装技能清单；缺席时不注册 `/skills/installed`。 */
   readonly skillStatus?: () => unknown | Promise<unknown>
+  /**
+   * 读一条**已装**技能的 `SKILL.md` 正文（bundle 的 `skill-install.ts`）；缺席时不注册 `/skills/content`。
+   *
+   * 路由只做形状收窄并把两个参数原样转交——**名字是不是本包的、落点怎么拼、有没有符号链接逃逸，
+   * 一律由 bundle 侧判定**（那里才有本机已装记录与技能根）。
+   */
+  readonly skillContent?: (packageId: string, name: string) => Promise<unknown>
   /** 由组合层绑定整包卸载；返回的重启动作必须在 HTTP 成功响应写出后才执行。 */
   readonly uninstallPlugin?: () => Promise<{ readonly restart?: () => void }>
   /** 由组合层绑定会话同步；缺省时不注册 /sessions* 路由。 */
@@ -175,6 +194,10 @@ function actionErrorStatus(error: unknown): number {
   if (code === 'ENT_PLUGIN_BUSY') return 409
   // 技能落点已被同名技能目录占用：请求本身合法、本机状态冲突，故 409 而不是 400/503。
   if (code === 'ENT_SKILL_NAME_CONFLICT') return 409
+  // 已装技能正文不是普通文件 / 符号链接逃逸 / 非法 UTF-8：请求本身合法、本机落盘状态可疑，同族判 409。
+  if (code === 'ENT_SKILL_CONTENT_INVALID') return 409
+  // 正文超过包内 SKILL.md 的同一条上限（256 KiB）：请求合法但资源太大，判 413（与请求体超限同码）。
+  if (code === 'ENT_SKILL_CONTENT_TOO_LARGE') return 413
   if (code === 'ENT_AUTH_REQUIRED' || code === 'ENT_AUTH_SESSION_EXPIRED') return 401
   if (code === 'ENT_DEVICE_REVOKED' || code === 'ENT_PERMISSION_DENIED') return 403
   if (code === 'ENT_RESOURCE_NOT_FOUND') return 404
@@ -538,6 +561,42 @@ export function registerEnterpriseLocalApi(
       }))
     }
 
+    if (options.skillContent !== undefined) {
+      const skillContent = options.skillContent
+      disposers.push(webServer.register({
+        kind: 'exact',
+        path: ENTERPRISE_SKILL_CONTENT_LOCAL_PATH,
+        handler: async (request, response) => {
+          if (request.method !== 'GET') {
+            methodNotAllowed(response, 'GET')
+            return
+          }
+          const query = requestUrl(request).searchParams
+          const keys = [...query.keys()]
+          const packageId = query.get('packageId')
+          const name = query.get('name')
+          // 查询键集必须**恰好**是这两个标识符（多给、少给、重复一律 400）：越界参数不得进入这条只读路由。
+          // 两个值各自按形状在**本地**收窄：包 id 是中心雪花、技能名是官方 kebab 目录名。
+          // 名字只当「本包已装记录里的键」转交，绝不在这里拼任何路径。
+          if (keys.length !== 2 || keys.some(key => key !== 'packageId' && key !== 'name')
+            || packageId === null || !ENTERPRISE_ID_PATTERN.test(packageId)
+            || name === null || name.length > 64 || !SKILL_NAME_PATTERN.test(name)) {
+            writeJson(response, 400, { error: { code: 'ENT_INVALID_REQUEST' } })
+            return
+          }
+          try {
+            writeJson(response, 200, { data: await skillContent(packageId, name) })
+          } catch (error) {
+            const status = actionErrorStatus(error)
+            options.onError?.(`GET ${ENTERPRISE_SKILL_CONTENT_LOCAL_PATH}`, error, status)
+            writeJson(response, status, { error: {
+              code: status === 400 ? 'ENT_INVALID_REQUEST' : errorCode(error),
+            } })
+          }
+        },
+      }))
+    }
+
     if (options.skillAction !== undefined) {
       const skillAction = options.skillAction
       for (const action of ['install', 'uninstall'] as const) {
@@ -557,7 +616,7 @@ export function registerEnterpriseLocalApi(
               // 越界字符串绝不进入 bundle 的路径构造（那里还会再校验一次 manifest 里的技能名）。
               if (Object.keys(body).sort().join(',') !== 'packageId'
                 || typeof body['packageId'] !== 'string'
-                || !/^[1-9][0-9]{0,18}$/.test(body['packageId'])) {
+                || !ENTERPRISE_ID_PATTERN.test(body['packageId'])) {
                 throw new TypeError('invalid skill action')
               }
               writeJson(response, 200, { data: await skillAction(action, body['packageId']) })

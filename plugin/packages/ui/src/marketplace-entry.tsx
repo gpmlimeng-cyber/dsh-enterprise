@@ -1,20 +1,20 @@
 /**
  * [INPUT]: 依赖 React（useEffect/useState）、lucide-react 图标（组件行三枚 + 侧栏入口的 Store + 两套外壳各自的图形）、官方 ui-primitives 的 Switch/Tag/StateDot（pinned 0.1.5-rc.2 的 .d.ts 已导出，不走 official-ui 收窄接缝；**该 pin 不含 `SegmentedTabs`**，故页签条照 `account-view.tsx` 既有 tablist 手写自绘，pin 对齐是另一个待用户拍板的开放项）、account-state 的 `enterpriseSessionUsable` 与 account-store 的 `EnterpriseAccountStore`（订阅只发生在共享控制器 `useEnterpriseMarketController` 里）、local-api-decode 的技能 DTO（`EnterpriseRuntimeSkill` 目录 + 已装记录 `EnterpriseInstalledSkill`——「已装」只认后者这一份 Host 真值）与失败码唯一投影 `enterpriseLocalErrorCode`（行内失败提示的 code 来源，与技能 tab 同源）、消费官方 `plugins.item` owner props（`view`/`form`）与主内容区面板（`main` key）注入的等价 props（`view` 恒取 `ENTERPRISE_STORE_PANEL_VIEW`、`store` 与卡片同源）；中心当前版本只从**详情投影** `store.api.skillDetail(id)` 取（列表投影的 `versionId` 恒为空串），且只对已装行取——未装行没有本机版本可比，不白跑请求
  * [REF]: **旧外观的逐段真源是 `9723a97:plugin/packages/ui/src/marketplace-entry.tsx`**（技能行 = 官方两行卡片：第 1 行标题 `.own-market-cardId` + 版本签 + 分类签，第 2 行描述 `.own-market-cardDesc`，右侧 `[有更新] [Switch]`；插件行 = 图标 + 两行文案 + 状态点 + 官方状态词 + `Switch`；三个页签；组件节折叠），**不从记忆重写**；**新外观**取自 7557ffd 那一版，但**行版式已在本轮统一到旧外观那一套**：7557ffd 的官方插件清单卡片 `qSYn7G_*`（`.own-market-cardShell`/`.own-market-cardGrid`/`.own-market-cardTitle`/`.own-market-cardDescription`/`.own-market-cardActions` 等，连同两列网格与 `@container`/`@media 520` 兜底）**整组删除**，只作出处留痕。两套外壳的**目录行完全同源**：由同一枚子块 `EnterpriseMarketInlineRows` 渲染同一串类名（`.own-market-rows`/`.own-market-row*`/`.own-market-cardHead`/`.own-market-cardId`/`.own-market-cardDesc`），行取值只有一份 `rowStyles`；旧外壳的 `<style>` 因此仍是 `baseStyles + rowStyles`，与改动前**逐字节相同**（同一份 DOM 大纲 + 同一份 6880 字符 CSS）。呈现差异只剩「HERO + 搜索框 + 根内边距」三件。旧外观那一版用的 `.own-market-tabs` 与 `plugin-market.tsx` 同名（两份全局单类 `<style>` 互相覆盖），7557ffd 已因此改名 `.own-market-storeTabs`——**页签条两套共用改后的类名，不许退回旧名**。
- * [OUTPUT]: **两套呈现外壳 + 一份逻辑**。共享逻辑只有一处：控制器 hook `useEnterpriseMarketController`（store 订阅与取数、已装真值、安装/卸载动作、失败码归行、页签选中态、行开合态、搜索输入与 350ms 防抖）、模型投影 `enterpriseMarketShellModel(props)`（组件清单行、目录门控、页签文案与计数、过滤后的可见行、折叠态）与行级 facts `enterpriseMarketSkillRowFacts`/`enterpriseMarketPluginRowFacts`（受管态、开关口径、更新判定、两枚签取值、行键与开合、插件开关禁用口径）。呈现外壳是两个纯函数组件、接受**同一组** `EnterpriseMarketShellProps`：`EnterpriseMarketLegacyShell`（旧外观：行图标 + 官方两行卡片 + 右侧 `[有更新] [Switch]`，**无 HERO**、无搜索框、无行展开）与 `EnterpriseMarketStoreShell`（新外观：**含 HERO** + 搜索框 + 根内边距；目录行与旧外壳**同一套**——同一枚子块 `EnterpriseMarketInlineRows`，动作与失败提示都在行内；**不折叠**）。两者共用的行渲染子块是 `EnterpriseMarketInlineRows`（按目录页签铺整段 `.own-market-rows`：技能行 = 图标 + 两行文案 + `[有更新]` + `Switch` + 失败提示；插件行 = 图标 + 两行文案 + 状态点与官方状态词 + `Switch` + 失败提示）。两条入口各一个 hook 组件——`EnterpriseMarketLegacyPage` 注册到官方 `plugins.item`、`EnterpriseMarketStorePage` 注册到官方 `main`（key = `ENTERPRISE_STORE_PANEL_ID`），两者都只经 `EnterpriseMarketShellHost` 接同一份控制器与同一个登录弹窗。另出口：共享身份常量（`ENTERPRISE_STORE_PANEL_ID`/`ENTERPRISE_STORE_ENTRY_LABEL`/`ENTERPRISE_STORE_ENTRY_ORDER`/`ENTERPRISE_STORE_PANEL_VIEW`）与侧栏图标 `EnterpriseStoreIcon`；HERO 文案真源（`ENTERPRISE_STORE_HERO_TITLE`/`ENTERPRISE_STORE_HERO_NOTE`/`enterpriseMarketHeroSkillChip`/`enterpriseMarketHeroPluginChip`）；页签真源（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`/`enterpriseMarketTabLabel`）；组件清单与计数摘要投影（`ENTERPRISE_MARKET_COMPONENTS`/`ENTERPRISE_MARKET_PLAN`/`enterpriseMarketComponent{Enabled,State,Dot,SwitchDisabled,Summary,SummaryText}`）；行投影（`enterpriseMarketPluginRows`/`enterpriseMarketPluginSectionVisible`/`enterpriseMarketSkillRows`/`enterpriseMarketSkillSectionVisible`）；技能行标签与状态投影（`enterpriseMarketSkillVersionTag`/`enterpriseMarketSkillCategoryTag`/`enterpriseMarketSkillHasUpdate`/`enterpriseMarketSkillRowHasUpdate`/`enterpriseMarketSkillUpdateTag`/`ENTERPRISE_MARKET_SKILL_UPDATE_LABEL`/`ENTERPRISE_MARKET_SKILL_UPDATE_TAG`/`enterpriseMarketSkillState`/`enterpriseMarketSkillDot`/`enterpriseMarketSkillConfigTag`/`enterpriseMarketSkillStatusLabel`）；插件行状态投影（`enterprisePluginDot`/`enterpriseMarketPluginConfigTag`/`enterpriseMarketPluginStatusLabel`）；行键与开合投影（`enterpriseMarketRowKey`/`enterpriseMarketRowDetailsId`/`enterpriseMarketRowOpen`）；搜索真源（`ENTERPRISE_MARKET_SEARCH_DEBOUNCE_MS`/`EnterpriseMarketDirectoryTabId`/`ENTERPRISE_MARKET_DIRECTORY_TABS`/`ENTERPRISE_MARKET_SEARCH_INITIAL`/`enterpriseMarketSearchPlaceholder`/`enterpriseMarketSearchLabel`/`ENTERPRISE_MARKET_SEARCH_EMPTY`/`enterpriseMarketSearchTerm`/`enterpriseMarketSearchRows`/`enterpriseMarketSearchSkillRows`/`enterpriseMarketSearchPluginRows`）；折叠真源（`ENTERPRISE_MARKET_DEFAULT_EXPANDED`/`enterpriseMarketSectionOpen`/`EnterpriseMarketSectionId`/`ENTERPRISE_MARKET_SECTION_IDS`）；**两套外壳共用的行渲染子块 `EnterpriseMarketInlineRows`**（行版式统一的唯一实现点）；失败可见反馈（`EnterpriseMarketActionError`/`enterpriseMarketActionErrorLabel`/`EnterpriseMarketRowError`）；badge 槽（`EnterpriseMarketBadge`/`BadgeView`/`enterpriseMarketVersionTag`）；注册常量 `ENTERPRISE_MARKET_ENTRY_ID`/`ENTERPRISE_MARKET_ENTRY_LABEL`/`ENTERPRISE_MARKET_ENTRY_ORDER`。卡片摘要与详情页正文**不重复同一句**——摘要只在 `summary` 视图出现（官方必渲染的那一份，两套外壳共用 `EnterpriseMarketSummaryLine`）。
- * [POS]: ui 的企业应用商店（**明确的双外观拆分：两条入口各用各的呈现外壳、共用同一份逻辑**）——① 官方插件页「官方」分组里的「插件市场」卡片点进去（官方 `plugins.item` 的 `page` 视图）走 **旧外壳 `EnterpriseMarketLegacyShell`**（9723a97 那一版观感：行图标 + 官方两行卡片 + 右侧 `[有更新] [Switch]`，**没有** HERO、没有搜索框、没有可展开行）；② 侧栏一级入口「应用商店」对应的**主内容区面板**（官方 `main` 槽，`key = ENTERPRISE_STORE_PANEL_ID='enterprise-store'`，注册时注入恒定的 `view = ENTERPRISE_STORE_PANEL_VIEW`）走 **新外壳 `EnterpriseMarketStoreShell`**（渐变 HERO + 列表上方搜索框 + 根内边距；**目录行与官方插件页「插件市场」逐项同一套**：两个目录页签的行由同一枚子块 `EnterpriseMarketInlineRows` 渲染，动作（`[有更新]` + 官方 `Switch`）与失败提示都在行内；**不折叠**）。**版式统一的落点（本刀）**：两条入口现在**共用同一段行渲染**——`EnterpriseMarketInlineRows` 是唯一实现点，旧外壳与新外壳各调用它两次（两个目录页签）；行类名（`.own-market-rows`/`.own-market-row`/`.own-market-rowLine`/`.own-market-rowIcon`/`.own-market-rowMain`/`.own-market-cardHead`/`.own-market-cardId`/`.own-market-cardDesc`）、行 facts、动作顺序（辅助动作严格排在开关左侧）与失败提示因此是**结构性一致**，将来不会再分叉。新外壳**只多三件**：HERO（`EnterpriseMarketHero`）、两个目录页签的搜索框（350ms 防抖）、根容器的 `.own-market-storePage` 内边距；其余（页签条与 aria/键盘、面板壳、组件节、失败提示）本来就是共享的一份。**新外壳目录行为什么不折叠（用户裁决 A）**：那个展开区里原先只有对用户近乎无用的 `skillId` 与两个真正的动作（`[有更新]` / 安装卸载 `Switch`），而企业技能/企业插件目录常态只有 3–5 行——把**唯一真正要做的事**藏进一次点击之后没有任何收益，反而让「有更新」不可见。故新外壳目录行删掉 chevron、`aria-expanded`/`aria-controls`、整个展开区与 `skillId` 行，动作（`[有更新]` + `Switch`）**常显在行上**；失败提示直接跟在整条行线下方。**旧外壳与共享控制器都不因此改动**（旧外壳本来就不折叠；控制器里的行开合态按「不夹带清理」保留，见该处注释）。四个注册面（`main`、`sidebar.panellist`、`plugins.item`、`plugins.detail.badge`）与全部注册常量、`inject` 形状一字未改，只有「注册到 `plugins.item` 与 `main` 的组件」从原来那一个换成了各自的 hook 入口。**两套外壳的公共能力一条不少**：版本签（`sourceDshVersion`）、可选分类签（`category`，缺席/null/空串不渲染）、「有更新」辅助动作（真实 `<button>`，点击 = 更新到中心当前版本）、安装/卸载 `Switch`、「失败 `role="alert"` + 稳定错误码 + 失败可重试」、三页签（企业技能默认 / 企业插件 / 组件）、组件页签折叠语义、页签的 aria 契约与键盘走焦（两套外壳共用 `EnterpriseMarketTabStrip` 一份实现）。**严禁**任何价格/交易/购买/购物车/客服之类的商业化字样——两套外壳的全树文本都不出现（由测试反向锁死）。`store` 与开登录回调均为可选注入：缺席时开关恒禁用、会话不可用时目录节不出现，两套外壳同规则。**容器内边距只在新外壳这一层分叉**：新外壳的根节点多一枚类 `.own-market-storePage`（`storeStyles` 里 `padding:14px 14px 20px`），HERO / 页签条 / 搜索框 / 通栏行 / 行内失败提示全部落在同一个有内边距的容器里——因为官方 `main` 面板不像 `DetailTop` 那样自带外层内边距，不给这层就整页贴边；旧外壳（`plugins.item` 详情页）**自身一行不加**、依赖官方 `DetailTop` 自带内边距，两者**不可互相叠加**（给旧外壳补内边距会让旧外观变挤）。
+ * [OUTPUT]: **两套呈现外壳 + 一份逻辑 + 一份技能详情弹层**。**本刀（技能详情）**：技能行**行本体**（图标 + 两行文案）成为一枚真 `<button class="own-market-rowOpen">`——点它打开该技能的详情弹层；`[有更新]` 与官方 `Switch` 是它在 `.own-market-rowLine` 里的**同级兄弟**（不在按钮内，故点动作既不会冒泡进详情、也不会被藏起来），两者由**唯一一枚共享子块** `EnterpriseMarketSkillRowActions` 渲染（行本体与详情弹层渲染的是同一枚子块、同一份 `facts`、同一个 `onToggleSkill`）。详情承载形式是**官方 `Modal`**：`EnterpriseSkillDetailView`（纯函数，Esc / 点遮罩 / 关闭按钮三条路径都由官方原语的 `onClose` 承担，本文件不画遮罩、不接 keydown、不管焦点）+ `EnterpriseSkillDetailDialog`（唯一含副作用的包装：**只在已装时**经 `store.api.skillContent` 读 `<dshHome>/skills/<name>/SKILL.md` 的正文，名字取 Host 已装记录里的 `names[0]`，界面从不拼路径、不接受用户输入）；配套纯投影 `enterpriseSkillDetailFacts`（技能名称/技能 ID/技能包 ID/DSH 版本/可选分类/已装状态，分类缺席即整条不产出）、`enterpriseSkillDetailInstallLabel` 与 `enterpriseSkillDetailBody`（未装 / 读取中 / 读失败（带稳定码）/ 已取到四态）及四条提示常量 `ENTERPRISE_SKILL_DETAIL_{NOT_INSTALLED,LOADING,FAILED,EMPTY}`；`EnterpriseMarketShellProps` 新增 `onOpenSkillDetail`（缺席即那枚按钮 `disabled` + 说明性 title，照组件节节头的既有降级口径，不给死按钮），共享控制器的 `EnterpriseMarketController.skillDetail` 是弹层输入的**唯一构造点**（行投影/行 facts/同一条已装记录/同一份失败事实/同一个动作回调），共享宿主 `EnterpriseMarketShellHost` 同树渲染它——弹层**不属于任何一套外观**。另：`rowStyles` 随之多出 `.own-market-rowOpen` 三条规则。 以下为既有能力：**两套呈现外壳 + 一份逻辑**。共享逻辑只有一处：控制器 hook `useEnterpriseMarketController`（store 订阅与取数、已装真值、安装/卸载动作、失败码归行、页签选中态、行开合态、搜索输入与 350ms 防抖）、模型投影 `enterpriseMarketShellModel(props)`（组件清单行、目录门控、页签文案与计数、过滤后的可见行、折叠态）与行级 facts `enterpriseMarketSkillRowFacts`/`enterpriseMarketPluginRowFacts`（受管态、开关口径、更新判定、两枚签取值、行键与开合、插件开关禁用口径）。呈现外壳是两个纯函数组件、接受**同一组** `EnterpriseMarketShellProps`：`EnterpriseMarketLegacyShell`（旧外观：行图标 + 官方两行卡片 + 右侧 `[有更新] [Switch]`，**无 HERO**、无搜索框、无行展开）与 `EnterpriseMarketStoreShell`（新外观：**含 HERO** + 搜索框 + 根内边距；目录行与旧外壳**同一套**——同一枚子块 `EnterpriseMarketInlineRows`，动作与失败提示都在行内；**不折叠**）。两者共用的行渲染子块是 `EnterpriseMarketInlineRows`（按目录页签铺整段 `.own-market-rows`：技能行 = 图标 + 两行文案 + `[有更新]` + `Switch` + 失败提示；插件行 = 图标 + 两行文案 + 状态点与官方状态词 + `Switch` + 失败提示）。两条入口各一个 hook 组件——`EnterpriseMarketLegacyPage` 注册到官方 `plugins.item`、`EnterpriseMarketStorePage` 注册到官方 `main`（key = `ENTERPRISE_STORE_PANEL_ID`），两者都只经 `EnterpriseMarketShellHost` 接同一份控制器与同一个登录弹窗。另出口：共享身份常量（`ENTERPRISE_STORE_PANEL_ID`/`ENTERPRISE_STORE_ENTRY_LABEL`/`ENTERPRISE_STORE_ENTRY_ORDER`/`ENTERPRISE_STORE_PANEL_VIEW`）与侧栏图标 `EnterpriseStoreIcon`；HERO 文案真源（`ENTERPRISE_STORE_HERO_TITLE`/`ENTERPRISE_STORE_HERO_NOTE`/`enterpriseMarketHeroSkillChip`/`enterpriseMarketHeroPluginChip`）；页签真源（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`/`enterpriseMarketTabLabel`）；组件清单与计数摘要投影（`ENTERPRISE_MARKET_COMPONENTS`/`ENTERPRISE_MARKET_PLAN`/`enterpriseMarketComponent{Enabled,State,Dot,SwitchDisabled,Summary,SummaryText}`）；行投影（`enterpriseMarketPluginRows`/`enterpriseMarketPluginSectionVisible`/`enterpriseMarketSkillRows`/`enterpriseMarketSkillSectionVisible`）；技能行标签与状态投影（`enterpriseMarketSkillVersionTag`/`enterpriseMarketSkillCategoryTag`/`enterpriseMarketSkillHasUpdate`/`enterpriseMarketSkillRowHasUpdate`/`enterpriseMarketSkillUpdateTag`/`ENTERPRISE_MARKET_SKILL_UPDATE_LABEL`/`ENTERPRISE_MARKET_SKILL_UPDATE_TAG`/`enterpriseMarketSkillState`/`enterpriseMarketSkillDot`/`enterpriseMarketSkillConfigTag`/`enterpriseMarketSkillStatusLabel`）；插件行状态投影（`enterprisePluginDot`/`enterpriseMarketPluginConfigTag`/`enterpriseMarketPluginStatusLabel`）；行键与开合投影（`enterpriseMarketRowKey`/`enterpriseMarketRowDetailsId`/`enterpriseMarketRowOpen`）；搜索真源（`ENTERPRISE_MARKET_SEARCH_DEBOUNCE_MS`/`EnterpriseMarketDirectoryTabId`/`ENTERPRISE_MARKET_DIRECTORY_TABS`/`ENTERPRISE_MARKET_SEARCH_INITIAL`/`enterpriseMarketSearchPlaceholder`/`enterpriseMarketSearchLabel`/`ENTERPRISE_MARKET_SEARCH_EMPTY`/`enterpriseMarketSearchTerm`/`enterpriseMarketSearchRows`/`enterpriseMarketSearchSkillRows`/`enterpriseMarketSearchPluginRows`）；折叠真源（`ENTERPRISE_MARKET_DEFAULT_EXPANDED`/`enterpriseMarketSectionOpen`/`EnterpriseMarketSectionId`/`ENTERPRISE_MARKET_SECTION_IDS`）；**两套外壳共用的行渲染子块 `EnterpriseMarketInlineRows`**（行版式统一的唯一实现点）；失败可见反馈（`EnterpriseMarketActionError`/`enterpriseMarketActionErrorLabel`/`EnterpriseMarketRowError`）；badge 槽（`EnterpriseMarketBadge`/`BadgeView`/`enterpriseMarketVersionTag`）；注册常量 `ENTERPRISE_MARKET_ENTRY_ID`/`ENTERPRISE_MARKET_ENTRY_LABEL`/`ENTERPRISE_MARKET_ENTRY_ORDER`。卡片摘要与详情页正文**不重复同一句**——摘要只在 `summary` 视图出现（官方必渲染的那一份，两套外壳共用 `EnterpriseMarketSummaryLine`）。
+ * [POS]: ui 的企业应用商店（**明确的双外观拆分：两条入口各用各的呈现外壳、共用同一份逻辑**）。**本刀（技能详情）**：技能行本体可点 → 打开该技能详情弹层（**弹层不属于任何一套外观**，由共享宿主 `EnterpriseMarketShellHost` 在两条入口上各渲染一次），故官方插件页「插件市场」与侧栏「应用商店」**两边都拿到同一个入口**；企业插件行与组件行**不给**详情入口（用户只要求技能行；插件行本轮一字未动，组件行是交付排期清单）。详情里的动作与行上**同源**：同一枚 `EnterpriseMarketSkillRowActions`、同一份 `enterpriseMarketSkillRowFacts`、同一个 `onToggleSkill` 回调、同一份 `skillActionError`，因此不存在第二套状态或第二个动作实现；正文只对**已装**技能可读（中心详情投影只有 frontmatter 脱敏事实、不含正文），未装行显示「安装后可查看完整内容」并**一条请求都不发**；读正文失败给 `role="alert"` + 稳定错误码 + 重试按钮，不静默。 以下为既有能力：ui 的企业应用商店——① 官方插件页「官方」分组里的「插件市场」卡片点进去（官方 `plugins.item` 的 `page` 视图）走 **旧外壳 `EnterpriseMarketLegacyShell`**（9723a97 那一版观感：行图标 + 官方两行卡片 + 右侧 `[有更新] [Switch]`，**没有** HERO、没有搜索框、没有可展开行）；② 侧栏一级入口「应用商店」对应的**主内容区面板**（官方 `main` 槽，`key = ENTERPRISE_STORE_PANEL_ID='enterprise-store'`，注册时注入恒定的 `view = ENTERPRISE_STORE_PANEL_VIEW`）走 **新外壳 `EnterpriseMarketStoreShell`**（渐变 HERO + 列表上方搜索框 + 根内边距；**目录行与官方插件页「插件市场」逐项同一套**：两个目录页签的行由同一枚子块 `EnterpriseMarketInlineRows` 渲染，动作（`[有更新]` + 官方 `Switch`）与失败提示都在行内；**不折叠**）。**版式统一的落点（本刀）**：两条入口现在**共用同一段行渲染**——`EnterpriseMarketInlineRows` 是唯一实现点，旧外壳与新外壳各调用它两次（两个目录页签）；行类名（`.own-market-rows`/`.own-market-row`/`.own-market-rowLine`/`.own-market-rowIcon`/`.own-market-rowMain`/`.own-market-cardHead`/`.own-market-cardId`/`.own-market-cardDesc`）、行 facts、动作顺序（辅助动作严格排在开关左侧）与失败提示因此是**结构性一致**，将来不会再分叉。新外壳**只多三件**：HERO（`EnterpriseMarketHero`）、两个目录页签的搜索框（350ms 防抖）、根容器的 `.own-market-storePage` 内边距；其余（页签条与 aria/键盘、面板壳、组件节、失败提示）本来就是共享的一份。**新外壳目录行为什么不折叠（用户裁决 A）**：那个展开区里原先只有对用户近乎无用的 `skillId` 与两个真正的动作（`[有更新]` / 安装卸载 `Switch`），而企业技能/企业插件目录常态只有 3–5 行——把**唯一真正要做的事**藏进一次点击之后没有任何收益，反而让「有更新」不可见。故新外壳目录行删掉 chevron、`aria-expanded`/`aria-controls`、整个展开区与 `skillId` 行，动作（`[有更新]` + `Switch`）**常显在行上**；失败提示直接跟在整条行线下方。**旧外壳与共享控制器都不因此改动**（旧外壳本来就不折叠；控制器里的行开合态按「不夹带清理」保留，见该处注释）。四个注册面（`main`、`sidebar.panellist`、`plugins.item`、`plugins.detail.badge`）与全部注册常量、`inject` 形状一字未改，只有「注册到 `plugins.item` 与 `main` 的组件」从原来那一个换成了各自的 hook 入口。**两套外壳的公共能力一条不少**：版本签（`sourceDshVersion`）、可选分类签（`category`，缺席/null/空串不渲染）、「有更新」辅助动作（真实 `<button>`，点击 = 更新到中心当前版本）、安装/卸载 `Switch`、「失败 `role="alert"` + 稳定错误码 + 失败可重试」、三页签（企业技能默认 / 企业插件 / 组件）、组件页签折叠语义、页签的 aria 契约与键盘走焦（两套外壳共用 `EnterpriseMarketTabStrip` 一份实现）。**严禁**任何价格/交易/购买/购物车/客服之类的商业化字样——两套外壳的全树文本都不出现（由测试反向锁死）。`store` 与开登录回调均为可选注入：缺席时开关恒禁用、会话不可用时目录节不出现，两套外壳同规则。**容器内边距只在新外壳这一层分叉**：新外壳的根节点多一枚类 `.own-market-storePage`（`storeStyles` 里 `padding:14px 14px 20px`），HERO / 页签条 / 搜索框 / 通栏行 / 行内失败提示全部落在同一个有内边距的容器里——因为官方 `main` 面板不像 `DetailTop` 那样自带外层内边距，不给这层就整页贴边；旧外壳（`plugins.item` 详情页）**自身一行不加**、依赖官方 `DetailTop` 自带内边距，两者**不可互相叠加**（给旧外壳补内边距会让旧外观变挤）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { Package, Sparkles, BookMarked, ChevronDown, Search, Store } from 'lucide-react'
-import { StateDot, Switch, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Package, Sparkles, BookMarked, ChevronDown, RefreshCw, Search, Store } from 'lucide-react'
+import { Button, Modal, StateDot, Switch, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { KeyboardEvent, ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import { enterpriseSessionUsable, useAccount } from './account-state.js'
 import type { EnterpriseAccountStore } from './account-store.js'
 import { enterprisePluginStatePresentation } from './plugin-market.js'
-import type { EnterpriseInstalledSkill, EnterprisePluginCatalogItem, EnterprisePluginItem, EnterpriseRuntimeSkill, ManagedPluginState } from './local-api-decode.js'
+import type { EnterpriseInstalledSkill, EnterpriseInstalledSkillContent, EnterprisePluginCatalogItem, EnterprisePluginItem, EnterpriseRuntimeSkill, ManagedPluginState } from './local-api-decode.js'
 import { enterpriseLocalErrorCode } from './local-api-decode.js'
 import { EnterpriseLoginDialog, useEnterpriseLoginDialog } from './login-dialog.js'
 
@@ -276,6 +276,16 @@ export interface EnterpriseMarketShellProps {
    * `next` 就是官方 Switch 拨动后的目标态：`true` = 装到本机 `~/.dsh/skills`、`false` = 卸掉。
    */
   readonly onToggleSkill?: ((row: EnterpriseMarketSkillRow, next: boolean) => void) | undefined
+  /**
+   * 打开某条**企业技能**的详情弹层（用户点行本体触发，不是点开关/`[有更新]`）。
+   *
+   * 只交回被点的那一行——弹层里的名称/描述/分类/版本/skillId/已装态与动作全部由宿主用**同一份真值**
+   * （同一个 `EnterpriseMarketSkillRow` + 同一个 `enterpriseMarketSkillRowFacts` + 同一个 `onToggleSkill`）
+   * 投影出来，界面上不存在第二套状态。缺席时那枚按钮 `disabled` + `title='详情入口未接通'`
+   * （照组件节节头「折叠动作未接通」的既有降级口径：**不给死按钮**，也不为此分叉第二套行结构），
+   * 真运行时恒由共享控制器供给。
+   */
+  readonly onOpenSkillDetail?: ((row: EnterpriseMarketSkillRow) => void) | undefined
   /**
    * 企业插件行最近一次安装/卸载失败（控制器把 store 已收下的 `pluginErrorCode` 归到刚发起动作的那一行）：
    * 命中 `packageName` 的行渲染 `role="alert"` 行内提示；缺席即无失败。
@@ -1046,6 +1056,15 @@ const rowStyles = `
 .own-market-cardId{font-size:14px;line-height:20px;font-weight:500;color:var(--dsw-alias-label-primary,#101828);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .own-market-row[data-state='off'] .own-market-cardId{color:var(--dsw-alias-label-secondary,#667085)}
 .own-market-cardDesc{color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:13px;line-height:18px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden}
+/* 技能行**行本体**（图标 + 标题 + 描述那一片）是一枚真 button 元素：整片可点、原生键盘可达（Enter/Space）、
+   有 focus 环与 hover 提示（光标 + 标题/描述转主色调）。取值照本文件既有口径：行图标与文案之间仍是 16px
+   （= .own-market-rowLine 的 gap），因此包上这枚按钮**不改变行的几何**。
+   **动作不会被藏起来、也不会被这枚按钮吞掉**：[有更新] 与官方 Switch 是它在 .own-market-rowLine 里的
+   **兄弟节点而不是后代**——点它们根本不会冒泡进详情（不是靠 stopPropagation 拦，而是结构上就不在可点区域内），
+   .own-market-rowLine/li 自身没有任何 onClick。 */
+.own-market-rowOpen{display:flex;flex:1;align-items:center;gap:16px;min-width:0;border:0;padding:0;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:8px}
+.own-market-rowOpen:hover .own-market-cardId,.own-market-rowOpen:hover .own-market-cardDesc{color:var(--dsw-alias-accent-primary,#2563eb)}
+.own-market-rowOpen:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:2px}
 `
 
 /**
@@ -1096,6 +1115,32 @@ const storeStyles = `
 /* 焦点态照官方：描边换 focus-ring 色 + 2px 18% 同色光晕（不是另画一套 outline）。 */
 .own-market-catalogSearchInput:focus-visible{border-color:var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary,#2563eb));box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary,#2563eb)) 18%, transparent)}
 .own-market-catalogSearchEmpty{color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:13px;line-height:20px;margin:0;padding:2px 0}
+`
+
+/**
+ * **技能详情弹层**独有的样式（两套外壳共用这一份：弹层不属于任何一套外观，由共享宿主同树渲染）。
+ *
+ * 承载形式是官方 `Modal`（Esc 关闭 / 点遮罩关闭 / 焦点圈定与归还都由它给，本文件不另画遮罩），
+ * 这里只定义弹层内部的取值，全部沿用本文件既有官方口径——13/20 正文、12/19 说明、14/20-500 小标题、
+ * mono 11.5/16、药丸 999px + 1px 10px、`.5px` 发丝线 + radius-md，**不新造一套视觉**。
+ * 错误提示不在这里另起一份：弹层复用 `baseStyles` 里的 `.own-market-inlineError`（与行上同一条规则、
+ * 同一句话「安装失败/卸载失败 + 稳定错误码」），因为承载它的外壳 `<style>` 恒与弹层同树挂载。
+ */
+const detailStyles = `
+.own-market-detail{display:flex;flex-direction:column;gap:10px;min-width:0;font-size:13px;line-height:20px;color:var(--dsw-alias-label-primary,#101828)}
+.own-market-detailDesc{margin:0;color:var(--dsw-alias-label-secondary,#667085);font-size:13px;line-height:19px;overflow-wrap:anywhere}
+.own-market-detailFacts{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;margin:0;min-width:0}
+.own-market-detailFacts dt{color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:12px;line-height:19px;white-space:nowrap}
+.own-market-detailFacts dd{margin:0;min-width:0;font-size:12px;line-height:19px;overflow-wrap:anywhere}
+.own-market-detailValue{font-family:var(--dsw-font-mono,ui-monospace,SFMono-Regular,Menlo,monospace)}
+.own-market-detailBody{display:flex;flex-direction:column;gap:6px;min-width:0;padding-top:10px;border-top:0.5px solid var(--dsw-alias-border-l2,#e4e7ec)}
+.own-market-detailBodyHead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.own-market-detailBodyTitle{font-size:13px;line-height:20px;font-weight:500;color:var(--dsw-alias-label-primary,#101828)}
+.own-market-detailBodyName{font-family:var(--dsw-font-mono,ui-monospace,SFMono-Regular,Menlo,monospace);font-size:11.5px;line-height:16px;color:var(--dsw-alias-label-secondary,#667085);overflow-wrap:anywhere}
+.own-market-detailPre{margin:0;max-height:280px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:10px 12px;border:0.5px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:var(--dsw-radius-md,12px);background:var(--dsw-alias-background-secondary,#f2f4f7);font:11.5px/17px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--dsw-alias-label-primary,#101828)}
+.own-market-detailHint{margin:0;color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:12px;line-height:19px}
+.own-market-detailActions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-top:2px}
+.own-market-detailActions .own-market-detailSpacer{flex:1}
 `
 
 /** 组件行图标：三枚 lucide 图标按 id 定位，避免借用官方 `*Regular` 图标。 */
@@ -1335,6 +1380,297 @@ export function EnterpriseMarketHero({ skills, plugins }: {
 }
 
 /**
+ * **技能行那两个动作的唯一实现**（`[有更新]` 辅助标签 + 官方 `Switch`）。
+ *
+ * 行本体（`EnterpriseMarketInlineRows`）与详情弹层（`EnterpriseSkillDetailView`）渲染的是**同一枚子块**，
+ * 吃同一份 `facts`（唯一入口 `enterpriseMarketSkillRowFacts`）与同一个 `onToggleSkill` 回调——
+ * 「详情里的动作与行上同源」因此是结构性的：文案、禁用口径、无障碍名与悬浮说明全部只在 facts 里算一次，
+ * 两个落点不可能各说一套，也不可能有第二个状态副本。
+ *
+ * 返回**数组**而不是 Fragment：行线的 DOM 大纲与 `[有更新]`/`Switch` 的相对顺序是既有测试的取证点，
+ * 数组让这两个元素在树里仍然是行线的直属同级项（Fragment 会成为中间节点、把顺序取证挡在外面）。
+ *
+ * @param row - 这一行的目录投影（标题与动作语义从它取）。
+ * @param facts - 行 facts（`enterpriseMarketSkillRowFacts` 的产出）。
+ * @param onToggleSkill - 与行上同一个回调；缺席即禁用（不提供假切换）。
+ * @returns `[有更新（命中才出）, 官方 Switch]`。
+ */
+export function EnterpriseMarketSkillRowActions({ row, facts, onToggleSkill }: {
+  readonly row: EnterpriseMarketSkillRow
+  readonly facts: EnterpriseMarketSkillRowFacts
+  readonly onToggleSkill: ((row: EnterpriseMarketSkillRow, next: boolean) => void) | undefined
+}): ReactNode {
+  return [
+    // 开关**左侧**的辅助动作：只在「有更新」时出现（其余态右侧就一个 Switch）。
+    // 点击 = 安装中心当前版本（`onToggleSkill(row, true)`），在途禁用但不消失。
+    facts.hasUpdate ? (
+      <button
+        key="update"
+        type="button"
+        className="own-market-skillTag"
+        data-enterprise-skill-tag={ENTERPRISE_MARKET_SKILL_UPDATE_TAG}
+        aria-label={facts.updateTag.ariaLabel}
+        disabled={onToggleSkill === undefined || facts.busy}
+        title={onToggleSkill === undefined ? '企业账号未登录，暂不可操作' : facts.updateTag.title}
+        onClick={() => { onToggleSkill?.(row, true) }}
+      >
+        {facts.updateTag.label}
+      </button>
+    ) : null,
+    // 右侧官方 Switch：`checked` = 该技能已装、在途禁用、`label` 给动作语义——它始终是该行主控件。
+    <Switch
+      key="switch"
+      checked={facts.enabled}
+      label={`${facts.enabled ? '卸载' : '安装'}企业技能 ${row.displayName}`}
+      disabled={onToggleSkill === undefined || facts.busy}
+      title={onToggleSkill === undefined
+        ? '企业账号未登录，暂不可操作'
+        : facts.busy ? '动作进行中，暂不可操作' : facts.enabled ? '点此卸载' : '点此安装到 ~/.dsh/skills'}
+      onChange={(next) => { onToggleSkill?.(row, next) }}
+    />,
+  ]
+}
+
+/**
+ * 详情弹层里一条事实（名称 / 描述 / 分类 / 版本 / skillId / 已装状态）。
+ * 纯投影、无 DOM：`value` 一律来自**行上那份**目录投影或 Host 回传的已装记录，不另取一次数、不猜。
+ */
+export interface EnterpriseSkillDetailFact {
+  readonly key: string
+  readonly label: string
+  /** 事实正文；`mono` = 用等宽字体（id 类取值）。 */
+  readonly value: string
+  readonly mono?: boolean
+}
+
+/** 已装状态的可见文案：已装说「已安装 · 含 N 个技能」，未装说「未安装」，在途说安装中/卸载中。 */
+export function enterpriseSkillDetailInstallLabel(facts: EnterpriseMarketSkillRowFacts): string {
+  if (facts.state === 'INSTALLING') return '安装中…'
+  if (facts.state === 'REMOVING') return '卸载中…'
+  return facts.enabled ? '已安装' : '未安装'
+}
+
+/**
+ * 详情要展示的事实列表（纯函数，测试直调）。
+ *
+ * **分类为缺失设计**：`category` 缺席/null/空串时整条事实不产出（安静缺席，塞「未分类」等于编事实）。
+ * 其余五条恒出：技能名称、描述、技能 ID（`skillId`）、技能包 ID（雪花 id）、DSH 来源版本（`sourceDshVersion`）。
+ * 已装状态与技能 ID 之间不重复：已装记录里那份 `names` 只在「正文」一节按名字出现。
+ *
+ * @param row - 行上的目录投影（与行本体同一份数据）。
+ * @param facts - 行 facts（已装/在途口径与行上的开关同源）。
+ * @returns 按展示顺序排列的事实列表。
+ */
+export function enterpriseSkillDetailFacts(
+  row: EnterpriseMarketSkillRow,
+  facts: EnterpriseMarketSkillRowFacts,
+): readonly EnterpriseSkillDetailFact[] {
+  const facts_: EnterpriseSkillDetailFact[] = [
+    { key: 'name', label: '技能名称', value: row.displayName },
+    { key: 'skillId', label: '技能 ID', value: row.skillId, mono: true },
+    { key: 'packageId', label: '技能包 ID', value: row.id, mono: true },
+    { key: 'version', label: 'DSH 版本', value: row.sourceDshVersion },
+    { key: 'install', label: '已装状态', value: enterpriseSkillDetailInstallLabel(facts) },
+  ]
+  const category = enterpriseMarketSkillCategoryTag(row.category)
+  // 分类排在版本之前（与行上标题行的签序一致：标题 → 版本 → 分类 是签序，这里是事实序，取可读性）。
+  return category === undefined
+    ? facts_
+    : [...facts_.slice(0, 4), { key: 'category', label: '分类', value: category }, ...facts_.slice(4)]
+}
+
+/**
+ * 详情「正文」一节的状态（纯投影，测试直调）：未装 / 读取中 / 读失败 / 已取到。
+ *
+ * 优先级写死为「未装 → 失败 → 读取中 → 有正文」：未装的包根本不该发正文请求，因此未装永远说那句提示；
+ * 失败优先于「读取中」，否则一次失败会被下一轮的 loading 盖成「正在读取」而看不到错误码。
+ */
+export type EnterpriseSkillDetailBody =
+  | { readonly kind: 'available'; readonly name: string; readonly text: string }
+  | { readonly kind: 'not-installed'; readonly hint: string }
+  | { readonly kind: 'loading'; readonly hint: string }
+  | { readonly kind: 'failed'; readonly code: string; readonly hint: string }
+
+/** 未装时那句提示：正文只在本机已装的技能里，中心详情投影只有 frontmatter 脱敏事实、**不含正文**。 */
+export const ENTERPRISE_SKILL_DETAIL_NOT_INSTALLED = '安装后可查看完整内容（企业中心只发布脱敏摘要，SKILL.md 正文在本机已装技能里）。'
+/** 读取中的提示。 */
+export const ENTERPRISE_SKILL_DETAIL_LOADING = '正在读取技能正文…'
+/** 读取失败的提示前缀（后半句是稳定错误码）。 */
+export const ENTERPRISE_SKILL_DETAIL_FAILED = '技能正文读取失败'
+/** 空正文的兜底文案（Host 回了 200 但文件是空的：如实说，不假装有内容）。 */
+export const ENTERPRISE_SKILL_DETAIL_EMPTY = '（正文为空）'
+
+/**
+ * 由「已装与否 + 读取态 + 正文」投影出正文一节该说什么。
+ *
+ * @param input - `installed`（该包是否已装：只有已装才有正文可取）、`loading`、`errorCode`、`content`。
+ * @returns 正文一节的四态之一。
+ */
+export function enterpriseSkillDetailBody(input: {
+  readonly installed: boolean
+  readonly loading: boolean
+  readonly errorCode?: string | undefined
+  readonly content?: { readonly name: string, readonly content: string } | undefined
+}): EnterpriseSkillDetailBody {
+  if (!input.installed) return { kind: 'not-installed', hint: ENTERPRISE_SKILL_DETAIL_NOT_INSTALLED }
+  if (input.errorCode !== undefined) {
+    return { kind: 'failed', code: input.errorCode, hint: ENTERPRISE_SKILL_DETAIL_FAILED }
+  }
+  if (input.loading || input.content === undefined) {
+    return { kind: 'loading', hint: ENTERPRISE_SKILL_DETAIL_LOADING }
+  }
+  return { kind: 'available', name: input.content.name, text: input.content.content }
+}
+
+/**
+ * **技能详情弹层**（纯函数、无 hook，两套外壳共用同一份呈现：两条入口都经共享宿主渲染它）。
+ *
+ * 承载形式：官方 `Modal`——**Esc 关闭、点遮罩关闭、焦点圈定在弹层内并在关闭后归还**都由这个原语给
+ * （`onClose` 同时是这三条关闭路径的唯一入口，本文件不自己画遮罩、不自己接 keydown、不自己管焦点）；
+ * 标题走 `Modal` 的 `title`（同时是 `role="dialog"` 的 `aria-label`），关闭按钮的无障碍名走 `closeLabel`。
+ *
+ * 内容全部来自**行上那一份**数据：`row`（目录投影）+ `facts`（行 facts）+ `installed`（Host 回传的已装记录）
+ * + 正文（只读本机路由）。动作渲染 `EnterpriseMarketSkillRowActions`——与行上是同一枚子块、同一份 facts、
+ * 同一个回调，故不存在第二套动作逻辑或状态副本；失败提示复用与行上同一条 `.own-market-inlineError` 规则与
+ * 同一句前缀（`enterpriseMarketActionErrorLabel`）+ 稳定错误码。
+ *
+ * @param props - 见字段注释；`content`/`contentLoading`/`contentErrorCode` 由 hook 包装（`EnterpriseSkillDetailDialog`）供给。
+ * @returns 弹层（`Modal` 门户）+ 本弹层独有的 `<style>`。
+ */
+export function EnterpriseSkillDetailView(props: {
+  readonly row: EnterpriseMarketSkillRow
+  readonly facts: EnterpriseMarketSkillRowFacts
+  readonly installed?: EnterpriseInstalledSkill | undefined
+  readonly content?: EnterpriseInstalledSkillContent | undefined
+  readonly contentLoading: boolean
+  readonly contentErrorCode?: string | undefined
+  readonly actionError?: EnterpriseMarketActionError | undefined
+  readonly onToggleSkill?: ((row: EnterpriseMarketSkillRow, next: boolean) => void) | undefined
+  readonly onReloadContent?: (() => void) | undefined
+  readonly onClose: () => void
+}): ReactNode {
+  const body = enterpriseSkillDetailBody({
+    installed: props.installed !== undefined,
+    loading: props.contentLoading,
+    ...(props.contentErrorCode === undefined ? {} : { errorCode: props.contentErrorCode }),
+    ...(props.content === undefined ? {} : { content: props.content }),
+  })
+  return (
+    <>
+      <style>{detailStyles}</style>
+      <Modal open onClose={props.onClose} closeLabel="关闭" title={props.row.displayName}>
+        <div className="own-market-detail" data-enterprise-skill-detail={props.row.id}>
+          <p className="own-market-detailDesc">{props.row.description}</p>
+          <dl className="own-market-detailFacts">
+            {enterpriseSkillDetailFacts(props.row, props.facts).map(fact => (
+              <div key={fact.key} className="own-market-detailFact" data-enterprise-skill-detail-fact={fact.key} style={{ display: 'contents' }}>
+                <dt>{fact.label}</dt>
+                <dd className={fact.mono === true ? 'own-market-detailValue' : undefined}>{fact.value}</dd>
+              </div>
+            ))}
+          </dl>
+          <section className="own-market-detailBody" aria-label="技能正文">
+            <div className="own-market-detailBodyHead">
+              <span className="own-market-detailBodyTitle">技能正文</span>
+              {body.kind === 'available' ? <code className="own-market-detailBodyName">{body.name}</code> : null}
+            </div>
+            {body.kind === 'available' ? (
+              <pre className="own-market-detailPre" data-enterprise-skill-content={body.name}>
+                {body.text === '' ? ENTERPRISE_SKILL_DETAIL_EMPTY : body.text}
+              </pre>
+            ) : null}
+            {body.kind === 'available' ? null : <p className="own-market-detailHint">{body.hint}</p>}
+            {body.kind === 'failed' ? (
+              <div className="own-market-inlineError" role="alert">
+                {ENTERPRISE_SKILL_DETAIL_FAILED} <code>{body.code}</code>
+              </div>
+            ) : null}
+            {body.kind === 'failed' && props.onReloadContent !== undefined ? (
+              <div className="own-market-detailActions">
+                <Button size="sm" icon={<RefreshCw aria-hidden size={14} />} onClick={() => { props.onReloadContent?.() }}>
+                  重试读取正文
+                </Button>
+              </div>
+            ) : null}
+          </section>
+          <div className="own-market-detailActions">
+            <EnterpriseMarketSkillRowActions row={props.row} facts={props.facts} onToggleSkill={props.onToggleSkill} />
+          </div>
+          {props.actionError === undefined ? null : (
+            <div className="own-market-inlineError" role="alert">
+              {enterpriseMarketActionErrorLabel(props.actionError)} <code>{props.actionError.code}</code>
+            </div>
+          )}
+        </div>
+      </Modal>
+    </>
+  )
+}
+
+/**
+ * 详情弹层的 **hook 包装**（唯一含副作用的那一层）：点开一条已装技能时经只读同源路由读它的 `SKILL.md` 正文。
+ *
+ * 三条刻意的约束：
+ *  ① **只在已装时发请求**，且名字取 `installed.names[0]`——那是 Host 自己回传的已装记录里的第一个技能目录名，
+ *     界面从不接受用户输入的路径，也不自己拼路径；未装行只显示「安装后可查看完整内容」，一条请求都不发；
+ *  ② 请求可被 `AbortController` 中止（换行/关闭弹层即中止），且结果回来时先看 `signal.aborted`，
+ *     避免迟到结果落到已经换掉的那条技能上；
+ *  ③ 失败不静默：`enterpriseLocalErrorCode` 把错误投影成稳定码交给纯视图，视图给 `role="alert"` + 错误码 + 重试按钮。
+ *
+ * @param props - 与纯视图同一组输入再加 `store`（同源网络实例）与 `onClose`。
+ * @returns 纯视图。
+ */
+export function EnterpriseSkillDetailDialog(props: {
+  readonly row: EnterpriseMarketSkillRow
+  readonly facts: EnterpriseMarketSkillRowFacts
+  readonly installed?: EnterpriseInstalledSkill | undefined
+  readonly actionError?: EnterpriseMarketActionError | undefined
+  readonly onToggleSkill?: ((row: EnterpriseMarketSkillRow, next: boolean) => void) | undefined
+  readonly store?: EnterpriseAccountStore | undefined
+  readonly onClose: () => void
+}): ReactNode {
+  const [content, setContent] = useState<EnterpriseInstalledSkillContent>()
+  const [contentErrorCode, setContentErrorCode] = useState<string>()
+  const [contentLoading, setContentLoading] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+  const packageId = props.installed?.packageId
+  // 正文只读**第一个**技能目录：名字来自 Host 的已装记录（不是用户输入、也不是我们拼的路径）。
+  const name = props.installed?.names[0]
+  const api = props.store?.api
+  useEffect(() => {
+    if (api === undefined || packageId === undefined || name === undefined) {
+      setContent(undefined)
+      setContentErrorCode(undefined)
+      setContentLoading(false)
+      return
+    }
+    const controller = new AbortController()
+    setContent(undefined)
+    setContentErrorCode(undefined)
+    setContentLoading(true)
+    void api.skillContent(packageId, name, controller.signal)
+      .then(value => { if (!controller.signal.aborted) setContent(value) })
+      .catch((error: unknown) => { if (!controller.signal.aborted) setContentErrorCode(enterpriseLocalErrorCode(error)) })
+      .finally(() => { if (!controller.signal.aborted) setContentLoading(false) })
+    return () => { controller.abort() }
+  }, [api, packageId, name, attempt])
+  return (
+    <EnterpriseSkillDetailView
+      row={props.row}
+      facts={props.facts}
+      {...(props.installed === undefined ? {} : { installed: props.installed })}
+      {...(content === undefined ? {} : { content })}
+      contentLoading={contentLoading}
+      {...(contentErrorCode === undefined ? {} : { contentErrorCode })}
+      {...(props.actionError === undefined ? {} : { actionError: props.actionError })}
+      {...(props.onToggleSkill === undefined ? {} : { onToggleSkill: props.onToggleSkill })}
+      onReloadContent={() => { setAttempt(current => current + 1) }}
+      onClose={props.onClose}
+    />
+  )
+}
+
+/**
  * **两套外壳共用的行渲染块**（版式统一的唯一实现点）：按目录页签把整段 `<ul className="own-market-rows">`
  * 连行一起铺出来——技能行 = 行图标 + 两行文案（标题行 `.own-market-cardHead`：标题 + 版本签 + 可选分类签；
  * 描述行 `.own-market-cardDesc`）+ 右侧 `[有更新]` 与官方 `Switch` + 行下失败提示；插件行 = 行图标 + 两行文案 +
@@ -1363,47 +1699,38 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
               data-enterprise-skill-state={facts.state}
             >
               <div className="own-market-rowLine">
-                <span className="own-market-rowIcon"><Sparkles size={18} aria-hidden="true" /></span>
-                <div className="own-market-rowMain">
-                  {/* 第 1 行 = 标题 + 两枚只读签（版本签取 `sourceDshVersion`、分类签取可选 `category`）：
-                      单行 nowrap，标签过多时标题先省略、两枚签保持可见，行高不变。 */}
-                  <span className="own-market-cardHead">
-                    <span className="own-market-cardId own-market-skillTitle">{skill.displayName}</span>
-                    {facts.versionTag === undefined ? null : (
-                      <Tag className="own-market-tag own-market-skillVersionTag" tone="neutral">{facts.versionTag}</Tag>
-                    )}
-                    {facts.categoryTag === undefined ? null : (
-                      <Tag className="own-market-tag own-market-skillCategoryTag" tone="info">{facts.categoryTag}</Tag>
-                    )}
-                  </span>
-                  {/* 第 2 行 = 描述（官方 13/18-tertiary 单行省略，不换行撑高卡片）。 */}
-                  <span className="own-market-cardDesc">{skill.description}</span>
-                </div>
-                {/* 开关**左侧**的辅助动作：只在「有更新」时出现（其余态右侧就一个 Switch）。
-                    点击 = 安装中心当前版本（`onToggleSkill(skill, true)`），在途禁用但不消失。 */}
-                {facts.hasUpdate ? (
-                  <button
-                    type="button"
-                    className="own-market-skillTag"
-                    data-enterprise-skill-tag={ENTERPRISE_MARKET_SKILL_UPDATE_TAG}
-                    aria-label={facts.updateTag.ariaLabel}
-                    disabled={props.onToggleSkill === undefined || facts.busy}
-                    title={props.onToggleSkill === undefined ? '企业账号未登录，暂不可操作' : facts.updateTag.title}
-                    onClick={() => { props.onToggleSkill?.(skill, true) }}
-                  >
-                    {facts.updateTag.label}
-                  </button>
-                ) : null}
-                {/* 右侧官方 Switch：`checked` = 该技能已装、在途禁用、`label` 给动作语义——它始终是该行主控件。 */}
-                <Switch
-                  checked={facts.enabled}
-                  label={`${facts.enabled ? '卸载' : '安装'}企业技能 ${skill.displayName}`}
-                  disabled={props.onToggleSkill === undefined || facts.busy}
-                  title={props.onToggleSkill === undefined
-                    ? '企业账号未登录，暂不可操作'
-                    : facts.busy ? '动作进行中，暂不可操作' : facts.enabled ? '点此卸载' : '点此安装到 ~/.dsh/skills'}
-                  onChange={(next) => { props.onToggleSkill?.(skill, next) }}
-                />
+                {/* **行本体**（图标 + 两行文案）是一枚真 `<button>`：点它 = 打开该技能详情。
+                    它是 `.own-market-rowLine` 的第一个子节点，下面那两枚动作是它的**兄弟**——
+                    点 `[有更新]` / 拨 `Switch` 既不会冒泡进来、也不在可点区域内（结构性保证，不靠 stopPropagation）。
+                    回调缺席时 disabled + 说明性 title（照组件节节头的既有降级口径，不给死按钮）。 */}
+                <button
+                  type="button"
+                  className="own-market-rowOpen"
+                  data-enterprise-skill-open={skill.id}
+                  aria-label={`查看企业技能 ${skill.displayName} 详情`}
+                  disabled={props.onOpenSkillDetail === undefined}
+                  title={props.onOpenSkillDetail === undefined ? '详情入口未接通' : '查看详情'}
+                  onClick={() => { props.onOpenSkillDetail?.(skill) }}
+                >
+                  <span className="own-market-rowIcon"><Sparkles size={18} aria-hidden="true" /></span>
+                  <div className="own-market-rowMain">
+                    {/* 第 1 行 = 标题 + 两枚只读签（版本签取 `sourceDshVersion`、分类签取可选 `category`）：
+                        单行 nowrap，标签过多时标题先省略、两枚签保持可见，行高不变。 */}
+                    <span className="own-market-cardHead">
+                      <span className="own-market-cardId own-market-skillTitle">{skill.displayName}</span>
+                      {facts.versionTag === undefined ? null : (
+                        <Tag className="own-market-tag own-market-skillVersionTag" tone="neutral">{facts.versionTag}</Tag>
+                      )}
+                      {facts.categoryTag === undefined ? null : (
+                        <Tag className="own-market-tag own-market-skillCategoryTag" tone="info">{facts.categoryTag}</Tag>
+                      )}
+                    </span>
+                    {/* 第 2 行 = 描述（官方 13/18-tertiary 单行省略，不换行撑高卡片）。 */}
+                    <span className="own-market-cardDesc">{skill.description}</span>
+                  </div>
+                </button>
+                {/* 动作与行上**同一枚子块**（也是详情弹层渲染的那一枚）：同一份 facts、同一个回调。 */}
+                <EnterpriseMarketSkillRowActions row={skill} facts={facts} onToggleSkill={props.onToggleSkill} />
               </div>
               {/* 失败可见反馈：失败即在该行给 role="alert" + 稳定错误码，且**不**禁用开关（再拨一次就是重试）。 */}
               <EnterpriseMarketRowError error={props.skillActionError} id={skill.id} />
@@ -1584,10 +1911,26 @@ export function EnterpriseMarketStoreShell(props: EnterpriseMarketShellProps): R
 export interface EnterpriseMarketController {
   /** 两套外壳共用的 props（控制器是唯一构造点）。 */
   readonly shellProps: EnterpriseMarketShellProps
+  /**
+   * 详情弹层的输入（点行本体后才非空）；两条入口共用**同一份**：
+   * 同一行、同一份 facts、同一条已装记录、同一个动作回调与同一份失败事实。
+   */
+  readonly skillDetail: EnterpriseMarketSkillDetailProps | undefined
   /** 登录弹窗当前是否打开。 */
   readonly loginOpen: boolean
   /** 关闭登录弹窗（含「登录中先取消」的既有语义，由 login-dialog 自己判）。 */
   readonly closeLogin: () => void
+}
+
+/** 共享宿主交给详情弹层的那一组输入（控制器是唯一构造点，弹层自己不取数、不持第二份状态）。 */
+export interface EnterpriseMarketSkillDetailProps {
+  readonly row: EnterpriseMarketSkillRow
+  readonly facts: EnterpriseMarketSkillRowFacts
+  readonly installed?: EnterpriseInstalledSkill | undefined
+  readonly actionError?: EnterpriseMarketActionError | undefined
+  readonly onToggleSkill?: ((row: EnterpriseMarketSkillRow, next: boolean) => void) | undefined
+  readonly store?: EnterpriseAccountStore | undefined
+  readonly onClose: () => void
 }
 
 /**
@@ -1701,6 +2044,11 @@ export function useEnterpriseMarketController({ view, store }: {
   //   归到该行；`localCode` 只用于本地就能判定、根本没发出请求的那一种（目录里已无可安装版本）。
   // 每次发起动作都先清掉旧提示，成功后自然不会再出现。
   const [skillActionError, setSkillActionError] = useState<EnterpriseMarketActionError>()
+  /**
+   * 被点开详情的那一条技能行（**行键 = 行对象本身**：详情里的一切都从这同一份目录投影取，
+   * 不在打开时另存一份副本，避免弹层与行显示出两个「同一技能」的版本）。`undefined` = 弹层关闭。
+   */
+  const [skillDetailRow, setSkillDetailRow] = useState<EnterpriseMarketSkillRow>()
   const [pluginAction, setPluginAction] = useState<{
     readonly packageName: string
     readonly action: 'install' | 'uninstall'
@@ -1748,38 +2096,60 @@ export function useEnterpriseMarketController({ view, store }: {
         .finally(() => setPendingSkill(undefined))
     }
     : undefined
+  const shellProps: EnterpriseMarketShellProps = {
+    view,
+    sessionUsable,
+    onOpenLogin: openLogin,
+    enterprisePlugins,
+    enterpriseSkills,
+    onTogglePlugin,
+    installedSkills,
+    pendingSkill,
+    onToggleSkill,
+    pluginActionError,
+    skillActionError,
+    expandedSections,
+    onToggleSection,
+    activeTab,
+    onSelectTab: setActiveTab,
+    expandedRow,
+    onToggleRow,
+    searchValue: searchInput,
+    searchQuery,
+    onSearchInput,
+    // 点行本体 = 把**那一行**记成当前详情目标；行的开关与 `[有更新]` 有自己的回调，不经过这里。
+    onOpenSkillDetail: setSkillDetailRow,
+  }
+  /**
+   * 详情弹层的输入**只在这里构造一次**：行投影、行 facts（与行上同一个函数）、已装记录（同一份
+   * `installedSkills`）、失败事实（同一份 `skillActionError`）与动作回调（同一个 `onToggleSkill`）。
+   * 弹层因此不可能持有第二份「已装」或第二套动作逻辑。
+   */
+  const detailInstalled = skillDetailRow === undefined
+    ? undefined
+    : (installedSkills ?? []).find(item => item.packageId === skillDetailRow.id)
+  const skillDetail: EnterpriseMarketSkillDetailProps | undefined = skillDetailRow === undefined ? undefined : {
+    row: skillDetailRow,
+    facts: enterpriseMarketSkillRowFacts(shellProps, skillDetailRow),
+    ...(detailInstalled === undefined ? {} : { installed: detailInstalled }),
+    ...(skillActionError?.id === skillDetailRow.id ? { actionError: skillActionError } : {}),
+    ...(onToggleSkill === undefined ? {} : { onToggleSkill }),
+    ...(store === undefined ? {} : { store }),
+    onClose: () => { setSkillDetailRow(undefined) },
+  }
   return {
     // 外壳 props **只在这里构造一次**：两套外壳拿到的是同一个形状、同一批事实。
-    shellProps: {
-      view,
-      sessionUsable,
-      onOpenLogin: openLogin,
-      enterprisePlugins,
-      enterpriseSkills,
-      onTogglePlugin,
-      installedSkills,
-      pendingSkill,
-      onToggleSkill,
-      pluginActionError,
-      skillActionError,
-      expandedSections,
-      onToggleSection,
-      activeTab,
-      onSelectTab: setActiveTab,
-      expandedRow,
-      onToggleRow,
-      searchValue: searchInput,
-      searchQuery,
-      onSearchInput,
-    },
+    shellProps,
+    skillDetail,
     loginOpen: dialog.open,
     closeLogin: dialog.closeDialog,
   }
 }
 
 /**
- * 两条入口**共用**的宿主：唯一含 hook 的接线——控制器 → 指定外壳 → 同一个登录弹窗。
- * 入口之间的差异被收敛成「传哪个 `shell`」这一件事，故两条入口不会各写一套取数/动作/弹窗接线。
+ * 两条入口**共用**的宿主：唯一含 hook 的接线——控制器 → 指定外壳 → 同一个登录弹窗 + 同一个技能详情弹层。
+ * 入口之间的差异被收敛成「传哪个 `shell`」这一件事，故两条入口不会各写一套取数/动作/弹窗接线；
+ * 详情弹层与登录弹窗一样**不属于任何一套外观**，故也不进外壳 props（外壳只拿到「点行要做什么」那一枚回调）。
  */
 export function EnterpriseMarketShellHost({ view, store, shell }: {
   readonly view: 'summary' | 'page'
@@ -1790,6 +2160,7 @@ export function EnterpriseMarketShellHost({ view, store, shell }: {
   return (
     <>
       {shell(controller.shellProps)}
+      {controller.skillDetail === undefined ? null : <EnterpriseSkillDetailDialog {...controller.skillDetail} />}
       <EnterpriseLoginDialog store={store as EnterpriseAccountStore} open={controller.loginOpen} onClose={controller.closeLogin} />
     </>
   )

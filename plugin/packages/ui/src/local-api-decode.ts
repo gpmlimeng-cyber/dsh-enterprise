@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 branding 的同源 LOGO 来源门禁与 `EnterpriseBrandingDocument` 形状、decode-primitives 的严格解码内核、skill-api-decode 的技能 DTO 与解码
- * [OUTPUT]: 对外提供连接/受管插件状态枚举、本地 API DTO 类型与严格解码（账号、品牌、插件、配方、Session、四窗口用量、反馈回执、原生登录的来源列表与凭证/改密结果、**企业技能已装态**）、`EnterpriseLocalApi` 契约、失败码投影 `enterpriseLocalErrorCode`，并再导出 `EnterpriseLocalApiError` 与 skill-api-decode 的全部技能契约
+ * [OUTPUT]: 对外提供连接/受管插件状态枚举、本地 API DTO 类型与严格解码（账号、品牌、插件、配方、Session、四窗口用量、反馈回执、原生登录的来源列表与凭证/改密结果、**企业技能已装态与已装正文**）、`EnterpriseLocalApi` 契约、失败码投影 `enterpriseLocalErrorCode`，并再导出 `EnterpriseLocalApiError` 与 skill-api-decode 的全部技能契约
  * [POS]: dsh-ui 的浏览器取数契约层——只定义「主机可以说什么」与「什么不许说」，不含任何 fetch；网络执行留在 local-api.ts，界面只消费本文件的投影结果。逼近 800 行后按业务纵切出技能分片与共享内核，本文件仍是唯一对外真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -17,7 +17,7 @@ import {
   timestamp,
 } from './decode-primitives.js'
 import type { JsonRecord } from './decode-primitives.js'
-import type { EnterpriseInstalledSkill, EnterpriseRuntimeSkill } from './skill-api-decode.js'
+import type { EnterpriseInstalledSkill, EnterpriseInstalledSkillContent, EnterpriseRuntimeSkill } from './skill-api-decode.js'
 
 export { EnterpriseLocalApiError } from './decode-primitives.js'
 export * from './skill-api-decode.js'
@@ -260,6 +260,13 @@ export interface EnterpriseLocalApi {
   skillDetail(packageId: string, signal: AbortSignal): Promise<EnterpriseRuntimeSkill>
   /** 本机已装技能清单；Host 读自己的落盘状态文件并核对技能目录是否仍在。 */
   installedSkills(signal: AbortSignal): Promise<readonly EnterpriseInstalledSkill[]>
+  /**
+   * 读一条**已装**技能的 `SKILL.md` 正文（点技能行看详情时才发这一条请求）。
+   *
+   * 只传包 id 与技能目录名，**不传任何路径**：名字在本机已装记录里找不到就得到 404，
+   * 符号链接逃逸 / 超 256 KiB / 非 UTF-8 各有稳定错误码；未安装的行根本不发这条请求。
+   */
+  skillContent(packageId: string, name: string, signal: AbortSignal): Promise<EnterpriseInstalledSkillContent>
   /** 一键安装一个技能包；返回安装后的最新已装态（一次往返拿到真值）。 */
   installSkill(packageId: string, signal: AbortSignal): Promise<readonly EnterpriseInstalledSkill[]>
   /** 卸载一个已装技能包；返回卸载后的最新已装态。 */
