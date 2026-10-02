@@ -1,8 +1,8 @@
 /**
  * [INPUT]: 依赖 React（useEffect/useState）、lucide-react 图标（组件行三枚 + 侧栏入口的 Store + 两套外壳各自的图形）、官方 ui-primitives 的 Switch/Tag/StateDot（pinned 0.1.5-rc.2 的 .d.ts 已导出，不走 official-ui 收窄接缝；**该 pin 不含 `SegmentedTabs`**，故页签条照 `account-view.tsx` 既有 tablist 手写自绘，pin 对齐是另一个待用户拍板的开放项）、account-state 的 `enterpriseSessionUsable` 与 account-store 的 `EnterpriseAccountStore`（订阅只发生在共享控制器 `useEnterpriseMarketController` 里）、local-api-decode 的技能 DTO（`EnterpriseRuntimeSkill` 目录 + 已装记录 `EnterpriseInstalledSkill`——「已装」只认后者这一份 Host 真值）与失败码唯一投影 `enterpriseLocalErrorCode`（行内失败提示的 code 来源，与技能 tab 同源）、消费官方 `plugins.item` owner props（`view`/`form`）与主内容区面板（`main` key）注入的等价 props（`view` 恒取 `ENTERPRISE_STORE_PANEL_VIEW`、`store` 与卡片同源）；中心当前版本只从**详情投影** `store.api.skillDetail(id)` 取（列表投影的 `versionId` 恒为空串），且只对已装行取——未装行没有本机版本可比，不白跑请求
- * [REF]: **旧外观的逐段真源是 `9723a97:plugin/packages/ui/src/marketplace-entry.tsx`**（技能行 = 官方两行卡片：第 1 行标题 `.own-market-cardId` + 版本签 + 分类签，第 2 行描述 `.own-market-cardDesc`，右侧 `[有更新] [Switch]`；插件行 = 图标 + 两行文案 + 状态点 + 官方状态词 + `Switch`；三个页签；组件节折叠），**不从记忆重写**；**新外观**取自 7557ffd 那一版（官方插件清单卡片网格 + 列表上方搜索框 + 官方 `StateDot`/`Tag` 三件套 + 卡片内常显的动作条），行版式取值一律照官方 `@deepseek-ai/dsh-client-ui-settings-plugin-inventory` 的 `qSYn7G_*`。两套外壳**只有呈现不同**：行版式的类名各自独立（旧 `.own-market-cardId`/`.own-market-cardDesc`、新 `.own-market-cardShell`/`.own-market-cardGrid`/`.own-market-cardTitle`/`.own-market-cardDescription`），共享部分（节容器、页签条、组件节、行内失败提示、`.own-market-cardHead`/`.own-market-skillTitle`）的 CSS 只有一份 `baseStyles`。旧外观那一版用的 `.own-market-tabs` 与 `plugin-market.tsx` 同名（两份全局单类 `<style>` 互相覆盖），7557ffd 已因此改名 `.own-market-storeTabs`——**页签条两套共用改后的类名，不许退回旧名**。
- * [OUTPUT]: **两套呈现外壳 + 一份逻辑**。共享逻辑只有一处：控制器 hook `useEnterpriseMarketController`（store 订阅与取数、已装真值、安装/卸载动作、失败码归行、页签选中态、行开合态、搜索输入与 350ms 防抖）、模型投影 `enterpriseMarketShellModel(props)`（组件清单行、目录门控、页签文案与计数、过滤后的可见行、折叠态）与行级 facts `enterpriseMarketSkillRowFacts`/`enterpriseMarketPluginRowFacts`（受管态、开关口径、更新判定、两枚签取值、行键与开合、插件开关禁用口径）。呈现外壳是两个纯函数组件、接受**同一组** `EnterpriseMarketShellProps`：`EnterpriseMarketLegacyShell`（旧外观：官方两行卡片 + 右侧 `[有更新] [Switch]`，**无 HERO**、无搜索框、无行展开）与 `EnterpriseMarketStoreShell`（新外观：**含 HERO** + 官方卡片网格 + 搜索框 + **卡片内常显的动作条**；卡片**不折叠**）。两条入口各一个 hook 组件——`EnterpriseMarketLegacyPage` 注册到官方 `plugins.item`、`EnterpriseMarketStorePage` 注册到官方 `main`（key = `ENTERPRISE_STORE_PANEL_ID`），两者都只经 `EnterpriseMarketShellHost` 接同一份控制器与同一个登录弹窗。另出口：共享身份常量（`ENTERPRISE_STORE_PANEL_ID`/`ENTERPRISE_STORE_ENTRY_LABEL`/`ENTERPRISE_STORE_ENTRY_ORDER`/`ENTERPRISE_STORE_PANEL_VIEW`）与侧栏图标 `EnterpriseStoreIcon`；HERO 文案真源（`ENTERPRISE_STORE_HERO_TITLE`/`ENTERPRISE_STORE_HERO_NOTE`/`enterpriseMarketHeroSkillChip`/`enterpriseMarketHeroPluginChip`）；页签真源（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`/`enterpriseMarketTabLabel`）；组件清单与计数摘要投影（`ENTERPRISE_MARKET_COMPONENTS`/`ENTERPRISE_MARKET_PLAN`/`enterpriseMarketComponent{Enabled,State,Dot,SwitchDisabled,Summary,SummaryText}`）；行投影（`enterpriseMarketPluginRows`/`enterpriseMarketPluginSectionVisible`/`enterpriseMarketSkillRows`/`enterpriseMarketSkillSectionVisible`）；技能行标签与状态投影（`enterpriseMarketSkillVersionTag`/`enterpriseMarketSkillCategoryTag`/`enterpriseMarketSkillHasUpdate`/`enterpriseMarketSkillRowHasUpdate`/`enterpriseMarketSkillUpdateTag`/`ENTERPRISE_MARKET_SKILL_UPDATE_LABEL`/`ENTERPRISE_MARKET_SKILL_UPDATE_TAG`/`enterpriseMarketSkillState`/`enterpriseMarketSkillDot`/`enterpriseMarketSkillConfigTag`/`enterpriseMarketSkillStatusLabel`）；插件行状态投影（`enterprisePluginDot`/`enterpriseMarketPluginConfigTag`/`enterpriseMarketPluginStatusLabel`）；行键与开合投影（`enterpriseMarketRowKey`/`enterpriseMarketRowDetailsId`/`enterpriseMarketRowOpen`）；搜索真源（`ENTERPRISE_MARKET_SEARCH_DEBOUNCE_MS`/`EnterpriseMarketDirectoryTabId`/`ENTERPRISE_MARKET_DIRECTORY_TABS`/`ENTERPRISE_MARKET_SEARCH_INITIAL`/`enterpriseMarketSearchPlaceholder`/`enterpriseMarketSearchLabel`/`ENTERPRISE_MARKET_SEARCH_EMPTY`/`enterpriseMarketSearchTerm`/`enterpriseMarketSearchRows`/`enterpriseMarketSearchSkillRows`/`enterpriseMarketSearchPluginRows`）；折叠真源（`ENTERPRISE_MARKET_DEFAULT_EXPANDED`/`enterpriseMarketSectionOpen`/`EnterpriseMarketSectionId`/`ENTERPRISE_MARKET_SECTION_IDS`）；失败可见反馈（`EnterpriseMarketActionError`/`enterpriseMarketActionErrorLabel`/`EnterpriseMarketRowError`）；badge 槽（`EnterpriseMarketBadge`/`BadgeView`/`enterpriseMarketVersionTag`）；注册常量 `ENTERPRISE_MARKET_ENTRY_ID`/`ENTERPRISE_MARKET_ENTRY_LABEL`/`ENTERPRISE_MARKET_ENTRY_ORDER`。卡片摘要与详情页正文**不重复同一句**——摘要只在 `summary` 视图出现（官方必渲染的那一份，两套外壳共用 `EnterpriseMarketSummaryLine`）。
- * [POS]: ui 的企业应用商店（**明确的双外观拆分：两条入口各用各的呈现外壳、共用同一份逻辑**）——① 官方插件页「官方」分组里的「插件市场」卡片点进去（官方 `plugins.item` 的 `page` 视图）走 **旧外壳 `EnterpriseMarketLegacyShell`**（9723a97 那一版观感：行图标 + 官方两行卡片 + 右侧 `[有更新] [Switch]`，**没有** HERO、没有搜索框、没有可展开行）；② 侧栏一级入口「应用商店」对应的**主内容区面板**（官方 `main` 槽，`key = ENTERPRISE_STORE_PANEL_ID='enterprise-store'`，注册时注入恒定的 `view = ENTERPRISE_STORE_PANEL_VIEW`）走 **新外壳 `EnterpriseMarketStoreShell`**（渐变 HERO + 官方插件清单卡片网格 + 列表上方搜索框 + **卡片内常显的动作条**；卡片**不折叠**）。**新外壳卡片为什么不折叠（用户裁决 A）**：那个展开区里原先只有对用户近乎无用的 `skillId` 与两个真正的动作（`[有更新]` / 安装卸载 `Switch`），而企业技能/企业插件目录常态只有 3–5 行——把**唯一真正要做的事**藏进一次点击之后没有任何收益，反而让「有更新」不可见。故新外壳卡片删掉 chevron、`aria-expanded`/`aria-controls`、整个展开区与 `skillId` 行，动作（`[有更新]` + `Switch`）**常显在卡片上**；失败提示直接跟在动作条下方。**旧外壳与共享控制器都不因此改动**（旧外壳本来就不折叠；控制器里的行开合态按「不夹带清理」保留，见该处注释）。四个注册面（`main`、`sidebar.panellist`、`plugins.item`、`plugins.detail.badge`）与全部注册常量、`inject` 形状一字未改，只有「注册到 `plugins.item` 与 `main` 的组件」从原来那一个换成了各自的 hook 入口。**两套外壳的公共能力一条不少**：版本签（`sourceDshVersion`）、可选分类签（`category`，缺席/null/空串不渲染）、「有更新」辅助动作（真实 `<button>`，点击 = 更新到中心当前版本）、安装/卸载 `Switch`、「失败 `role="alert"` + 稳定错误码 + 失败可重试」、三页签（企业技能默认 / 企业插件 / 组件）、组件页签折叠语义、页签的 aria 契约与键盘走焦（两套外壳共用 `EnterpriseMarketTabStrip` 一份实现）。**严禁**任何价格/交易/购买/购物车/客服之类的商业化字样——两套外壳的全树文本都不出现（由测试反向锁死）。`store` 与开登录回调均为可选注入：缺席时开关恒禁用、会话不可用时目录节不出现，两套外壳同规则。**容器内边距只在新外壳这一层分叉**：新外壳的根节点多一枚类 `.own-market-storePage`（`storeStyles` 里 `padding:14px 14px 20px`），HERO / 页签条 / 搜索框 / 卡片网格 / 动作条 / 失败提示全部落在同一个有内边距的容器里——因为官方 `main` 面板不像 `DetailTop` 那样自带外层内边距，不给这层就整页贴边；旧外壳（`plugins.item` 详情页）**自身一行不加**、依赖官方 `DetailTop` 自带内边距，两者**不可互相叠加**（给旧外壳补内边距会让旧外观变挤）。
+ * [REF]: **旧外观的逐段真源是 `9723a97:plugin/packages/ui/src/marketplace-entry.tsx`**（技能行 = 官方两行卡片：第 1 行标题 `.own-market-cardId` + 版本签 + 分类签，第 2 行描述 `.own-market-cardDesc`，右侧 `[有更新] [Switch]`；插件行 = 图标 + 两行文案 + 状态点 + 官方状态词 + `Switch`；三个页签；组件节折叠），**不从记忆重写**；**新外观**取自 7557ffd 那一版（HERO + 列表上方搜索框 + 官方 `StateDot` 三件套）；**目录行版式本轮已统一**到「组件」页签那一套**通栏行**（三处同一枚子块 `EnterpriseMarketCatalogRow`），7557ffd 那套官方插件清单**卡片**（`qSYn7G_*`：`.own-market-cardShell`/`.own-market-cardGrid`/`.own-market-cardTitle`/`.own-market-cardDescription`/`.own-market-cardActions` 等）连同两列网格与窄屏单列兜底**整组删除**——`qSYn7G_*` 只留作当时的出处留痕。两套外壳**只有呈现不同**：旧外观的行标题/描述仍是它自己的 `.own-market-cardId`/`.own-market-cardDesc`（且它自己那两条行线留在原地、不消费子块），新外观的目录行**与组件页签三行同为一份**（`.own-market-rows`/`.own-market-row*`），共享部分（节容器、页签条、组件节、行内失败提示、`.own-market-cardHead`/`.own-market-skillTitle`）的 CSS 只有一份 `baseStyles`。旧外观那一版用的 `.own-market-tabs` 与 `plugin-market.tsx` 同名（两份全局单类 `<style>` 互相覆盖），7557ffd 已因此改名 `.own-market-storeTabs`——**页签条两套共用改后的类名，不许退回旧名**。
+ * [OUTPUT]: **两套呈现外壳 + 一份逻辑**。共享逻辑只有一处：控制器 hook `useEnterpriseMarketController`（store 订阅与取数、已装真值、安装/卸载动作、失败码归行、页签选中态、行开合态、搜索输入与 350ms 防抖）、模型投影 `enterpriseMarketShellModel(props)`（组件清单行、目录门控、页签文案与计数、过滤后的可见行、折叠态）与行级 facts `enterpriseMarketSkillRowFacts`/`enterpriseMarketPluginRowFacts`（受管态、开关口径、更新判定、两枚签取值、行键与开合、插件开关禁用口径）。呈现外壳是两个纯函数组件、接受**同一组** `EnterpriseMarketShellProps`：`EnterpriseMarketLegacyShell`（旧外观：官方两行卡片 + 右侧 `[有更新] [Switch]`，**无 HERO**、无搜索框、无行展开）与 `EnterpriseMarketStoreShell`（新外观：**含 HERO** + 搜索框 + **与「组件」页签同一套通栏行**（两个目录页签的行由同一枚子块 `EnterpriseMarketCatalogRow` 渲染，动作/失败提示都在行内）；**不折叠**）。两条入口各一个 hook 组件——`EnterpriseMarketLegacyPage` 注册到官方 `plugins.item`、`EnterpriseMarketStorePage` 注册到官方 `main`（key = `ENTERPRISE_STORE_PANEL_ID`），两者都只经 `EnterpriseMarketShellHost` 接同一份控制器与同一个登录弹窗。另出口：共享身份常量（`ENTERPRISE_STORE_PANEL_ID`/`ENTERPRISE_STORE_ENTRY_LABEL`/`ENTERPRISE_STORE_ENTRY_ORDER`/`ENTERPRISE_STORE_PANEL_VIEW`）与侧栏图标 `EnterpriseStoreIcon`；HERO 文案真源（`ENTERPRISE_STORE_HERO_TITLE`/`ENTERPRISE_STORE_HERO_NOTE`/`enterpriseMarketHeroSkillChip`/`enterpriseMarketHeroPluginChip`）；页签真源（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`/`enterpriseMarketTabLabel`）；组件清单与计数摘要投影（`ENTERPRISE_MARKET_COMPONENTS`/`ENTERPRISE_MARKET_PLAN`/`enterpriseMarketComponent{Enabled,State,Dot,SwitchDisabled,Summary,SummaryText}`）；行投影（`enterpriseMarketPluginRows`/`enterpriseMarketPluginSectionVisible`/`enterpriseMarketSkillRows`/`enterpriseMarketSkillSectionVisible`）；技能行标签与状态投影（`enterpriseMarketSkillVersionTag`/`enterpriseMarketSkillCategoryTag`/`enterpriseMarketSkillHasUpdate`/`enterpriseMarketSkillRowHasUpdate`/`enterpriseMarketSkillUpdateTag`/`ENTERPRISE_MARKET_SKILL_UPDATE_LABEL`/`ENTERPRISE_MARKET_SKILL_UPDATE_TAG`/`enterpriseMarketSkillState`/`enterpriseMarketSkillDot`/`enterpriseMarketSkillConfigTag`/`enterpriseMarketSkillStatusLabel`）；插件行状态投影（`enterprisePluginDot`/`enterpriseMarketPluginConfigTag`/`enterpriseMarketPluginStatusLabel`）；行键与开合投影（`enterpriseMarketRowKey`/`enterpriseMarketRowDetailsId`/`enterpriseMarketRowOpen`）；搜索真源（`ENTERPRISE_MARKET_SEARCH_DEBOUNCE_MS`/`EnterpriseMarketDirectoryTabId`/`ENTERPRISE_MARKET_DIRECTORY_TABS`/`ENTERPRISE_MARKET_SEARCH_INITIAL`/`enterpriseMarketSearchPlaceholder`/`enterpriseMarketSearchLabel`/`ENTERPRISE_MARKET_SEARCH_EMPTY`/`enterpriseMarketSearchTerm`/`enterpriseMarketSearchRows`/`enterpriseMarketSearchSkillRows`/`enterpriseMarketSearchPluginRows`）；折叠真源（`ENTERPRISE_MARKET_DEFAULT_EXPANDED`/`enterpriseMarketSectionOpen`/`EnterpriseMarketSectionId`/`ENTERPRISE_MARKET_SECTION_IDS`）；失败可见反馈（`EnterpriseMarketActionError`/`enterpriseMarketActionErrorLabel`/`EnterpriseMarketRowError`）；**通栏行唯一子块 `EnterpriseMarketCatalogRow`**（「组件」页签三行与应用商店两个目录页签的行共用它渲染——版式统一的唯一实现点）；badge 槽（`EnterpriseMarketBadge`/`BadgeView`/`enterpriseMarketVersionTag`）；注册常量 `ENTERPRISE_MARKET_ENTRY_ID`/`ENTERPRISE_MARKET_ENTRY_LABEL`/`ENTERPRISE_MARKET_ENTRY_ORDER`。卡片摘要与详情页正文**不重复同一句**——摘要只在 `summary` 视图出现（官方必渲染的那一份，两套外壳共用 `EnterpriseMarketSummaryLine`）。
+ * [POS]: ui 的企业应用商店（**明确的双外观拆分：两条入口各用各的呈现外壳、共用同一份逻辑**）——① 官方插件页「官方」分组里的「插件市场」卡片点进去（官方 `plugins.item` 的 `page` 视图）走 **旧外壳 `EnterpriseMarketLegacyShell`**（9723a97 那一版观感：行图标 + 官方两行卡片 + 右侧 `[有更新] [Switch]`，**没有** HERO、没有搜索框、没有可展开行）；② 侧栏一级入口「应用商店」对应的**主内容区面板**（官方 `main` 槽，`key = ENTERPRISE_STORE_PANEL_ID='enterprise-store'`，注册时注入恒定的 `view = ENTERPRISE_STORE_PANEL_VIEW`）走 **新外壳 `EnterpriseMarketStoreShell`**（渐变 HERO + 列表上方搜索框 + **与「组件」页签同一套通栏行**；**不折叠**）。**新外壳卡片为什么不折叠（用户裁决 A）**：那个展开区里原先只有对用户近乎无用的 `skillId` 与两个真正的动作（`[有更新]` / 安装卸载 `Switch`），而企业技能/企业插件目录常态只有 3–5 行——把**唯一真正要做的事**藏进一次点击之后没有任何收益，反而让「有更新」不可见。故新外壳目录行删掉 chevron、`aria-expanded`/`aria-controls`、整个展开区与 `skillId` 行，动作（`[有更新]` + `Switch`）**常显在行上**；失败提示直接跟在行下。**本刀（版式统一：应用商店的目录行 = 组件页签的行）**：新外壳那套**卡片外壳**整组退场——`.own-market-cardShell`（.5px 描边 + radius-xl + settings-card-fill）、`.own-market-cardGrid`（两列网格）与配套 `@container`/`@media 520` 单列兜底、`.own-market-cardContent`/`.own-market-cardMainRow`/`.own-market-cardTrailing`/`.own-market-phaseDot`/`.own-market-configTag`/`.own-market-cardTitle`/`.own-market-cardDescription`/`.own-market-cardActions` 的类规则与 DOM 全部删除（均无别处消费）；两个目录页签的行改由**同一枚子块 `EnterpriseMarketCatalogRow`** 渲染成通栏行：`[图标 `.own-market-rowIcon` 40×40] + [主体 `.own-market-rowMain`：标题行 `.own-market-cardHead`（标题 `.own-market-rowId` + 版本签/分类签）+ 描述行 `.own-market-rowNote`] + [状态区 `.own-market-rowState`：官方 `StateDot` + 状态词] + [可选补充状态词 `.own-market-rowStatus`] + [行尾动作：`[有更新]` + 官方 `Switch`]`，行间 `border-bottom:0.5px` 发丝线，与组件页签三行**逐值同一套**（该子块也顺手成为组件行的渲染实现，DOM 与改动前逐项相同）。**状态词的口径**：原先那枚官方 `Tag`（`enterpriseMarketSkillConfigTag`/`enterpriseMarketPluginConfigTag` 的 label「已装/未装·已启用/未启用」）**文案原样搬进** `.own-market-rowState` 与状态点同格（与组件行的「可用/预留」同口径），不再渲染 Tag 药丸（`config.tone` 随之不再被消费；`config.enabled` 仍是 `Switch.checked` 与 `data-enterprise-row-enabled` 的唯一判定源）；需要留意的过渡态（安装中/卸载中/有更新/处理失败/等待重启）仍走 `.own-market-rowStatus`，两件事一条不丢。**旧外壳与共享控制器都不因此改动**（旧外壳本来就不折叠；控制器里的行开合态按「不夹带清理」保留，见该处注释）。四个注册面（`main`、`sidebar.panellist`、`plugins.item`、`plugins.detail.badge`）与全部注册常量、`inject` 形状一字未改，只有「注册到 `plugins.item` 与 `main` 的组件」从原来那一个换成了各自的 hook 入口。**两套外壳的公共能力一条不少**：版本签（`sourceDshVersion`）、可选分类签（`category`，缺席/null/空串不渲染）、「有更新」辅助动作（真实 `<button>`，点击 = 更新到中心当前版本）、安装/卸载 `Switch`、状态点 `StateDot` + 状态词（与状态点成对，绝不只出点不出词）、「失败 `role="alert"` + 稳定错误码 + 失败可重试」、三页签（企业技能默认 / 企业插件 / 组件）、组件页签折叠语义、页签的 aria 契约与键盘走焦（两套外壳共用 `EnterpriseMarketTabStrip` 一份实现）。**严禁**任何价格/交易/购买/购物车/客服之类的商业化字样——两套外壳的全树文本都不出现（由测试反向锁死）。`store` 与开登录回调均为可选注入：缺席时开关恒禁用、会话不可用时目录节不出现，两套外壳同规则。**容器内边距只在新外壳这一层分叉**：新外壳的根节点多一枚类 `.own-market-storePage`（`storeStyles` 里 `padding:14px 14px 20px`），HERO / 页签条 / 搜索框 / 通栏行 / 行内失败提示全部落在同一个有内边距的容器里——因为官方 `main` 面板不像 `DetailTop` 那样自带外层内边距，不给这层就整页贴边；旧外壳（`plugins.item` 详情页）**自身一行不加**、依赖官方 `DetailTop` 自带内边距，两者**不可互相叠加**（给旧外壳补内边距会让旧外观变挤）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -307,7 +307,7 @@ export interface EnterpriseMarketShellProps {
   /**
    * **当前展开的那一行**（行键 = `enterpriseMarketRowKey(tab, 行 id)`；单选：同一时刻最多一行展开）。
    * `null` = 全部收起、`undefined` = 没给过状态（纯函数直调按「全开」拿完整树，与 `expandedSections` 同约定）。
-   * **去折叠后两套外壳都不再消费它**：新外壳卡片改为动作常显，旧外壳的落点本来就是行内直出动作条。
+   * **去折叠后两套外壳都不再消费它**：新外壳的目录行改为动作常显在行内，旧外壳的落点本来就是行内直出动作条。
    * 这份状态与下面的回调**按用户裁决先保留**在共享控制器里（不为了这次改动去动共享层）；行 facts 仍照它算 `open`。
    */
   readonly expandedRow?: string | null | undefined
@@ -392,11 +392,11 @@ export function enterpriseMarketPluginSectionVisible(
 
 /**
  * 「企业技能」节的一行：企业后台上传的技能包。
- * 版式 = **官方插件清单卡片**（参考对象 jingyun 的卡片结构）：标题行（displayName + 版本签 + 分类签
- * + 状态点 + 一枚「已装/未装」标签）+ 始终可见的描述行（官方 12/18、两行 clamp）+ 卡片内**常显**的动作条
+ * 版式（**新外壳**）= 与「组件」页签三行同一套**通栏行**（同一枚子块 `EnterpriseMarketCatalogRow`）：
+ * 标题行（displayName + 版本签 + 分类签）+ 描述行 + 右侧「状态点 + 状态词（已装/未装）」+ 行尾**常显**的动作
  * （[有更新时的辅助动作] [官方 Switch]，开关是主控件）与紧随其后的失败提示。
- * **卡片不折叠**：展开区与 chevron 已移除——展开区里原先只有对用户近乎无用的 `skillId` 和两个真正的动作，
- * 而动作藏进一次点击之后、列表又只有 3–5 行，折叠在这里没有意义（用户裁决）。故动作直接常显在卡片上。
+ * **不折叠**：展开区与 chevron 已移除——展开区里原先只有对用户近乎无用的 `skillId` 和两个真正的动作，
+ * 而动作藏进一次点击之后、列表又只有 3–5 行，折叠在这里没有意义（用户裁决）。故动作直接常显在行上。
  * 不再堆状态点 + 元信息。「复制装配指令」仍是「技能」tab 的第二条路，这里给的是「一键落盘」。
  */
 export interface EnterpriseMarketSkillRow {
@@ -598,7 +598,8 @@ export function enterpriseMarketSkillStatusLabel(state: EnterpriseMarketSkillSta
 }
 
 /**
- * 标题行那枚「启用/已装」标签的渲染投影（照参考对象的 `configTag data-enabled`，视觉改用官方 `Tag` 原语）。
+ * 行内状态区那枚「启用/已装」**状态词**的投影（照参考对象的 `configTag data-enabled`；本刀起不再渲染官方 `Tag`
+ * 药丸——`label` 直接落进与组件行同一格 `.own-market-rowState`，与状态点成对，`tone` 不再被消费）。
  * 它是**只读事实**：`enabled` 同时给 `data-enterprise-row-enabled` 与 `Switch.checked` 用，避免两处各判一次。
  */
 export interface EnterpriseMarketConfigTag {
@@ -834,7 +835,7 @@ export function enterpriseMarketShellModel(props: EnterpriseMarketShellProps): E
 /**
  * 技能行的**同一份**派生事实（两套外壳共用；行版式不同但事实完全相同）。
  * 「受管态 → 开关 checked」「受管态 → 在途禁用」「有更新」三条都只在这里算一次：
- * 旧外壳的官方两行卡片与新外壳的可展开卡片都读它，故两边不可能各判一套。
+ * 旧外壳自己那套官方两行卡片与新外壳的通栏行都读它，故两边不可能各判一套。
  */
 export interface EnterpriseMarketSkillRowFacts {
   /** 行键（`{页签}:{行 id}`）。**去折叠后两套外壳都不再消费它**，作为共享层（控制器 `expandedRow` + 行键投影）的一份保留事实。 */
@@ -1038,8 +1039,9 @@ const baseStyles = `
 /**
  * **旧外壳**（官方插件页「插件市场」卡片点进去的详情页）独有的样式。
  * 逐值取自 `9723a97` 的 `.own-market-cardId` / `.own-market-cardDesc`（官方已安装卡片的两行文案：标题 14/20-500-省略、
- * 描述 13/18-tertiary-**单行**省略），**不加**新外壳的 `.own-market-cardTitle`/`.own-market-cardDescription`
- * ——两套外观的标题/描述类名各自独立，任何一边改字号都不会串到另一边（类名隔离用例会锁死）。
+ * 描述 13/18-tertiary-**单行**省略）。新外壳的目录行**不在这条线上**：它走 `baseStyles` 那套通栏行
+ * （`.own-market-rowId` 13.5/20-500、`.own-market-rowNote` 12/19）——两套外观的标题/描述类名各自独立，
+ * 任何一边改字号都不会串到另一边（类名隔离用例会锁死）。
  */
 const legacyStyles = `
 .own-market-cardId{font-size:14px;line-height:20px;font-weight:500;color:var(--dsw-alias-label-primary,#101828);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1048,38 +1050,43 @@ const legacyStyles = `
 `
 
 /**
- * **新外壳**（侧栏「应用商店」主内容区面板）独有的样式：HERO 横幅 + 官方插件清单卡片网格 + 列表上方搜索框。
- * 结构参考 `jingyunstudio/jingyun-dsh` 的 `MarketplaceSection.tsx`（卡片 + 列表上方搜索框），
- * **排版取值一律照官方** `qSYn7G_*`（卡片 `.5px` + radius-xl(20px) + settings-card-stroke/fill、标题 14/20-500、
- * 描述 12/18 + 两行 clamp 且始终可见、列表两列 + gap 10）。
- * **去折叠后不再有展开区**：官方 `.cardDetails` 那套「.5px 发丝线 + 平台底 + 10/14/12 内衬」的规则与卡片
- * `[data-open]` 展开态描边/chevron 旋转、`skillId` 行（`.entryValue`）一并删除——动作改由卡片内常显的
- * `.own-market-cardActions` 承载（靠右 + 可换行，窄屏不挤爆）。
+ * **新外壳**（侧栏「应用商店」主内容区面板）独有的样式：根容器内边距 + HERO 横幅 + 列表上方搜索框 +
+ * 目录行的补充状态词。**目录行的版式不在这一层**（本轮改动）：应用商店的「企业技能 / 企业插件」两个页签
+ * 改成与「组件」页签**同一套通栏行**——就是 `baseStyles` 里那份 `.own-market-rows`/`.own-market-row*`
+ * （行容器 + 行间分隔线 + 40×40 图标框 + 标题 13.5/20-500 + 描述 12/19 + 右侧「状态点 + 状态词」），
+ * 三处共用的渲染实现是**同一枚子块** `EnterpriseMarketCatalogRow`。
+ * 故原先这一层那套官方插件清单**卡片**规则整组删除：`.own-market-cardShell`（.5px 描边 + radius-xl +
+ * settings-card-fill 的卡片外壳）、`.own-market-cardGrid`（两列网格）与配套的 `@container own-market-catalog`
+ * /`@media (max-width:520px)` 单列兜底、`.own-market-cardContent`（12/14 内衬 + 52px 最小高）、
+ * `.own-market-cardMainRow`（两端对齐）、`.own-market-cardTrailing`/`.own-market-phaseDot`/`.own-market-configTag`
+ * （行尾 Tag 那一套；状态词现在与组件行同口径直接出文字）、`.own-market-cardTitle`/`.own-market-cardDescription`
+ * （标题/描述改用组件行同款 `.own-market-rowId`/`.own-market-rowNote`）与卡片内常显动作条
+ * `.own-market-cardActions`（动作回到与组件行同一条 `.own-market-rowLine` 里）——通栏行不需要卡片外壳、
+ * 也不再有卡片 hover 底/卡片内衬。搜索框（`.own-market-catalog*`）与 HERO 的落点一字未动。
  */
 const storeStyles = `
 /* ── 容器内边距（**只有新外壳有**）：侧栏「应用商店」是我们自己注册的 main 面板，官方**不会**给它加外层
-   内边距——不给这一层，HERO / 页签条 / 搜索框 / 卡片网格就整页贴着屏幕左右边缘（用户截图反馈「四周缺少间距」）。
+   内边距——不给这一层，HERO / 页签条 / 搜索框 / 目录行就整页贴着屏幕左右边缘（用户截图反馈「四周缺少间距」）。
    对照：旧外壳（plugins.item 详情页）外面有官方 DetailTop 自带的内边距，**一行都不能加**，否则旧外观变挤。
-   取值与本文件既有官方口径对齐：左右 14px = 卡片内衬 padding:12px 14px 的横向 14px（= HERO 内衬 14px）；
-   顶部 14px 同一口径（HERO 不贴内容区上沿）；底部 20px 略大于顶部（= 卡片/HERO 的 radius-xl 圆角量级），
-   给列表最后一张卡收尾留白。box-sizing:border-box 与 .own-market-entry * 的既有口径一致：块级 width:auto
-   下内边距本就落在容器内部、不撑出横向滚动，这里再显式声明一次；窄屏单列逻辑（@container / @media 520）不受影响。 */
+   取值与本文件既有官方口径对齐：左右 14px = HERO 内衬 14px；顶部 14px 同一口径（HERO 不贴内容区上沿）；
+   底部 20px 略大于顶部（= HERO 的 radius-xl 圆角量级），给列表最后一行收尾留白。
+   box-sizing:border-box 与 .own-market-entry * 的既有口径一致：块级 width:auto 下内边距本就落在容器内部、
+   不撑出横向滚动（通栏行没有换列逻辑，故这里不再涉及任何断点）。 */
 .own-market-entry.own-market-storePage{padding:14px 14px 20px;box-sizing:border-box}
 /* ── HERO（**只有新外壳有**）：渐变底横幅 → 标题「应用商店」→ 两枚计数 chip → 一句副文案 ──────────
    渐变用两枚**既有**背景色 token 拼（本仓主题里没有渐变 token，故不新造颜色）：
    --dsw-alias-state-business-tertiary（官方自己就拿它当底色的淡蓝面）→ --dsw-alias-bg-layer-2（中性卡片面），
    深浅主题各自成立。圆角/内衬/字号照本文件既有官方取值：.5px + settings-card-stroke + radius-xl（= 卡片口径）、
-   内衬 14px（= 卡片横向内衬）、标题 14/20-500（= .own-market-cardTitle）、chip 12/18 药丸（= .own-market-skillTag 那套
-   999px + 1px 10px）、副文案 12/18。 */
+   内衬 14px、标题 14/20-500、chip 12/18 药丸（= .own-market-skillTag 那套 999px + 1px 10px）、副文案 12/18。 */
 .own-market-storeHero{display:flex;flex-direction:column;gap:8px;padding:14px;margin-bottom:12px;border:.5px solid var(--dsw-alias-settings-card-stroke,#d0d5dd);border-radius:var(--dsw-radius-xl,20px);background:linear-gradient(135deg,var(--dsw-alias-state-business-tertiary,#e4edfd),var(--dsw-alias-bg-layer-2,#fff))}
 .own-market-storeHeroTitle{margin:0;font-size:14px;line-height:20px;font-weight:500;color:var(--dsw-alias-label-primary,#101828)}
 .own-market-storeHeroChips{display:flex;flex-wrap:wrap;gap:8px}
 .own-market-storeHeroChip{display:inline-flex;align-items:center;border-radius:999px;padding:1px 10px;background:var(--dsw-alias-bg-layer-1,#fff);color:var(--dsw-alias-label-secondary,#667085);font-size:12px;line-height:18px;font-variant-numeric:tabular-nums}
 .own-market-storeHeroNote{margin:0;color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:12px;line-height:18px}
 /* ── 目录行版式 ────────────────────────────────────────────────────────────────────────────
-   列表容器 = 官方 .catalog（flex column + gap 12），同时是官方容器查询的上下文（卡片按**容器**宽度换列，
-   不是按视口——本页是面板，容器查询才说得准）。 */
-.own-market-catalog{display:flex;flex-direction:column;gap:12px;min-width:0;container:own-market-catalog/inline-size}
+   列表容器 = 官方 .catalog（flex column + gap 12）；**行本身**走 baseStyles 里那份 .own-market-rows/
+   .own-market-row*（与「组件」页签三行同口径、同一枚子块渲染），这一层不再持有任何行版式规则。 */
+.own-market-catalog{display:flex;flex-direction:column;gap:12px;min-width:0}
 /* 搜索框 = 官方 .search：列表上方、label 相对定位、放大镜绝对左 12px（pointer-events:none 不挡输入）。 */
 .own-market-catalogSearch{position:relative;display:flex;align-items:center;width:100%;color:var(--dsw-alias-label-tertiary,#98a2b3)}
 .own-market-catalogSearch>svg{position:absolute;left:12px;pointer-events:none}
@@ -1089,38 +1096,10 @@ const storeStyles = `
 /* 焦点态照官方：描边换 focus-ring 色 + 2px 18% 同色光晕（不是另画一套 outline）。 */
 .own-market-catalogSearchInput:focus-visible{border-color:var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary,#2563eb));box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary,#2563eb)) 18%, transparent)}
 .own-market-catalogSearchEmpty{color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:13px;line-height:20px;margin:0;padding:2px 0}
-/* 卡片网格 = 官方 .cards：两列 + gap 10；窄到 520 转单列（官方容器查询 + 同断点 media 兜底旧 WebView）。 */
-.own-market-cardGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0;padding:0;list-style:none}
-/* 卡片 = 官方 .card：.5px settings-card-stroke + radius-xl(20px) + settings-card-fill，overflow:hidden 收圆角。
-   卡片**不折叠**，故没有 [data-open] 那套展开态描边（当初照官方 .card[data-open=true] 换 border-l3 的规则随折叠一起删）。 */
-.own-market-cardShell{display:flex;flex-direction:column;min-width:0;overflow:hidden;border:.5px solid var(--dsw-alias-settings-card-stroke,#d0d5dd);border-radius:var(--dsw-radius-xl,20px);background:var(--dsw-alias-settings-card-fill,#fff)}
-/* 卡片内容块 = 官方 .cardContent 的**静态**部分：列向 gap 2 + 12/14 内衬 + 52px 最小高（这几条几何逐值不变）。
-   去折叠后它不再是整行可点的 button 元素（动作常显，按钮里嵌不进按钮），故没有 hover 底、没有 cursor:pointer、
-   也没有内缩焦点环——那三件是「可点」的视觉承诺，卡片已经没有可点的整体行了。 */
-.own-market-cardContent{display:flex;flex-direction:column;flex:auto;align-items:stretch;gap:2px;box-sizing:border-box;width:100%;min-height:52px;padding:12px 14px;color:inherit;font:inherit;text-align:left}
-/* 主行 = 官方 .cardMainRow：两端对齐、间距 12（左标题、右状态点/标签/chevron）。 */
-.own-market-cardMainRow{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0}
-/* 标题 = 官方 .cardTitle 取值 **14px/500/20px**（明确不复刻 jingyun 漂移的 13px/600）；
-   标题行容器 .own-market-cardHead 与 .own-market-skillTitle 在 baseStyles 里（两套外壳共用）。 */
-.own-market-cardTitle{flex:1;min-width:0;font-size:14px;font-weight:500;line-height:20px;color:var(--dsw-alias-label-primary,#101828);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* 描述 = 官方 .cardDescription 取值 **12/18 + 两行 clamp**，且**始终可见**（官方口径）；
-   卡片去折叠后**恒**保持两行 clamp（原先「展开时解除 clamp」的 [data-open] 规则随折叠一起删）。 */
-.own-market-cardDescription{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:12px;line-height:18px;text-wrap:pretty}
-/* 行尾 = 官方 .cardTrailing（tertiary + gap 8）+ .phaseDot 包着官方 StateDot（10px 图钉尺寸，不缩放）。 */
-.own-market-cardTrailing{display:inline-flex;flex:none;align-items:center;gap:8px;color:var(--dsw-alias-label-tertiary,#98a2b3)}
-.own-market-phaseDot{display:inline-flex;flex:none}
-.own-market-configTag{flex:none}
-/* 状态点旁的可见状态文案（官方 StateDot 是 aria-hidden，要求与文字配对）：12/18 secondary，单行不换行。 */
+/* 状态词右侧那行**补充**状态文案（在途/有更新/失败…，安静态不渲染）：12/18 secondary，单行不换行。
+   组件行没有它（组件行的状态词就是 .own-market-rowState 里那一枚）；市场目录行用它把「盘上事实」
+   （.own-market-rowState 的状态词：已装/未装 · 已启用/未启用）与「需要留意的过渡态」分开说，两件事都不丢。 */
 .own-market-rowStatus{color:var(--dsw-alias-label-secondary,#667085);font-size:12px;line-height:18px;white-space:nowrap}
-/* 动作条 = 卡片内的**常显**动作行（原先在展开区里，去折叠后直接跟在描述行下）：
-   靠右（照参考对象 .actionContainer 的 flex-end）+ 8px 间距 + **允许换行**——窄屏（本页卡片在 <520px 时是单列、
-   卡片内宽可能只剩两百多像素）动作宁可换到第二行，也不把标题/描述挤成一条缝；顶部 6px 与描述行留出视觉间隔。
-   「有更新」标签（.own-market-skillTag，flex:none）与官方 Switch 都落在这条里，标签严格排在开关左侧。 */
-.own-market-cardActions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;margin-top:6px}
-/* 卡片换列：官方用**容器查询**（本页是面板，宽度不等于视口）。旧 WebView 不支持容器查询时，
-   下面那条同断点的 media 兜底保证手机（视口本就 <520）仍是单列，不会挤成两列。 */
-@container own-market-catalog (width<=520px){.own-market-cardGrid{grid-template-columns:minmax(0,1fr)}}
-@media (max-width:520px){.own-market-cardGrid{grid-template-columns:minmax(0,1fr)}}
 `
 
 /** 组件行图标：三枚 lucide 图标按 id 定位，避免借用官方 `*Regular` 图标。 */
@@ -1129,6 +1108,53 @@ const COMPONENT_GLYPHS = { plugins: Package, skills: Sparkles, presets: BookMark
 function ComponentGlyph({ id }: { readonly id: string }): ReactNode {
   const Glyph = COMPONENT_GLYPHS[id as keyof typeof COMPONENT_GLYPHS] ?? Package
   return <Glyph size={18} aria-hidden="true" />
+}
+
+/**
+ * **通栏行的唯一渲染子块**（版式统一的落点）：`「组件」页签的三行` 与 `应用商店两个目录页签
+ * （企业技能 / 企业插件）的行` 都由这一枚组件产出，版式不可能分叉——两处共用同一串类名与同一份
+ * `baseStyles` 取值：`.own-market-row`（通栏行 + 行底 0.5px 分隔线，末行不出线）→ `.own-market-rowLine`
+ * （图标 + 主体 + 状态区 + 动作同排）→ `.own-market-rowIcon`（40×40 图标框）/ `.own-market-rowMain`
+ * （标题行 `.own-market-cardHead` + 描述行 `.own-market-rowNote`，组件行再多一行 mono `.own-market-rowModule`）
+ * / `.own-market-rowState`（官方 `StateDot` + 状态词，**点与词成对，绝不只出点不出词**）。
+ * 行尾动作一律直接落在 `.own-market-rowLine` 里（不在卡片/动作条里）：目录行是 `[有更新]` + 官方 `Switch`，
+ * 组件行只有那枚开关；目录行的失败提示（`role="alert"` + 稳定码）紧随整条行线之后。
+ * 行上的数据钩子由各调用点经 `attributes` 传入（组件行 `data-market-component`、目录行 `data-enterprise-*`），
+ * 本子块不认识任何业务字段——它只负责版式，事实由调用点给。
+ */
+export function EnterpriseMarketCatalogRow(props: {
+  /** `<li>` 上的数据钩子（`data-*`，含开关各态用的 `data-state='on'|'off'`）。 */
+  readonly attributes: Record<`data-${string}`, string | undefined>
+  /** 左侧图标（三处都落在同一枚 40×40 的 `.own-market-rowIcon` 框里）。 */
+  readonly icon: ReactNode
+  /** 行主体：标题行（`.own-market-cardHead`，标题 + 可选两枚签）+ 描述行（`.own-market-rowNote`）逐段往下排。 */
+  readonly main: ReactNode
+  /** 官方 `StateDot` 语义。 */
+  readonly dot: StateDotState
+  /** 状态词（组件行 = 可用/预留；目录行 = 已装/未装 · 已启用/未启用）。 */
+  readonly state: ReactNode
+  /** 状态词右侧的**补充**状态文案（在途/有更新/失败…）；安静态不传 → 这一格整段不渲染。 */
+  readonly status?: ReactNode | undefined
+  /** 行尾动作（`[有更新]` 与官方 `Switch`）；本子块只保证它在状态区右侧，顺序由调用点排。 */
+  readonly actions?: ReactNode | undefined
+  /** 行下失败提示（`role="alert"` + 稳定错误码）。 */
+  readonly error?: ReactNode | undefined
+}): ReactNode {
+  return (
+    <li className="own-market-row" {...props.attributes}>
+      <div className="own-market-rowLine">
+        <span className="own-market-rowIcon">{props.icon}</span>
+        <div className="own-market-rowMain">{props.main}</div>
+        <span className="own-market-rowState">
+          <StateDot state={props.dot} />
+          {props.state}
+        </span>
+        {props.status === undefined ? null : <span className="own-market-rowStatus">{props.status}</span>}
+        {props.actions}
+      </div>
+      {props.error}
+    </li>
+  )
 }
 
 /**
@@ -1302,32 +1328,31 @@ function EnterpriseMarketComponentsPanel({ model, onToggleSection, onOpenLogin }
       {model.componentsOpen ? (
         <ul className="own-market-rows" id={`market-section-${ENTERPRISE_MARKET_SECTION_IDS.components}`}>
           {model.componentRows.map(row => (
-            <li
+            /* 行版式 = 与市场两个目录页签**同一枚子块** `EnterpriseMarketCatalogRow`（版式统一的唯一实现点）：
+               DOM 与改动前逐项相同（rowId → rowNote → rowModule 三行文案 + 状态点/状态词 + 那枚开关）。 */
+            <EnterpriseMarketCatalogRow
               key={row.id}
-              className="own-market-row"
-              data-market-component={row.id}
-              data-state={row.enabled ? 'on' : 'off'}
-            >
-              <div className="own-market-rowLine">
-                <span className="own-market-rowIcon"><ComponentGlyph id={row.id} /></span>
-                <div className="own-market-rowMain">
-                  <span className="own-market-rowId">{row.label}</span>
-                  <span className="own-market-rowNote">{row.note}</span>
-                  <code className="own-market-rowModule">{row.module}</code>
-                </div>
-                <span className="own-market-rowState">
-                  <StateDot state={row.dot} />
-                  {row.state}
-                </span>
-                <Switch
-                  checked={row.enabled}
-                  label={`启用组件 ${row.label}`}
-                  disabled={row.switchDisabled}
-                  title={row.reserved ? `预留：${row.label}组件未接入` : row.enabled ? '请在企业账号中退出登录' : '登录企业账号后启用'}
-                  onChange={() => { onOpenLogin?.() }}
-                />
-              </div>
-            </li>
+              attributes={{ 'data-market-component': row.id, 'data-state': row.enabled ? 'on' : 'off' }}
+              icon={<ComponentGlyph id={row.id} />}
+              main={[
+                <span className="own-market-rowId" key="title">{row.label}</span>,
+                <span className="own-market-rowNote" key="note">{row.note}</span>,
+                <code className="own-market-rowModule" key="module">{row.module}</code>,
+              ]}
+              dot={row.dot}
+              state={row.state}
+              actions={(
+                <>
+                  <Switch
+                    checked={row.enabled}
+                    label={`启用组件 ${row.label}`}
+                    disabled={row.switchDisabled}
+                    title={row.reserved ? `预留：${row.label}组件未接入` : row.enabled ? '请在企业账号中退出登录' : '登录企业账号后启用'}
+                    onChange={() => { onOpenLogin?.() }}
+                  />
+                </>
+              )}
+            />
           ))}
         </ul>
       ) : null}
@@ -1500,18 +1525,21 @@ export function EnterpriseMarketLegacyShell(props: EnterpriseMarketShellProps): 
 
 /**
  * **新外壳**：侧栏一级入口「应用商店」对应的主内容区面板（官方 `main` 槽，key `ENTERPRISE_STORE_PANEL_ID`）。
- * 在旧外壳的基础上多三件「新外观」落点，其余语义（页签、组件节、失败提示、能力）与旧外壳完全同源：
+ * 在旧外壳的基础上多两件「新外观」落点，其余语义（页签、组件节、失败提示、能力）与旧外壳完全同源：
  *  ① 顶部 **HERO** 渐变横幅（标题 + 两枚计数 chip + 一句副文案）；
- *  ② 两个目录页签行 = 官方插件清单**卡片网格**（标题行 + 行尾事实 + 始终可见的描述行 + **卡片内常显的动作条**；
- *     卡片**不折叠**——chevron/`aria-expanded`/`aria-controls`/展开区/`skillId` 行全部退场，动作不再藏在一次点击之后）；
- *  ③ 列表上方 350ms 防抖的**搜索框**（纯客户端过滤，发给模型的 `searchQuery` 只有一份）。
+ *  ② 列表上方 350ms 防抖的**搜索框**（纯客户端过滤，发给模型的 `searchQuery` 只有一份）。
+ * **两个目录页签的行 = 与「组件」页签同一套通栏行**（版式统一的落点）：三处都由同一枚子块
+ * `EnterpriseMarketCatalogRow` 渲染——[图标] + (标题行 / 描述行) + [状态点 + 状态词 (+ 补充状态词)] + 行尾动作，
+ * 行间一条 0.5px 分隔线；卡片外壳 / 两列网格 / 窄屏单列 / 卡片内动作条那一整套**已整组删除**，
+ * 动作（`[有更新]` + 官方 `Switch`）与失败提示直接落在行内（原先它们在卡片的展开区里，去折叠后搬到卡片上，
+ * 本轮再收敛回行内）。
  * 纯函数、无 hook：事实一律来自 `enterpriseMarketShellModel` 与行 facts。
  */
 export function EnterpriseMarketStoreShell(props: EnterpriseMarketShellProps): ReactNode {
   if (props.view === 'summary') return <EnterpriseMarketSummaryLine />
   const model = enterpriseMarketShellModel(props)
   /**
-   * 目录页签顶部的搜索框（照参考对象的位置：**列表上方**、卡片网格之前）。
+   * 目录页签顶部的搜索框（照参考对象的位置：**列表上方**、目录行之前）。
    * 只把**原始输入**往上抛（`onSearchInput`），防抖 350ms 由控制器做——本层不持定时器也不持状态；
    * `value` 取的是**原始输入值** `searchValue`（不是防抖后的 `searchQuery`，否则每次按键的重渲染都会把框重置回旧值）。
    * 「组件」页签不渲染它：那三行是交付排期清单、恒三行。
@@ -1535,8 +1563,9 @@ export function EnterpriseMarketStoreShell(props: EnterpriseMarketShellProps): R
       {/* HERO 只有新外壳有：数字取真实行数（与页签计数同源）。 */}
       <EnterpriseMarketHero skills={model.tabCounts.skills} plugins={model.tabCounts.plugins} />
       <EnterpriseMarketTabStrip model={model} onSelectTab={props.onSelectTab} />
-      {/* 「企业技能」页签：卡片**不折叠**——卡片上直接是标题/签/状态点/描述，动作（[有更新] + 官方 Switch）
-          常显在卡片内，失败提示紧随其后。原先的 chevron / `aria-expanded` / `aria-controls` / 展开区 / skillId 行已全部退场。 */}
+      {/* 「企业技能」页签：行版式与「组件」页签**同一套通栏行**（同一枚 `EnterpriseMarketCatalogRow` 渲染）——
+          图标在左、标题行（标题 + 版本签 + 分类签）、描述行、右侧「状态点 + 状态词 + [有更新] + 官方 Switch」，
+          行间一条 0.5px 分隔线；失败提示紧随该行。原先的卡片外壳/两列网格/卡片内动作条已整组退场。 */}
       <EnterpriseMarketPanel tab="skills" activeTab={model.activeTab}>
         {model.activeTab === 'skills' && model.skillsVisible ? (
           <section className="own-market-section" data-market-section="enterprise-skills">
@@ -1545,50 +1574,45 @@ export function EnterpriseMarketStoreShell(props: EnterpriseMarketShellProps): R
               {model.visibleSkills.length === 0 ? (
                 <p className="own-market-catalogSearchEmpty">{ENTERPRISE_MARKET_SEARCH_EMPTY}</p>
               ) : (
-                <ul className="own-market-cardGrid">
+                <ul className="own-market-rows">
                   {model.visibleSkills.map(skill => {
                     const facts = enterpriseMarketSkillRowFacts(props, skill)
                     return (
-                      <li
+                      <EnterpriseMarketCatalogRow
                         key={skill.id}
-                        className="own-market-cardShell"
-                        data-enterprise-skill-package={skill.id}
-                        data-enterprise-skill-id={skill.skillId}
-                        data-enterprise-skill-state={facts.state}
-                        data-enterprise-row-enabled={facts.enabled ? 'true' : 'false'}
-                      >
-                        {/* 卡片**不折叠**：动作常显。内容块因此是普通 `<div>`——当初那枚整行 `<button>`
-                            （点了展开）既嵌不进 `[有更新]` 按钮与 `Switch`，也会骗用户「点了还有别的东西」。 */}
-                        <div className="own-market-cardContent">
-                          <span className="own-market-cardMainRow">
-                            {/* 标题行 = 标题 + 版本签 + 分类签（标签过多时标题先省略、两枚签保持可见）。 */}
-                            <span className="own-market-cardHead">
-                              <span className="own-market-cardTitle own-market-skillTitle">{skill.displayName}</span>
-                              {facts.versionTag === undefined ? null : (
-                                <Tag className="own-market-tag own-market-skillVersionTag" tone="neutral">{facts.versionTag}</Tag>
-                              )}
-                              {facts.categoryTag === undefined ? null : (
-                                <Tag className="own-market-tag own-market-skillCategoryTag" tone="info">{facts.categoryTag}</Tag>
-                              )}
-                            </span>
-                            {/* 行尾事实 = 官方 StateDot（在途 = ongoing 旋转弧）+ 一枚官方 Tag 事实标签 + 需要留意时的可见文字。
-                                chevron 随折叠一起退场（没有可展开的东西，留着它就等于给了个点不动的暗示）。 */}
-                            <span className="own-market-cardTrailing">
-                              <span className="own-market-phaseDot">
-                                <StateDot state={facts.dot} />
-                              </span>
-                              <Tag className="own-market-configTag" tone={facts.config.tone}>{facts.config.label}</Tag>
-                              {enterpriseMarketSkillStatusLabel(facts.state) === undefined
-                                ? null
-                                : <span className="own-market-rowStatus">{enterpriseMarketSkillStatusLabel(facts.state)}</span>}
-                            </span>
-                          </span>
-                          {/* 描述按官方口径**始终可见**（12/18 + 两行 clamp）。 */}
-                          <span className="own-market-cardDescription">{skill.description}</span>
-                          {/* 动作**常显在卡片上**（不再藏进一次点击之后）：辅助动作严格排在 Switch **左侧**，
-                              只在「有更新」时出现、在途禁用但不消失；容器靠右 + 可换行（窄屏换行而不是挤爆）。
-                              skillId 那一行（`.own-market-entryValue`）已整行移除——它对用户没有信息量。 */}
-                          <span className="own-market-cardActions">
+                        attributes={{
+                          'data-enterprise-skill-package': skill.id,
+                          'data-enterprise-skill-id': skill.skillId,
+                          'data-enterprise-skill-state': facts.state,
+                          'data-enterprise-row-enabled': facts.enabled ? 'true' : 'false',
+                          'data-state': facts.enabled ? 'on' : 'off',
+                        }}
+                        icon={<Sparkles size={18} aria-hidden="true" />}
+                        /* 标题行 = 标题 + 版本签 + 分类签（标签过多时标题先省略、两枚签保持可见）；
+                           描述行 = 一句话说明（组件行同款 `.own-market-rowNote`）。
+                           `skillId` 那一行（`.own-market-entryValue`）仍不渲染——对用户没有信息量。 */
+                        main={[
+                          <span className="own-market-cardHead" key="title">
+                            <span className="own-market-rowId own-market-skillTitle">{skill.displayName}</span>
+                            {facts.versionTag === undefined ? null : (
+                              <Tag className="own-market-tag own-market-skillVersionTag" tone="neutral">{facts.versionTag}</Tag>
+                            )}
+                            {facts.categoryTag === undefined ? null : (
+                              <Tag className="own-market-tag own-market-skillCategoryTag" tone="info">{facts.categoryTag}</Tag>
+                            )}
+                          </span>,
+                          <span className="own-market-rowNote" key="note">{skill.description}</span>,
+                        ]}
+                        dot={facts.dot}
+                        /* 状态词 = 官方 `StateDot` 语义旁那行可见文字（已装/未装），与 `Switch.checked`/行上
+                           `data-enterprise-row-enabled` 同源（同一个 `enterpriseMarketSkillConfigTag`）；
+                           `facts.config.tone` 不再消费——状态词的色彩由状态点自己承担（组件行同口径，行尾不再挂 Tag 药丸）。 */
+                        state={facts.config.label}
+                        status={enterpriseMarketSkillStatusLabel(facts.state)}
+                        /* 动作直接落在同一条行线上：辅助动作严格排在官方 Switch **左侧**，
+                           只在「有更新」时出现、在途禁用但不消失；开关始终是该行主控件。 */
+                        actions={(
+                          <>
                             {facts.hasUpdate ? (
                               <button
                                 type="button"
@@ -1611,11 +1635,11 @@ export function EnterpriseMarketStoreShell(props: EnterpriseMarketShellProps): R
                                 : facts.busy ? '动作进行中，暂不可操作' : facts.enabled ? '点此卸载' : '点此安装到 ~/.dsh/skills'}
                               onChange={(next) => { props.onToggleSkill?.(skill, next) }}
                             />
-                          </span>
-                          {/* 行内失败提示：去折叠后它直接跟在卡片动作条下方（原先藏在展开区里）。 */}
-                          <EnterpriseMarketRowError error={props.skillActionError} id={skill.id} />
-                        </div>
-                      </li>
+                          </>
+                        )}
+                        /* 行内失败提示：紧跟本行（`role="alert"` + 稳定错误码），失败后开关仍可拨＝原地重试。 */
+                        error={<EnterpriseMarketRowError error={props.skillActionError} id={skill.id} />}
+                      />
                     )
                   })}
                 </ul>
@@ -1624,7 +1648,8 @@ export function EnterpriseMarketStoreShell(props: EnterpriseMarketShellProps): R
           </section>
         ) : null}
       </EnterpriseMarketPanel>
-      {/* 「企业插件」页签：与技能行同一套**不折叠**卡片（标题行 = 包名 + 行尾事实，动作条里是安装/卸载开关 + 失败提示）。 */}
+      {/* 「企业插件」页签：与技能行**同一套通栏行**（同一枚 `EnterpriseMarketCatalogRow`）——差异只有标题取包名、
+          没有两枚签；右侧同样是「状态点 + 状态词（已启用/未启用）+ 补充状态词 + 安装/卸载 Switch」。 */}
       <EnterpriseMarketPanel tab="plugins" activeTab={model.activeTab}>
         {model.activeTab === 'plugins' && model.pluginsVisible ? (
           <section className="own-market-section" data-market-section="enterprise-plugins">
@@ -1633,47 +1658,42 @@ export function EnterpriseMarketStoreShell(props: EnterpriseMarketShellProps): R
               {model.visiblePlugins.length === 0 ? (
                 <p className="own-market-catalogSearchEmpty">{ENTERPRISE_MARKET_SEARCH_EMPTY}</p>
               ) : (
-                <ul className="own-market-cardGrid">
+                <ul className="own-market-rows">
                   {model.visiblePlugins.map(plugin => {
                     const facts = enterpriseMarketPluginRowFacts(props, plugin)
                     return (
-                      <li
+                      <EnterpriseMarketCatalogRow
                         key={plugin.packageName}
-                        className="own-market-cardShell"
-                        data-enterprise-plugin-package={plugin.packageName}
-                        data-enterprise-plugin-state={plugin.state}
-                        data-enterprise-row-enabled={facts.enabled ? 'true' : 'false'}
-                      >
-                        {/* 与技能卡片同一套不折叠版式：动作（安装/卸载 Switch）常显在卡片内。 */}
-                        <div className="own-market-cardContent">
-                          <span className="own-market-cardMainRow">
-                            <span className="own-market-cardHead">
-                              <span className="own-market-cardTitle">{plugin.packageName}</span>
-                            </span>
-                            <span className="own-market-cardTrailing">
-                              <span className="own-market-phaseDot">
-                                <StateDot state={facts.dot} />
-                              </span>
-                              <Tag className="own-market-configTag" tone={facts.config.tone}>{facts.config.label}</Tag>
-                              {facts.statusLabel === undefined ? null : <span className="own-market-rowStatus">{facts.statusLabel}</span>}
-                            </span>
-                          </span>
-                          <span className="own-market-cardDescription">
+                        attributes={{
+                          'data-enterprise-plugin-package': plugin.packageName,
+                          'data-enterprise-plugin-state': plugin.state,
+                          'data-enterprise-row-enabled': facts.enabled ? 'true' : 'false',
+                          'data-state': facts.enabled ? 'on' : 'off',
+                        }}
+                        icon={<Package size={18} aria-hidden="true" />}
+                        main={[
+                          <span className="own-market-cardHead" key="title">
+                            <span className="own-market-rowId">{plugin.packageName}</span>
+                          </span>,
+                          <span className="own-market-rowNote" key="note">
                             {plugin.inCatalog ? `企业发布 · v${plugin.version ?? ''}` : '已不在企业目录中'}
-                          </span>
-                          <span className="own-market-cardActions">
-                            <Switch
-                              checked={facts.enabled}
-                              label={`安装企业插件 ${plugin.packageName}`}
-                              disabled={facts.switchDisabled}
-                              title={plugin.installErrorCode !== undefined ? '该插件当前不可安装'
-                                : facts.enabled ? '点此卸载' : '点此安装'}
-                              onChange={(next) => { props.onTogglePlugin?.(plugin, next) }}
-                            />
-                          </span>
-                          <EnterpriseMarketRowError error={props.pluginActionError} id={plugin.packageName} />
-                        </div>
-                      </li>
+                          </span>,
+                        ]}
+                        dot={facts.dot}
+                        state={facts.config.label}
+                        status={facts.statusLabel}
+                        actions={(
+                          <Switch
+                            checked={facts.enabled}
+                            label={`安装企业插件 ${plugin.packageName}`}
+                            disabled={facts.switchDisabled}
+                            title={plugin.installErrorCode !== undefined ? '该插件当前不可安装'
+                              : facts.enabled ? '点此卸载' : '点此安装'}
+                            onChange={(next) => { props.onTogglePlugin?.(plugin, next) }}
+                          />
+                        )}
+                        error={<EnterpriseMarketRowError error={props.pluginActionError} id={plugin.packageName} />}
+                      />
                     )
                   })}
                 </ul>
@@ -1737,7 +1757,7 @@ export function useEnterpriseMarketController({ view, store }: {
   }
   /**
    * 行展开态：**单选**（同一时刻最多一行展开），行键 = `{页签}:{行 id}`，初值 `null` = 全部收起。
-   * **去折叠后没有任何外壳消费它**（用户裁决 A：应用商店卡片去掉折叠、动作常显）。
+   * **去折叠后没有任何外壳消费它**（用户裁决 A：应用商店目录行去掉折叠、动作常显在行内）。
    * 按「不为这次改动去动共享层」的要求，那份状态与 `onToggleRow` **原样保留**：行 facts 仍照 `expandedRow`
    * 算 `open`/`detailsId`，纯投影 `enterpriseMarketRowOpen`/`enterpriseMarketRowKey` 也仍在出口上。
    * 将来若要收敛，须连同 `EnterpriseMarketShellProps.expandedRow`/`onToggleRow`、行 facts 的三枚字段与
@@ -1924,7 +1944,7 @@ export function EnterpriseMarketLegacyPage({ view, store }: {
 }
 
 /**
- * 侧栏一级入口「应用商店」对应的主内容区面板的真实入口（**新外观**：HERO + 卡片网格 + 搜索；卡片不折叠、动作常显）。
+ * 侧栏一级入口「应用商店」对应的主内容区面板的真实入口（**新外观**：HERO + 搜索 + 与「组件」页签同一套通栏行；不折叠、动作常显在行内）。
  * @param props - `view` 由 `client.tsx` 的 `inject` 恒定注入 `ENTERPRISE_STORE_PANEL_VIEW`（= `'page'`）；`store` 与卡片同源。
  */
 export function EnterpriseMarketStorePage({ view, store }: {
