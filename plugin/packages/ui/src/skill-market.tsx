@@ -1,18 +1,30 @@
 /**
  * [INPUT]: 依赖共享 EnterpriseAccountStore、Harness Modal/Button、Lucide 图标、display-format 的大小格式化与同源技能 API（列表/详情/**已装态与安装/卸载**）
- * [OUTPUT]: 提供设置页内的企业技能目录（搜索/卡片/详情弹窗）、调用策略与条目纯投影（`enterpriseSkillInvocationLabel`/`enterpriseSkillMeta`/`enterpriseSkillEntryRows`）、安装态投影 `enterpriseSkillInstallState`、`buildSkillInstruction` 装配指令与 `EnterpriseSkillMarket` 视图
+ * [OUTPUT]: 提供设置页内的企业技能目录（搜索/卡片/详情弹窗）、调用策略与条目纯投影（`enterpriseSkillInvocationLabel`/`enterpriseSkillMeta`/`enterpriseSkillEntryRows`）、安装态投影 `enterpriseSkillInstallState`、`buildSkillInstruction` 装配指令与 `EnterpriseSkillMarket` 视图 **本刀（列表三态 + 详情失败可见）**：新增唯一取数源 `createEnterpriseSkillListSource`（目录 + 已装清单，次级失败交码）、详情四态判定 `enterpriseSkillDetailState` 与状态文案常量；列表改由 `useSyncExternalStore` 订阅（加载/空/失败/就绪四态互斥 + 真重发的重试），详情取数失败不再静默回落列表投影，改渲染「以下是列表里的信息」+ 唯一提示组件 + 重试（`detailAttempt` 真的重发）。
  * [POS]: ui 的员工技能广场视图，由「企业设置」的技能 tab 承载；每行一个「安装」按钮经同源 `/skills/install` 由 Host 完成「下载 + SHA-256 校验 + 落盘到官方 `~/.dsh/skills`」，已装行显示已装态并可卸载；仍保留「复制装配指令」作为不装也能交给用户自己 Agent 会话的第二条路。默认不执行包内任何内容（安装 = 落盘），这一条在详情里如实写给用户。**本刀（失败文案降维 + 术语降维）**：目录加载失败与安装/卸载失败改渲染 `EnterpriseErrorNotice`（人话 + 「下一步：」+「技术信息」里的稳定码）；`技能 ID` 统一说成「标识」，卡片元信息加「来源」标签，装配指令里的 `技能 ID：` 同步改成 `标识：`
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import { CircleCheck, Copy, LoaderCircle, PackagePlus, RefreshCw, Search, ShieldAlert, Sparkles, Trash2 } from 'lucide-react'
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import type { EnterpriseAccountStore } from './account-store.js'
 import { formatByteSize } from './display-format.js'
 import { EnterpriseErrorNotice } from './error-notice.js'
-import type { EnterpriseInstalledSkill, EnterpriseRuntimeSkill, EnterpriseSkillEntry } from './local-api.js'
+import { enterpriseErrorAction, enterpriseErrorMessage } from './error-messages.js'
+import type { EnterpriseInstalledSkill, EnterpriseLocalApi, EnterpriseRuntimeSkill, EnterpriseSkillEntry } from './local-api.js'
 import { createEnterpriseLocalApi, enterpriseLocalErrorCode } from './local-api.js'
+import {
+  ENTERPRISE_DETAIL_FAILED,
+  ENTERPRISE_DETAIL_LIST_LEVEL,
+  ENTERPRISE_LIST_RETRY,
+  ENTERPRISE_LIST_RETRY_LABEL,
+  createEnterpriseListSource,
+  enterpriseDegradedRead,
+  enterpriseDetailState,
+  type EnterpriseDetailState,
+  type EnterpriseListSource,
+} from './list-state.js'
 
 const styles = `
 .own-skill{color:var(--dsw-alias-label-primary,#101828);font-size:13px;letter-spacing:0;min-width:0}
@@ -144,6 +156,56 @@ export function enterpriseSkillInstallState(
   }
 }
 
+/** 「企业设置 → 技能」目录取数中的轻提示（首帧就看得见，不空白）。 */
+export const ENTERPRISE_SKILL_LIST_LOADING = '正在加载企业技能'
+/** 目录取数成功但确实没有可见技能：说清「为什么空」+ 下一步。 */
+export const ENTERPRISE_SKILL_LIST_EMPTY = '还没有可见的技能。请联系企业管理员发布，或稍后刷新再看。'
+/** 搜索没命中时为「为什么空」补的一句（与「目录本身为空」分开说）。 */
+export const ENTERPRISE_SKILL_LIST_NO_MATCH = '没有匹配的企业技能，试试换个关键词。'
+/** 目录取数失败的动作前缀（人话与下一步由 `error-messages.ts` 的唯一映射给）。 */
+export const ENTERPRISE_SKILL_LIST_FAILED = '技能目录加载失败'
+/** 详情弹窗里「你现在看到的是列表级信息」那句如实交代（唯一一句，配方页共用同一份）。 */
+export const ENTERPRISE_SKILL_DETAIL_LIST_LEVEL = ENTERPRISE_DETAIL_LIST_LEVEL
+/** 详情取数失败提示的动作前缀。 */
+export const ENTERPRISE_SKILL_DETAIL_FAILED = ENTERPRISE_DETAIL_FAILED
+
+/** 「企业设置 → 技能」一份取数结果：目录 + 本机已装（次级事实，失败降级但如实交码）。 */
+export interface EnterpriseSkillListPayload {
+  readonly items: readonly EnterpriseRuntimeSkill[]
+  /** 本机已装清单；降级时为空数组，且 `installedCode` 非空（界面据此如实说明 + 可重试）。 */
+  readonly installed: readonly EnterpriseInstalledSkill[]
+  readonly installedCode?: string | undefined
+}
+
+/**
+ * 「企业设置 → 技能」列表的**唯一**取数源（非 React，测试可注入假 fetch 直测）。
+ * 目录失败**原样抛出**（收敛成显式失败态），已装清单是次级事实（显式降级 + 交码），
+ * 绝不再 `.catch(() => undefined)` 让所有行默默显示「未安装」。
+ */
+export function createEnterpriseSkillListSource(
+  api: Pick<EnterpriseLocalApi, 'skills' | 'installedSkills'>,
+): EnterpriseListSource<EnterpriseSkillListPayload> {
+  return createEnterpriseListSource<EnterpriseSkillListPayload>({
+    load: async (signal) => {
+      const [items, installed] = await Promise.all([
+        api.skills(signal),
+        enterpriseDegradedRead(api.installedSkills(signal), [] as readonly EnterpriseInstalledSkill[]),
+      ])
+      return {
+        items,
+        installed: installed.value,
+        ...(installed.code === undefined ? {} : { installedCode: installed.code }),
+      }
+    },
+    isEmpty: payload => payload.items.length === 0,
+  })
+}
+
+/** 详情弹窗此刻该说什么（纯投影，测试直调）：没选 / 读取中 / **列表级信息**（详情取数失败）/ 真详情。 */
+export type EnterpriseSkillDetailState = EnterpriseDetailState
+/** 判定只有一份：`enterpriseDetailState`（list-state.ts）——技能与配方两个详情弹窗共用同一份口径。 */
+export const enterpriseSkillDetailState = enterpriseDetailState
+
 /** 「企业设置 → 技能」页：列出可见技能包、按需读详情并复制装配指令。 */
 export function EnterpriseSkillMarket({ store }: {
   readonly store: EnterpriseAccountStore
@@ -151,43 +213,29 @@ export function EnterpriseSkillMarket({ store }: {
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
   const platformUrl = snapshot.status?.platformUrl ?? null
   const connected = snapshot.status?.state === 'READY' || snapshot.status?.state === 'REFRESHING'
-  const [items, setItems] = useState<readonly EnterpriseRuntimeSkill[] | undefined>()
-  const [installed, setInstalled] = useState<readonly EnterpriseInstalledSkill[] | undefined>()
   const [pending, setPending] = useState<EnterpriseSkillPending>()
   const [actionError, setActionError] = useState<{ readonly packageId: string, readonly code: string }>()
   const [query, setQuery] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [errorCode, setErrorCode] = useState<string>()
   const [selected, setSelected] = useState<EnterpriseRuntimeSkill>()
   const [detail, setDetail] = useState<EnterpriseRuntimeSkill>()
+  const [detailCode, setDetailCode] = useState<string>()
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailAttempt, setDetailAttempt] = useState(0)
   const [copied, setCopied] = useState(false)
   const details = useRef<HTMLDivElement>(null)
-  const api = createEnterpriseLocalApi()
-
-  const load = async () => {
-    if (!connected) {
-      setItems(undefined)
-      setInstalled(undefined)
-      return
-    }
-    setLoading(true)
-    setErrorCode(undefined)
-    try {
-      const signal = AbortSignal.timeout(8000)
-      // 已装态取数失败**不**拖垮目录：旧 Host 还没有 `/skills/installed` 时技能列表照常可用，
-      // 只是所有行显示「未安装」，点安装会拿到一个明确的错误码而不是空白页。
-      const [list, installedList] = await Promise.all([
-        api.skills(signal),
-        api.installedSkills(signal).catch(() => undefined),
-      ])
-      setItems(list)
-      setInstalled(installedList)
-    } catch (error) {
-      setErrorCode(error instanceof Error && 'code' in error ? String((error as { code: string }).code) : 'ENT_PLATFORM_UNAVAILABLE')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const api = useMemo(() => createEnterpriseLocalApi(), [])
+  // 目录取数只走这一个源（`useSyncExternalStore` 订阅它）：加载中 / 空 / 失败 / 就绪四态互斥，
+  // 重试 = `source.retry()`（真的重发一次请求，见 tests/list-state.spec.ts 的请求计数取证）。
+  const listSource = useMemo(() => createEnterpriseSkillListSource(api), [api])
+  const listState = useSyncExternalStore(listSource.subscribe, listSource.getSnapshot, listSource.getSnapshot)
+  const listValue = listState.kind === 'ready' || listState.kind === 'empty' ? listState.value : undefined
+  const items = listValue?.items
+  // 已装清单：种子来自取数源（每次取数成功都刷新），安装/卸载动作**用 Host 回传的清单覆盖**它（不做乐观切换）。
+  const [installed, setInstalled] = useState<readonly EnterpriseInstalledSkill[] | undefined>()
+  useEffect(() => {
+    if (listValue !== undefined) setInstalled(listValue.installed)
+  }, [listValue])
+  const loading = listState.kind === 'loading'
 
   /**
    * 安装/卸载的唯一入口：Host 一次往返既执行动作又回传最新已装态，界面不自行推断结果。
@@ -207,23 +255,36 @@ export function EnterpriseSkillMarket({ store }: {
       .finally(() => setPending(undefined))
   }
 
-  useEffect(() => { void load() }, [connected])
+  // 只连上企业会话才取数；断连即中止在途并回到初始加载态（迟到结果由取数源丢弃）。
+  useEffect(() => {
+    if (!connected) {
+      listSource.reset()
+      return
+    }
+    listSource.load()
+    return () => { listSource.reset() }
+  }, [listSource, connected])
 
   useEffect(() => {
     setCopied(false)
     if (selected === undefined) {
       setDetail(undefined)
+      setDetailCode(undefined)
+      setDetailLoading(false)
       return
     }
     // 先清掉上一个包的详情：否则弹窗在取数期间会短暂显示上一个技能的条目。
     setDetail(undefined)
+    setDetailCode(undefined)
+    setDetailLoading(true)
     const root = details.current?.closest<HTMLElement>('[role="dialog"]')
     root?.querySelector<HTMLButtonElement>('button')?.focus()
     const signal = AbortSignal.timeout(8000)
     void api.skillDetail(selected.id, signal)
-      .then(value => setDetail(value))
-      .catch(() => setDetail(selected))
-  }, [selected])
+      .then(value => { setDetail(value); setDetailLoading(false) })
+      // 详情失败**不再静默回落列表投影**：如实记下失败码，弹窗出「以下是列表里的信息」+ 人话 + 重试。
+      .catch((error: unknown) => { setDetailCode(enterpriseLocalErrorCode(error)); setDetailLoading(false) })
+  }, [selected, detailAttempt, api])
 
   const filtered = (items ?? []).filter(item => {
     const needle = query.trim().toLowerCase()
@@ -234,6 +295,12 @@ export function EnterpriseSkillMarket({ store }: {
   })
 
   const shown = detail ?? selected
+  const detailState = enterpriseSkillDetailState({
+    selected: selected !== undefined,
+    loading: detailLoading,
+    hasDetail: detail !== undefined,
+    errorCode: detailCode,
+  })
   const entryRows = shown === undefined ? [] : enterpriseSkillEntryRows(shown)
   const instruction = shown === undefined ? '' : buildSkillInstruction(shown, platformUrl)
 
@@ -245,20 +312,35 @@ export function EnterpriseSkillMarket({ store }: {
           <Search aria-hidden size={14} />
           <input value={query} onChange={event => setQuery(event.currentTarget.value)} placeholder="搜索企业技能" />
         </div>
-        <Button size="sm" icon={<RefreshCw aria-hidden size={14} />} onClick={() => void load()} disabled={loading || !connected}>
+        <Button size="sm" icon={<RefreshCw aria-hidden size={14} />} onClick={() => { listSource.retry() }} disabled={loading || !connected}>
           {loading ? '加载中' : '刷新'}
         </Button>
       </div>
       {!connected ? (
         <div className="own-skill-empty">登录企业账号后可浏览已发布技能。</div>
-      ) : loading && items === undefined ? (
-        <div className="own-skill-empty"><LoaderCircle aria-hidden size={16} /> 正在加载企业技能</div>
-      ) : errorCode !== undefined ? (
-        <EnterpriseErrorNotice className="own-skill-error" code={errorCode} prefix="技能目录加载失败" />
+      ) : listState.kind === 'loading' ? (
+        <div className="own-skill-empty" role="status"><LoaderCircle aria-hidden size={16} /> {ENTERPRISE_SKILL_LIST_LOADING}</div>
+      ) : listState.kind === 'failed' ? (
+        <div className="own-skill-empty">
+          <EnterpriseErrorNotice className="own-skill-error" code={listState.code} prefix={ENTERPRISE_SKILL_LIST_FAILED} />
+          <Button size="sm" icon={<RefreshCw aria-hidden size={14} />} aria-label={ENTERPRISE_LIST_RETRY_LABEL} onClick={() => { listSource.retry() }}>
+            {ENTERPRISE_LIST_RETRY}
+          </Button>
+        </div>
       ) : filtered.length === 0 ? (
-        <div className="own-skill-empty">暂无可见技能</div>
+        <div className="own-skill-empty">{query.trim() === '' || items === undefined || items.length === 0 ? ENTERPRISE_SKILL_LIST_EMPTY : ENTERPRISE_SKILL_LIST_NO_MATCH}</div>
       ) : (
-        <div className="own-skill-grid">
+        <>
+          {/* 次级取数降级的可见交代（本机已装状态没读全）：非打扰但看得见 + 可重试；措辞取自唯一映射。 */}
+          {listValue?.installedCode === undefined ? null : (
+            <p className="own-skill-sub" role="status">
+              {`本机已装状态暂时没有读取到：${enterpriseErrorMessage(listValue.installedCode)}下一步：${enterpriseErrorAction(listValue.installedCode)}`}
+              <Button size="sm" icon={<RefreshCw aria-hidden size={14} />} aria-label={ENTERPRISE_LIST_RETRY_LABEL} onClick={() => { listSource.retry() }}>
+                {ENTERPRISE_LIST_RETRY}
+              </Button>
+            </p>
+          )}
+          <div className="own-skill-grid">
           {filtered.map(item => {
             const state = enterpriseSkillInstallState(installed, item.id, pending)
             return (
@@ -297,7 +379,8 @@ export function EnterpriseSkillMarket({ store }: {
               </article>
             )
           })}
-        </div>
+          </div>
+        </>
       )}
       {selected !== undefined ? (
         <Modal open onClose={() => setSelected(undefined)} closeLabel="关闭" title={shown?.displayName ?? selected.displayName}>
@@ -308,7 +391,21 @@ export function EnterpriseSkillMarket({ store }: {
             </div>
             <div className="own-skill-sub">{shown?.description === undefined || shown.description === '' ? '（暂无描述）' : shown.description}</div>
             <div className="own-skill-sub">标识：{shown?.skillId ?? selected.skillId}</div>
-            {detail === undefined ? <div className="own-skill-sub">正在读取技能详情…</div> : null}
+            {detailState.kind === 'loading' ? <div className="own-skill-sub" role="status">正在读取技能详情…</div> : null}
+            {/* 详情取数失败：如实说明「你现在看到的是列表里的信息」，给出人话 + 下一步 + **真的重发**的重试。
+                改前这里 `catch(() => setDetail(selected))` 静默回落列表投影——用户根本看不出少了一份详情。 */}
+            {detailState.kind === 'list-level' ? (
+              <>
+                <div className="own-skill-sub" role="status">{ENTERPRISE_SKILL_DETAIL_LIST_LEVEL}</div>
+                <EnterpriseErrorNotice className="own-skill-error own-skill-inlineError" code={detailState.code} prefix={ENTERPRISE_SKILL_DETAIL_FAILED} />
+                <div>
+                  <Button size="sm" icon={<RefreshCw aria-hidden size={14} />} aria-label={ENTERPRISE_LIST_RETRY_LABEL}
+                    onClick={() => { setDetailAttempt(current => current + 1) }}>
+                    {ENTERPRISE_LIST_RETRY}
+                  </Button>
+                </div>
+              </>
+            ) : null}
             {entryRows.length === 0 ? null : (
               <ul className="own-skill-entries" aria-label="包含的技能">
                 {entryRows.map(row => (

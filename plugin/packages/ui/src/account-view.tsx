@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 React、Lucide、Harness Button、AccountOriginEditor、brand 品牌位图、account-actions 的登出与卸载确认、account-state 的共享投影与 login-dialog 的弹窗入口、plugin/preset/skill 三个市场视图，以及 EnterpriseAccountStore 的脱敏 snapshot
- * [OUTPUT]: 提供账号设置区（账号状态/登录入口/插件/配方/技能 tabs）、只读账号信息投影与共享登出确认；不再提供任何全屏门禁。**本刀（失败文案降维）**：账号区的失败提示改渲染 `EnterpriseErrorNotice`（人话 + 「下一步：」+「技术信息」折叠区里的稳定码），码表唯一真源搬到 `error-messages.ts`
+ * [OUTPUT]: 提供账号设置区（账号状态/登录入口/插件/配方/技能 tabs）、只读账号信息投影与共享登出确认；不再提供任何全屏门禁。**本刀（失败文案降维）**：账号区的失败提示改渲染 `EnterpriseErrorNotice`（人话 + 「下一步：」+「技术信息」折叠区里的稳定码），码表唯一真源搬到 `error-messages.ts` **本刀（品牌读取失败的唯一可见交代）**：账号信息区新增「企业标识」只读行（`enterpriseBrandingIdentityValue`）与 `unavailable` 时的一句中性提示 + 真重发的重试（唯一提示组件 + `branding.retry()`）。
  * [POS]: dsh-ui 的账号设置呈现层，官方账号区缺席时账号信息在本层自洽，登录统一交给登录弹窗，不接触 Host Context、Token 或执行细节
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,6 +13,7 @@ import {
   Package,
   RefreshCw,
   Server,
+  Sparkles,
   UserRound,
 } from 'lucide-react'
 import {
@@ -52,6 +53,13 @@ export { LogoutConfirmation, UninstallAction } from './account-actions.js'
 export { DSHENT_ANIMATED_ICON, DSHENT_ICON } from './brand.js'
 import { EnterpriseAccountStore } from './account-store.js'
 import { DSHENT_ICON } from './brand.js'
+import {
+  ENTERPRISE_BRANDING_IDENTITY_LABEL,
+  ENTERPRISE_BRANDING_READ_FAILED,
+  enterpriseBrandingIdentityValue,
+  useEnterpriseBranding,
+} from './branding.js'
+import { ENTERPRISE_ERROR_ACTIONS } from './error-messages.js'
 import { EnterpriseErrorNotice } from './error-notice.js'
 import { enterpriseLoginEntry, EnterpriseLoginDialog, useEnterpriseLoginDialog } from './login-dialog.js'
 import { EnterprisePluginMarket } from './plugin-market.js'
@@ -212,6 +220,7 @@ function Detail({ icon, label, value }: { icon: ReactNode; label: string; value:
 function EnterpriseAccountContent({ store }: EnterpriseStoreInjected): ReactNode {
   const snapshot = useAccount(store)
   const status = snapshot.status
+  const branding = useEnterpriseBranding(store)
   const presentation = status === undefined
     ? ENTERPRISE_LOADING_PRESENTATION
     : enterpriseStatePresentation(status.state)
@@ -244,10 +253,34 @@ function EnterpriseAccountContent({ store }: EnterpriseStoreInjected): ReactNode
     <div style={detailList}>
       <Detail icon={<UserRound aria-hidden size={14} />} label="登录名" value={identity.loginName === '' ? '登录后可用' : identity.loginName} />
       <Detail icon={<Building2 aria-hidden size={14} />} label="部门" value={identity.department} />
+      {/*
+       * 「企业标识」：这是**唯一**一处把「品牌读不到」如实说出来的地方（非打扰但可见）。
+       * 侧栏 / 登录弹窗继续静默回落官方标识（视觉不闪、不叠错误、不在登录时打断）；
+       * 员工若怀疑「是不是公司没配」，到账号页这里能看到三态的区别：
+       * 已配置 = 企业名；未配置 = 默认标识（企业未配置）；取数失败 = 暂时无法读取 + 重试。
+       */}
+      <Detail icon={<Sparkles aria-hidden size={14} />} label={ENTERPRISE_BRANDING_IDENTITY_LABEL}
+        value={enterpriseBrandingIdentityValue(branding.readState, branding.name)} />
       <Detail icon={<Server aria-hidden size={14} />} label="平台地址" value={identity.platformUrl} />
       <Detail icon={<Laptop aria-hidden size={14} />} label="设备" value={identity.deviceLabel} />
       <Detail icon={<Package aria-hidden size={14} />} label="插件版本" value={identity.versionLabel} />
     </div>
+    {/* 品牌取数失败：**非打扰但可见**——中性色（不是错误红）、不是弹窗、不打断登录；给稳定码的技术信息与重试。 */}
+    {branding.readState === 'unavailable' ? (
+      <div style={{ display: 'grid', gap: 8, paddingBottom: 12 }}>
+        <EnterpriseErrorNotice
+          code={branding.code ?? ''}
+          prefix={ENTERPRISE_BRANDING_READ_FAILED}
+          style={{ color: 'var(--dsw-alias-label-secondary, #475467)', fontSize: 12.5, lineHeight: '19px' }}
+        />
+        <div>
+          <Button variant="outline" size="sm" icon={<RefreshCw aria-hidden size={14} />}
+            onClick={() => { branding.retry() }}>
+            {ENTERPRISE_ERROR_ACTIONS.retry}
+          </Button>
+        </div>
+      </div>
+    ) : null}
     <div style={actions}>
       <div style={{ alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
         <Button variant="outline" size="sm" title="获取最新账号、设备和企业配置" icon={<RefreshCw aria-hidden size={14} />}

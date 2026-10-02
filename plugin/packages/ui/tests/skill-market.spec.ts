@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 skill-market 的装配指令/条目与元信息纯投影，以及 local-api 再导出的技能严格解码（含**本机文件树 / 树里单个文本文件**与两条动态路径构造器）
- * [OUTPUT]: 验证**已装技能正文的严格解码**（`decodeEnterpriseInstalledSkillContent`：单键封闭、雪花包 id、kebab 技能名、正文 ≤256 KiB，宿主路径/超限/错类型一律 `ENT_LOCAL_RESPONSE_INVALID`）与四条技能同源路径常量、装配指令文案要点（下载 URL/名称/skillId/~/.dsh/skills 落点/落盘前确认）、调用策略标签、列表与详情投影（含 sha256 丢弃、null 归一、**可选分类 category 的严格解码与缺席归一**）、**已装态解码与逐行安装态投影（已装/未装/在途文案与按钮语义）**、三条安装动作的同源路径常量、畸形拒绝与浏览器不接触令牌/不绕开 local-api；**本刀（详情子页面文件区）新增**本机**文件树**与**树里单个文本文件**两份投影的严格解码门禁（`decodeEnterpriseInstalledSkillFiles` / `decodeEnterpriseInstalledSkillFile`：键集封闭、路径形状收窄（绝对路径 / 反斜杠 / 盘符 / `..` / 空段 / `%` / 控制字符 / 超长段 / 非 kebab 首段）、目录 `sizeBytes` 恒 0、树内路径不重复、非 `file`/`directory` 类型、单文件 ≤256 KiB 与 262144 边界、条目数上限）与两条动态路径构造器 `enterpriseSkillFilesPath` / `enterpriseSkillFilePath` 的编码口径
+ * [OUTPUT]: 验证**已装技能正文的严格解码**（`decodeEnterpriseInstalledSkillContent`：单键封闭、雪花包 id、kebab 技能名、正文 ≤256 KiB，宿主路径/超限/错类型一律 `ENT_LOCAL_RESPONSE_INVALID`）与四条技能同源路径常量、装配指令文案要点（下载 URL/名称/skillId/~/.dsh/skills 落点/落盘前确认）、调用策略标签、列表与详情投影（含 sha256 丢弃、null 归一、**可选分类 category 的严格解码与缺席归一**）、**已装态解码与逐行安装态投影（已装/未装/在途文案与按钮语义）**、三条安装动作的同源路径常量、畸形拒绝与浏览器不接触令牌/不绕开 local-api；**本刀（详情子页面文件区）新增**本机**文件树**与**树里单个文本文件**两份投影的严格解码门禁（`decodeEnterpriseInstalledSkillFiles` / `decodeEnterpriseInstalledSkillFile`：键集封闭、路径形状收窄（绝对路径 / 反斜杠 / 盘符 / `..` / 空段 / `%` / 控制字符 / 超长段 / 非 kebab 首段）、目录 `sizeBytes` 恒 0、树内路径不重复、非 `file`/`directory` 类型、单文件 ≤256 KiB 与 262144 边界、条目数上限）与两条动态路径构造器 `enterpriseSkillFilesPath` / `enterpriseSkillFilePath` 的编码口径 **本刀**：新增详情四态（含「列表级信息」）判定与「目录走共享取数源 + 详情失败可见 + 改前 `setDetail(selected)` 静默回落已消失」的源码级反向锁。
  * [POS]: dsh-ui 技能 tab 的产品词汇与边界门禁，真实 DOM 与视觉由 Harness 快照与真机验收覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,7 +8,10 @@
 import { readFile } from 'node:fs/promises'
 import { describe, expect, it, vi } from 'vitest'
 import {
+  ENTERPRISE_SKILL_DETAIL_FAILED,
+  ENTERPRISE_SKILL_DETAIL_LIST_LEVEL,
   buildSkillInstruction,
+  enterpriseSkillDetailState,
   enterpriseSkillEntryRows,
   enterpriseSkillInstallState,
   enterpriseSkillInvocationLabel,
@@ -355,5 +358,45 @@ describe('enterprise skill market', () => {
     expect(source).not.toMatch(/authorization|accessToken|bearer/i)
     expect(source).not.toContain('fetch(')
     expect(source).not.toContain('child_process')
+  })
+})
+
+/**
+ * **本刀（详情取数失败不再静默回落列表投影 / 目录三态 + 可重试）**。
+ *
+ * 改前：`.catch(() => setDetail(selected))` —— 详情取数失败时**悄悄**显示列表投影，用户看不出少了详情。
+ * 改后：记稳定码 + 明说「以下是列表里的信息」+ 人话 + 下一步 + 真的重发一次的重试；目录失败是显式失败态。
+ */
+describe('enterprise skill market list and detail states', () => {
+  it('distinguishes «detail read failed (list-level info)» from a real detail', () => {
+    // 没选 / 读取中 / 详情失败（列表级信息）/ 真详情：四态互斥，失败压过「读取中」。
+    expect(enterpriseSkillDetailState({ selected: false, loading: false, hasDetail: false })).toEqual({ kind: 'none' })
+    expect(enterpriseSkillDetailState({ selected: true, loading: true, hasDetail: false })).toEqual({ kind: 'loading' })
+    expect(enterpriseSkillDetailState({ selected: true, loading: true, hasDetail: false, errorCode: 'ENT_UPSTREAM_TIMEOUT' }))
+      .toEqual({ kind: 'list-level', code: 'ENT_UPSTREAM_TIMEOUT' })
+    expect(enterpriseSkillDetailState({ selected: true, loading: false, hasDetail: true })).toEqual({ kind: 'detail' })
+    // 「列表级信息」那句与失败前缀都是一句人话，不带裸码。
+    expect(ENTERPRISE_SKILL_DETAIL_LIST_LEVEL).toContain('列表里的信息')
+    expect(ENTERPRISE_SKILL_DETAIL_FAILED).not.toContain('ENT_')
+  })
+
+  it('wires the catalog to the shared list source and the detail failure to a visible retry', async () => {
+    const source = await readFile(new URL('../src/skill-market.tsx', import.meta.url), 'utf8')
+    // 目录：三态 + 真的重发（同一份共享状态机）。
+    expect(source).toContain('createEnterpriseSkillListSource')
+    expect(source).toContain('listSource.retry()')
+    expect(source).toContain('ENTERPRISE_SKILL_LIST_LOADING')
+    expect(source).toContain('ENTERPRISE_SKILL_LIST_EMPTY')
+    expect(source).toContain('ENTERPRISE_SKILL_LIST_FAILED')
+    expect(source).toContain('enterpriseErrorMessage(listValue.installedCode)')
+    // 详情：失败可见（列表级信息 + 唯一提示组件 + 重试），且**改前那行静默回落已被删除**。
+    expect(source).toContain('ENTERPRISE_SKILL_DETAIL_LIST_LEVEL')
+    expect(source).toContain('ENTERPRISE_SKILL_DETAIL_FAILED')
+    expect(source).toContain('setDetailAttempt')
+    // 改前那行静默回落必须**真的消失**（只看代码：JSX 里那段「改前是…」的注释中会提到它）。
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, '')
+    expect(code).not.toContain('setDetail(selected)')
+    // 失败仍然复用唯一提示组件（不新造第二枚）。
+    expect(source).toContain('EnterpriseErrorNotice')
   })
 })

@@ -1,18 +1,27 @@
 /**
  * [INPUT]: 依赖共享 EnterpriseAccountStore、Harness Modal/Button、Lucide 图标、display-format 的大小格式化与同源配方 API
- * [OUTPUT]: 提供设置页内的企业配方列表、详情安全提示与复制导入指令（不自动下载/导入）。**本刀（失败文案降维 + 术语降维）**：目录失败改渲染 `EnterpriseErrorNotice`（人话 + 下一步 + 技术信息里的码）；员工可见文案里的 `Preset` / `预设 ID` 换成「配方 / 标识」，卡片元信息加上「来源」标签；导入指令里只保留上游专名 `Preset Square Skill`（不改写）
+ * [OUTPUT]: 提供设置页内的企业配方列表、详情安全提示与复制导入指令（不自动下载/导入）。**本刀（失败文案降维 + 术语降维）**：目录失败改渲染 `EnterpriseErrorNotice`（人话 + 下一步 + 技术信息里的码）；员工可见文案里的 `Preset` / `预设 ID` 换成「配方 / 标识」，卡片元信息加上「来源」标签；导入指令里只保留上游专名 `Preset Square Skill`（不改写） **本刀（列表三态 + 详情失败可见）**：新增唯一取数源 `createEnterprisePresetListSource` 与状态文案常量，列表改由 `useSyncExternalStore` 订阅（四态互斥 + 真重发的重试）；详情取数失败不再静默回落列表投影，改渲染「以下是列表里的信息」+ 唯一提示组件 + 重试。
  * [POS]: ui 的员工配方广场视图，由「企业设置」的配方 tab 承载；一期不扩展 plugin-distribution 状态机
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import { BookOpen, Copy, LoaderCircle, RefreshCw, Search, ShieldAlert } from 'lucide-react'
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import type { EnterpriseAccountStore } from './account-store.js'
 import { formatByteSize } from './display-format.js'
 import { EnterpriseErrorNotice } from './error-notice.js'
-import type { EnterpriseRuntimePreset } from './local-api.js'
-import { createEnterpriseLocalApi } from './local-api.js'
+import type { EnterpriseLocalApi, EnterpriseRuntimePreset } from './local-api.js'
+import { createEnterpriseLocalApi, enterpriseLocalErrorCode } from './local-api.js'
+import {
+  ENTERPRISE_DETAIL_FAILED,
+  ENTERPRISE_DETAIL_LIST_LEVEL,
+  ENTERPRISE_LIST_RETRY,
+  ENTERPRISE_LIST_RETRY_LABEL,
+  createEnterpriseListSource,
+  enterpriseDetailState,
+  type EnterpriseListSource,
+} from './list-state.js'
 
 const styles = `
 .own-preset{color:var(--dsw-alias-label-primary,#101828);font-size:13px;letter-spacing:0;min-width:0}
@@ -52,54 +61,78 @@ export function buildPresetImportInstruction(
   ].join('\n')
 }
 
+/** 「企业设置 → 配方」目录取数中的轻提示。 */
+export const ENTERPRISE_PRESET_LIST_LOADING = '正在加载企业配方'
+/** 目录取数成功但确实没有可见配方：说清「为什么空」+ 下一步。 */
+export const ENTERPRISE_PRESET_LIST_EMPTY = '还没有可见的配方。请联系企业管理员发布，或稍后刷新再看。'
+/** 搜索没命中时为「为什么空」补的一句。 */
+export const ENTERPRISE_PRESET_LIST_NO_MATCH = '没有匹配的企业配方，试试换个关键词。'
+/** 目录取数失败的动作前缀。 */
+export const ENTERPRISE_PRESET_LIST_FAILED = '配方目录加载失败'
+
+/**
+ * 「企业设置 → 配方」列表的**唯一**取数源（非 React，测试可注入假 fetch 直测）。
+ * 目录失败**原样抛出**（收敛成显式失败态 + 重试），不再走 `try/catch` 里把错误码留在状态里、
+ * 而界面却没有重试入口的半截做法。
+ */
+export function createEnterprisePresetListSource(
+  api: Pick<EnterpriseLocalApi, 'presets'>,
+): EnterpriseListSource<readonly EnterpriseRuntimePreset[]> {
+  return createEnterpriseListSource<readonly EnterpriseRuntimePreset[]>({
+    load: signal => api.presets(signal),
+    isEmpty: items => items.length === 0,
+  })
+}
+
 export function EnterprisePresetMarket({ store }: {
   readonly store: EnterpriseAccountStore
 }): ReactNode {
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
   const platformUrl = snapshot.status?.platformUrl ?? null
   const connected = snapshot.status?.state === 'READY' || snapshot.status?.state === 'REFRESHING'
-  const [items, setItems] = useState<readonly EnterpriseRuntimePreset[] | undefined>()
   const [query, setQuery] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [errorCode, setErrorCode] = useState<string>()
   const [selected, setSelected] = useState<EnterpriseRuntimePreset>()
   const [detail, setDetail] = useState<EnterpriseRuntimePreset>()
+  const [detailCode, setDetailCode] = useState<string>()
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailAttempt, setDetailAttempt] = useState(0)
   const [copied, setCopied] = useState(false)
   const details = useRef<HTMLDivElement>(null)
-  const api = createEnterpriseLocalApi()
+  const api = useMemo(() => createEnterpriseLocalApi(), [])
+  // 目录取数只走这一个源：加载中 / 空 / 失败 / 就绪四态互斥；失败给人话 + 下一步 + **真的重发**的重试。
+  const listSource = useMemo(() => createEnterprisePresetListSource(api), [api])
+  const listState = useSyncExternalStore(listSource.subscribe, listSource.getSnapshot, listSource.getSnapshot)
+  const items = listState.kind === 'ready' || listState.kind === 'empty' ? listState.value : undefined
+  const loading = listState.kind === 'loading'
 
-  const load = async () => {
+  useEffect(() => {
     if (!connected) {
-      setItems(undefined)
+      listSource.reset()
       return
     }
-    setLoading(true)
-    setErrorCode(undefined)
-    try {
-      const signal = AbortSignal.timeout(8000)
-      setItems(await api.presets(signal))
-    } catch (error) {
-      setErrorCode(error instanceof Error && 'code' in error ? String((error as { code: string }).code) : 'ENT_PLATFORM_UNAVAILABLE')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => { void load() }, [connected])
+    listSource.load()
+    return () => { listSource.reset() }
+  }, [listSource, connected])
 
   useEffect(() => {
     if (selected === undefined) {
       setDetail(undefined)
+      setDetailCode(undefined)
+      setDetailLoading(false)
       setCopied(false)
       return
     }
+    setDetail(undefined)
+    setDetailCode(undefined)
+    setDetailLoading(true)
     const root = details.current?.closest<HTMLElement>('[role="dialog"]')
     root?.querySelector<HTMLButtonElement>('button')?.focus()
     const signal = AbortSignal.timeout(8000)
     void api.presetDetail(selected.id, signal)
-      .then(value => setDetail(value))
-      .catch(() => setDetail(selected))
-  }, [selected])
+      .then(value => { setDetail(value); setDetailLoading(false) })
+      // 详情失败**不再静默回落列表投影**：如实记下失败码，弹窗出「以下是列表里的信息」+ 人话 + 重试。
+      .catch((error: unknown) => { setDetailCode(enterpriseLocalErrorCode(error)); setDetailLoading(false) })
+  }, [selected, detailAttempt, api])
 
   const filtered = (items ?? []).filter(item => {
     const needle = query.trim().toLowerCase()
@@ -109,6 +142,12 @@ export function EnterprisePresetMarket({ store }: {
       || item.description.toLowerCase().includes(needle)
   })
 
+  const detailState = enterpriseDetailState({
+    selected: selected !== undefined,
+    loading: detailLoading,
+    hasDetail: detail !== undefined,
+    errorCode: detailCode,
+  })
   const instruction = detail ? buildPresetImportInstruction(detail, platformUrl) : ''
 
   return <>
@@ -119,18 +158,23 @@ export function EnterprisePresetMarket({ store }: {
           <Search aria-hidden size={14} />
           <input value={query} onChange={event => setQuery(event.currentTarget.value)} placeholder="搜索企业配方" />
         </div>
-        <Button size="sm" icon={<RefreshCw aria-hidden size={14} />} onClick={() => void load()} disabled={loading || !connected}>
+        <Button size="sm" icon={<RefreshCw aria-hidden size={14} />} onClick={() => { listSource.retry() }} disabled={loading || !connected}>
           {loading ? '加载中' : '刷新'}
         </Button>
       </div>
       {!connected ? (
         <div className="own-preset-empty">登录企业账号后可浏览已批准配方。</div>
-      ) : loading && items === undefined ? (
-        <div className="own-preset-empty"><LoaderCircle aria-hidden size={16} /> 正在加载企业配方</div>
-      ) : errorCode !== undefined ? (
-        <EnterpriseErrorNotice className="own-preset-error" code={errorCode} prefix="配方目录加载失败" />
+      ) : listState.kind === 'loading' ? (
+        <div className="own-preset-empty" role="status"><LoaderCircle aria-hidden size={16} /> {ENTERPRISE_PRESET_LIST_LOADING}</div>
+      ) : listState.kind === 'failed' ? (
+        <div className="own-preset-empty">
+          <EnterpriseErrorNotice className="own-preset-error" code={listState.code} prefix={ENTERPRISE_PRESET_LIST_FAILED} />
+          <Button size="sm" icon={<RefreshCw aria-hidden size={14} />} aria-label={ENTERPRISE_LIST_RETRY_LABEL} onClick={() => { listSource.retry() }}>
+            {ENTERPRISE_LIST_RETRY}
+          </Button>
+        </div>
       ) : filtered.length === 0 ? (
-        <div className="own-preset-empty">暂无可见配方</div>
+        <div className="own-preset-empty">{query.trim() === '' || items === undefined || items.length === 0 ? ENTERPRISE_PRESET_LIST_EMPTY : ENTERPRISE_PRESET_LIST_NO_MATCH}</div>
       ) : (
         <div className="own-preset-grid">
           {filtered.map(item => (
@@ -156,6 +200,21 @@ export function EnterprisePresetMarket({ store }: {
             </div>
             <div className="own-preset-sub">{detail?.description ?? selected.description}</div>
             <div className="own-preset-sub">预设 ID：{detail?.presetId ?? selected.presetId}</div>
+            {detailState.kind === 'loading' ? <div className="own-preset-sub" role="status">正在读取配方详情…</div> : null}
+            {/* 详情取数失败：如实说明「你现在看到的是列表里的信息」，给出人话 + 下一步 + **真的重发**的重试。
+                改前这里 `catch(() => setDetail(selected))` 静默回落列表投影——用户根本看不出少了一份详情。 */}
+            {detailState.kind === 'list-level' ? (
+              <>
+                <div className="own-preset-sub" role="status">{ENTERPRISE_DETAIL_LIST_LEVEL}</div>
+                <EnterpriseErrorNotice className="own-preset-error" code={detailState.code} prefix={ENTERPRISE_DETAIL_FAILED} />
+                <div>
+                  <Button size="sm" icon={<RefreshCw aria-hidden size={14} />} aria-label={ENTERPRISE_LIST_RETRY_LABEL}
+                    onClick={() => { setDetailAttempt(current => current + 1) }}>
+                    {ENTERPRISE_LIST_RETRY}
+                  </Button>
+                </div>
+              </>
+            ) : null}
             <textarea className="own-preset-copy" readOnly value={instruction} aria-label="导入指令" />
             <Button
               size="sm"

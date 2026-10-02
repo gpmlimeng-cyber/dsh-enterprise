@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖共享 EnterpriseAccountStore 的企业目录/本机事实、Harness Modal/Button 与 Lucide 图标
- * [OUTPUT]: 提供设置页内的插件搜索/已安装筛选、版本详情、显式安装/卸载及状态文案。**本刀（失败文案降维）**：删除本文件的插件码表，失败一律渲染 `EnterpriseErrorNotice`（人话 + 「下一步：」+「技术信息」里的稳定码），兜底不再把码拼进可见句子
+ * [OUTPUT]: 提供设置页内的插件搜索/已安装筛选、版本详情、显式安装/卸载及状态文案。**本刀（失败文案降维）**：删除本文件的插件码表，失败一律渲染 `EnterpriseErrorNotice`（人话 + 「下一步：」+「技术信息」里的稳定码），兜底不再把码拼进可见句子 **本刀（目录三态 + 可重试）**：新增纯投影 `enterprisePluginCatalogState` / `enterprisePluginCatalogEmptyText` / `enterprisePluginCatalogVersionText`，目录四态（未登录 / 加载中 / 失败 / 空（三种原因）/ 就绪）显式化；失败态给唯一提示组件 + 真重发的重试，目录没取到时详情那一格不再谎称「已下架」。
  * [POS]: ui 的员工插件管理视图，由「企业设置」的插件 tab 承载，数据与执行由 DSH Enterprise Host 拥有
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -28,6 +28,80 @@ const STATES: Record<ManagedPluginState, { title: string; description: string; c
 }
 
 export const enterprisePluginStatePresentation = (state: ManagedPluginState) => STATES[state]
+
+/** 目录取数中的轻提示。 */
+export const ENTERPRISE_PLUGIN_LIST_LOADING = '正在加载插件'
+/** 未登录时的空态（说清「为什么空」+ 下一步）。 */
+export const ENTERPRISE_PLUGIN_LIST_SIGNED_OUT = '登录企业账号后可用'
+/** 目录取数失败的动作前缀（人话与下一步由 `error-messages.ts` 的唯一映射给）。 */
+export const ENTERPRISE_PLUGIN_LIST_FAILED = '插件目录加载失败'
+/** 目录本身为空。 */
+export const ENTERPRISE_PLUGIN_LIST_EMPTY_CATALOG = '企业还没有发布任何插件。请联系企业管理员发布，或稍后刷新再看。'
+/** 搜索没命中。 */
+export const ENTERPRISE_PLUGIN_LIST_EMPTY_SEARCH = '没有匹配的插件，试试换个关键词。'
+/** 「已安装」筛选下确实一个都没装。 */
+export const ENTERPRISE_PLUGIN_LIST_EMPTY_INSTALLED = '还没有安装任何企业插件。'
+/** 详情弹窗里企业目录那一格读不到时的如实说法（**不谎称「已下架」**）。 */
+export const ENTERPRISE_PLUGIN_VERSION_UNREADABLE = '暂时无法读取'
+/** 详情弹窗里「已不在企业目录中」的既有口径。 */
+export const ENTERPRISE_PLUGIN_VERSION_DELISTED = '已下架'
+
+/**
+ * 详情弹窗「企业版本」那一格的取值（纯投影，测试直调）。
+ * 目录取到了才敢说「已下架」；目录本身没取到（失败/在途）时说「暂时无法读取」——
+ * 否则用户会把一次取数失败读成「这个插件被下架了」。
+ */
+export function enterprisePluginCatalogVersionText(input: {
+  readonly catalogState: EnterprisePluginCatalogState
+  readonly version?: string | undefined
+}): string {
+  if (input.version !== undefined) return input.version
+  return input.catalogState.kind === 'failed' || input.catalogState.kind === 'loading'
+    ? ENTERPRISE_PLUGIN_VERSION_UNREADABLE
+    : ENTERPRISE_PLUGIN_VERSION_DELISTED
+}
+
+/**
+ * 「企业设置 → 插件」目录此刻该说什么（纯投影，测试直调）：未登录 / 加载中 / 失败 / 空 / 就绪。
+ *
+ * 三态**互斥**由这个联合体保证：失败与空不可能同时成立（失败要在没有可渲染行时才算失败），
+ * 因此「插件目录取数失败」不会再被显示成「暂无可用企业插件」那片空白。
+ */
+export type EnterprisePluginCatalogState =
+  | { readonly kind: 'signed-out' }
+  | { readonly kind: 'loading' }
+  | { readonly kind: 'failed'; readonly code: string }
+  | { readonly kind: 'empty'; readonly reason: 'catalog' | 'search' | 'installed' }
+  | { readonly kind: 'ready' }
+
+export function enterprisePluginCatalogState(input: {
+  readonly connected: boolean
+  readonly loading: boolean
+  readonly errorCode?: string | undefined
+  /** 过滤后真正要渲染的行数。 */
+  readonly rowCount: number
+  /** 未过滤的可用目录行数（用来把「目录为空」与「筛选后为空」分开说）。 */
+  readonly catalogCount: number
+  readonly searching: boolean
+  readonly view: 'all' | 'installed'
+}): EnterprisePluginCatalogState {
+  if (!input.connected) return { kind: 'signed-out' }
+  // 有行可渲染就是就绪（同一个失败码可能是行级动作失败，那由行上的提示负责，不把整列判成失败）。
+  if (input.rowCount > 0) return { kind: 'ready' }
+  // 一行都没有：先看是不是还在取数（重试在途也走这一支——用户点完立刻见到进行中态），再看失败，最后才是空。
+  if (input.loading) return { kind: 'loading' }
+  if (input.errorCode !== undefined) return { kind: 'failed', code: input.errorCode }
+  if (input.catalogCount === 0) return { kind: 'empty', reason: 'catalog' }
+  if (input.searching) return { kind: 'empty', reason: 'search' }
+  return { kind: 'empty', reason: input.view === 'installed' ? 'installed' : 'catalog' }
+}
+
+/** 空态的三句「为什么空 + 下一步」（按原因取，不写成一坨三元表达式）。 */
+export function enterprisePluginCatalogEmptyText(reason: 'catalog' | 'search' | 'installed'): string {
+  if (reason === 'search') return ENTERPRISE_PLUGIN_LIST_EMPTY_SEARCH
+  if (reason === 'installed') return ENTERPRISE_PLUGIN_LIST_EMPTY_INSTALLED
+  return ENTERPRISE_PLUGIN_LIST_EMPTY_CATALOG
+}
 
 const OS: Record<string, string> = { darwin: 'macOS', linux: 'Linux', win32: 'Windows' }
 const bytes = (value: number) => value < 1024 * 1024 ? `${Math.ceil(value / 1024)} KiB` : `${(value / 1024 / 1024).toFixed(1)} MiB`
@@ -91,6 +165,18 @@ export function EnterprisePluginMarket({ store }: {
   const rows = names.filter(name => (view === 'all' || installed(name)) && name.toLowerCase().includes(query.trim().toLowerCase()))
   const busy = snapshot.pluginBusy !== undefined || snapshot.busy !== undefined
   const fatal = status?.fatalErrorCode
+  // 目录失败码：`fatal` 是「状态本身都读不到」，`pluginErrorCode` 是插件投影那一次取数/动作的失败码。
+  const catalogErrorCode = snapshot.pluginErrorCode ?? fatal
+  // 目录四态（纯投影）：有行就绪；一行都没有时按「在途 → 失败 → 空（说清为什么空）」逐级判定。
+  const catalogState = enterprisePluginCatalogState({
+    connected,
+    loading: snapshot.pluginsLoading === true,
+    errorCode: catalogErrorCode,
+    rowCount: rows.length,
+    catalogCount: catalog.length,
+    searching: query.trim() !== '',
+    view,
+  })
   const selectedItem = selected === undefined ? undefined : available.get(selected)
   const selectedLocal = selected === undefined ? undefined : local.get(selected)
   const restartRequired = [...local.values()].some(item => item.state === 'RESTART_REQUIRED')
@@ -128,9 +214,25 @@ export function EnterprisePluginMarket({ store }: {
         icon={<RefreshCw size={16} aria-hidden />} onClick={() => { void store.refreshPlugins() }} />
     </div>
     {restartRequired ? <div className="own-market-notice" role="status">插件变更已保存，完全退出并重新打开客户端后生效。</div> : null}
-    {snapshot.pluginErrorCode || fatal ? <EnterpriseErrorNotice className="own-market-notice own-market-error" code={(snapshot.pluginErrorCode ?? fatal)!} /> : null}
+    {/* 目录四态（未登录 / 加载中 / 失败 / 空 / 就绪）由纯投影算一次：失败**不再与空混同**。
+        失败态复用唯一提示组件（人话 + 下一步 + 技术信息里的码）并给**真的重发**的重试。 */}
+    {catalogState.kind === 'signed-out' ? <div className="own-market-empty">{ENTERPRISE_PLUGIN_LIST_SIGNED_OUT}</div> : null}
+    {catalogState.kind === 'loading' ? <div className="own-market-empty" role="status">{ENTERPRISE_PLUGIN_LIST_LOADING}</div> : null}
+    {catalogState.kind === 'failed' ? (
+      <div className="own-market-notice">
+        <EnterpriseErrorNotice className="own-market-notice own-market-error" code={catalogState.code} prefix={ENTERPRISE_PLUGIN_LIST_FAILED} />
+        <Button size="sm" icon={<RefreshCw size={14} aria-hidden />} aria-label="重新加载插件目录"
+          onClick={() => { void store.refreshPlugins() }}>
+          重试
+        </Button>
+      </div>
+    ) : null}
+    {catalogState.kind === 'empty' ? <div className="own-market-empty">{enterprisePluginCatalogEmptyText(catalogState.reason)}</div> : null}
+    {/* 行级/动作级的失败码照旧单独出（它与目录四态无关，命中哪一行由上面的行内提示负责）。 */}
+    {catalogState.kind !== 'failed' && (snapshot.pluginErrorCode !== undefined || fatal !== undefined)
+      ? <EnterpriseErrorNotice className="own-market-notice own-market-error" code={(snapshot.pluginErrorCode ?? fatal)!} />
+      : null}
     {status?.lastReportErrorCode ? <div className="own-market-notice" role="status">设备状态暂未上报</div> : null}
-    {!connected ? <div className="own-market-empty">登录企业账号后可用</div> : snapshot.pluginsLoading && !status ? <div className="own-market-empty" role="status">正在加载插件</div> : rows.length === 0 ? <div className="own-market-empty">{query ? '没有匹配的插件' : view === 'installed' ? '尚未安装企业插件' : '暂无可用企业插件'}</div> : null}
     <div className="own-market-grid">
       {rows.map(name => {
         const item = available.get(name)
@@ -152,7 +254,7 @@ export function EnterprisePluginMarket({ store }: {
       footer={selected === undefined ? null : actions(selected)}>
       <dl ref={details} className="own-market-facts">
         <dt>插件</dt><dd>{selected}</dd>
-        <dt>企业版本</dt><dd>{selectedItem?.version ?? '已下架'}</dd>
+        <dt>企业版本</dt><dd>{enterprisePluginCatalogVersionText({ catalogState, version: selectedItem?.version })}</dd>
         <dt>本机版本</dt><dd>{selectedLocal?.desiredState === 'INSTALLED' ? selectedLocal.version : '未安装'}</dd>
         <dt>发布方</dt><dd>企业管理员</dd>
         {selectedItem ? <><dt>系统</dt><dd>{selectedItem.operatingSystems.map(os => OS[os]).join(' / ')}</dd><dt>大小</dt><dd>{bytes(selectedItem.sizeBytes)}</dd></> : null}

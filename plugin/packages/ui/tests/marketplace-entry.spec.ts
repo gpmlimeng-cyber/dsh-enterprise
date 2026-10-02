@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 marketplace-entry 的**唯一目录页外壳** `EnterpriseMarketLegacyShell`（点技能行本体在该视图内整页切换到**技能详情子页面** `EnterpriseSkillDetailPage`）、共享行子块 `EnterpriseMarketSkillRowActions`/`EnterpriseMarketInlineRows`、五个详情纯投影（`enterpriseSkillTreeRows`/`enterpriseSkillDefaultFilePath`/`enterpriseSkillFileCountText`/`enterpriseSkillTreeState`/`enterpriseSkillPreviewState`）、唯一 hook 入口 `EnterpriseMarketLegacyPage` 与共享逻辑层（`enterpriseMarketShellModel`、`enterpriseMarketSkillRowFacts`/`enterpriseMarketPluginRowFacts`）、注册常量、**页签真源**（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`）、组件清单/摘要/状态/开关语义纯投影、企业插件行投影、企业技能行投影（含详情归并的中心版本 `latestVersionId` 与标题行两枚标签取值）、标题行标签纯投影、技能节受管态纯投影、「有更新」判定与辅助标签投影、**组件页签折叠态常量** `ENTERPRISE_MARKET_DEFAULT_EXPANDED`、失败行内提示投影、入口组件与版本签组件本身、页签文案计数投影，以及 local-api-decode 的 `EnterpriseRuntimeSkill`/`EnterpriseInstalledSkill`/`EnterpriseSkillFileEntry`/`EnterpriseInstalledSkillFile` 形状，以及 `client.tsx` 的 `apply`/`inject` 真注册面（最小 slots double）
- * [OUTPUT]: 验证入口身份常量、卡片一句话的单行约束、**page 视图的三页签结构**（页签条手写 `role="tablist"`、三个页签的 `aria-selected`/`aria-controls`/roving `tabIndex`/`id` 与三个 `role="tabpanel"` 的 `aria-labelledby` 严格配对、**默认选中「企业技能」**、切换后**只渲染该页签内容**、←/→/Home/End 走焦并选中、鼠标点击回调）、组件清单（插件/技能/配方）顺序与 reserved 语义、计数摘要口径、summary/page 两视图结构、版本签只对本条目 subject 出、企业插件页签的归并与门控，以及**企业技能页签的官方两行卡片**（标题 + 版本签 + 可选分类签、描述单行省略、右侧官方 `Switch`、开关左侧那枚辅助「有更新」标签）、受管态与「有更新」的独立判定、**两节行上的失败可见反馈**、**页签化后唯一剩下的组件节折叠**、**详情页顶部压缩的取值锁**、**类名隔离的源码级不变量**；**本刀（详情子页面 + 文件树）新增**：①「点行本体切到详情子页面、点动作永不触发」——两枚动作是行本体的同级兄弟、面包屑是唯一返回入口、`skillPage` 非空时列表/页签整段不挂载；②「框架逐项照官方详情页」——面包屑（可见文案 + `aria-label`）、`h3` 标题 + 版本徽标、等宽标识行（`skillId`）、描述、`detailSections`/`detailSection` 的结构与 CSS 取值（20/28-500、12/18-tertiary、28px/32px 间距、rotate(90deg) 的 chevron）；③「左文件树」——`enterpriseSkillTreeRows` 的层级投影（depth/parent/name、先序确定性排序）、目录行不是按钮而文件行是按钮、缩进取自 depth；④「默认选中并预览 SKILL.md」——`enterpriseSkillDefaultFilePath` 只在树里真有那条路径时才选它；⑤「未安装零请求」——`enterpriseSkillTreeState`/`enterpriseSkillPreviewState` 的未装态优先于任何 loading/失败、界面只说「安装后可浏览文件」；⑥「读取失败给稳定码 + 重试」与「预览是纯文本安全渲染（全文件无 `dangerouslySetInnerHTML`）」；⑦**弹层已彻底移除**的反向锁（源码无 `Modal`、无 `EnterpriseSkillDetailDialog`，任何函数调用都收不到 Modal 元素）；**本刀（版本签只显示版本）新增**：⑧ 纯投影 `enterpriseMarketSkillVersionLabel` 的短号规则与边界（5 个真实值 + 无 `@` / 多个 `@` / 仅 `@` / 尾部 `@` / 空串 / 不 trim 逐条锁死）；⑨ 行上签的**可见文案 = 短号**、**完整坐标挂在紧包它的 `.own-market-skillVersionHint` 的 `title` 上**（签本体确实在那枚节点里、正文里不再出现整串），详情页那枚徽标照旧整串显示（列表短号 / 详情全坐标）；⑩ 标题行结构快照与两套外壳共用 CSS 的长度/校验和按新结构**再基线化一次**（style 7840→8178 chars，校验和随之更新）
+ * [OUTPUT]: 验证入口身份常量、卡片一句话的单行约束、**page 视图的三页签结构**（页签条手写 `role="tablist"`、三个页签的 `aria-selected`/`aria-controls`/roving `tabIndex`/`id` 与三个 `role="tabpanel"` 的 `aria-labelledby` 严格配对、**默认选中「企业技能」**、切换后**只渲染该页签内容**、←/→/Home/End 走焦并选中、鼠标点击回调）、组件清单（插件/技能/配方）顺序与 reserved 语义、计数摘要口径、summary/page 两视图结构、版本签只对本条目 subject 出、企业插件页签的归并与门控，以及**企业技能页签的官方两行卡片**（标题 + 版本签 + 可选分类签、描述单行省略、右侧官方 `Switch`、开关左侧那枚辅助「有更新」标签）、受管态与「有更新」的独立判定、**两节行上的失败可见反馈**、**页签化后唯一剩下的组件节折叠**、**详情页顶部压缩的取值锁**、**类名隔离的源码级不变量**；**本刀（详情子页面 + 文件树）新增**：①「点行本体切到详情子页面、点动作永不触发」——两枚动作是行本体的同级兄弟、面包屑是唯一返回入口、`skillPage` 非空时列表/页签整段不挂载；②「框架逐项照官方详情页」——面包屑（可见文案 + `aria-label`）、`h3` 标题 + 版本徽标、等宽标识行（`skillId`）、描述、`detailSections`/`detailSection` 的结构与 CSS 取值（20/28-500、12/18-tertiary、28px/32px 间距、rotate(90deg) 的 chevron）；③「左文件树」——`enterpriseSkillTreeRows` 的层级投影（depth/parent/name、先序确定性排序）、目录行不是按钮而文件行是按钮、缩进取自 depth；④「默认选中并预览 SKILL.md」——`enterpriseSkillDefaultFilePath` 只在树里真有那条路径时才选它；⑤「未安装零请求」——`enterpriseSkillTreeState`/`enterpriseSkillPreviewState` 的未装态优先于任何 loading/失败、界面只说「安装后可浏览文件」；⑥「读取失败给稳定码 + 重试」与「预览是纯文本安全渲染（全文件无 `dangerouslySetInnerHTML`）」；⑦**弹层已彻底移除**的反向锁（源码无 `Modal`、无 `EnterpriseSkillDetailDialog`，任何函数调用都收不到 Modal 元素）；**本刀（版本签只显示版本）新增**：⑧ 纯投影 `enterpriseMarketSkillVersionLabel` 的短号规则与边界（5 个真实值 + 无 `@` / 多个 `@` / 仅 `@` / 尾部 `@` / 空串 / 不 trim 逐条锁死）；⑨ 行上签的**可见文案 = 短号**、**完整坐标挂在紧包它的 `.own-market-skillVersionHint` 的 `title` 上**（签本体确实在那枚节点里、正文里不再出现整串），详情页那枚徽标照旧整串显示（列表短号 / 详情全坐标）；⑩ 标题行结构快照与两套外壳共用 CSS 的长度/校验和按新结构**再基线化一次**（style 7840→8178 chars，校验和随之更新） **本刀（目录页签三态）**：新增八条——加载中不空白、空说清为什么空（不是失败）、失败带唯一提示组件 + 可用重试（点它真的调回调）、三态互斥只出一个 `data-market-list-state`、组件关闭仍整段不出现、次级降级一句 `role="status"` 且不遮行、无回调不给死按钮，并把取数 effect 的 `controller.abort()` 计数按新结构改为 2（目录取数搬进共享取数源）。
  * [POS]: dsh-ui 插件市场入口（唯一入口：官方插件页「插件市场」卡片）的产品词汇与交互门禁，真实渲染与视觉由 Harness 快照与真机验收覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -31,7 +31,18 @@ import {
   EnterpriseMarketInlineRows,
   EnterpriseMarketLegacyPage,
   EnterpriseMarketLegacyShell,
+  EnterpriseMarketListHint,
+  EnterpriseMarketDegradedNotice,
   EnterpriseMarketRowError,
+  ENTERPRISE_MARKET_PLUGINS_EMPTY,
+  ENTERPRISE_MARKET_PLUGINS_FAILED,
+  ENTERPRISE_MARKET_PLUGINS_LOADING,
+  ENTERPRISE_MARKET_SKILLS_EMPTY,
+  ENTERPRISE_MARKET_SKILLS_FAILED,
+  ENTERPRISE_MARKET_SKILLS_LOADING,
+  createEnterpriseSkillCatalogSource,
+  enterpriseMarketPanelState,
+  loadEnterpriseSkillCatalog,
   EnterpriseMarketSkillRowActions,
   EnterpriseSkillDetailPage,
   ENTERPRISE_SKILL_CONTENT_FILENAME,
@@ -145,7 +156,7 @@ function textOf(node: ReactNode): string {
  */
 const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(7975 chars)",
+  "  style(8462 chars)",
   "  div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
   "    button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=true][aria-controls=market-panel-skills][tabIndex=0][onClick=[fn]][onKeyDown=[fn]]",
   "      #text:企业技能 1",
@@ -191,7 +202,7 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
 ]
 const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(7975 chars)",
+  "  style(8462 chars)",
   "  div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
   "    button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-skills][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
   "      #text:企业技能 1",
@@ -242,8 +253,8 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "            Switch[checked=false][label=安装企业插件 ent-b][disabled=false][title=点此安装][onChange=[fn]]",
   "  div[id=market-panel-components][role=tabpanel][aria-labelledby=market-tab-components][hidden=true][className=own-market-panel]",
 ]
-const LEGACY_STYLE_LENGTH = 7975
-const LEGACY_STYLE_CHECKSUM = 555768760
+const LEGACY_STYLE_LENGTH = 8462
+const LEGACY_STYLE_CHECKSUM = 2395543646
 
 /** 「企业技能」节的目录 fixture：与 skill-market.spec 的列表投影同形（列表态 versionId/skills 为空）。 */
 const SKILL: EnterpriseRuntimeSkill = {
@@ -2584,11 +2595,18 @@ describe('enterprise skill detail page', () => {
     expect(source).toContain('skillPageInstalled?.names[0]')
     expect(source).toContain('enterpriseSkillDefaultFilePath(detailSkillName, files.entries)')
     // 关详情 / 换包即中止在途请求，且迟到结果不回填。
-    // 三个取数 effect（技能目录 / 文件树 / 单个文件）各一处 abort。
-    expect((source.match(/controller\.abort\(\)/g) ?? []).length).toBe(3)
+    // **本刀（静默吞失败 → 显式失败态 + 可重试）**：技能目录那条取数从本文件的 effect 搬进了共享取数源
+    // （`createEnterpriseSkillCatalogSource` → `list-state.ts` 的 `createEnterpriseListSource`，它自己负责
+    // 「中止在途 + 丢弃迟到结果」），故本文件里的 `controller.abort()` 只剩两个详情取数 effect 各一处；
+    // 目录取数不再在这里手写请求/兜底——下面两条同时锁住「没有人把第二套目录取数加回本文件」。
+    expect((source.match(/controller\.abort\(\)/g) ?? []).length).toBe(2)
+    expect(source).toContain('createEnterpriseSkillCatalogSource')
+    expect((source.match(/api\.skills\(/g) ?? []).length).toBe(1)
+    expect((source.match(/api\.installedSkills\(/g) ?? []).length).toBe(1)
     expect((source.match(/controller\.signal\.aborted/g) ?? []).length).toBeGreaterThanOrEqual(6)
     // 失败不静默：三个取数 catch（目录 / 树 / 文件）都把错误经 `enterpriseLocalErrorCode` 投影成稳定码，
     // 交给纯视图出 role="alert"；本条用例关心的两个文件取数各占一处。
+    //（目录那一条改由 `enterpriseDegradedRead`（list-state.ts）投影稳定码，故本文件里只剩动作 + 树 + 文件三处。）
     expect((source.match(/enterpriseLocalErrorCode\(error\)/g) ?? []).length).toBe(3)
     // 界面不拼宿主路径、不读文件系统（那是 Host 的活）：两个 effect 只把**键**（包 id / 树里那条路径）交出去。
     //（`~/.dsh/skills` 那句只出现在行上那枚开关的悬浮文案里，是给用户看的落盘说明，不是我们构造的路径。）
@@ -2974,3 +2992,155 @@ function cssRuleBody(css: string, selector: string): string {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   return new RegExp(`${escaped}\\{([^}]*)\\}`).exec(css)?.[1] ?? ''
 }
+
+/**
+ * **本刀（静默吞失败 → 显式失败态 + 可重试）**：两个目录页签的**加载 / 空 / 失败**三态。
+ *
+ * 这里锁四件事：
+ *  ① 四态互斥：同一时刻只渲染一个 `data-market-list-state`（加载中 / 空 / 失败），且失败与空**不是**同一态；
+ *  ② 失败态复用唯一提示组件（人话 + 下一步 + 「技术信息」里的稳定码，可见文本里没有裸码）+ 重试按钮；
+ *  ③ 点重试 → 走调用方的重试回调（真运行时 = 取数源 `retry()`，真的重发请求；请求计数取证见 list-state.spec）；
+ *  ④ 次级取数降级（已装状态 / 部分技能详情没读全）出**非打扰但可见**的一句 `role="status"`，且不遮住目录行。
+ */
+describe('enterprise directory tab three states (loading / empty / failed)', () => {
+  /** 收集 `aria-label` 命中的元素 props（递归展开函数组件；重试按钮用它取证）。 */
+  function collectByAriaLabel(node: ReactNode, label: string, acc: Record<string, any>[] = []): Record<string, any>[] {
+    if (Array.isArray(node)) { for (const child of node) collectByAriaLabel(child, label, acc); return acc }
+    if (!isValidElement(node)) return acc
+    const props = node.props as Record<string, unknown>
+    if (props['aria-label'] === label) acc.push(props as Record<string, any>)
+    if (typeof node.type === 'function') {
+      const rendered = (node.type as (p: unknown) => ReactNode)(props)
+      if (rendered !== undefined && rendered !== null) return collectByAriaLabel(rendered as ReactNode, label, acc)
+    }
+    for (const value of Object.values(props)) {
+      if (value !== null && typeof value === 'object') collectByAriaLabel(value as ReactNode, label, acc)
+    }
+    return acc
+  }
+  const RETRY_LABEL = '重新加载这个列表'
+
+  it('shows a hint (never a blank panel) while the skills catalog is loading', () => {
+    const tree = EnterpriseMarketLegacyShell({ view: 'page', sessionUsable: true, skillsListState: { kind: 'loading' } })
+    expect(collectDataValues(tree, 'data-market-list-state')).toEqual(['loading'])
+    expect(textOf(tree)).toContain(ENTERPRISE_MARKET_SKILLS_LOADING)
+    // 加载中不是失败：没有 alert、没有裸码、没有重试按钮。
+    expect(collectAlerts(tree)).toEqual([])
+    expect(textOf(tree)).not.toContain('ENT_')
+    expect(collectByAriaLabel(tree, RETRY_LABEL)).toEqual([])
+  })
+
+  it('says why the skills catalog is empty instead of pretending it failed', () => {
+    const tree = EnterpriseMarketLegacyShell({
+      view: 'page',
+      sessionUsable: true,
+      skillsListState: { kind: 'empty', value: { rows: [], installed: [] } },
+    })
+    expect(collectDataValues(tree, 'data-market-list-state')).toEqual(['empty'])
+    expect(textOf(tree)).toContain(ENTERPRISE_MARKET_SKILLS_EMPTY)
+    expect(ENTERPRISE_MARKET_SKILLS_EMPTY).not.toContain('ENT_')
+    expect(collectAlerts(tree)).toEqual([])
+  })
+
+  it('renders the catalog failure with the shared notice, the stable code and a working retry', () => {
+    const onRetrySkills = vi.fn()
+    const tree = EnterpriseMarketLegacyShell({
+      view: 'page',
+      sessionUsable: true,
+      skillsListState: { kind: 'failed', code: 'ENT_PLATFORM_UNAVAILABLE' },
+      onRetrySkills,
+    })
+    // 三态互斥：这一帧只有失败态这一个状态钩子。
+    expect(collectDataValues(tree, 'data-market-list-state')).toEqual(['failed'])
+    const alert = textOf(collectAlerts(tree)[0])
+    expect(alert).toContain(ENTERPRISE_MARKET_SKILLS_FAILED)
+    expect(alert).toContain('暂时无法连接企业服务。')
+    expect(alert).toContain('下一步：')
+    // 裸码不上屏：人话那一段（「技术信息」之前）一个字都不带码；码本身仍取得回（折叠区里）。
+    const [human] = alert.split('技术信息')
+    expect(human).not.toContain('ENT_')
+    expect(alert).toContain('技术信息')
+    expect(alert).toContain('ENT_PLATFORM_UNAVAILABLE')
+    // 重试按钮存在且**真的**把点击交给调用方（真运行时那是取数源的 retry()）。
+    const retry = collectByAriaLabel(tree, RETRY_LABEL)
+    expect(retry).toHaveLength(1)
+    expect(retry[0]?.['children']).toBe('重试')
+    retry[0]?.['onClick']?.()
+    expect(onRetrySkills).toHaveBeenCalledTimes(1)
+    // 失败时**不**显示「空列表」那句（失败绝不假装没数据）。
+    expect(textOf(tree)).not.toContain(ENTERPRISE_MARKET_SKILLS_EMPTY)
+  })
+
+  it('renders the plugin catalog failure and its retry on the plugins tab', () => {
+    const onRetryPlugins = vi.fn()
+    const tree = EnterpriseMarketLegacyShell({
+      view: 'page',
+      activeTab: 'plugins',
+      sessionUsable: true,
+      pluginsListState: { kind: 'failed', code: 'ENT_PLUGIN_LOADER_INACTIVE' },
+      onRetryPlugins,
+    })
+    expect(collectDataValues(tree, 'data-market-list-state')).toEqual(['failed'])
+    expect(textOf(tree)).toContain(ENTERPRISE_MARKET_PLUGINS_FAILED)
+    expect(textOf(tree)).toContain('插件没有启动起来。')
+    const retry = collectByAriaLabel(tree, RETRY_LABEL)
+    expect(retry).toHaveLength(1)
+    retry[0]?.['onClick']?.()
+    expect(onRetryPlugins).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps loading / empty for the plugins tab and hides neither behind the row count', () => {
+    const loading = EnterpriseMarketLegacyShell({ view: 'page', activeTab: 'plugins', sessionUsable: true, pluginsListState: { kind: 'loading' } })
+    expect(collectDataValues(loading, 'data-market-list-state')).toEqual(['loading'])
+    expect(textOf(loading)).toContain(ENTERPRISE_MARKET_PLUGINS_LOADING)
+    const empty = EnterpriseMarketLegacyShell({
+      view: 'page', activeTab: 'plugins', sessionUsable: true,
+      pluginsListState: { kind: 'empty', value: [] },
+    })
+    expect(collectDataValues(empty, 'data-market-list-state')).toEqual(['empty'])
+    expect(textOf(empty)).toContain(ENTERPRISE_MARKET_PLUGINS_EMPTY)
+    // 组件关闭（会话不可用）时仍然整段不出现：既有门控一字未动。
+    const off = EnterpriseMarketLegacyShell({ view: 'page', sessionUsable: false, pluginsListState: { kind: 'failed', code: 'ENT_PLATFORM_UNAVAILABLE' } })
+    expect(collectDataValues(off, 'data-market-list-state')).toEqual([])
+  })
+
+  it('explains a degraded secondary read without hiding the rows', () => {
+    const degraded = { rows: enterpriseMarketSkillRows([SKILL]), installed: [] as never[], installedCode: 'ENT_LOCAL_UNAVAILABLE' }
+    const tree = EnterpriseMarketLegacyShell({
+      view: 'page',
+      sessionUsable: true,
+      enterpriseSkills: degraded.rows,
+      skillsListState: { kind: 'ready', value: degraded },
+      onRetrySkills: vi.fn(),
+    })
+    const text = textOf(tree)
+    // 目录行照旧在（降级只说明次级事实，不遮内容）。
+    expect(text).toContain(SKILL.displayName)
+    // 交代是「非打扰但可见」：role="status" 的一句 + 可用重试；不冒充 alert。
+    expect(text).toContain('本机已装状态暂时没有读取到')
+    expect(text).toContain('下一步：')
+    expect(collectAlerts(tree)).toEqual([])
+    expect(collectByAriaLabel(tree, RETRY_LABEL)).toHaveLength(1)
+  })
+
+  it('never renders a retry button when the caller has no retry to give (no dead control)', () => {
+    const hint = EnterpriseMarketListHint({ state: { kind: 'failed', code: 'ENT_PLATFORM_UNAVAILABLE', prefix: ENTERPRISE_MARKET_SKILLS_FAILED } })
+    expect(collectByAriaLabel(hint as ReactNode, RETRY_LABEL)).toEqual([])
+    // hidden / ready 两个成员在内容区不该产出任何三态节点。
+    expect(EnterpriseMarketListHint({ state: { kind: 'hidden' } })).toBeNull()
+    expect(EnterpriseMarketListHint({ state: { kind: 'ready' } })).toBeNull()
+    // 降级提示的组件也只在有回调时才给按钮。
+    const notice = EnterpriseMarketDegradedNotice({ code: 'ENT_LOCAL_UNAVAILABLE', subject: '本机已装状态' })
+    expect(collectByAriaLabel(notice as ReactNode, RETRY_LABEL)).toEqual([])
+    expect(textOf(notice as ReactNode)).toContain('本机已装状态暂时没有读取到')
+  })
+
+  it('exposes the catalog loader and the panel projection as the single sourcing point', () => {
+    // 取数源与投影都在出口上（面板三态的唯一判定点）；旧口径（无 list 时按行数）仍保留给纯函数直调。
+    expect(typeof loadEnterpriseSkillCatalog).toBe('function')
+    expect(typeof createEnterpriseSkillCatalogSource).toBe('function')
+    const base = { enabled: true, loadingHint: ENTERPRISE_MARKET_SKILLS_LOADING, emptyHint: ENTERPRISE_MARKET_SKILLS_EMPTY, failedPrefix: ENTERPRISE_MARKET_SKILLS_FAILED, rowCount: 0 }
+    expect(enterpriseMarketPanelState(base)).toEqual({ kind: 'hidden' })
+    expect(enterpriseMarketPanelState({ ...base, list: { kind: 'loading' } })).toEqual({ kind: 'loading', hint: ENTERPRISE_MARKET_SKILLS_LOADING })
+  })
+})

@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 React（useEffect/useState）、lucide-react 图标（技能行 Sparkles + 插件行 Package + 组件行三枚 + 详情面包屑的 ChevronDown / 文件树的 Folder 与 FileText）、官方 ui-primitives 的 Button/Switch/Tag/StateDot（pinned 0.1.5-rc.2 的 .d.ts 已导出，不走 official-ui 收窄接缝；**该 pin 不含 `SegmentedTabs`**，故页签条照 `account-view.tsx` 既有 tablist 手写自绘）、display-format 的 `formatByteSize`（文件大小唯一口径：行内字节提示与预览体积提示都取它）、account-state 的 `enterpriseSessionUsable` 与 account-store 的 `EnterpriseAccountStore`（订阅只发生在控制器 `useEnterpriseMarketController` 里）、local-api-decode 的技能 DTO（`EnterpriseRuntimeSkill` 目录 + 已装记录 `EnterpriseInstalledSkill`——「已装」只认后者这一份 Host 真值；**文件树条目 `EnterpriseSkillFileEntry` 与树里单个文本文件 `EnterpriseInstalledSkillFile`**——详情子页面左树右预览的两种输入）与失败码唯一投影 `enterpriseLocalErrorCode`（行内与详情里的错误码来源，与「技能」tab 同源）、消费官方 `plugins.item` owner props（`view`/`form`）；中心当前版本只从**详情投影** `store.api.skillDetail(id)` 取（列表投影的 `versionId` 恒为空串），且只对已装行取——未装行没有本机版本可比，不白跑请求、error-notice 的员工侧统一失败提示 `EnterpriseErrorNotice`（人话 + 下一步动作 + 收进「技术信息」的稳定码，样式走行内 `--dsw-*` token，跨页复用不新增可覆盖类）与 error-messages 的唯一一份码 → 人话映射
+ * [INPUT]: 依赖 React（useEffect/useMemo/useState/useSyncExternalStore）、lucide-react 图标（技能行 Sparkles + 插件行 Package + 组件行三枚 + 详情面包屑的 ChevronDown / 文件树的 Folder 与 FileText）、官方 ui-primitives 的 Button/Switch/Tag/StateDot（pinned 0.1.5-rc.2 的 .d.ts 已导出，不走 official-ui 收窄接缝；**该 pin 不含 `SegmentedTabs`**，故页签条照 `account-view.tsx` 既有 tablist 手写自绘）、display-format 的 `formatByteSize`（文件大小唯一口径：行内字节提示与预览体积提示都取它）、account-state 的 `enterpriseSessionUsable` 与 account-store 的 `EnterpriseAccountStore`（订阅只发生在控制器 `useEnterpriseMarketController` 里）、local-api-decode 的技能 DTO（`EnterpriseRuntimeSkill` 目录 + 已装记录 `EnterpriseInstalledSkill`——「已装」只认后者这一份 Host 真值；**文件树条目 `EnterpriseSkillFileEntry` 与树里单个文本文件 `EnterpriseInstalledSkillFile`**——详情子页面左树右预览的两种输入）与失败码唯一投影 `enterpriseLocalErrorCode`（行内与详情里的错误码来源，与「技能」tab 同源）、消费官方 `plugins.item` owner props（`view`/`form`）；中心当前版本只从**详情投影** `store.api.skillDetail(id)` 取（列表投影的 `versionId` 恒为空串），且只对已装行取——未装行没有本机版本可比，不白跑请求、error-notice 的员工侧统一失败提示 `EnterpriseErrorNotice`（人话 + 下一步动作 + 收进「技术信息」的稳定码，样式走行内 `--dsw-*` token，跨页复用不新增可覆盖类）与 error-messages 的唯一一份码 → 人话映射
  * [REF]: **目录行的逐段真源是 `9723a97:plugin/packages/ui/src/marketplace-entry.tsx`**（技能行 = 官方两行卡片：第 1 行标题 `.own-market-cardId` + 版本签 + 分类签，第 2 行描述 `.own-market-cardDesc`，右侧 `[有更新] [Switch]`；插件行 = 图标 + 两行文案 + 状态点 + 官方状态词 + `Switch`；三个页签；组件节折叠），**不从记忆重写**；**详情子页面的框架真源是官方 `@deepseek-ai/dsh-client-ui-plugin-manager` 的 `ItemDetail`/`DetailTop` 与它那份 CSS module**（本机 node_modules 的 `lib/client.js`：`_detail`/`_detailTop`/`_crumb`+`_crumbIcon`/`_detailHead`+`_cardIcon`/`_detailMain`/`_detailTitle`/`_detailName`/`_detailDesc`/`_detailSections`/`_detailSection`/`_sectionHead`/`_sectionTitle`/`_sectionCount`），取值逐条抄进 `detailStyles` 的注释对照表；行版式统一那一刀留下的共享行子块 `EnterpriseMarketInlineRows` 与 `.own-market-storeTabs` 类名照旧。
- * [OUTPUT]: **一棵目录页外壳 + 一份逻辑 + 一个技能详情子页面**。**本刀（详情子页面 + 文件树）**：技能行**行本体**（图标 + 两行文案）是一枚真 `<button class="own-market-rowOpen">`——点它把面板**整页切到**详情子页面（`EnterpriseMarketLegacyShell` 按 `props.skillPage` 走两个 return 分支：详情那一支里列表 / 页签条 / 节容器**一字不挂载**）；`[有更新]` 与官方 `Switch` 是它在 `.own-market-rowLine` 里的**同级兄弟**（不在按钮内，故点动作既不用冒泡也不被藏起来），两者由**唯一一枚子块** `EnterpriseMarketSkillRowActions` 渲染（行上与详情里渲染的是同一枚子块、同一份 `facts`、同一个 `onToggleSkill`）。详情子页面是纯函数 `EnterpriseSkillDetailPage`（无 hook、可直接函数调用测试）：**面包屑「返回技能列表」**（`aria-label` 给完整动作语义，点它就是 `onBack` 回列表）+ `h3` 标题 + 版本徽标（官方 `Tag`）+ **等宽标识行**（`skillId`）+ 描述 + 分区 `detailSections` → `detailSection`（文件区：**左文件树 + 右文件预览**）。纯投影 `enterpriseSkillTreeRows`/`enterpriseSkillDefaultFilePath`/`enterpriseSkillFileCountText`/`enterpriseSkillTreeState`/`enterpriseSkillPreviewState` 与文案常量 `ENTERPRISE_SKILL_TREE_*`/`ENTERPRISE_SKILL_PREVIEW_*`/`ENTERPRISE_SKILL_DETAIL_{BACK_TEXT,BACK_LABEL,FILES_TITLE,RETRY}`/`ENTERPRISE_SKILL_CONTENT_FILENAME` 都在出口上；控制器新增详情目标 id 与四组文件状态（树条目 / 在途 / 错误、选中路径、预览正文 / 在途 / 错误）加两个取数 effect（**只在「详情打开 + 该包已装 + 有 store」时发请求**，未装一条都不发；取到树后默认选中并预览 `SKILL.md`；关详情 / 换包即 abort 且迟到结果不回填），并把 `skillPage` 塞进同一份 props。 以下为既有能力：**一份外壳 + 一份逻辑**。共享逻辑只有一处：控制器 hook `useEnterpriseMarketController`（store 订阅与取数、已装真值、安装/卸载动作、失败码归行、页签选中态、行开合态）、模型投影 `enterpriseMarketShellModel(props)`（组件清单行、目录门控、页签文案与计数、折叠态）与行级 facts `enterpriseMarketSkillRowFacts`/`enterpriseMarketPluginRowFacts`（受管态、开关口径、更新判定、两枚签取值、行键与开合、插件开关禁用口径）。目录行由共享子块 `EnterpriseMarketInlineRows` 铺出（技能行 = 图标 + 两行文案 + `[有更新]` + `Switch` + 失败提示；插件行 = 图标 + 两行文案 + 状态点与官方状态词 + `Switch` + 失败提示）。唯一入口 `EnterpriseMarketLegacyPage` 注册到官方 `plugins.item`，经宿主 `EnterpriseMarketShellHost` 接同一份控制器、同一棵外壳与同一个登录弹窗。其余出口：页签真源（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`/`enterpriseMarketTabLabel`）；组件清单与计数摘要投影（`ENTERPRISE_MARKET_COMPONENTS`/`ENTERPRISE_MARKET_PLAN`/`enterpriseMarketComponent` 六件投影）；行投影（`enterpriseMarketPluginRows`/`enterpriseMarketPluginSectionVisible`/`enterpriseMarketSkillRows`/`enterpriseMarketSkillSectionVisible`）；技能行标签与状态投影（`enterpriseMarketSkillVersionTag`/`enterpriseMarketSkillVersionLabel`/`enterpriseMarketSkillCategoryTag`/`enterpriseMarketSkillHasUpdate`/`enterpriseMarketSkillRowHasUpdate`/`enterpriseMarketSkillUpdateTag`/`ENTERPRISE_MARKET_SKILL_UPDATE_LABEL`/`ENTERPRISE_MARKET_SKILL_UPDATE_TAG`/`enterpriseMarketSkillState`/`enterpriseMarketSkillDot`/`enterpriseMarketSkillConfigTag`/`enterpriseMarketSkillStatusLabel`）；插件行状态投影（`enterprisePluginDot`/`enterpriseMarketPluginConfigTag`/`enterpriseMarketPluginStatusLabel`）；行键与开合投影（`enterpriseMarketRowKey`/`enterpriseMarketRowDetailsId`/`enterpriseMarketRowOpen`）；折叠真源（`ENTERPRISE_MARKET_DEFAULT_EXPANDED`/`enterpriseMarketSectionOpen`/`EnterpriseMarketSectionId`/`ENTERPRISE_MARKET_SECTION_IDS`）；失败可见反馈（`EnterpriseMarketActionError`/`enterpriseMarketActionErrorLabel`/`EnterpriseMarketRowError`）；badge 槽（`EnterpriseMarketBadge`/`BadgeView`/`enterpriseMarketVersionTag`）；注册常量 `ENTERPRISE_MARKET_ENTRY_ID`/`ENTERPRISE_MARKET_ENTRY_LABEL`/`ENTERPRISE_MARKET_ENTRY_ORDER`。卡片摘要与详情页正文**不重复同一句**——摘要只在 `summary` 视图出现（官方必渲染的那一份，`EnterpriseMarketSummaryLine`）。 **本刀（版本签只显示版本）**：技能行标题行的版本签**可见文案改成短号**——新增纯投影 `enterpriseMarketSkillVersionLabel`（含 `@` 取**最后一个** `@` 之后那段、不含 `@` 原样返回；空串/仅 `@`/尾部 `@` 一律 undefined = 不出签），行 facts 因此多一枚 `versionLabel`（原 `versionTag` 保留为**完整来源坐标**）；完整坐标挂在签外包装节点 `.own-market-skillVersionHint` 的 `title` 上（官方 `Tag` 的 .d.ts 只声明 tone/className/children、运行期也丢弃多给属性，故用一枚透明包装节点挂悬浮说明），详情页那枚徽标照旧显示**完整坐标**（信息更全）；签自身的类名（`.own-market-tag`/`.own-market-skillVersionTag`）/tone/位置（标题行、紧随标题、在分类签之前）一字未动，分类签与行上其余任何东西（动作区、状态点、开关、失败提示）一律不碰。 **本刀（失败文案降维 + 术语清扫）**：① **失败自愈**——五条员工可见失败路径（技能行装/卸、插件行装/卸、详情里的动作失败、文件树读取失败、文件正文读取失败）全部改渲染共享的 `EnterpriseErrorNotice`：一句人话（消息取 `error-messages.ts` 的唯一映射）+「下一步：…」+ `<details>`「技术信息」里原样保留稳定码（`data-enterprise-error-code`，支持排障照旧取得到）；行内提示的外层类名仍是 `.own-market-inlineError`（形制不变），`role="alert"` 不变，失败**不**禁用开关（再拨一次即重试）的口径不变。② **术语降维**——第三枚页签与它的节标题由「组件/包含的组件」改成「包含内容」，三行开关的无障碍名由 `启用组件 X` 改成 `启用X`、预留说明改成「预留：X暂未接入」；组件行里那条内部模块路径（`dsh-preset / .dshpreset` 等，含 preset 字样）**不再上屏**（数据仍留在 `ENTERPRISE_MARKET_COMPONENTS`，由反向锁用例守着它不上树，`.own-market-rowModule` 死样式一并删除）；详情页的版本徽标前补人话标签「来源」（`ENTERPRISE_SKILL_DETAIL_SOURCE_LABEL`，悬浮说明给出「来源站 / 发布方 @ 版本号」），等宽 `skillId` 行前补「标识」标签与悬浮说明（`ENTERPRISE_SKILL_DETAIL_NAME_LABEL` / `_NAME_TITLE`）；上游技能名里带技术缩写（MCP / YAML / manifest / Manifest / SKILL.md）时，旁边补一句「名称由技能发布方提供…」的人话（`enterpriseSkillUpstreamNameNote` 纯投影，名称与描述一律不改写，未命中不加噪音）。
+ * [OUTPUT]: **一棵目录页外壳 + 一份逻辑 + 一个技能详情子页面**。**本刀（详情子页面 + 文件树）**：技能行**行本体**（图标 + 两行文案）是一枚真 `<button class="own-market-rowOpen">`——点它把面板**整页切到**详情子页面（`EnterpriseMarketLegacyShell` 按 `props.skillPage` 走两个 return 分支：详情那一支里列表 / 页签条 / 节容器**一字不挂载**）；`[有更新]` 与官方 `Switch` 是它在 `.own-market-rowLine` 里的**同级兄弟**（不在按钮内，故点动作既不用冒泡也不被藏起来），两者由**唯一一枚子块** `EnterpriseMarketSkillRowActions` 渲染（行上与详情里渲染的是同一枚子块、同一份 `facts`、同一个 `onToggleSkill`）。详情子页面是纯函数 `EnterpriseSkillDetailPage`（无 hook、可直接函数调用测试）：**面包屑「返回技能列表」**（`aria-label` 给完整动作语义，点它就是 `onBack` 回列表）+ `h3` 标题 + 版本徽标（官方 `Tag`）+ **等宽标识行**（`skillId`）+ 描述 + 分区 `detailSections` → `detailSection`（文件区：**左文件树 + 右文件预览**）。纯投影 `enterpriseSkillTreeRows`/`enterpriseSkillDefaultFilePath`/`enterpriseSkillFileCountText`/`enterpriseSkillTreeState`/`enterpriseSkillPreviewState` 与文案常量 `ENTERPRISE_SKILL_TREE_*`/`ENTERPRISE_SKILL_PREVIEW_*`/`ENTERPRISE_SKILL_DETAIL_{BACK_TEXT,BACK_LABEL,FILES_TITLE,RETRY}`/`ENTERPRISE_SKILL_CONTENT_FILENAME` 都在出口上；控制器新增详情目标 id 与四组文件状态（树条目 / 在途 / 错误、选中路径、预览正文 / 在途 / 错误）加两个取数 effect（**只在「详情打开 + 该包已装 + 有 store」时发请求**，未装一条都不发；取到树后默认选中并预览 `SKILL.md`；关详情 / 换包即 abort 且迟到结果不回填），并把 `skillPage` 塞进同一份 props。 以下为既有能力：**一份外壳 + 一份逻辑**。共享逻辑只有一处：控制器 hook `useEnterpriseMarketController`（store 订阅与取数、已装真值、安装/卸载动作、失败码归行、页签选中态、行开合态）、模型投影 `enterpriseMarketShellModel(props)`（组件清单行、目录门控、页签文案与计数、折叠态）与行级 facts `enterpriseMarketSkillRowFacts`/`enterpriseMarketPluginRowFacts`（受管态、开关口径、更新判定、两枚签取值、行键与开合、插件开关禁用口径）。目录行由共享子块 `EnterpriseMarketInlineRows` 铺出（技能行 = 图标 + 两行文案 + `[有更新]` + `Switch` + 失败提示；插件行 = 图标 + 两行文案 + 状态点与官方状态词 + `Switch` + 失败提示）。唯一入口 `EnterpriseMarketLegacyPage` 注册到官方 `plugins.item`，经宿主 `EnterpriseMarketShellHost` 接同一份控制器、同一棵外壳与同一个登录弹窗。其余出口：页签真源（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`/`enterpriseMarketTabLabel`）；组件清单与计数摘要投影（`ENTERPRISE_MARKET_COMPONENTS`/`ENTERPRISE_MARKET_PLAN`/`enterpriseMarketComponent` 六件投影）；行投影（`enterpriseMarketPluginRows`/`enterpriseMarketPluginSectionVisible`/`enterpriseMarketSkillRows`/`enterpriseMarketSkillSectionVisible`）；技能行标签与状态投影（`enterpriseMarketSkillVersionTag`/`enterpriseMarketSkillVersionLabel`/`enterpriseMarketSkillCategoryTag`/`enterpriseMarketSkillHasUpdate`/`enterpriseMarketSkillRowHasUpdate`/`enterpriseMarketSkillUpdateTag`/`ENTERPRISE_MARKET_SKILL_UPDATE_LABEL`/`ENTERPRISE_MARKET_SKILL_UPDATE_TAG`/`enterpriseMarketSkillState`/`enterpriseMarketSkillDot`/`enterpriseMarketSkillConfigTag`/`enterpriseMarketSkillStatusLabel`）；插件行状态投影（`enterprisePluginDot`/`enterpriseMarketPluginConfigTag`/`enterpriseMarketPluginStatusLabel`）；行键与开合投影（`enterpriseMarketRowKey`/`enterpriseMarketRowDetailsId`/`enterpriseMarketRowOpen`）；折叠真源（`ENTERPRISE_MARKET_DEFAULT_EXPANDED`/`enterpriseMarketSectionOpen`/`EnterpriseMarketSectionId`/`ENTERPRISE_MARKET_SECTION_IDS`）；失败可见反馈（`EnterpriseMarketActionError`/`enterpriseMarketActionErrorLabel`/`EnterpriseMarketRowError`）；badge 槽（`EnterpriseMarketBadge`/`BadgeView`/`enterpriseMarketVersionTag`）；注册常量 `ENTERPRISE_MARKET_ENTRY_ID`/`ENTERPRISE_MARKET_ENTRY_LABEL`/`ENTERPRISE_MARKET_ENTRY_ORDER`。卡片摘要与详情页正文**不重复同一句**——摘要只在 `summary` 视图出现（官方必渲染的那一份，`EnterpriseMarketSummaryLine`）。 **本刀（版本签只显示版本）**：技能行标题行的版本签**可见文案改成短号**——新增纯投影 `enterpriseMarketSkillVersionLabel`（含 `@` 取**最后一个** `@` 之后那段、不含 `@` 原样返回；空串/仅 `@`/尾部 `@` 一律 undefined = 不出签），行 facts 因此多一枚 `versionLabel`（原 `versionTag` 保留为**完整来源坐标**）；完整坐标挂在签外包装节点 `.own-market-skillVersionHint` 的 `title` 上（官方 `Tag` 的 .d.ts 只声明 tone/className/children、运行期也丢弃多给属性，故用一枚透明包装节点挂悬浮说明），详情页那枚徽标照旧显示**完整坐标**（信息更全）；签自身的类名（`.own-market-tag`/`.own-market-skillVersionTag`）/tone/位置（标题行、紧随标题、在分类签之前）一字未动，分类签与行上其余任何东西（动作区、状态点、开关、失败提示）一律不碰。 **本刀（失败文案降维 + 术语清扫）**：① **失败自愈**——五条员工可见失败路径（技能行装/卸、插件行装/卸、详情里的动作失败、文件树读取失败、文件正文读取失败）全部改渲染共享的 `EnterpriseErrorNotice`：一句人话（消息取 `error-messages.ts` 的唯一映射）+「下一步：…」+ `<details>`「技术信息」里原样保留稳定码（`data-enterprise-error-code`，支持排障照旧取得到）；行内提示的外层类名仍是 `.own-market-inlineError`（形制不变），`role="alert"` 不变，失败**不**禁用开关（再拨一次即重试）的口径不变。② **术语降维**——第三枚页签与它的节标题由「组件/包含的组件」改成「包含内容」，三行开关的无障碍名由 `启用组件 X` 改成 `启用X`、预留说明改成「预留：X暂未接入」；组件行里那条内部模块路径（`dsh-preset / .dshpreset` 等，含 preset 字样）**不再上屏**（数据仍留在 `ENTERPRISE_MARKET_COMPONENTS`，由反向锁用例守着它不上树，`.own-market-rowModule` 死样式一并删除）；详情页的版本徽标前补人话标签「来源」（`ENTERPRISE_SKILL_DETAIL_SOURCE_LABEL`，悬浮说明给出「来源站 / 发布方 @ 版本号」），等宽 `skillId` 行前补「标识」标签与悬浮说明（`ENTERPRISE_SKILL_DETAIL_NAME_LABEL` / `_NAME_TITLE`）；上游技能名里带技术缩写（MCP / YAML / manifest / Manifest / SKILL.md）时，旁边补一句「名称由技能发布方提供…」的人话（`enterpriseSkillUpstreamNameNote` 纯投影，名称与描述一律不改写，未命中不加噪音）。 **本刀（静默吞失败 → 显式失败态 + 可重试）**：新增唯一取数源工厂 `createEnterpriseSkillCatalogSource` 与唯一加载器 `loadEnterpriseSkillCatalog`（目录是主事实、失败原样抛；已装清单与逐行详情是次级事实、失败经 `enterpriseDegradedRead` 交出失败码）、四态投影 `enterpriseMarketPanelState` 与文案常量 `ENTERPRISE_MARKET_{SKILLS,PLUGINS}_{LOADING,EMPTY,FAILED}`、共享三态落点 `EnterpriseMarketListHint` 与次级降级交代 `EnterpriseMarketDegradedNotice`；控制器改为 `useSyncExternalStore` 订阅取数源（`skillsListState` + `onRetrySkills`），插件目录由 store 快照投影成 `pluginsListState` + `onRetryPlugins`——两个目录页签的加载/空/失败三态由此显式化，失败与空不再混同（失败 = 唯一提示组件 + 真重发）。
  * [POS]: ui 的企业市场入口（**唯一入口：官方插件页「官方」分组里的「插件市场」卡片**）。**本刀（详情子页面）**：技能行本体可点 → 面板整页切到该技能的详情子页面；**面板就是官方 `plugins.item` 的 page 视图、没有真实路由，故用一份视图状态切换（`skillDetailId` → `skillPage`），不硬造路由**。「返回技能列表」是唯一返回入口（面包屑按钮，键盘可达）。详情里的动作与行上**同源**：同一枚 `EnterpriseMarketSkillRowActions`、同一份 `enterpriseMarketSkillRowFacts`、同一个 `onToggleSkill` 回调、同一份 `skillActionError`，因此不存在第二套状态或第二个动作实现。文件树与预览只消费 Host 已有的两条只读子路由（`/enterprise/api/v1/local/skills/<id>/files` 与 `.../<id>/file?path=`，经 `store.api.skillFiles`/`store.api.skillFile` 发出）；**未安装就一条请求都不发**、如实说「安装后可浏览文件」，绝不伪造树；默认选中并预览 `SKILL.md`；预览是 `<pre>` 里的**纯文本子节点**（全文件无 `dangerouslySetInnerHTML`），长文件靠 `max-height` 滚动 + 字节提示；读取失败给 `role="alert"` + 稳定错误码 + 重试。**只读正文路由 `/skills/content` 按用户要求保留**（Host 侧注册与既有单测不动），本页统一走文件路由那一份路径实现。 以下为既有能力：企业插件行与组件行**不给**详情入口（用户只要求技能行；插件行本轮一字未动，组件行是交付排期清单）。**目录行的落点与行为**：点行本体进详情；`[有更新]`（真实 `<button>`，点击 = 更新到中心当前版本）与安装/卸载 `Switch` **常显在行上**且不触发详情；失败给 `role="alert"` + 稳定错误码且**不禁用**开关（再拨一次就是重试）。**三页签**（企业技能默认 / 企业插件 / 组件）共用 `EnterpriseMarketTabStrip` 一份实现：手写 `role="tablist"` + roving `tabIndex` + ←/→/Home/End 走焦并选中，`id`/`aria-controls`/`aria-labelledby` 三处同源；组件节是唯一还保留折叠语义的一节（折叠态列表整段不进 DOM）。**严禁**任何价格/交易/购买/购物车/客服之类的商业化字样——全树文本都不出现（由测试反向锁死）。`store` 与开登录回调均为可选注入：缺席时开关恒禁用、会话不可用时目录节不出现。**样式纪律**：本文件的类名与同包其他源文件**零交集**（两处 `<style>` 都是全局单类选择器，同名会互相覆盖）；主题只用 `--dsw-*` token，不新造颜色。 **本刀（版本签短号）**：真实 `sourceDshVersion` 是完整坐标（`skillhub.cn/dev-expert@2.0.3`），整串会把标题挤成一个字（真机截图已证）；故**列表里只显示版本号**（`enterpriseMarketSkillVersionLabel`，最后一个 `@` 之后），**完整坐标在签的 `title` 与详情徽标**；既有技能（无 `@` 的 `0.1.7-rc.2` 形态）显示形式一字不变，签的类名/tone/位置与行上其他东西不动。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,14 +10,23 @@ import { BookMarked, ChevronDown, FileText, Folder, Package, RefreshCw, Sparkles
 import { Button, StateDot, Switch, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { KeyboardEvent, ReactNode } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { enterpriseSessionUsable, useAccount } from './account-state.js'
 import type { EnterpriseAccountStore } from './account-store.js'
 import { formatByteSize } from './display-format.js'
 import { enterprisePluginStatePresentation } from './plugin-market.js'
-import type { EnterpriseInstalledSkill, EnterpriseInstalledSkillFile, EnterprisePluginCatalogItem, EnterprisePluginItem, EnterpriseRuntimeSkill, EnterpriseSkillFileEntry, ManagedPluginState } from './local-api-decode.js'
+import type { EnterpriseInstalledSkill, EnterpriseInstalledSkillFile, EnterpriseLocalApi, EnterprisePluginCatalogItem, EnterprisePluginItem, EnterpriseRuntimeSkill, EnterpriseSkillFileEntry, ManagedPluginState } from './local-api-decode.js'
 import { enterpriseLocalErrorCode } from './local-api-decode.js'
 import { EnterpriseErrorNotice } from './error-notice.js'
+import { enterpriseErrorPresentation } from './error-messages.js'
+import {
+  ENTERPRISE_LIST_RETRY,
+  ENTERPRISE_LIST_RETRY_LABEL,
+  createEnterpriseListSource,
+  enterpriseDegradedRead,
+  type EnterpriseListSource,
+  type EnterpriseListState,
+} from './list-state.js'
 import { EnterpriseLoginDialog, useEnterpriseLoginDialog } from './login-dialog.js'
 
 /** 本入口在官方插件页占用的 slot id，同时是卡片 DOM 的 `data-plugin-item` 与详情页路由键。 */
@@ -179,6 +188,21 @@ export interface EnterpriseMarketShellProps {
    */
   readonly enterpriseSkills?: readonly EnterpriseMarketSkillRow[] | undefined
   /**
+   * 「企业技能」页签的**取数状态**（控制器从唯一取数源 `createEnterpriseSkillCatalogSource` 订阅得来）。
+   * 它把「加载中 / 空 / 失败 / 就绪」四态显式交给外壳：缺席（纯函数直调 / 老调用方）即按行数的旧口径回落，
+   * 真运行时一定注入——所以「目录取数失败」有自己的那一态，而不是一片空白加计数 0。
+   */
+  readonly skillsListState?: EnterpriseListState<EnterpriseSkillCatalog> | undefined
+  /** 「企业技能」页签失败态的重试（真的重发一次取数）；缺席即不渲染重试按钮（不给死按钮）。 */
+  readonly onRetrySkills?: (() => void) | undefined
+  /**
+   * 「企业插件」页签的取数状态（插件目录由账号 store 取；控制器把 `pluginsLoading`/`pluginErrorCode`
+   * 与已取到的目录合成本状态）。与技能页签同形：缺席即按行数旧口径回落。
+   */
+  readonly pluginsListState?: EnterpriseListState<readonly EnterpriseMarketPluginRow[]> | undefined
+  /** 「企业插件」页签失败态的重试（请 store 重新取一次企业插件投影）。 */
+  readonly onRetryPlugins?: (() => void) | undefined
+  /**
    * 本机已装技能记录（Host 真值）：「已装」只认这份记录里的 `packageId`；「有更新」只用它的 `versionId`
    * 比行上的 `latestVersionId`（两侧都非空且不等）。缺席时所有行显示未装、开关一律关，两层外壳都不猜。
    */
@@ -311,6 +335,129 @@ export function enterpriseMarketPluginSectionVisible(
 ): boolean {
   return pluginsComponentEnabled && rows.length > 0
 }
+
+/**
+ * 一个目录页签内容区的**四态投影**（纯函数，测试直调）：隐藏 / 加载中 / 空 / 失败 / 就绪。
+ *
+ * 「隐藏」只在对应大组件未开启（会话不可用）时出现——与既有门控一字不变；
+ * 一旦组件开启，就**必须**命中其余四态之一：取数期间给轻提示（不空白）、空列表说清为什么空、
+ * 失败给人话 + 下一步 + 重试。**失败绝不再回落成空列表**（本刀要消灭的正是 `catch(() => [])` 那个静默）。
+ */
+export type EnterpriseMarketPanelState =
+  | { readonly kind: 'hidden' }
+  | { readonly kind: 'loading'; readonly hint: string }
+  | { readonly kind: 'empty'; readonly hint: string }
+  | { readonly kind: 'failed'; readonly code: string; readonly prefix: string }
+  | { readonly kind: 'ready' }
+
+/**
+ * 由「组件是否开启 + 列表取数状态 + 行数」投影出一个页签内容区该说什么（纯函数）。
+ *
+ * `list` 缺席（纯函数直调 / 老调用方）时**严格保持旧口径**：有行就就绪、没有行就隐藏；
+ * 真运行时控制器一定会注入 `list`，因此空目录会落到 `empty`（有交代）而不是「什么都没有」。
+ */
+export function enterpriseMarketPanelState<T>(input: {
+  readonly enabled: boolean
+  readonly loadingHint: string
+  readonly emptyHint: string
+  readonly failedPrefix: string
+  readonly list?: EnterpriseListState<T> | undefined
+  readonly rowCount: number
+}): EnterpriseMarketPanelState {
+  if (!input.enabled) return { kind: 'hidden' }
+  const list = input.list
+  if (list === undefined) return input.rowCount > 0 ? { kind: 'ready' } : { kind: 'hidden' }
+  if (list.kind === 'loading') return { kind: 'loading', hint: input.loadingHint }
+  if (list.kind === 'empty') return { kind: 'empty', hint: input.emptyHint }
+  if (list.kind === 'failed') return { kind: 'failed', code: list.code, prefix: input.failedPrefix }
+  return { kind: 'ready' }
+}
+
+/** 「企业技能」页签取数中的轻提示（首帧就看得见，不空白、不跳版）。 */
+export const ENTERPRISE_MARKET_SKILLS_LOADING = '正在加载企业技能…'
+/** 「企业技能」页签取数成功但列表为空：说清「为什么空」+ 下一步。 */
+export const ENTERPRISE_MARKET_SKILLS_EMPTY = '企业还没有发布任何技能。请联系企业管理员发布，或稍后刷新再看。'
+/** 「企业技能」页签取数失败的动作前缀（人话与下一步由 `error-messages.ts` 的唯一映射给）。 */
+export const ENTERPRISE_MARKET_SKILLS_FAILED = '技能目录加载失败'
+/** 「企业插件」页签取数中的轻提示。 */
+export const ENTERPRISE_MARKET_PLUGINS_LOADING = '正在加载企业插件…'
+/** 「企业插件」页签取数成功但列表为空。 */
+export const ENTERPRISE_MARKET_PLUGINS_EMPTY = '企业还没有发布任何插件。请联系企业管理员发布，或稍后刷新再看。'
+/** 「企业插件」页签取数失败的动作前缀。 */
+export const ENTERPRISE_MARKET_PLUGINS_FAILED = '插件目录加载失败'
+
+/**
+ * 「企业技能」页签的一份取数结果。
+ *
+ * 主事实是 `rows`（目录 + 已装行的中心当前版本归并后的行投影），`installed` 决定每行开关的 checked。
+ * `installedCode` / `detailCode` 是**次级取数降级**的如实交代（旧 Host 没有 `/skills/installed`、
+ * 某一行详情没读出来）：目录照列，但界面必须说明「这份事实没读出来」+ 可重试——
+ * 绝不 `catch(() => [])` 把失败变成「企业技能 0」或「全部未装」。
+ */
+export interface EnterpriseSkillCatalog {
+  readonly rows: readonly EnterpriseMarketSkillRow[]
+  readonly installed: readonly EnterpriseInstalledSkill[]
+  /** 本机已装清单这次没读出来（降级为「未知」）：稳定码原样保留。 */
+  readonly installedCode?: string | undefined
+  /** 至少有一行的中心详情没读出来（该行无法判「有更新」）：稳定码原样保留。 */
+  readonly detailCode?: string | undefined
+}
+
+/**
+ * 「企业技能」页签**唯一**的取数实现（非 React，可注入假 api 直测）。
+ *
+ * 三条口径：
+ *  ① 目录（`skills()`）失败**原样抛出**——由 `createEnterpriseSkillCatalogSource` 收敛成显式失败态，
+ *     绝不再回落空目录（改前是 `.catch(() => [] as readonly EnterpriseRuntimeSkill[])`，用户只见「企业技能 0」+ 空白）；
+ *  ② 已装清单与逐行详情是**次级事实**，允许降级，但降级要**交出失败码**（`installedCode`/`detailCode`），
+ *     由界面如实说明「这份事实没读出来」+ 可重试（`enterpriseDegradedRead` 的显式降级，不是静默默认值）；
+ *  ③ 迟到的结果由取数源的代际守卫丢弃（此处只负责把 `signal` 透传给每一个请求）。
+ *
+ * @param api - 同源本地 API（只用到 `skills`/`installedSkills`/`skillDetail` 三个只读方法）。
+ * @param signal - 取数源的取消信号（中止后所有在途请求一并作废）。
+ * @returns 行投影 + 已装清单 + 两个次级取数的降级码。
+ */
+export async function loadEnterpriseSkillCatalog(
+  api: Pick<EnterpriseLocalApi, 'skills' | 'installedSkills' | 'skillDetail'>,
+  signal: AbortSignal,
+): Promise<EnterpriseSkillCatalog> {
+  // 两条取数并行：目录是主事实（失败即抛，收敛成失败态），已装清单是次级事实（失败降级 + 记码）。
+  const [items, installedRead] = await Promise.all([
+    api.skills(signal),
+    enterpriseDegradedRead(api.installedSkills(signal), [] as readonly EnterpriseInstalledSkill[]),
+  ])
+  // 只对**已装行**按需取详情（中心列表投影不带 `versionId`；没有本机版本的未装行无从比较）：
+  // 某行详情失败即如实记下失败码（该行不判「有更新」，界面在列表顶部说明这份事实没读全 + 可重试）。
+  const detailReads = await Promise.all(installedRead.value.map(record =>
+    enterpriseDegradedRead(api.skillDetail(record.packageId, signal), undefined as EnterpriseRuntimeSkill | undefined),
+  ))
+  const details = detailReads.flatMap(read => (read.value === undefined ? [] : [read.value]))
+  const detailCode = detailReads.find(read => read.code !== undefined)?.code
+  return {
+    rows: enterpriseMarketSkillRows(items, details),
+    installed: installedRead.value,
+    ...(installedRead.code === undefined ? {} : { installedCode: installedRead.code }),
+    ...(detailCode === undefined ? {} : { detailCode }),
+  }
+}
+
+/**
+ * 「企业技能」页签的取数源（唯一实例由控制器持有；组件只是它的订户）。
+ * 重试 = `source.retry()`，**真的重发**目录 + 已装 + 详情（见 `tests/list-state.spec.ts` 的请求计数取证）。
+ */
+export function createEnterpriseSkillCatalogSource(
+  api: Pick<EnterpriseLocalApi, 'skills' | 'installedSkills' | 'skillDetail'>,
+): EnterpriseListSource<EnterpriseSkillCatalog> {
+  return createEnterpriseListSource<EnterpriseSkillCatalog>({
+    load: signal => loadEnterpriseSkillCatalog(api, signal),
+    isEmpty: catalog => catalog.rows.length === 0,
+  })
+}
+
+/** 没有 store（卡片视图 / 纯函数直调）时 `useSyncExternalStore` 用的恒定快照与空订阅：引用必须稳定。 */
+const ENTERPRISE_MARKET_CATALOG_LOADING: EnterpriseListState<EnterpriseSkillCatalog> = { kind: 'loading' }
+const ENTERPRISE_MARKET_CATALOG_SNAPSHOT = (): EnterpriseListState<EnterpriseSkillCatalog> => ENTERPRISE_MARKET_CATALOG_LOADING
+const ENTERPRISE_MARKET_CATALOG_SUBSCRIBE = (): (() => void) => () => undefined
 
 /**
  * 「企业技能」节的一行：企业后台上传的技能包。
@@ -717,6 +864,10 @@ export interface EnterpriseMarketShellModel {
   readonly skillsVisible: boolean
   /** 「企业插件」页签门控通过（插件组件开启**且**目录非空）。 */
   readonly pluginsVisible: boolean
+  /** 「企业技能」页签内容区此刻该画什么（隐藏 / 加载中 / 空 / 失败 / 就绪——四态互斥）。 */
+  readonly skillsPanel: EnterpriseMarketPanelState
+  /** 「企业插件」页签内容区此刻该画什么（同上）。 */
+  readonly pluginsPanel: EnterpriseMarketPanelState
   /** 实际渲染的技能行（搜索框退场后 = 目录原样，顺序与条数都不动）。 */
   readonly visibleSkills: readonly EnterpriseMarketSkillRow[]
   /** 实际渲染的插件行（同上）。 */
@@ -741,8 +892,28 @@ export function enterpriseMarketShellModel(props: EnterpriseMarketShellProps): E
     switchDisabled: enterpriseMarketComponentSwitchDisabled(row.id, sessionUsable, hasLoginAction),
   }))
   // 两个目录页签的门控同规则：只在对应大组件开启（= 会话可用）且目录非空时出内容。
-  const skillsVisible = enterpriseMarketSkillSectionVisible(enterpriseMarketComponentEnabled('skills', sessionUsable), enterpriseSkills)
-  const pluginsVisible = enterpriseMarketPluginSectionVisible(enterpriseMarketComponentEnabled('plugins', sessionUsable), enterprisePlugins)
+  const skillsEnabled = enterpriseMarketComponentEnabled('skills', sessionUsable)
+  const pluginsEnabled = enterpriseMarketComponentEnabled('plugins', sessionUsable)
+  const skillsVisible = enterpriseMarketSkillSectionVisible(skillsEnabled, enterpriseSkills)
+  const pluginsVisible = enterpriseMarketPluginSectionVisible(pluginsEnabled, enterprisePlugins)
+  // 内容区四态：组件未开启 → 隐藏（既有门控一字不变）；开启后取数状态说话——加载中/空/失败/就绪各有一态，
+  // 失败态与空态**绝不混同**（失败要人话 + 下一步 + 重试，空要说清为什么空）。
+  const skillsPanel = enterpriseMarketPanelState<EnterpriseSkillCatalog>({
+    enabled: skillsEnabled,
+    loadingHint: ENTERPRISE_MARKET_SKILLS_LOADING,
+    emptyHint: ENTERPRISE_MARKET_SKILLS_EMPTY,
+    failedPrefix: ENTERPRISE_MARKET_SKILLS_FAILED,
+    rowCount: enterpriseSkills.length,
+    list: props.skillsListState,
+  })
+  const pluginsPanel = enterpriseMarketPanelState<readonly EnterpriseMarketPluginRow[]>({
+    enabled: pluginsEnabled,
+    loadingHint: ENTERPRISE_MARKET_PLUGINS_LOADING,
+    emptyHint: ENTERPRISE_MARKET_PLUGINS_EMPTY,
+    failedPrefix: ENTERPRISE_MARKET_PLUGINS_FAILED,
+    rowCount: enterprisePlugins.length,
+    list: props.pluginsListState,
+  })
   // 目录行**不做任何过滤**：搜索框随独立应用商店外壳一起退场后，`visible*` 就是目录原样
   // （字段名保留是因为共享行子块与行键投影读它；将来若再要过滤，唯一落点仍是这一行）。
   const visibleSkills = [...enterpriseSkills]
@@ -769,6 +940,8 @@ export function enterpriseMarketShellModel(props: EnterpriseMarketShellProps): E
     tabCounts,
     skillsVisible,
     pluginsVisible,
+    skillsPanel,
+    pluginsPanel,
     visibleSkills,
     visiblePlugins,
   }
@@ -960,6 +1133,13 @@ const baseStyles = `
    （error 色 + 12/19 + 左对齐 + 无内衬）。那份 CSS 归 skill-market 的 <style> 持有、切到本页时并不在 DOM，
    故这里补一份同值规则，不借道未挂载的样式表。 */
 .own-market-inlineError{padding:0;text-align:left;font-size:12px;line-height:19px;overflow-wrap:anywhere;color:var(--dsw-alias-state-error-primary,#c4320a)}
+/* 目录页签内容区的三态落点（加载中 / 空 / 失败）：与行内失败提示同一份字号与色板。
+   取值刻意中性（次级色），失败那一步的红由 .own-market-inlineError 承担——加载与空不是错误。 */
+.own-market-listState{padding:10px 0;font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary,#667085)}
+.own-market-listHint{margin:0}
+.own-market-listRetry{margin-top:8px}
+/* 次级取数降级的可见交代：非打扰（不是错误色、不是 alert），但看得见 + 可重试。 */
+.own-market-degraded{margin:8px 0;color:var(--dsw-alias-label-secondary,#667085);font-size:12.5px;line-height:19px;overflow-wrap:anywhere}
 `
 
 /**
@@ -1217,6 +1397,67 @@ export function EnterpriseMarketRowError({ error, id }: {
       code={error.code}
       prefix={enterpriseMarketActionErrorLabel(error)}
     />
+  )
+}
+
+/**
+ * **目录页签内容区的三态落点**（两套外壳共用；加载中 / 空 / 失败）。
+ * 就绪态由调用方直接铺行（`EnterpriseMarketInlineRows`），这里只负责「还没有行」的那三种：
+ *  · 加载中：`role="status"` 的轻提示（首帧就看得见，不空白）；
+ *  · 空：说清「为什么空」+ 下一步（不是失败、也不假装没数据）；
+ *  · 失败：复用唯一提示组件（人话 + 下一步 + 「技术信息」里的码）+ 重试按钮（**真的重发**取数）。
+ * 重试回调缺席时不渲染按钮（照本仓「不给死按钮」的既有降级口径）。
+ */
+export function EnterpriseMarketListHint({ state, onRetry }: {
+  readonly state: EnterpriseMarketPanelState
+  readonly onRetry?: (() => void) | undefined
+}): ReactNode {
+  if (state.kind === 'hidden' || state.kind === 'ready') return null
+  return (
+    <div className="own-market-listState" data-market-list-state={state.kind}>
+      {state.kind === 'failed' ? (
+        <>
+          <EnterpriseErrorNotice className="own-market-inlineError" code={state.code} prefix={state.prefix} />
+          {onRetry === undefined ? null : (
+            <div className="own-market-listRetry">
+              <Button size="sm" icon={<RefreshCw aria-hidden size={14} />} aria-label={ENTERPRISE_LIST_RETRY_LABEL}
+                onClick={() => { onRetry() }}>
+                {ENTERPRISE_LIST_RETRY}
+              </Button>
+            </div>
+          )}
+        </>
+      ) : (
+        <p className="own-market-listHint" role="status">{state.hint}</p>
+      )}
+    </div>
+  )
+}
+
+/**
+ * **次级取数降级的可见交代**（非打扰但可见）：目录本身读到了，但「已装状态」或「部分技能的最新版本」
+ * 这次没读出来——这句话如实说明是哪一件事实没读全，并给按钮重试整份取数。
+ *
+ * 措辞**全部取自唯一映射**（`error-messages.ts` 的人话与下一步），本组件不新造第二套错误文案；
+ * 用 `role="status"`（不是 `alert`）：它是降级提示，不是打断。
+ */
+export function EnterpriseMarketDegradedNotice({ code, subject, onRetry }: {
+  readonly code: string
+  /** 没读全的那件事实（如「已装状态」「部分技能的最新版本」）。 */
+  readonly subject: string
+  readonly onRetry?: (() => void) | undefined
+}): ReactNode {
+  const presentation = enterpriseErrorPresentation(code)
+  return (
+    <p className="own-market-degraded" role="status">
+      {`${subject}暂时没有读取到：${presentation.message}下一步：${presentation.action}`}
+      {onRetry === undefined ? null : (
+        <Button size="sm" icon={<RefreshCw aria-hidden size={14} />} aria-label={ENTERPRISE_LIST_RETRY_LABEL}
+          onClick={() => { onRetry() }}>
+          {ENTERPRISE_LIST_RETRY}
+        </Button>
+      )}
+    </p>
   )
 }
 
@@ -1892,19 +2133,36 @@ export function EnterpriseMarketLegacyShell(props: EnterpriseMarketShellProps): 
       <style>{baseStyles}{rowStyles}</style>
       <EnterpriseMarketTabStrip model={model} onSelectTab={props.onSelectTab} />
       {/* 「企业技能」页签（默认页签，用户主战场）：与企业插件页签同规则——「技能」大组件开启（= 会话可用）
-          且目录非空才出现。列的是后台分配（预置）的全部技能：未装的照列，装不装由用户拨右侧那枚开关决定。 */}
+          且目录非空才出现。列的是后台分配（预置）的全部技能：未装的照列，装不装由用户拨右侧那枚开关决定。
+          **内容区四态**：就绪铺行；加载中 / 空 / 失败各有一态（失败 = 人话 + 下一步 + 重试，绝不假装「没有数据」）。 */}
       <EnterpriseMarketPanel tab="skills" activeTab={model.activeTab}>
-        {model.activeTab === 'skills' && model.skillsVisible ? (
+        {model.activeTab === 'skills' && model.skillsPanel.kind !== 'hidden' ? (
           <section className="own-market-section" data-market-section="enterprise-skills">
-            <EnterpriseMarketInlineRows tab="skills" model={model} props={props} />
+            {model.skillsPanel.kind === 'ready' ? ([
+              <EnterpriseMarketInlineRows key="rows" tab="skills" model={model} props={props} />,
+              // 次级取数降级的可见交代（已装状态 / 部分技能的最新版本没读全）：非打扰但看得见 + 可重试。
+              // 用数组而不是 Fragment：行的结构大纲是既有取证点，Fragment 会在其中留下一个不透明节点。
+              props.skillsListState?.kind === 'ready' && props.skillsListState.value.installedCode !== undefined
+                ? <EnterpriseMarketDegradedNotice key="installed-degraded" code={props.skillsListState.value.installedCode} subject="本机已装状态" onRetry={props.onRetrySkills} />
+                : null,
+              props.skillsListState?.kind === 'ready' && props.skillsListState.value.detailCode !== undefined
+                ? <EnterpriseMarketDegradedNotice key="detail-degraded" code={props.skillsListState.value.detailCode} subject="部分技能的最新版本" onRetry={props.onRetrySkills} />
+                : null,
+            ]) : (
+              <EnterpriseMarketListHint state={model.skillsPanel} onRetry={props.onRetrySkills} />
+            )}
           </section>
         ) : null}
       </EnterpriseMarketPanel>
-      {/* 「企业插件」页签内容：仅当「插件」大组件开启时出现，列企业后台上传的真实插件目录。 */}
+      {/* 「企业插件」页签内容：仅当「插件」大组件开启时出现，列企业后台上传的真实插件目录（四态同技能页签）。 */}
       <EnterpriseMarketPanel tab="plugins" activeTab={model.activeTab}>
-        {model.activeTab === 'plugins' && model.pluginsVisible ? (
+        {model.activeTab === 'plugins' && model.pluginsPanel.kind !== 'hidden' ? (
           <section className="own-market-section" data-market-section="enterprise-plugins">
-            <EnterpriseMarketInlineRows tab="plugins" model={model} props={props} />
+            {model.pluginsPanel.kind === 'ready' ? (
+              <EnterpriseMarketInlineRows tab="plugins" model={model} props={props} />
+            ) : (
+              <EnterpriseMarketListHint state={model.pluginsPanel} onRetry={props.onRetryPlugins} />
+            )}
           </section>
         ) : null}
       </EnterpriseMarketPanel>
@@ -1939,9 +2197,11 @@ export interface EnterpriseMarketController {
  * ——取数、动作、失败处理与状态归属在这里只有一份，外壳只负责画。
  *
  * 技能目录不在 store 快照里，故按会话可用性就地取（`store.api.skills()`，同源固定路径）；
- * 取数失败/未登录都收敛成空目录——两个目录页签据此不出内容，不残留半个错误态。
+ * **取数状态只有一个来源**——唯一取数源 `createEnterpriseSkillCatalogSource`（本 hook 用 `useSyncExternalStore` 订阅它）：
+ * 加载中 / 空 / 失败 / 就绪四态互斥，失败**不**回落成空目录（那是本刀消灭的静默），空也不再与失败混同。
  * 已装态与目录**并行**取（`store.api.installedSkills()`），并**只对已装行**再补一次详情
  * （`store.api.skillDetail(id)`：中心列表投影的 `versionId` 恒为空串，判定「有更新」只能靠详情里的它）；
+ * 这两条是**次级事实**：失败不拖垮目录，但要如实交码，由界面出一句「暂时没有读取到」+ 可重试。
  * 已装只用来决定那枚开关的 checked / disabled 与辅助动作出不出现，本页不做乐观切换。
  * @param props - `view` 透传入口侧视图（`summary` 不预取技能目录）；`store` 由注册面的 `inject` 注入。
  * @returns 一份外壳 props + 登录弹窗的最小接线。
@@ -1980,43 +2240,61 @@ export function useEnterpriseMarketController({ view, store }: {
   const local = pluginStatus?.plugins ?? []
   const enterprisePlugins = enterpriseMarketPluginRows(catalog, local)
   // 技能目录：只在 `page` 视图（企业技能页签的宿主）+ 有 store + 会话可用时取；卡片视图不预取。
-  // 会话不可用/取数失败一律回落空目录（页签随之不出现）；依赖变化即中止在途请求，避免迟到结果跨会话回填。
-  const [enterpriseSkills, setEnterpriseSkills] = useState<readonly EnterpriseMarketSkillRow[]>([])
-  const [installedSkills, setInstalledSkills] = useState<readonly EnterpriseInstalledSkill[]>([])
-  const [pendingSkill, setPendingSkill] = useState<EnterpriseMarketSkillPending>()
+  // **取数状态只有一个来源**：下面这个非 React 的取数源（`useSyncExternalStore` 订阅它）。
+  // 会话不可用 / 依赖变化即 `reset()`（中止在途、回到初始加载态），迟到结果由源的代际守卫丢弃。
+  const catalogApi = store?.api
+  const catalogSource = useMemo(
+    () => (catalogApi === undefined ? undefined : createEnterpriseSkillCatalogSource(catalogApi)),
+    [catalogApi],
+  )
+  // 没有 store（卡片视图 / 纯函数直调）时那份恒定的「加载中」快照：`useSyncExternalStore` 要求引用稳定。
+  const catalogState: EnterpriseListState<EnterpriseSkillCatalog> = useSyncExternalStore(
+    catalogSource?.subscribe ?? ENTERPRISE_MARKET_CATALOG_SUBSCRIBE,
+    catalogSource?.getSnapshot ?? ENTERPRISE_MARKET_CATALOG_SNAPSHOT,
+    catalogSource?.getSnapshot ?? ENTERPRISE_MARKET_CATALOG_SNAPSHOT,
+  )
   useEffect(() => {
-    if (view !== 'page' || !hasStore || !sessionUsable) {
-      setEnterpriseSkills([])
-      setInstalledSkills([])
+    if (catalogSource === undefined) return
+    if (view !== 'page' || !sessionUsable) {
+      catalogSource.reset()
       return
     }
-    const controller = new AbortController()
-    // 两条取数各自兜底：目录失败回落空目录（页签消失），已装清单失败只回落全部未装（不拖垮目录）。
-    const api = store!.api
-    void Promise.all([
-      api.skills(controller.signal).catch(() => [] as readonly EnterpriseRuntimeSkill[]),
-      api.installedSkills(controller.signal).catch(() => [] as readonly EnterpriseInstalledSkill[]),
-    ])
-      .then(async ([items, installed]) => {
-        if (controller.signal.aborted) return
-        setInstalledSkills(installed)
-        // 中心列表投影不带 `versionId`（`skill-api-decode` 写死空串），只有 `GET /skills/{id}` 详情才是真值，
-        // 故**只对已装行**按需取详情：没有本机版本的未装行无从比较，不白跑请求；某行详情失败即留空
-        // （该行不判「有更新」），也绝不拖垮整个目录。按 id 归并成行上的 `latestVersionId`。
-        const details = await Promise.all(installed.map(item =>
-          api.skillDetail(item.packageId, controller.signal).catch(() => undefined),
-        ))
-        if (controller.signal.aborted) return
-        setEnterpriseSkills(enterpriseMarketSkillRows(items, details.filter(detail => detail !== undefined)))
-      })
-      .catch(() => {
-        if (controller.signal.aborted) return
-        setEnterpriseSkills([])
-        setInstalledSkills([])
-      })
-    return () => { controller.abort() }
-  }, [view, hasStore, sessionUsable, store])
+    catalogSource.load()
+    return () => { catalogSource.reset() }
+  }, [catalogSource, view, sessionUsable])
+  // 就绪（或空）时才把取数结果摊开：加载中 / 失败都是**没有行**，界面据此出三态而不是「空列表」。
+  const catalogValue = catalogState.kind === 'ready' || catalogState.kind === 'empty' ? catalogState.value : undefined
+  const enterpriseSkills: readonly EnterpriseMarketSkillRow[] = catalogValue?.rows ?? []
+  // 已装清单：种子来自取数源（每次取数成功都刷新它），安装/卸载动作**用 Host 回传的清单覆盖**它
+  // （本页不做乐观切换）。它是行上「已装/有更新/在途」的事实源，与目录行分开持有是为了动作后不整页闪。
+  const [installedSkills, setInstalledSkills] = useState<readonly EnterpriseInstalledSkill[]>([])
+  useEffect(() => {
+    if (catalogValue !== undefined) setInstalledSkills(catalogValue.installed)
+  }, [catalogValue])
+  const [pendingSkill, setPendingSkill] = useState<EnterpriseMarketSkillPending>()
   const versionIdByPackage = new Map(catalog.map(item => [item.packageName, item.pluginVersionId]))
+  /**
+   * 「企业插件」页签的四态（**不许用行数反推状态**——目录取数失败时行数恰好也是 0，
+   * 那正是「假装没数据」这个 bug 的来源）。三条事实都来自账号 store：
+   *   · 插件投影一次都没取到过（`pluginStatus === undefined`）→ 有失败码就是失败态，否则还在加载；
+   *   · 取到过就以它为准：有行是就绪、没行是**空**（说清为什么空，而不是一片空白）。
+   * 失败态的重试 = 请 store 重新取一次企业插件投影（在途时 `pluginsLoading` 会把它带回加载中）。
+   */
+  const pluginsListState: EnterpriseListState<readonly EnterpriseMarketPluginRow[]> =
+    pluginStatus !== undefined
+      ? (enterprisePlugins.length === 0
+        ? { kind: 'empty', value: enterprisePlugins }
+        : { kind: 'ready', value: enterprisePlugins })
+      : snapshot.pluginErrorCode !== undefined
+        ? { kind: 'failed', code: snapshot.pluginErrorCode }
+        : { kind: 'loading' }
+  const onRetryPlugins: (() => void) | undefined = hasStore
+    ? () => { void store!.refreshPlugins() }
+    : undefined
+  // 技能页签的重试 = 取数源 `retry()`（真的重发目录 + 已装 + 详情三条取数）；没有 store 就没有按钮。
+  const onRetrySkills: (() => void) | undefined = catalogSource === undefined
+    ? undefined
+    : () => { catalogSource.retry() }
   // 失败可见反馈（两行共用同一份口径）：
   // · 技能侧：动作 promise 的 catch 直接拿到错误对象（行键 = 技能包 id）；
   // · 插件侧：`store.#pluginAction` 把失败**吞**进 `snapshot.pluginErrorCode`（不 rethrow，设置页插件
@@ -2173,6 +2451,11 @@ export function useEnterpriseMarketController({ view, store }: {
     onOpenLogin: openLogin,
     enterprisePlugins,
     enterpriseSkills,
+    // 两个目录页签的四态与重试（唯一事实源：技能来自取数源、插件来自账号 store 的投影）。
+    skillsListState: catalogState,
+    ...(onRetrySkills === undefined ? {} : { onRetrySkills }),
+    pluginsListState,
+    ...(onRetryPlugins === undefined ? {} : { onRetryPlugins }),
     onTogglePlugin,
     installedSkills,
     pendingSkill,

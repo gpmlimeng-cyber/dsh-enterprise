@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 React 的 createElement/CSSProperties/ReactNode/SyntheticEvent、brand 的两张内置位图、branding 的品牌视图与元素工厂（resolveEnterpriseBranding／EnterpriseBrandMark／EnterpriseBrandingDocument），以及 EnterpriseAccountStore 的本机只读品牌端口（store.api.branding 与 store.subscribe/getSnapshot）
+ * [INPUT]: 依赖 React 的 createElement/CSSProperties/ReactNode/SyntheticEvent、brand 的两张内置位图、branding 的品牌视图与元素工厂（resolveEnterpriseBranding／EnterpriseBrandMark／EnterpriseBrandingDocument），以及 EnterpriseAccountStore 的本机只读品牌端口（store.api.branding 与 store.subscribe/getSnapshot） **本刀**：读取失败时先用 `recallEnterpriseBranding(key)` 顶住同会话里已读到的企业品牌，一份都没有才撤注册让官方鱼标/HeroFish 接管。
  * [OUTPUT]: 三处官方品牌座位的占用者与接线——纯呈现（未配置即 null）的 `EnterpriseSidebarBrandMark`／`EnterpriseSidebarBrandName`／`EnterpriseHeroBrandMark`、座位身份真源 `ENTERPRISE_SIDEBAR_BRAND_MARK_SEAT`／`ENTERPRISE_SIDEBAR_BRAND_NAME_SEAT`／`ENTERPRISE_HERO_BRAND_MARK_SEAT`（priority -10／-10／0）、非 React 的品牌座位源 `createEnterpriseBrandingSeats` 与「有企业品牌才注册、没有就撤掉」的 `bindEnterpriseBrandSeat`，以及名称口径纯投影 `enterpriseBrandSeatName`
  * [POS]: dsh-ui 的品牌消费层：品牌读取仍归 branding.ts，本层只把同一份视图接到官方 `sidebar.brand.mark`／`sidebar.brand.name`／`conversation.hero.brand.mark` 三个座位上；未配置或取数失败时**一个占用者都不留**，官方鱼标与 HeroFish 原样接管（渲染器 `dsh-client-ui-renderer/lib/client.js:988` 对 single 槽只要有 occupant 就直接渲染它，opt.fallback 不再生效，故降级不能靠「占用者返回 null」实现）
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -10,6 +10,8 @@ import type { EnterpriseAccountStore } from './account-store.js'
 import { DSHENT_ANIMATED_ICON, DSHENT_ICON } from './brand.js'
 import {
   EnterpriseBrandMark,
+  recallEnterpriseBranding,
+  rememberEnterpriseBranding,
   resolveEnterpriseBranding,
   type EnterpriseBrandingDocument,
   type EnterpriseBrandingView,
@@ -163,9 +165,17 @@ export function createEnterpriseBrandingSeats(store: EnterpriseAccountStore): En
     inFlight?.abort()
     const controller = new AbortController()
     inFlight = controller
+    // 先用本会话记住的那份顶上（重读期间不把已渲染的企业品牌抖回官方鱼标）。
+    apply(recallEnterpriseBranding(key ?? ''))
     void store.api.branding(controller.signal).then(
-      document => { if (!controller.signal.aborted) apply(document) },
-      () => { if (!controller.signal.aborted) apply(null) },
+      document => {
+        if (controller.signal.aborted) return
+        rememberEnterpriseBranding(key ?? '', document)
+        apply(document)
+      },
+      // 取数失败：能回退到记住的那份就回退（企业品牌不断）；一份都没有时按「未配置」撤掉注册、官方接管。
+      // 失败的**可见交代**不落在座位里（座位没有文案落点），而落在企业设置 → 账号的「企业标识」行那一处。
+      () => { if (!controller.signal.aborted) apply(recallEnterpriseBranding(key ?? '')) },
     )
   }
 

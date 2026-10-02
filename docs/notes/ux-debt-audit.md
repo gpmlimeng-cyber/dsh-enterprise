@@ -431,3 +431,55 @@
 - ui 包：**264 → 281 条**（新增 `tests/error-messages.spec.ts` 7 条与 `tests/employee-copy.spec.ts` 10 条）。
 - 调整断言（不删语义）：`tests/marketplace-entry.spec.ts`（页签/节标题/开关名改名、详情「来源」「标识」结构、组件行模块路径改反向锁、结构大纲与共用 CSS 长度 8178→7975 / 校验和 2058624246→555768760 再基线化）、`tests/skill-market.spec.ts`（`标识：` / `来源 DSH …`）、`tests/account-gate.spec.ts`（码文案改降维措辞 + 两条「兜底人话不含裸码」）。
 - 测试仍逐条锁定既有语义：失败行内提示的 `role="alert"`、外层 `.own-market-inlineError` 类名、失败不禁用开关（可原地重试）、未安装零请求、纯文本安全渲染等一条未删。
+
+---
+
+## 8. 本次已修 / 未修（2026-10 · 第二批：静默吞失败 → 显式失败态 + 列表三态）
+
+> 本节**只追加**，不改写上面的审计原文（§7.2 里「P0-3 / P0-4 未修」的那两行因此**已被本节取代**）。
+> 范围：员工侧「取数失败被静默吞掉」与「列表 / 详情的加载·空·失败三态」这一类，落在 `plugin/packages/ui` 一个包。
+> 边界照旧：不改数据、不改接口、不改错误码语义、不改动作行为（装卸更新）、不改 `console/`、上游名称/描述/正文不改写。
+> 复用上一刀的唯一码表 `src/error-messages.ts` 与唯一提示组件 `src/error-notice.tsx`，**没有**第二套文案或第二枚组件。
+
+### 8.1 已修（本次解决）
+
+| 体验债 | 处置 | 证据 |
+|---|---|---|
+| **P0-3 列表取数失败被静默吞掉**（`.catch(() => [])` → 「企业技能 0」+ 空白） | **已修**：技能目录取数搬进唯一取数源 `createEnterpriseSkillListSource` 家族（新增 `src/list-state.ts`），四态联合 `loading / empty / ready / failed` 单字段互斥；目录失败**原样抛出**并落 `failed`（复用唯一提示组件 + 重试），**不再**回落空目录；「企业插件」页签同样从 store 快照投影出 `pluginsListState`（`pluginStatus` 没取到 + 有失败码 = 失败，绝不用行数反推） | `src/list-state.ts`、`src/marketplace-entry.tsx`（`loadEnterpriseSkillCatalog` / `enterpriseMarketPanelState` / `EnterpriseMarketListHint`）、`src/skill-market.tsx`、`src/preset-market.tsx`、`src/plugin-market.tsx`；用例 `tests/list-state.spec.ts`、`tests/marketplace-entry.spec.ts`（新增 8 条三态用例） |
+| **P0-4 列表无加载态**（首帧空白） | **已修（加载态部分）**：两个目录页签与设置页三个目录都先出轻提示（「正在加载企业技能…」等），失败态与空态各说各的；`load()` 幂等故首帧只发一条请求 | 同上；`ENTERPRISE_MARKET_SKILLS_LOADING` / `ENTERPRISE_SKILL_LIST_LOADING` / `ENTERPRISE_PRESET_LIST_LOADING` / `ENTERPRISE_PLUGIN_LIST_LOADING` |
+| **P0-3/P0-4 的重试不可行动** | **已修**：重试 = 取数源 `retry()`，**真的重发一次请求**（单测注入假 fetch 数请求次数：1 → 2），重试立刻回到进行中态、再失败仍可再试、迟到结果不回填 | `tests/list-state.spec.ts`（`requests()` 取证 + 三条重试行为）；反向锁 `tests/no-silent-swallow.spec.ts` |
+| **P0-2/P0-5 的「列表与详情三态」** | **已修（三态/文案层）**：详情取数失败不再 `catch(() => setDetail(selected))` 静默回落列表投影——技能与配方两个详情弹窗共用 `enterpriseDetailState`，失败时明说「以下是列表里的信息」+ 唯一提示组件 + 重试；文件树 / 文件预览的加载·空·失败·重试**已有**并在本次新增用例里继续锁定 | `src/list-state.ts`（`enterpriseDetailState`）、`src/skill-market.tsx`、`src/preset-market.tsx`；`tests/skill-market.spec.ts`、`tests/list-state.spec.ts` |
+| **P0-6 品牌取数失败静默回落**（与「未配置」混同） | **已修（失败可见化）**：读态另算一层 `enterpriseBrandingReadState`——**未配置**（Host 明确回 null）继续静默回落内置（保留），**取数失败**标 `unavailable`；可见交代只落在**一处**「企业设置 → 账号」的「企业标识」行（中性色 + 「暂时无法读取」+ 真重发的重试），侧栏与登录弹窗继续静默回落官方标识（不闪、不叠错误、不在登录时打断）；另加会话内记忆，重读失败不把已渲染的企业品牌抖回官方 | `src/branding.ts`、`src/brand-occupants.tsx`、`src/account-view.tsx`；`tests/branding.spec.ts`、`tests/account-view.spec.ts` |
+| **同类静默模式全包排查** | **已修 + 加锁**：全包逐个判断 `.catch(` / `catch {` / `?? []` / `?? ''`，凡「把取数失败变成默认值」的一律改掉；其余（能力探测、URL 门禁、JSON 重抛、日志）逐文件写进例外清单，并用**双向比对**把清单锁死（含 catch 的源文件必须与清单逐文件一致，新增一处 catch 先红） | `tests/no-silent-swallow.spec.ts`（绝对禁止 `.catch(() => [])` 与 catch 里返回空列表/空串） |
+| **新发现：配方目录永远失败**（解码层 bug） | **已修（1 字符）**：`decodeEnterprisePresets` 的 `sizeBytes` 上界判定写反（`Number(sizeBytes) > 0` 即判畸形 → 任何非零大小的配方被拒，与同文件插件目录那处正确的 `<= 0` 相反）→ 配方列表在真机上**恒**落 `ENT_LOCAL_RESPONSE_INVALID`；改成 `<= 0` 后配方目录才可能进入 ready / empty 态 | `src/local-api-decode.ts`；`tests/list-state.spec.ts` 的配方取数用例即为回归锁 |
+
+### 8.2 未修（第二批：本次边界外或本次明确不动）
+
+| 体验债 | 为什么没动 |
+|---|---|
+| **P0-2 未进映射表的码落到 503** | 属 `platform-client/src/local-api.ts` 的 HTTP 状态投影（服务端/边界层），本次边界明确排除；本次只保证「一旦失败上屏，是人话 + 下一步 + 可重试」 |
+| **P0-4 剩余部分：页签计数 0 → N 跳版** | 计数口径与 `enterpriseMarketTabLabel` 是既有测试锁死的语义，本次不动；建议与 P1-11（列表投影补 `versionId`）同批 |
+| **P0-5 文件树不可折叠 / 无虚拟化 / 大文件预览 / 必然失败的点击仍可点** | 结构与性能改造 + 动作行为（禁用行），风险与工作量远超本次边界 |
+| **P0-6 剩余部分：品牌首帧先出官方鱼标再切换** | 需要缓存 / boot 注入方案（跨 `platform-client` 或本地持久化），本次只做了「会话内记忆 + 失败可见」 |
+| **P0-7 行为侧：必然失败的点击仍给「重试」** | 树行禁用与重试门控会改动作行为；本次只在文案层交出 `retryable` |
+| **P1-8 并发点击静默 no-op** | 行为改动 |
+| **P1-9 卸载无确认 / 不可取消 / 重试不分级** | 行为改动（含新增取消入口） |
+| **P1-10 搜索缺失 + 同一目录两套界面** | 功能补齐（本次只统一了两处的三态与空态措辞口径，未抽共享工具栏） |
+| **P1-11「有更新」迟到与 N+1** | 需要服务端/解码补 `versionId`；本次把「某行详情失败」如实标成次级降级（不再静默），根因未动 |
+| **P1-12 详情无焦点管理 + 硬件返回键不回列表** | 结构与路由行为 |
+| **P1-13 企业分发行缺「来源 / 许可 / sha256」** | 新增信任区；本次未碰 |
+| **P2-14 硬编码颜色 / P2-15 搜索框只有 placeholder / P2-16 全局单类 `<style>` / P2-17 控制台上传 / P2-18 目录取数无超时** | 暗色 token、无障碍、样式隔离、管理端、超时（超时随取数源统一收敛，仍走既有 8s 口径）——均非本次范围 |
+
+### 8.3 本次顺带看到但**没有**动的（如实列出，供下一刀排期）
+
+- **返回键 / 硬件返回**：详情是纯视图状态（无路由），Android 返回手势仍会离开整个插件页（P1-12）。
+- **焦点管理**：进 / 出详情子页面时焦点仍回落到 `document.body`（P1-12）。
+- **文件树折叠**：目录行仍不是按钮（P0-5）。
+- **并发动作**：A 行安装中点 B 行开关仍是静默 no-op（P1-8）。
+- **`skill-market` / `preset-market` 的详情弹窗**：`预设 ID` 仍是旧措辞（本次未动术语，避免与已交付口径冲突）。
+- **`plugin-market` 的目录数据来自 store 快照**：本次把四态投影做在视图层，store 本身仍未区分「目录取数失败」与「动作失败」之外的第三种含义。
+
+### 8.4 用例数字
+
+- ui 包：**281 → 314 条**（新增 `tests/list-state.spec.ts` 14 条、`tests/no-silent-swallow.spec.ts` 4 条；`tests/marketplace-entry.spec.ts` 57 → 65、`tests/branding.spec.ts` 8 → 12、`tests/skill-market.spec.ts` 11 → 13、`tests/account-view.spec.ts` 5 → 6）。
+- 文件：22 → 24 个 spec。既有 281 条**一条未删**；唯一被改的两处是结构快照与 abort 计数（随本刀设计变化再基线化：`style 7975 → 8462 chars`、校验和 `555768760 → 2395543646`；取数 abort 计数 3 → 2，因为技能目录取数搬进了共享取数源）。
