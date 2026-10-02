@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 platform-client 本地 API 注册器与 Node 原生 HTTP server/fetch，路由分发复用同目录的引擎语义匹配器 `engine-route-match.ts`
- * [OUTPUT]: 验证方法/content-type/体积/DTO、平台/插件状态、显式刷新、无常驻 SSE、探针退役与 disposer，并用引擎语义锁死「三条详情 prefix 不带尾斜杠」——品牌位图 / 会话恢复 / 配方详情对子路径可达，且带尾斜杠的旧形状会漏掉子路径
+ * [OUTPUT]: 验证方法/content-type/体积/DTO、平台/插件状态、显式刷新、无常驻 SSE、探针退役与 disposer、**三条技能动作 exact 路由（形状/入参门禁/409 与 503 错误投影/405 Allow/端口缺席即不注册）**，并用引擎语义锁死「三条详情 prefix 不带尾斜杠」——品牌位图 / 会话恢复 / 配方详情对子路径可达，且带尾斜杠的旧形状会漏掉子路径；同时锁死 `/skills/install|uninstall|installed` 靠 exact 表抢在 bundle 侧 `/skills` 详情 prefix 之前
  * [POS]: platform-client Host/Client 协作回归测试，以真实 HTTP 锁定官方 webServer 契约；prefix 形状的判定不再用「裸 startsWith」假匹配器，而是逐行复刻引擎 `match()`，否则线上空体 404 在测试里是绿的
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,6 +8,9 @@
 import { createServer, type Server } from 'node:http'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH,
+  ENTERPRISE_SKILL_INSTALL_LOCAL_PATH,
+  ENTERPRISE_SKILL_UNINSTALL_LOCAL_PATH,
   registerEnterpriseLocalApi,
   type EnterpriseLocalPlatformPort,
   type EnterpriseLocalSessionPort,
@@ -170,6 +173,95 @@ describe('enterprise local API', () => {
     expect(pluginAction).toHaveBeenCalledWith('remove', '@example/tools', undefined)
     pluginAction.mockRejectedValueOnce(Object.assign(new Error('busy'), { code: 'ENT_PLUGIN_BUSY' }))
     expect((await post('remove', { packageName: '@example/tools' })).status).toBe(409)
+  })
+
+  // 技能一键安装的三条 exact 动作路由：形状、入参门禁、错误投影与 405 契约都在真实 HTTP 上锁死。
+  it('exposes the three skill actions by exact path, validates the body, and projects skill failure codes', async () => {
+    const skillStatus = vi.fn(async () => ({ skills: [{ packageId: '901', names: ['code-review'] }] }))
+    const skillAction = vi.fn(async (action: 'install' | 'uninstall', packageId: string) => ({
+      skills: action === 'install' ? [{ packageId, names: ['code-review'] }] : [],
+    }))
+    const onError = vi.fn()
+    registerEnterpriseLocalApi(webServer, { platform, pluginStatus, skillAction, skillStatus, onError })
+
+    // 注册形状：三条一律 exact、path 与共享常量逐字相同、都不带尾斜杠（尾斜杠一旦回来这里先红）。
+    const skillRoutes = [...routes.values()].filter(route => route.path.includes('/local/skills/'))
+    expect(skillRoutes.map(route => route.kind)).toEqual(['exact', 'exact', 'exact'])
+    expect(skillRoutes.map(route => route.path).sort()).toEqual([
+      ENTERPRISE_SKILL_INSTALL_LOCAL_PATH,
+      ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH,
+      ENTERPRISE_SKILL_UNINSTALL_LOCAL_PATH,
+    ])
+
+    const post = (action: string, body: unknown) => fetch(`${baseUrl}/enterprise/api/v1/local/skills/${action}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+    })
+
+    // GET 已装态：单键 `{data}` 信封，Host 的清单形状原样透传（路由层不认识技能字段）。
+    const installed = await fetch(`${baseUrl}/enterprise/api/v1/local/skills/installed`)
+    expect(installed.headers.get('cache-control')).toBe('no-store')
+    await expect(installed.json()).resolves.toEqual({ data: { skills: [{ packageId: '901', names: ['code-review'] }] } })
+    expect(skillStatus).toHaveBeenCalledOnce()
+
+    // 入参门禁：只认 `{packageId}` 单键雪花朵；多键、路径片段、数字、前导零与非雪花形状一律 400 且不进动作。
+    for (const body of [
+      {}, { packageId: '901', source: 'https://evil.example' }, { packageId: '../../etc/passwd' },
+      { packageId: 901 }, { packageId: '0' }, { packageId: '01902500000000000001' },
+    ]) expect((await post('install', body)).status).toBe(400)
+    expect(skillAction).not.toHaveBeenCalled()
+
+    const ok = await post('install', { packageId: '901' })
+    await expect(ok.json()).resolves.toEqual({ data: { skills: [{ packageId: '901', names: ['code-review'] }] } })
+    expect(skillAction).toHaveBeenCalledWith('install', '901')
+    await expect((await post('uninstall', { packageId: '901' })).json()).resolves.toEqual({ data: { skills: [] } })
+    expect(skillAction).toHaveBeenCalledWith('uninstall', '901')
+
+    // 错误投影：同名技能目录已被占用是本机状态冲突（409），其余技能失败族投影 503 并保留受控码。
+    skillAction.mockRejectedValueOnce(Object.assign(new Error('conflict'), { code: 'ENT_SKILL_NAME_CONFLICT' }))
+    expect((await post('install', { packageId: '901' })).status).toBe(409)
+    skillAction.mockRejectedValueOnce(Object.assign(new Error('hash'), { code: 'ENT_SKILL_HASH_MISMATCH' }))
+    const rejected = await post('install', { packageId: '901' })
+    expect(rejected.status).toBe(503)
+    await expect(rejected.json()).resolves.toEqual({ error: { code: 'ENT_SKILL_HASH_MISMATCH' } })
+    expect(onError).toHaveBeenCalled()
+
+    // 405 契约：动作只认 POST、清单只认 GET，都不触发端口。
+    const wrongActionMethod = await fetch(`${baseUrl}/enterprise/api/v1/local/skills/install`)
+    expect(wrongActionMethod.status).toBe(405)
+    expect(wrongActionMethod.headers.get('allow')).toBe('POST')
+    const wrongInstalledMethod = await fetch(`${baseUrl}/enterprise/api/v1/local/skills/installed`, {
+      body: '{}', headers: { 'content-type': 'application/json' }, method: 'POST',
+    })
+    expect(wrongInstalledMethod.status).toBe(405)
+    expect(wrongInstalledMethod.headers.get('allow')).toBe('GET')
+    expect(skillAction).toHaveBeenCalledTimes(4)
+    expect(skillStatus).toHaveBeenCalledOnce()
+  })
+
+  // 端口缺席即不注册；注册后也必须靠 exact 表抢在 bundle 侧 `/skills` 详情 prefix 之前。
+  it('registers no skill action without a port and keeps the actions ahead of the /skills detail prefix', () => {
+    registerEnterpriseLocalApi(webServer, { platform, pluginStatus })
+    expect([...routes.values()].some(route => route.path.includes('/local/skills/'))).toBe(false)
+
+    // bundle 侧的真实形状桩：列表 exact + 详情 prefix 共用同一字符串（不带尾斜杠）。
+    const detail: RegisteredRoute = {
+      kind: 'prefix', path: '/enterprise/api/v1/local/skills', handler: () => undefined,
+    }
+    const install: RegisteredRoute = {
+      kind: 'exact', path: ENTERPRISE_SKILL_INSTALL_LOCAL_PATH, handler: () => undefined,
+    }
+    const installed: RegisteredRoute = {
+      kind: 'exact', path: ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH, handler: () => undefined,
+    }
+    const table = [detail, install, installed]
+    expect(engineRouteMatch(table, ENTERPRISE_SKILL_INSTALL_LOCAL_PATH)).toBe(install)
+    expect(engineRouteMatch(table, ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH)).toBe(installed)
+    // 反例：exact 表只看整路径，裸前缀与真实包 id 子路径仍归详情 prefix，不被动作抢走。
+    expect(engineRouteMatch(table, '/enterprise/api/v1/local/skills')).toBe(detail)
+    expect(engineRouteMatch(table, '/enterprise/api/v1/local/skills/1902500000000000001')).toBe(detail)
+    // 尾斜杠旧形状在引擎语义下漏掉一切子路径——这正是本仓修过的空体 404 家族。
+    expect(engineRouteMatch([{ ...detail, path: '/enterprise/api/v1/local/skills/' }], ENTERPRISE_SKILL_INSTALL_LOCAL_PATH))
+      .toBeUndefined()
   })
 
   it('updates the Server origin and responds before invoking the optional restart after uninstall', async () => {

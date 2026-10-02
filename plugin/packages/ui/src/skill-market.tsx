@@ -1,17 +1,17 @@
 /**
- * [INPUT]: 依赖共享 EnterpriseAccountStore、Harness Modal/Button、Lucide 图标、display-format 的大小格式化与同源技能 API
- * [OUTPUT]: 提供设置页内的企业技能目录（搜索/卡片/详情弹窗）、调用策略与条目纯投影（`enterpriseSkillInvocationLabel`/`enterpriseSkillMeta`/`enterpriseSkillEntryRows`）与 `buildSkillInstruction` 装配指令
- * [POS]: ui 的员工技能广场视图，由「企业设置」的技能 tab 承载；只复制装配指令、不下载不落盘——落盘与生效交给用户自己的 Agent 会话与官方 skill-filesystem
+ * [INPUT]: 依赖共享 EnterpriseAccountStore、Harness Modal/Button、Lucide 图标、display-format 的大小格式化与同源技能 API（列表/详情/**已装态与安装/卸载**）
+ * [OUTPUT]: 提供设置页内的企业技能目录（搜索/卡片/详情弹窗）、调用策略与条目纯投影（`enterpriseSkillInvocationLabel`/`enterpriseSkillMeta`/`enterpriseSkillEntryRows`）、安装态投影 `enterpriseSkillInstallState`、`buildSkillInstruction` 装配指令与 `EnterpriseSkillMarket` 视图
+ * [POS]: ui 的员工技能广场视图，由「企业设置」的技能 tab 承载；每行一个「安装」按钮经同源 `/skills/install` 由 Host 完成「下载 + SHA-256 校验 + 落盘到官方 `~/.dsh/skills`」，已装行显示已装态并可卸载；仍保留「复制装配指令」作为不装也能交给用户自己 Agent 会话的第二条路。默认不执行包内任何内容（安装 = 落盘），这一条在详情里如实写给用户
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
-import { Copy, LoaderCircle, RefreshCw, Search, ShieldAlert, Sparkles } from 'lucide-react'
+import { CircleCheck, Copy, LoaderCircle, PackagePlus, RefreshCw, Search, ShieldAlert, Sparkles, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import type { EnterpriseAccountStore } from './account-store.js'
 import { formatByteSize } from './display-format.js'
-import type { EnterpriseRuntimeSkill, EnterpriseSkillEntry } from './local-api.js'
-import { createEnterpriseLocalApi } from './local-api.js'
+import type { EnterpriseInstalledSkill, EnterpriseRuntimeSkill, EnterpriseSkillEntry } from './local-api.js'
+import { createEnterpriseLocalApi, enterpriseLocalErrorCode } from './local-api.js'
 
 const styles = `
 .own-skill{color:var(--dsw-alias-label-primary,#101828);font-size:13px;letter-spacing:0;min-width:0}
@@ -29,6 +29,10 @@ const styles = `
 .own-skill-meta{margin-top:auto;color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:11px}
 .own-skill-empty,.own-skill-error{text-align:center;padding:44px 12px;color:var(--dsw-alias-label-secondary,#667085)}
 .own-skill-error{color:var(--dsw-alias-state-error-primary,#c4320a)}
+.own-skill-inlineError{padding:0;text-align:left;font-size:12px;line-height:19px}
+.own-skill-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:auto}
+.own-skill-actions .own-skill-spacer{flex:1}
+.own-skill-installed{display:inline-flex;align-items:center;gap:4px;flex:none;color:var(--dsw-alias-state-success-primary,#027a48);font-size:11.5px;line-height:18px}
 .own-skill-trust{display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:8px;background:#fff7ed;color:#9a3412;font-size:12.5px;line-height:19px}
 .own-skill-entries{display:flex;flex-direction:column;gap:8px;list-style:none;margin:0;padding:0;min-width:0}
 .own-skill-entry{display:flex;flex-direction:column;gap:4px;min-width:0;padding:10px 12px;border:1px solid var(--dsw-alias-stroke-border-2,#e4e7ec);border-radius:8px}
@@ -94,6 +98,51 @@ export function buildSkillInstruction(skill: EnterpriseRuntimeSkill, platformUrl
   ].join('\n')
 }
 
+/** 一个技能包在本机的安装态（列表行与详情弹窗共用同一份投影）。 */
+export interface EnterpriseSkillInstallState {
+  readonly installed: boolean
+  /** 本包落盘的技能目录名；未装时是空数组。 */
+  readonly names: readonly string[]
+  /** 主按钮文案。 */
+  readonly actionLabel: string
+  /** 状态位文案。 */
+  readonly statusLabel: string
+  /** 该包是否有动作在途：在途时按钮禁用、文案切换。 */
+  readonly busy: boolean
+  /** 主按钮要触发的动作。 */
+  readonly action: 'install' | 'uninstall'
+}
+
+/** 一次在途动作；与 `busy` 状态位同形。 */
+export interface EnterpriseSkillPending {
+  readonly packageId: string
+  readonly action: 'install' | 'uninstall'
+}
+
+/**
+ * 把「Host 已装清单 + 当前在途动作」投影成一行的安装态。
+ *
+ * 纯函数：已装判定只认 Host 回传的 `packageId`，界面**从不**自己猜「大概装上了」；
+ * 卸载动作只在已装时出现，未装时的按钮永远是安装。
+ */
+export function enterpriseSkillInstallState(
+  installed: readonly EnterpriseInstalledSkill[] | undefined,
+  packageId: string,
+  pending?: EnterpriseSkillPending | undefined,
+): EnterpriseSkillInstallState {
+  const record = (installed ?? []).find(item => item.packageId === packageId)
+  const action: 'install' | 'uninstall' = record === undefined ? 'install' : 'uninstall'
+  const inFlight = pending !== undefined && pending.packageId === packageId
+  return {
+    installed: record !== undefined,
+    names: record?.names ?? [],
+    actionLabel: inFlight ? (action === 'install' ? '安装中…' : '卸载中…') : action === 'install' ? '安装' : '卸载',
+    statusLabel: record === undefined ? '未安装' : `已装 · ${record.names.length} 个技能`,
+    busy: inFlight,
+    action,
+  }
+}
+
 /** 「企业设置 → 技能」页：列出可见技能包、按需读详情并复制装配指令。 */
 export function EnterpriseSkillMarket({ store }: {
   readonly store: EnterpriseAccountStore
@@ -102,6 +151,9 @@ export function EnterpriseSkillMarket({ store }: {
   const platformUrl = snapshot.status?.platformUrl ?? null
   const connected = snapshot.status?.state === 'READY' || snapshot.status?.state === 'REFRESHING'
   const [items, setItems] = useState<readonly EnterpriseRuntimeSkill[] | undefined>()
+  const [installed, setInstalled] = useState<readonly EnterpriseInstalledSkill[] | undefined>()
+  const [pending, setPending] = useState<EnterpriseSkillPending>()
+  const [actionError, setActionError] = useState<{ readonly packageId: string, readonly code: string }>()
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [errorCode, setErrorCode] = useState<string>()
@@ -114,18 +166,44 @@ export function EnterpriseSkillMarket({ store }: {
   const load = async () => {
     if (!connected) {
       setItems(undefined)
+      setInstalled(undefined)
       return
     }
     setLoading(true)
     setErrorCode(undefined)
     try {
       const signal = AbortSignal.timeout(8000)
-      setItems(await api.skills(signal))
+      // 已装态取数失败**不**拖垮目录：旧 Host 还没有 `/skills/installed` 时技能列表照常可用，
+      // 只是所有行显示「未安装」，点安装会拿到一个明确的错误码而不是空白页。
+      const [list, installedList] = await Promise.all([
+        api.skills(signal),
+        api.installedSkills(signal).catch(() => undefined),
+      ])
+      setItems(list)
+      setInstalled(installedList)
     } catch (error) {
       setErrorCode(error instanceof Error && 'code' in error ? String((error as { code: string }).code) : 'ENT_PLATFORM_UNAVAILABLE')
     } finally {
       setLoading(false)
     }
+  }
+
+  /**
+   * 安装/卸载的唯一入口：Host 一次往返既执行动作又回传最新已装态，界面不自行推断结果。
+   * 超时给到 120s（中心制品上限 50 MiB，要下载 + 校验 + 解包 + 落盘）。
+   */
+  const runAction = (packageId: string, action: 'install' | 'uninstall') => {
+    if (pending !== undefined) return
+    setPending({ packageId, action })
+    setActionError(undefined)
+    const signal = AbortSignal.timeout(120_000)
+    const operation = action === 'install' ? api.installSkill : api.uninstallSkill
+    void operation.call(api, packageId, signal)
+      .then(next => setInstalled(next))
+      .catch(error => {
+        setActionError({ packageId, code: enterpriseLocalErrorCode(error) })
+      })
+      .finally(() => setPending(undefined))
   }
 
   useEffect(() => { void load() }, [connected])
@@ -180,18 +258,42 @@ export function EnterpriseSkillMarket({ store }: {
         <div className="own-skill-empty">暂无可见技能</div>
       ) : (
         <div className="own-skill-grid">
-          {filtered.map(item => (
-            <article key={item.id} className="own-skill-card">
-              <button type="button" className="own-skill-title" onClick={() => setSelected(item)}>
-                <span className="own-skill-glyph"><Sparkles aria-hidden size={16} /></span>
-                <span style={{ minWidth: 0 }}>
-                  <strong>{item.displayName}</strong>
-                  <span className="own-skill-sub">{item.description}</span>
-                </span>
-              </button>
-              <div className="own-skill-meta">{enterpriseSkillMeta(item)}</div>
-            </article>
-          ))}
+          {filtered.map(item => {
+            const state = enterpriseSkillInstallState(installed, item.id, pending)
+            return (
+              <article key={item.id} className="own-skill-card">
+                <button type="button" className="own-skill-title" onClick={() => setSelected(item)}>
+                  <span className="own-skill-glyph"><Sparkles aria-hidden size={16} /></span>
+                  <span style={{ minWidth: 0 }}>
+                    <strong>{item.displayName}</strong>
+                    <span className="own-skill-sub">{item.description}</span>
+                  </span>
+                </button>
+                <div className="own-skill-meta">{enterpriseSkillMeta(item)}</div>
+                <div className="own-skill-actions">
+                  {state.installed
+                    ? <span className="own-skill-installed"><CircleCheck aria-hidden size={13} />{state.statusLabel}</span>
+                    : <span className="own-skill-policy">{state.statusLabel}</span>}
+                  <span className="own-skill-spacer" />
+                  <Button
+                    size="sm"
+                    disabled={state.busy}
+                    icon={state.action === 'install'
+                      ? <PackagePlus aria-hidden size={14} />
+                      : <Trash2 aria-hidden size={14} />}
+                    onClick={() => runAction(item.id, state.action)}
+                  >
+                    {state.actionLabel}
+                  </Button>
+                </div>
+                {actionError?.packageId === item.id
+                  ? <div className="own-skill-error own-skill-inlineError" role="alert">
+                    {state.action === 'install' ? '安装失败' : '卸载失败'} <code>{actionError.code}</code>
+                  </div>
+                  : null}
+              </article>
+            )
+          })}
         </div>
       )}
       {selected !== undefined ? (
@@ -199,7 +301,7 @@ export function EnterpriseSkillMarket({ store }: {
           <div ref={details} style={{ display: 'grid', gap: 12, padding: 12 }}>
             <div className="own-skill-trust">
               <ShieldAlert aria-hidden size={16} />
-              <span>技能包内的 SKILL.md 正文是 Agent 会加载并执行的自然语言指令，可能以 Agent 权限读写文件或调用工具。仅装配企业管理员发布的技能，并在装配前确认安全提示。</span>
+              <span>技能包内的 SKILL.md 正文是 Agent 会加载并执行的自然语言指令，可能以 Agent 权限读写文件或调用工具。仅装配企业管理员发布的技能，并在装配前确认安全提示。「安装」只做下载、SHA-256 校验与落盘到 ~/.dsh/skills/，不会执行包内任何脚本；是否执行由你自己的 Agent 会话决定。</span>
             </div>
             <div className="own-skill-sub">{shown?.description === undefined || shown.description === '' ? '（暂无描述）' : shown.description}</div>
             <div className="own-skill-sub">技能 ID：{shown?.skillId ?? selected.skillId}</div>
@@ -219,6 +321,33 @@ export function EnterpriseSkillMarket({ store }: {
               </ul>
             )}
             <textarea className="own-skill-copy" readOnly value={instruction} aria-label="装配指令" />
+            {(() => {
+              // 详情弹窗与卡片行共用同一份安装态投影：同一时刻只允许一个动作在途。
+              const state = enterpriseSkillInstallState(installed, selected.id, pending)
+              return (
+                <div className="own-skill-actions">
+                  {state.installed
+                    ? <span className="own-skill-installed"><CircleCheck aria-hidden size={13} />{state.statusLabel}</span>
+                    : <span className="own-skill-policy">{state.statusLabel}</span>}
+                  <span className="own-skill-spacer" />
+                  <Button
+                    size="sm"
+                    disabled={state.busy}
+                    icon={state.action === 'install'
+                      ? <PackagePlus aria-hidden size={14} />
+                      : <Trash2 aria-hidden size={14} />}
+                    onClick={() => runAction(selected.id, state.action)}
+                  >
+                    {state.actionLabel}
+                  </Button>
+                </div>
+              )
+            })()}
+            {actionError?.packageId === selected.id
+              ? <div className="own-skill-error own-skill-inlineError" role="alert">
+                操作失败 <code>{actionError.code}</code>
+              </div>
+              : null}
             <Button
               size="sm"
               icon={<Copy aria-hidden size={14} />}

@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 Harness `ctx.webServer.register()` route port、平台操作端口、组合层注入的插件动作端口、品牌只读端口与可选投影留痕端口
- * [OUTPUT]: 提供账号/配置按需刷新、插件操作、本地品牌投影与原生登录（来源列表 / 凭证代提交 / 改密代提交）的严格同源 JSON 路由，无常驻状态连接；凭证正文只按固定键集读入并原样转发，绝不进日志；每个把异常投影成 HTTP 状态的回调都经 `onError` 上报操作名与原始 error；三条详情 prefix（品牌位图 / 会话恢复 / 配方详情）的注册 path 一律**不带尾斜杠**，以适配引擎 `dsh-host-webserver` 的「路径段前缀」匹配
- * [POS]: platform-client 的 Host/Client 同源协作边界，只序列化脱敏 DTO 并把认证 HTTP 留在 Host Service；路由形状受引擎 `match()`（`lib/index.js`）约束——exact 表整路径优先、prefix 只认 `pathname === prefix` 或 `pathname.startsWith(prefix + '/')`、多条命中取最长，故带尾斜杠的 prefix 会在引擎层空体 404 而根本不进 handler
+ * [INPUT]: 依赖 Harness `ctx.webServer.register()` route port、平台操作端口、组合层注入的插件动作端口与技能安装端口、品牌只读端口与可选投影留痕端口
+ * [OUTPUT]: 提供账号/配置按需刷新、插件操作、**企业技能安装/卸载/已装态**、本地品牌投影与原生登录（来源列表 / 凭证代提交 / 改密代提交）的严格同源 JSON 路由，无常驻状态连接；凭证正文只按固定键集读入并原样转发，绝不进日志；每个把异常投影成 HTTP 状态的回调都经 `onError` 上报操作名与原始 error；三条详情 prefix（品牌位图 / 会话恢复 / 配方详情）的注册 path 一律**不带尾斜杠**，技能三条动作路由是 `/skills` prefix 的 exact 子路径（`ENTERPRISE_SKILL_*_LOCAL_PATH`）
+ * [POS]: platform-client 的 Host/Client 同源协作边界，只序列化脱敏 DTO 并把认证 HTTP 留在 Host Service；路由形状受引擎 `match()`（`lib/index.js:322`）约束——exact 表整路径优先、prefix 只认 `pathname === prefix` 或 `pathname.startsWith(prefix + '/')`、多条命中取最长，故带尾斜杠的 prefix 会在引擎层空体 404 而根本不进 handler，而 `/skills/install` 这类子路径动作必须靠 exact 表抢在 `/skills` prefix 之前
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -47,6 +47,19 @@ const MAX_LOCAL_BODY_BYTES = 256 * 1024
 const BRANDING_ASSET_PREFIX_ROUTE = BRANDING_ASSET_LOCAL_PATH
 const SESSION_RESTORE_PREFIX_ROUTE = `${LOCAL_API_PREFIX}/sessions`
 const PRESET_DETAIL_PREFIX_ROUTE = `${LOCAL_API_PREFIX}/presets`
+
+/**
+ * 企业技能**安装动作**的三条 exact 注册 path。
+ *
+ * 技能目录的列表/详情在 `bundle/src/skill-route.ts` 里注册成「`/skills` exact 列表 + `/skills` prefix 详情」，
+ * 本文件这第三条线是它的**子路径动作**：引擎 `match()`（`lib/index.js:322`）先查 exact 表整路径命中、
+ * 再在 prefix 表里取最长，因此 `/skills/install`、`/skills/uninstall`、`/skills/installed` 一律由 exact 表
+ * 优先命中，绝不会掉进 `/skills` 那条 prefix 被当成包 id。两条防线彼此独立：
+ * 即便 exact 表整张消失，详情 handler 的 `^[1-9][0-9]{0,18}$` 也只会回 400，不会带着 `install` 打上游。
+ */
+export const ENTERPRISE_SKILL_INSTALL_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/install`
+export const ENTERPRISE_SKILL_UNINSTALL_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/uninstall`
+export const ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/installed`
 
 /** Harness `ctx.webServer` Service 公开的 route 结构。 */
 export interface WebServerRoutePort {
@@ -101,6 +114,13 @@ export interface EnterpriseLocalApiOptions {
   /** 由组合层绑定 distribution，避免 platform-client 反向依赖具体插件包。 */
   readonly pluginStatus: () => unknown
   readonly pluginAction?: (action: 'install' | 'remove', packageName: string, pluginVersionId?: string) => Promise<void>
+  /**
+   * 由组合层绑定企业技能安装器（bundle 的 `skill-install.ts`）；返回**安装后的最新已装态**，
+   * 让界面一次往返就拿到真值而不是自行猜测。缺席时不注册 `/skills/install|uninstall`。
+   */
+  readonly skillAction?: (action: 'install' | 'uninstall', packageId: string) => Promise<unknown>
+  /** 已装技能清单；缺席时不注册 `/skills/installed`。 */
+  readonly skillStatus?: () => unknown | Promise<unknown>
   /** 由组合层绑定整包卸载；返回的重启动作必须在 HTTP 成功响应写出后才执行。 */
   readonly uninstallPlugin?: () => Promise<{ readonly restart?: () => void }>
   /** 由组合层绑定会话同步；缺省时不注册 /sessions* 路由。 */
@@ -153,6 +173,8 @@ function actionErrorStatus(error: unknown): number {
   const code = errorCode(error)
   if (code === 'ENT_INVALID_REQUEST') return 400
   if (code === 'ENT_PLUGIN_BUSY') return 409
+  // 技能落点已被同名技能目录占用：请求本身合法、本机状态冲突，故 409 而不是 400/503。
+  if (code === 'ENT_SKILL_NAME_CONFLICT') return 409
   if (code === 'ENT_AUTH_REQUIRED' || code === 'ENT_AUTH_SESSION_EXPIRED') return 401
   if (code === 'ENT_DEVICE_REVOKED' || code === 'ENT_PERMISSION_DENIED') return 403
   if (code === 'ENT_RESOURCE_NOT_FOUND') return 404
@@ -494,6 +516,62 @@ export function registerEnterpriseLocalApi(
         writeJson(response, 200, { data: options.pluginStatus() })
       },
     }))
+
+    if (options.skillStatus !== undefined) {
+      const skillStatus = options.skillStatus
+      disposers.push(webServer.register({
+        kind: 'exact',
+        path: ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH,
+        handler: async (request, response) => {
+          if (request.method !== 'GET') {
+            methodNotAllowed(response, 'GET')
+            return
+          }
+          try {
+            writeJson(response, 200, { data: await skillStatus() })
+          } catch (error) {
+            const status = actionErrorStatus(error)
+            options.onError?.(`GET ${ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH}`, error, status)
+            writeJson(response, status, { error: { code: status === 400 ? 'ENT_INVALID_REQUEST' : errorCode(error) } })
+          }
+        },
+      }))
+    }
+
+    if (options.skillAction !== undefined) {
+      const skillAction = options.skillAction
+      for (const action of ['install', 'uninstall'] as const) {
+        const path = action === 'install'
+          ? ENTERPRISE_SKILL_INSTALL_LOCAL_PATH
+          : ENTERPRISE_SKILL_UNINSTALL_LOCAL_PATH
+        disposers.push(webServer.register({
+          kind: 'exact',
+          path,
+          handler: async (request, response) => {
+            if (request.method !== 'POST') { methodNotAllowed(response, 'POST'); return }
+            try {
+              const value = await readJson(request)
+              if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new TypeError('invalid skill action')
+              const body = value as Record<string, unknown>
+              // 与 `/plugins/{action}` 同一把尺：键集完全一致、packageId 是中心雪花 id 形状。
+              // 越界字符串绝不进入 bundle 的路径构造（那里还会再校验一次 manifest 里的技能名）。
+              if (Object.keys(body).sort().join(',') !== 'packageId'
+                || typeof body['packageId'] !== 'string'
+                || !/^[1-9][0-9]{0,18}$/.test(body['packageId'])) {
+                throw new TypeError('invalid skill action')
+              }
+              writeJson(response, 200, { data: await skillAction(action, body['packageId']) })
+            } catch (error) {
+              const status = actionErrorStatus(error)
+              options.onError?.(`POST ${path}`, error, status)
+              writeJson(response, status, { error: {
+                code: status === 413 ? 'ENT_REQUEST_TOO_LARGE' : status === 400 ? 'ENT_INVALID_REQUEST' : errorCode(error),
+              } })
+            }
+          },
+        }))
+      }
+    }
 
     if (options.sessionSync !== undefined) {
       const sessionSync = options.sessionSync

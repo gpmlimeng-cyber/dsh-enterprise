@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 marketplace-entry 的注册常量、组件清单/摘要/状态/开关语义纯投影、企业技能行投影与可见性门控、入口组件与版本签组件本身，以及 local-api-decode 的 `EnterpriseRuntimeSkill` 形状
- * [OUTPUT]: 验证入口身份常量、卡片一句话的单行约束、组件清单（插件/技能/配方）顺序与 reserved 语义、计数摘要口径、summary/page 两视图结构（含「包含的组件」标题与逐行开关，且 page 不重画标题/desc）、版本签只对本条目 subject 出、企业插件节的归并与门控，以及**企业技能节的只读行投影（复用技能 tab 元信息口径）/可见性门控/计数/折叠开关**（与企业插件节同规则）
+ * [OUTPUT]: 验证入口身份常量、卡片一句话的单行约束、组件清单（插件/技能/配方）顺序与 reserved 语义、计数摘要口径、summary/page 两视图结构（含「包含的组件」标题与逐行开关，且 page 不重画标题/desc）、版本签只对本条目 subject 出、企业插件节的归并与门控，以及**企业技能节的行投影（复用技能 tab 元信息口径）/可见性门控/计数/折叠开关/一键安装开关**（与企业插件行同范式：已装态由 Host 回传、在途禁用、缺席动作恒禁用）
  * [POS]: dsh-ui 插件市场入口的产品词汇门禁，真实渲染与视觉由 Harness 快照与真机验收覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -34,6 +34,7 @@ import {
   enterpriseMarketSkillRows,
   enterpriseMarketSkillSectionVisible,
   enterpriseMarketVersionTag,
+  enterpriseMarketSkillState,
   enterprisePluginDot,
   ENTERPRISE_MARKET_SECTION_IDS,
 } from '../src/marketplace-entry.js'
@@ -299,8 +300,9 @@ describe('enterprise marketplace entry', () => {
     expect(enterpriseMarketSkillSectionVisible(false, [])).toBe(false)
   })
 
-  // page 在「技能」组件 ON 且目录非空时渲染企业技能节、OFF 时不渲染，且技能行是只读（无开关）。
-  it('appends the enterprise skill section in page only when the skills component is on, and keeps it read-only', () => {
+  // page 在「技能」组件 ON 且目录非空时渲染企业技能节、OFF 时不渲染；技能行与企业插件行同范式：
+  // 一行阅读事实 + 一个**真实可拨**的安装开关（已装态由 Host 回传，纯函数体不猜、不乐观）。
+  it('appends the enterprise skill section in page only when the skills component is on, and wires its install switch', () => {
     const enterpriseSkills = enterpriseMarketSkillRows([SKILL])
     // OFF：sessionUsable=false → 「技能」组件未开启 → 不出企业技能节。
     const off = EnterpriseMarketEntry({ view: 'page', sessionUsable: false, enterpriseSkills })
@@ -317,8 +319,53 @@ describe('enterprise marketplace entry', () => {
     // 数据钩子命名与企业插件节同风格（`enterprise-skills`）。
     expect(collectSectionByHook(on, 'enterprise-skills')).not.toBeUndefined()
     expect(collectSectionByHook(on, 'enterprise-plugins')).toBeUndefined()
-    // 只读：技能行不加开关（技能靠复制装配指令落盘，没有安装动作，不提供假切换）——开关仍只有三个组件行。
-    expect(collectSwitchProps(on)).toHaveLength(3)
+    // 技能行现在有开关：三个组件行 + 一个技能行 = 4；未注入动作时禁用（不提供假切换）。
+    expect(collectSwitchProps(on)).toHaveLength(4)
+    const unwired = collectSwitchProps(on).at(-1)
+    expect(unwired?.['label']).toBe('安装企业技能 会议纪要技能组')
+    expect(unwired?.['checked']).toBe(false)
+    expect(unwired?.['disabled']).toBe(true)
+    // 注入动作后开关可拨，并把 (row, next) 原样交给调用方。
+    const onToggleSkill = vi.fn()
+    const wired = EnterpriseMarketEntry({ view: 'page', sessionUsable: true, enterpriseSkills, onToggleSkill })
+    const skillSwitch = collectSwitchProps(wired).at(-1)
+    expect(skillSwitch?.['disabled']).toBe(false)
+    skillSwitch?.['onChange']?.(true)
+    expect(onToggleSkill).toHaveBeenCalledWith(expect.objectContaining({ id: '1902500000000000001' }), true)
+  })
+
+  // 已装态与在途动作是三个彼此独立的输入：已装清单定 checked、pendingSkillId 定禁用与状态钩子。
+  it('projects each skill row state from the installed ids and the pending action, never from optimism', () => {
+    const row = enterpriseMarketSkillRows([SKILL])[0]!
+    expect(enterpriseMarketSkillState(undefined, undefined, row)).toBe('AVAILABLE')
+    expect(enterpriseMarketSkillState([], undefined, row)).toBe('AVAILABLE')
+    expect(enterpriseMarketSkillState(['1902500000000000001'], undefined, row)).toBe('INSTALLED')
+    expect(enterpriseMarketSkillState(['1902500000000000001'], '1902500000000000001', row)).toBe('INSTALLING')
+    expect(enterpriseMarketSkillState([], '1902500000000000001', row, false)).toBe('REMOVING')
+    expect(enterpriseMarketSkillState(['1902500000000000001'], '1902500000000000002', row)).toBe('INSTALLED')
+
+    const installedTree = EnterpriseMarketEntry({
+      view: 'page',
+      sessionUsable: true,
+      enterpriseSkills: [row],
+      installedSkillIds: ['1902500000000000001'],
+      onToggleSkill: vi.fn(),
+    })
+    const installedSwitch = collectSwitchProps(installedTree).at(-1)
+    expect(installedSwitch?.['checked']).toBe(true)
+    expect(installedSwitch?.['disabled']).toBe(false)
+    expect(installedSwitch?.['title']).toBe('点此卸载')
+    // 在途行的开关必须禁用：并发动作会互相覆盖已装清单。
+    const pendingTree = EnterpriseMarketEntry({
+      view: 'page',
+      sessionUsable: true,
+      enterpriseSkills: [row],
+      installedSkillIds: [],
+      pendingSkillId: '1902500000000000001',
+      onToggleSkill: vi.fn(),
+    })
+    expect(collectSwitchProps(pendingTree).at(-1)?.['disabled']).toBe(true)
+    expect(textOf(pendingTree)).toContain('会议纪要技能组')
   })
 
   // 折叠（照官方 PluginInventory groupToggle）：企业技能节与另两节共用同一份 aria 契约与折叠语义。

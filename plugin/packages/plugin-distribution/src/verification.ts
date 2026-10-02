@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 Node Web Response 流、crypto/fs、安装层验签开关与可选公钥、semver 和中心 RuntimePluginAssignment
- * [OUTPUT]: 对外提供强制大小/hash/兼容性校验、默认关闭的 Ed25519 验签与冻结 JCS 声明；兼容判定前将 android 归一化为 linux（仅判定侧，不改写签名 manifest）
- * [POS]: plugin-distribution 的制品校验边界，下载与缓存共用同一验签策略，通过后才进入安装流程；平台归一化使其在 Android（Linux 同源）运行时能匹配标 linux 的制品白名单
+ * [OUTPUT]: 对外提供**与制品类型无关的下载内核** `downloadVerifiedArtifact`（权威 size+sha256、`.part` 临时件、内容寻址原子改名、失败清理、可复用本地缓存、调用方自定失败码与 revalidate 钩子）与插件专用包装 `downloadAndVerifyArtifact`，以及强制大小/hash/兼容性校验、默认关闭的 Ed25519 验签与冻结 JCS 声明；兼容判定前将 android 归一化为 linux（仅判定侧，不改写签名 manifest）
+ * [POS]: plugin-distribution 的制品校验边界；下载与缓存共用同一验签策略，通过后才进入安装流程。企业技能包（`.dshskill`）的下载也复用这个内核而不是另写一份落盘逻辑，因此「先 `.part`、边写边算 hash、大小/hash 不符绝不出最终文件」这条纪律只有一处实现；平台归一化使其在 Android（Linux 同源）运行时能匹配标 linux 的制品白名单
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -126,47 +126,88 @@ async function hashFile(path: string): Promise<{ readonly bytes: number; readonl
   return { bytes, sha256: hash.digest('hex') }
 }
 
-async function existingArtifact(path: string, assignment: RuntimePluginAssignment): Promise<boolean> {
+async function existingArtifact(path: string, sizeBytes: number, sha256: string): Promise<boolean> {
   try {
     const info = await stat(path)
-    if (!info.isFile() || info.size !== assignment.sizeBytes) return false
+    if (!info.isFile() || info.size !== sizeBytes) return false
     const digest = await hashFile(path)
-    return digest.bytes === assignment.sizeBytes && digest.sha256 === assignment.sha256
+    return digest.bytes === sizeBytes && digest.sha256 === sha256
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false
     throw error
   }
 }
 
-/** 下载到固定 `.part`，校验全部信任事实后原子改名为 hash CAS 文件。 */
-export async function downloadAndVerifyArtifact(options: DownloadArtifactOptions): Promise<string> {
-  const { assignment } = options
-  const directory = join(options.dshHome, 'enterprise', 'artifacts')
-  const finalPath = join(directory, `${assignment.sha256}.tgz`)
+/** 下载失败的三类判定点；调用方用自己的稳定 code 体系把它们变成错误。 */
+export type VerifiedDownloadFailureKind = 'download' | 'size' | 'hash'
+
+/**
+ * 一次「下载 + 强制大小/SHA-256 校验 + 原子落盘」的输入。
+ *
+ * 这是受管插件与企业技能共用的**唯一**下载内核：接受什么 MIME、落到哪个目录、
+ * 失败码叫什么由调用方给定，而「先写 `.part` → 边写边算 hash → 校验通过才改名」
+ * 与「已有内容寻址文件且完全匹配时零网络复用」这两条纪律只在这里实现一次。
+ */
+export interface DownloadVerifiedArtifactOptions {
+  /** 代取令牌的平台请求面（浏览器永不可见凭据）。 */
+  readonly platform: Pick<EnterprisePlatformPort, 'request'>
+  /** 制品地址；null 表示调用方手上没有可下载地址（在命中本地缓存之后才判定）。 */
+  readonly downloadUrl: string | null
+  /** 权威字节数：content-length 与实收字节都必须与它逐字相等。 */
+  readonly sizeBytes: number
+  /** 权威小写十六进制 SHA-256：实收字节必须与它逐字相等。 */
+  readonly sha256: string
+  /** 目标目录，以 0700 递归创建；最终文件名是 `${sha256}${extension}`（内容寻址）。 */
+  readonly directory: string
+  /** 含点号的扩展名，例如 `.tgz` / `.dshskill`。 */
+  readonly extension: string
+  /** 请求制品时携带的 `accept`。 */
+  readonly accept: string
+  readonly signal?: AbortSignal
+  /**
+   * 校验通过后的再次确认钩子，在**命中缓存**与**校验通过即将改名**两处各调一次。
+   * 受管插件用它复查 Ed25519 签名与兼容性；技能不签名故不传。
+   */
+  readonly revalidate?: () => void
+  /** 把三类失败翻成调用方自己的稳定错误（`cause` 保留原始异常）。 */
+  readonly failure: (kind: VerifiedDownloadFailureKind, message: string, cause?: unknown) => Error
+}
+
+/**
+ * 下载到固定 `.part`，强制校验大小与 SHA-256，通过后原子改名为内容寻址文件。
+ *
+ * 失败永远清理 `.part`，因此这个过程不会留下半个制品；命中缓存时不发任何网络请求。
+ *
+ * @param options - 平台请求面、权威大小/hash、目标目录与失败码映射。
+ * @returns 最终制品路径。
+ */
+export async function downloadVerifiedArtifact(options: DownloadVerifiedArtifactOptions): Promise<string> {
+  const { sizeBytes, sha256 } = options
+  const finalPath = join(options.directory, `${sha256}${options.extension}`)
   const partPath = `${finalPath}.part`
-  await mkdir(directory, { recursive: true, mode: 0o700 })
-  if (await existingArtifact(finalPath, assignment)) {
-    verifyAssignmentMetadata(assignment, options.trustedPublicKey, options, options.verifyPluginSignatures)
+  await mkdir(options.directory, { recursive: true, mode: 0o700 })
+  if (await existingArtifact(finalPath, sizeBytes, sha256)) {
+    options.revalidate?.()
     return finalPath
   }
   await rm(finalPath, { force: true })
   await rm(partPath, { force: true })
-  if (assignment.downloadUrl === null) {
-    throw new PluginDistributionError('ENT_PLUGIN_DOWNLOAD_FAILED', 'installed assignment has no download URL')
+  if (options.downloadUrl === null) {
+    throw options.failure('download', 'artifact has no download URL')
   }
 
   let file: Awaited<ReturnType<typeof open>> | undefined
   try {
-    const response = await options.platform.request(assignment.downloadUrl, {
-      headers: { accept: 'application/octet-stream' },
+    const response = await options.platform.request(options.downloadUrl, {
+      headers: { accept: options.accept },
       ...(options.signal === undefined ? {} : { signal: options.signal }),
     })
     if (!response.ok || response.body === null) {
-      throw new PluginDistributionError('ENT_PLUGIN_DOWNLOAD_FAILED', 'plugin download did not return a body')
+      throw options.failure('download', 'artifact download did not return a body')
     }
     const contentLength = response.headers.get('content-length')
-    if (contentLength !== null && Number(contentLength) !== assignment.sizeBytes) {
-      throw new PluginDistributionError('ENT_PLUGIN_SIZE_MISMATCH', 'plugin content length does not match assignment')
+    if (contentLength !== null && Number(contentLength) !== sizeBytes) {
+      throw options.failure('size', 'artifact content length does not match the assignment')
     }
     file = await open(partPath, 'wx', 0o600)
     const reader = response.body.getReader()
@@ -177,8 +218,8 @@ export async function downloadAndVerifyArtifact(options: DownloadArtifactOptions
         const chunk = await reader.read()
         if (chunk.done) break
         bytes += chunk.value.byteLength
-        if (bytes > assignment.sizeBytes) {
-          throw new PluginDistributionError('ENT_PLUGIN_SIZE_MISMATCH', 'plugin download exceeded assigned size')
+        if (bytes > sizeBytes) {
+          throw options.failure('size', 'artifact download exceeded the assigned size')
         }
         hash.update(chunk.value)
         await file.write(chunk.value)
@@ -189,19 +230,45 @@ export async function downloadAndVerifyArtifact(options: DownloadArtifactOptions
     await file.sync()
     await file.close()
     file = undefined
-    if (bytes !== assignment.sizeBytes) {
-      throw new PluginDistributionError('ENT_PLUGIN_SIZE_MISMATCH', 'plugin download size does not match assignment')
+    if (bytes !== sizeBytes) {
+      throw options.failure('size', 'artifact download size does not match the assignment')
     }
-    if (hash.digest('hex') !== assignment.sha256) {
-      throw new PluginDistributionError('ENT_PLUGIN_HASH_MISMATCH', 'plugin download hash does not match assignment')
+    if (hash.digest('hex') !== sha256) {
+      throw options.failure('hash', 'artifact download hash does not match the assignment')
     }
-    verifyAssignmentMetadata(assignment, options.trustedPublicKey, options, options.verifyPluginSignatures)
+    options.revalidate?.()
     await rename(partPath, finalPath)
     return finalPath
   } catch (error) {
-    throw distributionError(error, 'ENT_PLUGIN_DOWNLOAD_FAILED', 'plugin download failed')
+    throw options.failure('download', 'artifact download failed', error)
   } finally {
     await file?.close().catch(() => undefined)
     await rm(partPath, { force: true })
   }
+}
+
+/** 下载到固定 `.part`，校验全部信任事实后原子改名为 hash CAS 文件。 */
+export async function downloadAndVerifyArtifact(options: DownloadArtifactOptions): Promise<string> {
+  const { assignment } = options
+  return downloadVerifiedArtifact({
+    platform: options.platform,
+    downloadUrl: assignment.downloadUrl,
+    sizeBytes: assignment.sizeBytes,
+    sha256: assignment.sha256,
+    directory: join(options.dshHome, 'enterprise', 'artifacts'),
+    extension: '.tgz',
+    accept: 'application/octet-stream',
+    ...(options.signal === undefined ? {} : { signal: options.signal }),
+    revalidate: () => {
+      verifyAssignmentMetadata(assignment, options.trustedPublicKey, options, options.verifyPluginSignatures)
+    },
+    failure: (kind, message, cause) => {
+      const code = kind === 'size' ? 'ENT_PLUGIN_SIZE_MISMATCH'
+        : kind === 'hash' ? 'ENT_PLUGIN_HASH_MISMATCH'
+          : 'ENT_PLUGIN_DOWNLOAD_FAILED'
+      return cause === undefined
+        ? new PluginDistributionError(code, message)
+        : distributionError(cause, code, message)
+    },
+  })
 }

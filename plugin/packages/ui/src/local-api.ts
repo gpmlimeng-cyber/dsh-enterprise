@@ -15,6 +15,7 @@ import {
   decodeEnterpriseDataEnvelope,
   decodeEnterpriseCredentialResult,
   decodeEnterpriseErrorCode,
+  decodeEnterpriseInstalledSkills,
   decodeEnterpriseLocalStatus,
   decodeEnterpriseLoginCancel,
   decodeEnterpriseLoginForm,
@@ -182,6 +183,15 @@ export function createEnterpriseLocalApi(
     removePlugin: async (packageName, signal) => decodeEnterprisePluginStatus(
       await requestJson('/plugins/remove', jsonInit('POST', { packageName }, signal), fetcher),
     ),
+    installedSkills: async signal => decodeEnterpriseInstalledSkills(
+      await requestJson('/skills/installed', getInit(signal), fetcher),
+    ),
+    installSkill: async (packageId, signal) => decodeEnterpriseInstalledSkills(
+      await requestJson('/skills/install', jsonInit('POST', { packageId }, signal), fetcher),
+    ),
+    uninstallSkill: async (packageId, signal) => decodeEnterpriseInstalledSkills(
+      await requestJson('/skills/uninstall', jsonInit('POST', { packageId }, signal), fetcher),
+    ),
     startLogin: async signal => decodeEnterpriseLoginStart(
       await requestJson('/auth/start', postInit(signal), fetcher),
     ),
@@ -224,3 +234,12 @@ export const ENTERPRISE_FEEDBACK_LOCAL_PATH = `${LOCAL_API_PREFIX}/feedback`
 
 /** 「帮助与文档」的同源路径常量：Host 侧同源路由的注册路径必须与它逐字相同。 */
 export const ENTERPRISE_HELP_OPEN_LOCAL_PATH = `${LOCAL_API_PREFIX}/help/open`
+
+/**
+ * 企业技能一键安装的三条同源路径常量；Host 侧（platform-client 的 exact 路由）注册路径必须与它们逐字相同。
+ *
+ * 三条都是 `/skills` prefix 的**子路径**，靠引擎 exact 表优先命中；界面只发这三条，不发任何宿主路径。
+ */
+export const ENTERPRISE_SKILL_INSTALL_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/install`
+export const ENTERPRISE_SKILL_UNINSTALL_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/uninstall`
+export const ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/installed`

@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 Node HTTP 类型、platform-client 的 `ctx.webServer` route port 与异常摘要串
  * [OUTPUT]: 对外提供企业技能目录的本地只读镜像 `registerEnterpriseSkillRoutes`（列表 exact + 详情 prefix，**详情 prefix 不带尾斜杠**以适配引擎的路径段前缀匹配），以及可单测的失败投影 `projectSkillFailure` 与信封投影 `projectSkillEnvelope`
- * [POS]: bundle 的员工技能取数层——Access Token 只存在于平台 Service，本文件既不接触凭据也不重算可见性，只把中心 runtime 技能列表/详情重封成本地 `{data}` 信封；路线形状受引擎 `dsh-host-webserver` 的 `match()` 约束（见 `LOCAL_DETAIL_ROUTE`）
+ * [POS]: bundle 的员工技能**取数**层——Access Token 只存在于平台 Service，本文件既不接触凭据也不重算可见性，只把中心 runtime 技能列表/详情重封成本地 `{data}` 信封；路线形状受引擎 `dsh-host-webserver` 的 `match()` 约束（见 `LOCAL_DETAIL_ROUTE`）。**只读**：一键安装（下载 + SHA-256 校验 + 落盘）不在这条 prefix 面上，而在 `skill-install.ts` 经 platform-client 的 `/skills/{install,uninstall,installed}` exact 子路径完成——本文件的详情 handler 用 `^[1-9][0-9]{0,18}$` 拒掉一切非雪花段，因此即便 exact 表整张消失，`install` 也只会得到 400 而不是被打上游
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -155,8 +155,8 @@ function pathnameOf(request: IncomingMessage): string {
  * 成功把 `{data}` 透传给 UI；上游 401 投影 401（未登录/会话过期），其余失败投影 503。
  * 所有投影在写状态行之前就算好响应体，异常不逃到 Cordis 顶层。
  *
- * 只读：技能包下载（`/versions/{id}/download`）不在此面内——一期员工端只复制装配指令，
- * 由用户自己的 Agent 会话落盘，Host 不代下载。
+ * 只读：技能包下载与落盘（`/versions/{id}/download` + `~/.dsh/skills`）不在此面内，
+ * 由 `skill-install.ts` 经三条 `/skills/*` exact 动作路由承担（Host 代取令牌并校验 SHA-256）。
  *
  * @param webServer - `ctx.webServer` route port。
  * @param platform - 代取令牌的平台请求面（组合层传 `EnterprisePlatformService`）。

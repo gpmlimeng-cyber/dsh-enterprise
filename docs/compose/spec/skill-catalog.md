@@ -1,7 +1,7 @@
 ---
 feature: skill-catalog
 status: delivered
-updated: 2026-09-30
+updated: 2026-10-02
 branch: (working tree)
 ---
 
@@ -93,6 +93,31 @@ skills/
 ### S2.6 员工端设置 tab
 
 「插件」「配方」旁增加「技能」tab；卡片展示 displayName/description/`DSH {sourceDshVersion}`/大小/技能数；详情展示每个条目的 name/description/`whenToUse`/调用策略（模型可调用、仅用户可调用）与安全提示。一期唯一主动作：**复制装配指令**，文案含下载 URL、名称、skillId、建议目标目录 `~/.dsh/skills/`，并要求实际下载落盘前确认。
+
+### S2.7 员工端一键安装（二期增量，2026-10-02）
+
+一期冻结的「员工端唯一主动作＝复制装配指令」已被二期增量取代：同一 tab 的每个技能行现在有一个**「安装」按钮**，点击即完成安装并回显成功/失败；已装行显示「已装 · N 个技能」并可卸载。「复制装配指令」保留为第二条路（不装也可交给用户自己的 Agent 会话）。
+
+```text
+同源路由（本机 API 前缀 /enterprise/api/v1/local，三条都是 /skills 的 exact 子路径）
+  GET  /skills/installed   → { data: { skills: [...] } }        # Host 落盘真值
+  POST /skills/install     → { packageId } → { data: { skills: [...] } }
+  POST /skills/uninstall   → { packageId } → { data: { skills: [...] } }
+
+安装顺序（任一步失败都不改变磁盘上的既有技能）
+  中心详情取权威 versionId/sha256/sizeBytes/技能名集合
+  → 代取 Access Token 下载 versions/{id}/download 到 .part，强制 size+SHA-256
+  → 解 .dshskill（解压前拒绝路径逃逸/绝对路径/盘符/反斜杠/`..`/控制字符/重复路径/符号链接/ZIP64/加密/未知压缩方法，解压中执行 50MiB/200MiB/1万条目/256KiB 上限）
+  → 包契约与详情逐项对齐（manifest.id、技能名集合）
+  → 落点冲突预检（同名技能目录一律不覆盖）
+  → 解到 <dshHome>/enterprise/skill-staging/<uuid>
+  → 逐个原子改名进官方 user-dsh 根 <dshHome>/skills/<name>/
+  → 原子写 <dshHome>/enterprise/skill-installs/installed.json
+```
+
+四条边界：**安装＝落盘，绝不执行包内任何内容**（`scripts/` 由用户自己的 Agent 会话决定是否执行）；落点就是官方 `dsh-skill-filesystem` 的 rank 400 根（`resolveDshHome` 的 `显式 → $DSH_HOME → ~/.dsh` 优先级），watcher 深度 1 直发现，**无需重启**；下载内核复用 `plugin-distribution` 的 `downloadVerifiedArtifact`（与受管插件同一份 `.part` + 内容寻址 + 原子改名纪律，不另写一份落盘逻辑）；同 sha256 幂等、状态文件损坏 fail-closed、失败回滚本次已改名的目录。
+
+**官方能力核对结论（二期重核 0.2.0-rc.2）**：官方没有技能安装 RPC——`@deepseek-ai/dsh-plugin-manager` 只提供 `installBundle`/`removeBundle`（pnpm 装 npm 包，不是技能），技能的唯一官方能力面是 `dsh-skill-filesystem` 的「发现契约」。因此 Host 侧最小落盘不违背「复用官方」，前提是只写它承认的形状；`dsh plugin add <tgz>` 与官方 Web UI 安装则确实是同一条 pnpm 路径（`runPluginCommand` / `PluginManager.installBundle`）。
 
 ## [S3] Out of Scope
 

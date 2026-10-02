@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 React（useState/useEffect）、品牌位图 brand、lucide-react 三枚组件图标、官方 ui-primitives 的 Switch/Tag/StateDot（pinned 0.1.5-rc.2 的 .d.ts 已导出，不走 official-ui 收窄接缝）、account-state 的 `enterpriseSessionUsable` 与 account-store 的 `EnterpriseAccountSnapshot`（shared 面、订阅只在 WithStore 包装内）、skill-market 的技能元信息口径 `enterpriseSkillMeta`、消费官方 `plugins.item` owner props（`view`/`form`）
- * [OUTPUT]: 提供官方插件页「官方」分组里的「插件市场」入口卡片与带「开关 + 组件列表 + 企业插件节 + 企业技能节」的详情页（布局逐值照官方 PackageDetail+RowsSection 实物），以及可脱离 DOM 测试的组件清单/计数摘要/组件状态纯投影、企业插件行投影、企业技能行投影（`enterpriseMarketSkillRows` 复用技能 tab 的元信息口径）与注册常量；卡片摘要与详情页正文**不重复同一句**——摘要只在 `summary` 视图出现（官方必渲染的那一份），详情页只留标题与组件列表
- * [POS]: ui 的企业扩展市场入口，只占官方 `plugins.item` 槽位（卡片一句话走 `summary`、详情正文走 `page`），不注册侧栏入口与独立市场弹层；store 与开登录回调均为可选注入（共享注册面经 `client.tsx` 的 `inject` 给本条目注入 store，缺席时降级为占位态，注入后自动升级为真值态）；组件行 `reserved` 只剩配方一行，插件与技能行随企业会话真值，两个目录节（企业插件/企业技能）都只在对应大组件开启且目录非空时出现（技能目录由 hook 入口经 `store.api.skills()` 取，纯函数体只收直传的行）
+ * [OUTPUT]: 提供官方插件页「官方」分组里的「插件市场」入口卡片与带「开关 + 组件列表 + 企业插件节 + 企业技能节」的详情页（布局逐值照官方 PackageDetail+RowsSection 实物），以及可脱离 DOM 测试的组件清单/计数摘要/组件状态纯投影、企业插件行投影、企业技能行投影（`enterpriseMarketSkillRows` 复用技能 tab 的元信息口径）与技能行受管态纯投影 `enterpriseMarketSkillState`（`AVAILABLE`/`INSTALLED`/`INSTALLING`/`REMOVING`）与注册常量；卡片摘要与详情页正文**不重复同一句**——摘要只在 `summary` 视图出现（官方必渲染的那一份），详情页只留标题与组件列表
+ * [POS]: ui 的企业扩展市场入口，只占官方 `plugins.item` 槽位（卡片一句话走 `summary`、详情正文走 `page`），不注册侧栏入口与独立市场弹层；store 与开登录回调均为可选注入（共享注册面经 `client.tsx` 的 `inject` 给本条目注入 store，缺席时降级为占位态，注入后自动升级为真值态）；组件行 `reserved` 只剩配方一行，插件与技能行随企业会话真值，两个目录节（企业插件/企业技能）都只在对应大组件开启且目录非空时出现，且两节的行都带**真实可拨的安装开关**——企业技能行原先只读，现与企业插件行同范式：`installedSkillIds`/`pendingSkillId`/`onToggleSkill` 三个直传输入决定 `checked`/`disabled`/`data-enterprise-skill-state`，动作返回的已装清单覆盖本地真值、失败即退回未装（界面不保留乐观已装）；技能目录与已装清单由 hook 入口分别经 `store.api.skills()` 与 `store.api.installedSkills()` **并行**取（已装态取数失败只降级为全部未装，不拖垮目录），纯函数体只收直传的行
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -76,14 +76,25 @@ export interface EnterpriseMarketEntryProps {
   /**
    * 企业技能目录（`store.api.skills()` 的列表投影，经 hook 入口取数后直传）。
    * 与本 props 的「企业插件」节同规则：仅当「技能」组件开启（`sessionUsable`）且目录非空时
-   * 追加「企业技能」节；本行只读（技能靠复制装配指令落盘，没有安装态，故不提供假切换）。
+   * 追加「企业技能」节；行上的开关与企业插件行同一范式（`onToggleSkill` + 已装态直传）。
    */
   readonly enterpriseSkills?: readonly EnterpriseMarketSkillRow[] | undefined
+  /**
+   * 本机已装技能包的 packageId 集合（`store.api.installedSkills()` 的投影，经 hook 入口取数后直传）。
+   * 缺席时所有行显示未装；已装行由 Host 回传真值判定，纯函数体不猜。
+   */
+  readonly installedSkillIds?: readonly string[] | undefined
+  /** 当前正在安装/卸载的技能包 id；该行的开关禁用，避免并发动作。 */
+  readonly pendingSkillId?: string | undefined
   /**
    * 企业插件的安装/卸载动作（`store.installPlugin` / `store.removePlugin`）；缺席时开关禁用。
    * 注：安装动作在 hook 入口调用后触发 store 刷新，本纯函数体不持 store。
    */
   readonly onTogglePlugin?: ((row: EnterpriseMarketPluginRow, next: boolean) => void) | undefined
+  /**
+   * 企业技能的一键安装/卸载动作；缺席时技能行的开关禁用（与企业插件行同一降级口径）。
+   */
+  readonly onToggleSkill?: ((row: EnterpriseMarketSkillRow, next: boolean) => void) | undefined
   /**
    * 各节的折叠态（照官方 `PluginInventorySettingsTab`：`aria-expanded` + 默认折叠）。缺席视为全展开
    * （纯函数直调测试不传即得完整树）；真运行时由 `EnterpriseMarketPage` 的 `useState` 供给。
@@ -146,11 +157,11 @@ export function enterpriseMarketPluginSectionVisible(
 
 /**
  * 「企业技能」节的一行：企业后台上传的技能包。
- * 只有阅读事实、没有受管状态——技能靠「复制装配指令」由用户自己的 Agent 会话落盘，
- * Host 不代下载，故不设开关（照「拨不动的开关像坏的」的同一产品决策）。
+ * 与企业插件行同一范式：一行阅读事实 + 右侧一个真实可拨的安装开关；
+ * 「复制装配指令」仍是「技能」tab 的第二条路，这里给的是「一键落盘」。
  */
 export interface EnterpriseMarketSkillRow {
-  /** 技能包雪花 id，同时是详情取数键（`store.api.skillDetail(id)`）。 */
+  /** 技能包雪花 id，同时是详情取数键（`store.api.skillDetail(id)`）与安装动作入参。 */
   readonly id: string
   /** manifest.json 的稳定标识（kebab-case 等），进 `data-enterprise-skill-id`。 */
   readonly skillId: string
@@ -162,7 +173,7 @@ export interface EnterpriseMarketSkillRow {
 }
 
 /**
- * 技能目录 → 可渲染的「企业技能」行（纯函数，按目录顺序，不做归并——技能没有本机受管态）。
+ * 技能目录 → 可渲染的「企业技能」行（纯函数，按目录顺序，不做归并——本机已装态另行直传）。
  * 元信息复用「技能」tab 卡片同一份 `enterpriseSkillMeta`，避免两处各写一份大小/版本口径后分叉。
  */
 export function enterpriseMarketSkillRows(
@@ -175,6 +186,22 @@ export function enterpriseMarketSkillRows(
     description: skill.description === '' ? '（暂无描述）' : skill.description,
     meta: enterpriseSkillMeta(skill),
   }))
+}
+
+/**
+ * 「企业技能」行现在的受管态（与 `data-enterprise-skill-state` 同源，供测试与样式使用）：
+ * `INSTALLED` 已落盘、`INSTALLING`/`REMOVING` 动作在途、`AVAILABLE` 未装可装。
+ */
+export type EnterpriseMarketSkillState = 'AVAILABLE' | 'INSTALLED' | 'INSTALLING' | 'REMOVING'
+
+export function enterpriseMarketSkillState(
+  installedSkillIds: readonly string[] | undefined,
+  pendingSkillId: string | undefined,
+  row: EnterpriseMarketSkillRow,
+  next?: boolean | undefined,
+): EnterpriseMarketSkillState {
+  if (pendingSkillId === row.id) return next === false ? 'REMOVING' : 'INSTALLING'
+  return installedSkillIds?.includes(row.id) === true ? 'INSTALLED' : 'AVAILABLE'
 }
 
 /** 「企业技能」节是否该渲染（「技能」组件开启且目录非空），与企业插件节同规则。 */
@@ -365,6 +392,7 @@ export function BadgeView({ version }: { readonly version?: string | undefined }
  */
 export function EnterpriseMarketEntry({
   view, sessionUsable = false, onOpenLogin, enterprisePlugins = [], enterpriseSkills = [], onTogglePlugin,
+  installedSkillIds, pendingSkillId, onToggleSkill,
   expandedSections = undefined, onToggleSection,
 }: EnterpriseMarketEntryProps): ReactNode {
   if (view === 'summary') return <span className="own-market-entry-summary">{ENTERPRISE_MARKET_SUMMARY}</span>
@@ -492,31 +520,42 @@ export function EnterpriseMarketEntry({
         </section>
       ) : null}
       {/* 「企业技能」节：与企业插件节同规则——「技能」大组件开启（= 会话可用）且目录非空才出现。
-          只读行：技能不走安装/卸载（靠复制装配指令由用户自己的 Agent 会话落盘），故不放 Switch。 */}
+          行上开关与企业插件行同一范式：一键安装/卸载到官方 `~/.dsh/skills`，已装态由 Host 回传。 */}
       {skillRowsVisible ? (
         <section className="own-market-section" data-market-section="enterprise-skills">
           {sectionHead('enterpriseSkills', '企业技能', `${enterpriseSkills.length} 个`)}
           {sectionOpen.enterpriseSkills ? (
             <ul className="own-market-rows" id={`market-section-${ENTERPRISE_MARKET_SECTION_IDS.enterpriseSkills}`}>
-              {enterpriseSkills.map(skill => (
-                <li
-                  key={skill.id}
-                  className="own-market-row"
-                  data-enterprise-skill-package={skill.id}
-                  data-enterprise-skill-id={skill.skillId}
-                >
-                  <div className="own-market-rowLine">
-                    <span className="own-market-rowIcon"><Sparkles size={18} aria-hidden="true" /></span>
-                    {/* 两行文案照官方已安装卡片 CardHead（title 行 + description 行）；右侧状态位放
-                        「DSH 版本 · 大小 · N 个技能」，与「企业设置 → 技能」卡片同一份 enterpriseSkillMeta 口径。 */}
-                    <div className="own-market-rowMain">
-                      <span className="own-market-cardId">{skill.displayName}</span>
-                      <span className="own-market-cardDesc">{skill.description}</span>
+              {enterpriseSkills.map(skill => {
+                const skillState = enterpriseMarketSkillState(installedSkillIds, pendingSkillId, skill)
+                return (
+                  <li
+                    key={skill.id}
+                    className="own-market-row"
+                    data-enterprise-skill-package={skill.id}
+                    data-enterprise-skill-id={skill.skillId}
+                    data-enterprise-skill-state={skillState}
+                  >
+                    <div className="own-market-rowLine">
+                      <span className="own-market-rowIcon"><Sparkles size={18} aria-hidden="true" /></span>
+                      {/* 两行文案照官方已安装卡片 CardHead（title 行 + description 行）；右侧状态位放
+                          「DSH 版本 · 大小 · N 个技能」，与「企业设置 → 技能」卡片同一份 enterpriseSkillMeta 口径。 */}
+                      <div className="own-market-rowMain">
+                        <span className="own-market-cardId">{skill.displayName}</span>
+                        <span className="own-market-cardDesc">{skill.description}</span>
+                      </div>
+                      <span className="own-market-rowState">{skill.meta}</span>
+                      <Switch
+                        checked={skillState === 'INSTALLED'}
+                        label={`安装企业技能 ${skill.displayName}`}
+                        disabled={!onToggleSkill || skillState === 'INSTALLING' || skillState === 'REMOVING'}
+                        title={skillState === 'INSTALLED' ? '点此卸载' : '点此安装到 ~/.dsh/skills'}
+                        onChange={(next) => { onToggleSkill?.(skill, next) }}
+                      />
                     </div>
-                    <span className="own-market-rowState">{skill.meta}</span>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                )
+              })}
             </ul>
           ) : null}
         </section>
@@ -555,10 +594,14 @@ export function EnterpriseMarketPage({ view, store }: { readonly view: 'summary'
   const enterprisePlugins = enterpriseMarketPluginRows(catalog, local)
   // 技能目录：只在 `page` 视图（企业技能节的宿主）+ 有 store + 会话可用时取；卡片视图不预取。
   // 会话不可用/取数失败一律回落空目录（节随之消失）；依赖变化即中止在途请求，避免迟到结果跨会话回填。
+  // 已装态与目录**并行**取：旧 Host 没有 `/skills/installed` 时目录照常显示，只是所有行显示未装。
   const [enterpriseSkills, setEnterpriseSkills] = useState<readonly EnterpriseMarketSkillRow[]>([])
+  const [installedSkillIds, setInstalledSkillIds] = useState<readonly string[]>([])
+  const [pendingSkill, setPendingSkill] = useState<{ readonly packageId: string; readonly next: boolean }>()
   useEffect(() => {
     if (view !== 'page' || !hasStore || !sessionUsable) {
       setEnterpriseSkills([])
+      setInstalledSkillIds([])
       return
     }
     const controller = new AbortController()
@@ -568,6 +611,13 @@ export function EnterpriseMarketPage({ view, store }: { readonly view: 'summary'
       })
       .catch(() => {
         if (!controller.signal.aborted) setEnterpriseSkills([])
+      })
+    void store!.api.installedSkills(controller.signal)
+      .then(items => {
+        if (!controller.signal.aborted) setInstalledSkillIds(items.map(item => item.packageId))
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setInstalledSkillIds([])
       })
     return () => { controller.abort() }
   }, [view, hasStore, sessionUsable, store])
@@ -582,6 +632,22 @@ export function EnterpriseMarketPage({ view, store }: { readonly view: 'summary'
       }
     }
     : undefined
+  const onToggleSkill: ((row: EnterpriseMarketSkillRow, next: boolean) => void) | undefined = hasStore
+    ? (row, next) => {
+      // 与企业插件同一并发纪律：同一时刻只允许一个技能动作，动作返回的已装清单直接覆盖本地真值。
+      if (pendingSkill !== undefined) return
+      setPendingSkill({ packageId: row.id, next })
+      const signal = AbortSignal.timeout(120_000)
+      const operation = next ? store!.api.installSkill : store!.api.uninstallSkill
+      void operation.call(store!.api, row.id, signal)
+        .then(items => setInstalledSkillIds(items.map(item => item.packageId)))
+        .catch(() => {
+          // 失败就把该行退回未装态：不保留乐观已装，避免界面比磁盘更乐观。
+          if (next) setInstalledSkillIds(previous => previous.filter(id => id !== row.id))
+        })
+        .finally(() => setPendingSkill(undefined))
+    }
+    : undefined
   return (
     <>
       <EnterpriseMarketEntry
@@ -591,6 +657,9 @@ export function EnterpriseMarketPage({ view, store }: { readonly view: 'summary'
         enterprisePlugins={enterprisePlugins}
         enterpriseSkills={enterpriseSkills}
         onTogglePlugin={onTogglePlugin}
+        installedSkillIds={installedSkillIds}
+        pendingSkillId={pendingSkill?.packageId}
+        onToggleSkill={onToggleSkill}
         expandedSections={expandedSections}
         onToggleSection={onToggleSection}
       />

@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 Cordis/Schemastery、Harness credentials/LLM/subprocess/inventory、官方 dsh-deepseek-account-platform、官方 settings 的 volatile Config 投影、platform-client 的地址写入诊断串、官方运行时身份与企业业务模块
- * [OUTPUT]: 对外提供 Web/Desktop 共用 bundle apply、官方 settings 的 volatile Server/账户后台地址字段、默认关闭的插件验签开关、Host 凭据持久化、企业插件安装/卸载、条件 Session 同步注册，以及用 settings 自定义地址热重挂官方账户插件；安卓按 `browserHandoff: 'client'` 把登录浏览器交接给浏览器半（宿主进程没有可用的开源路径），地址不可持久化的每个判定点都写 warn/error 宿主日志
- * [POS]: bundle 的唯一 Host Loader 入口，组合平台认证、官方企业模型、账户后台地址与环境原生插件调和；Session 同步仅在 sessionPolicy.enabled 时挂载
+ * [INPUT]: 依赖 Cordis/Schemastery、Harness credentials/LLM/subprocess/inventory、官方 dsh-deepseek-account-platform、官方 settings 的 volatile Config 投影、platform-client 的地址写入诊断串与本地路由端口、plugin-distribution 的企业插件分发 Service 与其制品下载内核、官方运行时身份与企业业务模块
+ * [OUTPUT]: 对外提供 Web/Desktop 共用 bundle apply、官方 settings 的 volatile Server/账户后台地址字段、默认关闭的插件验签开关、Host 凭据持久化、企业插件安装/卸载、**企业技能一键安装端口**、条件 Session 同步注册，以及用 settings 自定义地址热重挂官方账户插件；安卓按 `browserHandoff: 'client'` 把登录浏览器交接给浏览器半（宿主进程没有可用的开源路径），地址不可持久化的每个判定点都写 warn/error 宿主日志
+ * [POS]: bundle 的唯一 Host Loader 入口，组合平台认证、官方企业模型、账户后台地址、环境原生插件调和与企业技能落盘（`skill-install.ts`）；Session 同步仅在 sessionPolicy.enabled 时挂载
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -52,6 +52,7 @@ import { registerEnterpriseFeedbackRoute } from './feedback-route.js'
 import { registerEnterpriseHelpRoute } from './help-route.js'
 import { registerEnterpriseUsageRoute } from './usage-route.js'
 import { registerEnterpriseModelsStatusRoute } from './models-status.js'
+import { createEnterpriseSkillInstall } from './skill-install.js'
 import { registerEnterpriseSkillRoutes } from './skill-route.js'
 
 declare module '@deepseek-ai/dsh-settings' {
@@ -406,6 +407,18 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
       },
     }),
   })
+  /**
+   * 技能安装端口：与 `sessionLocalPort` 同一手法，先拿住一个**晚绑定**的平台请求面，
+   * 再把这两个端口交给 platform-client 的三条 `/skills/*` exact 路由。
+   * 落盘根由 `resolveEnterpriseDshHome()` 决议（与官方 `dsh-home-paths` 同一套优先级），
+   * 即官方 `skill-filesystem` 的 `user-dsh` 根 `<dshHome>/skills`；watcher 深度 1 直发现，装完无需重启。
+   */
+  const skillInstall = createEnterpriseSkillInstall({
+    platform: { request: (input, init) => platform.request(input, init) },
+    onError: (message, error) => {
+      ctx.logger.warn(`owndsh: ${message}`, error)
+    },
+  })
   platform = new EnterprisePlatformService(ctx, {
     ...(config.baseUrl === undefined ? {} : { baseUrl: config.baseUrl }),
     serverUrl: settingsReference<string | undefined>(config.serverUrl),
@@ -418,6 +431,8 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
     // 改由浏览器半用壳原生桥打开；其余平台保持宿主直接打开。
     browserHandoff: process.platform === 'android' ? 'client' : 'host',
     pluginStatus: () => pluginDistribution?.status() ?? { assignmentRevision: 0, plugins: [] },
+    skillStatus: () => skillInstall.status(),
+    skillAction: (action, packageId) => skillInstall.action(action, packageId),
     sessionSync: sessionLocalPort,
     pluginAction: async (action, packageName, pluginVersionId) => {
       if (pluginDistribution === undefined) throw new Error('DSH Enterprise plugin distribution is unavailable')
@@ -452,9 +467,11 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
   ctx.effect(() => registerEnterpriseUsageRoute(ctx.webServer, platform, (message, error) => {
     ctx.logger.warn(`owndsh: ${message}`, error)
   }), 'enterpriseUsage.routes')
-  // 企业技能目录：员工端「技能」tab 只能读这条同源只读路由（列表 + 详情），
-  // 由 Host 代取中心 runtime 技能面；上游 401 投影 401、其余失败投影 503 并留 warn 日志。
-  // 技能包下载不在此面内——一期只复制装配指令，落盘交给用户自己的 Agent 会话。
+  // 企业技能目录：员工端「技能」tab 读这条同源路由（列表 + 详情），由 Host 代取中心 runtime 技能面；
+  // 上游 401 投影 401、其余失败投影 503 并留 warn 日志。
+  // 一键安装（下载 + SHA-256 校验 + 落盘到官方 `user-dsh` 技能根）由 `skill-install.ts` 承担，
+  // 经 platform-client 的三条 `/skills/*` exact 动作路由暴露，落在 `<dshHome>/skills`，
+  // 由官方 skill-filesystem 的 watcher 直接生效（无需重启）。
   ctx.effect(() => registerEnterpriseSkillRoutes(ctx.webServer, platform, (message, error) => {
     ctx.logger.warn(`owndsh: ${message}`, error)
   }), 'enterpriseSkills.routes')

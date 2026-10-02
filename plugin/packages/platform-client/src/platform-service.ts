@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Cordis Service/WebServer/settings、官方 settings 投影的 volatile Config 引用、configEditor 的只读 entry 读面、credentials、T02 contracts、PKCE/installation/browser 原语与 Node fetch
- * [OUTPUT]: 提供 ctx.enterprisePlatform、启动恢复、按需刷新/Token 轮换、品牌缓存的三个取数时机与地址写入失败的结构化诊断日志；仅无活动会话时允许清理凭据并修改 Server；安卓上宿主没有可用的系统浏览器通道（Termux/系统 am 都被包名↔uid 校验拒绝，壳的 androidBridge 在 WebView 里也取不到），改用 `browserHandoff: 'client'` 把授权 URL 挂上 AUTHORIZING 状态下发、并在宿主内代开服务端事务（GET 授权 URL 取 transaction_id → 取 /sources），由登录弹窗渲染原生表单、经本机路由代收账号密码与改密，成功后宿主自己跟随回环回调；离开该状态即收回，凭证不落盘不进日志
+ * [OUTPUT]: 提供 ctx.enterprisePlatform、启动恢复、按需刷新/Token 轮换、品牌缓存的三个取数时机与地址写入失败的结构化诊断日志，并把组合层注入的企业插件动作端口（pluginStatus/pluginAction）与企业技能安装端口（skillStatus/skillAction）原样转交给 `registerEnterpriseLocalApi`（技能动作缺席即不注册那三条路由）；仅无活动会话时允许清理凭据并修改 Server；安卓上宿主没有可用的系统浏览器通道（Termux/系统 am 都被包名↔uid 校验拒绝，壳的 androidBridge 在 WebView 里也取不到），改用 `browserHandoff: 'client'` 把授权 URL 挂上 AUTHORIZING 状态下发、并在宿主内代开服务端事务（GET 授权 URL 取 transaction_id → 取 /sources），由登录弹窗渲染原生表单、经本机路由代收账号密码与改密，成功后宿主自己跟随回环回调；离开该状态即收回，凭证不落盘不进日志
  * [POS]: platform-client 的 Host 业务核心，跨 Web/Desktop 复用官方凭据平面且不向 Client UI 暴露任何 Token；品牌缓存在这里装配（构造、登录成功、Server 切换各刷新一次），每个 `ENT_SETTINGS_UNAVAILABLE` 抛出点都留痕
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -343,6 +343,8 @@ export class EnterprisePlatformService extends Service {
         document: () => this.branding.document(),
       },
       ...(internals.pluginAction === undefined ? {} : { pluginAction: internals.pluginAction }),
+      ...(internals.skillAction === undefined ? {} : { skillAction: internals.skillAction }),
+      ...(internals.skillStatus === undefined ? {} : { skillStatus: internals.skillStatus }),
       ...(internals.uninstallPlugin === undefined ? {} : { uninstallPlugin: internals.uninstallPlugin }),
       ...(internals.sessionSync === undefined ? {} : { sessionSync: internals.sessionSync }),
       // 本地路由把异常投影成 HTTP 状态码时留痕：这是前端拿到的 `error.code` 与 Host 侧原始异常的接缝。

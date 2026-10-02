@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 skill-market 的装配指令/条目与元信息纯投影，以及 local-api 再导出的技能严格解码
- * [OUTPUT]: 验证装配指令文案要点（下载 URL/名称/skillId/~/.dsh/skills 落点/落盘前确认）、调用策略标签、列表与详情投影（含 sha256 丢弃、null 归一）、畸形拒绝与浏览器不接触令牌/不绕开 local-api
+ * [OUTPUT]: 验证装配指令文案要点（下载 URL/名称/skillId/~/.dsh/skills 落点/落盘前确认）、调用策略标签、列表与详情投影（含 sha256 丢弃、null 归一）、**已装态解码与逐行安装态投影（已装/未装/在途文案与按钮语义）**、三条安装动作的同源路径常量、畸形拒绝与浏览器不接触令牌/不绕开 local-api
  * [POS]: dsh-ui 技能 tab 的产品词汇与边界门禁，真实 DOM 与视觉由 Harness 快照与真机验收覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,10 +10,18 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   buildSkillInstruction,
   enterpriseSkillEntryRows,
+  enterpriseSkillInstallState,
   enterpriseSkillInvocationLabel,
   enterpriseSkillMeta,
 } from '../src/skill-market.js'
-import { decodeEnterpriseSkillDetail, decodeEnterpriseSkills } from '../src/local-api.js'
+import {
+  decodeEnterpriseInstalledSkills,
+  decodeEnterpriseSkillDetail,
+  decodeEnterpriseSkills,
+  ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH,
+  ENTERPRISE_SKILL_INSTALL_LOCAL_PATH,
+  ENTERPRISE_SKILL_UNINSTALL_LOCAL_PATH,
+} from '../src/local-api.js'
 
 vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({ Button: vi.fn(), Modal: vi.fn() }))
 
@@ -117,10 +125,92 @@ describe('enterprise skill market', () => {
     expect(enterpriseSkillMeta(decodeEnterpriseSkillDetail(DETAIL))).toBe('DSH 0.2.0-rc.2 · 2.0 KiB · 2 个技能')
   })
 
+  it('decodes the installed skill state and rejects any leaked host fact', () => {
+    const installed = {
+      packageId: '7001',
+      skillId: 'code-review-ent',
+      displayName: '企业代码评审技能包',
+      versionId: '9001',
+      sha256: 'a'.repeat(64),
+      names: ['code-review', 'release-notes'],
+      installedAt: '2026-10-02T00:00:00Z',
+    }
+    expect(decodeEnterpriseInstalledSkills({ skills: [installed] })).toEqual([installed])
+    expect(decodeEnterpriseInstalledSkills({ skills: [] })).toEqual([])
+    for (const broken of [
+      // Host 多塞任何字段（宿主路径、清单文件路径）都整条判失败。
+      { skills: [{ ...installed, root: '/data/user/0/com.deepcode.shell/files/home/.dsh/skills' }] },
+      { skills: [{ ...installed, artifactPath: '/private/x.dshskill' }] },
+      { skills: [{ ...installed, sha256: 'a'.repeat(63) }] },
+      { skills: [{ ...installed, packageId: '0' }] },
+      { skills: [{ ...installed, versionId: '../9001' }] },
+      { skills: [{ ...installed, names: [] }] },
+      { skills: [{ ...installed, names: ['Code Review'] }] },
+      { skills: [{ ...installed, names: ['code-review', 'code-review'] }] },
+      { skills: [{ ...installed, installedAt: '2026-10-02 00:00:00' }] },
+      { skills: Array.from({ length: 201 }, () => installed) },
+      { skills: 'not-a-list' },
+      { records: [] },
+      installed,
+    ]) {
+      expect(() => decodeEnterpriseInstalledSkills(broken)).toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    }
+  })
+
+  it('projects each row install state from the host truth and the in-flight action', () => {
+    const record = {
+      packageId: '7001',
+      skillId: 'code-review-ent',
+      displayName: '企业代码评审技能包',
+      versionId: '9001',
+      sha256: 'a'.repeat(64),
+      names: ['code-review', 'release-notes'],
+      installedAt: '2026-10-02T00:00:00Z',
+    }
+    // 未取到清单与空清单都算未装：界面从不乐观猜测。
+    expect(enterpriseSkillInstallState(undefined, '7001')).toEqual({
+      installed: false, names: [], actionLabel: '安装', statusLabel: '未安装', busy: false, action: 'install',
+    })
+    expect(enterpriseSkillInstallState([], '7001').installed).toBe(false)
+    expect(enterpriseSkillInstallState([record], '7001')).toEqual({
+      installed: true,
+      names: ['code-review', 'release-notes'],
+      actionLabel: '卸载',
+      statusLabel: '已装 · 2 个技能',
+      busy: false,
+      action: 'uninstall',
+    })
+    // 在途：文案切到进行时、按钮禁用；别的包在途不影响本行。
+    expect(enterpriseSkillInstallState([], '7001', { packageId: '7001', action: 'install' }))
+      .toMatchObject({ actionLabel: '安装中…', busy: true, action: 'install' })
+    expect(enterpriseSkillInstallState([record], '7001', { packageId: '7001', action: 'uninstall' }))
+      .toMatchObject({ actionLabel: '卸载中…', busy: true, action: 'uninstall' })
+    expect(enterpriseSkillInstallState([record], '7001', { packageId: '7002', action: 'install' }))
+      .toMatchObject({ actionLabel: '卸载', busy: false })
+    // 另一个包已装不影响本行。
+    expect(enterpriseSkillInstallState([record], '7002').installed).toBe(false)
+  })
+
+  it('keeps the three skill action paths on the same origin as the rest of the local API', () => {
+    expect(ENTERPRISE_SKILL_INSTALL_LOCAL_PATH).toBe('/enterprise/api/v1/local/skills/install')
+    expect(ENTERPRISE_SKILL_UNINSTALL_LOCAL_PATH).toBe('/enterprise/api/v1/local/skills/uninstall')
+    expect(ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH).toBe('/enterprise/api/v1/local/skills/installed')
+    // 三条都是 `/skills` prefix 的子路径（靠 Host 侧 exact 表优先命中），因此**不以** `/skills/` 结尾。
+    for (const path of [ENTERPRISE_SKILL_INSTALL_LOCAL_PATH, ENTERPRISE_SKILL_UNINSTALL_LOCAL_PATH]) {
+      expect(path.endsWith('/')).toBe(false)
+      expect(path.startsWith('/enterprise/api/v1/local/skills/')).toBe(true)
+    }
+  })
+
   it('fetches only through the shared same-origin local API and never touches tokens', async () => {
     const source = await readFile(new URL('../src/skill-market.tsx', import.meta.url), 'utf8')
     expect(source).toContain('createEnterpriseLocalApi')
+    // 一键安装只经共享同源 API 的安装/卸载/已装态三方法，不自己拼 URL、不碰令牌、不执行包内内容。
+    expect(source).toContain('api.installSkill')
+    expect(source).toContain('api.uninstallSkill')
+    expect(source).toContain('api.installedSkills')
     expect(source).not.toMatch(/authorization|accessToken|bearer/i)
     expect(source).not.toContain('fetch(')
+    expect(source).not.toContain('child_process')
   })
 })

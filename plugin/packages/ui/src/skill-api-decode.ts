@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 decode-primitives 的键集封闭判定、record/nonEmptyString/timestamp/enterpriseId 与唯一失败码类
- * [OUTPUT]: 对外提供技能包 DTO（`EnterpriseRuntimeSkill`/`EnterpriseSkillEntry`）与严格解码 `decodeEnterpriseSkills`（列表）与 `decodeEnterpriseSkillDetail`（详情）
- * [POS]: dsh-ui 浏览器契约层的技能分片——从逼近 800 行的 local-api-decode 拆出，专管企业技能目录投影；只保留 frontmatter 脱敏事实，SKILL.md 正文、artifact 路径与 SHA-256 在这里校验形状后即丢，永不进入界面
+ * [OUTPUT]: 对外提供技能包 DTO（`EnterpriseRuntimeSkill`/`EnterpriseSkillEntry`/`EnterpriseInstalledSkill`）与严格解码 `decodeEnterpriseSkills`（列表）、`decodeEnterpriseSkillDetail`（详情）与 `decodeEnterpriseInstalledSkills`（本机已装态）
+ * [POS]: dsh-ui 浏览器契约层的技能分片——从逼近 800 行的 local-api-decode 拆出，专管企业技能目录投影；只保留 frontmatter 脱敏事实，SKILL.md 正文、artifact 路径与 SHA-256 在这里校验形状后即丢，永不进入界面；已装态是本机真值（Host 状态文件 + 落盘存在性），这里只校验形状与技能名规约
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -148,4 +148,71 @@ export function decodeEnterpriseSkillDetail(value: unknown): EnterpriseRuntimeSk
     versionId: row['versionId'],
     skills: row['skills'].map(decodeSkillEntry),
   }
+}
+
+/**
+ * 一条**已装**技能包记录（`GET /enterprise/api/v1/local/skills/installed` 的 `data.skills` 项）。
+ *
+ * 这是 Host 落盘态的唯一投影：没有宿主绝对路径、没有包内文件名清单，
+ * `names` 是本包落盘的技能目录名（kebab），界面只用它显示「含 N 个技能」与做已装判定。
+ */
+export interface EnterpriseInstalledSkill {
+  readonly packageId: string
+  readonly skillId: string
+  readonly displayName: string
+  readonly versionId: string
+  readonly sha256: string
+  readonly names: readonly string[]
+  readonly installedAt: string
+}
+
+const INSTALLED_SKILL_KEYS = [
+  'packageId', 'skillId', 'displayName', 'versionId', 'sha256', 'names', 'installedAt',
+] as const
+
+function decodeInstalledSkill(value: unknown): EnterpriseInstalledSkill {
+  const row = record(value)
+  if (row === undefined
+    || !hasExactKeys(row, INSTALLED_SKILL_KEYS)
+    || !enterpriseId(row['packageId'])
+    || !enterpriseId(row['versionId'])
+    || !nonEmptyString(row['skillId']) || row['skillId'].length > 128 || !SKILL_PACKAGE_REF.test(row['skillId'])
+    || !nonEmptyString(row['displayName']) || row['displayName'].length > 120
+    || typeof row['sha256'] !== 'string' || !SKILL_SHA256.test(row['sha256'])
+    || !Array.isArray(row['names']) || row['names'].length === 0 || row['names'].length > 200
+    || !timestamp(row['installedAt'])) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  const names: string[] = []
+  for (const name of row['names']) {
+    // 技能名同时是磁盘目录名：这里与官方 `isSkillName` 同规约收窄，界面拿到的永远是安全形状。
+    if (typeof name !== 'string' || name.length > 64 || !SKILL_ENTRY_NAME.test(name) || names.includes(name)) {
+      throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    names.push(name)
+  }
+  return {
+    packageId: row['packageId'],
+    skillId: row['skillId'],
+    displayName: row['displayName'],
+    versionId: row['versionId'],
+    sha256: row['sha256'],
+    names,
+    installedAt: row['installedAt'],
+  }
+}
+
+/**
+ * 严格解码本机已装技能清单（`GET /enterprise/api/v1/local/skills/installed` 的 `data`）。
+ *
+ * 信封必须是单键 `{ skills: [...] }`：Host 多塞任何字段（宿主路径、清单文件路径）都整条判失败。
+ */
+export function decodeEnterpriseInstalledSkills(value: unknown): readonly EnterpriseInstalledSkill[] {
+  const row = record(value)
+  if (row === undefined
+    || !hasExactKeys(row, ['skills'])
+    || !Array.isArray(row['skills']) || row['skills'].length > 200) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  return row['skills'].map(decodeInstalledSkill)
 }

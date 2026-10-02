@@ -1,13 +1,14 @@
 /**
- * [INPUT]: 依赖 `src/skill-route.ts` 的路由注册器与投影纯函数、`@dshent/platform-client` 的 route port 类型、Node 原生 HTTP server/fetch
+ * [INPUT]: 依赖 `src/skill-route.ts` 的路由注册器与投影纯函数、`@dshent/platform-client` 的 route port 类型、同目录的 `engine-route-match.ts` 引擎语义匹配器、Node 原生 HTTP server/fetch
  * [OUTPUT]: 锁定企业技能目录本地只读路由的列表/详情 200 透传、非法包 id 本地 400、401/503 投影、405、`versions/` 下载路径不被当作包 id，以及**详情 prefix 必须不带尾斜杠**（用引擎同款「路径段前缀」匹配函数锁死，含带尾斜杠漏匹配的反例）
- * [POS]: bundle 的技能取数回归门禁；有人漏注册详情路由、把上游正文原样写出、把 401 折成 503、让 `/versions/...` 误撞详情路由，或把详情 prefix 改回带尾斜杠（线上 `/skills/<id>` 空体 404 的根因），本文件都会红
+ * [POS]: bundle 的技能取数回归门禁，路由分发复用同目录的引擎语义匹配器 `tests/engine-route-match.ts`（与 platform-client 的同名内核逐字等价，绝不用裸 `startsWith` 的假匹配器）；有人漏注册详情路由、把上游正文原样写出、把 401 折成 503、让 `/versions/...` 误撞详情路由，或把详情 prefix 改回带尾斜杠（线上 `/skills/<id>` 空体 404 的根因），本文件都会红
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http'
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import type { WebServerRoutePort } from '@dshent/platform-client'
+import { engineRouteMatch } from './engine-route-match.js'
 import {
   ENTERPRISE_SKILL_LOCAL_PATH,
   ENTERPRISE_SKILLS_LIST_PATH,
@@ -85,27 +86,6 @@ describe('skill route projection', () => {
 
 /** 注册的两条路由（exact + prefix）都要按真实 webServer 的语义分发。 */
 type RegisteredRoute = Parameters<WebServerRoutePort['register']>[0]
-
-/**
- * 引擎 `dsh-host-webserver` 的匹配语义（`lib/index.js` 的 `match()`）逐行照抄：
- * exact 表按整路径命中优先；miss 后在 prefix 表里只认「路径段前缀」——
- * `pathname === prefix || pathname.startsWith(`${prefix}/`)`，多条命中取最长者。
- *
- * 之所以在测试里复刻而不是调用真引擎：真引擎是 Cordis Service，起它要重启 DSH（本机禁止）。
- * 这份复刻是「详情 prefix 不许带尾斜杠」这条回归锁的判定核心——它必须与引擎一致，
- * 改这里之前先重读 `@deepseek-ai/dsh-host-webserver/lib/index.js` 的 `match()`。
- */
-function engineRouteMatch(routes: readonly RegisteredRoute[], pathname: string): RegisteredRoute | undefined {
-  const exact = routes.find(route => route.kind === 'exact' && route.path === pathname)
-  if (exact !== undefined) return exact
-  let best: RegisteredRoute | undefined
-  for (const route of routes) {
-    if (route.kind !== 'prefix') continue
-    if (pathname !== route.path && !pathname.startsWith(`${route.path}/`)) continue
-    if (best === undefined || route.path.length > best.path.length) best = route
-  }
-  return best
-}
 
 describe('GET /enterprise/api/v1/local/skills', () => {
   let server: Server
