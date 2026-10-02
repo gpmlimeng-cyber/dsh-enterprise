@@ -65,6 +65,9 @@ describe('the full-screen access gate is retired', () => {
       'settings.launcher',
       'plugins.item',
       'plugins.detail.badge',
+      'sidebar.brand.mark',
+      'sidebar.brand.name',
+      'conversation.hero.brand.mark',
     ])
     // 本刀撤销侧栏「应用商店」：独立应用商店的两处座位（main 面板 + sidebar.panellist 入口）不再注册。
     expect(injected).not.toContain('main')

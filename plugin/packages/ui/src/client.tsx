@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖官方 slots/remote/connection 生命周期事件、EnterpriseAccountStore，以及宿主 ui-theme 与 shortcuts 服务（按需读取，不作硬注入），不创建传输连接
- * [OUTPUT]: 注册账号/插件设置、官方 settings.launcher 座位上的账号菜单、官方插件页「官方」分组里的「插件市场」入口卡片（注册 `EnterpriseMarketLegacyPage`，旧外观：官方两行卡片，无 HERO／无搜索框，**这是用户保留的唯一市场入口**）与详情页标题行（`plugins.detail.badge` 槽只出「版本号 + 包名」，无「预览版」签、无可拨总开关）；本刀撤掉「独立应用商店」的两处注册——官方 `main` 槽上的 `enterprise-store` 整页面板与 `sidebar.panellist` 上的「应用商店」一级入口（order 20），故 `marketplace-entry.tsx` 里的 `EnterpriseMarketStorePage`／`EnterpriseStoreIcon`／`ENTERPRISE_STORE_*` 暂时无人引用（有意留给后续清理）；宿主模型/凭据变化后按需读取状态，让请求触发的认证失效立即呈现；向菜单注入官方主题只读源、桌面能力面（动作 + 更新状态）与官方快捷键注册表只读源
- * [POS]: dsh-ui 的浏览器组合根，只向 React 注入共享脱敏 store、主题源、桌面能力面与快捷键源，不注册任何全屏阻断层，也不自建第二份逻辑
+ * [INPUT]: 依赖官方 slots/remote/connection 生命周期事件、EnterpriseAccountStore、brand-occupants 的三个品牌占用者与品牌座位源（`createEnterpriseBrandingSeats`／`bindEnterpriseBrandSeat`），以及宿主 ui-theme 与 shortcuts 服务（按需读取，不作硬注入），不创建传输连接
+ * [OUTPUT]: 注册账号/插件设置、官方 settings.launcher 座位上的账号菜单、官方插件页「官方」分组里的「插件市场」入口卡片（注册 `EnterpriseMarketLegacyPage`：官方两行卡片 + **点技能行本体在该 page 视图内整页切换到技能详情子页面**，**这是唯一市场入口**）与详情页标题行（`plugins.detail.badge` 槽只出「版本号 + 包名」，无「预览版」签、无可拨总开关）；「独立应用商店」的两处注册（官方 `main` 槽上的 `enterprise-store` 整页面板与 `sidebar.panellist` 一级入口，order 20）已在上一刀撤掉，本刀把它留下的 store 外壳死代码（`EnterpriseMarketStorePage`／`EnterpriseStoreIcon`／`ENTERPRISE_STORE_*`／HERO 与其样式文案／只服务它的搜索框）从 `marketplace-entry.tsx` 一并删除；**本刀新增企业品牌的三处消费点**：侧栏品牌行的两格（`sidebar.brand.mark`／`sidebar.brand.name`，priority **-10** 遮蔽官方 priority 0 的鱼标与字标）与「新会话」Hero 的品牌位（`conversation.hero.brand.mark`，priority **0**，官方无占用者），三处都经 `bindEnterpriseBrandSeat` 由品牌视图驱动——有企业品牌才注册、未配置或取数失败就撤掉注册，官方鱼标／官方 HeroFish 原样接管（渲染器 single 槽只要有 occupant 就不再走 `opts.fallback`，故「占用者返回 null」不能当降级路径）；宿主模型/凭据变化后按需读取状态，让请求触发的认证失效立即呈现；向菜单注入官方主题只读源、桌面能力面（动作 + 更新状态）与官方快捷键注册表只读源
+ * [POS]: dsh-ui 的浏览器组合根，只向 React 注入共享脱敏 store、主题源、桌面能力面与快捷键源，并把企业品牌的三个展示位挂到官方已声明的槽位上（品牌读取与 logo 渲染仍归 branding.ts，本文件不复制品牌逻辑），不注册任何全屏阻断层，也不自建第二份逻辑
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -9,6 +9,16 @@ import type { ReactNode } from 'react'
 import { EnterpriseAccountMenu } from './account-menu.js'
 import { EnterpriseAccountStore } from './account-store.js'
 import { EnterpriseSettingsSection } from './account-view.js'
+import {
+  bindEnterpriseBrandSeat,
+  createEnterpriseBrandingSeats,
+  ENTERPRISE_HERO_BRAND_MARK_SEAT,
+  ENTERPRISE_SIDEBAR_BRAND_MARK_SEAT,
+  ENTERPRISE_SIDEBAR_BRAND_NAME_SEAT,
+  EnterpriseHeroBrandMark,
+  EnterpriseSidebarBrandMark,
+  EnterpriseSidebarBrandName,
+} from './brand-occupants.js'
 import { createEnterpriseDesktopSource } from './desktop-runtime.js'
 import { createEnterpriseLocalApi } from './local-api.js'
 import {
@@ -30,6 +40,7 @@ export * from './account-menu.js'
 export * from './account-store.js'
 export * from './account-state.js'
 export * from './account-view.js'
+export * from './brand-occupants.js'
 export * from './branding.js'
 export * from './desktop-runtime.js'
 export * from './feedback-dialog.js'
@@ -129,13 +140,12 @@ export function apply(ctx: SlotContextPort): void {
     name: 'settings.launcher',
     inject: () => ({ desktop, shortcuts, shortcutsOpener, store, theme }),
   }, EnterpriseAccountMenu as (props: never) => ReactNode))
-  // 官方插件页「官方」分组里的入口卡片：**用户保留的唯一市场入口**（卡片不改成跳转、不删除）。
-  // 点进去的 `page` 视图走**旧外观外壳**（`EnterpriseMarketLegacyPage` → 9723a97 那一版两行卡片，
-  // 无 HERO、无搜索框）。注入共享 store 让详情页开关/登录弹窗真实可用。
-  // 本刀撤掉了「独立应用商店」的两处注册（官方 `main` 槽上的 `enterprise-store` 整页面板 +
-  // `sidebar.panellist` 上的「应用商店」一级入口）；`marketplace-entry.tsx` 里的
-  // `EnterpriseMarketStorePage`／`EnterpriseStoreIcon`／`ENTERPRISE_STORE_*` 因此暂时无人引用，
-  // 属**有意留下的死代码**，留给后续那一刀统一清理，本刀不去动 marketplace-entry.tsx。
+  // 官方插件页「官方」分组里的入口卡片：**唯一市场入口**（卡片不改成跳转、不删除）。
+  // 点进去的 `page` 视图走 `EnterpriseMarketLegacyPage`（9723a97 那一版两行卡片；点技能行本体在该视图内
+  // **整页切换**到技能详情子页面）。注入共享 store 让行上开关与登录弹窗真实可用。
+  // 「独立应用商店」的两处注册（官方 `main` 槽上的 `enterprise-store` 整页面板 + `sidebar.panellist`
+  // 上的「应用商店」一级入口）已在上一刀撤掉，随之失去引用的 store 外壳死代码（`EnterpriseMarketStorePage`／
+  // `EnterpriseStoreIcon`／`ENTERPRISE_STORE_*`／HERO／只服务它的搜索框）已从 `marketplace-entry.tsx` 一并删除。
   ctx.slots.inject('plugins.item', () => ctx.slots.register({
     name: 'plugins.item',
     id: ENTERPRISE_MARKET_ENTRY_ID,
@@ -151,4 +161,20 @@ export function apply(ctx: SlotContextPort): void {
     id: ENTERPRISE_MARKET_ENTRY_ID,
     inject: () => ({ store }),
   }, EnterpriseMarketBadge as (props: never) => ReactNode))
+  /**
+   * 企业品牌的三处消费点（本刀）：侧栏品牌行（官方 `sidebar.brand.mark`／`sidebar.brand.name`，都是
+   * `{kind:'single',scope:'root'}`）与「新会话」Hero 的品牌位（`conversation.hero.brand.mark`）。
+   * 侧栏两格被官方 `dsh-client-ui-brand-official` 以 priority 0 占着，而 single 槽「同 priority 冲突抛错、
+   * 取每格第一个活条目（priority 升序）」，故用 -10 遮蔽官方（官方原话 lowest renders）；Hero 那格官方
+   * 无占用者（`occupants: []`／`replaceRisk:'none'`），0 即可。
+   *
+   * 注册面由品牌视图驱动（`bindEnterpriseBrandSeat`）：**有企业品牌才注册**，未配置或取数失败就撤掉，
+   * 让官方鱼标／官方 HeroFish 原样接管——渲染器对 single 槽只要有 occupant 就直接渲染它、`opts.fallback`
+   * 不再生效，所以「占用者返回 null」只会把那一格弄空，不能当降级路径（官方行为必须一字不变）。
+   */
+  const brandingSeats = createEnterpriseBrandingSeats(store)
+  ctx.effect(() => brandingSeats.start(), 'owndsh: enterprise branding seats')
+  bindEnterpriseBrandSeat(ctx.slots, brandingSeats, ENTERPRISE_SIDEBAR_BRAND_MARK_SEAT, EnterpriseSidebarBrandMark as (props: never) => ReactNode)
+  bindEnterpriseBrandSeat(ctx.slots, brandingSeats, ENTERPRISE_SIDEBAR_BRAND_NAME_SEAT, EnterpriseSidebarBrandName as (props: never) => ReactNode)
+  bindEnterpriseBrandSeat(ctx.slots, brandingSeats, ENTERPRISE_HERO_BRAND_MARK_SEAT, EnterpriseHeroBrandMark as (props: never) => ReactNode)
 }

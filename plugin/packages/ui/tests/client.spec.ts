@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 dsh-ui Client apply 与 `inject` 声明、账号菜单组件、插件市场入口与结构化 slots test double
- * [OUTPUT]: 验证 settings.section/settings.launcher/plugins.item/plugins.detail.badge 四处注册身份与共享 store 注入（设置区、个人中心、市场入口与 badge 槽同一 store，badge 槽位只注入 store）、`plugins.item` 注册的是**旧外观**外壳 `EnterpriseMarketLegacyPage`（官方插件页「官方」分组里的「插件市场」卡片＝本刀之后**唯一**的市场入口），并**反向锁死**独立应用商店的两处注册**已撤**——`main`（`enterprise-store` 整页面板）与 `sidebar.panellist`（「应用商店」一级入口）都不再出现，注册总数 6 → 4，导出的 `inject` 声明收敛为 `['slots','remote']`（`layout` 随两处注册一并撤掉），个人中心座位独有的官方主题源／桌面能力面／官方快捷键源（纯 Web 下动作面缺席、更新不可读、快捷键空快照），且 shell.overlay、旧 footer 入口与设置页页签均未注册
- * [POS]: dsh-ui Client 组合回归测试，锁定「官方设置区 + 官方个人中心座位 + 官方插件页入口卡片（旧外观，唯一市场入口）共用同一份商店逻辑」路线且不把 Host Context 传入 React
+ * [INPUT]: 依赖 dsh-ui Client apply 与 `inject` 声明、账号菜单组件、三枚企业品牌占用者、插件市场入口与结构化 slots test double
+ * [OUTPUT]: 验证 settings.section/settings.launcher/plugins.item/plugins.detail.badge 四处注册身份与共享 store 注入（设置区、个人中心、市场入口与 badge 槽同一 store，badge 槽位只注入 store）、`plugins.item` 注册的是**旧外观**外壳 `EnterpriseMarketLegacyPage`（官方插件页「官方」分组里的「插件市场」卡片＝本刀之后**唯一**的市场入口），并**反向锁死**独立应用商店的两处注册**已撤**——`main`（`enterprise-store` 整页面板）与 `sidebar.panellist`（「应用商店」一级入口）都不再出现，注册总数 6 → 4，导出的 `inject` 声明收敛为 `['slots','remote']`（`layout` 随两处注册一并撤掉），个人中心座位独有的官方主题源／桌面能力面／官方快捷键源（纯 Web 下动作面缺席、更新不可读、快捷键空快照），且 shell.overlay、旧 footer 入口与设置页页签均未注册；**本刀新增企业品牌三处消费点的注册面**：`sidebar.brand.mark`／`sidebar.brand.name`（priority -10 遮蔽官方 0）与 `conversation.hero.brand.mark`（priority 0）追加在 inject 面末尾，未配置品牌时**一个占用者都不注册**（官方鱼标／HeroFish 原样接管——single 槽只要有 occupant 就不再走 `opts.fallback`），品牌存在时三处以 -10/-10/0 注册且注入同一份已配置视图（用全局 fetch double 喂 `/status` 与 `/branding` 走完 apply → 取数 → 注册真实链路）
+ * [POS]: dsh-ui Client 组合回归测试，锁定「官方设置区 + 官方个人中心座位 + 官方插件页入口卡片（旧外观，唯一市场入口）共用同一份商店逻辑 + 企业品牌只接官方已声明的三个展示位、无品牌时一格不占」路线且不把 Host Context 传入 React
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -9,9 +9,12 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   apply,
   EnterpriseAccountMenu,
+  EnterpriseHeroBrandMark,
   EnterpriseMarketBadge,
   EnterpriseMarketLegacyPage,
   EnterpriseSettingsSection,
+  EnterpriseSidebarBrandMark,
+  EnterpriseSidebarBrandName,
   inject,
 } from '../src/client.js'
 
@@ -53,11 +56,16 @@ describe('enterprise Client plugin', () => {
     expect(inject).toEqual(['slots', 'remote'])
 
     // 本刀撤掉独立应用商店的两处注册：注册面从六处回到四处，只留官方插件页那一处市场入口。
+    // 末尾三处是本刀新增的**企业品牌消费点**（`bindEnterpriseBrandSeat` 各自走一次 `ctx.slots.inject`）：
+    // 侧栏品牌行两格 + 「新会话」Hero 品牌位；测试环境读不到本机品牌路由＝未配置，故它们不产生任何注册。
     expect(slotsInject.mock.calls.map(call => call[0])).toEqual([
       'settings.section',
       'settings.launcher',
       'plugins.item',
       'plugins.detail.badge',
+      'sidebar.brand.mark',
+      'sidebar.brand.name',
+      'conversation.hero.brand.mark',
     ])
     expect(registrations.map(item => item.options)).toMatchObject([
       { name: 'settings.section', id: 'enterprise', order: 25, label: '企业设置' },
@@ -121,6 +129,106 @@ describe('enterprise Client plugin', () => {
     expect(names).not.toContain('main')
     expect(names).toContain('plugins.item')
     expect(names).not.toContain('settings.plugins.tab')
+  })
+
+  /**
+   * 本刀新增：企业品牌的三处消费点。测试宿主里品牌路由取不到（相对 URL 在 Node 下不可取）＝未配置，
+   * 于是**一个占用者都不注册**——这正是降级路径本身：single 槽只要有 occupant 就直接渲染它、
+   * 官方 `opts.fallback` 不再生效，只有「不注册」才能让官方鱼标与官方 HeroFish 原样回来。
+   */
+  it('leaves all three brand cells to the official occupants while no enterprise brand exists', () => {
+    const registrations: { options: Record<string, unknown>; component: unknown }[] = []
+    const injected: string[] = []
+    apply({
+      slots: {
+        inject: (name: string, callback: () => unknown) => { injected.push(name); return callback() },
+        register: (options, component) => { registrations.push({ options, component }); return () => undefined },
+      },
+      remote: { $on: () => () => undefined },
+      get: () => undefined,
+      inject: () => undefined,
+      on: vi.fn(() => () => undefined),
+      effect: effect => { effect() },
+    })
+    expect(injected).toEqual([
+      'settings.section',
+      'settings.launcher',
+      'plugins.item',
+      'plugins.detail.badge',
+      'sidebar.brand.mark',
+      'sidebar.brand.name',
+      'conversation.hero.brand.mark',
+    ])
+    expect(registrations.map(item => item.options['name'])).toEqual([
+      'settings.section',
+      'settings.launcher',
+      'plugins.item',
+      'plugins.detail.badge',
+    ])
+  })
+
+  /**
+   * 本刀新增：品牌确实存在时，三处座位以 -10／-10／0 注册，且注入给占用者的是同一份品牌视图。
+   * 用全局 fetch double 喂 Host 本机只读路由的两个响应（`/status` 与 `/branding`），走完 apply → 取数 →
+   * 注册的真实链路；`vi.unstubAllGlobals()` 收尾，避免污染同文件其它用例。
+   */
+  it('registers the three brand occupants with their shadowing priorities once a brand exists', async () => {
+    const status = {
+      data: { bundleVersion: '0.1.0', platformUrl: 'https://enterprise.example.com', state: 'SIGNED_OUT', transport: 'webServer.register' },
+    }
+    const branding = {
+      data: {
+        logo: {
+          dark: null,
+          light: '/enterprise/api/v1/local/branding/asset/light?v=1',
+          square: '/enterprise/api/v1/local/branding/asset/square?v=1',
+        },
+        name: 'DeepSeek Harness',
+        revision: 1,
+        shortName: 'DSH 企业版',
+        updatedAt: '2026-09-30T02:00:00Z',
+        welcome: { editionLabel: '企业版', headline: '共赴未至之境' },
+      },
+    }
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => ({
+      json: async () => (url.includes('/branding') ? branding : status),
+      ok: true,
+      status: 200,
+    })))
+    try {
+      const registrations: { options: Record<string, unknown>; component: unknown }[] = []
+      apply({
+        slots: {
+          inject: (_name: string, callback: () => unknown) => callback(),
+          register: (options, component) => { registrations.push({ options, component }); return () => undefined },
+        },
+        remote: { $on: () => () => undefined },
+        get: () => undefined,
+        inject: () => undefined,
+        on: vi.fn(() => () => undefined),
+        effect: effect => { effect() },
+      })
+      // 前四处是本插件的既有注册（设置区／个人中心／市场入口／badge），后三处是品牌座位。
+      await vi.waitFor(() => { expect(registrations).toHaveLength(7) })
+      const seats = registrations.slice(4)
+      expect(seats.map(item => item.options)).toMatchObject([
+        { name: 'sidebar.brand.mark', priority: -10 },
+        { name: 'sidebar.brand.name', priority: -10 },
+        { name: 'conversation.hero.brand.mark', priority: 0 },
+      ])
+      expect(seats.map(item => item.component)).toEqual([
+        EnterpriseSidebarBrandMark,
+        EnterpriseSidebarBrandName,
+        EnterpriseHeroBrandMark,
+      ])
+      // 三处座位拿到的是同一份已配置视图（简称/全称/资产地址都来自本机只读路由）。
+      const view = (seats[0]!.options['inject'] as () => { view: { custom: boolean; shortName: string } })().view
+      expect(view).toMatchObject({ custom: true, shortName: 'DSH 企业版' })
+      const nameView = (seats[1]!.options['inject'] as () => { view: unknown })().view
+      expect(nameView).toEqual(view)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })
 
