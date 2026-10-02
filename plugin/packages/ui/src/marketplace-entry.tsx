@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 React（useState/useEffect）、品牌位图 brand、lucide-react 三枚组件图标、官方 ui-primitives 的 Switch/Tag/StateDot（pinned 0.1.5-rc.2 的 .d.ts 已导出，不走 official-ui 收窄接缝）、account-state 的 `enterpriseSessionUsable` 与 account-store 的 `EnterpriseAccountSnapshot`（shared 面、订阅只在 WithStore 包装内）、local-api-decode 的技能 DTO（`EnterpriseRuntimeSkill` 列表/详情 + 已装记录 `EnterpriseInstalledSkill`——「有更新」要比对的两侧 versionId 分别来自二者）与失败码唯一投影 `enterpriseLocalErrorCode`（行内失败提示的 code 来源，与技能 tab 同源）、消费官方 `plugins.item` owner props（`view`/`form`）
- * [OUTPUT]: 提供官方插件页「官方」分组里的「插件市场」入口卡片与带「开关 + 组件列表 + 企业插件节 + 企业技能节」的详情页（布局逐值照官方 PackageDetail+RowsSection 实物），以及可脱离 DOM 测试的组件清单/计数摘要/组件状态纯投影、企业插件行投影、企业技能行投影（官方两行卡片：标题 + 描述，并带上中心当前版本 `latestVersionId`）、技能行受管态纯投影 `enterpriseMarketSkillState`（`AVAILABLE`/`INSTALLED`/`UPDATE_AVAILABLE`/`INSTALLING`/`REMOVING`）、右侧那一枚简要标签的纯投影 `enterpriseMarketSkillTag` 与文案常量 `ENTERPRISE_MARKET_SKILL_TAG_LABELS`、「有更新」判定纯投影 `enterpriseMarketSkillHasUpdate`、失败可见反馈 `EnterpriseMarketActionError` 与文案投影 `enterpriseMarketActionErrorLabel`，以及注册常量；卡片摘要与详情页正文**不重复同一句**——摘要只在 `summary` 视图出现（官方必渲染的那一份），详情页只留标题与组件列表
- * [POS]: ui 的企业扩展市场入口，只占官方 `plugins.item` 槽位（卡片一句话走 `summary`、详情正文走 `page`），不注册侧栏入口与独立市场弹层；store 与开登录回调均为可选注入（共享注册面经 `client.tsx` 的 `inject` 给本条目注入 store，缺席时降级为占位态，注入后自动升级为真值态）；组件行 `reserved` 只剩配方一行，插件与技能行随企业会话真值，两个目录节（企业插件/企业技能）都只在对应大组件开启且目录非空时出现，**两节右侧的口径按官方卡片分开**——企业插件行维持原样（状态点 + 文案 + `Switch` 一键安装/卸载），企业技能行改成官方两行卡片（第 1 行标题 `own-market-cardId`、第 2 行描述 `own-market-cardDesc` 单行省略，不再出现元信息行）且**右侧只留一枚简要状态标签**：取值严格限定 `未安装`/`已安装`/`有更新`/`安装中…`/`卸载中…`（`ENTERPRISE_MARKET_SKILL_TAG_LABELS`），这枚标签**本身就是该行的主操作**——真实 `<button>`（标签观感、非开关观感，键盘可达、`aria-label` 给动作语义、`data-enterprise-skill-tag` 给测试），点击即安装/更新/卸载，在途禁用，**技能行不再有 Switch**；`installedSkills`（Host 回传的已装记录，含 `versionId`）/`pendingSkill`（行键 + 方向，卸载在途才出 `卸载中…`）/`onToggleSkill` 三个直传输入决定 `data-enterprise-skill-state`，动作返回的已装清单覆盖本地真值、失败即退回未装（界面不保留乐观已装）；**「有更新」= 本机已装记录的 `versionId` 与中心当前版本不一致**（两侧都非空且不等才判，缺一不猜；`sha256` 按本包契约「校验形状后即丢」不投影，故版本身份用 versionId）——中心列表投影不带 versionId、只有 `/skills/{id}` 详情带，故 hook 入口只对**已装行**按需取详情，经 `enterpriseMarketSkillRows(skills, details)` 把中心当前版本归并进 `latestVersionId`（详情取不到即留空＝不判更新）；**两节的行共用同一份失败可见反馈**：动作失败时命中该行的 `role="alert"` 行内提示（`安装失败`/`卸载失败` + `enterpriseLocalErrorCode` 的稳定码，照「技能」tab 的 `own-skill-inlineError` 口径），失败后该行标签/开关不再禁用、可原地重试；技能目录与已装清单由 hook 入口分别经 `store.api.skills()` 与 `store.api.installedSkills()` **并行**取（已装态取数失败只降级为全部未装，不拖垮目录），纯函数体只收直传的行
+ * [INPUT]: 依赖 React（useState/useEffect）、品牌位图 brand、lucide-react 三枚组件图标、官方 ui-primitives 的 Switch/Tag/StateDot（pinned 0.1.5-rc.2 的 .d.ts 已导出，不走 official-ui 收窄接缝）、account-state 的 `enterpriseSessionUsable` 与 account-store 的 `EnterpriseAccountSnapshot`（shared 面、订阅只在 WithStore 包装内）、local-api-decode 的技能 DTO（`EnterpriseRuntimeSkill` 目录 + 已装记录 `EnterpriseInstalledSkill`——技能行开关的「已装」只认后者这一份 Host 真值）与失败码唯一投影 `enterpriseLocalErrorCode`（行内失败提示的 code 来源，与技能 tab 同源）、消费官方 `plugins.item` owner props（`view`/`form`）
+ * [OUTPUT]: 提供官方插件页「官方」分组里的「插件市场」入口卡片与带「开关 + 组件列表 + 企业插件节 + 企业技能节」的详情页（布局逐值照官方 PackageDetail+RowsSection 实物），以及可脱离 DOM 测试的组件清单/计数摘要/组件状态纯投影、企业插件行投影、企业技能行投影（官方两行卡片：标题 + 描述）、技能行受管态纯投影 `enterpriseMarketSkillState`（`AVAILABLE`/`INSTALLED`/`INSTALLING`/`REMOVING`）、三节默认展开态常量 `ENTERPRISE_MARKET_DEFAULT_EXPANDED`、失败可见反馈 `EnterpriseMarketActionError` 与文案投影 `enterpriseMarketActionErrorLabel`，以及注册常量；卡片摘要与详情页正文**不重复同一句**——摘要只在 `summary` 视图出现（官方必渲染的那一份），详情页只留标题与组件列表
+ * [POS]: ui 的企业扩展市场入口，只占官方 `plugins.item` 槽位（卡片一句话走 `summary`、详情正文走 `page`），不注册侧栏入口与独立市场弹层；store 与开登录回调均为可选注入（共享注册面经 `client.tsx` 的 `inject` 给本条目注入 store，缺席时降级为占位态，注入后自动升级为真值态）；组件行 `reserved` 只剩配方一行，插件与技能行随企业会话真值，两个目录节（企业插件/企业技能）都只在对应大组件开启且目录非空时出现，两节右侧**都用官方 `Switch`**——企业插件行维持原样（状态点 + 文案 + `Switch` 一键安装/卸载），企业技能行是官方两行卡片（第 1 行标题 `own-market-cardId`、第 2 行描述 `own-market-cardDesc` 单行省略，不出现元信息行）+ 同一枚 `Switch`：`checked` = 该技能已装（`installedSkills` 命中本行）、在途（`INSTALLING`/`REMOVING`）`disabled`、`label` 给动作语义（`安装企业技能 X`/`卸载企业技能 X`）、`onChange(next)` 原样交回 `onToggleSkill(skill, next)`，技能行**不再有任何可点状态标签**；`installedSkills`（Host 回传的已装记录）/`pendingSkill`（行键 + 方向）/`onToggleSkill` 三个直传输入决定 `data-enterprise-skill-state` 与那枚开关的 checked/disabled，动作返回的已装清单覆盖本地真值、失败即退回未装（界面不保留乐观已装）；技能列表列的是后台分配（预置）的**全部**技能——不按「已装」过滤，未装的也照列，装不装由用户拨这枚开关决定；版本身份（`versionId`/`sha256`）不再进本页——「有更新」这一态随那枚标签一起退场，hook 入口因此也不再对已装行补取 `/skills/{id}` 详情；**两节的行共用同一份失败可见反馈**：动作失败时命中该行的 `role="alert"` 行内提示（`安装失败`/`卸载失败` + `enterpriseLocalErrorCode` 的稳定码，照「技能」tab 的 `own-skill-inlineError` 口径），失败后该行开关不再禁用、可原地重试；技能目录与已装清单由 hook 入口分别经 `store.api.skills()` 与 `store.api.installedSkills()` **并行**取（已装态取数失败只降级为全部未装，不拖垮目录），纯函数体只收直传的行；**三节默认态**：组件节、企业插件节与企业技能节**默认全部展开**（用户口径「分组折叠默认展开」与「默认显示」——进页面就看得见后台预置的全部技能与插件），三节各占 `ENTERPRISE_MARKET_DEFAULT_EXPANDED` 的一个独立字段，可分别调整；用户仍可手动折叠
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -93,18 +93,19 @@ export interface EnterpriseMarketEntryProps {
    */
   readonly enterprisePlugins?: readonly EnterpriseMarketPluginRow[] | undefined
   /**
-   * 企业技能目录（`store.api.skills()` 的列表投影 + 已装行的中心详情投影，经 hook 入口取数后直传）。
+   * 企业技能目录（`store.api.skills()` 的列表投影，经 hook 入口取数后直传）。
    * 与本 props 的「企业插件」节同规则：仅当「技能」组件开启（`sessionUsable`）且目录非空时
-   * 追加「企业技能」节；行右侧只有一枚可点标签（`onToggleSkill` + 已装态直传）。
+   * 追加「企业技能」节；**列的是后台分配（预置）的全部技能**，不按「已装」过滤，行右侧是企业插件行
+   * 同款官方 `Switch`（`onToggleSkill` + 已装态直传决定它的 checked/disabled）。
    */
   readonly enterpriseSkills?: readonly EnterpriseMarketSkillRow[] | undefined
   /**
    * 本机已装技能记录（`store.api.installedSkills()` 的投影，经 hook 入口取数后直传）。
-   * 整套记录而不只是 id：判定「已装」用 `packageId`，判定「有更新」要用记录里的 `versionId` 与
-   * 行上的 `latestVersionId` 比。缺席时所有行显示未装；已装态由 Host 回传真值判定，纯函数体不猜。
+   * 判定「已装」（= 那枚开关的 `checked`）只认这份 Host 真值里的 `packageId`；缺席时所有行显示未装、
+   * 开关一律关，纯函数体不猜也不做乐观切换。
    */
   readonly installedSkills?: readonly EnterpriseInstalledSkill[] | undefined
-  /** 当前正在安装/卸载的技能包动作（行键 + 方向）；命中行的标签禁用并显示「安装中…/卸载中…」。 */
+  /** 当前正在安装/卸载的技能包动作（行键 + 方向）；命中行的开关禁用（在途不许再拨）。 */
   readonly pendingSkill?: EnterpriseMarketSkillPending | undefined
   /**
    * 企业插件的安装/卸载动作（`store.installPlugin` / `store.removePlugin`）；缺席时开关禁用。
@@ -112,8 +113,8 @@ export interface EnterpriseMarketEntryProps {
    */
   readonly onTogglePlugin?: ((row: EnterpriseMarketPluginRow, next: boolean) => void) | undefined
   /**
-   * 企业技能的一键安装/卸载动作；缺席时技能行的标签禁用（与企业插件行同一降级口径）。
-   * `next` 由标签投影的动作决定：已装行点标签传 `false`（卸载），其余传 `true`（安装/更新）。
+   * 企业技能的一键安装/卸载动作；缺席时技能行的开关禁用（与企业插件行同一降级口径）。
+   * `next` 就是官方 Switch 拨动后的目标态：`true` = 装到本机 `~/.dsh/skills`、`false` = 卸掉。
    */
   readonly onToggleSkill?: ((row: EnterpriseMarketSkillRow, next: boolean) => void) | undefined
   /**
@@ -124,12 +125,13 @@ export interface EnterpriseMarketEntryProps {
   readonly pluginActionError?: EnterpriseMarketActionError | undefined
   /**
    * 企业技能行最近一次安装/卸载失败（行键 = 技能包 id）：命中该行时渲染 `role="alert"` 行内提示。
-   * 与插件行同口径：提示出现不影响标签可点性（失败后仍可再点一次重试）。
+   * 与插件行同口径：提示出现不影响开关可拨性（失败后仍可再拨一次重试）。
    */
   readonly skillActionError?: EnterpriseMarketActionError | undefined
   /**
    * 各节的折叠态（照官方 `PluginInventorySettingsTab`：`aria-expanded` + 默认折叠）。缺席视为全展开
-   * （纯函数直调测试不传即得完整树）；真运行时由 `EnterpriseMarketPage` 的 `useState` 供给。
+   * （纯函数直调测试不传即得完整树）；真运行时由 `EnterpriseMarketPage` 的 `useState` 供给，其初值
+   * 是 `ENTERPRISE_MARKET_DEFAULT_EXPANDED`——**三节默认全部展开**（用户口径「分组折叠默认展开」）。
    */
   readonly expandedSections?: { readonly components: boolean; readonly enterprisePlugins: boolean; readonly enterpriseSkills: boolean } | undefined
   /** 折叠切换回调（点节头按钮触发）；缺席时节头按钮禁用（不提供死按钮）。 */
@@ -145,6 +147,18 @@ export const ENTERPRISE_MARKET_SECTION_IDS = {
   enterprisePlugins: 'enterprise-plugins',
   enterpriseSkills: 'enterprise-skills',
 } as const
+
+/**
+ * 三节的初始展开态（`EnterpriseMarketPage` 的 `useState` 初值）。**只有「企业技能」节默认展开**：
+ * 用户口径是「技能列表默认显示」——进页面就该看见后台分配（预置）的全部技能，再用行右侧的开关决定装不装；
+ * 「包含的组件」与企业插件节照官方 `PluginInventory` 默认折叠。三节各占一个独立字段，
+ * 所以改技能节的默认态不会连带改另两节。
+ */
+export const ENTERPRISE_MARKET_DEFAULT_EXPANDED: Record<EnterpriseMarketSectionId, boolean> = {
+  components: true,
+  enterprisePlugins: true,
+  enterpriseSkills: true,
+}
 
 /** 「企业插件」节的一行：企业后台上传的插件（catalog）+ 本机安装态。 */
 export interface EnterpriseMarketPluginRow {
@@ -190,75 +204,43 @@ export function enterpriseMarketPluginSectionVisible(
 /**
  * 「企业技能」节的一行：企业后台上传的技能包。
  * 口径照官方已安装卡片 `CardHead`——**只两行**：第 1 行标题（displayName）、第 2 行描述
- * （description，单行省略不撑高卡片），右侧只留一枚简要状态标签（见 `enterpriseMarketSkillTag`），
- * 不再堆状态点 + 元信息 + 开关。「复制装配指令」仍是「技能」tab 的第二条路，这里给的是「一键落盘」。
+ * （description，单行省略不撑高卡片），右侧是企业插件行同款官方 `Switch`（见 `enterpriseMarketSkillState`），
+ * 不再堆状态点 + 元信息。「复制装配指令」仍是「技能」tab 的第二条路，这里给的是「一键落盘」。
  */
 export interface EnterpriseMarketSkillRow {
-  /** 技能包雪花 id，同时是详情取数键（`store.api.skillDetail(id)`）与安装动作入参。 */
+  /** 技能包雪花 id，同时是安装动作入参。 */
   readonly id: string
   /** manifest.json 的稳定标识（kebab-case 等），进 `data-enterprise-skill-id`。 */
   readonly skillId: string
   readonly displayName: string
   /** 空描述归一为固定占位，与技能 tab 详情弹窗同一句话。 */
   readonly description: string
-  /**
-   * 中心当前版本的 versionId（「有更新」比对的另一侧）。列表投影不带这个字段、只有详情带，
-   * 故由 hook 入口对已装行按需取详情后经 `enterpriseMarketSkillRows` 归并进来；
-   * 取不到即空串 = 不判更新（宁可少说一句，也不猜「有更新」）。
-   */
-  readonly latestVersionId: string
 }
 
 /**
- * 技能目录 → 可渲染的「企业技能」行（纯函数，按目录顺序，不做归并——本机已装态另行直传）。
- * @param skills - `store.api.skills()` 的列表投影（只有摘要，`versionId` 为空串）。
- * @param details - 可选的中心详情投影（`store.api.skillDetail(id)`），只用来补中心当前版本；
- *   按 id 归并，缺该行详情即留空串——未装行不需要它（没有本机版本可比）。
+ * 技能目录 → 可渲染的「企业技能」行（纯函数，按目录顺序原样投影，**不做任何过滤**）。
+ * 后台分配（预置）的技能全都要列出来，装没装只影响该行右侧那枚开关的 checked，不影响这行出不出现。
+ * @param skills - `store.api.skills()` 的列表投影。
  */
 export function enterpriseMarketSkillRows(
   skills: readonly EnterpriseRuntimeSkill[] = [],
-  details: readonly EnterpriseRuntimeSkill[] = [],
 ): EnterpriseMarketSkillRow[] {
-  const latestById = new Map(details.map(detail => [detail.id, detail.versionId]))
   return skills.map(skill => ({
     id: skill.id,
     skillId: skill.skillId,
     displayName: skill.displayName,
     description: skill.description === '' ? '（暂无描述）' : skill.description,
-    latestVersionId: latestById.get(skill.id) ?? '',
   }))
 }
 
 /**
- * 「企业技能」行现在的受管态（与 `data-enterprise-skill-state` / `data-enterprise-skill-tag` 同源）：
- * `INSTALLED` 已落盘且与中心同版本、`UPDATE_AVAILABLE` 已落盘但中心有别的版本、
- * `INSTALLING`/`REMOVING` 动作在途、`AVAILABLE` 未装可装。
+ * 「企业技能」行现在的受管态（与 `data-enterprise-skill-state` 同源）：
+ * `AVAILABLE` 未装可装、`INSTALLED` 已落盘、`INSTALLING`/`REMOVING` 动作在途。
+ * 它就是那枚开关的口径：`INSTALLED`（卸载在途时也是）→ `checked`，两个在途态 → `disabled`。
  */
-export type EnterpriseMarketSkillState = 'AVAILABLE' | 'INSTALLED' | 'UPDATE_AVAILABLE' | 'INSTALLING' | 'REMOVING'
+export type EnterpriseMarketSkillState = 'AVAILABLE' | 'INSTALLED' | 'INSTALLING' | 'REMOVING'
 
-/** 右侧那一枚简要标签的文案口径（**取值严格限定这五个**，改文案只改这一处）；在途态带省略号。 */
-export const ENTERPRISE_MARKET_SKILL_TAG_LABELS = {
-  AVAILABLE: '未安装',
-  INSTALLED: '已安装',
-  UPDATE_AVAILABLE: '有更新',
-  INSTALLING: '安装中…',
-  REMOVING: '卸载中…',
-} as const satisfies Record<EnterpriseMarketSkillState, string>
-
-/**
- * 本机已装记录与中心当前版本是否不一致（=「有更新」）。
- * 两侧都必须拿得到非空 versionId 才判：未装、详情没取到（旧 Host 没有详情路由）都返回 false——不猜版本。
- * 比的是 versionId 而不是 `sha256`：`sha256` 按本包契约在解码时校验形状后即丢（`skill-api-decode` 的
- * 「与本包 SHA 不出界面同策」），本层能拿到的版本身份只有这一份 versionId。
- * @param installedVersionId - 本机已装记录的 versionId（`EnterpriseInstalledSkill.versionId`）。
- * @param latestVersionId - 中心当前版本的 versionId（行上的 `latestVersionId`）。
- * @returns 是否有更新。
- */
-export function enterpriseMarketSkillHasUpdate(installedVersionId: string, latestVersionId: string): boolean {
-  return installedVersionId !== '' && latestVersionId !== '' && installedVersionId !== latestVersionId
-}
-
-/** 「企业技能」行当前在途的动作：行键 + 方向（`true` = 安装/更新、`false` = 卸载），与 hook 入口的 `pendingSkill` 同形。 */
+/** 「企业技能」行当前在途的动作：行键 + 方向（`true` = 安装、`false` = 卸载），与 hook 入口的 `pendingSkill` 同形。 */
 export interface EnterpriseMarketSkillPending {
   readonly packageId: string
   readonly next: boolean
@@ -266,10 +248,10 @@ export interface EnterpriseMarketSkillPending {
 
 /**
  * 一行技能包当前的受管态（唯一判定点，纯函数直调可测）。
- * 优先级：在途 > 未装 > 有更新 > 已装——在途时界面只说「正在进行」，不混说版本。
+ * 优先级：在途 > 已装 > 未装——在途时界面只说「正在进行、先别拨」。
  * @param installedSkills - Host 回传的已装记录（缺席＝全部未装，界面不猜）。
  * @param pending - 当前在途动作；命中本行时按方向出 `INSTALLING`/`REMOVING`。
- * @param row - 已投影的目录行（带中心当前版本）。
+ * @param row - 已投影的目录行。
  * @returns 受管态。
  */
 export function enterpriseMarketSkillState(
@@ -278,43 +260,7 @@ export function enterpriseMarketSkillState(
   row: EnterpriseMarketSkillRow,
 ): EnterpriseMarketSkillState {
   if (pending?.packageId === row.id) return pending.next ? 'INSTALLING' : 'REMOVING'
-  const record = installedSkills?.find(item => item.packageId === row.id)
-  if (record === undefined) return 'AVAILABLE'
-  return enterpriseMarketSkillHasUpdate(record.versionId, row.latestVersionId) ? 'UPDATE_AVAILABLE' : 'INSTALLED'
-}
-
-/** 右侧那一枚简要状态标签的可渲染投影（文案 / 点击动作 / 无障碍名 / 悬浮说明一次产出，避免四处各判一次）。 */
-export interface EnterpriseMarketSkillTag {
-  /** 可见文案，取值严格限定 `ENTERPRISE_MARKET_SKILL_TAG_LABELS`。 */
-  readonly label: string
-  /** 点击该标签要触发的动作：已装 → 卸载；未装与有更新 → 安装（有更新即重装到中心当前版本）。 */
-  readonly action: 'install' | 'uninstall'
-  /** 无障碍名（动作语义，读屏与键盘听到的就是它），照原先开关 `label` 的「动作 + 企业技能 + 名称」口径。 */
-  readonly ariaLabel: string
-  /** 悬浮说明；在途态说明为什么点不动。 */
-  readonly title: string
-}
-
-/**
- * 受管态 + 技能名 → 右侧那枚标签的完整投影。这枚标签**就是该行的主操作**（不是开关、不是状态点），
- * 所以动作语义与无障碍名和状态一样由这里统一给出，渲染层只负责把它挂到真实 `<button>` 上。
- * @param state - `enterpriseMarketSkillState` 的结果。
- * @param displayName - 技能显示名，进无障碍名。
- * @returns 标签投影。
- */
-export function enterpriseMarketSkillTag(state: EnterpriseMarketSkillState, displayName: string): EnterpriseMarketSkillTag {
-  switch (state) {
-    case 'INSTALLED':
-      return { label: ENTERPRISE_MARKET_SKILL_TAG_LABELS.INSTALLED, action: 'uninstall', ariaLabel: `卸载企业技能 ${displayName}`, title: '点此卸载' }
-    case 'UPDATE_AVAILABLE':
-      return { label: ENTERPRISE_MARKET_SKILL_TAG_LABELS.UPDATE_AVAILABLE, action: 'install', ariaLabel: `更新企业技能 ${displayName}`, title: '点此更新到中心当前版本' }
-    case 'INSTALLING':
-      return { label: ENTERPRISE_MARKET_SKILL_TAG_LABELS.INSTALLING, action: 'install', ariaLabel: `正在安装企业技能 ${displayName}`, title: '安装进行中，暂不可操作' }
-    case 'REMOVING':
-      return { label: ENTERPRISE_MARKET_SKILL_TAG_LABELS.REMOVING, action: 'uninstall', ariaLabel: `正在卸载企业技能 ${displayName}`, title: '卸载进行中，暂不可操作' }
-    default:
-      return { label: ENTERPRISE_MARKET_SKILL_TAG_LABELS.AVAILABLE, action: 'install', ariaLabel: `安装企业技能 ${displayName}`, title: '点此安装到 ~/.dsh/skills' }
-  }
+  return installedSkills?.some(item => item.packageId === row.id) === true ? 'INSTALLED' : 'AVAILABLE'
 }
 
 /** 「企业技能」节是否该渲染（「技能」组件开启且目录非空），与企业插件节同规则。 */
@@ -449,15 +395,8 @@ const styles = `
 .own-market-rowState{display:inline-flex;flex-shrink:0;align-items:center;gap:6px;color:var(--dsw-alias-label-secondary,#667085);font-size:12.5px;line-height:18px;white-space:nowrap}
 .own-market-row[data-state='off'] .own-market-rowState{color:var(--dsw-alias-label-secondary,#667085)}
 .own-market-rowStateFailed{color:var(--dsw-alias-state-error-primary,#c4320a)}
-/* 技能行右侧那一枚简要状态标签：版式复用上面的 .own-market-rowState（12.5/18 次要色 nowrap），
-   这里只补「签」的形制与交互态——无边框 + 999px 圆角 + 淡底（照官方 Tag 的签观感），
-   它同时是该行的主操作按钮，故必须有 focus-ring 与 disabled 观感（标签观感、绝不是开关观感）。 */
-.own-market-skillTag{border:0;border-radius:999px;padding:1px 10px;background:var(--dsw-alias-background-secondary,#f2f4f7);font:inherit;cursor:pointer}
-.own-market-skillTag:hover:not(:disabled){background:var(--dsw-alias-border-l2,#e4e7ec);color:var(--dsw-alias-label-primary,#101828)}
-.own-market-skillTag:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:2px}
-.own-market-skillTag:disabled{cursor:default;opacity:.6}
-.own-market-skillTag[data-enterprise-skill-tag='INSTALLED']{color:var(--dsw-alias-state-success-primary,#027a48)}
-.own-market-skillTag[data-enterprise-skill-tag='UPDATE_AVAILABLE']{color:var(--dsw-alias-accent-primary,#2563eb)}
+/* 企业技能行右侧已恢复官方 Switch（与企业插件行同款、样式归官方组件），
+   原先那枚自造签（own-market-skillTag 的无边框圆角淡底 + focus-ring + 两态取色）随之删除。 */
 /* 行内失败提示（企业插件行/企业技能行共用）：取值照「技能」tab 的 .own-skill-inlineError（error 色 + 12/19 + 左对齐 + 无内衬）。
    那份 CSS 归 skill-market 的 <style> 持有、切到本页时并不在 DOM，故这里补一份同值规则，不借道未挂载的样式表。 */
 .own-market-inlineError{padding:0;text-align:left;font-size:12px;line-height:19px;overflow-wrap:anywhere;color:var(--dsw-alias-state-error-primary,#c4320a)}
@@ -534,7 +473,8 @@ export function EnterpriseMarketEntry({
   // 「企业技能」节与企业插件节同规则：只在「技能」大组件开启（= 会话可用）且目录非空时出现。
   const skillsEnabled = enterpriseMarketComponentEnabled('skills', sessionUsable)
   const skillRowsVisible = enterpriseMarketSkillSectionVisible(skillsEnabled, enterpriseSkills)
-  // 折叠：默认三节全折叠（照官方 PluginInventory）；纯函数不传 expandedSections 时全展开（测试直调得完整树）。
+  // 折叠：真运行时的初值见 `ENTERPRISE_MARKET_DEFAULT_EXPANDED`（**只有技能节默认展开**）；纯函数不传
+  // `expandedSections` 时三节全展开（测试直调得完整树），故这里三处 `defaultOpen` 都给 true。
   const sectionOpen: Record<EnterpriseMarketSectionId, boolean> = {
     components: enterpriseMarketSectionOpen(expandedSections, 'components', true),
     enterprisePlugins: enterpriseMarketSectionOpen(expandedSections, 'enterprisePlugins', true),
@@ -658,8 +598,9 @@ export function EnterpriseMarketEntry({
         </section>
       ) : null}
       {/* 「企业技能」节：与企业插件节同规则——「技能」大组件开启（= 会话可用）且目录非空才出现。
-          行 = 官方两行卡片（标题 + 描述）+ 右侧一枚可点标签；一键安装/卸载到官方 `~/.dsh/skills`，
-          已装态与中心当前版本都由 Host 回传（`installedSkills` + 行上的 `latestVersionId`）。 */}
+          行 = 官方两行卡片（标题 + 描述）+ 右侧官方 Switch（与企业插件行同款）；一键安装/卸载到官方
+          `~/.dsh/skills`，已装态只认 Host 回传的 `installedSkills` 真值（本页不猜版本、不留乐观已装）。
+          列的是后台分配（预置）的全部技能——未装的照列，装不装由用户拨这枚开关决定。 */}
       {skillRowsVisible ? (
         <section className="own-market-section" data-market-section="enterprise-skills">
           {sectionHead('enterpriseSkills', '企业技能', `${enterpriseSkills.length} 个`)}
@@ -667,7 +608,9 @@ export function EnterpriseMarketEntry({
             <ul className="own-market-rows" id={`market-section-${ENTERPRISE_MARKET_SECTION_IDS.enterpriseSkills}`}>
               {enterpriseSkills.map(skill => {
                 const skillState = enterpriseMarketSkillState(installedSkills, pendingSkill, skill)
-                const tag = enterpriseMarketSkillTag(skillState, skill.displayName)
+                // 开关口径照企业插件行（同一枚官方 Switch）：`checked` = 该技能已落盘（卸载在途时仍算已装，
+                // 磁盘上还在），两个在途态 `disabled`（并发动作会互相覆盖已装清单），`label` 给动作语义。
+                const installed = skillState === 'INSTALLED' || skillState === 'REMOVING'
                 const busy = skillState === 'INSTALLING' || skillState === 'REMOVING'
                 return (
                   <li
@@ -686,24 +629,23 @@ export function EnterpriseMarketEntry({
                         <span className="own-market-cardId">{skill.displayName}</span>
                         <span className="own-market-cardDesc">{skill.description}</span>
                       </div>
-                      {/* 右侧只留这一枚简要状态标签（取值：未安装/已安装/有更新/安装中…/卸载中…），
-                          它**就是该行的主操作**：真实 <button>（标签观感、非开关观感），键盘可达，
-                          aria-label 给动作语义；点击即安装/更新/卸载，在途禁用。技能行不再有 Switch。 */}
-                      <button
-                        type="button"
-                        className="own-market-rowState own-market-skillTag"
-                        data-enterprise-skill-tag={skillState}
-                        aria-label={tag.ariaLabel}
+                      {/* 右侧恢复为官方 Switch（与企业插件行同款写法）：`checked` = 该技能已安装，
+                          `disabled` = 在途或回调缺席，`label` 给动作语义（安装/卸载企业技能 X），
+                          拨动即把 (skill, next) 交回 `onToggleSkill`（true 装 / false 卸）。
+                          技能行不再有任何自造的可点状态标签——开关本身就是该行唯一的主操作。 */}
+                      <Switch
+                        checked={installed}
+                        label={`${installed ? '卸载' : '安装'}企业技能 ${skill.displayName}`}
                         disabled={!onToggleSkill || busy}
-                        title={onToggleSkill === undefined ? '企业账号未登录，暂不可操作' : tag.title}
-                        onClick={() => { onToggleSkill?.(skill, tag.action === 'install') }}
-                      >
-                        {tag.label}
-                      </button>
+                        title={onToggleSkill === undefined
+                          ? '企业账号未登录，暂不可操作'
+                          : busy ? '动作进行中，暂不可操作' : installed ? '点此卸载' : '点此安装到 ~/.dsh/skills'}
+                        onChange={(next) => { onToggleSkill?.(skill, next) }}
+                      />
                     </div>
                     {/* 失败可见反馈（与「技能」tab 的 own-skill-inlineError 同一口径）：失败即在该行给
                         role="alert" + 稳定错误码，且退回未装态（已装清单仍由 Host 回传真值主导）；
-                        失败**不**禁用标签——再点一次就是重试。 */}
+                        失败**不**禁用开关——再拨一次就是重试。 */}
                     {rowError(skillActionError, skill.id)}
                   </li>
                 )
@@ -722,8 +664,8 @@ export function EnterpriseMarketEntry({
  *
  * 技能目录不在 store 快照里，故由本入口按会话可用性就地取（`store.api.skills()`，同源固定路径）；
  * 取数失败/未登录都收敛成空目录——「企业技能」节据此不出现，不残留半个错误态。
- * 已装态与目录并行取（`store.api.installedSkills()`），并**只对已装行**再补一次详情
- * （`store.api.skillDetail(id)`：中心列表投影不带 versionId，判定「有更新」要靠详情里的它）。
+ * 已装态与目录**并行**取（`store.api.installedSkills()`）；已装只用来决定行右侧开关的 checked，
+ * 故不再对已装行补取中心详情（「有更新」那一态随技能行标签一起退场，本页不碰任何版本身份）。
  * @param props - `view` 透传官方视图；`store` 由共享注册面（`client.tsx` 的 `plugins.item` inject）注入。
  * @returns 官方插件页「插件市场」入口，`page` 视图下头部总开关与组件行开关都真实可用。
  */
@@ -731,12 +673,10 @@ export function EnterpriseMarketPage({ view, store }: { readonly view: 'summary'
   const snapshot = useAccount(store as EnterpriseAccountStore)
   const dialog = useEnterpriseLoginDialog(store as EnterpriseAccountStore)
   const sessionUsable = enterpriseSessionUsable(snapshot.status?.state)
-  // 折叠态：默认三节全折叠（照官方 PluginInventory `?? false`）；本组件是唯一 hook 入口，纯函数体不持状态。
-  const [expandedSections, setExpandedSections] = useState<Record<EnterpriseMarketSectionId, boolean>>({
-    components: false,
-    enterprisePlugins: false,
-    enterpriseSkills: false,
-  })
+  // 折叠态：初值取 `ENTERPRISE_MARKET_DEFAULT_EXPANDED`——**只有企业技能节默认展开**（用户口径
+  // 「技能列表默认显示」），组件节与企业插件节照官方 `PluginInventory` 默认折叠；本组件是唯一 hook 入口，
+  // 纯函数体不持状态。
+  const [expandedSections, setExpandedSections] = useState<Record<EnterpriseMarketSectionId, boolean>>(ENTERPRISE_MARKET_DEFAULT_EXPANDED)
   const onToggleSection = (section: EnterpriseMarketSectionId): void => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }))
   }
@@ -748,8 +688,7 @@ export function EnterpriseMarketPage({ view, store }: { readonly view: 'summary'
   const enterprisePlugins = enterpriseMarketPluginRows(catalog, local)
   // 技能目录：只在 `page` 视图（企业技能节的宿主）+ 有 store + 会话可用时取；卡片视图不预取。
   // 会话不可用/取数失败一律回落空目录（节随之消失）；依赖变化即中止在途请求，避免迟到结果跨会话回填。
-  // 已装态与目录**并行**取：旧 Host 没有 `/skills/installed` 时目录照常显示，只是所有行显示未装。
-  // 已装清单保留**整套记录**（不只 id）：判定「有更新」要记录里的 `versionId`。
+  // 已装态与目录**并行**取：旧 Host 没有 `/skills/installed` 时目录照常显示，只是所有行显示未装、开关全关。
   const [enterpriseSkills, setEnterpriseSkills] = useState<readonly EnterpriseMarketSkillRow[]>([])
   const [installedSkills, setInstalledSkills] = useState<readonly EnterpriseInstalledSkill[]>([])
   const [pendingSkill, setPendingSkill] = useState<EnterpriseMarketSkillPending>()
@@ -766,16 +705,11 @@ export function EnterpriseMarketPage({ view, store }: { readonly view: 'summary'
       api.skills(controller.signal).catch(() => [] as readonly EnterpriseRuntimeSkill[]),
       api.installedSkills(controller.signal).catch(() => [] as readonly EnterpriseInstalledSkill[]),
     ])
-      .then(async ([items, installed]) => {
+      .then(([items, installed]) => {
         if (controller.signal.aborted) return
         setInstalledSkills(installed)
-        // 中心列表投影不带 `versionId`（只有详情带），故**只对已装行**按需取详情：没有本机版本的未装行
-        // 无从比较，不白跑请求；某行详情失败即留空（该行不判「有更新」），不拖垮整个目录。
-        const details = await Promise.all(installed.map(item =>
-          api.skillDetail(item.packageId, controller.signal).catch(() => undefined),
-        ))
-        if (controller.signal.aborted) return
-        setEnterpriseSkills(enterpriseMarketSkillRows(items, details.filter(detail => detail !== undefined)))
+        // 目录原样投影（后台分配的全部技能都要列），已装只影响那枚开关的 checked，不再补取任何详情。
+        setEnterpriseSkills(enterpriseMarketSkillRows(items))
       })
       .catch(() => {
         if (controller.signal.aborted) return
