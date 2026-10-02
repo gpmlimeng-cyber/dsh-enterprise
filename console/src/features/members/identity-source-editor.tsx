@@ -14,8 +14,10 @@ import type {
 } from '@/api/generated/types.gen';
 import { Button } from '@/components/atoms/Button';
 import { ProductDialog } from '@/components/product/Dialog';
+import { cn } from '@/lib/utils';
+import { fieldClass } from '@/lib/styles';
 
-const inputClass = 'h-9 w-full rounded-lg border border-line bg-canvas px-3 text-[13px] text-ink outline-none placeholder:text-ink-3 focus:border-accent focus:ring-2 focus:ring-accent-tint disabled:cursor-not-allowed disabled:bg-inset disabled:text-ink-3';
+const inputClass = cn(fieldClass, 'placeholder:text-ink-3 disabled:bg-inset disabled:text-ink-3');
 
 export type IdentitySourceFormValue = {
   type: IdentitySourceType;

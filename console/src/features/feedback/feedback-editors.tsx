@@ -12,6 +12,7 @@ import { Button } from '@/components/atoms/Button';
 import { SegmentedControl } from '@/components/atoms/SegmentedControl';
 import { StatusPill } from '@/components/atoms/StatusPill';
 import { ProductDialog } from '@/components/product/Dialog';
+import { formatBytes } from '@/lib/format';
 
 export const FEEDBACK_STATUS_LABELS: Record<FeedbackStatus, string> = {
   new: '待分诊',
@@ -45,12 +46,6 @@ export function nextStatuses(status: FeedbackStatus): FeedbackStatus[] {
 function formatDate(value: string | null | undefined) {
   if (!value) return '-';
   return new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
-}
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
 }
 
 const DIAGNOSTIC_FIELDS: ReadonlyArray<{ key: keyof FeedbackDetail['diagnostics']; label: string }> = [

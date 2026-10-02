@@ -175,9 +175,9 @@ describe('skill package detail', () => {
 
     expect(screen.getByText(/技能正文是会被 Agent 无条件加载的可执行指令/)).toBeTruthy();
     expect(screen.getByText('版本历史（2）')).toBeTruthy();
-    // 版本行本身是可选中按钮；已发布版本的退休动作按版本（而非包）寻址。
+    // 版本行本身是可选中按钮；已发布版本的下架动作按版本（而非包）寻址。
     expect(screen.getByRole('button', { name: /^0\.1\.8/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '退休 0.1.8' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '下架 0.1.8' })).toBeTruthy();
     // 最新版本（PUBLISHED）的条目默认展开，调用策略来自服务端投影。
     expect(screen.getByText('weekly-digest')).toBeTruthy();
     expect(screen.getByText('未配置可见成员（仅管理员可见）')).toBeTruthy();

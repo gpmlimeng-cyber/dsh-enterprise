@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 React、共享 MemberSelect、ProductDialog、配方 DTO 与浏览器原生表单控件。
- * [OUTPUT]: 提供 .dshpreset 上传、ALL/USER 可见范围原子替换和版本退休确认对话框。
+ * [OUTPUT]: 提供 .dshpreset 上传、ALL/USER 可见范围原子替换和版本下架确认对话框。
  * [POS]: features/presets 的写入表单层，只收集产品语义，不解析 ZIP 也不持有 mutation。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -16,9 +16,11 @@ import type {
 import { Button } from '@/components/atoms/Button';
 import { ProductDialog } from '@/components/product/Dialog';
 import { MemberSelect } from '@/features/member-select';
+import { cn } from '@/lib/utils';
+import { fieldClass } from '@/lib/styles';
 
 const MAX_ARTIFACT_BYTES = 50 * 1024 * 1024;
-const inputClass = 'h-9 w-full rounded-lg border border-line bg-canvas px-3 text-[13px] text-ink outline-none placeholder:text-ink-3 focus:border-accent focus:ring-2 focus:ring-accent-tint';
+const inputClass = cn(fieldClass, 'placeholder:text-ink-3');
 
 export type PresetUploadValue = {
   artifact: File;
@@ -220,15 +222,15 @@ export function RetirePresetVersionDialog({
   onConfirm: () => void;
 }) {
   return (
-    <ProductDialog title="退休配方版本" onClose={onClose}>
+    <ProductDialog title="下架配方版本" onClose={onClose}>
       <div className="grid gap-3 p-5 text-[13px] text-ink-2">
-        <p className="m-0">确认退休 <strong className="text-ink">{version.presetId}@{version.sourceDshVersion}</strong>？</p>
-        <p className="m-0">退休后停止新的授权下载；已导入本机的配方不会远程撤回。</p>
+        <p className="m-0">确认下架 <strong className="text-ink">{version.presetId}@{version.sourceDshVersion}</strong>？</p>
+        <p className="m-0">下架后停止新的授权下载；已导入本机的配方不会远程撤回。</p>
         {error ? <p role="alert" className="m-0 text-[12.5px] text-red">{error}</p> : null}
       </div>
       <footer className="flex justify-end gap-2 border-t border-line px-5 py-4">
         <Button type="button" size="sm" onClick={onClose}>取消</Button>
-        <Button type="button" variant="primary" size="sm" disabled={saving} onClick={onConfirm}>{saving ? '处理中' : '确认退休'}</Button>
+        <Button type="button" variant="primary" size="sm" disabled={saving} onClick={onConfirm}>{saving ? '处理中' : '确认下架'}</Button>
       </footer>
     </ProductDialog>
   );

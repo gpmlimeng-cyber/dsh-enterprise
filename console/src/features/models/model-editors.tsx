@@ -28,12 +28,14 @@ import {
   parseTokenCapacity,
   TOKEN_CAPACITY_ERROR
 } from './token-capacity';
+import { cn } from '@/lib/utils';
+import { fieldClass } from '@/lib/styles';
 
 const DEEPSEEK_OFFICIAL_URL = 'https://api.deepseek.com';
 const OPENAI_COMPLETIONS = 'openai-completions' as const;
 const REASONING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
 const THINKING_FORMATS = ['openai', 'deepseek', 'openrouter', 'together', 'zai', 'qwen', 'string-thinking', 'ant-ling'] as const;
-const inputClass = 'h-9 w-full rounded-lg border border-line bg-canvas px-3 text-[13px] text-ink outline-none placeholder:text-ink-3 focus:border-accent focus:ring-2 focus:ring-accent-tint disabled:cursor-not-allowed disabled:bg-inset disabled:text-ink-3';
+const inputClass = cn(fieldClass, 'placeholder:text-ink-3 disabled:bg-inset disabled:text-ink-3');
 const requiredText = z.string().trim().min(1, '不能为空');
 const providerKey = z.string().regex(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/, '使用小写字母、数字和连字符');
 const alias = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/, '使用字母、数字、点、下划线或连字符');

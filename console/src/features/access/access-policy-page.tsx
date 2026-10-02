@@ -39,6 +39,7 @@ import type {
   QuotaPolicyWriteRequest,
   QuotaWindow
 } from '@/api/generated/types.gen';
+import { errorMessage } from '@/lib/errors';
 import { randomUuid } from '@/lib/crypto';
 import { Button } from '@/components/atoms/Button';
 import { SegmentedControl } from '@/components/atoms/SegmentedControl';
@@ -55,14 +56,6 @@ const STATUS_FILTER = {
     { label: '停用', value: 'DISABLED' }
   ]
 } as const;
-
-function errorMessage(error: unknown, fallback: string) {
-  if (error && typeof error === 'object' && 'error' in error) {
-    const payload = (error as EnterpriseErrorResponse).error;
-    if (payload?.message) return payload.message;
-  }
-  return error instanceof Error && error.message ? error.message : fallback;
-}
 
 function unwrap<T>(result: { data?: { data: T }; error?: EnterpriseErrorResponse }, fallback: string) {
   if (result.error !== undefined || result.data === undefined) throw new Error(errorMessage(result.error, fallback));

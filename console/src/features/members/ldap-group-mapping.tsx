@@ -25,23 +25,18 @@ import type {
   LdapDirectoryGroup,
   LdapDirectoryGroupSearch
 } from '@/api/generated/types.gen';
+import { errorMessage } from '@/lib/errors';
 import { randomUuid } from '@/lib/crypto';
 import { Button } from '@/components/atoms/Button';
 import { ProductDataTable, type ProductTableColumn } from '@/components/product/DataTable';
 import { ProductDialog } from '@/components/product/Dialog';
+import { cn } from '@/lib/utils';
+import { fieldClass } from '@/lib/styles';
 
-const inputClass = 'h-9 min-w-0 rounded-lg border border-line bg-canvas px-3 text-[13px] text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent-tint disabled:opacity-60';
-
-function message(error: unknown, fallback: string) {
-  if (error && typeof error === 'object' && 'error' in error) {
-    const payload = (error as EnterpriseErrorResponse).error;
-    if (payload?.message) return payload.message;
-  }
-  return error instanceof Error && error.message ? error.message : fallback;
-}
+const inputClass = cn(fieldClass, 'min-w-0 disabled:opacity-60');
 
 function unwrap<T>(result: { data?: { data: T }; error?: EnterpriseErrorResponse }, fallback: string) {
-  if (result.error !== undefined || result.data === undefined) throw new Error(message(result.error, fallback));
+  if (result.error !== undefined || result.data === undefined) throw new Error(errorMessage(result.error, fallback));
   return result.data.data;
 }
 
@@ -102,7 +97,7 @@ function MappingEditor({ accessGroups, onClose, onSave, saving, source }: {
           </select>
         </label>
         {accessGroups.length === 0 ? <p className="m-0 text-[12.5px] text-ink-3">请先创建产品用户组</p> : null}
-        {search.error ? <p role="alert" className="m-0 text-[12.5px] text-red">{message(search.error, 'LDAP 组搜索失败')}</p> : null}
+        {search.error ? <p role="alert" className="m-0 text-[12.5px] text-red">{errorMessage(search.error, 'LDAP 组搜索失败')}</p> : null}
       </div>
       <footer className="flex justify-end gap-2 border-t border-line px-5 py-4">
         <Button type="button" size="sm" onClick={onClose}>取消</Button>

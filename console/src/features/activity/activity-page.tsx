@@ -22,6 +22,7 @@ import type {
   QuotaUsageLedgerItem,
   QuotaUsageLedgerPageData
 } from '@/api/generated/types.gen';
+import { errorMessage } from '@/lib/errors';
 import { SegmentedControl } from '@/components/atoms/SegmentedControl';
 import { StatusPill } from '@/components/atoms/StatusPill';
 import { ProductDataTable, type ProductTableColumn } from '@/components/product/DataTable';
@@ -40,14 +41,6 @@ export type ActivitySection = (typeof ACTIVITY_SECTIONS)[number][0];
 
 export function activitySectionsFor(permissions: readonly string[]): ActivitySection[] {
   return ACTIVITY_SECTIONS.filter(([, permission]) => permissions.includes(permission)).map(([section]) => section);
-}
-
-function errorMessage(error: unknown, fallback: string) {
-  if (error && typeof error === 'object' && 'error' in error) {
-    const payload = (error as EnterpriseErrorResponse).error;
-    if (payload?.message) return payload.message;
-  }
-  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 function unwrapData<T>(result: { data?: { data: T }; error?: EnterpriseErrorResponse }, fallback: string) {

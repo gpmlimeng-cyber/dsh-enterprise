@@ -15,6 +15,7 @@ import type {
   QuotaUsageAnalyticsModelRow,
   QuotaUsageAnalyticsMemberRow
 } from '@/api/generated/types.gen';
+import { errorMessage } from '@/lib/errors';
 import { Button } from '@/components/atoms/Button';
 import { SegmentedControl } from '@/components/atoms/SegmentedControl';
 import { ProductDataTable, type ProductTableColumn } from '@/components/product/DataTable';
@@ -30,14 +31,6 @@ function tokens(value: number) {
 function ratio(value: number | null | undefined) {
   if (value === null || value === undefined) return '-';
   return `${(value * 100).toFixed(1)}%`;
-}
-
-function errorMessage(error: unknown, fallback: string) {
-  if (error && typeof error === 'object' && 'error' in error) {
-    const payload = (error as EnterpriseErrorResponse).error;
-    if (payload?.message) return payload.message;
-  }
-  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 function unwrapData<T>(result: { data?: { data: T }; error?: EnterpriseErrorResponse }, fallback: string) {

@@ -22,6 +22,7 @@ import type {
   BrandingBrandingRevision,
   EnterpriseErrorResponse
 } from '@/api/generated/types.gen';
+import { errorMessage } from '@/lib/errors';
 import { Button } from '@/components/atoms/Button';
 import { randomUuid } from '@/lib/crypto';
 import {
@@ -33,17 +34,10 @@ import {
   type BrandingDraft,
   type BrandingSlot
 } from './branding-editors';
+import { cn } from '@/lib/utils';
+import { fieldClass } from '@/lib/styles';
 
-const inputClass = 'h-9 w-full rounded-lg border border-line bg-canvas px-3 text-[13px] text-ink outline-none placeholder:text-ink-3 focus:border-accent focus:ring-2 focus:ring-accent-tint';
-
-function errorMessage(error: unknown, fallback: string) {
-  if (error && typeof error === 'object' && 'error' in error) {
-    const payload = (error as EnterpriseErrorResponse).error;
-    if (payload?.message) return payload.message;
-  }
-  if (error instanceof Error && error.message) return error.message;
-  return fallback;
-}
+const inputClass = cn(fieldClass, 'placeholder:text-ink-3');
 
 function unwrapData<T>(result: { data?: { data: T }; error?: EnterpriseErrorResponse }, fallback: string) {
   if (result.error !== undefined || result.data === undefined) throw new Error(errorMessage(result.error, fallback));

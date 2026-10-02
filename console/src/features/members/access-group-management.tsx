@@ -22,24 +22,18 @@ import type {
   AccessGroupWriteRequest,
   EnterpriseErrorResponse
 } from '@/api/generated/types.gen';
+import { errorMessage } from '@/lib/errors';
 import { randomUuid } from '@/lib/crypto';
 import { Button } from '@/components/atoms/Button';
 import { ProductDataTable, type ProductTableColumn } from '@/components/product/DataTable';
 import { ProductDialog } from '@/components/product/Dialog';
 import { useMembers } from '@/features/member-select';
+import { fieldClass } from '@/lib/styles';
 
-const inputClass = 'h-9 w-full rounded-lg border border-line bg-canvas px-3 text-[13px] text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent-tint';
-
-function message(error: unknown, fallback: string) {
-  if (error && typeof error === 'object' && 'error' in error) {
-    const payload = (error as EnterpriseErrorResponse).error;
-    if (payload?.message) return payload.message;
-  }
-  return error instanceof Error && error.message ? error.message : fallback;
-}
+const inputClass = fieldClass;
 
 function unwrap<T>(result: { data?: { data: T }; error?: EnterpriseErrorResponse }, fallback: string) {
-  if (result.error !== undefined || result.data === undefined) throw new Error(message(result.error, fallback));
+  if (result.error !== undefined || result.data === undefined) throw new Error(errorMessage(result.error, fallback));
   return result.data.data;
 }
 
@@ -181,8 +175,8 @@ export function AccessGroupManagement({ canWrite }: { canWrite: boolean }) {
         searchPlaceholder="搜索用户组"
         toolbarAction={canWrite ? <Button variant="primary" size="xs" onClick={() => { save.reset(); setEditor('create'); }}><Plus aria-hidden className="size-3.5" />新建用户组</Button> : undefined}
       />
-      {editor ? <GroupEditor key={editor === 'create' ? 'create' : editor.id} current={editor === 'create' ? undefined : editor} error={save.error ? message(save.error, '用户组保存失败') : undefined} saving={save.isPending} onClose={() => setEditor(undefined)} onSave={(value) => save.mutate({ current: editor === 'create' ? undefined : editor, value })} /> : null}
-      {deleting ? <ProductDialog title="确认删除" onClose={() => setDeleting(undefined)}><div className="grid gap-5 p-5"><p className="m-0 text-[13px] text-ink-2">确定删除“{deleting.name}”？</p>{remove.error ? <p role="alert" className="m-0 text-[12.5px] text-red">{message(remove.error, '用户组删除失败')}</p> : null}<footer className="flex justify-end gap-2 border-t border-line pt-4"><Button size="sm" onClick={() => setDeleting(undefined)}>取消</Button><Button variant="primary" size="sm" className="bg-red text-white" disabled={remove.isPending} onClick={() => remove.mutate(deleting)}>{remove.isPending ? '删除中' : '删除'}</Button></footer></div></ProductDialog> : null}
+      {editor ? <GroupEditor key={editor === 'create' ? 'create' : editor.id} current={editor === 'create' ? undefined : editor} error={save.error ? errorMessage(save.error, '用户组保存失败') : undefined} saving={save.isPending} onClose={() => setEditor(undefined)} onSave={(value) => save.mutate({ current: editor === 'create' ? undefined : editor, value })} /> : null}
+      {deleting ? <ProductDialog title="确认删除" onClose={() => setDeleting(undefined)}><div className="grid gap-5 p-5"><p className="m-0 text-[13px] text-ink-2">确定删除“{deleting.name}”？</p>{remove.error ? <p role="alert" className="m-0 text-[12.5px] text-red">{errorMessage(remove.error, '用户组删除失败')}</p> : null}<footer className="flex justify-end gap-2 border-t border-line pt-4"><Button size="sm" onClick={() => setDeleting(undefined)}>取消</Button><Button variant="primary" size="sm" className="bg-red text-white" disabled={remove.isPending} onClick={() => remove.mutate(deleting)}>{remove.isPending ? '删除中' : '删除'}</Button></footer></div></ProductDialog> : null}
     </>
   );
 }

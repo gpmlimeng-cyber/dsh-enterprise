@@ -26,7 +26,6 @@
     "@tanstack/react-table": "9.2.4",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
-    "dialkit": "1.4.3",
     "glimm": "0.3.0",
     "iconoir-react": "7.11.1",
     "liveline": "0.0.7",

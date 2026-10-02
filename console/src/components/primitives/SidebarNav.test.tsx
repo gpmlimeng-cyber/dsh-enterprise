@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Testing Library、Vitest、Lucide 图标与 primitives/SidebarNav。
- * [OUTPUT]: 锁定分组导航的组顺序/组内顺序、组间分割线位置（首尾不出现）、空组连同分割线消失、不传 navGroups 时的扁平向后兼容，以及底部纯图标工具条（三个原生可聚焦按钮、title + aria-label、无文字、不进主导航与分割线、折叠态转纵列）。
+ * [OUTPUT]: 锁定分组导航的组顺序/组内顺序、组间分割线位置（首尾不出现）、空组连同分割线消失、不传 navGroups 时的扁平向后兼容、当前页的 `aria-current="page"` 唯一宣告，以及底部纯图标工具条（三个原生可聚焦按钮、title + aria-label、无文字、不进主导航与分割线、折叠态转纵列）。
  * [POS]: primitives 侧栏分组与底部工具条的渲染门禁，不涉及路由与 Server 权限。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -45,6 +45,7 @@ function renderSidebar(props: {
   navItems?: SidebarNavItem[];
   utilityItems?: SidebarNavItem[];
   collapsible?: boolean;
+  activeNav?: string;
   onNavigate?: (key: string) => void;
 }) {
   return render(
@@ -124,6 +125,23 @@ describe('SidebarNav 分组导航', () => {
     expect(navSequence(container)).toEqual([]);
     expect(container.querySelectorAll('[data-nav-group]').length).toBe(0);
     expect(container.querySelectorAll('[data-nav-divider]').length).toBe(0);
+  });
+
+  it('当前页由 aria-current="page" 宣告一次，其余导航项与底部工具条都不宣告', () => {
+    const { container } = renderSidebar({ navGroups: GROUPS, utilityItems: UTILITY_ITEMS, activeNav: '/plugins' });
+
+    const contentGroup = container.querySelector('[data-nav-group="content"]') as HTMLElement;
+    const current = within(contentGroup).getByRole('button', { name: '插件' });
+    expect(current.getAttribute('aria-current')).toBe('page');
+
+    const others = Array.from(container.querySelectorAll('[data-nav-group] button'))
+      .filter((button) => button !== current);
+    expect(others.length).toBeGreaterThan(0);
+    for (const button of others) expect(button.getAttribute('aria-current')).toBeNull();
+
+    for (const button of Array.from(container.querySelectorAll('[data-nav-utilities] button'))) {
+      expect(button.getAttribute('aria-current')).toBeNull();
+    }
   });
 
   it('未传 navGroups 时保持既有扁平渲染，且不出现分割线或组语义', () => {

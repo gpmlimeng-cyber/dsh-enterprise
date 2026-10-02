@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 React、Beautiful UI foundation 以及文件内声明的 atom、primitive 与第三方能力。
  * [OUTPUT]: 对外提供 ApprovalCard 复合组件及其公开类型。
- * [POS]: components/primitives 的上游 AI 产品控件，由产品壳与 examples 共享；源自 Beautiful UI 3ea4c181。
+ * [POS]: components/primitives 的上游 AI 产品控件，由产品壳与保留的上游参考共享；源自 Beautiful UI 3ea4c181。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 

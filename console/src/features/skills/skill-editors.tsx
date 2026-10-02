@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 React、ProductDialog/Button/StatusPill 原子、共享 MemberSelect、生成技能 DTO 与浏览器原生表单控件。
- * [OUTPUT]: 提供技能版本状态文案/色板、版本时间线/最新版本/可见范围摘要与 draft→spec 校验、安全提示与 SKILL.md 条目预览，以及 .dshskill 上传确认、可见范围编辑（独立对话框与详情内联共用同一份字段与校验）、详情和退休确认对话框。
+ * [OUTPUT]: 提供技能版本状态文案/色板、版本时间线/最新版本/可见范围摘要与 draft→spec 校验、安全提示与 SKILL.md 条目预览，以及 .dshskill 上传确认、可见范围编辑（独立对话框与详情内联共用同一份字段与校验）、详情和下架确认对话框。
  * [POS]: features/skills 的展示与写入表单层，只收集产品语义，不解析 ZIP、不持有 mutation；manifest 与条目预览一律来自服务端解析结果。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -21,6 +21,8 @@ import { StatusPill } from '@/components/atoms/StatusPill';
 import { ProductDialog } from '@/components/product/Dialog';
 import { MemberSelect } from '@/features/member-select';
 import { cn } from '@/lib/utils';
+import { formatBytes } from '@/lib/format';
+import { fieldClass } from '@/lib/styles';
 
 const MAX_ARTIFACT_BYTES = 50 * 1024 * 1024;
 /**
@@ -28,23 +30,17 @@ const MAX_ARTIFACT_BYTES = 50 * 1024 * 1024;
  * `application/vnd.dsh.skill+zip` 是 skill.yaml 下载响应已声明的同一 MIME，不另造类型。
  */
 const SKILL_ARTIFACT_EXTENSION = '.dshskill';
-const inputClass = 'h-9 w-full rounded-lg border border-line bg-canvas px-3 text-[13px] text-ink outline-none placeholder:text-ink-3 focus:border-accent focus:ring-2 focus:ring-accent-tint';
+const inputClass = cn(fieldClass, 'placeholder:text-ink-3');
 
 export const SKILL_VERSION_STATUS: Record<SkillSkillVersionStatus, { label: string; tone: 'accent' | 'green' | 'neutral' }> = {
   VALIDATED: { label: '已验证', tone: 'accent' },
   PUBLISHED: { label: '已发布', tone: 'green' },
-  RETIRED: { label: '已退休', tone: 'neutral' }
+  RETIRED: { label: '已下架', tone: 'neutral' }
 };
 
 export function SkillVersionStatusPill({ status }: { status: SkillSkillVersionStatus }) {
   const item = SKILL_VERSION_STATUS[status];
   return <StatusPill tone={item.tone}>{item.label}</StatusPill>;
-}
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
 }
 
 function formatDate(value: string) {
@@ -536,7 +532,7 @@ export function SkillDetailDialog({
                       </Button>
                     ) : null}
                     {canWrite && version.status === 'PUBLISHED' ? (
-                      <Button variant="quiet" size="xs" className="size-7 rounded-md p-0" disabled={versionPending} aria-label={`退休 ${version.sourceDshVersion}`} title="退休该版本" onClick={() => onRetire(version)}>
+                      <Button variant="quiet" size="xs" className="size-7 rounded-md p-0" disabled={versionPending} aria-label={`下架 ${version.sourceDshVersion}`} title="下架该版本" onClick={() => onRetire(version)}>
                         <Archive aria-hidden className="size-3.5" />
                       </Button>
                     ) : null}
@@ -574,15 +570,15 @@ export function RetireSkillVersionDialog({
   version: SkillSkillVersion;
 }) {
   return (
-    <ProductDialog title="退休技能版本" onClose={onClose}>
+    <ProductDialog title="下架技能版本" onClose={onClose}>
       <div className="grid gap-3 p-5 text-[13px] text-ink-2">
-        <p className="m-0">确认退休 <strong className="text-ink">{version.skillId}@{version.sourceDshVersion}</strong>？</p>
-        <p className="m-0">退休后停止新的授权下载；已导入本机的技能包不会远程撤回，仍会在员工 Agent 上生效。</p>
+        <p className="m-0">确认下架 <strong className="text-ink">{version.skillId}@{version.sourceDshVersion}</strong>？</p>
+        <p className="m-0">下架后停止新的授权下载；已导入本机的技能包不会远程撤回，仍会在员工 Agent 上生效。</p>
         {error ? <p role="alert" className="m-0 text-[12.5px] text-red">{error}</p> : null}
       </div>
       <footer className="flex justify-end gap-2 border-t border-line px-5 py-4">
         <Button type="button" size="sm" onClick={onClose}>取消</Button>
-        <Button type="button" variant="primary" size="sm" disabled={saving} onClick={onConfirm}>{saving ? '处理中' : '确认退休'}</Button>
+        <Button type="button" variant="primary" size="sm" disabled={saving} onClick={onConfirm}>{saving ? '处理中' : '确认下架'}</Button>
       </footer>
     </ProductDialog>
   );

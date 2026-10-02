@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 React DOM、TanStack Query/Router、Inter/JetBrains Mono 与上游 Beautiful UI 全量样式/主题同步器。
- * [OUTPUT]: 将产品控制台和 examples 路由挂载到 index.html。
+ * [OUTPUT]: 将产品控制台路由挂载到 index.html。
  * [POS]: console 的 Vite 浏览器入口，只装配全局 provider 和主题运行时，不承载页面业务。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */

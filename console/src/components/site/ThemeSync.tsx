@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 React、Beautiful UI foundation 以及文件内声明的组件和浏览器能力。
  * [OUTPUT]: 对外提供 ThemeSync 站点级装配组件及其公开类型。
- * [POS]: components/site 的上游 Harness/画廊运行面，由 TanStack examples 路由消费；源自 Beautiful UI 3ea4c181。
+ * [POS]: components/site 的上游 Harness/画廊运行面，由产品壳与登录页消费；源自 Beautiful UI 3ea4c181。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 

@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 React portal/state、Lucide 免费图标、GlideMenu 与可选工作区品牌/导航/底部工具项数据。
  * [OUTPUT]: 对外提供保留上游默认行为且可注入产品导航、可选分组导航（组间分割线、空组自动消失）、可选底部纯图标工具条（title + aria-label、折叠态转纵列）和工作区图标的 SidebarNav、SidebarNavItem、SidebarNavGroup、SidebarWorkspace 类型。
- * [POS]: components/primitives 的共享 Harness 侧栏；examples 使用上游默认平铺值，产品壳注入业务数据、分组与底部工具项。
+ * [POS]: components/primitives 的共享侧栏；保留上游默认平铺值，产品壳注入业务数据、分组与底部工具项。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -172,6 +172,7 @@ function RailButton({
     <button
       data-row
       type="button"
+      aria-current={active ? "page" : undefined}
       onClick={onClick}
       className={`sidebar-row relative z-10 mx-2 flex h-8 items-center rounded-[8px] px-2 text-left
         transition-[width,background-color,color,transform] duration-150 active:scale-[0.98]

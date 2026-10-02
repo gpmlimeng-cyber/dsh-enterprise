@@ -9,8 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { SelectHTMLAttributes } from 'react';
 import { listMembers } from '@/api/generated/sdk.gen';
 import type { EnterpriseErrorResponse, MemberPageData, MemberSummary } from '@/api/generated/types.gen';
-
-const inputClass = 'h-9 w-full rounded-lg border border-line bg-canvas px-3 text-[13px] text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent-tint disabled:cursor-not-allowed disabled:opacity-60';
+import { fieldClass } from '@/lib/styles';
 
 export async function loadMemberPage(cursor?: string) {
   const result = await listMembers({ query: { limit: 200, ...(cursor ? { cursor } : {}) } });
@@ -46,7 +45,7 @@ type MemberSelectProps = Omit<SelectHTMLAttributes<HTMLSelectElement>, 'children
   value: string;
 };
 
-export function MemberSelect({ className = inputClass, disabled, onValueChange, value, ...props }: MemberSelectProps) {
+export function MemberSelect({ className = fieldClass, disabled, onValueChange, value, ...props }: MemberSelectProps) {
   const members = useMembers();
   return (
     <>

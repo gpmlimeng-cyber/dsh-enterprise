@@ -29,6 +29,7 @@ import type {
   MemberStatus,
   MemberSummary
 } from '@/api/generated/types.gen';
+import { errorMessage } from '@/lib/errors';
 import { randomUuid } from '@/lib/crypto';
 import { Button } from '@/components/atoms/Button';
 import { SegmentedControl } from '@/components/atoms/SegmentedControl';
@@ -40,6 +41,8 @@ import { loadMemberPage } from '@/features/member-select';
 import { AccessGroupManagement } from './access-group-management';
 import { IdentitySourceManagement } from './identity-source-management';
 import { LdapMemberImportDialog } from './ldap-member-import';
+import { cn } from '@/lib/utils';
+import { fieldClass } from '@/lib/styles';
 
 type MemberSection = '成员' | '用户组' | '身份接入';
 
@@ -60,7 +63,7 @@ const STATUS_FILTER = {
   ]
 } as const;
 
-const inputClass = 'h-9 min-w-0 flex-1 rounded-lg border border-line bg-canvas px-3 text-[13px] text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent-tint disabled:cursor-not-allowed disabled:opacity-60';
+const inputClass = cn(fieldClass, 'min-w-0 flex-1');
 
 function LocalMemberCreateDialog({
   onClose,
@@ -151,15 +154,6 @@ function activeAtLabel(value: string | null) {
   return value
     ? new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
     : '暂无活动';
-}
-
-function errorMessage(error: unknown, fallback: string) {
-  if (error && typeof error === 'object' && 'error' in error) {
-    const payload = (error as EnterpriseErrorResponse).error;
-    if (payload?.message) return payload.message;
-  }
-  if (error instanceof Error && error.message) return error.message;
-  return fallback;
 }
 
 function unwrapData<T>(result: { data?: { data: T }; error?: EnterpriseErrorResponse }, fallback: string) {

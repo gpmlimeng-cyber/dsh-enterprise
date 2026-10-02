@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 Vitest、Testing Library、生成插件 DTO 与 PluginAssignmentDialog/上传对话框。
  * [OUTPUT]: 锁定保存可见范围时不可编辑的 DEPT 事实必须原样重发，以及上传对话框只放行 .tgz/.tar.gz/.zip 的格式门禁。
- * [POS]: features/plugins 的可见范围写入门禁，防止服务端全量替换语义静默删除控制台未呈现的分配。
+ * [POS]: features/plugins 的可见范围写入门禁，防止服务端全量替换语义静默删除控制台未呈现的可见范围。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 

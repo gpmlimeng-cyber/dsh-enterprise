@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖生成的技能管理 operation、浏览器原生 multipart、成员目录、console 权限事实、TanStack Query、ProductDataTable、RowTitleLink、lib/crypto 幂等键与 features/skills 编辑器。
- * [OUTPUT]: 提供 .dshskill 上传 serializer、包级列表行投影 toSkillPackageRow、技能工作台，以及"点标题开技能包详情"的共享入口与上传、发布、退休、全量范围替换的动作编排。
+ * [OUTPUT]: 提供 .dshskill 上传 serializer、包级列表行投影 toSkillPackageRow、技能工作台，以及"点标题开技能包详情"的共享入口与上传、发布、下架、全量范围替换的动作编排。
  * [POS]: features/skills 的产品工作台；一个技能包聚合多个 SKILL.md 条目，服务端独占验包、状态机、CAS 与逐请求下载授权。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -23,6 +23,7 @@ import type {
   SkillSkillVersion,
   SkillSkillVersionStatus
 } from '@/api/generated/types.gen';
+import { errorMessage } from '@/lib/errors';
 import { randomUuid } from '@/lib/crypto';
 import { Button } from '@/components/atoms/Button';
 import { StatusPill } from '@/components/atoms/StatusPill';
@@ -40,15 +41,6 @@ import {
   type SkillAssignmentValue,
   type SkillUploadValue
 } from './skill-editors';
-
-function errorMessage(error: unknown, fallback: string) {
-  if (error && typeof error === 'object' && 'error' in error) {
-    const payload = (error as EnterpriseErrorResponse).error;
-    if (payload?.message) return payload.message;
-  }
-  if (error instanceof Error && error.message) return error.message;
-  return fallback;
-}
 
 function unwrapData<T>(result: { data?: { data: T }; error?: EnterpriseErrorResponse }, fallback: string) {
   if (result.error !== undefined || result.data === undefined) throw new Error(errorMessage(result.error, fallback));
@@ -88,7 +80,7 @@ function formatDate(value: string) {
  * 故 status 列复用契约里更可行动的版本状态（VALIDATED/PUBLISHED/RETIRED），无版本时用 EMPTY。
  */
 export type SkillPackageRow = Omit<SkillSkillPackage, 'status'> & {
-  /** 最新版本；发布/退休的行内动作与状态列都以它为准。 */
+  /** 最新版本；发布/下架的行内动作与状态列都以它为准。 */
   latest?: SkillSkillVersion;
   status: SkillSkillVersionStatus | 'EMPTY';
   sourceDshVersion: string;
@@ -197,7 +189,7 @@ function skillColumnsWithActions(
             </Button>
           ) : null}
           {canWrite && latest?.status === 'PUBLISHED' ? (
-            <Button variant="quiet" size="xs" className="size-7 rounded-md p-0" disabled={disabled} aria-label={`退休 ${row.original.skillId}`} title="退休最新版本" onClick={() => onRetire(latest)}>
+            <Button variant="quiet" size="xs" className="size-7 rounded-md p-0" disabled={disabled} aria-label={`下架 ${row.original.skillId}`} title="下架最新版本" onClick={() => onRetire(latest)}>
               <Archive aria-hidden className="size-3.5" />
             </Button>
           ) : null}
@@ -319,7 +311,7 @@ export function SkillManagementPage() {
             options: [
               { label: '已验证', value: 'VALIDATED' },
               { label: '已发布', value: 'PUBLISHED' },
-              { label: '已退休', value: 'RETIRED' }
+              { label: '已下架', value: 'RETIRED' }
             ]
           }}
           getRowId={(row) => row.id}

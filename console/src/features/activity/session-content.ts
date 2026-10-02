@@ -43,6 +43,10 @@ function decodeBase64(value: string) {
   return bytes;
 }
 
+/**
+ * 取证用导出：产品面不调用它，只有 `session-content.test.ts` 直接调用来逐条锁定
+ * Base64/UTF-8/JSONL/range 的拒绝路径，因此保留导出并在此显式说明，而不是当死代码删掉。
+ */
 export function decodeAdminSessionEvents(content: SessionExport): readonly AdminSessionEvent[] {
   let text: string;
   try {

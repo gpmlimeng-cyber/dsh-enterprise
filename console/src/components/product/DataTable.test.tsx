@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Testing Library、Vitest 与 ProductDataTable 的 TanStack Table v9 行为。
- * [OUTPUT]: 验证搜索、精确筛选、行选择、列显隐和分页共享语义。
+ * [OUTPUT]: 验证搜索、精确筛选、行选择、列显隐和分页共享语义，并锁住失败态取文、加载中页脚与每页行数焦点环。
  * [POS]: components/product 的最小行为门禁，防止资源页面各自重复或破坏表格状态机。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -73,5 +73,57 @@ describe('ProductDataTable', () => {
     const menu = screen.getByText('列').closest('details')!;
     fireEvent.click(within(menu).getByRole('checkbox', { name: '状态' }));
     expect(screen.queryByRole('columnheader', { name: /状态/ })).toBeNull();
+  });
+
+  it('失败态显示企业错误信封里的服务端 message，而不是退化成兜底', () => {
+    render(
+      <ProductDataTable
+        ariaLabel="资源"
+        columns={columns}
+        data={[]}
+        emptyText="暂无资源"
+        error={{ error: { code: 'ENT_PLUGIN_ASSIGNMENT_UPDATE_FAILED', message: '可见范围冲突' } }}
+        getRowId={(row) => row.id}
+        searchPlaceholder="搜索资源"
+      />
+    );
+
+    expect(screen.getByRole('alert').textContent).toContain('可见范围冲突');
+    expect(screen.queryByText('暂时无法读取数据')).toBeNull();
+  });
+
+  it('加载中页脚显示占位符，不再同时说「正在读取」与「0 项」', () => {
+    render(
+      <ProductDataTable
+        ariaLabel="资源"
+        columns={columns}
+        data={[]}
+        emptyText="暂无资源"
+        getRowId={(row) => row.id}
+        isLoading
+        searchPlaceholder="搜索资源"
+      />
+    );
+
+    expect(screen.queryByText(/0 项/)).toBeNull();
+    expect(screen.getByText('—')).toBeTruthy();
+  });
+
+  it('每页行数下拉与同一工具栏的搜索/筛选共用焦点环', () => {
+    render(
+      <ProductDataTable
+        ariaLabel="资源"
+        columns={columns}
+        data={data}
+        emptyText="暂无资源"
+        getRowId={(row) => row.id}
+        searchPlaceholder="搜索资源"
+      />
+    );
+
+    const pageSize = screen.getByRole('combobox', { name: '每页行数' });
+    expect(pageSize.className).toContain('focus:border-accent');
+    expect(pageSize.className).toContain('focus:ring-2');
+    expect(pageSize.className).toContain('focus:ring-accent-tint');
   });
 });

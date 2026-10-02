@@ -12,7 +12,11 @@ vite.config.ts: Vite、TanStack 文件路由、React、Tailwind、Vitest、62209
 index.html: 控制台唯一 HTML 入口，在挂载 React 前恢复 Beautiful UI 主题以避免首帧闪烁。
 README.md: 本地安装、检查、启动、Beautiful UI 来源与 OpenAPI 生成物边界。
 BEAUTIFUL_UI_LICENSE: 直接派生的 Beautiful UI Harness/foundation/primitive 源码所附 MIT 许可证。
-public/: 控制台品牌候选与组件示例静态资源；局部地图见 public/CLAUDE.md。
+public/: 控制台静态资源根，**只放会被 Vite 原样复制进 `dist/` 的静态资源，不放任何仓库文档**（`public/CLAUDE.md` 曾因此让部署后的 `/CLAUDE.md` 可匿名下载，已移出）；成员清单如下：
+  dshent-whale.png: DSH Enterprise 守护鲸 LOGO（512×512 PNG），控制台侧栏/登录页/favicon 与品牌图标真源。
+  owndsh-whale-mono-m2.png: 历史 OwnDsh 黑白守护鲸基准稿，被 `website/assets/CLAUDE.md` 记为 `whale.jpg` 的派生来源，保留。
+  owndsh-whale-mono-m2-animated.png: 历史黑白守护鲸 APNG 动态稿，被仓库根 `README.md` 内嵌引用、且被 `website/assets/CLAUDE.md` 记为 `whale-animated.png` 的派生来源，保留。
+design/: **不参与构建**的设计留档目录（Vite 只复制 `public/`）；存放无任何构建期引用的历史品牌图与上游画廊品牌图，故不再进入 `dist/`。成员清单见 design/CLAUDE.md。
 scripts/: OpenAPI 派生脚本；局部地图见 scripts/CLAUDE.md。
 src/: 浏览器应用、认证、静态角色路由、样式与生成 API；局部地图见 src/CLAUDE.md。
 

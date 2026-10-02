@@ -11,6 +11,7 @@ import { type ReactNode, useState } from 'react';
 import type { AuthBuiltInRole, EnterpriseErrorResponse } from '@/api/generated/types.gen';
 import { changeCurrentPassword } from '@/auth/session';
 import { Button } from '@/components/atoms/Button';
+import { fieldClass } from '@/lib/styles';
 
 const ROLE_LABELS: Record<AuthBuiltInRole, string> = {
   enterprise_admin: '企业管理员',
@@ -22,7 +23,7 @@ const ROLE_LABELS: Record<AuthBuiltInRole, string> = {
 
 const SOURCE_LABELS = { LOCAL: '本地', LDAP: 'LDAP', OIDC: 'OIDC' } as const;
 
-const inputClass = 'h-9 w-full rounded-lg border border-line bg-canvas px-3 text-[13px] text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent-tint';
+const inputClass = fieldClass;
 
 export function AccountLayout() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });

@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖生成的插件管理 operation、浏览器原生 multipart、成员目录、console 权限事实、TanStack Query、ProductDataTable 与插件编辑器，共享 lib/crypto 生成 HTTP/HTTPS 通用幂等键。
- * [OUTPUT]: 提供企业插件 JSON part serializer、版本/可见范围/设备状态三视图，以及上传、发布、退休与原子范围管理动作。
- * [POS]: features/plugins 的产品插件工作台；服务端负责验包、签名、状态机、分配裁决和设备事实。
+ * [INPUT]: 依赖生成的插件管理 operation、浏览器原生 multipart、成员目录、console 权限事实、TanStack Query、ProductDataTable 与插件编辑器，共享 lib/crypto 生成 HTTP/HTTPS 通用幂等键、lib/errors 取服务端 message、lib/format 格式化字节。
+ * [OUTPUT]: 提供企业插件 JSON part serializer、版本/可见范围/设备状态三视图，以及上传、发布、下架与原子范围管理动作。
+ * [POS]: features/plugins 的产品插件工作台；服务端负责验包、签名、状态机、可见范围裁决和设备事实；支持系统列只展示上架元数据，不参与安装判定。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -26,6 +26,8 @@ import type {
   PluginPackagePageData,
   PluginVersion
 } from '@/api/generated/types.gen';
+import { errorMessage } from '@/lib/errors';
+import { formatBytes } from '@/lib/format';
 import { randomUuid } from '@/lib/crypto';
 import { Button } from '@/components/atoms/Button';
 import { SegmentedControl } from '@/components/atoms/SegmentedControl';
@@ -53,15 +55,6 @@ type PluginAssignmentRow = PluginAssignment & {
   subjectName: string;
   version: string;
 };
-
-function errorMessage(error: unknown, fallback: string) {
-  if (error && typeof error === 'object' && 'error' in error) {
-    const payload = (error as EnterpriseErrorResponse).error;
-    if (payload?.message) return payload.message;
-  }
-  if (error instanceof Error && error.message) return error.message;
-  return fallback;
-}
 
 function unwrapData<T>(result: { data?: { data: T }; error?: EnterpriseErrorResponse }, fallback: string) {
   if (result.error !== undefined || result.data === undefined) throw new Error(errorMessage(result.error, fallback));
@@ -93,12 +86,6 @@ function nextCursor(page: { page: { hasMore: boolean; nextCursor: string | null 
   return page.page.hasMore ? page.page.nextCursor ?? undefined : undefined;
 }
 
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
-}
-
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
@@ -107,7 +94,7 @@ const VERSION_STATUS = {
   UPLOADED: { label: '已上传', tone: 'neutral' },
   VALIDATED: { label: '已验证', tone: 'accent' },
   PUBLISHED: { label: '已发布', tone: 'green' },
-  RETIRED: { label: '已退休', tone: 'neutral' }
+  RETIRED: { label: '已下架', tone: 'neutral' }
 } as const;
 
 const DEVICE_STATUS: Record<AdminPluginInventoryItem['state'], { label: string; tone: 'accent' | 'green' | 'neutral' | 'orange' | 'red' }> = {
@@ -164,8 +151,8 @@ const versionColumns: ReadonlyArray<ProductTableColumn<PluginVersionRow>> = [
   {
     id: 'operatingSystems',
     accessorFn: (row) => row.compatibility.operatingSystems.join(' / '),
-    header: '操作系统',
-    meta: { label: '操作系统', className: 'w-[155px]', cellClassName: 'w-[155px]' }
+    header: '支持系统（仅展示）',
+    meta: { label: '支持系统（仅展示）', className: 'w-[155px]', cellClassName: 'w-[155px]' }
   },
   {
     id: 'enterpriseBundleRange',
@@ -206,7 +193,7 @@ function versionColumnsWithActions(
         <CloudUpload aria-hidden className="size-3.5" />
       </Button>
     ) : row.original.status === 'PUBLISHED' ? (
-      <Button variant="quiet" size="xs" className="size-7 rounded-md p-0" disabled={disabled} aria-label={`退休 ${row.original.packageName}@${row.original.version}`} title="退休" onClick={() => onRetire(row.original)}>
+      <Button variant="quiet" size="xs" className="size-7 rounded-md p-0" disabled={disabled} aria-label={`下架 ${row.original.packageName}@${row.original.version}`} title="下架" onClick={() => onRetire(row.original)}>
         <Archive aria-hidden className="size-3.5" />
       </Button>
     ) : null,
@@ -424,7 +411,7 @@ export function PluginManagementPage() {
       isLoadingMore={packages.isFetchingNextPage}
       onLoadMore={() => void packages.fetchNextPage()}
       onRetry={() => void packages.refetch()}
-      searchPlaceholder="搜索插件或分配对象"
+      searchPlaceholder="搜索插件或可见范围对象"
       toolbarAction={canWrite ? (
         <Button variant="primary" size="xs" disabled={packageRows.length === 0} onClick={() => { saveAssignments.reset(); setAssignmentOpen(true); }}>
           <Settings2 aria-hidden className="size-3.5" />

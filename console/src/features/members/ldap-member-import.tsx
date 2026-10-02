@@ -17,22 +17,17 @@ import type {
   LdapDirectoryUserSearch,
   LdapMemberImport
 } from '@/api/generated/types.gen';
+import { errorMessage } from '@/lib/errors';
 import { randomUuid } from '@/lib/crypto';
 import { Button } from '@/components/atoms/Button';
 import { ProductDialog } from '@/components/product/Dialog';
+import { cn } from '@/lib/utils';
+import { fieldClass } from '@/lib/styles';
 
-const inputClass = 'h-9 min-w-0 rounded-lg border border-line bg-canvas px-3 text-[13px] text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent-tint disabled:opacity-60';
-
-function message(error: unknown, fallback: string) {
-  if (error && typeof error === 'object' && 'error' in error) {
-    const payload = (error as EnterpriseErrorResponse).error;
-    if (payload?.message) return payload.message;
-  }
-  return error instanceof Error && error.message ? error.message : fallback;
-}
+const inputClass = cn(fieldClass, 'min-w-0 disabled:opacity-60');
 
 function unwrap<T>(result: { data?: { data: T }; error?: EnterpriseErrorResponse }, fallback: string) {
-  if (result.error !== undefined || result.data === undefined) throw new Error(message(result.error, fallback));
+  if (result.error !== undefined || result.data === undefined) throw new Error(errorMessage(result.error, fallback));
   return result.data.data;
 }
 
@@ -100,7 +95,7 @@ export function LdapMemberImportDialog({
             ))}
           </ul>
         ) : null}
-        {error ? <p role="alert" className="m-0 text-[12.5px] text-red">{message(error, 'LDAP 操作失败')}</p> : null}
+        {error ? <p role="alert" className="m-0 text-[12.5px] text-red">{errorMessage(error, 'LDAP 操作失败')}</p> : null}
       </div>
       <footer className="flex justify-end border-t border-line px-5 py-4"><Button type="button" size="sm" onClick={onClose}>关闭</Button></footer>
     </ProductDialog>

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖生成的配方管理 operation、浏览器原生 multipart、成员目录、console 权限事实、TanStack Query、ProductDataTable 与 lib/crypto 幂等键。
- * [OUTPUT]: 提供企业配方版本/可见范围两视图，以及上传、发布、退休与原子范围替换动作。
+ * [OUTPUT]: 提供企业配方版本/可见范围两视图，以及上传、发布、下架与原子范围替换动作。
  * [POS]: features/presets 的产品配方工作台；服务端独占验包、CAS、状态机与逐请求下载授权。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -24,6 +24,8 @@ import type {
   PresetPresetPackagePageData,
   PresetPresetVersion
 } from '@/api/generated/types.gen';
+import { errorMessage } from '@/lib/errors';
+import { formatBytes } from '@/lib/format';
 import { randomUuid } from '@/lib/crypto';
 import { Button } from '@/components/atoms/Button';
 import { SegmentedControl } from '@/components/atoms/SegmentedControl';
@@ -52,15 +54,6 @@ type PresetAssignmentRow = PresetPresetAssignment & {
   sourceDshVersion: string;
 };
 
-function errorMessage(error: unknown, fallback: string) {
-  if (error && typeof error === 'object' && 'error' in error) {
-    const payload = (error as EnterpriseErrorResponse).error;
-    if (payload?.message) return payload.message;
-  }
-  if (error instanceof Error && error.message) return error.message;
-  return fallback;
-}
-
 function unwrapData<T>(result: { data?: { data: T }; error?: EnterpriseErrorResponse }, fallback: string) {
   if (result.error !== undefined || result.data === undefined) throw new Error(errorMessage(result.error, fallback));
   return result.data.data;
@@ -88,12 +81,6 @@ function nextCursor(page: { page: { hasMore: boolean; nextCursor: string | null 
   return page.page.hasMore ? page.page.nextCursor ?? undefined : undefined;
 }
 
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
-}
-
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
@@ -101,7 +88,7 @@ function formatDate(value: string) {
 const VERSION_STATUS = {
   VALIDATED: { label: '已验证', tone: 'accent' },
   PUBLISHED: { label: '已发布', tone: 'green' },
-  RETIRED: { label: '已退休', tone: 'neutral' }
+  RETIRED: { label: '已下架', tone: 'neutral' }
 } as const;
 
 function VersionStatus({ status }: { status: PresetPresetVersion['status'] }) {
@@ -165,7 +152,7 @@ function versionColumnsWithActions(
         <CloudUpload aria-hidden className="size-3.5" />
       </Button>
     ) : row.original.status === 'PUBLISHED' ? (
-      <Button variant="quiet" size="xs" className="size-7 rounded-md p-0" disabled={disabled} aria-label={`退休 ${row.original.presetId}`} title="退休" onClick={() => onRetire(row.original)}>
+      <Button variant="quiet" size="xs" className="size-7 rounded-md p-0" disabled={disabled} aria-label={`下架 ${row.original.presetId}`} title="下架" onClick={() => onRetire(row.original)}>
         <Archive aria-hidden className="size-3.5" />
       </Button>
     ) : null,

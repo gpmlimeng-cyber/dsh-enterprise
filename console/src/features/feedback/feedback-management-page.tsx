@@ -17,6 +17,7 @@ import type {
   FeedbackPageData,
   FeedbackStatus
 } from '@/api/generated/types.gen';
+import { errorMessage } from '@/lib/errors';
 import { Button } from '@/components/atoms/Button';
 import { SegmentedControl } from '@/components/atoms/SegmentedControl';
 import { StatusPill } from '@/components/atoms/StatusPill';
@@ -48,15 +49,6 @@ const SECTION_STATUS: Record<FeedbackSection, FeedbackStatus | undefined> = {
 export function statusChangeBody(status: FeedbackStatus, note: string) {
   const trimmed = note.trim();
   return { status, note: trimmed === '' ? null : trimmed };
-}
-
-function errorMessage(error: unknown, fallback: string) {
-  if (error && typeof error === 'object' && 'error' in error) {
-    const payload = (error as EnterpriseErrorResponse).error;
-    if (payload?.message) return payload.message;
-  }
-  if (error instanceof Error && error.message) return error.message;
-  return fallback;
 }
 
 function unwrapData<T>(result: { data?: { data: T }; error?: EnterpriseErrorResponse }, fallback: string) {

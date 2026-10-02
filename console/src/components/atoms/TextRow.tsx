@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 React、Beautiful UI foundation 以及文件内声明的基础能力。
  * [OUTPUT]: 对外提供 TextRow 原子组件及其公开类型。
- * [POS]: components/atoms 的上游基础控件，由 primitives 与 examples 复用；源自 Beautiful UI 3ea4c181。
+ * [POS]: components/atoms 的上游基础控件，由 primitives 复用；源自 Beautiful UI 3ea4c181。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 

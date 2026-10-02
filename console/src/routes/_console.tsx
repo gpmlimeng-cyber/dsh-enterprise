@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖服务端 Cookie 会话、console bootstrap、静态角色路由与产品 ConsoleShell。
  * [OUTPUT]: 为有权页面提供共享产品壳，并把未登录、无控制台角色及无权直达路由收敛到固定入口。
- * [POS]: routes 的产品认证与页面可见性边界；不读取 Server 菜单，也不包裹 examples。
+ * [POS]: routes 的产品认证与页面可见性边界；不读取 Server 菜单。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 

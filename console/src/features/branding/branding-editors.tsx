@@ -10,6 +10,7 @@ import { useRef, useState } from 'react';
 import type { BrandingBrandingAdminAsset, BrandingBrandingRevision } from '@/api/generated/types.gen';
 import { Button } from '@/components/atoms/Button';
 import { ProductDialog } from '@/components/product/Dialog';
+import { fieldClass } from '@/lib/styles';
 
 export const BRANDING_SLOTS = ['light', 'dark', 'square'] as const;
 export type BrandingSlot = (typeof BRANDING_SLOTS)[number];
@@ -179,7 +180,7 @@ export function RollbackBrandingDialog({
           <label className="grid gap-1.5 text-[12.5px] font-medium text-ink-2">
             目标 revision
             <select
-              className="h-9 w-full rounded-lg border border-line bg-canvas px-3 text-[13px] text-ink outline-none focus:border-accent"
+              className={fieldClass}
               value={target}
               onChange={(event) => setTarget(Number(event.target.value))}
             >

@@ -43,6 +43,7 @@ import type {
   QuotaPolicyPageData,
   QuotaPolicyWriteRequest
 } from '@/api/generated/types.gen';
+import { errorMessage } from '@/lib/errors';
 import { randomUuid } from '@/lib/crypto';
 import { Button } from '@/components/atoms/Button';
 import { SegmentedControl } from '@/components/atoms/SegmentedControl';
@@ -80,15 +81,6 @@ const API_PROTOCOLS: Record<Provider['apiProtocol'], string> = {
   'openai-responses': 'OpenAI Responses',
   'anthropic-messages': 'Anthropic Messages'
 };
-
-function errorMessage(error: unknown, fallback: string) {
-  if (error && typeof error === 'object' && 'error' in error) {
-    const payload = (error as EnterpriseErrorResponse).error;
-    if (payload?.message) return payload.message;
-  }
-  if (error instanceof Error && error.message) return error.message;
-  return fallback;
-}
 
 function unwrapData<T>(
   result: { data?: { data: T }; error?: EnterpriseErrorResponse },

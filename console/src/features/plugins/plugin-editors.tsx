@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 React、共享 MemberSelect、ProductDialog、插件 DTO 与浏览器原生表单控件。
- * [OUTPUT]: 提供插件 tgz/tar.gz/zip 上传（服务端嗅探魔数并归一化为标准 npm tgz）、ALL/USER 企业可见范围编辑（原样重发不可编辑的 DEPT 事实）和版本退休确认对话框；发布不强制安装。
- * [POS]: features/plugins 的写入表单层，只收集产品语义，不解析 tgz、不签名也不持有 mutation。
+ * [INPUT]: 依赖 React、共享 MemberSelect、ProductDialog、lib/styles 的表单基线、插件 DTO 与浏览器原生表单控件。
+ * [OUTPUT]: 提供插件 tgz/tar.gz/zip 上传（服务端嗅探魔数并归一化为标准 npm tgz）、ALL/USER 企业可见范围编辑（原样重发不可编辑的 DEPT 事实）和版本下架确认对话框；发布不强制安装。
+ * [POS]: features/plugins 的写入表单层，只收集产品语义，不解析 tgz、不签名也不持有 mutation；支持系统只是上架元数据登记，不参与安装判定。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -18,6 +18,8 @@ import type {
 import { Button } from '@/components/atoms/Button';
 import { ProductDialog } from '@/components/product/Dialog';
 import { MemberSelect } from '@/features/member-select';
+import { fieldClass } from '@/lib/styles';
+import { cn } from '@/lib/utils';
 
 /**
  * 上传表单的可编辑初值，不是兼容性白名单：服务端 PluginCompatibility 只校验
@@ -45,12 +47,17 @@ function isAcceptedArtifactName(name: string): boolean {
   const lowerCaseName = name.toLowerCase();
   return ACCEPTED_ARTIFACT_EXTENSIONS.some((extension) => lowerCaseName.endsWith(extension));
 }
+/**
+ * 上架元数据标签表：只用于登记「这个包面向哪些系统发布」，**仅展示、不参与判断**。
+ * 平台字段永不作为安装拦截依据（docs/notes/direction-decisions.md 第 9/10 条），
+ * 真正的硬平台限制是 npm 的 os/cpu，由包管理器执行，与控制台无关。
+ */
 const OPERATING_SYSTEMS: ReadonlyArray<{ label: string; value: PluginOperatingSystem }> = [
   { label: 'macOS', value: 'darwin' },
   { label: 'Linux', value: 'linux' },
   { label: 'Windows', value: 'win32' }
 ];
-const inputClass = 'h-9 w-full rounded-lg border border-line bg-canvas px-3 text-[13px] text-ink outline-none placeholder:text-ink-3 focus:border-accent focus:ring-2 focus:ring-accent-tint';
+const inputClass = cn(fieldClass, 'placeholder:text-ink-3');
 
 export type PluginUploadValue = {
   artifact: File;
@@ -92,7 +99,7 @@ function editableAssignments(pluginPackage: PluginPackage): ProductAssignment[] 
 /**
  * 保存是服务端全量替换（PluginCatalogService.replaceAssignments 先无范围删除再插入）。
  * 控制台不呈现 DEPT 可见范围，因此必须把加载到的 DEPT 事实原样重发，
- * 否则一次“什么都没改”的保存会永久删除控制台从未显示的分配。
+ * 否则一次“什么都没改”的保存会永久删除控制台从未显示的可见范围。
  */
 function preservedAssignments(pluginPackage: PluginPackage): PluginAssignmentWrite[] {
   return pluginPackage.assignments
@@ -129,6 +136,7 @@ export function UploadPluginVersionDialog({
   const [artifact, setArtifact] = useState<File>();
   const [harnessCommits, setHarnessCommits] = useState(DEFAULT_HARNESS_COMMITS);
   const [enterpriseBundleRange, setEnterpriseBundleRange] = useState('>=0.1.0 <0.2.0');
+  // 默认全选只是让契约要求的非空数组开箱成立，不是兼容性白名单，也不参与任何拦截判定。
   const [operatingSystems, setOperatingSystems] = useState<PluginOperatingSystem[]>(['darwin', 'linux', 'win32']);
   const [validationError, setValidationError] = useState<string>();
 
@@ -148,10 +156,6 @@ export function UploadPluginVersionDialog({
     }
     if (!enterpriseBundleRange.trim()) {
       setValidationError('Bundle 版本范围不能为空');
-      return;
-    }
-    if (operatingSystems.length === 0) {
-      setValidationError('至少选择一个操作系统');
       return;
     }
     setValidationError(undefined);
@@ -189,8 +193,9 @@ export function UploadPluginVersionDialog({
           Bundle 版本范围
           <input className={inputClass} value={enterpriseBundleRange} onChange={(event) => setEnterpriseBundleRange(event.target.value)} />
         </label>
-        <fieldset className="grid gap-2">
-          <legend className="text-[12.5px] font-medium text-ink-2">操作系统</legend>
+        <fieldset className="grid gap-2" aria-describedby="plugin-operating-systems-note">
+          <legend className="text-[12.5px] font-medium text-ink-2">支持系统（上架元数据 · 仅展示，不拦截安装）</legend>
+          <p id="plugin-operating-systems-note" className="m-0 text-[12px] text-ink-3">这里只是登记这个包面向哪些系统发布，安装不会因系统不同被拦下。</p>
           <div className="flex flex-wrap gap-4">
             {OPERATING_SYSTEMS.map((system) => (
               <label key={system.value} className="flex items-center gap-2 text-[13px] text-ink-2">
@@ -262,7 +267,7 @@ export function PluginAssignmentDialog({
   const submit = () => {
     if (!pluginPackage) return;
     if (items.some((item) => !publishedVersions.some((version) => version.id === item.pluginVersionId))) {
-      setValidationError('每条分配必须选择已发布版本');
+      setValidationError('每条可见范围必须选择已发布版本');
       return;
     }
     if (items.some((item) => item.subjectType === 'USER' && !item.subjectId)) {
@@ -271,7 +276,7 @@ export function PluginAssignmentDialog({
     }
     const subjects = items.map((item) => `${item.subjectType}:${item.subjectId ?? ''}`);
     if (new Set(subjects).size !== subjects.length) {
-      setValidationError('同一分配对象只能存在一条规则');
+      setValidationError('同一可见范围对象只能存在一条规则');
       return;
     }
     setValidationError(undefined);
@@ -348,7 +353,7 @@ export function PluginAssignmentDialog({
                 </select>
               </label>
               <div className="flex items-end justify-end">
-                <Button type="button" variant="quiet" size="xs" className="size-8 rounded-md p-0 text-red" aria-label={`删除分配 ${index + 1}`} title="删除" onClick={() => setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
+                <Button type="button" variant="quiet" size="xs" className="size-8 rounded-md p-0 text-red" aria-label={`删除第 ${index + 1} 条可见范围`} title="删除" onClick={() => setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
                   <Trash2 aria-hidden className="size-3.5" />
                 </Button>
               </div>
@@ -383,14 +388,14 @@ export function RetirePluginVersionDialog({
   version: PluginVersion;
 }) {
   return (
-    <ProductDialog title="退休插件版本" onClose={onClose}>
+    <ProductDialog title="下架插件版本" onClose={onClose}>
       <div className="grid gap-3 p-5 text-[13px] text-ink-2">
-        <p className="m-0">确认退休 <strong className="text-ink">{version.packageName}@{version.version}</strong>？</p>
+        <p className="m-0">确认下架 <strong className="text-ink">{version.packageName}@{version.version}</strong>？</p>
         {error ? <p role="alert" className="m-0 text-[12.5px] text-red">{error}</p> : null}
       </div>
       <footer className="flex justify-end gap-2 border-t border-line px-5 py-4">
         <Button type="button" size="sm" onClick={onClose}>取消</Button>
-        <Button type="button" variant="primary" size="sm" disabled={saving} onClick={onConfirm}>{saving ? '处理中' : '确认退休'}</Button>
+        <Button type="button" variant="primary" size="sm" disabled={saving} onClick={onConfirm}>{saving ? '处理中' : '确认下架'}</Button>
       </footer>
     </ProductDialog>
   );

@@ -99,8 +99,6 @@ export const PRODUCT_UTILITY_ROUTES = [
   { key: 'docs-api', label: '接口文档', icon: CodeXml, href: '/api-docs/', placement: 'utility' }
 ] as const satisfies readonly ProductUtilityDefinition[];
 
-export type ProductUtilityItem = (typeof PRODUCT_UTILITY_ROUTES)[number];
-
 export const ACCOUNT_ROUTE = { to: '/account', label: '用户中心', icon: CircleUserRound } as const;
 export const CONSOLE_ROUTES = [...PRODUCT_ROUTES, ACCOUNT_ROUTE] as const;
 

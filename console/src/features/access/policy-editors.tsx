@@ -20,8 +20,10 @@ import type {
 import { Button } from '@/components/atoms/Button';
 import { ProductDialog } from '@/components/product/Dialog';
 import { MemberSelect } from '@/features/member-select';
+import { cn } from '@/lib/utils';
+import { fieldClass } from '@/lib/styles';
 
-const inputClass = 'h-9 w-full rounded-lg border border-line bg-canvas px-3 text-[13px] text-ink outline-none placeholder:text-ink-3 focus:border-accent focus:ring-2 focus:ring-accent-tint disabled:cursor-not-allowed disabled:opacity-55';
+const inputClass = cn(fieldClass, 'placeholder:text-ink-3 disabled:opacity-55');
 const requiredText = z.string().trim().min(1, '不能为空');
 const optionalPositiveInteger = z.union([z.literal(''), z.string().regex(/^[1-9]\d*$/, '请输入正整数')]);
 

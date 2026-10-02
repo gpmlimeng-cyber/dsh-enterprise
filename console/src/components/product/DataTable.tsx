@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 TanStack Table v9 headless 行为、Beautiful UI tokens、现有 Button 与 Lucide 图标。
- * [OUTPUT]: 提供产品资源列表共享的 ProductDataTable、列定义和筛选类型。
+ * [INPUT]: 依赖 TanStack Table v9 headless 行为、Beautiful UI tokens、现有 Button 与 Lucide 图标、lib/errors 的唯一取文函数。
+ * [OUTPUT]: 提供产品资源列表共享的 ProductDataTable、列定义和筛选类型；失败态直接呈现服务端 message（企业错误信封不是 Error 实例）。
  * [POS]: components/product 的表格唯一实现，保留上游 RecordsTable 原样作为视觉参考，不持有领域查询或 mutation。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { Button } from '@/components/atoms/Button';
+import { errorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
 
 type ProductColumnMeta = {
@@ -123,11 +124,6 @@ function TableCheckbox({
       className="size-4 shrink-0 cursor-pointer rounded border-line accent-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     />
   );
-}
-
-function tableErrorMessage(error: unknown) {
-  if (error instanceof Error && error.message !== '') return error.message;
-  return '暂时无法读取数据';
 }
 
 export function ProductDataTable<TData extends object>({
@@ -316,7 +312,7 @@ export function ProductDataTable<TData extends object>({
               <tr>
                 <td colSpan={table.getVisibleLeafColumns().length} className="h-48 border-b border-line text-center">
                   <div role="alert" className="inline-flex flex-col items-center gap-3 text-[13px] text-red">
-                    {tableErrorMessage(error)}
+                    {errorMessage(error, '暂时无法读取数据')}
                     {onRetry ? <Button size="xs" onClick={onRetry}>重试</Button> : null}
                   </div>
                 </td>
@@ -350,7 +346,7 @@ export function ProductDataTable<TData extends object>({
       </div>
 
       <footer className="flex min-h-12 flex-wrap items-center justify-between gap-2 px-3 py-2 text-[12px] text-ink-3">
-        <span>{filteredCount} 项{hasMore ? '，仍有更多' : ''}</span>
+        <span>{isLoading ? '—' : `${filteredCount} 项`}{!isLoading && hasMore ? '，仍有更多' : ''}</span>
         <div className="flex items-center gap-1.5">
           {hasMore && onLoadMore ? (
             <Button size="xs" disabled={isLoadingMore} onClick={onLoadMore}>
@@ -361,7 +357,7 @@ export function ProductDataTable<TData extends object>({
             aria-label="每页行数"
             value={table.state.pagination.pageSize}
             onChange={(event) => table.setPageSize(Number(event.target.value))}
-            className="h-7 rounded-md border border-line bg-surface px-1.5 text-[12px] text-ink-2 outline-none focus:border-accent"
+            className="h-7 rounded-md border border-line bg-surface px-1.5 text-[12px] text-ink-2 outline-none focus:border-accent focus:ring-2 focus:ring-accent-tint"
           >
             {[10, 20, 50].map((size) => <option key={size} value={size}>{size} / 页</option>)}
           </select>
