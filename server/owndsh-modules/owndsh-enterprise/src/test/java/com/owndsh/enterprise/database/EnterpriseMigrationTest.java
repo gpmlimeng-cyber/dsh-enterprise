@@ -75,13 +75,17 @@ class EnterpriseMigrationTest {
             where parent_id=0 and visible='0' and status='0'
             order by order_num, menu_id
             """, String.class)).containsExactly("Agent 管控", "系统设置", "运行状态");
+        // C 型页面节点只期望迁移真正写入的 9 个：控制台侧栏是硬编码在 console/src/app/product-routes.ts
+        // （`{ to: '/skills', label: '技能' }`），不消费 sys_menu，故 sys_menu 没有「技能」消费方；
+        // V35__enterprise_skill_catalog.sql:83-84 已裁定技能只登记 F 型权限行、不新增 C 型页面节点。
+        // 这里按"断言陈旧"删除对「技能」C 型节点的期望，不补迁移：加一条没人读的菜单行只是死数据。
         assertThat(database.jdbc().queryForList("""
             select menu_name from sys_menu
             where parent_id=1900400000000000000 and menu_type='C' and visible='0' and status='0'
             order by order_num, menu_id
             """, String.class)).containsExactly(
                 "模型与路由", "授权与配额", "身份接入", "客户端设备", "插件分发", "会话数据", "品牌",
-                "企业审计", "问题反馈", "技能"
+                "企业审计", "问题反馈"
             );
         assertThat(database.jdbc().queryForObject("""
             select count(*) from sys_menu
