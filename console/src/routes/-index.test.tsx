@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Testing Library、Vitest、内存 history、静态角色元数据与完整产品 routeTree。
- * [OUTPUT]: 在仅有 getRandomValues 的 HTTP 环境验证五角色矩阵、多身份登录、成员/LDAP/模型/策略写入、插件可见范围自主安装、技能目录页面及 Sign out。
+ * [OUTPUT]: 在仅有 getRandomValues 的 HTTP 环境验证五角色矩阵、侧栏分组与空组剔除、多身份登录、成员/LDAP/模型/策略写入、插件可见范围自主安装、技能目录页面及 Sign out。
  * [POS]: routes 的产品壳最小集成门禁，覆盖前端可见性但不替代 Server ent:* 权限测试。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -663,6 +663,30 @@ describe('product console access', () => {
   it('redirects a direct unauthorized URL to the first accessible page', async () => {
     renderRoute('/plugins', 'model_admin');
     expect(await screen.findByRole('heading', { name: '模型' }, { timeout: 5_000 })).toBeTruthy();
+  });
+
+  it('groups the product sidebar and drops groups a role cannot see', async () => {
+    renderRoute('/', 'model_admin');
+    expect(await screen.findByRole('heading', { name: '模型' })).toBeTruthy();
+
+    const nav = screen.getAllByLabelText('产品导航')[0]! as HTMLElement;
+    const sections = Array.from(nav.querySelectorAll('[data-nav-group]'))
+      .map((element) => element.getAttribute('data-nav-group'));
+    expect(sections).toEqual(['models', 'audit', 'docs']);
+    expect(nav.querySelector('[data-nav-group="content"]')).toBeNull();
+    expect(nav.querySelector('[data-nav-group="org"]')).toBeNull();
+
+    const list = nav.querySelector('[data-nav-group]')!.parentElement!;
+    const sequence = Array.from(list.querySelectorAll(':scope > [data-nav-group], :scope > [data-nav-divider]'))
+      .map((element) => (element.hasAttribute('data-nav-divider') ? 'divider' : `group:${element.getAttribute('data-nav-group')}`));
+    expect(sequence).toEqual(['group:models', 'divider', 'group:audit', 'divider', 'group:docs']);
+    expect(nav.querySelectorAll('[data-nav-divider]').length).toBe(2);
+
+    const labelsIn = (key: string) => within(nav.querySelector(`[data-nav-group="${key}"]`) as HTMLElement)
+      .getAllByRole('button').map((button) => button.textContent);
+    expect(labelsIn('models')).toEqual(['模型', '访问策略']);
+    expect(labelsIn('audit')).toEqual(['活动记录']);
+    expect(labelsIn('docs')).toEqual(['产品官网', '帮助文档', '接口文档']);
   });
 
   it('renders the product member directory and continues with the Server cursor', async () => {

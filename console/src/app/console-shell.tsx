@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖上游 SidebarNav/ThemeToggle、DSH Enterprise 鲸鱼品牌资源、静态控制台路由、同源产品官网 /home/、帮助中心 /help/ 与 API 文档 /api-docs/、TanStack navigation 与 Beautiful UI Harness tab bar 结构。
- * [OUTPUT]: 提供 DSH Enterprise 品牌工作区入口、角色过滤产品侧栏、官网/帮助/接口文档外链入口、用户中心导航/Sign out、深浅主题、可关闭页面 tab、移动抽屉和内容窗口。
+ * [INPUT]: 依赖上游 SidebarNav/ThemeToggle、DSH Enterprise 鲸鱼品牌资源、静态控制台路由与侧栏分组、同源产品官网 /home/、帮助中心 /help/ 与 API 文档 /api-docs/、TanStack navigation 与 Beautiful UI Harness tab bar 结构。
+ * [OUTPUT]: 提供 DSH Enterprise 品牌工作区入口、角色过滤且按四个功能组 + 文档组分组的侧栏（组间分割线、空组不出线）、官网/帮助/接口文档外链入口、用户中心导航/Sign out、深浅主题、可关闭页面 tab、移动抽屉和内容窗口。
  * [POS]: app 的产品外壳；DOM、尺寸和交互直接由 Beautiful UI Harness 3ea4c181 迁移，工作区菜单只提供产品动作。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,11 +10,11 @@ import { BookOpen, CircleUserRound, CodeXml, ExternalLink, LogOut, Menu, UserPlu
 import { useEffect, useRef, useState } from 'react';
 import { logoutCurrentSession } from '@/auth/session';
 import SidebarNav, {
-  type SidebarNavItem,
+  type SidebarNavGroup,
   type SidebarWorkspaceAction
 } from '@/components/primitives/SidebarNav';
 import { ThemeToggle } from '@/components/site/ThemeToggle';
-import { CONSOLE_ROUTES, isAccountRoute, isProductRoute, productRoutesFor, type ProductRoute } from './product-routes';
+import { CONSOLE_ROUTES, isAccountRoute, isProductRoute, productRouteGroupsFor, productRoutesFor, type ProductRoute } from './product-routes';
 
 // 文档与官网是同源静态站点（不是 SPA 路由），
 // 新标签页打开，不进入页面 Tab 体系，也不参与 activeNav 高亮。
@@ -40,15 +40,27 @@ export function ConsoleShell() {
 
   const go = (to: ProductRoute) => void navigate({ to });
   const closeMobileNav = () => dialogRef.current?.close();
-  const navItems: SidebarNavItem[] = [
-    ...availableRoutes.map(({ to, label, icon: Icon }) => ({
-      key: to,
-      label,
-      icon: <Icon size={18} />
+  // 侧栏分组：四个产品组由 product-routes 的角色过滤决定（整组无可见项时该组不会返回），
+  // 文档组恒非空，因此不会出现「首组前 / 末组后」或「空组留下」的孤立分割线。
+  const navGroups: SidebarNavGroup[] = [
+    ...productRouteGroupsFor(bootstrap.roles).map((group) => ({
+      key: group.key,
+      label: group.label,
+      items: group.items.map(({ to, label, icon: Icon }) => ({
+        key: to,
+        label,
+        icon: <Icon size={18} />
+      }))
     })),
-    { key: 'docs-site', label: '产品官网', icon: <ExternalLink size={18} /> },
-    { key: 'docs-help', label: '帮助文档', icon: <BookOpen size={18} /> },
-    { key: 'docs-api', label: '接口文档', icon: <CodeXml size={18} /> }
+    {
+      key: 'docs',
+      label: '文档与支持',
+      items: [
+        { key: 'docs-site', label: '产品官网', icon: <ExternalLink size={18} /> },
+        { key: 'docs-help', label: '帮助文档', icon: <BookOpen size={18} /> },
+        { key: 'docs-api', label: '接口文档', icon: <CodeXml size={18} /> }
+      ]
+    }
   ];
   const workspaceActions: SidebarWorkspaceAction[] = [];
   if (availableRoutes.some((route) => route.to === '/members')) {
@@ -86,7 +98,7 @@ export function ConsoleShell() {
       fill
       footerLabel={null}
       historyLabel={null}
-      navItems={navItems}
+      navGroups={navGroups}
       onNavigate={(key) => {
         const docTarget = DOC_TARGETS[key];
         if (docTarget !== undefined) {

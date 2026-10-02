@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 React portal/state、Lucide 免费图标、GlideMenu 与可选工作区品牌/导航数据。
- * [OUTPUT]: 对外提供保留上游默认行为且可注入产品导航和工作区图标的 SidebarNav、SidebarNavItem、SidebarWorkspace 类型。
- * [POS]: components/primitives 的共享 Harness 侧栏；examples 使用上游默认值，产品壳只注入业务数据和动作。
+ * [OUTPUT]: 对外提供保留上游默认行为且可注入产品导航、可选分组导航（组间分割线、空组自动消失）和工作区图标的 SidebarNav、SidebarNavItem、SidebarNavGroup、SidebarWorkspace 类型。
+ * [POS]: components/primitives 的共享 Harness 侧栏；examples 使用上游默认平铺值，产品壳注入业务数据和分组。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -21,6 +21,11 @@ import GlideMenu from "@/components/primitives/GlideMenu";
 
 export type SidebarWorkspace = { key: string; name: string; monogram: string; icon?: ReactNode };
 export type SidebarNavItem = { key: string; label: string; icon: ReactNode; count?: string };
+/**
+ * 可选侧栏分组：只承载「组名 + 组内行」的语义与顺序，组间分割线由 SidebarNav 统一渲染；
+ * 组内 items 为空（例如整组项都被权限过滤）时，整组连同它的分割线一起不渲染。
+ */
+export type SidebarNavGroup = { key: string; label: string; items: SidebarNavItem[] };
 export type SidebarWorkspaceAction = { label: string; icon: ReactNode; onClick?: () => void; separated?: boolean };
 
 const DEFAULT_WORKSPACE: SidebarWorkspace = { key: "creamery", name: "Creamery Ops", monogram: "C" };
@@ -64,6 +69,8 @@ type SidebarNavProps = {
   fill?: boolean;
   historyLabel?: string | null;
   navItems?: SidebarNavItem[];
+  /** 分组主导航；提供时忽略 navItems 的平铺渲染，组间以既有 `h-px bg-line` 分割线区隔 */
+  navGroups?: SidebarNavGroup[];
   onNewChat?: () => void;
   onPick?: (id: string, label: string, prompt?: string) => void;
   /** controlled primary-nav selection (e.g. "home" | "invite") */
@@ -219,6 +226,7 @@ export default function SidebarNav({
   fill = false,
   historyLabel = "Chats",
   navItems = DEFAULT_NAV_ITEMS,
+  navGroups,
   onNewChat,
   onPick,
   activeNav,
@@ -250,6 +258,20 @@ export default function SidebarNav({
 
   const selectedTitle = activeTitle === undefined ? demoActiveTitle : activeTitle;
   const visibleRecents = recents.filter((item) => item.label.toLowerCase().includes(query.trim().toLowerCase()));
+
+  const renderNavRow = (item: SidebarNavItem) => (
+    <RailButton
+      key={item.key}
+      icon={item.icon}
+      label={item.label}
+      count={item.count}
+      active={currentNav === item.key}
+      onClick={() => selectNav(item.key)}
+    />
+  );
+  // 空组（组内项全部被权限或可见性过滤）整组消失，分割线只按剩余组的相对位置渲染，
+  // 因此既不会出现孤立分割线，也不会在首组前 / 末组后多出一条线。
+  const visibleNavGroups = (navGroups ?? []).filter((group) => group.items.length > 0);
 
   useEffect(() => {
     if (!workspaceOpen) return;
@@ -365,16 +387,17 @@ export default function SidebarNav({
               }}
             />
           )}
-          {navItems.map((item) => (
-            <RailButton
-              key={item.key}
-              icon={item.icon}
-              label={item.label}
-              count={item.count}
-              active={currentNav === item.key}
-              onClick={() => selectNav(item.key)}
-            />
-          ))}
+          {navGroups
+            ? visibleNavGroups.map((group, index) => (
+                <Fragment key={group.key}>
+                  {/* 组间分割线：沿用工作区菜单既有的 `my-1 h-px bg-line` 取值，只补 RailButton 的 mx-2 内缩对齐 */}
+                  {index > 0 && <div data-nav-divider className="mx-2 my-1 h-px shrink-0 bg-line" />}
+                  <div role="group" aria-label={group.label} data-nav-group={group.key} className="flex flex-col gap-px">
+                    {group.items.map(renderNavRow)}
+                  </div>
+                </Fragment>
+              ))
+            : navItems.map(renderNavRow)}
         </GlideGroup>
 
         {historyLabel ? <div className="mt-3 min-h-0 flex-1 overflow-y-auto">
