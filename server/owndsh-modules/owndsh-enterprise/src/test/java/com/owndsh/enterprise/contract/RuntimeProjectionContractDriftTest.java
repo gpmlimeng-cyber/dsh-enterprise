@@ -314,7 +314,12 @@ class RuntimeProjectionContractDriftTest {
 
     private static PluginViews.RuntimeAssignmentsView pluginAssignmentsView() {
         return new PluginViews.RuntimeAssignmentsView(9, List.of(new PluginViews.RuntimeAssignmentView(
-            "1901300000000000101", "@example/t13-tools", "1.0.0", 2048L,
+            "1901300000000000101", "@example/t13-tools", "1.0.0",
+            // 契约 RuntimePluginAssignment 声明了可选的 description；这里给**非空真值**，门禁才真正
+            // 覆盖到这个键。若传 null，@JsonInclude(NON_NULL) 会让它整个缺席，门禁就永远看不到它、
+            // 等于新字段没被这道防线覆盖（断言仍只做 ⊆，语义未变）。
+            "T13 契约漂移门禁示例插件：仅用于 runtime 视图投影的键集比对。",
+            2048L,
             "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789", "",
             new PluginCompatibility(
                 List.of("0123456789abcdef0123456789abcdef01234567"),
