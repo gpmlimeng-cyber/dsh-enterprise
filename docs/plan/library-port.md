@@ -706,3 +706,53 @@
 | `:97`「资料库本体 35 个文件、约 **1,970 行**」 | **35 个文件 / 1670 行**（其中 `.ts/.tsx` 1250 行、11 个 `.gitkeep` 0 行） | `find … -type f \| xargs wc -l` 尾行 `1670 total` |
 | §11 不确定项 #2「上游子模块未 checkout ⇒ `system-prompt/assemble`/`defineTool` 的确切契约只能从用法反推」 | **已落实**：全部给了「包名 + 文件:行号」（§2.3、§2.4、§2.5） | `H/` = `/data/data/com.deepcode.shell/files/usr/lib/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/` |
 | §11 不确定项 #5「`layout:'per-record'` 实际落盘形态未核对」 | **部分落实**：定义已核（`H/dsh-storage-domain/lib/types/spec.d.ts:36-43`）；**实际落盘仍属未验证** ⇒ 本文 §8 U2 | 同上 |
+
+---
+
+## 附录 · P0 开工闸勘误（2026-10-02 实测，实施前必须按本节修正）
+
+### A. 许可闸：已放行
+- 4 个源包（`workdsh-web/packages/{contracts,ui,bundle}` 与 `packages/plugins/library`）**自身无 license 字段、
+  包内无 LICENSE/COPYING/NOTICE**；授权依据是 `workdsh-web/LICENSE`（标准 MIT，`Copyright (c) 2026 techflag`），
+  位于 pnpm workspace 根（`pnpm-workspace.yaml` 把 `packages/*`、`packages/plugins/*`、`packages/providers/*`
+  纳入同一许可作品）。
+- **jszip@3.10.1 是 `(MIT OR GPL-3.0-or-later)` 双许可** ⇒ 必须**显式选择 MIT 分支**，并保留其 MIT 版权行与正文。
+- pdfjs-dist@5.4.624 = Apache-2.0（无 NOTICE 需传递）；与"只收 MIT/Apache-2.0/BSD/ISC/0BSD"口径相容。
+- **原创判断**：判为 WorkDSH 原创（techflag），非上游同步 —— 其 `workdsh-web/AGENTS.md:9` 明令禁止抄上游私有实现、
+  `README.md:99` 声明"不维护修改过的上游运行时"；尖锐静态检查全阴（上游源码每文件带 `@module @deepseek-ai` 头，
+  这 4 个包 0 命中；SPDX 标识 0 命中）；上游无对应包。兜底：唯一贴官方代码处是 `ui/src/components/Controls.tsx:1-2`
+  对官方 primitives 的薄包装，而上游 primitives 亦是 MIT（`Copyright (c) 2026 DeepSeek`）⇒ 无 GPL/AGPL 污染。
+- **要落仓库**：MIT 全文 + 来源声明（作者 techflag / `github.com/techflag/workdsh` / commit
+  `4f2955bcacf07bafb9f72b59f9d412f2b74045e3`）+ jszip 与 pdfjs-dist 两份第三方许可文本；
+  在 NOTICE 里写**事实**（"这 4 个源包无 per-package license 声明，授权依据为 `workdsh-web/LICENSE`"），
+  不要写成"声明为 MIT"。
+
+### B. 存储闸：可用，但以下 4 处必须改
+1. **主键字符集硬约束**：后端 `SAFE_KEY_RE = /^[a-zA-Z0-9_-]+$/` ⇒ 本文 §7 R14 建议的
+   `<scope>:<ownerId>:<id>` **写入即抛**（冒号非法）。改为 `<scope>_<ownerId>_<id>` 或"字段化 + 代码内组合"，
+   并增加"键归一化（`:`/`/`/`.`/空白 → `-`）+ 字符集与长度门禁"为验收项。长度：240 通过、300 抛
+   `ENAMETOOLONG`（实际占 `key + ".json"`）⇒ **建议截断 ≤200**。
+2. **"存储结构逐字节一致"限定作用域**：只适用于**我们自落盘的对象层**
+   （`<dshHome>/library/objects/<assetId>/<revisionId>/{original.<ext>,content.md,conversion.json}`）。
+   元数据层是官方 per-record JSON 信封 `{version, record}`（2 空格缩进 + 尾 `\n`），与 workdsh 的
+   "一主体一条大记录"本来就不逐字节相同；写临时文件是**同目录 `.<uuid>.tmp`**（非 `<root>/.tmp/<uuid>/`）。
+3. **删除只删文件、不删目录**；**空域完全不落盘** ⇒ §6 不能断言"目录存在/被清理"。
+4. **并发串行仅进程内**（`put/delete/update` 在同一服务实例的写链上串行，`update` 是写链原子 RMW）；
+   **跨进程无文件锁**（last-write-wins）⇒ C12 那条必须补"仅进程内"，并写明 GUI 与 CLI 并存时的取舍。
+
+### C. 新增/修正的验收项
+- 新增：**空域不落盘**（open 一个从未写过的域 = 零文件）；**主键门禁单测**
+  （`:`/`/`/`.`/空白/空串/240/300）；**单记录不分片**（大 value 一条记录一个文件，禁止把大正文塞进 KV 记录）。
+- 新增：**多进程验收**（同域两进程交替写同一记录，确认是 last-write-wins 并记录在案）。
+- 时序依据：`domain/changed` 变更事件在**持久化成功之后**才发（`domain.d.ts:1-8`），可作有副作用订阅的时序依据。
+- 坏记录读语义（实测，需显式决策）：版本戳不被接受或非 JSON ⇒ **静默当不存在**（open 成功、记录消失、
+  不报错不迁移）；版本对但 schema 不符 ⇒ open 抛 `invalid-record`；声明
+  `invalidRecords: 'backup-and-skip'` 会改名为 `<key>.json.bak.<YYYYMMDDHHmm>` 后继续。
+
+### D. 旁证（证明这不是纸上推演）
+- 官方生产用例：`@deepseek-ai/dsh-session-projection-cache/lib/index.js:100` 就用 `layout: "per-record"`。
+- base 组合已挂载：`@deepseek-ai/dsh-base/cordis.patch.yml:165-176`（`storage` / `storage-json`（root
+  `dshHomePath('storages')`）/ `storage-domain`（backend json））；运行中的 `profiles/web/cordis.yml:100-109` 同形，
+  故**我们不需要重复挂载**。
+- 实测脚本与证据归档：`~/.sshwork/libport-probe/`（`probe.mjs`、`edge.mjs`、`disk-manifest.txt`、
+  样本记录、`dump-config.out`）；一次性 profile `lptmp1` 已 `rm -rf` 并给出未残留证据。
