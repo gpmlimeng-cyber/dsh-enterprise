@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖共享 EnterpriseAccountStore 的企业目录/本机事实、Harness Modal/Button 与 Lucide 图标
- * [OUTPUT]: 提供设置页内的插件搜索/已安装筛选、版本详情、显式安装/卸载及状态文案。**本刀（失败文案降维）**：删除本文件的插件码表，失败一律渲染 `EnterpriseErrorNotice`（人话 + 「下一步：」+「技术信息」里的稳定码），兜底不再把码拼进可见句子 **本刀（目录三态 + 可重试）**：新增纯投影 `enterprisePluginCatalogState` / `enterprisePluginCatalogEmptyText` / `enterprisePluginCatalogVersionText`，目录四态（未登录 / 加载中 / 失败 / 空（三种原因）/ 就绪）显式化；失败态给唯一提示组件 + 真重发的重试，目录没取到时详情那一格不再谎称「已下架」。
+ * [OUTPUT]: 提供设置页内的插件搜索/已安装筛选、版本详情、显式安装/卸载及状态文案。**本刀（失败文案降维）**：删除本文件的插件码表，失败一律渲染 `EnterpriseErrorNotice`（人话 + 「下一步：」+「技术信息」里的稳定码），兜底不再把码拼进可见句子 **本刀（目录三态 + 可重试）**：新增纯投影 `enterprisePluginCatalogState` / `enterprisePluginCatalogEmptyText` / `enterprisePluginCatalogVersionText`，目录四态（未登录 / 加载中 / 失败 / 空（三种原因）/ 就绪）显式化；失败态给唯一提示组件 + 真重发的重试，目录没取到时详情那一格不再谎称「已下架」。 **本刀（死开关改造）**：安装按钮原先 `disabled={busy || !connected || fatal !== undefined || item.installErrorCode !== undefined || waiting}` 且一句 `title` 都没有——禁用了却一个字不说，是产品宪法禁止的死控件。现改为：① 新增纯投影 `enterprisePluginRowGate`（唯一入口）与 `EnterprisePluginRowGate`/`EnterprisePluginGateNotes`，禁用原因全部来自新叶 `plugin-install-gate.ts` 的 `enterprisePluginLockReason`（目录判定 / 在途 / 等重启 / 别的操作用着 / 状态读不到），`installErrorCode` 只拦安装、不拦卸载；② 每一枚禁用都配**行上可见**的一句（`role="status"`，落点复用既有 `.own-market-sub`，不新增 CSS）与一句悬浮说明 `enterprisePluginSwitchTitle`；③ 平台彻底退出决策面：目录声明的 `operatingSystems` 与设备系统都不再进来（数据面字段照旧随行携带），卡片行与详情弹窗**一个字都不提系统**——「声明含当前平台 / 不含 / 根本没有该字段」三种形态渲染逐字相同；④ 不可达的 `!connected` 条件删掉（连不上时 `catalog`/`local` 皆空、一行都渲染不出来），并写清这条推理。
  * [POS]: ui 的员工插件管理视图，由「企业设置」的插件 tab 承载，数据与执行由 DSH Enterprise Host 拥有
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,6 +12,12 @@ import type { EnterpriseAccountStore } from './account-store.js'
 import { ConfirmAction } from './confirm-action.js'
 import { EnterpriseErrorNotice } from './error-notice.js'
 import type { ManagedPluginState } from './local-api.js'
+import {
+  enterprisePluginLockNotice,
+  enterprisePluginLockReason,
+  enterprisePluginSwitchTitle,
+  type EnterprisePluginLockReason,
+} from './plugin-install-gate.js'
 
 const STATES: Record<ManagedPluginState, { title: string; description: string; color: string }> = {
   EXPECTED: { title: '未安装', description: '可选择安装', color: '#667085' },
@@ -103,7 +109,89 @@ export function enterprisePluginCatalogEmptyText(reason: 'catalog' | 'search' | 
   return ENTERPRISE_PLUGIN_LIST_EMPTY_CATALOG
 }
 
-const OS: Record<string, string> = { darwin: 'macOS', linux: 'Linux', win32: 'Windows' }
+/**
+ * 一行插件的**动作门禁**与**可见提示**（纯投影，测试直调）：卡片行与详情弹窗读的是同一份事实。
+ *
+ * 为什么要有它：动作控件动不了时必须**在界面上**说清为什么——原先这里只有 `title`（安装按钮一句
+ * 「该插件当前不可安装」），正是产品宪法禁止的「死开关」。四件现场事实（受管态 / 等重启 / 别的操作用着 /
+ * 状态读不到）与目录判定经 `plugin-install-gate.ts` 的**唯一**判定折成禁用原因；
+ * `installErrorCode`（目录判定不可安装）只拦安装、**不**拦卸载——卸载是用户的自救动作。
+ */
+export interface EnterprisePluginRowGate {
+  /** 安装按钮的禁用原因（`undefined` = 可点）。 */
+  readonly installLock: EnterprisePluginLockReason | undefined
+  /** 卸载按钮的禁用原因（`undefined` = 可点）；目录判定不拦卸载。 */
+  readonly uninstallLock: EnterprisePluginLockReason | undefined
+  /** 安装禁用时的可见一句话；`undefined` = 没有（可点，或原因由唯一提示组件说）。 */
+  readonly installLockNotice: string | undefined
+  /** 卸载禁用时的可见一句话。 */
+  readonly uninstallLockNotice: string | undefined
+  /** 安装按钮的悬浮说明（补充，不替代上面那句）。 */
+  readonly installTitle: string
+  /** 卸载按钮的悬浮说明。 */
+  readonly uninstallTitle: string
+}
+
+/**
+ * 折出上面那份门禁的**唯一**入口。
+ *
+ * **与系统声明无关**：目录给的 `operatingSystems` 不进来、也不参与任何一步，
+ * 所以「声明含当前平台 / 不含 / 根本没有该字段」三种形态在这一行上渲染结果逐字相同。
+ *
+ * @param input.item - 企业目录里的这一版（缺席 = 已下架，只剩本机记录）。
+ * @param input.state - 本机受管态（无本机记录按 `EXPECTED`）。
+ */
+export function enterprisePluginRowGate(input: {
+  readonly item?: { readonly installErrorCode?: string | undefined } | undefined
+  readonly state: ManagedPluginState
+  readonly restartPending: boolean
+  readonly busy: boolean
+  readonly fatal: boolean
+}): EnterprisePluginRowGate {
+  const installLock = enterprisePluginLockReason({
+    hasAction: true,
+    state: input.state,
+    installErrorCode: input.item?.installErrorCode,
+    restartPending: input.restartPending,
+    busy: input.busy,
+    fatal: input.fatal,
+  })
+  const uninstallLock = enterprisePluginLockReason({
+    hasAction: true,
+    state: input.state,
+    restartPending: input.restartPending,
+    busy: input.busy,
+    fatal: input.fatal,
+  })
+  return {
+    installLock,
+    uninstallLock,
+    installLockNotice: enterprisePluginLockNotice(installLock),
+    uninstallLockNotice: enterprisePluginLockNotice(uninstallLock),
+    installTitle: enterprisePluginSwitchTitle({
+      enabled: input.state === 'ACTIVE',
+      lockReason: installLock,
+      installErrorCode: input.item?.installErrorCode,
+    }),
+    uninstallTitle: enterprisePluginSwitchTitle({ enabled: true, lockReason: uninstallLock }),
+  }
+}
+
+/**
+ * 卡片行上那句**可见**说明（安装/卸载为什么点不动）。
+ * 没有要说的就整段不进 DOM；行落点用本页既有的次级文案类（`.own-market-sub`），不新增 CSS。
+ */
+export function EnterprisePluginGateNotes({ gate, subject }: {
+  readonly gate: EnterprisePluginRowGate
+  readonly subject: string
+}): ReactNode {
+  const notice = gate.installLockNotice ?? gate.uninstallLockNotice
+  if (notice === undefined) return null
+  return (
+    <div className="own-market-sub" role="status" data-enterprise-plugin-lock={subject}>{notice}</div>
+  )
+}
+
 const bytes = (value: number) => value < 1024 * 1024 ? `${Math.ceil(value / 1024)} KiB` : `${(value / 1024 / 1024).toFixed(1)} MiB`
 
 const styles = `
@@ -180,22 +268,37 @@ export function EnterprisePluginMarket({ store }: {
   const selectedItem = selected === undefined ? undefined : available.get(selected)
   const selectedLocal = selected === undefined ? undefined : local.get(selected)
   const restartRequired = [...local.values()].some(item => item.state === 'RESTART_REQUIRED')
+  /**
+   * 一行插件的动作门禁（纯投影的唯一入口）。`!connected` 不在这里：连不上企业服务时
+   * `catalog`/`local` 两张表都是空的（`connected ? … : []`，见上面），一行都渲染不出来，
+   * 那个条件在**任何可达路径上**都不可能命中——留着只会让「禁用了却没解释」多一个隐分支。
+   * **平台不进来**：目录声明的 `operatingSystems` 谁都不读，三行禁用的成因只有目录判定 / 在途 / 等重启 / 忙 / 读不到。
+   */
+  const gateFor = (name: string): EnterprisePluginRowGate => enterprisePluginRowGate({
+    item: available.get(name),
+    state: local.get(name)?.state ?? 'EXPECTED',
+    restartPending: local.get(name)?.state === 'RESTART_REQUIRED',
+    busy,
+    fatal: fatal !== undefined,
+  })
   const actions = (name: string) => {
     const item = available.get(name)
     const record = local.get(name)
-    const waiting = record?.state === 'RESTART_REQUIRED'
+    const gate = gateFor(name)
     const sameVersion = record?.desiredState === 'INSTALLED' && record.version === item?.version && record.state === 'ACTIVE'
     return <div className="own-market-actions">
       {item && !sameVersion ? <Button size="sm" variant="outline"
-        disabled={busy || !connected || fatal !== undefined || item.installErrorCode !== undefined || waiting}
+        disabled={gate.installLock !== undefined}
+        title={gate.installTitle}
         icon={<Download size={14} aria-hidden />}
         onClick={() => { void store.installPlugin(name, item.pluginVersionId) }}>
         {snapshot.pluginBusy?.packageName === name && snapshot.pluginBusy.action === 'install' ? '正在安装' : record?.state === 'FAILED' ? '重试' : installed(name) ? '更新版本' : '安装'}
       </Button> : sameVersion ? <span style={{ color: '#16803c', display: 'flex', alignItems: 'center', gap: 4 }}><Check size={14} aria-hidden />已安装</span> : null}
       {record?.version != null && (record.desiredState === 'INSTALLED' || record.state === 'FAILED') ? <ConfirmAction
-        title="卸载企业插件" description={name} confirmLabel="确认卸载" disabled={busy || !connected || fatal !== undefined || waiting}
+        title="卸载企业插件" description={name} confirmLabel="确认卸载" disabled={gate.uninstallLock !== undefined}
         onConfirm={() => { setSelected(undefined); void store.removePlugin(name) }}>
-        {open => <Button size="sm" variant="ghost" aria-label={`卸载 ${name}`} title="卸载" disabled={busy || !connected || fatal !== undefined || waiting}
+        {open => <Button size="sm" variant="ghost" aria-label={`卸载 ${name}`} title={gate.uninstallTitle}
+          disabled={gate.uninstallLock !== undefined}
           icon={<Trash2 size={14} aria-hidden />} onClick={open} />}
       </ConfirmAction> : null}
     </div>
@@ -243,8 +346,12 @@ export function EnterprisePluginMarket({ store }: {
             <span className="own-market-glyph"><Package size={20} aria-hidden /></span>
             <span style={{ minWidth: 0 }}><strong>{name}</strong><span className="own-market-sub">企业发布 · v{item?.version ?? record?.version}</span></span>
           </button>
-          <div className="own-market-sub">{item ? `${item.operatingSystems.map(os => OS[os]).join(' / ')} · ${bytes(item.sizeBytes)}` : '已不在企业目录中'}</div>
+          {/* 只报体积：平台已退出决策面，行上不再出现任何平台词（声明含/不含当前平台渲染逐字相同）。 */}
+          <div className="own-market-sub">{item ? bytes(item.sizeBytes) : '已不在企业目录中'}</div>
+          {/* 目录判定不可安装：原因 +「下一步：」+ 技术信息里的码，全部可见（原先这一句只在按钮的 title 里）。 */}
           {item?.installErrorCode ? <EnterpriseErrorNotice className="own-market-sub" code={item.installErrorCode} /> : null}
+          {/* 动作点不动时**在行上**说清为什么（原因只来自那一份平台无关的门禁）。 */}
+          <EnterprisePluginGateNotes gate={gateFor(name)} subject={name} />
           {record?.lastErrorCode ? <EnterpriseErrorNotice className="own-market-sub own-market-error" code={record.lastErrorCode} /> : null}
           <footer><span style={{ color: presentation?.color ?? 'var(--dsw-alias-label-secondary,#667085)' }}>{presentation?.title ?? '可选安装'}</span>{actions(name)}</footer>
         </article>
@@ -257,8 +364,11 @@ export function EnterprisePluginMarket({ store }: {
         <dt>企业版本</dt><dd>{enterprisePluginCatalogVersionText({ catalogState, version: selectedItem?.version })}</dd>
         <dt>本机版本</dt><dd>{selectedLocal?.desiredState === 'INSTALLED' ? selectedLocal.version : '未安装'}</dd>
         <dt>发布方</dt><dd>企业管理员</dd>
-        {selectedItem ? <><dt>系统</dt><dd>{selectedItem.operatingSystems.map(os => OS[os]).join(' / ')}</dd><dt>大小</dt><dd>{bytes(selectedItem.sizeBytes)}</dd></> : null}
+        {selectedItem ? <><dt>大小</dt><dd>{bytes(selectedItem.sizeBytes)}</dd></> : null}
         {selectedItem?.installErrorCode ? <><dt>安装状态</dt><dd><EnterpriseErrorNotice code={selectedItem.installErrorCode} /></dd></> : null}
+        {/* 详情与卡片行**同一份门禁**：这里同样不许只挂 title。 */}
+        {selected === undefined || gateFor(selected).installLockNotice === undefined
+          ? null : <><dt>暂时不能安装</dt><dd>{gateFor(selected).installLockNotice}</dd></>}
       </dl>
     </Modal>
   </section>
