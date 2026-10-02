@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 marketplace-entry 的注册常量、组件清单/摘要/状态/开关语义纯投影、企业插件行投影、企业技能行投影与可见性门控、技能节受管态纯投影 `enterpriseMarketSkillState`、三节默认展开态常量 `ENTERPRISE_MARKET_DEFAULT_EXPANDED`、失败行内提示投影 `enterpriseMarketActionErrorLabel`、入口组件与版本签组件本身，以及 local-api-decode 的 `EnterpriseRuntimeSkill`/`EnterpriseInstalledSkill` 形状
- * [OUTPUT]: 验证入口身份常量、卡片一句话的单行约束、组件清单（插件/技能/配方）顺序与 reserved 语义、计数摘要口径、summary/page 两视图结构（含「包含的组件」标题与逐行开关，且 page 不重画标题/desc）、版本签只对本条目 subject 出、企业插件节的归并与门控，以及**企业技能节的官方两行卡片**（标题 + 描述各自成行、描述单行省略、旧元信息行退场）/可见性门控/计数/折叠开关/**默认展开**（`ENTERPRISE_MARKET_DEFAULT_EXPANDED` 只有技能节为 true，未装的技能也照列）/右侧那枚官方 `Switch`（`checked` 反映已装、在途 `disabled`、`label` 给动作语义、`onChange(next)` 两个方向都回调）与受管态投影（未装/已装/在途），以及**只改技能行**的回归锁（技能行恢复 Switch、企业插件行一字未动、五态标签的投影与数据钩子彻底退场），以及**两节行上的失败可见反馈**（失败 → 该行 role="alert" + 稳定错误码、只落失败行、失败后开关仍可拨重试、成功路径不出现该提示）
+ * [INPUT]: 依赖 marketplace-entry 的注册常量、组件清单/摘要/状态/开关语义纯投影、企业插件行投影、企业技能行投影（含详情归并的中心版本 `latestVersionId`）与可见性门控、技能节受管态纯投影 `enterpriseMarketSkillState`、「有更新」判定 `enterpriseMarketSkillHasUpdate`/`enterpriseMarketSkillRowHasUpdate` 与辅助标签投影 `enterpriseMarketSkillUpdateTag`、三节默认展开态常量 `ENTERPRISE_MARKET_DEFAULT_EXPANDED`、失败行内提示投影 `enterpriseMarketActionErrorLabel`、入口组件与版本签组件本身，以及 local-api-decode 的 `EnterpriseRuntimeSkill`/`EnterpriseInstalledSkill` 形状
+ * [OUTPUT]: 验证入口身份常量、卡片一句话的单行约束、组件清单（插件/技能/配方）顺序与 reserved 语义、计数摘要口径、summary/page 两视图结构（含「包含的组件」标题与逐行开关，且 page 不重画标题/desc）、版本签只对本条目 subject 出、企业插件节的归并与门控，以及**企业技能节的官方两行卡片**（标题 + 描述各自成行、描述单行省略、旧元信息行退场）/可见性门控/计数/折叠开关/**默认展开**（`ENTERPRISE_MARKET_DEFAULT_EXPANDED` 三值全 true，未装的技能也照列）/右侧那枚官方 `Switch`（`checked` 反映已装、在途 `disabled`、`label` 给动作语义、`onChange(next)` 两个方向都回调）与受管态投影（未装/已装/有更新/在途），以及**开关左侧那枚辅助标签**（只在「有更新」时出现、`aria-label`=`更新企业技能 X`、点击走安装方向、在途 `disabled` 不消失、未装/已装同版本一律不出现、标签严格排在 Switch 左侧），以及**「有更新」独立用例**（只有两侧 `versionId` 参与、`sha256` 换值不改结论、缺任一侧不判），以及**只改技能行**的回归锁（技能行恢复 Switch + 补辅助标签、企业插件行一字未动），以及**两节行上的失败可见反馈**（失败 → 该行 role="alert" + 稳定错误码、只落失败行、失败后开关仍可拨重试、成功路径不出现该提示）
  * [POS]: dsh-ui 插件市场入口的产品词汇门禁，真实渲染与视觉由 Harness 快照与真机验收覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -17,6 +17,8 @@ import {
   ENTERPRISE_MARKET_ENTRY_LABEL,
   ENTERPRISE_MARKET_ENTRY_ORDER,
   ENTERPRISE_MARKET_PLAN,
+  ENTERPRISE_MARKET_SKILL_UPDATE_LABEL,
+  ENTERPRISE_MARKET_SKILL_UPDATE_TAG,
   ENTERPRISE_MARKET_SUMMARY,
   BadgeView,
   EnterpriseMarketBadge,
@@ -33,9 +35,12 @@ import {
   enterpriseMarketPluginRows,
   enterpriseMarketPluginSectionVisible,
   enterpriseMarketSectionOpen,
+  enterpriseMarketSkillHasUpdate,
+  enterpriseMarketSkillRowHasUpdate,
   enterpriseMarketSkillRows,
   enterpriseMarketSkillSectionVisible,
   enterpriseMarketSkillState,
+  enterpriseMarketSkillUpdateTag,
   enterpriseMarketVersionTag,
   enterprisePluginDot,
   ENTERPRISE_MARKET_SECTION_IDS,
@@ -78,6 +83,21 @@ const SKILL: EnterpriseRuntimeSkill = {
   updatedAt: '2026-09-30T08:00:00Z',
   versionId: '',
   skills: [],
+}
+
+/**
+ * 中心**详情**投影 fixture：与列表投影同形，但 `versionId` 是真值、`skills` 有条目
+ * （`skill-api-decode` 的列表解码把 `versionId` 写死为空串，只有 `/skills/{id}` 详情带真值）。
+ */
+const SKILL_DETAIL: EnterpriseRuntimeSkill = {
+  ...SKILL,
+  versionId: '1902500000000000101',
+  skills: [{ name: 'meeting-notes', description: '把会议记录整理成结构化纪要', modelInvocable: true, userInvocable: true }],
+}
+
+/** 带中心当前版本的行（= hook 入口把详情按 id 归并后的形态）。 */
+function updatableRow(): ReturnType<typeof enterpriseMarketSkillRows>[number] {
+  return enterpriseMarketSkillRows([SKILL], [SKILL_DETAIL])[0]!
 }
 
 /** 已装记录 fixture（Host 回传的落盘真值）：命中 `packageId` 即该行开关 `checked`。 */
@@ -295,14 +315,20 @@ describe('enterprise marketplace entry', () => {
       { ...SKILL, id: '1902500000000000002', skillId: 'code-review', displayName: '代码评审技能组', description: '' },
     ])
     expect(rows.map(row => row.id)).toEqual(['1902500000000000001', '1902500000000000002'])
-    // 行只带界面真正渲染的两行文案：`latestVersionId` 随「有更新」一起退场，投影里没有它。
+    // 行只带界面真正渲染的两行文案 + 中心当前版本：列表投影没有详情时 `latestVersionId` 是空串（不猜）。
     expect(rows[0]).toEqual({
       id: '1902500000000000001',
       skillId: 'meeting-notes',
       displayName: '会议纪要技能组',
       description: '把会议录音与转写整理成结构化纪要。',
+      latestVersionId: '',
     })
-    expect(rows[0]).not.toHaveProperty('latestVersionId')
+    expect(rows[0]?.latestVersionId).toBe('')
+    // 中心当前版本只能从**详情投影**来（列表投影的 versionId 恒为空串）：按 id 归并进行上。
+    const merged = enterpriseMarketSkillRows([SKILL], [SKILL_DETAIL])
+    expect(merged[0]?.latestVersionId).toBe('1902500000000000101')
+    // 详情归并严格按 id：别的包的详情不落到本行（不猜、不错配）。
+    expect(enterpriseMarketSkillRows([SKILL], [{ ...SKILL_DETAIL, id: 'x' }])[0]?.latestVersionId).toBe('')
     // 空描述归一为固定占位，与技能 tab 详情弹窗同一句话；目录顺序原样保留，**不做任何过滤**。
     expect(rows[1]?.description).toBe('（暂无描述）')
     expect(enterpriseMarketSkillRows()).toEqual([])
@@ -316,7 +342,7 @@ describe('enterprise marketplace entry', () => {
   })
 
   // page 在「技能」组件 ON 且目录非空时渲染企业技能节、OFF 时不渲染；技能行 === 官方两行卡片
-  // （第 1 行标题、第 2 行描述，描述单行省略）+ 右侧那枚官方 Switch（自造的签/标签按钮已全部退场）。
+  // （第 1 行标题、第 2 行描述，描述单行省略）+ 右侧那枚官方 Switch（辅助标签只在「有更新」时补位）。
   it('renders the two-line skill card with the official Switch as the row primary control', () => {
     const enterpriseSkills = enterpriseMarketSkillRows([SKILL])
     // OFF：sessionUsable=false → 「技能」组件未开启 → 不出企业技能节。
@@ -340,10 +366,10 @@ describe('enterprise marketplace entry', () => {
     expect(cssRuleBody(css, '.own-market-cardDesc')).toContain('overflow:hidden')
     expect(cssRuleBody(css, '.own-market-cardId')).toContain('font-size:14px')
     expect(cssRuleBody(css, '.own-market-cardId')).toContain('text-overflow:ellipsis')
-    // 旧元信息行退场：右侧只剩那枚开关，不再堆「DSH 版本 · 大小 · N 个技能」。
+    // 旧元信息行退场：不再堆「DSH 版本 · 大小 · N 个技能」（未装行右侧就一个开关）。
     expect(text).not.toContain('DSH 0.1.7-rc.2')
-    // 右侧恢复为官方 Switch：3 个组件行开关 + 1 个技能行开关；技能行不再占 rowState 版式、
-    // 那枚自造签的类名与 data 钩子在整棵树上彻底不存在。
+    // 右侧恢复为官方 Switch：3 个组件行开关 + 1 个技能行开关；技能行不再占 rowState 版式，
+    // 且**未装行不出任何辅助标签**（那枚按钮只在「有更新」时出现，见下面的独立用例）。
     expect(collectByClassName(on, 'own-market-rowState')).toHaveLength(3)
     expect(collectByClassName(on, 'own-market-skillTag')).toEqual([])
     expect(collectDataValues(on, 'data-enterprise-skill-tag')).toEqual([])
@@ -370,28 +396,131 @@ describe('enterprise marketplace entry', () => {
     expect(onToggleSkill).toHaveBeenCalledWith(expect.objectContaining({ id: '1902500000000000001' }), true)
   })
 
-  // 已装记录与在途动作是两个彼此独立的输入：判定「已装/在途」只认 Host 真值，从不乐观猜测、也不比版本。
+  // 已装记录与在途动作是两个彼此独立的输入：判定「已装/在途」只认 Host 真值，从不乐观猜测；
+  // 「有更新」只在**两侧 versionId 都拿得到**时才敢说（列表态行没有中心版本 → 一律按已装）。
   it('projects each skill row state from the installed records and the pending action, never from optimism', () => {
     const row = enterpriseMarketSkillRows([SKILL])[0]!
     // 未装（清单缺席或为空）→ 可装。
     expect(enterpriseMarketSkillState(undefined, undefined, row)).toBe('AVAILABLE')
     expect(enterpriseMarketSkillState([], undefined, row)).toBe('AVAILABLE')
-    // 已装记录命中本行 → 已装（本页不再比版本：装了就是装了，盘上是哪个版本不影响这枚开关）。
+    // 已装记录命中本行 → 已装；行上没有中心版本（列表态 latestVersionId='') → 不判更新，只说已装。
     expect(enterpriseMarketSkillState([installedSkill('v2')], undefined, row)).toBe('INSTALLED')
     expect(enterpriseMarketSkillState([installedSkill('v1')], undefined, row)).toBe('INSTALLED')
     // 别的包的已装记录不算本行已装（行键 = 技能包 id）。
     expect(enterpriseMarketSkillState([installedSkill('v2', 'x')], undefined, row)).toBe('AVAILABLE')
-    // 在途方向决定「安装中」还是「卸载中」（原先只传 id 时卸载在途会错报安装中）。
+    // 两侧 versionId 都拿得到且不等 → 有更新（本页唯一敢说「有更新」的条件）。
+    const updatable = updatableRow()
+    expect(enterpriseMarketSkillState([installedSkill('1902500000000000100')], undefined, updatable)).toBe('UPDATE_AVAILABLE')
+    expect(enterpriseMarketSkillState([installedSkill(SKILL_DETAIL.versionId)], undefined, updatable)).toBe('INSTALLED')
+    // 在途方向决定「安装中」还是「卸载中」（原先只传 id 时卸载在途会错报安装中）；在途优先于版本判定。
     expect(enterpriseMarketSkillState(undefined, { packageId: row.id, next: true }, row)).toBe('INSTALLING')
     expect(enterpriseMarketSkillState([installedSkill('v2')], { packageId: row.id, next: true }, row)).toBe('INSTALLING')
     expect(enterpriseMarketSkillState([installedSkill('v2')], { packageId: row.id, next: false }, row)).toBe('REMOVING')
+    // 有更新的行在途时也只报在途，不混说版本。
+    expect(enterpriseMarketSkillState([installedSkill('1902500000000000100')], { packageId: row.id, next: true }, updatable))
+      .toBe('INSTALLING')
     // 别的包在途不影响本行；在途优先于已装判定。
     expect(enterpriseMarketSkillState([installedSkill('v2')], { packageId: 'x', next: false }, row)).toBe('INSTALLED')
     expect(enterpriseMarketSkillState([installedSkill('v2')], { packageId: row.id, next: false }, row)).toBe('REMOVING')
   })
 
-  // 开关四态在真实树上的落点：`checked`/`disabled` + `label` 动作语义 + 行上的 `data-enterprise-skill-state` 一致
-  // （未装 / 已装 / 安装中 / 卸载中）。
+  // 「有更新」独立用例：这个结论**只有两侧 versionId 参与**——sha256 换值不改结论、缺任一侧不判。
+  it('derives 有更新 from both versionIds only, ignoring sha256 and missing sides', () => {
+    const updatable = updatableRow()
+    const older = installedSkill('1902500000000000100')
+    // 两侧非空且不等 → 有更新；相等 → 无。
+    expect(enterpriseMarketSkillHasUpdate(older.versionId, updatable.latestVersionId)).toBe(true)
+    expect(enterpriseMarketSkillHasUpdate(SKILL_DETAIL.versionId, SKILL_DETAIL.versionId)).toBe(false)
+    // 缺任一侧（未装 / 详情没取到）一律 false：宁可少说一句，也不猜「有更新」。
+    expect(enterpriseMarketSkillHasUpdate('', updatable.latestVersionId)).toBe(false)
+    expect(enterpriseMarketSkillHasUpdate(older.versionId, '')).toBe(false)
+    expect(enterpriseMarketSkillHasUpdate('', '')).toBe(false)
+    // 行的判定入口：行键必须命中已装记录（别的包的记录不算）。
+    expect(enterpriseMarketSkillRowHasUpdate([older], updatable)).toBe(true)
+    expect(enterpriseMarketSkillRowHasUpdate(undefined, updatable)).toBe(false)
+    expect(enterpriseMarketSkillRowHasUpdate([{ ...older, packageId: 'x' }], updatable)).toBe(false)
+    // **sha256 不参与**：本机记录的 sha256 与中心哈希不一致（界面本来就拿不到中心哈希）也照样只比 versionId。
+    expect(enterpriseMarketSkillRowHasUpdate([{ ...older, sha256: 'b'.repeat(64) }], updatable)).toBe(true)
+    expect(enterpriseMarketSkillRowHasUpdate([{ ...installedSkill(SKILL_DETAIL.versionId), sha256: 'b'.repeat(64) }], updatable)).toBe(false)
+  })
+
+  // 开关左侧那枚辅助标签：只在「有更新」时出现（其余态右侧就一个 Switch），点击 = 安装中心当前版本。
+  it('renders the auxiliary update label left of the switch only when an update exists', () => {
+    const updatable = updatableRow()
+    const onToggleSkill = vi.fn()
+    // 未装行：不出现。
+    const notInstalled = EnterpriseMarketEntry({ view: 'page', sessionUsable: true, enterpriseSkills: [updatable], onToggleSkill })
+    expect(collectTagProps(notInstalled)).toEqual([])
+    // 已装且与中心同版本：不出现。
+    const current = EnterpriseMarketEntry({
+      view: 'page', sessionUsable: true, enterpriseSkills: [updatable],
+      installedSkills: [installedSkill(SKILL_DETAIL.versionId)], onToggleSkill,
+    })
+    expect(collectTagProps(current)).toEqual([])
+    // 已装旧版本：出现，文案/无障碍名/悬浮说明按投影给。
+    const outdated = installedSkill('1902500000000000100')
+    const tree = EnterpriseMarketEntry({ view: 'page', sessionUsable: true, enterpriseSkills: [updatable], installedSkills: [outdated], onToggleSkill })
+    const tags = collectTagProps(tree)
+    expect(tags).toHaveLength(1)
+    expect(tags[0]).toMatchObject({
+      type: 'button',
+      'data-enterprise-skill-tag': 'UPDATE_AVAILABLE',
+      'aria-label': '更新企业技能 会议纪要技能组',
+      title: '点此更新到中心当前版本',
+      disabled: false,
+      children: ENTERPRISE_MARKET_SKILL_UPDATE_LABEL,
+    })
+    expect(ENTERPRISE_MARKET_SKILL_UPDATE_TAG).toBe('UPDATE_AVAILABLE')
+    // 纯投影与常量同源（改文案只改一处）。
+    expect(enterpriseMarketSkillUpdateTag('会议纪要技能组')).toEqual({
+      label: '有更新',
+      ariaLabel: '更新企业技能 会议纪要技能组',
+      title: '点此更新到中心当前版本',
+    })
+    expect(ENTERPRISE_MARKET_SKILL_UPDATE_LABEL).toBe('有更新')
+    // 点击 = 安装中心当前版本（`next=true`），不是卸载、也不是 no-op。
+    tags[0]?.['onClick']?.()
+    expect(onToggleSkill).toHaveBeenCalledWith(expect.objectContaining({ id: updatable.id }), true)
+    // 顺序锁：标签严格排在 Switch **左侧**（开关仍是该行主控件，右侧顺序不许反过来）。
+    const kids = rowLineChildren(tree, updatable.id)
+    const tagIndex = kids.findIndex(child => isValidElement(child) && (child.props as Record<string, unknown>)['data-enterprise-skill-tag'] !== undefined)
+    const switchIndex = kids.findIndex(child => isValidElement(child) && child.type === (Switch as unknown))
+    expect(tagIndex).toBeGreaterThanOrEqual(0)
+    expect(switchIndex).toBeGreaterThan(tagIndex)
+    // 有更新时行上的受管态钩子如实报 `UPDATE_AVAILABLE`；那枚开关仍开着（盘上装着旧版本）、可拨（拨下去 = 卸载）。
+    expect(collectDataValues(tree, 'data-enterprise-skill-state')).toEqual(['UPDATE_AVAILABLE'])
+    const skillSwitch = collectSwitchProps(tree).find(props => String(props['label']).includes('会议纪要技能组'))!
+    expect(skillSwitch['checked']).toBe(true)
+    expect(skillSwitch['label']).toBe('卸载企业技能 会议纪要技能组')
+    expect(skillSwitch['disabled']).toBe(false)
+  })
+
+  // 在途语义：有更新的行在途时辅助标签**保留但禁用**（用户看得见「正在更新」）；未装行的在途一律不出现。
+  it('keeps the update label visible but disabled while the row is busy', () => {
+    const updatable = updatableRow()
+    const outdated = installedSkill('1902500000000000100')
+    const busyUpdate = EnterpriseMarketEntry({
+      view: 'page', sessionUsable: true, enterpriseSkills: [updatable], installedSkills: [outdated],
+      pendingSkill: { packageId: updatable.id, next: true }, onToggleSkill: vi.fn(),
+    })
+    const tags = collectTagProps(busyUpdate)
+    expect(tags).toHaveLength(1)
+    expect(tags[0]?.['disabled']).toBe(true)
+    // 未装行在途（正在做首次安装）：右侧就一个 Switch，不出现辅助标签。
+    const busyFresh = EnterpriseMarketEntry({
+      view: 'page', sessionUsable: true, enterpriseSkills: [updatable],
+      pendingSkill: { packageId: updatable.id, next: true }, onToggleSkill: vi.fn(),
+    })
+    expect(collectTagProps(busyFresh)).toEqual([])
+    // 没有动作回调（未登录/无 store）时标签禁用，但语义仍是「更新」。
+    const unwired = EnterpriseMarketEntry({
+      view: 'page', sessionUsable: true, enterpriseSkills: [updatable], installedSkills: [outdated],
+    })
+    expect(collectTagProps(unwired)[0]).toMatchObject({ disabled: true, title: '企业账号未登录，暂不可操作' })
+  })
+
+  // 开关各态在真实树上的落点：`checked`/`disabled` + `label` 动作语义 + 行上的 `data-enterprise-skill-state` 一致
+  // （未装 / 已装 / 有更新 / 安装中 / 卸载中）。
   it('renders the skill-row switch states on the row with matching data hooks', () => {
     const row = enterpriseMarketSkillRows([SKILL])[0]!
     const onToggleSkill = vi.fn()
@@ -423,9 +552,20 @@ describe('enterprise marketplace entry', () => {
       expect(skillSwitch['checked']).toBe(item.checked)
       // 在途禁用（并发动作会互相覆盖已装清单），其余一律可拨。
       expect(skillSwitch['disabled']).toBe(item.disabled)
-      // 行上的受管态钩子仍如实报态（`AVAILABLE`/`INSTALLED`/`INSTALLING`/`REMOVING`）。
+      // 行上的受管态钩子仍如实报态（`AVAILABLE`/`INSTALLED`/`UPDATE_AVAILABLE`/`INSTALLING`/`REMOVING`）。
       expect(collectDataValues(tree, 'data-enterprise-skill-state')).toEqual([item.state])
     }
+    // 第五态「有更新」：行上带中心当前版本、本机装着旧版本 → 开关照旧开着且可拨（拨下去 = 卸载）。
+    const updatable = updatableRow()
+    const outdatedTree = EnterpriseMarketEntry({
+      view: 'page', sessionUsable: true, enterpriseSkills: [updatable],
+      installedSkills: [installedSkill('1902500000000000100')], onToggleSkill,
+    })
+    expect(collectDataValues(outdatedTree, 'data-enterprise-skill-state')).toEqual(['UPDATE_AVAILABLE'])
+    const outdatedSwitch = collectSwitchProps(outdatedTree).find(props => String(props['label']).includes('会议纪要技能组'))!
+    expect(outdatedSwitch['checked']).toBe(true)
+    expect(outdatedSwitch['disabled']).toBe(false)
+    expect(outdatedSwitch['label']).toBe('卸载企业技能 会议纪要技能组')
   })
 
   // 一键安装/卸载：开关在两个方向上都把 (row, next) 交给 onToggleSkill —— 未装拨上 = true，已装拨下 = false。
@@ -507,7 +647,8 @@ describe('enterprise marketplace entry', () => {
     expect(switches[1]?.['disabled']).toBe(false)
   })
 
-  // 回归锁（本轮改动的边界）：技能行**恢复**为官方 Switch，企业插件行**完全未动**（同样一枚 Switch）。
+  // 回归锁（本轮改动的边界）：技能行右侧 = 官方 Switch（**始终在**）＋仅在有更新时出现的辅助标签，
+  // 企业插件行**完全未动**（同样一枚 Switch）。
   it('gives the skill row a Switch again and leaves the plugin row switch untouched', () => {
     const enterpriseSkills = enterpriseMarketSkillRows([SKILL])
     const enterprisePlugins = [{ packageName: 'ent-a', version: '1.2.0', state: 'ACTIVE', inCatalog: true }] as const
@@ -533,10 +674,10 @@ describe('enterprise marketplace entry', () => {
     expect(pluginSwitch['disabled']).toBe(false)
     pluginSwitch['onChange']?.(false)
     expect(onTogglePlugin).toHaveBeenCalledWith(expect.objectContaining({ packageName: 'ent-a' }), false)
-    // 五态标签那套投影在树上彻底不存在：没有 self-made 签的类名，也没有 `data-enterprise-skill-tag` 钩子。
+    // 已装同版本行（行上没有中心版本 → 不判更新）右侧只有那枚开关：不出辅助标签、也没有 `data-enterprise-skill-tag` 钩子。
     expect(collectByClassName(tree, 'own-market-skillTag')).toEqual([])
     expect(collectDataValues(tree, 'data-enterprise-skill-tag')).toEqual([])
-    // 技能行只剩那枚开关（该行不再有 rowState 版式）。
+    // 技能行未占 rowState 版式（那是组件行的状态点位）。
     expect(collectDataValues(tree, 'data-enterprise-skill-state')).toEqual(['INSTALLED'])
   })
 
@@ -687,7 +828,7 @@ describe('enterprise marketplace entry', () => {
     expect(spy).toHaveBeenCalledWith('components')
   })
 
-  // 用户口径「技能列表默认显示」：真运行时的初值 = `ENTERPRISE_MARKET_DEFAULT_EXPANDED`——**只有技能节**展开，
+  // 用户口径「分组折叠默认展开」：真运行时的初值 = `ENTERPRISE_MARKET_DEFAULT_EXPANDED`——**三节全展开**，
   // 后台分配（预置）的全部技能（含未装的）一进页面就列出来，用户再用行右侧那枚开关决定装不装。
   it('expands all three sections by default', () => {
     // 用户口径「分组折叠默认展开」：三节各占一个独立字段，全部为 true。
@@ -792,7 +933,7 @@ function collectSwitchProps(node: ReactNode, acc: Record<string, any>[] = []): R
   return acc
 }
 
-/** 收集树里某个 `data-*` 属性的全部取值（锁数据钩子：受管态如实报态、五态标签钩子已彻底退场）。 */
+/** 收集树里某个 `data-*` 属性的全部取值（锁数据钩子：受管态如实报态、辅助标签只在有更新时出现）。 */
 function collectDataValues(node: ReactNode, prop: string, acc: unknown[] = []): unknown[] {
   if (Array.isArray(node)) { for (const child of node) collectDataValues(child, prop, acc); return acc }
   if (!isValidElement(node)) return acc
@@ -803,6 +944,28 @@ function collectDataValues(node: ReactNode, prop: string, acc: unknown[] = []): 
     if (value !== null && typeof value === 'object') collectDataValues(value as ReactNode, prop, acc)
   }
   return acc
+}
+
+/** 收集树里带 `data-enterprise-skill-tag` 的元素 props（开关左侧那枚辅助标签；不出现即空数组）。 */
+function collectTagProps(node: ReactNode, acc: Record<string, any>[] = []): Record<string, any>[] {
+  if (Array.isArray(node)) { for (const child of node) collectTagProps(child, acc); return acc }
+  if (!isValidElement(node)) return acc
+  const props = node.props as Record<string, unknown>
+  if (props['data-enterprise-skill-tag'] !== undefined) { acc.push(props as Record<string, any>); return acc }
+  if (typeof node.type === 'function') collectTagProps((node.type as (p: unknown) => ReactNode)(props), acc)
+  for (const value of Object.values(props)) {
+    if (value !== null && typeof value === 'object') collectTagProps(value as ReactNode, acc)
+  }
+  return acc
+}
+
+/** 取某行 `rowLine` 的直属子元素（顺序即渲染顺序），用于锁「辅助标签在开关左侧」。 */
+function rowLineChildren(tree: ReactNode, packageId: string): ReactNode[] {
+  const row = collectByClassName(tree, 'own-market-row').find(props => props['data-enterprise-skill-package'] === packageId)
+  const line = (Array.isArray(row?.['children']) ? row?.['children'][0] : row?.['children']) as ReactNode
+  if (!isValidElement(line)) return []
+  const kids = (line.props as Record<string, unknown>)['children']
+  return Array.isArray(kids) ? (kids as ReactNode[]) : []
 }
 
 /** 收集 `className` 命中的元素 props（按空格分隔的类名之一匹配），用于锁两行卡片结构。 */

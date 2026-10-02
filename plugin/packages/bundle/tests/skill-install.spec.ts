@@ -304,7 +304,6 @@ describe('enterprise skill install', () => {
   })
 
   it('rolls the freshly renamed directories back when the install cannot be recorded', async () => {
-    const dshHome = await makeHome()
     const archive = buildZip(skillEntries('meeting', ['meeting-notes', 'meeting-actions']))
     const fixture = platformFixture(
       detailEnvelope({ archive, names: ['meeting-actions', 'meeting-notes'], skillId: 'meeting-pkg' }),
