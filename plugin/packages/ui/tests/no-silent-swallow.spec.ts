@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 只依赖 `node:fs/promises` 与 vitest；扫描 `src/**` 的**源码文本**（剥掉注释后再判）
- * [OUTPUT]: 本刀的**反向锁**——① 全包禁止「把失败变成默认值」的静默吞模式（`.catch(() => [])` / `catch(() => undefined)` 之类）；
+ * [OUTPUT]: 本刀的**反向锁**——① 全包禁止「把失败变成默认值」的静默吞模式（`.catch(() => [])` / `catch(() => undefined)` 之类）； **本刀**：例外清单新增 `library-gate.ts`（本机设置读失败 → 按默认关 + 摆出 `ENT_LIBRARY_SETTING_READ_FAILED` 由组件行显示并可重试，不是静默回落）。
  *          ② 禁止空 catch 块；③ 每个含 catch 的源文件都必须在**已声明的例外清单**里且写明理由（新增一处 catch 就会先红）；
  *          ④ 四个列表页必须把失败接到显式失败态 + 重试（不许退回静默清空）
  * [POS]: 「静默吞失败」这一类体验债的机械门禁：本仓没有 DOM 渲染测试，这条源码级不变量是**唯一**能在 CI 里拦住
@@ -24,6 +24,7 @@ const ALLOWED_CATCH_FILES: Readonly<Record<string, string>> = {
   'desktop-runtime.ts': '桌面能力面的探测与回落（打开快捷键面板、reload/restart 的 fork 回落）：失败由调用方的可见反馈承担，属行为边界外',
   'feedback-dialog.tsx': '附件魔数采样（前 16 字节）失败只影响这条可选预检，提交正文的失败仍走显式失败态',
   'help-link.ts': '帮助中心打开链的兜底：Host 打开失败 → window 兜底 → 返回 failed 这个**结果值**给调用方',
+  'library-gate.ts': '本机设置（资料库管理开关）的读/写失败**不吞**：读不到按产品默认（关）处理并把 ENT_LIBRARY_SETTING_READ_FAILED 摆进快照、写失败摆 ENT_LIBRARY_SETTING_SAVE_FAILED，由组件行显示 + 重试；catch 里返回 undefined 的那处只是「本机存储区取不到」的形状探测',
   'list-state.ts': '`enterpriseDegradedRead` 的显式降级：捕获后**交出稳定错误码**（code 字段），界面据此如实说明 + 可重试',
   'local-api-decode.ts': 'URL/形状门禁：非法输入返回 false 这个**判定结果**（解码布尔），与取数失败无关',
   'local-api.ts': '响应体 JSON 解析失败被**重抛**成 ENT_LOCAL_RESPONSE_INVALID（兜底是显式失败，不是静默默认值）',

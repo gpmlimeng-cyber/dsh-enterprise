@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 marketplace-entry 的**唯一目录页外壳** `EnterpriseMarketLegacyShell`（点技能行本体在该视图内整页切换到**技能详情子页面** `EnterpriseSkillDetailPage`）、共享行子块 `EnterpriseMarketSkillRowActions`/`EnterpriseMarketInlineRows`、五个详情纯投影（`enterpriseSkillTreeRows`/`enterpriseSkillDefaultFilePath`/`enterpriseSkillFileCountText`/`enterpriseSkillTreeState`/`enterpriseSkillPreviewState`）、唯一 hook 入口 `EnterpriseMarketLegacyPage` 与共享逻辑层（`enterpriseMarketShellModel`、`enterpriseMarketSkillRowFacts`/`enterpriseMarketPluginRowFacts`）、注册常量、**页签真源**（`ENTERPRISE_MARKET_TABS`/`ENTERPRISE_MARKET_DEFAULT_TAB`/`ENTERPRISE_MARKET_TAB_IDS`/`ENTERPRISE_MARKET_TABLIST_LABEL`）、组件清单/摘要/状态/开关语义纯投影、企业插件行投影、企业技能行投影（含详情归并的中心版本 `latestVersionId` 与标题行两枚标签取值）、标题行标签纯投影、技能节受管态纯投影、「有更新」判定与辅助标签投影、**组件页签折叠态常量** `ENTERPRISE_MARKET_DEFAULT_EXPANDED`、失败行内提示投影、入口组件与版本签组件本身、页签文案计数投影，以及 local-api-decode 的 `EnterpriseRuntimeSkill`/`EnterpriseInstalledSkill`/`EnterpriseSkillFileEntry`/`EnterpriseInstalledSkillFile` 形状，以及 `client.tsx` 的 `apply`/`inject` 真注册面（最小 slots double）
- * [OUTPUT]: 验证入口身份常量、卡片一句话的单行约束、**page 视图的三页签结构**（页签条手写 `role="tablist"`、三个页签的 `aria-selected`/`aria-controls`/roving `tabIndex`/`id` 与三个 `role="tabpanel"` 的 `aria-labelledby` 严格配对、**默认选中「企业技能」**、切换后**只渲染该页签内容**、←/→/Home/End 走焦并选中、鼠标点击回调）、组件清单（插件/技能/配方）顺序与 reserved 语义、计数摘要口径、summary/page 两视图结构、版本签只对本条目 subject 出、企业插件页签的归并与门控，以及**企业技能页签的官方两行卡片**（标题 + 版本签 + 可选分类签、描述单行省略、右侧官方 `Switch`、开关左侧那枚辅助「有更新」标签）、受管态与「有更新」的独立判定、**两节行上的失败可见反馈**、**页签化后唯一剩下的组件节折叠**、**详情页顶部压缩的取值锁**、**类名隔离的源码级不变量**；**本刀（详情子页面 + 文件树）新增**：①「点行本体切到详情子页面、点动作永不触发」——两枚动作是行本体的同级兄弟、面包屑是唯一返回入口、`skillPage` 非空时列表/页签整段不挂载；②「框架逐项照官方详情页」——面包屑（可见文案 + `aria-label`）、`h3` 标题 + 版本徽标、等宽标识行（`skillId`）、描述、`detailSections`/`detailSection` 的结构与 CSS 取值（20/28-500、12/18-tertiary、28px/32px 间距、rotate(90deg) 的 chevron）；③「左文件树」——`enterpriseSkillTreeRows` 的层级投影（depth/parent/name、先序确定性排序）、目录行不是按钮而文件行是按钮、缩进取自 depth；④「默认选中并预览 SKILL.md」——`enterpriseSkillDefaultFilePath` 只在树里真有那条路径时才选它；⑤「未安装零请求」——`enterpriseSkillTreeState`/`enterpriseSkillPreviewState` 的未装态优先于任何 loading/失败、界面只说「安装后可浏览文件」；⑥「读取失败给稳定码 + 重试」与「预览是纯文本安全渲染（全文件无 `dangerouslySetInnerHTML`）」；⑦**弹层已彻底移除**的反向锁（源码无 `Modal`、无 `EnterpriseSkillDetailDialog`，任何函数调用都收不到 Modal 元素）；**本刀（版本签只显示版本）新增**：⑧ 纯投影 `enterpriseMarketSkillVersionLabel` 的短号规则与边界（5 个真实值 + 无 `@` / 多个 `@` / 仅 `@` / 尾部 `@` / 空串 / 不 trim 逐条锁死）；⑨ 行上签的**可见文案 = 短号**、**完整坐标挂在紧包它的 `.own-market-skillVersionHint` 的 `title` 上**（签本体确实在那枚节点里、正文里不再出现整串），详情页那枚徽标照旧整串显示（列表短号 / 详情全坐标）；⑩ 标题行结构快照与两套外壳共用 CSS 的长度/校验和按新结构**再基线化一次**（style 7840→8178 chars，校验和随之更新） **本刀（目录页签三态）**：新增八条——加载中不空白、空说清为什么空（不是失败）、失败带唯一提示组件 + 可用重试（点它真的调回调）、三态互斥只出一个 `data-market-list-state`、组件关闭仍整段不出现、次级降级一句 `role="status"` 且不遮行、无回调不给死按钮，并把取数 effect 的 `controller.abort()` 计数按新结构改为 2（目录取数搬进共享取数源）。
+ * [OUTPUT]: 验证入口身份常量、卡片一句话的单行约束、**page 视图的三页签结构**（页签条手写 `role="tablist"`、三个页签的 `aria-selected`/`aria-controls`/roving `tabIndex`/`id` 与三个 `role="tabpanel"` 的 `aria-labelledby` 严格配对、**默认选中「企业技能」**、切换后**只渲染该页签内容**、←/→/Home/End 走焦并选中、鼠标点击回调）、组件清单（插件/技能/配方）顺序与 reserved 语义、计数摘要口径、summary/page 两视图结构、版本签只对本条目 subject 出、企业插件页签的归并与门控，以及**企业技能页签的官方两行卡片**（标题 + 版本签 + 可选分类签、描述单行省略、右侧官方 `Switch`、开关左侧那枚辅助「有更新」标签）、受管态与「有更新」的独立判定、**两节行上的失败可见反馈**、**页签化后唯一剩下的组件节折叠**、**详情页顶部压缩的取值锁**、**类名隔离的源码级不变量**；**本刀（详情子页面 + 文件树）新增**：①「点行本体切到详情子页面、点动作永不触发」——两枚动作是行本体的同级兄弟、面包屑是唯一返回入口、`skillPage` 非空时列表/页签整段不挂载；②「框架逐项照官方详情页」——面包屑（可见文案 + `aria-label`）、`h3` 标题 + 版本徽标、等宽标识行（`skillId`）、描述、`detailSections`/`detailSection` 的结构与 CSS 取值（20/28-500、12/18-tertiary、28px/32px 间距、rotate(90deg) 的 chevron）；③「左文件树」——`enterpriseSkillTreeRows` 的层级投影（depth/parent/name、先序确定性排序）、目录行不是按钮而文件行是按钮、缩进取自 depth；④「默认选中并预览 SKILL.md」——`enterpriseSkillDefaultFilePath` 只在树里真有那条路径时才选它；⑤「未安装零请求」——`enterpriseSkillTreeState`/`enterpriseSkillPreviewState` 的未装态优先于任何 loading/失败、界面只说「安装后可浏览文件」；⑥「读取失败给稳定码 + 重试」与「预览是纯文本安全渲染（全文件无 `dangerouslySetInnerHTML`）」；⑦**弹层已彻底移除**的反向锁（源码无 `Modal`、无 `EnterpriseSkillDetailDialog`，任何函数调用都收不到 Modal 元素）；**本刀（版本签只显示版本）新增**：⑧ 纯投影 `enterpriseMarketSkillVersionLabel` 的短号规则与边界（5 个真实值 + 无 `@` / 多个 `@` / 仅 `@` / 尾部 `@` / 空串 / 不 trim 逐条锁死）；⑨ 行上签的**可见文案 = 短号**、**完整坐标挂在紧包它的 `.own-market-skillVersionHint` 的 `title` 上**（签本体确实在那枚节点里、正文里不再出现整串），详情页那枚徽标照旧整串显示（列表短号 / 详情全坐标）；⑩ 标题行结构快照与两套外壳共用 CSS 的长度/校验和按新结构**再基线化一次**（style 7840→8178 chars，校验和随之更新） **本刀（目录页签三态）**：新增八条——加载中不空白、空说清为什么空（不是失败）、失败带唯一提示组件 + 可用重试（点它真的调回调）、三态互斥只出一个 `data-market-list-state`、组件关闭仍整段不出现、次级降级一句 `role="status"` 且不遮行、无回调不给死按钮，并把取数 effect 的 `controller.abort()` 计数按新结构改为 2（目录取数搬进共享取数源）。 **本刀（资料库行）**：组件清单断言由三行改四行——「资料库」行顺序/标签/`gate='local'`、本机开关的「未开启 ↔ 可用」状态词与悬浮说明、写入口缺席/在途/写失败三种禁用口径（写失败不禁用）、计数摘要四段（含 `1 未开启`）、三个页签计数文案与组件页签行/开关数同步改 4，并新增 `enterpriseMarketComponentGate`/`enterpriseMarketComponentSwitchTitle` 的纯投影断言。
  * [POS]: dsh-ui 插件市场入口（唯一入口：官方插件页「插件市场」卡片）的产品词汇与交互门禁，真实渲染与视觉由 Harness 快照与真机验收覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -69,6 +69,8 @@ import {
   enterpriseMarketComponentSummary,
   enterpriseMarketComponentSummaryText,
   enterpriseMarketComponentSwitchDisabled,
+  enterpriseMarketComponentSwitchTitle,
+  enterpriseMarketComponentGate,
   enterpriseMarketEntryPlan,
   enterpriseMarketEntrySummary,
   enterpriseMarketActionErrorLabel,
@@ -163,7 +165,7 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "    button[id=market-tab-plugins][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-plugins][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
   "      #text:企业插件 2",
   "    button[id=market-tab-components][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-components][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
-  "      #text:包含内容 3",
+  "      #text:包含内容 4",
   "  div[id=market-panel-skills][role=tabpanel][aria-labelledby=market-tab-skills][hidden=false][className=own-market-panel]",
   "    section[className=own-market-section][data-market-section=enterprise-skills]",
   "      ul[className=own-market-rows]",
@@ -209,7 +211,7 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "    button[id=market-tab-plugins][type=button][role=tab][className=own-market-storeTab][aria-selected=true][aria-controls=market-panel-plugins][tabIndex=0][onClick=[fn]][onKeyDown=[fn]]",
   "      #text:企业插件 2",
   "    button[id=market-tab-components][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-components][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
-  "      #text:包含内容 3",
+  "      #text:包含内容 4",
   "  div[id=market-panel-skills][role=tabpanel][aria-labelledby=market-tab-skills][hidden=true][className=own-market-panel]",
   "  div[id=market-panel-plugins][role=tabpanel][aria-labelledby=market-tab-plugins][hidden=false][className=own-market-panel]",
   "    section[className=own-market-section][data-market-section=enterprise-plugins]",
@@ -396,7 +398,7 @@ describe('enterprise marketplace entry', () => {
       const tabs = collectByRole(page, 'tab')
       // 页签文案 = 基础词 + 紧凑计数（企业技能/企业插件无目录时如实为 0，组件 = 清单长度 3）：
       // 原先两节内部的独立计数行已删，数字并入页签（详情页顶部少一行）。
-      expect(tabs.map(tab => tab['children']), label).toEqual(['企业技能 0', '企业插件 0', '包含内容 3'])
+      expect(tabs.map(tab => tab['children']), label).toEqual(['企业技能 0', '企业插件 0', '包含内容 4'])
       expect(tabs.map(tab => tab['children']), label).toEqual(ENTERPRISE_MARKET_TABS.map(tab => enterpriseMarketTabLabel(
         tab.label,
         tab.id === 'components' ? ENTERPRISE_MARKET_COMPONENTS.length : 0,
@@ -505,12 +507,40 @@ describe('enterprise marketplace entry', () => {
     }
   })
 
-  it('lists exactly three components in order with only presets reserved', () => {
-    expect(ENTERPRISE_MARKET_COMPONENTS.map(row => row.id)).toEqual(['plugins', 'skills', 'presets'])
-    expect(ENTERPRISE_MARKET_COMPONENTS.map(row => row.label)).toEqual(['插件', '技能', '配方'])
+  it('lists exactly four components in order with only presets reserved and only 资料库 on the local gate', () => {
+    expect(ENTERPRISE_MARKET_COMPONENTS.map(row => row.id)).toEqual(['plugins', 'skills', 'presets', 'library'])
+    expect(ENTERPRISE_MARKET_COMPONENTS.map(row => row.label)).toEqual(['插件', '技能', '配方', '资料库'])
     expect(ENTERPRISE_MARKET_COMPONENTS.filter(row => row.reserved).map(row => row.id)).toEqual(['presets'])
     expect(ENTERPRISE_MARKET_COMPONENTS[0]?.reserved).toBe(false)
     expect(ENTERPRISE_MARKET_COMPONENTS[1]?.reserved).toBe(false)
+    // 资料库**不是预留**：它是可开关的功能，开关落在**本机设置**（`gate === 'local'`）；
+    // 插件/技能/配方三行仍是企业会话口径（`gate === 'session'`）。
+    expect(ENTERPRISE_MARKET_COMPONENTS.find(row => row.id === 'library')?.reserved).toBe(false)
+    expect(ENTERPRISE_MARKET_COMPONENTS.filter(row => row.gate === 'local').map(row => row.id)).toEqual(['library'])
+    expect(ENTERPRISE_MARKET_COMPONENTS.filter(row => row.gate === 'session').map(row => row.id)).toEqual(['plugins', 'skills', 'presets'])
+    expect(enterpriseMarketComponentGate('library')).toBe('local')
+    expect(enterpriseMarketComponentGate('presets')).toBe('session')
+    expect(enterpriseMarketComponentGate('nope')).toBeUndefined()
+  })
+
+  it('keeps the 资料库 row on the local gate: default off, no login needed, writable without a session', () => {
+    // 默认关：未拨动时是「未开启」而不是「需登录」（它根本不需要登录）。
+    expect(enterpriseMarketComponentEnabled('library', false)).toBe(false)
+    expect(enterpriseMarketComponentEnabled('library', true)).toBe(false)
+    expect(enterpriseMarketComponentState('library', false)).toBe('未开启')
+    expect(enterpriseMarketComponentState('library', false, true)).toBe('可用')
+    expect(enterpriseMarketComponentDot('library', false, true)).toBe('done')
+    expect(enterpriseMarketComponentDot('library', false)).toBe('idle')
+    // 可拨性与登录态无关：有写入口就能拨（未登录也能拨）；没有写入口恒禁用（不给死开关）。
+    expect(enterpriseMarketComponentSwitchDisabled('library', false, false, false, true)).toBe(false)
+    expect(enterpriseMarketComponentSwitchDisabled('library', false, false, false, false)).toBe(true)
+    // 写入在途禁用（官方 Switch 口径：在途不许连点），但**写失败后不禁用**（再拨一次就是重试）。
+    expect(enterpriseMarketComponentSwitchDisabled('library', false, false, true, true, true)).toBe(true)
+    expect(enterpriseMarketComponentSwitchDisabled('library', false, false, true, true, false)).toBe(false)
+    // 悬浮说明与状态同源：关着说「打开后左侧会出现」，开着说「可在左侧进入」，在途说「正在保存」。
+    expect(enterpriseMarketComponentSwitchTitle('library', false)).toBe('打开后左侧会出现「资料库」入口')
+    expect(enterpriseMarketComponentSwitchTitle('library', false, true)).toBe('资料库入口已打开，可在左侧进入')
+    expect(enterpriseMarketComponentSwitchTitle('library', false, true, true)).toBe('正在保存到本机设置')
   })
 
   it('derives per-component enablement, state, dot, and switch discipline from session usability', () => {
@@ -536,13 +566,16 @@ describe('enterprise marketplace entry', () => {
     expect(enterpriseMarketComponentSwitchDisabled('skills', false, false)).toBe(true)
   })
 
-  it('counts the component summary with the official partsSummary 口径 (共 N 个 · N 可用 · N 预留)', () => {
-    expect(enterpriseMarketComponentSummary()).toEqual({ total: 3, ready: 0, reserved: 1 })
-    expect(enterpriseMarketComponentSummaryText()).toBe('共 3 个 · 1 预留')
-    expect(enterpriseMarketComponentSummary(undefined, true)).toEqual({ total: 3, ready: 2, reserved: 1 })
-    expect(enterpriseMarketComponentSummaryText(undefined, true)).toBe('共 3 个 · 2 可用 · 1 预留')
-    // 逐行状态与三段计数一致：1 预留 + 未登录的插件/技能需登录 → 不产出「可用」段。
-    expect(enterpriseMarketComponentSummaryText(ENTERPRISE_MARKET_COMPONENTS, false)).toBe('共 3 个 · 1 预留')
+  it('counts the component summary with the official partsSummary 口径 (共 N 个 · N 可用 · N 未开启 · N 预留)', () => {
+    // 「未开启」这一段是本机开关（资料库）默认关的**可见交代**：默认值必须看得见。
+    expect(enterpriseMarketComponentSummary()).toEqual({ total: 4, ready: 0, off: 1, reserved: 1 })
+    expect(enterpriseMarketComponentSummaryText()).toBe('共 4 个 · 1 未开启 · 1 预留')
+    expect(enterpriseMarketComponentSummary(undefined, true)).toEqual({ total: 4, ready: 2, off: 1, reserved: 1 })
+    expect(enterpriseMarketComponentSummaryText(undefined, true)).toBe('共 4 个 · 2 可用 · 1 未开启 · 1 预留')
+    // 逐行状态与计数一致：1 预留 + 未登录的插件/技能需登录（不产出「可用」段）+ 资料库未开启。
+    expect(enterpriseMarketComponentSummaryText(ENTERPRISE_MARKET_COMPONENTS, false)).toBe('共 4 个 · 1 未开启 · 1 预留')
+    // 资料库开关打开后，它那一段从「未开启」挪到「可用」——同一行、同一个投影。
+    expect(enterpriseMarketComponentSummaryText(ENTERPRISE_MARKET_COMPONENTS, false, true)).toBe('共 4 个 · 1 可用 · 1 预留')
   })
 
   it('renders the 组件 tab with the official component-section heading and per-row switch labels', () => {
@@ -565,16 +598,17 @@ describe('enterprise marketplace entry', () => {
   })
 
   // 回归锁：注入 store（有 onOpenLogin 回调）后，组件行开关必须可点；
-  // 此前 client.tsx 未给 plugins.item 注 inject 导致三开关恒 disabled（点了没反应）的 bug 不许再犯。
-  it('keeps the component-row switches clickable when a login action is wired (no dead control)', () => {
+  // 此前 client.tsx 未给 plugins.item 注 inject 导致开关恒 disabled（点了没反应）的 bug 不许再犯。
+  // 本刀新增第四行「资料库」：它的开关归**本机设置**，故这条用例同时锁「有写入口就可拨、没写入口才禁用」。
+  it('keeps the component-row switches clickable when their own action is wired (no dead control)', () => {
     for (const { label, shell } of MARKET_SHELLS) {
       const onOpenLogin = vi.fn()
       const page = shell({ view: 'page', activeTab: 'components', sessionUsable: false, onOpenLogin })
       expect(isValidElement(page), label).toBe(true)
-      // 「组件」页签里只有三行组件开关（正文没有头部总开关：badge 槽只出只读的「版本号 + 包名」，
+      // 「组件」页签里只有这四行组件开关（正文没有头部总开关：badge 槽只出只读的「版本号 + 包名」，
       // 见下面的 BadgeView 用例——那里断言标题行没有任何 Switch）。
       const switches = collectSwitchProps(page)
-      expect(switches, label).toHaveLength(3)
+      expect(switches, label).toHaveLength(4)
       // 插件行与技能行开关未登录且有回调 → 必须可点（disabled false），配方恒禁用（预留）。
       // 注意：Switch 的无障碍名走 `label` prop（vi.fn() mock 不展开成 aria-label），切换动作走 `onChange`。
       const pluginsSwitch = switches.find(props => props.label === '启用插件')
@@ -586,7 +620,12 @@ describe('enterprise marketplace entry', () => {
       expect(skillsSwitch?.disabled, label).toBe(false)
       const presetsSwitch = switches.find(props => props.label === '启用配方')
       expect(presetsSwitch?.disabled, label).toBe(true)
-      // page 不含头部总开关（badge 槽只有只读的版本号 + 包名，功能开关就是这三行）。
+      // 资料库行：这一份 props 没给 `onToggleLibrary`（本机写入口缺席）→ 开关禁用（**不给死开关**），
+      // checked 取本地默认关。拨动与写失败的重试由下面「本机开关」那组用例覆盖。
+      const librarySwitch = switches.find(props => props.label === '启用资料库')
+      expect(librarySwitch?.checked, label).toBe(false)
+      expect(librarySwitch?.disabled, label).toBe(true)
+      // page 不含头部总开关（badge 槽只有只读的版本号 + 包名，功能开关就是这四行）。
       expect(switches.find(props => props.label === '启用插件市场'), label).toBeUndefined()
     }
   })
@@ -645,7 +684,7 @@ describe('enterprise marketplace entry', () => {
       expect(tabRule, label).toContain('line-height:20px')
       // 计数确实落在页签上（企业技能 1），且压缩没有动到节里的行内容。
       const tabs = collectByRole(page, 'tab')
-      expect(tabs.map(tab => tab['children']), label).toEqual(['企业技能 1', '企业插件 0', '包含内容 3'])
+      expect(tabs.map(tab => tab['children']), label).toEqual(['企业技能 1', '企业插件 0', '包含内容 4'])
       expect(collectSectionByHook(page, 'enterprise-skills'), label).not.toBeUndefined()
       // 行标题类名两套外壳**同源**（同一枚子块渲染同一串类名，版式统一的落点）：都是 9723a97 那套 `.own-market-cardId`。
       expect(collectByClassName(page, titleClass).map(props => props['children']), label).toEqual(['会议纪要技能组'])
@@ -701,7 +740,7 @@ describe('enterprise marketplace entry', () => {
       expect(textOf(off), label).not.toContain('ent-a')
       expect(collectSectionByHook(off, 'enterprise-plugins'), label).toBeUndefined()
       // 计数口径锁：页签数字取**真正要渲染的行数**（门控不过即 0），绝不出现「页签说 2 条、面板空白」。
-      expect(collectByRole(off, 'tab').map(tab => tab['children']), label).toEqual(['企业技能 0', '企业插件 0', '包含内容 3'])
+      expect(collectByRole(off, 'tab').map(tab => tab['children']), label).toEqual(['企业技能 0', '企业插件 0', '包含内容 4'])
       // ON：sessionUsable=true → 「插件」组件开启 → 出插件行 + 逐个包名 + 计数。
       const on = shell({ view: 'page', activeTab: 'plugins', sessionUsable: true, enterprisePlugins: enterprisePlugins as never })
       const text = textOf(on)
@@ -1542,10 +1581,10 @@ describe('enterprise marketplace entry', () => {
       expect(collectByClassName(page, 'own-market-rowIcon'), label).toHaveLength(1)
       expect(collectByClassName(page, 'own-market-rowLine'), label).toHaveLength(1)
       expect(collectByClassName(page, 'own-market-cardChevron'), label).toEqual([])
-      // 组件页签的 rows 版式不受影响：同一串行类名、恒三行（它本来就长这样，本刀没动它的行版式）。
+      // 组件页签的 rows 版式不受影响：同一串行类名、**四行**（本刀新增「资料库」行；行版式一字没动）。
       const components = shell({ view: 'page', activeTab: 'components' })
       expect(collectByClassName(components, 'own-market-rows'), label).toHaveLength(1)
-      expect(collectByClassName(components, 'own-market-row'), label).toHaveLength(3)
+      expect(collectByClassName(components, 'own-market-row'), label).toHaveLength(4)
       // **术语降维的反向锁**：内部模块路径（`dsh-preset / .dshpreset` 等）不再上屏——
       // 类名与文本两路都取证，防它以后被顺手加回来（数据仍留在 ENTERPRISE_MARKET_COMPONENTS 里作交付台账）。
       expect(collectByClassName(components, 'own-market-rowModule'), label).toEqual([])
@@ -1779,10 +1818,10 @@ describe('enterprise marketplace entry', () => {
     const alertNodes = collectAlerts(tree)
     expect(isValidElement(alertNodes[0]) ? (alertNodes[0].props as Record<string, unknown>)['className'] : undefined).toBe('own-market-inlineError')
     expect(textOf(alertNodes[0])).toContain('ENT_ARTIFACT_INTEGRITY_FAILED')
-    // 组件页签：折叠语义 + 三行清单 + 开关动作名与另一套外壳逐项一致。
+    // 组件页签：折叠语义 + 四行清单（本刀新增「资料库」）+ 开关动作名逐项一致。
     const components = EnterpriseMarketLegacyShell({ view: 'page', activeTab: 'components', expandedSections: { components: true }, onToggleSection: vi.fn() })
     expect(collectElementById(components, 'market-section-components')).not.toBeUndefined()
-    expect(collectSwitchProps(components).map(props => props['label'])).toEqual(['启用插件', '启用技能', '启用配方'])
+    expect(collectSwitchProps(components).map(props => props['label'])).toEqual(['启用插件', '启用技能', '启用配方', '启用资料库'])
     expect(textOf(components)).toContain('内容清单')
   })
 
@@ -1866,9 +1905,9 @@ describe('enterprise marketplace entry', () => {
       expect(skillSwitch['checked'], label).toBe(facts.enabled)
       expect(skillSwitch['disabled'], label).toBe(props.onToggleSkill === undefined || facts.busy)
       expect(collectDataValues(shellTree, 'data-enterprise-skill-state'), label).toEqual([facts.state])
-      // ⑥ 组件清单投影一致（三行、仅配方预留）——要切到「组件」页签才挂载那一节。
+      // ⑥ 组件清单投影一致（四行、仅配方预留、资料库在本机开关上）——要切到「组件」页签才挂载那一节。
       expect(collectDataValues(shell({ ...props, activeTab: 'components' }), 'data-market-component'), label)
-        .toEqual(['plugins', 'skills', 'presets'])
+        .toEqual(['plugins', 'skills', 'presets', 'library'])
     }
     // ⑦ 源码级不变量：逻辑入口各只有一处定义 + 恰好一处调用；动作接线各只有一份。
     // 只看**代码**（剥掉注释）——否则文档里提到同一个标识符就会被误计一次。

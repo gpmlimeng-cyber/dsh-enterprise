@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 dsh-ui Client apply 与 `inject` 声明、账号菜单组件、三枚企业品牌占用者、插件市场入口与结构化 slots test double
- * [OUTPUT]: 验证 settings.section/settings.launcher/plugins.item/plugins.detail.badge 四处注册身份与共享 store 注入（设置区、个人中心、市场入口与 badge 槽同一 store，badge 槽位只注入 store）、`plugins.item` 注册的是**旧外观**外壳 `EnterpriseMarketLegacyPage`（官方插件页「官方」分组里的「插件市场」卡片＝本刀之后**唯一**的市场入口），并**反向锁死**独立应用商店的两处注册**已撤**——`main`（`enterprise-store` 整页面板）与 `sidebar.panellist`（「应用商店」一级入口）都不再出现，注册总数 6 → 4，导出的 `inject` 声明收敛为 `['slots','remote']`（`layout` 随两处注册一并撤掉），个人中心座位独有的官方主题源／桌面能力面／官方快捷键源（纯 Web 下动作面缺席、更新不可读、快捷键空快照），且 shell.overlay、旧 footer 入口与设置页页签均未注册；**本刀新增企业品牌三处消费点的注册面**：`sidebar.brand.mark`／`sidebar.brand.name`（priority -10 遮蔽官方 0）与 `conversation.hero.brand.mark`（priority 0）追加在 inject 面末尾，未配置品牌时**一个占用者都不注册**（官方鱼标／HeroFish 原样接管——single 槽只要有 occupant 就不再走 `opts.fallback`），品牌存在时三处以 -10/-10/0 注册且注入同一份已配置视图（用全局 fetch double 喂 `/status` 与 `/branding` 走完 apply → 取数 → 注册真实链路）
+ * [OUTPUT]: 验证 settings.section/settings.launcher/plugins.item/plugins.detail.badge 四处注册身份与共享 store 注入（设置区、个人中心、市场入口与 badge 槽同一 store，badge 槽位只注入 store）、`plugins.item` 注册的是**旧外观**外壳 `EnterpriseMarketLegacyPage`（官方插件页「官方」分组里的「插件市场」卡片＝本刀之后**唯一**的市场入口），并**反向锁死**独立应用商店的两处注册**已撤**——`main`（`enterprise-store` 整页面板）与 `sidebar.panellist`（「应用商店」一级入口）都不再出现，注册总数 6 → 4，导出的 `inject` 声明收敛为 `['slots','remote']`（`layout` 随两处注册一并撤掉），个人中心座位独有的官方主题源／桌面能力面／官方快捷键源（纯 Web 下动作面缺席、更新不可读、快捷键空快照），且 shell.overlay、旧 footer 入口与设置页页签均未注册；**本刀新增企业品牌三处消费点的注册面**：`sidebar.brand.mark`／`sidebar.brand.name`（priority -10 遮蔽官方 0）与 `conversation.hero.brand.mark`（priority 0）追加在 inject 面末尾，未配置品牌时**一个占用者都不注册**（官方鱼标／HeroFish 原样接管——single 槽只要有 occupant 就不再走 `opts.fallback`），品牌存在时三处以 -10/-10/0 注册且注入同一份已配置视图（用全局 fetch double 喂 `/status` 与 `/branding` 走完 apply → 取数 → 注册真实链路） **本刀**：inject 面末尾追加资料库两处座位名（`sidebar.panellist`/`main`，门默认关⇒不产生注册），`plugins.item` 的 inject 面断言由 `{store}` 改成 `{store, libraryGate}`。
  * [POS]: dsh-ui Client 组合回归测试，锁定「官方设置区 + 官方个人中心座位 + 官方插件页入口卡片（旧外观，唯一市场入口）共用同一份商店逻辑 + 企业品牌只接官方已声明的三个展示位、无品牌时一格不占」路线且不把 Host Context 传入 React
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -56,8 +56,10 @@ describe('enterprise Client plugin', () => {
     expect(inject).toEqual(['slots', 'remote'])
 
     // 本刀撤掉独立应用商店的两处注册：注册面从六处回到四处，只留官方插件页那一处市场入口。
-    // 末尾三处是本刀新增的**企业品牌消费点**（`bindEnterpriseBrandSeat` 各自走一次 `ctx.slots.inject`）：
+    // 末尾三处是**企业品牌消费点**（`bindEnterpriseBrandSeat` 各自走一次 `ctx.slots.inject`）：
     // 侧栏品牌行两格 + 「新会话」Hero 品牌位；测试环境读不到本机品牌路由＝未配置，故它们不产生任何注册。
+    // **本刀新增的最后两处**是资料库的两处座位（`bindEnterpriseLibrarySeats` 同一套 inject 手法）：
+    // 管理门（本机设置）默认**关**，故这里同样一个占用者都不注册——反向锁在用例尾部再锁一次。
     expect(slotsInject.mock.calls.map(call => call[0])).toEqual([
       'settings.section',
       'settings.launcher',
@@ -66,6 +68,8 @@ describe('enterprise Client plugin', () => {
       'sidebar.brand.mark',
       'sidebar.brand.name',
       'conversation.hero.brand.mark',
+      'sidebar.panellist',
+      'main',
     ])
     expect(registrations.map(item => item.options)).toMatchObject([
       { name: 'settings.section', id: 'enterprise', order: 25, label: '企业设置' },
@@ -84,9 +88,13 @@ describe('enterprise Client plugin', () => {
     const stores = registrations.slice(0, 3).map(item => (item.options['inject'] as () => { store: unknown })().store)
     expect(stores[0]).toBe(stores[1])
     expect(stores[2]).toBe(stores[0])
-    // 只有个人中心座位另带主题/桌面/快捷键三份只读源；设置区、市场入口、badge 槽都只注入 store。
+    // 只有个人中心座位另带主题/桌面/快捷键三份只读源；设置区、市场入口、badge 槽只注入 store
+    // （市场入口多一份资料库管理门——它是本机设置，与企业账号 store 不是一回事）。
     const market = registrations[2]!.options['inject'] as () => Record<string, unknown>
-    expect(market()).toEqual({ store: stores[2] })
+    const marketFace = market()
+    expect(Object.keys(marketFace).sort()).toEqual(['libraryGate', 'store'])
+    expect(marketFace['store']).toBe(stores[2])
+    expect(typeof (marketFace['libraryGate'] as { setEnabled?: unknown }).setEnabled).toBe('function')
     const badge = registrations[3]!.options['inject'] as () => Record<string, unknown>
     expect(badge()).toEqual({ store: stores[2] })
     // 【撤销锁】独立应用商店的两处注册面（`main` 面板 + `sidebar.panellist` 一级入口）必须都不再存在：
@@ -122,11 +130,15 @@ describe('enterprise Client plugin', () => {
     expect(registrations.map(item => item.options['name'])).not.toContain('shell.overlay')
     // 官方账户行整行停用后，个人中心只由 launcher 座位承载，不再挂 footer 动作，避免第二入口。
     expect(registrations.map(item => item.options['name'])).not.toContain('sidebar.footer.action')
-    // 本刀撤销侧栏「应用商店」：独立应用商店的两处注册面（`sidebar.panellist` 一级入口 + `main` 整页面板）
-    // 都不再注册，但卡片仍留在官方插件页（plugins.item 未撤）、也不占设置页页签。
+    // 本刀撤销侧栏「应用商店」：那两处座位（`sidebar.panellist` 一级入口 + `main` 整页面板）不再有占用者
+    // ——**注意**：本刀之后这两个槽名会被资料库的两处座位 inject 到（见上面的 inject 面锁），
+    // 但管理门默认关，所以**注册表里仍然一行都没有**；这里锁的就是「没有占用者」而不是「没有 inject」。
+    // 卡片仍留在官方插件页（plugins.item 未撤）、也不占设置页页签。
     const names = registrations.map(item => item.options['name'])
     expect(names).not.toContain('sidebar.panellist')
     expect(names).not.toContain('main')
+    // 反向锁：无论谁回来，都别把那个已撤的商店 id 带回来。
+    expect(registrations.map(item => item.options['key'] ?? item.options['id'])).not.toContain('enterprise-store')
     expect(names).toContain('plugins.item')
     expect(names).not.toContain('settings.plugins.tab')
   })
@@ -158,6 +170,9 @@ describe('enterprise Client plugin', () => {
       'sidebar.brand.mark',
       'sidebar.brand.name',
       'conversation.hero.brand.mark',
+      // 资料库的两处座位用同一套 inject 手法；管理门默认关，故这里也只 inject、不注册。
+      'sidebar.panellist',
+      'main',
     ])
     expect(registrations.map(item => item.options['name'])).toEqual([
       'settings.section',

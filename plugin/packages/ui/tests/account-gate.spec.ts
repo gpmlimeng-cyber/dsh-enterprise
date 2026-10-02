@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 client apply 的官方 slot 注册、login-dialog 的弹窗状态机/入口投影/关闭语义/提交计划与 account-state 的账号投影
- * [OUTPUT]: 锁定全屏门禁退场（不再注册 shell.overlay 阻断层；座位面收敛为 settings.section/launcher + plugins.item/plugins.detail.badge 共四处——独立应用商店的 main/sidebar.panellist 两处已随侧栏入口撤销）、账号区登录入口、弹窗开关与取消语义、登录成功自动关闭、脱敏快照与含 ENT_SETTINGS_UNAVAILABLE 的错误码中文文案
+ * [OUTPUT]: 锁定全屏门禁退场（不再注册 shell.overlay 阻断层；座位面收敛为 settings.section/launcher + plugins.item/plugins.detail.badge 共四处——独立应用商店的 main/sidebar.panellist 两处已随侧栏入口撤销）、账号区登录入口、弹窗开关与取消语义、登录成功自动关闭、脱敏快照与含 ENT_SETTINGS_UNAVAILABLE 的错误码中文文案 **本刀**：inject 面末尾追加资料库两处座位名（`sidebar.panellist`/`main`），并把「已撤的商店座位不再注册」的锁细化为「那两处槽上此刻一个占用者都没有、`enterprise-store` 与 `library` 都不在注册表里」。
  * [POS]: dsh-ui 登录入口的无 React 契约回归，真实 DOM 交互与视觉由 Harness 手工冒烟覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -68,10 +68,17 @@ describe('the full-screen access gate is retired', () => {
       'sidebar.brand.mark',
       'sidebar.brand.name',
       'conversation.hero.brand.mark',
+      // 资料库（本刀）：侧栏一级入口 + main 面板两处座位按同一套 inject 手法接上；
+      // 管理门（本机设置）默认关，故这里只 inject、**一个占用者都不注册**。
+      'sidebar.panellist',
+      'main',
     ])
-    // 本刀撤销侧栏「应用商店」：独立应用商店的两处座位（main 面板 + sidebar.panellist 入口）不再注册。
-    expect(injected).not.toContain('main')
-    expect(injected).not.toContain('sidebar.panellist')
+    // 本刀撤销侧栏「应用商店」：那两处座位的占用者不再出现——`main` / `sidebar.panellist` 上此刻
+    // 一行注册都没有（资料库的门默认关），已撤的商店 id 也不许回来；`shell.overlay` 依旧不碰。
+    expect(registrations.map(options => options['key'] ?? options['id'])).not.toContain('enterprise-store')
+    expect(registrations.map(options => options['key'] ?? options['id'])).not.toContain('library')
+    expect(registrations.map(options => options['name'])).not.toContain('main')
+    expect(registrations.map(options => options['name'])).not.toContain('sidebar.panellist')
     expect(injected).not.toContain('shell.overlay')
     expect(registrations.map(options => options['name'])).not.toContain('shell.overlay')
   })

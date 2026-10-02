@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 接收任意 `ENT_*` 稳定错误码（来源可以是本地路由投影、store 快照、动作 promise 的 catch）
- * [OUTPUT]: 对外提供**唯一一份**错误码 → 员工可读呈现的纯投影：`enterpriseErrorPresentation`（人话 + 下一步动作 + 是否可重试 + 码原样保留）、`enterpriseErrorMessage` / `enterpriseErrorAction` / `enterpriseErrorRetryable` 与三条兜底常量
+ * [OUTPUT]: 对外提供**唯一一份**错误码 → 员工可读呈现的纯投影：`enterpriseErrorPresentation`（人话 + 下一步动作 + 是否可重试 + 码原样保留）、`enterpriseErrorMessage` / `enterpriseErrorAction` / `enterpriseErrorRetryable` 与三条兜底常量。**本刀（资料库入口）**：新增三码——`ENT_LIBRARY_UNAVAILABLE`（资料库还没接线：页面失败态的「接入中」）、`ENT_LIBRARY_SETTING_READ_FAILED` / `ENT_LIBRARY_SETTING_SAVE_FAILED`（本机设置读/写失败：组件行那枚开关的失败态与重试），一律人话 + 下一步、不含裸码
  * [POS]: ui 的员工侧文案降维层（失败自愈）——产品宪法「必须给稳定错误码时，也要配对一句人话与下一步动作，禁止把技术码直接砸给用户」的唯一落点；界面只消费本模块，不再各写一份码表
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -144,6 +144,11 @@ const ENTERPRISE_ERROR_TABLE: Readonly<Record<string, { readonly message: string
   // ── 企业品牌 ─────────────────────────────────────────────────────────────────
   ENT_BRANDING_ASSET_INVALID: { message: '企业标识图片无法使用。', action: '请联系企业管理员重新上传。', retryable: false },
   ENT_BRANDING_ASSET_TOO_LARGE: { message: '企业标识图片超出大小限制。', action: '请联系企业管理员换一张更小的图片。', retryable: false },
+
+  // ── 资料库（本机资料集合） ───────────────────────────────────────────────────
+  ENT_LIBRARY_UNAVAILABLE: { message: '资料库还在接入中，暂时打不开。', action: '请稍后重试；仍然打不开请联系企业管理员。', retryable: true },
+  ENT_LIBRARY_SETTING_READ_FAILED: { message: '本机保存的资料库开关没有读取到。', action: '已按默认关闭处理；请重试，或重新拨动一次开关。', retryable: true },
+  ENT_LIBRARY_SETTING_SAVE_FAILED: { message: '资料库开关没有保存到本机。', action: '请重试；仍然失败请检查本机的存储权限。', retryable: true },
 
   // ── 帮助与反馈 ───────────────────────────────────────────────────────────────
   ENT_FEEDBACK_INVALID: { message: '反馈内容不完整。', action: '请填写描述并勾选同意后重试。', retryable: false },
