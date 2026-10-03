@@ -83,6 +83,12 @@ describe('enterprise bundle', () => {
     // 块② 仍把 handle 回写外层 sessionSyncHandle（sessionLocalPort 闭包读它）。
     expect(source).toContain('setDistribution: service => { pluginDistribution = service }')
     expect(source).toContain('sessionSyncHandle = mountSession(ctx, platform, sessions, sessionPersistence)')
+    // [组件拆分·真开关兜底]（C 刀）两开关的主 patch 落点在仓库外、改不进 commit ⇒ 在 migrate 里对当前
+    // entry config 的**缺键**兜底补默认 true（不覆盖已写的 false）。故源码必须同时有：常量定义 +
+    // 迁移段的兜底循环 + 对 currentValue[key] 缺失的判断——三者齐备才锁得住「主 patch 漏写也能兜住」。
+    expect(source).toContain('const TOGGLE_DEFAULTS = { libraryEnabled: true, pluginsEnabled: true } as const')
+    expect(source).toContain('for (const [key, fallback] of Object.entries(TOGGLE_DEFAULTS)) {')
+    expect(source).toContain('if (existing === undefined || existing === null) patch[key] = fallback')
   })
 
   it('maps an engine release to its verified commit and never fabricates an unmapped one', async () => {

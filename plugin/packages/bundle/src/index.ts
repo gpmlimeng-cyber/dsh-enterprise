@@ -97,6 +97,8 @@ export const name = 'dshent'
 const LEGACY_NAME = 'owndsh'
 /** 三个随 owner entry id 走的 volatile 地址字段；迁移只搬这三项。 */
 const ADDRESS_FIELDS = ['serverUrl', 'platformOrigin', 'inferenceOrigin'] as const
+/** [组件拆分·真开关兜底] 两个组件开关的默认值（与 Config schema 默认逐字一致），供 migrate 补缺时引用。 */
+const TOGGLE_DEFAULTS = { libraryEnabled: true, pluginsEnabled: true } as const
 // 本刀之后 bundle **不再**声明 `subprocess`：安装/卸载/取消一律走官方 `pluginManager`，
 // 全仓没有任何一条代码路径再起 `dsh plugin` 子进程（`subprocess` 因此不再是一条真依赖，
 // 留着只会让本插件在缺 subprocess 的 profile 上白白不激活）。
@@ -443,6 +445,15 @@ function migrateLegacyEntrySettings(
     const to = currentValue[field]
     const toEmpty = to === undefined || to === null || to === ''
     if (toEmpty && typeof from === 'string' && from !== '') patch[field] = from
+  }
+  // [组件拆分·真开关兜底] 两个开关（libraryEnabled/pluginsEnabled）的**唯一真源是 profile 主 patch 的
+  // dshent 行**——但主 patch 属于 profile 用户层、**不在 dsh-enterprise 仓库内**（改它进不了 commit）。为避免
+  // 漏写时开关缺席，这里在**当前 entry（`dshent`）的 config 缺该键时**补默认 true：只补缺、绝不覆盖用户已
+  // 显式写的值（写 false 仍是关）。故两开关的最终来源 = schema 默认（加载期）+ 本兜底（启动期）+ 主 patch
+  // （可覆盖），三重一致。注意：dump-config 在 apply() 之前退出、不走到这里，本兜底对 dump 树不可见。
+  for (const [key, fallback] of Object.entries(TOGGLE_DEFAULTS)) {
+    const existing = currentValue[key]
+    if (existing === undefined || existing === null) patch[key] = fallback
   }
   if (Object.keys(patch).length === 0) {
     logger.debug(`dshent: no legacy address fields to migrate [operation=migrateSettings step=no-op ns=${LEGACY_NAME}→${name}]`)
