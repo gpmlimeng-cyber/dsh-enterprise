@@ -6,10 +6,32 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { mkdir, rm } from 'node:fs/promises'
+import { mkdir, rm, stat } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { build } from 'esbuild'
+
+/**
+ * esbuild 原生二进制路径纠正（仅 Android 本机生效，非 Android 环境自动跳过）：
+ * 与 client-plugin/scripts/build.mjs 同源逻辑——仓库在 `/data/data/...` 旧式前缀下时
+ * `untrusted_app_34` 域对该前缀的 `execve` 一律 EACCES，把同一路径改写成
+ * `/data/user/0/...` symlink 前缀后写回 `process.env.ESBUILD_BINARY_PATH`。
+ * 必须在 `await import('esbuild')` 之前完成：esbuild 在模块加载期就把该 env 读进
+ * 模块级常量，且静态 `import` 会被 hoist 到任何顶层语句之前执行（故这里用动态 import）。
+ */
+async function prepareEsbuildBinaryPath() {
+  if (process.platform !== 'android') return
+  const scriptDir = dirname(fileURLToPath(import.meta.url))
+  const legacyBin = resolve(scriptDir, '../../../node_modules/.pnpm/@esbuild+android-arm64@0.28.1/node_modules/@esbuild/android-arm64/bin/esbuild')
+  const modernBin = legacyBin.replace(/^\/data\/data\//, '/data/user/0/')
+  try {
+    if ((await stat(modernBin)).isFile()) process.env.ESBUILD_BINARY_PATH = modernBin
+  } catch {
+    // stat 失败（文件缺失/不可读）⇒ 不改 env，保留 esbuild 默认解析路径，让真实构建错误照常上抛
+  }
+}
+
+await prepareEsbuildBinaryPath()
+const { build } = await import('esbuild')
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const LIB_ROOT = resolve(PACKAGE_ROOT, 'lib')

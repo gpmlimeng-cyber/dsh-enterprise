@@ -6,10 +6,37 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { mkdir, rm } from 'node:fs/promises'
+import { mkdir, rm, stat } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { build } from 'esbuild'
+
+/**
+ * esbuild 原生二进制路径纠正（仅 Android 本机生效，非 Android 环境自动跳过）：
+ * 仓库克隆在 `/data/data/...`（`/data/user/0` 的 symlink 目标，即“真”路径）下时，
+ * `untrusted_app_34` 域对该前缀字符串的 `execve` 一律 EACCES——同一 inode 换成
+ * `/data/user/0/...` symlink 前缀即可执行（`realpath` 会把现代前缀还原成旧前缀，
+ * 不能用；read/stat 不受限，execve 是另一套按路径字符串判定的策略）。
+ * esbuild JS API 默认 `require.resolve` 拿到的正是旧前缀 ⇒ `The service was stopped:
+ * spawn ... EACCES`。这里按 Android 官方 $PREFIX 约定把旧前缀改写成现代前缀写回
+ * `process.env.ESBUILD_BINARY_PATH`；必须在 `await import('esbuild')` 之前完成——
+ * esbuild 在模块加载期就把该 env 读进模块级常量，且静态 `import` 会被 hoist 到任何
+ * 顶层语句之前执行（故这里必须用动态 import）。非 Android 平台不改写，交由 esbuild
+ * 自己解析（那套平台没有路径字符串策略问题）。
+ */
+async function prepareEsbuildBinaryPath() {
+  if (process.platform !== 'android') return
+  const scriptDir = dirname(fileURLToPath(import.meta.url))
+  const legacyBin = resolve(scriptDir, '../../../node_modules/.pnpm/@esbuild+android-arm64@0.28.1/node_modules/@esbuild/android-arm64/bin/esbuild')
+  const modernBin = legacyBin.replace(/^\/data\/data\//, '/data/user/0/')
+  try {
+    if ((await stat(modernBin)).isFile()) process.env.ESBUILD_BINARY_PATH = modernBin
+  } catch {
+    // stat 失败（文件缺失/不可读）⇒ 不改 env，保留 esbuild 默认解析路径，让真实构建错误照常上抛
+  }
+}
+
+await prepareEsbuildBinaryPath()
+const { build } = await import('esbuild')
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const LIB_ROOT = resolve(PACKAGE_ROOT, 'lib')
