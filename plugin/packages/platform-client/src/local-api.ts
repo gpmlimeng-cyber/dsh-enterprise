@@ -4,6 +4,9 @@
  * **本刀（资料库）**：`enterpriseLocalErrorStatus` 新增四枚资料库码——`ENT_LIBRARY_CONFLICT` / `ENT_LIBRARY_DISABLED`→409、
  *   `ENT_LIBRARY_TOO_LARGE`→413、`ENT_LIBRARY_INTERNAL`→500（本表唯一一枚 500；表尾默认仍是 503「本机暂时不可用、可重试」，
  *   两者不同义），供 bundle 的 `library/route.ts` 把领域码 `library/*` 投影成 HTTP 时走同一张表。
+ * * **本刀（草稿/发布/修订）**：再新增两枚草稿族乐观锁冲突码——`ENT_LIBRARY_REVISION_CONFLICT`（草稿被改过 ⇒
+ *   刷新后重试）与 `ENT_LIBRARY_BASE_REVISION_CONFLICT`（正文已有新版本 ⇒ 重新创建草稿），都判 409。两枚**分开**
+ *   而不是并进 `ENT_LIBRARY_CONFLICT`：后者的人话是「请换一个名字」（重名冲突），对这两条是错的下一步。
  * [POS]: platform-client 的 Host/Client 同源协作边界，只序列化脱敏 DTO 并把认证 HTTP 留在 Host Service；路由形状受引擎 `match()`（`lib/index.js:322`）约束——exact 表整路径优先、prefix 只认 `pathname === prefix` 或 `pathname.startsWith(prefix + '/')`、多条命中取最长，故带尾斜杠的 prefix 会在引擎层空体 404 而根本不进 handler，而 `/skills/install` 这类子路径动作必须靠 exact 表抢在 `/skills` prefix 之前。`/skills/content` 的两个查询参数（包 id / 技能目录名）在这里只按形状收窄后原样转交：**名字不是路径**，是不是本包的、落点怎么拼、有没有符号链接逃逸，一律由 bundle 侧的已装记录与 `realpath` 判定
  * **本刀（插件行动分流）**：新注册两条 exact 动作路由 `POST <local>/plugins/{enable,disable}`（方向由 path 决定，
  *   正文关闭键集恰好 `{packageName}`，响应与 `GET /plugins` 同形）与可选端口 `pluginSetEnabled`；
@@ -306,7 +309,11 @@ export function enterpriseLocalErrorStatus(error: unknown): number {
   //  · 已停用 → 409（同族：请求合法，但这份资料当前不可被读取）；
   //  · 超限族（单文件 / 单会话选中集合）→ 413；
   //  · 未分类内部错误 → 500（**本表唯一的 500**：表尾默认的 503 语义是"本机暂时不可用、可重试"，与它不同义）。
+  //  **草稿族两枚乐观锁冲突**（草稿/发布这一刀新增，各自一枚而不是并进 `ENT_LIBRARY_CONFLICT`）：两者的下一步不同
+  //  ——"草稿被别人改过 ⇒ 刷新后重试"与"正文已有新版本 ⇒ 重新创建草稿"；并进同码就会让界面拿一句"请换一个名字"
+  //  （那是重名冲突的人话，对这两条是错的）。两枚都判 409：请求合法、当前状态不允许这一次写入。
   if (code === 'ENT_LIBRARY_CONFLICT' || code === 'ENT_LIBRARY_DISABLED') return 409
+  if (code === 'ENT_LIBRARY_REVISION_CONFLICT' || code === 'ENT_LIBRARY_BASE_REVISION_CONFLICT') return 409
   if (code === 'ENT_LIBRARY_TOO_LARGE') return 413
   if (code === 'ENT_LIBRARY_INTERNAL') return 500
   // 配方发布口 fail-closed 引用校验（ENT_PRESET_DEPENDENCIES_INVALID / _KIND_UNSUPPORTED 是

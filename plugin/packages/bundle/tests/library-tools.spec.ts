@@ -241,13 +241,16 @@ describe('资料库 Host 工具（模型面）', () => {
       .rejects.toMatchObject({ code: 'ENT_LIBRARY_UNAVAILABLE' })
   })
 
-  it('注销器把三个工具一起撤掉；分页窗口在代理对边界上不切半个字符', async () => {
+  it('注销器把六个工具一起撤掉；分页窗口在代理对边界上不切半个字符', async () => {
     const { manager } = await importedRig()
     const registry = toolRegistry()
     const dispose = registerEnterpriseLibraryTools(registry.runtime, { manager: () => manager })
-    expect(registry.definitions).toHaveLength(3)
+    expect(registry.definitions).toHaveLength(6)
     dispose()
-    expect(registry.disposed).toEqual(['library_save_markdown', 'library_read', 'library_search'])
+    expect(registry.disposed).toEqual([
+      'library_publish_revision', 'library_update_draft', 'library_create_draft',
+      'library_save_markdown', 'library_read', 'library_search',
+    ])
 
     // `🙂` 是一个代理对：起点落在低位上时前移一格，终点落在低位上时后移一格，绝不产出半个字符。
     const text = 'ab🙂cd'

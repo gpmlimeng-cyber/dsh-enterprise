@@ -1,13 +1,14 @@
 /**
- * [INPUT]: 依赖注入进来的域端口（官方 `ctx.storageDomain.open(spec)` 或测试假实现）、注入进来的对象层端口（`LibraryObjectStore` 或带埋点的测试替身）、以及本包的 `keys.js`（主键归一化）、`storage/domain.js`（四张表 schema 与记录类型）、`objects.js`（不可变原件落盘）、`errors.js`（稳定码）
- * [OUTPUT]: 对外提供 `LibraryManager`（资料库领域服务门面：节点树 / 资产 / 不可变修订 / 会话选择的增删改查与级联删除 / 检索 `search`）、它的构造参数与输入输出类型、`LibraryLimits` 默认值（5 GiB 主体配额 / 32 个选中节点 / 256 名字长度）
+ * [INPUT]: 依赖注入进来的域端口（官方 `ctx.storageDomain.open(spec)` 或测试假实现）、注入进来的对象层端口（`LibraryObjectStore` 或带埋点的测试替身）、以及本包的 `keys.js`（主键归一化）、`storage/domain.js`（五张表 schema 与记录类型）、`objects.js`（不可变原件 + 可变草稿正文的落盘）、`errors.js`（稳定码）
+ * [OUTPUT]: 对外提供 `LibraryManager`（资料库领域服务门面：节点树 / 资产 / 不可变修订 / 会话选择 / **待审草稿**的增删改查与级联删除 / 检索 `search`）、它的构造参数与输入输出类型、`LibraryLimits` 默认值（5 GiB 主体配额 / 32 个选中节点 / 256 名字长度）
  * [POS]: bundle 资料库纵深的**领域服务唯一真源**（方案 §4.4「C. 服务」组的口径）：所有公开方法在同一实例内**串行**（勘误 B4：并发串行**仅进程内**，跨进程 last-write-wins），读是同步内存读、写排在同一实例的队列上；list 顺序**不保证**（官方 json 后端是 `readdir` 序）⇒ **排序一律由本层做**。本文件仍然只依赖注入进来的两个端口（域 + 对象层），**不 import 任何 `@deepseek-ai/*`**；宿主接线在 `./host.ts`（存储服务面 / 路由 / 工具 / 注入），路由与工具只消费本门面
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { randomUUID } from 'node:crypto'
+import { randomUUID, createHash } from 'node:crypto'
 import { LibraryError, badRequest, libraryError } from './errors.js'
 import type { LibraryConversionRecord, LibraryObjectStorePort } from './objects.js'
+import { LIBRARY_MAX_TEXT_BYTES } from './objects.js'
 import {
   LIBRARY_ASSET_KINDS,
   LIBRARY_DEFAULT_EXTENSIONS,
@@ -20,6 +21,7 @@ import {
 import type {
   LibraryAssetRecord,
   LibraryDomainPort,
+  LibraryDraftRecord,
   LibraryNodeRecord,
   LibraryRevisionRecord,
   LibrarySelectionRecord,
@@ -45,14 +47,15 @@ export type LibraryAssetStatus = 'active' | 'disabled'
 /** 资产来源（`upload` 员工上传 / `task` 会话交付物 / `created` 工具直接创建）。 */
 export type LibraryAssetSource = 'upload' | 'task' | 'created'
 
-/** 会生成 id 的三类实体（每条记录的 id 都带固定前缀，便于人眼在磁盘清单里认出来）。 */
-export type LibraryIdKind = 'node' | 'asset' | 'revision'
+/** 会生成 id 的四类实体（每条记录的 id 都带固定前缀，便于人眼在磁盘清单里认出来）。 */
+export type LibraryIdKind = 'node' | 'asset' | 'revision' | 'draft'
 
 /** 各实体的 id 前缀。 */
 const LIBRARY_ID_PREFIXES: Readonly<Record<LibraryIdKind, string>> = {
   node: 'nd',
   asset: 'as',
   revision: 'rv',
+  draft: 'dr',
 }
 
 /**
@@ -150,6 +153,23 @@ export interface LibraryRevisionOriginalContent {
   readonly sha256: string
 }
 
+/** `createDraft` 入参：从哪份资产的哪一版分叉（`baseRevisionId` 缺省 = 该资产的当前修订）。 */
+export interface LibraryCreateDraftInput {
+  readonly assetId: string
+  readonly baseRevisionId?: string | null | undefined
+}
+
+/**
+ * 一份草稿 + 它的当前正文。
+ *
+ * 正文**不进草稿记录**（见 `storage/domain.ts` 的 `drafts` 段），所以"记录"与"正文"是两件东西，
+ * 调用方要正文就一起拿走（工具 `library_create_draft` 的输出里正有 `content`）。
+ */
+export interface LibraryDraftDocument {
+  readonly draft: LibraryDraftRecord
+  readonly text: string
+}
+
 /**
  * `search` 入参（§4.1 F5/F12）。
  *
@@ -210,6 +230,7 @@ export class LibraryManager {
   private readonly assets: LibraryTablePort<LibraryAssetRecord>
   private readonly revisions: LibraryTablePort<LibraryRevisionRecord>
   private readonly selections: LibraryTablePort<LibrarySelectionRecord>
+  private readonly drafts: LibraryTablePort<LibraryDraftRecord>
   /** 本实例的写队列（**仅进程内**）；任何公开方法都必须经 `enqueue`。 */
   private chain: Promise<unknown> = Promise.resolve()
 
@@ -231,6 +252,7 @@ export class LibraryManager {
     this.assets = options.domain.table('assets')
     this.revisions = options.domain.table('revisions')
     this.selections = options.domain.table('selections')
+    this.drafts = options.domain.table('drafts')
     // 构造期就把主体压成一条可用键：主体 id 不合法（空串 / 全非法字符）在这里就炸，而不是等第一次落盘。
     if (!isLibraryKeySafe(this.keyOf('probe'))) {
       throw new LibraryError('library/invalid-key', 'library subject does not produce a safe record key')
@@ -625,11 +647,7 @@ export class LibraryManager {
   async readRevisionOriginal(assetId: string, revisionId: string): Promise<LibraryRevisionOriginalContent> {
     return await this.enqueue(async () => {
       const revision = this.requireRevisionOf(assetId, revisionId)
-      const filename = revision.originalRelativePath.split('/').pop() ?? ''
-      const extension = filename.startsWith('original.') ? filename.slice('original.'.length) : ''
-      if (extension.length === 0) {
-        throw new LibraryError('library/invalid-record', 'library revision original path has no extension')
-      }
+      const extension = extensionOfRevision(revision)
       const { bytes, byteLength, sha256 } = await this.objects.readRevisionOriginal(revision.assetId, revision.id, extension)
       return { revision, bytes, byteLength, sha256 }
     })
@@ -640,6 +658,229 @@ export class LibraryManager {
     return await this.enqueue(async () => {
       const revision = this.requireRevisionOf(assetId, revisionId)
       return await this.objects.readRevisionConversion(revision.assetId, revision.id)
+    })
+  }
+
+  // ───────────────────────────── 待审草稿（可变 → 发布冻结） ─────────────────────────────
+
+  /**
+   * 建一份待审草稿：以某个修订（默认**当前修订**）的正文为初始正文。
+   *
+   * 四条门禁照 workdsh 原文（`A26:199-203`）逐条保留：资产必须在（否则 `library/not-found`）、
+   * 必须**未停用**（`library/disabled`）、只允许 markdown/text（`library/draft-format`）、
+   * 基准修订必须在。草稿**不改动**任何正式修订——它只是"一份可以改的工作副本"。
+   *
+   * 落盘顺序与补偿：先写草稿正文对象（新落点）→ 再落 `drafts` 记录；记录落不下去就把刚写的那份删掉，
+   * 绝不留一个"记录指向不存在的正文"的坏状态。
+   */
+  async createDraft(input: LibraryCreateDraftInput): Promise<LibraryDraftDocument> {
+    return await this.enqueue(async () => {
+      const asset = this.requireOwned(this.assets, input?.assetId, 'asset')
+      if (asset.status === 'disabled') {
+        throw new LibraryError('library/disabled', 'library draft cannot be created on a disabled asset')
+      }
+      if (asset.kind !== 'markdown' && asset.kind !== 'text') {
+        throw new LibraryError('library/draft-format', 'library drafts support markdown and text assets only')
+      }
+      const requested = input.baseRevisionId ?? asset.currentRevisionId
+      if (requested === null || requested === undefined) {
+        throw new LibraryError('library/not-found', 'library asset has no revision to fork a draft from')
+      }
+      const base = this.requireRevisionOf(asset.id, requireText(requested, 'baseRevisionId'))
+      const source = await this.objects.readRevisionText(asset.id, base.id)
+      const draftId = this.allocateId('draft')
+      this.assertKeyFree(this.drafts, draftId)
+      // 乐观锁 token：**每次写入换一枚新的**（创建时也有一枚），它同时是草稿正文那份文件的文件名。
+      const revision = this.allocateId('draft')
+      const written = await this.objects.writeDraftContent(draftId, revision, source.text)
+      const now = this.timestamp()
+      const record = parseLibraryRecord('drafts', {
+        schemaVersion: LIBRARY_DOMAIN_VERSION,
+        scope: this.subject.scope,
+        ownerId: this.subject.ownerId,
+        id: draftId,
+        assetId: asset.id,
+        baseRevisionId: base.id,
+        revision,
+        contentRelativePath: written.contentRelativePath,
+        contentSha256: written.contentSha256,
+        contentByteLength: written.contentByteLength,
+        createdAt: now,
+        updatedAt: now,
+      })
+      try {
+        await this.drafts.put(this.keyOf(draftId), record)
+      } catch (error) {
+        await this.objects.removeDraftDirectory(draftId)
+          .catch(cleanupError => this.report('library orphan draft objects cleanup failed', cleanupError))
+        throw libraryError(error, 'library/internal', 'library draft could not be recorded')
+      }
+      return { draft: record, text: source.text }
+    })
+  }
+
+  /** 读一份草稿记录；不存在（或属于别的主体）⇒ `library/not-found`。 */
+  async getDraft(draftId: string): Promise<LibraryDraftRecord> {
+    return await this.enqueue(async () => this.requireOwned(this.drafts, draftId, 'draft'))
+  }
+
+  /**
+   * 列本主体的草稿（可选按资产过滤），**最近改动的在前**（同刻按 id 的 `zh-CN` 规则）。
+   *
+   * 排序由本层做（存储序不许泄漏，与节点/资产/修订同一条纪律）。`assetId` 给了就先校验那份资产存在
+   * （不存在 ⇒ `library/not-found`，而不是"空列表"）。
+   */
+  async listDrafts(assetId?: string | null): Promise<readonly LibraryDraftRecord[]> {
+    return await this.enqueue(async () => {
+      const target = assetId === undefined || assetId === null
+        ? undefined
+        : this.requireOwned(this.assets, assetId, 'asset').id
+      return this.ownedDrafts()
+        .filter(draft => target === undefined || draft.assetId === target)
+        .sort(compareDrafts)
+    })
+  }
+
+  /**
+   * 改一份草稿的正文（乐观锁：`expectedRevision` 必须是上一次拿到的那枚 token）。
+   *
+   * 顺序照 `writeRevision` 的同一手法：先写**新落点**的正文对象 → 再 `update` 记录换指针与新 token
+   * → 最后尽力删掉旧落点。换指针失败 ⇒ 把刚写的新落点删掉（回到"这次改动从未发生"）；
+   * 删旧落点失败**不影响**这次更新（最坏留一份不可达的垃圾，见 `objects.ts` 的取舍）。
+   *
+   * 正文上限与派生正文同一条 8 MiB（§4.4 C8 / F14：草稿正文 8 MiB），超限 ⇒ `library/file-too-large`。
+   */
+  async updateDraft(draftId: string, content: string, expectedRevision: string): Promise<LibraryDraftDocument> {
+    return await this.enqueue(async () => {
+      const draft = this.requireOwned(this.drafts, draftId, 'draft')
+      if (draft.revision !== requireText(expectedRevision, 'expectedRevision')) {
+        throw new LibraryError('library/revision-conflict', 'library draft was changed since the expected revision')
+      }
+      const body = requireContent(content, 'content')
+      const byteLength = Buffer.byteLength(body, 'utf8')
+      if (byteLength > LIBRARY_MAX_TEXT_BYTES) {
+        throw new LibraryError('library/file-too-large', `library draft content exceeds ${LIBRARY_MAX_TEXT_BYTES} bytes`)
+      }
+      const nextRevision = this.allocateId('draft')
+      const written = await this.objects.writeDraftContent(draft.id, nextRevision, body)
+      const now = this.timestamp()
+      let updated: LibraryDraftRecord
+      try {
+        updated = await this.drafts.update(this.keyOf(draft.id), current =>
+          parseLibraryRecord('drafts', {
+            ...current,
+            revision: nextRevision,
+            contentRelativePath: written.contentRelativePath,
+            contentSha256: written.contentSha256,
+            contentByteLength: written.contentByteLength,
+            updatedAt: now,
+          }))
+      } catch (error) {
+        await this.objects.removeDraftContent(written.contentRelativePath)
+          .catch(cleanupError => this.report('library orphan draft content cleanup failed', cleanupError))
+        throw libraryError(error, 'library/internal', 'library draft could not be updated')
+      }
+      await this.objects.removeDraftContent(draft.contentRelativePath)
+        .catch(error => this.report('library previous draft content could not be removed', error))
+      return { draft: updated, text: body }
+    })
+  }
+
+  /**
+   * 发布一份草稿为**不可变的新修订**（草稿随后消失：发布是它的终点）。
+   *
+   * 四道闸（§4.4 C8 逐条，序号即判定顺序）：
+   * ① 草稿必须在，且 `expectedRevision` 必须是当前 token（否则 `library/revision-conflict`——有人已经改过）；
+   * ② 资产必须未停用（`library/disabled`）；
+   * ③ `asset.currentRevisionId` 必须仍等于草稿的 `baseRevisionId`（否则 `library/base-revision-conflict`
+   *    ——这份草稿分叉之后，正文已经有别人发布的新版本，直接发布会把那一版盖掉）；
+   * ④ 容量（`library/quota-exceeded`）。
+   *
+   * 落盘顺序照 `writeRevision`：写不可变修订对象 → 落修订记录（`number = previous.number + 1`）→
+   * 移资产指针 → **删草稿记录**（先删记录这个真源，再尽力删草稿对象）。第二/三步失败一律回滚到
+   * "这次发布从未发生"（撤记录、撤对象），草稿**原样留着**（员工可以再试）。
+   *
+   * 发布出来的修订与 `writeRevision` 写出来的**逐字段同形**：`conversion.json` 也一并写
+   * （正文就是草稿正文 ⇒ 转换态 `ready`），因此 `library_read` 能立刻读回这份冻结的正文。
+   */
+  async publishDraft(draftId: string, expectedRevision: string): Promise<LibraryRevisionRecord> {
+    return await this.enqueue(async () => {
+      const draft = this.requireOwned(this.drafts, draftId, 'draft')
+      if (draft.revision !== requireText(expectedRevision, 'expectedRevision')) {
+        throw new LibraryError('library/revision-conflict', 'library draft was changed since the expected revision')
+      }
+      const asset = this.requireOwned(this.assets, draft.assetId, 'asset')
+      if (asset.status === 'disabled') {
+        throw new LibraryError('library/disabled', 'library draft cannot be published while the asset is disabled')
+      }
+      if (asset.currentRevisionId !== draft.baseRevisionId) {
+        throw new LibraryError('library/base-revision-conflict', 'library draft base revision is no longer the current revision')
+      }
+      const base = this.requireRevisionOf(asset.id, draft.baseRevisionId)
+      const extension = extensionOfRevision(base)
+      const published = await this.objects.readDraftContent(draft.contentRelativePath)
+      const bytes = Buffer.from(published.text, 'utf8')
+      await this.assertQuota(bytes.byteLength)
+      const revisionId = this.allocateId('revision')
+      this.assertKeyFree(this.revisions, revisionId)
+      const number = this.nextRevisionNumber(asset.id)
+      const now = this.timestamp()
+      const objects = await this.objects.writeRevision({
+        assetId: asset.id,
+        revisionId,
+        extension,
+        original: bytes,
+        content: published.text,
+        conversion: {
+          version: 1,
+          kind: asset.kind,
+          originalSha256: sha256OfBytes(bytes),
+          warnings: [],
+          locations: [],
+        },
+      })
+      try {
+        const record = parseLibraryRecord('revisions', {
+          schemaVersion: LIBRARY_DOMAIN_VERSION,
+          scope: this.subject.scope,
+          ownerId: this.subject.ownerId,
+          id: revisionId,
+          assetId: asset.id,
+          number,
+          originalSha256: objects.originalSha256,
+          originalByteLength: objects.originalByteLength,
+          originalRelativePath: objects.originalRelativePath,
+          contentSha256: objects.contentSha256,
+          contentByteLength: objects.contentByteLength,
+          contentRelativePath: objects.contentRelativePath,
+          conversionStatus: objects.conversionWritten ? 'ready' : 'pending',
+          conversionWarnings: [],
+          createdAt: now,
+        })
+        await this.revisions.put(this.keyOf(revisionId), record)
+        try {
+          await this.assets.update(this.keyOf(asset.id), current => parseLibraryRecord('assets', {
+            ...current,
+            currentRevisionId: revisionId,
+            byteLength: objects.originalByteLength,
+            updatedAt: now,
+          }))
+        } catch (error) {
+          await this.revisions.delete(this.keyOf(revisionId))
+            .catch(cleanupError => this.report('library orphan published revision cleanup failed', cleanupError))
+          throw error
+        }
+        // 发布已经成功（修订已落、指针已移）：草稿的收尾**不影响**这次发布的成败，失败只留痕。
+        await this.drafts.delete(this.keyOf(draft.id))
+          .catch(error => this.report('library published draft record could not be removed', error))
+        await this.objects.removeDraftDirectory(draft.id)
+          .catch(error => this.report('library published draft objects could not be removed', error))
+        return record
+      } catch (error) {
+        await this.objects.removeRevisionObjects(asset.id, revisionId)
+          .catch(cleanupError => this.report('library published revision objects cleanup failed', cleanupError))
+        throw libraryError(error, 'library/internal', 'library draft could not be published')
+      }
     })
   }
 
@@ -837,6 +1078,10 @@ export class LibraryManager {
     return this.ownedList(this.selections)
   }
 
+  private ownedDrafts(): LibraryDraftRecord[] {
+    return this.ownedList(this.drafts)
+  }
+
   /** 快照迭代 + 主体过滤（顺序是后端序，调用方必须自己排）。 */
   private ownedList<V extends LibraryOwnedRecord>(handle: LibraryTablePort<V>): V[] {
     const out: V[] = []
@@ -976,14 +1221,24 @@ export class LibraryManager {
    * 顺序理由：反过来的话，"对象删了、记录删失败"会留下**指向空对象的记录**（读它必报 `object-missing`，
    * 是员工可见的坏状态）；而现在的顺序最坏只留下一个**没有任何记录指向的目录**（不可见的垃圾，后续可 GC）。
    * 对象删除失败不阻断删除流程，只经 `onError` 留痕——记录才是真源。
+   *
+   * 草稿也在这一刀里一并清掉（§4.4 C11 明写 `remove` 要删到"资产/修订/回执/**草稿**"）：
+   * 草稿记录 + 草稿正文那棵树都不留。删除计数**不改**公开形状（`LibraryRemovalSummary` 只有
+   * nodes/assets/revisions 三个数）——路由响应形状有界面解码器锁着，不为了多一个计数去动它。
    */
   private async removeAssetRecords(asset: LibraryAssetRecord): Promise<number> {
     const owned = this.ownedRevisions().filter(revision => revision.assetId === asset.id)
+    const drafts = this.ownedDrafts().filter(draft => draft.assetId === asset.id)
     for (const revision of owned) await this.revisions.delete(this.keyOf(revision.id))
+    for (const draft of drafts) await this.drafts.delete(this.keyOf(draft.id))
     await this.assets.delete(this.keyOf(asset.id))
     for (const revision of owned) {
       await this.objects.removeRevisionObjects(asset.id, revision.id)
         .catch(error => this.report('library orphan revision objects could not be removed', error))
+    }
+    for (const draft of drafts) {
+      await this.objects.removeDraftDirectory(draft.id)
+        .catch(error => this.report('library orphan draft objects could not be removed', error))
     }
     return owned.length
   }
@@ -1031,6 +1286,31 @@ function sortNodes(nodes: readonly LibraryNodeRecord[]): LibraryNodeRecord[] {
 /** 资产排序：名字的 `zh-CN` 规则（存储序不许泄漏给界面）。 */
 function sortAssets(assets: readonly LibraryAssetRecord[]): LibraryAssetRecord[] {
   return [...assets].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
+}
+
+/**
+ * 草稿排序：**最近改动的在前**（`updatedAt` 降序），同刻按 id 的 `zh-CN` 规则定序。
+ *
+ * 界面语义是"我刚在改的那份在最上面"，所以按 `updatedAt` 而不是 `createdAt`——与存储序无关。
+ */
+function compareDrafts(a: LibraryDraftRecord, b: LibraryDraftRecord): number {
+  if (a.updatedAt !== b.updatedAt) return a.updatedAt < b.updatedAt ? 1 : -1
+  return a.id.localeCompare(b.id, 'zh-CN')
+}
+
+/** 一条修订原件文件的扩展名（`original.<ext>` 的 `<ext>`）；路径形状坏了就按 `library/invalid-record` 拒。 */
+function extensionOfRevision(revision: LibraryRevisionRecord): string {
+  const filename = revision.originalRelativePath.split('/').pop() ?? ''
+  const extension = filename.startsWith('original.') ? filename.slice('original.'.length) : ''
+  if (extension.length === 0) {
+    throw new LibraryError('library/invalid-record', 'library revision original path has no extension')
+  }
+  return extension
+}
+
+/** 字节的 sha256 小写十六进制（发布草稿时给 `conversion.json` 与修订记录共用一份）。 */
+function sha256OfBytes(bytes: Uint8Array): string {
+  return createHash('sha256').update(bytes).digest('hex')
 }
 
 /** 某份资产的树节点 id（`createAsset` 保证一对一；存量数据里缺失 ⇒ `null`，路径就停在根）。 */

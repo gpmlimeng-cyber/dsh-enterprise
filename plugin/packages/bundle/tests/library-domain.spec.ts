@@ -116,13 +116,13 @@ function codeOf(fn: () => unknown): string {
   throw new Error('expected the call to throw')
 }
 
-describe('域规格（照勘误：name/version/layout 与四张表名）', () => {
-  it('域名 dshent_library · version 1 · layout per-record · 四张表', () => {
+describe('域规格（照勘误：name/version/layout 与五张表名）', () => {
+  it('域名 dshent_library · version 1 · layout per-record · 五张表', () => {
     expect(libraryDomainSpec.name).toBe('dshent_library')
     expect(libraryDomainSpec.version).toBe(1)
     expect(libraryDomainSpec.layout).toBe('per-record')
-    expect(Object.keys(libraryDomainSpec.tables)).toEqual(['nodes', 'assets', 'revisions', 'selections'])
-    expect(LIBRARY_DOMAIN_TABLE_NAMES).toEqual(['nodes', 'assets', 'revisions', 'selections'])
+    expect(Object.keys(libraryDomainSpec.tables)).toEqual(['nodes', 'assets', 'revisions', 'selections', 'drafts'])
+    expect(LIBRARY_DOMAIN_TABLE_NAMES).toEqual(['nodes', 'assets', 'revisions', 'selections', 'drafts'])
     expect(LIBRARY_ROOT_TITLE).toBe('我的资料')
   })
 

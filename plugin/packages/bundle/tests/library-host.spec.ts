@@ -135,7 +135,7 @@ describe('资料库宿主装配', () => {
     expect(host.port.manager()).toBeUndefined()
   })
 
-  it('挂三个面：路由 1 条 + 3 个工具 + 1 个注入监听；注销一次全撤', async () => {
+  it('挂三个面：路由 1 条 + 6 个工具 + 1 个注入监听；注销一次全撤', async () => {
     const home = await makeHome()
     const routes = routeTable()
     const tools = toolTable()
@@ -158,7 +158,7 @@ describe('资料库宿主装配', () => {
       `exact:${ENTERPRISE_LIBRARY_LOCAL_PATH}`,
       `prefix:${ENTERPRISE_LIBRARY_OBJECTS_PREFIX}`,
     ])
-    expect(tools.definitions).toHaveLength(3)
+    expect(tools.definitions).toHaveLength(6)
     expect(events.count()).toBe(1)
 
     dispose()

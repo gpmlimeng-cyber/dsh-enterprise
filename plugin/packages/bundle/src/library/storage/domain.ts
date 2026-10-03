@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 依赖 zod（本地声明四张表的记录形状）与 `./keys.js` 的官方域名/表名规约
- * [OUTPUT]: 对外提供 `libraryDomainSpec`（`dshent_library` / version 1 / `layout:'per-record'` / 四张表 `nodes`·`assets`·`revisions`·`selections`）、四个记录 zod schema 与由它们推出的记录类型、写入前的 `parseLibraryRecord` 门禁、模块加载即跑的 `assertLibraryDomainSpec`（官方 `defineDomain` 那份 fail-loud 校验的本地等价物），以及**注入端口** `LibraryDomainPort`/`LibraryTablePort`（官方 `Domain`/`KvTable` 的结构镜像）
- * [POS]: bundle 资料库纵深的**域规格唯一真源**（方案 §2.1 落点），也是「不接宿主也能测」的关键：本文件不 import 任何 `@deepseek-ai/*`（官方 `dsh-storage-domain` 不在 bundle 的依赖里），只产出**纯规格对象 + 结构镜像类型**，由下一刀的接线处把它交给 `ctx.storageDomain.open(spec)`；与 `contracts` 的合流留到那时（见文件末 TODO）
- * TODO（后续与 contracts 合流时上移）：本刀按任务口径把四张表的 zod 结构**本地声明在 bundle 内**（这一刀不许碰 `contracts/`）；下一刀上移成 `contracts/src/library-domain.ts`，bundle 改为 import，**类型名与方法签名逐字不变**（详见文件末的三条 TODO）
+ * [INPUT]: 依赖 zod（本地声明五张表的记录形状）与 `./keys.js` 的官方域名/表名规约
+ * [OUTPUT]: 对外提供 `libraryDomainSpec`（`dshent_library` / version 1 / `layout:'per-record'` / 五张表 `nodes`·`assets`·`revisions`·`selections`·`drafts`）、五个记录 zod schema 与由它们推出的记录类型、写入前的 `parseLibraryRecord` 门禁、模块加载即跑的 `assertLibraryDomainSpec`（官方 `defineDomain` 那份 fail-loud 校验的本地等价物），以及**注入端口** `LibraryDomainPort`/`LibraryTablePort`（官方 `Domain`/`KvTable` 的结构镜像）
+ * [POS]: bundle 资料库纵深的**域规格唯一真源**（方案 §2.1 落点），也是「不接宿主也能测」的关键：本文件不 import 任何 `@deepseek-ai/*`（官方 `dsh-storage-domain` 不在 bundle 的依赖里），只产出**纯规格对象 + 结构镜像类型**，由接线处把它交给 `ctx.storageDomain.open(spec)`；与 `contracts` 的合流留到那时（见文件末 TODO）
+ * TODO（后续与 contracts 合流时上移）：本刀按任务口径把五张表的 zod 结构**本地声明在 bundle 内**（`contracts/` 仍不许碰）；下一刀上移成 `contracts/src/library-domain.ts`，bundle 改为 import，**类型名与方法签名逐字不变**（详见文件末的三条 TODO）
  * [PROTOCOL]: 变更时更新这份头部与域字段注释，然后检查 CLAUDE.md
  */
 
@@ -42,10 +42,11 @@ export const LIBRARY_MAX_SELECTION_NODES = 32
  * 4. **并发串行仅进程内**：同一服务实例的写链上 `put/delete/update` 串行、`update` 是写链原子 RMW；
  *    **跨进程没有文件锁**（last-write-wins）⇒ GUI 与 CLI 并存时以最后落盘者为准。
  * 5. **单记录不分片，但大正文不进 KV 记录**：一条记录 = 一个文件（2 MiB 的 value 也是一条记录，probe 实测），
- *    所以资料**正文只进对象层的 `content.md`**，`revisions` 记录里只留相对路径 + sha256 + 字节数。
+ *    所以资料**正文只进对象层的 `content.md`**（草稿正文同理进**草稿对象层**，见 `drafts` 那一段），
+ *    `revisions` 记录里只留相对路径 + sha256 + 字节数。
  */
-/** 四张表在域里的名字（同时是磁盘上的四个目录名，都要过 `UNIT_NAME_RE`）。 */
-export const LIBRARY_DOMAIN_TABLE_NAMES = ['nodes', 'assets', 'revisions', 'selections'] as const
+/** 五张表在域里的名字（同时是磁盘上的五个目录名，都要过 `UNIT_NAME_RE`）。 */
+export const LIBRARY_DOMAIN_TABLE_NAMES = ['nodes', 'assets', 'revisions', 'selections', 'drafts'] as const
 
 /** 表名联合。 */
 export type LibraryTableName = (typeof LIBRARY_DOMAIN_TABLE_NAMES)[number]
@@ -58,7 +59,7 @@ const libraryIso = z.string().datetime()
 const librarySha256 = z.string().regex(/^[0-9a-f]{64}$/)
 
 /**
- * 四张表共有的身份/版本四件套。
+ * 五张表共有的身份/版本四件套。
  *
  * · `schemaVersion`：记录形状版本（§4.4 A7 要求 `z.literal(1)`）——与信封里的**域级** `version` 各管一段：
  *   将来单张表演进（加字段）时改这里，而"整域换格式"才动信封版本；
@@ -183,26 +184,61 @@ export const librarySelectionSchema = z.object({
   updatedAt: libraryIso,
 })
 
+/**
+ * `drafts` —— 待审草稿（**可变**：员工/模型在发布前反复改它）。
+ *
+ * 与 A30 的 `draft` 实体对照：`id`/`assetId`/`baseRevisionId`/`revision`/`createdAt`/`updatedAt` 同名同义
+ * （`createdBy` 去掉，理由同 `revisions`：本刀主体就是 `ownerId`）。
+ *
+ * **与 A30 字面口径的唯一差异（有意，按勘误 C）**：A30 的 draft 把正文放在 `content` 字段里
+ * （`z.string().max(8 * 1024 * 1024)`），而本仓的存储纪律明写「**大正文不进 KV 记录**」
+ * （见本文件头部第 5 条与 `objects.ts` 的 `LIBRARY_MAX_TEXT_BYTES`）⇒ 草稿正文落**草稿对象层**
+ * `<dshHome>/library/drafts/<draftId>/<revision>.md`，记录里只留
+ * `contentRelativePath` + `contentSha256` + `contentByteLength` 三件套（与 `revisions` 同一手法）。
+ * 这样做同时买到两件事：KV 记录永远是 O(1) 小 JSON，且正文永远只有一份（不会出现"记录里一份、盘上一份"）。
+ *
+ * · `revision`：**乐观锁 token**（A30 的 `draft.revision`）——每次 `updateDraft` 换一枚新的；
+ *   调用方必须把它原样带回来（工具的 `expected_revision`），不匹配一律拒，绝不"静默覆盖别人的改动"。
+ * · `baseRevisionId`：草稿从哪一版正文分叉出来的。发布时若资产的当前修订已经不是它 ⇒ `library/base-revision-conflict`
+ *   （别人在这中间发布了新版本，这份草稿的基准已经过期）。
+ */
+export const libraryDraftSchema = z.object({
+  ...librarySubjectFields,
+  id: libraryId,
+  assetId: libraryId,
+  baseRevisionId: libraryId,
+  revision: libraryId,
+  /** 相对**草稿对象层**根（`<dshHome>/library/drafts`）的路径：`<draftId>/<revision>.md`。 */
+  contentRelativePath: libraryId,
+  contentSha256: librarySha256,
+  contentByteLength: z.number().int().nonnegative(),
+  createdAt: libraryIso,
+  updatedAt: libraryIso,
+})
+
 /** 表名 → schema（也是写入前门禁与假实现的校验入口）。 */
 export const LIBRARY_TABLE_SCHEMAS = {
   nodes: libraryNodeSchema,
   assets: libraryAssetSchema,
   revisions: libraryRevisionSchema,
   selections: librarySelectionSchema,
+  drafts: libraryDraftSchema,
 } as const
 
-/** 四张表的记录类型（全部由 zod 推出，schema 是唯一真源）。 */
+/** 五张表的记录类型（全部由 zod 推出，schema 是唯一真源）。 */
 export interface LibraryTableRecords {
   readonly nodes: z.infer<typeof libraryNodeSchema>
   readonly assets: z.infer<typeof libraryAssetSchema>
   readonly revisions: z.infer<typeof libraryRevisionSchema>
   readonly selections: z.infer<typeof librarySelectionSchema>
+  readonly drafts: z.infer<typeof libraryDraftSchema>
 }
 
 export type LibraryNodeRecord = LibraryTableRecords['nodes']
 export type LibraryAssetRecord = LibraryTableRecords['assets']
 export type LibraryRevisionRecord = LibraryTableRecords['revisions']
 export type LibrarySelectionRecord = LibraryTableRecords['selections']
+export type LibraryDraftRecord = LibraryTableRecords['drafts']
 
 /**
  * 一张表的声明（官方 `DomainTableSpec<V>` 的结构镜像：一个值 schema + 一个纯类型的 key 幽灵载体）。
@@ -238,6 +274,7 @@ export const libraryDomainSpec: LibraryDomainSpec = {
     assets: { valueSchema: libraryAssetSchema },
     revisions: { valueSchema: libraryRevisionSchema },
     selections: { valueSchema: librarySelectionSchema },
+    drafts: { valueSchema: libraryDraftSchema },
   },
 }
 
@@ -326,7 +363,7 @@ export interface LibraryDomainPort {
   table<N extends LibraryTableName>(name: N): LibraryTablePort<LibraryTableRecords[N]>
 }
 
-// TODO(P0 后续刀 · 与 contracts 合流)：本刀按任务口径把四张表的 zod 结构**本地声明在 bundle 内**
+// TODO(P0 后续刀 · 与 contracts 合流)：本刀按任务口径把五张表的 zod 结构**本地声明在 bundle 内**
 // （`@dshent/contracts` 这一刀不许碰）。下一刀要把这里上移成 `contracts/src/library-domain.ts`（方案 §1.1 A30
 // 的落点），由契约包同时导出 schema 与记录类型，bundle 只保留域规格装配与端口镜像；届时本文件改为
 // `import { ... } from '@dshent/contracts'` 并把上面的 schema 段删掉——**类型名与方法签名逐字不变**。

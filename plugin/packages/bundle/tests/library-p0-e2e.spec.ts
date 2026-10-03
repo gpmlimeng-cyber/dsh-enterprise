@@ -86,7 +86,10 @@ describe('资料库 P0 竖切：上传 → 落盘 → 检索 → 读回 → 工�
     step(5, '工具调用（library_search / library_read，均已接线）', `工具=${toolNames.join(', ')}`
       + ` · 命中 asset_id=${String(toolHits.hits[0]!['asset_id'])} 摘录=${JSON.stringify(String(toolHits.hits[0]!['excerpt']))}`
       + ` · 读回 ${String(toolRead['content']).length} 字符，truncated=${String(toolRead['truncated'])}`)
-    expect(toolNames).toEqual(['library_search', 'library_read', 'library_save_markdown'])
+    expect(toolNames).toEqual([
+      'library_search', 'library_read', 'library_save_markdown',
+      'library_create_draft', 'library_update_draft', 'library_publish_revision',
+    ])
     expect(toolHits.hits).toHaveLength(1)
     expect(toolRead['content']).toBe(text.content)
 

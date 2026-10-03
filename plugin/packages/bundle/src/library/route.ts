@@ -16,7 +16,7 @@ import type {
   LibraryManager,
   LibrarySelectionItem,
 } from './manager.js'
-import type { LibraryAssetRecord, LibraryNodeRecord, LibraryRevisionRecord } from './storage/domain.js'
+import type { LibraryAssetRecord, LibraryDraftRecord, LibraryNodeRecord, LibraryRevisionRecord } from './storage/domain.js'
 import { LIBRARY_ROOT_TITLE } from './storage/domain.js'
 import type { LibrarySearchHit } from './search.js'
 
@@ -30,11 +30,11 @@ export const ENTERPRISE_LIBRARY_OBJECTS_PREFIX = `${ENTERPRISE_LIBRARY_LOCAL_PAT
 const OBJECTS_BOUNDARY = `${ENTERPRISE_LIBRARY_OBJECTS_PREFIX}/`
 
 /**
- * 单入口的 endpoint 清单（**P0 的 12 个**，顺序照 workdsh `A22:23-44`）。
+ * 单入口的 endpoint 清单（**P1-A 的 15 个**，顺序照 workdsh `A22:23-44`；草稿三条接在 `import`/`search` 之后，
+ * 与 workdsh 的声明序一致）。
  *
- * 与方案 §2.2 的 16 个差 4 个，差的都在草稿/流式那两族里，**逐个写明去处**：
- * · `read-original` → 不在这张表里（它是 `GET …/library/objects/<assetId>/<revisionId>` 这条 prefix 路由，见文件头）；
- * · `create-draft` / `update-draft` / `publish-draft` → **P1**（域层本刀只有四张表，没有 `drafts`，见 `storage/domain.ts` 的头部口径）。
+ * 与方案 §2.2 的 16 个差 1 个：`read-original` 不在表里（它是 `GET …/library/objects/<assetId>/<revisionId>`
+ * 那条 prefix 路由，见文件头）⇒ **表内 15 + 流式 GET 1 = 16，与 §4.4 D1 的"恰好 16 个 endpoint"对得上**。
  * 这张表是"接了哪些"的唯一真源，测试直接断言它的成员集合与本数。
  */
 export const ENTERPRISE_LIBRARY_ENDPOINTS = [
@@ -43,6 +43,9 @@ export const ENTERPRISE_LIBRARY_ENDPOINTS = [
   'create-folder',
   'import',
   'search',
+  'create-draft',
+  'update-draft',
+  'publish-draft',
   'read-text',
   'rename',
   'move',
@@ -126,6 +129,14 @@ export function projectLibraryFailure(error: unknown): LibraryFailureProjection 
   }
   if (code === 'library/name-conflict' || code === 'library/key-collision' || code === 'library/revision-immutable') {
     return { status: enterpriseLocalErrorStatus({ code: 'ENT_LIBRARY_CONFLICT' }), code: 'ENT_LIBRARY_CONFLICT' }
+  }
+  // 草稿族的两条乐观锁冲突各自一枚码：它们的"下一步"不同（刷新重试 vs 重新创建草稿），
+  // 界面因此不能只拿到一句"有同名内容"（`ENT_LIBRARY_CONFLICT` 的人话是"请换一个名字"，对这两条是错的）。
+  if (code === 'library/revision-conflict') {
+    return { status: enterpriseLocalErrorStatus({ code: 'ENT_LIBRARY_REVISION_CONFLICT' }), code: 'ENT_LIBRARY_REVISION_CONFLICT' }
+  }
+  if (code === 'library/base-revision-conflict') {
+    return { status: enterpriseLocalErrorStatus({ code: 'ENT_LIBRARY_BASE_REVISION_CONFLICT' }), code: 'ENT_LIBRARY_BASE_REVISION_CONFLICT' }
   }
   if (code === 'library/disabled') {
     return { status: enterpriseLocalErrorStatus({ code: 'ENT_LIBRARY_DISABLED' }), code: 'ENT_LIBRARY_DISABLED' }
@@ -243,6 +254,22 @@ function projectRevision(revision: LibraryRevisionRecord): Record<string, unknow
   }
 }
 
+/**
+ * 草稿 → 出网视图。**正文不进这里**（草稿正文是 8 MiB 级的大件，只走 `read-text` 那条路：
+ * 发布之后它的身份就是新修订的正文），出网的只有"这份草稿是什么、改到第几版了"。
+ */
+function projectDraft(draft: LibraryDraftRecord): Record<string, unknown> {
+  return {
+    id: draft.id,
+    assetId: draft.assetId,
+    baseRevisionId: draft.baseRevisionId,
+    revision: draft.revision,
+    contentByteLength: draft.contentByteLength,
+    createdAt: draft.createdAt,
+    updatedAt: draft.updatedAt,
+  }
+}
+
 /** 命中 → 出网视图（保持服务层的驼峰口径；**工具的**下划线口径在 `tools.ts` 里单独投影）。 */
 function projectHit(hit: LibrarySearchHit): Record<string, unknown> {
   return {
@@ -321,6 +348,31 @@ async function dispatchLibraryEndpoint(
         ...(source === undefined ? {} : { source: source as LibraryAssetSource }),
       })
       return { hits: hits.map(projectHit) }
+    }
+    case 'create-draft': {
+      // 形状门禁照 workdsh `A22:36`：`assetId` 必有；`baseRevisionId` 给了就必是字符串（不给 = 用当前修订）。
+      const created = await manager.createDraft({
+        assetId: requireIdField(payload, 'assetId'),
+        baseRevisionId: optionalStringField(payload, 'baseRevisionId') ?? null,
+      })
+      return { draft: projectDraft(created.draft), content: created.text }
+    }
+    case 'update-draft': {
+      const content = payload['content']
+      if (typeof content !== 'string') throw badRequest('content must be a string')
+      const updated = await manager.updateDraft(
+        requireIdField(payload, 'draftId'),
+        content,
+        requireStringField(payload, 'expectedRevision'),
+      )
+      return { draft: projectDraft(updated.draft) }
+    }
+    case 'publish-draft': {
+      const revision = await manager.publishDraft(
+        requireIdField(payload, 'draftId'),
+        requireStringField(payload, 'expectedRevision'),
+      )
+      return { assetId: revision.assetId, revision: projectRevision(revision) }
     }
     case 'read-text': {
       const assetId = requireIdField(payload, 'assetId')

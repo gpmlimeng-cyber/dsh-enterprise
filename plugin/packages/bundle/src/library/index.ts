@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 只依赖本目录与 `./storage/*` 下的模块（唯一的例外是 `./route.js` 与 `./host.js`：它们要用 platform-client 的 route port 与 `resolveEnterpriseDshHome()`；**仍不 import 官方 `@deepseek-ai/*`**）
- * [OUTPUT]: 把资料库纵深的公开面收在一处：错误码与 `LibraryError`、主键层、记录信封、域规格与四张表 schema/类型、对象层与转换元数据、`LibraryManager` 服务门面、检索纯函数、文本导入、本机路由、Host 工具、system-prompt 注入与宿主装配
+ * [OUTPUT]: 把资料库纵深的公开面收在一处：错误码与 `LibraryError`、主键层、记录信封、域规格与五张表 schema/类型、对象层与转换元数据、`LibraryManager` 服务门面、检索纯函数、文本导入、本机路由、Host 工具、system-prompt 注入与宿主装配
  * [POS]: bundle 资料库纵深的**本地出口**。第一刀（存储与域层）刻意不接线，本刀（宿主接线）把三个面挂上：`bundle/src/index.ts` 的 `apply()` 调一次 `createEnterpriseLibraryHost` + `mountEnterpriseLibraryFaces`；`bundle/cordis.patch.yml` 与 `contracts/` 仍然不动
  * [PROTOCOL]: 下一刀（宿主接线）在这里或 `../../index.ts` 增加挂载点，并更新本头部
  */
@@ -27,7 +27,7 @@ export {
   LIBRARY_RECORD_ENVELOPE_VERSION,
   type LibraryRecordEnvelope,
 } from './storage/records.js'
-// 域规格与四张表
+// 域规格与五张表
 export {
   assertLibraryDomainSpec,
   parseLibraryRecord,
@@ -42,12 +42,14 @@ export {
   LIBRARY_TABLE_SCHEMAS,
   libraryAssetSchema,
   libraryDomainSpec,
+  libraryDraftSchema,
   libraryNodeSchema,
   libraryRevisionSchema,
   librarySelectionSchema,
   type LibraryAssetRecord,
   type LibraryDomainPort,
   type LibraryDomainSpec,
+  type LibraryDraftRecord,
   type LibraryNodeRecord,
   type LibraryRevisionRecord,
   type LibrarySelectionRecord,
@@ -56,20 +58,25 @@ export {
   type LibraryTableRecords,
   type LibraryTableSpec,
 } from './storage/domain.js'
-// 对象层（不可变原件 + 转换元数据）
+// 对象层（不可变原件 + 可变草稿正文 + 转换元数据）
 export {
   decodeConversionRecord,
   defaultLibraryExtension,
   encodeConversionRecord,
+  LibraryDraftObjectStore,
   LibraryObjectStore,
   libraryConversionSchema,
   LIBRARY_CONTENT_FILENAME,
   LIBRARY_CONVERSION_FILENAME,
+  LIBRARY_DRAFT_CONTENT_SUFFIX,
+  LIBRARY_DRAFTS_DIR_SEGMENTS,
   LIBRARY_MAX_CONVERSION_BYTES,
   LIBRARY_MAX_ORIGINAL_BYTES,
   LIBRARY_MAX_TEXT_BYTES,
   LIBRARY_OBJECTS_DIR_SEGMENTS,
   type LibraryConversionRecord,
+  type LibraryDraftContent,
+  type LibraryDraftObjectPort,
   type LibraryObjectStoreOptions,
   type LibraryObjectStorePort,
   type LibraryRevisionObjects,
@@ -85,7 +92,9 @@ export {
   type LibraryAssetSource,
   type LibraryAssetStatus,
   type LibraryCreateAssetInput,
+  type LibraryCreateDraftInput,
   type LibraryCreateFolderInput,
+  type LibraryDraftDocument,
   type LibraryIdKind,
   type LibraryLimits,
   type LibraryManagerOptions,

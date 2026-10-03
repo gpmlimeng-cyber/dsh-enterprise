@@ -283,10 +283,11 @@ describe('资料库本机 HTTP 面（真 HTTP + 真落盘）', () => {
     expect(projectLibraryFailure(new Error('unknown'))).toEqual({ status: 503, code: 'ENT_LIBRARY_UNAVAILABLE' })
   })
 
-  it('单入口的 endpoint 清单恰好是 P0 的 12 个（少一个/多一个都不行）', () => {
+  it('单入口的 endpoint 清单恰好是 P1-A 的 15 个（少一个/多一个都不行；加流式 GET 共 16 = §4.4 D1）', () => {
     expect([...ENTERPRISE_LIBRARY_ENDPOINTS]).toEqual([
-      'space', 'list', 'create-folder', 'import', 'search', 'read-text',
-      'rename', 'move', 'remove', 'set-asset-status', 'task-selection', 'set-task-selection',
+      'space', 'list', 'create-folder', 'import', 'search',
+      'create-draft', 'update-draft', 'publish-draft',
+      'read-text', 'rename', 'move', 'remove', 'set-asset-status', 'task-selection', 'set-task-selection',
     ])
   })
 })

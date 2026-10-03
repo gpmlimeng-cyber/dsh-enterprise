@@ -30,7 +30,9 @@ export type LibraryErrorCode =
   | 'library/object-invalid'
   /** 对象路径门禁不成立：`realpath` 逐字等式失败，落点跑出了对象根。 */
   | 'library/path-escape'
-  /** 超过本刀的单文件上限（原件 50 MiB / 正文 8 MiB / conversion 1 MiB）。 */
+  /** 超过单文件上限（原件 50 MiB / 正文与草稿正文 8 MiB / conversion 1 MiB）。
+   *  与 workdsh 的 `library/file-size` **同一语义**：本仓已经为这条语义落过这一枚码（见 `objects.ts`
+   *  的上限注释与 §4.4 C8），不为一件事再造第二枚（`errors.ts` 的纪律：不预造无人抛的码）。 */
   | 'library/file-too-large'
   /** 同一 revisionId 二次写入：不可变原件不允许覆盖。 */
   | 'library/revision-immutable'
@@ -56,6 +58,25 @@ export type LibraryErrorCode =
   | 'library/not-selected'
   /** 工具调用处拿不到会话 id（没有 `exec.agent`）——没有会话就没有"本轮选中"，fail-closed。 */
   | 'library/session-required'
+  /** 草稿只允许 `markdown`/`text` 资产（§4.4 C8 的 `library/draft-format`；别的格式没有可编辑的正文）。 */
+  | 'library/draft-format'
+  /**
+   * 草稿乐观锁不匹配（§4.4 F8/C8）：`expectedRevision` 不是当前的那枚 token —— 有人（或另一次调用）
+   * 已经改过这份草稿，**绝不静默覆盖**。
+   */
+  | 'library/revision-conflict'
+  /**
+   * 发布时草稿的**基准修订已经过期**（§4.4 F8/C8）：`asset.currentRevisionId !== draft.baseRevisionId`
+   * ——分叉之后正文已经有了新版本，直接发布会把那一版盖掉 ⇒ 必须重新创建草稿。
+   */
+  | 'library/base-revision-conflict'
+  /**
+   * 发布类工具缺少用户的明确确认（§4.1 F7 / §4.4 E5）：`user_confirmed !== true` 一律拒。
+   *
+   * 这一条是 workdsh **自己**的布尔门闩（不是官方审批服务）——发布是"把草稿变成正式版本"的不可逆动作，
+   * 必须由用户拍板，模型不许自行确认。
+   */
+  | 'library/user-confirmation-required'
   /** 未分类的 I/O 失败；HTTP 面把它投影成 500，其余都按族投影成 400/404/409/413。 */
   | 'library/internal'
 

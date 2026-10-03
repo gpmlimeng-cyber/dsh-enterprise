@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 node:fs/promises 的 open/rename/rm/lstat/realpath/mkdir/rmdir/readFile、node:crypto 的 randomUUID/createHash、node:path 的 join/dirname，以及本包 `./errors.js` 的稳定码与 `./storage/domain.js` 的格式枚举
- * [OUTPUT]: 对外提供 `LibraryObjectStore`（不可变原件的落盘所有者）与它的注入端口 `LibraryObjectStorePort`、`conversion.json` 的 schema/编解码 `libraryConversionSchema`/`encodeConversionRecord`/`decodeConversionRecord`、以及落点与上限常量（`LIBRARY_OBJECTS_DIR_SEGMENTS`/`LIBRARY_CONTENT_FILENAME`/`LIBRARY_CONVERSION_FILENAME`/`LIBRARY_MAX_ORIGINAL_BYTES`/`LIBRARY_MAX_TEXT_BYTES`/`LIBRARY_DEFAULT_EXTENSIONS`）
- * [POS]: bundle 资料库纵深的**二进制层**（方案 §2.1 的"自落盘"分支）：落点 `<dshHome>/library/objects/<assetId>/<revisionId>/{original.<ext>,content.md,conversion.json}`，与 workdsh 的存储结构逐字节一致；根是**构造参数注入**的（便于测试），不 import 任何宿主单例。落盘纪律两条：① 原子写 = 同目录 `.<uuid>.tmp` 写完 `sync` 再 `rename`，权限文件 `0o600`、目录 `0o700`，失败清理临时件；② 路径门禁 = `lstat`（不跟随符号链接）+ `realpath` 逐字等式**抄自**本包 `skill-install.ts`（见各方法注释里的行号），**抄判定逻辑而不是 import**（那里的函数名与语义都绑在"技能包内相对路径"上）
+ * [OUTPUT]: 对外提供 `LibraryObjectStore`（**不可变**原件的落盘所有者）与 `LibraryDraftObjectStore`（**可变**草稿正文的落盘所有者）、两者的注入端口 `LibraryObjectStorePort`/`LibraryDraftObjectPort`、`conversion.json` 的 schema/编解码 `libraryConversionSchema`/`encodeConversionRecord`/`decodeConversionRecord`、以及落点与上限常量（`LIBRARY_OBJECTS_DIR_SEGMENTS`/`LIBRARY_DRAFTS_DIR_SEGMENTS`/`LIBRARY_CONTENT_FILENAME`/`LIBRARY_CONVERSION_FILENAME`/`LIBRARY_MAX_ORIGINAL_BYTES`/`LIBRARY_MAX_TEXT_BYTES`/`LIBRARY_DEFAULT_EXTENSIONS`）
+ * [POS]: bundle 资料库纵深的**二进制层**（方案 §2.1 的"自落盘"分支）：落点 `<dshHome>/library/objects/<assetId>/<revisionId>/{original.<ext>,content.md,conversion.json}`，与 workdsh 的存储结构逐字节一致；根是**构造参数注入**的（便于测试），不 import 任何宿主单例。落盘纪律两条：① 原子写 = 同目录 `.<uuid>.tmp` 写完 `sync` 再 `rename`，权限文件 `0o600`、目录 `0o700`，失败清理临时件；② 路径门禁 = `lstat`（不跟随符号链接）+ `realpath` 逐字等式**抄自**本包 `skill-install.ts`（见各方法注释里的行号），**抄判定逻辑而不是 import**（那里的函数名与语义都绑在"技能包内相对路径"上）。★**草稿正文另起一棵树**（`<dshHome>/library/drafts/<draftId>/<revision>.md`）：草稿是**可变**的，不能混进"同一 id 只许写一次"的不可变原件树（那棵树是修订的身份）；草稿每次更新写**新文件名**、旧文件在记录换指针后尽力删除，于是失败最坏只留下"没有任何记录指向的文件"（不可见的垃圾），绝不会出现"记录指向半个文件"
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -15,6 +15,10 @@ import { LIBRARY_ASSET_KINDS, LIBRARY_DEFAULT_EXTENSIONS } from './storage/domai
 
 /** 对象层在 `<dshHome>` 下的根（与 `skill-install.ts` 的 `<dshHome>/skills`、企业态的 `<dshHome>/enterprise` 互不嵌套）。 */
 export const LIBRARY_OBJECTS_DIR_SEGMENTS = ['library', 'objects'] as const
+/** **草稿正文**在 `<dshHome>` 下的根：与不可变原件树并列而不嵌套（可变 vs 不可变两套语义必须分树）。 */
+export const LIBRARY_DRAFTS_DIR_SEGMENTS = ['library', 'drafts'] as const
+/** 草稿正文的文件名后缀（草稿只允许 markdown/text，故固定 `.md`）。 */
+export const LIBRARY_DRAFT_CONTENT_SUFFIX = '.md'
 /** 派生正文文件名（转换器那一刀写它，本刀只写与读）。 */
 export const LIBRARY_CONTENT_FILENAME = 'content.md'
 /** 转换元数据文件名（§4.4 A2 的形状：`{version,kind,originalSha256,warnings,locations}`）。 */
@@ -108,8 +112,11 @@ export interface LibraryRevisionOriginal {
 /**
  * 服务门面真正依赖的对象层接口（注入用）。
  * 单独抽一个端口是为了让"多步写不交错"这类顺序断言可以注入一个带延迟与埋点的实现（见 tests）。
+ *
+ * 含**草稿正文**那四个方法（`LibraryDraftObjectPort`）：`LibraryObjectStore` 一个实例同时管两棵树
+ * （不可变原件 + 可变草稿），但两套语义在实现里是分开的（见各自的类），注入面因此只有一枚端口。
  */
-export interface LibraryObjectStorePort {
+export interface LibraryObjectStorePort extends LibraryDraftObjectPort {
   writeRevision(input: LibraryRevisionWriteInput): Promise<LibraryRevisionObjects>
   readRevisionText(assetId: string, revisionId: string): Promise<LibraryRevisionText>
   readRevisionOriginal(assetId: string, revisionId: string, extension: string): Promise<LibraryRevisionOriginal>
@@ -143,17 +150,37 @@ export interface LibraryObjectStoreOptions {
  */
 export class LibraryObjectStore implements LibraryObjectStorePort {
   private readonly dshHome: string
+  /** 草稿正文那棵树（可变）的落盘所有者：同一实例内**语义分开**、注入面合并。 */
+  private readonly drafts: LibraryDraftObjectStore
 
   constructor(options: LibraryObjectStoreOptions) {
     if (typeof options?.dshHome !== 'string' || options.dshHome.length === 0) {
       throw badRequest('library object store needs a dshHome root')
     }
     this.dshHome = options.dshHome
+    this.drafts = new LibraryDraftObjectStore(options)
   }
 
   /** 对象层根（未规范化）：`<dshHome>/library/objects`。 */
   get root(): string {
     return join(this.dshHome, ...LIBRARY_OBJECTS_DIR_SEGMENTS)
+  }
+
+  // ── 草稿正文（**可变**）：逐方法转交给草稿树的所有者，本类只是注入面的合并点 ──
+  writeDraftContent(draftId: string, revision: string, content: string): Promise<LibraryDraftContent> {
+    return this.drafts.writeDraftContent(draftId, revision, content)
+  }
+
+  readDraftContent(contentRelativePath: string): Promise<LibraryRevisionText> {
+    return this.drafts.readDraftContent(contentRelativePath)
+  }
+
+  removeDraftContent(contentRelativePath: string): Promise<boolean> {
+    return this.drafts.removeDraftContent(contentRelativePath)
+  }
+
+  removeDraftDirectory(draftId: string): Promise<boolean> {
+    return this.drafts.removeDraftDirectory(draftId)
   }
 
   /**
@@ -375,6 +402,192 @@ export class LibraryObjectStore implements LibraryObjectStorePort {
     await assertFileIdentity(path)
     return { path, size: stats.size }
   }
+}
+
+/** 一次草稿正文落盘后的事实（服务层写进 `drafts` 记录的三件套）。 */
+export interface LibraryDraftContent {
+  /** 相对**草稿对象层**根（`<dshHome>/library/drafts`）的路径：`<draftId>/<revision>.md`。 */
+  readonly contentRelativePath: string
+  readonly contentSha256: string
+  readonly contentByteLength: number
+}
+
+/**
+ * 草稿正文的对象层端口（注入用）。
+ *
+ * 与不可变原件端口（`LibraryObjectStorePort`）分开，是因为两者的语义**不同**：原件"同一 id 只许写一次"，
+ * 草稿"每次改动都是一个新落点、旧落点随后删除"。混成一个接口就会让"不可变"这条闸在草稿上失效（或反之）。
+ * `contentRelativePath` 是**记录里那一枚真源**：读/删都只认它，绝不重新拼路径（避免"读的路径"与"记录的路径"分叉）。
+ */
+export interface LibraryDraftObjectPort {
+  /** 写一份**新的**草稿正文落点（同一 `(draftId, revision)` 已存在 ⇒ 拒，fail-closed）。 */
+  writeDraftContent(draftId: string, revision: string, content: string): Promise<LibraryDraftContent>
+  /** 按记录里的相对路径读回正文（严格 UTF-8，非法字节/NUL ⇒ `library/invalid-text`）。 */
+  readDraftContent(contentRelativePath: string): Promise<LibraryRevisionText>
+  /** 按记录里的相对路径删掉那一份（返回它此前是否存在）；为空掉的草稿目录顺手 `rmdir`。 */
+  removeDraftContent(contentRelativePath: string): Promise<boolean>
+  /** 删掉一个草稿的整个目录（级联删除用）；返回是否真的删掉了东西。 */
+  removeDraftDirectory(draftId: string): Promise<boolean>
+}
+
+/**
+ * 草稿正文的对象层：`<dshHome>/library/drafts/<draftId>/<revision>.md` 的唯读写者。
+ *
+ * 为什么是"每次一个新文件名"而不是就地重写同一个文件：就地重写会出现"文件已经换了、记录还没换"
+ * 的中间态（进程被杀就是永久不一致），而"新文件 + 记录换指针 + 尽力删旧文件"最坏只留下**不可见的垃圾**
+ * ——这是本仓对半成品一律的取舍（`manager.ts` 的补偿顺序同此）。
+ *
+ * 路径门禁与 `LibraryObjectStore` **同一套判定**（`lstat` 不跟随符号链接 + `realpath` 逐字等式），
+ * 复用本文件的私有助手而不是各写一份：两棵树只是根不同，逃逸判定完全相同。
+ */
+export class LibraryDraftObjectStore implements LibraryDraftObjectPort {
+  private readonly dshHome: string
+
+  constructor(options: LibraryObjectStoreOptions) {
+    if (typeof options?.dshHome !== 'string' || options.dshHome.length === 0) {
+      throw badRequest('library draft store needs a dshHome root')
+    }
+    this.dshHome = options.dshHome
+  }
+
+  /** 草稿对象层根（未规范化）：`<dshHome>/library/drafts`。 */
+  get root(): string {
+    return join(this.dshHome, ...LIBRARY_DRAFTS_DIR_SEGMENTS)
+  }
+
+  async writeDraftContent(draftId: string, revision: string, content: string): Promise<LibraryDraftContent> {
+    const safeDraftId = requireObjectId(draftId, 'draftId')
+    const safeRevision = requireObjectId(revision, 'revision')
+    const body = requireText(content, 'content')
+    const bytes = Buffer.from(body, 'utf8')
+    if (bytes.byteLength > LIBRARY_MAX_TEXT_BYTES) {
+      throw new LibraryError('library/file-too-large', `library draft content exceeds ${LIBRARY_MAX_TEXT_BYTES} bytes`)
+    }
+    const filename = `${safeRevision}${LIBRARY_DRAFT_CONTENT_SUFFIX}`
+    const { resolvedRoot } = await this.ensureRoot()
+    const directory = join(resolvedRoot, safeDraftId)
+    const target = join(directory, filename)
+    try {
+      await mkdir(directory, { recursive: true, mode: 0o700 })
+      await assertDirectoryIdentity(directory)
+      // 同一 (draftId, revision) 已存在 ⇒ 拒（revision 是乐观锁 token，撞了就是 id 分配出了问题，绝不覆盖）。
+      if ((await lstatOrUndefined(target)) !== undefined) {
+        throw new LibraryError('library/key-collision', 'library draft content already exists at that revision')
+      }
+      await writeAtomicFile(target, body)
+      await assertFileIdentity(target)
+    } catch (error) {
+      await rmdir(directory).catch(() => undefined)
+      throw libraryError(error, 'library/internal', 'library draft content could not be written')
+    }
+    return {
+      contentRelativePath: [safeDraftId, filename].join('/'),
+      contentSha256: sha256Of(bytes),
+      contentByteLength: bytes.byteLength,
+    }
+  }
+
+  async readDraftContent(contentRelativePath: string): Promise<LibraryRevisionText> {
+    const { path, size } = await this.resolveDraftFile(contentRelativePath)
+    const bytes = size === 0 ? Buffer.alloc(0) : await readFile(path)
+    return { text: decodeLibraryText(bytes), byteLength: bytes.byteLength }
+  }
+
+  async removeDraftContent(contentRelativePath: string): Promise<boolean> {
+    const { path, directory } = await this.resolveDraftFile(contentRelativePath)
+    await rm(path, { force: true })
+    await rmdir(directory).catch(() => undefined)
+    return true
+  }
+
+  async removeDraftDirectory(draftId: string): Promise<boolean> {
+    const safeDraftId = requireObjectId(draftId, 'draftId')
+    // 幂等：草稿根都不在（从来没有过任何草稿）⇒ 没有东西可删，如实回 false 而不是报「找不到」。
+    const resolvedRoot = await realpathOrUndefined(this.root)
+    if (resolvedRoot === undefined) return false
+    const directory = join(resolvedRoot, safeDraftId)
+    const stats = await lstatOrUndefined(directory)
+    if (stats === undefined) return false
+    if (stats.isSymbolicLink() || !stats.isDirectory()) {
+      throw new LibraryError('library/object-invalid', 'library draft path is not a regular directory')
+    }
+    await assertDirectoryIdentity(directory)
+    await rm(directory, { force: true, recursive: true })
+    await rmdir(resolvedRoot).catch(() => undefined)
+    return true
+  }
+
+  /** 解析记录里的相对路径（恰好两段、第二段是 `<id>.md`），返回真实落点与大小。 */
+  private async resolveDraftFile(contentRelativePath: string): Promise<{ path: string; directory: string; size: number }> {
+    const [draftId, filename] = requireDraftRelativePath(contentRelativePath)
+    const { resolvedRoot } = await this.resolveRoot()
+    const directory = join(resolvedRoot, draftId)
+    const stats = await lstatOrUndefined(directory)
+    if (stats === undefined) {
+      throw new LibraryError('library/object-missing', 'library draft directory is missing')
+    }
+    if (stats.isSymbolicLink() || !stats.isDirectory()) {
+      throw new LibraryError('library/object-invalid', 'library draft path is not a regular directory')
+    }
+    await assertDirectoryIdentity(directory)
+    const path = join(directory, filename)
+    const fileStats = await lstatOrUndefined(path)
+    if (fileStats === undefined) {
+      throw new LibraryError('library/object-missing', 'library draft content is missing')
+    }
+    if (fileStats.isSymbolicLink() || !fileStats.isFile()) {
+      throw new LibraryError('library/object-invalid', 'library draft content is not a regular file')
+    }
+    if (fileStats.size > LIBRARY_MAX_TEXT_BYTES) {
+      throw new LibraryError('library/file-too-large', `library draft content exceeds ${LIBRARY_MAX_TEXT_BYTES} bytes`)
+    }
+    await assertFileIdentity(path)
+    return { path, directory, size: fileStats.size }
+  }
+
+  /** 草稿根必须存在（读路径）：不存在 ⇒ `library/not-found`（还没有任何草稿）。 */
+  private async resolveRoot(): Promise<{ root: string; resolvedRoot: string }> {
+    const root = this.root
+    const resolvedRoot = await realpathOrUndefined(root)
+    if (resolvedRoot === undefined) {
+      throw new LibraryError('library/not-found', 'library draft root is missing')
+    }
+    return { root, resolvedRoot }
+  }
+
+  /** 草稿根必须存在（写路径）：不存在就建（`0o700`）。 */
+  private async ensureRoot(): Promise<{ root: string; resolvedRoot: string }> {
+    const root = this.root
+    try {
+      await mkdir(root, { recursive: true, mode: 0o700 })
+    } catch (error) {
+      throw libraryError(error, 'library/internal', 'library draft root could not be created')
+    }
+    const resolvedRoot = await realpath(root).catch((error: unknown) => {
+      throw libraryError(error, 'library/internal', 'library draft root could not be resolved')
+    })
+    return { root, resolvedRoot }
+  }
+}
+
+/**
+ * 草稿记录里的相对路径门禁：**恰好两段**（`<draftId>/<名字>.md`），每段都必须是安全路径片段。
+ *
+ * 只认记录里那一枚字符串（不额外接受调用方拼出来的绝对路径），因此这里同时是"记录被改坏"的最后一道闸。
+ */
+function requireDraftRelativePath(value: unknown): [string, string] {
+  if (typeof value !== 'string') throw badRequest('contentRelativePath must be a string')
+  const segments = value.split('/')
+  if (segments.length !== 2) throw badRequest('contentRelativePath must have exactly two segments')
+  const [draftId, filename] = segments as [string, string]
+  const safeDraftId = requireObjectId(draftId, 'contentRelativePath draftId')
+  if (!filename.endsWith(LIBRARY_DRAFT_CONTENT_SUFFIX)) {
+    throw badRequest(`contentRelativePath must end with ${LIBRARY_DRAFT_CONTENT_SUFFIX}`)
+  }
+  // 过 id 门禁的是文件名的**词干**：后缀 `.md` 是固定常量，整串里那一个点不是"路径逃逸"。
+  const stem = filename.slice(0, -LIBRARY_DRAFT_CONTENT_SUFFIX.length)
+  requireObjectId(stem, 'contentRelativePath revision')
+  return [safeDraftId, filename]
 }
 
 /** 对象层 id 门禁（`..`/绝对路径/点/斜杠/空白/控制字符一律不命中）。 */
