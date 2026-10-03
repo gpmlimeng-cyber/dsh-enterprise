@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 只依赖官方 `pluginManager` 的**结构面**（不 import 官方包，保持本包的 peer 边界）与 `./errors.js` 的稳定码
- * [OUTPUT]: 对外提供受管安装边界的端口契约 `ManagedPluginManagerPort`（`installBundle` / `removeBundle` / `waitForInstall` / `cancelInstall`）、
+ * [OUTPUT]: 对外提供受管安装边界的端口契约 `ManagedPluginManagerPort`（`installBundle` / `removeBundle` / `setBundleEnabled` / `waitForInstall` / `cancelInstall`）、
  *           官方 `ChangeResult` → `ManagedPluginChangeResult` 的逐字段受控投影 `makeManagedPluginManagerPort`、
  *           从宿主 ctx 读官方服务 `managedPluginManagerFromContext`、缺席时的 fail-closed 端口 `unavailableManagedPluginManagerPort`
  *           与**晚绑定持有者** `createLateBoundManagedPluginManagerPort`
@@ -17,6 +17,10 @@
  *     正好落在 tarball 那一支；非 git 形状连 GitHub 连接检查都跳过（`lib/index.js:968-969` 的
  *     `checkGithubConnection` 对 `kind !== 'git'` 直接返回 undefined），故本地制品不发任何多余网络请求。
  *   · `removeBundle(name)` —— 同文件 `:135`。
+ *   · `setBundleEnabled(name, enabled)` —— 官方 `lib/index.js:1670-1679`（→ `selectBundle` `:1979-2006`）：
+ *     只读写 profile manifest 的 `dsh.profile.bundles`（**不卸载依赖**），返回 `stage: 'enable'`、
+ *     `target: name`、`enabled` 的 `ChangeResult`；`application` 与其它变更同一口径（`overridden` 只可能来自
+ *     行级的 `setPluginEnabled`，本端口用不到，故照其它方向如实落在「非成功即失败」那一支）。用户显式启停走的就是这一枚。
  *   · `waitForInstall(requestId)` —— 同文件 `:124`，返回**在途安装**的结果（`lib/index.js:1820` 读 `installs.get(id).result`），
  *     不取消；安装结束后该表项被删（`lib/index.js:1811`），此后返回 `null`（既不代表成功也不代表取消）。
  *   · `cancelInstall(requestId)` —— 同文件 `:130`，`applying` 阶段返回 `too-late`、没有该 id 返回 `not-running`、
@@ -27,8 +31,9 @@
  * 三条纪律：
  *   1. **不猜、不降级**：官方服务不可用时端口**不接受**这半个面，调用点拿到稳定码后 fail-closed（503），
  *      绝不回落到 CLI/pnpm 第二条安装通道。
- *   2. **不接半个端口**：形状门禁要求四枚方法**全在**（缺一枚即与「服务缺席」同判），因为缺 `cancelInstall`
- *      时界面那枚取消键就会变回假按钮——宁可整条安装面判不可用，也不给半个可取消的假象。
+ *   2. **不接半个端口**：形状门禁要求五枚方法**全在**（缺一枚即与「服务缺席」同判），因为缺 `cancelInstall`
+ *      时界面那枚取消键就会变回假按钮、缺 `setBundleEnabled` 时启停开关就会变回假开关——宁可整条安装面判不可用，
+ *      也不给半个可取消/可启停的假象。
  *   3. **受控投影**：官方 `ChangeResult` 只投影稳定字段（`application`/`stage`/`error.code`/`warnings`…），
  *      pnpm 输出、`logPath`、`PackageResult.output` 与宿主路径一律不进本包的状态、库存或响应体。
  *
@@ -97,10 +102,12 @@ export interface ManagedPluginInstallLogChunk {
   readonly exitCode?: number | null
 }
 
-/** 受管安装端口：本包只认这四枚官方方法。 */
+/** 受管插件端口：本包只认这五枚官方方法。 */
 export interface ManagedPluginManagerPort {
   installBundle(spec: string, options?: ManagedPluginInstallOptions): Promise<ManagedPluginChangeResult>
   removeBundle(name: string): Promise<ManagedPluginChangeResult>
+  /** 只改 profile 的 bundle 层：**不卸载依赖**（官方 `setBundleEnabled`）。 */
+  setBundleEnabled(name: string, enabled: boolean): Promise<ManagedPluginChangeResult>
   waitForInstall(requestId: string): Promise<ManagedPluginChangeResult | null>
   cancelInstall(requestId: string): Promise<ManagedPluginCancellation>
 }
@@ -115,6 +122,7 @@ export interface ManagedPluginManagerPort {
 export interface OfficialPluginManagerLike {
   installBundle(spec: string, options?: unknown): Promise<unknown>
   removeBundle(name: string): Promise<unknown>
+  setBundleEnabled(name: string, enabled: boolean): Promise<unknown>
   waitForInstall(requestId: string): Promise<unknown>
   cancelInstall(requestId: string): Promise<unknown>
 }
@@ -204,6 +212,12 @@ export function makeManagedPluginManagerPort(manager: OfficialPluginManagerLike)
       const result = await manager.removeBundle(name)
       return projectChangeResult(name, result)
     },
+    async setBundleEnabled(name, enabled) {
+      // 官方结果里的 `target` 一般就是 name；形状不合时 `projectChangeResult` 回落到我们交出去的 name，
+      // 与 install/remove 同一口径（**不**谎报成功：只有 `changed:true` 才代表 profile 真的动了）。
+      const result = await manager.setBundleEnabled(name, enabled)
+      return projectChangeResult(name, result)
+    },
     async waitForInstall(requestId) {
       const result = await manager.waitForInstall(requestId)
       return result === null || result === undefined ? null : projectChangeResult(requestId, result)
@@ -223,7 +237,7 @@ export function makeManagedPluginManagerPort(manager: OfficialPluginManagerLike)
 }
 
 /**
- * 官方安装面可达性：四枚方法**全在**才算可达（缺一枚即判不可达，见文件头纪律 2）。
+ * 官方插件面可达性：五枚方法**全在**才算可达（缺一枚即判不可达，见文件头纪律 2）。
  *
  * @param ctx - 宿主（或单测假）ctx；只读 `get`。
  * @returns 官方服务；形状不符即 `undefined`。
@@ -234,7 +248,7 @@ export function managedPluginManagerFromContext(
   const manager = ctx.get('pluginManager')
   if (typeof manager !== 'object' || manager === null) return undefined
   const candidate = manager as Record<string, unknown>
-  for (const method of ['installBundle', 'removeBundle', 'waitForInstall', 'cancelInstall'] as const) {
+  for (const method of ['installBundle', 'removeBundle', 'setBundleEnabled', 'waitForInstall', 'cancelInstall'] as const) {
     if (typeof candidate[method] !== 'function') return undefined
   }
   return manager as unknown as OfficialPluginManagerLike
@@ -251,6 +265,7 @@ export function unavailableManagedPluginManagerPort(): ManagedPluginManagerPort 
   return {
     installBundle: async () => refuse(),
     removeBundle: async () => refuse(),
+    setBundleEnabled: async () => refuse(),
     waitForInstall: async () => refuse(),
     cancelInstall: async () => refuse(),
   }
@@ -292,10 +307,11 @@ export function createLateBoundManagedPluginManagerPort(): LateBoundManagedPlugi
   }
   return {
     port: {
-      // 四枚都写成 `async`：服务缺席时得到的是**被拒的 promise** 而不是同步抛出，
+      // 五枚都写成 `async`：服务缺席时得到的是**被拒的 promise** 而不是同步抛出，
       // 于是调用方（本 Service 与真机路由）无论 `await`/`.catch()` 都能拿到同一枚稳定码。
       installBundle: async (spec, options) => require().installBundle(spec, options),
       removeBundle: async name => require().removeBundle(name),
+      setBundleEnabled: async (name, enabled) => require().setBundleEnabled(name, enabled),
       waitForInstall: async requestId => require().waitForInstall(requestId),
       cancelInstall: async requestId => require().cancelInstall(requestId),
     },

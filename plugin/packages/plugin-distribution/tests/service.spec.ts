@@ -6,7 +6,7 @@
  */
 
 import { createHash, generateKeyPairSync, sign, type KeyPairKeyObjectResult } from 'node:crypto'
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -134,6 +134,7 @@ class FakePlatform implements EnterprisePlatformPort {
 interface FakeManagerOptions {
   readonly install?: (spec: string, options: ManagedPluginInstallOptions | undefined) => Promise<ManagedPluginChangeResult>
   readonly remove?: (name: string) => Promise<ManagedPluginChangeResult>
+  readonly setEnabled?: (name: string, enabled: boolean) => Promise<ManagedPluginChangeResult>
   readonly cancel?: (requestId: string) => Promise<ManagedPluginCancellation>
   readonly wait?: (requestId: string) => Promise<ManagedPluginChangeResult | null>
 }
@@ -146,6 +147,8 @@ interface FakeManager {
     readonly requestId: string | undefined
   }[]
   readonly removeCalls: string[]
+  /** 每一个启停请求的 `[包名, 方向]`；方向由用户拨的路径决定，不是我们折出来的。 */
+  readonly setEnabledCalls: (readonly [string, boolean])[]
   readonly cancelCalls: string[]
   readonly waitCalls: string[]
 }
@@ -153,11 +156,13 @@ interface FakeManager {
 function fakePluginManager(options: FakeManagerOptions = {}): FakeManager {
   const installCalls: FakeManager['installCalls'] = []
   const removeCalls: string[] = []
+  const setEnabledCalls: FakeManager['setEnabledCalls'] = []
   const cancelCalls: string[] = []
   const waitCalls: string[] = []
   return {
     installCalls,
     removeCalls,
+    setEnabledCalls,
     cancelCalls,
     waitCalls,
     port: {
@@ -170,6 +175,12 @@ function fakePluginManager(options: FakeManagerOptions = {}): FakeManager {
         removeCalls.push(name)
         if (options.remove !== undefined) return await options.remove(name)
         return { target: name, changed: true, application: 'applied' }
+      },
+      async setBundleEnabled(name, enabled) {
+        setEnabledCalls.push([name, enabled])
+        if (options.setEnabled !== undefined) return await options.setEnabled(name, enabled)
+        // 官方口径：非 hot 的 profile 变更一律 `restart-required`（`lib/index.js:2042`）。
+        return { target: name, changed: true, application: 'restart-required', stage: 'enable', enabled }
       },
       async cancelInstall(requestId) {
         cancelCalls.push(requestId)
@@ -281,7 +292,7 @@ describe('EnterprisePluginDistributionService', () => {
       assignmentRevision: 1,
       plugins: [{
         packageName: desired.packageName, version: desired.version, sha256: desired.sha256,
-        desiredRevision: 1, desiredState: 'INSTALLED', state: 'RESTART_REQUIRED',
+        enabled: true, desiredRevision: 1, desiredState: 'INSTALLED', state: 'RESTART_REQUIRED',
         lastErrorCode: null, restartMarker: 'previous-run',
       }],
     })
@@ -594,6 +605,7 @@ describe('EnterprisePluginDistributionService', () => {
         packageName: v2.packageName,
         version: v2.version,
         sha256: v2.sha256,
+        enabled: true,
         desiredRevision: 1,
         desiredState: 'INSTALLED',
         state: 'ACTIVE',
@@ -866,7 +878,7 @@ describe('EnterprisePluginDistributionService', () => {
       assignmentRevision: 1,
       plugins: [{
         packageName: v1.packageName, version: v1.version, sha256: v1.sha256,
-        desiredRevision: 1, desiredState: 'INSTALLED', state: 'ACTIVE',
+        enabled: true, desiredRevision: 1, desiredState: 'INSTALLED', state: 'ACTIVE',
         lastErrorCode: null, restartMarker: null,
       }],
     })
@@ -935,6 +947,273 @@ describe('EnterprisePluginDistributionService', () => {
     await expect(env.service.cancel(desired.packageName)).resolves.toEqual({ status: 'not-running' })
     // 既没有官方安装面、也没有任何 CLI 子进程：fail-closed，不猜第二条通道。
     expect(env.subprocess.specs).toEqual([])
+  })
+
+  // ── 启用 / 停用（本刀新增：官方 setBundleEnabled + 本机私有 enabled 位） ────────────────────────
+
+  it('toggles a managed plugin off through the official setBundleEnabled and keeps the row installed until a restart', async () => {
+    const content = Buffer.from('managed bundle to disable')
+    const desired = assignment(testKey, content)
+    const platform = new FakePlatform(bootstrap(1, [desired]), new Map([[desired.downloadUrl!, content]]))
+    const env = await environment({
+      platform,
+      inventory: inventory([{ moduleName: desired.packageName, enabled: true, fiberPhase: 'active' }]),
+    })
+    await env.service.settled()
+    await env.service.install(desired.packageName, desired.pluginVersionId)
+    expect(env.service.status().plugins[0]).toMatchObject({ enabled: true })
+
+    await env.service.setEnabled(desired.packageName, false)
+
+    // 只改 profile 的 bundle 层：官方启停面被拨了**一次**、方向就是用户拨的那一枚；**没有**再装一次。
+    expect(env.manager?.setEnabledCalls).toEqual([[desired.packageName, false]])
+    expect(env.manager?.installCalls).toHaveLength(1)
+    // 那一行**仍在**（desiredState/version/摘要原样），只是启停位翻了、等重启生效（与卸载同一收束口径）。
+    expect(env.service.status().plugins[0]).toMatchObject({
+      packageName: desired.packageName,
+      desiredState: 'INSTALLED',
+      version: desired.version,
+      sha256: desired.sha256,
+      enabled: false,
+      state: 'RESTART_REQUIRED',
+      restartMarker: 'test-run',
+      lastErrorCode: null,
+    })
+    expect(env.subprocess.specs).toEqual([])
+  })
+
+  it('is idempotent: an already-matching enablement bit never troubles the official face', async () => {
+    const content = Buffer.from('managed bundle with a stable switch')
+    const desired = assignment(testKey, content)
+    const platform = new FakePlatform(bootstrap(1, [desired]), new Map([[desired.downloadUrl!, content]]))
+    const env = await environment({ platform })
+    await env.service.settled()
+    await env.service.install(desired.packageName, desired.pluginVersionId)
+
+    // 已经是「启用」：再点一次启用不该打官方面（那一跑会白改一次盘 + 白 reload 一次）。
+    await env.service.setEnabled(desired.packageName, true)
+    expect(env.manager?.setEnabledCalls).toEqual([])
+    expect(env.service.status().plugins[0]).toMatchObject({ enabled: true })
+
+    await env.service.setEnabled(desired.packageName, false)
+    await env.service.setEnabled(desired.packageName, false)
+    expect(env.manager?.setEnabledCalls).toEqual([[desired.packageName, false]])
+    expect(env.service.status().plugins[0]).toMatchObject({ enabled: false })
+  })
+
+  it('fail-closes an official enablement failure and leaves the record exactly as it was', async () => {
+    const content = Buffer.from('managed bundle whose enablement is refused')
+    const desired = assignment(testKey, content)
+    const platform = new FakePlatform(bootstrap(1, [desired]), new Map([[desired.downloadUrl!, content]]))
+    const manager = fakePluginManager({
+      setEnabled: async name => ({
+        target: name, changed: false, application: 'failed', error: { code: 'management-required' },
+      }),
+    })
+    const env = await environment({ platform, manager })
+    await env.service.settled()
+    await env.service.install(desired.packageName, desired.pluginVersionId)
+
+    const failure = await env.service.setEnabled(desired.packageName, false)
+      .then(() => undefined, (error: unknown) => error)
+    // 官方拒绝启停 ⇒ fail-closed（不假装成功）；官方码与它自己的话原样留在 cause 里。
+    expect(failure).toMatchObject({ code: 'ENT_PLUGIN_CLI_FAILED' })
+    expect(String((failure as { cause?: unknown }).cause)).toContain('code=management-required')
+    // 记录不动：还是「已安装 · 已启用 · 等重启」，绝不因为我们尝试过就翻成停用或失败。
+    expect(env.service.status().plugins[0]).toMatchObject({
+      enabled: true, state: 'RESTART_REQUIRED', lastErrorCode: null,
+    })
+  })
+
+  it('refuses a toggle while another plugin operation is in flight (the same serial gate as install/remove)', async () => {
+    const content = Buffer.from('managed bundle with a slow switch')
+    const desired = assignment(testKey, content)
+    const platform = new FakePlatform(bootstrap(1, [desired]), new Map([[desired.downloadUrl!, content]]))
+    let settle: ((result: ManagedPluginChangeResult) => void) | undefined
+    const manager = fakePluginManager({
+      setEnabled: async () => await new Promise<ManagedPluginChangeResult>(resolve => { settle = resolve }),
+    })
+    const env = await environment({ platform, manager })
+    await env.service.settled()
+    await env.service.install(desired.packageName, desired.pluginVersionId)
+
+    const toggling = env.service.setEnabled(desired.packageName, false)
+    await vi.waitFor(() => { expect(env.manager?.setEnabledCalls).toHaveLength(1) })
+    // 同一时刻只允许一件插件操作：第二次拨（哪怕反向）拿到的是与装/卸同一条串行闸的 BUSY。
+    await expect(env.service.setEnabled(desired.packageName, true))
+      .rejects.toMatchObject({ code: 'ENT_PLUGIN_BUSY' })
+    settle!({ target: desired.packageName, changed: true, application: 'restart-required', stage: 'enable', enabled: false })
+    await toggling
+    expect(env.manager?.setEnabledCalls).toEqual([[desired.packageName, false]])
+  })
+
+  it('refuses to toggle an unmanaged row or one the center has already withdrawn', async () => {
+    const content = Buffer.from('managed bundle that may be withdrawn')
+    const desired = assignment(testKey, content)
+    const platform = new FakePlatform(bootstrap(1, [desired]), new Map([[desired.downloadUrl!, content]]))
+    const env = await environment({ platform })
+    await env.service.settled()
+
+    // 从来没有受管记录：没有可启停的运行面，且绝不能凭一枚包名去官方 profile 里加一层。
+    await expect(env.service.setEnabled(desired.packageName, true))
+      .rejects.toMatchObject({ code: 'ENT_PERMISSION_DENIED' })
+    expect(env.manager?.setEnabledCalls).toEqual([])
+
+    await env.service.install(desired.packageName, desired.pluginVersionId)
+    await env.service.remove(desired.packageName)
+    expect(env.service.status().plugins[0]).toMatchObject({ desiredState: 'ABSENT' })
+    // 中心/用户已撤回的那一行：同样拒（否则 `setBundleEnabled(true)` 会把刚摘掉的 bundle 偷偷加回来）。
+    await expect(env.service.setEnabled(desired.packageName, true))
+      .rejects.toMatchObject({ code: 'ENT_PERMISSION_DENIED' })
+    expect(env.manager?.setEnabledCalls).toEqual([])
+  })
+
+  it('confirms a disabled plugin as installed-but-off in the next process instead of calling it inactive', async () => {
+    const content = Buffer.from('managed bundle disabled before the restart')
+    const desired = assignment(testKey, content)
+    const home = await mkdtemp(join(tmpdir(), 'enterprise-plugin-disabled-confirm-'))
+    cleanups.push(() => rm(home, { force: true, recursive: true }))
+    const store = new ManagedPluginStore(home)
+    await store.write({
+      formatVersion: 1,
+      assignmentRevision: 1,
+      plugins: [{
+        packageName: desired.packageName, version: desired.version, sha256: desired.sha256,
+        enabled: false, desiredRevision: 1, desiredState: 'INSTALLED', state: 'RESTART_REQUIRED',
+        lastErrorCode: null, restartMarker: 'previous-run',
+      }],
+    })
+    // 停用后 bundle 已从 profile 层摘掉 ⇒ Loader 里连一条 entry 都没有（inventory 为空）。
+    const platform = new FakePlatform(bootstrap(1, [desired]), new Map())
+    const env = await environment({ platform, dshHome: home, store, inventory: inventory(), runMarker: 'next-run' })
+    await env.service.settled()
+    expect(env.service.status().plugins[0]).toMatchObject({
+      state: 'ACTIVE', enabled: false, restartMarker: null, lastErrorCode: null, version: desired.version,
+    })
+
+    // 对照组：同一份现场，但启停位是「启用」⇒ 依旧如实判 LOADER_INACTIVE（停用不是失败，启用后不见了才是）。
+    const otherHome = await mkdtemp(join(tmpdir(), 'enterprise-plugin-enabled-inactive-'))
+    cleanups.push(() => rm(otherHome, { force: true, recursive: true }))
+    const otherStore = new ManagedPluginStore(otherHome)
+    await otherStore.write({
+      formatVersion: 1,
+      assignmentRevision: 1,
+      plugins: [{
+        packageName: desired.packageName, version: desired.version, sha256: desired.sha256,
+        enabled: true, desiredRevision: 1, desiredState: 'INSTALLED', state: 'RESTART_REQUIRED',
+        lastErrorCode: null, restartMarker: 'previous-run',
+      }],
+    })
+    const other = await environment({
+      platform: new FakePlatform(bootstrap(1, [desired]), new Map()),
+      dshHome: otherHome,
+      store: otherStore,
+      inventory: inventory(),
+      runMarker: 'next-run',
+    })
+    await other.service.settled()
+    expect(other.service.status().plugins[0]).toMatchObject({
+      state: 'FAILED', enabled: true, lastErrorCode: 'ENT_PLUGIN_LOADER_INACTIVE',
+    })
+  })
+
+  it('never re-enables a disabled plugin when the reconciler sees the same artifact', async () => {
+    const content = Buffer.from('managed bundle that stays off')
+    const desired = assignment(testKey, content)
+    const home = await mkdtemp(join(tmpdir(), 'enterprise-plugin-disabled-reconcile-'))
+    cleanups.push(() => rm(home, { force: true, recursive: true }))
+    const store = new ManagedPluginStore(home)
+    await store.write({
+      formatVersion: 1,
+      assignmentRevision: 1,
+      plugins: [{
+        packageName: desired.packageName, version: desired.version, sha256: desired.sha256,
+        enabled: false, desiredRevision: 1, desiredState: 'INSTALLED', state: 'ACTIVE',
+        lastErrorCode: null, restartMarker: null,
+      }],
+    })
+    const platform = new FakePlatform(bootstrap(1, [desired]), new Map([[desired.downloadUrl!, content]]))
+    const env = await environment({ platform, dshHome: home, store })
+    await env.service.settled()
+
+    await env.service.install(desired.packageName, desired.pluginVersionId)
+
+    // sameArtifact + 已停用 ⇒ 绝不重新走 `installBundle({enabled:true})`（那等于把用户的停用偷偷开回来）。
+    expect(env.manager?.installCalls).toEqual([])
+    expect(env.service.status().plugins[0]).toMatchObject({
+      enabled: false, state: 'ACTIVE', version: desired.version,
+    })
+  })
+
+  it('keeps a disabled plugin disabled when the center offers a new version through an explicit install', async () => {
+    const v1Content = Buffer.from('managed bundle v1 disabled')
+    const v1 = assignment(testKey, v1Content, { id: '880', version: '1.0.0' })
+    const home = await mkdtemp(join(tmpdir(), 'enterprise-plugin-disabled-upgrade-'))
+    cleanups.push(() => rm(home, { force: true, recursive: true }))
+    const store = new ManagedPluginStore(home)
+    await store.write({
+      formatVersion: 1,
+      assignmentRevision: 1,
+      plugins: [{
+        packageName: v1.packageName, version: v1.version, sha256: v1.sha256,
+        enabled: false, desiredRevision: 1, desiredState: 'INSTALLED', state: 'ACTIVE',
+        lastErrorCode: null, restartMarker: null,
+      }],
+    })
+    const v2Content = Buffer.from('managed bundle v2 while disabled')
+    const v2 = assignment(testKey, v2Content, { id: '882', version: '2.0.0' })
+    const platform = new FakePlatform(bootstrap(2, [v2]), new Map([[v2.downloadUrl!, v2Content]]))
+    const env = await environment({ platform, dshHome: home, store })
+    await env.service.settled()
+
+    await env.service.install(v2.packageName, v2.pluginVersionId)
+
+    // 换版本这一刀把启停位**一起带下去**：新制品装上盘，但仍是「已停用」（不借安装之机把开关拨回来）。
+    expect(env.manager?.installCalls).toEqual([{
+      spec: join(home, 'enterprise', 'artifacts', `${v2.sha256}.tgz`),
+      enabled: false,
+      requestId: expect.any(String),
+    }])
+    expect(env.service.status().plugins[0]).toMatchObject({
+      version: '2.0.0', enabled: false, state: 'RESTART_REQUIRED',
+    })
+  })
+
+  it('treats a legacy record without the local enabled bit as enabled (read-time normalization, no migration)', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'enterprise-plugin-legacy-record-'))
+    cleanups.push(() => rm(home, { force: true, recursive: true }))
+    const content = Buffer.from('legacy managed bundle')
+    const desired = assignment(testKey, content)
+    const path = join(home, 'enterprise', 'managed-plugins.json')
+    await mkdir(dirname(path), { recursive: true })
+    // 旧 Host 写下的那一份：**没有 `enabled` 这一枚键**（形状门禁的另一个合法键集）。
+    await writeFile(path, `${JSON.stringify({
+      formatVersion: 1,
+      assignmentRevision: 1,
+      plugins: [{
+        packageName: desired.packageName, version: desired.version, sha256: desired.sha256,
+        desiredRevision: 1, desiredState: 'INSTALLED', state: 'ACTIVE',
+        lastErrorCode: null, restartMarker: null,
+      }],
+    }, null, 2)}\n`)
+    const platform = new FakePlatform(bootstrap(1, [desired]), new Map())
+    // 读时归一：**读一次**就得到 `enabled: true`，而且读**不**写回（旧文件一字不动 ⇒ 不迁移、不重写）。
+    const loaded = await new ManagedPluginStore(home).read()
+    expect(loaded.plugins[0]).toMatchObject({ enabled: true, state: 'ACTIVE' })
+    expect(await readFile(path, 'utf8')).not.toContain('"enabled"')
+
+    const env = await environment({
+      platform,
+      dshHome: home,
+      inventory: inventory([{ moduleName: desired.packageName, enabled: true, fiberPhase: 'active' }]),
+    })
+    await env.service.settled()
+
+    // 投影端原样带出这一枚归一后的位（旧 Host 照旧解得开、不报 STATE_INVALID）。
+    expect(env.service.status().plugins[0]).toMatchObject({ enabled: true, state: 'ACTIVE' })
+    // 而且这一枚 `true` 不是摆设：拨一次停用是真的会打官方面。
+    await env.service.setEnabled(desired.packageName, false)
+    expect(env.manager?.setEnabledCalls).toEqual([[desired.packageName, false]])
   })
 
   it('has no CLI subprocess boundary left anywhere in the package source', async () => {

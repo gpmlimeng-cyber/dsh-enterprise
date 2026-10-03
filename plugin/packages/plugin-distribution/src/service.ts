@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 platform-client bootstrap/request、安装层验签开关、Harness inventory、**官方 `pluginManager` 安装面**（经 `./manager.ts` 的端口）、制品校验与原子状态文件
- * [OUTPUT]: 对外提供企业可选目录、显式安装/版本切换/卸载/**取消在途安装**、撤回调和、核心保护与库存状态
+ * [OUTPUT]: 对外提供企业可选目录、显式安装/版本切换/卸载、**取消在途安装**、**启用与停用**、撤回调和、核心保护与库存状态
  * [POS]: plugin-distribution 的串行生命周期所有者，中心决定可用范围，用户决定本机安装，Loader 确认重启结果；
  *        安装/卸载的最后一步是官方 `installBundle`/`removeBundle`（不再有 `dsh plugin` 子进程），
  *        官方的进度（`plugin-manager/install-state` / `install-log`）与取消（`cancelInstall` / `waitForInstall`）
@@ -381,6 +381,44 @@ export class EnterprisePluginDistributionService extends Service {
   }
 
   /**
+   * 用户显式**启用 / 停用**一枚已安装的插件。
+   *
+   * 与装/卸**同一条链**：同一个串行闸 `changePlugin`（同一时刻只允许一件插件操作）→ 同一个官方
+   * profile 面 `setBundleEnabled`（只改 profile manifest 的 `dsh.profile.bundles`，**不卸载依赖**）
+   * → 同一个收束口径（与非 hot 的装/卸一致：`RESTART_REQUIRED` + runMarker，由**下一进程**的
+   * `confirmRestartedState` 按 Loader 事实确认）→ 同一份库存上报。
+   *
+   * `enabled` 是本机私有位（`types.ts`），与 `desiredState`（装/卸，中心决定）正交：停用**不**改
+   * `desiredState`、不删版本/摘要，故那一行仍以既有目录事实在「已安装」页出现。
+   * 幂等：已经是这一格就不打扰官方；官方 `application: failed` 一律 fail-closed 抛出、记录不动。
+   *
+   * @param packageName - 已安装的受管 package 名。
+   * @param enabled - `true` = 启用，`false` = 停用。
+   */
+  setEnabled(packageName: string, enabled: boolean): Promise<void> {
+    return this.changePlugin(async () => {
+      this.requireUnprotected(packageName)
+      const current = this.records.get(packageName)
+      // 只有**已安装**的受管行可拨：中心已撤回（`desiredState: 'ABSENT'`）或本机没记录时没有任何可启停的运行面，
+      // 若照样打官方 `setBundleEnabled(true)`，就会把刚撤回的 bundle 偷偷加回 profile。
+      if (current === undefined || current.desiredState !== 'INSTALLED') {
+        throw new PluginDistributionError('ENT_PERMISSION_DENIED', 'plugin is not managed')
+      }
+      if (current.enabled === enabled) return
+      await this.setEnabledThroughOfficialManager(packageName, enabled)
+      // 记录：`desiredState` 不变（装没装正交），只翻启停位；等重启由 restartMarker 表达（与卸载同一口径）。
+      this.records.set(packageName, {
+        ...current,
+        enabled,
+        state: 'RESTART_REQUIRED',
+        lastErrorCode: null,
+        restartMarker: this.runMarker,
+      })
+      await this.persist()
+    })
+  }
+
+  /**
    * 取消**在途**的官方安装（界面「取消」这一次是真的）。
    *
    * 与安装/卸载不同，取消**不**经 `changePlugin`（那正是要被打断的那条路），而是直接拿官方句柄：
@@ -587,11 +625,17 @@ export class EnterprisePluginDistributionService extends Service {
     for (const record of [...this.records.values()]) {
       const entry = await this.loaderEntry(record.packageName)
       const active = entry?.enabled === true && entry.fiberPhase === 'active'
+      // 用户停用的那一行**本来就不该** active（bundle 已从 profile 层摘掉，entry 甚至可能整条消失）——
+      // 这不是失败。故下面每一处判活/判死的分支都必须把这一枚本机位算进去，否则刚停用的一行会在下一进程
+      // 被自己的调和器打成 `ENT_PLUGIN_LOADER_INACTIVE`（交接书点名的「最易漏三处」之一）。
+      const disabled = record.enabled === false
       if (record.state === 'RESTART_REQUIRED') {
         if (record.restartMarker === this.runMarker) continue
         if (record.desiredState === 'ABSENT' && entry === undefined) {
           this.records.delete(record.packageName)
-        } else if (record.desiredState === 'INSTALLED' && active) {
+        } else if (record.desiredState === 'INSTALLED' && (active || disabled)) {
+          // 停用且已安装：无论 Loader 里是「entry 不在了」还是「entry 仍 disabled」，都如实收束为 ACTIVE
+          // （「已安装 · 已停用」= ACTIVE + enabled:false；线协议里没有第三格，不新造状态值）。
           this.records.set(record.packageName, {
             ...record,
             state: 'ACTIVE',
@@ -607,7 +651,7 @@ export class EnterprisePluginDistributionService extends Service {
           })
         }
         changed = true
-      } else if (record.state === 'ACTIVE' && !active) {
+      } else if (record.state === 'ACTIVE' && !active && !disabled) {
         this.records.set(record.packageName, {
           ...record,
           state: 'FAILED',
@@ -635,6 +679,12 @@ export class EnterprisePluginDistributionService extends Service {
       ...this.config, operatingSystem: this.operatingSystem,
     }, this.config.verifyPluginSignatures)
     const current = this.records.get(assignment.packageName)
+    // 用户停用的这一行 + **同一枚制品** ⇒ 只跟中心 revision，绝不重新走安装：
+    // `installBundle` 的 `enabled: true` 会把用户的停用**偷偷开回来**（交接书点名的「最易漏三处」之二）。
+    if (current?.enabled === false && sameArtifact(current, assignment)) {
+      await this.refreshDesiredRevision(assignment, current)
+      return
+    }
     if (sameArtifact(current, assignment)) {
       if (current?.state === 'ACTIVE' && await this.loaderActive(assignment.packageName)) {
         await this.refreshDesiredRevision(assignment, current)
@@ -667,7 +717,7 @@ export class EnterprisePluginDistributionService extends Service {
     )
     await this.put(assignment, 'VERIFIED')
     await this.put(assignment, 'INSTALLING')
-    const outcome = await this.installThroughOfficialManager(assignment, artifactPath)
+    const outcome = await this.installThroughOfficialManager(assignment, artifactPath, current?.enabled ?? true)
     await this.applyInstalledApplication(assignment, outcome)
   }
 
@@ -680,15 +730,18 @@ export class EnterprisePluginDistributionService extends Service {
    *
    * `requestId` 由**我们**生成并随 `options` 交进去：它同时是取消句柄（`cancelInstall`）与
    * 在途结果句柄（`waitForInstall`），也是官方两枚进度事件里 `requestId` 的来源（用来认领属于我们的事件）。
+   *
+   * `enabled` 取本机记录的启停位：用户停用过的那一枚换版本时仍保持停用（**绝不**借安装之机把开关拨回去）。
    */
   private async installThroughOfficialManager(
     assignment: RuntimePluginAssignment,
     artifactPath: string,
+    enabled: boolean,
   ): Promise<ManagedPluginChangeResult> {
     const requestId = randomUUID()
     this.installHandle = { packageName: assignment.packageName, requestId }
     try {
-      return await this.pluginManager.installBundle(artifactPath, { enabled: true, requestId })
+      return await this.pluginManager.installBundle(artifactPath, { enabled, requestId })
     } catch (error) {
       // 官方极少数**抛错**路径（拿不到 profile 写锁 / 服务被销毁 / 端口不可用）：原样保留 cause，不吞不折。
       throw distributionError(error, 'ENT_PLUGIN_CLI_FAILED', 'official plugin installation failed')
@@ -744,6 +797,30 @@ export class EnterprisePluginDistributionService extends Service {
   }
 
   /**
+   * 把一枚已安装插件的启停意愿交给官方 `setBundleEnabled`（只改 profile 的 bundle 层，**不**动依赖）。
+   *
+   * 与安装/卸载同一收束口径：官方 `application: failed`/`overridden`/`cancelled` 一律按失败抛出
+   * （`fail()` 不参与——调用方在成功之后才写记录）；官方码与诊断原样进 `cause` 与宿主日志，不吞不折。
+   * 这里没有 requestId：官方这一枚变更不接受取消，因此**不**进在途句柄、也不产生进度事件。
+   */
+  private async setEnabledThroughOfficialManager(
+    packageName: string,
+    enabled: boolean,
+  ): Promise<ManagedPluginChangeResult> {
+    let outcome: ManagedPluginChangeResult
+    try {
+      outcome = await this.pluginManager.setBundleEnabled(packageName, enabled)
+    } catch (error) {
+      throw distributionError(error, 'ENT_PLUGIN_CLI_FAILED', 'official plugin enablement change failed')
+    }
+    this.reportOfficialOutcome(packageName, outcome, enabled ? 'enable' : 'disable')
+    if (outcome.application === 'failed' || outcome.application === 'overridden' || outcome.application === 'cancelled') {
+      throw officialFailure(packageName, outcome, 'official plugin enablement change failed')
+    }
+    return outcome
+  }
+
+  /**
    * 官方 `removeBundle` 的卸载。
    *
    * `node_modules` 残壳口径**逐字不变**：旧 CLI 的 `dsh plugin remove` 与官方服务面跑的是**同一条 pnpm remove**
@@ -773,8 +850,11 @@ export class EnterprisePluginDistributionService extends Service {
   private reportOfficialOutcome(
     packageName: string,
     outcome: ManagedPluginChangeResult,
-    direction: 'install' | 'remove',
+    direction: 'install' | 'remove' | 'enable' | 'disable',
   ): void {
+    const operation = direction === 'install' ? 'managedPluginInstall'
+      : direction === 'remove' ? 'managedPluginRemove'
+      : direction === 'enable' ? 'managedPluginEnable' : 'managedPluginDisable'
     const detail = `application=${outcome.application} changed=${String(outcome.changed)}`
       + `${outcome.stage === undefined ? '' : ` stage=${outcome.stage}`}`
       + `${outcome.bundle === undefined ? '' : ` bundle=${outcome.bundle}`}`
@@ -785,7 +865,7 @@ export class EnterprisePluginDistributionService extends Service {
         : ` registries=${outcome.registries.map(entry => entry ?? '(configured)').join('>')}`}`
       + `${outcome.pendingBuilds === undefined ? '' : ` pendingBuilds=${outcome.pendingBuilds.join(',')}`}`
     const message = 'owndsh: official plugin manager outcome'
-      + ` [operation=${direction === 'install' ? 'managedPluginInstall' : 'managedPluginRemove'}`
+      + ` [operation=${operation}`
       + ` step=official-outcome packageName=${packageName} ${detail}]`
       + `${outcome.error?.diagnostic === undefined ? '' : `\n${outcome.error.diagnostic}`}`
     if (outcome.application === 'applied' || outcome.application === 'restart-required') {
@@ -855,6 +935,9 @@ export class EnterprisePluginDistributionService extends Service {
       packageName: assignment.packageName,
       version: settled ? assignment.version : current?.version ?? null,
       sha256: settled ? assignment.sha256 : current?.sha256 ?? null,
+      // 启停位是**用户的本机意愿**，与装/卸、与每一次状态迁移都正交：整条覆盖记录时原样继承，
+      // 缺失即首次安装 ⇒ `true`。否则 `setEnabled` 的成功会被下一次 `put` 抹掉（交接书点名的三处之一）。
+      enabled: current?.enabled ?? true,
       desiredRevision: this.assignmentRevision,
       desiredState: assignment.desiredState,
       state,

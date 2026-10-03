@@ -1,6 +1,7 @@
 /**
  * [INPUT]: 依赖 Node fs/path/crypto 与受管状态契约，在 DSH_HOME 企业目录读写本地事实
- * [OUTPUT]: 对外提供 ManagedPluginStore、resolveManagedPluginsPath 与空状态工厂
+ * [OUTPUT]: 对外提供 ManagedPluginStore、resolveManagedPluginsPath 与空状态工厂；读时把旧记录缺席的本机私有
+ *           `enabled` 位归一为 `true`（两个合法键集：带/不带这一枚；不迁移、不重写文件）
  * [POS]: plugin-distribution 的唯一状态持久化边界，以严格 JSON 和 rename 原子替换防止半文件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -28,6 +29,11 @@ const STATES = new Set<ManagedPluginState>([
 const PACKAGE_NAME = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/
 const VERSION = /^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/
 const SHA256 = /^[0-9a-f]{64}$/
+/** 旧记录（没有本机私有 `enabled` 位）的**唯一**合法键集；兼容口径见 `parsePlugin`。 */
+const RECORD_KEYS = 'desiredRevision,desiredState,lastErrorCode,packageName,restartMarker,sha256,state,version'
+/** 带 `enabled` 位的新记录键集。 */
+const RECORD_KEYS_WITH_ENABLED =
+  'desiredRevision,desiredState,enabled,lastErrorCode,packageName,restartMarker,sha256,state,version'
 
 export function emptyManagedPluginsFile(): ManagedPluginsFile {
   return { formatVersion: 1, assignmentRevision: 0, plugins: [] }
@@ -46,12 +52,17 @@ function nullableString(value: unknown, pattern?: RegExp): value is string | nul
 }
 
 function parsePlugin(value: unknown): ManagedPluginRecord {
-  if (!isRecord(value)
-    || Object.keys(value).sort().join(',')
-      !== 'desiredRevision,desiredState,lastErrorCode,packageName,restartMarker,sha256,state,version'
+  if (!isRecord(value)) {
+    throw new PluginDistributionError('ENT_PLUGIN_STATE_INVALID', 'managed plugin record is invalid')
+  }
+  // `enabled` 是本机私有启停位：**旧记录没有这一枚键**（缺席 ⇒ 归一 `true`，见下面的返回值），
+  // 新记录带上它。两个键集之外的任何形状一律判无效——兼容不是放宽形状门禁。
+  const keys = Object.keys(value).sort().join(',')
+  if ((keys !== RECORD_KEYS && keys !== RECORD_KEYS_WITH_ENABLED)
     || typeof value['packageName'] !== 'string' || !PACKAGE_NAME.test(value['packageName'])
     || !nullableString(value['version'], VERSION)
     || !nullableString(value['sha256'], SHA256)
+    || (typeof value['enabled'] !== 'boolean' && value['enabled'] !== undefined)
     || !Number.isSafeInteger(value['desiredRevision']) || Number(value['desiredRevision']) < 0
     || value['desiredState'] !== 'INSTALLED' && value['desiredState'] !== 'ABSENT'
     || typeof value['state'] !== 'string' || !STATES.has(value['state'] as ManagedPluginState)
@@ -63,6 +74,8 @@ function parsePlugin(value: unknown): ManagedPluginRecord {
     packageName: value['packageName'],
     version: value['version'],
     sha256: value['sha256'],
+    // 读时归一（**不迁移**：不因为缺这一枚就重写整份状态文件）：缺席与 `true` 同判。
+    enabled: value['enabled'] !== false,
     desiredRevision: Number(value['desiredRevision']),
     desiredState: value['desiredState'],
     state: value['state'] as ManagedPluginState,

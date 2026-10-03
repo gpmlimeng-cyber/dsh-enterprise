@@ -539,6 +539,13 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
       if (pluginDistribution === undefined) throw new Error('DSH Enterprise plugin distribution is unavailable')
       return await pluginDistribution.cancel(packageName)
     },
+    // 启用 / 停用：与 `pluginAction` / `pluginCancel` 同一手法——组合层**无条件**接线，
+    // 端口在**调用时**才解引用分发服务；服务没接线时这里如实抛，真正打官方的那一步在
+    // `setEnabled` 里（`pluginManager.setBundleEnabled`，只改 profile 的 bundle 层，不卸载依赖）。
+    pluginSetEnabled: async (packageName: string, enabled: boolean) => {
+      if (pluginDistribution === undefined) throw new Error('DSH Enterprise plugin distribution is unavailable')
+      return await pluginDistribution.setEnabled(packageName, enabled)
+    },
     uninstallPlugin: async () => {
       if (pluginDistribution === undefined) throw new Error('DSH Enterprise plugin distribution is unavailable')
       await pluginDistribution.uninstall()

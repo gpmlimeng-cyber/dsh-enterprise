@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 platform-client bootstrap、contracts 受管状态与官方 Host plugin inventory 公共类型
- * [OUTPUT]: 对外提供含可选验签开关的分发 Config（**不再有 CLI 相关的 profile/dshCommand/subprocessGraceMs**）、企业目录/本机安装快照及平台/官方运行时窄 port
+ * [OUTPUT]: 对外提供含可选验签开关的分发 Config（**不再有 CLI 相关的 profile/dshCommand/subprocessGraceMs**）、企业目录/本机安装快照（记录含本机私有启停位 `enabled`）及平台/官方运行时窄 port
  * [POS]: plugin-distribution 的依赖倒置层，使业务状态机只依赖官方能力契约而不耦合实现
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -33,6 +33,14 @@ export interface ManagedPluginRecord {
   readonly packageName: string
   readonly version: string | null
   readonly sha256: string | null
+  /**
+   * **本机私有**启停位（`managed-plugins.json` 的本机形状，**不是**服务端契约、不进生成物）。
+   *
+   * 只表达「用户在这台设备上要不要这枚**已安装**的插件参与运行」，与 `desiredState`（装/卸，中心决定）
+   * 正交；置位走官方 `setBundleEnabled`（只改 profile 的 bundle 层，不卸载依赖）。
+   * 旧记录没有这一枚键时**读时归一为 `true`**（见 `state-store.ts` 的 `parsePlugin`），不做迁移。
+   */
+  readonly enabled: boolean
   readonly desiredRevision: number
   readonly desiredState: 'INSTALLED' | 'ABSENT'
   readonly state: ManagedPluginState

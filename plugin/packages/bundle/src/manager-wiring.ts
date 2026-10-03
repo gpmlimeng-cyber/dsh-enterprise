@@ -36,7 +36,7 @@ export interface EnterprisePluginManagerWiringOptions {
  *
  * 就绪判据是 `[operation=wirePluginManager step=wired pluginManager=ready profileDir=ready]`：
  * 它与配方那条 `wirePreset` 同族，启动日志里一眼能看出**两条线各自有没有接上**。
- * 形状门禁（四枚方法全在才算可达）在 plugin-distribution 的 `managedPluginManagerFromContext` 里，
+ * 形状门禁（五枚方法全在才算可达）在 plugin-distribution 的 `managedPluginManagerFromContext` 里，
  * 这里不重复判定：本函数只负责「何时」。
  *
  * @param ctx - bundle 组合根上下文（或单测的假 ctx）。
@@ -54,12 +54,12 @@ export function deferEnterprisePluginManagerWiring(
       waiting: 'owndsh: managed plugin installation is waiting for the official plugin manager',
       readFailed: 'owndsh: managed plugin installation could not read the official services',
       unavailable: 'owndsh: managed plugin installation is not wired on this profile',
-      rejected: 'owndsh: the official plugin manager does not expose installBundle/removeBundle/waitForInstall/cancelInstall',
+      rejected: 'owndsh: the official plugin manager does not expose installBundle/removeBundle/setBundleEnabled/waitForInstall/cancelInstall',
       wired: 'owndsh: managed plugin installation is wired to the official plugin manager',
       unwired: 'owndsh: the official plugin manager went away; managed plugin installation falls back',
     },
     ...(options.log === undefined ? {} : { log: options.log }),
-    // 形状门禁（四枚方法全在）在 plugin-distribution 的取值器里；本函数只负责「何时」。
+    // 形状门禁（五枚方法全在）在 plugin-distribution 的取值器里；本函数只负责「何时」。
     // 它同时充当 `pluginManager=` 那一位的判据，故日志与判决用的是**同一道**更严的门禁。
     probe: readable => managedPluginManagerFromContext(readable),
     resolve: readable => managedPluginManagerFromContext(readable),

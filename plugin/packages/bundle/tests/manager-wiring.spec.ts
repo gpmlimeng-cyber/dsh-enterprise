@@ -63,16 +63,20 @@ function makeServiceScope(entries: Readonly<Record<string, unknown>>): { get(nam
   return { get: (name: string) => entries[name] }
 }
 
-/** 官方 `PluginManager` 的最小结构面（安装/卸载/等待/取消四枚方法）。 */
+/** 官方 `PluginManager` 的最小结构面（安装/卸载/启停/等待/取消五枚方法）。 */
 function makeOfficialManager(): {
   installBundle(spec: string): Promise<unknown>
   removeBundle(name: string): Promise<unknown>
+  setBundleEnabled(name: string, enabled: boolean): Promise<unknown>
   waitForInstall(requestId: string): Promise<unknown>
   cancelInstall(requestId: string): Promise<unknown>
 } {
   return {
     installBundle: async (spec: string) => ({ target: spec, changed: true, application: 'applied' }),
     removeBundle: async (name: string) => ({ target: name, changed: true, application: 'applied' }),
+    setBundleEnabled: async (name: string, enabled: boolean) => ({
+      target: name, changed: true, application: 'applied', stage: 'enable', enabled,
+    }),
     waitForInstall: async () => null,
     cancelInstall: async () => ({ status: 'cancelled' }),
   }
@@ -80,6 +84,7 @@ function makeOfficialManager(): {
 
 /** 官方实例上真的被打到的那几枚调用（`root.plugin(Class)` 交回的是 fiber，故用名册记账）。 */
 const officialInstalls: string[] = []
+const officialBundleToggles: [string, boolean][] = []
 
 /** 与官方 `super(ctx, 'pluginManager')` 同一语义的迟到服务。 */
 class LatePluginManager extends Service {
@@ -91,6 +96,10 @@ class LatePluginManager extends Service {
     return { target: spec, changed: true, application: 'applied' as const }
   }
   async removeBundle(name: string) { return { target: name, changed: true, application: 'applied' as const } }
+  async setBundleEnabled(name: string, enabled: boolean) {
+    officialBundleToggles.push([name, enabled])
+    return { target: name, changed: true, application: 'restart-required' as const, stage: 'enable' as const, enabled }
+  }
   async waitForInstall() { return null }
   async cancelInstall() { return { status: 'cancelled' as const } }
 }
@@ -179,11 +188,15 @@ describe('deferEnterprisePluginManagerWiring（受管插件安装面）', () => 
     const managerFiber = await root.plugin(LatePluginManager)
     await settle()
 
-    // ③ 端口被真的交出来：这一枚调用打到了官方实例上（不是空壳、也不是我们自造的通道）。
+    // ③ 端口被真的交出来：这两枚调用打到了官方实例上（不是空壳、也不是我们自造的通道）。
     expect(holder.wired()).toBe(true)
     await expect(holder.port.installBundle('/abs/artifact.tgz', { requestId: 'req-1' }))
       .resolves.toMatchObject({ application: 'applied' })
     expect(officialInstalls).toEqual(['/abs/artifact.tgz'])
+    // 第五枚（启停）也走同一枚晚绑定端口：方向原样交给官方实例。
+    await expect(holder.port.setBundleEnabled('@example/dsh-tools', false))
+      .resolves.toMatchObject({ stage: 'enable', enabled: false })
+    expect(officialBundleToggles).toEqual([['@example/dsh-tools', false]])
     expect(logs.some(row => row.level === 'info' && row.message.includes(
       '[operation=wirePluginManager step=wired pluginManager=ready profileDir=ready]'))).toBe(true)
 
@@ -198,7 +211,7 @@ describe('deferEnterprisePluginManagerWiring（受管插件安装面）', () => 
     await root.fiber.dispose()
   })
 
-  it('never wires when the service surface is missing the cancellation handle (no half-port)', () => {
+  it('never wires when the official surface is missing any one of the five methods (no half-port)', () => {
     const rig = makeFakeContext()
     const onWired = vi.fn()
     deferEnterprisePluginManagerWiring(rig.ctx, {
@@ -218,5 +231,19 @@ describe('deferEnterprisePluginManagerWiring（受管插件安装面）', () => 
     expect(rig.logs.some(row => row.level === 'warn'
       && row.message.includes('[operation=wirePluginManager step=unavailable'
         + ' pluginManager=absent profileDir=ready]'))).toBe(true)
+
+    // 四枚齐备、**独缺启停那第五枚**的旧服务面：同样不接线（否则界面会得到一枚拨不动的假开关）。
+    rig.callbacks[0]!(makeServiceScope({
+      pluginManager: {
+        installBundle: async () => undefined,
+        removeBundle: async () => undefined,
+        waitForInstall: async () => null,
+        cancelInstall: async () => ({ status: 'cancelled' }),
+      },
+      profileContext: { dir: '/profile/web' },
+    }))
+    expect(onWired).not.toHaveBeenCalled()
+    expect(rig.logs.filter(row => row.level === 'warn'
+      && row.message.includes('pluginManager=absent profileDir=ready]'))).toHaveLength(2)
   })
 })
