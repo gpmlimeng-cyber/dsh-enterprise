@@ -312,7 +312,9 @@ class T13ApiContractTest {
     private static PluginVersion version(PluginVersion.Status status, long revision) {
         return new PluginVersion(
             VERSION_ID, "000000", PACKAGE_ID, "@example/t13-tools", "1.0.0",
-            "sha256/aa/" + SHA256 + ".tgz", DOWNLOAD_BYTES.length, SHA256, new byte[64], compatibility(),
+            // README（口径 20）是**版本级**事实：这里给一个真值，走一遍完整 schema 校验。
+            "sha256/aa/" + SHA256 + ".tgz", "# T13 工具\n\n契约测试用的 README。\n",
+            DOWNLOAD_BYTES.length, SHA256, new byte[64], compatibility(),
             status, USER_ID, Instant.parse("2026-08-19T03:00:00Z"), revision
         );
     }
@@ -335,7 +337,9 @@ class T13ApiContractTest {
     private static EffectivePluginResolver.ResolvedAssignments resolvedAssignments() {
         return new EffectivePluginResolver.ResolvedAssignments(9, List.of(new RuntimePluginAssignment(
             // displayName 是必填（契约 PluginDisplayName）；这里与 packageView 的 "T13 Tools" 同一枚真值。
-            VERSION_ID, "@example/t13-tools", "1.0.0", "T13 Tools", "T13 契约测试用插件。", DOWNLOAD_BYTES.length, SHA256,
+            VERSION_ID, "@example/t13-tools", "1.0.0", "T13 Tools", "T13 契约测试用插件。",
+            // README（口径 20）与 `/plugins/assignments` 那一份同源：给真值，让这一枚键真的被 schema 覆盖。
+            "# T13 工具\n\n契约测试用的 README。\n", DOWNLOAD_BYTES.length, SHA256,
             new byte[64], compatibility(), false, PluginAssignment.DesiredState.INSTALLED
         )));
     }

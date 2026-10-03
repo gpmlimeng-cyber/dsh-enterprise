@@ -77,6 +77,13 @@ export interface PluginDistributionStatus {
      * ui 的解码白名单把「缺席」当唯一缺失口径，卡片第二行据此如实降级成「暂无描述」。
      */
     readonly description?: string
+    /**
+     * 制品 tar 里那份 README 的纯文本（契约 `PluginReadme`，≤65536）——员工端插件详情「描述」段的
+     * **首选**取值（口径 20：描述来自 README，没有才回落到上一枚短 `description`）。
+     * **可选**：bootstrap 那一侧没有这个键时这里就没有这个键（绝不补空串、不编造）——
+     * ui 的解码白名单把「缺席」当唯一缺失口径。
+     */
+    readonly readme?: string
     readonly sizeBytes: number
     readonly operatingSystems: readonly string[]
     readonly installErrorCode?: string

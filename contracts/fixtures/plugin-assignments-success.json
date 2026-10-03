@@ -8,6 +8,7 @@
         "version": "1.2.3",
         "displayName": "Acme 工具箱",
         "description": "企业插件分发示例：把代码审查规则带进新会话。",
+        "readme": "# Acme 工具箱\n\n把代码审查规则带进新会话。\n\n## 用法\n\n- 打开新会话\n- 选择「Acme 工具箱」\n",
         "sizeBytes": 4096,
         "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         "signatureBase64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",

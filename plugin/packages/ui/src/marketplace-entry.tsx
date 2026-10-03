@@ -17,7 +17,7 @@
  *   其 `package.json` **一条都没写 `displayName`**（第 6 条未发布到 npm、本机无制品）⇒ 显示名 = 包名，
  *   **今天这批插件在界面上的标题与改前逐字相同**；只有声明了人类可读名的插件才看得出差别。
  *   ★ **市场面插件行没有详情页**（企业插件的详情在「企业设置 → 插件」那一面）⇒ 本行标题仍是纯文本，
- *   不造"_点了没反应"的假按钮；有详情入口的技能/配方行才是真 `<button>`，由 `plugin-card.spec.ts` 反向锁。 **本刀（插件行详情子页面，用户口径第 16 条，推翻第 15 条末尾那句批注）**：插件行标题改成真 `<button class="own-market-rowOpen">`（`data-enterprise-plugin-open` + 「查看企业插件 <名称> 详情」，**没有** `aria-haspopup`），点它把「企业插件」页签的**内容区**换成详情**子页面**（互斥由**复用的** `EnterprisePluginContentRegion` 保证、页头与四枚页签一字不改）；正文**原样复用** `plugin-market.tsx` 的 `EnterprisePluginDetailPage`（import 一处、渲染一处，零复制），它那份样式表由那边新导出的 `ENTERPRISE_PLUGIN_STYLES` 在详情态一并挂上（列表态一个字节都不多背）；动作区是行上**同一枚**新抽出的 `EnterpriseMarketPluginRowActions`（能装就装、已装就开关，本面**不引导卸载**）；返回两条真路径（返回按钮 + Esc，监听钉在本页根节点）；**浏览器返回键不接**（没有真实路由，不许硬造 `history`）；返回后按**同一枚** `scrollTargetOf` 的判定还原滚动位置、按包名把焦点还给那一枚标题按钮。
+ *   不造"_点了没反应"的假按钮；有详情入口的技能/配方行才是真 `<button>`，由 `plugin-card.spec.ts` 反向锁。 **本刀（插件行详情子页面，用户口径第 16 条，推翻第 15 条末尾那句批注）**：插件行标题改成真 `<button class="own-market-rowOpen">`（`data-enterprise-plugin-open` + 「查看企业插件 <名称> 详情」，**没有** `aria-haspopup`），点它把「企业插件」页签的**内容区**换成详情**子页面**（互斥由**复用的** `EnterprisePluginContentRegion` 保证、页头与四枚页签一字不改）；正文**原样复用** `plugin-market.tsx` 的 `EnterprisePluginDetailPage`（import 一处、渲染一处，零复制），它那份样式表由那边新导出的 `ENTERPRISE_PLUGIN_STYLES` 在详情态一并挂上（列表态一个字节都不多背）；动作区是行上**同一枚**新抽出的 `EnterpriseMarketPluginRowActions`（能装就装、已装就开关，本面**不引导卸载**）；返回两条真路径（返回按钮 + Esc，监听钉在本页根节点）；**浏览器返回键不接**（没有真实路由，不许硬造 `history`）；返回后按**同一枚** `scrollTargetOf` 的判定还原滚动位置、按包名把焦点还给那一枚标题按钮。 **本刀（插件市场详情补描述，用户口径第 19 条）**：本面（face B）把**行上第二行那条同一份真值**（`EnterpriseMarketPluginRow.description`）经 `EnterprisePluginDetailPage` 新增的**可选** prop `description` 传进详情 ⇒ 事实表之后多一段「描述」；face A 不传该 prop，故那一面输出逐字不变（additive 例外，同口径 18③）。 **本刀（口径 20：描述来自 README）**：详情「描述」段的**内容来源**从「制品 `package.json` 的短 `description`」换成「**插件制品里的 README**」——行投影新增**可选** `readme`（索引自目录项的 `PluginReadme`，缺席/null/空串一律不产出该键），正文由**唯一一枚**纯投影 `enterpriseMarketPluginDetailBody(readme, description)` 决定：**有 README 就用 README**，没有才**回落**到那枚短描述，两者都没有 ⇒ 整段不进 DOM（口径 19 的三态一条不丢，只是首选换了）。**行上第二行仍读短 `description`**（README 是整篇正文，不进两行 clamp 的卡片）。渲染方式与版式**一字未动**：仍是纯文本子节点 + `pre-wrap` 保换行 + 12 行块内滚动（全文件 `dangerouslySetInnerHTML` 零出现），**不新增依赖、不解析 Markdown**（全仓没有既有渲染器，技能正文也是 `<pre>` 纯文本）。face A（企业设置 → 插件）**不传** `readme`、也不传新的 prop ⇒ 它那一面的详情输出与口径 19 **逐字相同**（`plugin-card.spec.ts` 的字节级大纲快照原样绿）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -35,6 +35,7 @@ import {
   EnterprisePluginContentRegion,
   EnterprisePluginDetailPage,
   enterprisePluginCatalogVersionText,
+  enterprisePluginDetailDescription,
   enterprisePluginStatePresentation,
   scrollTargetOf,
 } from './plugin-market.js'
@@ -591,6 +592,15 @@ export interface EnterpriseMarketPluginRow {
    */
   readonly description?: string | undefined
   /**
+   * 制品 tar 里那份 README 的纯文本（契约 `PluginReadme`，≤65536）：**插件详情「描述」段的首选取值**
+   * （用户口径第 20 条：描述应该来自插件的 README）。
+   * **为缺失设计**：解码层已把缺席/null/空串归一成「没有这个键」，故这里缺席 ＝ 制品没有 README
+   * ＝ 详情那一段回落到上面那一枚短 `description`（`enterpriseMarketPluginDetailBody` 是唯一判定点）；
+   * 两者都没有 ⇒ 整段不进 DOM（不画「暂无描述」空壳——那是**行上第二行**的口径）。
+   * 它只上**详情**，行上第二行照旧读短 `description`（README 是整篇正文，不适合塞进两行 clamp 的卡片）。
+   */
+  readonly readme?: string | undefined
+  /**
    * 目录里这一版**声明的操作系统**（契约三平台名，取值门禁在 `local-api-decode.ts:720`）。
    * **数据面字段：只随行携带，不参与任何判断、也不上屏**——插件行的可拨性与文案与它完全无关
    * （声明含当前平台 / 不含 / 根本没有该字段，三种形态渲染结果逐字相同）。
@@ -650,6 +660,9 @@ export function enterpriseMarketPluginRows(
       // 描述照解码层同一口径：只有真拿到非空串才产出这个键（缺席/null/空串都不产出，
       // 界面第二行据此说「暂无描述」而不是画一行空白）。目录缺席（已下架）时自然也没有描述。
       ...(cat?.description === undefined ? {} : { description: cat.description }),
+      // README（口径 20）同样照解码层同一口径带上来：只有真拿到非空串才产出这个键（缺席/null/空串都不产出）。
+      // 它在**详情**里是「描述」段的首选取值，在**行上**不出现（第二行读的仍是上面那枚短 description）。
+      ...(cat?.readme === undefined ? {} : { readme: cat.readme }),
       operatingSystems: cat?.operatingSystems,
       installErrorCode: cat?.installErrorCode,
       // 体积同样**照解码层同一口径**带上来：目录项上恒有它，只有目录缺席（已下架）时才没有这个键
@@ -659,6 +672,30 @@ export function enterpriseMarketPluginRows(
   })
 }
 
+/**
+ * 插件**详情「描述」段的正文**的唯一判定点（纯投影，测试直调）——用户口径第 20 条：
+ * 「描述应该来自插件的 README」。
+ *
+ * ```text
+ * ① 有 README（非空白）      ⇒ 用 README（整篇正文，含原始换行与 Markdown 记号）
+ * ② 没有 README             ⇒ **回落**到行上第二行那条短 `description`（口径 19 的既有行为，不丢）
+ * ③ 两者都没有              ⇒ `undefined` ⇒ 详情里那一整段不进 DOM（不画「暂无描述」空壳）
+ * ```
+ *
+ * 两个分支都过 `plugin-market.tsx` 的**同一枚**归一投影 `enterprisePluginDetailDescription`
+ * （它把 `undefined`/`null`/空串/纯空白一律折成 `undefined`，有值则**原样**返回，不 trim、不截断）——
+ * 故本函数这里不存在第二套「什么算没有」的口径，README 与短描述的空值语义天然一致。
+ *
+ * ★README 一律当**数据**：这里只做取值，不解析 Markdown、不查标签、不注入 HTML；
+ * 渲染仍是 `pre-wrap` 的纯文本子节点，限长靠详情那一段的高度上限 + 块内滚动（不删字）。
+ */
+export function enterpriseMarketPluginDetailBody(
+  readme: string | null | undefined,
+  description: string | null | undefined,
+): string | undefined {
+  return enterprisePluginDetailDescription(readme) ?? enterprisePluginDetailDescription(description)
+}
+
 /** 「企业插件」节是否该渲染（「插件」组件开启且有目录/本机记录）。 */
 export function enterpriseMarketPluginSectionVisible(
   pluginsComponentEnabled: boolean,
@@ -666,7 +703,6 @@ export function enterpriseMarketPluginSectionVisible(
 ): boolean {
   return pluginsComponentEnabled && rows.length > 0
 }
-
 /**
  * 一个目录页签内容区的**四态投影**（纯函数，测试直调）：隐藏 / 加载中 / 空 / 失败 / 就绪。
  *
@@ -4087,10 +4123,19 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
  * ★ 详情里**没有**卸载：这一面本来就没有卸载动作（用户口径第 16 条：能装就装、已装就开关）。
  */
 function enterpriseMarketPluginDetail(page: EnterprisePluginPageProps, props: EnterpriseMarketShellProps): ReactNode {
+  /*
+   * 描述（用户口径第 19 条 → 第 20 条）：这一段吃 `enterpriseMarketPluginDetailBody` 那**唯一一枚**投影 ——
+   * **有 README 就用 README**（口径 20：描述应该来自插件的 README），没有才**回落**到行上第二行那条
+   * 同一份真值 `EnterpriseMarketPluginRow.description`（口径 19 的既有行为，不丢）；两者都没有 ⇒
+   * 详情里那一段整段不进 DOM，不画「暂无描述」空壳。
+   * `EnterprisePluginDetailPage` 的这个 prop 是 **additive** 的：face A（企业设置 → 插件）不传它，
+   * 故那一面的详情输出逐字不变（由 `plugin-card.spec.ts` 的详情大纲逐字快照锁着）。
+   */
   return (
     <EnterprisePluginDetailPage
       packageName={page.row.packageName}
       displayName={page.row.displayName}
+      description={enterpriseMarketPluginDetailBody(page.row.readme, page.row.description)}
       catalogVersionText={page.catalogVersionText}
       installed={page.facts.installed}
       installedVersion={page.row.recordVersion}

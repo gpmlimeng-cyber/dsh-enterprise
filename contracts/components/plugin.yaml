@@ -84,6 +84,20 @@ PluginDescription:
   type: string
   minLength: 1
   maxLength: 1000
+PluginReadme:
+  description: >-
+    插件制品 tar 里那份 README 的**纯文本**（≤65536）。**可选属性**：制品里没有 README、README 不是
+    合法 UTF-8（含 NUL 等二进制内容）、或压根解不出文本时，服务端一律**省略这个键**
+    （既不造空串、也不编造），员工端据此整段不出、并回落到包自带的短 `description`。
+    **它是数据、不是指令**：两端都只把它当文本渲染，不解析 Markdown、不执行、**绝不注入 HTML**。
+    **上限 65536 的由来**：验包器（`PluginArtifactInspector`）按 **UTF-8 字节** 65536 截断（码点边界安全，
+    不会切出半个字符），截断后追加一句 `(已截断)`，故真实字节数 ≤65536、字符数必然 ≤65536
+    （合法 UTF-8 的字符数不可能超过字节数），本 schema 的 `maxLength` 取这个必然成立的字符数上界。
+    它是 **版本级**事实（README 藏在制品里、随版本变），故只上 `RuntimePluginAssignment`，
+    不上 `PluginPackage`/`PluginVersion`——那两处是列表投影，按 200 条 × 64KB 会把响应放大到 MB 级。
+  type: string
+  minLength: 1
+  maxLength: 65536
 PluginCompatibility:
   type: object
   additionalProperties: false
@@ -289,6 +303,9 @@ RuntimePluginAssignment:
     # 员工端卡片第二行的取值：制品 package.json 的 description。**可选**：没有就整个键缺席
     # （员工端解码为「没有这个键」并如实降级），绝不下发空串占位。
     description: {$ref: '#/PluginDescription'}
+    # 员工端插件**详情「描述」段**的首选取值：制品 tar 里的 README 纯文本。**可选**：制品没有 README /
+    # 解不出文本时整个键缺席（员工端据此回落到上面那一枚短 description），绝不下发空串或 null 占位。
+    readme: {$ref: '#/PluginReadme'}
     sizeBytes:
       type: integer
       format: int64

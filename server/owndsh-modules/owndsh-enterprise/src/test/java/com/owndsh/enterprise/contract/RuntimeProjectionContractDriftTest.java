@@ -176,6 +176,9 @@ class RuntimeProjectionContractDriftTest {
         // 具体锁本刀那一枚键：两条都得发（displayName 是必填，不是"有就发"）。
         assertTrue(viaPluginViews.contains("displayName"), () -> "PluginViews 缺 displayName：" + viaPluginViews);
         assertTrue(viaBootstrap.contains("displayName"), () -> "BootstrapView 缺 displayName：" + viaBootstrap);
+        // 口径 20 的 readme 同样两条都得发（都是"有值才发"，故这里取的是**有值**那份样例）。
+        assertTrue(viaPluginViews.contains("readme"), () -> "PluginViews 缺 readme：" + viaPluginViews);
+        assertTrue(viaBootstrap.contains("readme"), () -> "BootstrapView 缺 readme：" + viaBootstrap);
     }
 
     /** 一个 view 序列化后**实际发出的**顶层键集（与门禁本体同一口径：Jackson 注解说了算）。 */
@@ -367,6 +370,8 @@ class RuntimeProjectionContractDriftTest {
             // 覆盖到这个键。若传 null，@JsonInclude(NON_NULL) 会让它整个缺席，门禁就永远看不到它、
             // 等于新字段没被这道防线覆盖（断言仍只做 ⊆，语义未变）。
             "T13 契约漂移门禁示例插件：仅用于 runtime 视图投影的键集比对。",
+            // 口径 20 新增的可选 readme 同理：给真值才能覆盖到它（README 当纯文本，逐字带出）。
+            "# T13 工具\n\n契约漂移门禁的 README 样例。\n",
             2048L,
             "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789", "",
             new PluginCompatibility(
@@ -401,7 +406,8 @@ class RuntimeProjectionContractDriftTest {
     private static BootstrapView.PluginAssignment bootstrapPluginAssignment() {
         return new BootstrapView.PluginAssignment(
             "1901300000000000101", "@example/t13-tools", "1.0.0", "T13 门禁工具箱",
-            "T13 契约漂移门禁示例插件：仅用于 runtime 视图投影的键集比对。", 2048L,
+            "T13 契约漂移门禁示例插件：仅用于 runtime 视图投影的键集比对。",
+            "# T13 工具\n\n契约漂移门禁的 README 样例。\n", 2048L,
             "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789", "",
             new PluginCompatibility(
                 List.of("0123456789abcdef0123456789abcdef01234567"),

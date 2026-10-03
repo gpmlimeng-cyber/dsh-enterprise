@@ -295,6 +295,9 @@ export class EnterprisePluginDistributionService extends Service {
             // 制品 package.json 的 description：服务端**没有就整个键缺席**（不造空串），故这里同样只在
             // 真拿到非空值时带着走——下游（ui 解码白名单是关闭键集）据此把「没有这个键」当唯一缺失口径。
             ...(item.description === undefined ? {} : { description: item.description }),
+            // 制品 tar 里那份 README 的纯文本（口径 20）：与 `description` **同一口径**——服务端解不出
+            // README 时整个键缺席（不造空串、不编造），故这里也只在真拿到非空值时带着走。
+            ...(item.readme === undefined ? {} : { readme: item.readme }),
             sizeBytes: item.sizeBytes, operatingSystems: [...item.compatibility.operatingSystems],
             ...(installErrorCode === undefined ? {} : { installErrorCode }),
           }

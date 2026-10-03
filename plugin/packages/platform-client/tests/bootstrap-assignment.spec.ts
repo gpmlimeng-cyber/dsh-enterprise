@@ -10,7 +10,10 @@
  *           ⑤ 服务端**不许**发 `null`/空串/超长 description（契约是可选 string，
  *           读不到要**省略该键**），三种形态一律判非法，免得半吊子服务端产出「看起来能过、下游解码炸」的线协议；
  *           ⑥ 描述边界：1000 字收、1001 字拒；真实上架制品那条 347 字符的描述必须照收
- *           （旧的 300 上限正是它在源头被抹成 null 的原因）。
+ *           （旧的 300 上限正是它在源头被抹成 null 的原因）；
+ *           ⑦ **口径 20**：可选 `readme`（契约 `PluginReadme`，1..65536）认识、原样保留（不解析 Markdown）、
+ *           缺席也通过；null / 空串 / 65537 字一律判非法（读不到要**省略该键**），边界 65536 照收。
+ *           这一份 schema 是 `.strict()` 的：服务端先发而这里不认，整条 bootstrap 就挂——两侧必须同批。
  * [POS]: platform-client 侧「新增线协议字段必须两端同批、且必须为缺失设计」这件事的机械门禁
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -149,5 +152,48 @@ describe('bootstrap plugin assignment description', () => {
     const parsed = zBootstrapSnapshot.safeParse(snapshotWith(assignment({ description: real })))
     expect(parsed.success).toBe(true)
     expect(parsed.success ? parsed.data.plugins.assignments[0]?.description : undefined).toBe(real)
+  })
+})
+
+describe('bootstrap plugin assignment readme (口径 20：描述来自 README)', () => {
+  /** 一份带原始换行与 Markdown 记号的 README——它必须**逐字节原样**穿过这一层（本层不解析 Markdown）。 */
+  const README = '# Acme 工具箱\n\n把代码审查规则带进新会话。\n\n## 用法\n\n- 打开新会话\n'
+
+  it('accepts the new optional readme and keeps it verbatim on the parsed snapshot', () => {
+    const parsed = zBootstrapResponse.safeParse({
+      data: snapshotWith(assignment({ readme: README })),
+      requestId: REQUEST_ID,
+    })
+    expect(parsed.success).toBe(true)
+    expect(parsed.success ? parsed.data.data.plugins.assignments[0]?.readme : undefined).toBe(README)
+  })
+
+  it('still accepts a bootstrap from a server that does not send the key at all (未升级的服务端)', () => {
+    // 缺席 = 制品没有 README（员工端据此回落到短 description），不是畸形；description 照旧可读。
+    const parsed = zBootstrapSnapshot.safeParse(snapshotWith(assignment({ description: '短描述。' })))
+    expect(parsed.success).toBe(true)
+    expect(parsed.success ? parsed.data.plugins.assignments[0]?.readme : 'sentinel').toBeUndefined()
+    expect(parsed.success ? parsed.data.plugins.assignments[0]?.description : undefined).toBe('短描述。')
+  })
+
+  it('rejects null, empty, and over-long readmes: an absent readme must be omitted, not faked', () => {
+    for (const [label, readme] of [
+      ['null', null],
+      ['空串', ''],
+      ['65537 字', 'x'.repeat(65_537)],
+    ] as const) {
+      const parsed = zBootstrapResponse.safeParse({
+        data: snapshotWith(assignment({ readme })),
+        requestId: REQUEST_ID,
+      })
+      expect(parsed.success, label).toBe(false)
+    }
+  })
+
+  it('draws the boundary at exactly 65536 characters (与契约 PluginReadme.maxLength 同值)', () => {
+    for (const [label, length, valid] of [['1 字', 1, true], ['65536 字', 65_536, true], ['65537 字', 65_537, false]] as const) {
+      const parsed = zBootstrapSnapshot.safeParse(snapshotWith(assignment({ readme: 'y'.repeat(length) })))
+      expect(parsed.success, label).toBe(valid)
+    }
   })
 })

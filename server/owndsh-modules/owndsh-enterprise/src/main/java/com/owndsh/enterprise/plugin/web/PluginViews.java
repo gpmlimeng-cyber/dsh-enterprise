@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 投影 plugin catalog/version/assignment/runtime/inventory 领域对象。
- * [OUTPUT]: 对外提供字符串化 snowflake、完整 catalog assignments、**必填 displayName（1..120，员工端卡片标题）**、**可选 description（缺席即不下发该键）**、Base64 Ed25519（未签名为空字符串）与无 artifact 路径的严格 HTTP views。
+ * [OUTPUT]: 对外提供字符串化 snowflake、完整 catalog assignments、**必填 displayName（1..120，员工端卡片标题）**、**可选 description / 可选 readme（两者缺席即不下发该键）**、Base64 Ed25519（未签名为空字符串）与无 artifact 路径的严格 HTTP views。
  * [POS]: plugin/web 的统一安全投影，管理端和 runtime 共享签名/compatibility 字段语义。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -59,6 +59,7 @@ public final class PluginViews {
         return new RuntimeAssignmentView(
             Long.toString(value.pluginVersionId()), value.packageName(), value.version(), value.displayName(),
             value.description(),
+            value.readme(),
             value.sizeBytes(),
             value.sha256(), Base64.getEncoder().encodeToString(value.signature()), value.compatibility(),
             value.desiredState() == PluginAssignment.DesiredState.INSTALLED
@@ -134,6 +135,10 @@ public final class PluginViews {
      * **可选**属性（`description?: string`），而包没有描述时领域对象是 null；不加这一条会序列化出
      * `"description": null`，既违反契约、也会被两端生成的 strict Zod（`.optional()`）判为畸形。
      * 注意这里**只注解这一个分量**——同一条记录里的 `downloadUrl` 是「必需但可为 null」，绝不能被顺手隐掉。
+     *
+     * <p>`readme`（口径 20）与 `description` **逐条同口径**：契约里 `PluginReadme` 也是可选属性，
+     * 这一版解不出 README（或存量行还没回填）时领域对象是 null，故它同样只标这一个分量成
+     * `@JsonInclude(NON_NULL)`——不下发 `"readme": null`，员工端据此回落短描述。
      */
     public record RuntimeAssignmentView(
         String pluginVersionId,
@@ -141,6 +146,7 @@ public final class PluginViews {
         String version,
         String displayName,
         @JsonInclude(JsonInclude.Include.NON_NULL) String description,
+        @JsonInclude(JsonInclude.Include.NON_NULL) String readme,
         long sizeBytes,
         String sha256,
         String signatureBase64,

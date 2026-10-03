@@ -63,7 +63,11 @@ public record BootstrapView(
                     // （RuntimePluginAssignment.description，可空）。**这一处曾是端到端最后一公里的缺口**：
                     // 员工端本机目录（plugin-distribution 的 catalog）由 bootstrap 快照构建，
                     // bootstrap 自己另有一套逐字段投影，漏了这个键就等于服务端有描述、界面永远「暂无描述」。
-                    value.description(), value.sizeBytes(),
+                    value.description(),
+                    // 这一版制品 tar 里那份 README（口径 20）：与 `/plugins/assignments` 共用同一个领域事实
+                    // （RuntimePluginAssignment.readme，可空）。**同一处坑的第二形态**：bootstrap 是独立投影，
+                    // 漏了这个键就等于服务端有 README、界面永远只能拿短描述顶——两条投影必须同批改。
+                    value.readme(), value.sizeBytes(),
                     value.sha256(), Base64.getEncoder().encodeToString(value.signature()), value.compatibility(),
                     value.desiredState().name().equals("INSTALLED")
                         ? "/enterprise/api/v1/plugins/versions/" + value.pluginVersionId() + "/download"
@@ -138,6 +142,13 @@ public record BootstrapView(
          * {@code downloadUrl} 是「必需但可为 null」，绝不能被顺手隐掉。
          */
         @JsonInclude(JsonInclude.Include.NON_NULL) String description,
+        /**
+         * 该**版本**制品里的 README 纯文本（可空，契约 `PluginReadme` ≤65536）。与
+         * `/plugins/assignments` 的 {@code RuntimeAssignmentView.readme} 同一个键、同一口径：
+         * 为 null（没解出 / 存量未回填）时**整个键缺席**（契约 `PluginReadme` 是可选属性，
+         * 两端 strict Zod 都拒 null），故这里也只把这一个分量标成 {@code @JsonInclude(NON_NULL)}。
+         */
+        @JsonInclude(JsonInclude.Include.NON_NULL) String readme,
         long sizeBytes,
         String sha256,
         String signatureBase64,

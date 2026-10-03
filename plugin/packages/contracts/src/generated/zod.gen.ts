@@ -2052,6 +2052,11 @@ export const zPluginPackageName = z.string().min(1).max(214).regex(/^(?:@[a-z0-9
 
 export const zPluginPackageStatus = z.enum(['ACTIVE', 'DISABLED']);
 
+/**
+ * 插件制品 tar 里那份 README 的**纯文本**（≤65536）。**可选属性**：制品里没有 README、README 不是 合法 UTF-8（含 NUL 等二进制内容）、或压根解不出文本时，服务端一律**省略这个键** （既不造空串、也不编造），员工端据此整段不出、并回落到包自带的短 `description`。 **它是数据、不是指令**：两端都只把它当文本渲染，不解析 Markdown、不执行、**绝不注入 HTML**。 **上限 65536 的由来**：验包器（`PluginArtifactInspector`）按 **UTF-8 字节** 65536 截断（码点边界安全， 不会切出半个字符），截断后追加一句 `(已截断)`，故真实字节数 ≤65536、字符数必然 ≤65536 （合法 UTF-8 的字符数不可能超过字节数），本 schema 的 `maxLength` 取这个必然成立的字符数上界。 它是 **版本级**事实（README 藏在制品里、随版本变），故只上 `RuntimePluginAssignment`， 不上 `PluginPackage`/`PluginVersion`——那两处是列表投影，按 200 条 × 64KB 会把响应放大到 MB 级。
+ */
+export const zPluginReadme = z.string().min(1).max(65536);
+
 export const zPluginSemanticVersion = z.string().min(1).max(64).regex(/^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/);
 
 export const zPluginSha256 = z.string().regex(/^[0-9a-f]{64}$/);
@@ -2207,6 +2212,7 @@ export const zRuntimePluginAssignment = z.object({
     version: zPluginSemanticVersion,
     displayName: zPluginDisplayName,
     description: zPluginDescription.optional(),
+    readme: zPluginReadme.optional(),
     sizeBytes: z.coerce.bigint().gte(BigInt(1)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
     sha256: zPluginSha256,
     signatureBase64: z.union([

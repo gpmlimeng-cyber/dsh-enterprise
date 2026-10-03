@@ -86,6 +86,7 @@ import {
   enterpriseMarketEntrySummary,
   enterpriseMarketActionErrorLabel,
   enterpriseMarketPluginConfigTag,
+  enterpriseMarketPluginDetailBody,
   enterpriseMarketPluginRowFacts,
   enterpriseMarketPluginRows,
   enterpriseMarketPluginSectionVisible,
@@ -2859,12 +2860,15 @@ describe('enterprise skill detail page', () => {
  * 页头与四枚页签**保持可见、一字不改**。详情正文**原样复用** `plugin-market.tsx` 的纯组件
  * `EnterprisePluginDetailPage`（连它那份样式表一起挂上；两份表类名零交集，由隔离不变量守着）。
  *
- * 这里锁五件事：
+ * 这里锁六件事：
  *  ① 入口是一枚真 `<button>`（`aria-label` 完整句式、点击键 = 包名、没有 `aria-haspopup`）；
  *  ② 互斥：详情在场时**本页签**的列表与它那四态提示一个元素都不挂载，页签条一字不动；
  *  ③ 复用而非复制：组件本体与样式表都来自 `plugin-market.tsx`，本文件一个字都不重写；
  *  ④ 返回两条真路径（左上角返回按钮 + Esc），**浏览器返回没接**（本页没有真实路由，且不许硬造）；
- *  ⑤ 动作区 = 行上**同一枚**子块（能装就装、已装就开关），本面仍然**没有卸载**。
+ *  ⑤ 动作区 = 行上**同一枚**子块（能装就装、已装就开关），本面仍然**没有卸载**；
+ *  ⑥ **描述（用户口径第 19 条 → 第 20 条）**：详情的「描述」段正文由**唯一一枚**纯投影
+ *     `enterpriseMarketPluginDetailBody(row.readme, row.description)` 决定 —— **有 README 就用 README**，
+ *     没有才回落到行上**同一份** `row.description`；两者都没有 ⇒ 整段不出现（不画「暂无描述」空壳）。
  */
 describe('enterprise plugin detail subpage (face B)', () => {
   /** 目录 + 本机记录归并后的那一行（已装、启用、目录里还有这一版）——详情用例的基准行。 */
@@ -3068,6 +3072,107 @@ describe('enterprise plugin detail subpage (face B)', () => {
     const code = stripComments(await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8'))
     expect(code).not.toContain('removePlugin')
     expect(code).not.toContain('确认卸载')
+  })
+
+  it('carries the row\'s real description into the detail, and drops the block entirely when the row has none', () => {
+    // ① 目录里有这一条、制品写了描述 ⇒ 详情里那一段就是**行上第二行那条同一份真值**（`row.description`）。
+    expect(row().description).toBe('甲的描述。')
+    const described = detailShell(pageInput())
+    expect(collectDataValues(described, 'data-enterprise-plugin-detail-description')).toEqual([''])
+    expect(textOf(described)).toContain('甲的描述。')
+    // ② 已下架（目录里没有这一条 ⇒ 行投影上**根本没有** `description` 这个键）⇒ 详情里整段不出现，不留空壳。
+    const delisted = enterpriseMarketPluginRows([], [{
+      packageName: 'ent-z', version: '1.0.0', desiredRevision: 1, desiredState: 'INSTALLED', state: 'ACTIVE', lastErrorCode: null,
+    }])[0]!
+    expect('description' in delisted).toBe(false)
+    const withoutDescriptionProps = shellProps({ enterprisePlugins: [delisted] })
+    const withoutDescription = detailShell({
+      row: delisted,
+      facts: enterpriseMarketPluginRowFacts(withoutDescriptionProps, delisted),
+      catalogVersionText: '1.0.0',
+      onBack: vi.fn(),
+    }, { enterprisePlugins: [delisted] })
+    expect(collectDataValues(withoutDescription, 'data-enterprise-plugin-detail-description')).toEqual([])
+    // 详情里缺描述**整段不出现**（「暂无描述」是行上第二行的口径，不搬到这里当占位）。
+    expect(textOf(withoutDescription)).not.toContain('暂无描述')
+    // ③ 描述只是**多传一个 prop**：详情里事实表那些字段一个不少、顺序不变（两态对比）。
+    expect(collectByClassName(described, 'own-market-facts')).toHaveLength(1)
+    expect(collectByClassName(withoutDescription, 'own-market-facts')).toHaveLength(1)
+    expect(textOf(described)).toContain(ENTERPRISE_PLUGIN_DETAIL_PUBLISHER)
+    expect(textOf(withoutDescription)).toContain(ENTERPRISE_PLUGIN_DETAIL_PUBLISHER)
+  })
+
+  // 口径 20（描述来自 README）：详情「描述」段的**内容来源**换成制品里的 README，三态一条不丢。
+  it('prefers the artifact README over the short description, falls back to it, and drops the block when neither exists', () => {
+    const readme = '# 甲插件\n\n把代码审查规则带进新会话。\n\n## 用法\n\n- 打开新会话\n'
+    /** 目录里这一条带 README 的行（其余事实与基准行逐字相同，只有 `readme` 这一件事在变）。 */
+    const withReadme = (readmeValue: string | undefined, description: string | undefined) =>
+      enterpriseMarketPluginRows([{
+        pluginVersionId: 'v1', packageName: 'ent-a', version: '1.2.0', displayName: '甲插件',
+        ...(description === undefined ? {} : { description }),
+        ...(readmeValue === undefined ? {} : { readme: readmeValue }),
+        sizeBytes: 2048, operatingSystems: ['darwin'],
+      }], [{
+        packageName: 'ent-a', version: '1.2.0', desiredRevision: 1, desiredState: 'INSTALLED', state: 'ACTIVE', lastErrorCode: null,
+      }])[0]!
+
+    /** 把一行渲染成详情子页面（与上面那条用例同一手法：控制器形状的一份 props 直造）。 */
+    const detailOf = (target: ReturnType<typeof withReadme>): ReactNode => {
+      const props = shellProps({ enterprisePlugins: [target] })
+      return detailShell({
+        row: target,
+        facts: enterpriseMarketPluginRowFacts(props, target),
+        catalogVersionText: '1.2.0',
+        onBack: vi.fn(),
+      }, { enterprisePlugins: [target] })
+    }
+    /** 详情里那一段描述正文（就是那枚纯文本节点 `children` 上的字符串）。 */
+    const bodyText = (node: ReactNode): string => {
+      const body = collectByProp(node, 'data-enterprise-plugin-detail-description-text')
+      expect(body, '描述正文那枚节点不在树里').toHaveLength(1)
+      return String(body[0]!['children'])
+    }
+
+    // ① 两者都在 ⇒ **README 赢**（整篇正文逐字上屏，含 Markdown 记号与原始换行），短描述不上屏。
+    const both = withReadme(readme, '甲的描述。')
+    expect(both.readme).toBe(readme)
+    expect(both.description).toBe('甲的描述。')
+    expect(bodyText(detailOf(both))).toBe(readme)
+    expect(textOf(detailOf(both))).not.toContain('甲的描述。')
+    // ② 只有短描述（制品没有 README）⇒ **回落**到它（口径 19 的既有行为，一个字不丢）。
+    const fallback = withReadme(undefined, '甲的描述。')
+    expect('readme' in fallback).toBe(false)
+    expect(bodyText(detailOf(fallback))).toBe('甲的描述。')
+    // ③ 两者都没有 ⇒ 整段不进 DOM（既不画空壳、也不并列两段），连小标题都不出现。
+    const neither = withReadme(undefined, undefined)
+    expect('readme' in neither).toBe(false)
+    expect(collectDataValues(detailOf(neither), 'data-enterprise-plugin-detail-description')).toEqual([])
+    // ④ 行上第二行**仍然**是短描述：README 只进详情，不进两行 clamp 的卡片（两件事实互不侵占）。
+    expect(textOf(EnterpriseMarketLegacyShell(shellProps({ enterprisePlugins: [both] })))).toContain('甲的描述。')
+  })
+
+  it('keeps README as data: plain text child, no Markdown parsing, no HTML injection, no new dependency', async () => {
+    // README 里带着 Markdown 记号与一段**看起来像 HTML** 的文本：两者都必须原样当文本显示。
+    const readme = '# 标题\n\n<b>这不是 HTML</b> 与 <script>alert(1)</script>\n'
+    expect(enterpriseMarketPluginDetailBody(readme, '短描述。')).toBe(readme)
+    // 投影本身只是取值：不改写、不 trim、不截断。
+    expect(enterpriseMarketPluginDetailBody('  两边留白  ', '短描述。')).toBe('  两边留白  ')
+    expect(enterpriseMarketPluginDetailBody(undefined, undefined)).toBeUndefined()
+    for (const missing of [null, '', '   ']) {
+      expect(enterpriseMarketPluginDetailBody(missing, '短描述。'), String(missing)).toBe('短描述。')
+      expect(enterpriseMarketPluginDetailBody(missing, missing), String(missing)).toBeUndefined()
+    }
+    // 契约上限 65536 整串照旧（投影不截断——限长是服务端那一侧的事，界面只做版式上的块内滚动）。
+    const huge = 'y'.repeat(65_536)
+    expect(enterpriseMarketPluginDetailBody(huge, '短描述。')).toHaveLength(65_536)
+    // 源码级锁：这一面**没有** Markdown 解析器、**没有** HTML 注入口，也没有新增渲染依赖。
+    const strip = (text: string) => text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
+    const market = strip(await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8'))
+    expect(market).not.toContain('dangerouslySetInnerHTML')
+    expect(market).not.toContain('innerHTML')
+    for (const renderer of ['marked', 'markdown-it', 'remark', 'micromark', 'react-markdown']) {
+      expect(market, renderer).not.toContain(renderer)
+    }
   })
 })
 

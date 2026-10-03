@@ -22,7 +22,17 @@
  *          整支没有 `<Modal>`/`role="dialog"`/`aria-modal`/portal；列表与详情在**同一个**内容区容器里互斥
  *          （详情在场 ⇒ 列表那棵树一个元素都不在）；返回按钮带完整动作语义、标题是程序化聚焦点；
  *          标题按钮**不再**挂 `aria-haspopup`；返回后的滚动位置与焦点还原、Esc 接线、
- *          且**不假装有路由**（源码里一个 `pushState`/`popstate`/`history.` 都没有）。
+ *          且**不假装有路由**（源码里一个 `pushState`/`popstate`/`history.` 都没有）；
+ *          ⑧ **详情补描述（用户口径第 19 条）**：`description` 是 **additive** 可选 prop——**不传时详情大纲
+ *          与改动前逐字相同**（本文件内嵌的那份 pre-change 逐行快照 + 长度 + FNV-1a 三重判据）、
+ *          传真值时描述排布在**事实表之后**、原样显示那条真值（含 347 字的真实制品描述）、
+ *          纯文本子节点渲染（全树与两份源码都无 `dangerouslySetInnerHTML`）、`pre-wrap` 保留原始换行、
+ *          `overflow-wrap:anywhere` 挡长串英文、高度上限 12 行×20px=240px 且超出在块内滚动（**不截断**，
+ *          1000 字的契约上限照旧一个字不丢）、缺失（undefined/null/空串/纯空白）⇒ **整段不进 DOM**（不留空壳）；
+ *          ⑨ **口径 20（描述来自 README）**：这一段的**内容来源**换成制品里的 README——face B 传的是唯一那枚
+ *          纯投影 `enterpriseMarketPluginDetailBody(readme, description)`（README 优先、短描述回落），
+ *          face A **仍不传**（源码级锁：那唯一一处渲染点里既没有 `description` 也没有 `readme`）
+ *          ⇒ 上面⑧那条 pre-change 逐字大纲快照**原样通过**，本文件的渲染方式/版式/CSS 一个字未改。
  * [POS]: 本刀（详情从弹窗改成子页面）的机械门禁：把「不是浮层、是内容区切换」「字段一个不少、顺序不变」
  *        「不再有 dialog 语义」从口号变成可执行断言。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -44,6 +54,10 @@ import { EnterpriseMarketLegacyShell } from '../src/marketplace-entry.js'
 import {
   ENTERPRISE_PLUGIN_DETAIL_BACK_LABEL,
   ENTERPRISE_PLUGIN_DETAIL_BACK_TEXT,
+  ENTERPRISE_PLUGIN_DETAIL_DESCRIPTION_LABEL,
+  ENTERPRISE_PLUGIN_DETAIL_DESCRIPTION_LINE_HEIGHT,
+  ENTERPRISE_PLUGIN_DETAIL_DESCRIPTION_MAX_HEIGHT,
+  ENTERPRISE_PLUGIN_DETAIL_DESCRIPTION_MAX_LINES,
   ENTERPRISE_PLUGIN_DETAIL_NOT_INSTALLED,
   ENTERPRISE_PLUGIN_DETAIL_PUBLISHER,
   ENTERPRISE_PLUGIN_DETAIL_TITLE,
@@ -51,6 +65,7 @@ import {
   EnterprisePluginCardTitle,
   EnterprisePluginContentRegion,
   EnterprisePluginDetailPage,
+  enterprisePluginDetailDescription,
 } from '../src/plugin-market.js'
 
 vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
@@ -680,5 +695,232 @@ describe('plugin detail is an in-page subpage, never a dialog', () => {
     const confirm = await readFile(new URL('confirm-action.tsx', UI_SRC), 'utf8')
     expect(confirm).toContain('<Modal')
     expect(confirm).toContain('dataset.enterpriseConfirmation')
+  })
+})
+
+/* ───────────────────────── ⑧ 插件市场详情补描述（用户口径第 19 条） ───────────────────────── */
+
+/**
+ * 官方原语的 mock 身份表：`vi.fn()` 被调用只会产出 `undefined`，故大纲按**身份**记名再展开它的 children
+ * （与 `marketplace-entry.spec.ts` 的 `domOutline` / `MOCK_PRIMITIVES` 同一口径）。
+ */
+const DETAIL_MOCK_PRIMITIVES: readonly [unknown, string][] = [
+  [Button as unknown, 'Button'],
+  [Modal as unknown, 'Modal'],
+  [Tag as unknown, 'Tag'],
+]
+
+/**
+ * 详情子页面的**逐字大纲**（纯函数树 → 逐行字符串）：`undefined/null/false/true` 与空数组不出行，
+ * 字符串/数字出行，Fragment 透明下钻，函数组件就地渲染一次，官方原语按身份记名。
+ */
+function detailOutline(node: ReactNode, depth = 0): string[] {
+  const pad = '  '.repeat(depth)
+  if (node === null || node === undefined || node === false || node === true) return []
+  if (typeof node === 'string' || typeof node === 'number') return [`${pad}#text:${String(node)}`]
+  if (Array.isArray(node)) return node.flatMap(child => detailOutline(child, depth))
+  if (!isValidElement(node)) return []
+  const props = node.props as Record<string, unknown>
+  const type = node.type as unknown
+  const attrs = Object.entries(props)
+    .filter(([key, value]) => key !== 'children' && value !== undefined && value !== null)
+    .map(([key, value]) => `[${key}=${typeof value === 'function' ? '[fn]' : String(value)}]`)
+    .join('')
+  for (const [mock, name] of DETAIL_MOCK_PRIMITIVES) {
+    if (type === mock) return [`${pad}${name}${attrs}`, ...detailOutline(props['children'] as ReactNode, depth + 1)]
+  }
+  if (typeof type === 'function') return detailOutline((type as (p: unknown) => ReactNode)(props), depth)
+  if (type === Symbol.for('react.fragment')) return detailOutline(props['children'] as ReactNode, depth)
+  if (typeof type !== 'string') return [`${pad}#opaque:${String(type)}`]
+  return [`${pad}${type}${attrs}`, ...detailOutline(props['children'] as ReactNode, depth + 1)]
+}
+
+/**
+ * ★**本刀最硬的那一条**：**不传 `description` 时，详情渲染树与改动前逐字相同**。
+ *
+ * 这份大纲是**改动落定之前**（同一枚纯组件、同一组 props）跑出来的逐行快照；本刀只往那一支里加了
+ * 「有描述才多一段」的**条件分支**，缺省路径一个节点、一个属性、一个字都没动 ⇒ 它必须原样通过。
+ * 它同时把「face A 不受影响」从口号变成可执行的字节级判据（face A 永远不传这个 prop）。
+ */
+const LEGACY_PLUGIN_DETAIL_OUTLINE: readonly string[] = [
+  'div[data-enterprise-plugin-detail=@example/acme-tools][role=region][aria-label=插件详情：Acme 工具箱]',
+  '  div[className=own-market-toolbar]',
+  '    Button[size=sm][variant=ghost][icon=[object Object]][aria-label=返回插件列表][title=返回插件列表][data-enterprise-plugin-detail-back=][onClick=[fn]]',
+  '      #text:插件列表',
+  '  h3[tabIndex=-1][data-enterprise-plugin-detail-title=][style=[object Object]]',
+  '    #text:插件详情',
+  '  dl[className=own-market-facts]',
+  '    dt',
+  '      #text:插件',
+  '    dd',
+  '      #text:Acme 工具箱',
+  '    dt',
+  '      #text:企业版本',
+  '    dd',
+  '      #text:1.2.3',
+  '    dt',
+  '      #text:本机版本',
+  '    dd',
+  '      #text:1.2.3',
+  '    dt',
+  '      #text:发布方',
+  '    dd',
+  '      #text:企业管理员',
+  '    dt',
+  '      #text:大小',
+  '    dd',
+  '      #text:2 KiB',
+  '  div[className=own-market-actions]',
+  '    #text:更新版本',
+]
+
+/**
+ * 企业目录里**最长的那条真实描述**（347 字）：真值来自真实上架制品
+ * `@mengli114/dsh-settings-nav-collapse` 的 `package.json`（与 `platform-client` / `ui` 解码层
+ * 那两条用例里用的是**同一串字节**，故「真值」这条链在四个包里说的是同一句话）。
+ */
+const REAL_PLUGIN_DESCRIPTION = 'DSH web client plugin: one toggle in the settings panel header collapses the settings navigation'
+  + ' column into a narrow icon rail, so the settings content keeps a readable width on phones and other narrow'
+  + " viewports. The panel is located at runtime from the plugin's own node (no package-internal attribute), and"
+  + ' the choice is remembered per browser.'
+
+describe('plugin detail description (口径 19): face B gains it, face A output stays byte-identical', () => {
+  /** 详情子页面直调入口（与 ⑦ 那组**同一组 props**：本组的大纲快照必须与它可比）。 */
+  const detail = (overrides: Partial<Parameters<typeof EnterprisePluginDetailPage>[0]> = {}) =>
+    EnterprisePluginDetailPage({
+      packageName: '@example/acme-tools',
+      displayName: 'Acme 工具箱',
+      catalogVersionText: '1.2.3',
+      installed: true,
+      installedVersion: '1.2.3',
+      sizeBytes: 2048,
+      onBack: () => undefined,
+      actions: h('div', { className: 'own-market-actions' }, '更新版本'),
+      ...overrides,
+    })
+
+  /** 描述段的容器 props（`undefined` = 整段不在树里）。 */
+  const descriptionSection = (page: ReactNode): Record<string, any> | undefined =>
+    collectByClassName(page, 'own-market-notice')[0]
+
+  /** 描述**正文**那一枚节点的 props（纯文本子节点挂在它的 `children` 上）。 */
+  const descriptionBody = (page: ReactNode): Record<string, any> => {
+    const section = descriptionSection(page)
+    expect(section, '描述段不在树里').toBeDefined()
+    const children = section?.['children'] as ReactNode[]
+    expect(Array.isArray(children), '描述段应当同时带小标题与正文两枚节点').toBe(true)
+    return (children[1] as unknown as { props: Record<string, any> }).props
+  }
+
+  it('derives the description through an additive projection that has no placeholder for the missing case', () => {
+    // 有描述：**原样**返回（不 trim、不截断、不改写）——与行上那枚投影的「有值」口径一致。
+    expect(enterprisePluginDetailDescription(REAL_PLUGIN_DESCRIPTION)).toBe(REAL_PLUGIN_DESCRIPTION)
+    expect(enterprisePluginDetailDescription('  两边留白  ')).toBe('  两边留白  ')
+    // 缺失：`undefined`（**不是**「暂无描述」）——详情里缺描述是整段不出现，那才是本投影与行上那枚的差别。
+    for (const missing of [undefined, null, '', '   ']) {
+      expect(enterprisePluginDetailDescription(missing), String(missing)).toBeUndefined()
+    }
+    expect(enterprisePluginDetailDescription(undefined)).not.toBe(ENTERPRISE_PLUGIN_DESCRIPTION_EMPTY)
+    // 小标题与上限：12 行 × 20px（与复用的既有文案类 `.own-market-notice` 的 line-height 同值）。
+    expect(ENTERPRISE_PLUGIN_DETAIL_DESCRIPTION_LABEL).toBe('描述')
+    expect(ENTERPRISE_PLUGIN_DETAIL_DESCRIPTION_MAX_LINES).toBe(12)
+    expect(ENTERPRISE_PLUGIN_DETAIL_DESCRIPTION_LINE_HEIGHT).toBe(20)
+    expect(ENTERPRISE_PLUGIN_DETAIL_DESCRIPTION_MAX_HEIGHT).toBe('240px')
+  })
+
+  it('shows the row\'s real description verbatim, after the fact list and before the action area', () => {
+    expect(REAL_PLUGIN_DESCRIPTION).toHaveLength(347)
+    const page = detail({ description: REAL_PLUGIN_DESCRIPTION })
+    // 那段真值**一个字不少**地上屏（不是截断值、不是摘要）。
+    expect(textOf(page)).toContain(REAL_PLUGIN_DESCRIPTION)
+    expect(textOf(page)).toContain(ENTERPRISE_PLUGIN_DETAIL_DESCRIPTION_LABEL)
+    expect(descriptionBody(page)['children']).toBe(REAL_PLUGIN_DESCRIPTION)
+    // 排布：事实表 `<dl>` **之后**、动作区之前（既有版式一字不动，只多这一段）。
+    const root = (page as unknown as { props: { children: ReactNode[] } }).props
+    const kinds = (root.children as ReactNode[])
+      .map(child => (isValidElement(child) ? String((child.type as unknown)) : ''))
+    expect(kinds.indexOf('dl')).toBeGreaterThan(-1)
+    expect(kinds.indexOf('section')).toBeGreaterThan(kinds.indexOf('dl'))
+    expect(kinds.indexOf('section')).toBeLessThan(kinds.lastIndexOf('div'))
+  })
+
+  it('keeps face A byte-identical when no description is passed (pre-change outline snapshot, triple lock)', () => {
+    // ① 不传 ⇒ 与改动前逐行相同（这份快照取自改动落定之前）。
+    const outline = detailOutline(detail())
+    expect(outline).toEqual(LEGACY_PLUGIN_DETAIL_OUTLINE)
+    // ② 显式传 `undefined` 与「根本不传」是**同一棵树**（additive 的缺省路径只有一条）。
+    expect(detailOutline(detail({ description: undefined }))).toEqual(LEGACY_PLUGIN_DETAIL_OUTLINE)
+    // ③ 读一份压缩读数（长度 + FNV-1a），便于在汇报里一眼核对；比字符串数组更省地方，且同样字节级。
+    const joined = LEGACY_PLUGIN_DETAIL_OUTLINE.join('\n')
+    expect(joined.length).toBe(708)
+    expect(styleChecksum(joined)).toBe(2780040711)
+    expect(detailOutline(detail()).join('\n')).toBe(joined)
+    // ④ 传了描述确实**多出**一段（证明缺省那条路径的「不变」不是因为分支根本没接上）。
+    expect(detailOutline(detail({ description: '有描述。' })).length).toBeGreaterThan(outline.length)
+  })
+
+  it('keeps face A out of it at the source level, and never injects HTML anywhere', async () => {
+    const source = await readFile(new URL('plugin-market.tsx', UI_SRC), 'utf8')
+    // face A（企业设置 → 插件）那**唯一一处**渲染点不传 `description`：它渲染出的东西因此与改动前逐字相同。
+    const start = source.indexOf('<EnterprisePluginDetailPage')
+    expect(start).toBeGreaterThan(-1)
+    const callSite = source.slice(start, source.indexOf('/>', start))
+    expect(callSite).not.toContain('description')
+    // 口径 20 起再加一条：face A 也**不传** `readme`（README 只喂 face B 的详情，face A 那一段整段不出）。
+    expect(callSite).not.toContain('readme')
+    // 两面都不许有 HTML 注入口（描述是纯文本子节点渲染的源码级证据）。
+    const strip = (text: string) => text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
+    expect(strip(source)).not.toContain('dangerouslySetInnerHTML')
+    const market = await readFile(new URL('marketplace-entry.tsx', UI_SRC), 'utf8')
+    // face B 那一面确实把真值传进详情，而且**口径 20 起它的来源是 README 优先、短描述回落**：
+    // 传的是**唯一那一枚**纯投影 `enterpriseMarketPluginDetailBody(row.readme, row.description)`——
+    // 不许退回成"只看 description"（那样 README 永远上不了屏），也不许在这里内联三元表达式（那会造出第二套口径）。
+    expect(market).toContain('description={enterpriseMarketPluginDetailBody(page.row.readme, page.row.description)}')
+    expect(market).toContain('export function enterpriseMarketPluginDetailBody(')
+    // face B 的行投影确实把目录里那枚 README 带上来（只有真拿到非空串才产出该键）。
+    expect(market).toContain('...(cat?.readme === undefined ? {} : { readme: cat.readme })')
+    expect(strip(market)).not.toContain('dangerouslySetInnerHTML')
+  })
+
+  it('renders the description as a plain text node (never HTML) and keeps its original line breaks', () => {
+    const multiline = '第一行：把代码审查规则带进新会话。\n第二行：<b>这不是 HTML</b>，原样显示。'
+    const page = detail({ description: multiline })
+    const body = descriptionBody(page)
+    // ★纯文本子节点：正文就是**一个字符串**（不是元素、不是数组、更不是 innerHTML）。
+    expect(body['children']).toBe(multiline)
+    expect(body['dangerouslySetInnerHTML']).toBeUndefined()
+    expect(collectPropValues(page, 'dangerouslySetInnerHTML')).toEqual([])
+    // 原始换行照旧（`pre-wrap`），长串英文不撑破（`anywhere`）。
+    const style = body['style'] as Record<string, unknown>
+    expect(style['whiteSpace']).toBe('pre-wrap')
+    expect(style['overflowWrap']).toBe('anywhere')
+    expect(textOf(page)).toContain('第一行：把代码审查规则带进新会话。')
+    expect(textOf(page)).toContain('<b>这不是 HTML</b>，原样显示。')
+  })
+
+  it('caps the block at 12 lines with in-block scrolling, without ever truncating the text', () => {
+    const contractMax = 'y'.repeat(1000)
+    const page = detail({ description: contractMax })
+    const body = descriptionBody(page)
+    const style = body['style'] as Record<string, unknown>
+    // 限长是**版式**上的（高度上限 + 块内滚动），不是把字删掉：契约上限 1000 字整串照旧在树里。
+    expect(style['maxHeight']).toBe('240px')
+    expect(style['overflowY']).toBe('auto')
+    expect(style['maxHeight']).toBe(ENTERPRISE_PLUGIN_DETAIL_DESCRIPTION_MAX_HEIGHT)
+    expect(body['children']).toBe(contractMax)
+    expect(String(body['children']).length).toBe(1000)
+    // 正文那一枚节点不是死滚动区：它可聚焦（键盘用户能滚着读全，不用鼠标）。
+    expect(body['tabIndex']).toBe(0)
+  })
+
+  it('omits the whole block when there is nothing honest to show (no shell, no 暂无描述 placeholder)', () => {
+    for (const missing of [undefined, '', '   ']) {
+      const page = detail({ description: missing })
+      expect(descriptionSection(page), String(missing)).toBeUndefined()
+      expect(collectPropValues(page, 'data-enterprise-plugin-detail-description')).toEqual([])
+      expect(textOf(page)).not.toContain(ENTERPRISE_PLUGIN_DETAIL_DESCRIPTION_LABEL)
+    }
+    // 「暂无描述」是**行上第二行**的口径，不许被搬到详情里当占位（那是行上那句话，不是这里的）。
+    expect(textOf(detail({ description: undefined }))).not.toContain(ENTERPRISE_PLUGIN_DESCRIPTION_EMPTY)
   })
 })

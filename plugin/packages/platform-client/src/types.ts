@@ -1,9 +1,11 @@
 /**
  * [INPUT]: 依赖 zod、生成契约、官方 settings 的 volatile Config 引用形状、installation 与本地 API 端口
- * [OUTPUT]: 对外提供 BootstrapSnapshot（插件分配含**可选位** `displayName` 与 `description`，容旧服务端不发）、平台状态/错误（含安卓授权页交接时随 AUTHORIZING 下发的 `authorizeUrl`）、volatile 引用识别与无验收探针的 Service 配置（含 `browserHandoff` 开关，以及组合层注入的企业插件动作端口 `pluginAction`/`pluginStatus`、企业技能安装端口 `skillAction`/`skillStatus` 与只读正文端口 `skillContent`）
+ * [OUTPUT]: 对外提供 BootstrapSnapshot（插件分配含**可选位** `displayName`、`description` 与 `readme`，容旧服务端不发）、平台状态/错误（含安卓授权页交接时随 AUTHORIZING 下发的 `authorizeUrl`）、volatile 引用识别与无验收探针的 Service 配置（含 `browserHandoff` 开关，以及组合层注入的企业插件动作端口 `pluginAction`/`pluginStatus`、企业技能安装端口 `skillAction`/`skillStatus` 与只读正文端口 `skillContent`）
  * [POS]: platform-client 的公共契约层，隔离中心 HTTP 输入、Host 运行参数、官方 settings 引用与无秘密界面状态
  * **本刀（插件行动分流）**：`EnterprisePlatformServiceInternals` 新增 `pluginSetEnabled`（组合层注入的启用/停用端口），
  *   缺席即那两条路由按「分发不可用」如实拒——与 `pluginAction`/`pluginCancel` 同一条接线手法。
+ * **本刀（口径 20，描述来自 README）**：分配的 `.strict()` schema 新增**可选** `readme`（契约 `PluginReadme`，
+ *   1..65536）——它是**关闭键集**的这一侧，服务端先发而这个键不认就会让整条 bootstrap 失败，故两侧同批上线。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -210,6 +212,12 @@ export const zBootstrapSnapshot = z.object({
       // 这一份是 `.strict()` 的，服务端先发这个键而这里不认就会让整条 bootstrap 失败——两侧同批上线。
       // 上限跟契约 `PluginDescription.maxLength` 走（V41 由 300 提到 1000）：真实制品里有 347 字符的描述。
       description: z.string().min(1).max(1000).optional(),
+      // 制品 tar 里那份 README 的纯文本（契约 `PluginReadme`，**可选** ≤65536）——员工端插件详情
+      // 「描述」段的**首选**取值（口径 20：描述来自 README，没有才回落到上面那一枚短 description）。
+      // 服务端解不出 README（没有 / 非 UTF-8 / 空白）就**整个键缺席**（绝不发 null/空串）。
+      // `maxLength` 跟契约走：服务端按 UTF-8 字节 65536 截断，字符数不可能超过它，故这里同值。
+      // 同一条 `.strict()` 老坑：服务端先发这个键而这里不认，整条 bootstrap 就会失败——两侧同批上线。
+      readme: z.string().min(1).max(65_536).optional(),
       sizeBytes: z.number().int().positive().safe(),
       sha256: pluginSha256,
       signatureBase64: z.union([z.literal(''), z.string().length(88).regex(/^[A-Za-z0-9+/]{86}==$/)]),

@@ -33,6 +33,14 @@
  *   点击回调把**本行**的包名回传（`openDetail`）；详情子页面那一格读同一枚投影。
  *   ★ 如实交代：真实数据里 6 条企业插件制品**没有一条声明 `displayName`** ⇒ 显示名 = 包名，
  *   这类插件在界面上的标题与改前**逐字相同**，只有声明了人类可读名的插件才看得出差别。 **本刀（导出给「插件市场」复用）**：新增 `ENTERPRISE_PLUGIN_STYLES`（本文件那份全局 CSS 的唯一出口）与 `scrollTargetOf`（「进入详情前那一刻真的会滚的那个祖先」的唯一判定）两个导出——官方插件页「插件市场」那一面的插件详情子页面**原样复用**本文件的 `EnterprisePluginDetailPage`，故它必须把这份样式表一并挂上（两份表类名零交集，同页并存不互相覆盖），而还原滚动位置必须与这边**同一条**判定。导出的是同一串字节，CSS 与 face A 的详情子页面、它的锁都一字未动。
+ * **本刀（插件市场详情补描述，用户口径第 19 条）**：`EnterprisePluginDetailPage` 新增**可选** prop
+ *   `description`（additive：face A 不传 ⇒ 它渲染出的东西逐字不变，由详情大纲逐字快照锁着）——face B 传真值
+ *   后，详情里在事实表**之后**多一段「描述」：纯文本子节点（无 `dangerouslySetInnerHTML`）、
+ *   `pre-wrap` 保留原始换行、`overflow-wrap:anywhere` 不被长串英文撑破、上限 12 行×20px=240px 超出在块内
+ *   滚动读全（不截断不折叠）；缺失一律整段不进 DOM（不留「暂无描述」空壳）。取值经新增纯投影
+ *   `enterprisePluginDetailDescription`（缺描述 → `undefined`，与行上 `enterprisePluginDescriptionText`
+ *   的「暂无描述」口径**刻意不同**）。**CSS 一个字节都没动、一个新类都没加**（复用本页既有
+ *   `.own-market-notice`，其余是内联版式），故 `styles` 长度 5345 与 FNV-1a 1754276488 原样通过。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -124,6 +132,35 @@ export const ENTERPRISE_PLUGIN_DETAIL_BACK_LABEL = '返回插件列表'
 export const ENTERPRISE_PLUGIN_DETAIL_PUBLISHER = '企业管理员'
 /** 详情「本机版本」那一格在未安装时的既有取值。 */
 export const ENTERPRISE_PLUGIN_DETAIL_NOT_INSTALLED = '未安装'
+/** 详情里那一段【描述】的小标题（**只有传真值时才上屏**；不传 ⇒ 连这段标题都不进 DOM）。 */
+export const ENTERPRISE_PLUGIN_DETAIL_DESCRIPTION_LABEL = '描述'
+/**
+ * 描述块最多显示几行（超出在块内滚动看全，**不截断、不折叠、不丢字**）。
+ *
+ * 取 12 行的理由：契约 `PluginDescription` 的上限是 1000 字，而企业目录里**最长的那条真实描述是
+ * 347 字**（`@mengli114/dsh-settings-nav-collapse` 的 `package.json`）——它在详情页的正文宽度下
+ * 约 5–6 行，故**真实数据一条都不会滚动**；而 1000 字的极端值（≈3 倍）在手机窄屏上会到十几行，
+ * 12 行这一刀把它挡在返回按钮/动作区之前，用户可以就地滚动读完，不会有任何字被丢掉。
+ */
+export const ENTERPRISE_PLUGIN_DETAIL_DESCRIPTION_MAX_LINES = 12
+/** 与描述块复用的既有文案类 `.own-market-notice` 的 `line-height:20px` **同值**（按行换算上限必须与它一致）。 */
+export const ENTERPRISE_PLUGIN_DETAIL_DESCRIPTION_LINE_HEIGHT = 20
+/** 描述块的高度上限 = 行数 × 行高（超出 240px 的部分在块内滚动）。 */
+export const ENTERPRISE_PLUGIN_DETAIL_DESCRIPTION_MAX_HEIGHT
+  = `${ENTERPRISE_PLUGIN_DETAIL_DESCRIPTION_MAX_LINES * ENTERPRISE_PLUGIN_DETAIL_DESCRIPTION_LINE_HEIGHT}px`
+
+/**
+ * 详情里那一段描述的取值（纯投影，测试直调）：**有描述才返回值**，其余（缺席 / null / 空串 / 纯空白）
+ * 一律 `undefined` ⇒ 整段不进 DOM（连「描述」这枚小标题都不出现，不留空壳、更不写占位句）。
+ *
+ * 与卡片第二行那枚 `enterprisePluginDescriptionText` 的差别正在**缺失口径**上：行上缺描述必须
+ * **如实说一句「暂无描述」**（一行空白看着像坏了），详情里缺描述则**整段不出现**（多一段没有内容的
+ * 标题才是真噪音）。有描述时两者一致：**原样返回，不 trim、不截断、不改写**。
+ */
+export function enterprisePluginDetailDescription(description: string | null | undefined): string | undefined {
+  if (description === undefined || description === null) return undefined
+  return description.trim() === '' ? undefined : description
+}
 
 /**
  * 详情弹窗「企业版本」那一格的取值（纯投影，测试直调）。
@@ -610,11 +647,36 @@ export function scrollTargetOf(node: HTMLElement | null): HTMLElement | undefine
  *
  * 样式：**一个新 CSS 类都没加**——返回行/动作行用本页既有的 `.own-market-toolbar`/`.own-market-actions`，
  * 事实表用既有 `.own-market-facts`，进度用既有 `.own-plugin-progress*`；chevron 的 90° 旋转是内联版式。
+ *
+ * **描述（用户口径第 19 条 → 第 20 条）**：事实表**之后**那一段「描述」只在 `props.description` 有真值时才进 DOM
+ * （取值经 `enterprisePluginDetailDescription`，缺失 ⇒ `undefined` ⇒ 整段不出现，**不留空壳**）；
+ * 纯文本子节点渲染（无 `dangerouslySetInnerHTML`）、`pre-wrap` 保留原始换行、`overflow-wrap:anywhere`
+ * 挡长串英文，高度上限 12 行 × 20px = 240px、超出在块内滚动读全（不截断）。该 prop 是 **additive** 的：
+ * face A 不传 ⇒ 本组件渲染出的东西与改动前**逐字相同**（`plugin-card.spec.ts` 的详情大纲逐字快照）。
+ * **口径 20 只换这一段的内容来源**（face B 那一侧改为「有 README 就用 README，没有才回落短描述」，
+ * 判定点唯一在 `enterpriseMarketPluginDetailBody`），本组件的渲染方式与版式**一字未动**：
+ * README 同样当纯文本、同样保换行、同样只做版式限长——不解析 Markdown、不新增依赖、不注入 HTML。
  */
 export interface EnterprisePluginDetailPageProps {
   /** 本页的真实键（包名）：进详情的唯一钥匙，也是进度/动作归行的那把钥匙。 */
   readonly packageName: string
   readonly displayName?: string | null | undefined
+  /**
+   * 详情「描述」段的**正文**（这一段只认「有没有值」，不关心它来自哪一枚字段）。
+   *
+   * **可选、additive**：只有官方插件页「插件市场」那一面（face B）传真值——它把详情接上这一面之后，
+   * 详情里原先只有事实表、没有描述；「企业设置 → 插件」那一面（face A）**不传** ⇒ 这一段整段不进 DOM，
+   * face A 的详情输出**逐字不变**（由 `plugin-card.spec.ts` 的详情大纲逐字快照锁着）。缺失（缺席 / null /
+   * 空串 / 纯空白）一律整段不出现，**不渲染「暂无描述」空壳**（那是卡片第二行的口径，不是详情里的）。
+   *
+   * **口径 20 起，face B 传进来的不再一定是那枚短描述**：它现在由 face B 的唯一投影
+   * `enterpriseMarketPluginDetailBody(readme, description)` 决定——**有 README 就给 README**，
+   * 没有才回落到制品 `package.json` 的短 `description`（契约 `PluginDescription`，≤1000）。
+   * 故这里收到的正文可能是整篇 README（≤65536，含原始换行与 Markdown 记号）——本组件**一律当纯文本**：
+   * 不解析 Markdown、不查标签、`dangerouslySetInnerHTML` 全文件零出现，换行靠 `pre-wrap` 原样保留。
+   * face A 仍不传这个 prop，它的输出与口径 19 逐字相同（additive 例外，同口径 18③）。
+   */
+  readonly description?: string | undefined
   /** 「企业版本」那一格的取值（由 `enterprisePluginCatalogVersionText` 唯一投影算出后传进来）。 */
   readonly catalogVersionText: string
   /** 「本机版本」那两个分支的现场事实（与改动前弹窗里那条三元表达式**逐字同构**）。 */
@@ -640,6 +702,8 @@ export interface EnterprisePluginDetailPageProps {
 
 export function EnterprisePluginDetailPage(props: EnterprisePluginDetailPageProps): ReactNode {
   const title = enterprisePluginDisplayName(props.displayName, props.packageName)
+  // 描述先过唯一那枚投影：没有（含空串/纯空白）就是 `undefined`，下面那一整段据此**整段不进 DOM**。
+  const description = enterprisePluginDetailDescription(props.description)
   return (
     <div
       ref={props.pageRef}
@@ -673,6 +737,32 @@ export function EnterprisePluginDetailPage(props: EnterprisePluginDetailPageProp
         {props.installErrorCode === undefined ? null : <><dt>安装状态</dt><dd><EnterpriseErrorNotice code={props.installErrorCode} /></dd></>}
         {props.installLockNotice === undefined ? null : <><dt>暂时不能安装</dt><dd>{props.installLockNotice}</dd></>}
       </dl>
+      {/* ③bis 【描述】：排在事实表**之后**（既有版式一字不动），只有传真值时才进 DOM。
+          ① 纯文本子节点渲染（全文件无 `dangerouslySetInnerHTML`，见 `plugin-card.spec.ts` 的源码级锁）；
+          ② `whiteSpace:'pre-wrap'` **保留原始换行**（描述里的段落/换行照原样断开）；
+          ③ `overflowWrap:'anywhere'` 让长串英文/URL 不撑破版面；
+          ④ 高度上限 = 12 行 × 20px = 240px（常量在文件上方，理由写在 `_MAX_LINES` 上），
+             超出在块内 `overflowY:'auto'` 滚动读全——**不截断、不折叠、不丢字**；
+          ⑤ 用的还是本页既有的文案类 `.own-market-notice`（padding / line-height / 次级色 / 可换行），
+             **一个新 CSS 类都没加**（`plugin-card.spec.ts` 的「每个 className 都已被本文件声明」集合判据守着）。 */}
+      {description === undefined ? null : (
+        <section className="own-market-notice" data-enterprise-plugin-detail-description="">
+          <h4 style={{ margin: 0, fontSize: 13, lineHeight: `${ENTERPRISE_PLUGIN_DETAIL_DESCRIPTION_LINE_HEIGHT}px` }}>
+            {ENTERPRISE_PLUGIN_DETAIL_DESCRIPTION_LABEL}
+          </h4>
+          <div
+            data-enterprise-plugin-detail-description-text=""
+            /* 可聚焦：这一段在长描述时是**可滚动区**，键盘用户必须能滚着把剩下的字读完（WCAG 2.1.1）。 */
+            tabIndex={0}
+            style={{
+              whiteSpace: 'pre-wrap',
+              overflowWrap: 'anywhere',
+              maxHeight: ENTERPRISE_PLUGIN_DETAIL_DESCRIPTION_MAX_HEIGHT,
+              overflowY: 'auto',
+            }}
+          >{description}</div>
+        </section>
+      )}
       {/* ④ 详情里的进度与落地交代：与卡片行**同一份**投影、同一个取消写入口（不会「行上在装、详情说没在装」）。 */}
       <EnterprisePluginCardProgressNotes name={props.packageName} progress={props.progress} onCancel={props.onCancelInstall} />
       <EnterprisePluginCardSettledNote name={props.packageName} notice={props.settledNotice} />

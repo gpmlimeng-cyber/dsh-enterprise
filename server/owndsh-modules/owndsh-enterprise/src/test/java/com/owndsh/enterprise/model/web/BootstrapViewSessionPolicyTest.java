@@ -110,7 +110,7 @@ class BootstrapViewSessionPolicyTest {
             List.of(),
             List.of(),
             new EffectivePluginResolver.ResolvedAssignments(9, List.of(new RuntimePluginAssignment(
-                1_901_300_000_000_000_101L, "@example/t13-tools", "1.0.0", displayName, description, 4096L,
+                1_901_300_000_000_000_101L, "@example/t13-tools", "1.0.0", displayName, description, null, 4096L,
                 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
                 new byte[64],
                 new PluginCompatibility(

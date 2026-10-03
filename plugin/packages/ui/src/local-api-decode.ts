@@ -10,6 +10,10 @@
  *   1..120）——卡片**标题**取值；白名单把它放在**可选键**位（缺席 / JSON null / 非空串 ≤120 三种合法形态，
  *   其余一律判畸形），投影时只有真拿到非空串才产出该键。缺席 = 旧 Host（这一刀之前那批 bootstrap 不带它），
  *   渲染层据此**回退成包名**（不空白、不编造）——与同侧可选 `description` 逐条同口径。
+ * **本刀（口径 20：描述来自 README）**：`EnterprisePluginCatalogItem` 再新增**可选** `readme`
+ *   （契约 `PluginReadme`，1..65536）——插件详情「描述」段的**首选**取值。白名单把它放在**可选键**位
+ *   （缺席 / JSON null / 非空串 ≤65536 三种合法形态，其余一律判畸形），投影时只有真拿到非空串才产出该键；
+ *   本层**只看形状、不解析内容**（README 是数据：不解析 Markdown、不查标签、不 trim、绝不注入 HTML）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -144,6 +148,17 @@ export interface EnterprisePluginCatalogItem {
    * `category` 同一口径），卡片第二行据此如实降级成「暂无描述」——绝不塞占位、绝不编造。
    */
   readonly description?: string
+  /**
+   * 制品 tar 里那份 README 的纯文本（契约 `PluginReadme`，≤65536）——插件**详情「描述」段**的
+   * 首选取值（口径 20：描述来自 README，没有才回落到上面那一枚短 `description`）。
+   *
+   * **为缺失设计**：本层把缺席 / JSON null / 空串一律归一成「没有这个键」（与 `description`
+   * 同一口径），渲染层据此回落到短描述——绝不塞占位、绝不编造。
+   * **它是数据不是指令**：本层与渲染层都不解析 Markdown、不执行、绝不注入 HTML。
+   * 上限与契约 `PluginReadme.maxLength` 同值（65536）：服务端按 UTF-8 字节截断，
+   * 字符数不可能超过它，故这里用同一个上界；越界整条判畸形（不静默截断）。
+   */
+  readonly readme?: string
   readonly sizeBytes: number
   readonly operatingSystems: readonly string[]
   readonly installErrorCode?: string
@@ -767,7 +782,7 @@ export function decodeEnterprisePluginStatus(value: unknown): EnterprisePluginSt
     const item = record(value)
     if (item === undefined || !hasExactKeys(item,
       ['pluginVersionId', 'packageName', 'version', 'sizeBytes', 'operatingSystems'],
-      ['displayName', 'description', 'installErrorCode'])
+      ['displayName', 'description', 'readme', 'installErrorCode'])
       || !enterpriseId(item['pluginVersionId']) || !nonEmptyString(item['packageName'])
       || !nonEmptyString(item['version']) || !Number.isSafeInteger(item['sizeBytes']) || Number(item['sizeBytes']) <= 0
       || !Array.isArray(item['operatingSystems']) || item['operatingSystems'].some(os => !['darwin', 'linux', 'win32'].includes(os))
@@ -780,6 +795,11 @@ export function decodeEnterprisePluginStatus(value: unknown): EnterprisePluginSt
       // 上限与契约 `PluginDescription.maxLength` 同值（V41 由 300 提到 1000：真实制品有 347 字符的描述）。
       || !(item['description'] === undefined || item['description'] === null
         || (typeof item['description'] === 'string' && item['description'].length <= 1000))
+      // README（口径 20）与同侧 `description` **同一口径**：缺席 / JSON null / 非空串 ≤65536 三种合法形态，
+      // 非 string 非 null 或超契约上限一律判畸形。**内容一个字符都不看**：它是数据，本层不解析 Markdown、
+      // 不查 HTML 标签、不 trim（换行与记号原样交给渲染层当纯文本子节点）。
+      || !(item['readme'] === undefined || item['readme'] === null
+        || (typeof item['readme'] === 'string' && item['readme'].length <= 65_536))
       || item['installErrorCode'] !== undefined && !nonEmptyString(item['installErrorCode'])) {
       throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
     }
@@ -793,6 +813,8 @@ export function decodeEnterprisePluginStatus(value: unknown): EnterprisePluginSt
       ...(nonEmptyString(item['displayName']) ? { displayName: item['displayName'] } : {}),
       // 只有真拿到非空串才产出这个键；缺席/null/空串一概不产出（卡片据此说「暂无描述」，不是空白）。
       ...(nonEmptyString(item['description']) ? { description: item['description'] } : {}),
+      // 只有真拿到非空串才产出这个键；缺席/null/空串一概不产出（详情据此**回落短描述**，不是画空白）。
+      ...(nonEmptyString(item['readme']) ? { readme: item['readme'] } : {}),
       ...(item['installErrorCode'] === undefined ? {} : { installErrorCode: item['installErrorCode'] as string }),
     }
   })

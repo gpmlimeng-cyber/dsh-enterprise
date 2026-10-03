@@ -214,6 +214,44 @@ describe('enterprise local browser API', () => {
       .catalog?.[0]?.description).toBe(real347)
   })
 
+  // 口径 20（描述来自 README）：catalog 里新增的**可选** `readme` 与同侧 `description` 同一口径归一——
+  // 缺席 / null / 空串一律「没有这个键」（详情据此**回落短描述**），非 string 非 null 或超过契约上限判畸形。
+  it('normalizes the optional catalog readme like the description, without ever reading its content', () => {
+    const base = {
+      pluginVersionId: '880', packageName: '@example/tools', version: '1.0.0', sizeBytes: 100,
+      operatingSystems: ['darwin'],
+    }
+    const status = { assignmentRevision: 7, plugins: [] }
+    // 有 README：**逐字节原样**收下（Markdown 记号、原始换行、HTML 样文本一个字符都不动——
+    // 它是数据不是指令，本层不解析 Markdown、不查标签、不 trim）。
+    const readme = '# Acme 工具箱\n\n把代码审查规则带进新会话。\n\n<b>这不是 HTML</b>\n'
+    expect(decodeEnterprisePluginStatus({ ...status, catalog: [{ ...base, readme }] })
+      .catalog?.[0]?.readme).toBe(readme)
+    // 三种「没有 README」的形态都归一成**没有这个键**（不是空串、不是 null）。
+    for (const readme of [undefined, null, '']) {
+      const decoded = decodeEnterprisePluginStatus({
+        ...status,
+        catalog: [{ ...base, ...(readme === undefined ? {} : { readme }) }],
+      })
+      expect(decoded.catalog?.[0], String(readme)).not.toHaveProperty('readme')
+    }
+    // 形状不对（非 string 非 null）与超过契约上限（65536）一律判畸形，绝不静默截断或猜。
+    for (const readme of [7, {}, 'x'.repeat(65_537)]) {
+      expect(() => decodeEnterprisePluginStatus({ ...status, catalog: [{ ...base, readme }] }))
+        .toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    // 边界：正好 65536 字收下（与契约 `PluginReadme.maxLength` 对齐）。
+    const boundary = 'y'.repeat(65_536)
+    expect(decodeEnterprisePluginStatus({ ...status, catalog: [{ ...base, readme: boundary }] })
+      .catalog?.[0]?.readme).toBe(boundary)
+    // README 与短描述**并存**：两枚键各自原样保留，回落判定不归本层（归渲染层的唯一投影）。
+    const both = decodeEnterprisePluginStatus({
+      ...status, catalog: [{ ...base, readme, description: '短描述。' }],
+    })
+    expect(both.catalog?.[0]?.readme).toBe(readme)
+    expect(both.catalog?.[0]?.description).toBe('短描述。')
+  })
+
   // 本刀（卡片标题 = 插件名称）：catalog 里新增的**可选** `displayName` 与同侧 `description` 同一口径归一——
   // 缺席 / null / 空串一律「没有这个键」（渲染层据此**回退包名**，绝不画空标题），非 string 非 null
   // 或超过契约上限（`PluginDisplayName.maxLength` = 120）一律判畸形。

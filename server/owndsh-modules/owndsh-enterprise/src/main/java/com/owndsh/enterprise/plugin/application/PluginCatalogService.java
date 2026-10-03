@@ -157,7 +157,12 @@ public final class PluginCatalogService {
                     );
                     PluginVersion uploaded = new PluginVersion(
                         versionId, context.tenantId(), pluginPackage.id(), inspected.packageName(), inspected.version(),
-                        finalized[0].artifactRef(), pending.sizeBytes(), pending.sha256(), signer.sign(manifest),
+                        finalized[0].artifactRef(),
+                        // README 是**版本级**事实（就躺在这份 tar 里）：与 displayName/description 那种
+                        // 「只在 package 首次创建时写入、之后不覆盖」的口径**有意不同**——新版本必须覆盖它，
+                        // 否则员工端永远看到第一版的 README。解不出就是 null（员工端回落短描述）。
+                        inspected.readme(),
+                        pending.sizeBytes(), pending.sha256(), signer.sign(manifest),
                         compatibility, PluginVersion.Status.UPLOADED, context.actorId(), Instant.now(clock), 0
                     );
                     plugins.insertVersion(uploaded);

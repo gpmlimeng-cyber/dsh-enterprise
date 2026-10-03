@@ -380,6 +380,25 @@ describe('EnterprisePluginDistributionService', () => {
     expect(other.service.status().catalog[0]).not.toHaveProperty('description')
   })
 
+  it('carries the artifact readme into the local catalog and omits the key when the server has none', async () => {
+    const content = Buffer.from('readme-bearing managed bundle')
+    // 服务端发了 readme（契约 PluginReadme，可选）→ 本地 catalog 原样带出来（UI 详情「描述」段的首选取值）。
+    const readme = '# Acme 工具箱\n\n把代码审查规则带进新会话。\n'
+    const described = { ...assignment(testKey, content), readme }
+    const platform = new FakePlatform(bootstrap(1, [described]), new Map([[described.downloadUrl!, content]]))
+    const env = await environment({ platform })
+    await env.service.settled()
+    // **逐字节原样**：本层不解析 Markdown、不 trim、不截断（渲染与限长都不归它管）。
+    expect(env.service.status().catalog[0]?.readme).toBe(readme)
+    // 服务端（未升级 / 制品没有 README）不发这个键 → 本地 catalog **不产出这个键**
+    // （下游据此回落到短 description，绝不补空串：ui 的解码白名单是关闭键集，「缺席」才是唯一缺失口径）。
+    const plain = assignment(testKey, content)
+    const otherPlatform = new FakePlatform(bootstrap(1, [plain]), new Map([[plain.downloadUrl!, content]]))
+    const other = await environment({ platform: otherPlatform })
+    await other.service.settled()
+    expect(other.service.status().catalog[0]).not.toHaveProperty('readme')
+  })
+
   it('carries the artifact displayName into the local catalog and tolerates an old server that omits it', async () => {
     const content = Buffer.from('named managed bundle')
     // 服务端发了 displayName（契约 PluginDisplayName，必填 1..120）→ 本地 catalog 原样带出（UI 卡片**标题**取值）。

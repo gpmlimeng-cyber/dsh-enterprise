@@ -464,6 +464,11 @@ x-enterprise-fixtures:
   - file: fixtures/plugin-assignments-success.json
     schema: RuntimePluginAssignmentsResponse
     valid: true
+  # 反例：`readme` 超过 `PluginReadme.maxLength`（65536）一个字符（65537）⇒ 两端都必须拒。
+  # 上限与验包器的 UTF-8 字节闸同值，故这条 fixture 守的就是「服务端不可能发出超契约的 readme」。
+  - file: fixtures/plugin-readme-too-long.json
+    schema: RuntimePluginAssignmentsResponse
+    valid: false
   - file: fixtures/plugin-inventory-success.json
     schema: PluginInventoryResponse
     valid: true

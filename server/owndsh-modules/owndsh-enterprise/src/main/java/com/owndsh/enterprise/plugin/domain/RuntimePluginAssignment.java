@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 投影当前用户唯一生效 assignment、签名制品元数据、package 级**必填显示名**与**可选描述**。
- * [OUTPUT]: 以空字节数组表示未签名； 对外提供客户端双重校验、下载、安装调和与卡片标题/描述展示所需的完整不可变事实。
+ * [INPUT]: 投影当前用户唯一生效 assignment、签名制品元数据、package 级**必填显示名**与**可选描述**、版本级**可选 README**。
+ * [OUTPUT]: 以空字节数组表示未签名； 对外提供客户端双重校验、下载、安装调和与卡片标题/描述/README 展示所需的完整不可变事实。
  * [POS]: plugin/domain 的 runtime 安全投影，不暴露 artifact 文件路径或管理主体。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -26,6 +26,17 @@ public record RuntimePluginAssignment(
      * **可空**：没有描述就是 null，投影层据此**整个键不下发**（契约里 `PluginDescription` 是可选属性）。
      */
     String description,
+    /**
+     * 该**版本**制品里那份 README 的纯文本（可空，契约 `PluginReadme` ≤65536）。
+     *
+     * <p>与上面那枚 `description` 的层级有意不同：description 是 **package 级**事实，而 README 是
+     * **版本级**事实（它躺在这一版的 tar 里）——故这里取的是 assignment 指向的**那一版**的 README，
+     * 换版本时它跟着换。员工端插件详情「描述」段的**首选**取值就是它，没有才回落到 description。
+     *
+     * <p>**可空**：这一版没有解出 README（旧数据、非 UTF-8、空白）时是 null，投影层据此**整个键不下发**
+     * （契约里 `PluginReadme` 是可选属性），绝不发空串或 null 占位。
+     */
+    String readme,
     long sizeBytes,
     String sha256,
     byte[] signature,
@@ -37,6 +48,8 @@ public record RuntimePluginAssignment(
     private static final int MAX_DISPLAY_NAME_LENGTH = 120;
     /** 与契约 `PluginDescription.maxLength`、`PluginPackage.MAX_DESCRIPTION_LENGTH` 同值。 */
     private static final int MAX_DESCRIPTION_LENGTH = 1000;
+    /** 与契约 `PluginReadme.maxLength`、`PluginVersion.MAX_README_LENGTH` 同值（字符数上界）。 */
+    private static final int MAX_README_LENGTH = 65_536;
 
     public RuntimePluginAssignment {
         if (pluginVersionId <= 0 || sizeBytes <= 0) throw new IllegalArgumentException("版本 ID/大小必须为正数");
@@ -49,6 +62,10 @@ public record RuntimePluginAssignment(
         // 描述可空；非空则必须是 ≤1000 的非空白文本（越界/空白一律判非法，免得产出违契约的线协议）。
         if (description != null && (description.isBlank() || description.length() > MAX_DESCRIPTION_LENGTH)) {
             throw new IllegalArgumentException("description 非法");
+        }
+        // README 可空；非空则必须是 ≤65536 的非空白文本（越界/空白一律判非法，免得产出违契约的线协议）。
+        if (readme != null && (readme.isBlank() || readme.length() > MAX_README_LENGTH)) {
+            throw new IllegalArgumentException("readme 非法");
         }
         if (sha256 == null || !sha256.matches("^[0-9a-f]{64}$")) throw new IllegalArgumentException("SHA-256 非法");
         if (signature == null || (signature.length != 0 && signature.length != 64)) throw new IllegalArgumentException("未签名必须为空字节数组，Ed25519 签名必须为 64 字节");

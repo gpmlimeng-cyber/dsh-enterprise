@@ -29,7 +29,7 @@ public final class JdbcPluginStore implements PluginStore {
     private static final String PACKAGE_COLUMNS =
         "id, tenant_id, package_name, display_name, description, status, revision";
     private static final String VERSION_COLUMNS = """
-        v.id, v.tenant_id, v.package_id, p.package_name, v.version, v.artifact_ref,
+        v.id, v.tenant_id, v.package_id, p.package_name, v.version, v.artifact_ref, v.readme,
         v.size_bytes, v.sha256, v.signature, v.compatibility_json, v.status,
         v.created_by, v.created_at, v.revision
         """;
@@ -68,13 +68,30 @@ public final class JdbcPluginStore implements PluginStore {
         """;
     private static final String INSERT_VERSION = """
         insert into ent_plugin_version(
-            id,tenant_id,package_id,version,artifact_ref,size_bytes,sha256,signature,
+            id,tenant_id,package_id,version,artifact_ref,readme,size_bytes,sha256,signature,
             compatibility_json,status,created_by,created_at,revision
-        ) values (?,?,?,?,?,?,?,?,cast(? as jsonb),?,?,?,?)
+        ) values (?,?,?,?,?,?,?,?,?,cast(? as jsonb),?,?,?,?)
         """;
     private static final String TRANSITION_VERSION = """
         update ent_plugin_version set status=?, revision=revision+1
         where tenant_id=? and id=? and status=? and revision=?
+        """;
+    /**
+     * README 存量回填：**跨租户**找 `readme is null` 的版本行（口径 20 的上线回填，系统级维护、不在请求路径上）。
+     * 有界（`limit`）、按 id 稳定排序；复用 `VERSION_COLUMNS` 与 `versionMapper`（回填要的是 artifact_ref/sha256/revision
+     * 那几枚，映射出来正好够用——多带一列 package_name 只是为了让两条查询共用同一个 mapper）。
+     */
+    private static final String FIND_VERSIONS_MISSING_README = "select " + VERSION_COLUMNS + """
+        from ent_plugin_version v join ent_plugin_package p on p.id=v.package_id
+        where v.readme is null order by v.id limit ?
+        """;
+    /**
+     * 回填写回（CAS）：只有 `revision` 仍等于读到的那个值才改，绝不覆盖并发写入（状态迁移/其它回填者）。
+     * `readme` 只允许从 null 变有值（`readme is null` 同时是幂等闸：重复回填不会覆盖已有值）。
+     */
+    private static final String UPDATE_VERSION_README = """
+        update ent_plugin_version set readme=?, revision=revision+1
+        where tenant_id=? and id=? and readme is null and revision=?
         """;
     private static final String LIST_ASSIGNMENTS =
         "select " + ASSIGNMENT_COLUMNS + " from ent_plugin_assignment "
@@ -89,7 +106,8 @@ public final class JdbcPluginStore implements PluginStore {
         """;
     private static final String EFFECTIVE_ASSIGNMENTS = """
         with ranked as (
-            select v.id as plugin_version_id, p.package_name, p.display_name, v.version, p.description, v.size_bytes,
+            select v.id as plugin_version_id, p.package_name, p.display_name, v.version, p.description, v.readme,
+                   v.size_bytes,
                    v.sha256, v.signature, v.compatibility_json, a.required, a.desired_state, v.status as version_status,
                    row_number() over (
                        partition by a.package_id
@@ -106,7 +124,8 @@ public final class JdbcPluginStore implements PluginStore {
                   or (a.subject_type='ALL' and a.subject_id is null)
               )
         )
-        select plugin_version_id, package_name, display_name, version, description, size_bytes, sha256, signature,
+        select plugin_version_id, package_name, display_name, version, description, readme, size_bytes, sha256,
+               signature,
                compatibility_json, required, desired_state
         from ranked where priority=1 and (version_status='PUBLISHED' or desired_state='ABSENT') order by package_name
         """;
@@ -200,6 +219,7 @@ public final class JdbcPluginStore implements PluginStore {
         jdbc.update(
             INSERT_VERSION,
             value.id(), value.tenantId(), value.packageId(), value.version(), value.artifactRef(),
+            value.readme(),
             value.sizeBytes(), value.sha256(), value.signature(), json.writeValueAsString(value.compatibility()),
             value.status().name(), value.createdBy(), at(value.createdAt()), value.revision()
         );
@@ -247,6 +267,18 @@ public final class JdbcPluginStore implements PluginStore {
     }
 
     @Override
+    public List<PluginVersion> findVersionsMissingReadme(int limit) {
+        if (limit < 1 || limit > 1_000) throw new IllegalArgumentException("README 回填上限非法");
+        return jdbc.query(FIND_VERSIONS_MISSING_README, versionMapper, limit);
+    }
+
+    @Override
+    public boolean updateVersionReadme(String tenantId, long versionId, String readme, long expectedRevision) {
+        if (readme == null || readme.isBlank()) throw new IllegalArgumentException("readme 不能为空");
+        return jdbc.update(UPDATE_VERSION_README, readme, tenantId, versionId, expectedRevision) == 1;
+    }
+
+    @Override
     public List<RuntimePluginAssignment> findEffectiveAssignments(
         String tenantId,
         long userId,
@@ -258,6 +290,8 @@ public final class JdbcPluginStore implements PluginStore {
                 resultSet.getLong("plugin_version_id"), resultSet.getString("package_name"),
                 resultSet.getString("version"), resultSet.getString("display_name"),
                 resultSet.getString("description"),
+                // README 是**版本级**事实：取 assignment 指向那一版的（换版本时它跟着换）。
+                resultSet.getString("readme"),
                 resultSet.getLong("size_bytes"), resultSet.getString("sha256"),
                 resultSet.getBytes("signature"), compatibility(resultSet.getString("compatibility_json")),
                 resultSet.getBoolean("required"),
@@ -299,7 +333,8 @@ public final class JdbcPluginStore implements PluginStore {
         return new PluginVersion(
             resultSet.getLong("id"), resultSet.getString("tenant_id"), resultSet.getLong("package_id"),
             resultSet.getString("package_name"), resultSet.getString("version"),
-            resultSet.getString("artifact_ref"), resultSet.getLong("size_bytes"), resultSet.getString("sha256"),
+            resultSet.getString("artifact_ref"), resultSet.getString("readme"),
+            resultSet.getLong("size_bytes"), resultSet.getString("sha256"),
             resultSet.getBytes("signature"), compatibility(resultSet.getString("compatibility_json")),
             PluginVersion.Status.valueOf(resultSet.getString("status")), resultSet.getLong("created_by"),
             instant(resultSet, "created_at"), resultSet.getLong("revision")

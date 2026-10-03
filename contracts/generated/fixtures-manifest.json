@@ -319,6 +319,12 @@
       "zodExport": "zRuntimePluginAssignmentsResponse"
     },
     {
+      "file": "fixtures/plugin-readme-too-long.json",
+      "schema": "RuntimePluginAssignmentsResponse",
+      "valid": false,
+      "zodExport": "zRuntimePluginAssignmentsResponse"
+    },
+    {
       "file": "fixtures/plugin-inventory-success.json",
       "schema": "PluginInventoryResponse",
       "valid": true,
@@ -439,5 +445,5 @@
       "zodExport": "zFeedbackDetailResponse"
     }
   ],
-  "protocolSha256": "64bc2ce2fa69ae4a4c6c9651bf8d6c02fa4eebf8cced5cac7a0a7e7775d1fb8c"
+  "protocolSha256": "baa2e85b02d83ef301a459a1329aa58bed918073fce432089174dbdbc542e3ac"
 }
