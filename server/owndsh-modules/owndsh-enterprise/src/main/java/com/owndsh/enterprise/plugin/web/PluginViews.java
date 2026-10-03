@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 投影 plugin catalog/version/assignment/runtime/inventory 领域对象。
- * [OUTPUT]: 对外提供字符串化 snowflake、完整 catalog assignments、**可选 description（缺席即不下发该键）**、Base64 Ed25519（未签名为空字符串）与无 artifact 路径的严格 HTTP views。
+ * [OUTPUT]: 对外提供字符串化 snowflake、完整 catalog assignments、**必填 displayName（1..120，员工端卡片标题）**、**可选 description（缺席即不下发该键）**、Base64 Ed25519（未签名为空字符串）与无 artifact 路径的严格 HTTP views。
  * [POS]: plugin/web 的统一安全投影，管理端和 runtime 共享签名/compatibility 字段语义。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -57,7 +57,8 @@ public final class PluginViews {
 
     public static RuntimeAssignmentView runtime(RuntimePluginAssignment value) {
         return new RuntimeAssignmentView(
-            Long.toString(value.pluginVersionId()), value.packageName(), value.version(), value.description(),
+            Long.toString(value.pluginVersionId()), value.packageName(), value.version(), value.displayName(),
+            value.description(),
             value.sizeBytes(),
             value.sha256(), Base64.getEncoder().encodeToString(value.signature()), value.compatibility(),
             value.desiredState() == PluginAssignment.DesiredState.INSTALLED
@@ -125,6 +126,10 @@ public final class PluginViews {
     /**
      * 员工端分配投影（bootstrap 与 `/plugins/assignments` 共用）。
      *
+     * <p>`displayName` 是**必填**字段（契约 `PluginDisplayName`，1..120）：制品包里没写时验包器已回退成
+     * 包名，故领域对象永不为 null，这里既不加 `@JsonInclude(NON_NULL)` 也不允许缺席——
+     * 员工端卡片标题（本刀）就取这一枚。
+     *
      * <p>`description` 上那条 `@JsonInclude(NON_NULL)` 是**必须的**：契约里 `PluginDescription` 是
      * **可选**属性（`description?: string`），而包没有描述时领域对象是 null；不加这一条会序列化出
      * `"description": null`，既违反契约、也会被两端生成的 strict Zod（`.optional()`）判为畸形。
@@ -134,6 +139,7 @@ public final class PluginViews {
         String pluginVersionId,
         String packageName,
         String version,
+        String displayName,
         @JsonInclude(JsonInclude.Include.NON_NULL) String description,
         long sizeBytes,
         String sha256,

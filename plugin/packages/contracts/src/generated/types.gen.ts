@@ -2072,6 +2072,11 @@ export type PluginDescription = string;
 
 export type PluginDesiredState = 'INSTALLED' | 'ABSENT';
 
+/**
+ * npm `package.json` 的 `displayName`（≤120）—— 员工端**卡片标题**的取值。 **必填**：它与可选的 `description` 不同，服务端**永远拿得出一个非空名字** —— 制品包里没写 `displayName`（真实上架制品 6/6 都没写）、写了空白、或该键不是字符串时，验包器 （`PluginArtifactInspector`）一律**回退成包名**，绝不产出 null/空串。故两端生成的 strict Zod 把它当必填位；员工端那套「缺省回退包名」只是为**旧服务端**（这一刀之前那批还不带该键）留的兼容窗口。 它是 **package 级**事实（与 `description` 同源、同一条读取路径），随首个上传的制品写入、 不随版本变化，故不出现在 `PluginVersion` 上。
+ */
+export type PluginDisplayName = string;
+
 export type PluginInventoryAck = {
     reported: number;
 };
@@ -2101,7 +2106,7 @@ export type PluginOperatingSystem = 'darwin' | 'linux' | 'win32';
 export type PluginPluginPackage = {
     id: PluginPluginPackageId;
     packageName: PluginPackageName;
-    displayName: string;
+    displayName: PluginDisplayName;
     description?: PluginDescription;
     status: PluginPackageStatus;
     revision: Revision;
@@ -2161,6 +2166,7 @@ export type RuntimePluginAssignment = {
     pluginVersionId: PluginPluginVersionId;
     packageName: PluginPackageName;
     version: PluginSemanticVersion;
+    displayName: PluginDisplayName;
     description?: PluginDescription;
     sizeBytes: number;
     sha256: PluginSha256;

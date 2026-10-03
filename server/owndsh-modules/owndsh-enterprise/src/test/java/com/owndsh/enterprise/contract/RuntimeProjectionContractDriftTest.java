@@ -1,18 +1,23 @@
 /**
- * [INPUT]: 依赖 preset/skill/plugin 的 runtime views、common 的 EnterpriseResponse、audit 的 AuditAction 枚举，
- *          以及 contracts/generated 的机器可读真源（自包含 enterprise-openapi.json 的 components.schemas）。
- * [OUTPUT]: 断言每个 runtime 投影**实际序列化发出的键集 ⊆ 契约声明键集**（多发一个未声明键即红）、
+ * [INPUT]: 依赖 preset/skill/plugin 的 runtime views、**model/web 的 BootstrapView（bootstrap 那一套独立投影）**、
+ *           common 的 EnterpriseResponse、audit 的 AuditAction 枚举，
+ *           以及 contracts/generated 的机器可读真源（自包含 enterprise-openapi.json 的 components.schemas）。
+ * [OUTPUT]: 断言每个 runtime 投影（**含 BootstrapResponse 整壳，故 bootstrap 的插件分配投影也在内**）
+ *           **实际序列化发出的键集 ⊆ 契约声明键集**（多发一个未声明键即红）、
+ *           两条插件分配投影（PluginViews.RuntimeAssignmentView 与 BootstrapView.PluginAssignment）键集逐字相同、
  *           DependencyView 在 versionId 为空时不得序列化出 null 键，并锁死审计 AuditAction 枚举与契约 enum 逐字一致。
  * [POS]: owndsh-enterprise 的 runtime 投影契约漂移门禁。三起已实证事故里这一类（服务端多发未声明字段
  *        downloadPath ⇒ 员工端关闭键集整条判 ENT_LOCAL_RESPONSE_INVALID、用户侧静默炸）今后在 CI 就被抓住，
- *        不再依赖"客户端手写假体恰好同形"的偶然。配套的员工端白名单门禁在
- *        plugin/packages/ui/tests/preset-decode.spec.ts；两者共用同一份契约真源。
+ *        不再依赖"客户端手写假体恰好同形"的偶然。77cbb6c 那起"漏键无声"（description 只改了 PluginViews、
+ *        bootstrap 那套逐字段投影漏了）的根因正是 BootstrapView 不在检查表里——故它现在是这张表的第一等公民。
+ *        配套的员工端白名单门禁在 plugin/packages/ui/tests/preset-decode.spec.ts；两者共用同一份契约真源。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 package com.owndsh.enterprise.contract;
 
 import com.owndsh.enterprise.audit.AuditAction;
 import com.owndsh.enterprise.common.api.EnterpriseResponse;
+import com.owndsh.enterprise.model.web.BootstrapView;
 import com.owndsh.enterprise.plugin.domain.PluginCompatibility;
 import com.owndsh.enterprise.plugin.web.PluginViews;
 import com.owndsh.enterprise.preset.web.PresetViews;
@@ -63,6 +68,13 @@ class RuntimeProjectionContractDriftTest {
         projections.put(
             "RuntimePluginAssignmentsResponse",
             new EnterpriseResponse<>(pluginAssignmentsView(), "req_01ARZ3NDEKTSV4RRFFQ69G5FAV")
+        );
+        // ★ bootstrap 那一套**独立于 PluginViews 的**逐字段投影也进这张检查表（77cbb6c 事故：它不在表里
+        // ⇒ description 漏键无声）。按**真实响应外壳**（{data, requestId}）交给门禁，于是递归会比较
+        // BootstrapSnapshot → plugins → assignments → PluginAssignment 的每一层键，新增键漏改这里即红。
+        projections.put(
+            "BootstrapResponse",
+            new EnterpriseResponse<>(bootstrapView(), "req_01ARZ3NDEKTSV4RRFFQ69G5FAV")
         );
         return projections;
     }
@@ -140,6 +152,40 @@ class RuntimeProjectionContractDriftTest {
             server,
             () -> "契约 AuditAction 与服务端枚举不一致：服务端多 " + serverOnly + "，契约多 " + contractOnly
         );
+    }
+
+    /**
+     * 两条插件分配投影的**键集必须逐字相同**——这是 77cbb6c 那个坑的反向锁。
+     *
+     * <p>根因不是"契约没写"，而是**同一批事实被投影了两次**：`/plugins/assignments` 走
+     * {@code PluginViews.RuntimeAssignmentView}，bootstrap 走 {@code BootstrapView.PluginAssignment}；
+     * 只改一边 ⇒ 服务端有值、员工端那个表面永远拿不到（描述那次就是"界面永远暂无描述"无声）。
+     * 上面那张 ⊆ 表现在两侧都在，但 ⊆ 只保证"不多发"；**漏发**要由这条等集断言抓。
+     * 本刀（卡片标题 = displayName）正是往两条投影里各加同一个键，这条用例保证今后也必须成对加。
+     */
+    @Test
+    @DisplayName("bootstrap 与 /plugins/assignments 的插件分配投影键集逐字相同（漏发即红）")
+    void bothPluginAssignmentProjectionsEmitTheSameKeys() {
+        Set<String> viaPluginViews = emittedKeys(pluginAssignmentsView().assignments().get(0));
+        Set<String> viaBootstrap = emittedKeys(bootstrapPluginAssignment());
+        assertEquals(
+            viaPluginViews,
+            viaBootstrap,
+            () -> "两条插件分配投影漂开了：/plugins/assignments=" + viaPluginViews + "，bootstrap=" + viaBootstrap
+        );
+        // 具体锁本刀那一枚键：两条都得发（displayName 是必填，不是"有就发"）。
+        assertTrue(viaPluginViews.contains("displayName"), () -> "PluginViews 缺 displayName：" + viaPluginViews);
+        assertTrue(viaBootstrap.contains("displayName"), () -> "BootstrapView 缺 displayName：" + viaBootstrap);
+    }
+
+    /** 一个 view 序列化后**实际发出的**顶层键集（与门禁本体同一口径：Jackson 注解说了算）。 */
+    private static Set<String> emittedKeys(Object view) {
+        JsonNode emitted = JSON_MAPPER.valueToTree(view);
+        Set<String> names = new LinkedHashSet<>();
+        for (String name : emitted.propertyNames()) {
+            names.add(name);
+        }
+        return names;
     }
 
     /** 契约真源自检：门禁覆盖的每个 schema 都必须真的存在，否则"没报错"只是没可比。 */
@@ -315,6 +361,8 @@ class RuntimeProjectionContractDriftTest {
     private static PluginViews.RuntimeAssignmentsView pluginAssignmentsView() {
         return new PluginViews.RuntimeAssignmentsView(9, List.of(new PluginViews.RuntimeAssignmentView(
             "1901300000000000101", "@example/t13-tools", "1.0.0",
+            // 契约 RuntimePluginAssignment 的 displayName 是**必填**（验包器缺省回退包名）：门禁这里给真值。
+            "T13 门禁工具箱",
             // 契约 RuntimePluginAssignment 声明了可选的 description；这里给**非空真值**，门禁才真正
             // 覆盖到这个键。若传 null，@JsonInclude(NON_NULL) 会让它整个缺席，门禁就永远看不到它、
             // 等于新字段没被这道防线覆盖（断言仍只做 ⊆，语义未变）。
@@ -328,5 +376,39 @@ class RuntimeProjectionContractDriftTest {
             ),
             "/enterprise/api/v1/plugins/versions/1901300000000000101/download", true, "INSTALLED"
         )));
+    }
+
+    /**
+     * 整壳 bootstrap 投影样例（**直接构造 view record**，与上面同一口径）。
+     *
+     * <p>`models`/`quotas` 给空列表：门禁只做 ⊆，空数组不递归进元素，本处要覆盖的是
+     * `plugins.assignments[]` 那一层的键集；`sessionPolicy`/`user`/`device` 给形状合法的真值，
+     * 使整壳逐层都能与 `BootstrapResponse` 对齐（这样将来在 bootstrap 上多发任何一个键都会被抓住）。
+     */
+    private static BootstrapView bootstrapView() {
+        return new BootstrapView(
+            9,
+            new BootstrapView.User("10031", "zhangsan", "Zhang San", null),
+            new BootstrapView.Device("90018", "2f1a0c1e-3b4d-4e5f-8a9b-0c1d2e3f4a5b", "ACTIVE"),
+            List.of(),
+            List.of(),
+            new BootstrapView.Plugins(9, List.of(bootstrapPluginAssignment())),
+            new BootstrapView.SessionPolicy(false, 90, 1_048_576)
+        );
+    }
+
+    /** bootstrap 那套投影里的一条插件分配（值与 {@link #pluginAssignmentsView()} 同形，键集才是被测对象）。 */
+    private static BootstrapView.PluginAssignment bootstrapPluginAssignment() {
+        return new BootstrapView.PluginAssignment(
+            "1901300000000000101", "@example/t13-tools", "1.0.0", "T13 门禁工具箱",
+            "T13 契约漂移门禁示例插件：仅用于 runtime 视图投影的键集比对。", 2048L,
+            "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789", "",
+            new PluginCompatibility(
+                List.of("0123456789abcdef0123456789abcdef01234567"),
+                ">=0.1.0 <0.2.0",
+                List.of("darwin", "linux")
+            ),
+            "/enterprise/api/v1/plugins/versions/1901300000000000101/download", true, "INSTALLED"
+        );
     }
 }

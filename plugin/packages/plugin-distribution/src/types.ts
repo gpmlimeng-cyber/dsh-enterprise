@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 platform-client bootstrap、contracts 受管状态与官方 Host plugin inventory 公共类型
- * [OUTPUT]: 对外提供含可选验签开关的分发 Config（**不再有 CLI 相关的 profile/dshCommand/subprocessGraceMs**）、企业目录/本机安装快照（记录含本机私有启停位 `enabled`）及平台/官方运行时窄 port
+ * [OUTPUT]: 对外提供含可选验签开关的分发 Config（**不再有 CLI 相关的 profile/dshCommand/subprocessGraceMs**）、企业目录（条目含 `displayName?` 标题与 `description?` 第二行）/本机安装快照（记录含本机私有启停位 `enabled`）及平台/官方运行时窄 port
  * [POS]: plugin-distribution 的依赖倒置层，使业务状态机只依赖官方能力契约而不耦合实现
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -64,6 +64,13 @@ export interface PluginDistributionStatus {
     readonly pluginVersionId: string
     readonly packageName: string
     readonly version: string
+    /**
+     * 制品 `package.json` 的 `displayName`（契约 `PluginDisplayName`，1..120）——员工端卡片**标题**取值。
+     * 服务端永远有值（验包器读不到时已回退成包名），故这里**有就原样带走**；只有**旧服务端**
+     * （这一刀之前那批 bootstrap 不带该键）才会缺席，ui 的解码白名单与渲染层据此回退成包名
+     * （不空白、不编造）——这是刻意的兼容窗口，不是本模块的选择性投影。
+     */
+    readonly displayName?: string
     /**
      * 制品 `package.json` 的 `description`（契约 `PluginDescription`，≤1000）。
      * **可选**：bootstrap 那一侧没有这个键时这里就没有这个键（绝不补空串、不编造）——

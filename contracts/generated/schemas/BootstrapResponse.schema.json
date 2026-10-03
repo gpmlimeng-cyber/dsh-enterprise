@@ -370,6 +370,7 @@
                   "pluginVersionId",
                   "packageName",
                   "version",
+                  "displayName",
                   "sizeBytes",
                   "sha256",
                   "signatureBase64",
@@ -394,6 +395,12 @@
                     "minLength": 1,
                     "maxLength": 64,
                     "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+                  },
+                  "displayName": {
+                    "description": "npm `package.json` 的 `displayName`（≤120）—— 员工端**卡片标题**的取值。 **必填**：它与可选的 `description` 不同，服务端**永远拿得出一个非空名字** —— 制品包里没写 `displayName`（真实上架制品 6/6 都没写）、写了空白、或该键不是字符串时，验包器 （`PluginArtifactInspector`）一律**回退成包名**，绝不产出 null/空串。故两端生成的 strict Zod 把它当必填位；员工端那套「缺省回退包名」只是为**旧服务端**（这一刀之前那批还不带该键）留的兼容窗口。 它是 **package 级**事实（与 `description` 同源、同一条读取路径），随首个上传的制品写入、 不随版本变化，故不出现在 `PluginVersion` 上。",
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
                   },
                   "description": {
                     "description": "npm `package.json` 的 `description`（≤1000）。**可选属性**：包里没写、只写了空白、或该键不是字符串时， 服务端一律**省略这个键**（既不造空串、也不编造），员工端据此如实降级。 它是 **package 级**事实（与 `displayName` 同源、同一条读取路径），随首个上传的制品写入、不随版本变化， 故不出现在 `PluginVersion` 上。 **上限为什么是 1000**：真实上架制品里已有 347 字符的描述（`@mengli114/dsh-settings-nav-collapse`）， 旧的 300 让它在**上传那一刻**就被验包器归一成「没有描述」——数据在源头丢了， 员工端只能永远「暂无描述」，事后无法从服务端补救。1000 给真实长描述留 2.8 倍余量， 同时对卡片第二行（一行省略号）仍是一个有意义的护栏：它不是展示上限，而是「这显然不是一句描述」的边界。",

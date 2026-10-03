@@ -12,6 +12,8 @@ src/generated/: 从唯一 OpenAPI 真源生成含 code/refresh Token 联合类�
 src/brands.ts: 把 OpenAPI 字符串 schema 收窄为五类不可互换的品牌 ID，并只通过 Zod 校验后构造。
 src/errors.ts: 严格解码统一错误 envelope，并从生成映射返回稳定 HTTP status。
 src/index.ts: contracts 公共入口，只暴露品牌 ID、错误契约和身份/设备/模型/配额/插件/bootstrap/gateway 所需生成 DTO/Zod schema。
-tests/contracts.spec.ts: 遍历 OpenAPI 声明的 45 个正反 fixture，验证 Zod、38 个错误码映射、P2-03 bootstrap、P2-06 成员身份、gateway facade、空签名/64 字节签名边界、封闭 audit metadata、未知字段拒绝、秘密字段拒绝和品牌隔离。
+tests/contracts.spec.ts: 遍历 OpenAPI 声明的 45 个正反 fixture，验证 Zod、38 个错误码映射、P2-03 bootstrap、P2-06 成员身份、gateway facade、空签名/64 字节签名边界、封闭 audit metadata、未知字段拒绝、秘密字段拒绝和品牌隔离；**插件运行时投影的名字/描述两枚键各自成组：`displayName` 必填 1..120（缺席/空串/null/121 一律非法，1 与 120 是合法边界），`description` 可选 ≤1000（缺席合法、空串/null 非法）**。
+
+**本刀（卡片标题 = 插件名称）**：`contracts/components/plugin.yaml` 新增 `PluginDisplayName`（string 1..120，**必填**：服务端由验包器缺省回退包名，永不为空），`PluginPackage.displayName` 改为引用它（等同值、单一真源），`RuntimePluginAssignment` 的 `required` 与 `properties` 都补上 `displayName`；两个正例 fixture（`plugin-assignments-success.json` / `bootstrap-models-success.json`）按接口契约带上它；两端生成物由 `generate.mjs` 产出（`--check` 0 drift）。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

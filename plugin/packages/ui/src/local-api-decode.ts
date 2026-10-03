@@ -6,6 +6,10 @@
  *   解码白名单把它放在**可选键**位、缺席时归一成 `true`——旧 Host 那一半不发这个键也照旧解得开，
  *   绝不存在「服务端先发、客户端不认」的中间态；形状不是布尔照样判畸形）。`EnterpriseLocalApi` 相应新增
  *   `setPluginEnabled(packageName, enabled, signal)`。
+ * **本刀（卡片标题 = 插件名称）**：`EnterprisePluginCatalogItem` 新增 `displayName`（契约 `PluginDisplayName`，
+ *   1..120）——卡片**标题**取值；白名单把它放在**可选键**位（缺席 / JSON null / 非空串 ≤120 三种合法形态，
+ *   其余一律判畸形），投影时只有真拿到非空串才产出该键。缺席 = 旧 Host（这一刀之前那批 bootstrap 不带它），
+ *   渲染层据此**回退成包名**（不空白、不编造）——与同侧可选 `description` 逐条同口径。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -126,6 +130,14 @@ export interface EnterprisePluginCatalogItem {
   readonly pluginVersionId: string
   readonly packageName: string
   readonly version: string
+  /**
+   * 制品 `package.json` 的 `displayName`（契约 `PluginDisplayName`，1..120）——卡片**标题**取值。
+   *
+   * **可为缺失**：服务端/新 Host 永远带它（验包器缺省回退包名），只有**旧 Host**（这一刀之前那批
+   * bootstrap 不带该键）才缺席。本层把缺席 / JSON null / 空串一律归一成「没有这个键」，
+   * 渲染层据此**回退成包名**（不空白、不编造）——这是刻意的兼容窗口，绝不是本层吞字段。
+   */
+  readonly displayName?: string
   /**
    * 制品 `package.json` 的 `description`（契约 `PluginDescription`，≤1000）。
    * **为缺失设计**：本层把缺席 / JSON null / 空串一律归一成「没有这个键」（与技能侧可选
@@ -755,10 +767,14 @@ export function decodeEnterprisePluginStatus(value: unknown): EnterprisePluginSt
     const item = record(value)
     if (item === undefined || !hasExactKeys(item,
       ['pluginVersionId', 'packageName', 'version', 'sizeBytes', 'operatingSystems'],
-      ['description', 'installErrorCode'])
+      ['displayName', 'description', 'installErrorCode'])
       || !enterpriseId(item['pluginVersionId']) || !nonEmptyString(item['packageName'])
       || !nonEmptyString(item['version']) || !Number.isSafeInteger(item['sizeBytes']) || Number(item['sizeBytes']) <= 0
       || !Array.isArray(item['operatingSystems']) || item['operatingSystems'].some(os => !['darwin', 'linux', 'win32'].includes(os))
+      // 显示名与技能侧可选 `category`、同侧可选 `description` **同一口径**：缺席 / JSON null / 非空串
+      // ≤120 三种合法形态；非 string 非 null 或超过契约上限（`PluginDisplayName.maxLength`）一律判畸形。
+      || !(item['displayName'] === undefined || item['displayName'] === null
+        || (typeof item['displayName'] === 'string' && item['displayName'].length <= 120))
       // 描述与技能侧可选 `category` **同一口径**：缺席 / JSON null / 非空串 ≤1000 三种合法形态，
       // 非 string 非 null 或超过契约上限一律判畸形（不静默截断、不猜）。
       // 上限与契约 `PluginDescription.maxLength` 同值（V41 由 300 提到 1000：真实制品有 347 字符的描述）。
@@ -773,6 +789,8 @@ export function decodeEnterprisePluginStatus(value: unknown): EnterprisePluginSt
       version: item['version'] as string,
       sizeBytes: Number(item['sizeBytes']),
       operatingSystems: item['operatingSystems'] as readonly string[],
+      // 只有真拿到非空串才产出这个键；缺席/null/空串一概不产出（渲染层据此**回退包名**，不是画空白标题）。
+      ...(nonEmptyString(item['displayName']) ? { displayName: item['displayName'] } : {}),
       // 只有真拿到非空串才产出这个键；缺席/null/空串一概不产出（卡片据此说「暂无描述」，不是空白）。
       ...(nonEmptyString(item['description']) ? { description: item['description'] } : {}),
       ...(item['installErrorCode'] === undefined ? {} : { installErrorCode: item['installErrorCode'] as string }),

@@ -378,6 +378,24 @@ describe('EnterprisePluginDistributionService', () => {
     expect(other.service.status().catalog[0]).not.toHaveProperty('description')
   })
 
+  it('carries the artifact displayName into the local catalog and tolerates an old server that omits it', async () => {
+    const content = Buffer.from('named managed bundle')
+    // 服务端发了 displayName（契约 PluginDisplayName，必填 1..120）→ 本地 catalog 原样带出（UI 卡片**标题**取值）。
+    const named = { ...assignment(testKey, content), displayName: 'T13 门禁工具箱' }
+    const platform = new FakePlatform(bootstrap(1, [named]), new Map([[named.downloadUrl!, content]]))
+    const env = await environment({ platform })
+    await env.service.settled()
+    expect(env.service.status().catalog[0]?.displayName).toBe('T13 门禁工具箱')
+    // 旧服务端（这一刀之前那批 bootstrap 不带该键）→ 本地 catalog 同样不产出它；ui 的白名单与渲染层
+    // 据此**回退成包名**（不空白、不编造）——这是刻意的兼容窗口，不是本地把服务端事实吞掉。
+    const plain = assignment(testKey, content)
+    const otherPlatform = new FakePlatform(bootstrap(1, [plain]), new Map([[plain.downloadUrl!, content]]))
+    const other = await environment({ platform: otherPlatform })
+    await other.service.settled()
+    expect(other.service.status().catalog[0]).not.toHaveProperty('displayName')
+    expect(other.service.status().catalog[0]?.packageName).toBe(plain.packageName)
+  })
+
   it('keeps the catalog switch usable when the runtime engine version has no mapped commit', async () => {
     const content = Buffer.from('unmapped engine managed bundle')
     const desired = assignment(testKey, content)

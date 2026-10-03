@@ -125,7 +125,7 @@ class PluginDescriptionTest {
 
     private static RuntimePluginAssignment runtimeAssignment(String description, PluginAssignment.DesiredState state) {
         return new RuntimePluginAssignment(
-            1_901_300_000_000_000_601L, "@example/t13-tools", "1.0.0", description, 4096L, SHA256,
+            1_901_300_000_000_000_601L, "@example/t13-tools", "1.0.0", "T13 门禁工具箱", description, 4096L, SHA256,
             new byte[64],
             new PluginCompatibility(List.of(HARNESS_COMMIT), ">=0.1.0 <0.2.0", List.of("darwin", "linux")),
             false, state

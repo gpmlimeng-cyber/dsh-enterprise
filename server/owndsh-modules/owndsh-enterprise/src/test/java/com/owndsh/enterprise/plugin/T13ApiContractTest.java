@@ -334,7 +334,8 @@ class T13ApiContractTest {
 
     private static EffectivePluginResolver.ResolvedAssignments resolvedAssignments() {
         return new EffectivePluginResolver.ResolvedAssignments(9, List.of(new RuntimePluginAssignment(
-            VERSION_ID, "@example/t13-tools", "1.0.0", "T13 契约测试用插件。", DOWNLOAD_BYTES.length, SHA256,
+            // displayName 是必填（契约 PluginDisplayName）；这里与 packageView 的 "T13 Tools" 同一枚真值。
+            VERSION_ID, "@example/t13-tools", "1.0.0", "T13 Tools", "T13 契约测试用插件。", DOWNLOAD_BYTES.length, SHA256,
             new byte[64], compatibility(), false, PluginAssignment.DesiredState.INSTALLED
         )));
     }

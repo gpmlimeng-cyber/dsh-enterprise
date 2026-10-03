@@ -1,8 +1,9 @@
 /**
- * [INPUT]: 依赖叶子 `enterprise-card-text.tsx`（「企业」签 / 版本签字面 / 描述降级句）、`plugin-market.tsx` 的
- *          卡片标题行+第二行纯组件 `EnterprisePluginCardHead`、`marketplace-entry.tsx` 的插件行渲染（两套外壳），
+ * [INPUT]: 依赖叶子 `enterprise-card-text.tsx`（「企业」签 / 版本签字面 / 标题取值 `enterprisePluginDisplayName` /
+ *          描述降级句）、`plugin-market.tsx` 的卡片标题行+第二行纯组件 `EnterprisePluginCardHead` 与标题按钮
+ *          `EnterprisePluginCardTitle`、`marketplace-entry.tsx` 的插件行渲染（两套外壳），
  *          以及两个源文件的原文（源码级反向锁）；无 DOM（与 marketplace-entry.spec 同一套树工具）。
- * [OUTPUT]: 锁四件事——① **描述投影两态**：有描述原样说、没有（缺席/null/空串/纯空白）如实说「暂无描述」，
+ * [OUTPUT]: 锁六件事——① **描述投影两态**：有描述原样说、没有（缺席/null/空串/纯空白）如实说「暂无描述」，
  *          不空白、不编造、不拿版本充数；② **卡片标题行 = 标题 + 「企业」签 + 版本短号签**，标签用的是
  *          官方 `Tag` **原语本体** + 技能行**同一串类名**（`own-market-tag` / `own-market-skillVersionTag`）+
  *          同一个 tone（企业=info、版本=neutral），字面仍是 `v{version}`；③ **第二行 = 插件描述**，
@@ -10,9 +11,14 @@
  *          （从第二行搬到标题签；已下架行照旧说「已不在企业目录中」）；④ **反向锁**：两个消费面
  *          **一个新 CSS 类都没加**（`plugin-market.tsx` 的 `<style>` 长度+FNV-1a 两道字节级判据、
  *          `.own-market-tag` 只由 `marketplace-entry.tsx` 声明一处、叶子模块零 CSS、
- *          旧第二行那句「企业发布 · v…」作为**行上文案**退场）。
- * [POS]: 本刀（卡片第二行改描述 + 插件卡片标题行标签照技能）的机械门禁：把「照技能复用那一枚签、
- *        而不是自造第二套样式」与「描述缺失如实降级」从口号变成可执行断言。
+ *          旧第二行那句「企业发布 · v…」作为**行上文案**退场）；⑤ **标题 = 插件名称**（本刀）：显示名两态
+ *          （有值原样用 / 缺席·null·空串·纯空白一律回退包名，不空白不编造），三个渲染面同一枚投影；
+ *          ⑥ **点标题进详情**：标题是**真 `<button>`**（不是 span）、无障碍名「查看 <名称> 的详情」、
+ *          点击回调把**本行**包名回传；反向锁——没有详情页的市场插件行**不许**出现假入口/假按钮，
+ *          有详情的技能/配方行仍是一枚带同款无障碍名的真 `<button>`。
+ * [POS]: 本刀（卡片第二行改描述 + 插件卡片标题行标签照技能 + 标题改插件名称并可点进详情）的机械门禁：
+ *        把「照技能复用那一枚签、而不是自造第二套样式」「描述/名称缺失如实降级」「键盘可达不自造第二套实现」
+ *        从口号变成可执行断言。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -26,9 +32,10 @@ import {
   EnterpriseMarketBadgeTag,
   enterpriseMarketVersionTag,
   enterprisePluginDescriptionText,
+  enterprisePluginDisplayName,
 } from '../src/enterprise-card-text.js'
 import { EnterpriseMarketLegacyShell } from '../src/marketplace-entry.js'
-import { EnterprisePluginCardHead } from '../src/plugin-market.js'
+import { EnterprisePluginCardHead, EnterprisePluginCardTitle } from '../src/plugin-market.js'
 
 vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
   Button: vi.fn(),
@@ -291,5 +298,140 @@ describe('no new CSS class on either card surface', () => {
     expect([...declaredClassNames(source)]).toEqual([])
     expect(source).not.toContain('{display:')
     expect(source).not.toContain('<style>')
+  })
+})
+
+/* ───────────────────────── ⑤ 标题 = 插件名称（显示名 → 缺省回退包名） ───────────────────────── */
+
+describe('plugin card title = plugin display name with package-name fallback', () => {
+  it('keeps a real display name verbatim and falls back to the package name for every missing form', () => {
+    // 有显示名：原样用（不 trim、不加工、不截断）。
+    expect(enterprisePluginDisplayName('Acme 工具箱', '@example/acme-tools')).toBe('Acme 工具箱')
+    expect(enterprisePluginDisplayName('  两边留白  ', '@example/acme-tools')).toBe('  两边留白  ')
+    // 缺席 / null / 空串 / 纯空白四种形态**同一个**回退值 = 包名（标题绝不允许空白、绝不编造人话名）。
+    for (const displayName of [undefined, null, '', '   ']) {
+      expect(enterprisePluginDisplayName(displayName, '@example/acme-tools'), String(displayName))
+        .toBe('@example/acme-tools')
+    }
+    const fallback = enterprisePluginDisplayName(undefined, 'ent-a')
+    expect(fallback.trim()).not.toBe('')
+    expect(fallback).not.toMatch(/undefined|null|packageName/i)
+  })
+
+  it('renders the display name as the card title and falls back to the package name when absent', () => {
+    const named = EnterprisePluginCardHead({
+      displayName: 'Acme 工具箱',
+      packageName: '@example/acme-tools',
+      version: '1.2.3',
+      description: '把代码审查规则带进新会话。',
+    })
+    expect(textOf(named)).toBe('Acme 工具箱 企业 v1.2.3 把代码审查规则带进新会话。')
+    // 标题换了名，两枚签与位置一字未动（版本信息照旧在标题签上）。
+    expect(collectOfficialTagProps(named).map(props => props['children']))
+      .toEqual([ENTERPRISE_MARKET_BADGE_TEXT, 'v1.2.3'])
+    // 缺省 / null / 空串 / 纯空白四种形态 → 标题回落包名（可见文本其余部分不变）。
+    for (const displayName of [undefined, null, '', '   ']) {
+      const head = EnterprisePluginCardHead({
+        displayName,
+        packageName: '@example/acme-tools',
+        version: '1.2.3',
+        description: '把代码审查规则带进新会话。',
+      })
+      expect(textOf(head), String(displayName)).toBe('@example/acme-tools 企业 v1.2.3 把代码审查规则带进新会话。')
+    }
+  })
+})
+
+/* ───────────────────────── ⑥ 点标题进详情（真 button + 无障碍名 + 回调归本行） ───────────────────────── */
+
+describe('plugin card title is a real button that opens the detail dialog', () => {
+  /** 标题按钮的直调入口（纯函数、无 hook）：只覆盖本用例要动的那一件 prop。 */
+  const title = (overrides: Partial<Parameters<typeof EnterprisePluginCardTitle>[0]> = {}) =>
+    EnterprisePluginCardTitle({
+      name: '@example/acme-tools',
+      displayName: 'Acme 工具箱',
+      packageName: '@example/acme-tools',
+      version: '1.2.3',
+      description: '把代码审查规则带进新会话。',
+      onOpen: () => undefined,
+      ...overrides,
+    })
+
+  it('renders the title row as a real <button> (not a plain <span>) with the required accessible name', () => {
+    const node = title()
+    expect(isValidElement(node)).toBe(true)
+    const element = node as unknown as { type: unknown; props: Record<string, unknown> }
+    // ★真 `<button>`：键盘可达与焦点环走**浏览器原生语义**（没有自造 keydown/tabIndex 那第二套键盘实现）。
+    expect(element.type).toBe('button')
+    expect(element.props['type']).toBe('button')
+    expect(element.props['aria-haspopup']).toBe('dialog')
+    // ★无障碍名「查看 <名称> 的详情」——名称与可见标题是**同一枚投影**。
+    expect(element.props['aria-label']).toBe('查看 Acme 工具箱 的详情')
+    expect(textOf(node)).toContain('Acme 工具箱')
+    expect(element.props['disabled']).toBe(false)
+  })
+
+  it('derives the accessible name from the same fallback as the visible title (never blank, never undefined)', () => {
+    const node = title({ displayName: undefined })
+    const element = node as unknown as { props: Record<string, unknown> }
+    expect(element.props['aria-label']).toBe('查看 @example/acme-tools 的详情')
+    expect(textOf(node)).toContain('@example/acme-tools')
+    expect(String(element.props['aria-label'])).not.toContain('undefined')
+  })
+
+  it('invokes the row opener with its own package name so the click lands on this row', () => {
+    const onOpen = vi.fn()
+    const node = title({ name: 'ent-b', packageName: 'ent-b', displayName: '乙插件', onOpen })
+    ;(node as unknown as { props: { onClick: () => void } }).props.onClick()
+    expect(onOpen).toHaveBeenCalledTimes(1)
+    expect(onOpen).toHaveBeenCalledWith('ent-b')
+  })
+
+  it('degrades to a disabled button that explains itself when no opener is wired (never a dead control)', () => {
+    const node = title({ onOpen: undefined })
+    const element = node as unknown as { props: Record<string, unknown> }
+    expect(element.props['disabled']).toBe(true)
+    expect(element.props['title']).toBe('详情入口未接通')
+    expect(() => (element.props['onClick'] as () => void)()).not.toThrow()
+  })
+})
+
+/* ───────────────────────── ⑥ 反向锁：有详情才可点 / 没详情不许假装可点 ───────────────────────── */
+
+describe('detail entry reverse locks', () => {
+  it('shows the plugin name on the market plugin row and keeps it honest about having no detail page', () => {
+    const rows = [{
+      packageName: 'ent-a', displayName: '甲插件', version: '1.2.0', description: '甲的描述。',
+      state: 'ACTIVE', inCatalog: true,
+    }] as never
+    const tree = EnterpriseMarketLegacyShell({
+      view: 'page', activeTab: 'plugins', sessionUsable: true, enterprisePlugins: rows, onTogglePlugin: () => undefined,
+    })
+    // 标题 = 插件名称（不是包名）；第二行仍是描述（两件事各归各的投影）。
+    expect(collectByClassName(tree, 'own-market-cardId').map(props => props['children'])).toEqual(['甲插件'])
+    expect(collectByClassName(tree, 'own-market-cardDesc').map(props => props['children'])).toEqual(['甲的描述。'])
+    // ★市场面插件行**没有详情页**（企业插件的详情在「企业设置 → 插件」那一面）⇒ 这一面一个详情入口都不许有：
+    // 没有 `.own-market-rowOpen`（那是技能/配方行的详情按钮）——「有详情却不可点」的行在这里不可能存在。
+    expect(collectByClassName(tree, 'own-market-rowOpen')).toHaveLength(0)
+  })
+
+  it('keeps every row that does have a detail page clickable, and never invents a plugin detail page', async () => {
+    const source = await readFile(new URL('marketplace-entry.tsx', UI_SRC), 'utf8')
+    // 有详情页的两行（技能/配方）行本体是**真 `<button>`** + 「查看…详情」无障碍名——同款参照就在这里。
+    expect(source).toContain('aria-label={`查看企业技能 ${skill.displayName} 详情`}')
+    expect(source).toContain('aria-label={`查看企业配方 ${preset.displayName} 详情`}')
+    expect(source).toContain('data-enterprise-skill-open={skill.id}')
+    expect(source).toContain('data-enterprise-preset-open={preset.id}')
+    // 焦点环不由本仓自造：`<button>` 原生的 `:focus-visible` 那条规则就是唯一一处（键盘可达的证据）。
+    expect(source).toContain('.own-market-rowOpen:focus-visible{outline:')
+    // ★没有发明「插件详情页」：这条回调/这条 DOM 键在整棵树里都不存在。
+    expect(source).not.toContain('onOpenPluginDetail')
+    // 设置页那枚标题按钮：真 `<button class="own-market-title">` + 「查看 <名称> 的详情」+ 未接线时的降级。
+    const card = await readFile(new URL('plugin-market.tsx', UI_SRC), 'utf8')
+    expect(card).toContain('className="own-market-title"')
+    expect(card).toContain('aria-label={`查看 ${title} 的详情`}')
+    expect(card).toContain('disabled={onOpen === undefined}')
+    // 标题不再是纯文本 span：投影出来的名称挂在一枚 `strong` 里，而它在标题按钮内部。
+    expect(card).toContain('<strong style={{ minWidth: 0 }}>{title}</strong>')
   })
 })

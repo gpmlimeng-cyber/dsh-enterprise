@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 platform-client bootstrap/request、安装层验签开关、Harness inventory、**官方 `pluginManager` 安装面**（经 `./manager.ts` 的端口）、制品校验与原子状态文件
- * [OUTPUT]: 对外提供企业可选目录、显式安装/版本切换/卸载、**取消在途安装**、**启用与停用**、撤回调和、核心保护与库存状态
+ * [OUTPUT]: 对外提供企业可选目录（条目含 `displayName` 标题与可选 `description`）、显式安装/版本切换/卸载、**取消在途安装**、**启用与停用**、撤回调和、核心保护与库存状态
  * [POS]: plugin-distribution 的串行生命周期所有者，中心决定可用范围，用户决定本机安装，Loader 确认重启结果；
  *        安装/卸载的最后一步是官方 `installBundle`/`removeBundle`（不再有 `dsh plugin` 子进程），
  *        官方的进度（`plugin-manager/install-state` / `install-log`）与取消（`cancelInstall` / `waitForInstall`）
@@ -289,6 +289,9 @@ export class EnterprisePluginDistributionService extends Service {
           }
           return {
             pluginVersionId: item.pluginVersionId, packageName: item.packageName, version: item.version,
+            // 制品 package.json 的 displayName：服务端必有值（验包器缺省回退包名），故**有就原样带走**；
+            // 只有旧服务端（这一刀之前那批 bootstrap 不带该键）才会缺席，ui 的白名单与渲染层据此回退包名。
+            ...(item.displayName === undefined ? {} : { displayName: item.displayName }),
             // 制品 package.json 的 description：服务端**没有就整个键缺席**（不造空串），故这里同样只在
             // 真拿到非空值时带着走——下游（ui 解码白名单是关闭键集）据此把「没有这个键」当唯一缺失口径。
             ...(item.description === undefined ? {} : { description: item.description }),

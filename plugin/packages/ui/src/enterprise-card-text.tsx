@@ -1,7 +1,8 @@
 /**
  * [INPUT]: 依赖官方 `Tag` 原语（`@deepseek-ai/dsh-client-ui-primitives`）；零本地依赖（叶子模块）。
  * [OUTPUT]: 提供「企业」签的唯一文案与唯一渲染（`ENTERPRISE_MARKET_BADGE_TEXT` / `EnterpriseMarketBadgeTag`）、
- *           版本短号签的唯一字面（`enterpriseMarketVersionTag`）与插件描述缺失时的统一降级
+ *           版本短号签的唯一字面（`enterpriseMarketVersionTag`）、插件**标题**的唯一取值
+ *           （`enterprisePluginDisplayName`：有显示名用显示名、缺省/空白**回退包名**）与插件描述缺失时的统一降级
  *           （`ENTERPRISE_PLUGIN_DESCRIPTION_EMPTY` / `enterprisePluginDescriptionText`）。
  * [POS]: ui 的**卡片标识/文案叶子**——`marketplace-entry.tsx`（插件市场页的技能行·插件行·详情徽章）与
  *        `plugin-market.tsx`（企业设置 → 插件卡片）共用同一枚词、同一个组件、同一个降级句，
@@ -53,6 +54,31 @@ export function enterpriseMarketVersionTag(bundleVersion: string | undefined): s
 
 /** 插件**没有描述**时卡片第二行如实说的那一句（不空白、不编造、不拿版本充数）。 */
 export const ENTERPRISE_PLUGIN_DESCRIPTION_EMPTY = '暂无描述'
+
+/**
+ * 插件卡片**标题**的取值（纯投影，测试直调）：**有显示名就用显示名，否则回退成包名**。
+ *
+ * 为什么必须回退：「服务端永远有值」是**契约层**的事实（验包器读不到制品 `displayName` 时已回退成包名），
+ * 但员工端还会遇到**旧服务端 / 旧 Host**（这一刀之前那批 bootstrap 与 `/local/plugins` 不带这个键），
+ * 解码白名单那时也只会交回 undefined。标题是卡片的身份锚点，**绝不允许空白**——所以缺省一律回退包名
+ * （`packageName` 是必填位、非空串，必有可渲染值），既不编造一个人话名，也不画一条空标题。
+ *
+ * 真实数据佐证（本刀实测）：企业目录 6 条里 5 条 npm 制品 sha256 与上架制品**逐字节相同**、
+ * `package.json` 里 **一条都没写 `displayName`**（`@furayoshi/dsh-ui-models-invert-selection` /
+ * `@mengli114/dsh-settings-nav-collapse` / `dsh-i-have-adhd` / `dsh-turnsnap` / `dsh-yorha-ui`），
+ * 第 6 条 `owndsh-test-hello` 未发布到 npm、本机也没有制品可查 ⇒ **displayName ≠ 包名 的实测条数为 0**。
+ * 故对今天这批企业插件，卡片标题**显示效果与改前逐字相同**；差别只在「声明了人类可读名」的插件上出现。
+ * @param displayName - 目录里的显示名（可缺席/空白 = 没有显示名）。
+ * @param packageName - 目录里的包名（必有）。
+ * @returns 可渲染的标题文案：显示名（非空白）优先，否则包名。
+ */
+export function enterprisePluginDisplayName(
+  displayName: string | null | undefined,
+  packageName: string,
+): string {
+  if (displayName === undefined || displayName === null) return packageName
+  return displayName.trim() === '' ? packageName : displayName
+}
 
 /**
  * 插件卡片第二行的取值（纯投影，测试直调）：**有描述就原样说**，没有（缺席 / null / 空串 / 纯空白）

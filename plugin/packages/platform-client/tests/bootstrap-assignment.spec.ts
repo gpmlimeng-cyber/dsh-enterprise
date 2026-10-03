@@ -1,11 +1,16 @@
 /**
  * [INPUT]: 依赖 platform-client 出口上的严格 bootstrap schema（`zBootstrapResponse` / `zBootstrapSnapshot`）与契约
- *           `PluginDescription` 的线协议形态（可选 string ≤1000、没有就**整个键缺席**）。
- * [OUTPUT]: 锁四件事——① bootstrap 里的插件分配**认识**新增的可选 `description`：服务端发了就收下并保留；
- *          ② 服务端**不发**这一个键（未升级 / 包里没有描述）时照旧整条通过——这正是「`.strict()` 不认新字段
- *          会把整条 bootstrap 打挂」那个老坑的反向锁；③ 服务端**不许**发 `null`/空串/超长（契约是可选 string，
- *          读不到要**省略该键**），三种形态一律判非法，免得半吊子服务端产出「看起来能过、下游解码炸」的线协议；
- *          ④ 边界：1000 字收、1001 字拒；真实上架制品那条 347 字符的描述必须照收（旧的 300 上限正是它在源头被抹成 null 的原因）。
+ *           `PluginDisplayName`（必填 1..120）/ `PluginDescription`（可选 string ≤1000）的线协议形态。
+ * [OUTPUT]: 锁六件事——① bootstrap 里的插件分配**认识**新增的 `displayName`（必填位，员工端卡片标题）：
+ *           服务端发了就收下并保留；② 服务端**不发** `displayName`（旧服务端）时照旧整条通过、字段为
+ *           undefined（渲染层据此**回退包名**，绝不空白）——这正是「`.strict()` 不认新字段会把整条
+ *           bootstrap 打挂」那个老坑的反向锁，也是「员工端为缺失设计」的兼容窗口；
+ *           ③ `displayName` 不许是 null / 空串 / 超 120（1 与 120 是合法边界）；
+ *           ④ 可选 `description` 认识、保留、缺席也通过；
+ *           ⑤ 服务端**不许**发 `null`/空串/超长 description（契约是可选 string，
+ *           读不到要**省略该键**），三种形态一律判非法，免得半吊子服务端产出「看起来能过、下游解码炸」的线协议；
+ *           ⑥ 描述边界：1000 字收、1001 字拒；真实上架制品那条 347 字符的描述必须照收
+ *           （旧的 300 上限正是它在源头被抹成 null 的原因）。
  * [POS]: platform-client 侧「新增线协议字段必须两端同批、且必须为缺失设计」这件事的机械门禁
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -50,6 +55,49 @@ function assignment(extra: Record<string, unknown> = {}): Record<string, unknown
     ...extra,
   }
 }
+
+describe('bootstrap plugin assignment displayName', () => {
+  it('accepts the displayName and keeps it on the parsed snapshot (有值那一态)', () => {
+    const parsed = zBootstrapResponse.safeParse({
+      data: snapshotWith(assignment({ displayName: 'Acme 工具箱' })),
+      requestId: REQUEST_ID,
+    })
+    expect(parsed.success).toBe(true)
+    // 有值：逐字保留（卡片标题就取它；渲染层不加工、不截断）。
+    expect(parsed.success ? parsed.data.data.plugins.assignments[0]?.displayName : undefined)
+      .toBe('Acme 工具箱')
+  })
+
+  it('still accepts a bootstrap from a server that does not send displayName (无值那一态 ⇒ 渲染层回退包名)', () => {
+    const parsed = zBootstrapSnapshot.safeParse(snapshotWith(assignment()))
+    expect(parsed.success).toBe(true)
+    // 缺席 = 旧服务端（这一刀之前那批）；字段 undefined，卡片标题据此**回退包名**（绝不空白、不编造）。
+    expect(parsed.success ? parsed.data.plugins.assignments[0]?.displayName : 'sentinel').toBeUndefined()
+    expect(parsed.success ? parsed.data.plugins.assignments[0]?.packageName : undefined)
+      .toBe('@example/dsh-code-review')
+  })
+
+  it('rejects null, empty, and over-long displayName: a name must never be blank', () => {
+    for (const [label, displayName] of [
+      ['null', null],
+      ['空串', ''],
+      ['121 字', 'x'.repeat(121)],
+    ] as const) {
+      const parsed = zBootstrapResponse.safeParse({
+        data: snapshotWith(assignment({ displayName })),
+        requestId: REQUEST_ID,
+      })
+      expect(parsed.success, label).toBe(false)
+    }
+  })
+
+  it('draws the displayName boundary at 1 and 120 characters', () => {
+    for (const [label, length, valid] of [['1 字', 1, true], ['120 字', 120, true], ['121 字', 121, false]] as const) {
+      const parsed = zBootstrapSnapshot.safeParse(snapshotWith(assignment({ displayName: 'y'.repeat(length) })))
+      expect(parsed.success, label).toBe(valid)
+    }
+  })
+})
 
 describe('bootstrap plugin assignment description', () => {
   it('accepts the new optional description and keeps it on the parsed snapshot', () => {

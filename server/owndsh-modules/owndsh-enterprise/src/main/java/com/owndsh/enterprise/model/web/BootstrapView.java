@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 投影 BootstrapService 的用户、ACTIVE 设备、revision、含协议/推理 profile 的有效模型/配额与插件分配（含可选 description）；SessionPolicy 来自 enterprise.session 部署参数。
- * [OUTPUT]: 对外提供 T06 严格客户端所需的完整脱敏 bootstrap 外壳；插件分配与 `/plugins/assignments` 同键同口径（没有描述时整个 description 键缺席）；sessionPolicy.enabled 默认 false（V1 停用），显式部署可开。
+ * [INPUT]: 投影 BootstrapService 的用户、ACTIVE 设备、revision、含协议/推理 profile 的有效模型/配额与插件分配（含必填 displayName + 可选 description）；SessionPolicy 来自 enterprise.session 部署参数。
+ * [OUTPUT]: 对外提供 T06 严格客户端所需的完整脱敏 bootstrap 外壳；插件分配与 `/plugins/assignments` 同键同口径（displayName 必发、没有 description 时整个 description 键缺席）；sessionPolicy.enabled 默认 false（V1 停用），显式部署可开。
  * [POS]: model/web 的 runtime 配置输出边界；插件复用下载授权事实，且是**员工端本机目录的唯一数据源**——这里的键集必须与 PluginViews 的分配投影逐字一致；Session 能力由 EnterpriseSessionProperties 宣告。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -54,6 +54,11 @@ public record BootstrapView(
                 snapshot.plugins().revision(),
                 snapshot.plugins().assignments().stream().map(value -> new PluginAssignment(
                     Long.toString(value.pluginVersionId()), value.packageName(), value.version(),
+                    // 制品 package.json 的 displayName（验包器缺省回退包名，故永不为 null）：
+                    // 与 `/plugins/assignments` 共用同一个领域事实（RuntimePluginAssignment.displayName）。
+                    // 员工端卡片**标题**取的就是这一枚——bootstrap 另有一套逐字段投影，
+                    // 漏了这个键就等于服务端有名称、界面只能拿包名顶（77cbb6c 那次 description 事故的同形缺口）。
+                    value.displayName(),
                     // 制品 package.json 的 description：与 `/plugins/assignments` 共用同一个领域事实
                     // （RuntimePluginAssignment.description，可空）。**这一处曾是端到端最后一公里的缺口**：
                     // 员工端本机目录（plugin-distribution 的 catalog）由 bootstrap 快照构建，
@@ -118,6 +123,13 @@ public record BootstrapView(
         String pluginVersionId,
         String packageName,
         String version,
+        /**
+         * 制品 package.json 的 displayName（**必填**，验包器缺省回退包名 ⇒ 服务端永不为 null）。
+         * 与 `/plugins/assignments` 的 {@code PluginViews.RuntimeAssignmentView} 同一个键、同一口径；
+         * 员工端卡片**标题**（本刀）取的就是它。它必须与那一处**同批**改——两条投影漂开一次
+         * （77cbb6c 的 description 缺口）就让界面永远只拿得到包名。
+         */
+        String displayName,
         /**
          * 制品 package.json 的可选 description。与 `/plugins/assignments` 的
          * {@code PluginViews.RuntimeAssignmentView} 同一条领域事实、同一口径：为 null 时**整个键缺席**

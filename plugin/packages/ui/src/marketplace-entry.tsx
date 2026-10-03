@@ -10,6 +10,14 @@
  *   本页**不再有任何卸载动作**（`removePlugin` 零调用、源码级反向锁），卸载只在「企业设置 → 插件」的详情弹窗里；
  *   插件行的启停标签词表也收敛到 gate 叶（`enterprisePluginEnabledLabel`，`已启用 / 已停用`），
  *   且只在 `ACTIVE` 那一格出「已安装 · 已启用 / 已停用」，其余受管态仍由官方状态词表说（失败不会被读成正常）。
+ * **本刀（卡片标题 = 插件名称）**：企业插件行的标题由「包名」改成**插件名称**——取值经叶子投影
+ *   `enterprisePluginDisplayName(plugin.displayName, plugin.packageName)`（与「企业设置 → 插件」卡片、
+ *   详情弹窗**同一份真源**）：有 `displayName` 就用它，缺席/空白**回退包名**（不空白、不编造）。
+ *   ★ **如实交代一处预期**：真实数据里 6 条企业目录插件，5 条的 npm 制品 sha256 与上架制品逐字节相同、
+ *   其 `package.json` **一条都没写 `displayName`**（第 6 条未发布到 npm、本机无制品）⇒ 显示名 = 包名，
+ *   **今天这批插件在界面上的标题与改前逐字相同**；只有声明了人类可读名的插件才看得出差别。
+ *   ★ **市场面插件行没有详情页**（企业插件的详情在「企业设置 → 插件」那一面）⇒ 本行标题仍是纯文本，
+ *   不造"_点了没反应"的假按钮；有详情入口的技能/配方行才是真 `<button>`，由 `plugin-card.spec.ts` 反向锁。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -71,7 +79,7 @@ import {
 } from './list-state.js'
 import type { EnterprisePresetLaunchPort } from './preset-launch.js'
 import { EnterpriseLoginDialog, useEnterpriseLoginDialog } from './login-dialog.js'
-// 卡片标识/文案叶子（与「企业设置 → 插件」卡片**共用同一份**）：徽章组件、版本签字面、描述降级句。
+// 卡片标识/文案叶子（与「企业设置 → 插件」卡片**共用同一份**）：徽章组件、版本签字面、标题取值、描述降级句。
 // 这里既 import（本文件自己要用）又 re-export（保持原公开面与既有 import 路径不变）。
 import {
   ENTERPRISE_MARKET_BADGE_TEXT,
@@ -79,6 +87,7 @@ import {
   EnterpriseMarketBadgeTag,
   enterpriseMarketVersionTag,
   enterprisePluginDescriptionText,
+  enterprisePluginDisplayName,
 } from './enterprise-card-text.js'
 
 /** 本入口在官方插件页占用的 slot id，同时是卡片 DOM 的 `data-plugin-item` 与详情页路由键。 */
@@ -101,6 +110,7 @@ export {
   EnterpriseMarketBadgeTag,
   enterpriseMarketVersionTag,
   enterprisePluginDescriptionText,
+  enterprisePluginDisplayName,
 } from './enterprise-card-text.js'
 
 /**
@@ -529,6 +539,12 @@ export interface EnterpriseMarketPluginRow {
   /** 企业目录是否仍提供（false = 已下架但本机仍装着）。 */
   readonly inCatalog: boolean
   /**
+   * 制品 `package.json` 的 `displayName`（契约 `PluginDisplayName`，1..120）——**卡片标题**的取值。
+   * **可为缺席**：新服务端/新 Host 永远带它（验包器缺省回退包名），只有旧 Host 才缺席；
+   * 渲染时一律经 `enterprisePluginDisplayName` 取值 ⇒ **缺省回退包名**（不空白、不编造）。
+   */
+  readonly displayName?: string | undefined
+  /**
    * 制品 `package.json` 的 `description`（契约 `PluginDescription`，≤1000）：**卡片第二行**的取值。
    * **为缺失设计**：解码层已把缺席/null/空串归一成「没有这个键」，故这里缺席 ＝ 没有描述
    * ＝ 第二行如实说「暂无描述」（不空白、不编造、不拿版本充数）。已下架的行里没有目录事实，
@@ -582,6 +598,9 @@ export function enterpriseMarketPluginRows(
       recordVersion: rec?.version ?? null,
       // 启停位照解码层同一口径：无本机记录 = 未安装（那一行根本不渲染开关），有记录则如实取。
       enabled: rec?.enabled ?? true,
+      // 显示名照解码层同一口径：只有真拿到非空串才产出这个键（缺席/null/空串都不产出，
+      // 渲染层据此**回退包名**而不是画一条空标题）。目录缺席（已下架）时自然也没有显示名。
+      ...(cat?.displayName === undefined ? {} : { displayName: cat.displayName }),
       // 描述照解码层同一口径：只有真拿到非空串才产出这个键（缺席/null/空串都不产出，
       // 界面第二行据此说「暂无描述」而不是画一行空白）。目录缺席（已下架）时自然也没有描述。
       ...(cat?.description === undefined ? {} : { description: cat.description }),
@@ -3827,7 +3846,14 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
                       同一个 tone、同一枚官方 `Tag` 原语、每个类名都取自本文件既有声明，故一个新类都没有）。
                       版本信息因此**没丢**：它从第二行搬到了这枚签上，字面仍是 `v{version}`（官方 badge 槽同一枚字面）。 */}
                   <span className="own-market-cardHead">
-                    <span className="own-market-cardId own-market-skillTitle">{plugin.packageName}</span>
+                    {/* **标题 = 插件名称**（制品 package.json 的 displayName），缺省/空白**回退包名**——
+                        用户口径「插件卡片标题显示插件名称，而非包名」。这里仍是纯文本 `<span>`：
+                        **市场面插件行没有详情页**（企业插件的详情在「企业设置 → 插件」那一面，
+                        本行的动作区只有安装/启停），故不造一枚点了没反应的假按钮；
+                        有详情入口的两行（技能/配方）才用真 `<button>`，由 `plugin-card.spec.ts` 反向锁住。 */}
+                    <span className="own-market-cardId own-market-skillTitle">
+                      {enterprisePluginDisplayName(plugin.displayName, plugin.packageName)}
+                    </span>
                     <EnterpriseMarketBadgeTag />
                     {versionLabel === undefined ? null : (
                       <Tag className="own-market-tag own-market-skillVersionTag" tone="neutral">{versionLabel}</Tag>

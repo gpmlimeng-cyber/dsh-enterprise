@@ -1,5 +1,5 @@
 # [INPUT]: 依赖根协议的资源 ID、revision、cursor、requestId 与严格成功 envelope
-# [OUTPUT]: 提供插件 compatibility、含完整 assignment 集合的 catalog、含空字符串未签名表示的下载元数据、package 级可选 description 与设备库存 schemas
+# [OUTPUT]: 提供插件 compatibility、含完整 assignment 集合的 catalog、含空字符串未签名表示的下载元数据、package 级 displayName（员工端卡片标题）与可选 description（第二行）与设备库存 schemas
 # [POS]: contracts/components 的插件分发真源，保留 assignment 线协议并以可见范围承载员工自主安装
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 
@@ -59,6 +59,18 @@ PluginSemanticVersion:
 PluginSha256:
   type: string
   pattern: '^[0-9a-f]{64}$'
+PluginDisplayName:
+  description: >-
+    npm `package.json` 的 `displayName`（≤120）—— 员工端**卡片标题**的取值。
+    **必填**：它与可选的 `description` 不同，服务端**永远拿得出一个非空名字** —— 制品包里没写
+    `displayName`（真实上架制品 6/6 都没写）、写了空白、或该键不是字符串时，验包器
+    （`PluginArtifactInspector`）一律**回退成包名**，绝不产出 null/空串。故两端生成的 strict Zod
+    把它当必填位；员工端那套「缺省回退包名」只是为**旧服务端**（这一刀之前那批还不带该键）留的兼容窗口。
+    它是 **package 级**事实（与 `description` 同源、同一条读取路径），随首个上传的制品写入、
+    不随版本变化，故不出现在 `PluginVersion` 上。
+  type: string
+  minLength: 1
+  maxLength: 120
 PluginDescription:
   description: >-
     npm `package.json` 的 `description`（≤1000）。**可选属性**：包里没写、只写了空白、或该键不是字符串时，
@@ -154,10 +166,7 @@ PluginPackage:
   properties:
     id: {$ref: '#/PluginPackageId'}
     packageName: {$ref: '#/PluginPackageName'}
-    displayName:
-      type: string
-      minLength: 1
-      maxLength: 120
+    displayName: {$ref: '#/PluginDisplayName'}
     # 可选：制品 package.json 的 description（服务端读不到就整个键缺席，绝不发空串）。
     description: {$ref: '#/PluginDescription'}
     status: {$ref: '#/PluginPackageStatus'}
@@ -263,6 +272,7 @@ RuntimePluginAssignment:
     - pluginVersionId
     - packageName
     - version
+    - displayName
     - sizeBytes
     - sha256
     - signatureBase64
@@ -274,6 +284,8 @@ RuntimePluginAssignment:
     pluginVersionId: {$ref: '#/PluginVersionId'}
     packageName: {$ref: '#/PluginPackageName'}
     version: {$ref: '#/PluginSemanticVersion'}
+    # 员工端卡片**标题**的取值：制品 package.json 的 displayName（验包器缺省回退包名，故服务端必发）。
+    displayName: {$ref: '#/PluginDisplayName'}
     # 员工端卡片第二行的取值：制品 package.json 的 description。**可选**：没有就整个键缺席
     # （员工端解码为「没有这个键」并如实降级），绝不下发空串占位。
     description: {$ref: '#/PluginDescription'}

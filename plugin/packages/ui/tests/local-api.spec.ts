@@ -214,6 +214,37 @@ describe('enterprise local browser API', () => {
       .catalog?.[0]?.description).toBe(real347)
   })
 
+  // 本刀（卡片标题 = 插件名称）：catalog 里新增的**可选** `displayName` 与同侧 `description` 同一口径归一——
+  // 缺席 / null / 空串一律「没有这个键」（渲染层据此**回退包名**，绝不画空标题），非 string 非 null
+  // 或超过契约上限（`PluginDisplayName.maxLength` = 120）一律判畸形。
+  it('normalizes the optional catalog displayName with the package-name fallback left to the renderer', () => {
+    const base = {
+      pluginVersionId: '880', packageName: '@example/tools', version: '1.0.0', sizeBytes: 100,
+      operatingSystems: ['darwin'],
+    }
+    const status = { assignmentRevision: 7, plugins: [] }
+    // 有显示名：收下并保留原值（不改写、不 trim、不截断）——卡片标题就用它。
+    const named = decodeEnterprisePluginStatus({ ...status, catalog: [{ ...base, displayName: 'Acme 工具箱' }] })
+    expect(named.catalog?.[0]?.displayName).toBe('Acme 工具箱')
+    // 三种「没有显示名」的形态都归一成**没有这个键**（不是空串、不是 null）⇒ 渲染层回退包名。
+    for (const displayName of [undefined, null, '']) {
+      const decoded = decodeEnterprisePluginStatus({
+        ...status,
+        catalog: [{ ...base, ...(displayName === undefined ? {} : { displayName }) }],
+      })
+      expect(decoded.catalog?.[0], String(displayName)).not.toHaveProperty('displayName')
+    }
+    // 形状不对（非 string 非 null）与超过契约上限（120）一律判畸形，绝不静默截断或猜。
+    for (const displayName of [7, {}, 'x'.repeat(121)]) {
+      expect(() => decodeEnterprisePluginStatus({ ...status, catalog: [{ ...base, displayName }] }))
+        .toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    // 边界：正好 120 字收下（与服务端 `PluginDisplayName.maxLength` 对齐）。
+    const boundary = 'y'.repeat(120)
+    expect(decodeEnterprisePluginStatus({ ...status, catalog: [{ ...base, displayName: boundary }] })
+      .catalog?.[0]?.displayName).toBe(boundary)
+  })
+
   // 取消在途安装（本刀）：与 install/remove 同族同源——方法 / 路径 / body 逐字断言；
   // 响应就是只读 `GET /plugins` 那份**同形**投影（Host 零新增字段），故走的仍是同一个严格解码器。
   it('sends the cancel command to its exact same-origin route with the closed one-key body', async () => {

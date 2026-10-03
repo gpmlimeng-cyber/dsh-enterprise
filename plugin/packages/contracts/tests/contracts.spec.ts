@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 OpenAPI 生成的 fixture manifest/Zod schema、错误状态映射和品牌 ID 公共 API
- * [OUTPUT]: 验证全部正反 fixture、38 个错误码、成员身份、gateway/plugin（空签名或 64 字节签名）/Session/audit 严格契约、未知字段与品牌类型隔离
+ * [OUTPUT]: 验证全部正反 fixture、38 个错误码、成员身份、gateway/plugin（空签名或 64 字节签名）/Session/audit 严格契约、插件运行时投影的 displayName（必填 1..120 与可选 description）与未知字段与品牌类型隔离
  * [POS]: contracts 的双端协议回归测试之一，与 Java JSON Schema 测试消费相同 fixture 声明
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -259,6 +259,30 @@ describe('generated enterprise contracts', () => {
     expect(zRuntimePluginAssignmentsResponse.safeParse(fixture).success).toBe(true)
     // 真实值 347（@mengli114/dsh-settings-nav-collapse）：旧上限下的「超长」，新上限下的正常描述。
     assignment.description = 'z'.repeat(347)
+    expect(zRuntimePluginAssignmentsResponse.safeParse(fixture).success).toBe(true)
+  })
+
+  // 本刀（卡片标题改显示插件名称）：契约里 `displayName` 是**必填** string（1..120）——它与可选的
+  // `description` 不同：验包器读不到制品 `displayName` 时会**回退成包名**，故服务端永远拿得出非空名字；
+  // 「没有这个键」只可能来自**旧服务端**，那是员工端解码器的兼容窗口，不是契约允许的形态。
+  it('keeps the runtime plugin displayName required and bounded at 120', async () => {
+    const fixture = JSON.parse(
+      await readFile(resolve(CONTRACT_ROOT, 'fixtures', 'plugin-assignments-success.json'), 'utf8'),
+    ) as { data: { assignments: { displayName?: unknown }[] } }
+    const assignment = fixture.data.assignments[0]!
+    expect(assignment.displayName).toBe('Acme 工具箱')
+    expect(zRuntimePluginAssignmentsResponse.safeParse(fixture).success).toBe(true)
+    // ★必填：整个键缺席 = 旧服务端形态，产品契约里不合法（员工端的「回退包名」是解码器的兼容窗口）。
+    delete assignment.displayName
+    expect(zRuntimePluginAssignmentsResponse.safeParse(fixture).success).toBe(false)
+    // 空串 / null / 超 120 一律非法；1 与 120 是合法边界。
+    for (const displayName of ['', null, 'x'.repeat(121)]) {
+      assignment.displayName = displayName
+      expect(zRuntimePluginAssignmentsResponse.safeParse(fixture).success, JSON.stringify(displayName)).toBe(false)
+    }
+    assignment.displayName = 'x'
+    expect(zRuntimePluginAssignmentsResponse.safeParse(fixture).success).toBe(true)
+    assignment.displayName = 'y'.repeat(120)
     expect(zRuntimePluginAssignmentsResponse.safeParse(fixture).success).toBe(true)
   })
 

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 zod、生成契约、官方 settings 的 volatile Config 引用形状、installation 与本地 API 端口
- * [OUTPUT]: 对外提供 BootstrapSnapshot、平台状态/错误（含安卓授权页交接时随 AUTHORIZING 下发的 `authorizeUrl`）、volatile 引用识别与无验收探针的 Service 配置（含 `browserHandoff` 开关，以及组合层注入的企业插件动作端口 `pluginAction`/`pluginStatus`、企业技能安装端口 `skillAction`/`skillStatus` 与只读正文端口 `skillContent`）
+ * [OUTPUT]: 对外提供 BootstrapSnapshot（插件分配含**可选位** `displayName` 与 `description`，容旧服务端不发）、平台状态/错误（含安卓授权页交接时随 AUTHORIZING 下发的 `authorizeUrl`）、volatile 引用识别与无验收探针的 Service 配置（含 `browserHandoff` 开关，以及组合层注入的企业插件动作端口 `pluginAction`/`pluginStatus`、企业技能安装端口 `skillAction`/`skillStatus` 与只读正文端口 `skillContent`）
  * [POS]: platform-client 的公共契约层，隔离中心 HTTP 输入、Host 运行参数、官方 settings 引用与无秘密界面状态
  * **本刀（插件行动分流）**：`EnterprisePlatformServiceInternals` 新增 `pluginSetEnabled`（组合层注入的启用/停用端口），
  *   缺席即那两条路由按「分发不可用」如实拒——与 `pluginAction`/`pluginCancel` 同一条接线手法。
@@ -199,6 +199,12 @@ export const zBootstrapSnapshot = z.object({
       pluginVersionId,
       packageName: pluginPackageName,
       version: pluginVersion,
+      // 制品 package.json 的 displayName（契约 `PluginDisplayName`，**必填** 1..120）——员工端卡片**标题**取值。
+      // 服务端永远有值（验包器读不到时已回退成包名），契约里因此是必填位；这里仍写 `.optional()`
+      // **只为旧服务端**（这一刀之前那批不带该键）留兼容窗口：缺席由渲染层 `enterprisePluginDisplayName`
+      // 回退成包名——不空白、不编造。这一份是 `.strict()` 的：服务端先发这个键而这里不认，
+      // 整条 bootstrap 就会失败（关闭键集老坑）——两侧必须同批上线。
+      displayName: z.string().min(1).max(120).optional(),
       // 制品 package.json 的 description（契约 `PluginDescription`，**可选**）：
       // 服务端读不到就**整个键缺席**（绝不发 null/空串），故这里 `.optional()` 两种形态都收；
       // 这一份是 `.strict()` 的，服务端先发这个键而这里不认就会让整条 bootstrap 失败——两侧同批上线。
