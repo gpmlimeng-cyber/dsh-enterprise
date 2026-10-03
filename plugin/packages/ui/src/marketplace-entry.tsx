@@ -17,20 +17,27 @@
  *   其 `package.json` **一条都没写 `displayName`**（第 6 条未发布到 npm、本机无制品）⇒ 显示名 = 包名，
  *   **今天这批插件在界面上的标题与改前逐字相同**；只有声明了人类可读名的插件才看得出差别。
  *   ★ **市场面插件行没有详情页**（企业插件的详情在「企业设置 → 插件」那一面）⇒ 本行标题仍是纯文本，
- *   不造"_点了没反应"的假按钮；有详情入口的技能/配方行才是真 `<button>`，由 `plugin-card.spec.ts` 反向锁。
+ *   不造"_点了没反应"的假按钮；有详情入口的技能/配方行才是真 `<button>`，由 `plugin-card.spec.ts` 反向锁。 **本刀（插件行详情子页面，用户口径第 16 条，推翻第 15 条末尾那句批注）**：插件行标题改成真 `<button class="own-market-rowOpen">`（`data-enterprise-plugin-open` + 「查看企业插件 <名称> 详情」，**没有** `aria-haspopup`），点它把「企业插件」页签的**内容区**换成详情**子页面**（互斥由**复用的** `EnterprisePluginContentRegion` 保证、页头与四枚页签一字不改）；正文**原样复用** `plugin-market.tsx` 的 `EnterprisePluginDetailPage`（import 一处、渲染一处，零复制），它那份样式表由那边新导出的 `ENTERPRISE_PLUGIN_STYLES` 在详情态一并挂上（列表态一个字节都不多背）；动作区是行上**同一枚**新抽出的 `EnterpriseMarketPluginRowActions`（能装就装、已装就开关，本面**不引导卸载**）；返回两条真路径（返回按钮 + Esc，监听钉在本页根节点）；**浏览器返回键不接**（没有真实路由，不许硬造 `history`）；返回后按**同一枚** `scrollTargetOf` 的判定还原滚动位置、按包名把焦点还给那一枚标题按钮。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { BookMarked, ChevronDown, FileText, Folder, Library, Package, RefreshCw, Sparkles, X } from 'lucide-react'
 import { Button, StateDot, Switch, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { KeyboardEvent, ReactNode } from 'react'
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, Ref } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { enterpriseSessionUsable, useAccount } from './account-state.js'
 import type { EnterpriseAccountStore } from './account-store.js'
 import { formatByteSize } from './display-format.js'
 import { ENTERPRISE_LIBRARY_GATE_DEFAULT, type EnterpriseLibraryGate, type EnterpriseLibraryGateSnapshot } from './library-gate.js'
-import { enterprisePluginStatePresentation } from './plugin-market.js'
+import {
+  ENTERPRISE_PLUGIN_STYLES,
+  EnterprisePluginContentRegion,
+  EnterprisePluginDetailPage,
+  enterprisePluginCatalogVersionText,
+  enterprisePluginStatePresentation,
+  scrollTargetOf,
+} from './plugin-market.js'
 import type { EnterpriseInstalledSkill, EnterpriseInstalledSkillFile, EnterpriseLocalApi, EnterprisePluginCatalogItem, EnterprisePluginItem, EnterprisePresetApplicationKind, EnterprisePresetAuthorization, EnterprisePresetDisclosure, EnterprisePresetOfficialApplication, EnterprisePresetStatus, EnterpriseRuntimePreset, EnterpriseRuntimeSkill, EnterpriseSkillFileEntry, ManagedPluginState } from './local-api-decode.js'
 import { enterpriseLocalErrorCode } from './local-api-decode.js'
 import { EnterpriseErrorNotice } from './error-notice.js'
@@ -278,6 +285,13 @@ export interface EnterpriseMarketShellProps {
   /** 视图：卡片一句话用 `summary`，详情正文用 `page`（两套外壳都支持，入口侧各自恒定传 `page`）。 */
   readonly view: 'summary' | 'page'
   /**
+   * 本页根节点（`section.own-market-entry`）的挂点 —— **只由共享控制器注入**：插件详情子页面那套
+   * 运行期行为（Esc 只在本页回列表、返回后焦点还给那一行标题按钮、列表滚动位置写回）把监听与查找
+   * 钉在**这一个节点**上，而不是 `document`（否则会抢走官方面板别处的 Esc）。
+   * 纯函数直调时不传：那些行为都落在 `useEffect` 里，纯函数直调本来就不跑 —— 版面一个字节不受影响。
+   */
+  readonly sectionRef?: Ref<HTMLElement> | undefined
+  /**
    * 官方对注册了配置命名空间的条目传入配置表单；本入口没有配置命名空间，
    * `PluginManagerPage.formFor()` 会提前返回 `undefined`，因此这里只声明不消费。
    */
@@ -420,6 +434,18 @@ export interface EnterpriseMarketShellProps {
    */
   readonly onOpenSkillDetail?: ((row: EnterpriseMarketSkillRow) => void) | undefined
   /**
+   * 打开某条**企业插件**的详情**子页面**（用户点插件行标题 = 行本体那枚按钮触发）。
+   *
+   * 与技能/配方详情**同一口径**：只交回被点的那一行，详情里的一切由宿主用**同一份**真值投影
+   * （同一个 `EnterpriseMarketPluginRow` + 同一份 `enterpriseMarketPluginRowFacts` + 同一批回调），
+   * 界面上不存在第二套状态或第二个动作实现。缺席时那枚按钮 `disabled` + `title='详情入口未接通'`
+   * （照本文件既有降级口径：**不给死按钮**），真运行时恒由共享控制器供给。
+   *
+   * ★ 用户口径第 16 条：插件行的详情是**子页面**（内容区被替换），**不是弹窗** ——
+   * 这一面因此一个 `<Modal>`、一个 `role="dialog"`、一个 `aria-haspopup` 都没有（由测试守着）。
+   */
+  readonly onOpenPluginDetail?: ((row: EnterpriseMarketPluginRow) => void) | undefined
+  /**
    * 企业插件行最近一次安装/卸载失败（控制器把 store 已收下的 `pluginErrorCode` 归到刚发起动作的那一行）：
    * 命中 `packageName` 的行渲染 `role="alert"` 行内提示；缺席即无失败。
    * 有失败提示**不**禁用该行开关——用户要能原地重试。
@@ -507,6 +533,19 @@ export interface EnterpriseMarketShellProps {
    * 因此详情里不存在第二套状态或第二个动作实现。
    */
   readonly skillPage?: EnterpriseSkillPageProps | undefined
+  /**
+   * **插件详情子页面**的输入（点插件行标题后才非空）—— 用户口径第 16 条。
+   *
+   * 与技能/配方详情**同一份纪律**：非空 = 插件页签的**内容区被详情子页面替换**（列表与它那四态提示
+   * 一个元素都不挂载，见 `EnterprisePluginContentRegion` 的互斥），`undefined` = 正常列表视图；
+   * 里面的每一件事实都由共享控制器用**行上同一份**真值构造（同一个 `EnterpriseMarketPluginRow`、
+   * 同一份 `enterpriseMarketPluginRowFacts`、同一批回调），故详情里不存在第二套状态。
+   *
+   * 详情正文**原样复用** `plugin-market.tsx` 的纯组件 `EnterprisePluginDetailPage`（本文件不复制第二份）；
+   * 页头与四枚页签**保持可见、一字不改**（用户口径：详情只占内容区），故这一支不像 `skillPage`/`presetPage`
+   * 那样整页切走页签条。
+   */
+  readonly pluginPage?: EnterprisePluginPageProps | undefined
 }
 
 /**
@@ -560,6 +599,13 @@ export interface EnterpriseMarketPluginRow {
   /** 目录里的安装不可用原因（如不兼容），有则禁安装（原因由唯一提示组件连下一步一起说，不只挂 title）。 */
   readonly installErrorCode?: string | undefined
   /**
+   * 目录里这一版制品的体积（契约 `sizeBytes`，目录项上恒有）。
+   *
+   * **数据面字段**：行上不显示它，只有插件**详情子页面**「大小」那一格读它（本刀把详情接到这一面后
+   * 那一格不再缺席）；已下架（目录没有这一条）时自然没有这个键 ⇒ 那一格整格不出，不编造。
+   */
+  readonly sizeBytes?: number | undefined
+  /**
    * 本机记录说的「该装着吗」（`INSTALLED`/`ABSENT`）；无本机记录时 `undefined`。
    *
    * 与下面 `recordVersion` 一起是「**已安装**」那一个判定的两件真源
@@ -606,6 +652,9 @@ export function enterpriseMarketPluginRows(
       ...(cat?.description === undefined ? {} : { description: cat.description }),
       operatingSystems: cat?.operatingSystems,
       installErrorCode: cat?.installErrorCode,
+      // 体积同样**照解码层同一口径**带上来：目录项上恒有它，只有目录缺席（已下架）时才没有这个键
+      // （详情子页面「大小」那一格据此如实整格不出，绝不编造）。
+      ...(cat?.sizeBytes === undefined ? {} : { sizeBytes: cat.sizeBytes }),
     }
   })
 }
@@ -1571,6 +1620,29 @@ export function enterpriseMarketPluginRowFacts(
   }
 }
 
+/**
+ * **插件详情子页面**的输入（用户口径第 16 条）—— 纯数据，页面由外壳渲染。
+ *
+ * 为什么不是直接把 `EnterprisePluginDetailPage` 的那一整份 props 摊在这里：详情那一件的**每一条事实**
+ * 都要么来自行投影（`row`）、要么来自行 facts（`facts`）——控制器只交这两件**行上同一份**真值，
+ * 剩下三件（版本那一格的文案 / 门禁那一格的文案 / 返回与取消两枚写入口）由外壳在渲染时确定地投影出来。
+ * 于是「详情与行同源」是结构性的：详情里读的 `facts` 就是行上那一份，不存在第二个副本。
+ */
+export interface EnterprisePluginPageProps {
+  /** 详情那一行的**当前**投影（控制器从当前目录投影里按包名 `find`，目录刷新后不停在旧副本上）。 */
+  readonly row: EnterpriseMarketPluginRow
+  /** 行 facts（与行上**同一个**入口 `enterpriseMarketPluginRowFacts` 算出的同一份事实）。 */
+  readonly facts: EnterpriseMarketPluginRowFacts
+  /** 详情「企业版本」那一格的取值（纯投影 `enterprisePluginCatalogVersionText` 算出后传进来）。 */
+  readonly catalogVersionText: string
+  /** 【返回】的唯一动作（清掉详情目标即回列表）。 */
+  readonly onBack: () => void
+  /** 进度条上那枚真取消入口（与行上同一个写入口）；缺席即整枚不画。 */
+  readonly onCancelInstall?: ((packageName: string) => void) | undefined
+  /** 详情容器（进入详情时那个程序化聚焦的落点范围）。 */
+  readonly pageRef?: Ref<HTMLDivElement> | undefined
+}
+
 /* ══════════════════════════ 企业配方（第三枚目录页签 + 一键启用） ══════════════════════════
  *
  * 与「企业设置 → 配方」那个 tab（`preset-market.tsx`）的**共用面**只有三处，且每处都只有一份实现：
@@ -2469,7 +2541,7 @@ function EnterpriseMarketTabStrip({ model, onSelectTab }: {
     tablist?.querySelectorAll<HTMLElement>('[role="tab"]')[index]?.focus()
   }
   /** ←/→ 循环、Home/End 跳首尾，且都是「走焦 + 选中」一步到位（WAI-ARIA tabs 的自动激活口径）。 */
-  const onTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number): void => {
+  const onTabKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, index: number): void => {
     let nextIndex: number
     switch (event.key) {
       case 'ArrowRight': nextIndex = (index + 1) % ENTERPRISE_MARKET_TABS.length; break
@@ -3685,6 +3757,65 @@ export function EnterprisePresetDetailPage(props: EnterprisePresetPageProps): Re
 }
 
 /**
+ * **插件行那一枚控件（未安装 ⇒【＋】/ 已安装 ⇒【开关】）的唯一实现**（纯函数、无 hook）。
+ *
+ * 目录行（`EnterpriseMarketInlineRows`）与**插件详情子页面**（本刀的落点）渲染的是**同一枚子块**，
+ * 吃同一份 `facts`（唯一入口 `enterpriseMarketPluginRowFacts`）与同一批回调 —— 「详情里的动作与行上同源」
+ * 因此是结构性的：分流（未安装 ⇒ ＋ / 已安装 ⇒ 开关）、禁用口径、无障碍名与悬浮说明全部只在 facts 里
+ * 算一次，两个落点不可能各说一套，也不可能有第二个状态副本。
+ *
+ * ★ 两件刻意的事：① 详情里**不**引导卸载 —— 这一面本来就没有卸载动作（用户口径第 16 条只要求
+ * 「能装就装、已装就开关」），卸载仍在「企业设置 → 插件」的详情里，本文件一个 `removePlugin` 都没有
+ * （源码级反向锁守着）；② 返回值是**单个元素**（不是数组），故 `[＋]或[开关]` 仍然是行线的直属同级项，
+ * 行块的 DOM 大纲与改前逐项相同（详情那边把它连同上面那条可见说明一起放进动作区）。
+ *
+ * @param packageName - 这一行的包名（动作的钥匙，也是开关无障碍名的取值）。
+ * @param facts - 行 facts（`enterpriseMarketPluginRowFacts` 的产出）。
+ * @param onInstall - 【＋】的写入口（与行上同一条写路径）；缺席即禁用（不提供假按钮）。
+ * @param onToggleEnabled - 【开关】的写入口（与行上同一条写路径）；缺席即禁用（不提供假切换）。
+ * @returns 该行此刻该给的那一枚控件。
+ */
+export function EnterpriseMarketPluginRowActions({ packageName, facts, onInstall, onToggleEnabled }: {
+  /**
+   * ★ 只收**包名**，不收整行对象：行对象上带着 `operatingSystems` 这类**数据面字段**，
+   * 把它当 prop 传进来就等于让「目录声明的平台」重新出现在行子树里（`plugin-install-gate.spec.ts`
+   * 有一条「三种声明形态渲染出的行子树逐字相同」的不变式守着）。子块本来也只需要包名。
+   */
+  readonly packageName: string
+  readonly facts: EnterpriseMarketPluginRowFacts
+  readonly onInstall: (() => void) | undefined
+  readonly onToggleEnabled: ((next: boolean) => void) | undefined
+}): ReactNode {
+  if (facts.slot === 'install') {
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        className="own-market-installCta"
+        disabled={facts.installDisabled}
+        title={facts.installTitle}
+        aria-label={facts.installLabel}
+        data-enterprise-plugin-slot="install"
+        onClick={() => { onInstall?.() }}
+      >
+        ＋
+      </Button>
+    )
+  }
+  // 已安装：一枚官方 `Switch`。`checked` 是**启停位**（不是「装没装」——装没装已经由分流决定）。
+  return (
+    <Switch
+      checked={facts.enabled}
+      label={`启用 ${packageName}`}
+      disabled={facts.switchDisabled}
+      title={facts.switchTitle}
+      data-enterprise-plugin-slot="switch"
+      onChange={(next) => { onToggleEnabled?.(next) }}
+    />
+  )
+}
+
+/**
  * **目录行的唯一实现点**：按目录页签把整段 `<ul className="own-market-rows">`
  * 连行一起铺出来——技能行 = 行图标 + 两行文案（标题行 `.own-market-cardHead`：标题 + 版本签 + 可选分类签；
  * 描述行 `.own-market-cardDesc`）+ 右侧 `[有更新]` 与官方 `Switch` + 行下失败提示；插件行 = 行图标 + 两行文案 +
@@ -3840,67 +3971,66 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
               aria-busy={facts.progress === undefined ? undefined : true}
             >
               <div className="own-market-rowLine">
-                <span className="own-market-rowIcon"><Package size={18} aria-hidden="true" /></span>
-                <div className="own-market-rowMain">
-                  {/* 第 1 行 = 标题 + 「企业」签 + 版本短号签——**与技能行的标题行同款同枚**（同一串类名、
-                      同一个 tone、同一枚官方 `Tag` 原语、每个类名都取自本文件既有声明，故一个新类都没有）。
-                      版本信息因此**没丢**：它从第二行搬到了这枚签上，字面仍是 `v{version}`（官方 badge 槽同一枚字面）。 */}
-                  <span className="own-market-cardHead">
-                    {/* **标题 = 插件名称**（制品 package.json 的 displayName），缺省/空白**回退包名**——
-                        用户口径「插件卡片标题显示插件名称，而非包名」。这里仍是纯文本 `<span>`：
-                        **市场面插件行没有详情页**（企业插件的详情在「企业设置 → 插件」那一面，
-                        本行的动作区只有安装/启停），故不造一枚点了没反应的假按钮；
-                        有详情入口的两行（技能/配方）才用真 `<button>`，由 `plugin-card.spec.ts` 反向锁住。 */}
-                    <span className="own-market-cardId own-market-skillTitle">
-                      {enterprisePluginDisplayName(plugin.displayName, plugin.packageName)}
+                {/* **行标题可点进详情子页面**（用户口径第 16 条）：行本体（图标 + 两行文案）是一枚真
+                    `<button>`——与同面技能行/配方行**同款同枚**（同一个类名、同一个无障碍名句式、同一个
+                    「未接线即禁用 + 说明」降级口径），点它把插件页签的**内容区**换成该插件的详情子页面；
+                    状态词与动作是它的**同级兄弟**（结构性保证，不靠 `stopPropagation`），点它们绝不进详情。
+                    ★ 这里**没有** `aria-haspopup`：详情是子页面、不是弹窗，挂 dialog 语义会说错话。 */}
+                <button
+                  type="button"
+                  className="own-market-rowOpen"
+                  data-enterprise-plugin-open={plugin.packageName}
+                  aria-label={`查看企业插件 ${enterprisePluginDisplayName(plugin.displayName, plugin.packageName)} 详情`}
+                  disabled={props.onOpenPluginDetail === undefined}
+                  title={props.onOpenPluginDetail === undefined ? '详情入口未接通' : '查看详情'}
+                  onClick={() => { props.onOpenPluginDetail?.(plugin) }}
+                >
+                  <span className="own-market-rowIcon"><Package size={18} aria-hidden="true" /></span>
+                  <div className="own-market-rowMain">
+                    {/* 第 1 行 = 标题 + 「企业」签 + 版本短号签——**与技能行的标题行同款同枚**（同一串类名、
+                        同一个 tone、同一枚官方 `Tag` 原语、每个类名都取自本文件既有声明，故一个新类都没有）。
+                        版本信息因此**没丢**：它从第二行搬到了这枚签上，字面仍是 `v{version}`（官方 badge 槽同一枚字面）。 */}
+                    <span className="own-market-cardHead">
+                      {/* **标题 = 插件名称**（制品 package.json 的 displayName），缺省/空白**回退包名**——
+                          用户口径「插件卡片标题显示插件名称，而非包名」。它与上面那枚按钮的无障碍名是**同一枚**
+                          投影（`enterprisePluginDisplayName`），故读屏听到的名字与用户看到的字永远一致。 */}
+                      <span className="own-market-cardId own-market-skillTitle">
+                        {enterprisePluginDisplayName(plugin.displayName, plugin.packageName)}
+                      </span>
+                      <EnterpriseMarketBadgeTag />
+                      {versionLabel === undefined ? null : (
+                        <Tag className="own-market-tag own-market-skillVersionTag" tone="neutral">{versionLabel}</Tag>
+                      )}
                     </span>
-                    <EnterpriseMarketBadgeTag />
-                    {versionLabel === undefined ? null : (
-                      <Tag className="own-market-tag own-market-skillVersionTag" tone="neutral">{versionLabel}</Tag>
-                    )}
-                  </span>
-                  {/* 第 2 行 = **插件描述**（原先这里是「企业发布 · v…」，版本已上移到标题签）。
-                      有描述说描述；没有描述如实说「暂无描述」（不空白、不编造）；已下架的行照旧说
-                      「已不在企业目录中」（那一句是既有口径，与有没有描述无关）。 */}
-                  <span className="own-market-cardDesc">
-                    {plugin.inCatalog
-                      ? enterprisePluginDescriptionText(plugin.description)
-                      : '已不在企业目录中'}
-                  </span>
-                </div>
+                    {/* 第 2 行 = **插件描述**（原先这里是「企业发布 · v…」，版本已上移到标题签）。
+                        有描述说描述；没有描述如实说「暂无描述」（不空白、不编造）；已下架的行照旧说
+                        「已不在企业目录中」（那一句是既有口径，与有没有描述无关）。 */}
+                    <span className="own-market-cardDesc">
+                      {plugin.inCatalog
+                        ? enterprisePluginDescriptionText(plugin.description)
+                        : '已不在企业目录中'}
+                    </span>
+                  </div>
+                </button>
                 {/* 状态点旁**恒**出一行官方状态词（安静态也说），文案取自本仓唯一那份官方状态词表。 */}
                 <span className="own-market-rowState">
                   <StateDot state={facts.dot} />
                   {facts.stateTitle}
                 </span>
                 {/* 动作区**按状态分流**（用户口径，唯一分流点在 `enterpriseMarketPluginRowFacts` 的 `slot`）：
-                    未安装 ⇒ 一枚【＋】安装按钮；已安装 ⇒ 一枚【开关】＝启用/停用。
-                    两者都**不**卸载——卸载只在详情页（列表行一个卸载入口都没有，由反向锁用例守着）。
+                    未安装 ⇒ 一枚【＋】安装按钮；已安装 ⇒ 一枚【开关】＝启用/停用。这里是**唯一实现**，
+                    详情子页面渲染的是同一枚子块（同一份 facts、同一批回调），故两处不可能各说一套。
+                    两者都**不**卸载——这一面本来就没有卸载动作，卸载只在「企业设置 → 插件」的详情里。
                     `title` 只是补充：到底能不能动、为什么不能动，一律由行下那一句可见说明与下面那条
                     目录判定提示负责（原先禁用态只有一句 title，那就是「死开关」）。 */}
-                {facts.slot === 'install' ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="own-market-installCta"
-                    disabled={facts.installDisabled}
-                    title={facts.installTitle}
-                    aria-label={facts.installLabel}
-                    data-enterprise-plugin-slot="install"
-                    onClick={() => { props.onInstallPlugin?.(plugin) }}
-                  >
-                    ＋
-                  </Button>
-                ) : (
-                  <Switch
-                    checked={facts.enabled}
-                    label={`启用 ${plugin.packageName}`}
-                    disabled={facts.switchDisabled}
-                    title={facts.switchTitle}
-                    data-enterprise-plugin-slot="switch"
-                    onChange={(next) => { props.onTogglePluginEnabled?.(plugin, next) }}
-                  />
-                )}
+                <EnterpriseMarketPluginRowActions
+                  packageName={plugin.packageName}
+                  facts={facts}
+                  onInstall={props.onInstallPlugin === undefined ? undefined : () => { props.onInstallPlugin?.(plugin) }}
+                  onToggleEnabled={props.onTogglePluginEnabled === undefined
+                    ? undefined
+                    : (next) => { props.onTogglePluginEnabled?.(plugin, next) }}
+                />
               </div>
               {/* 禁用时的**可见**解释（无写入口 / 在途 / 等重启 / 别的操作用着）。 */}
               <EnterprisePluginRowNotes id={plugin.packageName} facts={facts} />
@@ -3942,6 +4072,52 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
 }
 
 /**
+ * **插件详情子页面在本面的唯一渲染点**（纯函数）：把控制器交来的行投影 + 行 facts 翻成
+ * `EnterprisePluginDetailPage` 的那一整份 props —— 组件本体**原样复用**（`plugin-market.tsx` 的同一枚纯组件，
+ * 本文件不复制第二份详情、也不重写任何一句文案），本函数只负责把「行上同一份真值」接上去：
+ *
+ *  · 「企业版本」那一格 = 纯投影 `enterprisePluginCatalogVersionText`（与设置页详情**同一枚**投影）；
+ *  · 「大小」「安装状态」两格直接读行投影（行上没有这两件事实时整格不出，不编造）；
+ *  · 「暂时不能安装」那一格只在**这一行给的就是【＋】**时才出：`facts.lockNotice` 是**这一行那一枚控件**
+ *    的禁用原因，装在开关那格上说「不能安装」会串台（开关不可拨 ≠ 不能安装）；
+ *  · 动作区 = 行上**同一枚**子块 `EnterpriseMarketPluginRowActions`（同一份 facts、同一批写入口）
+ *    ＋ 行上那句**可见**的禁用说明（详情里没有行下那句说明，不带过去就会留下一枚「点不动又不说话」的控件）；
+ *  · 进度与落地交代取 `facts`（与行上同一份投影）——详情不可能说「没在装」而行上在装。
+ *
+ * ★ 详情里**没有**卸载：这一面本来就没有卸载动作（用户口径第 16 条：能装就装、已装就开关）。
+ */
+function enterpriseMarketPluginDetail(page: EnterprisePluginPageProps, props: EnterpriseMarketShellProps): ReactNode {
+  return (
+    <EnterprisePluginDetailPage
+      packageName={page.row.packageName}
+      displayName={page.row.displayName}
+      catalogVersionText={page.catalogVersionText}
+      installed={page.facts.installed}
+      installedVersion={page.row.recordVersion}
+      sizeBytes={page.row.sizeBytes}
+      installErrorCode={page.row.installErrorCode}
+      installLockNotice={page.facts.slot === 'install' ? page.facts.lockNotice : undefined}
+      progress={page.facts.progress}
+      settledNotice={page.facts.settledNotice}
+      onBack={page.onBack}
+      onCancelInstall={page.onCancelInstall}
+      actions={<>
+        <EnterpriseMarketPluginRowActions
+          packageName={page.row.packageName}
+          facts={page.facts}
+          onInstall={props.onInstallPlugin === undefined ? undefined : () => { props.onInstallPlugin?.(page.row) }}
+          onToggleEnabled={props.onTogglePluginEnabled === undefined
+            ? undefined
+            : (next) => { props.onTogglePluginEnabled?.(page.row, next) }}
+        />
+        <EnterprisePluginRowNotes id={page.row.packageName} facts={page.facts} />
+      </>}
+      pageRef={page.pageRef}
+    />
+  )
+}
+
+/**
  * **目录页外壳**（唯一一棵）：官方插件页「官方」分组里的「插件市场」卡片点进去的详情页正文
  * （官方 `plugins.item` 的 `page` 视图）。逐段取自 `9723a97`：
  *  · 技能行 = 行图标 + 官方两行卡片（第 1 行 `.own-market-cardId` 标题 + 紧随的版本签/分类签、第 2 行 `.own-market-cardDesc` 描述）
@@ -3963,7 +4139,7 @@ export function EnterpriseMarketLegacyShell(props: EnterpriseMarketShellProps): 
   // 详情子页面：整页切换（列表那一支一字不挂载），样式把 detailStyles 一并带上。
   if (props.skillPage !== undefined) {
     return (
-      <section className="own-market-entry" aria-label={ENTERPRISE_MARKET_ENTRY_LABEL}>
+      <section ref={props.sectionRef} className="own-market-entry" aria-label={ENTERPRISE_MARKET_ENTRY_LABEL}>
         <style>{baseStyles}{rowStyles}{detailStyles}</style>
         <EnterpriseSkillDetailPage {...props.skillPage} />
       </section>
@@ -3972,16 +4148,31 @@ export function EnterpriseMarketLegacyShell(props: EnterpriseMarketShellProps): 
   // 配方详情子页面：与技能详情**同一条**整页切换形态（同一份 `<style>`，因为不新增任何 CSS）。
   if (props.presetPage !== undefined) {
     return (
-      <section className="own-market-entry" aria-label={ENTERPRISE_MARKET_ENTRY_LABEL}>
+      <section ref={props.sectionRef} className="own-market-entry" aria-label={ENTERPRISE_MARKET_ENTRY_LABEL}>
         <style>{baseStyles}{rowStyles}{detailStyles}</style>
         <EnterprisePresetDetailPage {...props.presetPage} />
       </section>
     )
   }
   const model = enterpriseMarketShellModel(props)
+  /**
+   * 插件详情子页面（用户口径第 16 条）的**唯一渲染点**：`undefined` = 「企业插件」页签照常铺列表。
+   *
+   * 三道门都要过：控制器给了目标、当前就停在「企业插件」页签、且这一节真的可见（「插件」大组件开启）。
+   * 第二道门同时是「点别的页签 = 回列表」这条行为的兜底——控制器切页签时已经清掉目标，
+   * 这里再判一次，纯函数直调（测试传 `pluginPage` + `activeTab:'skills'`）也不会渲染出第二个详情。
+   */
+  const pluginDetail = props.pluginPage === undefined || model.activeTab !== 'plugins' || model.pluginsPanel.kind === 'hidden'
+    ? undefined
+    : enterpriseMarketPluginDetail(props.pluginPage, props)
   return (
-    <section className="own-market-entry" aria-label={ENTERPRISE_MARKET_ENTRY_LABEL}>
+    <section ref={props.sectionRef} className="own-market-entry" aria-label={ENTERPRISE_MARKET_ENTRY_LABEL}>
+      {/* 页面级 CSS：列表那份照旧（**一个字节都不多背**，故那份字节级基线在列表视图里照旧不变）。
+          **只有**插件详情在场时才另挂一份「企业设置 → 插件」的样式表——复用的 `EnterprisePluginDetailPage`
+          的版面正是照它写的（`.own-market-toolbar`/`.own-market-facts`/`.own-market-actions`/`.own-plugin-progress*`）。
+          两份表类名**零交集**（`marketplace-entry.spec.ts` 的隔离不变量逐类守着），同页并存不会互相覆盖。 */}
       <style>{baseStyles}{rowStyles}</style>
+      {pluginDetail === undefined ? null : <style>{ENTERPRISE_PLUGIN_STYLES}</style>}
       <EnterpriseMarketTabStrip model={model} onSelectTab={props.onSelectTab} />
       {/* 「企业技能」页签（默认页签，用户主战场）：与企业插件页签同规则——「技能」大组件开启（= 会话可用）
           且目录非空才出现。列的是后台分配（预置）的全部技能：未装的照列，装不装由用户拨右侧那枚开关决定。
@@ -4005,15 +4196,22 @@ export function EnterpriseMarketLegacyShell(props: EnterpriseMarketShellProps): 
           </section>
         ) : null}
       </EnterpriseMarketPanel>
-      {/* 「企业插件」页签内容：仅当「插件」大组件开启时出现，列企业后台上传的真实插件目录（四态同技能页签）。 */}
+      {/* 「企业插件」页签内容：仅当「插件」大组件开启时出现，列企业后台上传的真实插件目录（四态同技能页签）。
+          **本刀（插件详情子页面，用户口径第 16 条）**：详情在场时**这一页签的内容区整段换成详情**——
+          列表与它那四态提示一个元素都不挂载，互斥由**复用的** `EnterprisePluginContentRegion` 保证
+          （`detail ?? list`，与「企业设置 → 插件」那一面**同一枚**容器、同一个 `data-enterprise-plugin-region`
+          判据：不是叠层、没有遮罩、没有 portal、没有 dialog 语义）；页头与四枚页签**保持可见、一字不改**。 */}
       <EnterpriseMarketPanel tab="plugins" activeTab={model.activeTab}>
         {model.activeTab === 'plugins' && model.pluginsPanel.kind !== 'hidden' ? (
           <section className="own-market-section" data-market-section="enterprise-plugins">
-            {model.pluginsPanel.kind === 'ready' ? (
-              <EnterpriseMarketInlineRows tab="plugins" model={model} props={props} />
-            ) : (
-              <EnterpriseMarketListHint state={model.pluginsPanel} onRetry={props.onRetryPlugins} />
-            )}
+            <EnterprisePluginContentRegion
+              detail={pluginDetail}
+              list={model.pluginsPanel.kind === 'ready' ? (
+                <EnterpriseMarketInlineRows tab="plugins" model={model} props={props} />
+              ) : (
+                <EnterpriseMarketListHint state={model.pluginsPanel} onRetry={props.onRetryPlugins} />
+              )}
+            />
           </section>
         ) : null}
       </EnterpriseMarketPanel>
@@ -4243,6 +4441,72 @@ export function useEnterpriseMarketController({ view, store, libraryGate, preset
     pluginAction !== undefined && pluginErrorCode !== undefined
       ? { id: pluginAction.packageName, action: pluginAction.action, code: pluginErrorCode }
       : undefined
+  /**
+   * **插件详情子页面的目标行**（用户口径第 16 条）：只存**包名**，不存行对象。
+   *
+   * 详情里的一切在渲染时从**当前**目录投影里 `find`（目录刷新后详情不停在旧副本上；
+   * 目录里已经没有这一条时会话不可用/下架/卸载清空时 `pluginPage` 自己就是 undefined，
+   * 界面自然回到列表——与技能/配方详情同一条纪律）。`undefined` = 「企业插件」页签照常铺列表。
+   */
+  const [pluginDetailName, setPluginDetailName] = useState<string>()
+  /** 本页根节点（`section.own-market-entry`）：Esc 的监听范围与「返回时按名字找回那一行」的查找范围都钉在它上面。 */
+  const marketRoot = useRef<HTMLElement>(null)
+  /** 插件详情容器：进入详情时那个聚焦 effect 从这里取落点（就是它里面的详情标题）。 */
+  const pluginDetailPage = useRef<HTMLDivElement>(null)
+  /** 进详情前那一刻的滚动位置（**点击那一下**读，之后列表就被替换了；判定复用 `scrollTargetOf`）。 */
+  const pluginScrollMemory = useRef<{ readonly target: HTMLElement; readonly top: number } | undefined>(undefined)
+  /** 是哪一行的标题开的详情：返回时按**包名**把焦点还给它（列表是重新挂载的，旧 DOM 引用已经失效）。 */
+  const pluginOpener = useRef<string | undefined>(undefined)
+  /**
+   * 【返回】的两条真路径（与「企业设置 → 插件」那份详情**同一套接法**）：① 详情里左上角那枚返回按钮；
+   * ② Esc。
+   *
+   * 监听钉在本页根节点上（**不是** `document`）：只有焦点落在本页里时 Esc 才回列表，不去抢官方面板别处的
+   * Esc；命中后 `stopPropagation`，免得这一下继续冒泡把外层一起关掉。**浏览器返回键没接**——本页是官方
+   * `plugins.item` 的 page 视图、**没有真实路由**（与同面技能/配方详情同一形态），硬造 `history` 会与
+   * 宿主自己的返回处理打架，故不假装有路由。
+   */
+  useEffect(() => {
+    if (pluginDetailName === undefined) return
+    const node = marketRoot.current
+    if (node === null) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      setPluginDetailName(undefined)
+    }
+    node.addEventListener('keydown', onKeyDown)
+    return () => { node.removeEventListener('keydown', onKeyDown) }
+  }, [pluginDetailName])
+  /**
+   * 进入详情：焦点落到详情标题（那枚 `tabIndex={-1}` 的程序化聚焦点），读屏因此立刻报出「插件详情」。
+   * 用 `useLayoutEffect`：在浏览器绘制前就把焦点放好，用户看不到「焦点还留在已经不在的那枚按钮上」那一帧。
+   */
+  useLayoutEffect(() => {
+    if (pluginDetailName === undefined) return
+    pluginDetailPage.current?.querySelector<HTMLElement>('[data-enterprise-plugin-detail-title]')?.focus()
+  }, [pluginDetailName])
+  /**
+   * 返回：把滚动位置与焦点**还原到进入详情前那一眼**（`useLayoutEffect` 在绘制前落定，看不见跳动）。
+   *
+   * 焦点按**包名**找回那一枚标题按钮，而不是按旧 DOM 引用：返回时列表是**重新挂载**的，
+   * 进入详情前那个节点已经不可用（`isConnected === false`），照旧引用 focus 会静默失败。
+   */
+  useLayoutEffect(() => {
+    if (pluginDetailName !== undefined) return
+    const saved = pluginScrollMemory.current
+    pluginScrollMemory.current = undefined
+    if (saved !== undefined && saved.target.isConnected) saved.target.scrollTop = saved.top
+    const name = pluginOpener.current
+    pluginOpener.current = undefined
+    if (name === undefined) return
+    const buttons = marketRoot.current?.querySelectorAll<HTMLElement>('[data-enterprise-plugin-open]')
+    if (buttons === undefined) return
+    for (const button of buttons) {
+      if (button.dataset['enterprisePluginOpen'] === name) { button.focus(); return }
+    }
+  }, [pluginDetailName])
   /**
    * 未安装那一行那枚【＋】的安装动作（唯一写入口；行上的 ＋ 与详情里那枚「更新版本」都走它）。
    *
@@ -4650,15 +4914,34 @@ export function useEnterpriseMarketController({ view, store, libraryGate, preset
     expandedSections,
     onToggleSection,
     activeTab,
-    onSelectTab: setActiveTab,
+    // 切页签 = 换一份目录，插件详情随之关掉（详情只占「企业插件」页签的内容区；页签本身保持可见，
+    // 用户点别的页签就是明确地在换页，不该再看到上一页的详情）。技能/配方详情是整页切换，页签那会儿
+    // 根本不在 DOM 里，故这里只需管插件详情这一份状态。
+    onSelectTab: (tab) => { setActiveTab(tab); setPluginDetailName(undefined) },
     expandedRow,
     onToggleRow,
     // 点行本体 = 把**那一行**记成当前详情目标；行的开关与 `[有更新]` 有自己的回调，不经过这里。
     // 点行本体只记**包 id**；行对象在渲染时从当前目录投影里取，详情与行因此永远看同一份数据。
     // **本刀（企业配方页签）**：配方行同理——点行标题只记配方 id，详情与行看同一份目录投影
-    // （故两个详情目标天然互斥：点配方行的标题只会把配方目标写进状态）。
-    onOpenSkillDetail: (row) => { setSkillDetailId(row.id); setPresetDetailId(undefined) },
-    onOpenPresetDetail: (row) => { setPresetDetailId(row.id); setSkillDetailId(undefined) },
+    // （故三个详情目标天然互斥：点某一行的标题只会把那一行的目标写进状态、顺手清掉另两个）。
+    onOpenSkillDetail: (row) => { setSkillDetailId(row.id); setPresetDetailId(undefined); setPluginDetailName(undefined) },
+    onOpenPresetDetail: (row) => { setPresetDetailId(row.id); setSkillDetailId(undefined); setPluginDetailName(undefined) },
+    /**
+     * 插件行标题那枚按钮的唯一回调（用户口径第 16 条）：**在点击这一刻**把两件事记下来 ——
+     *  ① 滚动位置（列表一被替换，浏览器就会把容器的 `scrollTop` 夹回去，事后再读就晚了）；
+     *  ② 是哪一行开的详情（返回时列表重新挂载，旧 DOM 引用已经不可用，故记**包名**）。
+     * 判定复用 `scrollTargetOf`（与「企业设置 → 插件」那面同一枚实现，两面不会一处还原一处不还原）。
+     */
+    onOpenPluginDetail: (row) => {
+      const target = scrollTargetOf(marketRoot.current)
+      pluginScrollMemory.current = target === undefined ? undefined : { target, top: target.scrollTop }
+      pluginOpener.current = row.packageName
+      setPluginDetailName(row.packageName)
+      setSkillDetailId(undefined)
+      setPresetDetailId(undefined)
+    },
+    // 本页根节点的挂点（控制器是唯一注入点）：Esc / 焦点还原 / 滚动还原都钉在这一个节点上。
+    sectionRef: marketRoot,
   }
   /**
    * 详情子页面的输入**只在这里构造一次**：行投影、行 facts（与行上同一个函数）、已装记录（同一份
@@ -4708,10 +4991,45 @@ export function useEnterpriseMarketController({ view, store, libraryGate, preset
     onReloadDetail: () => { setPresetDetailAttempt(current => current + 1) },
     onBack: () => { setPresetDetailId(undefined) },
   }
+  /**
+   * **插件详情子页面（用户口径第 16 条）的输入只在这里构造一次**（与技能/配方详情同一条纪律）：
+   * 行投影来自**当前**目录投影（`enterprisePlugins.find`，目录刷新后不停在旧副本上）、facts 走
+   * **行上同一个**入口 `enterpriseMarketPluginRowFacts`（因此详情与行不可能各说一套已装/在途/进度）、
+   * 动作与取消都交回**行上同一批**回调（`baseShellProps` 里那几枚）——纯组件 `EnterprisePluginDetailPage`
+   * 只负责铺版面与写入口注入，本文件不复制第二份详情。
+   *
+   * 「企业版本」那一格用**与设置页详情同一枚**投影 `enterprisePluginCatalogVersionText`：目录里有这一版
+   * 就说版本号；这一行已不在目录里（`inCatalog === false`）就如实说「已下架」（此刻 `row.version`
+   * 是**本机**版本，不能拿它冒充企业版本）。行只在**就绪**态才渲染，故这里传 `ready`。
+   * 【返回】= 清掉目标包名，页签里的内容区随即回到列表（没有路由，就是一份视图状态）。
+   */
+  const pluginPageRow = pluginDetailName === undefined
+    ? undefined
+    : enterprisePlugins.find(item => item.packageName === pluginDetailName)
+  const pluginPage: EnterprisePluginPageProps | undefined = pluginPageRow === undefined ? undefined : {
+    row: pluginPageRow,
+    facts: enterpriseMarketPluginRowFacts(baseShellProps, pluginPageRow),
+    catalogVersionText: enterprisePluginCatalogVersionText({
+      catalogState: { kind: 'ready' },
+      ...(pluginPageRow.inCatalog && pluginPageRow.version !== null ? { version: pluginPageRow.version } : {}),
+    }),
+    ...(onCancelPlugin === undefined
+      ? {}
+      : {
+        // 取消写入口与行上同一枚：它只认行对象，而详情此刻就是这一行，故按包名回指当前目标行。
+        onCancelInstall: (packageName: string) => {
+          const target = enterprisePlugins.find(item => item.packageName === packageName)
+          if (target !== undefined) onCancelPlugin(target)
+        },
+      }),
+    onBack: () => { setPluginDetailName(undefined) },
+    pageRef: pluginDetailPage,
+  }
   const shellProps: EnterpriseMarketShellProps = {
     ...baseShellProps,
     ...(skillPage === undefined ? {} : { skillPage }),
     ...(presetPage === undefined ? {} : { presetPage }),
+    ...(pluginPage === undefined ? {} : { pluginPage }),
   }
   /**
    * **授权弹层的输入只在这里构造一次**：行对象从当前目录投影里 `find`（目录刷新后不停在旧副本上）、

@@ -1,31 +1,37 @@
 /**
  * [INPUT]: 依赖叶子 `enterprise-card-text.tsx`（「企业」签 / 版本签字面 / 标题取值 `enterprisePluginDisplayName` /
  *          描述降级句）、`plugin-market.tsx` 的卡片标题行+第二行纯组件 `EnterprisePluginCardHead` 与标题按钮
- *          `EnterprisePluginCardTitle`、`marketplace-entry.tsx` 的插件行渲染（两套外壳），
+ *          `EnterprisePluginCardTitle`、**详情子页面 `EnterprisePluginDetailPage` 与内容区容器
+ *          `EnterprisePluginContentRegion`**、`marketplace-entry.tsx` 的插件行渲染（两套外壳），
  *          以及两个源文件的原文（源码级反向锁）；无 DOM（与 marketplace-entry.spec 同一套树工具）。
- * [OUTPUT]: 锁六件事——① **描述投影两态**：有描述原样说、没有（缺席/null/空串/纯空白）如实说「暂无描述」，
+ * [OUTPUT]: 锁七件事——① **描述投影两态**：有描述原样说、没有（缺席/null/空串/纯空白）如实说「暂无描述」，
  *          不空白、不编造、不拿版本充数；② **卡片标题行 = 标题 + 「企业」签 + 版本短号签**，标签用的是
  *          官方 `Tag` **原语本体** + 技能行**同一串类名**（`own-market-tag` / `own-market-skillVersionTag`）+
  *          同一个 tone（企业=info、版本=neutral），字面仍是 `v{version}`；③ **第二行 = 插件描述**，
  *          在**两个表面**上都成立（企业设置 → 插件卡片 / 插件市场页的插件行），且版本信息一个字没丢
  *          （从第二行搬到标题签；已下架行照旧说「已不在企业目录中」）；④ **反向锁**：两个消费面
- *          **一个新 CSS 类都没加**（`plugin-market.tsx` 的 `<style>` 长度+FNV-1a 两道字节级判据、
+ *          **一个新 CSS 类都没加**（`plugin-market.tsx` 的 `<style>` 长度+FNV-1a 两道字节级判据 +
+ *          「文件里出现的 className 字面量必须都已被本文件的 `<style>` 声明（或那串复用的签类）」这条集合判据、
  *          `.own-market-tag` 只由 `marketplace-entry.tsx` 声明一处、叶子模块零 CSS、
- *          旧第二行那句「企业发布 · v…」作为**行上文案**退场）；⑤ **标题 = 插件名称**（本刀）：显示名两态
- *          （有值原样用 / 缺席·null·空串·纯空白一律回退包名，不空白不编造），三个渲染面同一枚投影；
+ *          旧第二行那句「企业发布 · v…」作为**行上文案**退场）；⑤ **标题 = 插件名称**（显示名两态：
+ *          有值原样用 / 缺席·null·空串·纯空白一律回退包名，不空白不编造），三个渲染面同一枚投影；
  *          ⑥ **点标题进详情**：标题是**真 `<button>`**（不是 span）、无障碍名「查看 <名称> 的详情」、
  *          点击回调把**本行**包名回传；反向锁——没有详情页的市场插件行**不许**出现假入口/假按钮，
- *          有详情的技能/配方行仍是一枚带同款无障碍名的真 `<button>`。
- * [POS]: 本刀（卡片第二行改描述 + 插件卡片标题行标签照技能 + 标题改插件名称并可点进详情）的机械门禁：
- *        把「照技能复用那一枚签、而不是自造第二套样式」「描述/名称缺失如实降级」「键盘可达不自造第二套实现」
- *        从口号变成可执行断言。
+ *          有详情的技能/配方行仍是一枚带同款无障碍名的真 `<button>`；
+ *          ⑦ **详情是子页面、不是弹窗**（本刀）：详情事实表与改动前弹窗**逐字段逐顺序**相同、
+ *          整支没有 `<Modal>`/`role="dialog"`/`aria-modal`/portal；列表与详情在**同一个**内容区容器里互斥
+ *          （详情在场 ⇒ 列表那棵树一个元素都不在）；返回按钮带完整动作语义、标题是程序化聚焦点；
+ *          标题按钮**不再**挂 `aria-haspopup`；返回后的滚动位置与焦点还原、Esc 接线、
+ *          且**不假装有路由**（源码里一个 `pushState`/`popstate`/`history.` 都没有）。
+ * [POS]: 本刀（详情从弹窗改成子页面）的机械门禁：把「不是浮层、是内容区切换」「字段一个不少、顺序不变」
+ *        「不再有 dialog 语义」从口号变成可执行断言。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { isValidElement, type ReactNode } from 'react'
+import { createElement as h, isValidElement, type ReactNode } from 'react'
 import { readFile } from 'node:fs/promises'
 import { describe, expect, it, vi } from 'vitest'
-import { Tag } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Modal, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import {
   ENTERPRISE_MARKET_BADGE_TEXT,
   ENTERPRISE_PLUGIN_DESCRIPTION_EMPTY,
@@ -35,7 +41,17 @@ import {
   enterprisePluginDisplayName,
 } from '../src/enterprise-card-text.js'
 import { EnterpriseMarketLegacyShell } from '../src/marketplace-entry.js'
-import { EnterprisePluginCardHead, EnterprisePluginCardTitle } from '../src/plugin-market.js'
+import {
+  ENTERPRISE_PLUGIN_DETAIL_BACK_LABEL,
+  ENTERPRISE_PLUGIN_DETAIL_BACK_TEXT,
+  ENTERPRISE_PLUGIN_DETAIL_NOT_INSTALLED,
+  ENTERPRISE_PLUGIN_DETAIL_PUBLISHER,
+  ENTERPRISE_PLUGIN_DETAIL_TITLE,
+  EnterprisePluginCardHead,
+  EnterprisePluginCardTitle,
+  EnterprisePluginContentRegion,
+  EnterprisePluginDetailPage,
+} from '../src/plugin-market.js'
 
 vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
   Button: vi.fn(),
@@ -100,6 +116,54 @@ function collectOfficialTagProps(node: ReactNode, acc: Record<string, any>[] = [
   }
   for (const value of Object.values(props)) {
     if (value !== null && typeof value === 'object') collectOfficialTagProps(value as ReactNode, acc)
+  }
+  return acc
+}
+
+/** 收集某一个**宿主标签**（`dt`/`dd`/`h3`/`button`…）的 props——事实表的字段名与顺序就是从这里取的。 */
+function collectByTagName(node: ReactNode, tag: string, acc: Record<string, any>[] = []): Record<string, any>[] {
+  if (Array.isArray(node)) { for (const child of node) collectByTagName(child, tag, acc); return acc }
+  if (!isValidElement(node)) return acc
+  const props = node.props as Record<string, unknown>
+  if (node.type === tag) acc.push(props as Record<string, any>)
+  if (typeof node.type === 'function') {
+    const rendered = (node.type as (p: unknown) => ReactNode)(props)
+    if (rendered !== undefined && rendered !== null) return collectByTagName(rendered as ReactNode, tag, acc)
+  }
+  for (const value of Object.values(props)) {
+    if (value !== null && typeof value === 'object') collectByTagName(value as ReactNode, tag, acc)
+  }
+  return acc
+}
+
+/** 收集树里**元素身份**命中的 props（按 `node.type === type` 取证，官方原语看本体不看类名）。 */
+function collectByType(node: ReactNode, type: unknown, acc: Record<string, any>[] = []): Record<string, any>[] {
+  if (Array.isArray(node)) { for (const child of node) collectByType(child, type, acc); return acc }
+  if (!isValidElement(node)) return acc
+  const props = node.props as Record<string, unknown>
+  if (node.type === type) acc.push(props as Record<string, any>)
+  if (typeof node.type === 'function') {
+    const rendered = (node.type as (p: unknown) => ReactNode)(props)
+    if (rendered !== undefined && rendered !== null) return collectByType(rendered as ReactNode, type, acc)
+  }
+  for (const value of Object.values(props)) {
+    if (value !== null && typeof value === 'object') collectByType(value as ReactNode, type, acc)
+  }
+  return acc
+}
+
+/** 收集树上每一个元素的某个 prop 值（用来证「全树没有 `role="dialog"` / `aria-modal`」这类反面事实）。 */
+function collectPropValues(node: ReactNode, key: string, acc: unknown[] = []): unknown[] {
+  if (Array.isArray(node)) { for (const child of node) collectPropValues(child, key, acc); return acc }
+  if (!isValidElement(node)) return acc
+  const props = node.props as Record<string, unknown>
+  if (key in props) acc.push(props[key])
+  if (typeof node.type === 'function') {
+    const rendered = (node.type as (p: unknown) => ReactNode)(props)
+    if (rendered !== undefined && rendered !== null) return collectPropValues(rendered as ReactNode, key, acc)
+  }
+  for (const value of Object.values(props)) {
+    if (value !== null && typeof value === 'object') collectPropValues(value as ReactNode, key, acc)
   }
   return acc
 }
@@ -281,8 +345,7 @@ describe('no new CSS class on either card surface', () => {
     expect(source).toContain("from './enterprise-card-text.js'")
   })
 
-  it('keeps the 企业 tag declared in exactly one place and removes the old second-line literal from the row', async () => {
-    const source = await readFile(new URL('marketplace-entry.tsx', UI_SRC), 'utf8')
+  it('keeps the 企业 tag declared in exactly one place and removes the old second-line literal from the row', async () => {    const source = await readFile(new URL('marketplace-entry.tsx', UI_SRC), 'utf8')
     // `.own-market-tag` 仍只有一处声明（那条规则给「企业」签与版本签共用，本刀没有为它们另开规则）。
     expect(source.match(/\.own-market-tag\{/g)).toHaveLength(1)
     // 插件行标题行照技能行用同一串类名；旧第二行那句「企业发布 · v…」作为**行上文案**退场
@@ -298,6 +361,32 @@ describe('no new CSS class on either card surface', () => {
     expect([...declaredClassNames(source)]).toEqual([])
     expect(source).not.toContain('{display:')
     expect(source).not.toContain('<style>')
+  })
+
+  /**
+   * ★**本刀（详情子页面）最硬的那一条**：不只两根基线数字没动，而是**文件里出现的每一个 className 字面量
+   * 都已经被本文件的 `<style>` 声明过**（唯一例外是那两个从技能行复用的签类，它们由 `marketplace-entry.tsx`
+   * 声明、本文件一个字节都不声明）。新增的详情子页面与内容区容器因此**不可能**偷偷带上一个新类——
+   * 「本刀零新增 CSS 类」这句话由集合判据兜底，改一个类名就红。
+   */
+  it('declares nothing new: every className literal in the file is already declared here or is the reused tag pair', async () => {
+    const raw = await readFile(new URL('plugin-market.tsx', UI_SRC), 'utf8')
+    // 先剥注释再抽（注释里出现的 `className="install"` 是抄 workdsh 的说明，不是本文件的类）。
+    const code = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
+    const declared = declaredClassNames(code)
+    const used = new Set(
+      [...code.matchAll(/className="([^"]*)"/g)]
+        .flatMap(match => (match[1] ?? '').split(/\s+/))
+        .filter(name => name !== ''),
+    )
+    // 判据本身不许空转：至少要真的抽到若干类名（否则这条会退化成永真）。
+    expect(used.size).toBeGreaterThan(8)
+    for (const name of used) {
+      expect(declared.has(name) || PLAIN_TAGS.split(' ').includes(name), `未声明的新类：${name}`).toBe(true)
+    }
+    // 详情这一刀没有新造任何类（连一个 own-plugin-detail 之类的名字都不许有）。
+    expect(declared.has('own-plugin-detail')).toBe(false)
+    expect(code).toContain('data-enterprise-plugin-detail')
   })
 })
 
@@ -344,7 +433,7 @@ describe('plugin card title = plugin display name with package-name fallback', (
 
 /* ───────────────────────── ⑥ 点标题进详情（真 button + 无障碍名 + 回调归本行） ───────────────────────── */
 
-describe('plugin card title is a real button that opens the detail dialog', () => {
+describe('plugin card title is a real button that opens the detail subpage', () => {
   /** 标题按钮的直调入口（纯函数、无 hook）：只覆盖本用例要动的那一件 prop。 */
   const title = (overrides: Partial<Parameters<typeof EnterprisePluginCardTitle>[0]> = {}) =>
     EnterprisePluginCardTitle({
@@ -364,7 +453,10 @@ describe('plugin card title is a real button that opens the detail dialog', () =
     // ★真 `<button>`：键盘可达与焦点环走**浏览器原生语义**（没有自造 keydown/tabIndex 那第二套键盘实现）。
     expect(element.type).toBe('button')
     expect(element.props['type']).toBe('button')
-    expect(element.props['aria-haspopup']).toBe('dialog')
+    // ★**本刀**：详情已经不是弹窗而是子页面 ⇒ `aria-haspopup="dialog"` **必须不在**（它先前挂在这里）。
+    expect(element.props['aria-haspopup']).toBeUndefined()
+    // 反向锁：整份源码里一个 `aria-haspopup` 都没有（不许换一个说法继续谎称弹层）。
+    // （断言在 ⑦ 那组源码级用例里。）
     // ★无障碍名「查看 <名称> 的详情」——名称与可见标题是**同一枚投影**。
     expect(element.props['aria-label']).toBe('查看 Acme 工具箱 的详情')
     expect(textOf(node)).toContain('Acme 工具箱')
@@ -399,7 +491,7 @@ describe('plugin card title is a real button that opens the detail dialog', () =
 /* ───────────────────────── ⑥ 反向锁：有详情才可点 / 没详情不许假装可点 ───────────────────────── */
 
 describe('detail entry reverse locks', () => {
-  it('shows the plugin name on the market plugin row and keeps it honest about having no detail page', () => {
+  it('gives the market plugin row a real detail entry — an in-page subpage, never a dialog', () => {
     const rows = [{
       packageName: 'ent-a', displayName: '甲插件', version: '1.2.0', description: '甲的描述。',
       state: 'ACTIVE', inCatalog: true,
@@ -410,22 +502,43 @@ describe('detail entry reverse locks', () => {
     // 标题 = 插件名称（不是包名）；第二行仍是描述（两件事各归各的投影）。
     expect(collectByClassName(tree, 'own-market-cardId').map(props => props['children'])).toEqual(['甲插件'])
     expect(collectByClassName(tree, 'own-market-cardDesc').map(props => props['children'])).toEqual(['甲的描述。'])
-    // ★市场面插件行**没有详情页**（企业插件的详情在「企业设置 → 插件」那一面）⇒ 这一面一个详情入口都不许有：
-    // 没有 `.own-market-rowOpen`（那是技能/配方行的详情按钮）——「有详情却不可点」的行在这里不可能存在。
-    expect(collectByClassName(tree, 'own-market-rowOpen')).toHaveLength(0)
+    // ★**用户口径第 16 条推翻了这里的旧反向锁**（原先断言「这一面 0 枚详情入口」）：插件行现在**有**
+    // 详情**子页面**——行本体是一枚真 `<button>`（与同面技能/配方行同款同枚），无障碍名是完整句式，
+    // 点击键是本行包名，「未接线」时是禁用 + 说明而不是一枚点了没反应的假按钮。
+    const openers = collectByClassName(tree, 'own-market-rowOpen')
+    expect(openers).toHaveLength(1)
+    expect(openers[0]?.['type']).toBe('button')
+    expect(openers[0]?.['aria-label']).toBe('查看企业插件 甲插件 详情')
+    expect(collectPropValues(tree, 'data-enterprise-plugin-open')).toEqual(['ent-a'])
+    expect(openers[0]?.['disabled']).toBe(true)
+    expect(openers[0]?.['title']).toBe('详情入口未接通')
+    // ★**子页面不是弹窗**：整棵树没有 `aria-haspopup`（它开的不是浮层）、没有 `role="dialog"`、
+    // 没有 `aria-modal`、也没有官方 `Modal` 原语（有就是覆盖层/portal，就不是子页面了）。
+    expect(collectPropValues(tree, 'aria-haspopup')).toEqual([])
+    expect(collectPropValues(tree, 'aria-modal')).toEqual([])
+    expect(collectByType(tree, Modal as unknown)).toEqual([])
+    expect(collectPropValues(tree, 'role').filter(role => role === 'dialog')).toEqual([])
+    // 设置页那枚标题类（`.own-market-title`，face A 的卡片标题按钮）不在这棵树里：两面的入口各归各的。
+    expect(collectByClassName(tree, 'own-market-title')).toHaveLength(0)
   })
 
-  it('keeps every row that does have a detail page clickable, and never invents a plugin detail page', async () => {
+  it('keeps every row that has a detail page clickable, and wires the plugin row into that same mechanism', async () => {
     const source = await readFile(new URL('marketplace-entry.tsx', UI_SRC), 'utf8')
-    // 有详情页的两行（技能/配方）行本体是**真 `<button>`** + 「查看…详情」无障碍名——同款参照就在这里。
+    // 有详情页的三行（技能 / 配方 / **插件**）行本体都是**真 `<button>`** + 「查看…详情」无障碍名 + 各归各的点击键。
     expect(source).toContain('aria-label={`查看企业技能 ${skill.displayName} 详情`}')
     expect(source).toContain('aria-label={`查看企业配方 ${preset.displayName} 详情`}')
+    expect(source)
+      .toContain('aria-label={`查看企业插件 ${enterprisePluginDisplayName(plugin.displayName, plugin.packageName)} 详情`}')
     expect(source).toContain('data-enterprise-skill-open={skill.id}')
     expect(source).toContain('data-enterprise-preset-open={preset.id}')
+    expect(source).toContain('data-enterprise-plugin-open={plugin.packageName}')
     // 焦点环不由本仓自造：`<button>` 原生的 `:focus-visible` 那条规则就是唯一一处（键盘可达的证据）。
     expect(source).toContain('.own-market-rowOpen:focus-visible{outline:')
-    // ★没有发明「插件详情页」：这条回调/这条 DOM 键在整棵树里都不存在。
-    expect(source).not.toContain('onOpenPluginDetail')
+    // ★**不发明第二套插件详情**：正文**原样复用** face A 那枚纯组件（只 import 一次、只渲染一处），
+    // 本文件里没有第二份事实表、也没有第二个详情容器钩子。
+    expect(source).toContain('data-enterprise-plugin-detail')
+    expect((source.match(/<EnterprisePluginDetailPage/g) ?? []).length).toBe(1)
+    expect(source).not.toContain('data-enterprise-plugin-detail=')
     // 设置页那枚标题按钮：真 `<button class="own-market-title">` + 「查看 <名称> 的详情」+ 未接线时的降级。
     const card = await readFile(new URL('plugin-market.tsx', UI_SRC), 'utf8')
     expect(card).toContain('className="own-market-title"')
@@ -433,5 +546,139 @@ describe('detail entry reverse locks', () => {
     expect(card).toContain('disabled={onOpen === undefined}')
     // 标题不再是纯文本 span：投影出来的名称挂在一枚 `strong` 里，而它在标题按钮内部。
     expect(card).toContain('<strong style={{ minWidth: 0 }}>{title}</strong>')
+  })
+})
+
+/* ───────────────────────── ⑦ 详情 = 子页面（不是弹窗、不是浮层） ───────────────────────── */
+
+describe('plugin detail is an in-page subpage, never a dialog', () => {
+  /** 详情子页面的直调入口（纯函数、无 hook）：只覆盖本用例要动的那几件 prop。 */
+  const detail = (overrides: Partial<Parameters<typeof EnterprisePluginDetailPage>[0]> = {}) =>
+    EnterprisePluginDetailPage({
+      packageName: '@example/acme-tools',
+      displayName: 'Acme 工具箱',
+      catalogVersionText: '1.2.3',
+      installed: true,
+      installedVersion: '1.2.3',
+      sizeBytes: 2048,
+      onBack: () => undefined,
+      actions: h('div', { className: 'own-market-actions' }, '更新版本'),
+      ...overrides,
+    })
+
+  it('renders the very same fact list as the removed dialog, field for field and in the same order', () => {
+    // ★「原样复用」的机器判据：事实表的字段名与**顺序**逐步等于改动前那份弹窗正文。
+    const bare = detail()
+    expect(collectByClassName(bare, 'own-market-facts')).toHaveLength(1)
+    expect(collectByTagName(bare, 'dt').map(props => props['children']))
+      .toEqual(['插件', '企业版本', '本机版本', '发布方', '大小'])
+    expect(collectByTagName(bare, 'dd').map(props => textOf(props['children'] as ReactNode)))
+      .toEqual(['Acme 工具箱', '1.2.3', '1.2.3', ENTERPRISE_PLUGIN_DETAIL_PUBLISHER, '2 KiB'])
+    // 目录判定与门禁那两格：有才出（与改动前那两条条件渲染逐字同构），顺序仍在最后。
+    const full = detail({ installErrorCode: 'ENT_PLUGIN_INSTALL_UNSUPPORTED', installLockNotice: '这台设备暂时装不了。' })
+    expect(collectByTagName(full, 'dt').map(props => props['children']))
+      .toEqual(['插件', '企业版本', '本机版本', '发布方', '大小', '安装状态', '暂时不能安装'])
+    expect(textOf(full)).toContain('这台设备暂时装不了。')
+  })
+
+  it('keeps every fact honest when the plugin is delisted and not installed (never a blank, never a lie)', () => {
+    const page = detail({ displayName: undefined, installed: false, installedVersion: undefined, sizeBytes: undefined })
+    // 已下架（目录里没有这一版）⇒ 「大小」整格不出；未安装 ⇒ 如实说「未安装」；没有显示名 ⇒ 回退包名。
+    expect(collectByTagName(page, 'dt').map(props => props['children']))
+      .toEqual(['插件', '企业版本', '本机版本', '发布方'])
+    expect(collectByTagName(page, 'dd').map(props => textOf(props['children'] as ReactNode)))
+      .toEqual(['@example/acme-tools', '1.2.3', ENTERPRISE_PLUGIN_DETAIL_NOT_INSTALLED, ENTERPRISE_PLUGIN_DETAIL_PUBLISHER])
+  })
+
+  it('has no dialog semantics anywhere in the tree and mounts no Modal (no portal, no overlay)', () => {
+    const page = detail()
+    const region = page as unknown as { props: Record<string, unknown> }
+    // 整块就是一枚普通的内容区节点：`role="region"` + 「插件详情：<名称>」的无障碍名。
+    expect(region.props['role']).toBe('region')
+    expect(region.props['aria-label']).toBe(`${ENTERPRISE_PLUGIN_DETAIL_TITLE}：Acme 工具箱`)
+    // ★全树**没有** dialog 语义：`role` 只有 region 这一枚（连 progressbar/alert 都没有，因为默认没有进度与失败）。
+    expect(collectPropValues(page, 'role')).toEqual(['region'])
+    // ★`aria-modal` 一个都没有、`Modal` 原语一个都没挂（有就是浮层/portal，就不是子页面了）。
+    expect(collectPropValues(page, 'aria-modal')).toEqual([])
+    expect(collectByType(page, Modal as unknown)).toEqual([])
+  })
+
+  it('gives the back button a full-action aria-label and lands focus on the detail heading', () => {
+    const onBack = vi.fn()
+    const page = detail({ onBack })
+    // ① 返回：真按钮 + 完整动作语义的无障碍名 + 可见文案（动词在无障碍名里，与技能/配方详情同口径）。
+    const back = collectByType(page, Button as unknown).find(props => props['aria-label'] === ENTERPRISE_PLUGIN_DETAIL_BACK_LABEL)
+    expect(back, '缺一枚带「返回插件列表」无障碍名的返回按钮').toBeDefined()
+    expect(back?.['title']).toBe(ENTERPRISE_PLUGIN_DETAIL_BACK_LABEL)
+    expect(textOf(back?.['children'] as ReactNode)).toBe(ENTERPRISE_PLUGIN_DETAIL_BACK_TEXT)
+    ;(back?.['onClick'] as () => void)()
+    expect(onBack).toHaveBeenCalledTimes(1)
+    // ② 焦点落点：详情标题带 `tabIndex={-1}`（程序化聚焦点，不进 Tab 序）+ 供 effect 定位的稳定钩子。
+    const heading = collectByTagName(page, 'h3')[0]
+    expect(heading?.['tabIndex']).toBe(-1)
+    expect(heading?.['data-enterprise-plugin-detail-title']).toBe('')
+    expect(textOf(heading?.['children'] as ReactNode)).toBe(ENTERPRISE_PLUGIN_DETAIL_TITLE)
+  })
+
+  it('rides the action area (update / uninstall) inside the same subpage container', () => {
+    const actions = h('div', { className: 'own-market-actions', 'data-enterprise-test-actions': 'sentinel' }, '更新版本')
+    const page = detail({ actions, installLockNotice: undefined })
+    // 注入的动作区就在这一支的返回节点里（不是另开一层浮层）——卸载入口与二次确认照旧走它。
+    expect(collectPropValues(page, 'data-enterprise-test-actions')).toEqual(['sentinel'])
+    expect(textOf(page)).toContain('更新版本')
+    expect((page as unknown as { props: Record<string, unknown> }).props['children']).toBeDefined()
+  })
+
+  it('swaps the whole list out for the detail inside one shared container (never a layer)', () => {
+    const withDetail = EnterprisePluginContentRegion({
+      list: h('div', { className: 'own-market-grid' }, '列表'),
+      detail: h('div', { 'data-enterprise-plugin-detail': 'ent-a' }, '详情'),
+    })
+    // 两个分支共用**同一个**返回节点 ⇒ 这就是「列表区域被详情子页面替换」。
+    expect((withDetail as unknown as { props: Record<string, unknown> }).props['data-enterprise-plugin-region']).toBe('detail')
+    expect(textOf(withDetail)).toBe('详情')
+    expect(collectByClassName(withDetail, 'own-market-grid')).toHaveLength(0)
+    const withList = EnterprisePluginContentRegion({ list: h('div', { className: 'own-market-grid' }, '列表') })
+    expect((withList as unknown as { props: Record<string, unknown> }).props['data-enterprise-plugin-region']).toBe('list')
+    expect(textOf(withList)).toBe('列表')
+    // 列表那一支同样一个 dialog 语义都没有（容器两侧都不是浮层）。
+    expect(collectPropValues(withList, 'role')).toEqual([])
+  })
+
+  it('wires the return paths it really has (button + Esc) and refuses to fake a router it does not have', async () => {
+    const raw = await readFile(new URL('plugin-market.tsx', UI_SRC), 'utf8')
+    // 只断**真代码**、剥掉注释（注释里为了让读者看懂会把这些词写出来，那是说明不是实现）。
+    const code = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
+    // ★本刀删掉的两样东西：`Modal` 元素（确认框那枚在 confirm-action.tsx 里，不在本文件）与 `aria-haspopup`。
+    expect(code).not.toContain('<Modal')
+    expect(code).not.toContain('aria-haspopup')
+    expect(code).not.toContain('role="dialog"')
+    // 返回的两条真路径：返回按钮（`onBack` → `closeDetail`）与 Esc（命中即停冒泡，别把整个设置页也关掉）。
+    expect(code).toContain('onBack={closeDetail}')
+    expect(code).toContain("event.key !== 'Escape'")
+    expect(code).toContain('event.stopPropagation()')
+    // 返回后还原：点击那一刻读滚动位置、按包名把焦点还给那一枚标题按钮、`useLayoutEffect` 在绘制前落定。
+    expect(code).toContain('scrollTop')
+    expect(code).toContain('useLayoutEffect')
+    expect(code).toContain("querySelectorAll<HTMLElement>('[data-enterprise-plugin-open]')")
+    // ★**不假装有路由**：本页是官方 `plugins.item` 的 page 视图，硬造 history 会与宿主打架，故一个都没有。
+    expect(code).not.toContain('pushState')
+    expect(code).not.toContain('popstate')
+    expect(code).not.toContain('history.')
+  })
+
+  it('keeps the uninstall confirmation a dialog (the only dialog left on this page)', async () => {
+    const raw = await readFile(new URL('plugin-market.tsx', UI_SRC), 'utf8')
+    const code = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
+    // 用户要改的是【详情】，不是确认框：卸载的二次确认照旧是 `ConfirmAction` + 官方 `Modal`，影响说明一字未动。
+    expect(code).toContain("from './confirm-action.js'")
+    expect(code).toContain('<ConfirmAction')
+    expect(code).toContain('ENTERPRISE_PLUGIN_UNINSTALL_TITLE')
+    expect(code).toContain('ENTERPRISE_PLUGIN_UNINSTALL_IMPACT')
+    expect(code).toContain('onConfirm={() => { setSelected(undefined); void store.removePlugin(name) }}')
+    // 二次确认那枚弹窗在确认组件里（本页只是用它），故本页自己一个 Modal 元素都不渲染。
+    const confirm = await readFile(new URL('confirm-action.tsx', UI_SRC), 'utf8')
+    expect(confirm).toContain('<Modal')
+    expect(confirm).toContain('dataset.enterpriseConfirmation')
   })
 })

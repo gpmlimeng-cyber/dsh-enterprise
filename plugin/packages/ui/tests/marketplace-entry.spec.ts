@@ -12,6 +12,15 @@ import { describe, expect, it, vi } from 'vitest'
 import { StateDot, Button, Switch, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { EnterpriseInstalledSkill, EnterpriseSkillFileEntry, EnterpriseRuntimeSkill } from '../src/local-api-decode.js'
 import { apply, inject } from '../src/client.js'
+// 插件详情子页面**原样复用**「企业设置 → 插件」那一份（本刀）：写法上与技能/配方详情同一条纪律——
+// 纯组件本体与它的样式表都只在 `plugin-market.tsx` 里，本文件（以及这一面的代码）不复制第二份。
+import {
+  ENTERPRISE_PLUGIN_DETAIL_BACK_LABEL,
+  ENTERPRISE_PLUGIN_DETAIL_NOT_INSTALLED,
+  ENTERPRISE_PLUGIN_DETAIL_PUBLISHER,
+  ENTERPRISE_PLUGIN_DETAIL_TITLE,
+} from '../src/plugin-market.js'
+import type { EnterprisePluginPageProps } from '../src/marketplace-entry.js'
 import {
   ENTERPRISE_MARKET_BADGE_TEXT,
   ENTERPRISE_MARKET_COMPONENTS,
@@ -222,52 +231,55 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "  div[id=market-panel-skills][role=tabpanel][aria-labelledby=market-tab-skills][hidden=true][className=own-market-panel]",
   "  div[id=market-panel-plugins][role=tabpanel][aria-labelledby=market-tab-plugins][hidden=false][className=own-market-panel]",
   "    section[className=own-market-section][data-market-section=enterprise-plugins]",
-  "      ul[className=own-market-rows]",
-  "        li[className=own-market-row][data-enterprise-plugin-package=ent-a][data-enterprise-plugin-state=ACTIVE]",
-  "          div[className=own-market-rowLine]",
-  "            span[className=own-market-rowIcon]",
-  "              #opaque:[object Object]",
-  "            div[className=own-market-rowMain]",
-  "              span[className=own-market-cardHead]",
-  "                span[className=own-market-cardId own-market-skillTitle]",
-  "                  #text:ent-a",
-  "                Tag[className=own-market-tag][tone=info]",
-  "                  #text:企业",
-  "                Tag[className=own-market-tag own-market-skillVersionTag][tone=neutral]",
-  "                  #text:v1.2.0",
-  "              span[className=own-market-cardDesc]",
-  "                #text:企业插件分发的示例描述。",
-  "            span[className=own-market-rowState]",
-  "              StateDot[state=done]",
-  "              #text:已安装 · 已启用",
-  "            Switch[checked=true][label=启用 ent-a][disabled=false][title=点此停用][data-enterprise-plugin-slot=switch][onChange=[fn]]",
-  "          div[className=own-market-inlineError][role=alert]",
-  "            span[className=own-error-message][style=[object Object]]",
-  "              #text:卸载失败：企业插件的信任配置不可用。",
-  "            span[className=own-error-action][style=[object Object]]",
-  "              #text:下一步：",
-  "              #text:请联系企业管理员。",
-  "            details[className=own-error-tech][style=[object Object]][data-enterprise-error-tech=ENT_PLUGIN_SIGNATURE_INVALID]",
-  "              summary[style=[object Object]]",
-  "                #text:技术信息",
-  "              code[style=[object Object]][data-enterprise-error-code=ENT_PLUGIN_SIGNATURE_INVALID]",
-  "                #text:ENT_PLUGIN_SIGNATURE_INVALID",
-  "        li[className=own-market-row][data-enterprise-plugin-package=ent-b][data-enterprise-plugin-state=FAILED]",
-  "          div[className=own-market-rowLine]",
-  "            span[className=own-market-rowIcon]",
-  "              #opaque:[object Object]",
-  "            div[className=own-market-rowMain]",
-  "              span[className=own-market-cardHead]",
-  "                span[className=own-market-cardId own-market-skillTitle]",
-  "                  #text:ent-b",
-  "                Tag[className=own-market-tag][tone=info]",
-  "                  #text:企业",
-  "              span[className=own-market-cardDesc]",
-  "                #text:已不在企业目录中",
-  "            span[className=own-market-rowState]",
-  "              StateDot[state=error]",
-  "              #text:处理失败",
-  "            Switch[checked=true][label=启用 ent-b][disabled=false][title=点此停用][data-enterprise-plugin-slot=switch][onChange=[fn]]",
+  "      div[data-enterprise-plugin-region=list]",
+  "        ul[className=own-market-rows]",
+  "          li[className=own-market-row][data-enterprise-plugin-package=ent-a][data-enterprise-plugin-state=ACTIVE]",
+  "            div[className=own-market-rowLine]",
+  "              button[type=button][className=own-market-rowOpen][data-enterprise-plugin-open=ent-a][aria-label=查看企业插件 ent-a 详情][disabled=true][title=详情入口未接通][onClick=[fn]]",
+  "                span[className=own-market-rowIcon]",
+  "                  #opaque:[object Object]",
+  "                div[className=own-market-rowMain]",
+  "                  span[className=own-market-cardHead]",
+  "                    span[className=own-market-cardId own-market-skillTitle]",
+  "                      #text:ent-a",
+  "                    Tag[className=own-market-tag][tone=info]",
+  "                      #text:企业",
+  "                    Tag[className=own-market-tag own-market-skillVersionTag][tone=neutral]",
+  "                      #text:v1.2.0",
+  "                  span[className=own-market-cardDesc]",
+  "                    #text:企业插件分发的示例描述。",
+  "              span[className=own-market-rowState]",
+  "                StateDot[state=done]",
+  "                #text:已安装 · 已启用",
+  "              Switch[checked=true][label=启用 ent-a][disabled=false][title=点此停用][data-enterprise-plugin-slot=switch][onChange=[fn]]",
+  "            div[className=own-market-inlineError][role=alert]",
+  "              span[className=own-error-message][style=[object Object]]",
+  "                #text:卸载失败：企业插件的信任配置不可用。",
+  "              span[className=own-error-action][style=[object Object]]",
+  "                #text:下一步：",
+  "                #text:请联系企业管理员。",
+  "              details[className=own-error-tech][style=[object Object]][data-enterprise-error-tech=ENT_PLUGIN_SIGNATURE_INVALID]",
+  "                summary[style=[object Object]]",
+  "                  #text:技术信息",
+  "                code[style=[object Object]][data-enterprise-error-code=ENT_PLUGIN_SIGNATURE_INVALID]",
+  "                  #text:ENT_PLUGIN_SIGNATURE_INVALID",
+  "          li[className=own-market-row][data-enterprise-plugin-package=ent-b][data-enterprise-plugin-state=FAILED]",
+  "            div[className=own-market-rowLine]",
+  "              button[type=button][className=own-market-rowOpen][data-enterprise-plugin-open=ent-b][aria-label=查看企业插件 ent-b 详情][disabled=true][title=详情入口未接通][onClick=[fn]]",
+  "                span[className=own-market-rowIcon]",
+  "                  #opaque:[object Object]",
+  "                div[className=own-market-rowMain]",
+  "                  span[className=own-market-cardHead]",
+  "                    span[className=own-market-cardId own-market-skillTitle]",
+  "                      #text:ent-b",
+  "                    Tag[className=own-market-tag][tone=info]",
+  "                      #text:企业",
+  "                  span[className=own-market-cardDesc]",
+  "                    #text:已不在企业目录中",
+  "              span[className=own-market-rowState]",
+  "                StateDot[state=error]",
+  "                #text:处理失败",
+  "              Switch[checked=true][label=启用 ent-b][disabled=false][title=点此停用][data-enterprise-plugin-slot=switch][onChange=[fn]]",
   "  div[id=market-panel-presets][role=tabpanel][aria-labelledby=market-tab-presets][hidden=true][className=own-market-panel]",
   "  div[id=market-panel-components][role=tabpanel][aria-labelledby=market-tab-components][hidden=true][className=own-market-panel]",
 ]
@@ -2075,7 +2087,9 @@ describe('enterprise marketplace entry', () => {
     // 行 facts 唯一入口：1 处定义 + 共享行子块 `EnterpriseMarketInlineRows` 1 处 + 详情子页面的输入构造 1 处 = 3
     //（详情与行共用同一枚函数，故详情里的动作不可能另算一份事实）。
     expect(count(/enterpriseMarketSkillRowFacts\(/g)).toBe(3)
-    expect(count(/enterpriseMarketPluginRowFacts\(/g)).toBe(2)
+    // **本刀（插件详情子页面）**：插件侧同理走到 3 —— 1 处定义 + 行 1 处 + **插件详情子页面的输入构造** 1 处
+    //（详情与行读的是同一份 facts，故「已装 / 在途 / 进度」不可能在详情里另算一套）。
+    expect(count(/enterpriseMarketPluginRowFacts\(/g)).toBe(3)
     // 安装/卸载动作接线各只有一份（复制逻辑会在这里翻倍）。
     expect(count(/\.installPlugin\(/g)).toBe(1)
     // 插件行**没有**卸载动作：卸载只在「企业设置 → 插件」的详情弹窗里，故本文件一次都不该出现它。
@@ -2460,9 +2474,14 @@ describe('enterprise skill detail page', () => {
     expect(collectByClassName(detail, 'own-market-detail')).toHaveLength(1)
     // 视图状态只有一份：详情目标只记**技能包 id**，行对象在渲染时从当前目录投影里取
     // （目录刷新后详情不会停在旧副本上；条目消失时 `skillPage` 自己就是 undefined，界面回到列表）。
-    expect(source).toContain('onOpenSkillDetail: (row) => { setSkillDetailId(row.id); setPresetDetailId(undefined) }')
-    // 配方详情目标与技能详情目标**互斥**（同一时刻只可能有一个非空，故外壳那两支 return 不可能同时命中）。
-    expect(source).toContain('onOpenPresetDetail: (row) => { setPresetDetailId(row.id); setSkillDetailId(undefined) }')
+    // **本刀（插件详情子页面）**：开的这一刻顺带清掉另两个详情目标（三个目标天然互斥，见下一条）。
+    expect(source)
+      .toContain('onOpenSkillDetail: (row) => { setSkillDetailId(row.id); setPresetDetailId(undefined); setPluginDetailName(undefined) }')
+    // 配方详情目标与技能详情目标**互斥**（同一时刻只可能有一个非空，故外壳那两支 return 不可能同时命中），
+    // 插件详情目标（本刀）同样在这一条互斥口径里。
+    expect(source)
+      .toContain('onOpenPresetDetail: (row) => { setPresetDetailId(row.id); setSkillDetailId(undefined); setPluginDetailName(undefined) }')
+    expect(source).toContain('setPluginDetailName(row.packageName)')
     expect(source).toContain('enterpriseSkills.find(item => item.id === skillDetailId)')
     expect(source).toContain('const skillPage: EnterpriseSkillPageProps | undefined = skillPageRow === undefined ? undefined :')
   })
@@ -2830,6 +2849,245 @@ describe('enterprise skill detail page', () => {
     expect(source).not.toContain('dirname(')
   })
 })
+
+/**
+ * **插件详情子页面（face B，用户口径第 16 条）**。
+ *
+ * 承载形式：点插件行**标题**（图标 + 两行文案那一片，与同面技能/配方行**同款**的真 `<button>`）
+ * 把「企业插件」页签的**内容区**换成该插件的详情子页面 —— 互斥由**复用的** `EnterprisePluginContentRegion`
+ * 保证（`detail ?? list`，与「企业设置 → 插件」那一面同一枚容器、同一个 `data-enterprise-plugin-region` 判据），
+ * 页头与四枚页签**保持可见、一字不改**。详情正文**原样复用** `plugin-market.tsx` 的纯组件
+ * `EnterprisePluginDetailPage`（连它那份样式表一起挂上；两份表类名零交集，由隔离不变量守着）。
+ *
+ * 这里锁五件事：
+ *  ① 入口是一枚真 `<button>`（`aria-label` 完整句式、点击键 = 包名、没有 `aria-haspopup`）；
+ *  ② 互斥：详情在场时**本页签**的列表与它那四态提示一个元素都不挂载，页签条一字不动；
+ *  ③ 复用而非复制：组件本体与样式表都来自 `plugin-market.tsx`，本文件一个字都不重写；
+ *  ④ 返回两条真路径（左上角返回按钮 + Esc），**浏览器返回没接**（本页没有真实路由，且不许硬造）；
+ *  ⑤ 动作区 = 行上**同一枚**子块（能装就装、已装就开关），本面仍然**没有卸载**。
+ */
+describe('enterprise plugin detail subpage (face B)', () => {
+  /** 目录 + 本机记录归并后的那一行（已装、启用、目录里还有这一版）——详情用例的基准行。 */
+  const row = () => enterpriseMarketPluginRows([
+    {
+      pluginVersionId: 'v1', packageName: 'ent-a', version: '1.2.0', displayName: '甲插件',
+      description: '甲的描述。', sizeBytes: 2048, operatingSystems: ['darwin'],
+    },
+  ], [
+    { packageName: 'ent-a', version: '1.2.0', desiredRevision: 1, desiredState: 'INSTALLED', state: 'ACTIVE', lastErrorCode: null },
+  ])[0]!
+
+  /** 未安装那一行（目录里有、本机没有记录）——详情里给的就是【＋】那一格。 */
+  const rowNotInstalled = () => enterpriseMarketPluginRows([
+    {
+      pluginVersionId: 'v1', packageName: 'ent-b', version: '2.0.0', displayName: '乙插件',
+      description: '乙的描述。', sizeBytes: 4096, operatingSystems: ['darwin'],
+    },
+  ])[0]!
+
+  /** 页签这一面的一整份 props（默认停在「企业插件」页签上、写入口齐全）。 */
+  const shellProps = (over: Partial<ShellProps> = {}): ShellProps => ({
+    view: 'page',
+    activeTab: 'plugins',
+    sessionUsable: true,
+    enterprisePlugins: [row()],
+    onInstallPlugin: vi.fn(),
+    onTogglePluginEnabled: vi.fn(),
+    onOpenPluginDetail: vi.fn(),
+    ...over,
+  })
+
+  /** 详情子页面的一组输入（控制器是唯一构造点；这里按它的形状直造一份给纯函数直调用例）。 */
+  function pageInput(over: Partial<EnterprisePluginPageProps> = {}): EnterprisePluginPageProps {
+    const target = row()
+    return {
+      row: target,
+      facts: enterpriseMarketPluginRowFacts(shellProps(), target),
+      catalogVersionText: '1.2.0',
+      onBack: vi.fn(),
+      ...over,
+    }
+  }
+
+  /** 详情态的外壳（把详情的输入塞进同一份 props 的那一个键上）。 */
+  const detailShell = (page: EnterprisePluginPageProps, over: Partial<ShellProps> = {}): ReactNode =>
+    EnterpriseMarketLegacyShell({ ...shellProps(over), pluginPage: page })
+
+  it('replaces this tab\'s content area with the detail, and leaves the four tabs exactly as they were', () => {
+    const list = EnterpriseMarketLegacyShell(shellProps())
+    const detail = detailShell(pageInput())
+    // ① 互斥：两态共用**同一个**容器判据，`list` → `detail`，不是叠一层。
+    expect(collectDataValues(list, 'data-enterprise-plugin-region')).toEqual(['list'])
+    expect(collectDataValues(detail, 'data-enterprise-plugin-region')).toEqual(['detail'])
+    // ② 本页签的列表整段不挂载：一行都没有、四态提示也没有（`data-market-list-state` 是它的判据）。
+    expect(collectByClassName(list, 'own-market-rows')).toHaveLength(1)
+    expect(collectByClassName(detail, 'own-market-rows')).toHaveLength(0)
+    expect(collectDataValues(detail, 'data-market-list-state')).toEqual([])
+    // 行上那枚详情入口（`data-enterprise-plugin-open`）在详情里当然也不在——列表真的走了。
+    expect(collectDataValues(list, 'data-enterprise-plugin-open')).toEqual(['ent-a'])
+    expect(collectDataValues(detail, 'data-enterprise-plugin-open')).toEqual([])
+    // ③ 详情在场：那枚内容区节点的钩子就是包名（与技能/配方详情同一形制）。
+    expect(collectDataValues(detail, 'data-enterprise-plugin-detail')).toEqual(['ent-a'])
+    // ④ 页头与四枚页签**一字不改**：两态的页签逐个 props 相等（详情只占内容区）。
+    expect(collectByRole(detail, 'tablist')).toHaveLength(1)
+    expect(collectByRole(detail, 'tab')).toHaveLength(4)
+    // 逐个页签比**版面事实**（id / 选中态 / 配对关系 / roving tabIndex / 可见文案）——两态必定逐项相同。
+    // （不比整份 props：`onKeyDown` 那种每次渲染新建的闭包会让深比无意义地失败。）
+    const tabShape = (tree: ReactNode) => collectByRole(tree, 'tab').map(props => ({
+      id: props['id'],
+      selected: props['aria-selected'],
+      controls: props['aria-controls'],
+      tabIndex: props['tabIndex'],
+      label: textOf(props['children'] as ReactNode),
+    }))
+    expect(tabShape(detail)).toEqual(tabShape(list))
+    expect(collectByRole(detail, 'tab').map(props => props['aria-selected'])).toEqual([false, true, false, false])
+  })
+
+  it('renders the detail as a plain region in the same tree: no dialog, no overlay, no aria-haspopup', () => {
+    const detail = detailShell(pageInput())
+    // ① 详情容器就是一枚普通内容区节点：`role="region"` + 「插件详情：<名称>」，全树没有第二个 role。
+    const region = collectByRole(detail, 'region')
+    expect(region).toHaveLength(1)
+    expect(region[0]?.['aria-label']).toBe(`${ENTERPRISE_PLUGIN_DETAIL_TITLE}：甲插件`)
+    expect(collectByRole(detail, 'dialog')).toEqual([])
+    expect(collectDataValues(detail, 'aria-modal')).toEqual([])
+    // ② 入口那枚按钮**没有** `aria-haspopup`（它开的不是弹窗，挂 dialog 语义会说错话）。
+    expect(collectDataValues(detail, 'aria-haspopup')).toEqual([])
+    expect(collectDataValues(EnterpriseMarketLegacyShell(shellProps()), 'aria-haspopup')).toEqual([])
+  })
+
+  it('gives the plugin row a real detail entry: a button with the full action name and the package name as its key', () => {
+    const tree = EnterpriseMarketLegacyShell(shellProps())
+    // 行本体（图标 + 两行文案）是一枚真 `<button class="own-market-rowOpen">`——与技能/配方行同款同枚。
+    const openers = collectByClassName(tree, 'own-market-rowOpen')
+    expect(openers).toHaveLength(1)
+    expect(openers[0]?.['type']).toBe('button')
+    expect(openers[0]?.['aria-label']).toBe('查看企业插件 甲插件 详情')
+    expect(collectDataValues(tree, 'data-enterprise-plugin-open')).toEqual(['ent-a'])
+    // 点它交回**那一行**（不是渲染时临时凑一份行对象）。
+    const onOpenPluginDetail = vi.fn()
+    const wired = EnterpriseMarketLegacyShell(shellProps({ onOpenPluginDetail }))
+    collectByClassName(wired, 'own-market-rowOpen')[0]?.['onClick']?.()
+    expect(onOpenPluginDetail).toHaveBeenCalledTimes(1)
+    expect(onOpenPluginDetail.mock.calls[0]?.[0]).toMatchObject({ packageName: 'ent-a' })
+    // 没接线时是「禁用 + 说明」，不是一枚点了没反应的假按钮（与技能/配方行同一降级口径）。
+    const dead = collectByClassName(EnterpriseMarketLegacyShell(shellProps({ onOpenPluginDetail: undefined })), 'own-market-rowOpen')[0]
+    expect(dead?.['disabled']).toBe(true)
+    expect(dead?.['title']).toBe('详情入口未接通')
+    // 动作仍然是行本体的**同级兄弟**：点开关/＋绝不触发详情（结构性保证，不靠 stopPropagation）。
+    expect(collectByClassName(wired, 'own-market-rowLine')[0]?.['children']).toBeDefined()
+  })
+
+  it('reuses the very same detail component and stylesheet instead of copying a second one', async () => {
+    const source = stripComments(await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8'))
+    // ① 源码：详情组件只被渲染**一处**，且 import 自「企业设置 → 插件」那一份（本文件不复制正文）。
+    expect((source.match(/<EnterprisePluginDetailPage/g) ?? []).length).toBe(1)
+    expect(source).toContain('EnterprisePluginDetailPage,')
+    expect(source).toContain("} from './plugin-market.js'")
+    // 详情容器那枚钩子只在被复用的组件里（本文件没有第二枚 `data-enterprise-plugin-detail=`）。
+    expect(source).not.toContain('data-enterprise-plugin-detail=')
+    // ② 样式表：详情态把「企业设置 → 插件」那份表也挂上（复用的组件照它排版）。
+    const detail = detailShell(pageInput())
+    const css = collectStyleText(detail)
+    expect(css).toContain('.own-market-facts{')
+    expect(css).toContain('.own-market-toolbar,')
+    expect(css).toContain('.own-market-installCta{')
+    // ③ 列表态**不多背**那份表：那份字节级基线一字未动（列表视图的 `<style>` 就是原样那一份）。
+    const listCss = collectStyleText(EnterpriseMarketLegacyShell(shellProps()))
+    expect(listCss).not.toContain('.own-market-facts{')
+    expect(listCss).not.toContain('.own-plugin-progressNote{')
+    expect(listCss.length).toBe(LEGACY_STYLE_LENGTH)
+    expect(styleChecksum(listCss)).toBe(LEGACY_STYLE_CHECKSUM)
+    // ④ 字段与设置页那份**逐字段逐顺序**相同（「原样复用」不是「长得像」）。
+    expect(collectByClassName(detail, 'own-market-facts')).toHaveLength(1)
+    expect(collectByClassName(detail, 'own-market-toolbar')).toHaveLength(1)
+    expect(textOf(detail)).toContain('插件详情')
+    expect(textOf(detail)).toContain(ENTERPRISE_PLUGIN_DETAIL_PUBLISHER)
+    expect(textOf(detail)).toContain('甲插件')
+    expect(textOf(detail)).toContain('2 KiB')
+  })
+
+  it('wires both return paths it really has (button + Esc) and refuses to fake a router', async () => {
+    const onBack = vi.fn()
+    const detail = detailShell(pageInput({ onBack }))
+    // ① 返回按钮：那枚带完整动作语义无障碍名的按钮 = 唯一返回入口（点它就是把目标清掉）。
+    const back = collectByProp(detail, 'data-enterprise-plugin-detail-back')
+    expect(back).toHaveLength(1)
+    expect(back[0]?.['aria-label']).toBe(ENTERPRISE_PLUGIN_DETAIL_BACK_LABEL)
+    ;(back[0]?.['onClick'] as () => void)()
+    expect(onBack).toHaveBeenCalledTimes(1)
+    // ② 源码：Esc 命中即停冒泡（别把官方面板一起关掉）、监听钉在本页根节点上、返回后还原滚动位置与焦点。
+    const code = stripComments(await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8'))
+    expect(code).toContain("event.key !== 'Escape'")
+    expect(code).toContain('event.stopPropagation()')
+    expect(code).toContain('node.addEventListener(\'keydown\', onKeyDown)')
+    expect(code).toContain('pluginDetailPage.current?.querySelector<HTMLElement>(\'[data-enterprise-plugin-detail-title]\')?.focus()')
+    expect(code).toContain("querySelectorAll<HTMLElement>('[data-enterprise-plugin-open]')")
+    expect(code).toContain('scrollTargetOf(')
+    expect(code).toContain('saved.target.scrollTop = saved.top')
+    // ③ **不假装有路由**：本页是官方 `plugins.item` 的 page 视图，硬造 history 会与宿主打架，故一个都没有。
+    expect(code).not.toContain('pushState')
+    expect(code).not.toContain('popstate')
+    expect(code).not.toContain('history.')
+    // ④ 监听范围钉在**本页根节点**（`sectionRef` 由控制器注入），不是 `document` —— 不抢别处的 Esc。
+    expect(code).toContain('sectionRef: marketRoot')
+    expect(code).toContain('ref={props.sectionRef}')
+    expect(code).not.toContain("document.addEventListener('keydown'")
+  })
+
+  it('carries the row\'s own control into the detail (install when absent, switch when installed) and never an uninstall', async () => {
+    // ① 已安装：详情里的动作就是行上那一枚开关（同一枚子块、同一份 facts）。
+    const installed = detailShell(pageInput())
+    const switches = collectDataValues(installed, 'data-enterprise-plugin-slot')
+    expect(switches).toEqual(['switch'])
+    expect(collectSwitchProps(installed).map(props => props['checked'])).toEqual([true])
+    expect(textOf(installed)).not.toContain('卸载')
+    // ② 未安装：给的是【＋】那一格，且「本机版本」如实说「未安装」。
+    const bare = rowNotInstalled()
+    const bareProps = shellProps({ enterprisePlugins: [bare] })
+    const missing = detailShell({
+      row: bare,
+      facts: enterpriseMarketPluginRowFacts(bareProps, bare),
+      catalogVersionText: '2.0.0',
+      onBack: vi.fn(),
+    }, { enterprisePlugins: [bare] })
+    expect(collectDataValues(missing, 'data-enterprise-plugin-slot')).toEqual(['install'])
+    expect(textOf(missing)).toContain(ENTERPRISE_PLUGIN_DETAIL_NOT_INSTALLED)
+    // ③ 控件动不了时**可见原因**也在详情里（不许只挂一句 title）——行上那句说明被一并带进动作区。
+    const lockedProps = shellProps({ enterprisePlugins: [bare], onInstallPlugin: undefined })
+    const locked = detailShell({
+      row: bare,
+      facts: enterpriseMarketPluginRowFacts(lockedProps, bare),
+      catalogVersionText: '2.0.0',
+      onBack: vi.fn(),
+    }, { enterprisePlugins: [bare], onInstallPlugin: undefined })
+    expect(collectDataValues(locked, 'data-enterprise-plugin-slot')).toEqual(['install'])
+    expect(collectDataValues(locked, 'data-enterprise-plugin-lock')).toEqual(['ent-b'])
+    // ④ 源码：这一面仍然**没有**卸载动作（卸载只在「企业设置 → 插件」的详情里）。
+    const code = stripComments(await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8'))
+    expect(code).not.toContain('removePlugin')
+    expect(code).not.toContain('确认卸载')
+  })
+})
+
+/** 收集树里带某个 props 键的元素 props（如那枚返回按钮的 `data-enterprise-plugin-detail-back`）。 */
+function collectByProp(node: ReactNode, key: string, acc: Record<string, any>[] = []): Record<string, any>[] {
+  if (Array.isArray(node)) { for (const child of node) collectByProp(child, key, acc); return acc }
+  if (!isValidElement(node)) return acc
+  const props = node.props as Record<string, unknown>
+  if (props[key] !== undefined) acc.push(props as Record<string, any>)
+  if (typeof node.type === 'function') {
+    // 真组件只走它的**产出**（props 里的 children 已经在产出里，再按 props 走一遍会重复计数）；
+    // `vi.fn()` mock（官方 Button/Switch/Tag）产出 undefined 时退回按 props 递归，保住它们的 children。
+    const rendered = (node.type as (p: unknown) => ReactNode)(props)
+    if (rendered !== undefined && rendered !== null) return collectByProp(rendered as ReactNode, key, acc)
+  }
+  for (const value of Object.values(props)) {
+    if (value !== null && typeof value === 'object') collectByProp(value as ReactNode, key, acc)
+  }
+  return acc
+}
 
 /**
  * 跑一遍真注册面（`client.tsx` 的 `apply`）并收集座位：`slots.inject(name, register)` 的名字顺序
