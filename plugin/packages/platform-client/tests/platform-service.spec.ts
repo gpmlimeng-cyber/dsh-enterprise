@@ -81,7 +81,7 @@ class MemorySettings extends Service {
     // 官方 SettingsForms 只在投影出的 raw 变化时广播；重复写回同一个值不再产生事件。
     const changed = JSON.stringify(section) !== JSON.stringify(previous ?? {})
     this.document[namespace] = section
-    if (namespace === 'owndsh' && typeof section['serverUrl'] === 'string') {
+    if (namespace === 'dshent' && typeof section['serverUrl'] === 'string') {
       this.pending = section['serverUrl']
       if (!this.deferReference) this.stored = this.pending
     }
@@ -93,7 +93,7 @@ class MemorySettings extends Service {
   flushReference(): void {
     if (this.pending === this.stored) return
     this.stored = this.pending
-    this.ctx.emit('settings/document-updated', 'owndsh' as SettingsNamespace, 2)
+    this.ctx.emit('settings/document-updated', 'dshent' as SettingsNamespace, 2)
   }
 }
 
@@ -403,7 +403,7 @@ describe('EnterprisePlatformService', () => {
     if (settings !== undefined) {
       const owner = settings
       ctx.reflect.provide('configEditor', {
-        entries: () => [{ options: { id: 'owndsh', config: owner.document['owndsh'] } }],
+        entries: () => [{ options: { id: 'dshent', config: owner.document['dshent'] } }],
       })
     }
     const service = new EnterprisePlatformService(
@@ -420,7 +420,7 @@ describe('EnterprisePlatformService', () => {
         installationName: 'Acceptance Workstation',
       },
       {
-        settingsNamespace: 'owndsh',
+        settingsNamespace: 'dshent',
         ...(options.now === undefined ? {} : { now: options.now }),
         ...(options.browserHandoff === undefined ? {} : { browserHandoff: options.browserHandoff }),
         openBrowser: async (rawUrl) => {
@@ -611,21 +611,21 @@ describe('EnterprisePlatformService', () => {
     env.settings!.deferReference = true
 
     await env.service.setServerUrl(env.platformUrl)
-    expect(env.settings!.document).toEqual({ owndsh: { serverUrl: env.platformUrl } })
+    expect(env.settings!.document).toEqual({ dshent: { serverUrl: env.platformUrl } })
     expect(env.service.status().platformUrl).toBe(env.platformUrl)
 
     env.settings!.flushReference()
-    await vi.waitFor(() => expect(env.settings!.document).toEqual({ owndsh: { serverUrl: env.platformUrl } }))
+    await vi.waitFor(() => expect(env.settings!.document).toEqual({ dshent: { serverUrl: env.platformUrl } }))
     expect(env.service.status().platformUrl).toBe(env.platformUrl)
   })
 
   it('reverts an externally written non-origin address to the last accepted one', async () => {
     const env = await environment({ withSettings: true, startUnconfigured: true })
     await env.service.setServerUrl(env.platformUrl)
-    expect(env.settings!.document).toEqual({ owndsh: { serverUrl: env.platformUrl } })
+    expect(env.settings!.document).toEqual({ dshent: { serverUrl: env.platformUrl } })
 
-    await env.settings!.update('owndsh', { serverUrl: 'not-a-url' })
-    await vi.waitFor(() => expect(env.settings?.document).toEqual({ owndsh: { serverUrl: env.platformUrl } }))
+    await env.settings!.update('dshent', { serverUrl: 'not-a-url' })
+    await vi.waitFor(() => expect(env.settings?.document).toEqual({ dshent: { serverUrl: env.platformUrl } }))
     expect(env.service.status().platformUrl).toBe(env.platformUrl)
   })
 
@@ -635,7 +635,7 @@ describe('EnterprisePlatformService', () => {
 
     await env.service.setServerUrl(env.platformUrl)
     await vi.waitFor(() => expect(env.service.status()).toMatchObject({ state: 'SIGNED_OUT', platformUrl: env.platformUrl }))
-    expect(env.settings?.document).toEqual({ owndsh: { serverUrl: env.platformUrl } })
+    expect(env.settings?.document).toEqual({ dshent: { serverUrl: env.platformUrl } })
     // 地址只在企业 UI 与门禁内编辑；官方 Settings 不为该 entry 生成页面。
     expect(env.settings?.policies).toEqual([{ auto: false }])
 
@@ -648,12 +648,12 @@ describe('EnterprisePlatformService', () => {
     expect(rejected.status).toBe(403)
     // rc.2 没有 per-namespace validate：连接态的外部写入被写回旧地址，文档与内存状态都不变。
     for (const serverUrl of [env.localUrl, '']) {
-      await env.settings!.update('owndsh', { serverUrl })
-      await vi.waitFor(() => expect(env.settings?.document).toEqual({ owndsh: { serverUrl: env.platformUrl } }))
+      await env.settings!.update('dshent', { serverUrl })
+      await vi.waitFor(() => expect(env.settings?.document).toEqual({ dshent: { serverUrl: env.platformUrl } }))
     }
     expect(env.service.status()).toEqual(before)
     expect(env.credentials.record).toEqual(grant)
-    expect(env.settings?.document).toEqual({ owndsh: { serverUrl: env.platformUrl } })
+    expect(env.settings?.document).toEqual({ dshent: { serverUrl: env.platformUrl } })
     env.setBootstrap('unavailable')
     await env.service.refresh()
     expect(env.service.status().state).toBe('REFRESHING')

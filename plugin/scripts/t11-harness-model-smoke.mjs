@@ -494,7 +494,7 @@ try {
   const probePath = resolve(temporaryDshHome, 'enterprise-t11-acceptance-probe.mjs')
   await writeFile(probePath, probeSource)
   await writeFile(resolve(profileDir, 'cordis.patch.yml'), [
-    '- id: owndsh',
+    '- id: dshent',
     '  config:',
     `    baseUrl: ${JSON.stringify(platformUrl)}`,
     "    trustedPluginPublicKey: 'MCowBQYDK2VwAyEAgl6STzO84FyXlwmeHinWGgY/TgbGBUUBLF1xPT7SvT8='",

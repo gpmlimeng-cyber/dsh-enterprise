@@ -13,7 +13,7 @@ const STACK_LINE_LIMIT = 4
 
 /** 官方 `ctx.configEditor.entries()` 行的窄视图；不依赖 loader 包的类型。 */
 interface ConfigEditorRowView {
-  /** entry 在整棵 Loader 树里的全局 id（嵌套 include 下形如 `include:owndsh`）。 */
+  /** entry 在整棵 Loader 树里的全局 id（嵌套 include 下形如 `include:dshent`）。 */
   readonly id?: unknown
   readonly options?: {
     readonly id?: unknown

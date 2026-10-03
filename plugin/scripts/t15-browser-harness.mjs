@@ -303,7 +303,7 @@ try {
     env: harnessEnv,
   })
   await writeFile(resolve(temporaryDshHome, 'profiles', 'web', 'cordis.patch.yml'), [
-    '- id: owndsh',
+    '- id: dshent',
     '  config:',
     `    baseUrl: '${platformUrl}'`,
     '    verifyPluginSignatures: true',

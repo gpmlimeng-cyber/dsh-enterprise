@@ -162,7 +162,7 @@ try {
   assert.ok(['SIGNED_OUT', 'BOOTSTRAPPING', 'REFRESHING'].includes(statusBody.data.state))
   assert.match(
     await readFile(resolve(home, 'settings.yaml'), 'utf8'),
-    /owndsh:[\s\S]*serverUrl: http:\/\/127\.0\.0\.1:65535/,
+    /dshent:[\s\S]*serverUrl: http:\/\/127\.0\.0\.1:65535/,
   )
 
   const plugins = await fetch(`${ready.url}/enterprise/api/v1/local/plugins`)

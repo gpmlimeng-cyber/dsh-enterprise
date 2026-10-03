@@ -46,10 +46,10 @@ pnpm remove；配方那条 `cleanPresetBundleLink` 只服务 `pnpm add <目录>`
 `verifyPluginSignatures` 默认 `false`，员工只需填写 Server 地址并登录，无需配置公钥；关闭时也不解析配置中遗留的公钥。
 大小、SHA-256、兼容性、逐请求授权和核心包保护始终生效。HTTP 内网模式信任部署网络与所连接的 Server；SHA-256 用于校验字节完整性，不能阻止同时篡改包与元数据的中间人。
 
-需要验签时，在 Harness profile 的 `owndsh` 配置中显式开启，并填写对应部署的公钥：
+需要验签时，在 Harness profile 的 `dshent` 配置中显式开启，并填写对应部署的公钥：
 
 ```yaml
-- id: owndsh
+- id: dshent
   config:
     verifyPluginSignatures: true
     trustedPluginPublicKey: '<部署专属 Ed25519 SPKI PEM 或 DER Base64>'

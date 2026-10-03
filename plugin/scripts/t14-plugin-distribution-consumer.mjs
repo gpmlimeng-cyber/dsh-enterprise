@@ -22,10 +22,10 @@ function option(name, fallback) {
 }
 
 const contractsTgz = resolve(option(
-  '--contracts-tgz', resolve(PROJECT_ROOT, 'artifacts', 'owndsh-contracts-0.1.0.tgz'),
+  '--contracts-tgz', resolve(PROJECT_ROOT, 'artifacts', 'dshent-contracts-0.1.0.tgz'),
 ))
 const platformTgz = resolve(option(
-  '--platform-tgz', resolve(PROJECT_ROOT, 'artifacts', 'owndsh-platform-client-0.1.0.tgz'),
+  '--platform-tgz', resolve(PROJECT_ROOT, 'artifacts', 'dshent-platform-client-0.1.0.tgz'),
 ))
 const distributionTgz = resolve(option(
   '--distribution-tgz', resolve(PROJECT_ROOT, 'artifacts', 'dshent-plugin-distribution-0.1.0.tgz'),
@@ -93,7 +93,7 @@ try {
   ], { cwd: consumer, env: { ...process.env, DSH_HOME: dshHome } })
   assert.deepEqual(JSON.parse(imported.stdout), { formatVersion: 1, assignmentRevision: 7, plugins: [] })
 
-  const installedRoot = resolve(consumer, 'node_modules', '@owndsh', 'plugin-distribution')
+  const installedRoot = resolve(consumer, 'node_modules', '@dshent', 'plugin-distribution')
   const manifest = JSON.parse(await readFile(resolve(installedRoot, 'package.json'), 'utf8'))
   assert.equal(manifest.dependencies['@dshent/contracts'], '0.1.0')
   assert.equal(manifest.dependencies['@dshent/platform-client'], '0.1.0')

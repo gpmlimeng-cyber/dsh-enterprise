@@ -1,7 +1,10 @@
-# [INPUT]: 依赖官方 dsh.bundle patch 覆盖、裸包名 Loader 与 base/web 既有 row id；依赖 owner entry `owndsh` 的 volatile 字段（`serverUrl`/`platformOrigin`/`inferenceOrigin`）里的用户地址
-# [OUTPUT]: 覆盖企业默认模型、停用 base provider/个人模型设置与官方账户行，插入 owndsh Host/Client row
+# [INPUT]: 依赖官方 dsh.bundle patch 覆盖、裸包名 Loader 与 base/web 既有 row id；依赖 owner entry `dshent` 的 volatile 字段（`serverUrl`/`platformOrigin`/`inferenceOrigin`）里的用户地址
+# [OUTPUT]: 覆盖企业默认模型、停用 base provider/个人模型设置与官方账户行，插入 dshent Host/Client row
 # [POS]: bundle 的企业 profile 策略层；官方账户实现改由企业 bundle 用用户自定义地址挂载，企业模型路由并入 profile 已挂载的官方 llm-pi-ai（不再自建第二份实例）
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+# [改名] owner entry / 行 id 从 `owndsh` 改为 `dshent`。升级前 profile patch 里旧 `- id: owndsh` 的
+# 配置（实机存着 serverUrl 等 volatile 地址）由 apply() 末尾的 migrateLegacyEntrySettings() 读取并
+# 搬进新命名空间 `dshent`，避免升级丢 Server 地址（settings 命名空间随 owner entry id 走）。
 - id: agent-default-model
   config:
     provider: deepseek-official
@@ -18,5 +21,5 @@
   disabled: true
 
 - insert:
-    - id: owndsh
+    - id: dshent
       name: 'dshent-plugin'

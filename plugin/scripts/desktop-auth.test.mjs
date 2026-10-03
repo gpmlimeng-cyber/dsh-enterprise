@@ -142,7 +142,7 @@ globalThis.Date = class extends NativeDate {
   }
   await new Promise(resolve => backend.listen(0, '127.0.0.1', resolve))
   const platformUrl = `http://127.0.0.1:${backend.address().port}`
-  await writeFile(join(home, 'settings.yaml'), `owndsh:\n  serverUrl: ${platformUrl}\n`)
+  await writeFile(join(home, 'settings.yaml'), `dshent:\n  serverUrl: ${platformUrl}\n`)
   await mkdir(join(home, 'profiles/web'), { recursive: true })
   await writeFile(join(home, 'profiles/web/cordis.patch.yml'), '- id: session-title-llm\n  disabled: true\n')
   const child = spawn(join(runtime, 'bin/node'), [join(runtime, 'launcher.mjs')], {

@@ -13,6 +13,7 @@ import * as AccountPlatform from '@deepseek-ai/dsh-deepseek-account-platform'
 import type { Config as AccountPlatformConfig } from '@deepseek-ai/dsh-deepseek-account-platform'
 import { APP_IDENTITY, type LlmRuntime } from '@deepseek-ai/dsh-llm'
 import type { SettingsProvider } from '@deepseek-ai/dsh-settings'
+import type { SettingsDescriptor } from '@deepseek-ai/dsh-settings'
 import z from '@deepseek-ai/schemastery'
 import { registerEnterpriseGateway } from '@dshent/llm-gateway'
 import {
@@ -88,7 +89,14 @@ declare module '@deepseek-ai/dsh-settings' {
   }
 }
 
-export const name = 'owndsh'
+// [改名] 对外插件名从 `owndsh` 改为 `dshent`。它是 Cordis 插件名 = owner entry id = 官方 settings 命名空间。
+// 兼容见 apply() 末尾的 `migrateLegacyEntrySettings()`：升级前 profile patch 与 settings 里仍挂着旧 entry `owndsh`
+// 的 serverUrl/platformOrigin/inferenceOrigin，改名后命名空间随之变为 `dshent`，须先读旧命名空间搬过来（否则丢地址）。
+export const name = 'dshent'
+/** 改名前的插件名 / owner entry id；仅用于读取升级前落盘的 settings 与 patch 配置，**绝不**再作为写入目标。 */
+const LEGACY_NAME = 'owndsh'
+/** 三个随 owner entry id 走的 volatile 地址字段；迁移只搬这三项。 */
+const ADDRESS_FIELDS = ['serverUrl', 'platformOrigin', 'inferenceOrigin'] as const
 // 本刀之后 bundle **不再**声明 `subprocess`：安装/卸载/取消一律走官方 `pluginManager`，
 // 全仓没有任何一条代码路径再起 `dsh plugin` 子进程（`subprocess` 因此不再是一条真依赖，
 // 留着只会让本插件在缺 subprocess 的 profile 上白白不激活）。
@@ -387,6 +395,61 @@ function mountEnterpriseAccountOrigin(
     ctx.logger.error('owndsh: initial official account platform mount failed', error)
   })
   return () => read().platformOrigin
+}
+
+/**
+ * [改名迁移] 把升级前挂在旧命名空间 `owndsh` 下的三个 volatile 地址字段搬进新命名空间 `dshent`。
+ *
+ * 官方 settings 的命名空间 == 活动 profile owner entry 的 id。本插件 owner entry 从 `owndsh` 改名为
+ * `dshent` 后，用户此前在设置里填的 `serverUrl`/`platformOrigin`/`inferenceOrigin` 仍按旧 id 存在文档里，
+ * 新命名空间读不到它们 —— 不搬则升级即丢 Server 地址，用户被迫重新填。
+ *
+ * 语义：**仅当新命名空间该字段为空/缺省、且旧命名空间该字段有值时**才搬，绝不覆盖改名后新写入的值；
+ * 三个字段各自独立判断。旧命名空间不存在（全新安装）时直接返回，无副作用。
+ *
+ * @param settings - 官方 settings 读写端（`describe()` 读、`update(ns, patch)` 写）。
+ * @param logger - Host 日志；搬运与否、结果都留一行可观测记录。
+ * @returns 搬运操作的 promise；调用方在 `ctx.inject(['settings'])` 的 effect 里 await。
+ */
+function migrateLegacyEntrySettings(
+  settings: Pick<SettingsProvider, 'describe' | 'update'>,
+  logger: EnterpriseHostContext['logger'],
+): void {
+  let descriptors: SettingsDescriptor[]
+  try {
+    descriptors = settings.describe()
+  } catch (error) {
+    logger.warn(`dshent: rename settings migration skipped; describe() failed [operation=migrateSettings step=describe-threw]`, error)
+    return
+  }
+  const legacy = descriptors.find(descriptor => String(descriptor.ns) === LEGACY_NAME)
+  const current = descriptors.find(descriptor => String(descriptor.ns) === name)
+  // 旧命名空间缺席 = 全新安装（从未以旧名写过地址），无可搬；新命名空间缺席 = 本 entry 还没进投影，同样不搬。
+  if (legacy === undefined || current === undefined) return
+  const legacyValue = (legacy.value ?? {}) as Record<string, unknown>
+  const currentValue = (current.value ?? {}) as Record<string, unknown>
+  const patch: Record<string, unknown> = {}
+  for (const field of ADDRESS_FIELDS) {
+    const from = legacyValue[field]
+    const to = currentValue[field]
+    const toEmpty = to === undefined || to === null || to === ''
+    if (toEmpty && typeof from === 'string' && from !== '') patch[field] = from
+  }
+  if (Object.keys(patch).length === 0) {
+    logger.debug(`dshent: no legacy address fields to migrate [operation=migrateSettings step=no-op ns=${LEGACY_NAME}→${name}]`)
+    return
+  }
+  void settings.update(name, patch).then(
+    () => {
+      logger.warn(`dshent: migrated legacy settings namespace ${LEGACY_NAME} → ${name}`
+        + ` [operation=migrateSettings step=migrated fields=${Object.keys(patch).join(',')} status=success]`)
+    },
+    (error: unknown) => {
+      // 搬运失败不是致命错：地址仍在旧命名空间里，下次启动重试；但要留够诊断信息。
+      logger.warn(`dshent: legacy settings migration failed; addresses remain under ${LEGACY_NAME}`
+        + ` [operation=migrateSettings step=update-rejected ns=${name} fields=${Object.keys(patch).join(',')} status=failed]`, error)
+    },
+  )
 }
 
 /** 在 Harness 官方 Service 上挂载平台控制面，并把企业 profiles 并入已挂载的官方 dsh-llm-pi-ai。 */
@@ -725,6 +788,12 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
     },
   })
   mountPluginDistribution(ctx as PluginDistributionContext)
+  // [改名迁移] owner entry id 从 `owndsh` 改成 `dshent` 后，官方 settings 的命名空间随之换名；
+  // 升级前填的地址仍挂在旧命名空间下，看不见了。这里把它们搬进新命名空间，升级不丢 Server 地址。
+  // 一次性副作用（无待清理资源），故直接调用而非挂在 effect() 上。
+  ctx.inject(['settings'], settingsContext => {
+    migrateLegacyEntrySettings(settingsContext.settings, ctx.logger)
+  })
   // 目标1：官方 `deepseek-account` base 行已停用，账户后台由企业 bundle 用用户自定义地址挂载同一实现。
   // 挂载点已在上面拿到读数（readPlatformOrigin），帮助中心路由与它共用同一份「当前平台地址」。
 }

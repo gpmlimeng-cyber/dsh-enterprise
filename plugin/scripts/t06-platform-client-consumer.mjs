@@ -23,11 +23,11 @@ function option(name, fallback) {
 
 const platformTgz = resolve(option(
   '--platform-tgz',
-  resolve(PROJECT_ROOT, 'artifacts', 'owndsh-platform-client-0.1.0.tgz'),
+  resolve(PROJECT_ROOT, 'artifacts', 'dshent-platform-client-0.1.0.tgz'),
 ))
 const contractsTgz = resolve(option(
   '--contracts-tgz',
-  resolve(PROJECT_ROOT, 'artifacts', 'owndsh-contracts-0.1.0.tgz'),
+  resolve(PROJECT_ROOT, 'artifacts', 'dshent-contracts-0.1.0.tgz'),
 ))
 const keep = args.includes('--keep')
 const root = await mkdtemp(resolve(tmpdir(), 'enterprise-t06-consumer-'))
@@ -91,7 +91,7 @@ try {
   const installation = JSON.parse(imported.stdout)
   assert.match(installation.installationId, /^[0-9a-f-]{36}$/i)
 
-  const installedRoot = resolve(consumer, 'node_modules', '@owndsh', 'platform-client')
+  const installedRoot = resolve(consumer, 'node_modules', '@dshent', 'platform-client')
   const manifest = JSON.parse(await readFile(resolve(installedRoot, 'package.json'), 'utf8'))
   assert.equal(manifest.dependencies['@dshent/contracts'], '0.1.0')
   assert.equal(manifest.dependencies.zod, '4.4.3')

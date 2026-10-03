@@ -199,7 +199,7 @@ function ServerUrlEditor({ store, serverUrl, busy, saving, onServerUrlChange, on
         disabled={busy}
         icon={<Server aria-hidden size={14} />}
         onChange={event => { onServerUrlChange(event.currentTarget.value) }}
-        placeholder="http://owndsh.example.com"
+        placeholder="http://dshent.example.com"
         required
         spellCheck={false}
         type="url"

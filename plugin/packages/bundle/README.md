@@ -51,7 +51,7 @@ Server 地址由 Harness 官方 settings 服务保存；轮换 Refresh Token 由
 
 官方账户授权与账户查询默认指向本企业后台 `https://meizhiyun.chat`（账户与推理同源），**可自定义**。官方账户设置页（`ui-settings-account`）与账户控制器（`api-account-controller`）**原样复用**，不 fork、不改官方 UI。
 
-要接自托管后台，在产品设置里输入自己的地址即可，不必改包：地址写入 Harness 官方 settings 中本插件 entry（`owndsh`）的 volatile 字段 `platformOrigin`/`inferenceOrigin`，**改完立即热重挂**（释放旧实例、用新地址挂载同一官方实现），无需重启。官方 0.1.7-rc.2 起 settings 不再有 per-namespace 注册，命名空间就是活动 profile entry 的 id，请按 entry 段而不是旧的独立段来读写。同源本地 API 也可直接写：
+要接自托管后台，在产品设置里输入自己的地址即可，不必改包：地址写入 Harness 官方 settings 中本插件 entry（`dshent`）的 volatile 字段 `platformOrigin`/`inferenceOrigin`，**改完立即热重挂**（释放旧实例、用新地址挂载同一官方实现），无需重启。官方 0.1.7-rc.2 起 settings 不再有 per-namespace 注册，命名空间就是活动 profile entry 的 id，请按 entry 段而不是旧的独立段来读写。同源本地 API 也可直接写：
 
 ```
 GET  /enterprise/api/v1/local/account-origin
@@ -79,7 +79,7 @@ dsh plugin --profile web add --ignore-scripts dshent-plugin@latest
 
 登录和企业模型只需安装本包。管理员上传、发布并配置可见范围后，员工在「企业设置 → 插件」内自主安装、更新或卸载。不会自动安装，其他设备独立选择。安装或卸载后需完全退出并重新打开客户端。
 
-插件签名校验 `verifyPluginSignatures` 默认关闭，员工无需配置公钥；文件大小、SHA-256、目标系统和 Harness 兼容性仍会校验。需要验签的部署可在 profile 的 `owndsh.config` 中设置 `verifyPluginSignatures: true` 和部署专属 `trustedPluginPublicKey`，开启后缺公钥或签名错误会阻止安装。
+插件签名校验 `verifyPluginSignatures` 默认关闭，员工无需配置公钥；文件大小、SHA-256、目标系统和 Harness 兼容性仍会校验。需要验签的部署可在 profile 的 `dshent.config` 中设置 `verifyPluginSignatures: true` 和部署专属 `trustedPluginPublicKey`，开启后缺公钥或签名错误会阻止安装。
 
 管理员上传时仍需选择目标系统和对应 Harness commit。制品白名单基线是 `0.1.7-rc.2`（`477b4f420553e8a52c2fbccc464d7561b239c443`）；客户端版本->commit 映射表另含 `0.1.1-rc.2`、`0.1.2-rc.1`、`0.1.5-rc.2`，以及按官方发行 tag `dsh-v0.2.0-rc.2` 查实的 `0.2.0-rc.2`（`639ed015397290b3745d163aafe02ffee4aa3f84`）。
 

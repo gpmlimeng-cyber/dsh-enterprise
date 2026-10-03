@@ -26,7 +26,7 @@ Entering the harness is never blocked — the `shell.overlay` gate and the
 the menu (whose first row is `登录`), and login opens a non-blocking dialog.
 Both surfaces share one browser store over the T06 local control plane. The
 Server address is persisted by the official Harness settings service in this
-plugin's owner entry (id `owndsh`) as volatile Config fields written through
+plugin's owner entry (id `dshent`) as volatile Config fields written through
 `settings.update`, so a normal installation requires no profile edit.
 T11 directly mounts the official rc.2 `@deepseek-ai/dsh-llm-pi-ai` adapter with
 enterprise-managed profiles and an ephemeral Host-only loopback authentication proxy. The enterprise

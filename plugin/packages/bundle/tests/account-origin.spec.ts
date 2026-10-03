@@ -108,7 +108,7 @@ describe('目标1：官方账户行停用，后台地址由用户自定义', () 
     // 因此 patch 里不得再出现对官方模型行的任何 config 覆盖（09-30 晨的 llm-deepseek baseURL 覆盖已删除）。
     expect(source).not.toMatch(/- id: llm-deepseek\n/)
     expect(source).not.toContain('llm-deepseek')
-    expect(source).toContain("- id: owndsh\n      name: 'dshent-plugin'")
+    expect(source).toContain("- id: dshent\n      name: 'dshent-plugin'")
   })
 })
 

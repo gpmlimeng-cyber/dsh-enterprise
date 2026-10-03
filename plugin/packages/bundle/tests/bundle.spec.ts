@@ -110,10 +110,13 @@ describe('enterprise bundle', () => {
       slots: { inject: (_name: string, callback: () => unknown) => callback(), register },
     }
     client?.apply?.(ctx)
-    // 外观组读 ui-theme，快捷键面板读 ui-shortcuts；客户端注册**四个** settings/plugins 座位
+    // 外观组读 ui-theme，快捷键面板读 ui-shortcuts，资料库 `@` 触发器源读官方 inputTriggers
+    // （口径 24 / `a027c47`：`client.tsx` 新增 `ctx.inject(['inputTriggers'])` —— 它**不进硬注入数组**、
+    // 缺席时只是没有 `@` 源，但仍是 Client 组合根的一次 inject，故断言必须如实收下它）。
+    // 客户端注册**四个** settings/plugins 座位
     // （企业设置页 / 个人中心登录入口 / 官方插件页市场卡片 / 插件详情徽标）。
     // 独立应用商店的两处座位（`main` 面板 + `sidebar.panellist` 入口）已按用户要求撤销，故不再是六处。
-    expect(injected).toEqual([['theme'], ['shortcuts']])
+    expect(injected).toEqual([['theme'], ['shortcuts'], ['inputTriggers']])
     expect(register).toHaveBeenCalledTimes(4)
   })
 

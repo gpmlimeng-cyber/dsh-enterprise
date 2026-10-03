@@ -18,7 +18,7 @@ const PROJECT_ROOT = resolve(WORKSPACE_ROOT, '..')
 const args = process.argv.slice(2)
 const tgzOption = args.indexOf('--tgz')
 const tgz = resolve(tgzOption === -1
-  ? resolve(PROJECT_ROOT, 'artifacts', 'owndsh-contracts-0.1.0.tgz')
+  ? resolve(PROJECT_ROOT, 'artifacts', 'dshent-contracts-0.1.0.tgz')
   : args[tgzOption + 1])
 const temporaryRoot = await mkdtemp(resolve(tmpdir(), 'enterprise-t02-contract-consumer-'))
 

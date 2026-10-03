@@ -24,7 +24,7 @@ Harness Host 的企业平台控制面。`EnterprisePlatformService` 通过 Cordi
 
 `baseUrl` 只是安装层可选默认值。未提供时 Service 进入 `UNCONFIGURED`，员工在「DSH Enterprise 设置 →
 账号」或登录弹窗中填写 Server 地址，未登录不阻断宿主；地址是 `@deepseek-ai/dsh-settings` 中本插件
-owner entry（id `owndsh`）的 volatile 字段 `serverUrl`，经 `settings.update` 写入
+owner entry（id `dshent`）的 volatile 字段 `serverUrl`，经 `settings.update` 写入
 `$DSH_HOME/settings.yaml`。地址必须是不含 user-info、path、query 或 fragment 的 HTTP 或 HTTPS origin；
 账号设置只读显示地址，员工须先退出登录，再在登录弹窗的地址编辑器修改。Host 拒绝已登录、授权、设备注册、
 恢复会话和退出过程中的修改；通用 settings 写入不可绕过此流程。初次配置或登录失败后仍可纠正地址，
@@ -38,7 +38,7 @@ owner entry（id `owndsh`）的 volatile 字段 `serverUrl`，经 `settings.upda
 
 Service 在 `$DSH_HOME/enterprise/device.json` 只持久化 installation UUID v4、显示名和
 创建时间。12 小时 Access Token 只位于 Host 内存；绝对有效 30 天的 Refresh Token 以
-`owndsh/platform` GrantRecord 交给官方 `ctx.credentials` provider 保存并单次轮换，不写入 settings、
+`dshent/platform` GrantRecord 交给官方 `ctx.credentials` provider 保存并单次轮换，不写入 settings、
 Session、日志或 installation 文件。Host 重启只尝试一次静默恢复；Server 暂不可达时进入 `REFRESHING`，
 等待用户打开设置或主动刷新重试。任何平台 Token 都不会通过本地 HTTP 返回给浏览器。
 
