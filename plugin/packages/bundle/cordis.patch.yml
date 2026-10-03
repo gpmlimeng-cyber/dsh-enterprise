@@ -5,6 +5,12 @@
 # [改名] owner entry / 行 id 从 `owndsh` 改为 `dshent`。升级前 profile patch 里旧 `- id: owndsh` 的
 # 配置（实机存着 serverUrl 等 volatile 地址）由 apply() 末尾的 migrateLegacyEntrySettings() 读取并
 # 搬进新命名空间 `dshent`，避免升级丢 Server 地址（settings 命名空间随 owner entry id 走）。
+# [组件拆分] apply() 已拆成 core + 三个可独立开关的块（mountSession/mountLibrary/mountPlugins）。
+# 真开关走**本行 config**（不是拆成多行 insert）：块②③④ 全部闭包引用 core 构造的 `platform`，
+# 拆成独立 entry 会切断这个共享、直接破坏运行；官方也没有"一个 entry 的多个子面"开关语法
+# （只有行级 `disabled`）。故 core 不可关、在此行 config 里声明两个默认开的真开关：
+#   libraryEnabled: 资料库块（mountLibrary）；pluginsEnabled: 受管插件块（mountPlugins）。
+# 想关掉某块，把对应值改成 false 即可（块不挂 ⇒ 面全撤 / 端口 fail-closed）。
 - id: agent-default-model
   config:
     provider: deepseek-official
@@ -23,3 +29,7 @@
 - insert:
     - id: dshent
       name: 'dshent-plugin'
+      config:
+        # [组件拆分·两个真开关的落点] 默认全开（与拆分前行为逐字一致）；改 false 即关该块。
+        libraryEnabled: true
+        pluginsEnabled: true

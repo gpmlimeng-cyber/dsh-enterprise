@@ -52,8 +52,18 @@ describe('enterprise bundle', () => {
       disposeTimeoutMs: 3_000,
     })
     expect(Config({})).toMatchObject({ baseUrl: '', verifyPluginSignatures: false, trustedPluginPublicKey: '' })
+    // [组件拆分·两个真开关] 默认全开（与拆分前行为逐字一致），且可被行内 config 覆盖成关。
+    expect(Config({})).toMatchObject({ libraryEnabled: true, pluginsEnabled: true })
+    expect(Config({ libraryEnabled: false, pluginsEnabled: false }))
+      .toMatchObject({ libraryEnabled: false, pluginsEnabled: false })
     const patch = await readFile(resolve(ROOT, 'cordis.patch.yml'), 'utf8')
     expect(patch).toContain("name: 'dshent-plugin'")
+    // [组件拆分·patch 落点] 两个真开关写在**同一个** dshent Host 行的 config 里（不拆多行 insert：
+    // 块②③④ 闭包共享 core 的 platform，拆行会切断共享）。core 不可关，两开关默认 true。
+    // insert 列表项缩进 4 级、其 config 子键 8 级；键之间可能有行注释，故逐键独立断言而非整块正则。
+    expect(patch).toMatch(/- id: dshent\n\s+name: 'dshent-plugin'\n\s+config:/)
+    expect(patch).toMatch(/libraryEnabled: true/)
+    expect(patch).toMatch(/pluginsEnabled: true/)
     // 产品裁决（2026-09-30）：官方模型行不改——patch 不得覆盖官方模型行的 config。
     expect(patch).not.toMatch(/- id: llm-deepseek\n/)
     expect(patch).not.toContain('deepseek-harness')
@@ -61,6 +71,18 @@ describe('enterprise bundle', () => {
     expect(source).toContain('const HARNESS_VERSION = APP_IDENTITY.version')
     expect(source).toContain("createRequire(import.meta.url)('../package.json')")
     expect(source).not.toContain("const HARNESS_VERSION = '0.1.1-rc.2'")
+    // [组件拆分·门控形状] 资料库块由 libraryEnabled 门控、插件块由 pluginsEnabled 门控，
+    // 关 ⇒ 对应 mount* 不调用 ⇒ 面全撤 / 端口 fail-closed；四个块函数各自成形（gate 逻辑在源码锁形状，
+    // 每块的行为由 library-host / preset-wiring 等块单测覆盖，apply() 需整套 Cordis 服务不单测）。
+    expect(source).toContain('if (config.libraryEnabled) mountLibrary(ctx, platform)')
+    expect(source).toMatch(/if \(config\.pluginsEnabled\) \{\n\s+mountPlugins\(ctx, config, \{/)
+    expect(source).toMatch(/^function mountLibrary\(/m)
+    expect(source).toMatch(/^function mountSession\(/m)
+    expect(source).toMatch(/^function mountPlugins\(/m)
+    // 晚绑定语义未破：块④ 仍经 setDistribution 回写外层 pluginDistribution（block ① 插件路由闭包读它），
+    // 块② 仍把 handle 回写外层 sessionSyncHandle（sessionLocalPort 闭包读它）。
+    expect(source).toContain('setDistribution: service => { pluginDistribution = service }')
+    expect(source).toContain('sessionSyncHandle = mountSession(ctx, platform, sessions, sessionPersistence)')
   })
 
   it('maps an engine release to its verified commit and never fabricates an unmapped one', async () => {

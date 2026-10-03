@@ -156,6 +156,10 @@ export interface Config {
   readonly verifyPluginSignatures?: boolean
   /** 仅开启验签时读取的 Ed25519 SPKI PEM 或 DER Base64；bootstrap 无权替换。 */
   readonly trustedPluginPublicKey?: string
+  /** [组件拆分·真开关①] 资料库块（块③）默认开；关 ⇒ `mountLibrary` 不调用 ⇒ 资料库三面全撤。 */
+  readonly libraryEnabled: boolean
+  /** [组件拆分·真开关②] 受管插件块（块④）默认开；关 ⇒ `mountPlugins` 不调用 ⇒ 分发/安装/启停 fail-closed。 */
+  readonly pluginsEnabled: boolean
   readonly requestTimeoutMs: number
   readonly disposeTimeoutMs: number
   readonly profile: string
@@ -175,6 +179,11 @@ export const Config = z.object({
     .description('账户 token 允许附着的推理/文件后台；留空或等默认即企业后台'),
   verifyPluginSignatures: z.boolean().default(false),
   trustedPluginPublicKey: z.string().default(''),
+  // [组件拆分·两个真开关] 默认全开（现有部署行为不变）；cordis.patch.yml 行内可显式覆盖。
+  libraryEnabled: z.boolean().default(true)
+    .description('资料库块（mountLibrary）是否挂载；关 ⇒ 资料库三面全撤'),
+  pluginsEnabled: z.boolean().default(true)
+    .description('受管插件块（mountPlugins）是否挂载；关 ⇒ 分发/安装/启停 fail-closed'),
   requestTimeoutMs: z.number().step(1).min(1).default(30_000),
   disposeTimeoutMs: z.number().step(1).min(1).default(3_000),
   profile: z.string().default('web'),
@@ -453,6 +462,180 @@ function migrateLegacyEntrySettings(
 }
 
 /** 在 Harness 官方 Service 上挂载平台控制面，并把企业 profiles 并入已挂载的官方 dsh-llm-pi-ai。 */
+/**
+ * [组件拆分·块③] 资料库宿主接线（存储域 + 本机路由 + Host 工具 + system-prompt 注入）。
+ *
+ * 从 `apply()` 原 716–756 段**纯移动**而来，行为一字未改：它只**读** `platform`（主体判定）、
+ * 用 `ctx.get()` 取可选的 `storageDomain`/`tools`、注册两条 `ctx.effect`，区域①从不引用
+ * `libraryHost`，故是四个块里**最独立**的一块——最适合作为拆分的首刀，先证纯移动可绿、
+ * 再在其上挂 `libraryEnabled` 开关（见 Config）。拆出后由 `apply()` 按开关调用。
+ *
+ * @param ctx - 组合根上下文。
+ * @param platform - core 块构造的平台服务（主体＝当前企业登录用户，只读其 status）。
+ */
+function mountLibrary(ctx: EnterpriseHostContext, platform: EnterprisePlatformService): void {
+  /**
+   * 资料库（方案 §5.1 的 P0 竖切）宿主接线：**存储域 + 本机路由 + Host 工具 + system-prompt 注入**。
+   *
+   * 三处刻意选择（都在 `library/host.ts` 的文件头写明了理由）：
+   * · 域与主体**晚绑定**：`open` 是异步的、企业登录态可能晚到，故三个面先挂上，
+   *   每次调用实时解引用"当前门面"；未就绪 ⇒ 503 `ENT_LIBRARY_UNAVAILABLE`（可重试），不是 404、不是空列表。
+   * · 主体＝**当前企业登录用户**（`platform.status().user.id`）：未登录就没有可归属的主体 ⇒ 门面缺席。
+   *   这就是方案 §2.3 那条"不新造 IdentityService"的落法（唯一真源仍是 platform-client 的登录态）。
+   * · `storageDomain`/`tools` 都用 `ctx.get()` 而不进 `inject` 数组：它们是**可选**面（缺它们只让资料库
+   *   这一角不可用，不该让整个 bundle 不激活）。缺 `events` 时注入不挂——三条面互相独立。
+   */
+  const libraryHost = createEnterpriseLibraryHost({
+    facility: ctx.get('storageDomain') as EnterpriseLibraryDomainFacilityPort | undefined,
+    tools: ctx.get('tools') as EnterpriseLibraryToolRuntime | undefined,
+    events: ctx as unknown as EnterpriseLibraryEventPort,
+    readSubject: () => {
+      const user = platform.status().user
+      return user === undefined || user.id.length === 0
+        ? undefined
+        : { scope: 'personal', ownerId: user.id }
+    },
+    log: (level, message, error) => {
+      if (level === 'info') ctx.logger.info(message)
+      else ctx.logger.warn(message, error)
+    },
+  })
+  ctx.effect(() => mountEnterpriseLibraryFaces(libraryHost, {
+    webServer: ctx.webServer,
+    tools: ctx.get('tools') as EnterpriseLibraryToolRuntime | undefined,
+    events: ctx as unknown as EnterpriseLibraryEventPort,
+  }), 'enterpriseLibrary.faces')
+  ctx.effect(() => {
+    void libraryHost.start().catch((error: unknown) => {
+      ctx.logger.warn('owndsh: library domain open failed', error)
+    })
+    return () => {
+      void libraryHost.dispose().catch((error: unknown) => {
+        ctx.logger.warn('owndsh: library domain dispose failed', error)
+      })
+    }
+  }, 'enterpriseLibrary.lifecycle')
+}
+
+/**
+ * [组件拆分·块②] Session 同步挂载（仅 bootstrap sessionPolicy.enabled 时真挂；默认关闭零 Session API）。
+ *
+ * 从 `apply()` 原 733–770 段**纯移动**而来，行为一字未改：只**读** `platform`、`sessions`、
+ * `sessionPersistence`，注册一条 dispose `ctx.effect`。`sessionSyncHandle` 是 block ① 里
+ * `sessionLocalPort` 的 `getHandle` 闭包所读的那个**外层变量**，故本函数把新建的 handle **返回**，
+ * 由 `apply()` 回写同一变量（保持闭包可见，不改晚绑定语义）。
+ *
+ * @param ctx - 组合根上下文。
+ * @param platform - core 块构造的平台服务（同步面按调用时实时解引用它）。
+ * @param sessions - 可选会话服务（`ctx.get` 取，缺失即不同步建会话）。
+ * @param sessionPersistence - 可选会话持久化服务。
+ * @returns 新建的 session 同步 handle（供 apply 回写到 sessionSyncHandle）。
+ */
+function mountSession(
+  ctx: EnterpriseHostContext,
+  platform: EnterprisePlatformService,
+  sessions: EnterpriseHostContext['sessions'],
+  sessionPersistence: EnterpriseHostContext['sessionPersistence'],
+): HostSessionSyncHandle | null {
+  const handle = tryRegisterHostSessionSync({
+    dshHome: resolveEnterpriseDshHome(),
+    platform: {
+      status: () => platform.status(),
+      bootstrap: () => platform.bootstrap(),
+      request: (path, init) => platform.request(path, init),
+      subscribe: listener => platform.subscribe(status => listener(status)),
+    },
+    runtime: {
+      ...(sessions === undefined ? {} : { sessions }),
+      ...(sessionPersistence === undefined ? {} : {
+        sessionPersistence,
+      }),
+    },
+    logger: {
+      debug: message => ctx.logger.debug(`owndsh: ${message}`),
+      info: message => ctx.logger.info(`owndsh: ${message}`),
+      warn: message => ctx.logger.warn(`owndsh: ${message}`),
+      error: message => ctx.logger.error(`owndsh: ${message}`),
+    },
+    onSessionEvent: listener => {
+      // session/event 由官方 dsh-session 模块增广；bundle 不 import 该包，故本地窄类型订阅。
+      const events = ctx as unknown as {
+        on(
+          name: 'session/event',
+          listener: (session: SyncableSession) => void,
+        ): () => boolean
+      }
+      const off = events.on('session/event', session => listener(session))
+      return () => {
+        off()
+      }
+    },
+  })
+  ctx.effect(() => () => {
+    void (handle as HostSessionSyncHandle | null)?.dispose()
+  }, 'enterpriseSessionSync.dispose()')
+  return handle
+}
+
+/**
+ * [组件拆分·块④] 受管插件分发接线（分发服务 + 官方 pluginManager 延迟接线 + 一次挂载）。
+ *
+ * 从 `apply()` 原 799–832 段**纯移动**而来，行为一字未改：只用 `config`、`pluginManagerHolder`
+ * 与**回写** `pluginDistribution`。`pluginDistribution` 是 block ① 各插件路由（pluginStatus/
+ * pluginAction/pluginCancel/pluginSetEnabled/uninstallPlugin）闭包所读的外层变量，故本函数经
+ * `setDistribution` 回调把它交还 `apply()` 写入同一变量（不改晚绑定语义）。拆出后由 `apply()`
+ * 按 `pluginsEnabled` 开关调用：关 ⇒ 不建分发服务、不接 pluginManager ⇒ 四个插件路由 fail-closed。
+ *
+ * @param ctx - 组合根上下文（同时是 `PluginDistributionContext`）。
+ * @param config - Host 配置（验签公钥、超时、harness/bundle 版本来源）。
+ * @param deps.pluginManagerHolder - 官方安装面的晚绑定持有者（一次创建、状态随服务变）。
+ * @param deps.setDistribution - 把新建的分发服务回写到 apply 外层 `pluginDistribution` 变量。
+ */
+function mountPlugins(
+  ctx: EnterpriseHostContext,
+  config: Config,
+  deps: {
+    readonly pluginManagerHolder: ReturnType<typeof createLateBoundManagedPluginManagerPort>
+    readonly setDistribution: (service: EnterprisePluginDistributionService) => void
+  },
+): void {
+  const { pluginManagerHolder, setDistribution } = deps
+  const mountPluginDistribution = (
+    distributionContext: PluginDistributionContext,
+  ): void => {
+    setDistribution(new EnterprisePluginDistributionService(distributionContext, {
+      verifyPluginSignatures: config.verifyPluginSignatures ?? false,
+      ...(config.trustedPluginPublicKey === undefined ? {} : {
+        trustedPluginPublicKey: config.trustedPluginPublicKey,
+      }),
+      // 表里没有本机引擎版本时**故意不写** harnessCommit：这是"我们无法确证 commit"的诚实表达，
+      // 不是"不兼容"。verification.ts 子句 4 据此降级为非阻断警告（不认识引擎版本不拦安装）；
+      // 绝不在这里塞一个旧 commit 去蒙混白名单。补齐真实映射见 VERIFIED_HARNESS_COMMITS 的注释。
+      ...(VERIFIED_HARNESS_COMMITS[HARNESS_VERSION] === undefined ? {} : {
+        harnessCommit: VERIFIED_HARNESS_COMMITS[HARNESS_VERSION],
+      }),
+      bundleVersion: BUNDLE_VERSION,
+    }, {
+      // 官方安装面（`pluginManager`）：**调用时**实时解引用，服务稍后就绪也进得了安装路径
+      // （与配方那三端口同一个「第二个冻结点」的解药；一次性快照会让它永远缺席）。
+      pluginManager: pluginManagerHolder.port,
+    }))
+  }
+  // 受管插件安装/卸载/取消也走官方服务面：与配方一键启用**同一套**延迟接线
+  // （`deferOfficialServiceWiring`），等同一对官方服务。apply() 那一刻服务还没 provide 时
+  // 端口不解散——`pluginManagerHolder.port` 每次调用都实时解引用，未就绪即 fail-closed。
+  deferEnterprisePluginManagerWiring(ctx, {
+    onWired: manager => { pluginManagerHolder.wire(manager) },
+    onUnwired: () => { pluginManagerHolder.unwire() },
+    log: (level, message, error) => {
+      if (level === 'error') ctx.logger.error(message, error)
+      else if (level === 'info') ctx.logger.info(message)
+      else ctx.logger.warn(message)
+    },
+  })
+  mountPluginDistribution(ctx as PluginDistributionContext)
+}
+
 export function apply(ctx: EnterpriseHostContext, config: Config): void {
   // 官方 0.1.7-rc.2 起 Cordis 强制 inject：访问未 inject 的服务属性会直接抛异常（`?.` 挡不住），
   // 因此会话相关服务一律经 ctx.get() 取可选实例，保持「缺失即跳过同步挂载」的原意。
@@ -675,119 +858,24 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
   }, (message, error) => {
     ctx.logger.warn(`owndsh: ${message}`, error)
   }), 'enterpriseHelp.routes')
-  // Session 同步：仅 bootstrap sessionPolicy.enabled 时挂载；默认关闭零 Session API。
-  sessionSyncHandle = tryRegisterHostSessionSync({
-    dshHome: resolveEnterpriseDshHome(),
-    platform: {
-      status: () => platform.status(),
-      bootstrap: () => platform.bootstrap(),
-      request: (path, init) => platform.request(path, init),
-      subscribe: listener => platform.subscribe(status => listener(status)),
-    },
-    runtime: {
-      ...(sessions === undefined ? {} : { sessions }),
-      ...(sessionPersistence === undefined ? {} : {
-        sessionPersistence,
-      }),
-    },
-    logger: {
-      debug: message => ctx.logger.debug(`owndsh: ${message}`),
-      info: message => ctx.logger.info(`owndsh: ${message}`),
-      warn: message => ctx.logger.warn(`owndsh: ${message}`),
-      error: message => ctx.logger.error(`owndsh: ${message}`),
-    },
-    onSessionEvent: listener => {
-      // session/event 由官方 dsh-session 模块增广；bundle 不 import 该包，故本地窄类型订阅。
-      const events = ctx as unknown as {
-        on(
-          name: 'session/event',
-          listener: (session: SyncableSession) => void,
-        ): () => boolean
-      }
-      const off = events.on('session/event', session => listener(session))
-      return () => {
-        off()
-      }
-    },
-  })
-  ctx.effect(() => () => {
-    void (sessionSyncHandle as HostSessionSyncHandle | null)?.dispose()
-  }, 'enterpriseSessionSync.dispose()')
-  /**
-   * 资料库（方案 §5.1 的 P0 竖切）宿主接线：**存储域 + 本机路由 + Host 工具 + system-prompt 注入**。
-   *
-   * 三处刻意选择（都在 `library/host.ts` 的文件头写明了理由）：
-   * · 域与主体**晚绑定**：`open` 是异步的、企业登录态可能晚到，故三个面先挂上，
-   *   每次调用实时解引用"当前门面"；未就绪 ⇒ 503 `ENT_LIBRARY_UNAVAILABLE`（可重试），不是 404、不是空列表。
-   * · 主体＝**当前企业登录用户**（`platform.status().user.id`）：未登录就没有可归属的主体 ⇒ 门面缺席。
-   *   这就是方案 §2.3 那条"不新造 IdentityService"的落法（唯一真源仍是 platform-client 的登录态）。
-   * · `storageDomain`/`tools` 都用 `ctx.get()` 而不进 `inject` 数组：它们是**可选**面（缺它们只让资料库
-   *   这一角不可用，不该让整个 bundle 不激活）。缺 `events` 时注入不挂——三条面互相独立。
-   */
-  const libraryHost = createEnterpriseLibraryHost({
-    facility: ctx.get('storageDomain') as EnterpriseLibraryDomainFacilityPort | undefined,
-    tools: ctx.get('tools') as EnterpriseLibraryToolRuntime | undefined,
-    events: ctx as unknown as EnterpriseLibraryEventPort,
-    readSubject: () => {
-      const user = platform.status().user
-      return user === undefined || user.id.length === 0
-        ? undefined
-        : { scope: 'personal', ownerId: user.id }
-    },
-    log: (level, message, error) => {
-      if (level === 'info') ctx.logger.info(message)
-      else ctx.logger.warn(message, error)
-    },
-  })
-  ctx.effect(() => mountEnterpriseLibraryFaces(libraryHost, {
-    webServer: ctx.webServer,
-    tools: ctx.get('tools') as EnterpriseLibraryToolRuntime | undefined,
-    events: ctx as unknown as EnterpriseLibraryEventPort,
-  }), 'enterpriseLibrary.faces')
-  ctx.effect(() => {
-    void libraryHost.start().catch((error: unknown) => {
-      ctx.logger.warn('owndsh: library domain open failed', error)
+  // [组件拆分·块②] Session 同步已抽为 `mountSession`（纯移动，行为未改），返回的 handle 回写外层
+  // 变量（block ① 的 sessionLocalPort 闭包读它）；session 已由 bootstrap sessionPolicy 门控。
+  sessionSyncHandle = mountSession(ctx, platform, sessions, sessionPersistence)
+  // [组件拆分·块③ + 真开关①] 资料库接线（`mountLibrary`）由 `libraryEnabled` 门控：
+  // 关 ⇒ 不调用 ⇒ 资料库存储域/本机路由/工具/system-prompt 三面全不挂（块①从不引用 libraryHost，安全）。
+  if (config.libraryEnabled) mountLibrary(ctx, platform)
+  else ctx.logger.info('dshent: library block disabled by config; faces not mounted [operation=mountLibrary step=skipped]')
+  // [组件拆分·块④ + 真开关②] 受管插件分发（`mountPlugins`）由 `pluginsEnabled` 门控：
+  // 关 ⇒ 不建分发服务、不接 pluginManager ⇒ block ① 的四个插件路由在调用时 pluginDistribution
+  // 仍为 undefined ⇒ 如实抛 "distribution is unavailable"（fail-closed，与服务未就绪同一语义）。
+  if (config.pluginsEnabled) {
+    mountPlugins(ctx, config, {
+      pluginManagerHolder,
+      setDistribution: service => { pluginDistribution = service },
     })
-    return () => {
-      void libraryHost.dispose().catch((error: unknown) => {
-        ctx.logger.warn('owndsh: library domain dispose failed', error)
-      })
-    }
-  }, 'enterpriseLibrary.lifecycle')
-  const mountPluginDistribution = (
-    distributionContext: PluginDistributionContext,
-  ): void => {
-    pluginDistribution = new EnterprisePluginDistributionService(distributionContext, {
-      verifyPluginSignatures: config.verifyPluginSignatures ?? false,
-      ...(config.trustedPluginPublicKey === undefined ? {} : {
-        trustedPluginPublicKey: config.trustedPluginPublicKey,
-      }),
-      // 表里没有本机引擎版本时**故意不写** harnessCommit：这是"我们无法确证 commit"的诚实表达，
-      // 不是"不兼容"。verification.ts 子句 4 据此降级为非阻断警告（不认识引擎版本不拦安装）；
-      // 绝不在这里塞一个旧 commit 去蒙混白名单。补齐真实映射见 VERIFIED_HARNESS_COMMITS 的注释。
-      ...(VERIFIED_HARNESS_COMMITS[HARNESS_VERSION] === undefined ? {} : {
-        harnessCommit: VERIFIED_HARNESS_COMMITS[HARNESS_VERSION],
-      }),
-      bundleVersion: BUNDLE_VERSION,
-    }, {
-      // 官方安装面（`pluginManager`）：**调用时**实时解引用，服务稍后就绪也进得了安装路径
-      // （与配方那三端口同一个「第二个冻结点」的解药；一次性快照会让它永远缺席）。
-      pluginManager: pluginManagerHolder.port,
-    })
+  } else {
+    ctx.logger.info('dshent: plugin distribution block disabled by config; plugin routes fail closed [operation=mountPlugins step=skipped]')
   }
-  // 受管插件安装/卸载/取消也走官方服务面：与配方一键启用**同一套**延迟接线
-  // （`deferOfficialServiceWiring`），等同一对官方服务。apply() 那一刻服务还没 provide 时
-  // 端口不解散——`pluginManagerHolder.port` 每次调用都实时解引用，未就绪即 fail-closed。
-  deferEnterprisePluginManagerWiring(ctx, {
-    onWired: manager => { pluginManagerHolder.wire(manager) },
-    onUnwired: () => { pluginManagerHolder.unwire() },
-    log: (level, message, error) => {
-      if (level === 'error') ctx.logger.error(message, error)
-      else if (level === 'info') ctx.logger.info(message)
-      else ctx.logger.warn(message)
-    },
-  })
-  mountPluginDistribution(ctx as PluginDistributionContext)
   // [改名迁移] owner entry id 从 `owndsh` 改成 `dshent` 后，官方 settings 的命名空间随之换名；
   // 升级前填的地址仍挂在旧命名空间下，看不见了。这里把它们搬进新命名空间，升级不丢 Server 地址。
   // 一次性副作用（无待清理资源），故直接调用而非挂在 effect() 上。
