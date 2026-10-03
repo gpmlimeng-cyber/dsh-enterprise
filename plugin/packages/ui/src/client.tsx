@@ -22,7 +22,7 @@ import {
 import { createEnterpriseDesktopSource } from './desktop-runtime.js'
 import { bindEnterpriseLibrarySeats } from './library-entry.js'
 import { createEnterpriseLibraryGate } from './library-gate.js'
-import { createEnterpriseLibraryCatalogSource } from './library-panel.js'
+import { createEnterpriseLibraryCatalogSource, enterpriseLibraryItems } from './library-panel.js'
 import { createEnterpriseLocalApi } from './local-api.js'
 import { createEnterprisePresetLauncher, enterprisePresetSessionPortsFrom } from './preset-launch.js'
 import {
@@ -229,16 +229,25 @@ export function apply(ctx: SlotContextPort): void {
   bindEnterpriseBrandSeat(ctx.slots, brandingSeats, ENTERPRISE_SIDEBAR_BRAND_NAME_SEAT, EnterpriseSidebarBrandName as (props: never) => ReactNode)
   bindEnterpriseBrandSeat(ctx.slots, brandingSeats, ENTERPRISE_HERO_BRAND_MARK_SEAT, EnterpriseHeroBrandMark as (props: never) => ReactNode)
   /**
-   * **资料库**（本刀）：管理门（本机设置，默认**关**）与目录取数源各建一份，排在既有座位之后。
+   * **资料库**（本刀）：管理门（本机设置，默认**关**）、目录取数源与三件动作端口各建一份，排在既有座位之后。
    *
    * 门是唯一真源：组件行那枚 Switch 读它（经 `plugins.item` 的 inject 面交给市场页）、侧栏一级入口与
    * `main` 面板两处座位的注册/注销也由它驱动（`bindEnterpriseLibrarySeats` 复用 `brand-occupants.tsx`
    * 的「有内容才占座、没有就真撤」手法——官方槽只要有占用者就不走 fallback，所以关着的时候必须真撤）。
-   * 取数端口这一刀还是缺席的（宿主侧资料库还没接线），故页面如实出「接入中」的失败态 + 重试——
-   * 这正是产品宪法要的「失败要说人话 + 下一步」，而不是拿空列表假装「公司没给你资料」。
+   *
+   * 取数与动作都走**同一份**同源接口（`createEnterpriseLocalApi()`：固定路径、严格解码、不认识 origin/Authorization）：
+   * 目录用 `librarySpace`（`space` 端点）投影成树行，上传／查找／看正文三件把 `libraryImport`／`librarySearch`／
+   * `libraryReadText` 交给页面端口。Host 侧资料库未接线 / 未登录时那四条会回 `ENT_LIBRARY_UNAVAILABLE`，
+   * 页面照实出「接入中」的失败态 + 重试——不是拿空列表假装「公司没给你资料」。
    */
   const libraryGate = createEnterpriseLibraryGate()
-  const librarySource = createEnterpriseLibraryCatalogSource()
+  const libraryApi = createEnterpriseLocalApi()
+  const librarySource = createEnterpriseLibraryCatalogSource(async signal =>
+    enterpriseLibraryItems(await libraryApi.librarySpace(signal)))
   ctx.effect(() => () => { librarySource.reset() }, 'owndsh: library catalog source')
-  bindEnterpriseLibrarySeats(ctx.slots, libraryGate, librarySource)
+  bindEnterpriseLibrarySeats(ctx.slots, libraryGate, librarySource, {
+    importText: (input, signal) => libraryApi.libraryImport(input, signal),
+    search: (query, signal) => libraryApi.librarySearch(query, signal),
+    readText: (assetId, signal) => libraryApi.libraryReadText(assetId, signal),
+  })
 }

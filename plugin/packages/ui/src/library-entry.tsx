@@ -8,7 +8,7 @@
 import { Library } from 'lucide-react'
 import { createElement, type ReactNode } from 'react'
 import type { EnterpriseLibraryGate } from './library-gate.js'
-import { EnterpriseLibraryPanel, type EnterpriseLibrarySource } from './library-panel.js'
+import { EnterpriseLibraryPanel, type EnterpriseLibraryPagePort, type EnterpriseLibrarySource } from './library-panel.js'
 
 /** 侧栏一级入口的 id，同时是 `main` 槽的 key（官方约定：list id 指向同名的 main 面板）。 */
 export const ENTERPRISE_LIBRARY_ENTRY_ID = 'library'
@@ -50,11 +50,16 @@ export function enterpriseLibraryPanelOptions(): Readonly<Record<string, unknown
 }
 
 /** `main`（keyed/root 槽）的注册选项：`key` 与上面的 `id` 取自**同一个常量**，同名不可能漂移。 */
-export function enterpriseLibraryMainOptions(source: EnterpriseLibrarySource): Readonly<Record<string, unknown>> {
+export function enterpriseLibraryMainOptions(
+  source: EnterpriseLibrarySource,
+  api?: EnterpriseLibraryPagePort | undefined,
+): Readonly<Record<string, unknown>> {
   return {
     name: 'main',
     key: ENTERPRISE_LIBRARY_ENTRY_ID,
-    inject: () => ({ source }),
+    // 两件都经 inject 面交给页面：目录取数源（列表）与三件动作端口（上传 / 查找 / 看正文）。
+    // `api` 缺席时页面把三枚控件禁用并写明原因（不是给死按钮）。
+    inject: () => (api === undefined ? { source } : { source, api }),
   }
 }
 
@@ -120,12 +125,14 @@ export function bindEnterpriseLibrarySeat(
  * @param ports - `ctx.slots`。
  * @param gate - 资料库管理门快照源。
  * @param source - 页面主体的目录取数源（经 `main` 的 inject 面交给宿主）。
+ * @param api - 页面主体的三件动作端口（上传 / 查找 / 看正文；缺席时页面把控件禁用并说明原因）。
  * @returns 两处座位的注销器（顺序与注册顺序一致）。
  */
 export function bindEnterpriseLibrarySeats(
   ports: EnterpriseLibrarySeatPorts,
   gate: EnterpriseLibraryGate,
   source: EnterpriseLibrarySource,
+  api?: EnterpriseLibraryPagePort | undefined,
 ): readonly unknown[] {
   return [
     bindEnterpriseLibrarySeat(
@@ -137,7 +144,7 @@ export function bindEnterpriseLibrarySeats(
     bindEnterpriseLibrarySeat(
       ports,
       gate,
-      () => enterpriseLibraryMainOptions(source),
+      () => enterpriseLibraryMainOptions(source, api),
       EnterpriseLibraryPanel as (props: never) => ReactNode,
     ),
   ]

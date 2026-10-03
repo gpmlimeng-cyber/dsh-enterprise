@@ -30,9 +30,16 @@ import {
 } from './decode-primitives.js'
 import type { JsonRecord } from './decode-primitives.js'
 import type { EnterpriseInstalledSkill, EnterpriseInstalledSkillContent, EnterpriseInstalledSkillFile, EnterpriseRuntimeSkill, EnterpriseSkillFiles } from './skill-api-decode.js'
+import type {
+  EnterpriseLibraryHit,
+  EnterpriseLibraryImportResult,
+  EnterpriseLibrarySpace,
+  EnterpriseLibraryText,
+} from './library-api-decode.js'
 
 export { EnterpriseLocalApiError } from './decode-primitives.js'
 export * from './skill-api-decode.js'
+export * from './library-api-decode.js'
 
 export const ENTERPRISE_CONNECTION_STATES = [
   'UNCONFIGURED',
@@ -436,6 +443,22 @@ export interface EnterpriseLocalApi {
    * 收束，那条失败由唯一提示组件显示）；「没有在跑的东西可取消」也如实回 200 + 当前状态，不假装成功。
    */
   cancelPlugin(packageName: string, signal: AbortSignal): Promise<EnterprisePluginStatus>
+  /**
+   * 资料库目录（根标题 + 全部树节点 + 全部资产；界面自己拼树）。
+   *
+   * 只发一条同源 POST（`/library` 的单入口，`{endpoint:'space'}`）；`{error:{code}}` 非 2xx 时
+   * 按受控码抛（未登录 / 宿主还没接线是 `ENT_LIBRARY_UNAVAILABLE`）。
+   */
+  librarySpace(signal: AbortSignal): Promise<EnterpriseLibrarySpace>
+  /** 导入一份 md/txt（正文以文本过桥；文件名决定格式，不认的扩展名由 Host 拒）。 */
+  libraryImport(
+    input: { readonly name: string; readonly content: string; readonly parentId?: string | null },
+    signal: AbortSignal,
+  ): Promise<EnterpriseLibraryImportResult>
+  /** 检索（空查询＝按最近更新列出，最多 50 条）。 */
+  librarySearch(query: string, signal: AbortSignal): Promise<readonly EnterpriseLibraryHit[]>
+  /** 读一份资料的正文（当前版本；正文一次给全，超大正文由 Host 的文件上限拒）。 */
+  libraryReadText(assetId: string, signal: AbortSignal): Promise<EnterpriseLibraryText>
   startLogin(signal: AbortSignal): Promise<{ readonly flowId: string }>
   cancelLogin(signal: AbortSignal): Promise<{ readonly cancelled: boolean }>
   /** 原生登录（安卓）本轮的认证来源；没有进行中的原生事务时按 400 拒绝。 */

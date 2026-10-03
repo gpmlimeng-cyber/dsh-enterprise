@@ -28,6 +28,10 @@ import {
   decodeEnterpriseLoginForm,
   decodeEnterpriseLoginStart,
   decodeEnterpriseLogout,
+  decodeEnterpriseLibraryHits,
+  decodeEnterpriseLibraryImport,
+  decodeEnterpriseLibrarySpace,
+  decodeEnterpriseLibraryText,
   decodeEnterprisePluginStatus,
   decodeEnterprisePresets,
   decodeEnterprisePresetDisable,
@@ -50,6 +54,25 @@ export * from './local-api-decode.js'
 export type { EnterpriseBrandingDocument }
 
 const LOCAL_API_PREFIX = '/enterprise/api/v1/local'
+
+/**
+ * 资料库单入口**相对**本地 API 前缀的路径（`POST`，正文恒是关闭键集的 `{endpoint,payload}`）。
+ *
+ * 与 Host 的 `bundle/src/library/route.ts` 注册的 exact 路径逐字同值：源码里宿主绝对路径不出现，
+ * 界面这一侧也从拼不出第二条资料库路径（原件流式 GET 由浏览器直接按 `<img>/<a>` 语义使用，
+ * 本刀不做原件下载，故这里只保留这一条）。
+ */
+const LIBRARY_ENTRY_PATH = '/library'
+
+/**
+ * 资料库单入口的请求体：`{endpoint, payload}` 两键封闭。
+ *
+ * 为什么保留这层内层协议（而不是每个动作一条路径）：Host 侧一条 exact 就够（引擎 exact 表只认整条
+ * 字面路径，12 个动作逐条拆表会把路由表撑大且表达不了动态 id），浏览器这一侧也就只需要认识一个路径。
+ */
+function libraryInit(endpoint: string, payload: unknown, signal: AbortSignal): RequestInit {
+  return jsonInit('POST', { endpoint, payload }, signal)
+}
 
 /**
  * 取消动作**相对**本地 API 前缀的路径（与 `install`/`remove` 两位内联兄弟同形）。
@@ -242,6 +265,25 @@ export function createEnterpriseLocalApi(
     // 相对路径只在这里与导出的注册面常量各出现一次（`${PLUGIN_CANCEL_PATH}` 拼接）。
     cancelPlugin: async (packageName, signal) => decodeEnterprisePluginStatus(
       await requestJson(PLUGIN_CANCEL_PATH, jsonInit('POST', { packageName }, signal), fetcher),
+    ),
+    // 资料库四条：全部走**同一条**单入口 `POST /library`（正文 `{endpoint,payload}`），
+    // 与 Host 侧 `bundle/src/library/route.ts` 的内层协议逐字同形；浏览器侧同样只发固定路径。
+    librarySpace: async signal => decodeEnterpriseLibrarySpace(
+      await requestJson(LIBRARY_ENTRY_PATH, libraryInit('space', {}, signal), fetcher),
+    ),
+    libraryImport: async (input, signal) => decodeEnterpriseLibraryImport(
+      await requestJson(LIBRARY_ENTRY_PATH, libraryInit('import', {
+        name: input.name,
+        content: input.content,
+        // 关闭键集：没有父节点就**不发这个键**（不塞 null 让 Host 去猜语义）。
+        ...(input.parentId === undefined || input.parentId === null ? {} : { parentId: input.parentId }),
+      }, signal), fetcher),
+    ),
+    librarySearch: async (query, signal) => decodeEnterpriseLibraryHits(
+      await requestJson(LIBRARY_ENTRY_PATH, libraryInit('search', { query }, signal), fetcher),
+    ),
+    libraryReadText: async (assetId, signal) => decodeEnterpriseLibraryText(
+      await requestJson(LIBRARY_ENTRY_PATH, libraryInit('read-text', { assetId }, signal), fetcher),
     ),
     installedSkills: async signal => decodeEnterpriseInstalledSkills(
       await requestJson('/skills/installed', getInit(signal), fetcher),

@@ -1,6 +1,9 @@
 /**
  * [INPUT]: 依赖 Harness `ctx.webServer.register()` route port、平台操作端口、组合层注入的插件动作端口（含**取消**）与技能安装端口、品牌只读端口与可选投影留痕端口
  * [OUTPUT]: 提供账号/配置按需刷新、插件操作（`/plugins/{install,remove,cancel}`，**取消**打官方 `pluginManager.cancelInstall` 且响应与只读 GET 同形、零新增字段）、**企业技能安装/卸载/已装态/已装正文**、**企业配方一键启用的三条子路径（`/presets/<id>/{enable,disable,status}`，由既有 `/presets` prefix 按后缀分派、注册面零新增字符串）**、本地品牌投影与原生登录（来源列表 / 凭证代提交 / 改密代提交）的严格同源 JSON 路由，无常驻状态连接；凭证正文只按固定键集读入并原样转发，绝不进日志；每个把异常投影成 HTTP 状态的回调都经 `onError` 上报操作名与原始 error；三条详情 prefix（品牌位图 / 会话恢复 / 配方详情）的注册 path 一律**不带尾斜杠**，技能四条路由是 `/skills` prefix 的 exact 子路径（`ENTERPRISE_SKILL_*_LOCAL_PATH`，含只读的 `/skills/content`）；并对外导出稳定码→HTTP 状态的**唯一**映射 `enterpriseLocalErrorStatus`——bundle 侧两条本机技能文件子路由（`/skills/<id>/files`、`/skills/<id>/file`）与这里的 `/skills/content`、以及配方一键启用三条子路径必须共用同一张表
+ * **本刀（资料库）**：`enterpriseLocalErrorStatus` 新增四枚资料库码——`ENT_LIBRARY_CONFLICT` / `ENT_LIBRARY_DISABLED`→409、
+ *   `ENT_LIBRARY_TOO_LARGE`→413、`ENT_LIBRARY_INTERNAL`→500（本表唯一一枚 500；表尾默认仍是 503「本机暂时不可用、可重试」，
+ *   两者不同义），供 bundle 的 `library/route.ts` 把领域码 `library/*` 投影成 HTTP 时走同一张表。
  * [POS]: platform-client 的 Host/Client 同源协作边界，只序列化脱敏 DTO 并把认证 HTTP 留在 Host Service；路由形状受引擎 `match()`（`lib/index.js:322`）约束——exact 表整路径优先、prefix 只认 `pathname === prefix` 或 `pathname.startsWith(prefix + '/')`、多条命中取最长，故带尾斜杠的 prefix 会在引擎层空体 404 而根本不进 handler，而 `/skills/install` 这类子路径动作必须靠 exact 表抢在 `/skills` prefix 之前。`/skills/content` 的两个查询参数（包 id / 技能目录名）在这里只按形状收窄后原样转交：**名字不是路径**，是不是本包的、落点怎么拼、有没有符号链接逃逸，一律由 bundle 侧的已装记录与 `realpath` 判定
  * **本刀（插件行动分流）**：新注册两条 exact 动作路由 `POST <local>/plugins/{enable,disable}`（方向由 path 决定，
  *   正文关闭键集恰好 `{packageName}`，响应与 `GET /plugins` 同形）与可选端口 `pluginSetEnabled`；
@@ -298,6 +301,14 @@ export function enterpriseLocalErrorStatus(error: unknown): number {
   if (code === 'ENT_DEVICE_REVOKED' || code === 'ENT_PERMISSION_DENIED') return 403
   if (code === 'ENT_RESOURCE_NOT_FOUND') return 404
   if (code === 'ENT_SESSION_SYNC_DISABLED') return 403
+  // 资料库族（bundle 的 `library/route.ts` 把 `library/*` 翻成这四枚码后走本表；四枚各自的状态码由这里唯一定死）：
+  //  · 冲突族（同父重名 / 键已被占用 / 不可变修订已存在）→ 409（请求合法、本机状态不允许）；
+  //  · 已停用 → 409（同族：请求合法，但这份资料当前不可被读取）；
+  //  · 超限族（单文件 / 单会话选中集合）→ 413；
+  //  · 未分类内部错误 → 500（**本表唯一的 500**：表尾默认的 503 语义是"本机暂时不可用、可重试"，与它不同义）。
+  if (code === 'ENT_LIBRARY_CONFLICT' || code === 'ENT_LIBRARY_DISABLED') return 409
+  if (code === 'ENT_LIBRARY_TOO_LARGE') return 413
+  if (code === 'ENT_LIBRARY_INTERNAL') return 500
   // 配方发布口 fail-closed 引用校验（ENT_PRESET_DEPENDENCIES_INVALID / _KIND_UNSUPPORTED 是
   // "这份版本的引用声明本身不合法"→400；ENT_PRESET_REQUIRES_MISSING / _NOT_PUBLISHED 是
   // "声明合法但中心当前没有可分发目标"→409，管理员补齐或改钉后重试）。

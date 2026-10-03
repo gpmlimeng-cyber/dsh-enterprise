@@ -169,6 +169,16 @@ const ENTERPRISE_ERROR_TABLE: Readonly<Record<string, { readonly message: string
   ENT_LIBRARY_UNAVAILABLE: { message: '资料库还在接入中，暂时打不开。', action: '请稍后重试；仍然打不开请联系企业管理员。', retryable: true },
   ENT_LIBRARY_SETTING_READ_FAILED: { message: '本机保存的资料库开关没有读取到。', action: '已按默认关闭处理；请重试，或重新拨动一次开关。', retryable: true },
   ENT_LIBRARY_SETTING_SAVE_FAILED: { message: '资料库开关没有保存到本机。', action: '请重试；仍然失败请检查本机的存储权限。', retryable: true },
+  // 读本机文件失败（浏览器读不出选中的那个文件）：与"上传到资料库失败"分开说，因为下一步不同。
+  ENT_LIBRARY_FILE_READ_FAILED: { message: '选中的文件读不出来。', action: '请确认文件还在、内容没有损坏，然后重新选一次。', retryable: true },
+  // 上传/改名撞了同名、或这份资料的版本已被占用：请求合法、只是当前状态不允许，改个名字或刷新即可。
+  ENT_LIBRARY_CONFLICT: { message: '资料库里有同名的内容了。', action: '请换一个名字，或先删掉/改名原来的那份。', retryable: false },
+  // 这份资料被停用了：模型不能读它，员工也打不开正文（原件仍可下载）。
+  ENT_LIBRARY_DISABLED: { message: '这份资料已停用。', action: '请在企业设置里重新启用后再打开。', retryable: false },
+  // 单份太大（正文超过上限）：员工能据此换一份更小的，故 413 的下一步是"换小一点"。
+  ENT_LIBRARY_TOO_LARGE: { message: '这份资料太大了，暂时放不进资料库。', action: '请拆分后再上传，或改存更小的文件。', retryable: false },
+  // 本机出错了（不是请求的问题）：如实说"我们这边出错了"并给重试，不把内部细节砸给员工。
+  ENT_LIBRARY_INTERNAL: { message: '资料库这边出错了。', action: '请稍后重试；仍然失败请联系企业管理员。', retryable: true },
 
   // ── 帮助与反馈 ───────────────────────────────────────────────────────────────
   ENT_FEEDBACK_INVALID: { message: '反馈内容不完整。', action: '请填写描述并勾选同意后重试。', retryable: false },

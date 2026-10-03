@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖注入进来的域端口（官方 `ctx.storageDomain.open(spec)` 或测试假实现）、注入进来的对象层端口（`LibraryObjectStore` 或带埋点的测试替身）、以及本包的 `keys.js`（主键归一化）、`storage/domain.js`（四张表 schema 与记录类型）、`objects.js`（不可变原件落盘）、`errors.js`（稳定码）
- * [OUTPUT]: 对外提供 `LibraryManager`（资料库领域服务门面：节点树 / 资产 / 不可变修订 / 会话选择的增删改查与级联删除）、它的构造参数与输入输出类型、`LibraryLimits` 默认值（5 GiB 主体配额 / 32 个选中节点 / 256 名字长度）
- * [POS]: bundle 资料库纵深的**领域服务唯一真源**（方案 §4.4「C. 服务」组的口径）：所有公开方法在同一实例内**串行**（勘误 B4：并发串行**仅进程内**，跨进程 last-write-wins），读是同步内存读、写排在同一实例的队列上；list 顺序**不保证**（官方 json 后端是 `readdir` 序）⇒ **排序一律由本层做**。本刀**不做宿主接线**：路由/工具/注入/UI 都在后续刀，`bundle/src/index.ts` 里没有一行 import 本模块
+ * [OUTPUT]: 对外提供 `LibraryManager`（资料库领域服务门面：节点树 / 资产 / 不可变修订 / 会话选择的增删改查与级联删除 / 检索 `search`）、它的构造参数与输入输出类型、`LibraryLimits` 默认值（5 GiB 主体配额 / 32 个选中节点 / 256 名字长度）
+ * [POS]: bundle 资料库纵深的**领域服务唯一真源**（方案 §4.4「C. 服务」组的口径）：所有公开方法在同一实例内**串行**（勘误 B4：并发串行**仅进程内**，跨进程 last-write-wins），读是同步内存读、写排在同一实例的队列上；list 顺序**不保证**（官方 json 后端是 `readdir` 序）⇒ **排序一律由本层做**。本文件仍然只依赖注入进来的两个端口（域 + 对象层），**不 import 任何 `@deepseek-ai/*`**；宿主接线在 `./host.ts`（存储服务面 / 路由 / 工具 / 注入），路由与工具只消费本门面
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -14,6 +14,7 @@ import {
   LIBRARY_DEFAULT_MEDIA_TYPES,
   LIBRARY_DOMAIN_VERSION,
   LIBRARY_MAX_SELECTION_NODES,
+  LIBRARY_ROOT_TITLE,
   parseLibraryRecord,
 } from './storage/domain.js'
 import type {
@@ -25,6 +26,17 @@ import type {
   LibraryTablePort,
 } from './storage/domain.js'
 import { isLibraryKeySafe, libraryRecordKey } from './storage/keys.js'
+import {
+  LIBRARY_SEARCH_LIMIT,
+  compareLibrarySearchHits,
+  librarySearchExcerpt,
+  librarySearchLocation,
+  librarySearchMatch,
+  librarySearchTerm,
+  type LibrarySearchHit,
+} from './search.js'
+
+export type { LibrarySearchHit } from './search.js'
 
 /** 资产格式联合。 */
 export type LibraryAssetKind = (typeof LIBRARY_ASSET_KINDS)[number]
@@ -138,6 +150,34 @@ export interface LibraryRevisionOriginalContent {
   readonly sha256: string
 }
 
+/**
+ * `search` 入参（§4.1 F5/F12）。
+ *
+ * `sessionId` 是本刀最要紧的一件：**给了它就在"该会话已选中的资料"范围内检索**（方案 §4.4 E3：
+ * 工具只准看本轮已选集合，这是把提示词注入面收窄的那道闸）；不给＝全库检索（页面里的查找走这条）。
+ * `kind`/`source` 是 F5 的四类过滤里的两类（另两类是"停用跳过"与"只搜当前修订"，它们恒生效、不做成开关）。
+ */
+export interface LibrarySearchInput {
+  /** 查询词；空串是合法的（＝把当前修订按最近排序列出来，分数恒 0）。 */
+  readonly query: string
+  readonly kind?: LibraryAssetKind | undefined
+  readonly source?: LibraryAssetSource | undefined
+  /** 给了就只在**该会话已选中**的资料范围内检索（F12 的精确修订匹配）。 */
+  readonly sessionId?: string | undefined
+  /** 返回上限；默认 `LIBRARY_SEARCH_LIMIT`（50）。 */
+  readonly limit?: number | undefined
+}
+
+/** 选中集合里的一条（`assetId → revisionId` 的物化，给路由/工具与注入共用）。 */
+export interface LibrarySelectionItem {
+  /** 被选中的树节点 id（选择记录里存的是节点，这里保留原始身份）。 */
+  readonly nodeId: string
+  readonly assetId: string
+  readonly revisionId: string
+  readonly name: string
+  readonly kind: LibraryAssetKind
+}
+
 /** 四张表记录共有的归属三件套（`scope`/`ownerId`/`id` 的**原始**值，是主键归属校验的真源）。 */
 interface LibraryOwnedRecord {
   readonly scope: string
@@ -249,15 +289,34 @@ export class LibraryManager {
     return await this.enqueue(async () => sortNodes(this.ownedNodes()))
   }
 
-  /** 改名（同一父下仍要过重名门禁，排除自己）。 */
+  /**
+   * 改名（同一父下仍要过重名门禁，排除自己）。
+   *
+   * **文件节点要同步两处展示名**：树上的 `nodes.title` 与资产上的 `assets.name`（`storage/domain.ts` 明写
+   * "避免展示名两个真源"——不同步的话，检索命中与工具输出会拿着旧名字说话）。两处写不在同一张表上、
+   * 无法原子，故第二处失败时把第一处回滚回去，宁可"什么都没改"也不留两个名字。
+   */
   async renameNode(nodeId: string, title: string): Promise<LibraryNodeRecord> {
     return await this.enqueue(async () => {
       const node = this.requireOwned(this.nodes, nodeId, 'node')
       const cleaned = this.cleanName(title, 'title')
       await this.assertUniqueName(node.parentId, cleaned, node.id)
       const now = this.timestamp()
-      return await this.nodes.update(this.keyOf(node.id), current =>
+      const renamed = await this.nodes.update(this.keyOf(node.id), current =>
         parseLibraryRecord('nodes', { ...current, title: cleaned, updatedAt: now }))
+      if (node.kind === 'asset' && node.assetId !== null
+        && this.ownedOrUndefined(this.assets, node.assetId) !== undefined) {
+        try {
+          await this.assets.update(this.keyOf(node.assetId), current =>
+            parseLibraryRecord('assets', { ...current, name: cleaned, updatedAt: now }))
+        } catch (error) {
+          await this.nodes.update(this.keyOf(node.id), current =>
+            parseLibraryRecord('nodes', { ...current, title: node.title, updatedAt: node.updatedAt }))
+            .catch(cleanupError => this.report('library rename rollback failed', cleanupError))
+          throw error
+        }
+      }
+      return renamed
     })
   }
 
@@ -480,10 +539,83 @@ export class LibraryManager {
     })
   }
 
-  /** 读一条修订的**派生正文**（`content.md`）；对象缺失 ⇒ `library/object-missing`。 */
+  /**
+   * 检索（§4.1 F5 的逐条口径 + F12 的"给了 sessionId 就只看已选集合" + F13 的"停用即隔离"）。
+   *
+   * 语义全部委托给 `./search.js` 的纯函数（三档分数 / 排序 / 摘录窗口 / 位置标题），本方法只负责：
+   * ① 过滤（停用跳过、kind/source、只搜**当前修订**）；② 把正文从对象层读出来；③ 组装命中并截断。
+   *
+   * 三条边界：
+   * · **给了 `sessionId` 但该会话没有任何选择记录 ⇒ 没有任何命中**（不是"整库"——F12 的方向是收窄，不是放宽）；
+   * · 正文读不出来（对象缺失 / 转换失败）时，**空查询**仍列出该修订（摘录为空，F19 的"空查询仍能在最近看到"），
+   *   非空查询则跳过——两种情况都经 `onError` 留痕，绝不静默吞掉；
+   * · 结果顺序由 `compareLibrarySearchHits` 唯一决定（后端序不许泄漏到界面）。
+   */
+  async search(input: LibrarySearchInput): Promise<readonly LibrarySearchHit[]> {
+    return await this.enqueue(async () => {
+      const raw = input?.query
+      if (typeof raw !== 'string') throw badRequest('query must be a string')
+      if (raw.includes('\u0000')) throw badRequest('query must not contain a NUL byte')
+      const term = librarySearchTerm(raw)
+      const kind = input.kind === undefined ? undefined : requireAssetKind(input.kind)
+      const source = input.source === undefined ? undefined : requireAssetSource(input.source)
+      const limit = input.limit === undefined ? LIBRARY_SEARCH_LIMIT : requireSearchLimit(input.limit)
+      const selected = input.sessionId === undefined
+        ? undefined
+        : await this.selectedRevisionMap(requireText(input.sessionId, 'sessionId'))
+      if (selected !== undefined && selected.size === 0) return []
+      const hits: LibrarySearchHit[] = []
+      for (const asset of this.ownedAssets()) {
+        if (asset.status === 'disabled') continue
+        if (kind !== undefined && asset.kind !== kind) continue
+        if (source !== undefined && asset.source !== source) continue
+        const revisionId = asset.currentRevisionId
+        if (revisionId === null) continue
+        if (selected !== undefined && selected.get(asset.id) !== revisionId) continue
+        const revision = this.ownedOrUndefined(this.revisions, revisionId)
+        if (revision === undefined || revision.assetId !== asset.id) continue
+        let text: string
+        try {
+          text = (await this.objects.readRevisionText(asset.id, revision.id)).text
+        } catch (error) {
+          this.report('library search could not read one revision text', error)
+          if (term.length > 0) continue
+          text = ''
+        }
+        const match = librarySearchMatch(term, asset.name, text)
+        if (match === undefined) continue
+        const location = librarySearchLocation(text, match.offset)
+        hits.push({
+          assetId: asset.id,
+          revisionId: revision.id,
+          name: asset.name,
+          kind: asset.kind,
+          source: asset.source,
+          updatedAt: asset.updatedAt,
+          folderPath: this.folderPathOf(nodeIdOfAsset(this.ownedNodes(), asset.id)),
+          score: match.score,
+          ...(location === undefined ? {} : { location }),
+          excerpt: librarySearchExcerpt(text, match.offset),
+        })
+      }
+      return hits.sort(compareLibrarySearchHits).slice(0, limit)
+    })
+  }
+
+  /**
+   * 读一条修订的**派生正文**（`content.md`）；对象缺失 ⇒ `library/object-missing`。
+   *
+   * **停用即隔离**（§4.4 F13）：资产 `status:'disabled'` 时读正文一律拒 `library/disabled`——
+   * 停用的语义是"模型不能消费它"，而读正文正是消费的入口（原件仍可读：那是员工自己的文件，
+   * 与 F19 的"转换失败仍保留原件"同一条口径）。
+   */
   async readRevisionText(assetId: string, revisionId: string): Promise<LibraryRevisionDocument> {
     return await this.enqueue(async () => {
       const revision = this.requireRevisionOf(assetId, revisionId)
+      const asset = this.ownedOrUndefined(this.assets, revision.assetId)
+      if (asset !== undefined && asset.status === 'disabled') {
+        throw new LibraryError('library/disabled', 'library revision text is not readable while the asset is disabled')
+      }
       const { text, byteLength } = await this.objects.readRevisionText(revision.assetId, revision.id)
       return { revision, text, byteLength }
     })
@@ -557,6 +689,70 @@ export class LibraryManager {
   /** 清掉某个会话的选中集合；返回它此前是否存在。 */
   async clearSelection(sessionId: string): Promise<boolean> {
     return await this.enqueue(async () => await this.selections.delete(this.keyOf(requireText(sessionId, 'sessionId'))))
+  }
+
+  /**
+   * 把某个会话的选中集合物化成 `assetId → revisionId`（F12 的"精确修订匹配"由此而来）。
+   *
+   * 三条收敛（与 F13/C9 一致，且都在**读**这一侧再判一次，不依赖写时的那道）：节点必须还在、
+   * 必须是文件节点、资产必须还活着且**未停用**、必须有当前修订。任何一条不满足 ⇒ 那一份就从集合里消失
+   * （而不是留下一个"选中了但读不出来"的悬空 id）。
+   */
+  async selectedRevisions(sessionId: string): Promise<ReadonlyMap<string, string>> {
+    return await this.enqueue(async () => await this.selectedRevisionMap(requireText(sessionId, 'sessionId')))
+  }
+
+  /** 同上的物化清单（路由的 `task-selection` 与注入共用；顺序＝选择记录里的顺序）。 */
+  async selectedItems(sessionId: string): Promise<readonly LibrarySelectionItem[]> {
+    return await this.enqueue(async () => await this.selectedItemsOrEmpty(requireText(sessionId, 'sessionId')))
+  }
+
+  /**
+   * 一个树节点所在文件夹的**可读路径**（`我的资料 / 项目甲`；直接在根下就是 `我的资料`）。
+   *
+   * 纯展示用途（命中列表与工具输出），因此**不抛**：节点未知/链上有环一律停在能走到的那一段——
+   * 检索不该因为一条坏记录整条失败，但它也绝不说假话（只报真的走过的祖先标题）。
+   */
+  folderPathOf(nodeId: string | null): string {
+    const chain: string[] = []
+    const seen = new Set<string>()
+    let cursor = nodeId === null ? null : this.ownedOrUndefined(this.nodes, nodeId)?.parentId ?? null
+    while (cursor !== null && !seen.has(cursor)) {
+      seen.add(cursor)
+      const node = this.ownedOrUndefined(this.nodes, cursor)
+      if (node === undefined) break
+      if (node.kind === 'folder') chain.unshift(node.title)
+      cursor = node.parentId
+    }
+    return [LIBRARY_ROOT_TITLE, ...chain].join(' / ')
+  }
+
+  /** `selectedRevisions` / `selectedItems` 共用的物化内核（**不**自己入队，调用方已在队列上）。 */
+  private async selectedRevisionMap(sessionId: string): Promise<Map<string, string>> {
+    const map = new Map<string, string>()
+    for (const item of await this.selectedItemsOrEmpty(sessionId)) map.set(item.assetId, item.revisionId)
+    return map
+  }
+
+  /** 同上，但读的是"选择记录 → 条目"那一段（抽出来避免 `selectedRevisionMap` 再入队一次）。 */
+  private async selectedItemsOrEmpty(sessionId: string): Promise<readonly LibrarySelectionItem[]> {
+    const selection = this.ownedOrUndefined(this.selections, sessionId)
+    if (selection === undefined) return []
+    const items: LibrarySelectionItem[] = []
+    for (const nodeId of selection.nodeIds) {
+      const node = this.ownedOrUndefined(this.nodes, nodeId)
+      if (node === undefined || node.kind !== 'asset' || node.assetId === null) continue
+      const asset = this.ownedOrUndefined(this.assets, node.assetId)
+      if (asset === undefined || asset.status === 'disabled' || asset.currentRevisionId === null) continue
+      items.push({
+        nodeId: node.id,
+        assetId: asset.id,
+        revisionId: asset.currentRevisionId,
+        name: asset.name,
+        kind: asset.kind,
+      })
+    }
+    return items
   }
 
   // ───────────────────────────── 内部：串行与记录访问 ─────────────────────────────
@@ -812,6 +1008,16 @@ export class LibraryManager {
   private report(message: string, error: unknown): void {
     this.onError?.(message, error)
   }
+
+  /**
+   * 供**同级模块**（`import.ts` 的导入失败补偿、宿主接线层）走同一条留痕通道的公开入口。
+   *
+   * 为什么公开：`onError` 是构造期注入的唯一留痕面，同级模块不该为了记一句话再建第二个回调通道；
+   * 它**只记不抛**，调用方必须继续抛原始失败（绝不用它掩盖错误）。
+   */
+  reportCleanupFailure(message: string, error: unknown): void {
+    this.report(message, error)
+  }
 }
 
 /** 节点排序：文件夹先，再按 `title` 的 `zh-CN` 规则（§4.4 C6）。 */
@@ -825,6 +1031,38 @@ function sortNodes(nodes: readonly LibraryNodeRecord[]): LibraryNodeRecord[] {
 /** 资产排序：名字的 `zh-CN` 规则（存储序不许泄漏给界面）。 */
 function sortAssets(assets: readonly LibraryAssetRecord[]): LibraryAssetRecord[] {
   return [...assets].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
+}
+
+/** 某份资产的树节点 id（`createAsset` 保证一对一；存量数据里缺失 ⇒ `null`，路径就停在根）。 */
+function nodeIdOfAsset(nodes: readonly LibraryNodeRecord[], assetId: string): string | null {
+  for (const node of nodes) {
+    if (node.kind === 'asset' && node.assetId === assetId) return node.id
+  }
+  return null
+}
+
+/** 检索的 `kind` 过滤门禁：必须是本仓六种格式之一（别的值一律 400，不静默变成"不过滤"）。 */
+function requireAssetKind(value: unknown): LibraryAssetKind {
+  if (typeof value !== 'string' || !(LIBRARY_ASSET_KINDS as readonly string[]).includes(value)) {
+    throw badRequest('kind must be one of the library asset kinds')
+  }
+  return value as LibraryAssetKind
+}
+
+/** 检索的 `source` 过滤门禁（同上：非法值 400，不静默忽略）。 */
+function requireAssetSource(value: unknown): LibraryAssetSource {
+  if (value !== 'upload' && value !== 'task' && value !== 'created') {
+    throw badRequest('source must be upload, task or created')
+  }
+  return value
+}
+
+/** 检索的 `limit` 门禁：正整数且不超过硬上限（超上限按上限收，小于 1 一律 400）。 */
+function requireSearchLimit(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+    throw badRequest('limit must be a positive integer')
+  }
+  return Math.min(value, LIBRARY_SEARCH_LIMIT)
 }
 
 /** 通用文本门禁：非字符串/空串/超长/含控制字符一律拒。 */

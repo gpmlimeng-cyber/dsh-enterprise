@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 Cordis/Schemastery、Harness credentials/LLM/inventory、官方 dsh-deepseek-account-platform、官方 settings 的 volatile Config 投影、platform-client 的地址写入诊断串与本地路由端口、plugin-distribution 的企业插件分发 Service 与其制品下载内核、官方运行时身份与企业业务模块
- * [OUTPUT]: 对外提供 Web/Desktop 共用 bundle apply、官方 settings 的 volatile Server/账户后台地址字段、默认关闭的插件验签开关、Host 凭据持久化、**企业插件安装/卸载/取消（官方 `pluginManager` 安装面，经 `manager-wiring.ts` 延迟接线；不再有 `dsh plugin` 子进程、不再 inject `subprocess`）**、**企业技能一键安装端口与已装技能只读正文端口**、**企业配方一键启用端口（官方 inject 声明 + 延迟解析取 `pluginManager` 安装面 + 三个实时解引用的本机路由端口 + 既有运行时下载面取配方正文；服务时序上不可用则 fail-closed，等它出现再接线）**、条件 Session 同步注册，以及用 settings 自定义地址热重挂官方账户插件；安卓按 `browserHandoff: 'client'` 把登录浏览器交接给浏览器半（宿主进程没有可用的开源路径），地址不可持久化的每个判定点都写 warn/error 宿主日志
- * [POS]: bundle 的唯一 Host Loader 入口，组合平台认证、官方企业模型、账户后台地址、环境原生插件调和与企业技能落盘（`skill-install.ts`）**、企业配方一键启用（`preset/`核心 + `preset-source.ts` + `preset-service.ts` + `preset/wiring.ts` 的时序边界）与受管插件官方安装面（`manager-wiring.ts`，复用同一份 `deferOfficialServiceWiring`）**；Session 同步仅在 sessionPolicy.enabled 时挂载
+ * [OUTPUT]: 对外提供 Web/Desktop 共用 bundle apply、官方 settings 的 volatile Server/账户后台地址字段、默认关闭的插件验签开关、Host 凭据持久化、**企业插件安装/卸载/取消（官方 `pluginManager` 安装面，经 `manager-wiring.ts` 延迟接线；不再有 `dsh plugin` 子进程、不再 inject `subprocess`）**、**企业技能一键安装端口与已装技能只读正文端口**、**企业配方一键启用端口（官方 inject 声明 + 延迟解析取 `pluginManager` 安装面 + 三个实时解引用的本机路由端口 + 既有运行时下载面取配方正文；服务时序上不可用则 fail-closed，等它出现再接线）**、条件 Session 同步注册、**资料库三面（本机路由 `/enterprise/api/v1/local/library/**` + 3 个 Host 工具 + `system-prompt/assemble` 注入；域与主体晚绑定，未登录/未开域 ⇒ 503 可重试）**，以及用 settings 自定义地址热重挂官方账户插件；安卓按 `browserHandoff: 'client'` 把登录浏览器交接给浏览器半（宿主进程没有可用的开源路径），地址不可持久化的每个判定点都写 warn/error 宿主日志
+ * [POS]: bundle 的唯一 Host Loader 入口，组合平台认证、官方企业模型、账户后台地址、环境原生插件调和与企业技能落盘（`skill-install.ts`）**、企业配方一键启用（`preset/`核心 + `preset-source.ts` + `preset-service.ts` + `preset/wiring.ts` 的时序边界）与受管插件官方安装面（`manager-wiring.ts`，复用同一份 `deferOfficialServiceWiring`）、以及资料库纵深（`library/index.ts` 的 `createEnterpriseLibraryHost` + `mountEnterpriseLibraryFaces`）**；Session 同步仅在 sessionPolicy.enabled 时挂载
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -54,6 +54,13 @@ import { registerEnterpriseUsageRoute } from './usage-route.js'
 import { registerEnterpriseModelsStatusRoute } from './models-status.js'
 import { createEnterpriseSkillInstall } from './skill-install.js'
 import { registerEnterpriseSkillRoutes } from './skill-route.js'
+import {
+  createEnterpriseLibraryHost,
+  mountEnterpriseLibraryFaces,
+  type EnterpriseLibraryDomainFacilityPort,
+  type EnterpriseLibraryEventPort,
+  type EnterpriseLibraryToolRuntime,
+} from './library/index.js'
 import {
   createEnterprisePresetInstall,
   createLateBoundPresetService,
@@ -643,6 +650,47 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
   ctx.effect(() => () => {
     void (sessionSyncHandle as HostSessionSyncHandle | null)?.dispose()
   }, 'enterpriseSessionSync.dispose()')
+  /**
+   * 资料库（方案 §5.1 的 P0 竖切）宿主接线：**存储域 + 本机路由 + Host 工具 + system-prompt 注入**。
+   *
+   * 三处刻意选择（都在 `library/host.ts` 的文件头写明了理由）：
+   * · 域与主体**晚绑定**：`open` 是异步的、企业登录态可能晚到，故三个面先挂上，
+   *   每次调用实时解引用"当前门面"；未就绪 ⇒ 503 `ENT_LIBRARY_UNAVAILABLE`（可重试），不是 404、不是空列表。
+   * · 主体＝**当前企业登录用户**（`platform.status().user.id`）：未登录就没有可归属的主体 ⇒ 门面缺席。
+   *   这就是方案 §2.3 那条"不新造 IdentityService"的落法（唯一真源仍是 platform-client 的登录态）。
+   * · `storageDomain`/`tools` 都用 `ctx.get()` 而不进 `inject` 数组：它们是**可选**面（缺它们只让资料库
+   *   这一角不可用，不该让整个 bundle 不激活）。缺 `events` 时注入不挂——三条面互相独立。
+   */
+  const libraryHost = createEnterpriseLibraryHost({
+    facility: ctx.get('storageDomain') as EnterpriseLibraryDomainFacilityPort | undefined,
+    tools: ctx.get('tools') as EnterpriseLibraryToolRuntime | undefined,
+    events: ctx as unknown as EnterpriseLibraryEventPort,
+    readSubject: () => {
+      const user = platform.status().user
+      return user === undefined || user.id.length === 0
+        ? undefined
+        : { scope: 'personal', ownerId: user.id }
+    },
+    log: (level, message, error) => {
+      if (level === 'info') ctx.logger.info(message)
+      else ctx.logger.warn(message, error)
+    },
+  })
+  ctx.effect(() => mountEnterpriseLibraryFaces(libraryHost, {
+    webServer: ctx.webServer,
+    tools: ctx.get('tools') as EnterpriseLibraryToolRuntime | undefined,
+    events: ctx as unknown as EnterpriseLibraryEventPort,
+  }), 'enterpriseLibrary.faces')
+  ctx.effect(() => {
+    void libraryHost.start().catch((error: unknown) => {
+      ctx.logger.warn('owndsh: library domain open failed', error)
+    })
+    return () => {
+      void libraryHost.dispose().catch((error: unknown) => {
+        ctx.logger.warn('owndsh: library domain dispose failed', error)
+      })
+    }
+  }, 'enterpriseLibrary.lifecycle')
   const mountPluginDistribution = (
     distributionContext: PluginDistributionContext,
   ): void => {

@@ -242,6 +242,17 @@ describe('资料库：侧栏一级入口与 main 面板（视图驱动注册/注
     expect(harness.registrations[0]!.component).toBe(EnterpriseLibraryIcon)
     // main 的 inject 面把**同一份**取数源交给页面宿主（不存在第二个数据源）。
     expect((main['inject'] as () => { source: unknown })().source).toBe(SOURCE)
+    // 没有动作端口时那个键**根本不出现**（页面据此把三枚控件禁用并写明原因，而不是给死按钮）。
+    expect((main['inject'] as () => Record<string, unknown>)()['api']).toBeUndefined()
+    // 给了动作端口就原样交进去（同一份对象，不复制、不包装）。
+    const api = {
+      importText: async () => undefined,
+      search: async () => [],
+      readText: async () => ({ assetId: 'as_1', revisionId: 'rv_1', name: 'a.md', kind: 'markdown', content: '', byteLength: 0 }),
+    }
+    const injected = (enterpriseLibraryMainOptions(SOURCE, api)['inject'] as () => { source: unknown, api: unknown })()
+    expect(injected.api).toBe(api)
+    expect(injected.source).toBe(SOURCE)
 
     // 重复拨到开：不重复注册（避免无意义的重挂载）。
     gate.setEnabled(true)
@@ -331,7 +342,7 @@ describe('资料库页面：三态齐备、重试真重发、未接入处禁用�
     expect(upload!['disabled']).toBe(true)
     expect(upload!['aria-describedby']).toBe(ENTERPRISE_LIBRARY_NOT_WIRED_ID)
 
-    const search = collectByType(tree, 'input')[0]
+    const search = collectByType(tree, 'input').find(props => props['aria-label'] === ENTERPRISE_LIBRARY_SEARCH_LABEL)
     expect(search, '查找框应在页面上（未接入时禁用）').toBeDefined()
     expect(search!['disabled']).toBe(true)
     expect(search!['aria-label']).toBe(ENTERPRISE_LIBRARY_SEARCH_LABEL)

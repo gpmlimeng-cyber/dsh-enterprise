@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 只依赖本目录与 `./storage/*` 下的模块（不 import 任何 `@deepseek-ai/*`、不 import `../../index.js`）
- * [OUTPUT]: 把本刀的公开面收在一处：错误码与 `LibraryError`、主键层、记录信封、域规格与四张表 schema/类型、对象层与转换元数据、`LibraryManager` 服务门面
- * [POS]: bundle 资料库纵深（P0 第一块基石：存储与域层）的**本地出口**。**本刀刻意不接线**：`bundle/src/index.ts` 里没有一行 import 它，`bundle/cordis.patch.yml` 不动，`contracts/` 不动，`ui/` 不动——因此它现在只是"可被单测直接 import 的纯模块"，宿主运行期完全看不到它（方案 §5.1 的 P0 竖切把它拆成多刀，本刀是第一刀）
+ * [INPUT]: 只依赖本目录与 `./storage/*` 下的模块（唯一的例外是 `./route.js` 与 `./host.js`：它们要用 platform-client 的 route port 与 `resolveEnterpriseDshHome()`；**仍不 import 官方 `@deepseek-ai/*`**）
+ * [OUTPUT]: 把资料库纵深的公开面收在一处：错误码与 `LibraryError`、主键层、记录信封、域规格与四张表 schema/类型、对象层与转换元数据、`LibraryManager` 服务门面、检索纯函数、文本导入、本机路由、Host 工具、system-prompt 注入与宿主装配
+ * [POS]: bundle 资料库纵深的**本地出口**。第一刀（存储与域层）刻意不接线，本刀（宿主接线）把三个面挂上：`bundle/src/index.ts` 的 `apply()` 调一次 `createEnterpriseLibraryHost` + `mountEnterpriseLibraryFaces`；`bundle/cordis.patch.yml` 与 `contracts/` 仍然不动
  * [PROTOCOL]: 下一刀（宿主接线）在这里或 `../../index.ts` 增加挂载点，并更新本头部
  */
 
@@ -92,6 +92,81 @@ export {
   type LibraryRemovalSummary,
   type LibraryRevisionDocument,
   type LibraryRevisionOriginalContent,
+  type LibrarySearchHit,
+  type LibrarySearchInput,
+  type LibrarySelectionItem,
   type LibrarySubject,
   type LibraryWriteRevisionInput,
 } from './manager.js'
+// 检索语义（纯函数）
+export {
+  LIBRARY_SEARCH_EXCERPT_LENGTH,
+  LIBRARY_SEARCH_EXCERPT_LEAD,
+  LIBRARY_SEARCH_LIMIT,
+  compareLibrarySearchHits,
+  librarySearchExcerpt,
+  librarySearchLocation,
+  librarySearchMatch,
+  librarySearchTerm,
+  type LibrarySearchHit as LibrarySearchHitShape,
+} from './search.js'
+// 文本导入（md/txt）
+export {
+  importLibraryText,
+  libraryTextKindOf,
+  normalizeLibraryText,
+  type LibraryTextImportInput,
+  type LibraryTextImportResult,
+} from './import.js'
+// 本机 HTTP 面
+export {
+  ENTERPRISE_LIBRARY_ENDPOINTS,
+  ENTERPRISE_LIBRARY_LOCAL_PATH,
+  ENTERPRISE_LIBRARY_MAX_BODY_BYTES,
+  ENTERPRISE_LIBRARY_OBJECTS_PREFIX,
+  projectLibraryFailure,
+  registerEnterpriseLibraryRoutes,
+  type EnterpriseLibraryEndpoint,
+  type EnterpriseLibraryRoutePort,
+  type LibraryFailureProjection,
+} from './route.js'
+// 模型面：Host 工具
+export {
+  ENTERPRISE_LIBRARY_TOOL_NAMES,
+  LIBRARY_READ_DEFAULT_LIMIT,
+  LIBRARY_READ_MAX_LIMIT,
+  libraryReadWindow,
+  librarySearchToolValue,
+  registerEnterpriseLibraryTools,
+  type EnterpriseLibraryToolContent,
+  type EnterpriseLibraryToolDefinition,
+  type EnterpriseLibraryToolExec,
+  type EnterpriseLibraryToolPort,
+  type EnterpriseLibraryToolRuntime,
+} from './tools.js'
+// 模型面：system-prompt 注入
+export {
+  LIBRARY_INJECTION_CONTEXT_NAME,
+  LIBRARY_INJECTION_DEFENSE,
+  LIBRARY_INJECTION_DOCUMENT_LIMIT,
+  LIBRARY_INJECTION_TOTAL_LIMIT,
+  buildLibraryInjectionText,
+  librarySessionIdOf,
+  registerEnterpriseLibraryInjection,
+  renderLibraryDocument,
+  type EnterpriseLibraryEventPort,
+  type EnterpriseLibraryInjectionPort,
+  type LibraryAssembleContext,
+  type LibraryAssembleListener,
+  type LibraryAssembleNext,
+  type LibraryPromptAssembly,
+  type LibraryPromptContextEntry,
+} from './context-injection.js'
+// 宿主装配
+export {
+  createEnterpriseLibraryHost,
+  mountEnterpriseLibraryFaces,
+  type EnterpriseLibraryDomainFacilityPort,
+  type EnterpriseLibraryHost,
+  type EnterpriseLibraryHostDeps,
+} from './host.js'

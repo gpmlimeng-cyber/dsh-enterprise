@@ -50,7 +50,13 @@ export type LibraryErrorCode =
   | 'library/quota-exceeded'
   /** 单会话选中集合超限（默认 32 个节点，A26:182 / §4.4 C9）。 */
   | 'library/selection-too-large'
-  /** 未分类的 I/O 失败；HTTP 面把它投影成 500，其余都投影成 400。 */
+  /** 资产已停用：**读正文**与选中一律拒（§4.4 F13 的"停用即隔离"）。 */
+  | 'library/disabled'
+  /** 该资料不在本会话的选中集合里（工具边界的收窄，§4.4 F12/E4）。 */
+  | 'library/not-selected'
+  /** 工具调用处拿不到会话 id（没有 `exec.agent`）——没有会话就没有"本轮选中"，fail-closed。 */
+  | 'library/session-required'
+  /** 未分类的 I/O 失败；HTTP 面把它投影成 500，其余都按族投影成 400/404/409/413。 */
   | 'library/internal'
 
 /**
