@@ -62,7 +62,7 @@ describe('EnterpriseAccountStore', () => {
         }).mockResolvedValue(next),
         plugins: vi.fn().mockImplementationOnce(() => new Promise(resolve => { resolvePlugins = resolve })).mockResolvedValue(nextPlugins),
         setServerUrl: vi.fn(), startLogin: vi.fn(), cancelLogin: vi.fn(), logout: vi.fn(), uninstall: vi.fn(),
-        installPlugin: vi.fn(), removePlugin: vi.fn(),
+        installPlugin: vi.fn(), removePlugin: vi.fn(), setPluginEnabled: vi.fn(),
       }
       const store = new EnterpriseAccountStore(api)
       await store.refresh()
@@ -144,6 +144,7 @@ describe('EnterpriseAccountStore', () => {
       })),
       installPlugin: vi.fn(async () => ({ assignmentRevision: 7, plugins: [] })),
       removePlugin: vi.fn(async () => ({ assignmentRevision: 7, plugins: [] })),
+      setPluginEnabled: vi.fn(async () => ({ assignmentRevision: 7, plugins: [] })),
       startLogin: vi.fn(async () => { current = { ...base, state: 'AUTHORIZING', flowId: 'flow-1' }; return { flowId: 'flow-1' } }),
       cancelLogin: vi.fn(async () => { current = { ...base, state: 'CANCELLED', errorCode: 'ENT_AUTH_CANCELLED' }; return { cancelled: true } }),
       logout: vi.fn(async () => { current = { ...base, state: 'SIGNED_OUT' }; return { loggedOut: true } }),
@@ -183,6 +184,10 @@ describe('EnterpriseAccountStore', () => {
     expect(api.installPlugin).toHaveBeenCalledWith('@example/dsh-code-review', '880', expect.any(AbortSignal))
     await store.removePlugin('@example/dsh-code-review')
     expect(api.removePlugin).toHaveBeenCalledOnce()
+    // 启用 / 停用：与装/卸同一条串行纪律，方向由**入参**决定（`false` = 停用，绝不是卸载）。
+    await store.setPluginEnabled('@example/dsh-code-review', false)
+    expect(api.setPluginEnabled).toHaveBeenCalledWith('@example/dsh-code-review', false, expect.any(AbortSignal))
+    expect(api.removePlugin).toHaveBeenCalledOnce()
     await store.logout()
     expect(store.getSnapshot().status?.state).toBe('SIGNED_OUT')
     expect(store.getSnapshot().bootstrap).toBeUndefined()
@@ -215,5 +220,46 @@ describe('EnterpriseAccountStore', () => {
       expect(store.getSnapshot()).toEqual({ phase: 'error', errorCode: 'ENT_PLATFORM_UNAVAILABLE' })
     })
     unsubscribe()
+  })
+})
+
+describe('企业插件「启用 / 停用」（本刀：关闭开关＝停用，不是卸载）', () => {
+  it('records the settled fact only when the response really flipped 启停位, and never touches 卸载', async () => {
+    const records = [{
+      packageName: '@example/dsh-tools', version: '1.0.0', desiredRevision: 7,
+      desiredState: 'INSTALLED' as const, state: 'ACTIVE' as const, lastErrorCode: null, enabled: true,
+    }]
+    const ready: EnterpriseLocalStatus = { ...base, state: 'READY' }
+    const api: EnterpriseLocalApi = {
+      status: vi.fn(async () => ready),
+      refresh: vi.fn(async () => ready),
+      setServerUrl: vi.fn(),
+      bootstrap: vi.fn(),
+      plugins: vi.fn(async () => ({ assignmentRevision: 7, plugins: records.map(item => ({ ...item })) })),
+      installPlugin: vi.fn(),
+      removePlugin: vi.fn(),
+      // 停用成功：Host 回的这条投影里那一枚启停位如实翻了（响应即真值，客户端不自行翻开关）。
+      setPluginEnabled: vi.fn(async (_name: string, enabled: boolean) => {
+        records[0] = { ...records[0]!, enabled }
+        return { assignmentRevision: 7, plugins: records.map(item => ({ ...item })) }
+      }),
+      startLogin: vi.fn(),
+      cancelLogin: vi.fn(),
+      logout: vi.fn(),
+      uninstall: vi.fn(),
+    } as unknown as EnterpriseLocalApi
+    const store = new EnterpriseAccountStore(api)
+    store.subscribe(() => undefined)
+    await store.refresh()
+    await vi.waitFor(() => { expect(store.getSnapshot().status?.state).toBe('READY') })
+    await store.setPluginEnabled('@example/dsh-tools', false)
+    expect(api.setPluginEnabled).toHaveBeenCalledWith('@example/dsh-tools', false, expect.any(AbortSignal))
+    // 卸载那条路一次都没走（关掉开关不等于卸载——这是用户明确纠正过的语义）。
+    expect(api.removePlugin).not.toHaveBeenCalled()
+    // 落地事实按**真实收束态**记：动作是 disable、状态取自 Host 那条记录。
+    expect(store.getSnapshot().pluginSettled).toMatchObject({
+      action: 'disable', packageName: '@example/dsh-tools', state: 'ACTIVE',
+    })
+    expect(store.getSnapshot().pluginBusy).toBeUndefined()
   })
 })

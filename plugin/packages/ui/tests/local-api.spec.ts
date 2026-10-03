@@ -14,6 +14,8 @@ import {
   decodeEnterpriseLocalStatus,
   ENTERPRISE_CONNECTION_STATES,
   ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH,
+  ENTERPRISE_PLUGIN_DISABLE_LOCAL_PATH,
+  ENTERPRISE_PLUGIN_ENABLE_LOCAL_PATH,
   MANAGED_PLUGIN_STATES,
 } from '../src/local-api.js'
 
@@ -106,9 +108,30 @@ describe('enterprise local browser API', () => {
             desiredState: 'INSTALLED',
             state,
             lastErrorCode: null,
+            // 旧 Host（投影里没有启停位）⇒ 归一成「启用」；客户端**绝不**从 `state` 反推。
+            enabled: true,
           }],
         })
     }
+    // 启停位在场时如实收下（已安装·已停用那一格），且它**与「装没装」正交**（desiredState 照旧）。
+    expect(decodeEnterprisePluginStatus({
+      assignmentRevision: 7, plugins: [{ ...PLUGIN, state: 'ACTIVE', enabled: false }],
+    })).toEqual({
+      assignmentRevision: 7,
+      plugins: [{
+        packageName: PLUGIN.packageName,
+        version: PLUGIN.version,
+        desiredRevision: 7,
+        desiredState: 'INSTALLED',
+        state: 'ACTIVE',
+        lastErrorCode: null,
+        enabled: false,
+      }],
+    })
+    // 形状不对的启停位照样拒（它不是「真值随便收」的自由字段）。
+    expect(() => decodeEnterprisePluginStatus({
+      assignmentRevision: 7, plugins: [{ ...PLUGIN, enabled: 'yes' }],
+    })).toThrow('ENT_LOCAL_RESPONSE_INVALID')
     expect(() => decodeEnterprisePluginStatus({
       assignmentRevision: 7,
       plugins: [{ ...PLUGIN, tgzPath: '/private/plugin.tgz' }],
@@ -213,6 +236,48 @@ describe('enterprise local browser API', () => {
     // 响应走同一个严格解码器：多加一个字段即整条判畸形（「零新增字段」的机械保证）。
     const leaky = createEnterpriseLocalApi(vi.fn(async () => ok({ ...status, cancelled: true })))
     await expect(leaky.cancelPlugin(item.packageName, signal)).rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
+  })
+
+  // 启用 / 停用（本刀）：两条**独立**的同源路径（方向由路径决定，正文仍然只有 `{packageName}`），
+  // 响应与只读 `GET /plugins` 同形（Host 只多那一枚启停位 `enabled`）。
+  it('sends enable and disable to their own exact same-origin routes with the closed one-key body', async () => {
+    const item = {
+      pluginVersionId: '880', packageName: '@example/tools', version: '1.0.0', sizeBytes: 100,
+      operatingSystems: ['darwin'],
+    }
+    const status = {
+      assignmentRevision: 7,
+      catalog: [item],
+      plugins: [{
+        packageName: item.packageName, version: '1.0.0', sha256: 'a'.repeat(64), desiredRevision: 7,
+        desiredState: 'INSTALLED', state: 'ACTIVE', lastErrorCode: null, restartMarker: null, enabled: false,
+      }],
+    }
+    const fetcher = vi.fn(async () => ok(status))
+    const api = createEnterpriseLocalApi(fetcher)
+    const signal = new AbortController().signal
+    // 停用：走 `/plugins/disable`，收下后那一枚启停位如实是 false（界面不自行翻开关）。
+    await expect(api.setPluginEnabled(item.packageName, false, signal)).resolves.toEqual({
+      assignmentRevision: 7,
+      catalog: [item],
+      plugins: [{
+        packageName: item.packageName, version: '1.0.0', desiredRevision: 7,
+        desiredState: 'INSTALLED', state: 'ACTIVE', lastErrorCode: null, enabled: false,
+      }],
+    })
+    expect(ENTERPRISE_PLUGIN_ENABLE_LOCAL_PATH).toBe('/enterprise/api/v1/local/plugins/enable')
+    expect(ENTERPRISE_PLUGIN_DISABLE_LOCAL_PATH).toBe('/enterprise/api/v1/local/plugins/disable')
+    expect(fetcher).toHaveBeenLastCalledWith(ENTERPRISE_PLUGIN_DISABLE_LOCAL_PATH, expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ packageName: item.packageName }), cache: 'no-store', signal,
+    }))
+    // 方向由**路径**决定（不是 body 里多一个 `enabled` 布尔）：正文恒是关闭键集恰好 `{packageName}`。
+    expect(Object.keys(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body)))).toEqual(['packageName'])
+    // 启用：另一条路径。
+    await api.setPluginEnabled(item.packageName, true, signal)
+    expect(fetcher).toHaveBeenLastCalledWith(ENTERPRISE_PLUGIN_ENABLE_LOCAL_PATH, expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ packageName: item.packageName }),
+    }))
+    expect(Object.keys(JSON.parse(String(fetcher.mock.calls[1]?.[1]?.body)))).toEqual(['packageName'])
   })
 
   it('uses same-origin fixed paths and strict empty-object POST actions', async () => {

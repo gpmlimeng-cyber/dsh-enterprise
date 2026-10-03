@@ -11,14 +11,23 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import { enterpriseErrorMessage, enterpriseErrorRetryable } from '../src/error-messages.js'
 import {
+  ENTERPRISE_PLUGIN_DISABLE_TITLE,
+  ENTERPRISE_PLUGIN_ENABLE_TITLE,
   ENTERPRISE_PLUGIN_IN_FLIGHT_STATES,
+  ENTERPRISE_PLUGIN_INSTALL_TITLE,
   ENTERPRISE_PLUGIN_LOCK_NOTICE,
   ENTERPRISE_PLUGIN_LOCK_TITLE,
-  ENTERPRISE_PLUGIN_SWITCH_TITLE_OFF,
-  ENTERPRISE_PLUGIN_SWITCH_TITLE_ON,
+  ENTERPRISE_PLUGIN_UNINSTALL_TITLE,
+  enterprisePluginInstallLabel,
+  enterprisePluginInstallTitle,
+  enterprisePluginInstalled,
+  enterprisePluginInstalledStatusLabel,
   enterprisePluginLockNotice,
   enterprisePluginLockReason,
+  enterprisePluginRowAction,
   enterprisePluginSwitchTitle,
+  enterprisePluginUninstallLabel,
+  enterprisePluginUninstallTitle,
   type EnterprisePluginLockReason,
 } from '../src/plugin-install-gate.js'
 import {
@@ -110,14 +119,22 @@ function pluginRow(tree: ReactNode, name: string): ReactNode {
   return found
 }
 
-/** 子树里那一枚官方 `Switch` 的 props。 */
-function switchWithin(node: ReactNode): Record<string, unknown> | undefined {
+/**
+ * 子树里那一枚动作控件的 props——**按分流槽位取**（`data-enterprise-plugin-slot`），
+ * 而不是按控件类型：分流本身就是被测对象，槽位缺席 = 这一格没画控件（未安装那一行没有开关）。
+ */
+function slotWithin(node: ReactNode, slot: 'install' | 'switch'): Record<string, unknown> | undefined {
   let found: Record<string, unknown> | undefined
   walkTree(node, element => {
-    if (element.type === (Switch as unknown)) found = element.props
+    if (element.props['data-enterprise-plugin-slot'] === slot) found = element.props
   })
   return found
 }
+
+/** 已安装那一行的【开关】props（分流到 `'switch'` 那一格才存在）。 */
+const switchWithin = (node: ReactNode): Record<string, unknown> | undefined => slotWithin(node, 'switch')
+/** 未安装那一行的【＋】props（分流到 `'install'` 那一格才存在）。 */
+const plusWithin = (node: ReactNode): Record<string, unknown> | undefined => slotWithin(node, 'install')
 
 /** 子树里全部 `role="status"|"alert"` 元素的可见文本。 */
 function noticesWithin(node: ReactNode): readonly string[] {
@@ -187,12 +204,21 @@ const DECLARATION_FORMS: readonly { readonly name: string; readonly operatingSys
   { name: '根本没有该字段（旧宿主 / 手搓行）', operatingSystems: undefined },
 ]
 
-/** 一行插件（目录版 + 本机态）的构造器，字段一次给全，避免测试自造第二份形状。 */
+/** 一行**未安装**插件（目录版 + 空本机记录）的构造器，字段一次给全，避免测试自造第二份形状。 */
 function row(overrides: Partial<EnterpriseMarketPluginRow> = {}): EnterpriseMarketPluginRow {
   return {
     packageName: 'ent-a', version: '1.2.0', state: 'EXPECTED', inCatalog: true,
+    enabled: true,
     operatingSystems: ['darwin', 'linux', 'win32'], ...overrides,
   }
+}
+
+/**
+ * 一行**已安装**插件：本机记录说该装着（`desiredState: 'INSTALLED'`）+ 已落盘版本 + 启停位。
+ * 它才是渲染【开关】的那一格；未安装那一行给的是【＋】（两者由 `enterprisePluginRowAction` 分流）。
+ */
+function installed(overrides: Partial<EnterpriseMarketPluginRow> = {}): EnterpriseMarketPluginRow {
+  return row({ state: 'ACTIVE', desiredState: 'INSTALLED', recordVersion: '1.2.0', ...overrides })
 }
 
 /** 安卓壳里的目录页外壳：`navigator.userAgent` 仍然注入（它现在**一个字段都不影响渲染**，正是要看这一点）。 */
@@ -201,12 +227,18 @@ function shellProps(userAgent: string, plugin: EnterpriseMarketPluginRow, extra:
   return { view: 'page', activeTab: 'plugins', sessionUsable: true, enterprisePlugins: [plugin], ...extra }
 }
 
-/** 三种声明形态各渲染一次那唯一一行插件（`installErrorCode` 缺席、写入口在场）。 */
-function rowsForEachForm(onTogglePlugin: () => void): readonly { readonly form: string; readonly line: ReactNode }[] {
+/**
+ * 三种声明形态各渲染一次那唯一一行插件（`installErrorCode` 缺席、写入口在场）。
+ *
+ * 用**已安装**那一行：它是渲染【开关】的那一格，故「声明形态不影响开关」这条不变式仍逐字可比。
+ */
+function rowsForEachForm(onTogglePluginEnabled: () => void): readonly { readonly form: string; readonly line: ReactNode }[] {
   return DECLARATION_FORMS.map(form => ({
     form: form.name,
     line: pluginRow(
-      EnterpriseMarketLegacyShell(shellProps(UA.androidPhone, row({ operatingSystems: form.operatingSystems }), { onTogglePlugin })),
+      EnterpriseMarketLegacyShell(shellProps(
+        UA.androidPhone, installed({ operatingSystems: form.operatingSystems }), { onTogglePluginEnabled },
+      )),
       'ent-a',
     ),
   }))
@@ -217,20 +249,20 @@ function rowsForEachForm(onTogglePlugin: () => void): readonly { readonly form: 
 describe('设备系统彻底退出决策面：这一叶不再读 UA、也不再读系统声明', () => {
   it('renders one identical row for android / macOS / an unrecognisable user agent (there is no UA read left)', () => {
     const shapes = DEVICE_UAS.map(([, userAgent]) => shapeWithin(pluginRow(
-      EnterpriseMarketLegacyShell(shellProps(userAgent, row(), { onTogglePlugin: vi.fn() })), 'ent-a',
+      EnterpriseMarketLegacyShell(shellProps(userAgent, installed(), { onTogglePluginEnabled: vi.fn() })), 'ent-a',
     )))
     expect(new Set(shapes).size, '三家设备 UA 必须渲染同一行').toBe(1)
     // 安卓 WebView 的 UA 里确实同时含 `Linux`：这在过去是「必须把安卓判在 Linux 前面」的理由，
     // 现在它只是浏览器的一个字符串——同一行与 UA 一个字段都不相关。
     expect(/Linux/.test(UA.androidPhone)).toBe(true)
     expect(platformWordsIn(textWithin(pluginRow(
-      EnterpriseMarketLegacyShell(shellProps(UA.androidPhone, row(), { onTogglePlugin: vi.fn() })), 'ent-a',
+      EnterpriseMarketLegacyShell(shellProps(UA.androidPhone, installed(), { onTogglePluginEnabled: vi.fn() })), 'ent-a',
     )))).toEqual([])
   })
 
   it('has no fallback branch left: a junk UA and no navigator at all behave exactly like android', () => {
     const withUa = (userAgent: string): string => shapeWithin(pluginRow(
-      EnterpriseMarketLegacyShell(shellProps(userAgent, row(), { onTogglePlugin: vi.fn() })), 'ent-a',
+      EnterpriseMarketLegacyShell(shellProps(userAgent, installed(), { onTogglePluginEnabled: vi.fn() })), 'ent-a',
     ))
     const android = withUa(UA.androidPhone)
     expect(withUa(UA.junk)).toBe(android)
@@ -240,7 +272,7 @@ describe('设备系统彻底退出决策面：这一叶不再读 UA、也不再�
     const withoutNavigator = shapeWithin(pluginRow(
       EnterpriseMarketLegacyShell({
         view: 'page', activeTab: 'plugins', sessionUsable: true,
-        enterprisePlugins: [row()], onTogglePlugin: vi.fn(),
+        enterprisePlugins: [installed()], onTogglePluginEnabled: vi.fn(),
       }), 'ent-a',
     ))
     expect(withoutNavigator).toBe(android)
@@ -287,7 +319,8 @@ describe('★不变式：installErrorCode 缺席时，插件行的行为与文�
       expect(JSON.stringify(switchWithin(current.line)), current.form)
         .toBe(JSON.stringify(switchWithin(first!.line)))
       expect(switchWithin(current.line)!['disabled'], current.form).toBe(false)
-      expect(switchWithin(current.line)!['title'], current.form).toBe(ENTERPRISE_PLUGIN_SWITCH_TITLE_ON)
+      // 已安装 + 启用着 ⇒ 开关的悬浮说明是「点此停用（不会卸载）」——**绝**不是「点此卸载」。
+      expect(switchWithin(current.line)!['title'], current.form).toBe(ENTERPRISE_PLUGIN_DISABLE_TITLE)
     }
   })
 
@@ -297,7 +330,7 @@ describe('★不变式：installErrorCode 缺席时，插件行的行为与文�
     for (const form of DECLARATION_FORMS) {
       for (const [host, userAgent] of DEVICE_UAS) {
         const line = pluginRow(
-          EnterpriseMarketLegacyShell(shellProps(userAgent, row({ operatingSystems: form.operatingSystems }), { onTogglePlugin: vi.fn() })),
+          EnterpriseMarketLegacyShell(shellProps(userAgent, installed({ operatingSystems: form.operatingSystems }), { onTogglePluginEnabled: vi.fn() })),
           'ent-a',
         )
         shapes.add(shapeWithin(line))
@@ -310,25 +343,26 @@ describe('★不变式：installErrorCode 缺席时，插件行的行为与文�
   })
 
   it('keeps the row facts and the behaviour equal too (the switch still really toggles in every form)', () => {
-    const onTogglePlugin = vi.fn()
+    const onTogglePluginEnabled = vi.fn()
     const facts = DECLARATION_FORMS.map(form => enterpriseMarketPluginRowFacts(
-      { view: 'page', onTogglePlugin },
-      row({ operatingSystems: form.operatingSystems }),
+      { view: 'page', onTogglePluginEnabled },
+      installed({ operatingSystems: form.operatingSystems }),
     ))
     for (const current of facts.slice(1)) expect(current).toEqual(facts[0])
     expect(facts[0]?.switchDisabled).toBe(false)
     expect(facts[0]?.lockReason).toBeUndefined()
-    expect(facts[0]?.switchTitle).toBe(ENTERPRISE_PLUGIN_SWITCH_TITLE_ON)
+    expect(facts[0]?.slot).toBe('switch')
+    expect(facts[0]?.switchTitle).toBe(ENTERPRISE_PLUGIN_DISABLE_TITLE)
     // 行为也一样：三种形态下拨一下都真的走回调（没有任何一条被「声明」这件事挡死）。
     for (const form of DECLARATION_FORMS) {
       const line = pluginRow(
-        EnterpriseMarketLegacyShell(shellProps(UA.androidPhone, row({ operatingSystems: form.operatingSystems }), { onTogglePlugin })),
+        EnterpriseMarketLegacyShell(shellProps(UA.androidPhone, installed({ operatingSystems: form.operatingSystems }), { onTogglePluginEnabled })),
         'ent-a',
       )
       ;(switchWithin(line)!['onChange'] as (next: boolean) => void)(true)
-      expect(onTogglePlugin, form.name).toHaveBeenLastCalledWith(expect.objectContaining({ packageName: 'ent-a' }), true)
+      expect(onTogglePluginEnabled, form.name).toHaveBeenLastCalledWith(expect.objectContaining({ packageName: 'ent-a' }), true)
     }
-    expect(onTogglePlugin).toHaveBeenCalledTimes(DECLARATION_FORMS.length)
+    expect(onTogglePluginEnabled).toHaveBeenCalledTimes(DECLARATION_FORMS.length)
   })
 })
 
@@ -384,41 +418,76 @@ describe('「为什么现在动不了」的唯一判定与唯一措辞', () => {
   })
 
   it('writes a truthful hover title for both the usable and the locked switch, with no platform half-sentence', () => {
-    expect(enterprisePluginSwitchTitle({ enabled: true })).toBe(ENTERPRISE_PLUGIN_SWITCH_TITLE_OFF)
-    expect(enterprisePluginSwitchTitle({ enabled: false })).toBe(ENTERPRISE_PLUGIN_SWITCH_TITLE_ON)
-    // 可拨那一支恒是「点此安装」——过去它后面会接一句「；发布者未声明支持 <系统>…」，那半句已整段退场。
+    // ★ 关闭开关＝**停用**：可拨时它说的是「点此停用（不会卸载）」/「点此启用」，
+    //   「点此卸载」这种行上说法在本层已经**不存在**（由下面那条反向锁守着）。
+    expect(enterprisePluginSwitchTitle({ enabled: true })).toBe(ENTERPRISE_PLUGIN_DISABLE_TITLE)
+    expect(enterprisePluginSwitchTitle({ enabled: false })).toBe(ENTERPRISE_PLUGIN_ENABLE_TITLE)
+    expect(enterprisePluginSwitchTitle({ enabled: true })).not.toContain('卸载')
     for (const form of DECLARATION_FORMS) {
-      expect(enterprisePluginSwitchTitle({ enabled: false }), form.name).toBe(ENTERPRISE_PLUGIN_SWITCH_TITLE_ON)
+      expect(enterprisePluginSwitchTitle({ enabled: true }), form.name).toBe(ENTERPRISE_PLUGIN_DISABLE_TITLE)
     }
-    expect(enterprisePluginSwitchTitle({ enabled: false, lockReason: 'no-entry' }))
+    expect(enterprisePluginSwitchTitle({ enabled: true, lockReason: 'no-entry' }))
       .toBe(ENTERPRISE_PLUGIN_LOCK_TITLE['no-entry'])
-    // 目录判定：title 用该码的**人话**，不是一句「不可安装」了事。
-    expect(enterprisePluginSwitchTitle({ enabled: false, installErrorCode: 'ENT_PLUGIN_INCOMPATIBLE' }))
+    // 目录判定只进【＋】那一格：title 用该码的**人话**，不是一句「不可安装」了事。
+    expect(enterprisePluginInstallTitle({ installErrorCode: 'ENT_PLUGIN_INCOMPATIBLE' }))
       .toBe(`不可安装：${enterpriseErrorMessage('ENT_PLUGIN_INCOMPATIBLE')}`)
-    expect(platformWordsIn(enterprisePluginSwitchTitle({ enabled: false, lockReason: 'busy' }))).toEqual([])
+    expect(enterprisePluginInstallTitle({})).toBe(ENTERPRISE_PLUGIN_INSTALL_TITLE)
+    // 已安装那一行的开关**不读**目录判定（不可安装 ≠ 不能停用）——它没有这个入参。
+    expect(platformWordsIn(enterprisePluginSwitchTitle({ enabled: true, lockReason: 'busy' }))).toEqual([])
+    expect(enterprisePluginUninstallTitle({})).toBe(ENTERPRISE_PLUGIN_UNINSTALL_TITLE)
+    expect(enterprisePluginUninstallTitle({ lockReason: 'busy' })).toBe(ENTERPRISE_PLUGIN_LOCK_TITLE.busy)
   })
 })
 
 /* ══════════════════ 插件行的动作门禁 ══════════════════ */
 
-describe('插件行的动作门禁：安装与卸载各自一条，口径只有一处', () => {
+describe('插件行的动作门禁：分流两块 + 三个坑位各自一条，口径只有一处', () => {
   /** 目录里这一版（旧调用点可能把整版都递进来：多带的 `operatingSystems` 必须被门禁完全忽略）。 */
   const item = {} as { readonly installErrorCode?: string | undefined }
+  /** 分流结果的显式读取（写成一个函数只是为了让断言读起来是一句话）。 */
+  const plusSlotOf = (gate: { readonly slot: 'install' | 'switch' }): 'install' | 'switch' => gate.slot
 
-  it('lets the catalog verdict block the install button but never the uninstall button', () => {
+  it('gives the not-installed row a ＋ slot and the installed row a switch slot', () => {
+    const notInstalled = enterprisePluginRowGate({
+      item, state: 'EXPECTED', installed: false, enabled: true,
+      restartPending: false, busy: false, fatal: false,
+    })
+    expect(notInstalled.slot).toBe('install')
+    expect(notInstalled.installTitle).toBe(ENTERPRISE_PLUGIN_INSTALL_TITLE)
+    // 未安装那一行**不给开关**（分流决定；按钮那一格自带 ＋ 的无障碍名与悬浮说明）。
+    expect(plusSlotOf(notInstalled)).toBe('install')
+    const done = enterprisePluginRowGate({
+      item, state: 'ACTIVE', installed: true, enabled: true,
+      restartPending: false, busy: false, fatal: false,
+    })
+    expect(done.slot).toBe('switch')
+    expect(done.switchTitle).toBe(ENTERPRISE_PLUGIN_DISABLE_TITLE)
+    // 已停用那一格：同一枚开关，说「点此启用」。
+    const disabled = enterprisePluginRowGate({
+      item, state: 'ACTIVE', installed: true, enabled: false,
+      restartPending: false, busy: false, fatal: false,
+    })
+    expect(disabled.switchTitle).toBe(ENTERPRISE_PLUGIN_ENABLE_TITLE)
+  })
+
+  it('lets the catalog verdict block the ＋ slot but never the switch or the uninstall slot', () => {
     const gate = enterprisePluginRowGate({
       item: { ...item, installErrorCode: 'ENT_PLUGIN_INCOMPATIBLE' },
-      state: 'ACTIVE', restartPending: false, busy: false, fatal: false,
+      state: 'ACTIVE', installed: true, enabled: true,
+      restartPending: false, busy: false, fatal: false,
     })
     expect(gate.installLock).toBe('incompatible')
+    // ★ 已安装那一行的开关与详情页的卸载**都不受**目录判定影响：不可安装 ≠ 不能停用/卸载
+    //   （停用与卸载是用户在本机上的自救动作）。
+    expect(gate.switchLock).toBeUndefined()
     expect(gate.uninstallLock).toBeUndefined()
     // 安装那一条的可见原因由唯一提示组件说（门禁不自造第二句），悬浮说明带人话。
     expect(gate.installLockNotice).toBeUndefined()
     expect(gate.installTitle).toBe(`不可安装：${enterpriseErrorMessage('ENT_PLUGIN_INCOMPATIBLE')}`)
-    expect(gate.uninstallTitle).toBe(ENTERPRISE_PLUGIN_SWITCH_TITLE_OFF)
+    expect(gate.uninstallTitle).toBe(ENTERPRISE_PLUGIN_UNINSTALL_TITLE)
   })
 
-  it('blocks both buttons for busy / fatal / restart, each with a visible sentence', () => {
+  it('blocks all three slots for busy / fatal / restart, each with a visible sentence', () => {
     const cases: readonly [Partial<Parameters<typeof enterprisePluginRowGate>[0]>, EnterprisePluginLockReason | undefined][] = [
       [{ busy: true }, 'busy'],
       [{ fatal: true }, 'fatal'],
@@ -427,11 +496,14 @@ describe('插件行的动作门禁：安装与卸载各自一条，口径只有�
     ]
     for (const [flags, expected] of cases) {
       const gate = enterprisePluginRowGate({
-        item, state: 'ACTIVE', restartPending: false, busy: false, fatal: false, ...flags,
+        item, state: 'ACTIVE', installed: true, enabled: true,
+        restartPending: false, busy: false, fatal: false, ...flags,
       })
       expect(gate.installLock, JSON.stringify(flags)).toBe(expected)
+      expect(gate.switchLock, JSON.stringify(flags)).toBe(expected)
       expect(gate.uninstallLock, JSON.stringify(flags)).toBe(expected)
       expect(gate.installLockNotice).toBe(enterprisePluginLockNotice(expected))
+      expect(gate.switchLockNotice).toBe(enterprisePluginLockNotice(expected))
     }
   })
 
@@ -441,22 +513,25 @@ describe('插件行的动作门禁：安装与卸载各自一条，口径只有�
       ({ operatingSystems }) as { installErrorCode?: string | undefined }
     const gates = DECLARATION_FORMS.map(form => enterprisePluginRowGate({
       item: catalogVersion(form.operatingSystems),
-      state: 'EXPECTED', restartPending: false, busy: false, fatal: false,
+      state: 'EXPECTED', installed: false, enabled: true,
+      restartPending: false, busy: false, fatal: false,
     }))
     for (const current of gates.slice(1)) expect(current).toEqual(gates[0])
-    // 开关/按钮**保持可用**：没有禁用原因，也没有多出来的那句可见提示（三种形态都是）。
+    // 控件**保持可用**：没有禁用原因，也没有多出来的那句可见提示（三种形态都是）。
     for (const [index, gate] of gates.entries()) {
       const form = DECLARATION_FORMS[index]!
       expect(gate.installLock, form.name).toBeUndefined()
       expect(gate.installLockNotice, form.name).toBeUndefined()
-      expect(gate.installTitle, form.name).toBe(ENTERPRISE_PLUGIN_SWITCH_TITLE_ON)
+      expect(gate.installTitle, form.name).toBe(ENTERPRISE_PLUGIN_INSTALL_TITLE)
       expect(EnterprisePluginGateNotes({ gate, subject: 'ent-a' }), form.name).toBeNull()
     }
     // 有禁用原因时那枚子块照旧出可见的一句（不是被减法顺手拆掉的）。
     // 目录判定（`incompatible`）的可见交代归唯一提示组件，故这里用一条自带可见句的原因来证子块还在干活。
     const locked = enterprisePluginRowGate({
-      item, state: 'ACTIVE', restartPending: false, busy: true, fatal: false,
+      item, state: 'ACTIVE', installed: true, enabled: true,
+      restartPending: false, busy: true, fatal: false,
     })
+    expect(locked.switchLock).toBe('busy')
     expect(locked.installLock).toBe('busy')
     expect(textWithin(EnterprisePluginGateNotes({ gate: locked, subject: 'ent-a' })))
       .toBe(ENTERPRISE_PLUGIN_LOCK_NOTICE.busy)
@@ -481,16 +556,19 @@ describe('目录行渲染：installErrorCode 与声明形态的组合', () => {
 
   it('also answers the same question through the pure row facts (any caller, any shape of the declaration)', () => {
     const factsOf = (operatingSystems: readonly string[] | undefined) => enterpriseMarketPluginRowFacts(
-      { view: 'page', onTogglePlugin: vi.fn() },
-      row({ operatingSystems }),
+      { view: 'page', onInstallPlugin: vi.fn(), onTogglePluginEnabled: vi.fn() },
+      installed({ operatingSystems }),
     )
     const [declared, undeclared, absent] = DECLARATION_FORMS.map(form => factsOf(form.operatingSystems))
     expect(undeclared).toEqual(declared)
     expect(absent).toEqual(declared)
+    expect(declared?.slot).toBe('switch')
+    expect(declared?.installed).toBe(true)
     expect(declared?.switchDisabled).toBe(false)
+    expect(declared?.installDisabled).toBe(false)
     expect(declared?.lockReason).toBeUndefined()
     expect(declared?.lockNotice).toBeUndefined()
-    expect(declared?.switchTitle).toBe(ENTERPRISE_PLUGIN_SWITCH_TITLE_ON)
+    expect(declared?.switchTitle).toBe(ENTERPRISE_PLUGIN_DISABLE_TITLE)
   })
 
   it('renders the row identically for every declaration form, with no platform word on screen', () => {
@@ -498,7 +576,7 @@ describe('目录行渲染：installErrorCode 与声明形态的组合', () => {
     for (const current of rendered) {
       const toggle = switchWithin(current.line)!
       expect(toggle['disabled'], current.form).toBe(false)
-      expect(toggle['title'], current.form).toBe(ENTERPRISE_PLUGIN_SWITCH_TITLE_ON)
+      expect(toggle['title'], current.form).toBe(ENTERPRISE_PLUGIN_DISABLE_TITLE)
       expect(visibleExplanations(current.line), current.form).toEqual([])
       // 可见文案（不是 title、不是属性）里一个平台词都没有，也没有任何「不能安装」的噪音。
       expect(platformWordsIn(textWithin(current.line)), current.form).toEqual([])
@@ -512,21 +590,23 @@ describe('目录行渲染：installErrorCode 与声明形态的组合', () => {
   it('keeps the whole catalog page free of platform words, whichever declaration the catalog carries', () => {
     for (const form of DECLARATION_FORMS) {
       const tree = EnterpriseMarketLegacyShell(shellProps(
-        UA.androidPhone, row({ operatingSystems: form.operatingSystems }), { onTogglePlugin: vi.fn() },
+        UA.androidPhone, installed({ operatingSystems: form.operatingSystems }), { onTogglePluginEnabled: vi.fn() },
       ))
       expect(platformWordsIn(textWithin(tree)), form.name).toEqual([])
     }
   })
 
-  it('shows the catalog verdict as a visible sentence plus next step, and disables the switch', () => {
+  it('shows the catalog verdict as a visible sentence plus next step, and disables the ＋ slot', () => {
     const props = shellProps(
       UA.androidPhone,
       row({ operatingSystems: ['darwin', 'win32'], installErrorCode: 'ENT_PLUGIN_INCOMPATIBLE' }),
-      { onTogglePlugin: vi.fn() },
+      { onInstallPlugin: vi.fn() },
     )
     const line = pluginRow(EnterpriseMarketLegacyShell(props), 'ent-a')
-    expect(switchWithin(line)!['disabled']).toBe(true)
-    expect(switchWithin(line)!['title']).toBe(`不可安装：${enterpriseErrorMessage('ENT_PLUGIN_INCOMPATIBLE')}`)
+    // 未安装那一行给的是【＋】：目录判定禁用的正是它，行上根本没有开关。
+    expect(switchWithin(line)).toBeUndefined()
+    expect(plusWithin(line)!['disabled']).toBe(true)
+    expect(plusWithin(line)!['title']).toBe(`不可安装：${enterpriseErrorMessage('ENT_PLUGIN_INCOMPATIBLE')}`)
     const explanations = visibleExplanations(line)
     expect(explanations).toHaveLength(1)
     // 员工看得见：人话 +「下一步：」；稳定码只待在「技术信息」折叠区里。
@@ -548,7 +628,7 @@ describe('目录行渲染：installErrorCode 与声明形态的组合', () => {
     const props = shellProps(
       UA.androidPhone,
       row({ installErrorCode: retryable }),
-      { onTogglePlugin: vi.fn(), onRetryPlugins },
+      { onInstallPlugin: vi.fn(), onRetryPlugins },
     )
     const line = pluginRow(EnterpriseMarketLegacyShell(props), 'ent-a')
     const retryButton = (node: ReactNode): Record<string, unknown> | undefined => {
@@ -566,7 +646,7 @@ describe('目录行渲染：installErrorCode 与声明形态的组合', () => {
     const noCallback = EnterpriseMarketLegacyShell(shellProps(
       UA.androidPhone,
       row({ installErrorCode: retryable }),
-      { onTogglePlugin: vi.fn() },
+      { onInstallPlugin: vi.fn() },
     ))
     expect(retryButton(pluginRow(noCallback, 'ent-a'))).toBeUndefined()
   })
@@ -575,36 +655,60 @@ describe('目录行渲染：installErrorCode 与声明形态的组合', () => {
 /* ══════════════════ 反向锁一：禁用即须有可见说明 ══════════════════ */
 
 describe('反向锁：插件行的禁用态必须带可见说明，不许只挂 title', () => {
-  /** 每一种「动不了 / 用得了」的现场。 */
-  const scenarios: readonly { readonly name: string; readonly row: EnterpriseMarketPluginRow; readonly toggle?: boolean }[] = [
-    { name: '目录判定不可安装', row: row({ installErrorCode: 'ENT_PLUGIN_INCOMPATIBLE' }), toggle: true },
-    { name: '没有写入口', row: row() },
-    { name: '正在安装', row: row({ state: 'INSTALLING' }), toggle: true },
-    { name: '正在下载', row: row({ state: 'DOWNLOADING' }), toggle: true },
-    { name: '正在卸载', row: row({ state: 'REMOVING' }), toggle: true },
-    { name: '切换版本', row: row({ state: 'ROLLBACK' }), toggle: true },
-    { name: '声明不含当前平台（应保持可用）', row: row({ operatingSystems: ['darwin', 'win32'] }), toggle: true },
-    { name: '声明根本没有该字段（应保持可用）', row: row({ operatingSystems: undefined }), toggle: true },
-    { name: '一切正常（应保持可用）', row: row({ state: 'ACTIVE' }), toggle: true },
+  /**
+   * 每一种「动不了 / 用得了」的现场，**按分流分别列**：未安装那一格给 ＋、已安装那一格给开关。
+   * 两个槽位各自守自己那条反向锁（`slot` 就是分流结果本身）。
+   */
+  const scenarios: readonly {
+    readonly name: string
+    readonly row: EnterpriseMarketPluginRow
+    readonly slot: 'install' | 'switch'
+    readonly writeAction?: boolean
+  }[] = [
+    // 未安装 ⇒ 【＋】（安装那一格；目录判定正是拦它的那一条）
+    { name: '未安装·目录判定不可安装', row: row({ installErrorCode: 'ENT_PLUGIN_INCOMPATIBLE' }), slot: 'install', writeAction: true },
+    { name: '未安装·没有写入口', row: row(), slot: 'install' },
+    { name: '首次安装中（本机还没有落盘版本）', row: row({ state: 'INSTALLING', desiredState: 'INSTALLED', recordVersion: null }), slot: 'install', writeAction: true },
+    { name: '首次下载中（本机还没有落盘版本）', row: row({ state: 'DOWNLOADING', desiredState: 'INSTALLED', recordVersion: null }), slot: 'install', writeAction: true },
+    // 已安装 ⇒ 【开关】（启用/停用那一格；目录判定**不**进来）
+    { name: '已安装·目录判定不可安装（仍要能停用）', row: installed({ installErrorCode: 'ENT_PLUGIN_INCOMPATIBLE' }), slot: 'switch', writeAction: true },
+    { name: '已安装·没有写入口', row: installed(), slot: 'switch' },
+    { name: '已安装·正在安装', row: installed({ state: 'INSTALLING' }), slot: 'switch', writeAction: true },
+    { name: '已安装·正在卸载', row: installed({ state: 'REMOVING' }), slot: 'switch', writeAction: true },
+    { name: '已安装·切换版本', row: installed({ state: 'ROLLBACK' }), slot: 'switch', writeAction: true },
+    { name: '已安装·一切正常（应保持可用）', row: installed(), slot: 'switch', writeAction: true },
+    { name: '已安装·已停用（应保持可用）', row: installed({ enabled: false }), slot: 'switch', writeAction: true },
+    { name: '未安装·声明不含当前平台（应保持可用）', row: row({ operatingSystems: ['darwin', 'win32'] }), slot: 'install', writeAction: true },
+    { name: '未安装·声明根本没有该字段（应保持可用）', row: row({ operatingSystems: undefined }), slot: 'install', writeAction: true },
   ]
 
-  it('gives every disabled switch an explained row, and keeps every unlocked row switchable', () => {
+  it('gives every disabled control an explained row, and keeps every unlocked control usable', () => {
     for (const scenario of scenarios) {
       for (const [host, userAgent] of DEVICE_UAS) {
-        const extra = scenario.toggle === true ? { onTogglePlugin: vi.fn() } : {}
+        const extra = scenario.writeAction === true
+          ? { onInstallPlugin: vi.fn(), onTogglePluginEnabled: vi.fn() }
+          : {}
         const line = pluginRow(EnterpriseMarketLegacyShell(shellProps(userAgent, scenario.row, extra)), 'ent-a')
-        const toggle = switchWithin(line)!
+        const control = slotWithin(line, scenario.slot)
         const where = `${scenario.name} / ${host}`
-        if (toggle['disabled'] === true) {
+        expect(control, `${where}：分流到 ${scenario.slot} 那一格必须有控件`).toBeDefined()
+        // 另一格必须**不**存在（未安装不给开关、已安装不给 ＋）。
+        expect(slotWithin(line, scenario.slot === 'switch' ? 'install' : 'switch'), `${where}：出现了不该出现的控件`).toBeUndefined()
+        if (control!['disabled'] === true) {
           // 反向锁的核心：被禁用 ⇒ 行里必须有一个**非空**的可见说明（只挂 title 一律判红）。
           expect(visibleExplanations(line).length, `${where}：禁用了却只有 title`).toBeGreaterThan(0)
-          // 而且 title 不能说「点此安装/点此卸载」那种「看起来能用」的话。
-          expect(String(toggle['title']), where).not.toBe(ENTERPRISE_PLUGIN_SWITCH_TITLE_ON)
-          expect(String(toggle['title']), where).not.toBe(ENTERPRISE_PLUGIN_SWITCH_TITLE_OFF)
+          // 而且 title 不能说「点此安装 / 点此停用 / 点此启用」那种「看起来能用」的话。
+          expect(String(control!['title']), where).not.toBe(ENTERPRISE_PLUGIN_INSTALL_TITLE)
+          expect(String(control!['title']), where).not.toBe(ENTERPRISE_PLUGIN_DISABLE_TITLE)
+          expect(String(control!['title']), where).not.toBe(ENTERPRISE_PLUGIN_ENABLE_TITLE)
         } else {
-          // 可用 ⇒ 不许多一句「不能安装」的噪音。
+          // 可用 ⇒ 这一格不许多一句「不能安装」的噪音。
           expect(textWithin(line), where).not.toContain('这里暂时不能安装')
-          expect(noticesWithin(line).some(text => text.includes('下一步：')), where).toBe(false)
+          // 「下一步：」那一句只属于**目录判定**（`installErrorCode`）的唯一提示组件；
+          // 没有该码的行上不该出现任何带「下一步」的提示（上面那条就是它在合法情形下的出口）。
+          if (scenario.row.installErrorCode === undefined) {
+            expect(noticesWithin(line).some(text => text.includes('下一步：')), where).toBe(false)
+          }
         }
       }
     }
@@ -617,8 +721,9 @@ describe('反向锁：插件行的禁用态必须带可见说明，不许只挂 
       'li',
       { className: 'own-market-row', 'data-enterprise-plugin-package': 'ent-a' },
       createElement(Switch as never, {
-        checked: false, label: '安装企业插件 ent-a', disabled: true,
+        checked: false, label: '启用 ent-a', disabled: true,
         title: '该插件当前不可安装', onChange: () => undefined,
+        'data-enterprise-plugin-slot': 'switch',
       }),
     )
     expect(switchWithin(deadControl)?.['disabled']).toBe(true)
@@ -626,7 +731,9 @@ describe('反向锁：插件行的禁用态必须带可见说明，不许只挂 
     expect(visibleExplanations(deadControl)).toEqual([])
     // 同一判据在真实行上成立（说明它确实在测「有没有可见说明」）。
     const line = pluginRow(EnterpriseMarketLegacyShell(shellProps(
-      UA.androidPhone, row({ state: 'INSTALLING' }), { onTogglePlugin: vi.fn() },
+      UA.androidPhone, installed({ state: 'INSTALLING' }), {
+        onInstallPlugin: vi.fn(), onTogglePluginEnabled: vi.fn(),
+      },
     )), 'ent-a')
     expect(switchWithin(line)!['disabled']).toBe(true)
     expect(visibleExplanations(line)).toEqual([ENTERPRISE_PLUGIN_LOCK_NOTICE['in-progress']])
@@ -638,6 +745,8 @@ describe('反向锁：插件行的禁用态必须带可见说明，不许只挂 
       expect(source, name).toContain("from './plugin-install-gate.js'")
       for (const shared of [
         'enterprisePluginLockReason(', 'enterprisePluginLockNotice(', 'enterprisePluginSwitchTitle(',
+        // 分流也读同一枚真源（哪一格给 ＋ / 哪一格给开关）。
+        'enterprisePluginInstalled(',
       ]) {
         expect(source, `${name} / ${shared}`).toContain(shared)
       }
@@ -648,7 +757,7 @@ describe('反向锁：插件行的禁用态必须带可见说明，不许只挂 
     }
     // 两处渲染都从同一枚判定取禁用结果（不再是各写一串 `||`）。
     expect(stripComments(await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8')))
-      .toContain('switchDisabled: lockReason !== undefined')
+      .toContain('switchDisabled: switchLockReason !== undefined')
     expect(stripComments(await readFile(new URL('../src/plugin-market.tsx', import.meta.url), 'utf8')))
       .toContain('disabled={gate.installLock !== undefined}')
     // 那一句唯一措辞只准待在口径真源里。
@@ -664,7 +773,9 @@ describe('反向锁：插件行可见文案里不得出现平台词', () => {
     for (const form of DECLARATION_FORMS) {
       for (const [host, userAgent] of DEVICE_UAS) {
         const line = pluginRow(
-          EnterpriseMarketLegacyShell(shellProps(userAgent, row({ operatingSystems: form.operatingSystems }), { onTogglePlugin: vi.fn() })),
+          EnterpriseMarketLegacyShell(shellProps(
+            userAgent, installed({ operatingSystems: form.operatingSystems }), { onTogglePluginEnabled: vi.fn() },
+          )),
           'ent-a',
         )
         const where = `${form.name} / ${host}`
@@ -673,9 +784,9 @@ describe('反向锁：插件行可见文案里不得出现平台词', () => {
         expect(platformWordsIn(textWithin(line)), where).toEqual([])
         // 连被禁用的那几行（情形 A / 情形 C）也一起过锁：提示里同样不许出现平台词。
         const lockedLine = pluginRow(
-          EnterpriseMarketLegacyShell(shellProps(userAgent, row({
+          EnterpriseMarketLegacyShell(shellProps(userAgent, installed({
             operatingSystems: form.operatingSystems, installErrorCode: 'ENT_PLUGIN_INCOMPATIBLE',
-          }), { onTogglePlugin: vi.fn() })),
+          }), { onTogglePluginEnabled: vi.fn() })),
           'ent-a',
         )
         expect(platformWordsIn(textWithin(lockedLine)), `${where} / 情形 A`).toEqual([])
@@ -704,5 +815,115 @@ describe('反向锁：插件行可见文案里不得出现平台词', () => {
     expect(EnterprisePluginGateNotes({ gate, subject: 'ent-a' })).toBeNull()
     expect(platformWordsIn(gate.installTitle)).toEqual([])
     expect(platformWordsIn(gate.uninstallTitle)).toEqual([])
+  })
+})
+
+/* ══════════════════ 反向锁三：动作分流的三条硬口径（用户明确纠正过的语义） ══════════════════ */
+
+describe('反向锁：插件行动作分流——＋ / 开关 / 卸载三件不许串台', () => {
+  it('未安装的行**给【＋】、不给开关**（开关一律不出现在未安装那一格）', () => {
+    for (const notInstalled of [
+      row(),
+      // 一次**失败**的首次安装：desiredState 说「该装着」、但本机还没有落盘版本 ⇒ 仍是未安装那一格。
+      row({ state: 'FAILED', desiredState: 'INSTALLED', recordVersion: null }),
+      row({ state: 'INSTALLING', desiredState: 'INSTALLED', recordVersion: null }),
+      row({ state: 'REMOVING', desiredState: 'ABSENT' }),
+      row({ installErrorCode: 'ENT_PLUGIN_INCOMPATIBLE' }),
+    ]) {
+      const line = pluginRow(EnterpriseMarketLegacyShell(shellProps(
+        UA.androidPhone, notInstalled, { onInstallPlugin: vi.fn(), onTogglePluginEnabled: vi.fn() },
+      )), 'ent-a')
+      expect(switchWithin(line), `${notInstalled.state}/${String(notInstalled.desiredState)} 不该有开关`).toBeUndefined()
+      expect(plusWithin(line), `${notInstalled.state} 该给一枚 ＋`).toBeDefined()
+      // ＋ 的语义由无障碍名承载（可见文案只有一枚 ＋）。
+      expect(plusWithin(line)!['aria-label']).toBe(enterprisePluginInstallLabel('ent-a'))
+    }
+    // 分流判定本身也直接过一遍（行渲染之外的第二条腿）。
+    expect(enterprisePluginRowAction({ desiredState: 'INSTALLED', version: null, state: 'FAILED' })).toBe('install')
+    expect(enterprisePluginRowAction({ state: 'EXPECTED' })).toBe('install')
+    expect(enterprisePluginRowAction({ state: 'ACTIVE' })).toBe('switch')
+  })
+
+  it('已安装的行**给开关、不给【＋】**（装上之后就没有 ＋ 那一格了）', () => {
+    for (const done of [
+      installed(),
+      installed({ enabled: false }),
+      installed({ installErrorCode: 'ENT_PLUGIN_INCOMPATIBLE' }),
+      installed({ inCatalog: false }),
+      installed({ state: 'RESTART_REQUIRED' }),
+    ]) {
+      const line = pluginRow(EnterpriseMarketLegacyShell(shellProps(
+        UA.androidPhone, done, { onInstallPlugin: vi.fn(), onTogglePluginEnabled: vi.fn() },
+      )), 'ent-a')
+      expect(plusWithin(line), `${done.state} 不该有 ＋（已安装那一格给的是开关）`).toBeUndefined()
+      expect(switchWithin(line), `${done.state} 该给一枚开关`).toBeDefined()
+    }
+    // 已安装 + 启用着 ⇒ checked=true；已停用 ⇒ checked=false（开关的 checked 就是**启停位**）。
+    const on = pluginRow(EnterpriseMarketLegacyShell(shellProps(
+      UA.androidPhone, installed(), { onTogglePluginEnabled: vi.fn() },
+    )), 'ent-a')
+    expect(switchWithin(on)!['checked']).toBe(true)
+    const off = pluginRow(EnterpriseMarketLegacyShell(shellProps(
+      UA.androidPhone, installed({ enabled: false }), { onTogglePluginEnabled: vi.fn() },
+    )), 'ent-a')
+    expect(switchWithin(off)!['checked']).toBe(false)
+    // 已停用那一行的可见状态词是「已安装 · 已停用」——收敛到唯一那份词表，不是另造一句。
+    expect(textWithin(off)).toContain(enterprisePluginInstalledStatusLabel(false))
+    expect(enterprisePluginInstalledStatusLabel(false)).toBe('已安装 · 已停用')
+  })
+
+  it('★关闭开关＝**停用**，绝不等于卸载：拨到关只叫停用那条路，行上一个「卸载」字都没有', async () => {
+    const onTogglePluginEnabled = vi.fn()
+    const line = pluginRow(EnterpriseMarketLegacyShell(shellProps(
+      UA.androidPhone, installed(), { onInstallPlugin: vi.fn(), onTogglePluginEnabled },
+    )), 'ent-a')
+    // ① 行为：拨到 `false` 走的是「停用」那一条回声（分发到 `onTogglePluginEnabled(row,false)`），
+    //    这条路上根本没有卸载动作可走——`onInstallPlugin`（装/更新）一次都不该被叫。
+    const toggle = switchWithin(line)!
+    ;(toggle['onChange'] as (next: boolean) => void)(false)
+    expect(onTogglePluginEnabled).toHaveBeenCalledTimes(1)
+    expect(onTogglePluginEnabled).toHaveBeenCalledWith(expect.objectContaining({ packageName: 'ent-a' }), false)
+    // ② 源码：**插件**这一条链上「点此卸载」那种行上说法已整段退场（先剥注释：文件头会如实引用旧说法）。
+    for (const name of ['plugin-install-gate.ts', 'plugin-market.tsx'] as const) {
+      expect(stripComments(await readFile(new URL(`../src/${name}`, import.meta.url), 'utf8')), name)
+        .not.toContain('点此卸载')
+    }
+    // `marketplace-entry.tsx` 里那一句仍属于**技能**行（技能没有启停位，它的开关本来就是装/卸）——
+    // 所以这里按**插件链**锁：插件那一枚开关读的是 `facts.switchTitle`（口径真源），不是那句技能文案。
+    const marketSource = stripComments(await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8'))
+    expect(marketSource).toContain("title={facts.switchTitle}")
+    expect(marketSource).toContain('enterprisePluginSwitchTitle')
+    // 插件那一枚开关的 `onChange` 只走「启用/停用」，绝不走卸载。
+    expect(marketSource).toContain('props.onTogglePluginEnabled?.(plugin, next)')
+    // ③ 源码：插件行那一处写入口**只**调 `setPluginEnabled`，一个 `removePlugin` 都不许有。
+    const market = stripComments(await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8'))
+    expect(market).not.toContain('removePlugin')
+    expect(market).toContain('store!.setPluginEnabled(row.packageName, next)')
+    // ④ 源码：停用那一支的失败前缀是「停用失败」，不是「卸载失败」。
+    expect(market).toContain("return '停用失败'")
+  })
+
+  it('★【卸载】只在详情页可达：列表行（两处渲染）都没有卸载入口', async () => {
+    // ① 插件市场行（`marketplace-entry.tsx`）：整文件没有任何卸载动作、也没有卸载措辞。
+    const market = stripComments(await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8'))
+    expect(market).not.toContain('removePlugin')
+    expect(market).not.toContain('确认卸载')
+    // ② 「企业设置 → 插件」：`store.removePlugin` 全文件**只有一处**，且落在详情弹窗那一支里。
+    const card = stripComments(await readFile(new URL('../src/plugin-market.tsx', import.meta.url), 'utf8'))
+    expect((card.match(/store\.removePlugin\(/g) ?? [])).toHaveLength(1)
+    const detailStart = card.indexOf('const detailActions = (name: string)')
+    const rowStart = card.indexOf('const rowActions = (name: string)')
+    expect(detailStart, '详情那一支的写入口').toBeGreaterThan(0)
+    expect(rowStart, '列表行那一支的写入口').toBeGreaterThan(0)
+    // 卸载那一次调用必须在 `detailActions` 里、在 `rowActions` 之后（即**不在**列表行那一支里）。
+    expect(card.indexOf('store.removePlugin(')).toBeGreaterThan(detailStart)
+    expect(card.indexOf('store.removePlugin(')).toBeGreaterThan(rowStart)
+    // 列表行那一支里没有任何卸载措辞；详情那一支带确认与「说清影响」的原句。
+    const rowBody = card.slice(rowStart, detailStart)
+    expect(rowBody).not.toContain('卸载')
+    expect(card).toContain('ENTERPRISE_PLUGIN_UNINSTALL_IMPACT')
+    expect((card.match(/<ConfirmAction/g) ?? [])).toHaveLength(1)
+    // ③ 两处渲染的分流都读同一枚真源（不是各写一个 `state === 'ACTIVE'`）。
+    for (const source of [market, card]) expect(source).toContain('enterprisePluginInstalled(')
   })
 })

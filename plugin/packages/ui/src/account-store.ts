@@ -2,6 +2,10 @@
  * [INPUT]: 依赖同源 JSON API 和宿主事件触发的状态读取
  * [OUTPUT]: 提供按需账号/插件操作、明确的地址保存结果与共享 snapshot；仅登录期间有界查询；原样承载宿主在 AUTHORIZING 下发的 `authorizeUrl`（不产生副作用，由登录弹窗消费） **本刀（企业插件安装的动态过程效果）**：新增「安装中」的**真进度**轮询——动作在途时按 `ENTERPRISE_PLUGIN_PROGRESS_POLL_MS` 反复读**我们自己那条只读** `GET /plugins`（Host 每走一步工序都先写真实受管态、这条路由同步投影它），把 Host 真走到的阶段刷进快照；`pluginSettled` 记动作收束时的**真实受管态**（收束交代的唯一真源）；`pluginProgressErrorCode` 单独承载「进度这一路读不到」（**不**改写 `pluginErrorCode`，因为读不到进度不等于安装失败，且下一拍会自愈重读）；装完自停（`#pluginProgressActive` 判据），store 卸载时也停表。 **本刀（企业插件真取消）**：新增 `cancelPlugin(packageName)`——同源 `POST /plugins/cancel`（正文关闭键集 `{packageName}`，响应与只读 `GET /plugins` 同形 ⇒ 收下即回到安装前的真状态）；`pluginCancelBusy` 单独承载「本客户端的取消请求还在路上」（**不**改写 `pluginBusy`：安装还在跑与请在途取消是两件事实），失败把稳定码写进 `pluginErrorCode`（唯一提示组件出人话 + 下一步，按钮仍在即可重试），并刻意**不**碰 `pluginProgressErrorCode` / 账号 `errorCode` 这些不相关的码；本方法**不**自行宣判「已取消」（那次安装请求会以 `ENT_PLUGIN_INSTALL_CANCELLED` 自己收束）。
  * [POS]: dsh-ui 的浏览器状态控制器，在官方 slot 与 Settings tabs 间共享事实且隔离网络细节 **本刀**：进度轮询只读、可达、有界（在途才轮、无工序即停），并刻意与动作成败解耦。
+ * **本刀（插件行动分流）**：新增 `setPluginEnabled(packageName, enabled)`——与装/卸**同一条链**
+ *   （同 `#pluginAction` 的串行纪律、在途事实 `pluginBusy`、进度轮询与收束交代 `pluginSettled`），
+ *   成功时把响应里那份与只读 `GET /plugins` 同形的投影原样收下（`enabled` 启停位即真值，客户端不自行翻开关）；
+ *   收束交代只在**响应里那一枚启停位真的翻了**时才记（`#pluginSettledFact` 新增 enable/disable 两支）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -18,6 +22,7 @@ import {
   ENTERPRISE_PLUGIN_PROGRESS_MAX_IDLE_TICKS,
   ENTERPRISE_PLUGIN_PROGRESS_POLL_MS,
   ENTERPRISE_PLUGIN_PROGRESS_STATES,
+  type EnterprisePluginAction,
   type EnterprisePluginSettledFact,
 } from './plugin-install-progress.js'
 
@@ -30,9 +35,14 @@ export interface EnterpriseAccountSnapshot {
   readonly pluginStatus?: EnterprisePluginStatus
   readonly pluginsLoading?: boolean
   readonly pluginErrorCode?: string
-  readonly pluginBusy?: { readonly action: 'install' | 'remove'; readonly packageName: string }
   /**
-   * 刚结束那一次安装/卸载的**落地事实**（按最终真实受管态记下）。
+   * 本客户端刚发出、还没结束的那一次受管插件动作（装 / 卸 / 启用 / 停用，四方向共用这一格）。
+   *
+   * 四方向共用是有意的：**同一时刻只允许一个受管插件动作**，故行上不会出现「装到一半说在停用」。
+   */
+  readonly pluginBusy?: { readonly action: EnterprisePluginAction; readonly packageName: string }
+  /**
+   * 刚结束那一次动作（装 / 卸 / 启用 / 停用）的**落地事实**（按最终真实受管态记下）。
    *
    * 它**不是**乐观猜测也不编造：值取自动作收束后 `pluginStatus.plugins[].state`（Host 真值），
    * 再由 `plugin-install-progress.ts` 的唯一投影翻成「安装完成，重新打开客户端后生效。」这类可见交代。
@@ -180,6 +190,25 @@ export class EnterpriseAccountStore {
   }
 
   /**
+   * 把一枚**已安装**的受管插件置为启用 / 停用（不是卸载）。
+   *
+   * 三条口径：
+   *  ① **与安装/卸载同一条链**：共用 `#pluginAction` 的串行纪律、在途事实（`pluginBusy`）、
+   *     进度轮询与收束交代（`pluginSettled`），故界面在停用途中也能看到「进行中」与落地交代；
+   *  ② **响应即真值**：成功时把响应里那份与只读 `GET /plugins` 完全同形的受管投影原样收下
+   *     （`enabled` 那一枚启停位就在里面），**不**在客户端自行翻一个乐观的开关位置；
+   *  ③ **失败不静默**：失败把稳定码写进 `pluginErrorCode`，唯一提示组件出人话 + 下一步，
+   *     开关仍在（状态没变）⇒ 用户直接再拨一次就是重试。
+   */
+  async setPluginEnabled(packageName: string, enabled: boolean): Promise<void> {
+    await this.#pluginAction(
+      enabled ? 'enable' : 'disable',
+      packageName,
+      signal => this.#api.setPluginEnabled(packageName, enabled, signal),
+    )
+  }
+
+  /**
    * 取消**在途**的一次受管插件安装（本机 `POST /plugins/cancel`，正文关闭键集 `{packageName}`）。
    *
    * 四条口径与安装/卸载动作**刻意不同**，逐条写在这里：
@@ -218,7 +247,7 @@ export class EnterpriseAccountStore {
   }
 
   async #pluginAction(
-    action: 'install' | 'remove', packageName: string,
+    action: EnterprisePluginAction, packageName: string,
     operation: (signal: AbortSignal) => Promise<EnterprisePluginStatus>,
   ): Promise<void> {
     if (this.#snapshot.pluginBusy !== undefined || this.#snapshot.busy !== undefined
@@ -262,11 +291,17 @@ export class EnterpriseAccountStore {
    * 只有落在「这次动作真的成功了」的那几个终态上才产出，其余（失败 / 还没到终态）返回 `undefined`，
    * 由失败提示组件或下一次轮询负责。
    */
-  #pluginSettledFact(action: 'install' | 'remove', packageName: string): EnterprisePluginSettledFact | undefined {
-    const state = this.#snapshot.pluginStatus?.plugins.find(item => item.packageName === packageName)?.state
-      ?? (action === 'remove' ? 'EXPECTED' : undefined)
+  #pluginSettledFact(action: EnterprisePluginAction, packageName: string): EnterprisePluginSettledFact | undefined {
+    const item = this.#snapshot.pluginStatus?.plugins.find(entry => entry.packageName === packageName)
+    const state = item?.state ?? (action === 'remove' ? 'EXPECTED' : undefined)
     if (action === 'install') {
       return state === 'ACTIVE' || state === 'RESTART_REQUIRED' ? { action, packageName, state } : undefined
+    }
+    // 启用 / 停用：成功判据是**响应里那一枚启停位真的翻了**（不是「请求发出去了」）——
+    // 故这里读 `enabled`，读不到或没翻就如实返回 undefined（交给失败提示或下一次轮询）。
+    if (action === 'enable' || action === 'disable') {
+      if (item === undefined || state === undefined) return undefined
+      return item.enabled === (action === 'enable') ? { action, packageName, state } : undefined
     }
     return state === 'EXPECTED' || state === 'RESTART_REQUIRED' ? { action, packageName, state } : undefined
   }

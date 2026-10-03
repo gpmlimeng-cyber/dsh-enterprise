@@ -160,7 +160,7 @@ function textOf(node: ReactNode): string {
  */
 const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(12028 chars)",
+  "  style(12741 chars)",
   "  div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
   "    button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=true][aria-controls=market-panel-skills][tabIndex=0][onClick=[fn]][onKeyDown=[fn]]",
   "      #text:企业技能 1",
@@ -209,7 +209,7 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
 ]
 const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(12028 chars)",
+  "  style(12741 chars)",
   "  div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
   "    button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-skills][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
   "      #text:企业技能 1",
@@ -239,8 +239,8 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "                #text:企业插件分发的示例描述。",
   "            span[className=own-market-rowState]",
   "              StateDot[state=done]",
-  "              #text:已安装",
-  "            Switch[checked=true][label=安装企业插件 ent-a][disabled=false][title=点此卸载][onChange=[fn]]",
+  "              #text:已安装 · 已启用",
+  "            Switch[checked=true][label=启用 ent-a][disabled=false][title=点此停用][data-enterprise-plugin-slot=switch][onChange=[fn]]",
   "          div[className=own-market-inlineError][role=alert]",
   "            span[className=own-error-message][style=[object Object]]",
   "              #text:卸载失败：企业插件的信任配置不可用。",
@@ -267,7 +267,7 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "            span[className=own-market-rowState]",
   "              StateDot[state=error]",
   "              #text:处理失败",
-  "            Switch[checked=false][label=安装企业插件 ent-b][disabled=false][title=点此安装][onChange=[fn]]",
+  "            Switch[checked=true][label=启用 ent-b][disabled=false][title=点此停用][data-enterprise-plugin-slot=switch][onChange=[fn]]",
   "  div[id=market-panel-presets][role=tabpanel][aria-labelledby=market-tab-presets][hidden=true][className=own-market-panel]",
   "  div[id=market-panel-components][role=tabpanel][aria-labelledby=market-tab-components][hidden=true][className=own-market-panel]",
 ]
@@ -284,8 +284,8 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
  * 变的只有 `<style>` 的长度那一行（`style(10507 chars)` → `style(12028 chars)`）。
  * 任何人再改这份 CSS（不管是加装饰还是删规则）都会在这里立刻显形。
  */
-const LEGACY_STYLE_LENGTH = 12028
-const LEGACY_STYLE_CHECKSUM = 2071534702
+const LEGACY_STYLE_LENGTH = 12741
+const LEGACY_STYLE_CHECKSUM = 2814388023
 
 /** 「企业技能」节的目录 fixture：与 skill-market.spec 的列表投影同形（列表态 versionId/skills 为空）。 */
 const SKILL: EnterpriseRuntimeSkill = {
@@ -1511,22 +1511,23 @@ describe('enterprise marketplace entry', () => {
     const enterpriseSkills = enterpriseMarketSkillRows([SKILL])
     const enterprisePlugins = [{ packageName: 'ent-a', version: '1.2.0', state: 'ACTIVE', inCatalog: true }] as const
     for (const { label, shell } of MARKET_SHELLS) {
-      const onTogglePlugin = vi.fn()
+      const onTogglePluginEnabled = vi.fn()
       // 「企业插件」页签：插件行照旧「状态点 + 文案 + Switch」，checked/title/onChange 口径一字未改。
       const pluginsTab = shell({
         view: 'page',
         activeTab: 'plugins',
         sessionUsable: true,
         enterprisePlugins: enterprisePlugins as never,
-        onTogglePlugin,
+        onTogglePluginEnabled,
       })
-      const pluginSwitch = collectSwitchProps(pluginsTab).find(props => props['label'] === '安装企业插件 ent-a')!
-      expect(collectSwitchProps(pluginsTab).map(props => String(props['label'])), label).toEqual(['安装企业插件 ent-a'])
+      const pluginSwitch = collectSwitchProps(pluginsTab).find(props => props['label'] === '启用 ent-a')!
+      expect(collectSwitchProps(pluginsTab).map(props => String(props['label'])), label).toEqual(['启用 ent-a'])
       expect(pluginSwitch['checked'], label).toBe(true)
-      expect(pluginSwitch['title'], label).toBe('点此卸载')
+      // ★ 已安装 + 启用着：关掉它是**停用**，所以那句悬浮说明是「点此停用」，不是「点此卸载」。
+      expect(pluginSwitch['title'], label).toBe('点此停用')
       expect(pluginSwitch['disabled'], label).toBe(false)
       pluginSwitch['onChange']?.(false)
-      expect(onTogglePlugin, label).toHaveBeenCalledWith(expect.objectContaining({ packageName: 'ent-a' }), false)
+      expect(onTogglePluginEnabled, label).toHaveBeenCalledWith(expect.objectContaining({ packageName: 'ent-a' }), false)
       // 「企业技能」页签：已装同版本行（行上没有中心版本 → 不判更新）右侧只有那枚开关：
       // 不出辅助标签、也没有 `data-enterprise-skill-tag` 钩子；技能行未占 rowState 版式（那是组件行的状态点位）。
       const skillsTab = shell({
@@ -1553,24 +1554,27 @@ describe('enterprise marketplace entry', () => {
       { packageName: 'ent-b', version: '2.0.0', state: 'ACTIVE', inCatalog: true },
     ] as const
     for (const { label, shell } of MARKET_SHELLS) {
-      const onTogglePlugin = vi.fn()
+      const onInstallPlugin = vi.fn()
+      const onTogglePluginEnabled = vi.fn()
       const tree = shell({
         view: 'page',
         activeTab: 'plugins',
         sessionUsable: true,
         enterprisePlugins: enterprisePlugins as never,
-        onTogglePlugin,
+        onInstallPlugin,
+        onTogglePluginEnabled,
         pluginActionError: { id: 'ent-a', action: 'install', code: 'ENT_PLUGIN_SIGNATURE_INVALID' },
       })
       const alerts = collectAlerts(tree)
       expect(alerts, label).toHaveLength(1)
       expect(textOf(alerts[0]), label).toContain('安装失败')
       expect(textOf(alerts[0]), label).toContain('ENT_PLUGIN_SIGNATURE_INVALID')
-      // 失败行开关仍可拨（原地重试），另一行没有凭空多出失败提示。
-      const failedSwitch = collectSwitchProps(tree).find(props => props['label'] === '安装企业插件 ent-a')
-      expect(failedSwitch?.['disabled'], label).toBe(false)
-      failedSwitch?.['onChange']?.(true)
-      expect(onTogglePlugin, label).toHaveBeenCalledWith(expect.objectContaining({ packageName: 'ent-a' }), true)
+      // 失败那一行是**未安装**那一格（ent-a 的本机记录是空的）⇒ 它的重试入口是那枚【＋】，不是开关。
+      const retryPlus = collectSlotProps(tree, 'install')[0]
+      expect(retryPlus?.['disabled'], label).toBe(false)
+      expect(retryPlus?.['aria-label'], label).toBe('安装 ent-a')
+      ;(retryPlus?.['onClick'] as (() => void) | undefined)?.()
+      expect(onInstallPlugin, label).toHaveBeenCalledWith(expect.objectContaining({ packageName: 'ent-a' }))
       expect(textOf(tree), label).toContain('ent-b')
     }
   })
@@ -1589,7 +1593,7 @@ describe('enterprise marketplace entry', () => {
           enterprisePlugins: enterprisePlugins as never,
           enterpriseSkills,
           installedSkills: [installedSkill('v1')],
-          onTogglePlugin: vi.fn(),
+          onTogglePluginEnabled: vi.fn(),
           onToggleSkill: vi.fn(),
         })
         const where = `${label} / ${tab}`
@@ -1815,9 +1819,9 @@ describe('enterprise marketplace entry', () => {
     const plugins = EnterpriseMarketLegacyShell({
       view: 'page', activeTab: 'plugins', sessionUsable: true, expandedRow: null,
       enterprisePlugins: [{ packageName: 'ent-a', version: '1.2.0', state: 'ACTIVE', inCatalog: true }] as never,
-      onTogglePlugin: vi.fn(),
+      onTogglePluginEnabled: vi.fn(),
     })
-    expect(collectSwitchProps(plugins).map(props => String(props['label']))).toEqual(['安装企业插件 ent-a'])
+    expect(collectSwitchProps(plugins).map(props => String(props['label']))).toEqual(['启用 ent-a'])
     expect(collectByClassName(plugins, 'own-market-cardDetails')).toEqual([])
     expect(collectByClassName(plugins, 'own-market-cardChevron')).toEqual([])
     expect(collectByClassName(plugins, 'own-market-rowLine')).toHaveLength(1)
@@ -1848,7 +1852,7 @@ describe('enterprise marketplace entry', () => {
     const plugins = EnterpriseMarketLegacyShell({
       view: 'page', activeTab: 'plugins', sessionUsable: true,
       enterprisePlugins: [{ packageName: 'ent-a', version: '1.2.0', state: 'ACTIVE', inCatalog: true }] as never,
-      onTogglePlugin: vi.fn(),
+      onTogglePluginEnabled: vi.fn(),
     })
     const pluginRow = collectByDataProp(plugins, 'data-enterprise-plugin-package', 'ent-a')[0] as { props?: Record<string, unknown> } | undefined
     const pluginKids = (pluginRow?.props?.['children'] ?? []) as ReactNode[]
@@ -1876,11 +1880,10 @@ describe('enterprise marketplace entry', () => {
     expect(enterpriseMarketSkillStatusLabel('UPDATE_AVAILABLE')).toBe('有更新')
     expect(enterpriseMarketSkillStatusLabel('INSTALLING')).toBe('安装中')
     expect(enterpriseMarketSkillStatusLabel('REMOVING')).toBe('卸载中')
-    // 插件行：只有本机 ACTIVE 才算「已启用」；状态文案仍取本仓唯一那份官方状态词表，两个安静态不出文字。
-    expect(enterpriseMarketPluginConfigTag('ACTIVE')).toEqual({ enabled: true, label: '已启用', tone: 'success' })
-    for (const state of ['EXPECTED', 'DOWNLOAD_PENDING', 'DOWNLOADING', 'VERIFIED', 'INSTALLING', 'RESTART_REQUIRED', 'REMOVE_PENDING', 'REMOVING', 'FAILED', 'ROLLBACK'] as const) {
-      expect(enterpriseMarketPluginConfigTag(state), state).toEqual({ enabled: false, label: '未启用', tone: 'neutral' })
-    }
+    // 插件行的启停标签：**入参就是那一枚启停位**（不再从 `state` 自己推一套 `ACTIVE` 口径），
+    // 词表也只有一处（`plugin-install-gate.ts` 的 `enterprisePluginEnabledLabel`）。
+    expect(enterpriseMarketPluginConfigTag(true)).toEqual({ enabled: true, label: '已启用', tone: 'success' })
+    expect(enterpriseMarketPluginConfigTag(false)).toEqual({ enabled: false, label: '已停用', tone: 'neutral' })
     expect(enterpriseMarketPluginStatusLabel('ACTIVE')).toBeUndefined()
     expect(enterpriseMarketPluginStatusLabel('EXPECTED')).toBeUndefined()
     expect(enterpriseMarketPluginStatusLabel('FAILED')).toBe('处理失败')
@@ -2033,7 +2036,7 @@ describe('enterprise marketplace entry', () => {
       skillActionError: { id: SKILL.id, action: 'install' as const, code: 'ENT_ARTIFACT_INTEGRITY_FAILED' },
       pluginActionError: { id: 'ent-a', action: 'uninstall' as const, code: 'ENT_PLUGIN_SIGNATURE_INVALID' },
       onToggleSkill: vi.fn(),
-      onTogglePlugin: vi.fn(),
+      onTogglePluginEnabled: vi.fn(),
     }
     // ① 模型只有一个：同一组 props 两次调用逐字段相等（纯函数、无隐藏状态）。
     expect(enterpriseMarketShellModel(props)).toEqual(enterpriseMarketShellModel(props))
@@ -2075,7 +2078,9 @@ describe('enterprise marketplace entry', () => {
     expect(count(/enterpriseMarketPluginRowFacts\(/g)).toBe(2)
     // 安装/卸载动作接线各只有一份（复制逻辑会在这里翻倍）。
     expect(count(/\.installPlugin\(/g)).toBe(1)
-    expect(count(/\.removePlugin\(/g)).toBe(1)
+    // 插件行**没有**卸载动作：卸载只在「企业设置 → 插件」的详情弹窗里，故本文件一次都不该出现它。
+    expect(count(/\.removePlugin\(/g)).toBe(0)
+    expect(count(/\.setPluginEnabled\(/g)).toBe(1)
     // 唯一 hook 入口只经同一个宿主接线（没有第二套取数/动作/弹窗）。
     expect(count(/EnterpriseMarketShellHost/g)).toBe(2)
     expect(count(/useEnterpriseMarketController\(/g)).toBe(2)
@@ -2103,7 +2108,7 @@ describe('enterprise marketplace entry', () => {
       skillActionError: { id: SKILL.id, action: 'install' as const, code: 'ENT_ARTIFACT_INTEGRITY_FAILED' },
       pluginActionError: { id: 'ent-a', action: 'uninstall' as const, code: 'ENT_PLUGIN_SIGNATURE_INVALID' },
       onToggleSkill: vi.fn(),
-      onTogglePlugin: vi.fn(),
+      onTogglePluginEnabled: vi.fn(),
     }
     const tree = EnterpriseMarketLegacyShell(props)
     // ①a 结构级：`.own-market-rows` 那一块（连行、连行内动作与失败提示）逐行可取证。
@@ -2151,7 +2156,7 @@ describe('enterprise marketplace entry', () => {
       skillActionError: { id: SKILL.id, action: 'install' as const, code: 'ENT_ARTIFACT_INTEGRITY_FAILED' },
       pluginActionError: { id: 'ent-a', action: 'uninstall' as const, code: 'ENT_PLUGIN_SIGNATURE_INVALID' },
       onToggleSkill: () => undefined,
-      onTogglePlugin: () => undefined,
+      onTogglePluginEnabled: () => undefined,
     }
     const skillsTree = EnterpriseMarketLegacyShell(props)
     expect(domOutline(skillsTree)).toEqual(LEGACY_SHELL_OUTLINE)
@@ -2982,6 +2987,27 @@ function collectOfficialTagProps(node: ReactNode, acc: Record<string, any>[] = [
 }
 
 /** 收集元素树里所有 `<Switch>` 的 props（`vi.fn()` mock 的组件由 JSX 引用，props 存于 element.props）；嵌套函数组件先展开再递归。 */
+/**
+ * 按**分流槽位**收集动作控件 props（`data-enterprise-plugin-slot`）。
+ *
+ * 为什么需要它：插件行的 ＋ 用的是官方 `Button`（本文件里是 `vi.fn()` mock），而 `collectButtonProps`
+ * 只认原生 `button`；槽位属性才是「这一格画的是 ＋ 还是开关」的判据本身。
+ */
+function collectSlotProps(node: ReactNode, slot: string, acc: Record<string, any>[] = []): Record<string, any>[] {
+  if (Array.isArray(node)) { for (const child of node) collectSlotProps(child, slot, acc); return acc }
+  if (!isValidElement(node)) return acc
+  if (node.props['data-enterprise-plugin-slot'] === slot) { acc.push(node.props as Record<string, any>); return acc }
+  const props = node.props as Record<string, unknown>
+  if (typeof node.type === 'function') {
+    const rendered = (node.type as (p: unknown) => ReactNode)(props)
+    if (rendered !== undefined && rendered !== null) return collectSlotProps(rendered as ReactNode, slot, acc)
+  }
+  for (const value of Object.values(props)) {
+    if (value !== null && typeof value === 'object') collectSlotProps(value as ReactNode, slot, acc)
+  }
+  return acc
+}
+
 function collectSwitchProps(node: ReactNode, acc: Record<string, any>[] = []): Record<string, any>[] {
   if (Array.isArray(node)) { for (const child of node) collectSwitchProps(child, acc); return acc }
   if (!isValidElement(node)) return acc

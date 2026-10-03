@@ -2,6 +2,10 @@
  * [INPUT]: 依赖 branding 的同源 LOGO 来源门禁与 `EnterpriseBrandingDocument` 形状、decode-primitives 的严格解码内核、skill-api-decode 的技能 DTO 与解码 **本刀**：修 `decodeEnterprisePresets` 的 `sizeBytes` 上界判定写反（原先任何非零大小的配方都被判畸形），改为与插件目录同款的 `<= 0`；**配方收尾刀**：`decodeEnterprisePresets` 补契约切片 B 的 `dependencies`（放**可选位**，旧服务端不输出也照旧可解），按契约 `PresetDependency` 逐条校验并把键集抽成导出的常量供漂移门禁比对。
  * [OUTPUT]: 对外提供连接/受管插件状态枚举、本地 API DTO 类型与严格解码（账号、品牌、插件、配方、Session、四窗口用量、反馈回执、原生登录的来源列表与凭证/改密结果、**企业技能已装态 / 已装正文 / 本机文件树 / 树里单个文本文件**）、配方引用 `EnterpriseRuntimePresetDependency` 与四份**运行时键集常量**（`ENTERPRISE_PRESET_ROW_REQUIRED_KEYS` / `ENTERPRISE_PRESET_ROW_OPTIONAL_KEYS` / `ENTERPRISE_PRESET_DEPENDENCY_KEYS` / `ENTERPRISE_PRESET_DEPENDENCY_OPTIONAL_KEYS`，是 `tests/preset-decode.spec.ts` 契约漂移门禁的被测真源）、`EnterpriseLocalApi` 契约（含本刀新增的**取消**端口 `cancelPlugin(packageName, signal)`——响应与只读 `GET /plugins` 同形，故复用同一个严格解码器、**零新增字段**）、失败码投影 `enterpriseLocalErrorCode`，并再导出 `EnterpriseLocalApiError` 与 skill-api-decode 的全部技能契约 **本刀（配方一键启用）**：新增 `decodeEnterprisePresetEnable` / `decodeEnterprisePresetDisable` / `decodeEnterprisePresetStatus` 与它们的 DTO（披露清单 `EnterprisePresetDisclosure`、已装记录 `EnterpriseInstalledPreset`、授权三态 `EnterprisePresetAuthorization`、官方原值 `EnterprisePresetOfficialApplication`）与九份**键集常量**（enable/disable 的必填+可选、status 的必填、已装八键、披露三件、`officialError` 的两键）——形状真源是 Host 的 `bundle/src/preset-service.ts` 三个脱敏视图，未知键一律拒，`status.installed` 是**必填位上的可空值**。
  * [POS]: dsh-ui 的浏览器取数契约层——只定义「主机可以说什么」与「什么不许说」，不含任何 fetch；网络执行留在 local-api.ts，界面只消费本文件的投影结果。逼近 800 行后按业务纵切出技能分片与共享内核，本文件仍是唯一对外真源 **本刀**：这三条是**本机动作**（不是中心契约），故键集常量单独导出、由 `tests/preset-enable-decode.spec.ts` 做封闭键集断言；本文件仍是唯一 DTO 真源。
+ * **本刀（插件行动分流）**：`EnterprisePluginItem` 新增那一枚**启停位** `enabled`（与「装没装」正交；
+ *   解码白名单把它放在**可选键**位、缺席时归一成 `true`——旧 Host 那一半不发这个键也照旧解得开，
+ *   绝不存在「服务端先发、客户端不认」的中间态；形状不是布尔照样判畸形）。`EnterpriseLocalApi` 相应新增
+ *   `setPluginEnabled(packageName, enabled, signal)`。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -99,6 +103,15 @@ export interface EnterprisePluginItem {
   readonly desiredState: 'INSTALLED' | 'ABSENT'
   readonly state: ManagedPluginState
   readonly lastErrorCode: string | null
+  /**
+   * 这一枚本机**启用着吗**（用户显式停用后为 `false`）。
+   *
+   * 它是「已安装」那一行那枚【开关】的 `checked` 真源；**与「装没装」正交**：装没装只认
+   * `desiredState`（`INSTALLED`）。**为缺失设计**：Host 的旧投影不带这个键时按 `true` 归一
+   * （缺省就是启用），故新旧两半都解得开，不存在「服务端先发、客户端不认」的中间态；
+   * 客户端**绝不**从 `state` 反推它（`ACTIVE` 只说明落盘与加载，不说明启停）。
+   */
+  readonly enabled: boolean
 }
 
 export interface EnterprisePluginStatus {
@@ -378,6 +391,15 @@ export interface EnterpriseLocalApi {
   uninstallSkill(packageId: string, signal: AbortSignal): Promise<readonly EnterpriseInstalledSkill[]>
   installPlugin(packageName: string, pluginVersionId: string, signal: AbortSignal): Promise<EnterprisePluginStatus>
   removePlugin(packageName: string, signal: AbortSignal): Promise<EnterprisePluginStatus>
+  /**
+   * 把一枚**已安装**的企业插件置为启用 / 停用（`POST /plugins/enable` / `/plugins/disable`）。
+   *
+   * 语义（用户明确纠正过）：`enabled: false` = **停用**，**不是**卸载——依赖仍在本机、记录仍是
+   * `desiredState: 'INSTALLED'`，只是这枚插件不再参与运行；卸载是另一条路（`removePlugin`），
+   * 只在详情页给。响应的形状与只读 `GET /plugins` **完全同形**（零新增字段 ⇒ 解码器复用同一个），
+   * `enabled` 那一枚启停位就在响应里，界面收下即得真值、不自行宣判。
+   */
+  setPluginEnabled(packageName: string, enabled: boolean, signal: AbortSignal): Promise<EnterprisePluginStatus>
   /**
    * 取消**在途**的企业插件安装。
    *
@@ -692,7 +714,7 @@ function decodePluginItem(value: unknown): EnterprisePluginItem | undefined {
     || !hasExactKeys(item, [
       'packageName', 'version', 'sha256', 'desiredRevision', 'desiredState', 'state',
       'lastErrorCode', 'restartMarker',
-    ])
+    ], ['enabled'])
     || !nonEmptyString(item['packageName'])
     || !nullableString(item['version'])
     || !(item['sha256'] === null || (typeof item['sha256'] === 'string' && /^[0-9a-f]{64}$/.test(item['sha256'])))
@@ -700,7 +722,8 @@ function decodePluginItem(value: unknown): EnterprisePluginItem | undefined {
     || !(item['desiredState'] === 'INSTALLED' || item['desiredState'] === 'ABSENT')
     || !MANAGED_PLUGIN_STATES.includes(item['state'] as ManagedPluginState)
     || !nullableString(item['lastErrorCode'])
-    || !nullableString(item['restartMarker'])) return undefined
+    || !nullableString(item['restartMarker'])
+    || (item['enabled'] !== undefined && typeof item['enabled'] !== 'boolean')) return undefined
   return {
     packageName: item['packageName'],
     version: item['version'],
@@ -708,6 +731,8 @@ function decodePluginItem(value: unknown): EnterprisePluginItem | undefined {
     desiredState: item['desiredState'],
     state: item['state'] as ManagedPluginState,
     lastErrorCode: item['lastErrorCode'],
+    // 键缺席 = 旧 Host（那一半还没有启停位）⇒ 按「启用」归一，绝不从 `state` 反推。
+    enabled: item['enabled'] === undefined ? true : item['enabled'] === true,
   }
 }
 

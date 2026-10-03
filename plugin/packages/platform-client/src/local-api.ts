@@ -2,6 +2,10 @@
  * [INPUT]: 依赖 Harness `ctx.webServer.register()` route port、平台操作端口、组合层注入的插件动作端口（含**取消**）与技能安装端口、品牌只读端口与可选投影留痕端口
  * [OUTPUT]: 提供账号/配置按需刷新、插件操作（`/plugins/{install,remove,cancel}`，**取消**打官方 `pluginManager.cancelInstall` 且响应与只读 GET 同形、零新增字段）、**企业技能安装/卸载/已装态/已装正文**、**企业配方一键启用的三条子路径（`/presets/<id>/{enable,disable,status}`，由既有 `/presets` prefix 按后缀分派、注册面零新增字符串）**、本地品牌投影与原生登录（来源列表 / 凭证代提交 / 改密代提交）的严格同源 JSON 路由，无常驻状态连接；凭证正文只按固定键集读入并原样转发，绝不进日志；每个把异常投影成 HTTP 状态的回调都经 `onError` 上报操作名与原始 error；三条详情 prefix（品牌位图 / 会话恢复 / 配方详情）的注册 path 一律**不带尾斜杠**，技能四条路由是 `/skills` prefix 的 exact 子路径（`ENTERPRISE_SKILL_*_LOCAL_PATH`，含只读的 `/skills/content`）；并对外导出稳定码→HTTP 状态的**唯一**映射 `enterpriseLocalErrorStatus`——bundle 侧两条本机技能文件子路由（`/skills/<id>/files`、`/skills/<id>/file`）与这里的 `/skills/content`、以及配方一键启用三条子路径必须共用同一张表
  * [POS]: platform-client 的 Host/Client 同源协作边界，只序列化脱敏 DTO 并把认证 HTTP 留在 Host Service；路由形状受引擎 `match()`（`lib/index.js:322`）约束——exact 表整路径优先、prefix 只认 `pathname === prefix` 或 `pathname.startsWith(prefix + '/')`、多条命中取最长，故带尾斜杠的 prefix 会在引擎层空体 404 而根本不进 handler，而 `/skills/install` 这类子路径动作必须靠 exact 表抢在 `/skills` prefix 之前。`/skills/content` 的两个查询参数（包 id / 技能目录名）在这里只按形状收窄后原样转交：**名字不是路径**，是不是本包的、落点怎么拼、有没有符号链接逃逸，一律由 bundle 侧的已装记录与 `realpath` 判定
+ * **本刀（插件行动分流）**：新注册两条 exact 动作路由 `POST <local>/plugins/{enable,disable}`（方向由 path 决定，
+ *   正文关闭键集恰好 `{packageName}`，响应与 `GET /plugins` 同形）与可选端口 `pluginSetEnabled`；
+ *   组合层没接线（旧 bundle）时如实 **503**（不是 404），界面那枚开关永远拿得到一句可重试的真话。
+ *   ★ 停用只摘 bundle 层（官方 `setBundleEnabled(name,false)`），**绝不等同于卸载**。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -82,6 +86,22 @@ export const ENTERPRISE_SKILL_CONTENT_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/c
  * （真的取消掉 ⇒ 它抛 `ENT_PLUGIN_INSTALL_CANCELLED`），本路由只负责把取消指令送到官方面上。
  */
 export const ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH = `${LOCAL_API_PREFIX}/plugins/cancel`
+
+/**
+ * 受管插件**启用 / 停用**动作的两条 exact 注册 path：`POST <local>/plugins/{enable,disable}`。
+ *
+ * 方向由**路径**决定（不是一个 `{enabled}` 布尔入参）：与官方插件页那枚开关走的本机服务面同形，
+ * 正文因此可以小到关闭键集恰好 `{packageName}`。
+ *
+ * ★ 语义（用户明确纠正过）：「停用」**绝不等同于卸载**——它只把这枚插件的 bundle 层从本机 profile 上
+ * 摘下来（官方 `pluginManager.setBundleEnabled(name,false)`：依赖与本机记录都留着），
+ * 卸载仍然只有 `POST /plugins/remove` 那一条路，且界面只在**详情页**给（带确认 + 说清影响）。
+ *
+ * ⚠ 响应与 `GET /plugins` **完全同形**（`{data: pluginStatus()}`）：员工端解码器是关闭键集，
+ * 这里多发一个键就会让整条判畸形。启停位那一枚 `enabled` 是**受管记录自己的**字段（随投影一起走）。
+ */
+export const ENTERPRISE_PLUGIN_ENABLE_LOCAL_PATH = `${LOCAL_API_PREFIX}/plugins/enable`
+export const ENTERPRISE_PLUGIN_DISABLE_LOCAL_PATH = `${LOCAL_API_PREFIX}/plugins/disable`
 
 /** 中心雪花 id 与官方 kebab 技能目录名的形状门禁（与 bundle 侧同规约，两处都是「先收窄再使用」）。 */
 const ENTERPRISE_ID_PATTERN = /^[1-9][0-9]{0,18}$/
@@ -167,6 +187,14 @@ export interface EnterpriseLocalApiOptions {
    * **不是** 404：界面上那枚取消键永远拿得到一句真话。
    */
   readonly pluginCancel?: (packageName: string) => Promise<unknown>
+  /**
+   * 把一枚**已安装**的受管插件置为启用 / 停用（bundle 侧转官方 `pluginManager.setBundleEnabled`）。
+   *
+   * 与 `pluginAction` / `pluginCancel` 同一手法：组合层无条件接线、端口在**调用时**实时解引用官方服务。
+   * 缺席（旧 bundle）时这两条路由如实按「分发不可用」拒（503），**不是** 404——界面那枚开关永远
+   * 拿得到一句真话（可重试），而不是一个「本机没有这条路由」的假故障。
+   */
+  readonly pluginSetEnabled?: (packageName: string, enabled: boolean) => Promise<unknown>
   /**
    * 由组合层绑定企业技能安装器（bundle 的 `skill-install.ts`）；返回**安装后的最新已装态**，
    * 让界面一次往返就拿到真值而不是自行猜测。缺席时不注册 `/skills/install|uninstall`。
@@ -656,6 +684,36 @@ export function registerEnterpriseLocalApi(
         writeJson(response, 200, { data: options.pluginStatus() })
       },
     }))
+
+    // 受管插件**启用 / 停用**：与 install/remove/cancel 同一族、同一套键集门禁与错误投影。
+    // 方向由 path 决定（`/enable` 与 `/disable` 是两条独立路由）。
+    for (const [suffix, enabled] of [['enable', true], ['disable', false]] as const) {
+      disposers.push(webServer.register({
+        kind: 'exact',
+        path: `${LOCAL_API_PREFIX}/plugins/${suffix}`,
+        handler: async (request, response) => {
+          if (request.method !== 'POST') { methodNotAllowed(response, 'POST'); return }
+          try {
+            const value = await readJson(request)
+            if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new TypeError('invalid plugin enable')
+            const body = value as Record<string, unknown>
+            if (Object.keys(body).sort().join(',') !== 'packageName'
+              || typeof body['packageName'] !== 'string' || body['packageName'].length > 214
+              || !/^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/.test(body['packageName'])) {
+              throw new TypeError('invalid plugin enable')
+            }
+            if (options.pluginSetEnabled === undefined) throw new Error('plugin distribution is unavailable')
+            await options.pluginSetEnabled(body['packageName'], enabled)
+            writeJson(response, 200, { data: options.pluginStatus() })
+          } catch (error) {
+            const status = enterpriseLocalErrorStatus(error)
+            writeJson(response, status, { error: {
+              code: status === 413 ? 'ENT_REQUEST_TOO_LARGE' : status === 400 ? 'ENT_INVALID_REQUEST' : errorCode(error),
+            } })
+          }
+        },
+      }))
+    }
 
     // 受管插件**取消**：关闭键集 `{packageName}`，与上面两条动作同一个错误投影；
     // 响应与 GET 同形（**不加字段**，见 ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH 的注释）。

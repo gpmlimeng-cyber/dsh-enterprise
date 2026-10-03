@@ -33,6 +33,11 @@
  *   界面据此禁用按钮并播报；**取消的结果**不由本层宣判——它由那次安装请求自己的收束
  *   （抛 `ENT_PLUGIN_INSTALL_CANCELLED`）经唯一提示组件呈现。
  *
+ * **本刀（插件行动分流）**：动作族从 `install | remove` 扩成 `install | remove | enable | disable`
+ *   （`EnterprisePluginAction`）——**停用方向必须有自己那句「正在停用这枚插件…」**（沿用既有的进度/收束链，
+ *   但绝不能说成「卸载」），启用/停用没有官方取消句柄故只给一句可见原因
+ *   （`ENTERPRISE_PLUGIN_PROGRESS_CANCEL_SWITCH`），落地交代换成两句明说「仍装在本机」的
+ *   `ENTERPRISE_PLUGIN_SETTLED_DISABLED{,_RESTART}` / `..._ENABLED{,_RESTART}`。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -98,6 +103,10 @@ export const ENTERPRISE_PLUGIN_CANCELABLE_STATES: readonly ManagedPluginState[] 
 export const ENTERPRISE_PLUGIN_PROGRESS_PENDING_INSTALL = '正在处理安装请求…'
 /** 同上（卸载方向）。 */
 export const ENTERPRISE_PLUGIN_PROGRESS_PENDING_REMOVE = '正在处理卸载请求…'
+/** 同上（停用方向）——关闭开关＝停用，**不是**卸载，这一句必须说对。 */
+export const ENTERPRISE_PLUGIN_PROGRESS_PENDING_DISABLE = '正在停用这枚插件…'
+/** 同上（启用方向）。 */
+export const ENTERPRISE_PLUGIN_PROGRESS_PENDING_ENABLE = '正在启用这枚插件…'
 
 /**
  * 「现在还不能取消」的**可见**原因（安装请求刚提交、官方句柄还没交出来）。
@@ -110,6 +119,8 @@ export const ENTERPRISE_PLUGIN_PROGRESS_CANCEL_PENDING = '安装请求已提交�
 export const ENTERPRISE_PLUGIN_PROGRESS_CANCEL_EARLY = '下载与校验还在进行，走到「正在安装」后就能取消。'
 /** 卸载方向没有取消面（官方 `cancelInstall` 只管安装那一跑）。 */
 export const ENTERPRISE_PLUGIN_PROGRESS_CANCEL_REMOVE = '卸载已经开始，完成前不能中断。'
+/** 启用 / 停用方向没有取消面：它是一次本机开关切换（官方只改 profile 的 bundle 层），不是一次下载。 */
+export const ENTERPRISE_PLUGIN_PROGRESS_CANCEL_SWITCH = '启用 / 停用是一次本机切换，不能中断，很快就结束。'
 
 /**
  * 取消请求**已在路上**时的可见交代。
@@ -128,19 +139,35 @@ export const ENTERPRISE_PLUGIN_SETTLED_INSTALLED = '安装完成，已经生效�
 export const ENTERPRISE_PLUGIN_SETTLED_INSTALLED_RESTART = '安装完成，重新打开客户端后生效。'
 /** 卸载完成（本机的受管插件模块要重新加载才真正退场）。 */
 export const ENTERPRISE_PLUGIN_SETTLED_REMOVED = '卸载完成，重新打开客户端后生效。'
+/** 停用完成且已经生效（这枚插件不再参与运行，**依赖仍在本机**）。 */
+export const ENTERPRISE_PLUGIN_SETTLED_DISABLED = '已停用：这枚插件不再参与运行，它仍装在本机。'
+/** 停用完成、需要重新打开客户端才完全退场。 */
+export const ENTERPRISE_PLUGIN_SETTLED_DISABLED_RESTART = '已停用，重新打开客户端后完全退场。'
+/** 启用完成且已经生效。 */
+export const ENTERPRISE_PLUGIN_SETTLED_ENABLED = '已启用：这枚插件已恢复运行。'
+/** 启用完成、需要重新打开客户端才生效。 */
+export const ENTERPRISE_PLUGIN_SETTLED_ENABLED_RESTART = '已启用，重新打开客户端后生效。'
+
+/**
+ * 本客户端能发起的四种受管插件动作。
+ *
+ * 它们是**两个方向对**：`install`/`remove` 动的是「装没装」，`enable`/`disable` 动的是「启用着没」。
+ * 四种共用一个在途事实（`pluginBusy`）与同一份进度投影，故行上不会出现「装到一半说在停用」。
+ */
+export type EnterprisePluginAction = 'install' | 'remove' | 'enable' | 'disable'
 
 /** 「安装中」这一段进度的两个相位。 */
 export type EnterprisePluginProgressPhase = 'pending' | 'working'
 
-/** 一次安装/卸载动作**刚从本客户端发出**（store 的 `pluginBusy`）。 */
+/** 一次安装/卸载/启用/停用动作**刚从本客户端发出**（store 的 `pluginBusy`）。 */
 export interface EnterprisePluginBusyFact {
-  readonly action: 'install' | 'remove'
+  readonly action: EnterprisePluginAction
   readonly packageName: string
 }
 
-/** 一次安装/卸载动作**已经收束**的落地事实（store 在动作 finally 里按最终受管态记下）。 */
+/** 一次安装/卸载/启用/停用动作**已经收束**的落地事实（store 在动作 finally 里按最终受管态记下）。 */
 export interface EnterprisePluginSettledFact {
-  readonly action: 'install' | 'remove'
+  readonly action: EnterprisePluginAction
   readonly packageName: string
   /** 收束时的真实受管态（卸载把记录删干净了就是 `EXPECTED` = 本机不再装着）。 */
   readonly state: ManagedPluginState
@@ -208,7 +235,7 @@ export interface EnterprisePluginProgress {
 }
 
 /** 卸载方向（由真状态或我们发出的动作方向判定）。 */
-function progressAction(input: EnterprisePluginProgressInput, owned: boolean): 'install' | 'remove' {
+function progressAction(input: EnterprisePluginProgressInput, owned: boolean): EnterprisePluginAction {
   if (owned) return input.busy!.action
   return input.state === 'REMOVE_PENDING' || input.state === 'REMOVING' ? 'remove' : 'install'
 }
@@ -216,12 +243,22 @@ function progressAction(input: EnterprisePluginProgressInput, owned: boolean): '
 /**
  * 「现在为什么取消不了」那一句（纯查表，只有一个入口，故两处渲染取到同一个词）。
  *
- * 三个分支对应三种**不同**的事实：请求刚提交（句柄还没交出来）、已报到在途工序但还没到
- * 挂句柄那一步、以及卸载方向压根没有取消面。它们各说各的真话，不合并成一句含糊的「暂不可取消」。
+ * 四个分支对应四种**不同**的事实：请求刚提交（句柄还没交出来）、已报到在途工序但还没到
+ * 挂句柄那一步、卸载方向压根没有取消面、以及启用/停用（本机开关切换，从来没有取消面）。
+ * 它们各说各的真话，不合并成一句含糊的「暂不可取消」。
  */
-function cancelNoticeText(action: 'install' | 'remove', phase: EnterprisePluginProgressPhase): string {
+function cancelNoticeText(action: EnterprisePluginAction, phase: EnterprisePluginProgressPhase): string {
   if (action === 'remove') return ENTERPRISE_PLUGIN_PROGRESS_CANCEL_REMOVE
+  if (action === 'enable' || action === 'disable') return ENTERPRISE_PLUGIN_PROGRESS_CANCEL_SWITCH
   return phase === 'pending' ? ENTERPRISE_PLUGIN_PROGRESS_CANCEL_PENDING : ENTERPRISE_PLUGIN_PROGRESS_CANCEL_EARLY
+}
+
+/** 请求已提交、Host 还没报到在途阶段时那句话的唯一取值表（四个方向各一句，见常量注释）。 */
+function pendingStageText(action: EnterprisePluginAction): string {
+  if (action === 'remove') return ENTERPRISE_PLUGIN_PROGRESS_PENDING_REMOVE
+  if (action === 'disable') return ENTERPRISE_PLUGIN_PROGRESS_PENDING_DISABLE
+  if (action === 'enable') return ENTERPRISE_PLUGIN_PROGRESS_PENDING_ENABLE
+  return ENTERPRISE_PLUGIN_PROGRESS_PENDING_INSTALL
 }
 
 /**
@@ -258,7 +295,7 @@ export function enterprisePluginProgress(input: EnterprisePluginProgressInput): 
     phase,
     stageText: working
       ? input.stageText
-      : action === 'remove' ? ENTERPRISE_PLUGIN_PROGRESS_PENDING_REMOVE : ENTERPRISE_PLUGIN_PROGRESS_PENDING_INSTALL,
+      : pendingStageText(action),
     state: input.state,
     owned,
     indeterminate: true,
@@ -284,11 +321,22 @@ export function enterprisePluginSettledNotice(input: {
 }): string | undefined {
   const settled = input.settled
   if (settled === undefined || settled.packageName !== input.packageName) return undefined
+  const restart = settled.state === 'RESTART_REQUIRED'
   if (settled.action === 'install') {
     if (settled.state === 'ACTIVE') return ENTERPRISE_PLUGIN_SETTLED_INSTALLED
-    if (settled.state === 'RESTART_REQUIRED') return ENTERPRISE_PLUGIN_SETTLED_INSTALLED_RESTART
+    if (restart) return ENTERPRISE_PLUGIN_SETTLED_INSTALLED_RESTART
     return undefined
   }
-  if (settled.state === 'EXPECTED' || settled.state === 'RESTART_REQUIRED') return ENTERPRISE_PLUGIN_SETTLED_REMOVED
+  // 启用 / 停用：**关掉是停用，不是卸载**——这两句里一个「卸载」字都没有，
+  // 且都明说插件仍装在本机（注销/卸载的口径归 `remove` 那一支）。
+  if (settled.action === 'disable') {
+    if (restart) return ENTERPRISE_PLUGIN_SETTLED_DISABLED_RESTART
+    return settled.state === 'ACTIVE' ? ENTERPRISE_PLUGIN_SETTLED_DISABLED : undefined
+  }
+  if (settled.action === 'enable') {
+    if (restart) return ENTERPRISE_PLUGIN_SETTLED_ENABLED_RESTART
+    return settled.state === 'ACTIVE' ? ENTERPRISE_PLUGIN_SETTLED_ENABLED : undefined
+  }
+  if (settled.state === 'EXPECTED' || restart) return ENTERPRISE_PLUGIN_SETTLED_REMOVED
   return undefined
 }

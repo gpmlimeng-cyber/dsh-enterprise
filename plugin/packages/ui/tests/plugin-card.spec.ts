@@ -262,8 +262,8 @@ describe('no new CSS class on either card surface', () => {
     const source = await readFile(new URL('plugin-market.tsx', UI_SRC), 'utf8')
     const styles = templateLiteralAfter(source, 'const styles')
     // **本刀 CSS 一字未动**：两道字节级判据锁着同一份基线（改一字节就红）。
-    expect(styles.length).toBe(4298)
-    expect(styleChecksum(styles)).toBe(1413211749)
+    expect(styles.length).toBe(5345)
+    expect(styleChecksum(styles)).toBe(1754276488)
     // 标签的类名是**复用**技能那一枚，本文件不许自己声明它们（否则就是同一页第二套样式）。
     const declared = declaredClassNames(source)
     expect(declared.has('own-market-tag')).toBe(false)

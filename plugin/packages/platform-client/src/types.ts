@@ -2,6 +2,8 @@
  * [INPUT]: 依赖 zod、生成契约、官方 settings 的 volatile Config 引用形状、installation 与本地 API 端口
  * [OUTPUT]: 对外提供 BootstrapSnapshot、平台状态/错误（含安卓授权页交接时随 AUTHORIZING 下发的 `authorizeUrl`）、volatile 引用识别与无验收探针的 Service 配置（含 `browserHandoff` 开关，以及组合层注入的企业插件动作端口 `pluginAction`/`pluginStatus`、企业技能安装端口 `skillAction`/`skillStatus` 与只读正文端口 `skillContent`）
  * [POS]: platform-client 的公共契约层，隔离中心 HTTP 输入、Host 运行参数、官方 settings 引用与无秘密界面状态
+ * **本刀（插件行动分流）**：`EnterprisePlatformServiceInternals` 新增 `pluginSetEnabled`（组合层注入的启用/停用端口），
+ *   缺席即那两条路由按「分发不可用」如实拒——与 `pluginAction`/`pluginCancel` 同一条接线手法。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -89,6 +91,8 @@ export interface EnterprisePlatformInternals {
   readonly pluginAction?: EnterpriseLocalApiOptions['pluginAction']
   /** 受管插件**取消**（bundle 侧转官方 `pluginManager.cancelInstall`）；缺席时那条动作路由如实拒。 */
   readonly pluginCancel?: EnterpriseLocalApiOptions['pluginCancel']
+  /** 启用 / 停用端口（bundle 组合层注入；缺席即那两条路由按「分发不可用」如实拒）。 */
+  readonly pluginSetEnabled?: EnterpriseLocalApiOptions['pluginSetEnabled']
   /** 企业技能安装/卸载（由 bundle 侧实现），返回安装后的最新已装态。 */
   readonly skillAction?: EnterpriseLocalApiOptions['skillAction']
   /** 企业技能已装清单；界面列表加载时读一次。 */

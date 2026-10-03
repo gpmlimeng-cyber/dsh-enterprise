@@ -38,7 +38,9 @@ import {
   ENTERPRISE_PLUGIN_PROGRESS_CANCEL_EARLY,
   ENTERPRISE_PLUGIN_PROGRESS_CANCEL_PENDING,
   ENTERPRISE_PLUGIN_PROGRESS_CANCEL_REMOVE,
+  ENTERPRISE_PLUGIN_PROGRESS_CANCEL_SWITCH,
   ENTERPRISE_PLUGIN_PROGRESS_CANCELLING,
+  ENTERPRISE_PLUGIN_PROGRESS_PENDING_DISABLE,
   ENTERPRISE_PLUGIN_PROGRESS_MAX_IDLE_TICKS,
   ENTERPRISE_PLUGIN_PROGRESS_PENDING_INSTALL,
   ENTERPRISE_PLUGIN_PROGRESS_PENDING_REMOVE,
@@ -47,6 +49,10 @@ import {
   ENTERPRISE_PLUGIN_PROGRESS_STATES,
   ENTERPRISE_PLUGIN_SETTLED_INSTALLED,
   ENTERPRISE_PLUGIN_SETTLED_INSTALLED_RESTART,
+  ENTERPRISE_PLUGIN_SETTLED_DISABLED,
+  ENTERPRISE_PLUGIN_SETTLED_DISABLED_RESTART,
+  ENTERPRISE_PLUGIN_SETTLED_ENABLED,
+  ENTERPRISE_PLUGIN_SETTLED_ENABLED_RESTART,
   ENTERPRISE_PLUGIN_SETTLED_REMOVED,
   enterprisePluginProgress,
   enterprisePluginSettledNotice,
@@ -157,7 +163,12 @@ function buttonsWithin(node: ReactNode): Record<string, unknown>[] {
 
 /** 一行插件（目录版 + 本机态）的构造器。 */
 function row(overrides: Partial<EnterpriseMarketPluginRow> = {}): EnterpriseMarketPluginRow {
-  return { packageName: 'ent-a', version: '1.2.0', state: 'EXPECTED', inCatalog: true, ...overrides }
+  return { packageName: 'ent-a', version: '1.2.0', state: 'EXPECTED', inCatalog: true, enabled: true, ...overrides }
+}
+
+/** 一行**已安装**插件（有本机记录 + 已落盘版本）：它才是渲染【开关】的那一格。 */
+function installedRow(overrides: Partial<EnterpriseMarketPluginRow> = {}): EnterpriseMarketPluginRow {
+  return row({ state: 'ACTIVE', desiredState: 'INSTALLED', recordVersion: '1.2.0', ...overrides })
 }
 
 /** 目录页外壳的 props（插件页签 + 写入口在场）。 */
@@ -167,7 +178,8 @@ function shellProps(plugin: EnterpriseMarketPluginRow | readonly EnterpriseMarke
     activeTab: 'plugins',
     sessionUsable: true,
     enterprisePlugins: Array.isArray(plugin) ? plugin : [plugin] as never,
-    onTogglePlugin: vi.fn(),
+    onInstallPlugin: vi.fn(),
+    onTogglePluginEnabled: vi.fn(),
     ...extra,
   }
 }
@@ -388,6 +400,42 @@ describe('企业插件行的「安装中」过程效果', () => {
     expect(buttonsWithin(tree)).toEqual([])
     // 不能取消时才轮到那句「为什么」——能取消的行一个字都不多说。
     expect(textWithin(pluginRow(tree, 'ent-a'))).not.toContain(ENTERPRISE_PLUGIN_PROGRESS_CANCEL_EARLY)
+  })
+
+  // 本刀（动作分流）：那枚开关关掉是**停用**——进度与落地交代必须说「停用」，一个「卸载」字都不许有。
+  it('says 停用 for the disable direction (and never 卸载), with a visible reason that it cannot be cancelled', () => {
+    const props = shellProps(
+      [installedRow({ packageName: 'ent-a', state: 'ACTIVE', enabled: true })],
+      { pluginBusy: { action: 'disable', packageName: 'ent-a' } },
+    )
+    const tree = EnterpriseMarketLegacyShell(props)
+    const bars = collectByAttr(tree, 'data-enterprise-plugin-progress')
+    expect(bars).toHaveLength(1)
+    // 请求刚提交（Host 还没报到工序）⇒ 用那一句「正在停用这枚插件…」。
+    expect(bars[0]?.['data-enterprise-plugin-progress-phase']).toBe('pending')
+    const bar = (() => { let found: Record<string, unknown> | undefined; walkTree(tree, e => { if (e.props['role'] === 'progressbar') found = e.props }); return found })()
+    expect(String(bar?.['aria-valuetext'])).toBe(ENTERPRISE_PLUGIN_PROGRESS_PENDING_DISABLE)
+    expect(String(bar?.['aria-valuetext'])).toContain('停用')
+    expect(String(bar?.['aria-valuetext'])).not.toContain('卸载')
+    // 启用/停用没有取消面（官方只改 profile 的 bundle 层，不是一次下载）⇒ 不给假按钮，只给一句可见原因。
+    expect(bars[0]?.['data-enterprise-plugin-progress-cancelable']).toBe('false')
+    expect(textWithin(pluginRow(tree, 'ent-a'))).toContain(ENTERPRISE_PLUGIN_PROGRESS_CANCEL_SWITCH)
+    expect(ENTERPRISE_PLUGIN_PROGRESS_CANCEL_SWITCH).not.toContain('卸载')
+    expect(buttonsWithin(tree)).toEqual([])
+  })
+
+  it('settles the disable direction with a sentence that never reads as an uninstall', () => {
+    const settle = (action: 'disable' | 'enable', state: 'ACTIVE' | 'RESTART_REQUIRED'): string | undefined =>
+      enterprisePluginSettledNotice({ packageName: 'ent-a', settled: { action, packageName: 'ent-a', state } })
+    expect(settle('disable', 'ACTIVE')).toBe(ENTERPRISE_PLUGIN_SETTLED_DISABLED)
+    expect(settle('disable', 'RESTART_REQUIRED')).toBe(ENTERPRISE_PLUGIN_SETTLED_DISABLED_RESTART)
+    expect(settle('enable', 'ACTIVE')).toBe(ENTERPRISE_PLUGIN_SETTLED_ENABLED)
+    expect(settle('enable', 'RESTART_REQUIRED')).toBe(ENTERPRISE_PLUGIN_SETTLED_ENABLED_RESTART)
+    // 「仍然装在本机」是停用与卸载的分界线：停用的那两句必须说清这一点，且一个「卸载」字都没有。
+    expect(ENTERPRISE_PLUGIN_SETTLED_DISABLED).toContain('仍装在本机')
+    for (const text of [ENTERPRISE_PLUGIN_SETTLED_DISABLED, ENTERPRISE_PLUGIN_SETTLED_DISABLED_RESTART]) {
+      expect(text).not.toContain('卸载')
+    }
   })
 
   it('renders a real cancel entry only while the official handle exists, with a name and a visible reason when it does not', () => {

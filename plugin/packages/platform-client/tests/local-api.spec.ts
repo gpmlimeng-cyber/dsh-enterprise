@@ -10,6 +10,8 @@ import { createServer, type Server } from 'node:http'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH,
+  ENTERPRISE_PLUGIN_DISABLE_LOCAL_PATH,
+  ENTERPRISE_PLUGIN_ENABLE_LOCAL_PATH,
   ENTERPRISE_SKILL_CONTENT_LOCAL_PATH,
   ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH,
   ENTERPRISE_SKILL_INSTALL_LOCAL_PATH,
@@ -307,6 +309,74 @@ describe('enterprise local API', () => {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ packageName: '@example/tools' }),
     })
     expect(response.status).toBe(503)
+    bare.closeAllConnections()
+    await new Promise<void>(resolve => bare.close(() => resolve()))
+  })
+
+  // 启用 / 停用两条 exact 动作路由（本刀）：方向由 path 决定、正文关闭键集恰好 `{packageName}`、
+  // 响应与 `GET /plugins` 完全同形；组合层没接线时如实 503（不是 404）。
+  it('toggles a managed plugin through two exact routes whose direction is the path, never the body', async () => {
+    const pluginAction = vi.fn(async () => undefined)
+    const pluginSetEnabled = vi.fn(async () => undefined)
+    registerEnterpriseLocalApi(webServer, { platform, pluginStatus, pluginAction, pluginSetEnabled })
+
+    const enableRoute = [...routes.values()].find(route => route.path === ENTERPRISE_PLUGIN_ENABLE_LOCAL_PATH)
+    const disableRoute = [...routes.values()].find(route => route.path === ENTERPRISE_PLUGIN_DISABLE_LOCAL_PATH)
+    expect(enableRoute?.kind).toBe('exact')
+    expect(disableRoute?.kind).toBe('exact')
+    expect(ENTERPRISE_PLUGIN_ENABLE_LOCAL_PATH).toBe('/enterprise/api/v1/local/plugins/enable')
+    expect(ENTERPRISE_PLUGIN_DISABLE_LOCAL_PATH).toBe('/enterprise/api/v1/local/plugins/disable')
+
+    const post = (path: string, body: unknown) => fetch(`${baseUrl}${path}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+    })
+    // 关闭键集：缺参/多参/多带 `enabled` 布尔（方向必须由 path 决定，不许 body 里再塞一个）一律 400，且不进端口。
+    for (const path of [ENTERPRISE_PLUGIN_ENABLE_LOCAL_PATH, ENTERPRISE_PLUGIN_DISABLE_LOCAL_PATH]) {
+      for (const body of [{}, { packageName: '--eval' }, { packageName: '@example/tools', enabled: false }]) {
+        expect((await post(path, body)).status).toBe(400)
+      }
+    }
+    expect(pluginSetEnabled).not.toHaveBeenCalled()
+    // 非 POST ⇒ 405 且 Allow 只报 POST。
+    const notAllowed = await fetch(`${baseUrl}${ENTERPRISE_PLUGIN_DISABLE_LOCAL_PATH}`)
+    expect(notAllowed.status).toBe(405)
+    expect(notAllowed.headers.get('allow')).toBe('POST')
+    // 两条路各自带着**自己的方向**调同一个端口。
+    const disabled = await post(ENTERPRISE_PLUGIN_DISABLE_LOCAL_PATH, { packageName: '@example/tools' })
+    expect(disabled.status).toBe(200)
+    expect(pluginSetEnabled).toHaveBeenLastCalledWith('@example/tools', false)
+    await post(ENTERPRISE_PLUGIN_ENABLE_LOCAL_PATH, { packageName: '@example/tools' })
+    expect(pluginSetEnabled).toHaveBeenLastCalledWith('@example/tools', true)
+    expect(pluginSetEnabled).toHaveBeenCalledTimes(2)
+    // 卸载那条路一次都没走（停用不是卸载）。
+    expect(pluginAction).not.toHaveBeenCalled()
+    // 响应与 `GET /plugins` 完全同形：一个字段都不多。
+    expect(Object.keys((await disabled.json()).data).sort()).toEqual(['assignmentRevision', 'plugins'])
+    // 端口抛稳定码 ⇒ 走同一张错误投影表。
+    pluginSetEnabled.mockRejectedValueOnce(Object.assign(new Error('busy'), { code: 'ENT_PLUGIN_BUSY' }))
+    expect((await post(ENTERPRISE_PLUGIN_DISABLE_LOCAL_PATH, { packageName: '@example/tools' })).status).toBe(409)
+    // 组合层没接线（旧 bundle）⇒ 如实 503「分发不可用」，不是 404（界面拿得到一句真话）。
+    const bareRoutes = new Map<string, RegisteredRoute>()
+    const bareWebServer: WebServerRoutePort = {
+      register: (route) => {
+        bareRoutes.set(`${route.kind}:${route.path}`, route)
+        return () => { bareRoutes.delete(`${route.kind}:${route.path}`) }
+      },
+    }
+    registerEnterpriseLocalApi(bareWebServer, { platform, pluginStatus })
+    const bare = createServer((request, response) => {
+      const path = new URL(request.url ?? '/', 'http://127.0.0.1').pathname
+      const route = engineRouteMatch([...bareRoutes.values()], path)
+      if (route === undefined) return void response.writeHead(404).end()
+      void Promise.resolve(route.handler(request, response))
+    })
+    await new Promise<void>(resolve => bare.listen(0, '127.0.0.1', resolve))
+    const address = bare.address()
+    if (address === null || typeof address === 'string') throw new Error('missing test port')
+    const bareResponse = await fetch(`http://127.0.0.1:${address.port}${ENTERPRISE_PLUGIN_DISABLE_LOCAL_PATH}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ packageName: '@example/tools' }),
+    })
+    expect(bareResponse.status).toBe(503)
     bare.closeAllConnections()
     await new Promise<void>(resolve => bare.close(() => resolve()))
   })
