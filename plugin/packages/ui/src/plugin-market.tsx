@@ -41,6 +41,13 @@
  *   `enterprisePluginDetailDescription`（缺描述 → `undefined`，与行上 `enterprisePluginDescriptionText`
  *   的「暂无描述」口径**刻意不同**）。**CSS 一个字节都没动、一个新类都没加**（复用本页既有
  *   `.own-market-notice`，其余是内联版式），故 `styles` 长度 5345 与 FNV-1a 1754276488 原样通过。
+ * **本刀（口径 22：README 渲染成漂亮排版）**：`EnterprisePluginDetailPage` 再增一枚**可选**
+ *   `descriptionMarkdown`（additive：**face A 不传 ⇒ 缺省不为真 ⇒ 输出逐字不变**，那条大纲逐字快照仍绿）——
+ *   为真时「描述」段正文改由新叶 `markdown-render.tsx` 的 `renderMarkdown` 翻成 React 元素（标题 / 段落 /
+ *   无序·有序列表 / 围栏代码块 / 引用 / 水平线 / 行内代码 / 粗斜体 / 删除线 / 链接 / 行内换行），
+ *   raw HTML 与非法协议一律降级为纯文本、图片**绝不**变成 `<img>`；容器与排布（既有的 `.own-market-notice` +
+ *   12 行×20px=240px 块内滚动 + `overflow-wrap:anywhere`，仍在事实表之后、动作区之前）一字未动，
+ *   **CSS 一个字节都没动、一个新类都没加**（Markdown 版式全部是内联样式，`styles` 5345 / 1754276488 仍绿）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -63,6 +70,9 @@ import {
 } from './enterprise-card-text.js'
 import { EnterpriseErrorNotice } from './error-notice.js'
 import type { ManagedPluginState } from './local-api.js'
+// 口径 22：README 的 **Markdown 排版**只由这一处实现（自写的最小安全渲染器；全仓没有现成的 Markdown 库，
+// 依赖纪律也不许新增 package.json 依赖）。本文件只决定「这一段用哪种版式」，解析与安全闸门都在那一叶里。
+import { renderMarkdown } from './markdown-render.js'
 import {
   ENTERPRISE_PLUGIN_UNINSTALL_IMPACT,
   ENTERPRISE_PLUGIN_UNINSTALL_TITLE,
@@ -656,6 +666,12 @@ export function scrollTargetOf(node: HTMLElement | null): HTMLElement | undefine
  * **口径 20 只换这一段的内容来源**（face B 那一侧改为「有 README 就用 README，没有才回落短描述」，
  * 判定点唯一在 `enterpriseMarketPluginDetailBody`），本组件的渲染方式与版式**一字未动**：
  * README 同样当纯文本、同样保换行、同样只做版式限长——不解析 Markdown、不新增依赖、不注入 HTML。
+ *
+ * **口径 22（README 渲染成 Markdown 排版）**：上面那句「不解析 Markdown」**只对缺省路径成立**——
+ * 新增的可选 prop `descriptionMarkdown` 为真时，正文改由 `markdown-render.tsx` 的 `renderMarkdown`
+ * 翻成 React 元素（**唯一的 Markdown 解析点**，本组件只决定「这一段用哪种版式」）；
+ * 该 prop 缺省（face A 从来不传）⇒ 走原来的纯文本子节点路径，输出**逐字不变**。
+ * 版式切换不动容器：`.own-market-notice`、12 行×20px=240px 块内滚动、`overflow-wrap:anywhere` 全不变。
  */
 export interface EnterprisePluginDetailPageProps {
   /** 本页的真实键（包名）：进详情的唯一钥匙，也是进度/动作归行的那把钥匙。 */
@@ -675,8 +691,24 @@ export interface EnterprisePluginDetailPageProps {
    * 故这里收到的正文可能是整篇 README（≤65536，含原始换行与 Markdown 记号）——本组件**一律当纯文本**：
    * 不解析 Markdown、不查标签、`dangerouslySetInnerHTML` 全文件零出现，换行靠 `pre-wrap` 原样保留。
    * face A 仍不传这个 prop，它的输出与口径 19 逐字相同（additive 例外，同口径 18③）。
+   * **口径 22 起**：正文要不要按 Markdown 排版由下面的 `descriptionMarkdown` 决定——本 prop 的语义
+   * （「这一段有没有正文」与「正文是什么」）**一个字没变**，只是多了一条版式开关。
    */
   readonly description?: string | undefined
+  /**
+   * 「描述」段的**版式**（用户口径第 22 条）——`true` = 正文按 **Markdown 排版**（`renderMarkdown`），
+   * 缺省 / `false` = 与口径 19/20 **逐字相同**的纯文本子节点路径。
+   *
+   * **可选、additive、缺省为假**：face A（企业设置 → 插件）**不传** ⇒ 它的详情输出逐字不变
+   * （`plugin-card.spec.ts` 的详情大纲逐字快照 708 / 2780040711 原样通过）；face B 只在**正文真的来自
+   * README** 时传 `true`（判定点唯一在 face B 的 `enterpriseMarketPluginDetailMarkdown(readme)`），
+   * 回落到短描述时仍传假 ⇒ 那一支的版式**一个字都没改**。
+   *
+   * 为真时正文仍走下面那枚 `enterprisePluginDetailDescription` 归一（空串/纯空白 ⇒ 整段不出现），
+   * 渲染交给 `markdown-render.tsx`：raw HTML 当纯文本、`javascript:`/`data:` 链接降级为文字、
+   * 图片不当图片加载、**没有**任何 HTML 注入口，且解析器有深度的步数预算（病态输入不会卡住界面）。
+   */
+  readonly descriptionMarkdown?: boolean | undefined
   /** 「企业版本」那一格的取值（由 `enterprisePluginCatalogVersionText` 唯一投影算出后传进来）。 */
   readonly catalogVersionText: string
   /** 「本机版本」那两个分支的现场事实（与改动前弹窗里那条三元表达式**逐字同构**）。 */
@@ -704,6 +736,9 @@ export function EnterprisePluginDetailPage(props: EnterprisePluginDetailPageProp
   const title = enterprisePluginDisplayName(props.displayName, props.packageName)
   // 描述先过唯一那枚投影：没有（含空串/纯空白）就是 `undefined`，下面那一整段据此**整段不进 DOM**。
   const description = enterprisePluginDetailDescription(props.description)
+  // 口径 22 的版式开关：**只有正文在场、且调用方明说它是 README** 时才按 Markdown 排版；
+  // 缺省（face A 永远如此）与「正文来自短描述」两种情形都走原来的纯文本路径，输出逐字不变。
+  const descriptionIsMarkdown = description !== undefined && props.descriptionMarkdown === true
   return (
     <div
       ref={props.pageRef}
@@ -738,8 +773,10 @@ export function EnterprisePluginDetailPage(props: EnterprisePluginDetailPageProp
         {props.installLockNotice === undefined ? null : <><dt>暂时不能安装</dt><dd>{props.installLockNotice}</dd></>}
       </dl>
       {/* ③bis 【描述】：排在事实表**之后**（既有版式一字不动），只有传真值时才进 DOM。
-          ① 纯文本子节点渲染（全文件无 `dangerouslySetInnerHTML`，见 `plugin-card.spec.ts` 的源码级锁）；
-          ② `whiteSpace:'pre-wrap'` **保留原始换行**（描述里的段落/换行照原样断开）；
+          ① 缺省路径是纯文本子节点渲染（全文件无 `dangerouslySetInnerHTML`，见 `plugin-card.spec.ts` 的源码级锁）；
+             ★口径 22：`descriptionMarkdown` 为真（正文来自 README）时改由 `renderMarkdown` 出 React 元素
+             （仍无任何 HTML 注入口：raw HTML 当文字、图片不当图片、非法协议链接降级为文字）；
+          ② `whiteSpace:'pre-wrap'` **保留原始换行**（纯文本路径；Markdown 路径的块级元素自带间距）；
           ③ `overflowWrap:'anywhere'` 让长串英文/URL 不撑破版面；
           ④ 高度上限 = 12 行 × 20px = 240px（常量在文件上方，理由写在 `_MAX_LINES` 上），
              超出在块内 `overflowY:'auto'` 滚动读全——**不截断、不折叠、不丢字**；
@@ -752,6 +789,8 @@ export function EnterprisePluginDetailPage(props: EnterprisePluginDetailPageProp
           </h4>
           <div
             data-enterprise-plugin-detail-description-text=""
+            /* 版式标记：为真时这一段是 Markdown 渲染面（`undefined` 时 React 不写这个属性，纯文本路径一字不变）。 */
+            data-enterprise-plugin-markdown={descriptionIsMarkdown ? '' : undefined}
             /* 可聚焦：这一段在长描述时是**可滚动区**，键盘用户必须能滚着把剩下的字读完（WCAG 2.1.1）。 */
             tabIndex={0}
             style={{
@@ -760,7 +799,7 @@ export function EnterprisePluginDetailPage(props: EnterprisePluginDetailPageProp
               maxHeight: ENTERPRISE_PLUGIN_DETAIL_DESCRIPTION_MAX_HEIGHT,
               overflowY: 'auto',
             }}
-          >{description}</div>
+          >{descriptionIsMarkdown ? renderMarkdown(description) : description}</div>
         </section>
       )}
       {/* ④ 详情里的进度与落地交代：与卡片行**同一份**投影、同一个取消写入口（不会「行上在装、详情说没在装」）。 */}

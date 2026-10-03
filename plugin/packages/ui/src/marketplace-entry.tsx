@@ -17,7 +17,7 @@
  *   其 `package.json` **一条都没写 `displayName`**（第 6 条未发布到 npm、本机无制品）⇒ 显示名 = 包名，
  *   **今天这批插件在界面上的标题与改前逐字相同**；只有声明了人类可读名的插件才看得出差别。
  *   ★ **市场面插件行没有详情页**（企业插件的详情在「企业设置 → 插件」那一面）⇒ 本行标题仍是纯文本，
- *   不造"_点了没反应"的假按钮；有详情入口的技能/配方行才是真 `<button>`，由 `plugin-card.spec.ts` 反向锁。 **本刀（插件行详情子页面，用户口径第 16 条，推翻第 15 条末尾那句批注）**：插件行标题改成真 `<button class="own-market-rowOpen">`（`data-enterprise-plugin-open` + 「查看企业插件 <名称> 详情」，**没有** `aria-haspopup`），点它把「企业插件」页签的**内容区**换成详情**子页面**（互斥由**复用的** `EnterprisePluginContentRegion` 保证、页头与四枚页签一字不改）；正文**原样复用** `plugin-market.tsx` 的 `EnterprisePluginDetailPage`（import 一处、渲染一处，零复制），它那份样式表由那边新导出的 `ENTERPRISE_PLUGIN_STYLES` 在详情态一并挂上（列表态一个字节都不多背）；动作区是行上**同一枚**新抽出的 `EnterpriseMarketPluginRowActions`（能装就装、已装就开关，本面**不引导卸载**）；返回两条真路径（返回按钮 + Esc，监听钉在本页根节点）；**浏览器返回键不接**（没有真实路由，不许硬造 `history`）；返回后按**同一枚** `scrollTargetOf` 的判定还原滚动位置、按包名把焦点还给那一枚标题按钮。 **本刀（插件市场详情补描述，用户口径第 19 条）**：本面（face B）把**行上第二行那条同一份真值**（`EnterpriseMarketPluginRow.description`）经 `EnterprisePluginDetailPage` 新增的**可选** prop `description` 传进详情 ⇒ 事实表之后多一段「描述」；face A 不传该 prop，故那一面输出逐字不变（additive 例外，同口径 18③）。 **本刀（口径 20：描述来自 README）**：详情「描述」段的**内容来源**从「制品 `package.json` 的短 `description`」换成「**插件制品里的 README**」——行投影新增**可选** `readme`（索引自目录项的 `PluginReadme`，缺席/null/空串一律不产出该键），正文由**唯一一枚**纯投影 `enterpriseMarketPluginDetailBody(readme, description)` 决定：**有 README 就用 README**，没有才**回落**到那枚短描述，两者都没有 ⇒ 整段不进 DOM（口径 19 的三态一条不丢，只是首选换了）。**行上第二行仍读短 `description`**（README 是整篇正文，不进两行 clamp 的卡片）。渲染方式与版式**一字未动**：仍是纯文本子节点 + `pre-wrap` 保换行 + 12 行块内滚动（全文件 `dangerouslySetInnerHTML` 零出现），**不新增依赖、不解析 Markdown**（全仓没有既有渲染器，技能正文也是 `<pre>` 纯文本）。face A（企业设置 → 插件）**不传** `readme`、也不传新的 prop ⇒ 它那一面的详情输出与口径 19 **逐字相同**（`plugin-card.spec.ts` 的字节级大纲快照原样绿）。
+ *   不造"_点了没反应"的假按钮；有详情入口的技能/配方行才是真 `<button>`，由 `plugin-card.spec.ts` 反向锁。 **本刀（插件行详情子页面，用户口径第 16 条，推翻第 15 条末尾那句批注）**：插件行标题改成真 `<button class="own-market-rowOpen">`（`data-enterprise-plugin-open` + 「查看企业插件 <名称> 详情」，**没有** `aria-haspopup`），点它把「企业插件」页签的**内容区**换成详情**子页面**（互斥由**复用的** `EnterprisePluginContentRegion` 保证、页头与四枚页签一字不改）；正文**原样复用** `plugin-market.tsx` 的 `EnterprisePluginDetailPage`（import 一处、渲染一处，零复制），它那份样式表由那边新导出的 `ENTERPRISE_PLUGIN_STYLES` 在详情态一并挂上（列表态一个字节都不多背）；动作区是行上**同一枚**新抽出的 `EnterpriseMarketPluginRowActions`（能装就装、已装就开关，本面**不引导卸载**）；返回两条真路径（返回按钮 + Esc，监听钉在本页根节点）；**浏览器返回键不接**（没有真实路由，不许硬造 `history`）；返回后按**同一枚** `scrollTargetOf` 的判定还原滚动位置、按包名把焦点还给那一枚标题按钮。 **本刀（插件市场详情补描述，用户口径第 19 条）**：本面（face B）把**行上第二行那条同一份真值**（`EnterpriseMarketPluginRow.description`）经 `EnterprisePluginDetailPage` 新增的**可选** prop `description` 传进详情 ⇒ 事实表之后多一段「描述」；face A 不传该 prop，故那一面输出逐字不变（additive 例外，同口径 18③）。 **本刀（口径 20：描述来自 README）**：详情「描述」段的**内容来源**从「制品 `package.json` 的短 `description`」换成「**插件制品里的 README**」——行投影新增**可选** `readme`（索引自目录项的 `PluginReadme`，缺席/null/空串一律不产出该键），正文由**唯一一枚**纯投影 `enterpriseMarketPluginDetailBody(readme, description)` 决定：**有 README 就用 README**，没有才**回落**到那枚短描述，两者都没有 ⇒ 整段不进 DOM（口径 19 的三态一条不丢，只是首选换了）。**行上第二行仍读短 `description`**（README 是整篇正文，不进两行 clamp 的卡片）。渲染方式与版式**一字未动**：仍是纯文本子节点 + `pre-wrap` 保换行 + 12 行块内滚动（全文件 `dangerouslySetInnerHTML` 零出现），**不新增依赖、不解析 Markdown**（全仓没有既有渲染器，技能正文也是 `<pre>` 纯文本）。face A（企业设置 → 插件）**不传** `readme`、也不传新的 prop ⇒ 它那一面的详情输出与口径 19 **逐字相同**（`plugin-card.spec.ts` 的字节级大纲快照原样绿）。 **本刀（口径 22：README 渲染成漂亮排版）**：README 不再当纯文本铺——详情那一段的**版式**改由新叶 `markdown-render.tsx` 的 `renderMarkdown` 排版（标题/段落/列表/代码块/引用/水平线/粗斜体/删除线/链接/行内代码/换行），本面只多传一枚**可选** prop `descriptionMarkdown`，取值来自**唯一一枚**纯投影 `enterpriseMarketPluginDetailMarkdown(page.row.readme)`（**有 README 才为真**；回落到短描述时仍为假 ⇒ 短描述那一支的版式与口径 19/20 **逐字相同**）。`description=` 那一行**一字未改**（口径 20 的正文判定点原样保留，两者同源同口径）。README 一律当**数据**：raw HTML 当纯文本、`javascript:`/`data:` 链接降级为文字、图片语法**绝不**渲染 `<img>`、全文件 `dangerouslySetInnerHTML`/`innerHTML` 零出现；解析在自写渲染器里（**不新增依赖**），块级逐行扫描 + 行内二分查找 + 深度/步数预算，病态输入也有界。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -688,12 +688,31 @@ export function enterpriseMarketPluginRows(
  *
  * ★README 一律当**数据**：这里只做取值，不解析 Markdown、不查标签、不注入 HTML；
  * 渲染仍是 `pre-wrap` 的纯文本子节点，限长靠详情那一段的高度上限 + 块内滚动（不删字）。
+ * **口径 22 起**：正文交给详情那一段之后，**版式**由下面那枚 `enterpriseMarketPluginDetailMarkdown` 决定——
+ * 本函数仍然只管「哪一份是正文」，一个字都没改（口径 20 的既有语义与全部用例原样保留）。
  */
 export function enterpriseMarketPluginDetailBody(
   readme: string | null | undefined,
   description: string | null | undefined,
 ): string | undefined {
   return enterprisePluginDetailDescription(readme) ?? enterprisePluginDetailDescription(description)
+}
+
+/**
+ * 插件**详情「描述」段的版式**的唯一判定点（纯投影，测试直调）——用户口径第 22 条：
+ * 「README 渲染成漂亮排版」。
+ *
+ * ```text
+ * ① 有 README（非空白）  ⇒ true  ⇒ 详情那一段按 **Markdown 排版**（`markdown-render.tsx` 的 renderMarkdown）
+ * ② 没有 README          ⇒ false ⇒ 回落到短 description，且版式与口径 19/20 **逐字相同**（纯文本，不改）
+ * ```
+ *
+ * 与 `enterpriseMarketPluginDetailBody` **同一枚**归一投影（`enterprisePluginDetailDescription`）判定，
+ * 故「正文里出现的是不是 README」与「正文从哪来」不可能各说一套：本函数返回 true 时，正文必然**就是**
+ * 那一份 README（两者都只认「非空白才算有值」这一条口径）。
+ */
+export function enterpriseMarketPluginDetailMarkdown(readme: string | null | undefined): boolean {
+  return enterprisePluginDetailDescription(readme) !== undefined
 }
 
 /** 「企业插件」节是否该渲染（「插件」组件开启且有目录/本机记录）。 */
@@ -4130,12 +4149,18 @@ function enterpriseMarketPluginDetail(page: EnterprisePluginPageProps, props: En
    * 详情里那一段整段不进 DOM，不画「暂无描述」空壳。
    * `EnterprisePluginDetailPage` 的这个 prop 是 **additive** 的：face A（企业设置 → 插件）不传它，
    * 故那一面的详情输出逐字不变（由 `plugin-card.spec.ts` 的详情大纲逐字快照锁着）。
+   *
+   * 版式（用户口径第 22 条）：再传一枚同源的 `descriptionMarkdown`——它由**唯一一枚**纯投影
+   * `enterpriseMarketPluginDetailMarkdown(page.row.readme)` 判定，**有 README 才按 Markdown 排版**；
+   * 回落到短描述时仍传假 ⇒ 那一支的版式与口径 19/20 逐字相同（本面的短描述路径一个像素都没动）。
+   * 下面 `description=` 那一行**一字未改**（口径 20 的既有判定点原样保留）。
    */
   return (
     <EnterprisePluginDetailPage
       packageName={page.row.packageName}
       displayName={page.row.displayName}
       description={enterpriseMarketPluginDetailBody(page.row.readme, page.row.description)}
+      descriptionMarkdown={enterpriseMarketPluginDetailMarkdown(page.row.readme)}
       catalogVersionText={page.catalogVersionText}
       installed={page.facts.installed}
       installedVersion={page.row.recordVersion}

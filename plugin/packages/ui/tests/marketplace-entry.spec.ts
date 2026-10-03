@@ -87,6 +87,7 @@ import {
   enterpriseMarketActionErrorLabel,
   enterpriseMarketPluginConfigTag,
   enterpriseMarketPluginDetailBody,
+  enterpriseMarketPluginDetailMarkdown,
   enterpriseMarketPluginRowFacts,
   enterpriseMarketPluginRows,
   enterpriseMarketPluginSectionVisible,
@@ -3126,23 +3127,44 @@ describe('enterprise plugin detail subpage (face B)', () => {
         onBack: vi.fn(),
       }, { enterprisePlugins: [target] })
     }
-    /** 详情里那一段描述正文（就是那枚纯文本节点 `children` 上的字符串）。 */
-    const bodyText = (node: ReactNode): string => {
+    /** 详情里那一段描述正文那一枚节点（纯文本路径的正文挂在它的 `children` 上；Markdown 路径是元素数组）。 */
+    const bodyNode = (node: ReactNode): Record<string, any> => {
       const body = collectByProp(node, 'data-enterprise-plugin-detail-description-text')
       expect(body, '描述正文那枚节点不在树里').toHaveLength(1)
-      return String(body[0]!['children'])
+      return body[0]!
     }
+    /** 纯文本路径的正文（那一枚节点的 `children` 就是一个字符串）。 */
+    const bodyText = (node: ReactNode): string => String(bodyNode(node)['children'])
 
-    // ① 两者都在 ⇒ **README 赢**（整篇正文逐字上屏，含 Markdown 记号与原始换行），短描述不上屏。
+    // ① 两者都在 ⇒ **README 赢**（整篇正文上屏，含原始换行），短描述不上屏；
+    //    ★口径 22：这一支的正文**不再是一个字符串**，而是 Markdown 排版出来的 React 元素，并由
+    //    那一枚节点上的 `data-enterprise-plugin-markdown` 标出「这一段是 Markdown 渲染面」。
     const both = withReadme(readme, '甲的描述。')
     expect(both.readme).toBe(readme)
     expect(both.description).toBe('甲的描述。')
-    expect(bodyText(detailOf(both))).toBe(readme)
+    expect(bodyNode(detailOf(both))['data-enterprise-plugin-markdown']).toBe('')
+    expect(bodyNode(detailOf(both))['children']).not.toBe(readme)
+    expect(textOf(detailOf(both))).toContain('甲插件')
+    expect(textOf(detailOf(both))).toContain('把代码审查规则带进新会话。')
     expect(textOf(detailOf(both))).not.toContain('甲的描述。')
-    // ② 只有短描述（制品没有 README）⇒ **回落**到它（口径 19 的既有行为，一个字不丢）。
+    // ★版式换了、容器一个字没换：仍是同一枚可聚焦的块内滚动区（12 行 × 20px = 240px + anywhere），
+    //   Markdown 的块级元素就挂在这一枚节点**里面**（同一容器，不是新开一层浮层）。
+    const markdownBody = bodyNode(detailOf(both))
+    expect(markdownBody['tabIndex']).toBe(0)
+    const markdownStyle = markdownBody['style'] as Record<string, unknown>
+    expect(markdownStyle['maxHeight']).toBe('240px')
+    expect(markdownStyle['overflowY']).toBe('auto')
+    expect(markdownStyle['overflowWrap']).toBe('anywhere')
+    expect(collectByTagName(markdownBody['children'] as ReactNode, 'h1')).toHaveLength(1)
+    expect(collectByTagName(markdownBody['children'] as ReactNode, 'ul')).toHaveLength(1)
+    // 详情仍是**子页面**（口径 15/16 的形态没被这一刀改动）：全树没有 dialog 语义。
+    expect(collectByRole(detailOf(both), 'dialog')).toEqual([])
+    // ② 只有短描述（制品没有 README）⇒ **回落**到它（口径 19 的既有行为，一个字不丢）：
+    //    ★这一支仍是**纯文本子节点**、也不带 Markdown 标记（口径 22 只改 README 那一支的版式）。
     const fallback = withReadme(undefined, '甲的描述。')
     expect('readme' in fallback).toBe(false)
     expect(bodyText(detailOf(fallback))).toBe('甲的描述。')
+    expect(bodyNode(detailOf(fallback))['data-enterprise-plugin-markdown']).toBeUndefined()
     // ③ 两者都没有 ⇒ 整段不进 DOM（既不画空壳、也不并列两段），连小标题都不出现。
     const neither = withReadme(undefined, undefined)
     expect('readme' in neither).toBe(false)
@@ -3151,8 +3173,8 @@ describe('enterprise plugin detail subpage (face B)', () => {
     expect(textOf(EnterpriseMarketLegacyShell(shellProps({ enterprisePlugins: [both] })))).toContain('甲的描述。')
   })
 
-  it('keeps README as data: plain text child, no Markdown parsing, no HTML injection, no new dependency', async () => {
-    // README 里带着 Markdown 记号与一段**看起来像 HTML** 的文本：两者都必须原样当文本显示。
+  it('keeps README as data: no HTML injection, no third-party Markdown dependency (自写渲染器)', async () => {
+    // README 里带着 Markdown 记号与一段**看起来像 HTML** 的文本：投影本身**只做取值**，一个字符都不改。
     const readme = '# 标题\n\n<b>这不是 HTML</b> 与 <script>alert(1)</script>\n'
     expect(enterpriseMarketPluginDetailBody(readme, '短描述。')).toBe(readme)
     // 投影本身只是取值：不改写、不 trim、不截断。
@@ -3165,7 +3187,9 @@ describe('enterprise plugin detail subpage (face B)', () => {
     // 契约上限 65536 整串照旧（投影不截断——限长是服务端那一侧的事，界面只做版式上的块内滚动）。
     const huge = 'y'.repeat(65_536)
     expect(enterpriseMarketPluginDetailBody(huge, '短描述。')).toHaveLength(65_536)
-    // 源码级锁：这一面**没有** Markdown 解析器、**没有** HTML 注入口，也没有新增渲染依赖。
+    // 源码级锁：这一面**没有** HTML 注入口，也**没有**第三方 Markdown 渲染依赖。
+    // ★口径 22 起 Markdown 排版确实存在了，但它落在**自写的那一叶**里（`markdown-render.tsx`），
+    //  这一面只多传一枚由唯一投影算出的版式开关——「不新增任何依赖」这条纪律没有被放宽。
     const strip = (text: string) => text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
     const market = strip(await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8'))
     expect(market).not.toContain('dangerouslySetInnerHTML')
@@ -3173,6 +3197,39 @@ describe('enterprise plugin detail subpage (face B)', () => {
     for (const renderer of ['marked', 'markdown-it', 'remark', 'micromark', 'react-markdown']) {
       expect(market, renderer).not.toContain(renderer)
     }
+    // 自写渲染器本身同样不许有任何 HTML 注入口，也不许悄悄退回第三方库。
+    const renderer = strip(await readFile(new URL('../src/markdown-render.tsx', import.meta.url), 'utf8'))
+    expect(renderer).not.toContain('dangerouslySetInnerHTML')
+    expect(renderer).not.toContain('innerHTML')
+    for (const lib of ['marked', 'markdown-it', 'remark', 'micromark', 'react-markdown']) {
+      expect(renderer, lib).not.toContain(lib)
+    }
+    // 依赖面一个字节都没动（`package.json` 的 dependencies 仍不存在、devDependencies 仍是原来那两件）。
+    const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')) as Record<string, any>
+    expect(pkg['dependencies']).toBeUndefined()
+    expect(Object.keys(pkg['devDependencies'] as Record<string, unknown>).sort()).toEqual(['@deepseek-ai/dsh-client-ui-primitives', '@types/mdast'])
+  })
+
+  // 口径 22（README 渲染成 Markdown 排版）：版式开关由**唯一一枚**投影判定，且只有 README 那一支为真。
+  it('switches the description block to Markdown only when the body really comes from the README', async () => {
+    // ① 纯投影的真值表：非空白 README ⇒ true；缺席/null/空串/纯空白 ⇒ false（与正文投影同一口径）。
+    expect(enterpriseMarketPluginDetailMarkdown('# 标题\n')).toBe(true)
+    expect(enterpriseMarketPluginDetailMarkdown('  两边留白  ')).toBe(true)
+    for (const missing of [undefined, null, '', '   ']) {
+      expect(enterpriseMarketPluginDetailMarkdown(missing), String(missing)).toBe(false)
+    }
+    // ② 与正文投影**不可能各说一套**：开关为真 ⇔ 正文就是那一份 README 原样。
+    for (const readme of ['# 标题\n', '  两边留白  ', undefined, null, '', '   ']) {
+      const body = enterpriseMarketPluginDetailBody(readme, '短描述。')
+      const markdown = enterpriseMarketPluginDetailMarkdown(readme)
+      expect(body, String(readme)).toBe(markdown ? readme : '短描述。')
+    }
+    // ③ 源码级锁：本面传的是**唯一那一枚**投影（不许内联 `page.row.readme !== undefined` 之类的第二套口径），
+    //    且口径 20 那行 `description=` 一字未改。
+    const market = await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8')
+    expect(market).toContain('descriptionMarkdown={enterpriseMarketPluginDetailMarkdown(page.row.readme)}')
+    expect(market).toContain('description={enterpriseMarketPluginDetailBody(page.row.readme, page.row.description)}')
+    expect(market).toContain('export function enterpriseMarketPluginDetailMarkdown(')
   })
 })
 
