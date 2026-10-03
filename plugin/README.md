@@ -62,24 +62,22 @@ workspace gate still runs green there once these five adjustments are applied
 
 ```sh
 # 1. Keep the repo on internal storage (/data), never /storage (FUSE lacks symlink/link support).
-# 2. Point esbuild at its Android native binary so install never execs the JS shim.
-export ESBUILD_BINARY_PATH=<repo>/plugin/node_modules/@esbuild/android-arm64/bin/esbuild
-# 3. Install without lifecycle scripts; esbuild's postinstall self-check cannot run under linker64
+# 2. Install without lifecycle scripts; esbuild's postinstall self-check cannot run under linker64
 #    and contributes nothing to build/typecheck once the native binary is present.
 npx pnpm@11.7.0 install --frozen-lockfile --ignore-scripts
-# 4. Run every vitest suite with the threads pool (forks workers die with EPIPE on Android).
-npx vitest run tests --pool=threads
-# 5. The root invariant gates must be driven through `node --test` on CI; locally on Android that
-#    runner fails to start, so import workspace.test.mjs / core-packages.test.mjs directly —
-#    their assertions pass unchanged (6/6).
+# 3. Build and test as usual — two repo-side fixes below already neutralize linker64:
+#      plugin/vitest.config.ts  pins pool=threads (forks would die: EPIPE / "expected absolute path")
+#      package.json test script passes --test-isolation=none to node --test (same linker64 argv[0] bug)
+npx pnpm@11.7.0 run test
+# console/ is a separate workspace (vitest 4.1.11) without that root config; run it with threads:
+cd ../console && npx vitest run --pool=threads
 ```
 
-The client-plugin and platform-client suites additionally report red on
-Android for non-environment reasons that are intentionally not papered over:
-`client-plugin` is missing its host entry `src/index.ts` (never tracked in git),
-and `platform-client` uses `fs.link()` for its atomic installation write, which
-the Android filesystem rejects — both need their own design decision, not a
-test-expectation change.
+(The launcher scripts no longer need `export ESBUILD_BINARY_PATH=...`: both
+`bundle` and `client-plugin` `scripts/build.mjs` now rewrite the esbuild binary
+path themselves — `process.platform === 'android'` only — from the legacy
+`/data/data/...` prefix to the `/data/user/0/...` symlink prefix that
+`untrusted_app_34` will actually `execve`, before dynamically importing esbuild.)
 
 The packed bundle is accepted by `scripts/t01-harness-smoke.mjs` as both a
 standalone package consumer and an installed plugin in a temporary Harness

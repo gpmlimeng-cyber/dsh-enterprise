@@ -4,7 +4,8 @@
 
 成员清单
 
-README.md: DSH Enterprise 标准 Harness 插件 workspace 说明，冻结官方 UI 零分叉、初装只填 Server 与树外发布边界；含 Android/DSH 运行时环境适配章节（内盘仓库、ESBUILD_BINARY_PATH、--ignore-scripts、--pool=threads、绕 node --test 五条，均为环境侧、不改产品测试期望）。
+README.md: DSH Enterprise 标准 Harness 插件 workspace 说明，冻结官方 UI 零分叉、初装只填 Server 与树外发布边界；含 Android/DSH 运行时环境适配章节（内盘仓库、--ignore-scripts、vitest threads、node --test --test-isolation=none、esbuild build.mjs 前缀纠正五条，均为环境侧、不改产品测试期望）。
+vitest.config.ts: 本机 vitest 修复——锁 `pool: "threads"`：这台机器 `pnpm exec` 起的整棵进程树 `process.execPath` 都是 `/apex/.../linker64`，`forks` 池 fork worker 时把它当 argv[0]，worker 把首个非 flag 参数（脚本路径 / `--experimental-import-meta-resolve` / `--test-concurrency`）当成 .so 绝对路径 ⇒ `write EPIPE`（vitest 4.1.8）或 `expected absolute path`（4.1.11）且 `no tests`；`threads` 走 `node:worker_threads` 不碰 execPath，绕开 linker64。环境层 bug，与被测代码无关。
 package.json: workspace 根清单，固定 Node/pnpm，按 workspace 依赖顺序构建后再检查与打包；T11 在启动真实 Host 前强制刷新 bundle tgz，并统一暴露 test、consumer 与组合门禁。
 pnpm-lock.yaml: workspace 锁定依赖图，固定编译、测试、React Client、OpenAPI 生成与 npm 官方 rc.2 Harness 开发依赖，使发布构建不依赖同级 checkout。
 pnpm-workspace.yaml: workspace 成员边界与生命周期脚本策略，只接纳 `packages/*`、允许已审核的 esbuild 原生安装脚本，并显式拒绝上游已判定无须执行的传递脚本。
