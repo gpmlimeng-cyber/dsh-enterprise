@@ -45,6 +45,7 @@ function assignment(
     readonly id?: string
     readonly packageName?: string
     readonly version?: string
+    readonly displayName?: string
     readonly desiredState?: 'INSTALLED' | 'ABSENT'
     readonly sha256?: string
   } = {},
@@ -53,6 +54,7 @@ function assignment(
     pluginVersionId: options.id ?? '880',
     packageName: options.packageName ?? '@example/dsh-code-review',
     version: options.version ?? '1.2.0',
+    displayName: options.displayName ?? '@example/dsh-code-review',
     sizeBytes: content.byteLength,
     sha256: options.sha256 ?? createHash('sha256').update(content).digest('hex'),
     signatureBase64: `${'A'.repeat(86)}==`,
@@ -389,6 +391,8 @@ describe('EnterprisePluginDistributionService', () => {
     // 旧服务端（这一刀之前那批 bootstrap 不带该键）→ 本地 catalog 同样不产出它；ui 的白名单与渲染层
     // 据此**回退成包名**（不空白、不编造）——这是刻意的兼容窗口，不是本地把服务端事实吞掉。
     const plain = assignment(testKey, content)
+    // 老服务端的字节是**整键缺席**，不是空串：夹具缺省会补 displayName，故此处显式删键还原旧响应。
+    delete (plain as Partial<RuntimePluginAssignment>).displayName
     const otherPlatform = new FakePlatform(bootstrap(1, [plain]), new Map([[plain.downloadUrl!, content]]))
     const other = await environment({ platform: otherPlatform })
     await other.service.settled()
