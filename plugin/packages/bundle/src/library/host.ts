@@ -26,8 +26,8 @@ import type { LibraryDomainPort } from './storage/domain.js'
  * 只读 `descriptorOf(spec)`（name/version/layout/tables 的 `valueSchema`），结构够了就能开。
  */
 export interface EnterpriseLibraryDomainFacilityPort {
-  /** 打开（或复用）一个域；返回值是官方 `Domain` 句柄。 */
-  open(spec: unknown): unknown
+  /** 打开（或复用）一个域；★返回 `Promise<Domain>`（官方 storageDomain 是异步的）。 */
+  open(spec: unknown): Promise<unknown> | unknown
 }
 
 /** 官方 `Domain` 句柄的**结构镜像**（只用到 `name`/`table`/`close`）。 */
@@ -113,7 +113,12 @@ export function createEnterpriseLibraryHost(deps: EnterpriseLibraryHostDeps): En
         return
       }
       try {
-        const opened = deps.facility.open(libraryDomainSpec)
+        // ★必须 await：官方 `ctx.storageDomain.open(spec)` 返回 `Promise<Domain>`（引擎自身用法
+        // `const domain = await this.ctx.storageDomain.open(workspaceDomainSpec)`）。不 await 的话
+        // `opened` 是 Promise，存进 `handle`/`domain` 后 `LibraryManager` 构造期
+        // `options.domain.table('nodes')` 抛 `table is not a function` —— 而且这个 throw 发生在
+        // 工具的异步调用里，只给 message 没堆栈（turn/end reason.kind=error）。
+        const opened = await deps.facility.open(libraryDomainSpec)
         if (disposed) {
           await (opened as EnterpriseLibraryDomainHandle).close?.().catch((error: unknown) => {
             deps.log('warn', 'owndsh: library domain opened after dispose could not be closed', error)

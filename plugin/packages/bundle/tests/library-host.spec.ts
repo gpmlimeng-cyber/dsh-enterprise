@@ -97,7 +97,7 @@ describe('资料库宿主装配', () => {
       facility: {
         open: spec => {
           opened.push(spec)
-          return { name: domain.name, table: (name: string) => domain.table(name as never), close: closed }
+          return Promise.resolve({ name: domain.name, table: (name: string) => domain.table(name as never), close: closed })
         },
       },
       readSubject: () => subject,
@@ -131,6 +131,41 @@ describe('资料库宿主装配', () => {
     expect((await (third as LibraryManager).getNode(folder.id)).title).toBe('项目甲')
 
     await host.dispose()
+    expect(closed).toHaveBeenCalledTimes(1)
+    expect(host.port.manager()).toBeUndefined()
+  })
+
+  // ★回归（async facility）：官方 `ctx.storageDomain.open(spec)` 返回 Promise。补 await 前，
+  // 闭包里存的是 Promise，`LibraryManager` 构造期 `options.domain.table(...)` 抛
+  // `table is not a function`；而且 `handle` 也是 Promise ⇒ `dispose()` 的 close 打在 Promise 上，
+  // domain 永远不被真正关闭。本用例同时钉死这两处：manager() 拿到的是**可 table() 的真 domain**，
+  // 且 dispose() 真的调了 domain 的 close()。
+  it('facility.open 返回 Promise：await 后 domain.table 可用，dispose 真的关了 domain', async () => {
+    const home = await makeHome()
+    const domain: InMemoryLibraryDomain = await createInMemoryLibraryDomain()
+    const closed = vi.fn(async () => undefined)
+    const log: string[] = []
+    const host = createEnterpriseLibraryHost({
+      dshHome: home,
+      // 假 facility 按官方签名返回 Promise（这才是真实 storageDomain 的形状）。
+      facility: { open: async spec => { expect(spec).toBe(libraryDomainSpec); return { name: domain.name, table: (name: string) => domain.table(name as never), close: closed } } },
+      readSubject: () => ({ scope: 'personal', ownerId: 'u1001' }),
+      log: (level, message) => { log.push(`${level}:${message}`) },
+    })
+
+    await host.start()
+    // 验收：info 日志带 opened 字样（open 成功、且是在 await 之后打的）。
+    expect(log.some(line => line.startsWith('info:') && line.includes(`library domain '${domain.name}' opened at`))).toBe(true)
+
+    const manager = host.port.manager()
+    expect(manager).toBeInstanceOf(LibraryManager)
+    // 就是现场报错那一步：构造期 domain.table('nodes') 等五个表必须能拿到（否则 TypeError）。
+    const folder = await (manager as LibraryManager).createFolder({ title: '异步域' })
+    expect((await (manager as LibraryManager).listNodes()).map(node => node.title)).toEqual(['异步域'])
+    expect((await (manager as LibraryManager).getNode(folder.id)).title).toBe('异步域')
+
+    await host.dispose()
+    // dispose 关到的是真 domain 的 close()（不是 Promise）。
     expect(closed).toHaveBeenCalledTimes(1)
     expect(host.port.manager()).toBeUndefined()
   })
