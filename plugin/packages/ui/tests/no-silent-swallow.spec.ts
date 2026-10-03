@@ -25,6 +25,8 @@ const ALLOWED_CATCH_FILES: Readonly<Record<string, string>> = {
   'feedback-dialog.tsx': '附件魔数采样（前 16 字节）失败只影响这条可选预检，提交正文的失败仍走显式失败态',
   'help-link.ts': '帮助中心打开链的兜底：Host 打开失败 → window 兜底 → 返回 failed 这个**结果值**给调用方',
   'library-gate.ts': '本机设置（资料库管理开关）的读/写失败**不吞**：读不到按产品默认（关）处理并把 ENT_LIBRARY_SETTING_READ_FAILED 摆进快照、写失败摆 ENT_LIBRARY_SETTING_SAVE_FAILED，由组件行显示 + 重试；catch 里返回 undefined 的那处只是「本机存储区取不到」的形状探测',
+  'library-selection.ts': '会话选中集合 store：catch 里**先把失败写进快照**（status=failed + `enterpriseLocalErrorCode` 的稳定码 + 留痕），返回的 `undefined` 是这一趟操作的**结果值**（`Promise<T | undefined>`，调用方据此不写集合），不是"没有数据"；`items` 清空是刻意的（宁可知情地空着，也不拿过期清单冒充现状）。最要紧的一条：读不到时**绝不写**——一次"加入"的点击不会把用户原先选的一堆资料覆盖掉',
+  'library-selection-trigger.ts': '`@` 触发源取候选失败**原样重抛**（不返回 `[]`、不返回 undefined）：官方管线把这一组标成 failed 并打 console.error，本文件另加一条宿主 logger 留痕；catch 里唯一的分支判断只是"请求已被取消"，取消不抛（官方在换查询/关菜单时会 abort）',
   'list-state.ts': '`enterpriseDegradedRead` 的显式降级：捕获后**交出稳定错误码**（code 字段），界面据此如实说明 + 可重试',
   'local-api-decode.ts': 'URL/形状门禁：非法输入返回 false 这个**判定结果**（解码布尔），与取数失败无关',
   'local-api.ts': '响应体 JSON 解析失败被**重抛**成 ENT_LOCAL_RESPONSE_INVALID（兜底是显式失败，不是静默默认值）',

@@ -33,6 +33,8 @@ import type { EnterpriseInstalledSkill, EnterpriseInstalledSkillContent, Enterpr
 import type {
   EnterpriseLibraryHit,
   EnterpriseLibraryImportResult,
+  EnterpriseLibrarySelection,
+  EnterpriseLibrarySelectionReceipt,
   EnterpriseLibrarySpace,
   EnterpriseLibraryText,
 } from './library-api-decode.js'
@@ -459,6 +461,25 @@ export interface EnterpriseLocalApi {
   librarySearch(query: string, signal: AbortSignal): Promise<readonly EnterpriseLibraryHit[]>
   /** 读一份资料的正文（当前版本；正文一次给全，超大正文由 Host 的文件上限拒）。 */
   libraryReadText(assetId: string, signal: AbortSignal): Promise<EnterpriseLibraryText>
+  /**
+   * 读**某个会话**当前的选中集合（P1-A 的"模型真的用上资料库"入口的读侧）。
+   *
+   * 只发一条同源 POST（`/library` 单入口，`{endpoint:'task-selection', payload:{sessionId}}`）。
+   * `items[]` 是 Host 物化后的条目，`revisionId` 就是注入段 `<library-document revision_id=…>` 的那一位；
+   * **停用 / 已删 / 没有当前修订的节点不会出现在 `items` 里**（Host 读侧就剔了），故界面只看 `items`。
+   */
+  libraryTaskSelection(sessionId: string, signal: AbortSignal): Promise<EnterpriseLibrarySelection>
+  /**
+   * **覆盖式**设置某个会话的选中集合（写侧；`nodeIds` 是完整集合，不是增量）。
+   *
+   * 回执只有 `{nodeIds}`（Host 的 `set-task-selection` 形状如此），**不含 items**——界面要显示条目
+   * 必须紧接着再读一次 `libraryTaskSelection`。传空数组 = 清空该会话的集合（"新会话为空"的同一条路）。
+   */
+  librarySetTaskSelection(
+    sessionId: string,
+    nodeIds: readonly string[],
+    signal: AbortSignal,
+  ): Promise<EnterpriseLibrarySelectionReceipt>
   startLogin(signal: AbortSignal): Promise<{ readonly flowId: string }>
   cancelLogin(signal: AbortSignal): Promise<{ readonly cancelled: boolean }>
   /** 原生登录（安卓）本轮的认证来源；没有进行中的原生事务时按 400 拒绝。 */

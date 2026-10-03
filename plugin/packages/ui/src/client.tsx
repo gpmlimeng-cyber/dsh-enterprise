@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖官方 slots/remote/connection 生命周期事件、EnterpriseAccountStore、brand-occupants 的三个品牌占用者与品牌座位源（`createEnterpriseBrandingSeats`／`bindEnterpriseBrandSeat`）、**DOM 装饰入口 `startEnterpriseMarketBadgeDecoration`（`market-entry-badge.ts`）**，以及宿主 ui-theme 与 shortcuts 服务（按需读取，不作硬注入），不创建传输连接；**本刀新增**资料库的本地设置门 `createEnterpriseLibraryGate`、目录取数源 `createEnterpriseLibraryCatalogSource` 与两处座位的接线器 `bindEnterpriseLibrarySeats`
+ * [INPUT]: 依赖官方 slots/remote/connection 生命周期事件、EnterpriseAccountStore、brand-occupants 的三个品牌占用者与品牌座位源（`createEnterpriseBrandingSeats`／`bindEnterpriseBrandSeat`）、**DOM 装饰入口 `startEnterpriseMarketBadgeDecoration`（`market-entry-badge.ts`）**，以及宿主 ui-theme 与 shortcuts 服务（按需读取，不作硬注入），不创建传输连接；**本刀新增**资料库的本地设置门 `createEnterpriseLibraryGate`、目录取数源 `createEnterpriseLibraryCatalogSource` 与两处座位的接线器 `bindEnterpriseLibrarySeats`；**P1-A 再加**选中集合 store `createEnterpriseLibrarySelectionStore`、`@` 触发源 `createEnterpriseLibraryTriggerSource` 与两处 composer 座位（`conversation.input.left` 的按钮 / `conversation.input.dock` 的已选条）及其选项工厂
  * [OUTPUT]: 注册账号/插件设置、官方 settings.launcher 座位上的账号菜单、官方插件页「官方」分组里的「插件市场」入口卡片（注册 `EnterpriseMarketLegacyPage`：官方两行卡片 + **点技能行本体在该 page 视图内整页切换到技能详情子页面**，**这是唯一市场入口**）与详情页标题行（`plugins.detail.badge` 槽起出「**企业**徽章 + 版本号 + 包名」，无「预览版」签、无可拨总开关——徽章用官方 `Tag` 原语 + `tone="info"`，与官方「实验性」签同一枚原语；座位注册形状 `{ name, id, inject: () => ({ store }) }` 一字未动）**本刀（企业标签移回标题行）**：`apply` 里再起一处 `ctx.effect`——`startEnterpriseMarketBadgeDecoration(document, { warn: ctx.logger.warn })`，在官方渲染完成后往 `[data-plugin-item="plugin-market"]` 那一行的 `titleRow` 里、标题按钮**正后方**插一枚克隆自官方 Tag 实物的「企业」签（官方 `ItemCard`/`CardHead` 没有 tags 座位，API 层次做不到），观察器跟随官方重渲染、幂等、`dispose` 时停观察并摘签；官方那几行一字不动，失效即不显示（不报错、不留半成品）；「独立应用商店」的两处注册（官方 `main` 槽上的 `enterprise-store` 整页面板与 `sidebar.panellist` 一级入口，order 20）已在上一刀撤掉，本刀把它留下的 store 外壳死代码（`EnterpriseMarketStorePage`／`EnterpriseStoreIcon`／`ENTERPRISE_STORE_*`／HERO 与其样式文案／只服务它的搜索框）从 `marketplace-entry.tsx` 一并删除；**企业品牌的三处消费点**：侧栏品牌行的两格（`sidebar.brand.mark`／`sidebar.brand.name`，priority **-10** 遮蔽官方 priority 0 的鱼标与字标）与「新会话」Hero 的品牌位（`conversation.hero.brand.mark`，priority **0**，官方无占用者），三处都经 `bindEnterpriseBrandSeat` 由品牌视图驱动——有企业品牌才注册、未配置或取数失败就撤掉注册，官方鱼标／官方 HeroFish 原样接管（渲染器 single 槽只要有 occupant 就不再走 `opts.fallback`，故「占用者返回 null」不能当降级路径）；宿主模型/凭据变化后按需读取状态，让请求触发的认证失效立即呈现；向菜单注入官方主题只读源、桌面能力面（动作 + 更新状态）与官方快捷键注册表只读源 **本刀（资料库）**：`apply` 末尾新增资料库的两处座位接线——`createEnterpriseLibraryGate`（本机设置里的管理门，默认关）驱动 `bindEnterpriseLibrarySeats` 在 `sidebar.panellist`（id `library`）与 `main`（key 同名）上做**视图驱动的注册/注销**（关就真撤，复用 brand-occupants 那套手法），并建一份目录取数源经 `main` 的 inject 面交给页面；`plugins.item` 的 inject 面因此从 `{store}` 扩成 `{store, libraryGate}`（组件行那枚「资料库」开关与企业会话 store 是两回事）。 **本刀（配方一键启用）**：`plugins.item` 的 inject 面再增一件 `presetLaunch`——降级链第二级（跳到新会话并把导入指令填进输入框）的接线，由 `createEnterprisePresetLauncher(() => enterprisePresetSessionPortsFrom({uiWorkspace, workspaces, sessions, conversation}))` 在**每次点击时**经 `ctx.get` 现读官方那四件结构面（缺一即这一级不可用，界面如实说明并落到第三级）。
- * [POS]: dsh-ui 的浏览器组合根，只向 React 注入共享脱敏 store、主题源、桌面能力面与快捷键源，并把企业品牌的三个展示位挂到官方已声明的槽位上（品牌读取与 logo 渲染仍归 branding.ts，本文件不复制品牌逻辑），不注册任何全屏阻断层，也不自建第二份逻辑
+ * [POS]: dsh-ui 的浏览器组合根，只向 React 注入共享脱敏 store、主题源、桌面能力面与快捷键源，并把企业品牌的三个展示位挂到官方已声明的槽位上（品牌读取与 logo 渲染仍归 branding.ts，本文件不复制品牌逻辑），不注册任何全屏阻断层，也不自建第二份逻辑 **本刀（资料库 P1-A：把资料加入当前对话）**：`apply` 末尾再挂三件，全部由**同一个** `libraryGate` 驱动（关 → 真的一个占用者都不留、`@` 源也注销）：① 官方 `ctx.inputTriggers` 的 `@` 源（`createEnterpriseLibraryTriggerSource`，候选＝目录树文件行）——**选中集合的产生路径**；② `conversation.input.left` 的「@ 资料库」按钮；③ `conversation.input.dock` 的「本轮已加入的资料」条（可见 / 逐份移除 / 清空 / 失败重试）。会话 id 走官方正规口子（`onPick` 的 `pick.session.sessionId` 与 session 作用域座位 `inject(sessionId)`），不反解不透明 scope；`inputTriggers` **不硬注入**（缺席只是没有 `@` 源）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -20,9 +20,17 @@ import {
   EnterpriseSidebarBrandName,
 } from './brand-occupants.js'
 import { createEnterpriseDesktopSource } from './desktop-runtime.js'
-import { bindEnterpriseLibrarySeats } from './library-entry.js'
+import { bindEnterpriseLibrarySeats, bindEnterpriseLibrarySeat } from './library-entry.js'
 import { createEnterpriseLibraryGate } from './library-gate.js'
 import { createEnterpriseLibraryCatalogSource, enterpriseLibraryItems } from './library-panel.js'
+import { createEnterpriseLibrarySelectionStore } from './library-selection.js'
+import { createEnterpriseLibraryTriggerSource, type EnterpriseLibraryTriggerSource } from './library-selection-trigger.js'
+import {
+  EnterpriseLibrarySelectionDock,
+  EnterpriseLibraryTriggerButton,
+  enterpriseLibrarySelectionDockOptions,
+  enterpriseLibraryTriggerButtonOptions,
+} from './library-selection-view.js'
 import { createEnterpriseLocalApi } from './local-api.js'
 import { createEnterprisePresetLauncher, enterprisePresetSessionPortsFrom } from './preset-launch.js'
 import {
@@ -53,6 +61,9 @@ export * from './help-link.js'
 export * from './library-entry.js'
 export * from './library-gate.js'
 export * from './library-panel.js'
+export * from './library-selection.js'
+export * from './library-selection-trigger.js'
+export * from './library-selection-view.js'
 export * from './login-dialog.js'
 export * from './local-api.js'
 export * from './maintenance-view.js'
@@ -249,5 +260,84 @@ export function apply(ctx: SlotContextPort): void {
     importText: (input, signal) => libraryApi.libraryImport(input, signal),
     search: (query, signal) => libraryApi.librarySearch(query, signal),
     readText: (assetId, signal) => libraryApi.libraryReadText(assetId, signal),
+  })
+  /**
+   * **资料库 P1-A：把资料加入当前对话**（口径 23，本刀）。
+   *
+   * 上一刀把宿主三面接线做完了，但"选中集合"只能由别的程序写——没有产生入口，资料库对模型永远是空的。
+   * 本刀补三件，全部由**同一个**管理门驱动（与上面两处座位同一口径：关着就真撤，官方面一个字不变）：
+   *   ① `@` 触发器源（官方 `ctx.inputTriggers`，候选＝目录树里的文件行）——**这就是"选中集合"的产生路径**；
+   *   ② `conversation.input.left` 的「@ 资料库」按钮——把 `@` 送进草稿，官方菜单随即带出我们的候选；
+   *   ③ `conversation.input.dock` 的「本轮已加入的资料」条——可见、可逐份移除、可清空、失败可重试。
+   *
+   * 三个刻意的接线选择：
+   *   · **会话 id 走官方正规口子**：`@` 源的 `onPick` 拿 `pick.session.sessionId`、dock 的注册 `inject(sessionId)`
+   *     拿官方交给 session 作用域座位的那个 id——**不去反解任何不透明 scope**（上一刀如实记为缺口的那条降级路径，
+   *     本刀不需要它：写路径由界面显式把当前会话 id 交给 Host，`task-selection` / `set-task-selection` 收的就是它）。
+   *   · `inputTriggers` **不硬注入**（不进 `inject` 数组）：缺席时只是没有 `@` 源，输入框的既有行为一字不变。
+   *   · 门关着 ⇒ 三件都真撤：composer 里一个节点都不多（"未选中时一切照旧"的最强形态）。
+   */
+  const librarySelection = createEnterpriseLibrarySelectionStore({
+    api: libraryApi,
+    warn: (message, error) => {
+      const logger = ctx.logger
+      if (typeof logger?.warn === 'function') { logger.warn(message, error); return }
+      console.warn(message, error)
+    },
+  })
+  ctx.effect(() => () => { librarySelection.dispose() }, 'owndsh: library selection store')
+  bindEnterpriseLibrarySeat(
+    ctx.slots,
+    libraryGate,
+    () => enterpriseLibrarySelectionDockOptions(librarySelection),
+    EnterpriseLibrarySelectionDock as (props: never) => ReactNode,
+  )
+  bindEnterpriseLibrarySeat(
+    ctx.slots,
+    libraryGate,
+    enterpriseLibraryTriggerButtonOptions,
+    EnterpriseLibraryTriggerButton as (props: never) => ReactNode,
+  )
+  const libraryTrigger = createEnterpriseLibraryTriggerSource({
+    store: librarySelection,
+    // 候选与页面共用同一份投影（`space` 端点 → 树行），不存在"页面上有、@ 里找不到"的第二份目录。
+    loadCatalog: async signal => enterpriseLibraryItems(await libraryApi.librarySpace(signal)),
+    warn: (message, error) => {
+      const logger = ctx.logger
+      if (typeof logger?.warn === 'function') { logger.warn(message, error); return }
+      console.warn(message, error)
+    },
+  })
+  /**
+   * `@` 源的注册/注销状态**放在 inject 回调之外**：官方 `registerSource` 对同名同 trigger 的第二次注册会抛，
+   * 而这个回调在服务被撤下再挂上时会**再跑一次**——状态留在外面才能"先撤旧的再挂新的"，不会重复注册。
+   * 卸载时的收尾走下面这唯一一处 `ctx.effect`（`ctx.inject` 只管等服务和重跑，不管我们自己的订阅）。
+   */
+  let disposeLibraryTrigger: (() => void) | undefined
+  let unsubscribeLibraryGate: (() => void) | undefined
+  ctx.effect(() => () => {
+    unsubscribeLibraryGate?.()
+    unsubscribeLibraryGate = undefined
+    disposeLibraryTrigger?.()
+    disposeLibraryTrigger = undefined
+  }, 'owndsh: library @ trigger source')
+  ctx.inject(['inputTriggers'], () => {
+    const service = ctx.get('inputTriggers') as { registerSource(source: EnterpriseLibraryTriggerSource): () => void } | undefined
+    if (service === undefined) return
+    unsubscribeLibraryGate?.()
+    unsubscribeLibraryGate = undefined
+    disposeLibraryTrigger?.()
+    disposeLibraryTrigger = undefined
+    const sync = (): void => {
+      if (!libraryGate.getSnapshot().enabled) {
+        disposeLibraryTrigger?.()
+        disposeLibraryTrigger = undefined
+        return
+      }
+      if (disposeLibraryTrigger !== undefined) return
+      disposeLibraryTrigger = service.registerSource(libraryTrigger)
+    }
+    unsubscribeLibraryGate = libraryGate.subscribe(sync)
+    sync()
   })
 }

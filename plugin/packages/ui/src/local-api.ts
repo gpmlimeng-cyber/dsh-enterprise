@@ -30,7 +30,9 @@ import {
   decodeEnterpriseLogout,
   decodeEnterpriseLibraryHits,
   decodeEnterpriseLibraryImport,
+  decodeEnterpriseLibrarySetTaskSelection,
   decodeEnterpriseLibrarySpace,
+  decodeEnterpriseLibraryTaskSelection,
   decodeEnterpriseLibraryText,
   decodeEnterprisePluginStatus,
   decodeEnterprisePresets,
@@ -266,7 +268,7 @@ export function createEnterpriseLocalApi(
     cancelPlugin: async (packageName, signal) => decodeEnterprisePluginStatus(
       await requestJson(PLUGIN_CANCEL_PATH, jsonInit('POST', { packageName }, signal), fetcher),
     ),
-    // 资料库四条：全部走**同一条**单入口 `POST /library`（正文 `{endpoint,payload}`），
+    // 资料库六条：全部走**同一条**单入口 `POST /library`（正文 `{endpoint,payload}`），
     // 与 Host 侧 `bundle/src/library/route.ts` 的内层协议逐字同形；浏览器侧同样只发固定路径。
     librarySpace: async signal => decodeEnterpriseLibrarySpace(
       await requestJson(LIBRARY_ENTRY_PATH, libraryInit('space', {}, signal), fetcher),
@@ -284,6 +286,15 @@ export function createEnterpriseLocalApi(
     ),
     libraryReadText: async (assetId, signal) => decodeEnterpriseLibraryText(
       await requestJson(LIBRARY_ENTRY_PATH, libraryInit('read-text', { assetId }, signal), fetcher),
+    ),
+    // 会话选中集合两条（P1-A）：读回物化条目、写回**完整**集合（`nodeIds` 不是增量）。
+    // 写那一条的响应形状与读**不同**（Host 只回 `{nodeIds}`），故两条各用各的严格解码器，
+    // 界面绝不用写回执去拼条目——条目一律以随后那次读为准。
+    libraryTaskSelection: async (sessionId, signal) => decodeEnterpriseLibraryTaskSelection(
+      await requestJson(LIBRARY_ENTRY_PATH, libraryInit('task-selection', { sessionId }, signal), fetcher),
+    ),
+    librarySetTaskSelection: async (sessionId, nodeIds, signal) => decodeEnterpriseLibrarySetTaskSelection(
+      await requestJson(LIBRARY_ENTRY_PATH, libraryInit('set-task-selection', { sessionId, nodeIds: [...nodeIds] }, signal), fetcher),
     ),
     installedSkills: async signal => decodeEnterpriseInstalledSkills(
       await requestJson('/skills/installed', getInit(signal), fetcher),

@@ -50,7 +50,8 @@ describe('enterprise Client plugin', () => {
     })
     expect(remoteEvents).toContain('llm/adapters-updated')
     // 不硬注入 ui-theme 与 shortcuts：只各等一次服务出现来补发通知，服务缺席时插件照常激活。
-    expect(serviceWaits).toEqual([['theme'], ['shortcuts']])
+    // 本刀再等一次 `inputTriggers`（官方 `@` 触发管线）——**同样不进 `inject` 数组**：缺席时只是没有 `@` 源。
+    expect(serviceWaits).toEqual([['theme'], ['shortcuts'], ['inputTriggers']])
     // `layout` 本刀已撤：它当初只为「从商店跳回官方插件列表」声明，而唯一使用场景（`enterprise-store` 面板）已删，
     // 全仓没有任何一处消费 `ctx.layout`／`selectPanel`，故声明面收敛回两项。
     expect(inject).toEqual(['slots', 'remote'])
@@ -70,6 +71,10 @@ describe('enterprise Client plugin', () => {
       'conversation.hero.brand.mark',
       'sidebar.panellist',
       'main',
+      // **P1-A 新增的两处 composer 座位**（`bindEnterpriseLibrarySeat` 同一个 inject 手法）：
+      // 「本轮已加入的资料」条（dock）与「@ 资料库」按钮（input.left）。门默认关 ⇒ 只 inject、不注册。
+      'conversation.input.dock',
+      'conversation.input.left',
     ])
     expect(registrations.map(item => item.options)).toMatchObject([
       { name: 'settings.section', id: 'enterprise', order: 25, label: '企业设置' },
@@ -175,6 +180,9 @@ describe('enterprise Client plugin', () => {
       // 资料库的两处座位用同一套 inject 手法；管理门默认关，故这里也只 inject、不注册。
       'sidebar.panellist',
       'main',
+      // P1-A 的两处 composer 座位同上：只 inject、不注册（门默认关）。
+      'conversation.input.dock',
+      'conversation.input.left',
     ])
     expect(registrations.map(item => item.options['name'])).toEqual([
       'settings.section',
@@ -246,6 +254,68 @@ describe('enterprise Client plugin', () => {
     } finally {
       vi.unstubAllGlobals()
     }
+  })
+
+  /**
+   * **P1-A 接线**：`@` 触发源与两处 composer 座位的注册/注销由**同一个管理门**驱动。
+   *
+   * 三件事一次锁死：① 门关（默认）⇒ 一个占用者都不注册、`registerSource` 一次都不调（未选中时输入区一切照旧）；
+   * ② 门开 ⇒ 官方 `inputTriggers.registerSource` 收到**我们那枚源**（trigger/name/order/showGroupTitle 逐字），
+   *    同时 dock 与 input.left 各注册一次；③ 再关门 ⇒ 源与两处占用者**真注销**（不是"返回 null"）。
+   * 会话 id 的正规口子也在这里取证：dock 的 `inject(sessionId)` 必须把官方给的那个 id 交进组件。
+   */
+  it('drives the library @ trigger source and the two composer seats from the same local gate', async () => {
+    const registrations: { options: Record<string, unknown>; component: unknown }[] = []
+    const disposed = { dock: 0, button: 0, source: 0 }
+    const register = vi.fn((options: Record<string, unknown>, component: unknown) => {
+      registrations.push({ options, component })
+      const name = options['name']
+      return () => { if (name === 'conversation.input.dock') disposed.dock += 1; if (name === 'conversation.input.left') disposed.button += 1 }
+    })
+    const registerSource = vi.fn(() => () => { disposed.source += 1 })
+    const triggerService = { registerSource }
+    const waited: string[][] = []
+    apply({
+      slots: { inject: (_name: string, callback: () => unknown) => callback(), register },
+      remote: { $on: () => () => undefined },
+      // 只有 `inputTriggers` 这一个服务在场，别处照旧缺席。
+      get: name => (name === 'inputTriggers' ? triggerService : undefined),
+      // 官方 `ctx.inject(deps, cb)` 在依赖就绪时回调；这里服务已在场，故立刻回调（并记录等了谁）。
+      inject: (deps: readonly string[], callback: () => void) => { waited.push([...deps]); callback(); return undefined },
+      on: vi.fn(() => () => undefined),
+      effect: effect => { effect() },
+    })
+    // ① 门默认关：composer 两处座位一个都没注册，`@` 源也没注册。
+    expect(registrations.map(item => item.options['name'])).toEqual([
+      'settings.section',
+      'settings.launcher',
+      'plugins.item',
+      'plugins.detail.badge',
+    ])
+    expect(registerSource).not.toHaveBeenCalled()
+
+    // ② 开门：官方源 + 两处座位都到位（管理门经 `plugins.item` 的 inject 面拿得到，与市场页那枚开关同源）。
+    const market = registrations.find(item => item.options['name'] === 'plugins.item')!
+    const gate = (market.options['inject'] as () => { libraryGate: { setEnabled(v: boolean): void } })().libraryGate
+    gate.setEnabled(true)
+    await vi.waitFor(() => { expect(registerSource).toHaveBeenCalledTimes(1) })
+    const source = registerSource.mock.calls[0]![0] as Record<string, unknown>
+    expect(source).toMatchObject({ trigger: '@', name: 'dshent-library', order: 30, showGroupTitle: false })
+    expect(typeof source['candidates']).toBe('function')
+    expect(typeof source['onPick']).toBe('function')
+    const seats = registrations.filter(item => String(item.options['name']).startsWith('conversation.input.'))
+    expect(seats.map(item => item.options)).toMatchObject([
+      { name: 'conversation.input.dock', id: 'dshent-library-selection', order: 30 },
+      { name: 'conversation.input.left', id: 'dshent-library-trigger', order: 30, label: '@ 资料库' },
+    ])
+    // dock 的 inject 面：官方交给 session 作用域座位的会话 id 原样进组件（这就是取值正规口子）。
+    const face = (seats[0]!.options['inject'] as (sessionId: unknown) => { sessionId: string; selection: unknown })('session-7')
+    expect(face.sessionId).toBe('session-7')
+    expect(face.selection).toBeTruthy()
+
+    // ③ 再关门：源与两处占用者**真撤**。
+    gate.setEnabled(false)
+    await vi.waitFor(() => { expect(disposed).toMatchObject({ dock: 1, button: 1, source: 1 }) })
   })
 })
 

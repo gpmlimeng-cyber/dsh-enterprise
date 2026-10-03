@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 只依赖 `./decode-primitives.js` 的严格解码内核（record/hasExactKeys/nonEmptyString/timestamp 与唯一的 `EnterpriseLocalApiError`）；不依赖 fetch、React 与任何宿主面
- * [OUTPUT]: 资料库契约分片——四份 DTO（目录 `EnterpriseLibrarySpace`、导入回执 `EnterpriseLibraryImportResult`、检索命中 `EnterpriseLibraryHit`、正文 `EnterpriseLibraryText`）与四个严格解码器 `decodeEnterpriseLibrary{Space,Import,Hits,Text}`，以及四份**键集常量**供漂移门禁比对
+ * [OUTPUT]: 资料库契约分片——四份 DTO（目录 `EnterpriseLibrarySpace`、导入回执 `EnterpriseLibraryImportResult`、检索命中 `EnterpriseLibraryHit`、正文 `EnterpriseLibraryText`）与四个严格解码器 `decodeEnterpriseLibrary{Space,Import,Hits,Text}`，以及四份**键集常量**供漂移门禁比对 **本刀（P1-A：会话选中集合）**：再加两份 DTO（选中项 `EnterpriseLibrarySelectionItem`、选中集合 `EnterpriseLibrarySelection`）与三个解码器 `decodeEnterpriseLibrary{SelectionItem,TaskSelection,SetTaskSelection}` + 两份键集常量——形状真源逐字照 Host `bundle/src/library/route.ts` 的两条 endpoint（`task-selection` 出 `{nodeIds,items}`、`set-task-selection` 出 `{nodeIds}`），`items[].revisionId` 就是注入段里那个 `<library-document revision_id=…>`
  * [POS]: dsh-ui 浏览器取数契约层的资料库分片（与 `skill-api-decode.ts` 同一手法：本文件是唯一 DTO 真源、`local-api-decode.ts` 原样再导出）。形状真源是 Host 的 `bundle/src/library/route.ts` 四个投影函数：**未知键一律判畸形**（Host 多塞主体、宿主路径或正文以外的任何东西都进不了界面），时间戳必须是 RFC 3339，id 与格式都按本仓形状收窄
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -39,6 +39,19 @@ export const ENTERPRISE_LIBRARY_HIT_KEYS = [
 export const ENTERPRISE_LIBRARY_HIT_OPTIONAL_KEYS = ['location'] as const
 /** 正文回执的键集（必填键，**恰好**这些）。 */
 export const ENTERPRISE_LIBRARY_TEXT_KEYS = ['assetId', 'revisionId', 'name', 'kind', 'content', 'byteLength'] as const
+
+/** 选中项的键集（必填键，**恰好**这些；Host `projectSelectionItem` 逐字同集）。 */
+export const ENTERPRISE_LIBRARY_SELECTION_ITEM_KEYS = ['nodeId', 'assetId', 'revisionId', 'name', 'kind'] as const
+
+/**
+ * 选中集合的两份键集。
+ *
+ * **两个 endpoint 的响应形状刻意不同**（Host 就是这么发的，本层不发明字段）：
+ * `task-selection` 出 `{nodeIds, items}`（读，带物化后的条目），`set-task-selection` 出 `{nodeIds}`（写，只回执集合本身）。
+ * 因此写那一条的响应**不能**被当成"没有 items 所以畸形"，也不能被界面拿去拼条目——条目一律以随后那次读为准。
+ */
+export const ENTERPRISE_LIBRARY_TASK_SELECTION_KEYS = ['nodeIds', 'items'] as const
+export const ENTERPRISE_LIBRARY_SET_TASK_SELECTION_KEYS = ['nodeIds'] as const
 
 /** 目录里的一棵树节点（文件夹与文件共用）。 */
 export interface EnterpriseLibraryNode {
@@ -112,6 +125,31 @@ export interface EnterpriseLibraryText {
   readonly kind: EnterpriseLibraryKind
   readonly content: string
   readonly byteLength: number
+}
+
+/**
+ * 会话选中集合里的**一项**（F12 的"精确修订"就在 `revisionId` 这一位）。
+ *
+ * `nodeId` 是树节点（写集合时唯一的入参），`revisionId` 是 Host 物化那一刻该资产当前的修订——
+ * 注段里的 `<library-document revision_id=…>` 与它是同一个值，因此界面既不猜"最新"、也不自己算修订。
+ */
+export interface EnterpriseLibrarySelectionItem {
+  readonly nodeId: string
+  readonly assetId: string
+  readonly revisionId: string
+  readonly name: string
+  readonly kind: EnterpriseLibraryKind
+}
+
+/** 一个会话的选中集合（读的投影）。 */
+export interface EnterpriseLibrarySelection {
+  readonly nodeIds: readonly string[]
+  readonly items: readonly EnterpriseLibrarySelectionItem[]
+}
+
+/** 写的回执：只有集合本身（`set-task-selection` 的响应形状）。 */
+export interface EnterpriseLibrarySelectionReceipt {
+  readonly nodeIds: readonly string[]
 }
 
 function fail(): never {
@@ -280,4 +318,46 @@ export function decodeEnterpriseLibraryText(value: unknown): EnterpriseLibraryTe
     content: requireText(view['content'], 8 * 1024 * 1024),
     byteLength: requireCount(view['byteLength']),
   }
+}
+
+/** 选中项解码（`task-selection` 的 `items[]`）。 */
+export function decodeEnterpriseLibrarySelectionItem(value: unknown): EnterpriseLibrarySelectionItem {
+  const view = requireRecord(value)
+  if (!hasExactKeys(view, ENTERPRISE_LIBRARY_SELECTION_ITEM_KEYS)) fail()
+  return {
+    nodeId: requireId(view['nodeId']),
+    assetId: requireId(view['assetId']),
+    revisionId: requireId(view['revisionId']),
+    name: requireText(view['name'], 256),
+    kind: requireKind(view['kind']),
+  }
+}
+
+/**
+ * 选中集合**读**投影解码（`task-selection` 的 `{data}`）。
+ *
+ * `nodeIds` 与 `items` 是**同一次物化的两个投影**：Host 的 `task-selection` 里 `nodeIds` 就是
+ * `items.map(item => item.nodeId)`（`bundle/src/library/route.ts` 逐字如此），因此"停用 / 已删 / 没有当前修订"
+ * 的节点在**两处都不出现**（`manager.selectedItems` 读侧就滤掉了）——它们仍留在 Host 的选中**记录**里，
+ * 只是不再产出任何东西（重新启用会自己回来）。本层因此**不做交集校验**（不是畸形），界面只认 `items` 渲染。
+ */
+export function decodeEnterpriseLibraryTaskSelection(value: unknown): EnterpriseLibrarySelection {
+  const view = requireRecord(value)
+  if (!hasExactKeys(view, ENTERPRISE_LIBRARY_TASK_SELECTION_KEYS)) fail()
+  const nodeIds = view['nodeIds']
+  const items = view['items']
+  if (!Array.isArray(nodeIds) || !Array.isArray(items)) fail()
+  return {
+    nodeIds: nodeIds.map(requireId),
+    items: items.map(decodeEnterpriseLibrarySelectionItem),
+  }
+}
+
+/** 选中集合**写**回执解码（`set-task-selection` 的 `{data}`）。 */
+export function decodeEnterpriseLibrarySetTaskSelection(value: unknown): EnterpriseLibrarySelectionReceipt {
+  const view = requireRecord(value)
+  if (!hasExactKeys(view, ENTERPRISE_LIBRARY_SET_TASK_SELECTION_KEYS)) fail()
+  const nodeIds = view['nodeIds']
+  if (!Array.isArray(nodeIds)) fail()
+  return { nodeIds: nodeIds.map(requireId) }
 }
