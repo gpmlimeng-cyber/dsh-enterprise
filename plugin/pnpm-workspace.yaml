@@ -1,6 +1,12 @@
 packages:
   - packages/*
 
+# [本机工具链 pin] 仓库声明 packageManager: pnpm@11.7.0，而 dsh-mobile 快照预装的是 pnpm 10.12.1。
+# 每次启动 pnpm 都会触发自升级（managePackageManagerVersions 默认 true），把 11.7.0 装到
+# .tools/pnpm/11.7.0_tmp_* 时被本机 linker64 当 ELF 执行失败，留下坏状态导致所有 pnpm 命令崩。
+# 关掉自升级、用预装的 10.12.1 跑（与 preview-p0 当时的持久开关一致）。仅影响工具链选择，不动依赖语义。
+managePackageManagerVersions: false
+
 # Bundle compilation needs esbuild's reviewed native binary. Every other
 # dependency lifecycle script remains denied by pnpm 11.
 allowBuilds:
