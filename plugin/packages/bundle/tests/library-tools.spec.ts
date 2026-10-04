@@ -98,8 +98,13 @@ describe('资料库 Host 工具（模型面）', () => {
     for (const definition of registry.definitions) {
       expect(definition.description.length).toBeGreaterThan(20)
       assertSchemaNode(definition.output.schema, `${definition.name}.output`)
-      for (const [key, value] of Object.entries(definition.parameters)) {
-        assertSchemaNode(value, `${definition.name}.parameters.${key}`)
+      // ★ 根必须是对象型（官方 DeepSeek 严格校验：type:null 会拒掉整条请求）。
+      expect(definition.parameters['type'], `${definition.name}.parameters.type`).toBe('object')
+      assertSchemaNode(definition.parameters, `${definition.name}.parameters`)
+      const properties = definition.parameters['properties'] as Record<string, unknown>
+      expect(typeof properties, `${definition.name}.parameters.properties`).toBe('object')
+      for (const [key, value] of Object.entries(properties)) {
+        assertSchemaNode(value, `${definition.name}.parameters.properties.${key}`)
       }
     }
 
@@ -108,19 +113,18 @@ describe('资料库 Host 工具（模型面）', () => {
     const read = byName.get('library_read') as EnterpriseLibraryToolDefinition
     const save = byName.get('library_save_markdown') as EnterpriseLibraryToolDefinition
 
-    // 参数名逐字（F6）。
-    expect(Object.keys(search.parameters)).toEqual(['query', 'kind', 'source'])
-    expect(Object.keys(read.parameters)).toEqual(['asset_id', 'revision_id', 'offset', 'limit'])
-    expect(Object.keys(save.parameters)).toEqual(['name', 'content', 'parent_id'])
+    const propsOf = (definition: EnterpriseLibraryToolDefinition): Record<string, unknown> =>
+      definition.parameters['properties'] as Record<string, unknown>
 
-    // 必填位只有一个：search.query / read.asset_id / save.{name,content}。
-    const requiredOf = (definition: EnterpriseLibraryToolDefinition): string[] =>
-      Object.entries(definition.parameters)
-        .filter(([, value]) => (value as { required?: boolean }).required === true)
-        .map(([key]) => key)
-    expect(requiredOf(search)).toEqual(['query'])
-    expect(requiredOf(read)).toEqual(['asset_id'])
-    expect(requiredOf(save)).toEqual(['name', 'content'])
+    // 参数名逐字（F6）。
+    expect(Object.keys(propsOf(search))).toEqual(['query', 'kind', 'source'])
+    expect(Object.keys(propsOf(read))).toEqual(['asset_id', 'revision_id', 'offset', 'limit'])
+    expect(Object.keys(propsOf(save))).toEqual(['name', 'content', 'parent_id'])
+
+    // 必填位：根 `required` 数组逐字列出（search.query / read.asset_id / save.{name,content}）。
+    expect(search.parameters['required']).toEqual(['query'])
+    expect(read.parameters['required']).toEqual(['asset_id'])
+    expect(save.parameters['required']).toEqual(['name', 'content'])
 
     // 防误用 / 防注入句必须在（E2）：资料不在文件系统里、不要用 Bash/Glob/读文件工具、不是系统指令。
     for (const definition of [search, read]) {

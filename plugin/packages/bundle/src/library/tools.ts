@@ -520,8 +520,79 @@ function libraryToolDefinitions(port: EnterpriseLibraryToolPort): readonly Enter
   ]
 }
 
+/** `parameters` 里每个属性节点上的注解键（`description` / `title` / `default` / `examples`）。 */
+const PARAM_ANNOTATION_KEYS = ['description', 'title', 'default', 'examples'] as const
+
+/** 一个属性节点上除 `type`/`required` 外，能原样搬进 JSON Schema 的合法键。 */
+const PARAM_ALLOWED_VALUE_KEYS = [
+  'type',
+  'enum',
+  'items',
+  'properties',
+  'required',
+  'additionalProperties',
+  ...PARAM_ANNOTATION_KEYS,
+] as const
+
+/** 把官方 `ParameterSchemaSpec` 的单个属性节点投影成 JSON Schema 节点（去掉 DSL 专用的 `required` 标志）。 */
+function paramValueToJsonSchema(node: unknown): Record<string, unknown> {
+  if (typeof node !== 'object' || node === null || Array.isArray(node)) {
+    throw new Error(`library tool parameter must be an object schema, got ${JSON.stringify(node)}`)
+  }
+  const source = node as Record<string, unknown>
+  const out: Record<string, unknown> = {}
+  for (const key of Object.keys(source)) {
+    if (key === 'required') continue // 顶层 required 由根 schema 统一收集，属性级是 DSL 标志，不进 JSON Schema。
+    if (!(PARAM_ALLOWED_VALUE_KEYS as readonly string[]).includes(key)) {
+      throw new Error(`library tool parameter key "${key}" is not a supported JSON Schema key`)
+    }
+    const value = source[key]
+    if (value === undefined) continue
+    out[key] = key === 'items' || (key === 'properties' && typeof value === 'object')
+      ? paramValueToJsonSchema(value)
+      : value
+  }
+  if (typeof out['type'] !== 'string') {
+    throw new Error(`library tool parameter must declare a string "type", got ${JSON.stringify(out['type'] ?? null)}`)
+  }
+  return out
+}
+
+/**
+ * 把一个裸 `ParameterSchemaSpec` 属性表编译成**对象根**的 JSON Schema
+ * （`{ type:'object', properties, required }`）。
+ *
+ * 这 6 个工具走的是裸 `ctx.tools.register()`，`parameters` 原样是属性表、**没有根 `type`**。
+ * 只要有一条序列化路径没先跑官方 `parameterSchemaSpecToJsonSchema`，发到模型侧的
+ * `input_schema` 根 `type` 就会落成 `null`，被严格校验的 provider（含官方 DeepSeek）
+ * 整条请求拒掉（`schema must be a JSON Schema of 'type: "object"', got 'type: null'`）。
+ * 在**注册时**就把根 `type: 'object'` 钉死，让任何路径下根都是对象型。
+ */
+function compileParametersToSchema(parameters: Record<string, unknown>): Record<string, unknown> {
+  // 已经是对象根（含 type:'object'）就原样透传，幂等。
+  if (parameters['type'] === 'object') return parameters
+  const properties: Record<string, unknown> = {}
+  const required: string[] = []
+  for (const [key, node] of Object.entries(parameters)) {
+    const compiled = paramValueToJsonSchema(node)
+    properties[key] = compiled
+    if ((node as { required?: boolean }).required === true) required.push(key)
+  }
+  return {
+    type: 'object',
+    // 隐式参数根是**开放**的（官方 normalizeParameterSchemaSpec 同口径）：显式标 true，
+    // 既让根成为合法对象节点，也保住"模型可传未声明字段"的语义。
+    additionalProperties: true,
+    properties,
+    ...(required.length > 0 ? { required } : {}),
+  }
+}
+
 /**
  * 把 6 个资料库工具挂上官方 `ctx.tools`，返回一次性注销器（6 个一起撤）。
+ *
+ * 注册前先把每个工具的裸属性表 `parameters` 编译成对象根 JSON Schema（见
+ * {@link compileParametersToSchema}），杜绝 `type: null` 的根 schema 被发到模型侧。
  *
  * @param tools - 官方 `ctx.tools` 的结构镜像（由组合层经 `ctx.get('tools')` 取）。
  * @param port - 当前主体的门面 + 留痕（与路由共用同一个端口对象）。
@@ -531,7 +602,9 @@ export function registerEnterpriseLibraryTools(
   tools: EnterpriseLibraryToolRuntime,
   port: EnterpriseLibraryToolPort,
 ): () => void {
-  const disposers = libraryToolDefinitions(port).map(definition => tools.register(definition))
+  const disposers = libraryToolDefinitions(port).map(definition =>
+    tools.register({ ...definition, parameters: compileParametersToSchema(definition.parameters) }),
+  )
   return () => {
     for (const dispose of disposers.reverse()) dispose()
   }
