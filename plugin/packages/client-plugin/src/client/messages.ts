@@ -9,7 +9,7 @@ import type { EnterpriseClientErrorCode } from '../protocol/error-codes.js'
 import type { EnterpriseConnectionState } from '../protocol/types.js'
 
 /**
- * 契约 56 个稳定码 + 10 个客户端本地码的完整中文文案。
+ * 契约 60 个稳定码 + 10 个客户端本地码的完整中文文案（数量跟随契约真源，此处随 error-codes.ts 同步）。
  * 用穷尽 Record 而不是 Partial：契约新增错误码时编译期即失败，逼迫在此补齐人话。
  */
 export const ENTERPRISE_ERROR_MESSAGES: Readonly<Record<EnterpriseClientErrorCode, string>> = {

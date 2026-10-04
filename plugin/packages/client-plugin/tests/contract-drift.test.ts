@@ -43,7 +43,7 @@ function readJson(path: string): unknown {
 const hasContracts = CONTRACTS_ROOT !== null
 
 describe('契约漂移门禁', () => {
-  it.skipIf(!hasContracts)('56 个稳定错误码与 OpenAPI 枚举逐字同序', () => {
+  it.skipIf(!hasContracts)('稳定错误码与 OpenAPI 枚举逐字同序（数量以真源为准）', () => {
     const spec = readJson(join(CONTRACTS_ROOT ?? '', 'generated/enterprise-openapi.json')) as {
       components: { schemas: { EnterpriseErrorCode: { enum: string[] } } }
     }
