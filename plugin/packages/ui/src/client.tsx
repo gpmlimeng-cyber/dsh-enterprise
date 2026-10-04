@@ -204,10 +204,11 @@ export function apply(ctx: SlotContextPort): void {
    * **标题区右侧的两枚占位按钮**（用户口径：「在标题区域右侧增加刷新、添加插件按钮」）——走**官方
    * `plugins.detail.actions` 槽**（`slot-contract.ts:116`，`kind:'list'/scope:'root'`，与 badge 槽 `:121` 同形）：
    * 官方 `ItemDetail` 的 `DetailTop`（`PluginManagerPage.tsx:540`）在 `cardIcon` 图标**右侧**渲染
-   * `renderSlot('plugins.detail.actions')` ⇒ 官方 API 层次直接给了标题右侧动作位，**无需 DOM 装饰**。
+   * `renderSlot('plugins.detail.actions', { subject })` ⇒ 官方 API 层次直接给了标题右侧动作位，**无需 DOM 装饰**。
    * 两枚都是**占位**（用户裁决）：点击 no-op、不禁用、不给假进度，无障碍名带「占位」不冒充能用。
-   * 本槽只对我们这条 item 渲染（官方槽语义由 `EnterpriseMarketDetailActions` 内部不判 subject —— 它无 subject 消费，
-   * 但官方只在我们这条 item 的详情页才 renderSlot 到我们的组件；subject 过滤交由官方 `only` 语义）。
+   * ★ **subject 过滤在组件内做**（与 badge 槽同范式）：官方对 `kind:'list'` 槽**没有 `only` 过滤**，
+   * 且 `ItemDetail`/`RowDetail`/`PackageDetail` 三种详情页都渲染本槽 ⇒ `EnterpriseMarketDetailActions`
+   * 内部按 `kind==='item' && id==='plugin-market'` 收口，只对我们这条 item 出、其余返回 null（否则泄漏到每个页面）。
    */
   ctx.slots.inject('plugins.detail.actions', () => ctx.slots.register({
     name: 'plugins.detail.actions',

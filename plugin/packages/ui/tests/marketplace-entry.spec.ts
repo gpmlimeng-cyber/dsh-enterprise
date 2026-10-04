@@ -36,9 +36,12 @@ import {
   ENTERPRISE_MARKET_TAB_IDS,
   ENTERPRISE_MARKET_TABLIST_LABEL,
   ENTERPRISE_MARKET_TABS,
+  ENTERPRISE_DETAIL_ACTION_ADD_LABEL,
+  ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL,
   BadgeView,
   EnterpriseMarketBadge,
   EnterpriseMarketBadgeTag,
+  EnterpriseMarketDetailActions,
   EnterpriseMarketInlineRows,
   EnterpriseMarketLegacyPage,
   EnterpriseMarketLegacyShell,
@@ -778,6 +781,33 @@ describe('enterprise marketplace entry', () => {
     expect(enterpriseMarketVersionTag('1.2.3')).toBe('v1.2.3')
     expect(enterpriseMarketVersionTag(undefined)).toBeUndefined()
     expect(enterpriseMarketVersionTag('')).toBeUndefined()
+  })
+
+  // **反向锁：标题区动作只对「插件市场」这一条 item 渲染**（真机实测的泄漏回归）——
+  // 官方 `plugins.detail.actions` 是 `kind:'list'/scope:'root'`，官方对 list 槽**没有 `only` 过滤**，
+  // 且 `ItemDetail`(`PluginManagerPage.tsx:540`) / `RowDetail`(`:583`) / `PackageDetail`(`:642`) 三种详情页
+  // 都 `renderSlot('plugins.detail.actions', { subject })` ⇒ 组件内部不按 subject 收口就是
+  // **每个 item 详情页都出【刷新】【添加插件】**（与 badge 槽 `EnterpriseMarketBadge` 同一条范式）。
+  it('gates the title-area action buttons on the plugin-market subject so they never leak to other detail pages', () => {
+    // 非本条目：另一条 item、row、package 三种 subject 一律 null（官方三种详情页正是这些 subject）。
+    expect(EnterpriseMarketDetailActions({ subject: { kind: 'item', id: 'bash' } })).toBeNull()
+    expect(EnterpriseMarketDetailActions({ subject: { kind: 'row', pkg: { name: 'x' }, row: { rowId: 'y' } } })).toBeNull()
+    expect(EnterpriseMarketDetailActions({ subject: { kind: 'package', pkg: { name: 'x' } } })).toBeNull()
+    // 本条目：出两枚占位按钮（刷新 / 添加插件），文案与无障碍名逐字锁死。
+    const mine = EnterpriseMarketDetailActions({ subject: { kind: 'item', id: ENTERPRISE_MARKET_ENTRY_ID } })
+    const text = textOf(mine)
+    expect(text).toContain(ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL)
+    expect(text).toContain(ENTERPRISE_DETAIL_ACTION_ADD_LABEL)
+    // 两枚都是官方 Button 原语（`variant="outline"`，标题区工具感，非 primary 主动作）——
+    // 按组件引用收集（mock Button 渲染产出 undefined，原生 collectButtonProps 收不到）。
+    const outline = collectOfficialButtonProps(mine)
+    expect(outline).toHaveLength(2)
+    expect(outline.map(props => props['variant'])).toEqual(['outline', 'outline'])
+    // 无障碍名带「占位」语义（不冒充能用，产品宪法：不造死控件）。
+    expect(outline.map(props => props['aria-label'])).toEqual([
+      `${ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL}插件（占位）`,
+      `${ENTERPRISE_DETAIL_ACTION_ADD_LABEL}（占位）`,
+    ])
   })
 
   // **反向锁（「企业标签不新增 CSS 类」）**：徽章与描述行胶囊只用官方原语 + 本文件**既有**的 `.own-market-tag`，
@@ -3402,6 +3432,27 @@ function collectOfficialTagProps(node: ReactNode, acc: Record<string, any>[] = [
   }
   for (const value of Object.values(props)) {
     if (value !== null && typeof value === 'object') collectOfficialTagProps(value as ReactNode, acc)
+  }
+  return acc
+}
+
+/**
+ * 收集元素树里所有**官方 `Button` 原语本体**的元素 props（`node.type === Button`，与
+ * `collectOfficialTagProps` 同一套身份判定）——mock 的 Button（`vi.fn()`）渲染产出 undefined，
+ * 故 `collectButtonProps`（只认原生 `button` 标签）收不到它，须按**组件引用**收集。
+ * 用途：标题区两枚占位按钮的 variant/aria-label 断言。
+ */
+function collectOfficialButtonProps(node: ReactNode, acc: Record<string, any>[] = []): Record<string, any>[] {
+  if (Array.isArray(node)) { for (const child of node) collectOfficialButtonProps(child, acc); return acc }
+  if (!isValidElement(node)) return acc
+  const props = node.props as Record<string, unknown>
+  if (node.type === (Button as unknown)) acc.push(props as Record<string, any>)
+  if (typeof node.type === 'function') {
+    const rendered = (node.type as (p: unknown) => ReactNode)(props)
+    if (rendered !== undefined && rendered !== null) return collectOfficialButtonProps(rendered as ReactNode, acc)
+  }
+  for (const value of Object.values(props)) {
+    if (value !== null && typeof value === 'object') collectOfficialButtonProps(value as ReactNode, acc)
   }
   return acc
 }

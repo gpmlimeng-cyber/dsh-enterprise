@@ -2589,9 +2589,18 @@ export const ENTERPRISE_DETAIL_ACTION_ADD_LABEL = '添加插件'
  *
  * 两枚都是**占位**（用户裁决 B）：点击 no-op，但走原生 `<button>` + 官方 `Button` 原语 ⇒ 键盘可达、
  * 不禁用、不给假进度；无障碍名如实带「占位」语义，**不冒充能用的动作**（产品宪法：不造死控件）。
+ *
+ * ★ **必须按 subject 过滤**（与 `EnterpriseMarketBadge` 同一条范式）：官方这个槽是 `kind:'list'/scope:'root'`，
+ * `ItemDetail`（`PluginManagerPage.tsx:540`）**和** `RowDetail`（`:583`）、`PackageDetail`（`:642`）三种详情页
+ * 都会 `renderSlot('plugins.detail.actions', { subject })` ⇒ 不过滤就是**每个 item 的详情页都出这两枚按钮**
+ * （真机实测的泄漏；官方对 list 槽**没有** `only` 过滤，过滤只能自己做——badge 槽正是这么过滤的）。
+ * 只对我们这条 item（`kind==='item'` + `id==='plugin-market'`）出，其余一律 `null`。
  * @returns 标题右侧的【刷新】【添加插件】两枚占位按钮（无包装容器——官方 `detailActions` 已是 flex 容器）。
  */
-export function EnterpriseMarketDetailActions(): ReactNode {
+export function EnterpriseMarketDetailActions({ subject }: {
+  readonly subject: { readonly kind: string; readonly id?: string }
+}): ReactNode {
+  if (subject.kind !== 'item' || subject.id !== ENTERPRISE_MARKET_ENTRY_ID) return null
   return (
     <>
       <Button
