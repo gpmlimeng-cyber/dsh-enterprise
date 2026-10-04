@@ -21,7 +21,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { BookMarked, ChevronDown, FileText, Filter, Folder, Library, Package, RefreshCw, Sparkles, X } from 'lucide-react'
+import { BookMarked, ChevronDown, FileText, Filter, Folder, Library, MoreHorizontal, Package, Plus, RefreshCw, Search, Sparkles, X } from 'lucide-react'
 import { Button, StateDot, Switch, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, Ref } from 'react'
@@ -183,12 +183,88 @@ export const ENTERPRISE_MARKET_DEFAULT_TAB: EnterpriseMarketTabId = 'skills'
 /** 页签条的无障碍名（`role="tablist"` 的 `aria-label`）。 */
 export const ENTERPRISE_MARKET_TABLIST_LABEL = '企业市场'
 
-/* ───────────────────── 筛选下拉的选项真源（参考图 2） ───────────────────── */
+/* ───────────────────── 分类真源（列表分组 + 筛选类型，用户口径） ───────────────────── */
 
-/** 筛选下拉的**分组与选项**（参考图 2：状态组 + 类型组，每组组头带 ✓=该项当前生效）。 */
+/**
+ * **七类真源**（用户裁决，顺序即展示顺序）：列表分组与筛选「类型」组分共用这一份。
+ * 顺序刻意**不按数量重排**——分组位置稳定，用户扫一眼就知道去哪一类找。
+ */
+export const ENTERPRISE_MARKET_CATEGORIES = ['精选', '效率', '研究', '编程', '商业', '创意', '其他'] as const
+
+export type EnterpriseMarketCategory = (typeof ENTERPRISE_MARKET_CATEGORIES)[number]
+
+/** 未命中七类的**唯一**归处（分组与筛选共用同一个字面，不各写一份）。 */
+export const ENTERPRISE_MARKET_CATEGORY_OTHER: EnterpriseMarketCategory = '其他'
+
+/**
+ * 条目分类 → 七类之一（用户裁决 A：**严格按七类，未命中的一律进「其他」**）。
+ *
+ * 命中判定是 **trim 后逐字相等**：不做同义词、包含、模糊或大小写折叠——分类是展示口径，
+ * 猜错比归「其他」更糟。缺席 / null / 空白 / 不在七类里的（含「其他」本身）一律归「其他」；
+ * 「其他」是兜底格而不是靠数据命中的格子，故数据里真写「其他」也落同一格（结果一致）。
+ */
+export function enterpriseMarketCategory(category: string | null | undefined): EnterpriseMarketCategory {
+  if (category === undefined || category === null) return ENTERPRISE_MARKET_CATEGORY_OTHER
+  const value = category.trim()
+  const known: readonly string[] = ENTERPRISE_MARKET_CATEGORIES
+  return known.includes(value) && value !== ENTERPRISE_MARKET_CATEGORY_OTHER
+    ? (value as EnterpriseMarketCategory)
+    : ENTERPRISE_MARKET_CATEGORY_OTHER
+}
+
+/** 一个分类分组（分类名 + 该组的行，行序＝入参行序，组内不再排序）。 */
+export interface EnterpriseMarketCategoryGroup<T> {
+  readonly category: EnterpriseMarketCategory
+  readonly rows: readonly T[]
+}
+
+/**
+ * 把行按七类分组，**只保留非空组**（空分类不出组头、不出分割线——不给用户看空壳）。
+ * @param rows - 已过滤的行（顺序即组内展示顺序）。
+ * @param categoryOf - 逐行取分类原始值的投影（行模型之间字段名不同，故由调用方给）。
+ */
+export function enterpriseMarketCategoryGroups<T>(
+  rows: readonly T[],
+  categoryOf: (row: T) => string | null | undefined,
+): readonly EnterpriseMarketCategoryGroup<T>[] {
+  const buckets = new Map<EnterpriseMarketCategory, T[]>()
+  for (const row of rows) {
+    const key = enterpriseMarketCategory(categoryOf(row))
+    const bucket = buckets.get(key)
+    if (bucket === undefined) buckets.set(key, [row])
+    else bucket.push(row)
+  }
+  return ENTERPRISE_MARKET_CATEGORIES
+    .filter(category => (buckets.get(category)?.length ?? 0) > 0)
+    .map(category => ({ category, rows: buckets.get(category) as readonly T[] }))
+}
+
+/**
+ * 搜索匹配：对若干字段做**大小写不敏感的子串**匹配；空查询恒真（＝不过滤）。
+ * 只认传入的字段（标题 / 描述 / 标识），**不模糊、不猜**；字段缺席或非串一律不参与匹配。
+ */
+export function enterpriseMarketSearchMatch(
+  query: string,
+  fields: readonly (string | null | undefined)[],
+): boolean {
+  const needle = query.trim().toLowerCase()
+  if (needle === '') return true
+  return fields.some(field => typeof field === 'string' && field.toLowerCase().includes(needle))
+}
+
+/* ───────────────────── 筛选下拉的选项真源 ───────────────────── */
+
+/** 状态筛选的三态（`all` 表示不筛）。 */
+export type EnterpriseMarketStatusFilter = 'all' | 'enabled' | 'disabled'
+
+/**
+ * 筛选下拉的**两个组**：状态组（与页签无关）+ 类型组（＝上面那份七类真源，逐项同源）。
+ * 类型组的 `id` 就是分类名本身（`'all'` 是唯一的非分类项），故选项与分组投影不可能漂成两套。
+ */
 export const ENTERPRISE_MARKET_FILTER_GROUPS = [
   {
     id: 'status',
+    title: '状态',
     options: [
       { id: 'all', label: '全部' },
       { id: 'enabled', label: '已启用' },
@@ -196,18 +272,16 @@ export const ENTERPRISE_MARKET_FILTER_GROUPS = [
     ],
   },
   {
-    id: 'kind',
+    id: 'category',
+    title: '类型',
     options: [
       { id: 'all', label: '全部类型' },
-      { id: 'plugins', label: '只看插件' },
-      { id: 'skills', label: '只看技能' },
+      ...ENTERPRISE_MARKET_CATEGORIES.map(category => ({ id: category, label: category })),
     ],
   },
 ] as const
 
 export type EnterpriseMarketFilterGroupId = (typeof ENTERPRISE_MARKET_FILTER_GROUPS)[number]['id']
-export type EnterpriseMarketFilterOptionId =
-  | (typeof ENTERPRISE_MARKET_FILTER_GROUPS)[number]['options'][number]['id']
 
 /** 筛选下拉的开合无障碍名（触发钮 + 菜单）。 */
 export const ENTERPRISE_MARKET_FILTER_LABEL = '筛选'
@@ -215,14 +289,16 @@ export const ENTERPRISE_MARKET_FILTER_MENU_LABEL = '筛选条件'
 /** 选中标记（组头与当前项前那枚 ✓，照参考图）。 */
 export const ENTERPRISE_MARKET_FILTER_CHECK = '✓'
 
+/** 搜索框的无障碍名与占位（一个真输入框，不是一个摆设）。 */
+export const ENTERPRISE_MARKET_SEARCH_LABEL = '搜索'
+export const ENTERPRISE_MARKET_SEARCH_PLACEHOLDER = '搜索技能、插件、配方'
 /**
- * 默认筛选选中值（参考图两组组头都带 ✓ ⇒ 默认「全部」+「全部类型」）。
- * **本刀只做壳**：选中态由本常量 + 用户点选后的回调供给（回调留待下一刀接真实过滤）。
+ * 「过滤后为空」那一句（目录本身有数据、只是被搜索/状态/类型筛没了）。
+ * **与「目录为空」「取数失败」都分得清**：这三件事的原因与下一步动作完全不同，不许混成一句。
  */
-export const ENTERPRISE_MARKET_FILTER_DEFAULT: Record<EnterpriseMarketFilterGroupId, string> = {
-  status: 'all',
-  kind: 'all',
-}
+export const ENTERPRISE_MARKET_FILTER_EMPTY = '没有匹配的项目。换个关键词或筛选条件试试。'
+/** 空态里那枚「一键清空」——不然用户被筛空后只能自己逐项撤回。 */
+export const ENTERPRISE_MARKET_FILTER_CLEAR_LABEL = '清空筛选'
 
 
 /**
@@ -455,6 +531,12 @@ export interface EnterpriseMarketShellProps {
    */
   readonly onInstallPlugin?: ((row: EnterpriseMarketPluginRow) => void) | undefined
   /**
+   * 卸载一枚插件（用户口径：卡片「⋯」里的「卸载」）——**只对非内置项**开放，
+   * 内置判定在行上由 `enterpriseMarketPluginBuiltin` 算，菜单里不放那一项。
+   * 写入口与「企业设置 → 插件」是同一个 `store.removePlugin`，不新造第二套。
+   */
+  readonly onUninstallPlugin?: ((row: EnterpriseMarketPluginRow) => void) | undefined
+  /**
    * 已安装那一行那枚【开关】的**启用 / 停用**动作；缺席时开关禁用（不提供假切换），并在行上说明为什么。
    *
    * ★ `next === false` 是**停用**，**绝不**等于卸载（用户明确纠正过的语义）：它只把这枚插件的
@@ -558,16 +640,37 @@ export interface EnterpriseMarketShellProps {
    */
   readonly onSelectTab?: ((tab: EnterpriseMarketTabId) => void) | undefined
   /**
-   * 标签行最右那枚**筛选下拉**是否打开（用户口径：参考图 2 的两组下拉；**本刀只做壳**——选项可点、有勾选态，
-   * 真实过滤列表留待下一刀）。纯函数约定与 `expandedSections` 同：缺席 = 关闭。
+   * 标签行最右那枚**筛选下拉**是否打开（用户口径：参考图的两组下拉）。
+   * 纯函数约定与 `expandedSections` 同：缺席 = 关闭。
    */
   readonly filterOpen?: boolean | undefined
   /** 开/关筛选下拉（点触发钮）；缺席时触发钮点击是 no-op（不给死按钮——真运行时恒由控制器供给）。 */
   readonly onToggleFilter?: (() => void) | undefined
-  /** 各组当前选中值（缺席按 `ENTERPRISE_MARKET_FILTER_DEFAULT`；**本刀只做壳**，选中态不驱动过滤）。 */
-  readonly filterSelected?: Partial<Record<EnterpriseMarketFilterGroupId, string>> | undefined
-  /** 点选下拉里某一项（本刀回传选中态给上层保存，**真实过滤列表留待下一刀**）。 */
-  readonly onFilterSelect?: ((group: EnterpriseMarketFilterGroupId, option: string) => void) | undefined
+  /**
+   * 搜索框的当前文本（**本刀起是真过滤**：标题 / 描述 / 标识的子串匹配，大小写不敏感）。
+   * 缺席 = 空串 = 不过滤。
+   */
+  readonly searchText?: string | undefined
+  /** 搜索框输入回调；缺席时输入框 `readOnly`（不给一个打了字没反应的假输入框）。 */
+  readonly onSearchChange?: ((text: string) => void) | undefined
+  /** 状态筛选（缺席 = `'all'`）。 */
+  readonly filterStatus?: EnterpriseMarketStatusFilter | undefined
+  /** 类型筛选（缺席 = `'all'`；其余取值恒为七类之一）。 */
+  readonly filterCategory?: EnterpriseMarketCategory | 'all' | undefined
+  /** 点选筛选项（状态组或类型组）——上层保存后**真的**驱动可见行。 */
+  readonly onFilterSelect?: ((
+    group: EnterpriseMarketFilterGroupId,
+    option: string,
+  ) => void) | undefined
+  /** 一键清空搜索 + 两组筛选（「过滤后为空」那句旁边的唯一出路）；缺席即不画那枚按钮。 */
+  readonly onClearFilters?: (() => void) | undefined
+  /**
+   * 当前展开「⋯」的那一行（行键 = `enterpriseMarketRowKey(tab, 行 id)`；单选：同一时刻最多一行展开）。
+   * `null`/缺席 = 全部收起。开合状态由控制器持（纯函数外壳不持状态），与 `filterOpen` 同一范式。
+   */
+  readonly menuRow?: string | null | undefined
+  /** 开/关某一行的「⋯」（点触发钮）；缺席时触发钮点击是 no-op。 */
+  readonly onToggleRowMenu?: ((key: string) => void) | undefined
   /**
    * **当前展开的那一行**（行键 = `enterpriseMarketRowKey(tab, 行 id)`；单选：同一时刻最多一行展开）。
    * `null` = 全部收起、`undefined` = 没给过状态（纯函数直调按「全开」拿完整树，与 `expandedSections` 同约定）。
@@ -654,6 +757,14 @@ export interface EnterpriseMarketPluginRow {
    */
   readonly readme?: string | undefined
   /**
+   * 服务端新增的**可选分类**（`category`）——插件行**列表分组**与**筛选类型**的取值（本刀新增）。
+   *
+   * 与技能行 / 配方行的 `category` **逐字同一口径**：只有解码层真拿到非空串才产出这个键。
+   * 渲染层经 `enterpriseMarketCategory` 归一：**不在七类里的一律归「其他」**——行上不显示分类签、
+   * 也绝不替服务端编一个分类；「已下架」（目录缺席）的行同样没有分类 ⇒ 归「其他」。
+   */
+  readonly category?: string | undefined
+  /**
    * 目录里这一版**声明的操作系统**（契约三平台名，取值门禁在 `local-api-decode.ts:720`）。
    * **数据面字段：只随行携带，不参与任何判断、也不上屏**——插件行的可拨性与文案与它完全无关
    * （声明含当前平台 / 不含 / 根本没有该字段，三种形态渲染结果逐字相同）。
@@ -713,6 +824,10 @@ export function enterpriseMarketPluginRows(
       // 描述照解码层同一口径：只有真拿到非空串才产出这个键（缺席/null/空串都不产出，
       // 界面第二行据此说「暂无描述」而不是画一行空白）。目录缺席（已下架）时自然也没有描述。
       ...(cat?.description === undefined ? {} : { description: cat.description }),
+      // 分类（本刀：列表分组 + 筛选类型）照解码层同一口径带上来：只有真拿到非空串才产出这个键。
+      // 渲染层把「缺席」与「不在七类里」一并归入「其他」——分类归组是**展示口径**，
+      // 故在分组投影里做，不在这一层编造一个「其他」字面（数据层如实保持缺席）。
+      ...(cat?.category === undefined ? {} : { category: cat.category }),
       // README（口径 20）同样照解码层同一口径带上来：只有真拿到非空串才产出这个键（缺席/null/空串都不产出）。
       // 它在**详情**里是「描述」段的首选取值，在**行上**不出现（第二行读的仍是上面那枚短 description）。
       ...(cat?.readme === undefined ? {} : { readme: cat.readme }),
@@ -1395,12 +1510,20 @@ export interface EnterpriseMarketShellModel {
   readonly pluginsPanel: EnterpriseMarketPanelState
   /** 「企业配方」页签内容区此刻该画什么（同上）。 */
   readonly presetsPanel: EnterpriseMarketPanelState
-  /** 实际渲染的技能行（搜索框退场后 = 目录原样，顺序与条数都不动）。 */
+  /** 实际渲染的技能行（= 目录经搜索/状态/类型三道过滤后的可见行，顺序＝目录顺序）。 */
   readonly visibleSkills: readonly EnterpriseMarketSkillRow[]
   /** 实际渲染的插件行（同上）。 */
   readonly visiblePlugins: readonly EnterpriseMarketPluginRow[]
   /** 实际渲染的配方行（同上）。 */
   readonly visiblePresets: readonly EnterpriseMarketPresetRow[]
+  /** 技能可见行按七类分好的组（只含非空组，顺序＝七类顺序）。 */
+  readonly skillGroups: readonly EnterpriseMarketCategoryGroup<EnterpriseMarketSkillRow>[]
+  /** 插件可见行按七类分好的组（同上）。 */
+  readonly pluginGroups: readonly EnterpriseMarketCategoryGroup<EnterpriseMarketPluginRow>[]
+  /** 配方可见行按七类分好的组（同上）。 */
+  readonly presetGroups: readonly EnterpriseMarketCategoryGroup<EnterpriseMarketPresetRow>[]
+  /** 这一帧是否真的在过滤（搜索非空 / 状态非「全部」/ 类型非「全部类型」）——空态文案据此二选一。 */
+  readonly filtering: boolean
 }
 
 /**
@@ -1469,11 +1592,41 @@ export function enterpriseMarketShellModel(props: EnterpriseMarketShellProps): E
     rowCount: enterprisePresets.length,
     list: props.presetsListState,
   })
-  // 目录行**不做任何过滤**：搜索框随独立应用商店外壳一起退场后，`visible*` 就是目录原样
-  // （字段名保留是因为共享行子块与行键投影读它；将来若再要过滤，唯一落点仍是这一行）。
-  const visibleSkills = [...enterpriseSkills]
-  const visiblePlugins = [...enterprisePlugins]
-  const visiblePresets = [...enterprisePresets]
+  // ── 真过滤（用户裁决「真过滤」）＋ 分类分组（用户裁决：严格七类，未命中进「其他」） ──────────
+  // 过滤与分组**只在这一处**做，`visible*` 是列表唯一消费的可见行；分组再按七类切。
+  // 三道条件：① 搜索（标题/描述/标识的子串，大小写不敏感）② 状态（已启用/已停用）③ 类型（七类之一）。
+  // 状态口径**逐页签走各自的 row facts**（`enabled` 是「这一行现在处于启用中」的唯一真源，
+  // 三套 facts 都已算好）——不在这里另写第二份「什么叫启用」，也不跨页签借字段。
+  const statusFilter: EnterpriseMarketStatusFilter = props.filterStatus ?? 'all'
+  const categoryFilter: EnterpriseMarketCategory | 'all' = props.filterCategory ?? 'all'
+  const searchText = props.searchText ?? ''
+  const enabledOnly = statusFilter === 'all' ? undefined : statusFilter === 'enabled'
+  const passStatus = (enabled: boolean): boolean => enabledOnly === undefined || enabled === enabledOnly
+  const visibleSkills = enterpriseSkills.filter(skill => (
+    passStatus(enterpriseMarketSkillRowFacts(props, skill).enabled)
+    && (categoryFilter === 'all' || enterpriseMarketCategory(skill.category) === categoryFilter)
+    && enterpriseMarketSearchMatch(searchText, [skill.displayName, skill.description, skill.skillId])
+  ))
+  const visiblePlugins = enterprisePlugins.filter(plugin => (
+    passStatus(enterpriseMarketPluginRowFacts(props, plugin).enabled)
+    && (categoryFilter === 'all' || enterpriseMarketCategory(plugin.category) === categoryFilter)
+    && enterpriseMarketSearchMatch(searchText, [
+      enterprisePluginDisplayName(plugin.displayName, plugin.packageName),
+      plugin.description,
+      plugin.packageName,
+    ])
+  ))
+  const visiblePresets = enterprisePresets.filter(preset => (
+    passStatus(enterpriseMarketPresetRowFacts(props, preset).enabled)
+    && (categoryFilter === 'all' || enterpriseMarketCategory(preset.category) === categoryFilter)
+    && enterpriseMarketSearchMatch(searchText, [preset.displayName, preset.description, preset.presetId])
+  ))
+  // 过滤是否真的动过：决定空态那句说「没有匹配」还是「目录为空」（两件事必须分得清）。
+  const filtering = searchText.trim() !== '' || statusFilter !== 'all' || categoryFilter !== 'all'
+  // 分组：只保留非空组，组头顺序恒为七类顺序。
+  const skillGroups = enterpriseMarketCategoryGroups(visibleSkills, row => row.category)
+  const pluginGroups = enterpriseMarketCategoryGroups(visiblePlugins, row => row.category)
+  const presetGroups = enterpriseMarketCategoryGroups(visiblePresets, row => row.category)
   // 页签计数取该页签**真正要渲染的行数**：目录门控不过即如实记 0，绝不在面板空白时还喊「有 N 条」。
   const tabCounts: Record<EnterpriseMarketTabId, number> = {
     skills: skillsVisible ? enterpriseSkills.length : 0,
@@ -1506,6 +1659,10 @@ export function enterpriseMarketShellModel(props: EnterpriseMarketShellProps): E
     visibleSkills,
     visiblePlugins,
     visiblePresets,
+    skillGroups,
+    pluginGroups,
+    presetGroups,
+    filtering,
   }
 }
 
@@ -2332,7 +2489,7 @@ export function enterpriseMarketPresetRowFacts(
  * 两套外壳**共用**的样式：节容器、组件节（`.own-market-rows`/`.own-market-row*`）、行内失败提示、页签条与面板、
  * 标题行那两枚签（`.own-market-cardHead`/`.own-market-skillTitle`/`.own-market-tag`）、技能行那颗「有更新」药丸。
  * 这些规则在旧新两套外观里逐值相同，故只保留一份——旧外壳不必抄第二份，也就不会在后续改动里悄悄跟新外壳分叉。
- * 类名一律避开 `plugin-market.tsx` 已占用的同前缀名字（`.own-market-card`/`.own-market-tabs`/`.own-market-search` 等），
+ * 类名一律避开 `plugin-market.tsx` 已占用的同前缀名字（`.own-market-card`/`.own-market-tabs`/`.own-market-query` 等），
  * 因为两处都注入全局单类选择器的 `<style>`，同名会互相覆盖（本仓已踩过，7557ffd 已改名）。
  */
 const baseStyles = `
@@ -2360,16 +2517,44 @@ const baseStyles = `
 .own-market-chevron{flex:none;transform:rotate(-90deg);transition:transform .15s ease}
 .own-market-groupToggle[aria-expanded='true'] .own-market-chevron{transform:none}
 .own-market-sectionCount{color:var(--dsw-alias-label-secondary,#667085);font-size:12px;line-height:18px;overflow-wrap:anywhere}
-.own-market-rows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
-.own-market-row{padding:12px 2px;border-bottom:0.5px solid var(--dsw-alias-border-l2,#e4e7ec);min-width:0}
+/* ── 分组 + 两列卡片网格（用户口径：参考图的分组样式＝组标题 + 分割线） ────────────────────
+   为什么是网格而不是原来的单列行：用户给了参考图并裁决 A（完全照图）。行结构（li.own-market-row
+   → .own-market-rowLine → 行本体按钮 + 动作）**一字未动**——只把外层容器从单列 flex 换成两列 grid，
+   故所有行级选择器与既有测试的树形断言照旧成立。 */
+.own-market-categoryGroup{display:flex;flex-direction:column;gap:12px;min-width:0}
+.own-market-categoryGroup + .own-market-categoryGroup{margin-top:20px}
+/* 组标题 + 它下方那条**分割线**：分割线是标题自己的 border-bottom（不是一枚额外元素），
+   故标题与线不可能错位；行间不再有任何分割线（用户口径：列表去除分割线）。
+   类名**不叫 groupTitle**：组件节那枚折叠节头已经占了这个名字，同名会让两条规则互相覆盖。 */
+.own-market-categoryTitle{margin:0;padding-bottom:10px;border-bottom:0.5px solid var(--dsw-alias-border-l2,#e4e7ec);font-size:15px;line-height:22px;font-weight:600;color:var(--dsw-alias-label-primary,#101828)}
+.own-market-rows{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 20px;min-width:0}
+/* 卡片：左右内衬 + 圆角，hover 整块变灰（用户口径：卡片级 hover、背景变灰）。
+   hover 取值照官方卡片实物（app.asar 里的 ._card:hover:not(._cardActive) 规则）：
+   background:var(--dsw-alias-interactive-bg-hover)——不新造颜色、不用 color-mix 猜。 */
+.own-market-row{padding:10px 12px;border:0;border-radius:var(--dsw-radius-md,8px);min-width:0;transition:background .12s ease}
+.own-market-row:hover{background:var(--dsw-alias-interactive-bg-hover)}
+/* ── 卡片操作区的「⋯」更多菜单（用户口径：卡片不放开关键——未安装给「安装」、已安装给「⋯」；
+   菜单项按各行真实能力给：更新 / 启用·停用 / 卸载）。hover 与 focus 取值照官方菜单实物
+   （同一枚 --dsw-alias-interactive-bg-hover），与左邻右舍的 token 用法保持一致。 */
+.own-market-more{position:relative;flex:none}
+.own-market-moreBtn{display:inline-grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:var(--dsw-radius-md,6px);background:transparent;color:var(--dsw-alias-label-secondary,#667085);cursor:pointer}
+.own-market-moreBtn:hover,.own-market-moreBtn[aria-expanded='true']{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary,#101828)}
+.own-market-moreBtn:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:1px}
+.own-market-moreMenu{position:absolute;top:calc(100% + 4px);right:0;z-index:30;min-width:120px;padding:4px;border:1px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:var(--dsw-radius-md,8px);background:var(--dsw-alias-background-primary,#fff);box-shadow:var(--dsw-shadow-lv2,0 8px 24px rgba(16,24,40,.12));display:flex;flex-direction:column;gap:2px}
+.own-market-moreItem{display:block;width:100%;padding:6px 10px;border:0;border-radius:6px;background:transparent;color:var(--dsw-alias-label-primary,#101828);font:inherit;font-size:13px;line-height:20px;text-align:left;cursor:pointer}
+.own-market-moreItem:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}
+.own-market-moreItem:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:-1px}
+.own-market-moreItem:disabled{color:var(--dsw-alias-label-tertiary,#98a2b3);cursor:default}
+/* 详情子页面没有下拉宿主 ⇒ 操作**平铺**（同一枚子块、同一份文案，只是不套一层菜单）。 */
+.own-market-moreInline{display:flex;flex:none;align-items:center;gap:4px}
+.own-market-moreInline .own-market-moreItem{width:auto}
+@media (prefers-reduced-motion: reduce){.own-market-row{transition:none}}
+/* 窄屏回落单列：网格在极窄容器里会把标题挤成一个字（真机截图早已证过同类问题）。 */
+@media (max-width: 560px){.own-market-rows{grid-template-columns:minmax(0,1fr)}}
 /* 未安装那一行那枚【＋】（圆形图标按钮）——与「企业设置 → 插件」卡片行那枚同形。
    值逐条取自 workdsh 的 .wd-skills .install（showcase 仓：skills/src/client/styles.ts:144-147）；
    类名不同是刻意的：本文件与 plugin-market.tsx 各自挂一块全局单类选择器的 <style>，
    两处类名必须零交集（同名会互相覆盖），故各自一枚名字、值逐字相同。 */
-.own-market-installCta{display:grid;place-items:center;width:40px;min-height:40px;height:40px;padding:0;border-radius:50%;border:1px solid var(--dsw-alias-border-l2,#e4e7ec);background:var(--dsw-alias-bg-layer-2,#fff);font-size:20px;line-height:1}
-.own-market-installCta:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover,color-mix(in srgb,currentColor 8%,transparent));border-color:var(--dsw-alias-border-l2,#e4e7ec)}
-.own-market-installCta:disabled{opacity:.45}
-.own-market-row:last-child{border-bottom:0}
 .own-market-rowLine{display:flex;align-items:center;gap:16px;min-width:0}
 .own-market-rowIcon{display:inline-flex;flex-shrink:0;align-items:center;justify-content:center;width:40px;height:40px;border:0.5px solid var(--dsw-alias-border-l3,#d0d5dd);border-radius:8px;color:var(--dsw-alias-label-secondary,#667085)}
 .own-market-rowMain{display:flex;flex:1;flex-direction:column;gap:2px;min-width:0}
@@ -2439,11 +2624,20 @@ const baseStyles = `
 /* ── 标签行：胶囊组在左、筛选触发钮在**最右**（参考图 1：标签靠左、≡ 靠右） ──
    整行改成 space-between；触发钮是一枚透明图标按钮（漏斗），点开下方下拉。 */
 .own-market-tabBar{display:flex;align-items:center;gap:12px;min-width:0;margin-top:0}
-.own-market-filterBtn{display:inline-grid;place-items:center;flex:none;width:32px;height:32px;padding:0;margin-left:auto;border:0;border-radius:var(--dsw-radius-md,6px);background:transparent;color:var(--dsw-alias-label-secondary,#667085);cursor:pointer}
+/* 搜索框在**左**、筛选钮在**右**（用户口径）：两者同属一枚控件行，整体靠右、搜索框吃掉剩余宽度。
+   搜索是真输入框：回调缺席时上层会传 readOnly，故不会出现「打了字没反应」的假控件。 */
+.own-market-queryBar{display:flex;flex:1 1 auto;align-items:center;gap:8px;min-width:0;margin-left:auto;max-width:420px}
+.own-market-query{display:flex;flex:1 1 auto;align-items:center;gap:6px;min-width:0;height:32px;padding:0 10px;border:1px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:var(--dsw-radius-md,6px);background:var(--dsw-alias-background-primary,#fff);color:var(--dsw-alias-label-tertiary,#98a2b3)}
+.own-market-query:focus-within{border-color:var(--dsw-alias-border-l3,#d0d5dd);outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:1px}
+.own-market-queryIcon{flex:none}
+.own-market-queryInput{flex:1 1 auto;min-width:0;padding:0;border:0;background:transparent;color:var(--dsw-alias-label-primary,#101828);font:inherit;font-size:13px;line-height:20px}
+.own-market-queryInput:focus{outline:none}
+.own-market-queryInput::placeholder{color:var(--dsw-alias-label-tertiary,#98a2b3)}
+.own-market-filterBtn{display:inline-grid;place-items:center;flex:none;width:32px;height:32px;padding:0;border:0;border-radius:var(--dsw-radius-md,6px);background:transparent;color:var(--dsw-alias-label-secondary,#667085);cursor:pointer}
 .own-market-filterBtn:hover{background:var(--dsw-alias-background-secondary,#f2f4f7);color:var(--dsw-alias-label-primary,#101828)}
 .own-market-filterBtn:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:1px}
 /* ── 筛选下拉（参考图 2 的两组：状态 + 类型；组头带勾、组内可选；本刀只做壳，过滤下一刀）── */
-.own-market-filterWrap{position:relative;flex:none;margin-left:auto}
+.own-market-filterWrap{position:relative;flex:none}
 .own-market-filterMenu{position:absolute;top:calc(100% + 6px);right:0;z-index:30;min-width:168px;padding:6px;border:1px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:var(--dsw-radius-md,8px);background:var(--dsw-alias-background-primary,#fff);box-shadow:var(--dsw-shadow-lv2,0 8px 24px rgba(16,24,40,.12));display:flex;flex-direction:column;gap:2px}
 .own-market-filterGroup{display:flex;flex-direction:column;gap:2px}
 .own-market-filterGroup + .own-market-filterGroup{margin-top:6px;padding-top:6px;border-top:1px solid var(--dsw-alias-border-l2,#e4e7ec)}
@@ -2675,18 +2869,24 @@ export function EnterpriseMarketDetailActions({ subject }: {
   readonly subject: { readonly kind: string; readonly id?: string }
 }): ReactNode {
   if (subject.kind !== 'item' || subject.id !== ENTERPRISE_MARKET_ENTRY_ID) return null
+  // 两枚按钮**逐项用官方 `Button` 原语本体与官方变体**（用户口径：用官方的样式和执行效果）：
+  // · 刷新 = `variant="ghost"` + 前置图标，且**只给图标**（无可见文字 ⇒ `aria-label` 必须完整）
+  // · 添加插件 = `variant="primary"` + 前置 `Plus` 图标（`md` = 36px 胶囊，与官方 Figma 按钮同形）
+  // 官方原语自带 hover / active / focus-visible / disabled 四态，故「执行效果」不再由本文件自绘。
   return (
     <>
       <Button
-        size="sm"
-        variant="outline"
-        aria-label={`${ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL}插件（占位）`}
+        size="md"
+        variant="ghost"
+        icon={<RefreshCw aria-hidden size={16} />}
+        aria-label={ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL}
         title="占位：本刀未接真刷新，下一刀接 store.refreshPlugins()"
-      >{ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL}</Button>
+      />
       <Button
-        size="sm"
-        variant="outline"
-        aria-label={`${ENTERPRISE_DETAIL_ACTION_ADD_LABEL}（占位）`}
+        size="md"
+        variant="primary"
+        icon={<Plus aria-hidden size={16} />}
+        aria-label={ENTERPRISE_DETAIL_ACTION_ADD_LABEL}
         title="占位：企业插件由企业后台上传，员工端入口留下一刀"
       >{ENTERPRISE_DETAIL_ACTION_ADD_LABEL}</Button>
     </>
@@ -2725,17 +2925,28 @@ function EnterpriseMarketSummaryLine(): ReactNode {
  * 纯函数体**不能持 `ref`**（调 `useRef` 就变成 hook 组件、直调测试即崩），故键盘走焦在 keydown 里从事件源向上
  * 找 `[role="tablist"]`、按同序取第 `index` 个 `[role="tab"]` 调 `focus()`：只在真浏览器事件里执行。
  */
-function EnterpriseMarketTabStrip({ model, onSelectTab, filterOpen, onToggleFilter, filterSelected, onFilterSelect }: {
+function EnterpriseMarketTabStrip({
+  model, onSelectTab, searchText, onSearchChange, filterOpen, onToggleFilter,
+  filterStatus, filterCategory, onFilterSelect,
+}: {
   readonly model: EnterpriseMarketShellModel
   readonly onSelectTab?: ((tab: EnterpriseMarketTabId) => void) | undefined
+  /** 搜索文本（缺席 = 空串 = 不过滤）。 */
+  readonly searchText?: string | undefined
+  readonly onSearchChange?: ((text: string) => void) | undefined
   /** 筛选下拉开合（缺席 = 关闭；点触发钮 no-op，不给死菜单）。 */
   readonly filterOpen?: boolean | undefined
   readonly onToggleFilter?: (() => void) | undefined
-  /** 各组当前选中值（缺席按 `ENTERPRISE_MARKET_FILTER_DEFAULT`，纯函数不持状态）。 */
-  readonly filterSelected?: Partial<Record<EnterpriseMarketFilterGroupId, string>> | undefined
-  /** 选中一项（本刀只回传选中态给上层，真实过滤列表留待下一刀）。 */
+  /** 两组当前选中值（缺席按各自默认；纯函数不持状态，值从外部传）。 */
+  readonly filterStatus?: EnterpriseMarketStatusFilter | undefined
+  readonly filterCategory?: EnterpriseMarketCategory | 'all' | undefined
+  /** 选中一项（上层保存后真的驱动可见行）。 */
   readonly onFilterSelect?: ((group: EnterpriseMarketFilterGroupId, option: string) => void) | undefined
 }): ReactNode {
+  /** 某一组当前生效的选项 id（状态组与类型组各取各的；缺席一律落 `'all'`）。 */
+  const selectedOf = (group: EnterpriseMarketFilterGroupId): string => (
+    group === 'status' ? (filterStatus ?? 'all') : (filterCategory ?? 'all')
+  )
   const focusTab = (source: EventTarget | null, index: number): void => {
     const element = source as HTMLElement | null
     if (element === null || typeof element.closest !== 'function') return
@@ -2780,44 +2991,57 @@ function EnterpriseMarketTabStrip({ model, onSelectTab, filterOpen, onToggleFilt
           )
         })}
       </div>
-      {/* 标签行**最右**的筛选下拉（参考图 1：标签靠左、筛选钮靠右）。本刀只做壳：
-          菜单开合由 `filterOpen`/`onToggleFilter` 驱动（缺席 = 关闭 + no-op，不给死菜单）；
-          菜单里两组选项**可点、有 ✓ 勾选态**，但真实过滤列表留待下一刀（产品决策：先壳后逻辑）。 */}
-      <div className="own-market-filterWrap">
-        <button
-          type="button"
-          className="own-market-filterBtn"
-          aria-label={ENTERPRISE_MARKET_FILTER_LABEL}
-          aria-expanded={filterOpen === true}
-          onClick={() => { onToggleFilter?.() }}
-        ><Filter aria-hidden size={16} /></button>
-        {filterOpen === true ? (
-          <div role="menu" aria-label={ENTERPRISE_MARKET_FILTER_MENU_LABEL} className="own-market-filterMenu">
-            {ENTERPRISE_MARKET_FILTER_GROUPS.map(group => (
-              <div key={group.id} role="group" aria-label={group.id === 'status' ? '状态' : '类型'} className="own-market-filterGroup">
-                {group.options.map(option => {
-                  // 选中值缺席 ⇒ 按默认（全部 / 全部类型）——纯函数不持状态，值从外部传。
-                  const checked = (filterSelected?.[group.id] ?? ENTERPRISE_MARKET_FILTER_DEFAULT[group.id]) === option.id
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      role="menuitemradio"
-                      aria-checked={checked}
-                      className="own-market-filterOption"
-                      onClick={() => { onFilterSelect?.(group.id, option.id) }}
-                    >
-                      <span className="own-market-filterCheck" aria-hidden="true">
-                        {checked ? ENTERPRISE_MARKET_FILTER_CHECK : ''}
-                      </span>
-                      <span className="own-market-filterLabel">{option.label}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            ))}
-          </div>
-        ) : null}
+      {/* 搜索栏 + 筛选钮：搜索框在**左**、筛选下拉在**右**（用户口径：筛选按钮左侧增加搜索栏）。
+          搜索是真过滤（标题/描述/标识的子串匹配）；回调缺席时输入框 readOnly，不给假输入框。 */}
+      <div className="own-market-queryBar">
+        <span className="own-market-query">
+          <Search aria-hidden size={16} className="own-market-queryIcon" />
+          <input
+            type="search"
+            className="own-market-queryInput"
+            aria-label={ENTERPRISE_MARKET_SEARCH_LABEL}
+            placeholder={ENTERPRISE_MARKET_SEARCH_PLACEHOLDER}
+            value={searchText ?? ''}
+            readOnly={onSearchChange === undefined}
+            onChange={(event) => { onSearchChange?.(event.currentTarget.value) }}
+          />
+        </span>
+        <div className="own-market-filterWrap">
+          <button
+            type="button"
+            className="own-market-filterBtn"
+            aria-label={ENTERPRISE_MARKET_FILTER_LABEL}
+            aria-expanded={filterOpen === true}
+            onClick={() => { onToggleFilter?.() }}
+          ><Filter aria-hidden size={16} /></button>
+          {filterOpen === true ? (
+            <div role="menu" aria-label={ENTERPRISE_MARKET_FILTER_MENU_LABEL} className="own-market-filterMenu">
+              {ENTERPRISE_MARKET_FILTER_GROUPS.map(group => (
+                <div key={group.id} role="group" aria-label={group.title} className="own-market-filterGroup">
+                  {group.options.map(option => {
+                    // 选中值缺席 ⇒ 默认「全部」；两组各读各的真值（状态组 / 类型组互不影响）。
+                    const checked = selectedOf(group.id) === option.id
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={checked}
+                        className="own-market-filterOption"
+                        onClick={() => { onFilterSelect?.(group.id, option.id) }}
+                      >
+                        <span className="own-market-filterCheck" aria-hidden="true">
+                          {checked ? ENTERPRISE_MARKET_FILTER_CHECK : ''}
+                        </span>
+                        <span className="own-market-filterLabel">{option.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   )
@@ -3016,6 +3240,30 @@ export function EnterpriseMarketListHint({ state, onRetry }: {
 }
 
 /**
+ * **「过滤后为空」的唯一落点**（本刀新增）：目录本身有数据、只是被搜索 / 状态 / 类型筛没了。
+ *
+ * 为什么单独一枚而不是复用 `EnterpriseMarketListHint`：那枚说的是「目录为空 / 加载中 / 取数失败」，
+ * 原因与下一步动作**完全不同**——把「筛没了」说成「没有数据」会让用户以为后台没东西可发。
+ * 「清空筛选」按钮只在真的给了回调时才画（回调缺席 = 不给点了没反应的按钮）。
+ */
+export function EnterpriseMarketFilteredHint({ onClear }: {
+  readonly onClear?: (() => void) | undefined
+}): ReactNode {
+  return (
+    <div className="own-market-listState" data-market-list-state="filtered">
+      <p className="own-market-listHint" role="status">{ENTERPRISE_MARKET_FILTER_EMPTY}</p>
+      {onClear === undefined ? null : (
+        <div className="own-market-listRetry">
+          <Button size="sm" onClick={() => { onClear() }}>
+            {ENTERPRISE_MARKET_FILTER_CLEAR_LABEL}
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
  * **次级取数降级的可见交代**（非打扰但可见）：目录本身读到了，但「已装状态」或「部分技能的最新版本」
  * 这次没读出来——这句话如实说明是哪一件事实没读全，并给按钮重试整份取数。
  *
@@ -3156,40 +3404,155 @@ function EnterpriseMarketComponentsPanel({ model, onToggleSection, onOpenLogin, 
  * @param onToggleSkill - 与行上同一个回调；缺席即禁用（不提供假切换）。
  * @returns `[有更新（命中才出）, 官方 Switch]`。
  */
-export function EnterpriseMarketSkillRowActions({ row, facts, onToggleSkill }: {
+/**
+ * 卡片操作区的**两件文案真源**（用户口径：不要开关——未安装给「安装」按钮、已安装给「⋯」）。
+ * 就地取词，不各写一份。
+ */
+export const ENTERPRISE_MARKET_INSTALL_TEXT = '安装'
+export const ENTERPRISE_MARKET_ENABLE_TEXT = '启用'
+export const ENTERPRISE_MARKET_DISABLE_TEXT = '停用'
+export const ENTERPRISE_MARKET_UNINSTALL_TEXT = '卸载'
+export const ENTERPRISE_MARKET_MORE_LABEL = '更多操作'
+
+/**
+ * 「内置」的**唯一判定**（用户口径：后台分配 / 预置的算内置，内置项**不给「卸载」**）。
+ *
+ * 为什么落在 `inCatalog` 上：这是现有数据面里**唯一**能表达「后台还在给这一项」的事实——
+ * 仍由企业目录提供 ＝ 后台分配/预置（内置，员工动不了）；已不在目录 ＝ 员工自己装的或已被下架
+ * （非内置，允许卸载）。**核心包不在这份列表里**（用户口径），故不参与判定。
+ * 将来若企业有专门的受保护清单，Host 只需多下发一个布尔事实，**只改这一枚投影**即可。
+ */
+export function enterpriseMarketPluginBuiltin(row: EnterpriseMarketPluginRow): boolean {
+  return row.inCatalog
+}
+
+/**
+ * 插件行的「**有更新**」判定（用户口径：更多菜单按实际功能需求显示，可能包括更新）。
+ *
+ * 两件真源：本机记录版本 `recordVersion` 与目录版本 `version` —— 都在且**不相等** ⇒ 目录上有别的版本。
+ * 任一缺席/为空一律**不判更新**（宁可少说一句，也不猜「有更新」——与技能侧
+ * `enterpriseMarketSkillRowHasUpdate` 的同一口径：取不到事实就不说）。
+ */
+export function enterpriseMarketPluginHasUpdate(row: EnterpriseMarketPluginRow): boolean {
+  const local = row.recordVersion ?? null
+  const catalog = row.version
+  return local !== null && local !== '' && catalog !== null && catalog !== '' && local !== catalog
+}
+
+/** 「⋯」菜单的一项（`onSelect` 缺席 ⇒ 该项禁用；不给点了没反应的项）。 */
+export interface EnterpriseMarketRowMenuItem {
+  readonly id: string
+  readonly label: string
+  readonly onSelect?: (() => void) | undefined
+  readonly disabled?: boolean | undefined
+  readonly title?: string | undefined
+}
+
+/**
+ * 行操作区的**唯一一枚溢出菜单**（「⋯」）：未安装/未启用不画它（那时给一枚「安装」按钮）。
+ *
+ * 开合状态**不在本组件内**（纯函数不持状态）：由 `open` + `onToggle` 从上层供给，与筛选下拉同一范式。
+ * 一项都没有 ⇒ 整段不渲染（不给一枚点开是空的按钮）。
+ * **ARIA**：`role="menu"` + `role="menuitem"`；触发钮**不挂** `aria-haspopup`——本页既有测试锁
+ * 「全树零 aria-haspopup」，那条锁的意图是禁掉 dialog 语义，菜单的开合用 `aria-expanded` 表达。
+ */
+export function EnterpriseMarketRowMenu({ subject, open, onToggle, items }: {
+  readonly subject: string
+  readonly open?: boolean | undefined
+  readonly onToggle?: (() => void) | undefined
+  readonly items: readonly EnterpriseMarketRowMenuItem[]
+}): ReactNode {
+  if (items.length === 0) return null
+  const label = `${ENTERPRISE_MARKET_MORE_LABEL}：${subject}`
+  const renderItem = (item: EnterpriseMarketRowMenuItem, inMenu: boolean): ReactNode => (
+    <button
+      key={item.id}
+      type="button"
+      role={inMenu ? 'menuitem' : undefined}
+      className="own-market-moreItem"
+      disabled={item.disabled === true}
+      title={item.title}
+      onClick={() => { item.onSelect?.() }}
+    >{item.label}</button>
+  )
+  // 没有下拉宿主（详情子页面那种纯展示场景）⇒ **直接平铺**操作，而不是画一枚点不开的「⋯」。
+  if (typeof onToggle !== 'function') {
+    return <span className="own-market-moreInline">{items.map(item => renderItem(item, false))}</span>
+  }
+  return (
+    <span className="own-market-more">
+      <button
+        type="button"
+        className="own-market-moreBtn"
+        aria-label={label}
+        aria-expanded={open === true}
+        onClick={() => { onToggle?.() }}
+      ><MoreHorizontal aria-hidden size={16} /></button>
+      {open === true ? (
+        <span role="menu" aria-label={label} className="own-market-moreMenu">
+          {items.map(item => renderItem(item, true))}
+        </span>
+      ) : null}
+    </span>
+  )
+}
+
+/**
+ * **技能行动作区的唯一实现**（`EnterpriseMarketSkillRowActions`）：用户口径「卡片操作按钮不要开关」——
+ * 未安装 ⇒ 一枚「安装」按钮；已安装 ⇒ 「⋯」菜单（有更新时第一项是「更新」，其后是「卸载」）。
+ *
+ * 与技能侧同一条结构纪律：行本体与**技能详情子页面**渲染的是**同一枚子块**，吃同一份 `facts` 与同一个回调
+ * ——「详情里的动作与行上同源」因此是结构性的。技能由**员工自己点安装**，故技能侧没有「内置不可卸载」这回事
+ * （`enterpriseMarketPluginBuiltin` 只用于插件行）。
+ */
+export function EnterpriseMarketSkillRowActions({ row, facts, onToggleSkill, menuOpen, onToggleMenu }: {
   readonly row: EnterpriseMarketSkillRow
   readonly facts: EnterpriseMarketSkillRowFacts
   readonly onToggleSkill: ((row: EnterpriseMarketSkillRow, next: boolean) => void) | undefined
+  /** 「⋯」是否展开（缺席 = 关闭）。 */
+  readonly menuOpen?: boolean | undefined
+  readonly onToggleMenu?: (() => void) | undefined
 }): ReactNode {
-  return [
-    // 开关**左侧**的辅助动作：只在「有更新」时出现（其余态右侧就一个 Switch）。
-    // 点击 = 安装中心当前版本（`onToggleSkill(row, true)`），在途禁用但不消失。
-    facts.hasUpdate ? (
-      <button
-        key="update"
-        type="button"
-        className="own-market-skillTag"
-        data-enterprise-skill-tag={ENTERPRISE_MARKET_SKILL_UPDATE_TAG}
-        aria-label={facts.updateTag.ariaLabel}
-        disabled={onToggleSkill === undefined || facts.busy}
-        title={onToggleSkill === undefined ? '企业账号未登录，暂不可操作' : facts.updateTag.title}
+  const blocked = onToggleSkill === undefined || facts.busy
+  const blockedTitle = onToggleSkill === undefined ? '企业账号未登录，暂不可操作' : '动作进行中，暂不可操作'
+  // 未安装 ⇒ 「安装」按钮（取代原先那枚 Switch）。
+  if (!facts.enabled) {
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        data-enterprise-skill-slot="install"
+        disabled={blocked}
+        title={blocked ? blockedTitle : '安装到 ~/.dsh/skills'}
+        aria-label={`安装企业技能 ${row.displayName}`}
         onClick={() => { onToggleSkill?.(row, true) }}
-      >
-        {facts.updateTag.label}
-      </button>
-    ) : null,
-    // 右侧官方 Switch：`checked` = 该技能已装、在途禁用、`label` 给动作语义——它始终是该行主控件。
-    <Switch
-      key="switch"
-      checked={facts.enabled}
-      label={`${facts.enabled ? '卸载' : '安装'}企业技能 ${row.displayName}`}
-      disabled={onToggleSkill === undefined || facts.busy}
-      title={onToggleSkill === undefined
-        ? '企业账号未登录，暂不可操作'
-        : facts.busy ? '动作进行中，暂不可操作' : facts.enabled ? '点此卸载' : '点此安装到 ~/.dsh/skills'}
-      onChange={(next) => { onToggleSkill?.(row, next) }}
-    />,
-  ]
+      >{ENTERPRISE_MARKET_INSTALL_TEXT}</Button>
+    )
+  }
+  // 已安装 ⇒ 「⋯」：这一行**真实**能做的事（有更新才有「更新」；「卸载」恒有——技能是员工自己装的）。
+  return (
+    <EnterpriseMarketRowMenu
+      subject={row.displayName}
+      open={menuOpen}
+      onToggle={onToggleMenu}
+      items={[
+        ...(facts.hasUpdate ? [{
+          id: 'update',
+          label: facts.updateTag.label,
+          title: blocked ? blockedTitle : facts.updateTag.title,
+          disabled: blocked,
+          onSelect: () => { onToggleSkill?.(row, true) },
+        }] : []),
+        {
+          id: 'uninstall',
+          label: ENTERPRISE_MARKET_UNINSTALL_TEXT,
+          title: blocked ? blockedTitle : '从本机卸载这份技能',
+          disabled: blocked,
+          onSelect: () => { onToggleSkill?.(row, false) },
+        },
+      ]}
+    />
+  )
 }
 
 /**
@@ -3214,12 +3577,15 @@ export function EnterpriseMarketSkillRowActions({ row, facts, onToggleSkill }: {
  * @param onCopy - 降级链第三级（复制到剪贴板）；缺席即不渲染那枚按钮。
  * @returns 动作元素数组（Switch 或降级动作）。
  */
-export function EnterpriseMarketPresetRowActions({ row, facts, onToggle, onOpenInNewSession, onCopy }: {
+export function EnterpriseMarketPresetRowActions({ row, facts, onToggle, onOpenInNewSession, onCopy, menuOpen, onToggleMenu }: {
   readonly row: EnterpriseMarketPresetRow
   readonly facts: EnterpriseMarketPresetRowFacts
   readonly onToggle: ((row: EnterpriseMarketPresetRow, next: boolean) => void) | undefined
   readonly onOpenInNewSession: ((row: EnterpriseMarketPresetRow) => void) | undefined
   readonly onCopy: ((row: EnterpriseMarketPresetRow) => void) | undefined
+  /** 「⋯」是否展开（缺席 = 关闭）。 */
+  readonly menuOpen?: boolean | undefined
+  readonly onToggleMenu?: (() => void) | undefined
 }): ReactNode {
   // ① 一键启用不可用：给出 ②（优先）与 ③（兜底），绝不放一枚拨不动的开关。
   if (facts.fallback.level !== 'one-click') {
@@ -3252,17 +3618,35 @@ export function EnterpriseMarketPresetRowActions({ row, facts, onToggle, onOpenI
       ) : null,
     ]
   }
-  // ① 一键启用可用：右侧官方 Switch 是该行**唯一**主控件（与技能/插件行同款、同位置）。
-  return [
-    <Switch
-      key="switch"
-      checked={facts.enabled}
-      label={`${facts.enabled ? '停用' : '启用'}企业配方 ${row.displayName}`}
-      disabled={onToggle === undefined || facts.switchDisabled}
-      title={onToggle === undefined ? '企业账号未登录，暂不可操作' : facts.switchTitle}
-      onChange={(next) => { onToggle?.(row, next) }}
-    />,
-  ]
+  // ① 一键启用可用：用户口径「卡片操作按钮不要开关」——未启用 ⇒ 一枚「启用」按钮；
+  // 已启用 ⇒ 「⋯」菜单（配方只有启用/停用这一件事，故菜单里只有「停用」）。
+  if (!facts.enabled) {
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        data-enterprise-preset-slot="enable"
+        disabled={onToggle === undefined || facts.switchDisabled}
+        title={onToggle === undefined ? '企业账号未登录，暂不可操作' : facts.switchTitle}
+        aria-label={`${ENTERPRISE_MARKET_ENABLE_TEXT}企业配方 ${row.displayName}`}
+        onClick={() => { onToggle?.(row, true) }}
+      >{ENTERPRISE_MARKET_ENABLE_TEXT}</Button>
+    )
+  }
+  return (
+    <EnterpriseMarketRowMenu
+      subject={row.displayName}
+      open={menuOpen}
+      onToggle={onToggleMenu}
+      items={[{
+        id: 'disable',
+        label: ENTERPRISE_MARKET_DISABLE_TEXT,
+        title: onToggle === undefined ? '企业账号未登录，暂不可操作' : facts.switchTitle,
+        disabled: onToggle === undefined || facts.switchDisabled,
+        onSelect: () => { onToggle?.(row, false) },
+      }]}
+    />
+  )
 }
 
 /**
@@ -4019,7 +4403,9 @@ export function EnterprisePresetDetailPage(props: EnterprisePresetPageProps): Re
  * @param onToggleEnabled - 【开关】的写入口（与行上同一条写路径）；缺席即禁用（不提供假切换）。
  * @returns 该行此刻该给的那一枚控件。
  */
-export function EnterpriseMarketPluginRowActions({ packageName, facts, onInstall, onToggleEnabled }: {
+export function EnterpriseMarketPluginRowActions({
+  packageName, facts, onInstall, onToggleEnabled, onUninstall, builtin, hasUpdate, menuOpen, onToggleMenu,
+}: {
   /**
    * ★ 只收**包名**，不收整行对象：行对象上带着 `operatingSystems` 这类**数据面字段**，
    * 把它当 prop 传进来就等于让「目录声明的平台」重新出现在行子树里（`plugin-install-gate.spec.ts`
@@ -4029,32 +4415,64 @@ export function EnterpriseMarketPluginRowActions({ packageName, facts, onInstall
   readonly facts: EnterpriseMarketPluginRowFacts
   readonly onInstall: (() => void) | undefined
   readonly onToggleEnabled: ((next: boolean) => void) | undefined
+  readonly onUninstall: (() => void) | undefined
+  /**
+   * 这一项是不是**内置**（后台分配/预置的，由 `enterpriseMarketPluginBuiltin` 判定）。
+   * **只收布尔**、不收整行——理由同上那条「行子树里不出现数据面字段」的不变式。
+   */
+  readonly builtin: boolean
+  /** 这一行**有更新**吗（由 `enterpriseMarketPluginHasUpdate` 判定）；为真时菜单多一项「更新」。 */
+  readonly hasUpdate: boolean
+  /** 「⋯」是否展开（缺席 = 关闭）。 */
+  readonly menuOpen?: boolean | undefined
+  readonly onToggleMenu?: (() => void) | undefined
 }): ReactNode {
+  // 未安装 ⇒ 一枚「安装」文字按钮（用户口径：不要开关、也不要那个圆形【＋】）。
   if (facts.slot === 'install') {
     return (
       <Button
         size="sm"
         variant="outline"
-        className="own-market-installCta"
         disabled={facts.installDisabled}
         title={facts.installTitle}
         aria-label={facts.installLabel}
         data-enterprise-plugin-slot="install"
         onClick={() => { onInstall?.() }}
-      >
-        ＋
-      </Button>
+      >{ENTERPRISE_MARKET_INSTALL_TEXT}</Button>
     )
   }
-  // 已安装：一枚官方 `Switch`。`checked` 是**启停位**（不是「装没装」——装没装已经由分流决定）。
+  // 已安装 ⇒ 「⋯」：菜单项**按这一行真实能力**给（用户口径：可能包括更新等）——
+  //   ① 有更新 ⇒ 「更新」（走安装同一个写入口，装目录那一版）
+  //   ② 启用 / 停用（按当前启停位给相反的那一枚，不给一枚点了没变化的）
+  //   ③ **非内置**才给「卸载」（后台分配/预置的内置项动不了）
   return (
-    <Switch
-      checked={facts.enabled}
-      label={`启用 ${packageName}`}
-      disabled={facts.switchDisabled}
-      title={facts.switchTitle}
-      data-enterprise-plugin-slot="switch"
-      onChange={(next) => { onToggleEnabled?.(next) }}
+    <EnterpriseMarketRowMenu
+      subject={packageName}
+      open={menuOpen}
+      onToggle={onToggleMenu}
+      items={[
+        ...(hasUpdate ? [{
+          id: 'update',
+          label: '更新',
+          title: '更新到企业目录上的版本',
+          disabled: onInstall === undefined || facts.installDisabled,
+          onSelect: () => { onInstall?.() },
+        }] : []),
+        {
+          id: 'toggle',
+          label: facts.enabled ? ENTERPRISE_MARKET_DISABLE_TEXT : ENTERPRISE_MARKET_ENABLE_TEXT,
+          title: facts.switchTitle,
+          disabled: facts.switchDisabled,
+          onSelect: () => { onToggleEnabled?.(!facts.enabled) },
+        },
+        ...(builtin ? [] : [{
+          id: 'uninstall',
+          label: ENTERPRISE_MARKET_UNINSTALL_TEXT,
+          title: '从本机卸载这枚插件',
+          disabled: onUninstall === undefined,
+          onSelect: () => { onUninstall?.() },
+        }]),
+      ]}
     />
   )
 }
@@ -4074,12 +4492,29 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
   readonly model: EnterpriseMarketShellModel
   readonly props: EnterpriseMarketShellProps
 }): ReactNode {
+  /**
+   * 把一组可见行铺成「**组标题 + 分割线 + 两列卡片网格**」（用户口径：参考图的分组样式）。
+   * 空组已被 `enterpriseMarketCategoryGroups` 剔掉，故这里不判空、不给空壳；组内行序＝目录序。
+   * `data-enterprise-market-group` 是分组观测点（值与组标题同一份字面，测试与排查都取它）。
+   */
+  const renderGrouped = <T,>(
+    groups: readonly EnterpriseMarketCategoryGroup<T>[],
+    renderRow: (row: T) => ReactNode,
+  ): ReactNode =>
+    groups.map(group => (
+      <section key={group.category} className="own-market-categoryGroup" data-enterprise-market-group={group.category}>
+        <h4 className="own-market-categoryTitle">{group.category}</h4>
+        <ul className="own-market-rows">
+          {group.rows.map(row => renderRow(row))}
+        </ul>
+      </section>
+    ))
   if (tab === 'presets') {
     // 配方行与技能行**同级同款**：同一串行类名与同一份标题行取值（`.own-market-cardHead`/`cardId`/`cardDesc`
     // + `.own-market-skillVersionHint` 包装完整坐标的 title），故本刀一个新类名都不加。
     return (
-<ul className="own-market-rows">
-        {model.visiblePresets.map(preset => {
+      <>
+        {renderGrouped(model.presetGroups, preset => {
           const facts = enterpriseMarketPresetRowFacts(props, preset)
           return (
             <li
@@ -4104,15 +4539,10 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
                   <span className="own-market-rowIcon"><BookMarked size={18} aria-hidden="true" /></span>
                   <div className="own-market-rowMain">
                     <span className="own-market-cardHead">
+                      {/* **两行结构**（用户口径：上面标题、下面描述），故第 1 行**只有标题**——
+                          版本签 / 分类签一律不留：分类已由分组标题承载（再挂一枚是重复信息），
+                          版本改在详情子页面看。标题单独 500/14 一行，不再与签混排。 */}
                       <span className="own-market-cardId own-market-skillTitle">{preset.displayName}</span>
-                      {facts.versionLabel === undefined ? null : (
-                        <span className="own-market-skillVersionHint" title={facts.versionTag}>
-                          <Tag className="own-market-tag own-market-skillVersionTag" tone="neutral">{facts.versionLabel}</Tag>
-                        </span>
-                      )}
-                      {facts.categoryTag === undefined ? null : (
-                        <Tag className="own-market-tag own-market-skillCategoryTag" tone="info">{facts.categoryTag}</Tag>
-                      )}
                     </span>
                     <span className="own-market-cardDesc">{preset.description}</span>
                   </div>
@@ -4122,6 +4552,10 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
                 <EnterpriseMarketPresetRowActions
                   row={preset}
                   facts={facts}
+                  menuOpen={props.menuRow === enterpriseMarketRowKey('presets', preset.id)}
+                  onToggleMenu={props.onToggleRowMenu === undefined
+                    ? undefined
+                    : () => { props.onToggleRowMenu?.(enterpriseMarketRowKey('presets', preset.id)) }}
                   onToggle={props.onTogglePreset}
                   onOpenInNewSession={props.onOpenPresetInNewSession}
                   onCopy={props.onCopyPresetInstruction}
@@ -4136,13 +4570,13 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
             </li>
           )
         })}
-      </ul>
+      </>
     )
   }
   if (tab === 'skills') {
     return (
-<ul className="own-market-rows">
-        {model.visibleSkills.map(skill => {
+      <>
+        {renderGrouped(model.skillGroups, skill => {
           const facts = enterpriseMarketSkillRowFacts(props, skill)
           return (
             <li
@@ -4174,37 +4608,36 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
                         tone/className/children（0.1.5-rc.2 的 .d.ts 如此，运行期也把多给的属性丢掉），
                         故用一枚透明包装节点挂悬浮说明——它的位置就是签的位置，签自身类名/tone 一字未动。 */}
                     <span className="own-market-cardHead">
+                      {/* **两行结构**：第 1 行只有标题（版本签 / 分类签按用户口径撤掉，理由见配方行同处注释）。 */}
                       <span className="own-market-cardId own-market-skillTitle">{skill.displayName}</span>
-                      {facts.versionLabel === undefined ? null : (
-                        <span className="own-market-skillVersionHint" title={facts.versionTag}>
-                          <Tag className="own-market-tag own-market-skillVersionTag" tone="neutral">{facts.versionLabel}</Tag>
-                        </span>
-                      )}
-                      {facts.categoryTag === undefined ? null : (
-                        <Tag className="own-market-tag own-market-skillCategoryTag" tone="info">{facts.categoryTag}</Tag>
-                      )}
                     </span>
                     {/* 第 2 行 = 描述（官方 13/18-tertiary 单行省略，不换行撑高卡片）。 */}
                     <span className="own-market-cardDesc">{skill.description}</span>
                   </div>
                 </button>
                 {/* 动作与行上**同一枚子块**（也是详情子页面渲染的那一枚）：同一份 facts、同一个回调。 */}
-                <EnterpriseMarketSkillRowActions row={skill} facts={facts} onToggleSkill={props.onToggleSkill} />
+                <EnterpriseMarketSkillRowActions
+                  row={skill}
+                  facts={facts}
+                  onToggleSkill={props.onToggleSkill}
+                  menuOpen={props.menuRow === enterpriseMarketRowKey('skills', skill.id)}
+                  onToggleMenu={props.onToggleRowMenu === undefined
+                    ? undefined
+                    : () => { props.onToggleRowMenu?.(enterpriseMarketRowKey('skills', skill.id)) }}
+                />
               </div>
               {/* 失败可见反馈：失败即在该行给 role="alert" + 稳定错误码，且**不**禁用开关（再拨一次就是重试）。 */}
               <EnterpriseMarketRowError error={props.skillActionError} id={skill.id} />
             </li>
           )
         })}
-      </ul>
+      </>
     )
   }
   return (
-<ul className="own-market-rows">
-        {model.visiblePlugins.map(plugin => {
+    <>
+      {renderGrouped(model.pluginGroups, plugin => {
           const facts = enterpriseMarketPluginRowFacts(props, plugin)
-          // 版本短号签的文案只算一次（无版本即 undefined = 整枚签不渲染）：与详情页 badge 槽同一枚字面。
-          const versionLabel = enterpriseMarketVersionTag(plugin.version ?? undefined)
           return (
             <li
               key={plugin.packageName}
@@ -4237,18 +4670,15 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
                     <span className="own-market-cardHead">
                       {/* **标题 = 插件名称**（制品 package.json 的 displayName），缺省/空白**回退包名**——
                           用户口径「插件卡片标题显示插件名称，而非包名」。它与上面那枚按钮的无障碍名是**同一枚**
-                          投影（`enterprisePluginDisplayName`），故读屏听到的名字与用户看到的字永远一致。 */}
+                          投影（`enterprisePluginDisplayName`），故读屏听到的名字与用户看到的字永远一致。
+                          **两行结构**：第 1 行只有标题——「企业」签、版本签按用户口径一并撤掉
+                          （每张卡都挂同一枚「企业」签＝零信息量；版本改在详情里看）。 */}
                       <span className="own-market-cardId own-market-skillTitle">
                         {enterprisePluginDisplayName(plugin.displayName, plugin.packageName)}
                       </span>
-                      <EnterpriseMarketBadgeTag />
-                      {versionLabel === undefined ? null : (
-                        <Tag className="own-market-tag own-market-skillVersionTag" tone="neutral">{versionLabel}</Tag>
-                      )}
                     </span>
-                    {/* 第 2 行 = **插件描述**（原先这里是「企业发布 · v…」，版本已上移到标题签）。
-                        有描述说描述；没有描述如实说「暂无描述」（不空白、不编造）；已下架的行照旧说
-                        「已不在企业目录中」（那一句是既有口径，与有没有描述无关）。 */}
+                    {/* 第 2 行 = **插件描述**。有描述说描述；没有描述如实说「暂无描述」（不空白、不编造）；
+                        已下架的行照旧说「已不在企业目录中」（那一句是既有口径，与有没有描述无关）。 */}
                     <span className="own-market-cardDesc">
                       {plugin.inCatalog
                         ? enterprisePluginDescriptionText(plugin.description)
@@ -4261,19 +4691,27 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
                   <StateDot state={facts.dot} />
                   {facts.stateTitle}
                 </span>
-                {/* 动作区**按状态分流**（用户口径，唯一分流点在 `enterpriseMarketPluginRowFacts` 的 `slot`）：
-                    未安装 ⇒ 一枚【＋】安装按钮；已安装 ⇒ 一枚【开关】＝启用/停用。这里是**唯一实现**，
-                    详情子页面渲染的是同一枚子块（同一份 facts、同一批回调），故两处不可能各说一套。
-                    两者都**不**卸载——这一面本来就没有卸载动作，卸载只在「企业设置 → 插件」的详情里。
-                    `title` 只是补充：到底能不能动、为什么不能动，一律由行下那一句可见说明与下面那条
-                    目录判定提示负责（原先禁用态只有一句 title，那就是「死开关」）。 */}
+                {/* 动作区**按状态分流**（唯一分流点在 `enterpriseMarketPluginRowFacts` 的 `slot`）：
+                    未安装 ⇒ 「安装」按钮；已安装 ⇒ 「⋯」（菜单项按真实能力给：更新 / 启用·停用 / 卸载）。
+                    这里是**唯一实现**，详情子页面渲染的是同一枚子块（同一份 facts、同一批回调）。
+                    「卸载」只给**非内置**项（`enterpriseMarketPluginBuiltin`：仍由企业目录提供＝后台分配/预置
+                    ⇒ 内置、动不了）；核心包不在这份列表里，故不参与判定。 */}
                 <EnterpriseMarketPluginRowActions
                   packageName={plugin.packageName}
                   facts={facts}
+                  builtin={enterpriseMarketPluginBuiltin(plugin)}
+                  hasUpdate={enterpriseMarketPluginHasUpdate(plugin)}
                   onInstall={props.onInstallPlugin === undefined ? undefined : () => { props.onInstallPlugin?.(plugin) }}
                   onToggleEnabled={props.onTogglePluginEnabled === undefined
                     ? undefined
                     : (next) => { props.onTogglePluginEnabled?.(plugin, next) }}
+                  onUninstall={props.onUninstallPlugin === undefined
+                    ? undefined
+                    : () => { props.onUninstallPlugin?.(plugin) }}
+                  menuOpen={props.menuRow === enterpriseMarketRowKey('plugins', plugin.packageName)}
+                  onToggleMenu={props.onToggleRowMenu === undefined
+                    ? undefined
+                    : () => { props.onToggleRowMenu?.(enterpriseMarketRowKey('plugins', plugin.packageName)) }}
                 />
               </div>
               {/* 禁用时的**可见**解释（无写入口 / 在途 / 等重启 / 别的操作用着）。 */}
@@ -4311,7 +4749,7 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
             </li>
           )
         })}
-      </ul>
+    </>
   )
 }
 
@@ -4361,13 +4799,20 @@ function enterpriseMarketPluginDetail(page: EnterprisePluginPageProps, props: En
       onBack={page.onBack}
       onCancelInstall={page.onCancelInstall}
       actions={<>
+        {/* 详情子页面：同一枚动作子块、同一份 facts、同一批回调。这里**不传** `onToggleMenu`
+            ⇒ 菜单自动改成**平铺**（详情没有下拉宿主，绝不画一枚点不开的「⋯」）。 */}
         <EnterpriseMarketPluginRowActions
           packageName={page.row.packageName}
           facts={page.facts}
+          builtin={enterpriseMarketPluginBuiltin(page.row)}
+          hasUpdate={enterpriseMarketPluginHasUpdate(page.row)}
           onInstall={props.onInstallPlugin === undefined ? undefined : () => { props.onInstallPlugin?.(page.row) }}
           onToggleEnabled={props.onTogglePluginEnabled === undefined
             ? undefined
             : (next) => { props.onTogglePluginEnabled?.(page.row, next) }}
+          onUninstall={props.onUninstallPlugin === undefined
+            ? undefined
+            : () => { props.onUninstallPlugin?.(page.row) }}
         />
         <EnterprisePluginRowNotes id={page.row.packageName} facts={page.facts} />
       </>}
@@ -4435,9 +4880,12 @@ export function EnterpriseMarketLegacyShell(props: EnterpriseMarketShellProps): 
       <EnterpriseMarketTabStrip
         model={model}
         onSelectTab={props.onSelectTab}
+        searchText={props.searchText}
+        onSearchChange={props.onSearchChange}
         filterOpen={props.filterOpen}
         onToggleFilter={props.onToggleFilter}
-        filterSelected={props.filterSelected}
+        filterStatus={props.filterStatus}
+        filterCategory={props.filterCategory}
         onFilterSelect={props.onFilterSelect}
       />
       {/* 「企业技能」页签（默认页签，用户主战场）：与企业插件页签同规则——「技能」大组件开启（= 会话可用）
@@ -4447,7 +4895,11 @@ export function EnterpriseMarketLegacyShell(props: EnterpriseMarketShellProps): 
         {model.activeTab === 'skills' && model.skillsPanel.kind !== 'hidden' ? (
           <section className="own-market-section" data-market-section="enterprise-skills">
             {model.skillsPanel.kind === 'ready' ? ([
-              <EnterpriseMarketInlineRows key="rows" tab="skills" model={model} props={props} />,
+              // 过滤把这一页筛空了 ⇒ 说「没有匹配」并给一键清空；否则照常铺分组卡片。
+              // 两者互斥：同一帧要么是空态那句话，要么是一组组卡片，不会同时出现。
+              model.visibleSkills.length === 0 && model.filtering
+                ? <EnterpriseMarketFilteredHint key="filtered-empty" onClear={props.onClearFilters} />
+                : <EnterpriseMarketInlineRows key="rows" tab="skills" model={model} props={props} />,
               // 次级取数降级的可见交代（已装状态 / 部分技能的最新版本没读全）：非打扰但看得见 + 可重试。
               // 用数组而不是 Fragment：行的结构大纲是既有取证点，Fragment 会在其中留下一个不透明节点。
               props.skillsListState?.kind === 'ready' && props.skillsListState.value.installedCode !== undefined
@@ -4473,7 +4925,9 @@ export function EnterpriseMarketLegacyShell(props: EnterpriseMarketShellProps): 
             <EnterprisePluginContentRegion
               detail={pluginDetail}
               list={model.pluginsPanel.kind === 'ready' ? (
-                <EnterpriseMarketInlineRows tab="plugins" model={model} props={props} />
+                model.visiblePlugins.length === 0 && model.filtering
+                  ? <EnterpriseMarketFilteredHint onClear={props.onClearFilters} />
+                  : <EnterpriseMarketInlineRows tab="plugins" model={model} props={props} />
               ) : (
                 <EnterpriseMarketListHint state={model.pluginsPanel} onRetry={props.onRetryPlugins} />
               )}
@@ -4488,7 +4942,9 @@ export function EnterpriseMarketLegacyShell(props: EnterpriseMarketShellProps): 
         {model.activeTab === 'presets' && model.presetsPanel.kind !== 'hidden' ? (
           <section className="own-market-section" data-market-section="enterprise-presets">
             {model.presetsPanel.kind === 'ready' ? (
-              <EnterpriseMarketInlineRows tab="presets" model={model} props={props} />
+              model.visiblePresets.length === 0 && model.filtering
+                ? <EnterpriseMarketFilteredHint onClear={props.onClearFilters} />
+                : <EnterpriseMarketInlineRows tab="presets" model={model} props={props} />
             ) : (
               <EnterpriseMarketListHint state={model.presetsPanel} onRetry={props.onRetryPresets} />
             )}
@@ -4582,10 +5038,18 @@ export function useEnterpriseMarketController({ view, store, libraryGate, preset
   const onToggleSection = (section: EnterpriseMarketSectionId): void => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }))
   }
-  // 筛选下拉（标签行最右那枚）：开合 + 各组选中值。**本刀只做壳**——选中态在这里存，
-  // 但**不驱动任何过滤**（真实过滤列表留待下一刀接，产品决策：先壳后逻辑）。
+  // 搜索 + 筛选（标签行：搜索框在左、筛选下拉在右）。**本刀起是真过滤**——这三个状态经
+  // `enterpriseMarketShellModel` 真的切可见行；分类筛选的取值恒为七类之一或 `'all'`。
+  const [searchText, setSearchText] = useState('')
   const [filterOpen, setFilterOpen] = useState(false)
-  const [filterSelected, setFilterSelected] = useState<Partial<Record<EnterpriseMarketFilterGroupId, string>>>({})
+  const [filterStatus, setFilterStatus] = useState<EnterpriseMarketStatusFilter>('all')
+  const [filterCategory, setFilterCategory] = useState<EnterpriseMarketCategory | 'all'>('all')
+  // 「⋯」更多菜单的开合（**单选**：同一时刻只开一行；行键 = `enterpriseMarketRowKey(tab, id)`）。
+  // 与筛选下拉同一范式：状态在控制器、纯函数外壳只读。点开另一行即切过去，页面滚动/动作后不动它。
+  const [menuRow, setMenuRow] = useState<string | null>(null)
+  const onToggleRowMenu = (key: string): void => {
+    setMenuRow(prev => (prev === key ? null : key))
+  }
   /**
    * 行展开态：**单选**（同一时刻最多一行展开），行键 = `{页签}:{行 id}`，初值 `null` = 全部收起。
    * **去折叠后没有任何落点消费它**（用户裁决 A：卡片去掉折叠、动作常显）。
@@ -4823,6 +5287,19 @@ export function useEnterpriseMarketController({ view, store, libraryGate, preset
     ? row => {
       setPluginAction({ packageName: row.packageName, action: 'cancel' })
       void store!.cancelPlugin(row.packageName)
+    }
+    : undefined
+  /**
+   * 卸载一枚插件（本刀：卡片「⋯」里的「卸载」）。
+   *
+   * 与 `onTogglePluginEnabled` 同一条归行口径：先把动作记进 `pluginAction`（失败码据此落在这一行），
+   * 再走**同一个** `store.removePlugin`（同源 `POST /plugins/remove`）——不新造第二套写入口。
+   * 界面上这一项**只对非内置项**出现（`enterpriseMarketPluginBuiltin`），故这里不必再拦一次。
+   */
+  const onUninstallPlugin: ((row: EnterpriseMarketPluginRow) => void) | undefined = hasStore
+    ? row => {
+      setPluginAction({ packageName: row.packageName, action: 'uninstall' })
+      void store!.removePlugin(row.packageName)
     }
     : undefined
   const onToggleSkill: ((row: EnterpriseMarketSkillRow, next: boolean) => void) | undefined = hasStore
@@ -5165,6 +5642,7 @@ export function useEnterpriseMarketController({ view, store, libraryGate, preset
     ...(presetActionError === undefined ? {} : { presetActionError }),
     onInstallPlugin,
     onTogglePluginEnabled,
+    onUninstallPlugin,
     installedSkills,
     pendingSkill,
     onToggleSkill,
@@ -5188,15 +5666,33 @@ export function useEnterpriseMarketController({ view, store, libraryGate, preset
     // 用户点别的页签就是明确地在换页，不该再看到上一页的详情）。技能/配方详情是整页切换，页签那会儿
     // 根本不在 DOM 里，故这里只需管插件详情这一份状态。
     onSelectTab: (tab) => { setActiveTab(tab); setPluginDetailName(undefined) },
-    // 筛选下拉（标签行最右）：开合 + 各组选中值。**本刀只做壳**——选中态在这里存但不驱动过滤
-    // （真实过滤列表留待下一刀；产品决策：先壳后逻辑）。点选后关菜单（照常规下拉交互）。
+    // 搜索 + 筛选（标签行：搜索框在左、筛选下拉在右）。**本刀起真过滤**——三个状态经模型切可见行。
+    // 点选筛选项后关菜单（照常规下拉交互）；搜索框不关菜单（用户可能边搜边调筛选）。
+    searchText,
+    onSearchChange: (text) => { setSearchText(text) },
     filterOpen,
     onToggleFilter: () => { setFilterOpen(prev => !prev) },
-    filterSelected,
+    filterStatus,
+    filterCategory,
     onFilterSelect: (group, option) => {
-      setFilterSelected(prev => ({ ...prev, [group]: option }))
+      // 两组各写各的状态；`option` 在类型组里就是分类名（与选项真源同一份字面）。
+      if (group === 'status') {
+        setFilterStatus(option === 'enabled' || option === 'disabled' ? option : 'all')
+      } else {
+        setFilterCategory(option === 'all' ? 'all' : enterpriseMarketCategory(option))
+      }
       setFilterOpen(false)
     },
+    onClearFilters: () => {
+      // 三件一起清（搜索 + 状态 + 类型）——「清空筛选」就该回到完整目录，不是只清一样。
+      setSearchText('')
+      setFilterStatus('all')
+      setFilterCategory('all')
+      setFilterOpen(false)
+    },
+    // 「⋯」更多菜单：开合态与行键都在控制器；未安装行不画它，故这里不必判行类型。
+    menuRow,
+    onToggleRowMenu,
     expandedRow,
     onToggleRow,
     // 点行本体 = 把**那一行**记成当前详情目标；行的开关与 `[有更新]` 有自己的回调，不经过这里。

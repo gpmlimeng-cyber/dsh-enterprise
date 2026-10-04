@@ -801,20 +801,28 @@ describe('enterprise marketplace entry', () => {
     expect(EnterpriseMarketDetailActions({ subject: { kind: 'item', id: 'bash' } })).toBeNull()
     expect(EnterpriseMarketDetailActions({ subject: { kind: 'row', pkg: { name: 'x' }, row: { rowId: 'y' } } })).toBeNull()
     expect(EnterpriseMarketDetailActions({ subject: { kind: 'package', pkg: { name: 'x' } } })).toBeNull()
-    // 本条目：出两枚占位按钮（刷新 / 添加插件），文案与无障碍名逐字锁死。
+    // 本条目：出两枚占位按钮（刷新 / 添加插件），变体、图标与无障碍名逐字锁死。
     const mine = EnterpriseMarketDetailActions({ subject: { kind: 'item', id: ENTERPRISE_MARKET_ENTRY_ID } })
     const text = textOf(mine)
-    expect(text).toContain(ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL)
+    // 刷新那枚**只给图标**（用户口径：官方样式），故它没有可见文字，只有「添加插件」有。
     expect(text).toContain(ENTERPRISE_DETAIL_ACTION_ADD_LABEL)
-    // 两枚都是官方 Button 原语（`variant="outline"`，标题区工具感，非 primary 主动作）——
+    expect(text).not.toContain(ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL)
+    // 两枚都是官方 Button 原语，且**各用官方变体**：刷新 = ghost（图标工具钮）、添加插件 = primary（主动作胶囊）。
     // 按组件引用收集（mock Button 渲染产出 undefined，原生 collectButtonProps 收不到）。
-    const outline = collectOfficialButtonProps(mine)
-    expect(outline).toHaveLength(2)
-    expect(outline.map(props => props['variant'])).toEqual(['outline', 'outline'])
-    // 无障碍名带「占位」语义（不冒充能用，产品宪法：不造死控件）。
-    expect(outline.map(props => props['aria-label'])).toEqual([
-      `${ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL}插件（占位）`,
-      `${ENTERPRISE_DETAIL_ACTION_ADD_LABEL}（占位）`,
+    const actions = collectOfficialButtonProps(mine)
+    expect(actions).toHaveLength(2)
+    expect(actions.map(props => props['variant'])).toEqual(['ghost', 'primary'])
+    expect(actions.map(props => props['size'])).toEqual(['md', 'md'])
+    // 两枚都有前置图标（官方 `icon` 接缝）：刷新 = 环形箭头、添加插件 = 加号。
+    expect(actions.every(props => props['icon'] !== undefined && props['icon'] !== null)).toBe(true)
+    // 无障碍名 = 动作本身（不再带「占位」字样）；「这一刀还没接线」由 `title` 如实交代。
+    expect(actions.map(props => props['aria-label'])).toEqual([
+      ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL,
+      ENTERPRISE_DETAIL_ACTION_ADD_LABEL,
+    ])
+    expect(actions.map(props => props['title'])).toEqual([
+      '占位：本刀未接真刷新，下一刀接 store.refreshPlugins()',
+      '占位：企业插件由企业后台上传，员工端入口留下一刀',
     ])
   })
 
@@ -937,19 +945,21 @@ describe('enterprise marketplace entry', () => {
       // **第二行 = 插件描述**（本刀）：有描述说描述，没有描述如实降级。
       expect(text, label).toContain('把代码审查规则带进新会话。')
       expect(text, label).toContain('暂无描述')
-      // **版本信息一个字都没丢**：它从第二行搬到了标题行那枚短号签上（`v{version}` 仍是官方 badge 槽同一枚字面），
-      // 而旧第二行的那句「企业发布 · v…」作为**行上文案**已经退场（组件清单里的说明文字另有出处，不在行上）。
-      expect(text, label).toContain('v1.2.0')
-      expect(text, label).toContain('v2.0.0')
+      // **版本不再上卡片**（用户口径：两行结构、标题行不留多余标签）：标题只显示名称、第二行只显示描述。
+      // 版本信息一个字都没丢——它在**详情子页面**里照旧（下面另有详情用例锁着）。
+      expect(text, label).not.toContain('v1.2.0')
+      expect(text, label).not.toContain('v2.0.0')
       expect(text, label).not.toContain('企业发布 · v')
-      // 标题行的两枚签与技能行**同款同枚**：企业签（info）+ 版本短号签（neutral），类名照技能那一串。
+      // 标题行：**每张卡只有标题一枚子节点**（既没有企业签、也没有版本签）。
       const heads = collectByClassName(on, 'own-market-cardHead')
       expect(heads, label).toHaveLength(2)
+      for (const head of heads) {
+        // 只有一个子节点时 `children` 是**单个元素**而不是数组，故走 flattenElements 归一。
+        expect(flattenElements(head['children'] as ReactNode), label).toHaveLength(1)
+      }
+      // 插件区里**一枚官方 Tag 都没有**（企业签与版本签都按用户口径撤掉）。
       const tags = collectOfficialTagProps(collectSectionByHook(on, 'enterprise-plugins'))
-      expect(tags.map(props => props['children']), label)
-        .toEqual(['企业', 'v1.2.0', '企业', 'v2.0.0'])
-      expect(tags.map(props => props['tone']), label).toEqual(['info', 'neutral', 'info', 'neutral'])
-      expect(tags[1]?.['className'], label).toBe('own-market-tag own-market-skillVersionTag')
+      expect(tags.map(props => props['children']), label).toEqual([])
       // 计数已并入页签文案（原先节内那行独立的 `2 个` 已删）：这里锁「企业插件 2」。
       expect(text, label).toContain(enterpriseMarketTabLabel('企业插件', 2))
       // 节内独立计数行确实不存在（新外壳的 HERO 会另有「2 个企业插件」这句 chip 文案，故不能再用 `2 个` 当代理断言）。
@@ -1090,67 +1100,42 @@ describe('enterprise marketplace entry', () => {
 
   // 标题行（第 1 行）新增两枚只读标签：**版本签**取列表投影本来就有的 `sourceDshVersion`（无需服务端改动）、
   // **分类签**取服务端新增的可选字段 `category`。为缺失设计：分类缺席/null/空串时整枚签不渲染（安静缺席）。
-  it('adds a version tag and an optional category tag to the skill title row', () => {
-    // 两枚签的取值、tone、顺序与「分类缺席即整枚不渲染」在两套外壳里必须一模一样（同一份 facts + 同一份 head 容器）。
+  it('keeps the skill card to two lines: title on top, description below, no extra tags on the title row', () => {
+    // 用户口径（本刀）：卡片两行结构——上面标题、下面描述；标题行**不留多余标签**。
+    // 故版本签（own-market-skillVersionTag）与分类签（own-market-skillCategoryTag）都不再上卡片：
+    // 分类已由**分组标题**承载（再挂一枚是重复信息），版本改在详情子页面看（那里照旧显示完整坐标）。
     for (const { label, shell } of MARKET_SHELLS) {
       const tree = shell({
         view: 'page', sessionUsable: true, enterpriseSkills: enterpriseMarketSkillRows([SKILL_WITH_CATEGORY]),
       })
-      // 版本签：**可见文案是短号**（`enterpriseMarketSkillVersionLabel`，含 `@` 取最后一个 `@` 之后；
-      // 本 fixture 无 `@` 故与原值同形——完整坐标那一路由下面两条坐标用例锁死）。
-      // 仍不加 `v` 前缀（那是详情页 badge 的口径），复用官方 `Tag` 原语 + 既有 `.own-market-tag` 定位。
-      const versionTags = collectByClassName(tree, 'own-market-skillVersionTag')
-      expect(versionTags, label).toHaveLength(1)
-      expect(versionTags[0]?.['children'], label).toBe(enterpriseMarketSkillVersionLabel(SKILL_WITH_CATEGORY.sourceDshVersion))
-      expect(versionTags[0]?.['children'], label).toBe('0.1.7-rc.2')
-      expect(versionTags[0]?.['tone'], label).toBe('neutral')
-      expect(String(versionTags[0]?.['className']), label).toContain('own-market-tag')
-      // 分类签：有分类才出，文案照原值。
-      const categoryTags = collectByClassName(tree, 'own-market-skillCategoryTag')
-      expect(categoryTags, label).toHaveLength(1)
-      expect(categoryTags[0]?.['children'], label).toBe('研发工具')
-      expect(categoryTags[0]?.['tone'], label).toBe('info')
-      // 顺序锁：两枚签都在**标题那一行**的 head 容器里，且严格排在标题**之后**（标题 → 版本签 → 分类签）。
-      // 版本签外面包着一枚**只承载完整坐标 title** 的节点（官方 Tag 只吃 tone/className/children），
-      // 故第 2 格是那枚包装节点、它的唯一子节点才是版本签本体（位置没变，仍是紧随标题、排在分类签之前）。
+      expect(collectByClassName(tree, 'own-market-skillVersionTag'), label).toEqual([])
+      expect(collectByClassName(tree, 'own-market-skillCategoryTag'), label).toEqual([])
+      expect(collectByClassName(tree, 'own-market-skillVersionHint'), label).toEqual([])
+      // 标题行**只剩标题**一枚子节点（有分类也一样——分类不参与卡片渲染）。
       const head = collectByClassName(tree, 'own-market-cardHead')[0]
-      const headKids = head?.['children'] as ReactNode[]
-      expect(headKids, label).toHaveLength(3)
-      expect(isValidElement(headKids[0]) ? (headKids[0].props as Record<string, unknown>)['children'] : undefined, label).toBe('会议纪要技能组')
-      const headVersionHint = headKids[1] as { props?: Record<string, unknown> } | undefined
-      expect(String(headVersionHint?.props?.['className']), label).toBe('own-market-skillVersionHint')
-      expect(headVersionHint?.props?.['title'], label).toBe('0.1.7-rc.2')
-      expect(textOf(headKids[1] as ReactNode), label).toBe('0.1.7-rc.2')
-      expect(isValidElement(headKids[2]) ? (headKids[2].props as Record<string, unknown>)['children'] : undefined, label).toBe('研发工具')
-      // 恒只有那枚官方 Switch；未装行不出辅助标签。
+      const headKids = flattenElements(head?.['children'] as ReactNode)
+      expect(headKids, label).toHaveLength(1)
+      expect(isValidElement(headKids[0]) ? (headKids[0].props as Record<string, unknown>)['children'] : undefined, label)
+        .toBe('会议纪要技能组')
+      // 第二行 = 描述（两行结构的下一行），类名与取值一字未动。
+      expect(collectByClassName(tree, 'own-market-cardDesc').map(props => props.children), label)
+        .toEqual(['把会议录音与转写整理成结构化纪要。'])
+      // 恒只有那枚官方 Switch；卡片上没有别的签。
       expect(collectSwitchProps(tree).map(props => String(props['label'])), label).toEqual(['安装企业技能 会议纪要技能组'])
       expect(collectTagProps(tree), label).toEqual([])
-      // 分类缺席（undefined）/ 空串：**分类签不出现**（安静缺席是预期行为，绝不塞占位文案）；
-      // 版本签与其余内容照旧在（少一枚分类签不动别的）。
-      for (const skills of [
-        enterpriseMarketSkillRows([SKILL]),
-        enterpriseMarketSkillRows([{ ...SKILL, category: '' }]),
-      ]) {
-        const bare = shell({ view: 'page', sessionUsable: true, enterpriseSkills: skills })
-        expect(collectByClassName(bare, 'own-market-skillCategoryTag'), label).toEqual([])
-        expect(collectByClassName(bare, 'own-market-skillVersionTag'), label).toHaveLength(1)
-        // 分类签那一格是 `null`（不渲染），故 head 里**元素**只剩标题 + 版本签两枚。
-        const bareKids = (collectByClassName(bare, 'own-market-cardHead')[0]?.['children'] as ReactNode[])
-          .filter(child => child !== null && child !== undefined)
-        expect(bareKids, label).toHaveLength(2)
-        expect(isValidElement(bareKids[0]) ? (bareKids[0].props as Record<string, unknown>)['children'] : undefined, label).toBe('会议纪要技能组')
-        // 版本签本体在包装节点里：可见文案照旧、完整坐标照旧挂在包装节点的 title 上。
-        expect(textOf(bareKids[1] as ReactNode), label).toBe('0.1.7-rc.2')
-        expect((bareKids[1] as { props?: Record<string, unknown> }).props?.['title'], label).toBe('0.1.7-rc.2')
-      }
     }
-    // 第 2 行描述不受标签影响：两套外壳共用同一枚子块、同一枚 `.own-market-cardDesc`（与旧外壳一字不差）。
-    const store = EnterpriseMarketLegacyShell({
-      view: 'page', sessionUsable: true, enterpriseSkills: enterpriseMarketSkillRows([SKILL_WITH_CATEGORY]),
-    })
-    expect(collectByClassName(store, 'own-market-cardDesc').map(props => props.children))
-      .toEqual(['把会议录音与转写整理成结构化纪要。'])
-    // 纯投影：缺席/null/空串/纯空白都归一成 undefined（标题行标签的最后一道防线），有值原样返回。
+    // 分类「缺席 / 空串 / 有值」三种形态**渲染同一棵树**（分类不再参与卡片）：都是一枚标题子节点。
+    for (const skills of [
+      enterpriseMarketSkillRows([SKILL]),
+      enterpriseMarketSkillRows([{ ...SKILL, category: '' }]),
+      enterpriseMarketSkillRows([SKILL_WITH_CATEGORY]),
+    ]) {
+      const bare = EnterpriseMarketLegacyShell({ view: 'page', sessionUsable: true, enterpriseSkills: skills })
+      expect(flattenElements(collectByClassName(bare, 'own-market-cardHead')[0]?.['children'] as ReactNode))
+        .toHaveLength(1)
+    }
+    // 两个纯投影仍在出口上（详情与将来的视图还要用），口径逐条不变：
+    // 缺席/null/空串/纯空白都归一成 undefined，有值原样返回。
     expect(enterpriseMarketSkillCategoryTag(undefined)).toBeUndefined()
     expect(enterpriseMarketSkillCategoryTag(null)).toBeUndefined()
     expect(enterpriseMarketSkillCategoryTag('')).toBeUndefined()
@@ -1186,41 +1171,26 @@ describe('enterprise marketplace entry', () => {
 
   // 本刀（列表短号 / 详情全坐标）：行上签显示短号、**完整坐标挂在签的 title 上**；详情页那枚徽标照旧整串显示。
   // 两套外壳共用同一份行子块与同一份 facts，故这里逐外壳跑同一组断言。
-  it('shows only the version segment in the row tag while the full coordinate stays on the tag title and in the detail', () => {
+  // 详情保留完整坐标：卡片不再显示版本（用户口径：标题行不留多余标签），但**信息一个都没丢**——
+  // 详情子页面那枚徽标照旧显示 sourceDshVersion 整串（比短号更全），短号投影仍在出口上供将来用。
+  it('keeps the full source coordinate in the skill detail while the card shows no version at all', () => {
     const COORDINATE = 'skillhub.cn/dev-expert@2.0.3'
     for (const { label, shell } of MARKET_SHELLS) {
       const tree = shell({
         view: 'page', sessionUsable: true,
         enterpriseSkills: enterpriseMarketSkillRows([{ ...SKILL, sourceDshVersion: COORDINATE }]),
       })
-      // ① 行上签的**可见文案 = 短号**（不再是 `sourceDshVersion` 整串）；tone 与类名一字未动。
-      const versionTags = collectByClassName(tree, 'own-market-skillVersionTag')
-      expect(versionTags, label).toHaveLength(1)
-      expect(versionTags[0]?.['children'], label).toBe('2.0.3')
-      expect(versionTags[0]?.['tone'], label).toBe('neutral')
-      expect(String(versionTags[0]?.['className']), label).toContain('own-market-tag')
-      // ② 签上有**完整坐标**（悬停可见）：承载 title 的那枚节点必须**紧包**版本签本体，
-      //    且整串坐标不再作为可见文本出现（它正是把标题挤成一个字的那一段）。
-      const hint = collectByClassName(tree, 'own-market-skillVersionHint')[0]
-      expect(hint, label).toBeDefined()
-      expect(hint?.['title'], label).toBe(COORDINATE)
-      const hintKids = flattenElements(hint?.['children'] as ReactNode)
-      expect(hintKids, label).toHaveLength(1)
-      expect(isValidElement(hintKids[0]) ? (hintKids[0].props as Record<string, unknown>)['className'] : undefined, label)
-        .toBe('own-market-tag own-market-skillVersionTag')
-      expect(textOf(hintKids[0] as ReactNode), label).toBe('2.0.3')
+      // ① 卡片上没有任何版本签（连那枚只承载 title 的包装节点都没有）。
+      expect(collectByClassName(tree, 'own-market-skillVersionTag'), label).toEqual([])
+      expect(collectByClassName(tree, 'own-market-skillVersionHint'), label).toEqual([])
       expect(textOf(tree), label).not.toContain(COORDINATE)
-      // 位置不变：标题行里仍是「标题 → 版本签（包装节点）→（无分类时到此处就结束）」。
-      const headKids = ((collectByClassName(tree, 'own-market-cardHead')[0]?.['children'] ?? []) as ReactNode[])
-        .filter(child => child !== null && child !== undefined)
-      expect(headKids, label).toHaveLength(2)
-      expect(textOf(headKids[0] as ReactNode), label).toBe('会议纪要技能组')
-      // ③ 详情页那枚徽标照旧显示**完整坐标**（详情信息更全，只有列表需要短号）：同一份 facts 供两处。
+      // ② 详情页那枚徽标照旧显示**完整坐标**（详情信息更全）：同一份 facts 供两处。
       const detailRow = enterpriseMarketSkillRows([{ ...SKILL, sourceDshVersion: COORDINATE }])[0]!
       const detailFacts = enterpriseMarketSkillRowFacts(
         { view: 'page', sessionUsable: true, enterpriseSkills: [detailRow] }, detailRow,
       )
       expect(detailFacts.versionTag, label).toBe(COORDINATE)
+      // 短号投影仍在出口上（将来的行内视图），只是卡片这一刀不再消费它。
       expect(detailFacts.versionLabel, label).toBe('2.0.3')
       const detail = EnterpriseSkillDetailPage({
         row: detailRow, facts: detailFacts, fileEntries: [], filesLoading: false, fileLoading: false,
@@ -1758,9 +1728,22 @@ describe('enterprise marketplace entry', () => {
     for (const { label, shell } of MARKET_SHELLS) {
       const page = shell({ view: 'page', sessionUsable: true, enterpriseSkills: enterpriseMarketSkillRows([SKILL]) })
       const css = collectStyleText(page)
-      // 行 = 通栏行（行底 0.5px 分隔线 + 40×40 图标框 + 两行文案），不是卡片。
-      expect(cssRuleBody(css, '.own-market-rows'), label).toContain('display:flex')
-      expect(cssRuleBody(css, '.own-market-row'), label).toContain('border-bottom:0.5px solid')
+      // 行 = **两列网格里的卡片**（用户口径：完全照参考图的分组样式）：
+      // 容器两列 grid、卡片圆角、hover 整块变灰、**行间没有分割线**（分割线只由组标题承担）。
+      const rows = cssRuleBody(css, '.own-market-rows')
+      expect(rows, label).toContain('display:grid')
+      expect(rows, label).toContain('repeat(2,minmax(0,1fr))')
+      const row = cssRuleBody(css, '.own-market-row')
+      expect(row, label).toContain('border-radius')
+      // 用户口径「列表去除分割线」：这一条是反向锁，谁把 border-bottom 加回来就红。
+      expect(row, label).not.toContain('border-bottom')
+      // hover 变灰取官方卡片实物的同一枚 token（不许自造颜色 / color-mix 猜）。
+      expect(cssRuleBody(css, '.own-market-row:hover'), label)
+        .toContain('var(--dsw-alias-interactive-bg-hover)')
+      // 分割线改由组标题承担（组标题的 border-bottom），组头字重 600。
+      const groupTitle = cssRuleBody(css, '.own-market-categoryTitle')
+      expect(groupTitle, label).toContain('border-bottom:0.5px solid')
+      expect(groupTitle, label).toContain('font-weight:600')
       expect(cssRuleBody(css, '.own-market-rowLine'), label).toContain('display:flex')
       expect(cssRuleBody(css, '.own-market-rowIcon'), label).toContain('width:40px')
       expect(cssRuleBody(css, '.own-market-rowMain'), label).toContain('flex-direction:column')
@@ -2006,9 +1989,10 @@ describe('enterprise marketplace entry', () => {
       onToggleSkill: vi.fn(),
     }
     const tree = EnterpriseMarketLegacyShell(shared)
-    // ① 标题行：标题 + 版本签 + 分类签（分类缺席时那一格是 null，不塞占位）。
-    expect((collectByClassName(tree, 'own-market-cardHead')[0]?.['children'] as ReactNode[])).toHaveLength(3)
-    expect(collectByClassName(tree, 'own-market-skillVersionTag')).toHaveLength(1)
+    // ① 标题行：**只有标题**（两行结构、无多余标签——版本签/分类签都按用户口径撤掉了）。
+    expect(flattenElements(collectByClassName(tree, 'own-market-cardHead')[0]?.['children'] as ReactNode)).toHaveLength(1)
+    expect(collectByClassName(tree, 'own-market-skillVersionTag')).toHaveLength(0)
+    expect(collectByClassName(tree, 'own-market-skillCategoryTag')).toHaveLength(0)
     // ②③④ 三件事都在**行内**（同一个 rowLine 里）：有更新按钮 + 官方 Switch + role="alert" 各恰好一件。
     expect(collectTagProps(tree)).toHaveLength(1)
     expect(collectSwitchProps(tree)).toHaveLength(1)
@@ -2124,12 +2108,12 @@ describe('enterprise marketplace entry', () => {
     const count = (re: RegExp): number => (source.match(re) ?? []).length
     // 模型：1 处定义 + 外壳 1 处调用 = 2。
     expect(count(/enterpriseMarketShellModel\(/g)).toBe(2)
-    // 行 facts 唯一入口：1 处定义 + 共享行子块 `EnterpriseMarketInlineRows` 1 处 + 详情子页面的输入构造 1 处 = 3
-    //（详情与行共用同一枚函数，故详情里的动作不可能另算一份事实）。
-    expect(count(/enterpriseMarketSkillRowFacts\(/g)).toBe(3)
-    // **本刀（插件详情子页面）**：插件侧同理走到 3 —— 1 处定义 + 行 1 处 + **插件详情子页面的输入构造** 1 处
-    //（详情与行读的是同一份 facts，故「已装 / 在途 / 进度」不可能在详情里另算一套）。
-    expect(count(/enterpriseMarketPluginRowFacts\(/g)).toBe(3)
+    // 行 facts 唯一入口：**本刀多一处合法调用**——模型里的「状态筛选」要问每一行「现在启用中吗」，
+    // 而「什么叫启用」的唯一真源就是这枚 facts（不另写第二份口径）。故 1 定义 + 行子块 1 + 详情输入构造 1
+    // + 状态筛选 1 = 4。**仍然是同一个函数**，不是第二套事实。
+    expect(count(/enterpriseMarketSkillRowFacts\(/g)).toBe(4)
+    // 插件侧同理 4（同一枚 facts 供 行 / 插件详情 / 状态筛选 三处读）。
+    expect(count(/enterpriseMarketPluginRowFacts\(/g)).toBe(4)
     // 安装/卸载动作接线各只有一份（复制逻辑会在这里翻倍）。
     expect(count(/\.installPlugin\(/g)).toBe(1)
     // 插件行**没有**卸载动作：卸载只在「企业设置 → 插件」的详情弹窗里，故本文件一次都不该出现它。
@@ -2182,10 +2166,11 @@ describe('enterprise marketplace entry', () => {
     expect(source).toContain('export function EnterpriseMarketInlineRows(')
     // **本刀（企业配方页签）**：三个目录页签（技能 / 插件 / 配方）各调用同一枚子块一次——三处、一枚实现。
     expect((source.match(/<EnterpriseMarketInlineRows /g) ?? []).length).toBe(3)
-    // 反向锁：本文件里 `own-market-rows` 只有五处**显式**铺设点，且都在既有结构里——
-    // 目录行子块的三枚页签（技能/插件/配方）各一处、组件清单那一处、配方详情「这份配方包含」的分组各一处；
-    // 没有第六处（将来谁再手写一套行列表，这条会先红）。
-    expect((source.match(/className="own-market-rows"/g) ?? []).length).toBe(5)
+    // 反向锁：本文件里 `own-market-rows` 只有**三处**显式铺设点——
+    // **本刀（分组 + 两列卡片网格）**把三个目录页签那三处收敛成 `renderGrouped` 里的**一处**
+    //（三个页签都走同一枚分组渲染器，一处容器管住两列网格），加组件清单一处、配方详情包含内容一处 = 3。
+    // 没有第四处（将来谁再手写一套行列表，这条会先红）。
+    expect((source.match(/className="own-market-rows"/g) ?? []).length).toBe(3)
   })
 
   // ══ 结构快照门禁：旧外壳的**当前**输出（行本体可点这一刀之后的结构）逐行锁死 ══════════════════════

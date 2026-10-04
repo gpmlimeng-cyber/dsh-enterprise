@@ -168,6 +168,14 @@ export interface EnterprisePluginCatalogItem {
    * 字符数不可能超过它，故这里用同一个上界；越界整条判畸形（不静默截断）。
    */
   readonly readme?: string
+  /**
+   * 服务端新增的**可选分类**（`category`）——插件**列表分组**与**筛选类型**的取值。
+   *
+   * **与技能侧 `EnterpriseRuntimeSkill.category` 逐字同一口径**（本层不新造第二套）：
+   * 缺席 / JSON null / 空串一律归一成「没有这个键」，非 string 非 null 或超过 64 字符判畸形。
+   * 渲染层据此把**没有分类**与**分类不在七类里**的插件一并归入「其他」——绝不给行编造分类。
+   */
+  readonly category?: string
   readonly sizeBytes: number
   readonly operatingSystems: readonly string[]
   readonly installErrorCode?: string
@@ -826,7 +834,7 @@ export function decodeEnterprisePluginStatus(value: unknown): EnterprisePluginSt
     const item = record(value)
     if (item === undefined || !hasExactKeys(item,
       ['pluginVersionId', 'packageName', 'version', 'sizeBytes', 'operatingSystems'],
-      ['displayName', 'description', 'readme', 'installErrorCode'])
+      ['displayName', 'description', 'readme', 'category', 'installErrorCode'])
       || !enterpriseId(item['pluginVersionId']) || !nonEmptyString(item['packageName'])
       || !nonEmptyString(item['version']) || !Number.isSafeInteger(item['sizeBytes']) || Number(item['sizeBytes']) <= 0
       || !Array.isArray(item['operatingSystems']) || item['operatingSystems'].some(os => !['darwin', 'linux', 'win32'].includes(os))
@@ -844,6 +852,10 @@ export function decodeEnterprisePluginStatus(value: unknown): EnterprisePluginSt
       // 不查 HTML 标签、不 trim（换行与记号原样交给渲染层当纯文本子节点）。
       || !(item['readme'] === undefined || item['readme'] === null
         || (typeof item['readme'] === 'string' && item['readme'].length <= 65_536))
+      // 分类与技能侧 `category` **逐字同一口径**：缺席 / JSON null / 非空串 ≤64 三种合法形态，
+      // 非 string 非 null 或超上限一律判畸形（不静默截断、不猜）。64 与技能侧同值（同一枚服务端字段族）。
+      || !(item['category'] === undefined || item['category'] === null
+        || (typeof item['category'] === 'string' && item['category'].length <= 64))
       || item['installErrorCode'] !== undefined && !nonEmptyString(item['installErrorCode'])) {
       throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
     }
@@ -859,6 +871,9 @@ export function decodeEnterprisePluginStatus(value: unknown): EnterprisePluginSt
       ...(nonEmptyString(item['description']) ? { description: item['description'] } : {}),
       // 只有真拿到非空串才产出这个键；缺席/null/空串一概不产出（详情据此**回落短描述**，不是画空白）。
       ...(nonEmptyString(item['readme']) ? { readme: item['readme'] } : {}),
+      // 分类照技能侧同一口径：只有真拿到非空串才产出这个键；缺席/null/空串一概不产出
+      // （渲染层据此归入「其他」分组，而不是画一枚空分类签）。
+      ...(nonEmptyString(item['category']) ? { category: item['category'] } : {}),
       ...(item['installErrorCode'] === undefined ? {} : { installErrorCode: item['installErrorCode'] as string }),
     }
   })
