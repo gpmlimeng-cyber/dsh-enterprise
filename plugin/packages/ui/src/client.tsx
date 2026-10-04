@@ -38,6 +38,7 @@ import {
   ENTERPRISE_MARKET_ENTRY_LABEL,
   ENTERPRISE_MARKET_ENTRY_ORDER,
   EnterpriseMarketBadge,
+  EnterpriseMarketDetailActions,
   EnterpriseMarketLegacyPage,
 } from './marketplace-entry.js'
 import { startEnterpriseMarketBadgeDecoration } from './market-entry-badge.js'
@@ -199,6 +200,19 @@ export function apply(ctx: SlotContextPort): void {
     id: ENTERPRISE_MARKET_ENTRY_ID,
     inject: () => ({ store }),
   }, EnterpriseMarketBadge as (props: never) => ReactNode))
+  /**
+   * **标题区右侧的两枚占位按钮**（用户口径：「在标题区域右侧增加刷新、添加插件按钮」）——走**官方
+   * `plugins.detail.actions` 槽**（`slot-contract.ts:116`，`kind:'list'/scope:'root'`，与 badge 槽 `:121` 同形）：
+   * 官方 `ItemDetail` 的 `DetailTop`（`PluginManagerPage.tsx:540`）在 `cardIcon` 图标**右侧**渲染
+   * `renderSlot('plugins.detail.actions')` ⇒ 官方 API 层次直接给了标题右侧动作位，**无需 DOM 装饰**。
+   * 两枚都是**占位**（用户裁决）：点击 no-op、不禁用、不给假进度，无障碍名带「占位」不冒充能用。
+   * 本槽只对我们这条 item 渲染（官方槽语义由 `EnterpriseMarketDetailActions` 内部不判 subject —— 它无 subject 消费，
+   * 但官方只在我们这条 item 的详情页才 renderSlot 到我们的组件；subject 过滤交由官方 `only` 语义）。
+   */
+  ctx.slots.inject('plugins.detail.actions', () => ctx.slots.register({
+    name: 'plugins.detail.actions',
+    id: ENTERPRISE_MARKET_ENTRY_ID,
+  }, EnterpriseMarketDetailActions as (props: never) => ReactNode))
   /**
    * **官方列表卡标题行的那枚「企业」签**（用户两次指定：必须在标题行、标题正后方）：官方 `ItemCard` 的
    * `CardHead` 只接 title/icon/description、**没有 tags 座位**（`dsh-client-ui-plugin-manager/lib/client.js:2083-2097`），

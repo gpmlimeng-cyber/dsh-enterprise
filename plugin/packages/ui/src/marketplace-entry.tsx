@@ -2490,6 +2490,16 @@ const detailStyles = `
 .own-market-filePreviewMeta{margin-left:auto;color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:11px;line-height:16px;font-variant-numeric:tabular-nums}
 /* 正文：纯文本 <pre>（长文件靠 max-height 滚动看全，不做截断；空白保留、超长行软换行）。 */
 .own-market-fileText{margin:0;max-height:360px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:10px 12px;border:.5px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:var(--dsw-radius-md,12px);background:var(--dsw-alias-background-secondary,#f2f4f7);font:11.5px/17px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--dsw-alias-label-primary,#101828)}
+/* ── 标题区：去掉官方那枚 48×48 图标（用户口径） ──────────────────────────
+   官方 DetailTop 的 cardIcon（ui-plugin-manager/PluginManagerPage.module.css:233，48×48 +
+   hairline + radius-lg）渲染在改不了的官方源码里，且是 CSS module（运行时哈希类名 css.cardIcon）
+   ⇒ 拿不到类名、.detailHead 同样是哈希。故只能按**官方非哈希标记**定位：详情容器
+   [data-plugin-item-detail="<条目 id>"]（PluginManagerPage.tsx:534，值＝条目 id）里，
+   那枚图标是**唯一一个 aria-hidden 的 span**（PluginManagerPage.tsx:441 <span aria-hidden>；
+   它右侧 .detailActions 里是我们的 button，没有裸 span）。
+   若将来官方在详情里加了别的 span[aria-hidden]，本规则会多隐藏一个——退而求其次：优先按
+   span+aria-hidden 隐藏，命中不到即原样显示（官方版式不失效、不留半成品）。 */
+[data-plugin-item-detail="plugin-market"] span[aria-hidden="true"]{display:none}
 .own-market-fileHint{margin:0;color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:12px;line-height:19px}
 .own-market-fileRetry{display:flex;align-items:center;gap:8px}
 /* 术语降维新增（详情页专用，列表那份 <style> 不带这些规则）：
@@ -2562,6 +2572,53 @@ export function BadgeView({ version }: { readonly version?: string | undefined }
     </>
   )
 }
+
+/* ─────────────────── 标题区右侧动作（官方 plugins.detail.actions 槽） ─────────────────── */
+
+/** 标题区右侧两枚按钮的文案真源（用户口径：本刀**都先占位**，不接真动作——刷新的 `store.refreshPlugins()` 与「添加插件」的企业上传语义留下一刀）。 */
+export const ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL = '刷新'
+export const ENTERPRISE_DETAIL_ACTION_ADD_LABEL = '添加插件'
+
+/**
+ * 标题区右侧动作的**纯呈现**（照 `BadgeView`：不调 hook、测试直调）——挂在**官方 `plugins.detail.actions` 槽**上。
+ *
+ * 为什么走官方槽而不是 DOM 装饰（拿到官方源码后的确证，非推测）：官方 `ItemDetail` 的 `DetailTop`
+ * （`ui-plugin-manager/PluginManagerPage.tsx:540`）在 `cardIcon` **右侧**渲染
+ * `renderSlot('plugins.detail.actions')`，槽声明 `slot-contract.ts:116` 为 `kind:'list'/scope:'root'`
+ * （与 badge 槽 `:121` 同形）⇒ 官方 API 层次**直接给了标题右侧的动作位**，DOM 装饰那条脆路不必走。
+ *
+ * 两枚都是**占位**（用户裁决 B）：点击 no-op，但走原生 `<button>` + 官方 `Button` 原语 ⇒ 键盘可达、
+ * 不禁用、不给假进度；无障碍名如实带「占位」语义，**不冒充能用的动作**（产品宪法：不造死控件）。
+ * @returns 标题右侧的【刷新】【添加插件】两枚占位按钮（无包装容器——官方 `detailActions` 已是 flex 容器）。
+ */
+export function EnterpriseMarketDetailActions(): ReactNode {
+  return (
+    <>
+      <Button
+        size="sm"
+        variant="outline"
+        aria-label={`${ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL}插件（占位）`}
+        title="占位：本刀未接真刷新，下一刀接 store.refreshPlugins()"
+      >{ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL}</Button>
+      <Button
+        size="sm"
+        variant="outline"
+        aria-label={`${ENTERPRISE_DETAIL_ACTION_ADD_LABEL}（占位）`}
+        title="占位：企业插件由企业后台上传，员工端入口留下一刀"
+      >{ENTERPRISE_DETAIL_ACTION_ADD_LABEL}</Button>
+    </>
+  )
+}
+
+/**
+ * 标题区那枚 48×48 官方图标的**隐藏**（CSS 级，非 DOM 装饰）：官方 `DetailTop` 的 `cardIcon`
+ * （`PluginManagerPage.module.css:233`，48×48 + hairline + radius-lg）在我们改不了的官方源码里，
+ * 故只能按官方**稳定结构标记** `data-plugin-item-detail`（`PluginManagerPage.tsx:534`，值＝条目 id）
+ * 定位到详情容器，再沿 `.detailHead > .cardIcon` 关系隐藏它——**不猜 CSS module 哈希类名**，
+ * 靠的是官方 DOM 关系（`.detailHead` 直系第一个 48×48 盒子）。
+ * 样式写在本文件 `detailStyles` 的一条覆盖规则里（下一刀落），命中不到即原样显示（官方版式，不失效、不报错）。
+ */
+export const ENTERPRISE_DETAIL_CONTAINER_SELECTOR = `[data-plugin-item-detail="${ENTERPRISE_MARKET_ENTRY_ID}"]`
 
 /**
  * 卡片一句话（`summary` 视图）：官方会把它渲染两次（列表卡描述 + 详情页正文），故必须保持单行——

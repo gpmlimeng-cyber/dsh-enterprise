@@ -11,6 +11,7 @@ import {
   EnterpriseAccountMenu,
   EnterpriseHeroBrandMark,
   EnterpriseMarketBadge,
+  EnterpriseMarketDetailActions,
   EnterpriseMarketLegacyPage,
   EnterpriseSettingsSection,
   EnterpriseSidebarBrandMark,
@@ -66,6 +67,8 @@ describe('enterprise Client plugin', () => {
       'settings.launcher',
       'plugins.item',
       'plugins.detail.badge',
+      // 官方 `plugins.detail.actions` 槽（标题区右侧两枚占位按钮）：紧随 badge 之后 inject。
+      'plugins.detail.actions',
       'sidebar.brand.mark',
       'sidebar.brand.name',
       'conversation.hero.brand.mark',
@@ -81,6 +84,7 @@ describe('enterprise Client plugin', () => {
       { name: 'settings.launcher' },
       { name: 'plugins.item', id: 'plugin-market', order: 50, label: '插件市场' },
       { name: 'plugins.detail.badge', id: 'plugin-market' },
+      { name: 'plugins.detail.actions', id: 'plugin-market' },
     ])
     expect(registrations.map(item => item.component)).toEqual([
       EnterpriseSettingsSection,
@@ -88,6 +92,8 @@ describe('enterprise Client plugin', () => {
       // `plugins.item` 的详情页走**旧外观**外壳（9723a97 那一版官方两行卡片）——本刀之后它是唯一注册的市场入口。
       EnterpriseMarketLegacyPage,
       EnterpriseMarketBadge,
+      // 标题区右侧两枚占位按钮（官方 `plugins.detail.actions` 槽）。
+      EnterpriseMarketDetailActions,
     ])
     // 设置区、个人中心、市场入口三个座位共享同一个脱敏 store；badge 槽位也无 inject 之外的多余源。
     const stores = registrations.slice(0, 3).map(item => (item.options['inject'] as () => { store: unknown })().store)
@@ -174,6 +180,8 @@ describe('enterprise Client plugin', () => {
       'settings.launcher',
       'plugins.item',
       'plugins.detail.badge',
+      // 官方 `plugins.detail.actions` 槽（标题区右侧两枚占位按钮）：紧随 badge 之后 inject。
+      'plugins.detail.actions',
       'sidebar.brand.mark',
       'sidebar.brand.name',
       'conversation.hero.brand.mark',
@@ -189,6 +197,7 @@ describe('enterprise Client plugin', () => {
       'settings.launcher',
       'plugins.item',
       'plugins.detail.badge',
+      'plugins.detail.actions',
     ])
   })
 
@@ -233,9 +242,9 @@ describe('enterprise Client plugin', () => {
         on: vi.fn(() => () => undefined),
         effect: effect => { effect() },
       })
-      // 前四处是本插件的既有注册（设置区／个人中心／市场入口／badge），后三处是品牌座位。
-      await vi.waitFor(() => { expect(registrations).toHaveLength(7) })
-      const seats = registrations.slice(4)
+      // 前五处是本插件的既有注册（设置区／个人中心／市场入口／badge／**标题区动作**），后三处是品牌座位。
+      await vi.waitFor(() => { expect(registrations).toHaveLength(8) })
+      const seats = registrations.slice(5)
       expect(seats.map(item => item.options)).toMatchObject([
         { name: 'sidebar.brand.mark', priority: -10 },
         { name: 'sidebar.brand.name', priority: -10 },
@@ -291,6 +300,7 @@ describe('enterprise Client plugin', () => {
       'settings.launcher',
       'plugins.item',
       'plugins.detail.badge',
+      'plugins.detail.actions',
     ])
     expect(registerSource).not.toHaveBeenCalled()
 

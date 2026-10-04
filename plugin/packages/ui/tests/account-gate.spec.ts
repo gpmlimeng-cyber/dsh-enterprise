@@ -65,6 +65,8 @@ describe('the full-screen access gate is retired', () => {
       'settings.launcher',
       'plugins.item',
       'plugins.detail.badge',
+      // 官方 `plugins.detail.actions` 槽（标题区右侧两枚占位按钮）：紧随 badge 之后 inject。
+      'plugins.detail.actions',
       'sidebar.brand.mark',
       'sidebar.brand.name',
       'conversation.hero.brand.mark',
