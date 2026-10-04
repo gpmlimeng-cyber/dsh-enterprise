@@ -340,6 +340,23 @@ class T05ApiContractTest {
             "AuthSourcesResponse"
         );
 
+        // 桌面客户端声明 accept: application/json(且不含 text/html)时同样取回 200 JSON 事务,
+        // 与其 Token 面接受 DSH_DESKTOP 的口径一致;不声明 accept 的裸请求仍 303(上面已锁)。
+        assertSchema(
+            mvc.perform(get("/enterprise/auth/v1/authorize")
+                    .accept(MediaType.APPLICATION_JSON)
+                    .queryParam("client_id", "dsh-desktop")
+                    .queryParam("redirect_uri", "http://127.0.0.1:18080/callback")
+                    .queryParam("state", "client-state-0001")
+                    .queryParam("code_challenge", "abcdefghijklmnopqrstuvwxyzABCDEFGH123456789")
+                    .queryParam("code_challenge_method", "S256")
+                    .queryParam("installation_id", INSTALLATION))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sources[0].name").value("Local"))
+                .andReturn().getResponse().getContentAsString(),
+            "AuthSourcesResponse"
+        );
+
         assertSchema(
             mvc.perform(get("/enterprise/auth/v1/sources").queryParam("transaction_id", TRANSACTION))
                 .andExpect(status().isOk())

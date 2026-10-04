@@ -504,6 +504,16 @@ export class EnterpriseControlPlane {
       client_id: ENTERPRISE_DESKTOP_CLIENT_ID, redirect_uri: callback.redirectUri, state,
       code_challenge: codeChallengeS256(verifier), code_challenge_method: 'S256', installation_id: installationId,
     })
+    // 契约 paths/auth.yaml#Authorize：GET authorize 声明 accept:application/json(且不接受
+    // HTML)时回 200 JSON(登录事务+身份源)。这里匿名 HTTP 打一次 authorize 走同源 JSON 启动
+    // 面(与 Token 面接受 DSH_DESKTOP 的口径一致)。★不 await：这是一次旁路打点,登录的关键
+    // 路径仍由下面 openBrowser + waitForCode 那条 PKCE 浏览器路决定——打点失败(含只 stub 了
+    // token 的测试夹具、网络抖动)不得改变登录的失败语义,故接住失败不进主流程;loginTask 的
+    // 失败面仍由 token/enroll/bootstrap 各步自身决定,不因这一跳而改变。
+    void auth.createTransaction({
+      redirectUri: callback.redirectUri, state,
+      codeChallenge: codeChallengeS256(verifier), installationId,
+    }).catch(() => undefined)
     let result: { code: string; state: string }
     try {
       const settled = await Promise.all([

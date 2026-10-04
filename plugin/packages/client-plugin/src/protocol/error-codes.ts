@@ -1,17 +1,19 @@
 /**
  * [INPUT]: 无外部依赖；字面量由 contracts 真源 OpenAPI 3.1 的 EnterpriseErrorCode 枚举生成。
- * [OUTPUT]: 对外提供 56 个稳定企业错误码联合类型与宿主侧本地码。
+ * [OUTPUT]: 对外提供 60 个稳定企业错误码联合类型与宿主侧本地码。
  * [POS]: protocol 层的错误码真源，被 http/envelope 与 UI 文案消费；不得手改，改契约后重跑生成。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-/** 契约真源的稳定错误码（56 项，enum 与 x-enterprise-error-statuses 一一对应）。 */
+/** 契约真源的稳定错误码（60 项，enum 与 x-enterprise-error-statuses 一一对应）。 */
 export const ENTERPRISE_ERROR_CODES = [
   'ENT_INVALID_REQUEST',
   'ENT_INVALID_REDIRECT_URI',
   'ENT_PKCE_REQUIRED',
   'ENT_PLUGIN_ARTIFACT_INVALID',
   'ENT_PRESET_INVALID_PACKAGE',
+  'ENT_PRESET_DEPENDENCIES_INVALID',
+  'ENT_PRESET_DEPENDENCY_KIND_UNSUPPORTED',
   'ENT_SKILL_INVALID_PACKAGE',
   'ENT_BRANDING_ASSET_INVALID',
   'ENT_FEEDBACK_INVALID',
@@ -43,6 +45,8 @@ export const ENTERPRISE_ERROR_CODES = [
   'ENT_IDENTITY_ALREADY_LINKED',
   'ENT_DEVICE_ALREADY_BOUND',
   'ENT_FEEDBACK_STATE_CONFLICT',
+  'ENT_PRESET_REQUIRES_MISSING',
+  'ENT_PRESET_REQUIRES_NOT_PUBLISHED',
   'ENT_REQUEST_TOO_LARGE',
   'ENT_PLUGIN_ARCHIVE_TOO_LARGE',
   'ENT_PRESET_TOO_LARGE',

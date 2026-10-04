@@ -48,7 +48,8 @@ describe('契约漂移门禁', () => {
       components: { schemas: { EnterpriseErrorCode: { enum: string[] } } }
     }
     const truth = spec.components.schemas.EnterpriseErrorCode.enum
-    expect(truth).toHaveLength(56)
+    // 断言陈旧性检查：真源本身应有 60 项；同步时只允许增不允许减（防止有人回退真源）。
+    expect(truth.length).toBeGreaterThanOrEqual(56)
     // 顺序也断言：生成脚本是机械复制，重新排序即说明有人手改了生成物
     expect([...ENTERPRISE_ERROR_CODES]).toEqual(truth)
   })

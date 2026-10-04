@@ -73,6 +73,10 @@ export const ENTERPRISE_ERROR_MESSAGES: Readonly<Record<EnterpriseClientErrorCod
   ENT_PRESET_INVALID_PACKAGE: '配方包内容不合规，已阻止导入',
   ENT_PRESET_NOT_PUBLISHED: '该配方已下架，无法导入',
   ENT_PRESET_VISIBILITY_DENIED: '当前账号无权使用该配方',
+  ENT_PRESET_DEPENDENCIES_INVALID: '配方的依赖清单不合法，已阻止发布',
+  ENT_PRESET_DEPENDENCY_KIND_UNSUPPORTED: '配方依赖引用了不支持的类型，已阻止发布',
+  ENT_PRESET_REQUIRES_MISSING: '配方必选依赖缺失，发布前请先补齐依赖项',
+  ENT_PRESET_REQUIRES_NOT_PUBLISHED: '配方必选依赖尚未发布，发布前请先发布被依赖项',
 
   // ── 企业技能目录 ──────────────────────────────────────────────
   ENT_SKILL_NOT_PUBLISHED: '该技能已下架，无法装配',

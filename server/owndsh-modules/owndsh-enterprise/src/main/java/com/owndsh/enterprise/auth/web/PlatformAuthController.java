@@ -68,7 +68,12 @@ public final class PlatformAuthController {
             codeChallenge,
             optionalUuidV4(installationId)
         );
-        if (requestedClient == PlatformClient.ENTERPRISE_ADMIN
+        // 同源 JSON 启动：管理端(ENTERPRISE_ADMIN)与桌面客户端(DSH_DESKTOP)在声明
+        // accept: application/json(且不接受 HTML)时取回事务+身份源；浏览器(accept 含
+        // text/html)仍走 303 → login.html 选源页。DSH_DESKTOP 的参数合法性已在
+        // authorization.authorize() 内 client.validate() 校验(loopback + UUID v4)。
+        if ((requestedClient == PlatformClient.ENTERPRISE_ADMIN
+            || requestedClient == PlatformClient.DSH_DESKTOP)
             && acceptsJson(request)
             && !acceptsHtml(request)) {
             EnterpriseRequestMetadata metadata = EnterpriseRequestMetadata.from(request);
