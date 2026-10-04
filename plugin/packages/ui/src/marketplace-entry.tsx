@@ -21,7 +21,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { BookMarked, ChevronDown, FileText, Folder, Library, Package, RefreshCw, Sparkles, X } from 'lucide-react'
+import { BookMarked, ChevronDown, FileText, Filter, Folder, Library, Package, RefreshCw, Sparkles, X } from 'lucide-react'
 import { Button, StateDot, Switch, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, Ref } from 'react'
@@ -182,6 +182,48 @@ export const ENTERPRISE_MARKET_DEFAULT_TAB: EnterpriseMarketTabId = 'skills'
 
 /** 页签条的无障碍名（`role="tablist"` 的 `aria-label`）。 */
 export const ENTERPRISE_MARKET_TABLIST_LABEL = '企业市场'
+
+/* ───────────────────── 筛选下拉的选项真源（参考图 2） ───────────────────── */
+
+/** 筛选下拉的**分组与选项**（参考图 2：状态组 + 类型组，每组组头带 ✓=该项当前生效）。 */
+export const ENTERPRISE_MARKET_FILTER_GROUPS = [
+  {
+    id: 'status',
+    options: [
+      { id: 'all', label: '全部' },
+      { id: 'enabled', label: '已启用' },
+      { id: 'disabled', label: '已停用' },
+    ],
+  },
+  {
+    id: 'kind',
+    options: [
+      { id: 'all', label: '全部类型' },
+      { id: 'plugins', label: '只看插件' },
+      { id: 'skills', label: '只看技能' },
+    ],
+  },
+] as const
+
+export type EnterpriseMarketFilterGroupId = (typeof ENTERPRISE_MARKET_FILTER_GROUPS)[number]['id']
+export type EnterpriseMarketFilterOptionId =
+  | (typeof ENTERPRISE_MARKET_FILTER_GROUPS)[number]['options'][number]['id']
+
+/** 筛选下拉的开合无障碍名（触发钮 + 菜单）。 */
+export const ENTERPRISE_MARKET_FILTER_LABEL = '筛选'
+export const ENTERPRISE_MARKET_FILTER_MENU_LABEL = '筛选条件'
+/** 选中标记（组头与当前项前那枚 ✓，照参考图）。 */
+export const ENTERPRISE_MARKET_FILTER_CHECK = '✓'
+
+/**
+ * 默认筛选选中值（参考图两组组头都带 ✓ ⇒ 默认「全部」+「全部类型」）。
+ * **本刀只做壳**：选中态由本常量 + 用户点选后的回调供给（回调留待下一刀接真实过滤）。
+ */
+export const ENTERPRISE_MARKET_FILTER_DEFAULT: Record<EnterpriseMarketFilterGroupId, string> = {
+  status: 'all',
+  kind: 'all',
+}
+
 
 /**
  * 页签 ↔ 面板的固定 id 配对：`id` / `aria-controls` / `aria-labelledby` 三处同源，避免手抄漂移。
@@ -515,6 +557,17 @@ export interface EnterpriseMarketShellProps {
    * 是 tablist 自身的语义，把当前页签做成禁用项会让人以为它坏了；缺席时点击是 no-op（只读页签条，真运行时恒由控制器供给）。
    */
   readonly onSelectTab?: ((tab: EnterpriseMarketTabId) => void) | undefined
+  /**
+   * 标签行最右那枚**筛选下拉**是否打开（用户口径：参考图 2 的两组下拉；**本刀只做壳**——选项可点、有勾选态，
+   * 真实过滤列表留待下一刀）。纯函数约定与 `expandedSections` 同：缺席 = 关闭。
+   */
+  readonly filterOpen?: boolean | undefined
+  /** 开/关筛选下拉（点触发钮）；缺席时触发钮点击是 no-op（不给死按钮——真运行时恒由控制器供给）。 */
+  readonly onToggleFilter?: (() => void) | undefined
+  /** 各组当前选中值（缺席按 `ENTERPRISE_MARKET_FILTER_DEFAULT`；**本刀只做壳**，选中态不驱动过滤）。 */
+  readonly filterSelected?: Partial<Record<EnterpriseMarketFilterGroupId, string>> | undefined
+  /** 点选下拉里某一项（本刀回传选中态给上层保存，**真实过滤列表留待下一刀**）。 */
+  readonly onFilterSelect?: ((group: EnterpriseMarketFilterGroupId, option: string) => void) | undefined
   /**
    * **当前展开的那一行**（行键 = `enterpriseMarketRowKey(tab, 行 id)`；单选：同一时刻最多一行展开）。
    * `null` = 全部收起、`undefined` = 没给过状态（纯函数直调按「全开」拿完整树，与 `expandedSections` 同约定）。
@@ -2371,14 +2424,35 @@ const baseStyles = `
 .own-market-skillTag:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:2px}
 .own-market-skillTag:disabled{cursor:default;opacity:.6}
 /* page 视图顶部的页签条（手写，不用官方 SegmentedTabs——工程 pin 的 primitives 0.1.5-rc.2 不含它）：
-   口径逐值照 9723a97 的 tablist（底部 1px 分隔线 + 选中项 2px 下划线 + 13/20），**两套外壳共用同一份渲染**。
-   类名从旧名 .own-market-tabs 改成 .own-market-storeTabs：旧名与 plugin-market.tsx 同名会互相覆盖（7557ffd 已改名）。
-   flex-wrap:nowrap + 页签 white-space:nowrap 保证「文案带计数」后页签**不换行、不撑高**这一行。 */
-.own-market-storeTabs{display:flex;flex-wrap:nowrap;align-items:flex-end;gap:22px;min-width:0;margin-top:0;border-bottom:1px solid var(--dsw-alias-border-l2,#e4e7ec)}
-.own-market-storeTab{background:transparent;border:0;border-bottom:2px solid transparent;color:var(--dsw-alias-label-tertiary,#667085);cursor:pointer;font:inherit;font-size:13px;line-height:20px;margin-bottom:-1px;padding:7px 1px 8px;white-space:nowrap}
+   **两套外壳共用同一份渲染**。类名 .own-market-storeTabs/.own-market-storeTab 与 plugin-market.tsx
+   的旧名 .own-market-tabs 零交集（两份全局单类 <style> 同名会互相覆盖，7557ffd 已改名）。
+   flex-wrap:nowrap + 页签 white-space:nowrap 保证「文案带计数」后页签不换行、不撑高。
+   ── 本刀：从下划线式改成**胶囊分段**样式（用户口径：照「公开 / 个人」那种标签按钮，参考图 1）：
+   · 容器 = 圆角浅灰轨道（官方 background-secondary，与参考图 #f3f3f3 轨道同量级），无底部横线；
+   · 页签 = 轨道内胶囊，当前项（aria-selected=true）实心白底 + 轻投影（参考图「公开」那枚）；
+   · 未选中 = 透明底 + 次级字色；focus-ring 与 role/tabIndex/aria 语义一字未改。 */
+.own-market-storeTabs{display:flex;flex-wrap:nowrap;align-items:center;gap:2px;min-width:0;margin:0;padding:3px;border-radius:var(--dsw-radius-md,8px);background:var(--dsw-alias-background-secondary,#f2f4f7);border-bottom:0;width:max-content;max-width:100%}
+.own-market-storeTab{background:transparent;border:0;border-radius:6px;color:var(--dsw-alias-label-secondary,#667085);cursor:pointer;font:inherit;font-size:13px;line-height:20px;padding:5px 12px;white-space:nowrap}
 .own-market-storeTab:hover{color:var(--dsw-alias-label-primary,#101828)}
-.own-market-storeTab:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:2px}
-.own-market-storeTab[aria-selected='true']{border-bottom-color:var(--dsw-alias-label-primary,#101828);color:var(--dsw-alias-label-primary,#101828);font-weight:500}
+.own-market-storeTab:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:1px}
+.own-market-storeTab[aria-selected='true']{background:var(--dsw-alias-background-primary,#fff);color:var(--dsw-alias-label-primary,#101828);font-weight:500;box-shadow:var(--dsw-shadow-lv1,0 1px 2px rgba(16,24,40,.06))}
+/* ── 标签行：胶囊组在左、筛选触发钮在**最右**（参考图 1：标签靠左、≡ 靠右） ──
+   整行改成 space-between；触发钮是一枚透明图标按钮（漏斗），点开下方下拉。 */
+.own-market-tabBar{display:flex;align-items:center;gap:12px;min-width:0;margin-top:0}
+.own-market-filterBtn{display:inline-grid;place-items:center;flex:none;width:32px;height:32px;padding:0;margin-left:auto;border:0;border-radius:var(--dsw-radius-md,6px);background:transparent;color:var(--dsw-alias-label-secondary,#667085);cursor:pointer}
+.own-market-filterBtn:hover{background:var(--dsw-alias-background-secondary,#f2f4f7);color:var(--dsw-alias-label-primary,#101828)}
+.own-market-filterBtn:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:1px}
+/* ── 筛选下拉（参考图 2 的两组：状态 + 类型；组头带勾、组内可选；本刀只做壳，过滤下一刀）── */
+.own-market-filterWrap{position:relative;flex:none;margin-left:auto}
+.own-market-filterMenu{position:absolute;top:calc(100% + 6px);right:0;z-index:30;min-width:168px;padding:6px;border:1px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:var(--dsw-radius-md,8px);background:var(--dsw-alias-background-primary,#fff);box-shadow:var(--dsw-shadow-lv2,0 8px 24px rgba(16,24,40,.12));display:flex;flex-direction:column;gap:2px}
+.own-market-filterGroup{display:flex;flex-direction:column;gap:2px}
+.own-market-filterGroup + .own-market-filterGroup{margin-top:6px;padding-top:6px;border-top:1px solid var(--dsw-alias-border-l2,#e4e7ec)}
+.own-market-filterOption{display:flex;align-items:center;gap:8px;width:100%;border:0;border-radius:6px;padding:6px 8px;background:transparent;color:var(--dsw-alias-label-primary,#101828);font:inherit;font-size:13px;line-height:20px;text-align:left;cursor:pointer}
+.own-market-filterOption:hover{background:var(--dsw-alias-background-secondary,#f2f4f7)}
+.own-market-filterOption:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:-1px}
+.own-market-filterOption[aria-checked='true']{color:var(--dsw-alias-label-primary,#101828);font-weight:500}
+.own-market-filterCheck{flex:none;width:14px;color:var(--dsw-alias-label-primary,#101828);text-align:center}
+.own-market-filterLabel{flex:1;min-width:0}
 /* 面板：非当前页签只留一个 hidden 空壳（内容整段不挂载），显式补一条 [hidden] 规则，
    免得将来给 .own-market-panel 加上 display 类选择器后覆盖 UA 的 [hidden]{display:none}（本仓已踩过）。 */
 .own-market-panel{min-width:0}
@@ -2651,9 +2725,16 @@ function EnterpriseMarketSummaryLine(): ReactNode {
  * 纯函数体**不能持 `ref`**（调 `useRef` 就变成 hook 组件、直调测试即崩），故键盘走焦在 keydown 里从事件源向上
  * 找 `[role="tablist"]`、按同序取第 `index` 个 `[role="tab"]` 调 `focus()`：只在真浏览器事件里执行。
  */
-function EnterpriseMarketTabStrip({ model, onSelectTab }: {
+function EnterpriseMarketTabStrip({ model, onSelectTab, filterOpen, onToggleFilter, filterSelected, onFilterSelect }: {
   readonly model: EnterpriseMarketShellModel
-  readonly onSelectTab: ((tab: EnterpriseMarketTabId) => void) | undefined
+  readonly onSelectTab?: ((tab: EnterpriseMarketTabId) => void) | undefined
+  /** 筛选下拉开合（缺席 = 关闭；点触发钮 no-op，不给死菜单）。 */
+  readonly filterOpen?: boolean | undefined
+  readonly onToggleFilter?: (() => void) | undefined
+  /** 各组当前选中值（缺席按 `ENTERPRISE_MARKET_FILTER_DEFAULT`，纯函数不持状态）。 */
+  readonly filterSelected?: Partial<Record<EnterpriseMarketFilterGroupId, string>> | undefined
+  /** 选中一项（本刀只回传选中态给上层，真实过滤列表留待下一刀）。 */
+  readonly onFilterSelect?: ((group: EnterpriseMarketFilterGroupId, option: string) => void) | undefined
 }): ReactNode {
   const focusTab = (source: EventTarget | null, index: number): void => {
     const element = source as HTMLElement | null
@@ -2678,24 +2759,66 @@ function EnterpriseMarketTabStrip({ model, onSelectTab }: {
     focusTab(event.currentTarget, nextIndex)
   }
   return (
-    <div role="tablist" aria-label={ENTERPRISE_MARKET_TABLIST_LABEL} className="own-market-storeTabs">
-      {model.tabEntries.map((tab, index) => {
-        const selected = tab.id === model.activeTab
-        return (
-          <button
-            key={tab.id}
-            id={ENTERPRISE_MARKET_TAB_IDS[tab.id].tab}
-            type="button"
-            role="tab"
-            className="own-market-storeTab"
-            aria-selected={selected}
-            aria-controls={ENTERPRISE_MARKET_TAB_IDS[tab.id].panel}
-            tabIndex={selected ? 0 : -1}
-            onClick={() => { onSelectTab?.(tab.id) }}
-            onKeyDown={(event) => { onTabKeyDown(event, index) }}
-          >{tab.text}</button>
-        )
-      })}
+    <div className="own-market-tabBar">
+      {/* 胶囊页签组（保持 role=tablist 在这一层——ARIA 语义不因外层加筛选钮而改变）。 */}
+      <div role="tablist" aria-label={ENTERPRISE_MARKET_TABLIST_LABEL} className="own-market-storeTabs">
+        {model.tabEntries.map((tab, index) => {
+          const selected = tab.id === model.activeTab
+          return (
+            <button
+              key={tab.id}
+              id={ENTERPRISE_MARKET_TAB_IDS[tab.id].tab}
+              type="button"
+              role="tab"
+              className="own-market-storeTab"
+              aria-selected={selected}
+              aria-controls={ENTERPRISE_MARKET_TAB_IDS[tab.id].panel}
+              tabIndex={selected ? 0 : -1}
+              onClick={() => { onSelectTab?.(tab.id) }}
+              onKeyDown={(event) => { onTabKeyDown(event, index) }}
+            >{tab.text}</button>
+          )
+        })}
+      </div>
+      {/* 标签行**最右**的筛选下拉（参考图 1：标签靠左、筛选钮靠右）。本刀只做壳：
+          菜单开合由 `filterOpen`/`onToggleFilter` 驱动（缺席 = 关闭 + no-op，不给死菜单）；
+          菜单里两组选项**可点、有 ✓ 勾选态**，但真实过滤列表留待下一刀（产品决策：先壳后逻辑）。 */}
+      <div className="own-market-filterWrap">
+        <button
+          type="button"
+          className="own-market-filterBtn"
+          aria-label={ENTERPRISE_MARKET_FILTER_LABEL}
+          aria-expanded={filterOpen === true}
+          onClick={() => { onToggleFilter?.() }}
+        ><Filter aria-hidden size={16} /></button>
+        {filterOpen === true ? (
+          <div role="menu" aria-label={ENTERPRISE_MARKET_FILTER_MENU_LABEL} className="own-market-filterMenu">
+            {ENTERPRISE_MARKET_FILTER_GROUPS.map(group => (
+              <div key={group.id} role="group" aria-label={group.id === 'status' ? '状态' : '类型'} className="own-market-filterGroup">
+                {group.options.map(option => {
+                  // 选中值缺席 ⇒ 按默认（全部 / 全部类型）——纯函数不持状态，值从外部传。
+                  const checked = (filterSelected?.[group.id] ?? ENTERPRISE_MARKET_FILTER_DEFAULT[group.id]) === option.id
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={checked}
+                      className="own-market-filterOption"
+                      onClick={() => { onFilterSelect?.(group.id, option.id) }}
+                    >
+                      <span className="own-market-filterCheck" aria-hidden="true">
+                        {checked ? ENTERPRISE_MARKET_FILTER_CHECK : ''}
+                      </span>
+                      <span className="own-market-filterLabel">{option.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -4309,7 +4432,14 @@ export function EnterpriseMarketLegacyShell(props: EnterpriseMarketShellProps): 
           两份表类名**零交集**（`marketplace-entry.spec.ts` 的隔离不变量逐类守着），同页并存不会互相覆盖。 */}
       <style>{baseStyles}{rowStyles}</style>
       {pluginDetail === undefined ? null : <style>{ENTERPRISE_PLUGIN_STYLES}</style>}
-      <EnterpriseMarketTabStrip model={model} onSelectTab={props.onSelectTab} />
+      <EnterpriseMarketTabStrip
+        model={model}
+        onSelectTab={props.onSelectTab}
+        filterOpen={props.filterOpen}
+        onToggleFilter={props.onToggleFilter}
+        filterSelected={props.filterSelected}
+        onFilterSelect={props.onFilterSelect}
+      />
       {/* 「企业技能」页签（默认页签，用户主战场）：与企业插件页签同规则——「技能」大组件开启（= 会话可用）
           且目录非空才出现。列的是后台分配（预置）的全部技能：未装的照列，装不装由用户拨右侧那枚开关决定。
           **内容区四态**：就绪铺行；加载中 / 空 / 失败各有一态（失败 = 人话 + 下一步 + 重试，绝不假装「没有数据」）。 */}
@@ -4452,6 +4582,10 @@ export function useEnterpriseMarketController({ view, store, libraryGate, preset
   const onToggleSection = (section: EnterpriseMarketSectionId): void => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }))
   }
+  // 筛选下拉（标签行最右那枚）：开合 + 各组选中值。**本刀只做壳**——选中态在这里存，
+  // 但**不驱动任何过滤**（真实过滤列表留待下一刀接，产品决策：先壳后逻辑）。
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [filterSelected, setFilterSelected] = useState<Partial<Record<EnterpriseMarketFilterGroupId, string>>>({})
   /**
    * 行展开态：**单选**（同一时刻最多一行展开），行键 = `{页签}:{行 id}`，初值 `null` = 全部收起。
    * **去折叠后没有任何落点消费它**（用户裁决 A：卡片去掉折叠、动作常显）。
@@ -5054,6 +5188,15 @@ export function useEnterpriseMarketController({ view, store, libraryGate, preset
     // 用户点别的页签就是明确地在换页，不该再看到上一页的详情）。技能/配方详情是整页切换，页签那会儿
     // 根本不在 DOM 里，故这里只需管插件详情这一份状态。
     onSelectTab: (tab) => { setActiveTab(tab); setPluginDetailName(undefined) },
+    // 筛选下拉（标签行最右）：开合 + 各组选中值。**本刀只做壳**——选中态在这里存但不驱动过滤
+    // （真实过滤列表留待下一刀；产品决策：先壳后逻辑）。点选后关菜单（照常规下拉交互）。
+    filterOpen,
+    onToggleFilter: () => { setFilterOpen(prev => !prev) },
+    filterSelected,
+    onFilterSelect: (group, option) => {
+      setFilterSelected(prev => ({ ...prev, [group]: option }))
+      setFilterOpen(false)
+    },
     expandedRow,
     onToggleRow,
     // 点行本体 = 把**那一行**记成当前详情目标；行的开关与 `[有更新]` 有自己的回调，不经过这里。

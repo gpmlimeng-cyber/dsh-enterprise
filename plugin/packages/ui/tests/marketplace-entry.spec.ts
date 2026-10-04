@@ -174,16 +174,20 @@ function textOf(node: ReactNode): string {
  */
 const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(12741 chars)",
-  "  div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
-  "    button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=true][aria-controls=market-panel-skills][tabIndex=0][onClick=[fn]][onKeyDown=[fn]]",
-  "      #text:企业技能 1",
-  "    button[id=market-tab-plugins][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-plugins][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
-  "      #text:企业插件 2",
-  "    button[id=market-tab-presets][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-presets][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
-  "      #text:企业配方 0",
-  "    button[id=market-tab-components][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-components][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
-  "      #text:包含内容 4",
+  "  style(15215 chars)",
+  "  div[className=own-market-tabBar]",
+  "    div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
+  "      button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=true][aria-controls=market-panel-skills][tabIndex=0][onClick=[fn]][onKeyDown=[fn]]",
+  "        #text:企业技能 1",
+  "      button[id=market-tab-plugins][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-plugins][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
+  "        #text:企业插件 2",
+  "      button[id=market-tab-presets][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-presets][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
+  "        #text:企业配方 0",
+  "      button[id=market-tab-components][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-components][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
+  "        #text:包含内容 4",
+  "    div[className=own-market-filterWrap]",
+  "      button[type=button][className=own-market-filterBtn][aria-label=筛选][aria-expanded=false][onClick=[fn]]",
+  "        #opaque:[object Object]",
   "  div[id=market-panel-skills][role=tabpanel][aria-labelledby=market-tab-skills][hidden=false][className=own-market-panel]",
   "    section[className=own-market-section][data-market-section=enterprise-skills]",
   "      ul[className=own-market-rows]",
@@ -223,16 +227,20 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
 ]
 const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(12741 chars)",
-  "  div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
-  "    button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-skills][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
-  "      #text:企业技能 1",
-  "    button[id=market-tab-plugins][type=button][role=tab][className=own-market-storeTab][aria-selected=true][aria-controls=market-panel-plugins][tabIndex=0][onClick=[fn]][onKeyDown=[fn]]",
-  "      #text:企业插件 2",
-  "    button[id=market-tab-presets][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-presets][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
-  "      #text:企业配方 0",
-  "    button[id=market-tab-components][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-components][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
-  "      #text:包含内容 4",
+  "  style(15215 chars)",
+  "  div[className=own-market-tabBar]",
+  "    div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
+  "      button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-skills][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
+  "        #text:企业技能 1",
+  "      button[id=market-tab-plugins][type=button][role=tab][className=own-market-storeTab][aria-selected=true][aria-controls=market-panel-plugins][tabIndex=0][onClick=[fn]][onKeyDown=[fn]]",
+  "        #text:企业插件 2",
+  "      button[id=market-tab-presets][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-presets][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
+  "        #text:企业配方 0",
+  "      button[id=market-tab-components][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-components][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
+  "        #text:包含内容 4",
+  "    div[className=own-market-filterWrap]",
+  "      button[type=button][className=own-market-filterBtn][aria-label=筛选][aria-expanded=false][onClick=[fn]]",
+  "        #opaque:[object Object]",
   "  div[id=market-panel-skills][role=tabpanel][aria-labelledby=market-tab-skills][hidden=true][className=own-market-panel]",
   "  div[id=market-panel-plugins][role=tabpanel][aria-labelledby=market-tab-plugins][hidden=false][className=own-market-panel]",
   "    section[className=own-market-section][data-market-section=enterprise-plugins]",
@@ -301,8 +309,8 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
  * 变的只有 `<style>` 的长度那一行（`style(10507 chars)` → `style(12028 chars)`）。
  * 任何人再改这份 CSS（不管是加装饰还是删规则）都会在这里立刻显形。
  */
-const LEGACY_STYLE_LENGTH = 12741
-const LEGACY_STYLE_CHECKSUM = 2814388023
+const LEGACY_STYLE_LENGTH = 15215
+const LEGACY_STYLE_CHECKSUM = 2453962714
 
 /** 「企业技能」节的目录 fixture：与 skill-market.spec 的列表投影同形（列表态 versionId/skills 为空）。 */
 const SKILL: EnterpriseRuntimeSkill = {
@@ -842,7 +850,7 @@ describe('enterprise marketplace entry', () => {
       const css = collectStyleText(page)
       // 顶部间距：两个取值都收紧到压缩后的定值（节内 gap 不动，仍是 12）。
       const tabsRule = cssRuleBody(css, '.own-market-storeTabs')
-      expect(tabsRule, label).toContain('margin-top:0')
+      expect(tabsRule, label).toContain('margin:0')
       expect(tabsRule, label).toContain('flex-wrap:nowrap')
       const sectionRule = cssRuleBody(css, '.own-market-section')
       expect(sectionRule, label).toContain('margin-top:12px')
