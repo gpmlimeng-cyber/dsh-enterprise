@@ -48,8 +48,10 @@
  *      `--dsw-static-*`（官方唯一的彩色图标家族 `FileTypeIcon.module.css` 逐个色相就是这么给的），
  *      四类各一个 `data-icon-kind`（技能/插件/配方/资料库）——没有品牌图资产，故按类别上色；
  *      不写 rgb 字面量（官方那个 violet 例外是官方自己注明无 token，我们不复制）。
- *      详情页标题那枚官方图标改按**稳定后缀**隐藏（`[class*="_cardIcon"]`，哈希前缀随官方构建变），
- *      原 `span[aria-hidden]` 规则保留兜底；详情标题右侧标签（企业徽章 + 版本签）按用户裁决 B 全部撤下。
+ *      详情页左上角那枚 48×48 图标**本刀直接从 JSX 撤掉**（真相是它本来就是本文件自己画的
+ *      .own-market-detailIcon，不是官方 cardIcon；早先那两条按 [data-plugin-item-detail] 定位
+ *      官方的覆盖规则锚在官方包里不存在的属性上，从未生效，一并删除）；
+ *      详情标题右侧标签（企业徽章 + 版本签）按用户裁决 B 全部撤下。
  *   本节所述为准；上面各「本刀」段落里凡是写「官方 `Switch` 是行主控件」「卡片标题行挂企业签/版本签」
  *   「本页没有任何卸载动作」的句子，均已被这一刀取代。
  * [POS]: ui 的企业市场入口（**唯一入口：官方插件页「官方」分组里的「插件市场」卡片**）。**本刀（详情子页面）**：技能行本体可点 → 面板整页切到该技能的详情子页面；**面板就是官方 `plugins.item` 的 page 视图、没有真实路由，故用一份视图状态切换（`skillDetailId` → `skillPage`），不硬造路由**。「返回技能列表」是唯一返回入口（面包屑按钮，键盘可达）。详情里的动作与行上**同源**：同一枚 `EnterpriseMarketSkillRowActions`、同一份 `enterpriseMarketSkillRowFacts`、同一个 `onToggleSkill` 回调、同一份 `skillActionError`，因此不存在第二套状态或第二个动作实现。文件树与预览只消费 Host 已有的两条只读子路由（`/enterprise/api/v1/local/skills/<id>/files` 与 `.../<id>/file?path=`，经 `store.api.skillFiles`/`store.api.skillFile` 发出）；**未安装就一条请求都不发**、如实说「安装后可浏览文件」，绝不伪造树；默认选中并预览 `SKILL.md`；预览是 `<pre>` 里的**纯文本子节点**（全文件无 `dangerouslySetInnerHTML`），长文件靠 `max-height` 滚动 + 字节提示；读取失败给 `role="alert"` + 稳定错误码 + 重试。**只读正文路由 `/skills/content` 按用户要求保留**（Host 侧注册与既有单测不动），本页统一走文件路由那一份路径实现。 以下为既有能力：企业插件行与组件行**不给**详情入口（用户只要求技能行；插件行本轮一字未动，组件行是交付排期清单）。**目录行的落点与行为**：点行本体进详情；`[有更新]`（真实 `<button>`，点击 = 更新到中心当前版本）与安装/卸载 `Switch` **常显在行上**且不触发详情；失败给 `role="alert"` + 稳定错误码且**不禁用**开关（再拨一次就是重试）。**三页签**（企业技能默认 / 企业插件 / 组件）共用 `EnterpriseMarketTabStrip` 一份实现：手写 `role="tablist"` + roving `tabIndex` + ←/→/Home/End 走焦并选中，`id`/`aria-controls`/`aria-labelledby` 三处同源；组件节是唯一还保留折叠语义的一节（折叠态列表整段不进 DOM）。**严禁**任何价格/交易/购买/购物车/客服之类的商业化字样——全树文本都不出现（由测试反向锁死）。`store` 与开登录回调均为可选注入：缺席时开关恒禁用、会话不可用时目录节不出现。**样式纪律**：本文件的类名与同包其他源文件**零交集**（两处 `<style>` 都是全局单类选择器，同名会互相覆盖）；主题只用 `--dsw-*` token，不新造颜色。 **本刀（版本签短号）**：真实 `sourceDshVersion` 是完整坐标（`skillhub.cn/dev-expert@2.0.3`），整串会把标题挤成一个字（真机截图已证）；故**列表里只显示版本号**（`enterpriseMarketSkillVersionLabel`，最后一个 `@` 之后），**完整坐标在签的 `title` 与详情徽标**；既有技能（无 `@` 的 `0.1.7-rc.2` 形态）显示形式一字不变，签的类名/tone/位置与行上其他东西不动。 **本刀（企业配方页签）**：配方行与配方详情用的是**同一批**类名（`.own-market-row*`/`.own-market-cardHead`/`.own-market-cardId`/`.own-market-cardDesc`/`.own-market-detail*`/`.own-market-skillTag`），**一个新类名都不加**——版式取值与技能/插件行逐值同源，故本刀 CSS 一字未动（`baseStyles`/`rowStyles`/`detailStyles` 三份字符串与改动前逐字节相同）。 **本刀**：三级降级链的调度与事实全在共享控制器一处（逐行读 `status`、真开关的 enable/disable、授权弹层的确认与取消），行上与详情里读的是同一份 facts、同一批回调；弹层不新增路由、不新增 slot。 **本刀（企业标签）**：徽章与胶囊只消费官方座位与官方原语——①「企业」徽章挂在官方 `plugins.detail.badge` 上（该座位在我们这条 item 详情页里真的会被渲染，已按官方实物核实，不是白挂）；② 与官方「实验性」签的**一致口径**是可验证的三件：同一枚官方 `Tag` 原语本体、同一个 `tone="info"`、props 恰好只有 `{className,tone,children}`（官方公开面之外一个属性都不给）；**拿不到的是官方那个本地尺寸覆盖类**（`PluginManagerPage` 的 `statusTag` = CSS module 哈希名 `X_2TxG_statusTag`，该包只导出 `NS`/`PANEL_ID`/`apply`/`inject`，`./src/*` 指向的 `src/` 未随包发布），故按「不新增 CSS 类」退到官方 primitives 公开面，尺寸差异如实记在 `EnterpriseMarketBadgeTag` 的注释里；③ 描述行与徽章同源（同一枚 `EnterpriseMarketBadgeTag`），两处不会漂成两个词。 **本刀（企业标签移回标题行）**：用户明确「企业应该在标题行，标题后面」两次，故描述行胶囊撤销、恢复纯文本；标题行那一枚**不再**由本文件渲染——它由 `market-entry-badge.ts` 在官方列表 DOM 上做装饰（克隆官方 Tag 实物，与官方「实验性」签逐像素一致），本文件只保留**详情页**那一枚 React 徽章；本文件与 `market-entry-badge.ts` 的分工是「React 槽 vs DOM 装饰」，两侧都读同一份 `ENTERPRISE_MARKET_BADGE_TEXT`，不会漂成两个词。 **本刀**：进度只在真的在装的那一行、只在有工序时进 DOM；多行各算各的（按包名归行），不影响别的行的可拨性。 **本刀（企业插件真取消）**：取消入口与进度**同一条链、同一份投影**——「能不能取消」由 Host 真受管态算（`plugin-install-progress.ts` 的 `ENTERPRISE_PLUGIN_CANCELABLE_STATES`），「在不在取消中」由同一份 store 快照的 `pluginCancelBusy` 算；不新增任何 CSS 类、不新增 slot、不新增路由，写入口与「企业设置 → 插件」那枚按钮同名同源（都是 `store.cancelPlugin`）；取消的收束走既有那条行内提示（`EnterpriseMarketRowError` + 唯一码表），不新造第二套「已取消」提示组件。
@@ -227,10 +229,12 @@ export type EnterpriseMarketTabId = 'skills' | 'plugins' | 'presets' | 'componen
  * （原先企业技能 / 企业插件两节内部各占一行的 `N 个` 计数行已退场，数字并入页签，见该投影）。
  */
 export const ENTERPRISE_MARKET_TABS = [
-  { id: 'skills', label: '企业技能' },
-  { id: 'plugins', label: '企业插件' },
-  { id: 'presets', label: '企业配方' },
-  { id: 'components', label: '包含内容' },
+  // 页签名（用户口径）：**去「企业」前缀**、四名逐字为 技能 / 插件 / 配方 / 组件。
+  // 「企业」二字已由标题行的「企业」徽章承担，页签再带一遍是噪音（且比竞品多两个字）。
+  { id: 'skills', label: '技能' },
+  { id: 'plugins', label: '插件' },
+  { id: 'presets', label: '配方' },
+  { id: 'components', label: '组件' },
 ] as const
 
 /** 默认页签＝「企业技能」：用户的主战场，后台分配（预置）的技能一进页面就该看得见。 */
@@ -820,14 +824,6 @@ export interface EnterpriseMarketPluginRow {
    */
   readonly readme?: string | undefined
   /**
-   * 服务端新增的**可选分类**（`category`）——插件行**列表分组**与**筛选类型**的取值（本刀新增）。
-   *
-   * 与技能行 / 配方行的 `category` **逐字同一口径**：只有解码层真拿到非空串才产出这个键。
-   * 渲染层经 `enterpriseMarketCategory` 归一：**不在七类里的一律归「其他」**——行上不显示分类签、
-   * 也绝不替服务端编一个分类；「已下架」（目录缺席）的行同样没有分类 ⇒ 归「其他」。
-   */
-  readonly category?: string | undefined
-  /**
    * 目录里这一版**声明的操作系统**（契约三平台名，取值门禁在 `local-api-decode.ts:720`）。
    * **数据面字段：只随行携带，不参与任何判断、也不上屏**——插件行的可拨性与文案与它完全无关
    * （声明含当前平台 / 不含 / 根本没有该字段，三种形态渲染结果逐字相同）。
@@ -887,10 +883,6 @@ export function enterpriseMarketPluginRows(
       // 描述照解码层同一口径：只有真拿到非空串才产出这个键（缺席/null/空串都不产出，
       // 界面第二行据此说「暂无描述」而不是画一行空白）。目录缺席（已下架）时自然也没有描述。
       ...(cat?.description === undefined ? {} : { description: cat.description }),
-      // 分类（本刀：列表分组 + 筛选类型）照解码层同一口径带上来：只有真拿到非空串才产出这个键。
-      // 渲染层把「缺席」与「不在七类里」一并归入「其他」——分类归组是**展示口径**，
-      // 故在分组投影里做，不在这一层编造一个「其他」字面（数据层如实保持缺席）。
-      ...(cat?.category === undefined ? {} : { category: cat.category }),
       // README（口径 20）同样照解码层同一口径带上来：只有真拿到非空串才产出这个键（缺席/null/空串都不产出）。
       // 它在**详情**里是「描述」段的首选取值，在**行上**不出现（第二行读的仍是上面那枚短 description）。
       ...(cat?.readme === undefined ? {} : { readme: cat.readme }),
@@ -1670,9 +1662,13 @@ export function enterpriseMarketShellModel(props: EnterpriseMarketShellProps): E
     && (categoryFilter === 'all' || enterpriseMarketCategory(skill.category) === categoryFilter)
     && enterpriseMarketSearchMatch(searchText, [skill.displayName, skill.description, skill.skillId])
   ))
+  // 插件侧**没有分类字段**：服务端零落库、零投影，契约 plugin.yaml 也无此键（三条证据链全零命中），
+  // 故行模型与解码层都不带它——**插件分类待后端另开一刀**（加列 + 投影 + 契约字段）后才接。
+  // 在那之前插件行恒无分类，经 `enterpriseMarketCategory(undefined)` 一律归「其他」，
+  // 筛选「非其他」时自然一条都不命中——这是**预期状态**，不是缺陷，故下面的筛选与分组照旧走同一套口径。
   const visiblePlugins = enterprisePlugins.filter(plugin => (
     passStatus(enterpriseMarketPluginRowFacts(props, plugin).enabled)
-    && (categoryFilter === 'all' || enterpriseMarketCategory(plugin.category) === categoryFilter)
+    && (categoryFilter === 'all' || enterpriseMarketCategory(undefined) === categoryFilter)
     && enterpriseMarketSearchMatch(searchText, [
       enterprisePluginDisplayName(plugin.displayName, plugin.packageName),
       plugin.description,
@@ -1688,7 +1684,7 @@ export function enterpriseMarketShellModel(props: EnterpriseMarketShellProps): E
   const filtering = searchText.trim() !== '' || statusFilter !== 'all' || categoryFilter !== 'all'
   // 分组：只保留非空组，组头顺序恒为七类顺序。
   const skillGroups = enterpriseMarketCategoryGroups(visibleSkills, row => row.category)
-  const pluginGroups = enterpriseMarketCategoryGroups(visiblePlugins, row => row.category)
+  const pluginGroups = enterpriseMarketCategoryGroups(visiblePlugins, () => undefined)
   const presetGroups = enterpriseMarketCategoryGroups(visiblePresets, row => row.category)
   // 页签计数取该页签**真正要渲染的行数**：目录门控不过即如实记 0，绝不在面板空白时还喊「有 N 条」。
   const tabCounts: Record<EnterpriseMarketTabId, number> = {
@@ -2794,8 +2790,8 @@ const rowStyles = `
  *   · `.own-market-detailTop` = `_detailTop`（padding-top:28px）
  *   · `.own-market-crumb` = `_crumb`（tertiary 12.5px、gap 6、无边框透明按钮、hover 转主色、focus 环）
  *   · `.own-market-crumbIcon` = `_crumbIcon`（rotate 90deg，把 chevron-down 转成「返回」箭头）
- *   · `.own-market-detailHead` = `_detailHead`（图标 + 动作：margin:32px 0 0、两端对齐、gap 12）
- *   · `.own-market-detailIcon` = `_cardIcon`（48×48、`.5px` border-l3、radius-lg、secondary）
+ *   · `.own-market-detailHead` = `_detailHead`（动作区：margin:32px 0 0、两端对齐、gap 12；原先的
+ *     `.own-market-detailIcon` = `_cardIcon` 那条 48×48 盒子已按用户口径**连元素带样式一并撤掉**）
  *   · `.own-market-detailMain` = `_detailMain`（margin-top:20px、flex column、gap 8）
  *   · `.own-market-titleRow` = `_titleRow`（flex-wrap + gap 8）
  *   · `.own-market-detailTitle` = `_detailTitle`（20/28-500）；版本徽标就是官方 `Tag` + `.own-market-tag`
@@ -2819,7 +2815,6 @@ const detailStyles = `
 .own-market-crumb:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary,#2563eb));outline-offset:2px}
 .own-market-crumbIcon{transform:rotate(90deg)}
 .own-market-detailHead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:32px 0 0}
-.own-market-detailIcon{display:inline-flex;flex:none;align-items:center;justify-content:center;width:48px;height:48px;border:.5px solid var(--dsw-alias-border-l3,#d0d5dd);border-radius:var(--dsw-radius-lg,16px);color:var(--dsw-alias-label-secondary,#667085)}
 .own-market-detailMain{display:flex;flex-direction:column;gap:8px;min-width:0;margin-top:20px}
 .own-market-titleRow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0}
 .own-market-detailTitle{margin:0;font-size:20px;font-weight:500;line-height:28px}
@@ -2851,20 +2846,22 @@ const detailStyles = `
 .own-market-filePreviewMeta{margin-left:auto;color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:11px;line-height:16px;font-variant-numeric:tabular-nums}
 /* 正文：纯文本 <pre>（长文件靠 max-height 滚动看全，不做截断；空白保留、超长行软换行）。 */
 .own-market-fileText{margin:0;max-height:360px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:10px 12px;border:.5px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:var(--dsw-radius-md,12px);background:var(--dsw-alias-background-secondary,#f2f4f7);font:11.5px/17px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--dsw-alias-label-primary,#101828)}
-/* ── 标题区：去掉官方那枚 48×48 图标（用户口径） ──────────────────────────
-   官方 DetailTop 的 cardIcon（ui-plugin-manager/PluginManagerPage.module.css:233，48×48 +
-   hairline + radius-lg）渲染在改不了的官方源码里，且是 CSS module（运行时哈希类名 css.cardIcon）
-   ⇒ 拿不到类名、.detailHead 同样是哈希。故只能按**官方非哈希标记**定位：详情容器
-   [data-plugin-item-detail="<条目 id>"]（PluginManagerPage.tsx:534，值＝条目 id）里，
-   那枚图标是**唯一一个 aria-hidden 的 span**（PluginManagerPage.tsx:441 <span aria-hidden>；
-   它右侧 .detailActions 里是我们的 button，没有裸 span）。
-   若将来官方在详情里加了别的 span[aria-hidden]，本规则会多隐藏一个——退而求其次：优先按
-   span+aria-hidden 隐藏，命中不到即原样显示（官方版式不失效、不留半成品）。 */
-[data-plugin-item-detail="plugin-market"] span[aria-hidden="true"]{display:none}
-/* **用户点名**：官方详情页标题那枚图标（运行时类名形如 u9Hv6q_cardIcon / ZVcBiW_cardIcon）。
-   CSS module 的哈希前缀随官方构建变化，故按**稳定后缀** _cardIcon 匹配（属性包含选择器），
-   仍限定在我们的详情容器里 ⇒ 不会碰到官方其它插件页。下面那条 span 规则作为兜底保留。 */
-[data-plugin-item-detail="plugin-market"] [class*="_cardIcon"]{display:none}
+/* ── 标题区：左上角那枚 48×48 图标 ─────────────────────────────────────
+   两枚，各打一处：
+   ① **本文件自绘的那枚**（技能详情 Sparkles / 配方详情 BookMarked，类名 .own-market-detailIcon）
+      已按用户口径**从 JSX 连元素带样式一并撤掉**——本文件这半边不需要任何规则。
+   ② **官方 DetailTop 自己那枚**仍在我们的页面上：我们的条目注册成官方 plugins.item
+      （id=plugin-market，client.tsx），点进去走官方 ItemDetail → DetailTop 逐字渲染
+      div.detailHead > span.cardIcon[aria-hidden=true]（48×48，与官方 PluginManagerPage.module.css
+      的 cardIcon 同值）。用户不要它，故按**稳定后缀**隐藏：官方类名是 CSS module 哈希
+      （本机实测 ZVcBiW_cardIcon，哈希前缀随官方构建变），故匹配 _cardIcon 后缀而不是写死整名。
+      锚点 [data-plugin-item-detail] **刻意不写死值**：官方那个值是动态 item.id，写死 ="plugin-market"
+      在别的条目上会匹配不到（这一条是上一轮那两条规则的真正错处，不是「属性不存在」）。
+      作用域收在 [class*=_detailHead] 内：官方 crumbIcon 那枚 chevron 同样是 aria-hidden 的 span，
+      但它是 detailTop 的直系子节点、不在 detailHead 里，故不会被误伤。
+      命中不到即原样显示官方版式（不失效、不报错、不留半成品）。 */
+[data-plugin-item-detail] [class*="_detailHead"] [class*="_cardIcon"]{display:none}
+
 .own-market-fileHint{margin:0;color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:12px;line-height:19px}
 .own-market-fileRetry{display:flex;align-items:center;gap:8px}
 /* 术语降维新增（详情页专用，列表那份 <style> 不带这些规则）：
@@ -2999,12 +2996,16 @@ export function EnterpriseMarketDetailActions({ subject, tabSeat }: {
 }
 
 /**
- * 标题区那枚 48×48 官方图标的**隐藏**（CSS 级，非 DOM 装饰）：官方 `DetailTop` 的 `cardIcon`
- * （`PluginManagerPage.module.css:233`，48×48 + hairline + radius-lg）在我们改不了的官方源码里，
- * 故只能按官方**稳定结构标记** `data-plugin-item-detail`（`PluginManagerPage.tsx:534`，值＝条目 id）
- * 定位到详情容器，再沿 `.detailHead > .cardIcon` 关系隐藏它——**不猜 CSS module 哈希类名**，
- * 靠的是官方 DOM 关系（`.detailHead` 直系第一个 48×48 盒子）。
- * 样式写在本文件 `detailStyles` 的一条覆盖规则里（下一刀落），命中不到即原样显示（官方版式，不失效、不报错）。
+ * 官方详情页的**容器属性选择器**（官方 `ItemDetail` 逐字：`"data-plugin-item-detail": item.id`，
+ * 即属性存在、值取**动态条目 id**）。
+ *
+ * ★ **本刀更正一条旧结论**：早先这里写着「该属性在官方包里 grep 0 命中、那两条覆盖规则从未生效」——
+ * **那是错的**（对 app.asar 逐字复核：属性确实存在，1 处命中）。那两条规则真正的错处只有一处：
+ * **把属性值写死成 ="plugin-market"**，而官方那个值是动态 `item.id`，写死后匹配不到我们的容器。
+ * 本刀那条隐藏官方图标的覆盖规则已改用不写死值的 `[data-plugin-item-detail]`（见 `detailStyles`）。
+ *
+ * **本常量现在没有消费者**（唯一用过它的两条规则已删）。它是对外导出，故本刀**不删**——
+ * 删它是一次公开 API 变更，越出本刀范围。是否删除请示总调。
  */
 export const ENTERPRISE_DETAIL_CONTAINER_SELECTOR = `[data-plugin-item-detail="${ENTERPRISE_MARKET_ENTRY_ID}"]`
 
@@ -4309,7 +4310,6 @@ export function EnterpriseSkillDetailPage(props: EnterpriseSkillPageProps): Reac
           <span>{ENTERPRISE_SKILL_DETAIL_BACK_TEXT}</span>
         </button>
         <div className="own-market-detailHead">
-          <span className="own-market-detailIcon" aria-hidden="true"><Sparkles size={24} /></span>
           <div className="own-market-detailActions">
             <EnterpriseMarketSkillRowActions row={props.row} facts={props.facts} onToggleSkill={props.onToggleSkill} />
           </div>
@@ -4516,7 +4516,6 @@ export function EnterprisePresetDetailPage(props: EnterprisePresetPageProps): Re
           <span>{ENTERPRISE_PRESET_DETAIL_BACK_TEXT}</span>
         </button>
         <div className="own-market-detailHead">
-          <span className="own-market-detailIcon" aria-hidden="true"><BookMarked size={24} /></span>
           <div className="own-market-detailActions">
             <EnterpriseMarketPresetRowActions
               row={props.row}

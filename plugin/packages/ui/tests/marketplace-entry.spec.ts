@@ -195,13 +195,13 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "  div[className=own-market-tabBar]",
   "    div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
   "      button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=true][aria-controls=market-panel-skills][tabIndex=0][onClick=[fn]][onKeyDown=[fn]]",
-  "        #text:企业技能 1",
+  "        #text:技能 1",
   "      button[id=market-tab-plugins][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-plugins][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
-  "        #text:企业插件 2",
+  "        #text:插件 2",
   "      button[id=market-tab-presets][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-presets][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
-  "        #text:企业配方 0",
+  "        #text:配方 0",
   "      button[id=market-tab-components][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-components][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
-  "        #text:包含内容 4",
+  "        #text:组件 4",
   "  div[id=market-panel-skills][role=tabpanel][aria-labelledby=market-tab-skills][hidden=false][className=own-market-panel]",
   "    section[className=own-market-section][data-market-section=enterprise-skills]",
   "      section[className=own-market-categoryGroup][data-enterprise-market-group=其他]",
@@ -256,13 +256,13 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "  div[className=own-market-tabBar]",
   "    div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
   "      button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-skills][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
-  "        #text:企业技能 1",
+  "        #text:技能 1",
   "      button[id=market-tab-plugins][type=button][role=tab][className=own-market-storeTab][aria-selected=true][aria-controls=market-panel-plugins][tabIndex=0][onClick=[fn]][onKeyDown=[fn]]",
-  "        #text:企业插件 2",
+  "        #text:插件 2",
   "      button[id=market-tab-presets][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-presets][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
-  "        #text:企业配方 0",
+  "        #text:配方 0",
   "      button[id=market-tab-components][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-components][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
-  "        #text:包含内容 4",
+  "        #text:组件 4",
   "  div[id=market-panel-skills][role=tabpanel][aria-labelledby=market-tab-skills][hidden=true][className=own-market-panel]",
   "  div[id=market-panel-plugins][role=tabpanel][aria-labelledby=market-tab-plugins][hidden=false][className=own-market-panel]",
   "    section[className=own-market-section][data-market-section=enterprise-plugins]",
@@ -474,24 +474,31 @@ describe('enterprise marketplace entry', () => {
       const page = shell({ view: 'page' })
       expect(isValidElement(page), label).toBe(true)
       expect(isValidElement(page) ? page.props['aria-label'] : undefined, label).toBe(ENTERPRISE_MARKET_ENTRY_LABEL)
-      // page 视图 = 一条页签条 + 三个面板；页签文案 = 基础词 + 计数（无数据时企业技能/企业插件为 0、
-      // 组件恒为清单长度 3）——计数原先独占一行，现在并入页签（顶部压缩）。
+      // page 视图 = 一条页签条 + 三个面板；页签文案 = 基础词 + 计数（无数据时技能/插件/配方为 0、
+      // 组件恒为清单长度 4）——计数原先独占一行，现在并入页签（顶部压缩）。
       const text = textOf(page)
       for (const tab of ENTERPRISE_MARKET_TABS) expect(text, label).toContain(tab.label)
-      expect(text, label).toContain(enterpriseMarketTabLabel('企业技能', 0))
-      expect(text, label).toContain(enterpriseMarketTabLabel('企业插件', 0))
-      expect(text, label).toContain(enterpriseMarketTabLabel('包含内容', ENTERPRISE_MARKET_COMPONENTS.length))
+      expect(text, label).toContain(enterpriseMarketTabLabel('技能', 0))
+      expect(text, label).toContain(enterpriseMarketTabLabel('插件', 0))
+      expect(text, label).toContain(enterpriseMarketTabLabel('组件', ENTERPRISE_MARKET_COMPONENTS.length))
       // 卡片摘要仍只出现在 summary 视图（page 里一个字都不重复）。
       expect(text, label).not.toContain(ENTERPRISE_MARKET_SUMMARY)
     }
   })
 
-  // 本刀的核心：page 视图顶部一条手写页签条，四个页签 + 四个面板严格配对，默认选中「企业技能」。
-  // **本刀（企业配方页签）**：页签由三枚改四枚——「企业配方」插在**企业插件之后、包含内容之前**（用户指定的位次）。
-  it('renders a hand-written tablist with the four page tabs and 企业技能 selected by default', () => {
+  // 本刀的核心：page 视图顶部一条手写页签条，四个页签 + 四个面板严格配对，默认选中「技能」。
+  // **本刀（企业配方页签）**：页签由三枚改四枚——「配方」插在**插件之后、组件之前**（用户指定的位次）。
+  // **本刀（页签改名）**：四名逐字为 技能 / 插件 / 配方 / 组件，**不带「企业」前缀**。
+  it('renders a hand-written tablist with the four page tabs and 技能 selected by default', () => {
     expect(ENTERPRISE_MARKET_TABS.map(tab => tab.id)).toEqual(['skills', 'plugins', 'presets', 'components'])
-    expect(ENTERPRISE_MARKET_TABS.map(tab => tab.label)).toEqual(['企业技能', '企业插件', '企业配方', '包含内容'])
-    // 位次锁：配方在企业插件之后、包含内容之前（不是追加在末尾、也不是复用旧「应用商店」那批 id）。
+    expect(ENTERPRISE_MARKET_TABS.map(tab => tab.label)).toEqual(['技能', '插件', '配方', '组件'])
+    // 位次锁：配方在插件之后、组件之前（不是追加在末尾、也不是复用旧「应用商店」那批 id）。
+    // **改名后的新锁**：页签不再带「企业」前缀，也不再用「包含内容」那类降维长名
+    // （「企业」二字由标题行的徽章承担，页签再带一遍是噪音）。
+    for (const tab of ENTERPRISE_MARKET_TABS) {
+      expect(tab.label, tab.id).not.toContain('企业')
+      expect(tab.label, tab.id).not.toContain('包含')
+    }
     expect(ENTERPRISE_MARKET_TABS.map(tab => tab.id).indexOf('presets')).toBeGreaterThan(ENTERPRISE_MARKET_TABS.map(tab => tab.id).indexOf('plugins'))
     expect(ENTERPRISE_MARKET_TABS.map(tab => tab.id).indexOf('presets')).toBeLessThan(ENTERPRISE_MARKET_TABS.map(tab => tab.id).indexOf('components'))
     expect(ENTERPRISE_MARKET_DEFAULT_TAB).toBe('skills')
@@ -505,9 +512,9 @@ describe('enterprise marketplace entry', () => {
       expect(tablists, label).toHaveLength(1)
       expect(tablists[0]?.['aria-label'], label).toBe(ENTERPRISE_MARKET_TABLIST_LABEL)
       const tabs = collectByRole(page, 'tab')
-      // 页签文案 = 基础词 + 紧凑计数（企业技能/企业插件无目录时如实为 0，组件 = 清单长度 3）：
+      // 页签文案 = 基础词 + 紧凑计数（技能/插件/配方无目录时如实为 0，组件 = 清单长度 4）：
       // 原先两节内部的独立计数行已删，数字并入页签（详情页顶部少一行）。
-      expect(tabs.map(tab => tab['children']), label).toEqual(['企业技能 0', '企业插件 0', '企业配方 0', '包含内容 4'])
+      expect(tabs.map(tab => tab['children']), label).toEqual(['技能 0', '插件 0', '配方 0', '组件 4'])
       expect(tabs.map(tab => tab['children']), label).toEqual(ENTERPRISE_MARKET_TABS.map(tab => enterpriseMarketTabLabel(
         tab.label,
         tab.id === 'components' ? ENTERPRISE_MARKET_COMPONENTS.length : 0,
@@ -537,7 +544,7 @@ describe('enterprise marketplace entry', () => {
       tabSeat: { entries: model.tabEntries, activeTab: model.activeTab, onSelect: undefined },
     })
     const slotTabs = collectByRole(slot, 'tab')
-    expect(slotTabs.map(tab => tab['children'])).toEqual(['企业技能 0', '企业插件 0', '企业配方 0', '包含内容 4'])
+    expect(slotTabs.map(tab => tab['children'])).toEqual(['技能 0', '插件 0', '配方 0', '组件 4'])
     expect(slotTabs.map(tab => tab['aria-selected'])).toEqual([true, false, false, false])
     // 标题槽**只出页签、不出按钮**（用户口径：刷新/添加插件挪到搜索行）。
     expect(collectOfficialButtonProps(slot)).toEqual([])
@@ -616,8 +623,8 @@ describe('enterprise marketplace entry', () => {
         expect(text, where).not.toContain('内容清单')
       } else if (tab.id === 'presets') {
         // 这一组 props 没给配方目录（`enterprisePresets` 缺席 = 空目录）：门控不过 ⇒ 内容整段不挂载，
-        // 页签条上只剩「企业配方 0」。配方行本身另有专门用例（preset 那一条）。
-        expect(text, where).toContain(enterpriseMarketTabLabel('企业配方', 0))
+        // 页签条上只剩「配方 0」。配方行本身另有专门用例（preset 那一条）。
+        expect(text, where).toContain(enterpriseMarketTabLabel('配方', 0))
         expect(text, where).not.toContain('会议纪要技能组')
         expect(text, where).not.toContain('ent-a')
         expect(text, where).not.toContain('内容清单')
@@ -935,16 +942,16 @@ describe('enterprise marketplace entry', () => {
       expect(tabRule, label).toContain('white-space:nowrap')
       expect(tabRule, label).toContain('font-size:13px')
       expect(tabRule, label).toContain('line-height:20px')
-      // 计数确实落在页签上（企业技能 1），且压缩没有动到节里的行内容。
+      // 计数确实落在页签上（技能 1），且压缩没有动到节里的行内容。
       const tabs = collectByRole(page, 'tab')
-      expect(tabs.map(tab => tab['children']), label).toEqual(['企业技能 1', '企业插件 0', '企业配方 0', '包含内容 4'])
+      expect(tabs.map(tab => tab['children']), label).toEqual(['技能 1', '插件 0', '配方 0', '组件 4'])
       expect(collectSectionByHook(page, 'enterprise-skills'), label).not.toBeUndefined()
       // 行标题类名两套外壳**同源**（同一枚子块渲染同一串类名，版式统一的落点）：都是 9723a97 那套 `.own-market-cardId`。
       expect(collectByClassName(page, titleClass).map(props => props['children']), label).toEqual(['会议纪要技能组'])
     }
     // 纯投影口径：基础词 + 计数，页签文案不会被写成「N 个」那种长写法。
-    expect(enterpriseMarketTabLabel('企业技能', 3)).toBe('企业技能 3')
-    expect(enterpriseMarketTabLabel('包含内容', 3)).toBe('包含内容 3')
+    expect(enterpriseMarketTabLabel('技能', 3)).toBe('技能 3')
+    expect(enterpriseMarketTabLabel('组件', 3)).toBe('组件 3')
   })
 
   // 「企业插件」节：catalog + 本机态归并、仅当「插件」组件 ON 且有记录时渲染。
@@ -999,7 +1006,7 @@ describe('enterprise marketplace entry', () => {
       expect(textOf(off), label).not.toContain('ent-a')
       expect(collectSectionByHook(off, 'enterprise-plugins'), label).toBeUndefined()
       // 计数口径锁：页签数字取**真正要渲染的行数**（门控不过即 0），绝不出现「页签说 2 条、面板空白」。
-      expect(collectByRole(off, 'tab').map(tab => tab['children']), label).toEqual(['企业技能 0', '企业插件 0', '企业配方 0', '包含内容 4'])
+      expect(collectByRole(off, 'tab').map(tab => tab['children']), label).toEqual(['技能 0', '插件 0', '配方 0', '组件 4'])
       // ON：sessionUsable=true → 「插件」组件开启 → 出插件行 + 逐个包名 + 计数。
       const on = shell({ view: 'page', activeTab: 'plugins', sessionUsable: true, enterprisePlugins: enterprisePlugins as never })
       const text = textOf(on)
@@ -1023,8 +1030,8 @@ describe('enterprise marketplace entry', () => {
       // 插件区里**一枚官方 Tag 都没有**（企业签与版本签都按用户口径撤掉）。
       const tags = collectOfficialTagProps(collectSectionByHook(on, 'enterprise-plugins'))
       expect(tags.map(props => props['children']), label).toEqual([])
-      // 计数已并入页签文案（原先节内那行独立的 `2 个` 已删）：这里锁「企业插件 2」。
-      expect(text, label).toContain(enterpriseMarketTabLabel('企业插件', 2))
+      // 计数已并入页签文案（原先节内那行独立的 `2 个` 已删）：这里锁「插件 2」。
+      expect(text, label).toContain(enterpriseMarketTabLabel('插件', 2))
       // 节内独立计数行确实不存在（新外壳的 HERO 会另有「2 个企业插件」这句 chip 文案，故不能再用 `2 个` 当代理断言）。
       expect(collectByClassName(on, 'own-market-sectionMeta'), label).toEqual([])
       expect(collectSectionByHook(on, 'enterprise-plugins'), label).not.toBeUndefined()
@@ -1087,10 +1094,10 @@ describe('enterprise marketplace entry', () => {
       const off = shell({ view: 'page', sessionUsable: false, enterpriseSkills })
       expect(collectSectionByHook(off, 'enterprise-skills'), label).toBeUndefined()
       expect(textOf(off), label).not.toContain('会议纪要技能组')
-      // ON：两行文案 + 计数（原先那行独立的 `1 个` 已删，计数并入页签文案 `企业技能 1`）。
+      // ON：两行文案 + 计数（原先那行独立的 `1 个` 已删，计数并入页签文案 `技能 1`）。
       const on = shell({ view: 'page', sessionUsable: true, enterpriseSkills })
       const text = textOf(on)
-      expect(text, label).toContain(enterpriseMarketTabLabel('企业技能', 1))
+      expect(text, label).toContain(enterpriseMarketTabLabel('技能', 1))
       // 节内独立计数行确实不存在（新外壳的 HERO 另有「共 1 个企业技能」这句 chip 文案，
       // 故「正文不含 `N 个`」不再是这条语义的代理断言——改锁那个容器本身）。
       expect(collectByClassName(on, 'own-market-sectionMeta'), label).toEqual([])
@@ -2349,6 +2356,10 @@ describe('enterprise marketplace entry', () => {
       'own-market-storeHero', 'own-market-storeHeroTitle', 'own-market-storeHeroChips', 'own-market-storeHeroChip',
       'own-market-storeHeroNote', 'own-market-catalogSearch', 'own-market-catalogSearchInput',
       'own-market-catalogSearchEmpty', 'own-market-storePage', 'own-market-catalog',
+      // **本刀（撤掉详情左上角那枚 48×48 图标）**：真相是它本来就是本文件自己画的
+      // `.own-market-detailIcon`（不是官方 cardIcon），连元素带这条死样式一并删除。
+      // 故它进这份死样式清单——**不许复活**，免得又变成一枚没人要的 48×48 盒子。
+      'own-market-detailIcon',
     ]) {
       expect(mine.has(dead), dead).toBe(false)
     }
@@ -2638,10 +2649,12 @@ describe('enterprise skill detail page', () => {
     expect(crumb?.['aria-label']).toBe(ENTERPRISE_SKILL_DETAIL_BACK_LABEL)
     expect(textOf(crumb?.['children'] as ReactNode)).toContain(ENTERPRISE_SKILL_DETAIL_BACK_TEXT)
     expect(collectByClassName(tree, 'own-market-crumbIcon')).toHaveLength(1)
-    // 头部：图标框 + 动作区（官方 `_detailHead` = icon + actions，两端对齐）。
+    // 头部：**只有动作区**（官方 `_detailHead` = actions，两端对齐）。左上角那枚 48×48 图标
+    // 按用户口径**已从 JSX 撤掉**（它本来就是本文件自己画的 `.own-market-detailIcon`），
+    // 故这里是**反向锁**：树上不得再出现这枚图标、那条类名也不得复活。
     expect(collectByClassName(tree, 'own-market-detailTop')).toHaveLength(1)
     expect(collectByClassName(tree, 'own-market-detailHead')).toHaveLength(1)
-    expect(collectByClassName(tree, 'own-market-detailIcon')).toHaveLength(1)
+    expect(collectByClassName(tree, 'own-market-detailIcon')).toEqual([])
     expect(collectByClassName(tree, 'own-market-detailActions')).toHaveLength(1)
     // ② `h3` 标题 + 版本徽标（官方 titleRow：h3 + badge 槽）。
     const title = collectByTagName(tree, 'h3')[0]
@@ -2679,7 +2692,7 @@ describe('enterprise skill detail page', () => {
     expect(section?.['data-enterprise-skill-files']).toBe(input.row.id)
     expect(collectByTagName(tree, 'h4').map(props => props['children'])).toEqual([ENTERPRISE_SKILL_DETAIL_FILES_TITLE])
     expect(textOf(tree)).toContain(enterpriseSkillFileCountText(FILES))
-    // ⑥ 取值逐条照官方 CSS module（_detailTop / _crumb / _detailHead / _cardIcon / _detailMain / _detailTitle /
+    // ⑥ 取值逐条照官方 CSS module（_detailTop / _crumb / _detailHead / _detailMain / _detailTitle /
     //    _detailName / _detailDesc / _detailSections / _detailSection），本文件只是把那几条抄进 `detailStyles`。
     const css = collectStyleText(styled)
     expect(cssRuleBody(css, '.own-market-detailTop')).toContain('padding-top:28px')
@@ -2689,9 +2702,18 @@ describe('enterprise skill detail page', () => {
     expect(cssRuleBody(css, '.own-market-crumbIcon')).toBe('transform:rotate(90deg)')
     expect(cssRuleBody(css, '.own-market-detailHead')).toContain('margin:32px 0 0')
     expect(cssRuleBody(css, '.own-market-detailHead')).toContain('justify-content:space-between')
-    expect(cssRuleBody(css, '.own-market-detailIcon')).toContain('width:48px')
-    expect(cssRuleBody(css, '.own-market-detailIcon')).toContain('height:48px')
-    expect(cssRuleBody(css, '.own-market-detailIcon')).toContain('border:.5px solid var(--dsw-alias-border-l3')
+    // **本刀（撤掉左上角那枚 48×48 图标）反向锁**：
+    //  ① 本文件自绘的那枚（.own-market-detailIcon）连元素带样式一并删除，不许复活；
+    //  ② 官方 DetailTop 自己那枚仍在我们页面上（我们注册成官方 plugins.item，id=plugin-market），
+    //     按**稳定后缀** _cardIcon 隐藏，作用域收在 detailHead 内（不误伤 crumbIcon 的 chevron）。
+    //     锚点 [data-plugin-item-detail] **刻意不写死值**——官方那个值是动态 item.id，
+    //     写死 ="plugin-market" 才是上一轮那两条规则真正的错处（**不是**「属性不存在」：
+    //     对 app.asar 逐字复核，官方 JSX 里该属性存在，取 item.id）。
+    expect(cssRuleBody(css, '.own-market-detailIcon')).toBe('')
+    expect(cssRuleBody(css, '[data-plugin-item-detail] [class*="_detailHead"] [class*="_cardIcon"]')).toBe('display:none')
+    // 写死属性值的形制不得回来（永不生效）；过宽的 span[aria-hidden] 也不得回来（会误伤官方 crumbIcon）。
+    expect(css).not.toContain('[data-plugin-item-detail="plugin-market"]')
+    expect(css).not.toContain('span[aria-hidden="true"]{display:none}')
     expect(cssRuleBody(css, '.own-market-detailMain')).toContain('margin-top:20px')
     expect(cssRuleBody(css, '.own-market-detailTitle')).toContain('font-size:20px')
     expect(cssRuleBody(css, '.own-market-detailTitle')).toContain('line-height:28px')

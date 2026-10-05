@@ -74,4 +74,14 @@ fixtures/unexpected-error-property.json: 包含未声明调试字段的失败响
 fixtures/unknown-error-code.json: 未知稳定错误码负例，必须被 Java JSON Schema 与 TypeScript Zod 同时拒绝。
 generated/: 从完整 OpenAPI 逻辑文档派生的自包含 OpenAPI JSON、fixture manifest、JSON Schema 与协议 SHA-256，供管理端、Java 和 CI 消费，禁止手工编辑。
 
+**本目录不是 pnpm importer，codegen 必须在 `plugin/` 下跑**：本目录与仓库根都没有 `package.json`，`@dshent/contracts` 这个 package 实体在 `plugin/packages/contracts/`。pnpm 11 在执行任何子命令前会先在 **cwd** 做一次依赖状态检查，cwd 不属于任何 workspace 就以 `ERR_PNPM_NO_PKG_MANIFEST`（仓库根）或 `ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND`（本目录）确定性失败——与网络无关。任意 cwd 可跑的形式：
+
+```bash
+pnpm -C plugin --filter @dshent/contracts generate        # 更新 contracts/generated/** 与 packages/contracts/src/generated/**
+pnpm -C plugin --filter @dshent/contracts check:generated # 漂移门禁
+pnpm -C console run generate                              # 另一套 workspace，更新 console/src/api/generated/
+```
+
+`console/` 那套是独立 generator（`console/scripts/generate-openapi.mjs`），只被 `console` 的 build/dev 顺带跑，**不在 `check:generated` 覆盖范围内**；`console/package.json` 声明 `engines.node>=24`，本机 node 22.22.3 只会产生 WARN，不阻断 generate 与 tsc。
+
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

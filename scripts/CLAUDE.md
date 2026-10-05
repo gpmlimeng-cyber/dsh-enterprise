@@ -7,6 +7,7 @@
 bootstrap-harness.ps1: Windows/PowerShell 开发环境入口，读取版本锁并准备同级 Harness checkout。
 bootstrap-harness.sh: macOS/Linux 开发环境入口，执行与 PowerShell 脚本相同的版本锁校验和 checkout 准备。
 check-all.sh: 提交前本地门禁；compose config、扫描器自测、三站 --check，FULL=1 时追加 mvn 测试与 console check。
+install-market-plugin.sh: 本机"看真机"入口，把 dshent-plugin 打包覆盖 baseline 制品并装机到 ~/.dsh/profiles/{desktop,web}；`--pack` 只打包、`--install` 只装机、默认两者都做，幂等且逐步失败即报卡点。固化三个 pnpm 陷阱：按缩进删 lockfile 里 dshent-plugin 的三处块（键带 peer 后缀，逐行正则易漏）、清 store links 里该 file: 依赖条目否则复用旧字节、归一化 pnpm-workspace.yaml 中未决的 allowBuilds（占位值会让 pnpm 11 以 ERR_PNPM_IGNORED_BUILDS 整条失败）；最后以解包 tgz 的 lib/client.js md5 为唯一真值校验两侧。
 bootstrap-desktop.mjs: 插件桌面基线入口，按官方 Harness Desktop 锁准备同级 checkout，并校验 apps/desktop 版本；拒绝污染或版本漂移。
 bootstrap-harness-desktop.mjs: 员工桌面客户端入口，按同一把官方锁准备同级 dsh-desktop checkout，并校验上游 apps/desktop 版本；企业安装包客制在仓库 apps/desktop，不复制源码。
 bootstrap-harness-desktop.test.mjs: 官方 Harness Desktop 锁格式回归测试，覆盖成功锁与缺包名失败。

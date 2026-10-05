@@ -267,15 +267,15 @@ function detailWithoutDependencies(): Record<string, unknown> {
 /* ══════════════════════ ① 页签：位次 / 计数 / aria / 键盘 ══════════════════════ */
 
 describe('企业配方 page tab (with 企业技能 / 企业插件 side by side)', () => {
-  it('adds 企业配方 as the third store tab, right after 企业插件 and before 包含内容', () => {
+  it('adds 配方 as the third store tab, right after 插件 and before 组件', () => {
     expect(ENTERPRISE_MARKET_TABS.map(tab => tab.id)).toEqual(['skills', 'plugins', 'presets', 'components'])
-    expect(ENTERPRISE_MARKET_TABS.map(tab => tab.label)).toEqual(['企业技能', '企业插件', '企业配方', '包含内容'])
-    // 位次是**用户指定的**：企业插件之后、包含内容之前（不是追加到末尾）。
+    expect(ENTERPRISE_MARKET_TABS.map(tab => tab.label)).toEqual(['技能', '插件', '配方', '组件'])
+    // 位次是**用户指定的**：插件之后、组件之前（不是追加到末尾）。
     expect(ENTERPRISE_MARKET_TABS[2]?.id).toBe('presets')
     // id 是新取的 `presets`（**不复用**已按用户要求移除的旧「应用商店」那批 id/文案）。
     expect(ENTERPRISE_MARKET_TAB_IDS.presets).toEqual({ tab: 'market-tab-presets', panel: 'market-panel-presets' })
     // 页签文案仍是「基础词 + 计数」同一份投影：无目录时配方如实为 0。
-    expect(enterpriseMarketTabLabel('企业配方', 0)).toBe('企业配方 0')
+    expect(enterpriseMarketTabLabel('配方', 0)).toBe('配方 0')
   })
 
   it('keeps every tab paired with its own panel and keeps the aria/keyboard path working with four tabs', () => {
@@ -330,9 +330,9 @@ describe('企业配方 page tab (with 企业技能 / 企业插件 side by side)'
     })
     expect(withDirectory.tabCounts.presets).toBe(1)
     expect(withDirectory.presetsPanel).toEqual({ kind: 'ready' })
-    // 四枚页签的文案同源：包含内容那枚恒取组件清单长度，其余取自真实行数。
+    // 四枚页签的文案同源：组件那枚恒取组件清单长度，其余取自真实行数。
     expect(withoutDirectory.tabEntries.map(entry => entry.text)).toEqual([
-      '企业技能 0', '企业插件 0', '企业配方 0', `包含内容 ${ENTERPRISE_MARKET_COMPONENTS.length}`,
+      '技能 0', '插件 0', '配方 0', `组件 ${ENTERPRISE_MARKET_COMPONENTS.length}`,
     ])
   })
 })
@@ -670,6 +670,12 @@ describe('企业配方 detail sub-page', () => {
     expect(textOf(tree)).toContain('带检查单的评审配方。')
     // 详情里**没有**列表的行结构（列表那一支一字不挂载）。
     expect(byData(tree, 'data-enterprise-preset-open')).toEqual([])
+    // **本刀（撤掉详情左上角那枚 48×48 图标）**：配方详情同样不画那枚图标
+    // （它就是本文件自己画的 `.own-market-detailIcon`，连元素带死样式一并删了）——
+    // 头部只剩动作区，故这里是反向锁。
+    expect(byClassName(tree, 'own-market-detailIcon')).toEqual([])
+    expect(byClassName(tree, 'own-market-detailHead')).toHaveLength(1)
+    expect(byClassName(tree, 'own-market-detailActions')).toHaveLength(1)
   })
 
   it('renders the same action block in the detail head, from the same facts and the same callbacks as the row', () => {
@@ -980,11 +986,15 @@ describe('reverse locks for the 企业配方 tab', () => {
       textOf(EnterprisePresetDetailPage(presetPageInput({ detail: DETAIL }))),
     ]
     for (const text of texts) {
-      for (const banned of ['preset', 'Preset', 'YAML', 'yaml', 'manifest', 'Cordis', 'cordis', '.dshpreset', 'dsh-preset', '组件', 'Preset Square Skill']) {
+      // 「组件」曾因页签名降维成「包含内容」而被禁；页签真源改回四字基础词后它重新是员工可读的
+      // 页签名，故从这条黑名单里撤出（换来的新口径由 employee-copy.spec.ts 那条用例锁死）。
+      for (const banned of ['preset', 'Preset', 'YAML', 'yaml', 'manifest', 'Cordis', 'cordis', '.dshpreset', 'dsh-preset', 'Preset Square Skill']) {
         expect(text, banned).not.toContain(banned)
       }
-      // 术语降维后的措辞确实在（配方/包含内容这些词才是员工该看到的）。
+      // 术语降维后的措辞确实在（配方、页签那四个基础词才是员工该看到的）。
       expect(text).toContain('配方')
+      expect(text).toContain('技能')
+      expect(text).toContain('插件')
     }
     // 加载/空/失败三句也复用了设置弹窗那一份（不各写一套）。
     expect(textOf(EnterpriseMarketLegacyShell({ ...props, enterprisePresets: [], presetsListState: { kind: 'loading' } }))).toContain('正在加载企业配方')
