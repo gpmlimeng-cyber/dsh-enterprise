@@ -184,7 +184,7 @@ function textOf(node: ReactNode): string {
  */
 const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(19899 chars)",
+  "  style(20734 chars)",
   "  div[className=own-market-searchRow]",
   "    span[className=own-market-query]",
   "      #opaque:[object Object]",
@@ -211,7 +211,7 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "          li[className=own-market-row][data-enterprise-skill-package=1902500000000000001][data-enterprise-skill-id=meeting-notes][data-enterprise-skill-state=UPDATE_AVAILABLE]",
   "            div[className=own-market-rowLine]",
   "              button[type=button][className=own-market-rowOpen][data-enterprise-skill-open=1902500000000000001][aria-label=查看企业技能 会议纪要技能组 详情][disabled=true][title=详情入口未接通][onClick=[fn]]",
-  "                span[className=own-market-rowIcon]",
+  "                span[className=own-market-rowIcon][data-icon-kind=skills]",
   "                  #opaque:[object Object]",
   "                div[className=own-market-rowMain]",
   "                  span[className=own-market-cardHead]",
@@ -245,7 +245,7 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
  */
 const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(19899 chars)",
+  "  style(20734 chars)",
   "  div[className=own-market-searchRow]",
   "    span[className=own-market-query]",
   "      #opaque:[object Object]",
@@ -274,7 +274,7 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "            li[className=own-market-row][data-enterprise-plugin-package=ent-a][data-enterprise-plugin-state=ACTIVE]",
   "              div[className=own-market-rowLine]",
   "                button[type=button][className=own-market-rowOpen][data-enterprise-plugin-open=ent-a][aria-label=查看企业插件 ent-a 详情][disabled=true][title=详情入口未接通][onClick=[fn]]",
-  "                  span[className=own-market-rowIcon]",
+  "                  span[className=own-market-rowIcon][data-icon-kind=plugins]",
   "                    #opaque:[object Object]",
   "                  div[className=own-market-rowMain]",
   "                    span[className=own-market-cardHead]",
@@ -302,7 +302,7 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "            li[className=own-market-row][data-enterprise-plugin-package=ent-b][data-enterprise-plugin-state=FAILED]",
   "              div[className=own-market-rowLine]",
   "                button[type=button][className=own-market-rowOpen][data-enterprise-plugin-open=ent-b][aria-label=查看企业插件 ent-b 详情][disabled=true][title=详情入口未接通][onClick=[fn]]",
-  "                  span[className=own-market-rowIcon]",
+  "                  span[className=own-market-rowIcon][data-icon-kind=plugins]",
   "                    #opaque:[object Object]",
   "                  div[className=own-market-rowMain]",
   "                    span[className=own-market-cardHead]",
@@ -334,8 +334,8 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
  * 变的只有 `<style>` 的长度那一行（`style(10507 chars)` → `style(12028 chars)`）。
  * 任何人再改这份 CSS（不管是加装饰还是删规则）都会在这里立刻显形。
  */
-const LEGACY_STYLE_LENGTH = 19899
-const LEGACY_STYLE_CHECKSUM = 2866185604
+const LEGACY_STYLE_LENGTH = 20734
+const LEGACY_STYLE_CHECKSUM = 2231081415
 
 /** 「企业技能」节的目录 fixture：与 skill-market.spec 的列表投影同形（列表态 versionId/skills 为空）。 */
 const SKILL: EnterpriseRuntimeSkill = {
@@ -1162,6 +1162,47 @@ describe('enterprise marketplace entry', () => {
 
   // 标题行（第 1 行）新增两枚只读标签：**版本签**取列表投影本来就有的 `sourceDshVersion`（无需服务端改动）、
   // **分类签**取服务端新增的可选字段 `category`。为缺失设计：分类缺席/null/空串时整枚签不渲染（安静缺席）。
+  // 本刀（图标彩色，参考官方）：几何仍照官方行图标（40×40 + `.5px solid border-l3` + `radius-md`），
+  // 只把 `color` 换成官方那套**彩色静态词汇** `--dsw-static-*`（官方 ui-primitives 的
+  // `FileTypeIcon.module.css` 逐类就是 `color: var(--dsw-static-<hue>-<step>)`，这是官方唯一的彩色图标家族）；
+  // 没有品牌图资产，故按**类别**上色（技能 / 插件 / 配方 / 资料库），标记落在 `data-icon-kind` 上。
+  // 本刀（图标白底 + 安装钮独立 hover）：两件都是用户口径，各给一条反锁。
+  it('gives the row icon an opaque white plate and the install button its own hover token', () => {
+    const css = collectStyleText(EnterpriseMarketLegacyShell({ view: 'page', sessionUsable: true }))
+    // ① 图标容器**白底不透明**（卡片 hover 变灰时图标仍是白块）——反锁：不许退回 transparent/none。
+    const icon = cssRuleBody(css, '.own-market-rowIcon')
+    expect(icon).toContain('var(--dsw-alias-background-primary')
+    expect(icon).not.toContain('background:none')
+    expect(icon).not.toContain('background:transparent')
+    // ② 安装钮 = 白底 + 有 hover，但 hover 用的是官方**按钮族** token，**不是**卡片那枚。
+    expect(cssRuleBody(css, '.own-market-installBtn')).toContain('var(--dsw-alias-background-primary')
+    expect(css).toContain('.own-market-installBtn.own-market-installBtn:hover:not(:disabled){background:var(--dsw-alias-button-tool-bar-hover)')
+    // 卡片 hover 仍是那一枚（两处不是同一个 token，故视觉上分得开）。
+    expect(cssRuleBody(css, '.own-market-row:hover')).toContain('var(--dsw-alias-interactive-bg-hover)')
+    expect(cssRuleBody(css, '.own-market-row:hover')).not.toContain('button-tool-bar-hover')
+  })
+
+  it('colors the row icons with the official static tokens, one hue per kind', () => {
+    const tree = EnterpriseMarketLegacyShell({
+      view: 'page', sessionUsable: true, enterpriseSkills: enterpriseMarketSkillRows([SKILL]),
+    })
+    // ① 行图标带类别标记（颜色选择器靠它命中）。
+    expect(collectByClassName(tree, 'own-market-rowIcon').map(props => props['data-icon-kind'])).toEqual(['skills'])
+    const css = collectStyleText(tree)
+    // ② 几何仍是官方行图标那一套（本刀只动颜色）。
+    const icon = cssRuleBody(css, '.own-market-rowIcon')
+    expect(icon).toContain('width:40px')
+    expect(icon).toContain('border:.5px solid')
+    expect(icon).toContain('border-radius:var(--dsw-radius-md')
+    // ③ 四类颜色都取官方 static token，**不出现 rgb 字面量**（官方 FileTypeIcon 里唯一那个 violet
+    //    字面量是官方自己注明「设计平台没有对应 token」的例外，我们不复制那个例外）。
+    for (const kind of ['skills', 'plugins', 'presets', 'library']) {
+      const rule = cssRuleBody(css, `.own-market-rowIcon[data-icon-kind='${kind}']`)
+      expect(rule, kind).toContain('var(--dsw-static-')
+      expect(rule, kind).not.toContain('rgb(')
+    }
+  })
+
   it('keeps the skill card to two lines: title on top, description below, no extra tags on the title row', () => {
     // 用户口径（本刀）：卡片两行结构——上面标题、下面描述；标题行**不留多余标签**。
     // 故版本签（own-market-skillVersionTag）与分类签（own-market-skillCategoryTag）都不再上卡片：

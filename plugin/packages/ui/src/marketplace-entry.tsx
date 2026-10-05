@@ -36,11 +36,20 @@
  *      座位缺席（纯函数直调 / 未接线）时页签留在页面里，外壳仍自包含。
  *      详情子页面**也照常发布**（既有契约「进详情时页头与四枚页签保持可见、一字不改」）。
  *      ② 卡片 hover **只变背景**：删掉把标题/描述染主色的那条规则（反锁守着，谁加回来先红）。
- *      ③ 「安装 / 启用」按钮 = 官方同枚填充 token 的**纯色底 + 无 hover**（`.own-market-installBtn`
- *      同名双类抬特异性压掉官方 hover，**不用 !important、不动官方样式表**）。
+ *      ③ 「安装 / 启用」按钮 = **白底 + 有 hover，但与卡片 hover 不同一枚 token**：
+ *      卡片 hover 走 `interactive-bg-hover`（整块变灰），按钮 hover 走官方**按钮族**的
+ *      `button-tool-bar-hover`（.own-market-installBtn 同名双类抬特异性，不用 !important、不动官方样式表）。
  *      ④ 卡片标题/描述取值照官方 `_cardName`/`_cardDesc`（15px/600/1.4 + `label-primary`、
  *      13px/1.55 + `label-secondary`），并删掉「已停用把标题压成次级灰」这条本地偏离。
  *      ⑤ 标题行**不再显示包名**（`BadgeView` 里那行 `<code data-plugin-name>` 撤掉，由反锁守着）。
+ *   ⑧ **本刀（图标彩色 + 详情标题再清一次）**：卡片/组件图标几何照官方行图标（`ZVcBiW_rowIcon`：
+ *      40×40 + `.5px solid border-l3` + `radius-md`），底色取**白**（不透明：卡片 hover 变灰时图标仍是白块），
+ *      `color` 取官方那套**彩色静态词汇**
+ *      `--dsw-static-*`（官方唯一的彩色图标家族 `FileTypeIcon.module.css` 逐个色相就是这么给的），
+ *      四类各一个 `data-icon-kind`（技能/插件/配方/资料库）——没有品牌图资产，故按类别上色；
+ *      不写 rgb 字面量（官方那个 violet 例外是官方自己注明无 token，我们不复制）。
+ *      详情页标题那枚官方图标改按**稳定后缀**隐藏（`[class*="_cardIcon"]`，哈希前缀随官方构建变），
+ *      原 `span[aria-hidden]` 规则保留兜底；详情标题右侧标签（企业徽章 + 版本签）按用户裁决 B 全部撤下。
  *   本节所述为准；上面各「本刀」段落里凡是写「官方 `Switch` 是行主控件」「卡片标题行挂企业签/版本签」
  *   「本页没有任何卸载动作」的句子，均已被这一刀取代。
  * [POS]: ui 的企业市场入口（**唯一入口：官方插件页「官方」分组里的「插件市场」卡片**）。**本刀（详情子页面）**：技能行本体可点 → 面板整页切到该技能的详情子页面；**面板就是官方 `plugins.item` 的 page 视图、没有真实路由，故用一份视图状态切换（`skillDetailId` → `skillPage`），不硬造路由**。「返回技能列表」是唯一返回入口（面包屑按钮，键盘可达）。详情里的动作与行上**同源**：同一枚 `EnterpriseMarketSkillRowActions`、同一份 `enterpriseMarketSkillRowFacts`、同一个 `onToggleSkill` 回调、同一份 `skillActionError`，因此不存在第二套状态或第二个动作实现。文件树与预览只消费 Host 已有的两条只读子路由（`/enterprise/api/v1/local/skills/<id>/files` 与 `.../<id>/file?path=`，经 `store.api.skillFiles`/`store.api.skillFile` 发出）；**未安装就一条请求都不发**、如实说「安装后可浏览文件」，绝不伪造树；默认选中并预览 `SKILL.md`；预览是 `<pre>` 里的**纯文本子节点**（全文件无 `dangerouslySetInnerHTML`），长文件靠 `max-height` 滚动 + 字节提示；读取失败给 `role="alert"` + 稳定错误码 + 重试。**只读正文路由 `/skills/content` 按用户要求保留**（Host 侧注册与既有单测不动），本页统一走文件路由那一份路径实现。 以下为既有能力：企业插件行与组件行**不给**详情入口（用户只要求技能行；插件行本轮一字未动，组件行是交付排期清单）。**目录行的落点与行为**：点行本体进详情；`[有更新]`（真实 `<button>`，点击 = 更新到中心当前版本）与安装/卸载 `Switch` **常显在行上**且不触发详情；失败给 `role="alert"` + 稳定错误码且**不禁用**开关（再拨一次就是重试）。**三页签**（企业技能默认 / 企业插件 / 组件）共用 `EnterpriseMarketTabStrip` 一份实现：手写 `role="tablist"` + roving `tabIndex` + ←/→/Home/End 走焦并选中，`id`/`aria-controls`/`aria-labelledby` 三处同源；组件节是唯一还保留折叠语义的一节（折叠态列表整段不进 DOM）。**严禁**任何价格/交易/购买/购物车/客服之类的商业化字样——全树文本都不出现（由测试反向锁死）。`store` 与开登录回调均为可选注入：缺席时开关恒禁用、会话不可用时目录节不出现。**样式纪律**：本文件的类名与同包其他源文件**零交集**（两处 `<style>` 都是全局单类选择器，同名会互相覆盖）；主题只用 `--dsw-*` token，不新造颜色。 **本刀（版本签短号）**：真实 `sourceDshVersion` 是完整坐标（`skillhub.cn/dev-expert@2.0.3`），整串会把标题挤成一个字（真机截图已证）；故**列表里只显示版本号**（`enterpriseMarketSkillVersionLabel`，最后一个 `@` 之后），**完整坐标在签的 `title` 与详情徽标**；既有技能（无 `@` 的 `0.1.7-rc.2` 形态）显示形式一字不变，签的类名/tone/位置与行上其他东西不动。 **本刀（企业配方页签）**：配方行与配方详情用的是**同一批**类名（`.own-market-row*`/`.own-market-cardHead`/`.own-market-cardId`/`.own-market-cardDesc`/`.own-market-detail*`/`.own-market-skillTag`），**一个新类名都不加**——版式取值与技能/插件行逐值同源，故本刀 CSS 一字未动（`baseStyles`/`rowStyles`/`detailStyles` 三份字符串与改动前逐字节相同）。 **本刀**：三级降级链的调度与事实全在共享控制器一处（逐行读 `status`、真开关的 enable/disable、授权弹层的确认与取消），行上与详情里读的是同一份 facts、同一批回调；弹层不新增路由、不新增 slot。 **本刀（企业标签）**：徽章与胶囊只消费官方座位与官方原语——①「企业」徽章挂在官方 `plugins.detail.badge` 上（该座位在我们这条 item 详情页里真的会被渲染，已按官方实物核实，不是白挂）；② 与官方「实验性」签的**一致口径**是可验证的三件：同一枚官方 `Tag` 原语本体、同一个 `tone="info"`、props 恰好只有 `{className,tone,children}`（官方公开面之外一个属性都不给）；**拿不到的是官方那个本地尺寸覆盖类**（`PluginManagerPage` 的 `statusTag` = CSS module 哈希名 `X_2TxG_statusTag`，该包只导出 `NS`/`PANEL_ID`/`apply`/`inject`，`./src/*` 指向的 `src/` 未随包发布），故按「不新增 CSS 类」退到官方 primitives 公开面，尺寸差异如实记在 `EnterpriseMarketBadgeTag` 的注释里；③ 描述行与徽章同源（同一枚 `EnterpriseMarketBadgeTag`），两处不会漂成两个词。 **本刀（企业标签移回标题行）**：用户明确「企业应该在标题行，标题后面」两次，故描述行胶囊撤销、恢复纯文本；标题行那一枚**不再**由本文件渲染——它由 `market-entry-badge.ts` 在官方列表 DOM 上做装饰（克隆官方 Tag 实物，与官方「实验性」签逐像素一致），本文件只保留**详情页**那一枚 React 徽章；本文件与 `market-entry-badge.ts` 的分工是「React 槽 vs DOM 装饰」，两侧都读同一份 `ENTERPRISE_MARKET_BADGE_TEXT`，不会漂成两个词。 **本刀**：进度只在真的在装的那一行、只在有工序时进 DOM；多行各算各的（按包名归行），不影响别的行的可拨性。 **本刀（企业插件真取消）**：取消入口与进度**同一条链、同一份投影**——「能不能取消」由 Host 真受管态算（`plugin-install-progress.ts` 的 `ENTERPRISE_PLUGIN_CANCELABLE_STATES`），「在不在取消中」由同一份 store 快照的 `pluginCancelBusy` 算；不新增任何 CSS 类、不新增 slot、不新增路由，写入口与「企业设置 → 插件」那枚按钮同名同源（都是 `store.cancelPlugin`）；取消的收束走既有那条行内提示（`EnterpriseMarketRowError` + 唯一码表），不新造第二套「已取消」提示组件。
@@ -2604,13 +2613,14 @@ const baseStyles = `
 /* 详情子页面没有下拉宿主 ⇒ 操作**平铺**（同一枚子块、同一份文案，只是不套一层菜单）。 */
 .own-market-moreInline{display:flex;flex:none;align-items:center;gap:4px}
 .own-market-moreInline .own-market-moreItem{width:auto}
-/* 「安装 / 启用」按钮：**纯色底 + 无 hover 变化**（用户口径）。
-   官方 Button 每个变体都自带 hover，故把类名写两遍把特异性抬到官方那条之上
-   （.own-market-installBtn.own-market-installBtn:hover ＞ .toolbar:hover），
-   **不写 !important、也不动官方样式表**；底色取官方同一枚按钮填充 token，不新造颜色。 */
+/* 「安装 / 启用」按钮：**白底 + 有 hover，但与卡片 hover 明显不同一枚 token**（用户口径）。
+   · 卡片 hover = interactive-bg-hover（整块变灰）
+   · 按钮 hover = button-tool-bar-hover（官方**按钮族**的 hover）——两枚 token 不是同一个，一眼分得开
+   类名写两遍是为了把特异性抬到官方那条之上（.own-market-installBtn.own-market-installBtn:hover
+   ＞ .toolbar:hover），**不写 !important、也不动官方样式表**；不新造颜色，三枚都是官方 token。 */
 .own-market-installBtn{background:var(--dsw-alias-background-primary,#fff)}
-.own-market-installBtn.own-market-installBtn:hover:not(:disabled),
-.own-market-installBtn.own-market-installBtn:active:not(:disabled){background:var(--dsw-alias-background-primary,#fff)}
+.own-market-installBtn.own-market-installBtn:hover:not(:disabled){background:var(--dsw-alias-button-tool-bar-hover)}
+.own-market-installBtn.own-market-installBtn:active:not(:disabled){background:var(--dsw-alias-interactive-bg-active)}
 @media (prefers-reduced-motion: reduce){.own-market-row{transition:none}}
 /* 窄屏回落单列：网格在极窄容器里会把标题挤成一个字（真机截图早已证过同类问题）。 */
 @media (max-width: 560px){.own-market-rows{grid-template-columns:minmax(0,1fr)}}
@@ -2621,7 +2631,16 @@ const baseStyles = `
 .own-market-rowLine{display:flex;align-items:center;gap:16px;min-width:0}
 /* 卡片图标 = **官方行图标规范逐值同源**（app.asar 里 ZVcBiW_rowIcon：40×40 + .5px solid border-l3
    + radius-md + 无底色 + secondary 色）——用户口径「参考插件-智能体团队-包含的组件的图标」。 */
-.own-market-rowIcon{display:inline-flex;flex-shrink:0;align-items:center;justify-content:center;width:40px;height:40px;border:.5px solid var(--dsw-alias-border-l3,#d0d5dd);border-radius:var(--dsw-radius-md,8px);background:none;color:var(--dsw-alias-label-secondary,#667085)}
+.own-market-rowIcon{display:inline-flex;flex-shrink:0;align-items:center;justify-content:center;width:40px;height:40px;border:.5px solid var(--dsw-alias-border-l3,#d0d5dd);border-radius:var(--dsw-radius-md,8px);background:var(--dsw-alias-background-primary,#fff);color:var(--dsw-alias-label-secondary,#667085)}
+/* 图标**彩色**（用户口径：参考官方）：几何仍照官方行图标（40×40 + .5px border-l3 + radius-md），
+   只把 color 换成官方那套**彩色静态词汇** --dsw-static-* —— 官方唯一的彩色图标家族
+   （ui-primitives 的 FileTypeIcon.module.css 逐类就是 color: var(--dsw-static-<hue>-<step>)），
+   故这里不新造颜色、不写 rgb 字面量，四类各取一个官方色相。
+   没有品牌图资产，故按**类别**上色（技能/插件/配方/资料库），而不是像官方那样按每个条目上色。 */
+.own-market-rowIcon[data-icon-kind='skills']{color:var(--dsw-static-deepseek-500)}
+.own-market-rowIcon[data-icon-kind='plugins']{color:var(--dsw-static-green-500)}
+.own-market-rowIcon[data-icon-kind='presets']{color:var(--dsw-static-amber-400)}
+.own-market-rowIcon[data-icon-kind='library']{color:var(--dsw-static-neutral-bluish-400)}
 .own-market-rowMain{display:flex;flex:1;flex-direction:column;gap:2px;min-width:0}
 .own-market-rowId{font-size:13.5px;line-height:20px;font-weight:500;color:var(--dsw-alias-label-primary,#101828);overflow-wrap:anywhere}
 .own-market-row[data-state='off'] .own-market-rowId{color:var(--dsw-alias-label-secondary,#667085)}
@@ -3532,7 +3551,7 @@ function EnterpriseMarketComponentsPanel({ model, onToggleSection, onOpenLogin, 
               data-state={row.enabled ? 'on' : 'off'}
             >
               <div className="own-market-rowLine">
-                <span className="own-market-rowIcon"><ComponentGlyph id={row.id} /></span>
+                <span className="own-market-rowIcon" data-icon-kind={row.id}><ComponentGlyph id={row.id} /></span>
                 <div className="own-market-rowMain">
                   <span className="own-market-rowId">{row.label}</span>
                   <span className="own-market-rowNote">{row.note}</span>
@@ -4739,7 +4758,7 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
                   title={props.onOpenPresetDetail === undefined ? '详情入口未接通' : '查看详情'}
                   onClick={() => { props.onOpenPresetDetail?.(preset) }}
                 >
-                  <span className="own-market-rowIcon"><BookMarked size={18} aria-hidden="true" /></span>
+                  <span className="own-market-rowIcon" data-icon-kind="presets"><BookMarked size={18} aria-hidden="true" /></span>
                   <div className="own-market-rowMain">
                     <span className="own-market-cardHead">
                       {/* **两行结构**（用户口径：上面标题、下面描述），故第 1 行**只有标题**——
@@ -4803,7 +4822,7 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
                   title={props.onOpenSkillDetail === undefined ? '详情入口未接通' : '查看详情'}
                   onClick={() => { props.onOpenSkillDetail?.(skill) }}
                 >
-                  <span className="own-market-rowIcon"><Sparkles size={18} aria-hidden="true" /></span>
+                  <span className="own-market-rowIcon" data-icon-kind="skills"><Sparkles size={18} aria-hidden="true" /></span>
                   <div className="own-market-rowMain">
                     {/* 第 1 行 = 标题 + 两枚只读签（版本签取 `sourceDshVersion` 的**短号**、分类签取可选 `category`）：
                         单行 nowrap，标签过多时标题先省略、两枚签保持可见，行高不变。
@@ -4865,7 +4884,7 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
                   title={props.onOpenPluginDetail === undefined ? '详情入口未接通' : '查看详情'}
                   onClick={() => { props.onOpenPluginDetail?.(plugin) }}
                 >
-                  <span className="own-market-rowIcon"><Package size={18} aria-hidden="true" /></span>
+                  <span className="own-market-rowIcon" data-icon-kind="plugins"><Package size={18} aria-hidden="true" /></span>
                   <div className="own-market-rowMain">
                     {/* 第 1 行 = 标题 + 「企业」签 + 版本短号签——**与技能行的标题行同款同枚**（同一串类名、
                         同一个 tone、同一枚官方 `Tag` 原语、每个类名都取自本文件既有声明，故一个新类都没有）。
