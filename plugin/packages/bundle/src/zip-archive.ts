@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 只依赖 Node `zlib.inflateRawSync` 与 `Buffer`，加上调用方给出的三条体积/条目上限
- * [OUTPUT]: 对外提供 `readZipEntries(bytes, limits)`（严格 ZIP 中央目录解析：解压前的路径逃逸/符号链接/加密/ZIP64 拒绝 + 解压中的 CRC32/大小/上限门禁）与 `ZipArchiveError`
+ * [OUTPUT]: 对外提供 `readZipEntries(bytes, limits)`（严格 ZIP 中央目录解析：解压前的路径逃逸/符号链接/加密/ZIP64 拒绝 + **大小写/Unicode 折叠碰撞**拒绝 + 解压中的 CRC32/大小/上限门禁）与 `ZipArchiveError`
  * [POS]: bundle 的**唯一** ZIP 解包内核——技能包（`.dshskill`，`skill-archive.ts`）与配方包（`.dshpreset`，`preset-archive.ts`）两份**布局校验**共用它，绝不各自再写第二个 ZIP 解析器（与「不新造第二个下载通道」同一条纪律）。本文件只做**容器**层：不认识技能目录名、不认识 `manifest.json` 的业务字段，只交回逐条 `{path, isDirectory, bytes}`；错误一律抛 `ZipArchiveError`（不带业务错误码），由各自的布局层翻成自己的稳定码
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -74,6 +74,23 @@ function crc32(bytes: Buffer): number {
   return (crc ^ 0xffffffff) >>> 0
 }
 
+/**
+ * 把一条路径折成「在所有宿主上落到同一文件」的那个键。
+ *
+ * 口径**逐字**照 Cherry Studio 2.1.4 `src/main/utils/file/path.ts:82-84` 的 `foldPathSegment`：
+ * `segment.normalize('NFC').toLowerCase()`。两个理由必须一起抄，缺一个就换了语义：
+ *  · `NFC` —— macOS 的 APFS 会把分解形与合成形视为同一文件（俗称「同一文件两个名字」）；
+ *  · `toLowerCase` 而**不是** `toLocaleLowerCase` —— Cherry 注释逐字写着这是为了避开 `tr-TR` 环境下
+ *    `I → ı` 这类 locale 惊喜（`file/path.ts:76-81`）；带上下文的折叠会让同一份归档在不同机器上
+ *    得到不同答案，而这一层判据的价值恰恰是**跨平台一致**。
+ *
+ * 逐段折叠而不是整串折叠：`/` 不是组合基字符，整串 `NFC` 与逐段 `NFC` 在此等价，但逐段让「折叠的是段」
+ * 这件事在代码里显形，且与 Cherry 的前缀树逐段建键同形。
+ */
+function foldEntryPath(segments: readonly string[]): string {
+  return segments.map((segment) => segment.normalize('NFC').toLowerCase()).join('/')
+}
+
 function invalid(message: string, cause?: unknown): ZipArchiveError {
   return cause === undefined ? new ZipArchiveError(message) : new ZipArchiveError(message, { cause })
 }
@@ -83,7 +100,7 @@ function invalid(message: string, cause?: unknown): ZipArchiveError {
  *
  * 这是**解压前**的唯一判定点：任何逃逸形状都在读数据之前就被拒，因此不可能有字节落到目标目录之外。
  * 拒绝清单与中心验包口径一致：绝对路径（前导 `/`）、Windows 盘符、反斜杠、`..`/`.` 段、空段、
- * 控制字符、超长路径与超长段；重复路径由调用方在收集时判定。
+ * 控制字符、超长路径与超长段；重复路径与折叠碰撞由调用方在收集时判定。
  *
  * @param rawPath - 中央目录里的路径原文（未解码）。
  * @param decoded - 按 UTF-8 解出的路径。
@@ -156,6 +173,7 @@ export function readZipEntries(bytes: Buffer, limits: ZipArchiveLimits): readonl
 
   const entries: ZipArchiveEntry[] = []
   const seen = new Set<string>()
+  const seenFolded = new Map<string, string>()
   let cursor = centralDirectoryOffset
   let declaredUncompressedBytes = 0
   for (let index = 0; index < totalEntries; index += 1) {
@@ -203,6 +221,16 @@ export function readZipEntries(bytes: Buffer, limits: ZipArchiveLimits): readonl
     const path = segments.join('/')
     if (seen.has(path)) throw invalid('archive contains a duplicate path')
     seen.add(path)
+    // 折叠后碰撞：`A.md` 与 `a.md` 在 Windows 与 macOS 默认卷上落到**同一个文件**，装出来是哪一个
+    // 取决于哪条后写 ⇒ 那是「装出来的东西不是你以为的那个」，不是「重复条目」那种一眼可查的形态。
+    // 判据与 Cherry `assertNoFoldedPathCollisions`（`zipSafety.ts:35-63`）同形：折叠键已存在**且**
+    // 原始路径不同（完全相同的那类已由上面那行拒掉），点名两条原始路径。
+    const folded = foldEntryPath(segments)
+    const previousFolded = seenFolded.get(folded)
+    if (previousFolded !== undefined && previousFolded !== path) {
+      throw invalid(`archive contains paths that collide once case and Unicode are normalized (${previousFolded}, ${path})`)
+    }
+    seenFolded.set(folded, path)
     if (isDirectory) {
       entries.push({ path, isDirectory: true, bytes: undefined })
       continue
