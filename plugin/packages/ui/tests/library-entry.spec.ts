@@ -384,7 +384,9 @@ describe('资料库页面：三态齐备、重试真重发、未接入处禁用�
       ...states.map((tree, index) => [`界面 ${index}`, visibleText(tree)] as [string, string]),
     ]
     // 用户点名的技术词 + 产品宪法反目标技术词（与 employee-copy.spec.ts 同一份口径）。
-    const banned = ['asset', 'revision', 'per-record', 'KV', '前端', 'manifest', 'YAML', 'Cordis', 'bundle patch', 'MCP', '环境变量', 'API Key', '分配', '退休', '审计', '权限码', '组件']
+    // 「组件」曾因页签名降维成「包含内容」而被禁；本刀页签真源改回四字基础词
+    // （技能 / 插件 / 配方 / 组件）后它重新是**员工可读**的页签名，故同步撤出黑名单。
+    const banned = ['asset', 'revision', 'per-record', 'KV', '前端', 'manifest', 'YAML', 'Cordis', 'bundle patch', 'MCP', '环境变量', 'API Key', '分配', '退休', '审计', '权限码']
     for (const [where, text] of surfaces) {
       for (const word of banned) expect(text, `${where} / ${word}`).not.toContain(word)
     }

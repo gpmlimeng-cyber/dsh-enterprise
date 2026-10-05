@@ -2377,6 +2377,21 @@ export const zPresetPresetVersionResponse = z.object({
 
 export const zPresetVersionResponse = zPresetPresetVersionResponse;
 
+export const zPresetRuntimePresetDetail = z.object({
+    id: zPresetPresetPackageId,
+    presetId: zPresetPresetPresetId,
+    displayName: z.string().min(1).max(120),
+    description: z.string().max(2000),
+    sourceDshVersion: zPresetPresetSourceDshVersion,
+    sizeBytes: z.coerce.bigint().gte(BigInt(1)).lte(BigInt(52428800)),
+    updatedAt: z.iso.datetime({ offset: true }),
+    dependencies: z.array(zPresetPresetDependency).max(200),
+    versionId: zPresetPresetVersionId,
+    sha256: zPresetPresetSha256
+}).strict();
+
+export const zRuntimePresetDetail = zPresetRuntimePresetDetail;
+
 export const zPresetRuntimePresetSummary = z.object({
     id: zPresetPresetPackageId,
     presetId: zPresetPresetPresetId,
@@ -2389,13 +2404,6 @@ export const zPresetRuntimePresetSummary = z.object({
 }).strict();
 
 export const zRuntimePresetSummary = zPresetRuntimePresetSummary;
-
-export const zPresetRuntimePresetDetail = zPresetRuntimePresetSummary.and(z.object({
-    versionId: zPresetPresetVersionId,
-    sha256: zPresetPresetSha256
-}).strict());
-
-export const zRuntimePresetDetail = zPresetRuntimePresetDetail;
 
 export const zQuotaConcurrencyUsage = z.object({
     limit: z.int().gte(1),
@@ -2616,46 +2624,59 @@ export const zQuotaMyQuotaUsageResponse = z.object({
 
 export const zMyQuotaUsageResponse = zQuotaMyQuotaUsageResponse;
 
-export const zQuotaUsageAnalyticsTokens = z.object({
+export const zQuotaUsageAnalyticsDayPoint = z.object({
     requests: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
     inputTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
     outputTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
     cacheTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
     totalTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
-    chargedTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
-}).strict();
-
-export const zUsageAnalyticsTokens = zQuotaUsageAnalyticsTokens;
-
-export const zQuotaUsageAnalyticsDayPoint = zQuotaUsageAnalyticsTokens.and(z.object({
+    chargedTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
     date: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)
-}).strict());
+}).strict();
 
 export const zUsageAnalyticsDayPoint = zQuotaUsageAnalyticsDayPoint;
 
-export const zQuotaUsageAnalyticsMemberRow = zQuotaUsageAnalyticsTokens.and(z.object({
+export const zQuotaUsageAnalyticsMemberRow = z.object({
+    requests: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    inputTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    outputTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    cacheTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    totalTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    chargedTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
     userId: zEnterpriseUserId,
     username: z.string().min(1).max(100),
     displayName: z.string().min(1).max(30)
-}).strict());
+}).strict();
 
 export const zUsageAnalyticsMemberRow = zQuotaUsageAnalyticsMemberRow;
 
-export const zQuotaUsageAnalyticsModelRow = zQuotaUsageAnalyticsTokens.and(z.object({
+export const zQuotaUsageAnalyticsModelRow = z.object({
+    requests: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    inputTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    outputTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    cacheTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    totalTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    chargedTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
     modelId: zManagedModelId,
     alias: z.string().min(1).max(120),
     displayName: z.string().min(1).max(120),
     cacheHitRatio: z.number().gte(0).lte(1).nullable()
-}).strict());
+}).strict();
 
 export const zUsageAnalyticsModelRow = zQuotaUsageAnalyticsModelRow;
 
-export const zQuotaUsageAnalyticsSummary = zQuotaUsageAnalyticsTokens.and(z.object({
+export const zQuotaUsageAnalyticsSummary = z.object({
+    requests: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    inputTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    outputTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    cacheTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    totalTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    chargedTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
     settled: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
     chargedMax: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
     unmeasured: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
     cacheHitRatio: z.number().gte(0).lte(1).nullable()
-}).strict());
+}).strict();
 
 export const zUsageAnalyticsSummary = zQuotaUsageAnalyticsSummary;
 
@@ -2678,6 +2699,17 @@ export const zQuotaUsageAnalyticsResponse = z.object({
 }).strict();
 
 export const zUsageAnalyticsResponse = zQuotaUsageAnalyticsResponse;
+
+export const zQuotaUsageAnalyticsTokens = z.object({
+    requests: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    inputTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    outputTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    cacheTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    totalTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    chargedTokens: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+}).strict();
+
+export const zUsageAnalyticsTokens = zQuotaUsageAnalyticsTokens;
 
 export const zQuotaUsageLedgerId = z.string().regex(/^[1-9][0-9]{0,18}$/);
 
@@ -2932,6 +2964,19 @@ export const zSkillSkillAssignmentStatus = z.enum(['ACTIVE', 'DISABLED']);
 
 export const zSkillAssignmentStatus = zSkillSkillAssignmentStatus;
 
+/**
+ * 技能分类七类；「精选」当前唯一入口是本枚举自身的 精选 值（包级 featured 标记尚未贯通到员工端）；未声明或旧脏值由员工端兜底归「其他」。
+ */
+export const zSkillCategory = z.enum([
+    '精选',
+    '效率',
+    '研究',
+    '编程',
+    '商业',
+    '创意',
+    '其他'
+]);
+
 export const zSkillSkillEntryName = z.string().min(1).max(64).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 
 export const zSkillEntryName = zSkillSkillEntryName;
@@ -2978,7 +3023,8 @@ export const zSkillRuntimeSkillSummary = z.object({
     skillId: zSkillSkillPackageRef,
     displayName: z.string().min(1).max(120),
     description: z.string().max(2000),
-    category: z.string().min(1).max(32).nullish(),
+    category: zSkillCategory.nullish(),
+    builtin: z.boolean(),
     sourceDshVersion: zSkillSkillSourceDshVersion,
     sizeBytes: z.coerce.bigint().gte(BigInt(1)).lte(BigInt(52428800)),
     skillCount: z.int().gte(1).lte(200),
@@ -3026,11 +3072,21 @@ export const zSkillSkillVersionId = z.string().regex(/^[1-9][0-9]{0,18}$/);
 
 export const zSkillVersionId = zSkillSkillVersionId;
 
-export const zSkillRuntimeSkillDetail = zSkillRuntimeSkillSummary.and(z.object({
+export const zSkillRuntimeSkillDetail = z.object({
+    id: zSkillSkillPackageId,
+    skillId: zSkillSkillPackageRef,
+    displayName: z.string().min(1).max(120),
+    description: z.string().max(2000),
+    category: zSkillCategory.nullish(),
+    builtin: z.boolean(),
+    sourceDshVersion: zSkillSkillSourceDshVersion,
+    sizeBytes: z.coerce.bigint().gte(BigInt(1)).lte(BigInt(52428800)),
+    skillCount: z.int().gte(1).lte(200),
+    updatedAt: z.iso.datetime({ offset: true }),
     versionId: zSkillSkillVersionId,
     sha256: zSkillSkillSha256,
     skills: z.array(zSkillSkillEntry).max(200)
-}).strict());
+}).strict();
 
 export const zRuntimeSkillDetail = zSkillRuntimeSkillDetail;
 
@@ -3065,7 +3121,7 @@ export const zSkillSkillPackage = z.object({
     skillId: zSkillSkillPackageRef,
     displayName: z.string().min(1).max(120),
     description: z.string().max(2000).optional(),
-    category: z.string().min(1).max(32).nullish(),
+    category: zSkillCategory.nullish(),
     status: zSkillSkillPackageStatus,
     revision: zRevision,
     versions: z.array(zSkillSkillVersion),

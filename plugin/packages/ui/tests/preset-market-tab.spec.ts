@@ -19,6 +19,12 @@
  *           配方页可见文本不出现宪法反目标技术词（preset / Preset / YAML / manifest / 组件 …）；
  *           ⑥ **启用成功后的落地交代**：「将在新会话生效」那一句按官方两种落地方式分别出（热生效 /
  *           需重启），没有成功回执时整段不进 DOM，行上与详情里读同一份 facts。
+ * **本刀（Codex 插件商店口径）**：配方行的标题行**零签**（版本/分类签撤下卡片，投影仍在出口上供详情用）；
+ *   动作区由「真开关」改成**按状态分流**：未启用 ⇒ 官方「启用」按钮那一格（`data-enterprise-preset-slot`）、
+ *   已启用 ⇒ 「⋯」里的「停用」项（新增助手 `presetEnable`/`presetMenuTrigger`/`presetMenuItems`/`presetMenuOpen`，
+ *   菜单项只在展开时进 DOM，故用例显式给上 `onToggleRowMenu` + `menuRow` 走真实形状）；
+ *   「在途不可连点 / 失败不禁用 / 真值没读到不可点」三条口径不变，判据改读按钮的 `disabled` 与行 facts；
+ *   配方行 facts 唯一入口的源码计数 4 → 5（状态筛选那处合法调用）。
  * [POS]: 市场页「企业配方」页签与配方详情的行为取证点（dsh-ui 没有 DOM 渲染测试，本文件是这一刀的门禁）
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -57,6 +63,7 @@ import {
   EnterprisePresetDetailPage,
   enterpriseMarketPresetRowFacts,
   enterpriseMarketPresetRows,
+  enterpriseMarketRowKey,
   enterpriseMarketShellModel,
   enterpriseMarketTabLabel,
   enterprisePresetCategory,
@@ -154,6 +161,19 @@ const byClassName = (tree: ReactNode, name: string): Record<string, any>[] =>
 const byData = (tree: ReactNode, key: string): Record<string, any>[] => collect(tree, props => props[key] !== undefined)
 const switches = (tree: ReactNode): Record<string, any>[] => collect(tree, (_props, node) => node.type === (Switch as unknown))
 const tags = (tree: ReactNode): Record<string, any>[] => collect(tree, (_props, node) => node.type === (Tag as unknown))
+/**
+ * 配方行的**动作控件**（本刀：目录卡片不再用开关）。
+ *
+ * 两个落点都在真 DOM 上取证：未启用 ⇒ 官方 `Button` 的「启用」那一格（`data-enterprise-preset-slot="enable"`）；
+ * 已启用 ⇒ 「⋯」溢出菜单（触发钮 `.own-market-moreBtn`，菜单项只在 `open` 时才进 DOM）。
+ * 「能不能点」的**唯一语义口径**仍是 `enterpriseMarketPresetRowFacts`（本文件另有断言直取它）。
+ */
+const presetEnable = (tree: ReactNode): Record<string, any> | undefined =>
+  collect(tree, props => props['data-enterprise-preset-slot'] === 'enable')[0]
+const presetMenuTrigger = (tree: ReactNode): Record<string, any> | undefined => byClassName(tree, 'own-market-moreBtn')[0]
+const presetMenuItems = (tree: ReactNode): Record<string, any>[] => byRole(tree, 'menuitem')
+/** 跟行上同一枚 `menuRow` 行键：让那一行的「⋯」真的展开（菜单项只在展开时进 DOM）。 */
+const presetMenuOpen = (over: ShellProps, rowId: string): ShellProps => ({ ...over, menuRow: enterpriseMarketRowKey('presets', rowId) })
 /** 官方原语（Button/Switch/Tag…）在测试里是 `vi.fn()`：按元素类型收集它们的 props。 */
 const primitives = (tree: ReactNode, type: unknown): Record<string, any>[] => collect(tree, (_props, node) => node.type === type)
 
@@ -247,15 +267,15 @@ function detailWithoutDependencies(): Record<string, unknown> {
 /* ══════════════════════ ① 页签：位次 / 计数 / aria / 键盘 ══════════════════════ */
 
 describe('企业配方 page tab (with 企业技能 / 企业插件 side by side)', () => {
-  it('adds 企业配方 as the third store tab, right after 企业插件 and before 包含内容', () => {
+  it('adds 配方 as the third store tab, right after 插件 and before 组件', () => {
     expect(ENTERPRISE_MARKET_TABS.map(tab => tab.id)).toEqual(['skills', 'plugins', 'presets', 'components'])
-    expect(ENTERPRISE_MARKET_TABS.map(tab => tab.label)).toEqual(['企业技能', '企业插件', '企业配方', '包含内容'])
-    // 位次是**用户指定的**：企业插件之后、包含内容之前（不是追加到末尾）。
+    expect(ENTERPRISE_MARKET_TABS.map(tab => tab.label)).toEqual(['技能', '插件', '配方', '组件'])
+    // 位次是**用户指定的**：插件之后、组件之前（不是追加到末尾）。
     expect(ENTERPRISE_MARKET_TABS[2]?.id).toBe('presets')
     // id 是新取的 `presets`（**不复用**已按用户要求移除的旧「应用商店」那批 id/文案）。
     expect(ENTERPRISE_MARKET_TAB_IDS.presets).toEqual({ tab: 'market-tab-presets', panel: 'market-panel-presets' })
     // 页签文案仍是「基础词 + 计数」同一份投影：无目录时配方如实为 0。
-    expect(enterpriseMarketTabLabel('企业配方', 0)).toBe('企业配方 0')
+    expect(enterpriseMarketTabLabel('配方', 0)).toBe('配方 0')
   })
 
   it('keeps every tab paired with its own panel and keeps the aria/keyboard path working with four tabs', () => {
@@ -310,9 +330,9 @@ describe('企业配方 page tab (with 企业技能 / 企业插件 side by side)'
     })
     expect(withDirectory.tabCounts.presets).toBe(1)
     expect(withDirectory.presetsPanel).toEqual({ kind: 'ready' })
-    // 四枚页签的文案同源：包含内容那枚恒取组件清单长度，其余取自真实行数。
+    // 四枚页签的文案同源：组件那枚恒取组件清单长度，其余取自真实行数。
     expect(withoutDirectory.tabEntries.map(entry => entry.text)).toEqual([
-      '企业技能 0', '企业插件 0', '企业配方 0', `包含内容 ${ENTERPRISE_MARKET_COMPONENTS.length}`,
+      '技能 0', '插件 0', '配方 0', `组件 ${ENTERPRISE_MARKET_COMPONENTS.length}`,
     ])
   })
 })
@@ -320,7 +340,7 @@ describe('企业配方 page tab (with 企业技能 / 企业插件 side by side)'
 /* ══════════════════ ② 配方行：共享行渲染 + 无假开关 + 复制反馈 ══════════════════ */
 
 describe('企业配方 rows reuse the single shared row block', () => {
-  it('renders a preset row through EnterpriseMarketInlineRows (icon + two lines + version/category tags)', () => {
+  it('renders a preset row through EnterpriseMarketInlineRows (icon + two lines, no title tags)', () => {
     const row = presetRow(PRESET_WITH_CATEGORY)
     const props: ShellProps = { view: 'page', sessionUsable: true, enterprisePresets: [row] }
     const tree = EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel(props), props })
@@ -336,16 +356,19 @@ describe('企业配方 rows reuse the single shared row block', () => {
     // 两行文案：标题 + 描述。
     expect(textOf(tree)).toContain('代码评审配方')
     expect(textOf(tree)).toContain('带检查单的评审配方。')
-    // 版本签只显示**短号**，完整坐标挂在紧包它的节点 `title` 上（与技能行同一投影）。
-    expect(textOf(tree)).toContain('2.0.3')
-    expect(textOf(tree)).not.toContain('skillhub.cn/dev-expert@2.0.3')
-    const hint = byClassName(tree, 'own-market-skillVersionHint')[0]
-    expect(hint?.['title']).toBe('skillhub.cn/dev-expert@2.0.3')
-    // 分类签：有分类就出一枚（服务端没这个字段时安静缺席，另有用例）。
-    expect(tags(tree).map(tag => tag['children'])).toEqual(['2.0.3', '研发工具'])
+    // **本刀（分组卡片重构）**：标题行只剩标题一枚子节点——版本签与分类签都撤下卡片
+    //（用户口径：两行结构、标题行不留多余标签），故行上一枚官方 Tag 都没有、也没有那枚只承载 title 的包装节点。
+    const head = byClassName(tree, 'own-market-cardHead')[0]
+    const headKids = head?.['children'] as ReactNode
+    expect(Array.isArray(headKids) ? headKids : [headKids]).toHaveLength(1)
+    expect(tags(tree)).toEqual([])
+    expect(byClassName(tree, 'own-market-skillVersionHint')).toEqual([])
+    expect(textOf(tree)).not.toContain('2.0.3')
+    // 分类也不再参与卡片渲染（数据仍在 facts 上，供详情与分组标题用）。
+    expect(enterpriseMarketPresetRowFacts(props, row).categoryTag).toBe('研发工具')
   })
 
-  it('gives the preset row a real Switch once the one-click action is wired (three states, no copy pill)', () => {
+  it('gives the preset row a real 启用 button once the one-click action is wired (three states, no copy pill)', () => {
     const row = presetRow(PRESET)
     const onTogglePreset = vi.fn()
     const base: ShellProps = {
@@ -353,47 +376,55 @@ describe('企业配方 rows reuse the single shared row block', () => {
       sessionUsable: true,
       enterprisePresets: [row],
       onTogglePreset,
+      // 「⋯」的开合落点（控制器在真运行时恒供给；缺席时那一枚子块会退化成平铺，故这里按真实形状给上）。
+      onToggleRowMenu: vi.fn(),
       // ① 一键启用接通：还额外给一个复制回调，也**不该**在行上出那枚第三级按钮（它是兜底，不是主控件）。
       onCopyPresetInstruction: vi.fn(),
       presetStates: { [row.id]: presetState(presetStatus()) },
     }
     const tree = EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel(base), props: base })
-    // 真开关（与技能/插件行同款）：未授权未装 ⇒ 关。
-    expect(switches(tree)).toHaveLength(1)
-    expect(switches(tree)[0]?.['checked']).toBe(false)
-    expect(switches(tree)[0]?.['disabled']).toBe(false)
-    expect(switches(tree)[0]?.['label']).toBe('启用企业配方 代码评审配方')
+    // 未授权未装 ⇒ 一枚「启用」按钮（本刀：卡片不再用开关，也不再有拨不动的假控件）。
+    expect(presetEnable(tree)?.['disabled']).toBe(false)
+    expect(presetEnable(tree)?.['aria-label']).toBe('启用企业配方 代码评审配方')
+    expect(switches(tree)).toEqual([])
+    expect(presetMenuTrigger(tree)).toBeUndefined()
     // ① 可用时第三级那枚按钮**不出现**（③ 只能是第三级），也没有任何降级说明。
     expect(byData(tree, 'data-enterprise-preset-copy')).toEqual([])
     expect(byData(tree, 'data-enterprise-preset-fallback')).toEqual([])
-    switches(tree)[0]?.['onChange']?.(true)
+    presetEnable(tree)?.['onClick']?.()
     expect(onTogglePreset).toHaveBeenCalledWith(row, true)
 
-    // 已授权未装：还是关，但悬浮说明变成「点此启用」。
+    // 已授权未装：仍是「启用」按钮，悬浮说明变成「点此启用」。
     const authorized = { ...base, presetStates: { [row.id]: presetState(presetStatus({ authorization: 'authorized' })) } }
     const authorizedTree = EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel(authorized), props: authorized })
-    expect(switches(authorizedTree)[0]?.['checked']).toBe(false)
-    expect(switches(authorizedTree)[0]?.['title']).toBe('点此启用')
+    expect(presetEnable(authorizedTree)?.['title']).toBe('点此启用')
 
-    // 已装：开；拨下去 = 停用（同一次回调、next=false）。
+    // 已装（= 已启用）⇒ 「⋯」菜单：这一行真实能做的事只有「停用」；点它走同一次回调、`next=false`。
     const installed = { ...base, presetStates: { [row.id]: presetState(presetStatus({ authorization: 'authorized', installed: presetInstall() })) } }
     const installedTree = EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel(installed), props: installed })
-    expect(switches(installedTree)[0]?.['checked']).toBe(true)
-    expect(switches(installedTree)[0]?.['title']).toBe('点此停用')
-    switches(installedTree)[0]?.['onChange']?.(false)
+    expect(presetEnable(installedTree)).toBeUndefined()
+    expect(presetMenuTrigger(installedTree)?.['aria-label']).toBe('更多操作：代码评审配方')
+    expect(presetMenuTrigger(installedTree)?.['aria-expanded']).toBe(false)
+    const opened = presetMenuOpen(installed, row.id)
+    const openedTree = EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel(opened), props: opened })
+    const items = presetMenuItems(openedTree)
+    expect(items.map(item => item['children'])).toEqual(['停用'])
+    expect(items[0]?.['title']).toBe('点此停用')
+    expect(items[0]?.['disabled']).toBe(false)
+    items[0]?.['onClick']?.()
     expect(onTogglePreset).toHaveBeenLastCalledWith(row, false)
 
-    // 指纹已变：仍是关（要重新确认），状态词与悬浮说明如实交代。
+    // 指纹已变：仍是「启用」按钮（要重新确认），状态词与悬浮说明如实交代。
     const stale = { ...base, presetStates: { [row.id]: presetState(presetStatus({ authorization: 'fingerprint-changed' })) } }
     const staleTree = EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel(stale), props: stale })
-    expect(switches(staleTree)[0]?.['checked']).toBe(false)
+    expect(presetEnable(staleTree)?.['disabled']).toBe(false)
     const staleFacts = enterpriseMarketPresetRowFacts(stale, row)
     expect(staleFacts.state).toBe('fingerprint-changed')
     expect(staleFacts.needsApproval).toBe(true)
     expect(staleFacts.stateLabel).toBe('内容已更新')
   })
 
-  it('keeps the switch un-clickable while busy but never disables retry after a failure', () => {
+  it('keeps the action un-clickable while busy but never disables retry after a failure', () => {
     const row = presetRow(PRESET)
     const onTogglePreset = vi.fn()
     const base: ShellProps = {
@@ -403,18 +434,21 @@ describe('企业配方 rows reuse the single shared row block', () => {
       onTogglePreset,
       presetStates: { [row.id]: presetState(presetStatus({ authorization: 'authorized' })) },
     }
+    const render = (over: ShellProps): Record<string, any> | undefined =>
+      presetEnable(EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel(over), props: over }))
     // 进行中（本机报告 inFlight）⇒ 不可连点。
     const busy = { ...base, presetStates: { [row.id]: presetState(presetStatus({ authorization: 'authorized', inFlight: true })) } }
-    expect(switches(EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel(busy), props: busy }))[0]?.['disabled']).toBe(true)
+    expect(render(busy)?.['disabled']).toBe(true)
     // 本地动作在途（`pendingPresetId` 命中该行）⇒ 同样不可连点。
-    expect(switches(EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel({ ...base, pendingPresetId: row.id }), props: { ...base, pendingPresetId: row.id } }))[0]?.['disabled']).toBe(true)
-    // **D1：失败不禁用** —— 行上有失败码时开关照旧可拨（再拨一次就是重试）。
+    expect(render({ ...base, pendingPresetId: row.id })?.['disabled']).toBe(true)
+    // **D1：失败不禁用** —— 行上有失败码时照旧可点（再点一次就是重试）。
     const failed = { ...base, presetActionError: { id: row.id, action: 'install' as const, code: 'ENT_PRESET_INSTALL_FAILED' } }
     const failedTree = EnterpriseMarketInlineRows({ tab: 'presets', model: enterpriseMarketShellModel(failed), props: failed })
-    expect(switches(failedTree)[0]?.['disabled']).toBe(false)
+    expect(presetEnable(failedTree)?.['disabled']).toBe(false)
     expect(byRole(failedTree, 'alert').length).toBeGreaterThan(0)
-    // 真值还没读到（`status` 缺席）⇒ 不可拨（不知道拨下去会做什么，但也绝不给「假的已授权」）。
+    // 真值还没读到（`status` 缺席）⇒ 不可点（不知道点下去会做什么，但也绝不给「假的已授权」）。
     const unknown = { ...base, presetStates: { [row.id]: presetState() } }
+    expect(render(unknown)?.['disabled']).toBe(true)
     const unknownFacts = enterpriseMarketPresetRowFacts(unknown, row)
     expect(unknownFacts.state).toBe('unknown')
     expect(unknownFacts.switchDisabled).toBe(true)
@@ -636,6 +670,12 @@ describe('企业配方 detail sub-page', () => {
     expect(textOf(tree)).toContain('带检查单的评审配方。')
     // 详情里**没有**列表的行结构（列表那一支一字不挂载）。
     expect(byData(tree, 'data-enterprise-preset-open')).toEqual([])
+    // **本刀（撤掉详情左上角那枚 48×48 图标）**：配方详情同样不画那枚图标
+    // （它就是本文件自己画的 `.own-market-detailIcon`，连元素带死样式一并删了）——
+    // 头部只剩动作区，故这里是反向锁。
+    expect(byClassName(tree, 'own-market-detailIcon')).toEqual([])
+    expect(byClassName(tree, 'own-market-detailHead')).toHaveLength(1)
+    expect(byClassName(tree, 'own-market-detailActions')).toHaveLength(1)
   })
 
   it('renders the same action block in the detail head, from the same facts and the same callbacks as the row', () => {
@@ -656,9 +696,11 @@ describe('企业配方 detail sub-page', () => {
       onTogglePreset,
       onBack: vi.fn(),
     })
-    expect(switches(wired)).toHaveLength(1)
+    // 详情头部与行上是**同一枚子块**：已授权未装 ⇒ 同样是那一枚「启用」按钮（不是第二套控件）。
+    expect(switches(wired)).toEqual([])
+    expect(presetEnable(wired)?.['aria-label']).toBe('启用企业配方 代码评审配方')
     expect(byData(wired, 'data-enterprise-preset-copy')).toEqual([])
-    switches(wired)[0]?.['onChange']?.(true)
+    presetEnable(wired)?.['onClick']?.()
     expect(onTogglePreset).toHaveBeenCalledWith(row, true)
 
     // ② 一键启用不可用：详情头部给第二级 + 第三级，并且**同源地**渲染那一句降级说明。
@@ -893,9 +935,10 @@ describe('reverse locks for the 企业配方 tab', () => {
     // 行渲染只有一处实现，三个目录页签（技能 / 插件 / 配方）各调用它一次。
     expect(count(/export function EnterpriseMarketInlineRows\(/g)).toBe(1)
     expect(count(/<EnterpriseMarketInlineRows /g)).toBe(3)
-    // 配方行 facts 唯一入口：1 处定义 + 行渲染 1 处 + 详情输入构造 1 处 + **授权弹层输入构造 1 处** = 4
-    // （行上 / 详情里 / 弹层里读的都是同一份，不存在第二套算法）。
-    expect(count(/enterpriseMarketPresetRowFacts\(/g)).toBe(4)
+    // 配方行 facts 唯一入口：1 处定义 + **状态/类型筛选那一处**（`passStatus` 按行 facts 取启用态）
+    // + 行渲染 1 处 + 详情输入构造 1 处 + **授权弹层输入构造 1 处** = 5
+    // （行上 / 详情里 / 弹层里 / 过滤里读的都是同一份，不存在第二套算法）。
+    expect(count(/enterpriseMarketPresetRowFacts\(/g)).toBe(5)
     // 配方行投影唯一入口：1 处定义 + 控制器 1 处 = 2（没有第二处造行的写法）。
     expect(count(/enterpriseMarketPresetRows\(/g)).toBe(2)
     // 授权弹层只有一枚实现，且只由宿主挂一次（行上与详情里都不各挂一份）。
@@ -943,11 +986,15 @@ describe('reverse locks for the 企业配方 tab', () => {
       textOf(EnterprisePresetDetailPage(presetPageInput({ detail: DETAIL }))),
     ]
     for (const text of texts) {
-      for (const banned of ['preset', 'Preset', 'YAML', 'yaml', 'manifest', 'Cordis', 'cordis', '.dshpreset', 'dsh-preset', '组件', 'Preset Square Skill']) {
+      // 「组件」曾因页签名降维成「包含内容」而被禁；页签真源改回四字基础词后它重新是员工可读的
+      // 页签名，故从这条黑名单里撤出（换来的新口径由 employee-copy.spec.ts 那条用例锁死）。
+      for (const banned of ['preset', 'Preset', 'YAML', 'yaml', 'manifest', 'Cordis', 'cordis', '.dshpreset', 'dsh-preset', 'Preset Square Skill']) {
         expect(text, banned).not.toContain(banned)
       }
-      // 术语降维后的措辞确实在（配方/包含内容这些词才是员工该看到的）。
+      // 术语降维后的措辞确实在（配方、页签那四个基础词才是员工该看到的）。
       expect(text).toContain('配方')
+      expect(text).toContain('技能')
+      expect(text).toContain('插件')
     }
     // 加载/空/失败三句也复用了设置弹窗那一份（不各写一套）。
     expect(textOf(EnterpriseMarketLegacyShell({ ...props, enterprisePresets: [], presetsListState: { kind: 'loading' } }))).toContain('正在加载企业配方')

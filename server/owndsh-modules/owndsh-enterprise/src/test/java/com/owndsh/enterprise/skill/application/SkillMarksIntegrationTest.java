@@ -9,6 +9,7 @@ package com.owndsh.enterprise.skill.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -268,7 +269,43 @@ class SkillMarksIntegrationTest {
         assertThat(fixture.service().authorizeDownload(fixture.context(), versionId).sizeBytes()).isEqualTo(1024L);
 
         // 既有设备前置校验必须仍然先跑。
-        verify(fixture.devices()).requireActive(fixture.context());
+        // 本用例依次走 list + detail + authorizeDownload 三个入口，而三者**都**以
+        // `devices.requireActive(context)` 作为第一行（SkillRuntimeService:75/81/88），
+        // 所以这是**同一个前置校验被调用三次**，不是三处互不相同的断言。
+        // 本用例要验的语义是「前置校验必须跑过」，不是「恰好跑一次」，原期望写窄了，据此放宽为 atLeastOnce()。
+        verify(fixture.devices(), atLeastOnce()).requireActive(fixture.context());
+    }
+
+    /**
+     * 本刀新增：builtin 贯通到员工端投影的回归门禁。
+     *
+     * <p>守的是「真 PostgreSQL 里那一列的两种取值都能原样到达员工端摘要与详情」——
+     * 契约把 builtin 声明为 required，员工端「已安装」分组据此只显示非内置的已装行，
+     * 所以列表/详情两处投影都必须恒发真值（缺席或恒 false 都会让分组错位）。
+     * 这里刻意同时造 builtin=true（无 assignment）与 builtin=false（有 ALL assignment）两个包：
+     * 前者证明它**不依赖** assignment 才可见，后者证明它**不是**恒 true 的占位值。
+     */
+    @Test
+    void builtinProjectsToBothRuntimeViewsForBothColumnValues() {
+        long builtinPackage = insertPackage("marks-proj-builtin", true, false);
+        insertVersion(builtinPackage, "marks-proj-builtin", "PUBLISHED");
+        long plainPackage = insertPackage("marks-proj-plain", false, false);
+        insertVersion(plainPackage, "marks-proj-plain", "PUBLISHED");
+        insertAllAssignment(plainPackage);
+
+        RuntimeFixture fixture = runtimeFixture();
+        // builtin=true 且无 assignment：可见，且标记为真。
+        RuntimeSkill builtinSkill = fixture.service().detail(fixture.context(), builtinPackage);
+        assertThat(builtinSkill.builtin()).isTrue();
+        assertThat(SkillViews.runtime(builtinSkill).builtin()).isTrue();
+        assertThat(SkillViews.runtimeDetail(builtinSkill).builtin()).isTrue();
+        // builtin=false 靠 ALL assignment 可见：可见，且标记为假（证明不是恒 true 占位）。
+        RuntimeSkill plainSkill = fixture.service().detail(fixture.context(), plainPackage);
+        assertThat(plainSkill.builtin()).isFalse();
+        assertThat(SkillViews.runtime(plainSkill).builtin()).isFalse();
+        assertThat(SkillViews.runtimeDetail(plainSkill).builtin()).isFalse();
+        // 契约声明 builtin 为 required ⇒ 序列化恒发该键（缺席会让员工端关闭键集整条判无效）。
+        assertThat(json.writeValueAsString(SkillViews.runtime(plainSkill))).contains("\"builtin\":false");
     }
 
     /** 未勾选内置且没有 assignment 的技能对员工不可见。 */

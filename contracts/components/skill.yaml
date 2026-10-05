@@ -1,5 +1,22 @@
 # [INPUT]: 依赖根协议资源 ID、revision、cursor、requestId 与严格成功 envelope；技能 frontmatter 语义对齐 DSH 官方 `dsh-skill`/`dsh-skill-filesystem` 的 name/description/调用策略解析。
 # [OUTPUT]: 提供 dsh-skill v1 技能包（含可选 category 分类）/版本/技能条目/可见范围/标记写入与 runtime 摘要/详情 schema。
+#          **本刀（SkillCategory 七类枚举 + manifest 写包规约）**：category 由自由字符串**收敛为七类枚举**
+#          （`SkillCategory`：精选/效率/研究/编程/商业/创意/其他），`SkillPackage.category` 与
+#          `RuntimeSkillSummary.category` 都改为引用它。**manifest 是分类的唯一真源**（上传时以包内声明为准，
+#          见服务端 `SkillCatalogService`），故本刀**不改服务端写入通道**，只把「该写什么值」定死并在规约里写明。
+#          ★ 关于 featured（包级布尔标记）：**它今天仍然没有流到员工端**——`featured` 只出现在
+#          `SkillMarks` 写体与 `SkillPackage` 管理端投影，`RuntimeSkillSummary` 无此字段、服务端两条 runtime
+#          查询也没 select 它、客户端解码层零命中。故「勾 featured 即精选」这条**要等 featured 贯通到
+#          runtime 投影后才能用**（需改 5 处：契约字段 → SkillViews 投影 → JdbcSkillStore 两条 SQL →
+#          本机 decode → 行模型/分组投影）。**本刀的验收只用 category: 精选 这一条入口**，不依赖 featured。
+#          **本刀（第三刀：builtin 贯通员工端投影）**：`builtin` 从「只活在管理端」推进到
+#          `RuntimeSkillSummary`（详情为摊平后的单一 schema，键与摘要逐字相同），形状与 `SkillPackage.builtin`
+#          一致且**必填**：数据库列是 `not null default false`（V36），服务端恒发真值，员工端据此
+#          把「已安装」分组收敛为**只显示非内置的已装行**。理由与 featured 那条同源——分组需要区分内置/非内置，
+#          而在此之前该事实到员工端就断链。三刀次序如实记录：第一刀 category 七类枚举（上一个 commit）、
+#          第二刀 featured 的缺口查明（本刀**未**修，仍未贯通）、**本刀 builtin**。
+#          ★ 边界提醒：`builtin` **不**改变可见性裁决——可见仍是服务端 `assignment ∪ builtin` 并集
+#          （JdbcSkillStore 两条 runtime 查询的 where 条件），本字段只是把该真值**投影**给员工端做展示分组。
 # [POS]: contracts/components 的企业技能目录真源，不投影 artifact 路径、SKILL.md 正文、包内脚本或签名私钥。
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 
@@ -61,6 +78,29 @@ SkillEntry:
       type: boolean
     userInvocable:
       type: boolean
+# 分类七类枚举（用户口径：精选 / 效率 / 研究 / 编程 / 商业 / 创意 / 其他）。
+#
+# ★ **枚举由「员工端分组」执行，不是由服务端拒收**（用户裁决 A：先只收窄契约，验包层暂不动）。
+#   服务端 `SkillArtifactInspector.optionalCategory` 只校验「非字符串 / >32 字符 / 纯空白」，
+#   **不校验枚举**，且已入库的活测试 `SkillArtifactInspectorTest.projectsDeclaredCategoryFromManifest`
+#   明确断言「办公效率」这类**枚举外**旧值必须被原样透传。已知该测试与本枚举直接矛盾，
+#   本刀按裁决保留服务端现状 ⇒ 口径是：
+#     · 写包人写枚举外的值（如存量旧包）⇒ **照常上传成功**，契约在读侧不承诺它合法；
+#     · 员工端 `enterpriseMarketCategory()` 把**枚举外的一切**（含旧值）**静默归「其他」**；
+#     · 线上是否真有枚举外脏值，待查库（SELECT category, count(*) FROM ent_skill_package
+#       WHERE category IS NOT NULL AND category NOT IN ('精选','效率','研究','编程','商业','创意','其他')
+#       GROUP BY category）——0 行则无需清洗，N 行则更干净的做法是**重新上传**（直接改库会留下 revision 漂移）。
+#   待验包层也收紧时，同步改上面那条活测试（它是唯一挡路的门禁）。
+# · 「精选」当前**唯一**入口是 `category: 精选`（包级 `featured` 标记尚未贯通到员工端，见文件头 ★）。
+# · 「其他」是**兜底格**：manifest 省略 category、或给了枚举外的旧值时，员工端按裁决 A 归到「其他」；
+#   枚举外的值在**写入侧被拒绝**（见 SkillPackage.category 的说明），避免脏值进库。
+# · 枚举值是中文展示词，直接进 manifest 与数据库；≤32 的上限由 SkillCategory.maxLength 承担。
+SkillCategory:
+  type: string
+  enum: [精选, 效率, 研究, 编程, 商业, 创意, 其他]
+  maxLength: 32
+  description: 技能分类七类；「精选」当前唯一入口是本枚举自身的 精选 值（包级 featured 标记尚未贯通到员工端）；未声明或旧脏值由员工端兜底归「其他」。
+
 SkillUploadMetadata:
   type: object
   additionalProperties: false
@@ -180,11 +220,12 @@ SkillPackage:
     description:
       type: string
       maxLength: 2000
-    # 可选分类：缺席或 null 表示没有分类；非空则必须是 ≤32 的可见字符串（纯空白在验包层被拒绝）。
+    # 可选分类：缺席或 null 表示没有分类；非空则必须是 SkillCategory 七类之一
+    # （纯空白与枚举外旧值在验包层被拒绝，员工端只兜底读侧）。
     category:
-      type: [string, 'null']
-      minLength: 1
-      maxLength: 32
+      oneOf:
+        - $ref: '#/SkillCategory'
+        - type: 'null'
     status: {$ref: '#/SkillPackageStatus'}
     revision:
       $ref: '../enterprise-openapi.yaml#/components/schemas/Revision'
@@ -225,7 +266,7 @@ SkillPackageResponse:
 RuntimeSkillSummary:
   type: object
   additionalProperties: false
-  required: [id, skillId, displayName, description, sourceDshVersion, sizeBytes, skillCount, updatedAt]
+  required: [id, skillId, displayName, description, builtin, sourceDshVersion, sizeBytes, skillCount, updatedAt]
   properties:
     id: {$ref: '#/SkillPackageId'}
     skillId: {$ref: '#/SkillPackageRef'}
@@ -236,11 +277,18 @@ RuntimeSkillSummary:
     description:
       type: string
       maxLength: 2000
-    # 员工端可选分类：缺席或 null 表示没有分类；前端在缺席/null/空串时都不渲染分类标签。
+    # 员工端可选分类：缺席或 null 表示没有分类；非空恒为 SkillCategory 七类之一
+    # （写入侧已拒枚举外值，读侧由服务端保证形状；前端在缺席/null 时不渲染分类标签）。
     category:
-      type: [string, 'null']
-      minLength: 1
-      maxLength: 32
+      oneOf:
+        - $ref: '#/SkillCategory'
+        - type: 'null'
+    # 包级内置标记：必填 boolean（与 SkillPackage.builtin 同一列的真值）。
+    # 员工端「已安装」分组据此只显示非内置的已装行，故不可选——缺席即协议违规，
+    # 绝不允许"缺席当 false"（同 SkillMarksRequest 的漏传即拒口径）。
+    # 注意：可见性**不**由它裁决——服务端仍按 assignment ∪ builtin 取并集决定可见。
+    builtin:
+      type: boolean
     sourceDshVersion: {$ref: '#/SkillSourceDshVersion'}
     sizeBytes:
       type: integer
@@ -254,17 +302,54 @@ RuntimeSkillSummary:
     updatedAt:
       type: string
       format: date-time
-# 详情 = 摘要 + 版本事实：category 由 RuntimeSkillSummary 分支一并继承，这里不重复声明。
+# 详情 = 摘要 + 版本事实（**摊平成单一对象**，不再用 allOf 继承）。
+#
+# ★ 为什么摊平：`allOf` + 各分支 `additionalProperties: false` 在严格 JSON Schema 语义下**两分支互斥**
+#   （additionalProperties 只看本分支，看不见兄弟分支声明的键），于是**任何** detail 都不可能通过 schema。
+#   曾试过把内层换成 `unevaluatedProperties: false`，但 networknt 3.0.6 **实测同样不跨 allOf 分支传播**
+#   （错误数 12 → 12，仅措辞从「未定义属性」变成「未评估属性」），故换关键字是自欺。
+#   摊平后封闭性**恢复并变严**：单一对象一次判完，多发一个未声明键必红。
+# ★ 摊平废掉的只是「结构继承」，语义目标（详情键集 = 摘要键集 + 扩展键）由
+#   `RuntimeProjectionContractDriftTest` 的「详情键集 ⊇ 摘要键集、且差集恰为约定扩展键」门禁守住——
+#   即用可执行的机器检查，换掉「靠人手工同步两份 schema」的纪律。
 RuntimeSkillDetail:
-  allOf:
-    - $ref: '#/RuntimeSkillSummary'
-    - type: object
-      additionalProperties: false
-      required: [versionId, sha256, skills]
-      properties:
-        versionId: {$ref: '#/SkillVersionId'}
-        sha256: {$ref: '#/SkillSha256'}
-        skills:
-          type: array
-          maxItems: 200
-          items: {$ref: '#/SkillEntry'}
+  type: object
+  additionalProperties: false
+  required: [id, skillId, displayName, description, builtin, sourceDshVersion, sizeBytes, skillCount, updatedAt, versionId, sha256, skills]
+  properties:
+    # ↓ 以下 10 键与 RuntimeSkillSummary 逐字相同（category 为可选，故不在 required 内）
+    id: {$ref: '#/SkillPackageId'}
+    skillId: {$ref: '#/SkillPackageRef'}
+    displayName:
+      type: string
+      minLength: 1
+      maxLength: 120
+    description:
+      type: string
+      maxLength: 2000
+    category:
+      oneOf:
+        - $ref: '#/SkillCategory'
+        - type: 'null'
+    builtin:
+      type: boolean
+    sourceDshVersion: {$ref: '#/SkillSourceDshVersion'}
+    sizeBytes:
+      type: integer
+      format: int64
+      minimum: 1
+      maximum: 52428800
+    skillCount:
+      type: integer
+      minimum: 1
+      maximum: 200
+    updatedAt:
+      type: string
+      format: date-time
+    # ↓ 详情扩展键（差集必须恰为这 3 个，漂移门禁锁死）
+    versionId: {$ref: '#/SkillVersionId'}
+    sha256: {$ref: '#/SkillSha256'}
+    skills:
+      type: array
+      maxItems: 200
+      items: {$ref: '#/SkillEntry'}

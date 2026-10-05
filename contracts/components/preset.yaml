@@ -1,6 +1,6 @@
 # [INPUT]: 依赖根协议资源 ID、revision、cursor、requestId 与严格成功 envelope。
 # [OUTPUT]: 提供 dsh-preset v1 配方包/版本/可见范围（含版本 dependencies 引用清单）与 runtime 摘要/详情 schema；
-#           runtime 摘要同样带 dependencies（详情经 allOf 继承），使员工端一次请求即可看清「N 技能 · M 插件」。
+#           runtime 摘要同样带 dependencies（详情为摊平后的单一 schema，键与摘要逐字相同），使员工端一次请求即可看清「N 技能 · M 插件」。
 # [POS]: contracts/components 的配方广场真源，不投影 artifact 路径、包内 YAML 或签名私钥。
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 
@@ -224,16 +224,46 @@ RuntimePresetSummary:
         这份配方引用的技能/插件清单（与 PresetVersion.dependencies 同一 PresetDependency 形状），
         供员工端在启用前一次请求看清「N 技能 · M 插件」。无引用即空数组。
         引用是元数据而不是包内正文：这里不出现 artifact 路径、包内 YAML、SHA-256 或签名材料。
-        详情 RuntimePresetDetail 经 allOf 继承本字段，因此列表与详情共用同一字段名与同一套客户端解码。
+        列表与详情共用同一字段名与同一套客户端解码（详情为摊平后的单一 schema，键与本字段逐字相同）。
       type: array
       maxItems: 200
       items: {$ref: '#/PresetDependency'}
+# 详情 = 摘要 + 版本事实（**摊平成单一对象**，理由与键集差集门禁同 RuntimeSkillDetail：
+# allOf + 各分支 additionalProperties:false 在严格语义下两分支互斥，且 networknt 3.0.6 实测
+# unevaluatedProperties 同样不跨分支传播，摊平后封闭性恢复且变严）。
 RuntimePresetDetail:
-  allOf:
-    - $ref: '#/RuntimePresetSummary'
-    - type: object
-      additionalProperties: false
-      required: [versionId, sha256]
-      properties:
-        versionId: {$ref: '#/PresetVersionId'}
-        sha256: {$ref: '#/PresetSha256'}
+  type: object
+  additionalProperties: false
+  required: [id, presetId, displayName, description, sourceDshVersion, sizeBytes, updatedAt, dependencies, versionId, sha256]
+  properties:
+    # ↓ 以下 8 键与 RuntimePresetSummary 逐字相同
+    id: {$ref: '#/PresetPackageId'}
+    presetId: {$ref: '#/PresetPresetId'}
+    displayName:
+      type: string
+      minLength: 1
+      maxLength: 120
+    description:
+      type: string
+      maxLength: 2000
+    sourceDshVersion: {$ref: '#/PresetSourceDshVersion'}
+    sizeBytes:
+      type: integer
+      format: int64
+      minimum: 1
+      maximum: 52428800
+    updatedAt:
+      type: string
+      format: date-time
+    dependencies:
+      description: >-
+        这份配方引用的技能/插件清单（与 PresetVersion.dependencies 同一 PresetDependency 形状），
+        供员工端在启用前一次请求看清「N 技能 · M 插件」。无引用即空数组。
+        引用是元数据而不是包内正文：这里不出现 artifact 路径、包内 YAML、SHA-256 或签名材料。
+        列表与详情共用同一字段名与同一套客户端解码。
+      type: array
+      maxItems: 200
+      items: {$ref: '#/PresetDependency'}
+    # ↓ 详情扩展键（差集必须恰为这 2 个，漂移门禁锁死）
+    versionId: {$ref: '#/PresetVersionId'}
+    sha256: {$ref: '#/PresetSha256'}

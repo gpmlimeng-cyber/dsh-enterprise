@@ -19,6 +19,9 @@
  *          `POST /plugins/cancel`，响应收下即回到安装前真状态、进度停表，那次安装请求以
  *          `ENT_PLUGIN_INSTALL_CANCELLED` 收束（可见反馈 + 可重试）；取消请求自己失败时把稳定码摆进快照（不静默、
  *          不改写不相关的码）。
+ * **本刀（Codex 插件商店口径：行动作不再用开关）**：两处「另一行的开关照旧可用 / 失败不禁用开关」改从
+ *   **行 facts**（`enterpriseMarketPluginRowFacts` 的唯一口径）取证，并在树上补一条「已安装行不再有
+ *   `data-enterprise-plugin-slot`」的断言——因为「⋯」的菜单项只在展开时才进 DOM，关闭态下树上无项可读。
  * [POS]: 「企业插件安装的动态过程效果」+「真取消」两刀的机械门禁：把「真进度而不是假动画」「真取消而不是假按钮」
  *        从口号变成可执行断言
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -76,6 +79,15 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
   StateDot: vi.fn(),
   Switch: vi.fn(),
   Tag: vi.fn(),
+  // `official-ui.ts` 在 **import 期**就把 Menu / MenuItemButton / 四枚 Icon 取成**模块级常量**
+  // ⇒ mock 缺任何一项都会在**加载期**抛「No "…" export is defined on the mock」，整份 spec 起不来。
+  // 本文件不测这些原语，补齐占位即可（**不是**放宽任何断言）。
+  Menu: vi.fn(),
+  MenuItemButton: vi.fn(),
+  IconEllipsisOutlineMedium: vi.fn(),
+  IconSettingsOutlineMedium: vi.fn(),
+  IconUserOutlineMedium: vi.fn(),
+  IconLoadingOutlineMedium: vi.fn(),
 }))
 
 afterEach(() => { vi.unstubAllGlobals() })
@@ -155,9 +167,20 @@ function pluginRow(tree: ReactNode, name: string): ReactNode {
  *
  * 取消入口就是它——本仓不给取消另造一套控件（既有的官方 `Button` 原语 + 既有类名，一个新 CSS 类都没加）。
  */
+/**
+ * 外壳里的官方 `Button` 集合。
+ *
+ * **本刀起要排除搜索行那两枚**（刷新 / 添加插件，用户口径：它们与搜索、筛选同排一行，`className`
+ * 是 `.own-market-rowBarAction`）：本文件查的是「**行内**该不该出现按钮」（取消键 / 不能取消时的可见原因），
+ * 搜索行那两枚与行无关，收进来就会把「行内无按钮」这条断言误判成失败。
+ */
 function buttonsWithin(node: ReactNode): Record<string, unknown>[] {
   const acc: Record<string, unknown>[] = []
-  walkTree(node, element => { if (element.type === (Button as unknown)) acc.push(element.props) })
+  walkTree(node, element => {
+    if (element.type !== (Button as unknown)) return
+    if (element.props['className'] === 'own-market-rowBarAction') return
+    acc.push(element.props)
+  })
   return acc
 }
 
@@ -386,12 +409,13 @@ describe('企业插件行的「安装中」过程效果', () => {
     // 行自身对辅助技术自报忙；另一行没有这个属性。
     const busyRows = collectByAttr(tree, 'aria-busy')
     expect(busyRows).toHaveLength(1)
-    // 另一行的开关照旧可用（进度只属于它自己那一行）。
-    const switches: Record<string, unknown>[] = []
-    walkTree(tree, element => { if (element.type === (Switch as unknown)) switches.push(element.props) })
-    expect(switches).toHaveLength(2)
-    expect(switches.find(item => String(item['label']).includes('ent-b'))?.['disabled']).toBe(false)
-    expect(switches.find(item => String(item['label']).includes('ent-a'))?.['disabled']).toBe(true)
+    // 两行都已安装 ⇒ 都分流到「⋯」那一格（本刀：目录卡片不再用开关，故行上**没有** `data-enterprise-plugin-slot`）。
+    expect(collectByAttr(tree, 'data-enterprise-plugin-slot')).toEqual([])
+    // 另一行的控件照旧可用（进度只属于它自己那一行）。**判据取行 facts 的唯一口径**：
+    // 「⋯」的菜单项只在展开时才进 DOM，关闭态下树上没有菜单项可读，语义就在这里算一次。
+    const [busyRow, idleRow] = props.enterprisePlugins as readonly EnterpriseMarketPluginRow[]
+    expect(enterpriseMarketPluginRowFacts(props, busyRow!).switchDisabled).toBe(true)
+    expect(enterpriseMarketPluginRowFacts(props, idleRow!).switchDisabled).toBe(false)
     // 「能不能取消」由 Host 真受管态算：`INSTALLING` 正是官方取消句柄真的在的那一格 ⇒ 钩子为 true；
     // 但写入口缺席（纯函数直调）时**连按钮都不画**——没写入口就不给死按钮（本仓既有降级口径）。
     expect(bars[0]?.['data-enterprise-plugin-progress-cancelable']).toBe('true')
@@ -547,10 +571,12 @@ describe('企业插件行的「安装中」过程效果', () => {
     // 稳定码只待在「技术信息」折叠区里，但必须取得回（既有排障口径不变）。
     expect(collectByAttr(line, 'data-enterprise-error-code').map(props => props['data-enterprise-error-code']))
       .toEqual(['ENT_PLUGIN_SIGNATURE_INVALID'])
-    // 失败**不**禁用开关：再拨一次就是重试（既有口径不变）。
-    let toggle: Record<string, unknown> | undefined
-    walkTree(line, element => { if (element.type === (Switch as unknown)) toggle = element.props })
-    expect(toggle?.['disabled']).toBe(false)
+    // 失败**不**禁用控件：再点一次就是重试（既有口径不变）——唯一口径在行 facts 里
+    //（本刀卡片不再用开关；失败态既不在安装那一格的禁用原因里，也不在启停那一格的禁用原因里）。
+    const failedRow = props.enterprisePlugins?.[0] as EnterpriseMarketPluginRow
+    const failedFacts = enterpriseMarketPluginRowFacts(props, failedRow)
+    expect(failedFacts.switchDisabled).toBe(false)
+    expect(failedFacts.installDisabled).toBe(false)
     // 失败态不叠「正在处理…」那种自相矛盾的进度。
     expect(collectByAttr(line, 'data-enterprise-plugin-progress')).toEqual([])
   })

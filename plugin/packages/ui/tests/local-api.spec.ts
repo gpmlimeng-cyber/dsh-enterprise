@@ -214,6 +214,26 @@ describe('enterprise local browser API', () => {
       .catalog?.[0]?.description).toBe(real347)
   })
 
+  // **反向锁（插件侧没有 category）**：早先这里凭「与技能侧对称」给 catalog 条目加过一个 `category` 字段
+  // （解码 + 行模型 + 注释全套），但**插件侧服务端零落库、零投影，契约 plugin.yaml 也无此键**
+  // （三条独立证据链全零命中）⇒ 那段解码永远读不到值，是凭对称性编出来的假上游。
+  // **插件分类待后端另开一刀**（加列 + 投影 + 契约字段）后才接；在此之前插件行恒无分类，
+  // 分组一律落「其他」（`enterpriseMarketCategoryGroups` 拿不到值即归兜底格）。
+  // 这条锁的作用是：**防止下一个人再次凭「技能侧有、插件侧也该有」的直觉把它加回来。**
+  it('keeps category out of the plugin catalog shape (no upstream column, no contract field)', () => {
+    const base = {
+      pluginVersionId: '880', packageName: '@example/tools', version: '1.0.0', sizeBytes: 100,
+      operatingSystems: ['darwin'],
+    }
+    const status = { assignmentRevision: 7, plugins: [] }
+    // 解码后的条目上根本没有这个键（不是 undefined 值、是被彻底删掉的那个键）。
+    const decoded = decodeEnterprisePluginStatus({ ...status, catalog: [{ ...base }] })
+    expect(decoded.catalog?.[0]).not.toHaveProperty('category')
+    // 上游若真发来这个键，按**闭集键校验**判畸形（而不是悄悄收下）——与「契约里没有它」一致。
+    expect(() => decodeEnterprisePluginStatus({ ...status, catalog: [{ ...base, category: '精选' }] }))
+      .toThrow('ENT_LOCAL_RESPONSE_INVALID')
+  })
+
   // 口径 20（描述来自 README）：catalog 里新增的**可选** `readme` 与同侧 `description` 同一口径归一——
   // 缺席 / null / 空串一律「没有这个键」（详情据此**回落短描述**），非 string 非 null 或超过契约上限判畸形。
   it('normalizes the optional catalog readme like the description, without ever reading its content', () => {
@@ -394,6 +414,8 @@ describe('enterprise local browser API', () => {
       skillId: 'code-review-ent',
       displayName: '企业代码评审技能包',
       description: '企业统一的代码评审检查单',
+      // 契约 `RuntimeSkillSummary.builtin`（必填 boolean；服务端恒发真值）。
+      builtin: false,
       sourceDshVersion: '0.2.0-rc.2',
       sizeBytes: 2048,
       skillCount: 1,

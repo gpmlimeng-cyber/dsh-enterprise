@@ -2066,11 +2066,16 @@ export type PluginPluginCompatibility = {
 };
 
 /**
- * npm `package.json` 的 `description`（≤300）。**可选属性**：包里没写、只写了空白、或该键不是字符串时， 服务端一律**省略这个键**（既不造空串、也不编造），员工端据此如实降级。 它是 **package 级**事实（与 `displayName` 同源、同一条读取路径），随首个上传的制品写入、不随版本变化， 故不出现在 `PluginVersion` 上。
+ * npm `package.json` 的 `description`（≤1000）。**可选属性**：包里没写、只写了空白、或该键不是字符串时， 服务端一律**省略这个键**（既不造空串、也不编造），员工端据此如实降级。 它是 **package 级**事实（与 `displayName` 同源、同一条读取路径），随首个上传的制品写入、不随版本变化， 故不出现在 `PluginVersion` 上。 **上限为什么是 1000**：真实上架制品里已有 347 字符的描述（`@mengli114/dsh-settings-nav-collapse`）， 旧的 300 让它在**上传那一刻**就被验包器归一成「没有描述」——数据在源头丢了， 员工端只能永远「暂无描述」，事后无法从服务端补救。1000 给真实长描述留 2.8 倍余量， 同时对卡片第二行（一行省略号）仍是一个有意义的护栏：它不是展示上限，而是「这显然不是一句描述」的边界。
  */
 export type PluginDescription = string;
 
 export type PluginDesiredState = 'INSTALLED' | 'ABSENT';
+
+/**
+ * npm `package.json` 的 `displayName`（≤120）—— 员工端**卡片标题**的取值。 **必填**：它与可选的 `description` 不同，服务端**永远拿得出一个非空名字** —— 制品包里没写 `displayName`（真实上架制品 6/6 都没写）、写了空白、或该键不是字符串时，验包器 （`PluginArtifactInspector`）一律**回退成包名**，绝不产出 null/空串。故两端生成的 strict Zod 把它当必填位；员工端那套「缺省回退包名」只是为**旧服务端**（这一刀之前那批还不带该键）留的兼容窗口。 它是 **package 级**事实（与 `description` 同源、同一条读取路径），随首个上传的制品写入、 不随版本变化，故不出现在 `PluginVersion` 上。
+ */
+export type PluginDisplayName = string;
 
 export type PluginInventoryAck = {
     reported: number;
@@ -2101,7 +2106,7 @@ export type PluginOperatingSystem = 'darwin' | 'linux' | 'win32';
 export type PluginPluginPackage = {
     id: PluginPluginPackageId;
     packageName: PluginPackageName;
-    displayName: string;
+    displayName: PluginDisplayName;
     description?: PluginDescription;
     status: PluginPackageStatus;
     revision: Revision;
@@ -2124,6 +2129,11 @@ export type PluginPluginPackagePageData = {
 };
 
 export type PluginPackageStatus = 'ACTIVE' | 'DISABLED';
+
+/**
+ * 插件制品 tar 里那份 README 的**纯文本**（≤65536）。**可选属性**：制品里没有 README、README 不是 合法 UTF-8（含 NUL 等二进制内容）、或压根解不出文本时，服务端一律**省略这个键** （既不造空串、也不编造），员工端据此整段不出、并回落到包自带的短 `description`。 **它是数据、不是指令**：两端都只把它当文本渲染，不解析 Markdown、不执行、**绝不注入 HTML**。 **上限 65536 的由来**：验包器（`PluginArtifactInspector`）按 **UTF-8 字节** 65536 截断（码点边界安全， 不会切出半个字符），截断后追加一句 `(已截断)`，故真实字节数 ≤65536、字符数必然 ≤65536 （合法 UTF-8 的字符数不可能超过字节数），本 schema 的 `maxLength` 取这个必然成立的字符数上界。 它是 **版本级**事实（README 藏在制品里、随版本变），故只上 `RuntimePluginAssignment`， 不上 `PluginPackage`/`PluginVersion`——那两处是列表投影，按 200 条 × 64KB 会把响应放大到 MB 级。
+ */
+export type PluginReadme = string;
 
 export type PluginSemanticVersion = string;
 
@@ -2161,7 +2171,9 @@ export type RuntimePluginAssignment = {
     pluginVersionId: PluginPluginVersionId;
     packageName: PluginPackageName;
     version: PluginSemanticVersion;
+    displayName: PluginDisplayName;
     description?: PluginDescription;
+    readme?: PluginReadme;
     sizeBytes: number;
     sha256: PluginSha256;
     /**
@@ -2290,7 +2302,18 @@ export type PresetPresetVersionResponse = {
 
 export type PresetPresetVersionStatus = 'VALIDATED' | 'PUBLISHED' | 'RETIRED';
 
-export type PresetRuntimePresetDetail = PresetRuntimePresetSummary & {
+export type PresetRuntimePresetDetail = {
+    id: PresetPresetPackageId;
+    presetId: PresetPresetPresetId;
+    displayName: string;
+    description: string;
+    sourceDshVersion: PresetPresetSourceDshVersion;
+    sizeBytes: number;
+    updatedAt: string;
+    /**
+     * 这份配方引用的技能/插件清单（与 PresetVersion.dependencies 同一 PresetDependency 形状）， 供员工端在启用前一次请求看清「N 技能 · M 插件」。无引用即空数组。 引用是元数据而不是包内正文：这里不出现 artifact 路径、包内 YAML、SHA-256 或签名材料。 列表与详情共用同一字段名与同一套客户端解码。
+     */
+    dependencies: Array<PresetPresetDependency>;
     versionId: PresetPresetVersionId;
     sha256: PresetPresetSha256;
 };
@@ -2304,7 +2327,7 @@ export type PresetRuntimePresetSummary = {
     sizeBytes: number;
     updatedAt: string;
     /**
-     * 这份配方引用的技能/插件清单（与 PresetVersion.dependencies 同一 PresetDependency 形状）， 供员工端在启用前一次请求看清「N 技能 · M 插件」。无引用即空数组。 引用是元数据而不是包内正文：这里不出现 artifact 路径、包内 YAML、SHA-256 或签名材料。 详情 RuntimePresetDetail 经 allOf 继承本字段，因此列表与详情共用同一字段名与同一套客户端解码。
+     * 这份配方引用的技能/插件清单（与 PresetVersion.dependencies 同一 PresetDependency 形状）， 供员工端在启用前一次请求看清「N 技能 · M 插件」。无引用即空数组。 引用是元数据而不是包内正文：这里不出现 artifact 路径、包内 YAML、SHA-256 或签名材料。 列表与详情共用同一字段名与同一套客户端解码（详情为摊平后的单一 schema，键与本字段逐字相同）。
      */
     dependencies: Array<PresetPresetDependency>;
 };
@@ -2470,17 +2493,35 @@ export type QuotaUsageAnalyticsData = {
     truncated: boolean;
 };
 
-export type QuotaUsageAnalyticsDayPoint = QuotaUsageAnalyticsTokens & {
+export type QuotaUsageAnalyticsDayPoint = {
+    requests: number;
+    inputTokens: number;
+    outputTokens: number;
+    cacheTokens: number;
+    totalTokens: number;
+    chargedTokens: number;
     date: string;
 };
 
-export type QuotaUsageAnalyticsMemberRow = QuotaUsageAnalyticsTokens & {
+export type QuotaUsageAnalyticsMemberRow = {
+    requests: number;
+    inputTokens: number;
+    outputTokens: number;
+    cacheTokens: number;
+    totalTokens: number;
+    chargedTokens: number;
     userId: EnterpriseUserId;
     username: string;
     displayName: string;
 };
 
-export type QuotaUsageAnalyticsModelRow = QuotaUsageAnalyticsTokens & {
+export type QuotaUsageAnalyticsModelRow = {
+    requests: number;
+    inputTokens: number;
+    outputTokens: number;
+    cacheTokens: number;
+    totalTokens: number;
+    chargedTokens: number;
     modelId: ManagedModelId;
     alias: string;
     displayName: string;
@@ -2492,7 +2533,13 @@ export type QuotaUsageAnalyticsResponse = {
     requestId: RequestId;
 };
 
-export type QuotaUsageAnalyticsSummary = QuotaUsageAnalyticsTokens & {
+export type QuotaUsageAnalyticsSummary = {
+    requests: number;
+    inputTokens: number;
+    outputTokens: number;
+    cacheTokens: number;
+    totalTokens: number;
+    chargedTokens: number;
     settled: number;
     chargedMax: number;
     unmeasured: number;
@@ -2702,7 +2749,17 @@ export type SessionSessionSequence = number;
 
 export type SessionSessionStatus = 'ACTIVE' | 'DELETED' | 'EXPIRED';
 
-export type SkillRuntimeSkillDetail = SkillRuntimeSkillSummary & {
+export type SkillRuntimeSkillDetail = {
+    id: SkillSkillPackageId;
+    skillId: SkillSkillPackageRef;
+    displayName: string;
+    description: string;
+    category?: SkillCategory | null;
+    builtin: boolean;
+    sourceDshVersion: SkillSkillSourceDshVersion;
+    sizeBytes: number;
+    skillCount: number;
+    updatedAt: string;
     versionId: SkillSkillVersionId;
     sha256: SkillSkillSha256;
     skills: Array<SkillSkillEntry>;
@@ -2713,7 +2770,8 @@ export type SkillRuntimeSkillSummary = {
     skillId: SkillSkillPackageRef;
     displayName: string;
     description: string;
-    category?: string | null;
+    category?: SkillCategory | null;
+    builtin: boolean;
     sourceDshVersion: SkillSkillSourceDshVersion;
     sizeBytes: number;
     skillCount: number;
@@ -2742,6 +2800,11 @@ export type SkillSkillAssignmentSpec = {
 
 export type SkillSkillAssignmentStatus = 'ACTIVE' | 'DISABLED';
 
+/**
+ * 技能分类七类；「精选」当前唯一入口是本枚举自身的 精选 值（包级 featured 标记尚未贯通到员工端）；未声明或旧脏值由员工端兜底归「其他」。
+ */
+export type SkillCategory = '精选' | '效率' | '研究' | '编程' | '商业' | '创意' | '其他';
+
 export type SkillSkillEntry = {
     name: SkillSkillEntryName;
     description: string;
@@ -2764,7 +2827,7 @@ export type SkillSkillPackage = {
     skillId: SkillSkillPackageRef;
     displayName: string;
     description?: string;
-    category?: string | null;
+    category?: SkillCategory | null;
     status: SkillSkillPackageStatus;
     revision: Revision;
     versions: Array<SkillSkillVersion>;

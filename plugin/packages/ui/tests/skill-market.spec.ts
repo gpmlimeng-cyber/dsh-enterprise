@@ -31,6 +31,7 @@ import {
   enterpriseSkillFilePath,
   enterpriseSkillFilesPath,
 } from '../src/local-api.js'
+import { resetSkillDecodeWarnings } from '../src/skill-api-decode.js'
 
 vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({ Button: vi.fn(), Modal: vi.fn() }))
 
@@ -39,6 +40,7 @@ const SUMMARY = {
   skillId: 'code-review-ent',
   displayName: '企业代码评审技能包',
   description: '企业统一的代码评审检查单',
+  builtin: false,
   sourceDshVersion: '0.2.0-rc.2',
   sizeBytes: 2048,
   skillCount: 2,
@@ -96,6 +98,64 @@ describe('enterprise skill market', () => {
       .toThrow('ENT_LOCAL_RESPONSE_INVALID')
     // 分类串也不是无上限的：超长判畸形。
     expect(() => decodeEnterpriseSkills([{ ...SUMMARY, category: 'x'.repeat(65) }]))
+      .toThrow('ENT_LOCAL_RESPONSE_INVALID')
+  })
+
+  /**
+   * ★ `builtin`：**读侧 tolerant / 写侧 required**（裁决丙）。
+   *
+   * 写侧（契约 `RuntimeSkillSummary`）把它列进 `required`；但服务端与员工插件是**两条独立发版列车**
+   * （Compose 里只有 server/console，**没有员工客户端服务**）⇒ 混部窗口必然存在。
+   * 那时若严格拒收 ⇒ **整页技能目录**判 `ENT_LOCAL_RESPONSE_INVALID`（列表全白）；
+   * 而容忍缺席的唯一误伤是「内置包被当非内置」，只影响尚未上线的「已安装」分组。
+   * ⇒ 取 tolerant，但**必须可诊断**：缺席记一条**结构化 warn**，不静默兜底。
+   */
+  it('normalizes a missing builtin to false but still warns (read side is tolerant, not silent)', () => {
+    resetSkillDecodeWarnings()
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    try {
+      const { builtin, ...withoutBuiltin } = SUMMARY
+      expect(builtin).toBe(false)
+      // 缺席 → 读侧按「非内置」落地（真值带上界面，「已安装」分组是排队中的 task-5）。
+      expect(decodeEnterpriseSkills([withoutBuiltin])[0]?.builtin).toBe(false)
+      expect(decodeEnterpriseSkillDetail({ ...withoutBuiltin, versionId: '9001', sha256: 'a'.repeat(64), skills: [] }).builtin).toBe(false)
+      // ★ 但**不许静默**：缺席必须 warn，且 warn 里带得上定位信息。
+      expect(warnSpy).toHaveBeenCalled()
+      const [message, detail] = warnSpy.mock.calls[0] as [string, Record<string, unknown>]
+      expect(message).toContain('owndsh: ')
+      expect(message).toContain('builtin')
+      expect(detail).toMatchObject({ missing: ['builtin'] })
+    } finally {
+      warnSpy.mockRestore()
+    }
+  })
+
+  it('passes builtin through unchanged and stays quiet when the server did project it', () => {
+    resetSkillDecodeWarnings()
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    try {
+      for (const value of [true, false]) {
+        expect(decodeEnterpriseSkills([{ ...SUMMARY, builtin: value }])[0]?.builtin).toBe(value)
+        expect(decodeEnterpriseSkillDetail({ ...DETAIL, builtin: value }).builtin).toBe(value)
+      }
+      // 服务端**投影了**真值 ⇒ 一条 warn 都不该有（否则日志会被正常流量刷屏）。
+      expect(warnSpy).not.toHaveBeenCalled()
+    } finally {
+      warnSpy.mockRestore()
+    }
+  })
+
+  it('rejects a wrong-typed builtin: tolerance covers absence only, never a bad shape', () => {
+    resetSkillDecodeWarnings()
+    // 「true」字符串 / null / 0 / 1 都是**协议 bug**，必须暴露，不能被容错吞掉。
+    for (const broken of ['true', 'false', null, 0, 1, {}]) {
+      expect(() => decodeEnterpriseSkills([{ ...SUMMARY, builtin: broken as never }]))
+        .toThrow('ENT_LOCAL_RESPONSE_INVALID')
+      expect(() => decodeEnterpriseSkillDetail({ ...DETAIL, builtin: broken as never }))
+        .toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    // builtin 进白名单 ≠ 放开键集：多塞别的未知字段照样整条判失败。
+    expect(() => decodeEnterpriseSkills([{ ...SUMMARY, builtin: false, tag: 'x' }]))
       .toThrow('ENT_LOCAL_RESPONSE_INVALID')
   })
 

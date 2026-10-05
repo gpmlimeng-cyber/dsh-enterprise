@@ -45,6 +45,11 @@ export interface OfficialMenuProps {
   /** 卡片挂到 document.body，用锚点矩形做 fixed 定位：侧栏的 overflow 裁不到它。 */
   readonly portal?: boolean
   readonly side?: 'bottom' | 'top' | 'right'
+  /**
+   * 列表相对锚点的对齐（官方 `lib/types/Menu.d.ts:75` 逐字 `align?: 'start' | 'end'`，默认 `'start'`）。
+   * 工具行右端那枚「添加技能」下拉传 `'end'` ⇒ 卡片右边缘与按钮右边缘对齐（用户口径「右对齐与按钮」）。
+   */
+  readonly align?: 'start' | 'end'
 }
 
 interface OfficialPrimitives {

@@ -355,21 +355,25 @@ describe('草稿的模型面（3 个工具 + user_confirmed 门闩）', () => {
     expect(definitions.map(definition => definition.name)).toEqual([...ENTERPRISE_LIBRARY_TOOL_NAMES])
 
     const create = defineOf(definitions, 'library_create_draft')
-    expect(Object.keys(create.parameters)).toEqual(['asset_id', 'base_revision_id'])
-    expect((create.parameters['asset_id'] as { required?: boolean }).required).toBe(true)
-    expect((create.parameters['base_revision_id'] as { required?: boolean }).required).toBeUndefined()
+    // ★ 根必须是对象型（官方 DeepSeek 严格校验：type:null 会拒掉整条请求）。
+    expect(create.parameters['type']).toBe('object')
+    const createProps = create.parameters['properties'] as Record<string, unknown>
+    expect(Object.keys(createProps)).toEqual(['asset_id', 'base_revision_id'])
+    expect(create.parameters['required']).toEqual(['asset_id'])
+    expect((createProps['asset_id'] as { type?: string }).type).toBe('string')
     expect(Object.keys(create.output.schema['properties'] as Record<string, unknown>))
       .toEqual(['draft_id', 'asset_id', 'base_revision_id', 'revision', 'content'])
 
     const update = defineOf(definitions, 'library_update_draft')
-    expect(Object.keys(update.parameters)).toEqual(['draft_id', 'content', 'expected_revision'])
+    expect(Object.keys(update.parameters['properties'] as Record<string, unknown>)).toEqual(['draft_id', 'content', 'expected_revision'])
     expect(Object.keys(update.output.schema['properties'] as Record<string, unknown>))
       .toEqual(['draft_id', 'revision', 'updated_at'])
 
     const publish = defineOf(definitions, 'library_publish_revision')
-    expect(Object.keys(publish.parameters)).toEqual(['draft_id', 'expected_revision', 'user_confirmed'])
-    expect((publish.parameters['user_confirmed'] as { type: string, required?: boolean }))
-      .toMatchObject({ type: 'boolean', required: true })
+    const publishProps = publish.parameters['properties'] as Record<string, unknown>
+    expect(Object.keys(publishProps)).toEqual(['draft_id', 'expected_revision', 'user_confirmed'])
+    expect(publish.parameters['required']).toEqual(['draft_id', 'expected_revision', 'user_confirmed'])
+    expect(publishProps['user_confirmed']).toMatchObject({ type: 'boolean' })
     expect(Object.keys(publish.output.schema['properties'] as Record<string, unknown>))
       .toEqual(['asset_id', 'revision_id', 'revision_number', 'name'])
     // 描述里的两条硬口径：不许自行确认 + 不是工作区文件系统（防误用/防注入，E2）。

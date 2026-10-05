@@ -65,6 +65,8 @@ describe('the full-screen access gate is retired', () => {
       'settings.launcher',
       'plugins.item',
       'plugins.detail.badge',
+      // ★ **`plugins.detail.actions` 那处已撤**：官方把 actions 槽渲染在标题**上方**的 `_detailHead`，
+      //   而用户要求两枚动作与标题同排 ⇒ 改由 `EnterpriseMarketTitleSlot` 挂在 badge 槽（`_titleRow` 内）。
       'sidebar.brand.mark',
       'sidebar.brand.name',
       'conversation.hero.brand.mark',

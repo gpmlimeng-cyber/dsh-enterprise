@@ -10,8 +10,8 @@ import {
   apply,
   EnterpriseAccountMenu,
   EnterpriseHeroBrandMark,
-  EnterpriseMarketBadge,
   EnterpriseMarketLegacyPage,
+  EnterpriseMarketTitleSlot,
   EnterpriseSettingsSection,
   EnterpriseSidebarBrandMark,
   EnterpriseSidebarBrandName,
@@ -66,6 +66,9 @@ describe('enterprise Client plugin', () => {
       'settings.launcher',
       'plugins.item',
       'plugins.detail.badge',
+      // ★ **`plugins.detail.actions` 那处已撤**（用户口径「刷新和添加应该和标题平行在一行」）：
+      //   官方把 actions 槽渲染在 `_detailHead`（标题**上方**），badge 槽才渲染在 `_titleRow` 内部 ⇒
+      //   两枚动作改由 `EnterpriseMarketTitleSlot` 与徽章一起挂在 badge 槽上，注册面回到四处。
       'sidebar.brand.mark',
       'sidebar.brand.name',
       'conversation.hero.brand.mark',
@@ -87,23 +90,37 @@ describe('enterprise Client plugin', () => {
       EnterpriseAccountMenu,
       // `plugins.item` 的详情页走**旧外观**外壳（9723a97 那一版官方两行卡片）——本刀之后它是唯一注册的市场入口。
       EnterpriseMarketLegacyPage,
-      EnterpriseMarketBadge,
+      // 标题行那一格：**「企业」徽章 + 两枚动作（刷新 / 「添加」）**同一个占用者。
+      // ★ 从 `plugins.detail.actions` 搬到 `plugins.detail.badge`：官方把 actions 槽渲染在 `_detailHead`
+      //   （标题**上方**），badge 槽才渲染在 `_titleRow` 内部 ⇒ 只有这样两枚按钮才与标题同排（用户口径）。
+      EnterpriseMarketTitleSlot,
     ])
     // 设置区、个人中心、市场入口三个座位共享同一个脱敏 store；badge 槽位也无 inject 之外的多余源。
     const stores = registrations.slice(0, 3).map(item => (item.options['inject'] as () => { store: unknown })().store)
     expect(stores[0]).toBe(stores[1])
     expect(stores[2]).toBe(stores[0])
     // 只有个人中心座位另带主题/桌面/快捷键三份只读源；设置区、市场入口、badge 槽只注入 store
-    // （市场入口多两份：资料库管理门——它是本机设置，与企业账号 store 不是一回事；
-    //   配方降级链第二级的 `presetLaunch`——跳到新会话并把导入指令填进输入框）。
+    // （市场入口多三份：资料库管理门——它是本机设置，与企业账号 store 不是一回事；
+    //   配方降级链第二级的 `presetLaunch`——跳到新会话并把导入指令填进输入框；
+    //   **`tabSeat`——标题右侧页签的共享座位源**，页面发布、`plugins.detail.actions` 槽订阅）。
     const market = registrations[2]!.options['inject'] as () => Record<string, unknown>
     const marketFace = market()
-    expect(Object.keys(marketFace).sort()).toEqual(['libraryGate', 'presetLaunch', 'store'])
+    expect(Object.keys(marketFace).sort()).toEqual(['libraryGate', 'presetLaunch', 'store', 'tabSeat'])
     expect(marketFace['store']).toBe(stores[2])
     expect(typeof (marketFace['libraryGate'] as { setEnabled?: unknown }).setEnabled).toBe('function')
     expect(typeof marketFace['presetLaunch']).toBe('function')
+    // 座位源形状必须齐（订阅 / 取快照 / 发布三件），否则标题行那一格订阅不到页签。
+    const seat = marketFace['tabSeat'] as { subscribe?: unknown; getSnapshot?: unknown; publish?: unknown }
+    expect(typeof seat.subscribe).toBe('function')
+    expect(typeof seat.getSnapshot).toBe('function')
+    expect(typeof seat.publish).toBe('function')
+    // 标题行那一格（badge 槽）现在**也**要 `tabSeat`：两枚动作（刷新 / 「添加」）与徽章同挂在它上面，
+    // 动作要用 `activeTab` 决定出哪份清单、用 `addMenuOpen`/`onToggleAddMenu` 表达开合。
     const badge = registrations[3]!.options['inject'] as () => Record<string, unknown>
-    expect(badge()).toEqual({ store: stores[2] })
+    const badgeFace = badge()
+    expect(Object.keys(badgeFace).sort()).toEqual(['store', 'tabSeat'])
+    expect(badgeFace['store']).toBe(stores[2])
+    expect(badgeFace['tabSeat']).toBe(marketFace['tabSeat'])
     // 【撤销锁】独立应用商店的两处注册面（`main` 面板 + `sidebar.panellist` 一级入口）必须都不再存在：
     // 注册里没有 `enterprise-store` 的 key/id、也没有那个 view='page' 的恒定注入（slot 名在用例尾部再锁一次）。
     expect(registrations.map(item => item.options['key'] ?? item.options['id'])).not.toContain('enterprise-store')
@@ -174,6 +191,7 @@ describe('enterprise Client plugin', () => {
       'settings.launcher',
       'plugins.item',
       'plugins.detail.badge',
+      // `plugins.detail.actions` 已撤（两枚动作并入 badge 槽那一格，见文件顶部注释）。
       'sidebar.brand.mark',
       'sidebar.brand.name',
       'conversation.hero.brand.mark',
@@ -233,7 +251,8 @@ describe('enterprise Client plugin', () => {
         on: vi.fn(() => () => undefined),
         effect: effect => { effect() },
       })
-      // 前四处是本插件的既有注册（设置区／个人中心／市场入口／badge），后三处是品牌座位。
+      // 前**四**处是本插件的既有注册（设置区／个人中心／市场入口／**标题行那一格**），后三处是品牌座位。
+      // （`plugins.detail.actions` 已撤 ⇒ 由五变四，见上面那段注释。）
       await vi.waitFor(() => { expect(registrations).toHaveLength(7) })
       const seats = registrations.slice(4)
       expect(seats.map(item => item.options)).toMatchObject([

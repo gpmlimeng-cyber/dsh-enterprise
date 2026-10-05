@@ -1,7 +1,8 @@
 /**
  * [INPUT]: 依赖已发布且对当前用户可见的 package/version 联合投影。
- * [OUTPUT]: 提供 runtime 浏览摘要与详情事实（含包级可选 category 与包内技能条目）。
- * [POS]: skill/domain 的员工只读模型，不含 artifact 路径与管理集合。
+ * [OUTPUT]: 提供 runtime 浏览摘要与详情事实（含包级可选 category、包级 builtin 标记与包内技能条目）。
+ * [POS]: skill/domain 的员工只读模型，不含 artifact 路径与管理集合。builtin 是包级真值的只读投影，
+ *       供员工端做「已安装」分组——**不**参与可见性裁决（那由 SkillStore 的 assignment ∪ builtin 并集负责）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 package com.owndsh.enterprise.skill.domain;
@@ -16,6 +17,7 @@ public record RuntimeSkill(
     String displayName,
     String description,
     String category,
+    boolean builtin,
     long versionId,
     String sourceDshVersion,
     long sizeBytes,

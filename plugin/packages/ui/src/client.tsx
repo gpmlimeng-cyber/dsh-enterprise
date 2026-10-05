@@ -37,8 +37,9 @@ import {
   ENTERPRISE_MARKET_ENTRY_ID,
   ENTERPRISE_MARKET_ENTRY_LABEL,
   ENTERPRISE_MARKET_ENTRY_ORDER,
-  EnterpriseMarketBadge,
+  EnterpriseMarketTitleSlot,
   EnterpriseMarketLegacyPage,
+  createEnterpriseMarketTabSeat,
 } from './marketplace-entry.js'
 import { startEnterpriseMarketBadgeDecoration } from './market-entry-badge.js'
 import { createEnterpriseShortcutsSource } from './shortcuts-view.js'
@@ -167,6 +168,14 @@ export function apply(ctx: SlotContextPort): void {
   // 「独立应用商店」的两处注册（官方 `main` 槽上的 `enterprise-store` 整页面板 + `sidebar.panellist`
   // 上的「应用商店」一级入口）已在上一刀撤掉，随之失去引用的 store 外壳死代码（`EnterpriseMarketStorePage`／
   // `EnterpriseStoreIcon`／`ENTERPRISE_STORE_*`／HERO／只服务它的搜索框）已从 `marketplace-entry.tsx` 一并删除。
+  /**
+   * **标题右侧页签的共享座位**（用户裁决 A：4 个页签放到标题右侧）。
+   *
+   * 为什么必须有这一层：页签由官方 `plugins.detail.actions` 槽（标题行）渲染，而面板在 `plugins.item`
+   * 的页面树里——**两棵 React 树**，props 传不过去。故在这里建一份非 React 源：页面侧 `publish`，
+   * 槽组件侧 `useEnterpriseMarketTabSeat` 订阅。它与 `brand-occupants` 那套「源 + 座位订阅」是同一手法。
+   */
+  const marketTabSeat = createEnterpriseMarketTabSeat()
   ctx.slots.inject('plugins.item', () => ctx.slots.register({
     name: 'plugins.item',
     id: ENTERPRISE_MARKET_ENTRY_ID,
@@ -180,6 +189,7 @@ export function apply(ctx: SlotContextPort): void {
     inject: () => ({
       store,
       libraryGate,
+      tabSeat: marketTabSeat,
       presetLaunch: createEnterprisePresetLauncher(() => enterprisePresetSessionPortsFrom({
         uiWorkspace: ctx.get('uiWorkspace'),
         workspaces: ctx.get('workspaces'),
@@ -197,8 +207,23 @@ export function apply(ctx: SlotContextPort): void {
   ctx.slots.inject('plugins.detail.badge', () => ctx.slots.register({
     name: 'plugins.detail.badge',
     id: ENTERPRISE_MARKET_ENTRY_ID,
-    inject: () => ({ store }),
-  }, EnterpriseMarketBadge as (props: never) => ReactNode))
+    // ★ **本刀把两枚动作也并进这一格**（用户口径：「刷新和添加应该和标题平行在一行……现在是在上方」）。
+    //   官方 DOM：`plugins.detail.actions` 槽渲染在 `_detailHead` 里，而 `_detailHead` 在 `_titleRow`
+    //   **上方**（`margin:32px 0 0`，`client.js:2207`）⇒ 留在那个槽里**永远**只会显示在标题上方。
+    //   而 `plugins.detail.badge` 槽**就渲染在 `_titleRow` 内部**（`client.js:2315-2320`），且 `_titleRow`
+    //   是 `align-items:center` ⇒ 走这一格，与标题的垂直对齐由官方免费给到。
+    //   ⇒ 于是**撤掉 `plugins.detail.actions` 那处注册**（注册面回到四处，与 `bundle.spec.ts` 的既有期望一致），
+    //     本槽改注册组合件 `EnterpriseMarketTitleSlot`（徽章 + 两枚动作）。
+    //     座位源仍经 inject 注入（`EnterpriseMarketTitleSlot` 里的订阅包装要用它）。
+    inject: () => ({ store, tabSeat: marketTabSeat }),
+  }, EnterpriseMarketTitleSlot as (props: never) => ReactNode))
+  /**
+   * ★ **`plugins.detail.actions` 那处注册已撤**（原为两枚占位按钮的落点）。
+   *   原因见上面 badge 槽那段注释：官方把 actions 槽渲染在 `_detailHead`（标题**上方**），
+   *   而用户要求两枚按钮**与标题同排** ⇒ 唯一能满足的位置是 `plugins.detail.badge` 槽
+   *   （它渲染在 `_titleRow` 内部）。两枚按钮现由 `EnterpriseMarketTitleSlot` 与徽章一起出。
+   *   撤掉后客户端注册面回到**四处**，与 `bundle.spec.ts` 的既有期望一致。
+   */
   /**
    * **官方列表卡标题行的那枚「企业」签**（用户两次指定：必须在标题行、标题正后方）：官方 `ItemCard` 的
    * `CardHead` 只接 title/icon/description、**没有 tags 座位**（`dsh-client-ui-plugin-manager/lib/client.js:2083-2097`），

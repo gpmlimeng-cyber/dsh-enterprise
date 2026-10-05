@@ -6,6 +6,10 @@
  *           **实际序列化发出的键集 ⊆ 契约声明键集**（多发一个未声明键即红）、
  *           两条插件分配投影（PluginViews.RuntimeAssignmentView 与 BootstrapView.PluginAssignment）键集逐字相同、
  *           DependencyView 在 versionId 为空时不得序列化出 null 键，并锁死审计 AuditAction 枚举与契约 enum 逐字一致。
+ *           **新增：摊平后详情/摘要的键集漂移门禁**（详情键集 ⊇ 摘要键集且差集恰为约定扩展键）——
+ *           契约那几处 detail 曾用 allOf 继承摘要，而 allOf + 各分支 additionalProperties:false 在严格语义下
+ *           永不可满足、unevaluatedProperties 在 networknt 3.0.6 上实测也不跨分支传播，故已摊平；
+ *           摊平废掉结构继承、换来「摘要键要人工同步两份」的代价，**本门禁就是那个代价的机器接管**。
  * [POS]: owndsh-enterprise 的 runtime 投影契约漂移门禁。三起已实证事故里这一类（服务端多发未声明字段
  *        downloadPath ⇒ 员工端关闭键集整条判 ENT_LOCAL_RESPONSE_INVALID、用户侧静默炸）今后在 CI 就被抓住，
  *        不再依赖"客户端手写假体恰好同形"的偶然。77cbb6c 那起"漏键无声"（description 只改了 PluginViews、
@@ -89,6 +93,12 @@ class RuntimeProjectionContractDriftTest {
      * <p>allOf 按**各分支声明键的并集**判定：契约里 `RuntimePresetDetail` 经 allOf 继承摘要字段，
      * 而两个分支各自写了 `additionalProperties: false`（严格 JSON Schema 语义下两分支互斥），
      * 两端生成物（Zod intersection / 员工端白名单）实际就是按并集消费的，门禁与它们保持同一口径。
+     *
+     * <p>★ 历史注记（该口径已随摊平失效，仅留作背景）：上面这条「并集口径」曾只在**门禁侧**成立——
+     * 契约那几处 detail 的 allOf 在 Java 侧根本不可满足（详见
+     * {@code flattenedDetailKeepsSummaryKeySetPlusFixedExtension}）。契约现已摊平为单一对象，
+     * 所以 {@link #collectProperties} 的 allOf 分支对这几个 schema 已不再命中，但**保留**以兼容
+     * 今后仍需按并集判定的 schema。
      */
     @Test
     @DisplayName("每个 runtime 投影实际发出的键集 ⊆ 契约声明键集（多发一个未声明键即失败）")
@@ -179,6 +189,60 @@ class RuntimeProjectionContractDriftTest {
         // 口径 20 的 readme 同样两条都得发（都是"有值才发"，故这里取的是**有值**那份样例）。
         assertTrue(viaPluginViews.contains("readme"), () -> "PluginViews 缺 readme：" + viaPluginViews);
         assertTrue(viaBootstrap.contains("readme"), () -> "BootstrapView 缺 readme：" + viaBootstrap);
+    }
+
+    /**
+     * 详情/摘要键集漂移门禁——**摊平换来的机器保证**。
+     *
+     * <p>背景：`RuntimeSkillDetail` / `RuntimePresetDetail` / 四个 `UsageAnalytics*` 原本是
+     * `allOf: [摘要, {...}]`。但 `allOf` + 各分支 `additionalProperties: false` 在严格 JSON Schema
+     * 语义下**两分支互斥**（`additionalProperties` 只看本分支，看不见兄弟分支声明的键），
+     * 于是**任何** detail 都不可能通过 schema；networknt 3.0.6 实测 `unevaluatedProperties`
+     * 同样**不跨 allOf 分支传播**（错误数 12 → 12），换关键字是自欺。
+     * 故契约把这几处**摊平成单一对象**——封闭性由此恢复且变严（多发一个未声明键必红）。
+     *
+     * <p>摊平废掉的是「详情继承摘要」这个**结构保证**，代价是两份 schema 的摘要键要人工同步。
+     * 本条就是把那件事从纪律变成门禁：
+     * <ol>
+     *   <li>详情声明的键集 ⊇ 摘要声明的键集（摘要新增一个键而详情没跟上 ⇒ 这里即红，
+     *       失败消息逐字点名缺哪个键，不让人自己去比对）；</li>
+     *   <li>详情键集 − 摘要键集 === 约定的扩展键集（防止详情悄悄多出/少掉一个键）。</li>
+     * </ol>
+     * 用量分析那四个 schema 的扩展键各不相同、且共享一份 `UsageAnalyticsTokens` 基座，
+     * 故按每组各写一份期望，而不是一条泛化规则。
+     */
+    @Test
+    @DisplayName("摊平后的详情键集 ⊇ 摘要键集，且差集恰为约定扩展键（摘要新增键而详情没跟上即红）")
+    void flattenedDetailKeepsSummaryKeySetPlusFixedExtension() {
+        assertDetailExtends("RuntimeSkillSummary", "RuntimeSkillDetail",
+            Set.of("versionId", "sha256", "skills"));
+        assertDetailExtends("RuntimePresetSummary", "RuntimePresetDetail",
+            Set.of("versionId", "sha256"));
+        // 用量分析四行：各自把 UsageAnalyticsTokens 那一组键摊平进来，扩展键各不相同。
+        assertDetailExtends("UsageAnalyticsTokens", "UsageAnalyticsSummary",
+            Set.of("settled", "chargedMax", "unmeasured", "cacheHitRatio"));
+        assertDetailExtends("UsageAnalyticsTokens", "UsageAnalyticsDayPoint",
+            Set.of("date"));
+        assertDetailExtends("UsageAnalyticsTokens", "UsageAnalyticsModelRow",
+            Set.of("modelId", "alias", "displayName", "cacheHitRatio"));
+        assertDetailExtends("UsageAnalyticsTokens", "UsageAnalyticsMemberRow",
+            Set.of("userId", "username", "displayName"));
+    }
+
+    private static void assertDetailExtends(String summaryName, String detailName, Set<String> expectedExtension) {
+        Set<String> summary = declaredProperties(schema(summaryName));
+        Set<String> detail = declaredProperties(schema(detailName));
+
+        Set<String> missing = new LinkedHashSet<>(summary);
+        missing.removeAll(detail);
+        assertTrue(missing.isEmpty(),
+            () -> detailName + " 漏了 " + summaryName + " 的键 " + missing + "（摘要新增了键，详情没跟上）");
+
+        Set<String> actualExtension = new LinkedHashSet<>(detail);
+        actualExtension.removeAll(summary);
+        assertEquals(expectedExtension, actualExtension,
+            () -> detailName + " 相对 " + summaryName + " 的扩展键集应为 " + expectedExtension
+                + "，实际 " + actualExtension);
     }
 
     /** 一个 view 序列化后**实际发出的**顶层键集（与门禁本体同一口径：Jackson 注解说了算）。 */
@@ -341,7 +405,7 @@ class RuntimeProjectionContractDriftTest {
     private static SkillViews.RuntimeSummaryView skillSummaryView() {
         return new SkillViews.RuntimeSummaryView(
             "1902500000000000001", "meeting-notes", "会议纪要技能组",
-            "把会议录音与转写整理成结构化纪要。", null, "0.1.7-rc.2", 40960L, 2,
+            "把会议录音与转写整理成结构化纪要。", null, false, "0.1.7-rc.2", 40960L, 2,
             Instant.parse("2026-09-30T08:00:00Z")
         );
     }
@@ -349,7 +413,7 @@ class RuntimeProjectionContractDriftTest {
     private static SkillViews.RuntimeDetailView skillDetailView() {
         return new SkillViews.RuntimeDetailView(
             "1902500000000000001", "meeting-notes", "会议纪要技能组",
-            "把会议录音与转写整理成结构化纪要。", null, "1902500000000000101", "0.1.7-rc.2", 40960L,
+            "把会议录音与转写整理成结构化纪要。", null, false, "1902500000000000101", "0.1.7-rc.2", 40960L,
             "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789", 2,
             List.of(new SkillViews.EntryView(
                 "meeting-notes",

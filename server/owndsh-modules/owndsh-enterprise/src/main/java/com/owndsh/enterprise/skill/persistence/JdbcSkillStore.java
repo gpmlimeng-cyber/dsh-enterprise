@@ -61,7 +61,7 @@ public final class JdbcSkillStore implements SkillStore {
      */
     private final RowMapper<RuntimeSkill> runtimeMapper = (rs, i) -> new RuntimeSkill(
         rs.getLong("package_id"), rs.getString("skill_id"), rs.getString("display_name"),
-        rs.getString("description"), rs.getString("category"),
+        rs.getString("description"), rs.getString("category"), rs.getBoolean("builtin"),
         rs.getLong("version_id"), rs.getString("source_dsh_version"),
         rs.getLong("size_bytes"), rs.getString("sha256"), entries(rs.getString("skills")),
         rs.getTimestamp("updated_at").toInstant()
@@ -264,7 +264,7 @@ public final class JdbcSkillStore implements SkillStore {
     public List<RuntimeSkill> findVisiblePublished(String tenantId, long userId) {
         return jdbc.query(
             """
-            select p.id as package_id, p.skill_id, p.display_name, p.description, p.category,
+            select p.id as package_id, p.skill_id, p.display_name, p.description, p.category, p.builtin,
                    v.id as version_id, v.source_dsh_version, v.size_bytes, v.sha256, v.skills,
                    v.created_at as updated_at
             from ent_skill_package p
@@ -295,7 +295,7 @@ public final class JdbcSkillStore implements SkillStore {
     public Optional<RuntimeSkill> findVisiblePublishedById(String tenantId, long userId, long packageId) {
         return one(jdbc.query(
             """
-            select p.id as package_id, p.skill_id, p.display_name, p.description, p.category,
+            select p.id as package_id, p.skill_id, p.display_name, p.description, p.category, p.builtin,
                    v.id as version_id, v.source_dsh_version, v.size_bytes, v.sha256, v.skills,
                    v.created_at as updated_at
             from ent_skill_package p

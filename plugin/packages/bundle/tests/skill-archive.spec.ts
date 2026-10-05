@@ -96,6 +96,19 @@ describe('dshskill archive decoding', () => {
       { path: 'skills/a/SKILL.md', content: 'x' },
       { path: 'skills/a/SKILL.md', content: 'y' },
     ]],
+    ['case-folded path collision', [
+      { path: 'manifest.json', content: JSON.stringify(MANIFEST) },
+      { path: 'skills/a/SKILL.md', content: 'x' },
+      { path: 'skills/a/notes.md', content: 'y' },
+      { path: 'skills/a/NOTES.md', content: 'z' },
+    ]],
+    ['unicode-folded path collision', [
+      { path: 'manifest.json', content: JSON.stringify(MANIFEST) },
+      // 两份**码点不同**的写法：U+00E9 预组合 与 e + U+0301 分解形式，macOS APFS 视为同一文件。
+      // 字面量写成 `caf` + `\u00e9` 与 `cafe` + `\u0301`，避免源文件本身被工具规范化成同一个码点序列。
+      { path: 'skills/a/caf\u00e9.md', content: 'x' },
+      { path: 'skills/a/cafe\u0301.md', content: 'y' },
+    ]],
     ['symlink entry', [
       { path: 'manifest.json', content: JSON.stringify(MANIFEST) },
       { path: 'skills/a/SKILL.md', content: '/etc/passwd', unixMode: 0o120777 },
@@ -158,6 +171,20 @@ describe('dshskill archive decoding', () => {
   ])('rejects %s', (_name, entries) => {
     expect(() => decodeDshSkillArchive(buildZip(entries)))
       .toThrowError(expect.objectContaining({ code: 'ENT_SKILL_ARCHIVE_INVALID' }))
+  })
+
+  // 阳性对照之二：折叠检查**不得**把正常包拒掉。同一技能目录内只有 `notes.md`（没有 NOTES.md）时照常解出。
+  it('still accepts an archive whose resource names merely differ in case across separate files', () => {
+    const archive = decodeDshSkillArchive(buildZip([
+      { path: 'manifest.json', content: JSON.stringify(MANIFEST) },
+      { path: 'skills/a/SKILL.md', content: '---\nname: a\ndescription: 甲\n---\n正文\n' },
+      { path: 'skills/a/notes.md', content: '资源' },
+      { path: 'skills/a/refs/Deep.md', content: '子目录资源' },
+    ]))
+    expect(archive.skills.map(entry => entry.name)).toEqual(['a'])
+    const files = archive.skills[0]?.files.map(file => file.path).sort()
+    expect(files).toEqual(['SKILL.md', 'notes.md', 'refs/Deep.md'])
+    expect(archive.skills[0]?.files.find(file => file.path === 'notes.md')?.bytes.toString('utf8')).toBe('资源')
   })
 
   it('rejects ZIP64 locators, multi-disk archives and non-ZIP bytes', () => {

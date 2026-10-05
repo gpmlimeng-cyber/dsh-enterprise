@@ -19,6 +19,7 @@ import {
   enterpriseErrorMessage,
 } from '../src/error-messages.js'
 import {
+  ENTERPRISE_MARKET_TABS,
   ENTERPRISE_SKILL_DETAIL_NAME_LABEL,
   ENTERPRISE_SKILL_DETAIL_SOURCE_LABEL,
   ENTERPRISE_SKILL_UPSTREAM_NAME_NOTE,
@@ -134,9 +135,13 @@ function stripUpstream(text: string): string {
 const BANNED_EMPLOYEE_WORDS = [
   'manifest', 'YAML', 'yaml', '.dshpreset', 'dsh-preset', 'Preset', 'preset', 'Cordis', 'cordis',
   'bundle patch', 'MCP', '环境变量', 'API Key', '分配', '退休', '审计', '权限码',
-  // 「组件」是技术词，员工侧已整词换成「包含内容 / 内容清单」。
-  '组件',
+  // 「组件」曾是技术词、员工侧整词换成「包含内容 / 内容清单」；本刀页签名改回四字基础词
+  // （技能 / 插件 / 配方 / 组件）后，「组件」重新成为**员工可读的页签名**，故从黑名单里撤下。
+  // 换来的那条**新口径**（页签不带「企业 / 技术 / 包含」这类词）由下面那条用例单独锁死。
 ] as const
+
+/** 页签真源：四名逐字为 技能 / 插件 / 配方 / 组件，且**不带「企业」前缀**（「企业」由标题行徽章承担）。 */
+const MARKET_TAB_LABELS = ['技能', '插件', '配方', '组件'] as const
 
 function expectNoBanned(text: string, where: string): void {
   for (const word of BANNED_EMPLOYEE_WORDS) expect(stripUpstream(text), `${where} / ${word}`).not.toContain(word)
@@ -253,16 +258,22 @@ function expectNoBareCode(text: string, where: string): void {
 }
 
 describe('employee-facing terminology (plain words only)', () => {
-  it('renames the technical tab to 包含内容 and its section to 内容清单', () => {
+  it('renames the four page tabs to 技能 / 插件 / 配方 / 组件 and keeps the section to 内容清单', () => {
     const tree = EnterpriseMarketLegacyShell({ view: 'page', activeTab: 'components' })
     const text = visibleText(tree)
-    expect(text).toContain('包含内容')
+    // 四枚页签 = 四个基础词。
+    for (const label of MARKET_TAB_LABELS) expect(text).toContain(label)
+    // 第四枚页签那一节的节标题仍是「内容清单」。
     expect(text).toContain('内容清单')
-    expectNoBanned(text, '包含内容页签')
-    // 三行开关的无障碍名不再带「组件」。
-    expect(text).toContain('插件')
-    expect(text).toContain('技能')
-    expect(text).toContain('配方')
+    expectNoBanned(text, '页签与节标题')
+    // **新口径（本刀新增的锁）**：页签真源逐字就是那四个基础词，且**不带「企业」前缀**、
+    // 也不回到「包含内容」那类降维长名（「企业」二字由标题行的徽章承担）。
+    expect(ENTERPRISE_MARKET_TABS.map(tab => tab.label)).toEqual([...MARKET_TAB_LABELS])
+    for (const label of MARKET_TAB_LABELS) {
+      for (const banned of ['企业', '技术', '包含', '内容', '清单', '市场', '商店']) {
+        expect(label, `页签 ${label} / ${banned}`).not.toContain(banned)
+      }
+    }
   })
 
   it('keeps the internal module paths off the employee screen', () => {
