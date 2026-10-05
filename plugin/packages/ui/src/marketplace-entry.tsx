@@ -26,6 +26,21 @@
  *      组标题 15px → **17px**、组间距 20px → 40px；卡片圆角 8px → 12px。
  *      **不采用的**：官方 DSH 插件管理器那套「`.5px` 描边 + `radius-xl` + 卡片底色」（`.FfBBxq_card`）——
  *      用户裁决是照参考图的无边框风格，故刻意不抄那一套；按钮形状仍用官方原语（胶囊 `radius:18px`）。
+ *   ⑦ **本刀（四页签搬到标题右侧 + 用户四条 UI 收口）**：
+ *      ① 页签渲染位置由**座位是否注入**决定——`client.tsx` 在 `apply` 里建一份
+ *      `createEnterpriseMarketTabSeat()`，经 `plugins.item` 的 inject 交给页面（宿主在 `useEffect` 里
+ *      **恒发布** tabEntries/activeTab/onSelect；`publish` 按签名比较，没变不通知，防自激重渲染），
+ *      经 `plugins.detail.actions` 的 inject 交给订阅包装 `EnterpriseMarketDetailActionsLive`；
+ *      宿主据此传 `tabsInTitle` ⇒ 页面那层不再画页签、标题行那一格画（页签左 `margin-right:auto`、
+ *      两枚按钮右 `margin-left:auto`，用户裁决 A）。**两处绝不并存**：任何时刻全页只有一个 `tablist`；
+ *      座位缺席（纯函数直调 / 未接线）时页签留在页面里，外壳仍自包含。
+ *      详情子页面**也照常发布**（既有契约「进详情时页头与四枚页签保持可见、一字不改」）。
+ *      ② 卡片 hover **只变背景**：删掉把标题/描述染主色的那条规则（反锁守着，谁加回来先红）。
+ *      ③ 「安装 / 启用」按钮 = 官方同枚填充 token 的**纯色底 + 无 hover**（`.own-market-installBtn`
+ *      同名双类抬特异性压掉官方 hover，**不用 !important、不动官方样式表**）。
+ *      ④ 卡片标题/描述取值照官方 `_cardName`/`_cardDesc`（15px/600/1.4 + `label-primary`、
+ *      13px/1.55 + `label-secondary`），并删掉「已停用把标题压成次级灰」这条本地偏离。
+ *      ⑤ 标题行**不再显示包名**（`BadgeView` 里那行 `<code data-plugin-name>` 撤掉，由反锁守着）。
  *   本节所述为准；上面各「本刀」段落里凡是写「官方 `Switch` 是行主控件」「卡片标题行挂企业签/版本签」
  *   「本页没有任何卸载动作」的句子，均已被这一刀取代。
  * [POS]: ui 的企业市场入口（**唯一入口：官方插件页「官方」分组里的「插件市场」卡片**）。**本刀（详情子页面）**：技能行本体可点 → 面板整页切到该技能的详情子页面；**面板就是官方 `plugins.item` 的 page 视图、没有真实路由，故用一份视图状态切换（`skillDetailId` → `skillPage`），不硬造路由**。「返回技能列表」是唯一返回入口（面包屑按钮，键盘可达）。详情里的动作与行上**同源**：同一枚 `EnterpriseMarketSkillRowActions`、同一份 `enterpriseMarketSkillRowFacts`、同一个 `onToggleSkill` 回调、同一份 `skillActionError`，因此不存在第二套状态或第二个动作实现。文件树与预览只消费 Host 已有的两条只读子路由（`/enterprise/api/v1/local/skills/<id>/files` 与 `.../<id>/file?path=`，经 `store.api.skillFiles`/`store.api.skillFile` 发出）；**未安装就一条请求都不发**、如实说「安装后可浏览文件」，绝不伪造树；默认选中并预览 `SKILL.md`；预览是 `<pre>` 里的**纯文本子节点**（全文件无 `dangerouslySetInnerHTML`），长文件靠 `max-height` 滚动 + 字节提示；读取失败给 `role="alert"` + 稳定错误码 + 重试。**只读正文路由 `/skills/content` 按用户要求保留**（Host 侧注册与既有单测不动），本页统一走文件路由那一份路径实现。 以下为既有能力：企业插件行与组件行**不给**详情入口（用户只要求技能行；插件行本轮一字未动，组件行是交付排期清单）。**目录行的落点与行为**：点行本体进详情；`[有更新]`（真实 `<button>`，点击 = 更新到中心当前版本）与安装/卸载 `Switch` **常显在行上**且不触发详情；失败给 `role="alert"` + 稳定错误码且**不禁用**开关（再拨一次就是重试）。**三页签**（企业技能默认 / 企业插件 / 组件）共用 `EnterpriseMarketTabStrip` 一份实现：手写 `role="tablist"` + roving `tabIndex` + ←/→/Home/End 走焦并选中，`id`/`aria-controls`/`aria-labelledby` 三处同源；组件节是唯一还保留折叠语义的一节（折叠态列表整段不进 DOM）。**严禁**任何价格/交易/购买/购物车/客服之类的商业化字样——全树文本都不出现（由测试反向锁死）。`store` 与开登录回调均为可选注入：缺席时开关恒禁用、会话不可用时目录节不出现。**样式纪律**：本文件的类名与同包其他源文件**零交集**（两处 `<style>` 都是全局单类选择器，同名会互相覆盖）；主题只用 `--dsw-*` token，不新造颜色。 **本刀（版本签短号）**：真实 `sourceDshVersion` 是完整坐标（`skillhub.cn/dev-expert@2.0.3`），整串会把标题挤成一个字（真机截图已证）；故**列表里只显示版本号**（`enterpriseMarketSkillVersionLabel`，最后一个 `@` 之后），**完整坐标在签的 `title` 与详情徽标**；既有技能（无 `@` 的 `0.1.7-rc.2` 形态）显示形式一字不变，签的类名/tone/位置与行上其他东西不动。 **本刀（企业配方页签）**：配方行与配方详情用的是**同一批**类名（`.own-market-row*`/`.own-market-cardHead`/`.own-market-cardId`/`.own-market-cardDesc`/`.own-market-detail*`/`.own-market-skillTag`），**一个新类名都不加**——版式取值与技能/插件行逐值同源，故本刀 CSS 一字未动（`baseStyles`/`rowStyles`/`detailStyles` 三份字符串与改动前逐字节相同）。 **本刀**：三级降级链的调度与事实全在共享控制器一处（逐行读 `status`、真开关的 enable/disable、授权弹层的确认与取消），行上与详情里读的是同一份 facts、同一批回调；弹层不新增路由、不新增 slot。 **本刀（企业标签）**：徽章与胶囊只消费官方座位与官方原语——①「企业」徽章挂在官方 `plugins.detail.badge` 上（该座位在我们这条 item 详情页里真的会被渲染，已按官方实物核实，不是白挂）；② 与官方「实验性」签的**一致口径**是可验证的三件：同一枚官方 `Tag` 原语本体、同一个 `tone="info"`、props 恰好只有 `{className,tone,children}`（官方公开面之外一个属性都不给）；**拿不到的是官方那个本地尺寸覆盖类**（`PluginManagerPage` 的 `statusTag` = CSS module 哈希名 `X_2TxG_statusTag`，该包只导出 `NS`/`PANEL_ID`/`apply`/`inject`，`./src/*` 指向的 `src/` 未随包发布），故按「不新增 CSS 类」退到官方 primitives 公开面，尺寸差异如实记在 `EnterpriseMarketBadgeTag` 的注释里；③ 描述行与徽章同源（同一枚 `EnterpriseMarketBadgeTag`），两处不会漂成两个词。 **本刀（企业标签移回标题行）**：用户明确「企业应该在标题行，标题后面」两次，故描述行胶囊撤销、恢复纯文本；标题行那一枚**不再**由本文件渲染——它由 `market-entry-badge.ts` 在官方列表 DOM 上做装饰（克隆官方 Tag 实物，与官方「实验性」签逐像素一致），本文件只保留**详情页**那一枚 React 徽章；本文件与 `market-entry-badge.ts` 的分工是「React 槽 vs DOM 装饰」，两侧都读同一份 `ENTERPRISE_MARKET_BADGE_TEXT`，不会漂成两个词。 **本刀**：进度只在真的在装的那一行、只在有工序时进 DOM；多行各算各的（按包名归行），不影响别的行的可拨性。 **本刀（企业插件真取消）**：取消入口与进度**同一条链、同一份投影**——「能不能取消」由 Host 真受管态算（`plugin-install-progress.ts` 的 `ENTERPRISE_PLUGIN_CANCELABLE_STATES`），「在不在取消中」由同一份 store 快照的 `pluginCancelBusy` 算；不新增任何 CSS 类、不新增 slot、不新增路由，写入口与「企业设置 → 插件」那枚按钮同名同源（都是 `store.cancelPlugin`）；取消的收束走既有那条行内提示（`EnterpriseMarketRowError` + 唯一码表），不新造第二套「已取消」提示组件。
@@ -695,6 +710,13 @@ export interface EnterpriseMarketShellProps {
   ) => void) | undefined
   /** 一键清空搜索 + 两组筛选（「过滤后为空」那句旁边的唯一出路）；缺席即不画那枚按钮。 */
   readonly onClearFilters?: (() => void) | undefined
+  /**
+   * **页签是否改由「标题右侧」渲染**（用户裁决 A）：`true` ⇒ 页面这一层**不再**画页签条
+   * （它们由官方 `plugins.detail.actions` 槽那一格渲染，两处靠 `EnterpriseMarketTabSeat` 接起来）；
+   * 缺席/`false` ⇒ 页签留在页面里（外壳自包含的默认形态：纯函数直调、以及座位没接线的降级路径）。
+   * 由宿主按「有没有注入座位」自动决定，故不需要每个调用方都传；两处**绝不会同时出现**页签。
+   */
+  readonly tabsInTitle?: boolean | undefined
   /**
    * 当前展开「⋯」的那一行（行键 = `enterpriseMarketRowKey(tab, 行 id)`；单选：同一时刻最多一行展开）。
    * `null`/缺席 = 全部收起。开合状态由控制器持（纯函数外壳不持状态），与 `filterOpen` 同一范式。
@@ -2579,6 +2601,13 @@ const baseStyles = `
 /* 详情子页面没有下拉宿主 ⇒ 操作**平铺**（同一枚子块、同一份文案，只是不套一层菜单）。 */
 .own-market-moreInline{display:flex;flex:none;align-items:center;gap:4px}
 .own-market-moreInline .own-market-moreItem{width:auto}
+/* 「安装 / 启用」按钮：**纯色底 + 无 hover 变化**（用户口径）。
+   官方 Button 每个变体都自带 hover，故把类名写两遍把特异性抬到官方那条之上
+   （.own-market-installBtn.own-market-installBtn:hover ＞ .toolbar:hover），
+   **不写 !important、也不动官方样式表**；底色取官方同一枚按钮填充 token，不新造颜色。 */
+.own-market-installBtn{background:var(--dsw-alias-button-tool-bar-fill)}
+.own-market-installBtn.own-market-installBtn:hover:not(:disabled),
+.own-market-installBtn.own-market-installBtn:active:not(:disabled){background:var(--dsw-alias-button-tool-bar-fill)}
 @media (prefers-reduced-motion: reduce){.own-market-row{transition:none}}
 /* 窄屏回落单列：网格在极窄容器里会把标题挤成一个字（真机截图早已证过同类问题）。 */
 @media (max-width: 560px){.own-market-rows{grid-template-columns:minmax(0,1fr)}}
@@ -2652,6 +2681,8 @@ const baseStyles = `
 .own-market-storeTab:hover{color:var(--dsw-alias-label-primary,#101828)}
 .own-market-storeTab:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:1px}
 .own-market-storeTab[aria-selected='true']{background:var(--dsw-alias-background-primary,#fff);color:var(--dsw-alias-label-primary,#101828);font-weight:500;box-shadow:var(--dsw-shadow-lv1,0 1px 2px rgba(16,24,40,.06))}
+.own-market-titleTabs{margin-right:auto}
+.own-market-titleActions{margin-left:auto}
 /* ── 标签行：胶囊组在左、筛选触发钮在**最右**（参考图 1：标签靠左、≡ 靠右） ──
    整行改成 space-between；触发钮是一枚透明图标按钮（漏斗），点开下方下拉。 */
 .own-market-tabBar{display:flex;align-items:center;gap:12px;min-width:0;margin-top:0}
@@ -2706,7 +2737,6 @@ const baseStyles = `
  */
 const rowStyles = `
 .own-market-cardId{font-size:15px;line-height:1.4;font-weight:600;color:var(--dsw-alias-label-primary,#101828);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.own-market-row[data-state='off'] .own-market-cardId{color:var(--dsw-alias-label-secondary,#667085)}
 .own-market-cardDesc{color:var(--dsw-alias-label-secondary,#667085);font-size:13px;line-height:1.55;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden}
 /* 技能行**行本体**（图标 + 标题 + 描述那一片）是一枚真 button 元素：整片可点、原生键盘可达（Enter/Space）、
    有 focus 环与 hover 提示（光标 + 标题/描述转主色调）。取值照本文件既有口径：行图标与文案之间仍是 16px
@@ -2715,7 +2745,6 @@ const rowStyles = `
    **兄弟节点而不是后代**——点它们根本不会冒泡进详情（不是靠 stopPropagation 拦，而是结构上就不在可点区域内），
    .own-market-rowLine/li 自身没有任何 onClick。 */
 .own-market-rowOpen{display:flex;flex:1;align-items:center;gap:16px;min-width:0;border:0;padding:0;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:8px}
-.own-market-rowOpen:hover .own-market-cardId,.own-market-rowOpen:hover .own-market-cardDesc{color:var(--dsw-alias-accent-primary,#2563eb)}
 .own-market-rowOpen:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:2px}
 /* 回调缺席时那枚按钮是 disabled：UA 会给 default 光标，但上面的 cursor:pointer 优先级更高，故显式收回。 */
 .own-market-rowOpen:disabled{cursor:default}
@@ -2865,14 +2894,23 @@ export function BadgeView({ version }: { readonly version?: string | undefined }
     <>
       <EnterpriseMarketBadgeTag />
       {versionTag === undefined ? null : <Tag className="own-market-tag" tone="neutral">{versionTag}</Tag>}
-      <span className="own-market-badge-name">
-        <code data-plugin-name>{ENTERPRISE_MARKET_ENTRY_ID}</code>
-      </span>
     </>
   )
 }
 
 /* ─────────────────── 标题区右侧动作（官方 plugins.detail.actions 槽） ─────────────────── */
+
+/**
+ * 注册面用的**包装组件**：在这里订阅座位源，再把状态交给纯函数 `EnterpriseMarketDetailActions`。
+ * 分两层是为了保住「纯函数可直调测试」的既有形状——带 hook 的只有这一层。
+ */
+export function EnterpriseMarketDetailActionsLive({ subject, tabSeat }: {
+  readonly subject: { readonly kind: string; readonly id?: string }
+  readonly tabSeat?: EnterpriseMarketTabSeat | undefined
+}): ReactNode {
+  const state = useEnterpriseMarketTabSeat(tabSeat)
+  return <EnterpriseMarketDetailActions subject={subject} tabSeat={state} />
+}
 
 /** 标题区右侧两枚按钮的文案真源（用户口径：本刀**都先占位**，不接真动作——刷新的 `store.refreshPlugins()` 与「添加插件」的企业上传语义留下一刀）。 */
 export const ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL = '刷新'
@@ -2896,8 +2934,13 @@ export const ENTERPRISE_DETAIL_ACTION_ADD_LABEL = '添加插件'
  * 只对我们这条 item（`kind==='item'` + `id==='plugin-market'`）出，其余一律 `null`。
  * @returns 标题右侧的【刷新】【添加插件】两枚占位按钮（无包装容器——官方 `detailActions` 已是 flex 容器）。
  */
-export function EnterpriseMarketDetailActions({ subject }: {
+export function EnterpriseMarketDetailActions({ subject, tabSeat }: {
   readonly subject: { readonly kind: string; readonly id?: string }
+  /**
+   * 页签座位状态（用户口径：4 个页签放到**标题右侧**）。纯函数直调不传 ⇒ 只出两枚按钮、不出页签
+   * （本函数保持「无 hook、可直调」的既有形状；订阅在 `EnterpriseMarketDetailActionsLive` 里做）。
+   */
+  readonly tabSeat?: EnterpriseMarketTabSeatState | undefined
 }): ReactNode {
   if (subject.kind !== 'item' || subject.id !== ENTERPRISE_MARKET_ENTRY_ID) return null
   // 两枚按钮**逐项用官方 `Button` 原语本体与官方变体**（用户口径：用官方的样式和执行效果）：
@@ -2906,9 +2949,20 @@ export function EnterpriseMarketDetailActions({ subject }: {
   // 官方原语自带 hover / active / focus-visible / disabled 四态，故「执行效果」不再由本文件自绘。
   return (
     <>
+      {/* 页签在**左**、两枚按钮在**右**（用户裁决 A）：页签靠 `margin-right:auto` 占左，刷新那枚靠
+          `margin-left:auto` 兜底（没有页签时它自己也会被推到右边）。 */}
+      {tabSeat === undefined ? null : (
+        <EnterpriseMarketTabList
+          entries={tabSeat.entries}
+          activeTab={tabSeat.activeTab}
+          onSelect={tabSeat.onSelect}
+          className="own-market-titleTabs"
+        />
+      )}
       <Button
         size="md"
         variant="ghost"
+        className="own-market-titleActions"
         icon={<RefreshCw aria-hidden size={16} />}
         aria-label={ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL}
         title="占位：本刀未接真刷新，下一刀接 store.refreshPlugins()"
@@ -2956,9 +3010,136 @@ function EnterpriseMarketSummaryLine(): ReactNode {
  * 纯函数体**不能持 `ref`**（调 `useRef` 就变成 hook 组件、直调测试即崩），故键盘走焦在 keydown 里从事件源向上
  * 找 `[role="tablist"]`、按同序取第 `index` 个 `[role="tab"]` 调 `focus()`：只在真浏览器事件里执行。
  */
+/**
+ * 胶囊页签组（`role="tablist"`）的**唯一一份实现**——它现在由**标题右侧那一格**渲染
+ * （官方 `plugins.detail.actions` 槽，见 `EnterpriseMarketDetailActions`），而面板仍在页面里，
+ * 两处靠 `createEnterpriseMarketTabSeat` 那一份共享源接起来。
+ *
+ * 手写而不用官方 `SegmentedTabs`：本包编译期 pin 的 primitives 0.1.5-rc.2 不含它（运行时有、直接 import 会 TS 报错）。
+ * 纯函数体**不能持 `ref`**（调 `useRef` 就变 hook 组件、直调测试即崩），故键盘走焦在 keydown 里从事件源向上
+ * 找 `[role="tablist"]`、按同序取第 `index` 个 `[role="tab"]` 调 `focus()`：只在真浏览器事件里执行。
+ * `id` / `aria-controls` / `aria-labelledby` 与面板仍三处同源（面板 id 是常量，跨子树解析不受影响）。
+ */
+export function EnterpriseMarketTabList({ entries, activeTab, onSelect, className }: {
+  readonly entries: EnterpriseMarketShellModel['tabEntries']
+  readonly activeTab: EnterpriseMarketTabId
+  readonly onSelect?: ((tab: EnterpriseMarketTabId) => void) | undefined
+  /** 额外类名（标题行那格用它把页签靠左、与右侧按钮分开）。 */
+  readonly className?: string | undefined
+}): ReactNode {
+  const focusTab = (source: EventTarget | null, index: number): void => {
+    const element = source as HTMLElement | null
+    if (element === null || typeof element.closest !== 'function') return
+    const tablist = element.closest('[role="tablist"]')
+    tablist?.querySelectorAll<HTMLElement>('[role="tab"]')[index]?.focus()
+  }
+  /** ←/→ 循环、Home/End 跳首尾，且都是「走焦 + 选中」一步到位（WAI-ARIA tabs 的自动激活口径）。 */
+  const onTabKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, index: number): void => {
+    let nextIndex: number
+    switch (event.key) {
+      case 'ArrowRight': nextIndex = (index + 1) % entries.length; break
+      case 'ArrowLeft': nextIndex = (index - 1 + entries.length) % entries.length; break
+      case 'Home': nextIndex = 0; break
+      case 'End': nextIndex = entries.length - 1; break
+      default: return
+    }
+    const next = entries[nextIndex]
+    if (next === undefined) return
+    event.preventDefault()
+    onSelect?.(next.id)
+    focusTab(event.currentTarget, nextIndex)
+  }
+  return (
+    <div
+      role="tablist"
+      aria-label={ENTERPRISE_MARKET_TABLIST_LABEL}
+      className={className === undefined ? 'own-market-storeTabs' : `own-market-storeTabs ${className}`}
+    >
+      {entries.map((tab, index) => {
+        const selected = tab.id === activeTab
+        return (
+          <button
+            key={tab.id}
+            id={ENTERPRISE_MARKET_TAB_IDS[tab.id].tab}
+            type="button"
+            role="tab"
+            className="own-market-storeTab"
+            aria-selected={selected}
+            aria-controls={ENTERPRISE_MARKET_TAB_IDS[tab.id].panel}
+            tabIndex={selected ? 0 : -1}
+            onClick={() => { onSelect?.(tab.id) }}
+            onKeyDown={(event) => { onTabKeyDown(event, index) }}
+          >{tab.text}</button>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ───────────────── 标题右侧页签的「共享座位」（页面发布、官方槽订阅） ───────────────── */
+
+/** 座位状态：页签条目 + 当前选中 + 选中回调。 */
+export interface EnterpriseMarketTabSeatState {
+  readonly entries: EnterpriseMarketShellModel['tabEntries']
+  readonly activeTab: EnterpriseMarketTabId
+  readonly onSelect?: ((tab: EnterpriseMarketTabId) => void) | undefined
+}
+
+/** 页签座位源（非 React）：两个注册面是**两棵 React 树**（页面树 / 官方标题行槽），只能靠它接起来。 */
+export interface EnterpriseMarketTabSeat {
+  subscribe(listener: () => void): () => void
+  getSnapshot(): EnterpriseMarketTabSeatState | undefined
+  publish(next: EnterpriseMarketTabSeatState | undefined): void
+}
+
+/**
+ * 建一份页签座位源。`publish` 按「当前选中 + 各页签文案」做**签名比较**，签名没变就**不通知**——
+ * 页面每帧都会发布（它在 render 后同步调），没有这道闸就会把订阅方拖进无限重渲染。
+ * `onSelect` **不进签名**：它在控制器里每帧重建，进签名等于每帧通知；而它闭包住的只有两个 `setState`
+ * （本身稳定），故保留首次那枚在语义上完全等价。
+ */
+export function createEnterpriseMarketTabSeat(): EnterpriseMarketTabSeat {
+  let state: EnterpriseMarketTabSeatState | undefined
+  let signature: string | undefined
+  const listeners = new Set<() => void>()
+  return {
+    subscribe(listener) {
+      listeners.add(listener)
+      return () => { listeners.delete(listener) }
+    },
+    getSnapshot() { return state },
+    publish(next) {
+      const nextSignature = next === undefined
+        ? undefined
+        : `${next.activeTab}|${next.entries.map(entry => `${entry.id}:${entry.text}`).join(',')}`
+      if (nextSignature === signature) return
+      signature = nextSignature
+      state = next
+      for (const listener of listeners) listener()
+    },
+  }
+}
+
+const EMPTY_SEAT_SUBSCRIBE = (): (() => void) => () => undefined
+const EMPTY_SEAT_SNAPSHOT = (): EnterpriseMarketTabSeatState | undefined => undefined
+
+/**
+ * 订阅座位（**只在注册面的包装组件里调**——纯函数外壳不许持 hook）。
+ * 座位缺席（纯函数直调 / 旧注册面）时：订阅与快照都退到模块级常量，行为恒为 `undefined`。
+ */
+export function useEnterpriseMarketTabSeat(
+  seat: EnterpriseMarketTabSeat | undefined,
+): EnterpriseMarketTabSeatState | undefined {
+  return useSyncExternalStore(
+    seat === undefined ? EMPTY_SEAT_SUBSCRIBE : seat.subscribe,
+    seat === undefined ? EMPTY_SEAT_SNAPSHOT : seat.getSnapshot,
+    seat === undefined ? EMPTY_SEAT_SNAPSHOT : seat.getSnapshot,
+  )
+}
+
 function EnterpriseMarketTabStrip({
   model, onSelectTab, searchText, onSearchChange, filterOpen, onToggleFilter,
-  filterStatus, filterCategory, onFilterSelect,
+  filterStatus, filterCategory, onFilterSelect, tabsInTitle,
 }: {
   readonly model: EnterpriseMarketShellModel
   readonly onSelectTab?: ((tab: EnterpriseMarketTabId) => void) | undefined
@@ -2973,33 +3154,13 @@ function EnterpriseMarketTabStrip({
   readonly filterCategory?: EnterpriseMarketCategory | 'all' | undefined
   /** 选中一项（上层保存后真的驱动可见行）。 */
   readonly onFilterSelect?: ((group: EnterpriseMarketFilterGroupId, option: string) => void) | undefined
+  /** 座位已接管页签 ⇒ 这一层只画搜索行（页签在标题行那一格）。 */
+  readonly tabsInTitle?: boolean | undefined
 }): ReactNode {
   /** 某一组当前生效的选项 id（状态组与类型组各取各的；缺席一律落 `'all'`）。 */
   const selectedOf = (group: EnterpriseMarketFilterGroupId): string => (
     group === 'status' ? (filterStatus ?? 'all') : (filterCategory ?? 'all')
   )
-  const focusTab = (source: EventTarget | null, index: number): void => {
-    const element = source as HTMLElement | null
-    if (element === null || typeof element.closest !== 'function') return
-    const tablist = element.closest('[role="tablist"]')
-    tablist?.querySelectorAll<HTMLElement>('[role="tab"]')[index]?.focus()
-  }
-  /** ←/→ 循环、Home/End 跳首尾，且都是「走焦 + 选中」一步到位（WAI-ARIA tabs 的自动激活口径）。 */
-  const onTabKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, index: number): void => {
-    let nextIndex: number
-    switch (event.key) {
-      case 'ArrowRight': nextIndex = (index + 1) % ENTERPRISE_MARKET_TABS.length; break
-      case 'ArrowLeft': nextIndex = (index - 1 + ENTERPRISE_MARKET_TABS.length) % ENTERPRISE_MARKET_TABS.length; break
-      case 'Home': nextIndex = 0; break
-      case 'End': nextIndex = ENTERPRISE_MARKET_TABS.length - 1; break
-      default: return
-    }
-    const next = ENTERPRISE_MARKET_TABS[nextIndex]
-    if (next === undefined) return
-    event.preventDefault()
-    onSelectTab?.(next.id)
-    focusTab(event.currentTarget, nextIndex)
-  }
   return (
     <>
       {/* 搜索栏 + 筛选钮（照参考图：搜索框**独立整行**、40px 高；筛选钮在它右端）。
@@ -3054,29 +3215,15 @@ function EnterpriseMarketTabStrip({
           ) : null}
         </div>
       </div>
-
-    <div className="own-market-tabBar">
-      {/* 胶囊页签组（保持 role=tablist 在这一层——ARIA 语义不因外层加筛选钮而改变）。 */}
-      <div role="tablist" aria-label={ENTERPRISE_MARKET_TABLIST_LABEL} className="own-market-storeTabs">
-        {model.tabEntries.map((tab, index) => {
-          const selected = tab.id === model.activeTab
-          return (
-            <button
-              key={tab.id}
-              id={ENTERPRISE_MARKET_TAB_IDS[tab.id].tab}
-              type="button"
-              role="tab"
-              className="own-market-storeTab"
-              aria-selected={selected}
-              aria-controls={ENTERPRISE_MARKET_TAB_IDS[tab.id].panel}
-              tabIndex={selected ? 0 : -1}
-              onClick={() => { onSelectTab?.(tab.id) }}
-              onKeyDown={(event) => { onTabKeyDown(event, index) }}
-            >{tab.text}</button>
-          )
-        })}
-      </div>
-    </div>
+      {tabsInTitle === true ? null : (
+        <div className="own-market-tabBar">
+          <EnterpriseMarketTabList
+            entries={model.tabEntries}
+            activeTab={model.activeTab}
+            onSelect={onSelectTab}
+          />
+        </div>
+      )}
     </>
   )
 }
@@ -3555,6 +3702,7 @@ export function EnterpriseMarketSkillRowActions({ row, facts, onToggleSkill, men
       <Button
         size="sm"
         variant="outline"
+        className="own-market-installBtn"
         data-enterprise-skill-slot="install"
         disabled={blocked}
         title={blocked ? blockedTitle : '安装到 ~/.dsh/skills'}
@@ -3659,6 +3807,7 @@ export function EnterpriseMarketPresetRowActions({ row, facts, onToggle, onOpenI
       <Button
         size="sm"
         variant="outline"
+        className="own-market-installBtn"
         data-enterprise-preset-slot="enable"
         disabled={onToggle === undefined || facts.switchDisabled}
         title={onToggle === undefined ? '企业账号未登录，暂不可操作' : facts.switchTitle}
@@ -4467,6 +4616,7 @@ export function EnterpriseMarketPluginRowActions({
       <Button
         size="sm"
         variant="outline"
+        className="own-market-installBtn"
         disabled={facts.installDisabled}
         title={facts.installTitle}
         aria-label={facts.installLabel}
@@ -4921,6 +5071,7 @@ export function EnterpriseMarketLegacyShell(props: EnterpriseMarketShellProps): 
         filterStatus={props.filterStatus}
         filterCategory={props.filterCategory}
         onFilterSelect={props.onFilterSelect}
+        tabsInTitle={props.tabsInTitle}
       />
       {/* 「企业技能」页签（默认页签，用户主战场）：与企业插件页签同规则——「技能」大组件开启（= 会话可用）
           且目录非空才出现。列的是后台分配（预置）的全部技能：未装的照列，装不装由用户拨右侧那枚开关决定。
@@ -5881,7 +6032,7 @@ export function useEnterpriseMarketController({ view, store, libraryGate, preset
  * 详情子页面由外壳按 `shellProps.skillPage` **整页切换**渲染，故本宿主不必再持第二份详情状态；
  * 视图状态（哪个技能、树/预览读到哪、哪条配方正在等确认）全部在控制器里，这里只负责把三件弹窗/页面挂上。
  */
-export function EnterpriseMarketShellHost({ view, store, libraryGate, presetLaunch }: {
+export function EnterpriseMarketShellHost({ view, store, libraryGate, presetLaunch, tabSeat }: {
   readonly view: 'summary' | 'page'
   readonly store?: EnterpriseAccountStore | undefined
   readonly libraryGate?: EnterpriseLibraryGate | undefined
@@ -5890,11 +6041,29 @@ export function EnterpriseMarketShellHost({ view, store, libraryGate, presetLaun
    * 缺席 = 这台设备上这一级不可用，降级链如实说明并落到第三级。
    */
   readonly presetLaunch?: EnterprisePresetLaunchPort | undefined
+  /**
+   * 标题右侧页签的座位源（由 `client.tsx` 在 apply 里建、两处注册面共用）。
+   * **发布只发生在这里**（页面是这两棵 React 树里持有控制器的那一棵）；缺席即不发布，
+   * 标题行那一格就只出两枚按钮（降级路径，不报错）。
+   */
+  readonly tabSeat?: EnterpriseMarketTabSeat | undefined
 }): ReactNode {
   const controller = useEnterpriseMarketController({ view, store, libraryGate, presetLaunch })
+  // 把「页签条目 + 当前选中 + 选中回调」发布给标题行那一格。
+  // 依赖里刻意**不放**数组引用（模型每帧重建数组），签名比较在 `publish` 里做，故不会自激重渲染。
+  // **恒发布**（详情子页面也发）：既有契约是「进详情时页头与四枚页签保持可见、一字不改」，
+  // 详情里停发会让标题行那格空掉。
+  const tabEntries = enterpriseMarketShellModel(controller.shellProps).tabEntries
+  const tabActive = controller.shellProps.activeTab
+  const tabSelect = controller.shellProps.onSelectTab
+  useEffect(() => {
+    tabSeat?.publish(tabEntries === undefined || tabActive === undefined || tabSelect === undefined
+      ? undefined
+      : { entries: tabEntries, activeTab: tabActive, onSelect: tabSelect })
+  }, [tabSeat, tabEntries, tabActive, tabSelect])
   return (
     <>
-      <EnterpriseMarketLegacyShell {...controller.shellProps} />
+      <EnterpriseMarketLegacyShell {...controller.shellProps} tabsInTitle={tabSeat !== undefined} />
       {controller.presetApproval === undefined
         ? null
         : <EnterprisePresetApprovalDialog {...controller.presetApproval} />}
@@ -5907,11 +6076,20 @@ export function EnterpriseMarketShellHost({ view, store, libraryGate, presetLaun
  * 官方 `plugins.item` 的真实入口（**唯一入口**）：官方插件页「官方」分组里的「插件市场」卡片点进去的详情页。
  * @param props - `view` 由官方透传（卡片 `summary` / 详情 `page`）；`store`/`libraryGate`/`presetLaunch` 由注册面的 `inject` 注入。
  */
-export function EnterpriseMarketLegacyPage({ view, store, libraryGate, presetLaunch }: {
+export function EnterpriseMarketLegacyPage({ view, store, libraryGate, presetLaunch, tabSeat }: {
   readonly view: 'summary' | 'page'
   readonly store?: EnterpriseAccountStore | undefined
   readonly libraryGate?: EnterpriseLibraryGate | undefined
   readonly presetLaunch?: EnterprisePresetLaunchPort | undefined
+  readonly tabSeat?: EnterpriseMarketTabSeat | undefined
 }): ReactNode {
-  return <EnterpriseMarketShellHost view={view} store={store} libraryGate={libraryGate} presetLaunch={presetLaunch} />
+  return (
+    <EnterpriseMarketShellHost
+      view={view}
+      store={store}
+      libraryGate={libraryGate}
+      presetLaunch={presetLaunch}
+      tabSeat={tabSeat}
+    />
+  )
 }

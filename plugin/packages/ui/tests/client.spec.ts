@@ -11,7 +11,7 @@ import {
   EnterpriseAccountMenu,
   EnterpriseHeroBrandMark,
   EnterpriseMarketBadge,
-  EnterpriseMarketDetailActions,
+  EnterpriseMarketDetailActionsLive,
   EnterpriseMarketLegacyPage,
   EnterpriseSettingsSection,
   EnterpriseSidebarBrandMark,
@@ -92,22 +92,29 @@ describe('enterprise Client plugin', () => {
       // `plugins.item` 的详情页走**旧外观**外壳（9723a97 那一版官方两行卡片）——本刀之后它是唯一注册的市场入口。
       EnterpriseMarketLegacyPage,
       EnterpriseMarketBadge,
-      // 标题区右侧两枚占位按钮（官方 `plugins.detail.actions` 槽）。
-      EnterpriseMarketDetailActions,
+      // 标题区右侧：**4 个页签 + 两枚按钮**（官方 `plugins.detail.actions` 槽；座位源经 inject 注入，
+      // 故注册的是订阅包装 `...Live`，状态交给纯函数 `EnterpriseMarketDetailActions` 呈现）。
+      EnterpriseMarketDetailActionsLive,
     ])
     // 设置区、个人中心、市场入口三个座位共享同一个脱敏 store；badge 槽位也无 inject 之外的多余源。
     const stores = registrations.slice(0, 3).map(item => (item.options['inject'] as () => { store: unknown })().store)
     expect(stores[0]).toBe(stores[1])
     expect(stores[2]).toBe(stores[0])
     // 只有个人中心座位另带主题/桌面/快捷键三份只读源；设置区、市场入口、badge 槽只注入 store
-    // （市场入口多两份：资料库管理门——它是本机设置，与企业账号 store 不是一回事；
-    //   配方降级链第二级的 `presetLaunch`——跳到新会话并把导入指令填进输入框）。
+    // （市场入口多三份：资料库管理门——它是本机设置，与企业账号 store 不是一回事；
+    //   配方降级链第二级的 `presetLaunch`——跳到新会话并把导入指令填进输入框；
+    //   **`tabSeat`——标题右侧页签的共享座位源**，页面发布、`plugins.detail.actions` 槽订阅）。
     const market = registrations[2]!.options['inject'] as () => Record<string, unknown>
     const marketFace = market()
-    expect(Object.keys(marketFace).sort()).toEqual(['libraryGate', 'presetLaunch', 'store'])
+    expect(Object.keys(marketFace).sort()).toEqual(['libraryGate', 'presetLaunch', 'store', 'tabSeat'])
     expect(marketFace['store']).toBe(stores[2])
     expect(typeof (marketFace['libraryGate'] as { setEnabled?: unknown }).setEnabled).toBe('function')
     expect(typeof marketFace['presetLaunch']).toBe('function')
+    // 座位源形状必须齐（订阅 / 取快照 / 发布三件），否则标题行那一格订阅不到页签。
+    const seat = marketFace['tabSeat'] as { subscribe?: unknown; getSnapshot?: unknown; publish?: unknown }
+    expect(typeof seat.subscribe).toBe('function')
+    expect(typeof seat.getSnapshot).toBe('function')
+    expect(typeof seat.publish).toBe('function')
     const badge = registrations[3]!.options['inject'] as () => Record<string, unknown>
     expect(badge()).toEqual({ store: stores[2] })
     // 【撤销锁】独立应用商店的两处注册面（`main` 面板 + `sidebar.panellist` 一级入口）必须都不再存在：

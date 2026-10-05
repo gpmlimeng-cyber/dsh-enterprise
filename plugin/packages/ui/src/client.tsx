@@ -38,8 +38,9 @@ import {
   ENTERPRISE_MARKET_ENTRY_LABEL,
   ENTERPRISE_MARKET_ENTRY_ORDER,
   EnterpriseMarketBadge,
-  EnterpriseMarketDetailActions,
+  EnterpriseMarketDetailActionsLive,
   EnterpriseMarketLegacyPage,
+  createEnterpriseMarketTabSeat,
 } from './marketplace-entry.js'
 import { startEnterpriseMarketBadgeDecoration } from './market-entry-badge.js'
 import { createEnterpriseShortcutsSource } from './shortcuts-view.js'
@@ -168,6 +169,14 @@ export function apply(ctx: SlotContextPort): void {
   // 「独立应用商店」的两处注册（官方 `main` 槽上的 `enterprise-store` 整页面板 + `sidebar.panellist`
   // 上的「应用商店」一级入口）已在上一刀撤掉，随之失去引用的 store 外壳死代码（`EnterpriseMarketStorePage`／
   // `EnterpriseStoreIcon`／`ENTERPRISE_STORE_*`／HERO／只服务它的搜索框）已从 `marketplace-entry.tsx` 一并删除。
+  /**
+   * **标题右侧页签的共享座位**（用户裁决 A：4 个页签放到标题右侧）。
+   *
+   * 为什么必须有这一层：页签由官方 `plugins.detail.actions` 槽（标题行）渲染，而面板在 `plugins.item`
+   * 的页面树里——**两棵 React 树**，props 传不过去。故在这里建一份非 React 源：页面侧 `publish`，
+   * 槽组件侧 `useEnterpriseMarketTabSeat` 订阅。它与 `brand-occupants` 那套「源 + 座位订阅」是同一手法。
+   */
+  const marketTabSeat = createEnterpriseMarketTabSeat()
   ctx.slots.inject('plugins.item', () => ctx.slots.register({
     name: 'plugins.item',
     id: ENTERPRISE_MARKET_ENTRY_ID,
@@ -181,6 +190,7 @@ export function apply(ctx: SlotContextPort): void {
     inject: () => ({
       store,
       libraryGate,
+      tabSeat: marketTabSeat,
       presetLaunch: createEnterprisePresetLauncher(() => enterprisePresetSessionPortsFrom({
         uiWorkspace: ctx.get('uiWorkspace'),
         workspaces: ctx.get('workspaces'),
@@ -213,7 +223,11 @@ export function apply(ctx: SlotContextPort): void {
   ctx.slots.inject('plugins.detail.actions', () => ctx.slots.register({
     name: 'plugins.detail.actions',
     id: ENTERPRISE_MARKET_ENTRY_ID,
-  }, EnterpriseMarketDetailActions as (props: never) => ReactNode))
+    // 座位源经 `inject` 注入（与上面 badge 槽注入 store 是同一手法）⇒ 注册面是**具名组件**
+    // `EnterpriseMarketDetailActionsLive`：它订阅座位、再把状态交给纯函数 `EnterpriseMarketDetailActions`。
+    // 分两层是为了让纯函数仍能被测试直接调用（不因订阅而变成不可直调的 hook 组件）。
+    inject: () => ({ tabSeat: marketTabSeat }),
+  }, EnterpriseMarketDetailActionsLive as (props: never) => ReactNode))
   /**
    * **官方列表卡标题行的那枚「企业」签**（用户两次指定：必须在标题行、标题正后方）：官方 `ItemCard` 的
    * `CardHead` 只接 title/icon/description、**没有 tags 座位**（`dsh-client-ui-plugin-manager/lib/client.js:2083-2097`），

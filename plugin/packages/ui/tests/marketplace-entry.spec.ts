@@ -55,6 +55,7 @@ import {
   EnterpriseMarketBadge,
   EnterpriseMarketBadgeTag,
   EnterpriseMarketDetailActions,
+  createEnterpriseMarketTabSeat,
   EnterpriseMarketInlineRows,
   EnterpriseMarketLegacyPage,
   EnterpriseMarketLegacyShell,
@@ -183,7 +184,7 @@ function textOf(node: ReactNode): string {
  */
 const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(18785 chars)",
+  "  style(19109 chars)",
   "  div[className=own-market-searchRow]",
   "    span[className=own-market-query]",
   "      #opaque:[object Object]",
@@ -244,7 +245,7 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
  */
 const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(18785 chars)",
+  "  style(19109 chars)",
   "  div[className=own-market-searchRow]",
   "    span[className=own-market-query]",
   "      #opaque:[object Object]",
@@ -333,8 +334,8 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
  * 变的只有 `<style>` 的长度那一行（`style(10507 chars)` → `style(12028 chars)`）。
  * 任何人再改这份 CSS（不管是加装饰还是删规则）都会在这里立刻显形。
  */
-const LEGACY_STYLE_LENGTH = 18785
-const LEGACY_STYLE_CHECKSUM = 2572812549
+const LEGACY_STYLE_LENGTH = 19109
+const LEGACY_STYLE_CHECKSUM = 2233770168
 
 /** 「企业技能」节的目录 fixture：与 skill-market.spec 的列表投影同形（列表态 versionId/skills 为空）。 */
 const SKILL: EnterpriseRuntimeSkill = {
@@ -515,6 +516,45 @@ describe('enterprise marketplace entry', () => {
       expect(tabs.map(tab => tab['aria-selected']), label).toEqual([true, false, false, false])
       expect(tabs.map(tab => tab['tabIndex']), label).toEqual([0, -1, -1, -1])
     }
+  })
+
+  // 本刀（用户裁决 A：4 个页签放到标题右侧）：页签的渲染位置由**座位是否注入**决定——
+  // 注入 ⇒ 页面这一层不画页签、由官方 `plugins.detail.actions` 槽那一格渲染；不注入 ⇒ 留在页面里
+  // （外壳自包含的默认形态）。两处**绝不并存**，故任何时刻全页只有一个 `tablist`。
+  it('moves the four page tabs into the title slot when the seat is injected, and never renders two tablists', () => {
+    const props = { view: 'page' as const, sessionUsable: true }
+    const model = enterpriseMarketShellModel(props)
+    // ① 不注入座位：页签仍由页面渲染（外壳自包含）。
+    const bare = EnterpriseMarketLegacyShell(props)
+    expect(collectByRole(bare, 'tab')).toHaveLength(4)
+    // ② 注入座位（宿主在有座位时会传 `tabsInTitle`）：页面这一层一枚页签都不画。
+    const seated = EnterpriseMarketLegacyShell({ ...props, tabsInTitle: true })
+    expect(collectByRole(seated, 'tab')).toEqual([])
+    expect(collectByRole(seated, 'tablist')).toEqual([])
+    // ③ 标题行那一格（同一个模型 + 座位状态）：四枚页签在前、两枚按钮在后（用户裁决 A 的排版）。
+    const slot = EnterpriseMarketDetailActions({
+      subject: { kind: 'item', id: ENTERPRISE_MARKET_ENTRY_ID },
+      tabSeat: { entries: model.tabEntries, activeTab: model.activeTab, onSelect: undefined },
+    })
+    const slotTabs = collectByRole(slot, 'tab')
+    expect(slotTabs.map(tab => tab['children'])).toEqual(['企业技能 0', '企业插件 0', '企业配方 0', '包含内容 4'])
+    expect(slotTabs.map(tab => tab['aria-selected'])).toEqual([true, false, false, false])
+    expect(collectOfficialButtonProps(slot)).toHaveLength(2)
+    // 非本条目 subject 仍然一律 null（槽是 root 级、三种详情页都会渲染，过滤口径不变）。
+    expect(EnterpriseMarketDetailActions({ subject: { kind: 'item', id: 'bash' } })).toBeNull()
+    // ④ 座位源：**签名没变不通知**（页面每帧都发布，不设这道闸就会自激重渲染）；变了才通知；退订即静默。
+    const seat = createEnterpriseMarketTabSeat()
+    let notified = 0
+    const off = seat.subscribe(() => { notified += 1 })
+    const state = { entries: model.tabEntries, activeTab: model.activeTab, onSelect: undefined }
+    seat.publish(state)
+    seat.publish({ ...state })
+    expect(notified).toBe(1)
+    seat.publish({ ...state, activeTab: 'plugins' })
+    expect(notified).toBe(2)
+    off()
+    seat.publish({ ...state, activeTab: 'presets' })
+    expect(notified).toBe(2)
   })
 
   it('pairs every tab with its tabpanel and mounts only the selected panel content', () => {
@@ -795,9 +835,10 @@ describe('enterprise marketplace entry', () => {
     expect(Object.keys(tagElements[0] ?? {}).sort()).toEqual(['children', 'className', 'tone'])
     // **唯一渲染**：BadgeTag 直接调用出来的就是同一枚元素（详情页徽章与描述行胶囊共用这一份）。
     expect(collectOfficialTagProps(EnterpriseMarketBadgeTag())[0]).toEqual(tagElements[0])
-    // 包名行照旧（本刀不动它：它是我们 badge 槽里换行的一行，不是官方 chrome 的字号/间距）。
-    expect(collectByClassName(withVersion, 'own-market-badge-name')).toHaveLength(1)
-    expect(textOf(withVersion)).toContain(ENTERPRISE_MARKET_ENTRY_ID)
+    // **包名行已按用户口径撤下**（「标题不显示包名」）：badge 槽只剩「企业」徽章 +（有版本时）版本签。
+    // 这条是反锁：谁把包名行加回标题，这里先红。
+    expect(collectByClassName(withVersion, 'own-market-badge-name')).toEqual([])
+    expect(textOf(withVersion)).not.toContain(ENTERPRISE_MARKET_ENTRY_ID)
     // 标题行只有签、无可拨开关（拨不动的开关像坏的，产品决策去掉）。
     expect(collectSwitchProps(withVersion)).toHaveLength(0)
     const withoutVersion = BadgeView({})
@@ -2133,8 +2174,9 @@ describe('enterprise marketplace entry', () => {
     // 只看**代码**（剥掉注释）——否则文档里提到同一个标识符就会被误计一次。
     const source = stripComments(await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8'))
     const count = (re: RegExp): number => (source.match(re) ?? []).length
-    // 模型：1 处定义 + 外壳 1 处调用 = 2。
-    expect(count(/enterpriseMarketShellModel\(/g)).toBe(2)
+    // 模型：1 处定义 + 外壳 1 处调用 + **宿主 1 处**（宿主为「标题右侧页签座位」取 tabEntries 时算一次）
+    // = 3。仍是同一个纯函数，不是第二套模型。
+    expect(count(/enterpriseMarketShellModel\(/g)).toBe(3)
     // 行 facts 唯一入口：**本刀多一处合法调用**——模型里的「状态筛选」要问每一行「现在启用中吗」，
     // 而「什么叫启用」的唯一真源就是这枚 facts（不另写第二份口径）。故 1 定义 + 行子块 1 + 详情输入构造 1
     // + 状态筛选 1 = 4。**仍然是同一个函数**，不是第二套事实。
@@ -2443,9 +2485,10 @@ describe('enterprise skill detail page', () => {
       expect(cssRuleBody(css, '.own-market-rowOpen:focus-visible'), label).toContain('outline:')
       // 回调缺席时是 disabled：光标必须收回（否则「看着能点、点了没反应」）。
       expect(cssRuleBody(css, '.own-market-rowOpen:disabled'), label).toContain('cursor:default')
-      // hover 高亮那条规则有两条选择器（标题 + 描述），故直接锁规则原文而不走单选择器取值器。
-      expect(css, label).toContain('.own-market-rowOpen:hover .own-market-cardId')
-      expect(css, label).toContain('color:var(--dsw-alias-accent-primary')
+      // **反锁（用户口径：卡片 hover 只变背景、文字不变）**：把标题/描述染成主色的那条规则
+      // 必须**不存在**——谁加回来这里先红。hover 的可见反馈只剩 `.own-market-row:hover` 的灰底。
+      expect(css, label).not.toContain('.own-market-rowOpen:hover .own-market-cardId')
+      expect(css, label).not.toContain('.own-market-rowOpen:hover .own-market-cardDesc')
     }
     // 回调缺席（纯函数直调 / 旧输入）时那枚按钮 disabled + 说明性 title——**不给死按钮**，也不另外分叉一套行结构。
     const bare = EnterpriseMarketLegacyShell({ view: 'page', sessionUsable: true, enterpriseSkills: [row()] })
