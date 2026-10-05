@@ -184,7 +184,7 @@ function textOf(node: ReactNode): string {
  */
 const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(20734 chars)",
+  "  style(20843 chars)",
   "  div[className=own-market-searchRow]",
   "    span[className=own-market-query]",
   "      #opaque:[object Object]",
@@ -245,7 +245,7 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
  */
 const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(20734 chars)",
+  "  style(20843 chars)",
   "  div[className=own-market-searchRow]",
   "    span[className=own-market-query]",
   "      #opaque:[object Object]",
@@ -334,8 +334,8 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
  * 变的只有 `<style>` 的长度那一行（`style(10507 chars)` → `style(12028 chars)`）。
  * 任何人再改这份 CSS（不管是加装饰还是删规则）都会在这里立刻显形。
  */
-const LEGACY_STYLE_LENGTH = 20734
-const LEGACY_STYLE_CHECKSUM = 2231081415
+const LEGACY_STYLE_LENGTH = 20843
+const LEGACY_STYLE_CHECKSUM = 1320448966
 
 /** 「企业技能」节的目录 fixture：与 skill-market.spec 的列表投影同形（列表态 versionId/skills 为空）。 */
 const SKILL: EnterpriseRuntimeSkill = {
@@ -1167,6 +1167,19 @@ describe('enterprise marketplace entry', () => {
   // `FileTypeIcon.module.css` 逐类就是 `color: var(--dsw-static-<hue>-<step>)`，这是官方唯一的彩色图标家族）；
   // 没有品牌图资产，故按**类别**上色（技能 / 插件 / 配方 / 资料库），标记落在 `data-icon-kind` 上。
   // 本刀（图标白底 + 安装钮独立 hover）：两件都是用户口径，各给一条反锁。
+  // 用户口径：更多按钮太窄、三个点要宽些 ⇒ 加宽到 36px、图标 20px，**高度仍与安装钮同 28px**。
+  it('widens the more button and enlarges its dots while keeping the install-button height', async () => {
+    const css = collectStyleText(EnterpriseMarketLegacyShell({ view: 'page', sessionUsable: true }))
+    const more = cssRuleBody(css, '.own-market-moreBtn')
+    expect(more).toContain('width:36px')
+    expect(more).toContain('height:28px')
+    expect(css).toContain('.own-market-moreBtn{display:inline-grid;place-items:center;width:36px;height:28px')
+    // 三个点的图标放大到 20px（源码级：这是唯一的 MoreHorizontal 渲染点）。
+    const source = await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8')
+    expect(source).toContain('<MoreHorizontal aria-hidden size={20} />')
+    expect(source).not.toContain('<MoreHorizontal aria-hidden size={16} />')
+  })
+
   it('gives the row icon an opaque white plate and the install button its own hover token', () => {
     const css = collectStyleText(EnterpriseMarketLegacyShell({ view: 'page', sessionUsable: true }))
     // ① 图标容器**白底不透明**（卡片 hover 变灰时图标仍是白块）——反锁：不许退回 transparent/none。

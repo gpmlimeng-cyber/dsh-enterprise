@@ -2602,7 +2602,9 @@ const baseStyles = `
 .own-market-more{position:relative;flex:none}
 /* 「⋯」与「安装」**同高同圆角**（用户口径：两枚大小一致、视觉对齐）——高度都取官方 sm 的 28px、
    圆角都取官方 sm 胶囊的 14px，故两枚在卡片右端是同一根水平轴上的一对控件。 */
-.own-market-moreBtn{display:inline-grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:14px;background:transparent;color:var(--dsw-alias-label-secondary,#667085);cursor:pointer}
+/* 宽度 36px（用户口径：更多按钮太窄、三个点要宽些）——**高度仍与安装钮同 28px**（上一刀的对齐口径不动），
+   只加宽并放大那三个点（图标 20px），故两枚在右端仍是同一根水平轴上的一对。 */
+.own-market-moreBtn{display:inline-grid;place-items:center;width:36px;height:28px;padding:0;border:0;border-radius:14px;background:transparent;color:var(--dsw-alias-label-secondary,#667085);cursor:pointer}
 .own-market-moreBtn:hover,.own-market-moreBtn[aria-expanded='true']{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary,#101828)}
 .own-market-moreBtn:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:1px}
 .own-market-moreMenu{position:absolute;top:calc(100% + 4px);right:0;z-index:30;min-width:120px;padding:4px;border:1px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:var(--dsw-radius-md,8px);background:var(--dsw-alias-background-primary,#fff);box-shadow:var(--dsw-shadow-lv2,0 8px 24px rgba(16,24,40,.12));display:flex;flex-direction:column;gap:2px}
@@ -3232,7 +3234,6 @@ function EnterpriseMarketTabStrip({
             </div>
           ) : null}
         </div>
-      </div>
       {/* 刷新 / 添加插件（用户口径：与搜索、排在同一行，位于筛选钮**右侧**）。
           两枚都是**占位**（没接真动作），故 `title` 如实写明；走官方 `Button` 原语本体与官方变体。
           移动端自适应：整行 `flex-wrap:nowrap`，两枚按钮 `flex:none`，**搜索框吸收压缩**
@@ -3253,6 +3254,7 @@ function EnterpriseMarketTabStrip({
         aria-label={ENTERPRISE_DETAIL_ACTION_ADD_LABEL}
         title="占位：企业插件由企业后台上传，员工端入口留下一刀"
       >{ENTERPRISE_DETAIL_ACTION_ADD_LABEL}</Button>
+      </div>
       {tabsInTitle === true ? null : (
         <div className="own-market-tabBar">
           <EnterpriseMarketTabList
@@ -3706,7 +3708,7 @@ export function EnterpriseMarketRowMenu({ subject, open, onToggle, items }: {
         aria-label={label}
         aria-expanded={open === true}
         onClick={() => { onToggle?.() }}
-      ><MoreHorizontal aria-hidden size={16} /></button>
+      ><MoreHorizontal aria-hidden size={20} /></button>
       {open === true ? (
         <span role="menu" aria-label={label} className="own-market-moreMenu">
           {items.map(item => renderItem(item, true))}
