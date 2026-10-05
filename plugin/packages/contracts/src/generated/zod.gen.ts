@@ -2932,6 +2932,19 @@ export const zSkillSkillAssignmentStatus = z.enum(['ACTIVE', 'DISABLED']);
 
 export const zSkillAssignmentStatus = zSkillSkillAssignmentStatus;
 
+/**
+ * 技能分类七类；「精选」当前唯一入口是本枚举自身的 精选 值（包级 featured 标记尚未贯通到员工端）；未声明或旧脏值由员工端兜底归「其他」。
+ */
+export const zSkillCategory = z.enum([
+    '精选',
+    '效率',
+    '研究',
+    '编程',
+    '商业',
+    '创意',
+    '其他'
+]);
+
 export const zSkillSkillEntryName = z.string().min(1).max(64).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 
 export const zSkillEntryName = zSkillSkillEntryName;
@@ -2978,7 +2991,7 @@ export const zSkillRuntimeSkillSummary = z.object({
     skillId: zSkillSkillPackageRef,
     displayName: z.string().min(1).max(120),
     description: z.string().max(2000),
-    category: z.string().min(1).max(32).nullish(),
+    category: zSkillCategory.nullish(),
     sourceDshVersion: zSkillSkillSourceDshVersion,
     sizeBytes: z.coerce.bigint().gte(BigInt(1)).lte(BigInt(52428800)),
     skillCount: z.int().gte(1).lte(200),
@@ -3065,7 +3078,7 @@ export const zSkillSkillPackage = z.object({
     skillId: zSkillSkillPackageRef,
     displayName: z.string().min(1).max(120),
     description: z.string().max(2000).optional(),
-    category: z.string().min(1).max(32).nullish(),
+    category: zSkillCategory.nullish(),
     status: zSkillSkillPackageStatus,
     revision: zRevision,
     versions: z.array(zSkillSkillVersion),

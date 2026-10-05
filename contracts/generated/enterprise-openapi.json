@@ -90303,12 +90303,25 @@
                                 "maxLength": 2000
                               },
                               "category": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ],
-                                "minLength": 1,
-                                "maxLength": 32
+                                "oneOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "精选",
+                                      "效率",
+                                      "研究",
+                                      "编程",
+                                      "商业",
+                                      "创意",
+                                      "其他"
+                                    ],
+                                    "maxLength": 32,
+                                    "description": "技能分类七类；「精选」当前唯一入口是本枚举自身的 精选 值（包级 featured 标记尚未贯通到员工端）；未声明或旧脏值由员工端兜底归「其他」。"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               },
                               "status": {
                                 "type": "string",
@@ -95912,12 +95925,25 @@
                           "maxLength": 2000
                         },
                         "category": {
-                          "type": [
-                            "string",
-                            "null"
-                          ],
-                          "minLength": 1,
-                          "maxLength": 32
+                          "oneOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "精选",
+                                "效率",
+                                "研究",
+                                "编程",
+                                "商业",
+                                "创意",
+                                "其他"
+                              ],
+                              "maxLength": 32,
+                              "description": "技能分类七类；「精选」当前唯一入口是本枚举自身的 精选 值（包级 featured 标记尚未贯通到员工端）；未声明或旧脏值由员工端兜底归「其他」。"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "status": {
                           "type": "string",
@@ -97342,12 +97368,25 @@
                             "maxLength": 2000
                           },
                           "category": {
-                            "type": [
-                              "string",
-                              "null"
-                            ],
-                            "minLength": 1,
-                            "maxLength": 32
+                            "oneOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "精选",
+                                  "效率",
+                                  "研究",
+                                  "编程",
+                                  "商业",
+                                  "创意",
+                                  "其他"
+                                ],
+                                "maxLength": 32,
+                                "description": "技能分类七类；「精选」当前唯一入口是本枚举自身的 精选 值（包级 featured 标记尚未贯通到员工端）；未声明或旧脏值由员工端兜底归「其他」。"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           },
                           "sourceDshVersion": {
                             "type": "string",
@@ -97915,12 +97954,25 @@
                               "maxLength": 2000
                             },
                             "category": {
-                              "type": [
-                                "string",
-                                "null"
-                              ],
-                              "minLength": 1,
-                              "maxLength": 32
+                              "oneOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "精选",
+                                    "效率",
+                                    "研究",
+                                    "编程",
+                                    "商业",
+                                    "创意",
+                                    "其他"
+                                  ],
+                                  "maxLength": 32,
+                                  "description": "技能分类七类；「精选」当前唯一入口是本枚举自身的 精选 值（包级 featured 标记尚未贯通到员工端）；未声明或旧脏值由员工端兜底归「其他」。"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             },
                             "sourceDshVersion": {
                               "type": "string",
@@ -145587,12 +145639,25 @@
             "maxLength": 2000
           },
           "category": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "minLength": 1,
-            "maxLength": 32
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "精选",
+                  "效率",
+                  "研究",
+                  "编程",
+                  "商业",
+                  "创意",
+                  "其他"
+                ],
+                "maxLength": 32,
+                "description": "技能分类七类；「精选」当前唯一入口是本枚举自身的 精选 值（包级 featured 标记尚未贯通到员工端）；未声明或旧脏值由员工端兜底归「其他」。"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "status": {
             "type": "string",
@@ -145828,12 +145893,25 @@
                   "maxLength": 2000
                 },
                 "category": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
-                  "minLength": 1,
-                  "maxLength": 32
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "精选",
+                        "效率",
+                        "研究",
+                        "编程",
+                        "商业",
+                        "创意",
+                        "其他"
+                      ],
+                      "maxLength": 32,
+                      "description": "技能分类七类；「精选」当前唯一入口是本枚举自身的 精选 值（包级 featured 标记尚未贯通到员工端）；未声明或旧脏值由员工端兜底归「其他」。"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "status": {
                   "type": "string",
@@ -146114,12 +146192,25 @@
                       "maxLength": 2000
                     },
                     "category": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "minLength": 1,
-                      "maxLength": 32
+                      "oneOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "精选",
+                            "效率",
+                            "研究",
+                            "编程",
+                            "商业",
+                            "创意",
+                            "其他"
+                          ],
+                          "maxLength": 32,
+                          "description": "技能分类七类；「精选」当前唯一入口是本枚举自身的 精选 值（包级 featured 标记尚未贯通到员工端）；未声明或旧脏值由员工端兜底归「其他」。"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "status": {
                       "type": "string",
@@ -146399,12 +146490,25 @@
                 "maxLength": 2000
               },
               "category": {
-                "type": [
-                  "string",
-                  "null"
-                ],
-                "minLength": 1,
-                "maxLength": 32
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "精选",
+                      "效率",
+                      "研究",
+                      "编程",
+                      "商业",
+                      "创意",
+                      "其他"
+                    ],
+                    "maxLength": 32,
+                    "description": "技能分类七类；「精选」当前唯一入口是本枚举自身的 精选 值（包级 featured 标记尚未贯通到员工端）；未声明或旧脏值由员工端兜底归「其他」。"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "status": {
                 "type": "string",
@@ -146632,12 +146736,25 @@
             "maxLength": 2000
           },
           "category": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "minLength": 1,
-            "maxLength": 32
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "精选",
+                  "效率",
+                  "研究",
+                  "编程",
+                  "商业",
+                  "创意",
+                  "其他"
+                ],
+                "maxLength": 32,
+                "description": "技能分类七类；「精选」当前唯一入口是本枚举自身的 精选 值（包级 featured 标记尚未贯通到员工端）；未声明或旧脏值由员工端兜底归「其他」。"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "sourceDshVersion": {
             "type": "string",
@@ -146697,12 +146814,25 @@
                 "maxLength": 2000
               },
               "category": {
-                "type": [
-                  "string",
-                  "null"
-                ],
-                "minLength": 1,
-                "maxLength": 32
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "精选",
+                      "效率",
+                      "研究",
+                      "编程",
+                      "商业",
+                      "创意",
+                      "其他"
+                    ],
+                    "maxLength": 32,
+                    "description": "技能分类七类；「精选」当前唯一入口是本枚举自身的 精选 值（包级 featured 标记尚未贯通到员工端）；未声明或旧脏值由员工端兜底归「其他」。"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "sourceDshVersion": {
                 "type": "string",

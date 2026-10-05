@@ -2725,7 +2725,7 @@ export type SkillRuntimeSkillSummary = {
     skillId: SkillSkillPackageRef;
     displayName: string;
     description: string;
-    category?: string | null;
+    category?: SkillCategory | null;
     sourceDshVersion: SkillSkillSourceDshVersion;
     sizeBytes: number;
     skillCount: number;
@@ -2754,6 +2754,11 @@ export type SkillSkillAssignmentSpec = {
 
 export type SkillSkillAssignmentStatus = 'ACTIVE' | 'DISABLED';
 
+/**
+ * 技能分类七类；「精选」当前唯一入口是本枚举自身的 精选 值（包级 featured 标记尚未贯通到员工端）；未声明或旧脏值由员工端兜底归「其他」。
+ */
+export type SkillCategory = '精选' | '效率' | '研究' | '编程' | '商业' | '创意' | '其他';
+
 export type SkillSkillEntry = {
     name: SkillSkillEntryName;
     description: string;
@@ -2776,7 +2781,7 @@ export type SkillSkillPackage = {
     skillId: SkillSkillPackageRef;
     displayName: string;
     description?: string;
-    category?: string | null;
+    category?: SkillCategory | null;
     status: SkillSkillPackageStatus;
     revision: Revision;
     versions: Array<SkillSkillVersion>;
