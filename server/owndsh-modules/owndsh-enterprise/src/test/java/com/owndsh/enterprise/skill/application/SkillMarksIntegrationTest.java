@@ -9,6 +9,7 @@ package com.owndsh.enterprise.skill.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -268,7 +269,11 @@ class SkillMarksIntegrationTest {
         assertThat(fixture.service().authorizeDownload(fixture.context(), versionId).sizeBytes()).isEqualTo(1024L);
 
         // 既有设备前置校验必须仍然先跑。
-        verify(fixture.devices()).requireActive(fixture.context());
+        // 本用例依次走 list + detail + authorizeDownload 三个入口，而三者**都**以
+        // `devices.requireActive(context)` 作为第一行（SkillRuntimeService:75/81/88），
+        // 所以这是**同一个前置校验被调用三次**，不是三处互不相同的断言。
+        // 本用例要验的语义是「前置校验必须跑过」，不是「恰好跑一次」，原期望写窄了，据此放宽为 atLeastOnce()。
+        verify(fixture.devices(), atLeastOnce()).requireActive(fixture.context());
     }
 
     /**

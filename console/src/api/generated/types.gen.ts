@@ -2302,7 +2302,18 @@ export type PresetPresetVersionResponse = {
 
 export type PresetPresetVersionStatus = 'VALIDATED' | 'PUBLISHED' | 'RETIRED';
 
-export type PresetRuntimePresetDetail = PresetRuntimePresetSummary & {
+export type PresetRuntimePresetDetail = {
+    id: PresetPresetPackageId;
+    presetId: PresetPresetPresetId;
+    displayName: string;
+    description: string;
+    sourceDshVersion: PresetPresetSourceDshVersion;
+    sizeBytes: number;
+    updatedAt: string;
+    /**
+     * 这份配方引用的技能/插件清单（与 PresetVersion.dependencies 同一 PresetDependency 形状）， 供员工端在启用前一次请求看清「N 技能 · M 插件」。无引用即空数组。 引用是元数据而不是包内正文：这里不出现 artifact 路径、包内 YAML、SHA-256 或签名材料。 列表与详情共用同一字段名与同一套客户端解码。
+     */
+    dependencies: Array<PresetPresetDependency>;
     versionId: PresetPresetVersionId;
     sha256: PresetPresetSha256;
 };
@@ -2316,7 +2327,7 @@ export type PresetRuntimePresetSummary = {
     sizeBytes: number;
     updatedAt: string;
     /**
-     * 这份配方引用的技能/插件清单（与 PresetVersion.dependencies 同一 PresetDependency 形状）， 供员工端在启用前一次请求看清「N 技能 · M 插件」。无引用即空数组。 引用是元数据而不是包内正文：这里不出现 artifact 路径、包内 YAML、SHA-256 或签名材料。 详情 RuntimePresetDetail 经 allOf 继承本字段，因此列表与详情共用同一字段名与同一套客户端解码。
+     * 这份配方引用的技能/插件清单（与 PresetVersion.dependencies 同一 PresetDependency 形状）， 供员工端在启用前一次请求看清「N 技能 · M 插件」。无引用即空数组。 引用是元数据而不是包内正文：这里不出现 artifact 路径、包内 YAML、SHA-256 或签名材料。 列表与详情共用同一字段名与同一套客户端解码（详情为摊平后的单一 schema，键与本字段逐字相同）。
      */
     dependencies: Array<PresetPresetDependency>;
 };
@@ -2482,17 +2493,35 @@ export type QuotaUsageAnalyticsData = {
     truncated: boolean;
 };
 
-export type QuotaUsageAnalyticsDayPoint = QuotaUsageAnalyticsTokens & {
+export type QuotaUsageAnalyticsDayPoint = {
+    requests: number;
+    inputTokens: number;
+    outputTokens: number;
+    cacheTokens: number;
+    totalTokens: number;
+    chargedTokens: number;
     date: string;
 };
 
-export type QuotaUsageAnalyticsMemberRow = QuotaUsageAnalyticsTokens & {
+export type QuotaUsageAnalyticsMemberRow = {
+    requests: number;
+    inputTokens: number;
+    outputTokens: number;
+    cacheTokens: number;
+    totalTokens: number;
+    chargedTokens: number;
     userId: EnterpriseUserId;
     username: string;
     displayName: string;
 };
 
-export type QuotaUsageAnalyticsModelRow = QuotaUsageAnalyticsTokens & {
+export type QuotaUsageAnalyticsModelRow = {
+    requests: number;
+    inputTokens: number;
+    outputTokens: number;
+    cacheTokens: number;
+    totalTokens: number;
+    chargedTokens: number;
     modelId: ManagedModelId;
     alias: string;
     displayName: string;
@@ -2504,7 +2533,13 @@ export type QuotaUsageAnalyticsResponse = {
     requestId: RequestId;
 };
 
-export type QuotaUsageAnalyticsSummary = QuotaUsageAnalyticsTokens & {
+export type QuotaUsageAnalyticsSummary = {
+    requests: number;
+    inputTokens: number;
+    outputTokens: number;
+    cacheTokens: number;
+    totalTokens: number;
+    chargedTokens: number;
     settled: number;
     chargedMax: number;
     unmeasured: number;
@@ -2714,7 +2749,17 @@ export type SessionSessionSequence = number;
 
 export type SessionSessionStatus = 'ACTIVE' | 'DELETED' | 'EXPIRED';
 
-export type SkillRuntimeSkillDetail = SkillRuntimeSkillSummary & {
+export type SkillRuntimeSkillDetail = {
+    id: SkillSkillPackageId;
+    skillId: SkillSkillPackageRef;
+    displayName: string;
+    description: string;
+    category?: SkillCategory | null;
+    builtin: boolean;
+    sourceDshVersion: SkillSkillSourceDshVersion;
+    sizeBytes: number;
+    skillCount: number;
+    updatedAt: string;
     versionId: SkillSkillVersionId;
     sha256: SkillSkillSha256;
     skills: Array<SkillSkillEntry>;

@@ -6,7 +6,7 @@
 
 java/com/owndsh/test/AssertUnitTest.java: Host 上游断言示例测试，随锁定源码基线保留。
 java/com/owndsh/test/DemoUnitTest.java: Host 上游 JUnit 基础示例，随锁定源码基线保留。
-java/com/owndsh/test/EnterpriseContractSchemaTest.java: 遍历 OpenAPI 生成的全部 manifest 条目，以 Draft 2020-12 schema 验证与 TypeScript 相同的正反 fixture，避免协议扩展与手工计数耦合。
+java/com/owndsh/test/EnterpriseContractSchemaTest.java: 遍历 OpenAPI 生成的全部 manifest 条目，以 Draft 2020-12 schema 验证与 TypeScript 相同的正反 fixture，避免协议扩展与手工计数耦合。★ **收集全部失败再汇总断言**（不再在首条中断）：原写法在循环里逐条 assert，第 40 条一坏就遮住第 41 条往后全部——实测 74 条里同时有 3 条失败（usage-analytics / runtime-preset-detail / runtime-skill-detail），中断写法只报得出第 1 条，其余两条在 Java 侧处于「从未被校验」状态。根因不是 fixture 真坏，而是这三者都用 `allOf` + 各分支 `additionalProperties: false`（严格 JSON Schema 语义下两分支互斥，待在 contracts 侧改口径）。
 java/com/owndsh/test/EnterpriseSafetyDefaultsTest.java: 结构化读取唯一 application.yml，验证 Flyway 0 基线兼容与 JDBC 参数类型推断、请求上限、graceful drain、同源 CORS，默认关闭插件签名、品牌 artifact root 落在挂载卷内以及 PostgreSQL/Redis/JWT/master/signing key 环境入口；加载真实 Logback 配置验证仅 stdout 输出、级别与异常堆栈保留。
 java/com/owndsh/common/security/config/SecurityConfigEnterpriseRouteTest.java: 锁定企业路由下沉领域 context、非企业路由保留全局 Sa-Token 登录校验的边界。
 java/com/owndsh/common/security/web/LegacyAdminSurfaceFilterTest.java: 锁定 /system、/monitor 遗留面默认拒绝判定，且不误伤企业与认证路径。

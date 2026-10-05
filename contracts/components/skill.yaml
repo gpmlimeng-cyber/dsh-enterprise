@@ -10,7 +10,7 @@
 #          runtime 投影后才能用**（需改 5 处：契约字段 → SkillViews 投影 → JdbcSkillStore 两条 SQL →
 #          本机 decode → 行模型/分组投影）。**本刀的验收只用 category: 精选 这一条入口**，不依赖 featured。
 #          **本刀（第三刀：builtin 贯通员工端投影）**：`builtin` 从「只活在管理端」推进到
-#          `RuntimeSkillSummary`（详情经 allOf 继承，故不在 detail 重复声明），形状与 `SkillPackage.builtin`
+#          `RuntimeSkillSummary`（详情为摊平后的单一 schema，键与摘要逐字相同），形状与 `SkillPackage.builtin`
 #          一致且**必填**：数据库列是 `not null default false`（V36），服务端恒发真值，员工端据此
 #          把「已安装」分组收敛为**只显示非内置的已装行**。理由与 featured 那条同源——分组需要区分内置/非内置，
 #          而在此之前该事实到员工端就断链。三刀次序如实记录：第一刀 category 七类枚举（上一个 commit）、
@@ -302,17 +302,54 @@ RuntimeSkillSummary:
     updatedAt:
       type: string
       format: date-time
-# 详情 = 摘要 + 版本事实：category 与 builtin 都由 RuntimeSkillSummary 分支一并继承，这里不重复声明。
+# 详情 = 摘要 + 版本事实（**摊平成单一对象**，不再用 allOf 继承）。
+#
+# ★ 为什么摊平：`allOf` + 各分支 `additionalProperties: false` 在严格 JSON Schema 语义下**两分支互斥**
+#   （additionalProperties 只看本分支，看不见兄弟分支声明的键），于是**任何** detail 都不可能通过 schema。
+#   曾试过把内层换成 `unevaluatedProperties: false`，但 networknt 3.0.6 **实测同样不跨 allOf 分支传播**
+#   （错误数 12 → 12，仅措辞从「未定义属性」变成「未评估属性」），故换关键字是自欺。
+#   摊平后封闭性**恢复并变严**：单一对象一次判完，多发一个未声明键必红。
+# ★ 摊平废掉的只是「结构继承」，语义目标（详情键集 = 摘要键集 + 扩展键）由
+#   `RuntimeProjectionContractDriftTest` 的「详情键集 ⊇ 摘要键集、且差集恰为约定扩展键」门禁守住——
+#   即用可执行的机器检查，换掉「靠人手工同步两份 schema」的纪律。
 RuntimeSkillDetail:
-  allOf:
-    - $ref: '#/RuntimeSkillSummary'
-    - type: object
-      additionalProperties: false
-      required: [versionId, sha256, skills]
-      properties:
-        versionId: {$ref: '#/SkillVersionId'}
-        sha256: {$ref: '#/SkillSha256'}
-        skills:
-          type: array
-          maxItems: 200
-          items: {$ref: '#/SkillEntry'}
+  type: object
+  additionalProperties: false
+  required: [id, skillId, displayName, description, builtin, sourceDshVersion, sizeBytes, skillCount, updatedAt, versionId, sha256, skills]
+  properties:
+    # ↓ 以下 10 键与 RuntimeSkillSummary 逐字相同（category 为可选，故不在 required 内）
+    id: {$ref: '#/SkillPackageId'}
+    skillId: {$ref: '#/SkillPackageRef'}
+    displayName:
+      type: string
+      minLength: 1
+      maxLength: 120
+    description:
+      type: string
+      maxLength: 2000
+    category:
+      oneOf:
+        - $ref: '#/SkillCategory'
+        - type: 'null'
+    builtin:
+      type: boolean
+    sourceDshVersion: {$ref: '#/SkillSourceDshVersion'}
+    sizeBytes:
+      type: integer
+      format: int64
+      minimum: 1
+      maximum: 52428800
+    skillCount:
+      type: integer
+      minimum: 1
+      maximum: 200
+    updatedAt:
+      type: string
+      format: date-time
+    # ↓ 详情扩展键（差集必须恰为这 3 个，漂移门禁锁死）
+    versionId: {$ref: '#/SkillVersionId'}
+    sha256: {$ref: '#/SkillSha256'}
+    skills:
+      type: array
+      maxItems: 200
+      items: {$ref: '#/SkillEntry'}

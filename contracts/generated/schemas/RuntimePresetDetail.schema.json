@@ -1,125 +1,113 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:owndsh:contracts:RuntimePresetDetail",
-  "allOf": [
-    {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "id",
-        "presetId",
-        "displayName",
-        "description",
-        "sourceDshVersion",
-        "sizeBytes",
-        "updatedAt",
-        "dependencies"
-      ],
-      "properties": {
-        "id": {
-          "type": "string",
-          "pattern": "^[1-9][0-9]{0,18}$"
-        },
-        "presetId": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 128,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
-        },
-        "displayName": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 120
-        },
-        "description": {
-          "type": "string",
-          "maxLength": 2000
-        },
-        "sourceDshVersion": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 64
-        },
-        "sizeBytes": {
-          "type": "integer",
-          "format": "int64",
-          "minimum": 1,
-          "maximum": 52428800
-        },
-        "updatedAt": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "dependencies": {
-          "description": "这份配方引用的技能/插件清单（与 PresetVersion.dependencies 同一 PresetDependency 形状）， 供员工端在启用前一次请求看清「N 技能 · M 插件」。无引用即空数组。 引用是元数据而不是包内正文：这里不出现 artifact 路径、包内 YAML、SHA-256 或签名材料。 详情 RuntimePresetDetail 经 allOf 继承本字段，因此列表与详情共用同一字段名与同一套客户端解码。",
-          "type": "array",
-          "maxItems": 200,
-          "items": {
-            "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。 同一形状同时被 runtime 摘要/详情投影复用（员工端只读清单，不含发布口校验语义）。",
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "kind",
-              "id",
-              "mode",
-              "required"
-            ],
-            "properties": {
-              "kind": {
-                "type": "string",
-                "enum": [
-                  "skill",
-                  "plugin"
-                ]
-              },
-              "id": {
-                "description": "技能 skillId（`^[A-Za-z0-9][A-Za-z0-9._-]*$`，≤128）或 npm package name（≤214）。",
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 214
-              },
-              "mode": {
-                "description": "pinned 钉 versionId；latest 跟该资产当前最新 PUBLISHED。",
-                "type": "string",
-                "enum": [
-                  "pinned",
-                  "latest"
-                ]
-              },
-              "versionId": {
-                "type": "string",
-                "pattern": "^[1-9][0-9]{0,18}$"
-              },
-              "required": {
-                "type": "boolean"
-              },
-              "resolvedVersionId": {
-                "type": "string",
-                "pattern": "^[1-9][0-9]{0,18}$",
-                "description": "留位字段（方案 §D 的可选第 6 键）：服务端在发布口解析\"当时最新\"后填充，只做展示与变更提示， 不是运行时真源。当前切片不填充，故服务端不会输出该键；manifest 里作者声明它会被验包拒绝。"
-              }
-            }
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "presetId",
+    "displayName",
+    "description",
+    "sourceDshVersion",
+    "sizeBytes",
+    "updatedAt",
+    "dependencies",
+    "versionId",
+    "sha256"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,18}$"
+    },
+    "presetId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "sourceDshVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "sizeBytes": {
+      "type": "integer",
+      "format": "int64",
+      "minimum": 1,
+      "maximum": 52428800
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "dependencies": {
+      "description": "这份配方引用的技能/插件清单（与 PresetVersion.dependencies 同一 PresetDependency 形状）， 供员工端在启用前一次请求看清「N 技能 · M 插件」。无引用即空数组。 引用是元数据而不是包内正文：这里不出现 artifact 路径、包内 YAML、SHA-256 或签名材料。 列表与详情共用同一字段名与同一套客户端解码。",
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "description": "配方版本引用的一项技能或插件（引用，不是快照）。`required: true` 的引用必须在发布口可解析， 否则服务端以 ENT_PRESET_REQUIRES_MISSING / ENT_PRESET_REQUIRES_NOT_PUBLISHED 拒绝发布。 同一形状同时被 runtime 摘要/详情投影复用（员工端只读清单，不含发布口校验语义）。",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "id",
+          "mode",
+          "required"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "skill",
+              "plugin"
+            ]
+          },
+          "id": {
+            "description": "技能 skillId（`^[A-Za-z0-9][A-Za-z0-9._-]*$`，≤128）或 npm package name（≤214）。",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 214
+          },
+          "mode": {
+            "description": "pinned 钉 versionId；latest 跟该资产当前最新 PUBLISHED。",
+            "type": "string",
+            "enum": [
+              "pinned",
+              "latest"
+            ]
+          },
+          "versionId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,18}$"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "resolvedVersionId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "description": "留位字段（方案 §D 的可选第 6 键）：服务端在发布口解析\"当时最新\"后填充，只做展示与变更提示， 不是运行时真源。当前切片不填充，故服务端不会输出该键；manifest 里作者声明它会被验包拒绝。"
           }
         }
       }
     },
-    {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "versionId",
-        "sha256"
-      ],
-      "properties": {
-        "versionId": {
-          "type": "string",
-          "pattern": "^[1-9][0-9]{0,18}$"
-        },
-        "sha256": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{64}$"
-        }
-      }
+    "versionId": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,18}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
     }
-  ]
+  }
 }
