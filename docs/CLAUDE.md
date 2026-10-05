@@ -41,6 +41,7 @@ t21-deployment-delivery-acceptance.md: T21 独立验收证据，区分当前 HTT
 t22-manual-acceptance.md: T22 人工验收真源，记录自动总编排退役决策、单后端/单 Harness 启动方式与逐功能确认清单。
 compose/: Compose Next 特性规格目录（docs/compose/spec/*.md），每特性一份设计/任务/交付记录。
 research/: 专题调研与取证报告目录（docs/research/*.md），每份一份带证据的端到端链路结论；局部地图见 research/CLAUDE.md。
+ops/: 运维操作手册目录（docs/ops/*.md），每份一份可直接照做的运维/造数步骤；局部地图见 ops/CLAUDE.md。
 assets/: 无密钥验收与社区展示媒体，保存 T05、T07、T12、T15、T18、T19 的真实页面流程截图/GIF，以及维护者提供的社区介绍原图；局部地图见 assets/CLAUDE.md。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
