@@ -85,6 +85,7 @@ import {
   enterprisePluginStatePresentation,
   scrollTargetOf,
 } from './plugin-market.js'
+import { enterpriseMarketMockEnabled, enterpriseMarketMockSkillRows } from './market-mock.js'
 import type { EnterpriseInstalledSkill, EnterpriseInstalledSkillFile, EnterpriseLocalApi, EnterprisePluginCatalogItem, EnterprisePluginItem, EnterprisePresetApplicationKind, EnterprisePresetAuthorization, EnterprisePresetDisclosure, EnterprisePresetOfficialApplication, EnterprisePresetStatus, EnterpriseRuntimePreset, EnterpriseRuntimeSkill, EnterpriseSkillFileEntry, ManagedPluginState } from './local-api-decode.js'
 import { enterpriseLocalErrorCode } from './local-api-decode.js'
 import { EnterpriseErrorNotice } from './error-notice.js'
@@ -2580,7 +2581,7 @@ const baseStyles = `
    故标题与线不可能错位；行间不再有任何分割线（用户口径：列表去除分割线）。
    类名**不叫 groupTitle**：组件节那枚折叠节头已经占了这个名字，同名会让两条规则互相覆盖。 */
 .own-market-categoryTitle{margin:0;padding-bottom:12px;border-bottom:0.5px solid var(--dsw-alias-border-l2,#e4e7ec);font-size:17px;line-height:26px;font-weight:600;color:var(--dsw-alias-label-primary,#101828)}
-.own-market-rows{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 24px;min-width:0}
+.own-market-rows{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 48px;min-width:0}
 /* 卡片：左右内衬 + 圆角，hover 整块变灰（用户口径：卡片级 hover、背景变灰）。
    hover 取值照官方卡片实物（app.asar 里的 ._card:hover:not(._cardActive) 规则）：
    background:var(--dsw-alias-interactive-bg-hover)——不新造颜色、不用 color-mix 猜。 */
@@ -2590,7 +2591,9 @@ const baseStyles = `
    菜单项按各行真实能力给：更新 / 启用·停用 / 卸载）。hover 与 focus 取值照官方菜单实物
    （同一枚 --dsw-alias-interactive-bg-hover），与左邻右舍的 token 用法保持一致。 */
 .own-market-more{position:relative;flex:none}
-.own-market-moreBtn{display:inline-grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:var(--dsw-radius-md,6px);background:transparent;color:var(--dsw-alias-label-secondary,#667085);cursor:pointer}
+/* 「⋯」与「安装」**同高同圆角**（用户口径：两枚大小一致、视觉对齐）——高度都取官方 sm 的 28px、
+   圆角都取官方 sm 胶囊的 14px，故两枚在卡片右端是同一根水平轴上的一对控件。 */
+.own-market-moreBtn{display:inline-grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:14px;background:transparent;color:var(--dsw-alias-label-secondary,#667085);cursor:pointer}
 .own-market-moreBtn:hover,.own-market-moreBtn[aria-expanded='true']{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary,#101828)}
 .own-market-moreBtn:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:1px}
 .own-market-moreMenu{position:absolute;top:calc(100% + 4px);right:0;z-index:30;min-width:120px;padding:4px;border:1px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:var(--dsw-radius-md,8px);background:var(--dsw-alias-background-primary,#fff);box-shadow:var(--dsw-shadow-lv2,0 8px 24px rgba(16,24,40,.12));display:flex;flex-direction:column;gap:2px}
@@ -2605,9 +2608,9 @@ const baseStyles = `
    官方 Button 每个变体都自带 hover，故把类名写两遍把特异性抬到官方那条之上
    （.own-market-installBtn.own-market-installBtn:hover ＞ .toolbar:hover），
    **不写 !important、也不动官方样式表**；底色取官方同一枚按钮填充 token，不新造颜色。 */
-.own-market-installBtn{background:var(--dsw-alias-button-tool-bar-fill)}
+.own-market-installBtn{background:var(--dsw-alias-background-primary,#fff)}
 .own-market-installBtn.own-market-installBtn:hover:not(:disabled),
-.own-market-installBtn.own-market-installBtn:active:not(:disabled){background:var(--dsw-alias-button-tool-bar-fill)}
+.own-market-installBtn.own-market-installBtn:active:not(:disabled){background:var(--dsw-alias-background-primary,#fff)}
 @media (prefers-reduced-motion: reduce){.own-market-row{transition:none}}
 /* 窄屏回落单列：网格在极窄容器里会把标题挤成一个字（真机截图早已证过同类问题）。 */
 @media (max-width: 560px){.own-market-rows{grid-template-columns:minmax(0,1fr)}}
@@ -2616,7 +2619,9 @@ const baseStyles = `
    类名不同是刻意的：本文件与 plugin-market.tsx 各自挂一块全局单类选择器的 <style>，
    两处类名必须零交集（同名会互相覆盖），故各自一枚名字、值逐字相同。 */
 .own-market-rowLine{display:flex;align-items:center;gap:16px;min-width:0}
-.own-market-rowIcon{display:inline-flex;flex-shrink:0;align-items:center;justify-content:center;width:40px;height:40px;border:0;border-radius:10px;background:var(--dsw-alias-background-secondary,#f2f4f7);color:var(--dsw-alias-label-secondary,#667085)}
+/* 卡片图标 = **官方行图标规范逐值同源**（app.asar 里 ZVcBiW_rowIcon：40×40 + .5px solid border-l3
+   + radius-md + 无底色 + secondary 色）——用户口径「参考插件-智能体团队-包含的组件的图标」。 */
+.own-market-rowIcon{display:inline-flex;flex-shrink:0;align-items:center;justify-content:center;width:40px;height:40px;border:.5px solid var(--dsw-alias-border-l3,#d0d5dd);border-radius:var(--dsw-radius-md,8px);background:none;color:var(--dsw-alias-label-secondary,#667085)}
 .own-market-rowMain{display:flex;flex:1;flex-direction:column;gap:2px;min-width:0}
 .own-market-rowId{font-size:13.5px;line-height:20px;font-weight:500;color:var(--dsw-alias-label-primary,#101828);overflow-wrap:anywhere}
 .own-market-row[data-state='off'] .own-market-rowId{color:var(--dsw-alias-label-secondary,#667085)}
@@ -2676,26 +2681,33 @@ const baseStyles = `
    · 容器 = 圆角浅灰轨道（官方 background-secondary，与参考图 #f3f3f3 轨道同量级），无底部横线；
    · 页签 = 轨道内胶囊，当前项（aria-selected=true）实心白底 + 轻投影（参考图「公开」那枚）；
    · 未选中 = 透明底 + 次级字色；focus-ring 与 role/tabIndex/aria 语义一字未改。 */
-.own-market-storeTabs{display:flex;flex-wrap:nowrap;align-items:center;gap:2px;min-width:0;margin:0;padding:3px;border-radius:var(--dsw-radius-md,8px);background:var(--dsw-alias-background-secondary,#f2f4f7);border-bottom:0;width:max-content;max-width:100%}
+/* 页签组整体**超大圆角（胶囊）**（用户口径）：轨道与选中格都取 999px，故整条是一个药丸。 */
+.own-market-storeTabs{display:flex;flex-wrap:nowrap;align-items:center;gap:2px;min-width:0;margin:0;padding:3px;border-radius:999px;background:var(--dsw-alias-background-secondary,#f2f4f7);border-bottom:0;width:max-content;max-width:100%}
 .own-market-storeTab{background:transparent;border:0;border-radius:6px;color:var(--dsw-alias-label-secondary,#667085);cursor:pointer;font:inherit;font-size:13px;line-height:20px;padding:5px 12px;white-space:nowrap}
 .own-market-storeTab:hover{color:var(--dsw-alias-label-primary,#101828)}
 .own-market-storeTab:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:1px}
-.own-market-storeTab[aria-selected='true']{background:var(--dsw-alias-background-primary,#fff);color:var(--dsw-alias-label-primary,#101828);font-weight:500;box-shadow:var(--dsw-shadow-lv1,0 1px 2px rgba(16,24,40,.06))}
+.own-market-storeTab[aria-selected='true']{background:var(--dsw-alias-background-primary,#fff);color:var(--dsw-alias-label-primary,#101828);font-weight:500;border-radius:999px;box-shadow:var(--dsw-shadow-lv1,0 1px 2px rgba(16,24,40,.06))}
 .own-market-titleTabs{margin-right:auto}
 .own-market-titleActions{margin-left:auto}
+/* 搜索行右侧那两枚（刷新 / 添加插件）：flex:none 恒不压缩，放不下时由搜索框让位。 */
+.own-market-rowBarAction{flex:none}
 /* ── 标签行：胶囊组在左、筛选触发钮在**最右**（参考图 1：标签靠左、≡ 靠右） ──
    整行改成 space-between；触发钮是一枚透明图标按钮（漏斗），点开下方下拉。 */
 .own-market-tabBar{display:flex;align-items:center;gap:12px;min-width:0;margin-top:0}
 /* 搜索框在**左**、筛选钮在**右**（用户口径）：两者同属一枚控件行，整体靠右、搜索框吃掉剩余宽度。
    搜索是真输入框：回调缺席时上层会传 readOnly，故不会出现「打了字没反应」的假控件。 */
-.own-market-searchRow{display:flex;align-items:center;gap:8px;min-width:0;margin-bottom:12px}
-.own-market-query{display:flex;flex:1 1 auto;align-items:center;gap:8px;min-width:0;height:40px;padding:0 12px;border:1px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:var(--dsw-radius-md,6px);background:var(--dsw-alias-background-primary,#fff);color:var(--dsw-alias-label-tertiary,#98a2b3)}
-.own-market-query:focus-within{border-color:var(--dsw-alias-border-l3,#d0d5dd);outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:1px}
+.own-market-searchRow{display:flex;flex-wrap:nowrap;align-items:center;gap:8px;min-width:0;margin-bottom:12px}
+.own-market-query{display:flex;flex:1 1 auto;align-items:center;gap:8px;min-width:120px;height:40px;padding:0 12px;border:1px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:var(--dsw-radius-md,6px);background:var(--dsw-alias-background-primary,#fff);color:var(--dsw-alias-label-tertiary,#98a2b3)}
+/* 搜索框：**hover 与鼠标点入一律不变**（用户口径「不要 hover」）；只有**键盘 Tab** 进来才出环
+   —— 用 :has(input:focus-visible) 把「鼠标焦点」与「键盘焦点」分开，无障碍不回退。 */
+.own-market-query:hover{border-color:var(--dsw-alias-border-l2,#e4e7ec)}
+.own-market-query:has(.own-market-queryInput:focus-visible){border-color:var(--dsw-alias-border-l3,#d0d5dd);outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:1px}
 .own-market-queryIcon{flex:none}
 .own-market-queryInput{flex:1 1 auto;min-width:0;padding:0;border:0;background:transparent;color:var(--dsw-alias-label-primary,#101828);font:inherit;font-size:13px;line-height:20px}
 .own-market-queryInput:focus{outline:none}
 .own-market-queryInput::placeholder{color:var(--dsw-alias-label-tertiary,#98a2b3)}
-.own-market-filterBtn{display:inline-grid;place-items:center;flex:none;width:32px;height:32px;padding:0;border:0;border-radius:var(--dsw-radius-md,6px);background:transparent;color:var(--dsw-alias-label-secondary,#667085);cursor:pointer}
+/* 筛选钮**带外框**（用户口径），并与左邻搜索框**同高 40px / 同白底 / 同圆角**——两枚成为一对。 */
+.own-market-filterBtn{display:inline-grid;place-items:center;flex:none;width:40px;height:40px;padding:0;border:1px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:var(--dsw-radius-md,6px);background:var(--dsw-alias-background-primary,#fff);color:var(--dsw-alias-label-secondary,#667085);cursor:pointer}
 .own-market-filterBtn:hover{background:var(--dsw-alias-background-secondary,#f2f4f7);color:var(--dsw-alias-label-primary,#101828)}
 .own-market-filterBtn:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:1px}
 /* ── 筛选下拉（参考图 2 的两组：状态 + 类型；组头带勾、组内可选；本刀只做壳，过滤下一刀）── */
@@ -2828,6 +2840,10 @@ const detailStyles = `
    若将来官方在详情里加了别的 span[aria-hidden]，本规则会多隐藏一个——退而求其次：优先按
    span+aria-hidden 隐藏，命中不到即原样显示（官方版式不失效、不留半成品）。 */
 [data-plugin-item-detail="plugin-market"] span[aria-hidden="true"]{display:none}
+/* **用户点名**：官方详情页标题那枚图标（运行时类名形如 u9Hv6q_cardIcon / ZVcBiW_cardIcon）。
+   CSS module 的哈希前缀随官方构建变化，故按**稳定后缀** _cardIcon 匹配（属性包含选择器），
+   仍限定在我们的详情容器里 ⇒ 不会碰到官方其它插件页。下面那条 span 规则作为兜底保留。 */
+[data-plugin-item-detail="plugin-market"] [class*="_cardIcon"]{display:none}
 .own-market-fileHint{margin:0;color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:12px;line-height:19px}
 .own-market-fileRetry{display:flex;align-items:center;gap:8px}
 /* 术语降维新增（详情页专用，列表那份 <style> 不带这些规则）：
@@ -2878,24 +2894,23 @@ export function EnterpriseMarketBadge({ subject, store }: {
  */
 
 /**
- * badge 槽的纯呈现（照智能体团队 titleRow：企业徽章 + 版本号 + 包名），不调 hook —— 测试直接调用。
- * 产品决策：标题行不再放可拨开关（拨不动的开关像坏的），也不放状态签（只读头部，状态由组件行体现）；
- * **「预览版」文字签也已移除**——它对用户没有任何信息量，却和标题、版本签挤在同一行（窄屏会把它挤到第二行、
- * 白撑高 titleRow）。版本签留（`v{version}` 是真信息）。
- * **本刀（企业标签）**：标题行 `h3` 正后方先挂那枚「企业」徽章（`EnterpriseMarketBadgeTag`），版本签随后。
- * 包名走 `flex-basis:100%` 在官方 `titleRow` 的 `flex-wrap:wrap` 下换行成独立一行——官方 `ItemDetail`
- * 只有 `titleRow → desc` 两行、描述之间无独立插点，包名借官方换行落在标题下、描述上（贴智能体团队 标题→包名→描述）。
- * @param props - `version` 插件 bundle 版本（来自 store status）。
- * @returns 标题行内的「企业」徽章 + 「版本号」签 + 独立换行的「包名」。
+ * badge 槽的纯呈现（不调 hook —— 测试直接调用）。
+ *
+ * **本刀（用户裁决 B：详情页标题删除右侧标签）**：这一格**什么都不再渲染** ——「企业」徽章与版本签
+ * 都撤下详情页标题行（包名更早就已撤下）。用户要的是「详情标题只剩标题文字 +（右端）4 个页签与两枚按钮」。
+ * 因此本函数恒返回 `null`；**注册面保留**（`plugins.detail.badge` 那一格是官方给的座位缝合点），
+ * 将来要把某枚签放回标题行不必重新注册。
+ *
+ * 注意分工：**列表卡标题行**那枚「企业」签不在这里 —— 它由 `market-entry-badge.ts` 做 DOM 装饰，
+ * 故本刀只清详情页，列表卡上的企业标识**原样保留**。
+ * @param props - `version` 插件 bundle 版本（来自 store status）。现已不使用，保留入参以免动注册面形状。
+ * @returns 恒为 `null`（详情页标题行不出任何签）。
  */
 export function BadgeView({ version }: { readonly version?: string | undefined }): ReactNode {
-  const versionTag = enterpriseMarketVersionTag(version)
-  return (
-    <>
-      <EnterpriseMarketBadgeTag />
-      {versionTag === undefined ? null : <Tag className="own-market-tag" tone="neutral">{versionTag}</Tag>}
-    </>
-  )
+  // `enterpriseMarketVersionTag` 仍是出口（注册面与将来复用），这里只是不再拿它渲染。
+  void enterpriseMarketVersionTag
+  void version
+  return null
 }
 
 /* ─────────────────── 标题区右侧动作（官方 plugins.detail.actions 槽） ─────────────────── */
@@ -2949,8 +2964,7 @@ export function EnterpriseMarketDetailActions({ subject, tabSeat }: {
   // 官方原语自带 hover / active / focus-visible / disabled 四态，故「执行效果」不再由本文件自绘。
   return (
     <>
-      {/* 页签在**左**、两枚按钮在**右**（用户裁决 A）：页签靠 `margin-right:auto` 占左，刷新那枚靠
-          `margin-left:auto` 兜底（没有页签时它自己也会被推到右边）。 */}
+      {/* 标题右侧**只剩 4 个页签**（用户口径：刷新/添加插件挪到搜索那一行去了）。 */}
       {tabSeat === undefined ? null : (
         <EnterpriseMarketTabList
           entries={tabSeat.entries}
@@ -2959,21 +2973,6 @@ export function EnterpriseMarketDetailActions({ subject, tabSeat }: {
           className="own-market-titleTabs"
         />
       )}
-      <Button
-        size="md"
-        variant="ghost"
-        className="own-market-titleActions"
-        icon={<RefreshCw aria-hidden size={16} />}
-        aria-label={ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL}
-        title="占位：本刀未接真刷新，下一刀接 store.refreshPlugins()"
-      />
-      <Button
-        size="md"
-        variant="primary"
-        icon={<Plus aria-hidden size={16} />}
-        aria-label={ENTERPRISE_DETAIL_ACTION_ADD_LABEL}
-        title="占位：企业插件由企业后台上传，员工端入口留下一刀"
-      >{ENTERPRISE_DETAIL_ACTION_ADD_LABEL}</Button>
     </>
   )
 }
@@ -3215,6 +3214,26 @@ function EnterpriseMarketTabStrip({
           ) : null}
         </div>
       </div>
+      {/* 刷新 / 添加插件（用户口径：与搜索、排在同一行，位于筛选钮**右侧**）。
+          两枚都是**占位**（没接真动作），故 `title` 如实写明；走官方 `Button` 原语本体与官方变体。
+          移动端自适应：整行 `flex-wrap:nowrap`，两枚按钮 `flex:none`，**搜索框吸收压缩**
+          （`.own-market-query{flex:1 1 auto;min-width:120px}`）——放不下时压窄搜索框而**不换行、不溢出**。 */}
+      <Button
+        size="md"
+        variant="ghost"
+        className="own-market-rowBarAction"
+        icon={<RefreshCw aria-hidden size={16} />}
+        aria-label={ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL}
+        title="占位：本刀未接真刷新，下一刀接 store.refreshPlugins()"
+      />
+      <Button
+        size="md"
+        variant="primary"
+        className="own-market-rowBarAction"
+        icon={<Plus aria-hidden size={16} />}
+        aria-label={ENTERPRISE_DETAIL_ACTION_ADD_LABEL}
+        title="占位：企业插件由企业后台上传，员工端入口留下一刀"
+      >{ENTERPRISE_DETAIL_ACTION_ADD_LABEL}</Button>
       {tabsInTitle === true ? null : (
         <div className="own-market-tabBar">
           <EnterpriseMarketTabList
@@ -6049,13 +6068,27 @@ export function EnterpriseMarketShellHost({ view, store, libraryGate, presetLaun
   readonly tabSeat?: EnterpriseMarketTabSeat | undefined
 }): ReactNode {
   const controller = useEnterpriseMarketController({ view, store, libraryGate, presetLaunch })
+  /**
+   * **临时演示开关**（见 `market-mock.ts` 的文件头：默认关、可一键删除）：本机 `localStorage` 里
+   * `dshent.market.mock === '1'` 时，把技能目录**换成覆盖七类的演示行**，好让用户看到多分组排版。
+   * 只替换**目录输入**（`enterpriseSkills` 干净地绕开 `skillsListState`，故面板直接是 ready），
+   * 其余（分类归一、分组、两列网格、行 facts、动作）**全部走真实代码路径**。
+   */
+  const mocked = enterpriseMarketMockEnabled()
+  const shellProps = mocked
+    ? {
+      ...controller.shellProps,
+      enterpriseSkills: enterpriseMarketMockSkillRows(),
+      skillsListState: undefined,
+    }
+    : controller.shellProps
   // 把「页签条目 + 当前选中 + 选中回调」发布给标题行那一格。
   // 依赖里刻意**不放**数组引用（模型每帧重建数组），签名比较在 `publish` 里做，故不会自激重渲染。
   // **恒发布**（详情子页面也发）：既有契约是「进详情时页头与四枚页签保持可见、一字不改」，
   // 详情里停发会让标题行那格空掉。
-  const tabEntries = enterpriseMarketShellModel(controller.shellProps).tabEntries
-  const tabActive = controller.shellProps.activeTab
-  const tabSelect = controller.shellProps.onSelectTab
+  const tabEntries = enterpriseMarketShellModel(shellProps).tabEntries
+  const tabActive = shellProps.activeTab
+  const tabSelect = shellProps.onSelectTab
   useEffect(() => {
     tabSeat?.publish(tabEntries === undefined || tabActive === undefined || tabSelect === undefined
       ? undefined
@@ -6063,7 +6096,7 @@ export function EnterpriseMarketShellHost({ view, store, libraryGate, presetLaun
   }, [tabSeat, tabEntries, tabActive, tabSelect])
   return (
     <>
-      <EnterpriseMarketLegacyShell {...controller.shellProps} tabsInTitle={tabSeat !== undefined} />
+      <EnterpriseMarketLegacyShell {...shellProps} tabsInTitle={tabSeat !== undefined} />
       {controller.presetApproval === undefined
         ? null
         : <EnterprisePresetApprovalDialog {...controller.presetApproval} />}

@@ -158,9 +158,20 @@ function pluginRow(tree: ReactNode, name: string): ReactNode {
  *
  * 取消入口就是它——本仓不给取消另造一套控件（既有的官方 `Button` 原语 + 既有类名，一个新 CSS 类都没加）。
  */
+/**
+ * 外壳里的官方 `Button` 集合。
+ *
+ * **本刀起要排除搜索行那两枚**（刷新 / 添加插件，用户口径：它们与搜索、筛选同排一行，`className`
+ * 是 `.own-market-rowBarAction`）：本文件查的是「**行内**该不该出现按钮」（取消键 / 不能取消时的可见原因），
+ * 搜索行那两枚与行无关，收进来就会把「行内无按钮」这条断言误判成失败。
+ */
 function buttonsWithin(node: ReactNode): Record<string, unknown>[] {
   const acc: Record<string, unknown>[] = []
-  walkTree(node, element => { if (element.type === (Button as unknown)) acc.push(element.props) })
+  walkTree(node, element => {
+    if (element.type !== (Button as unknown)) return
+    if (element.props['className'] === 'own-market-rowBarAction') return
+    acc.push(element.props)
+  })
   return acc
 }
 

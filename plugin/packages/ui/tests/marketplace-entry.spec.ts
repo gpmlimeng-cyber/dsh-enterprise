@@ -184,7 +184,7 @@ function textOf(node: ReactNode): string {
  */
 const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(19109 chars)",
+  "  style(19899 chars)",
   "  div[className=own-market-searchRow]",
   "    span[className=own-market-query]",
   "      #opaque:[object Object]",
@@ -245,7 +245,7 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
  */
 const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(19109 chars)",
+  "  style(19899 chars)",
   "  div[className=own-market-searchRow]",
   "    span[className=own-market-query]",
   "      #opaque:[object Object]",
@@ -334,8 +334,8 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
  * 变的只有 `<style>` 的长度那一行（`style(10507 chars)` → `style(12028 chars)`）。
  * 任何人再改这份 CSS（不管是加装饰还是删规则）都会在这里立刻显形。
  */
-const LEGACY_STYLE_LENGTH = 19109
-const LEGACY_STYLE_CHECKSUM = 2233770168
+const LEGACY_STYLE_LENGTH = 19899
+const LEGACY_STYLE_CHECKSUM = 2866185604
 
 /** 「企业技能」节的目录 fixture：与 skill-market.spec 的列表投影同形（列表态 versionId/skills 为空）。 */
 const SKILL: EnterpriseRuntimeSkill = {
@@ -539,7 +539,8 @@ describe('enterprise marketplace entry', () => {
     const slotTabs = collectByRole(slot, 'tab')
     expect(slotTabs.map(tab => tab['children'])).toEqual(['企业技能 0', '企业插件 0', '企业配方 0', '包含内容 4'])
     expect(slotTabs.map(tab => tab['aria-selected'])).toEqual([true, false, false, false])
-    expect(collectOfficialButtonProps(slot)).toHaveLength(2)
+    // 标题槽**只出页签、不出按钮**（用户口径：刷新/添加插件挪到搜索行）。
+    expect(collectOfficialButtonProps(slot)).toEqual([])
     // 非本条目 subject 仍然一律 null（槽是 root 级、三种详情页都会渲染，过滤口径不变）。
     expect(EnterpriseMarketDetailActions({ subject: { kind: 'item', id: 'bash' } })).toBeNull()
     // ④ 座位源：**签名没变不通知**（页面每帧都发布，不设这道闸就会自激重渲染）；变了才通知；退订即静默。
@@ -814,42 +815,31 @@ describe('enterprise marketplace entry', () => {
   // `titleRow`（`lib/client.js:2138` 的 `renderSlot("plugins.detail.badge", { subject })`，subject = `{kind:'item', id}`）；
   // 我们这行「插件市场」走的正是 `ItemDetail`（`lib/client.js:3177` 的 `ItemCard` → `lib/client.js:3333`），
   // 所以这枚徽章**进得去**详情页，不是白挂的座位。
-  it('gates the badge on the plugin-market subject and renders the 企业 badge + version + package name (no 预览版, no switch)', () => {
+  it('gates the badge on the plugin-market subject and renders nothing in the detail title (user rule B)', () => {
     // subject 过滤：其余 subject 一律 null（hook 前就返回，不碰状态）。
     expect(EnterpriseMarketBadge({ subject: { kind: 'item', id: 'shell' } })).toBeNull()
     expect(EnterpriseMarketBadge({ subject: { kind: 'bundle', pkg: { name: 'x' } } })).toBeNull()
-    // 纯呈现（BadgeView 不调 hook）：有版本 → 企业徽章 + 版本签 + 包名行；无版本 → 徽章 + 包名行。
+    // **本刀（用户裁决 B：详情页标题删除右侧标签）**：本条目这一格**什么都不出** ——
+    // 「企业」徽章与版本签都撤下详情页标题（包名更早就已撤下）；下面的断言是**反锁**：
+    // 谁把签加回详情标题，这里先红。
     const withVersion = BadgeView({ version: '0.1.0' })
-    expect(textOf(withVersion)).toContain('v0.1.0')
-    expect(textOf(withVersion)).not.toContain('预览版')
-    const tags = collectByClassName(withVersion, 'own-market-tag')
-    expect(tags).toHaveLength(2)
-    // 第 1 枚是「企业」徽章（h3 标题正后方），第 2 枚才是版本签。
-    expect(tags.map(props => props['children'])).toEqual([ENTERPRISE_MARKET_BADGE_TEXT, 'v0.1.0'])
-    expect(tags.map(props => props['tone'])).toEqual(['info', 'neutral'])
-    // **「与官方实验性签样式一致」的可验证口径**：徽章是官方 `Tag` **原语本体的元素**（不是自绘 span），
-    // tone 与官方「实验性」签同款 `info`，且官方公开面（tone/className/children）之外一个属性都不给。
-    const tagElements = collectOfficialTagProps(withVersion)
-    expect(tagElements).toHaveLength(2)
-    expect(tagElements[0]).toEqual({ className: 'own-market-tag', tone: 'info', children: ENTERPRISE_MARKET_BADGE_TEXT })
-    expect(Object.keys(tagElements[0] ?? {}).sort()).toEqual(['children', 'className', 'tone'])
-    // **唯一渲染**：BadgeTag 直接调用出来的就是同一枚元素（详情页徽章与描述行胶囊共用这一份）。
-    expect(collectOfficialTagProps(EnterpriseMarketBadgeTag())[0]).toEqual(tagElements[0])
-    // **包名行已按用户口径撤下**（「标题不显示包名」）：badge 槽只剩「企业」徽章 +（有版本时）版本签。
-    // 这条是反锁：谁把包名行加回标题，这里先红。
+    expect(withVersion).toBeNull()
+    expect(textOf(withVersion)).toBe('')
+    expect(collectByClassName(withVersion, 'own-market-tag')).toEqual([])
+    // 分工提醒：**列表卡标题行**那枚「企业」签由 `market-entry-badge.ts` 做 DOM 装饰，不在这一格，故仍然在。
+    expect(BadgeView({})).toBeNull()
+    // 反锁：详情标题这一格**没有任何官方 Tag**（企业签与版本签都撤下了）、没有包名行、没有开关。
+    expect(collectOfficialTagProps(withVersion)).toEqual([])
     expect(collectByClassName(withVersion, 'own-market-badge-name')).toEqual([])
-    expect(textOf(withVersion)).not.toContain(ENTERPRISE_MARKET_ENTRY_ID)
-    // 标题行只有签、无可拨开关（拨不动的开关像坏的，产品决策去掉）。
     expect(collectSwitchProps(withVersion)).toHaveLength(0)
-    const withoutVersion = BadgeView({})
-    expect(textOf(withoutVersion)).not.toContain('预览版')
-    // 无版本时**只剩**企业徽章（版本签那一枚不在）。
-    const bareTags = collectByClassName(withoutVersion, 'own-market-tag')
-    expect(bareTags).toHaveLength(1)
-    expect(bareTags[0]?.['children']).toBe(ENTERPRISE_MARKET_BADGE_TEXT)
-    expect(bareTags[0]?.['tone']).toBe('info')
-    expect(textOf(withoutVersion)).toContain(ENTERPRISE_MARKET_BADGE_TEXT)
-    expect(textOf(withoutVersion)).not.toContain('v')
+    // **叶子组件本身的口径不变**（列表卡的 DOM 装饰与将来复用都读它）：
+    // 「企业」签仍是官方 `Tag` 原语本体、tone=info、公开面之外一个属性都不给。
+    const badgeTag = EnterpriseMarketBadgeTag()
+    expect(collectOfficialTagProps(badgeTag)).toEqual([
+      { className: 'own-market-tag', tone: 'info', children: ENTERPRISE_MARKET_BADGE_TEXT },
+    ])
+    expect(Object.keys(collectOfficialTagProps(badgeTag)[0] ?? {}).sort()).toEqual(['children', 'className', 'tone'])
+    expect(textOf(BadgeView({}))).toBe('')
     // 版本签口径照官方 versionTag 'v{version}'。
     expect(enterpriseMarketVersionTag('1.2.3')).toBe('v1.2.3')
     expect(enterpriseMarketVersionTag(undefined)).toBeUndefined()
@@ -866,21 +856,27 @@ describe('enterprise marketplace entry', () => {
     expect(EnterpriseMarketDetailActions({ subject: { kind: 'item', id: 'bash' } })).toBeNull()
     expect(EnterpriseMarketDetailActions({ subject: { kind: 'row', pkg: { name: 'x' }, row: { rowId: 'y' } } })).toBeNull()
     expect(EnterpriseMarketDetailActions({ subject: { kind: 'package', pkg: { name: 'x' } } })).toBeNull()
-    // 本条目：出两枚占位按钮（刷新 / 添加插件），变体、图标与无障碍名逐字锁死。
-    const mine = EnterpriseMarketDetailActions({ subject: { kind: 'item', id: ENTERPRISE_MARKET_ENTRY_ID } })
-    const text = textOf(mine)
-    // 刷新那枚**只给图标**（用户口径：官方样式），故它没有可见文字，只有「添加插件」有。
-    expect(text).toContain(ENTERPRISE_DETAIL_ACTION_ADD_LABEL)
-    expect(text).not.toContain(ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL)
-    // 两枚都是官方 Button 原语，且**各用官方变体**：刷新 = ghost（图标工具钮）、添加插件 = primary（主动作胶囊）。
-    // 按组件引用收集（mock Button 渲染产出 undefined，原生 collectButtonProps 收不到）。
-    const actions = collectOfficialButtonProps(mine)
+    // 本条目但**座位没接线**：标题右侧这一格**什么都不出**（返回的是空 Fragment，不是 null——
+    // 因为是本条目，函数已经越过 subject 门）；页签在页面里、按钮在搜索行里。
+    const noSeat = EnterpriseMarketDetailActions({ subject: { kind: 'item', id: ENTERPRISE_MARKET_ENTRY_ID } })
+    expect(textOf(noSeat)).toBe('')
+    expect(collectByRole(noSeat, 'tab')).toEqual([])
+    expect(collectOfficialButtonProps(noSeat)).toEqual([])
+    // 座位接线后：这一格**只出 4 个页签**，一枚按钮都没有（用户口径：刷新/添加插件挪到搜索那一行）。
+    const model = enterpriseMarketShellModel({ view: 'page', sessionUsable: true })
+    const seated = EnterpriseMarketDetailActions({
+      subject: { kind: 'item', id: ENTERPRISE_MARKET_ENTRY_ID },
+      tabSeat: { entries: model.tabEntries, activeTab: model.activeTab, onSelect: undefined },
+    })
+    expect(collectByRole(seated, 'tab')).toHaveLength(4)
+    expect(collectOfficialButtonProps(seated)).toEqual([])
+    // 两枚占位按钮现在**在搜索行**（与搜索、筛选同一行、位于筛选钮右侧）：变体/尺寸/图标/无障碍名/title 逐字锁死。
+    const page = EnterpriseMarketLegacyShell({ view: 'page', sessionUsable: true })
+    const actions = collectOfficialButtonProps(page).filter(props => props['className'] === 'own-market-rowBarAction')
     expect(actions).toHaveLength(2)
     expect(actions.map(props => props['variant'])).toEqual(['ghost', 'primary'])
     expect(actions.map(props => props['size'])).toEqual(['md', 'md'])
-    // 两枚都有前置图标（官方 `icon` 接缝）：刷新 = 环形箭头、添加插件 = 加号。
     expect(actions.every(props => props['icon'] !== undefined && props['icon'] !== null)).toBe(true)
-    // 无障碍名 = 动作本身（不再带「占位」字样）；「这一刀还没接线」由 `title` 如实交代。
     expect(actions.map(props => props['aria-label'])).toEqual([
       ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL,
       ENTERPRISE_DETAIL_ACTION_ADD_LABEL,
@@ -889,6 +885,8 @@ describe('enterprise marketplace entry', () => {
       '占位：本刀未接真刷新，下一刀接 store.refreshPlugins()',
       '占位：企业插件由企业后台上传，员工端入口留下一刀',
     ])
+    // 这份输入没有目录行 ⇒ 全页官方 Button 恰好就是这两枚（不会有第三枚偷偷进来）。
+    expect(collectOfficialButtonProps(page)).toHaveLength(2)
   })
 
   // **反向锁（「企业标签不新增 CSS 类」）**：徽章与描述行胶囊只用官方原语 + 本文件**既有**的 `.own-market-tag`，
