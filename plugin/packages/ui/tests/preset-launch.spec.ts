@@ -25,6 +25,16 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
   StateDot: vi.fn(),
   Switch: vi.fn(),
   Tag: vi.fn(),
+  // `official-ui.ts` 在 **import 期**就把 Menu / MenuItemButton / 四枚 Icon 取成**模块级常量**
+  // （`export const OfficialMenu = official.Menu` 等）⇒ mock 缺任何一项都会在**加载期**抛
+  // 「No "…" export is defined on the mock」，整份 spec 直接起不来。
+  // 本文件不测这些原语，补齐占位即可（**不是**放宽任何断言）。
+  Menu: vi.fn(),
+  MenuItemButton: vi.fn(),
+  IconEllipsisOutlineMedium: vi.fn(),
+  IconSettingsOutlineMedium: vi.fn(),
+  IconUserOutlineMedium: vi.fn(),
+  IconLoadingOutlineMedium: vi.fn(),
 }))
 
 /** 一份合法的 `workspaces.list.getSnapshot()` 形状。 */

@@ -100,7 +100,7 @@ export function enterpriseMarketMockPresets(): readonly EnterpriseMarketMockRow[
 
 /**
  * 演示行 → **真实行模型**（`EnterpriseMarketSkillRow`）：字段与 `enterpriseMarketSkillRows()` 的产出逐项同形
- * （`displayName` / `description` / `sourceDshVersion` / 可选 `category` / `latestVersionId`），
+ * （`displayName` / `description` / `sourceDshVersion` / 可选 `category` / `builtin` / `latestVersionId`），
  * 故分组、排版、facts、动作与真实行**逐字同路径**——这就是「只替换目录」的含义。
  */
 export function enterpriseMarketMockSkillRows(): readonly EnterpriseMarketSkillRow[] {
@@ -111,6 +111,9 @@ export function enterpriseMarketMockSkillRows(): readonly EnterpriseMarketSkillR
     description: row.description,
     sourceDshVersion: '0.1.7-rc.2',
     ...(row.category === undefined ? {} : { category: row.category }),
+    // 演示行恒按**非内置**处理（演示数据里没有内置包这一说；`builtin` 的真实用途是
+    // 「已安装」分组只显示非内置的已装行，属排队中的 task-5）。
+    builtin: false,
     // 演示行不参与「有更新」判定（没有中心详情可比）⇒ 恒空串，与「取不到就少说一句」的既有口径一致。
     latestVersionId: '',
   }))

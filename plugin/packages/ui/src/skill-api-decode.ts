@@ -37,6 +37,16 @@ export interface EnterpriseRuntimeSkill {
    * 类型不是 string/null、或超过 64 字符一律判 `ENT_LOCAL_RESPONSE_INVALID`。
    */
   readonly category?: string
+  /**
+   * 包级**内置**标记（契约 `RuntimeSkillSummary.builtin`）。
+   *
+   * 形状是**必填 boolean**（服务端恒发真值），但本层**读侧 tolerant**：缺席按 `false` 处理并记一条
+   * 结构化 warn（理由与发布顺序无关性，见 `SKILL_SUMMARY_OPTIONAL_KEYS` 上方那段注释）。
+   * **非 boolean 一律判畸形**——容错只对「缺席」，不对「错型」。
+   * 用途：员工端「已安装」分组只显示**非内置**的已装行（判据 `builtin === false`，属排队中的 task-5）。
+   * 可见性**不**由它裁决（服务端仍按 assignment ∪ builtin 取并集），它只是把真值投影给界面做展示分组。
+   */
+  readonly builtin: boolean
   readonly sourceDshVersion: string
   readonly sizeBytes: number
   readonly skillCount: number
@@ -51,15 +61,74 @@ const SKILL_SUMMARY_KEYS = [
 ] as const
 
 /**
- * 摘要的可选键：只有服务端新增的分类 `category`。它**不**进必填键集——字段尚未上线时整条投影必须照旧可解，
- * 这正是「为缺失设计」；但只要它出现，类型就必须是 string（或 null），否则整条判畸形。
+ * 摘要的可选键：`category`（服务端新增的可选分类，**为缺失设计**）与 `builtin`（见下）。
+ * 它**不**进必填键集——字段尚未上线时整条投影必须照旧可解；但只要它出现，类型就必须对，否则整条判畸形。
  */
-const SKILL_SUMMARY_OPTIONAL_KEYS = ['category'] as const
+const SKILL_SUMMARY_OPTIONAL_KEYS = ['category', 'builtin'] as const
+
+/**
+ * ★ `builtin`：**读侧 tolerant / 写侧 required**，两者不矛盾，是协议演进的标准形态。
+ *
+ * 写侧（契约 `RuntimeSkillSummary`）把它列进 `required`（`type: boolean`）⇒ 语义上服务端**必须**投影；
+ * 读侧（本层）**刻意容忍缺席**，因为服务端与员工插件是**两条独立发版列车**
+ * （`deploy/compose/compose.yml` 里只有 server / console，**没有员工客户端服务**；
+ * L1 与 deploy/README 也写明「插件继续独立发布、先更新员工插件」）⇒ 「先升客户端后升服务端」
+ * 是运维纪律而**非代码强制**，混部窗口必然存在。
+ * 那时若严格拒收，整页技能目录会**全部**判 `ENT_LOCAL_RESPONSE_INVALID`（列表一片空白）；
+ * 而容忍缺席的唯一误伤是「内置包被当非内置」——该误伤只影响尚未上线的「已安装」分组（task-5），
+ * **当前误伤面为零**。0 代价 vs 整页不可用，故取 tolerant。
+ * ★ **但绝不静默**：缺席时记一条**结构化 warn**（口径同 `library-selection.ts` 的
+ *   `deps.warn('owndsh: …')`，缺席退 `console.warn`），带 `missing: ['builtin']` 与
+ *   「旧服务端未投影 builtin」的方向性提示 ⇒ 出错**可定位**，不是无声无息。
+ * ★ **容错只对「缺席」，不对「错型」**：`true` / `false` 原样透传且**不 warn**；
+ *   非 boolean（`"true"` 字符串 / `null` / 0 / 1）一律整条判畸形 —— 错型是协议 bug，必须暴露。
+ * ★ 可见性**不**由它裁决（服务端仍按 assignment ∪ builtin 取并集），它只是把真值投影给界面做展示分组。
+ * ★ `featured` 与它不同：**仍未贯通到员工端**（只在管理端投影），故本层没有对应键，别照它写。
+ */
 
 const SKILL_DETAIL_KEYS = [...SKILL_SUMMARY_KEYS, 'versionId', 'sha256', 'skills'] as const
 
 /** manifest.json 的 id 规约（小写连字符等稳定标识），与契约 SkillPackageRef 同源。 */
 const SKILL_PACKAGE_REF = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
+
+/**
+ * ★ 本包 warn 的**唯一出口**（口径同 `library-selection.ts` / `shortcuts-open.ts`）：
+ * 消息前缀 `owndsh: `，第二参数是可选的错误对象，**不是** `console.log`。
+ * 之所以收口到一处：解码层是**所有**技能取数的必经之路，若各分支自己 console 会刷屏；
+ * 而「同一个原因只记一次」由调用方（见下）保证。
+ */
+function warn(message: string, detail?: unknown): void {
+  console.warn(`owndsh: ${message}`, detail ?? '')
+}
+
+/** 已经 warn 过的 `builtin` 缺席（同一原因只记一次，避免一页几十行刷屏）。 */
+const warnedMissingBuiltin = new Set<string>()
+
+/**
+ * `builtin` 的**读侧 tolerant 投影**：缺席 → `false` + 一条结构化 warn；`true`/`false` 原样透传（不 warn）。
+ *
+ * **非 boolean 由调用方先判畸形**（这里只处理 undefined 与 boolean 两种已放行的形态）。
+ * warn 里带 `missing: ['builtin']` 这样的结构化字段 + 一句方向性提示，
+ * 让「服务端没投影 builtin」这件事**可定位**，而不是无声无息地按 false 落地。
+ */
+function decodeBuiltin(row: JsonRecord, id: string): boolean {
+  const value = row['builtin']
+  if (value === true || value === false) return value
+  // 缺席：同一包只记一次（列表可能一页几十行，按 id 去重即可，不按「全局一次」——那会漏掉别的包）。
+  if (!warnedMissingBuiltin.has(id)) {
+    warnedMissingBuiltin.add(id)
+    warn('runtime 技能投影缺少 builtin，按非内置处理（旧服务端未投影该字段）', {
+      missing: ['builtin'],
+      skillId: id,
+    })
+  }
+  return false
+}
+
+/** 仅供测试：清掉「同一包只 warn 一次」的去重集合，让每条用例从干净状态开始。 */
+export function resetSkillDecodeWarnings(): void {
+  warnedMissingBuiltin.clear()
+}
 
 /** 单个 SKILL.md 条目名：严格 kebab-case，与官方 `isSkillName` 同源。 */
 const SKILL_ENTRY_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
@@ -83,6 +152,9 @@ function decodeSkillSummaryFields(row: JsonRecord): EnterpriseRuntimeSkill {
     || !(row['description'] === null || (typeof row['description'] === 'string' && row['description'].length <= 2000))
     || !(row['category'] === undefined || row['category'] === null
       || (typeof row['category'] === 'string' && row['category'].length <= 64))
+    // `builtin` **读侧 tolerant**（见键集上方那段注释）：缺席按 false 处理并记 warn；
+    // 但**非 boolean 一律判畸形** —— 容错只对「缺席」，不对「错型」（错型是协议 bug，必须暴露）。
+    || !(row['builtin'] === undefined || typeof row['builtin'] === 'boolean')
     || !nonEmptyString(row['sourceDshVersion']) || row['sourceDshVersion'].length > 64
     || !Number.isSafeInteger(row['sizeBytes']) || Number(row['sizeBytes']) <= 0 || Number(row['sizeBytes']) > SKILL_MAX_SIZE_BYTES
     || !Number.isSafeInteger(row['skillCount']) || Number(row['skillCount']) < 1 || Number(row['skillCount']) > 200
@@ -96,6 +168,9 @@ function decodeSkillSummaryFields(row: JsonRecord): EnterpriseRuntimeSkill {
     description: typeof row['description'] === 'string' ? row['description'] : '',
     // 分类：只有真拿到非空串才产出这个键；缺席/null/空串一概不产出（界面据此不渲染分类签，不塞占位）。
     ...(nonEmptyString(row['category']) ? { category: row['category'] } : {}),
+    // `builtin` 读侧 tolerant：缺席按 false 落地，**并记一条结构化 warn**（不是静默兜底）——
+    // 错在服务端没投影这条真值，方向性提示要能直接指到「旧服务端未投影 builtin」。
+    builtin: decodeBuiltin(row, String(row['id'])),
     sourceDshVersion: row['sourceDshVersion'],
     sizeBytes: Number(row['sizeBytes']),
     skillCount: Number(row['skillCount']),

@@ -44,10 +44,12 @@
  *      ⑤ 标题行**不再显示包名**（`BadgeView` 里那行 `<code data-plugin-name>` 撤掉，由反锁守着）。
  *   ⑧ **本刀（图标彩色 + 详情标题再清一次）**：卡片/组件图标几何照官方行图标（`ZVcBiW_rowIcon`：
  *      40×40 + `.5px solid border-l3` + `radius-md`），底色取**白**（不透明：卡片 hover 变灰时图标仍是白块），
- *      `color` 取官方那套**彩色静态词汇**
- *      `--dsw-static-*`（官方唯一的彩色图标家族 `FileTypeIcon.module.css` 逐个色相就是这么给的），
- *      四类各一个 `data-icon-kind`（技能/插件/配方/资料库）——没有品牌图资产，故按类别上色；
- *      不写 rgb 字面量（官方那个 violet 例外是官方自己注明无 token，我们不复制）。
+ *      容器**保持中性色**（官方 rowIcon 就是 secondary）——里面的图形是**官方那枚「无自有图标」兜底**
+ *      （`PluginArtworkDefault`：青蓝渐变 + 接线块/node），四种行（技能/插件/配方/组件）都用它，
+ *      由 `EnterpriseArtworkFallback` 逐字照抄、渐变 id 经 `useId()` 逐次唯一（**同页多枚不得写死 id**，
+ *      否则全部 url(#…) 解析到第一个实例、整页染成同一色）。原先按类别上色的
+ *      `data-icon-kind` + 四条 `--dsw-static-*` 规则**整组删除**（与自带渐变冲突，且每张卡挂同一个「企业」
+ *      标识本就零信息量），不留死样式。
  *      详情页左上角那枚 48×48 图标**本刀直接从 JSX 撤掉**（真相是它本来就是本文件自己画的
  *      .own-market-detailIcon，不是官方 cardIcon；早先那两条按 [data-plugin-item-detail] 定位
  *      官方的覆盖规则锚在官方包里不存在的属性上，从未生效，一并删除）；
@@ -78,7 +80,10 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { BookMarked, ChevronDown, FileText, Filter, Folder, Library, MoreHorizontal, Package, Plus, RefreshCw, Search, Sparkles, X } from 'lucide-react'
+// 「添加」下拉的四枚图标**逐字照 Cherry**（`Bot` / `Search` / `FolderSearch` / `Import`，均 13px）；
+// 本仓 pinned 的 lucide-react **四个都在**（已逐个核过），故**无需等价替代**。
+// 触发钮那两枚 `Plus` / `ChevronDown`（均 12px）本文件原本就已 import。
+import { BookMarked, Bot, ChevronDown, FileText, Filter, Folder, FolderSearch, Import, Library, MoreHorizontal, Package, Plus, RefreshCw, Search, Sparkles, X } from 'lucide-react'
 import { Button, StateDot, Switch, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, Ref } from 'react'
@@ -144,6 +149,9 @@ import {
   type EnterpriseListState,
 } from './list-state.js'
 import type { EnterprisePresetLaunchPort } from './preset-launch.js'
+// 官方 `Menu` / `MenuItemButton` 原语（「添加」下拉用；`Menu` 的 `anchor` prop 允许调用方自带触发钮，
+// 故零新增下拉语义——与 `account-menu.tsx` 的个人中心菜单同一范式）。
+import { OfficialMenu, OfficialMenuItemButton } from './official-ui.js'
 import { EnterpriseLoginDialog, useEnterpriseLoginDialog } from './login-dialog.js'
 // 卡片标识/文案叶子（与「企业设置 → 插件」卡片**共用同一份**）：徽章组件、版本签字面、标题取值、描述降级句。
 // 这里既 import（本文件自己要用）又 re-export（保持原公开面与既有 import 路径不变）。
@@ -707,6 +715,14 @@ export interface EnterpriseMarketShellProps {
   /** 开/关筛选下拉（点触发钮）；缺席时触发钮点击是 no-op（不给死按钮——真运行时恒由控制器供给）。 */
   readonly onToggleFilter?: (() => void) | undefined
   /**
+   * 「添加」下拉的开关态（纯函数约定与 `filterOpen` 同：缺席 = 关闭）。
+   * ★ 照既有范式**由 props 供给**、不在树内用 `useState`——本文件测试把组件当纯函数直调，
+   * 树内任何 hook 都会抛（dispatcher 为 null）。真运行时由 `EnterpriseMarketAddMenuLive` 持有并注入。
+   */
+  readonly addMenuOpen?: boolean | undefined
+  /** 开/关「添加」下拉；缺席时触发钮点击是 no-op（不给死按钮）。 */
+  readonly onToggleAddMenu?: (() => void) | undefined
+  /**
    * 搜索框的当前文本（**本刀起是真过滤**：标题 / 描述 / 标识的子串匹配，大小写不敏感）。
    * 缺席 = 空串 = 不过滤。
    */
@@ -1120,6 +1136,15 @@ export interface EnterpriseMarketSkillRow {
    * 取不到/失败即空串 ＝ 该行不判更新（宁可少说一句，也不猜「有更新」）。
    */
   readonly latestVersionId: string
+  /**
+   * 包级**内置**标记（契约 `RuntimeSkillSummary.builtin`，由解码层 `skill-api-decode` 投影过来）。
+   *
+   * 本刀**只把真值带到行上**：不据此渲染、不据此分组。用途是排队的 task-5
+   * （「已安装」分组只显示非内置的已装行，判据 `builtin === false`）。
+   * ⚠️ 读侧 tolerant：解码层在服务端**缺席** `builtin` 时按 `false` 落地并记一条结构化 warn
+   * （发布顺序无关，见 skill-api-decode 的注释），所以这一行恒是 boolean、不给 `undefined`。
+   */
+  readonly builtin: boolean
 }
 
 /**
@@ -1143,6 +1168,9 @@ export function enterpriseMarketSkillRows(
     sourceDshVersion: skill.sourceDshVersion,
     // 分类照解码层同一口径：只有非空串才产出这个键（缺席/null/空串都不产出，界面据此不出分类签）。
     ...(skill.category !== undefined && skill.category !== '' ? { category: skill.category } : {}),
+    // `builtin` 原样带下来（解码层给的是 boolean；缺席已被它在读侧 tolerant 地归一成 false 并记了 warn）。
+    // ⚠️ 本刀**只把真值带到行上**，不据此做任何渲染/分组——「已安装」分组是排队中的 task-5。
+    builtin: skill.builtin,
     latestVersionId: latestById.get(skill.id) ?? '',
   }))
 }
@@ -2563,8 +2591,11 @@ const baseStyles = `
    display:inline-flex 让包装节点自身也是一个真实盒子（悬停命中可靠，title 必然生效），flex:none 与
    签同口径——它绝不压缩、不换行，故标题行的行高与排布与加包装之前逐值相同。 */
 .own-market-skillVersionHint{display:inline-flex;flex:none;min-width:0}
-/* 节容器：顶部间距从官方 RowsSection 口径的 24 收到 12（详情页顶部压缩），节内 gap 仍是 12。 */
-.own-market-section{display:flex;flex-direction:column;gap:12px;min-width:0;margin-top:12px}
+/* 节容器：顶部间距由**搜索行那一处**统一控制（见 .own-market-searchRow 的注释），故本节
+   **不再自带 margin-top** —— 原来这里 12px、搜索行也 12px，两处相等于是「工具行」与「内容区」
+   看起来一样重、上下等距（用户反馈「上下间隔一直」）。撤掉内层这处后，间距**只有一个旋钮**，
+   以后调它不会连带牵动别处。节内 gap 仍是 12。 */
+.own-market-section{display:flex;flex-direction:column;gap:12px;min-width:0}
 .own-market-sectionHead{display:flex;align-items:baseline;gap:10px;min-width:0}
 .own-market-sectionTitle{margin:0;font-size:14px;line-height:20px;font-weight:500}
 /* 节头可点按钮：照官方 groupToggle（flex none + gap8 + 无边框 + 透明 + 左对齐 + focus-ring）。 */
@@ -2627,18 +2658,12 @@ const baseStyles = `
    类名不同是刻意的：本文件与 plugin-market.tsx 各自挂一块全局单类选择器的 <style>，
    两处类名必须零交集（同名会互相覆盖），故各自一枚名字、值逐字相同。 */
 .own-market-rowLine{display:flex;align-items:center;gap:16px;min-width:0}
-/* 卡片图标 = **官方行图标规范逐值同源**（app.asar 里 ZVcBiW_rowIcon：40×40 + .5px solid border-l3
-   + radius-md + 无底色 + secondary 色）——用户口径「参考插件-智能体团队-包含的组件的图标」。 */
+/* 卡片图标容器 = **官方行图标规范逐值同源**（40×40 + .5px solid border-l3 + radius-md + 白底）——
+   用户口径「参考插件-智能体团队-包含的组件的图标」。**容器本身保持中性**：里面的图形是官方那枚
+   自带青蓝渐变的兜底图标（PluginArtworkDefault，见 EnterpriseArtworkFallback），若再按类别上
+   --dsw-static-* 颜色会与它自己的渐变打架，故原来的 data-icon-kind 四类上色规则已整组删除，
+   不留死样式。 */
 .own-market-rowIcon{display:inline-flex;flex-shrink:0;align-items:center;justify-content:center;width:40px;height:40px;border:.5px solid var(--dsw-alias-border-l3,#d0d5dd);border-radius:var(--dsw-radius-md,8px);background:var(--dsw-alias-background-primary,#fff);color:var(--dsw-alias-label-secondary,#667085)}
-/* 图标**彩色**（用户口径：参考官方）：几何仍照官方行图标（40×40 + .5px border-l3 + radius-md），
-   只把 color 换成官方那套**彩色静态词汇** --dsw-static-* —— 官方唯一的彩色图标家族
-   （ui-primitives 的 FileTypeIcon.module.css 逐类就是 color: var(--dsw-static-<hue>-<step>)），
-   故这里不新造颜色、不写 rgb 字面量，四类各取一个官方色相。
-   没有品牌图资产，故按**类别**上色（技能/插件/配方/资料库），而不是像官方那样按每个条目上色。 */
-.own-market-rowIcon[data-icon-kind='skills']{color:var(--dsw-static-deepseek-500)}
-.own-market-rowIcon[data-icon-kind='plugins']{color:var(--dsw-static-green-500)}
-.own-market-rowIcon[data-icon-kind='presets']{color:var(--dsw-static-amber-400)}
-.own-market-rowIcon[data-icon-kind='library']{color:var(--dsw-static-neutral-bluish-400)}
 .own-market-rowMain{display:flex;flex:1;flex-direction:column;gap:2px;min-width:0}
 .own-market-rowId{font-size:13.5px;line-height:20px;font-weight:500;color:var(--dsw-alias-label-primary,#101828);overflow-wrap:anywhere}
 .own-market-row[data-state='off'] .own-market-rowId{color:var(--dsw-alias-label-secondary,#667085)}
@@ -2699,7 +2724,16 @@ const baseStyles = `
    · 页签 = 轨道内胶囊，当前项（aria-selected=true）实心白底 + 轻投影（参考图「公开」那枚）；
    · 未选中 = 透明底 + 次级字色；focus-ring 与 role/tabIndex/aria 语义一字未改。 */
 /* 页签组整体**超大圆角（胶囊）**（用户口径）：轨道与选中格都取 999px，故整条是一个药丸。 */
-.own-market-storeTabs{display:flex;flex-wrap:nowrap;align-items:center;gap:2px;min-width:0;margin:0;padding:3px;border-radius:999px;background:var(--dsw-alias-background-secondary,#f2f4f7);border-bottom:0;width:max-content;max-width:100%}
+/* 页签 = **四个各自独立的文字标签**（用户裁决：「4 个页签是 4 个独立的标签，不是在一起的」）：
+   ① 轨道**不再有底色药丸**（去掉 background-secondary / padding / 999px 圆角）——四个标签背后是透明的；
+   ② 选中态由「灰轨上的白胶囊」改成**独立标签的下划线**（用 border-bottom 属性，**不要**改用
+      伪元素的 content 写法 —— 本项目已在 CSS 模板字符串里踩过 6+ 次反引号/tsc 报错，引号一律别往里塞）；
+   ③ 常态/选中的**底色一律透明**，颜色差只由 label-primary / label-secondary 两档承担。 */
+/* 页签 = **灰底药丸轨道**（用户裁决「要灰底药丸」）：轨道取 background-secondary + 999px 大圆角 +
+   3px 内衬，四枚按钮装在里面；选中项 = 灰轨上的**白胶囊**（白底 + 轻投影，与官方/参考图那枚
+   「公开」签同款）。font-size/line-height 仍逐字照上一版（13px/20px，用户未要求改）。
+   ★ 轨道给 flex:0 0 auto：它是左端**定宽**那一块，右边由 .own-market-rowBarSpacer 吃空白。 */
+.own-market-storeTabs{display:flex;flex-wrap:nowrap;align-items:center;gap:2px;flex:0 0 auto;min-width:0;margin:0;padding:3px;border-radius:999px;background:var(--dsw-alias-background-secondary,#f2f4f7);border-bottom:0}
 .own-market-storeTab{background:transparent;border:0;border-radius:6px;color:var(--dsw-alias-label-secondary,#667085);cursor:pointer;font:inherit;font-size:13px;line-height:20px;padding:5px 12px;white-space:nowrap}
 .own-market-storeTab:hover{color:var(--dsw-alias-label-primary,#101828)}
 .own-market-storeTab:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:1px}
@@ -2712,20 +2746,83 @@ const baseStyles = `
    整行改成 space-between；触发钮是一枚透明图标按钮（漏斗），点开下方下拉。 */
 .own-market-tabBar{display:flex;align-items:center;gap:12px;min-width:0;margin-top:0}
 /* 搜索框在**左**、筛选钮在**右**（用户口径）：两者同属一枚控件行，整体靠右、搜索框吃掉剩余宽度。
-   搜索是真输入框：回调缺席时上层会传 readOnly，故不会出现「打了字没反应」的假控件。 */
-.own-market-searchRow{display:flex;flex-wrap:nowrap;align-items:center;gap:8px;min-width:0;margin-bottom:12px}
-.own-market-query{display:flex;flex:1 1 auto;align-items:center;gap:8px;min-width:120px;height:40px;padding:0 12px;border:1px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:var(--dsw-radius-md,6px);background:var(--dsw-alias-background-primary,#fff);color:var(--dsw-alias-label-tertiary,#98a2b3)}
-/* 搜索框：**hover 与鼠标点入一律不变**（用户口径「不要 hover」）；只有**键盘 Tab** 进来才出环
+   搜索是真输入框：回调缺席时上层会传 readOnly，故不会出现「打了字没反应」的假控件。
+   ★ **本刀（这一行整体降一档 + 框线变浅）**：高度/内衬/圆角/字号四项逐值取自 pinned 的官方
+   ui-primitives@0.1.5-rc.2 的 Input.module.css —— height:32px / padding:0 8px /
+   border-radius:8px / font-size:14px（我们原先 40px+12px+6px+13px，整整大了一档）。
+   边框取官方 Input 同一行：0.5px solid var(--dsw-alias-border-l4)。
+   ⚠️ **0.5px 发丝线在低 DPR 屏偏淡、几乎不可见** —— 这是官方 Input 自己接受的取舍，我们照做同款，
+   不是疏漏；真嫌太淡时该改的是 token 本身，而不是在这里偷偷加粗。
+   ★ 图标方框（.own-market-rowIcon）**保持官方 border-l3 不动**（用户明确裁决：图标框不参与本轮变浅）。 */
+/* ★ **本刀（上下层次）**：工具行 → 内容区 = **20px**，且**只由这一处控制**（单点旋钮）。
+   口径写明：「工具行 → 内容区 20px；分类组之间 40px（见 .own-market-categoryGroup + 的
+   margin-top）；层次靠这两个值**递进**建立，不靠两处相等的 margin」。
+   病灶是原先这里 12px、而紧邻的 .own-market-section 也正好 12px —— 两处相等 ⇒ 用户看到的
+   就是「工具行和内容区一样重、上下等距」。内层那处已撤掉（margin-top:0），故调间距只改这一行。
+   官方靠 gap 递进建立层次（app.asar：外层 section gap:12px → 组内 group gap:10px），
+   我们对应的是「工具行 20px → 分类组之间 40px」这一递进。 */
+/* 搜索行**铺满容器**（用户口径「工具栏要自适应铺满整行」）：此前只有 display:flex，
+   宽度由内容撑 ⇒ 右侧三枚控件（漏斗 / 刷新 / 添加技能）挤在内容宽度里、右侧留白。
+   给它 flex:1 1 auto + min-width:0，让它在这一层 flex 容器里吃掉整行剩余宽度；
+   内部 flex-wrap:nowrap + 搜索框 flex:1 1 auto;min-width:120px 保证放不下时**压窄搜索框**、
+   而右侧三枚 flex:none 恒不被压缩（不换行、不溢出）。 */
+.own-market-searchRow{display:flex;flex:1 1 auto;flex-wrap:nowrap;align-items:center;gap:8px;min-width:0;margin-bottom:20px}
+/* 「添加」触发钮**全圆角**（用户口径「添加按钮使用全圆角」）。官方 Button.module.css:10 的基类
+   border-radius 是 18px，而 md 档高 36px ⇒ 18px 恰好是胶囊；**但那是巧合**，一旦官方改高度就散。
+   故这里显式给 999px 锁死，不依赖"半径刚好等于半高"这条隐式约束。 */
+.own-market-addBtn{border-radius:999px}
+/* 刷新钮的**图标取浅灰**（用户口径「和官方一致」）。
+   ★ 官方 Button.module.css 的 .ghost（:47-53）**只覆盖 background，不覆盖 color** ⇒ 它继承
+     基类 :16 的 color: var(--dsw-alias-label-primary)（**深色**）。所以"用官方 ghost 就一定是
+     浅灰"是错的 —— 官方那枚幽灵刷新键的图标本来就是深色。官方真正的浅灰图标是
+     dsh-client-ui-plugin-manager 里那枚**独立的**图标按钮（PluginManagerPage 的 toolbar 一侧），
+     它走自己的 iconButton 口径（label-tertiary）。故这里显式给 label-tertiary，与那一枚对齐。 */
+.own-market-refreshBtn{color:var(--dsw-alias-label-tertiary,#98a2b3)}
+/* 行内的弹性占位：把「漏斗 / 刷新 / 添加技能」整组推到行右（用户口径「靠右对齐」）。
+   搜索框定宽之后，中间那段空白由这一枚吃掉；三枚按钮自身都是 flex:none，恒不被压缩。 */
+.own-market-rowBarSpacer{flex:1 1 auto;min-width:0}
+/* 「添加技能」下拉**白底**（用户口径）：官方 Menu 卡片底色走 var(--dsw-specific-menu)
+   （dsh-client-ui-primitives/lib/Menu.module.css:18 逐字），**不是** background-primary，
+   所以不覆盖就拿不到白底。作用域收在 .own-market-addMenu 这枚 className 上，只改这一个下拉，
+   **不动官方那张样式表**（官方 Menu 自己也在别处用它那份 token）。 */
+.own-market-addMenu{--dsw-specific-menu:var(--dsw-alias-background-primary,#fff)}
+/* ★ **圆角刻意偏离官方 Input**（用户口径「搜索框使用大圆角」）：官方 Input.module.css 本身是
+   border-radius: 8px（--dsw-radius-md），同族的 .iconButton 则是 var(--dsw-radius-sm)；
+   而官方 Button 基类是 18px 胶囊（sm 档 14px）。「大圆角」在本仓 token 体系里最接近的是**胶囊档**，
+   故这里取 999px（与本页页签组那一档一致）。**这是有意偏离官方 Input 的选择，不是抄错**——
+   其余三项（height 32 / padding 0 8px / font-size 14）与那条 0.5px border-l4 仍逐字照官方 Input。 */
+/* ★ **搜索框固定宽度、不撑满**（用户口径「不撑满」+「筛选/刷新/添加 按钮靠右对齐」）：
+   原来这里是 flex:1 1 auto —— 搜索框吃掉整行剩余宽度，三枚按钮被顶到最右、中间一大片空白。
+   现在改成**定宽**（320px，与官方 SearchField 那一档同量级）+ 行尾补一个 margin-left:auto 的
+   弹性占位 ⇒ **搜索框靠左、其余控件整组贴右**。三枚控件自身都是 flex:none，
+   放不下时优先压搜索框（它有 max-width 兜底），它们恒不被压缩。 */
+.own-market-query{display:flex;flex:0 1 320px;align-items:center;gap:8px;min-width:120px;max-width:320px;height:32px;padding:0 8px;border:.5px solid var(--dsw-alias-border-l4,#d9dfe7);border-radius:999px;background:var(--dsw-alias-background-primary,#fff);color:var(--dsw-alias-label-tertiary,#98a2b3)}
+/* 搜索框：**hover 与鼠标点入一律不变**（用户口径「不要 hover」）；只有**键盘 Tab** 进来才出提示
    —— 用 :has(input:focus-visible) 把「鼠标焦点」与「键盘焦点」分开，无障碍不回退。 */
-.own-market-query:hover{border-color:var(--dsw-alias-border-l2,#e4e7ec)}
-.own-market-query:has(.own-market-queryInput:focus-visible){border-color:var(--dsw-alias-border-l3,#d0d5dd);outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:1px}
+.own-market-query:hover{border-color:var(--dsw-alias-border-l4,#d9dfe7)}
+/* ★ **用户裁决 B：focus 环去掉，焦点提示改由「边框变色」承担**。
+   原先是「border-color 变色 + 一圈 outline 蓝环」，用户不要那圈刺眼的蓝框。
+   现在**只留边框变色**（label-secondary 比常态的 border-l4 明显一档）：**焦点提示不丢**，
+   只是不靠蓝色 outline。仍用 :has(input:focus-visible) 把「鼠标焦点」与「键盘焦点」分开，
+   鼠标点入不出提示、无障碍不回退。 */
+.own-market-query:has(.own-market-queryInput:focus-visible){border-color:var(--dsw-alias-label-secondary,#667085)}
 .own-market-queryIcon{flex:none}
-.own-market-queryInput{flex:1 1 auto;min-width:0;padding:0;border:0;background:transparent;color:var(--dsw-alias-label-primary,#101828);font:inherit;font-size:13px;line-height:20px}
+.own-market-queryInput{flex:1 1 auto;min-width:0;padding:0;border:0;background:transparent;color:var(--dsw-alias-label-primary,#101828);font:inherit;font-size:14px;line-height:20px}
 .own-market-queryInput:focus{outline:none}
 .own-market-queryInput::placeholder{color:var(--dsw-alias-label-tertiary,#98a2b3)}
-/* 筛选钮**带外框**（用户口径），并与左邻搜索框**同高 40px / 同白底 / 同圆角**——两枚成为一对。 */
-.own-market-filterBtn{display:inline-grid;place-items:center;flex:none;width:40px;height:40px;padding:0;border:1px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:var(--dsw-radius-md,6px);background:var(--dsw-alias-background-primary,#fff);color:var(--dsw-alias-label-secondary,#667085);cursor:pointer}
-.own-market-filterBtn:hover{background:var(--dsw-alias-background-secondary,#f2f4f7);color:var(--dsw-alias-label-primary,#101828)}
+/* 筛选钮**无外框**（用户口径「筛选按钮不要外框」）：它与左邻搜索框**同高 32px** 保持同行齐平，
+   但**不是同一类控件** —— 搜索框是官方 Input（有 0.5px border-l4 + 白底 + 大圆角），
+   漏斗钮是官方 iconButton（border:0; background:0 0，逐值见下面那条规则）。 */
+/* 筛选钮 = 官方**图标按钮**那一类，**没有边框**（用户口径「筛选按钮不要外框」）。
+   逐值照官方 app.asar 的 _iconButton：appearance:none; border:0; background:0 0;
+   border-radius:var(--dsw-radius-sm); color:var(--dsw-alias-label-tertiary); padding:6px;
+   display:inline-flex; position:relative —— 官方图标按钮**根本没有边框也没有底色**。
+   ★ 这里修正了上一轮的一个分类错误：我曾把漏斗钮当**输入框**处理、给它套了 Input 的
+   0.5px border-l4 + 白底；但它不是输入框，是**图标按钮**，官方那一档就是无框。
+   ⇒ **0.5px border-l4 只属于搜索框（Input）**，不得出现在这枚图标按钮上（已加锁）。
+   尺寸仍是 32×32 —— 对齐官方 Input 的 32px 高度，让两者在**同一行**视觉齐平（高度对齐 ≠ 样式同类）。 */
+.own-market-filterBtn{appearance:none;display:inline-grid;place-items:center;position:relative;flex:none;width:32px;height:32px;padding:6px;border:0;border-radius:var(--dsw-radius-sm,6px);background:0 0;color:var(--dsw-alias-label-tertiary,#98a2b3);cursor:pointer}
+.own-market-filterBtn:hover{background:var(--dsw-alias-interactive-bg-hover,var(--dsw-alias-bg-layer-3,#f2f4f7));color:var(--dsw-alias-label-primary,#101828)}
 .own-market-filterBtn:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:1px}
 /* ── 筛选下拉（参考图 2 的两组：状态 + 类型；组头带勾、组内可选；本刀只做壳，过滤下一刀）── */
 .own-market-filterWrap{position:relative;flex:none}
@@ -2756,6 +2853,23 @@ const baseStyles = `
 .own-market-listRetry{margin-top:8px}
 /* 次级取数降级的可见交代：非打扰（不是错误色、不是 alert），但看得见 + 可重试。 */
 .own-market-degraded{margin:8px 0;color:var(--dsw-alias-label-secondary,#667085);font-size:12.5px;line-height:19px;overflow-wrap:anywhere}
+
+/* ── 官方详情页左上角那枚 48×48 图标：隐藏（用户口径） ─────────────────────
+   **这条规则必须住在这里**（baseStyles 恒挂载、两套外壳都在），不能寄居 detailStyles——
+   官方那枚图标渲染在**列表视图**这个分支的官方 ItemDetail 里，而 detailStyles 只在
+   技能/配方详情子页面挂载（真机已证：寄居在那边 = 规则不在文档里 = 永不生效）。
+
+   取证（官方 plugin-manager 的 ItemDetail 逐字）：我们的条目注册成官方 plugins.item
+   （id=plugin-market，client.tsx），点进去走官方 ItemDetail → DetailTop，渲染
+   div[data-plugin-item-detail=item.id] > DetailTop > div.detailHead > span.cardIcon[aria-hidden=true]（48×48）。
+   · 锚点 [data-plugin-item-detail] **刻意不写死值**：官方那个值是动态 item.id，
+     写死 ="plugin-market" 在别的条目上会匹配不到（那才是旧规则的真正错处，不是「属性不存在」）。
+   · 匹配 _cardIcon **后缀**而不是整名：官方类名是 CSS module 哈希（本机实测 ZVcBiW_cardIcon），
+     哈希前缀随官方构建变，写死整名必失效。
+   · 作用域收在 [class*=_detailHead] 内：官方 crumbIcon 那枚 chevron 同样是 aria-hidden 的 span，
+     但它是 detailTop 的直系子节点、不在 detailHead 里，故不会被误伤。
+   命中不到即原样显示官方版式（不失效、不报错、不留半成品）。 */
+[data-plugin-item-detail] [class*="_detailHead"] [class*="_cardIcon"]{display:none}
 `
 
 /**
@@ -2765,8 +2879,25 @@ const baseStyles = `
  * 渲染顺序：列表视图 = `baseStyles` + 这份行取值（与改动前逐字节相同）；详情子页面 = 再加一份 `detailStyles`。
  */
 const rowStyles = `
-.own-market-cardId{font-size:15px;line-height:1.4;font-weight:600;color:var(--dsw-alias-label-primary,#101828);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.own-market-cardDesc{color:var(--dsw-alias-label-secondary,#667085);font-size:13px;line-height:1.55;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden}
+/* 标题：用户口径「改灰黑」⇒ **降一档**用 label-secondary。
+   ★ 为什么没有第三档可选：本仓 --dsw-alias-label-* **只有三档**，官方 token 定义逐字为
+   label-primary = --dsw-static-neutral-bluish-1000（#0f1115）、
+   label-secondary = …-700（#61666b）、label-tertiary = …-600（#81858c）。
+   primary 与 secondary 之间**没有更浅的语义档**，而用户要的「灰黑」正是这两者之间那一档
+   ⇒ 取 secondary（官方 .rowId 用的是 primary，我们是**刻意偏离**，因为用户明确要灰黑）。
+   **不插 rgb 字面量、不自造 token**：secondary 在本文件已用 19 处，是既成事实档。 */
+/* 卡片标题取 **label-primary**（用户口径「再黑点，但不是全黑」）。官方三档里 primary 就是最深那一档
+   （app.asar 实测 --dsw-alias-label-primary = #0f1115，**本身就不是纯黑**，是偏蓝的黑）⇒
+   「深但不是纯黑」这条口径正好落在官方 token 内，不必造第四个颜色。此前这里是 label-secondary（#667085 灰黑），
+   偏灰；primary 与 secondary 之间**没有**更浅的语义档，所以只能在这两档里选。 */
+/* 字重**细一号**（用户口径「卡片的标题细一号」）：600 → **500**，与官方 .ZVcBiW_cardTitle
+   （app.asar 逐字 font-size:14px;font-weight:500;line-height:20px）同一档。字号仍是 15px（用户此前
+   未要求改字号，只要求字重细一号）——**不要顺手把字号也压到官方的 14px**，那是另一条口径。 */
+.own-market-cardId{font-size:15px;line-height:1.4;font-weight:500;color:var(--dsw-alias-label-primary,#0f1115);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 描述：改用官方 .cardDesc 那一档 **label-tertiary**（app.asar 逐字
+   .ZVcBiW_cardDesc{ color:var(--dsw-alias-label-tertiary); font-size:13px }）——用户口径「再浅一点」，
+   我们原先用的 secondary 比官方深一档。 */
+.own-market-cardDesc{color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:13px;line-height:1.55;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden}
 /* 技能行**行本体**（图标 + 标题 + 描述那一片）是一枚真 button 元素：整片可点、原生键盘可达（Enter/Space）、
    有 focus 环与 hover 提示（光标 + 标题/描述转主色调）。取值照本文件既有口径：行图标与文案之间仍是 16px
    （= .own-market-rowLine 的 gap），因此包上这枚按钮**不改变行的几何**。
@@ -2846,21 +2977,10 @@ const detailStyles = `
 .own-market-filePreviewMeta{margin-left:auto;color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:11px;line-height:16px;font-variant-numeric:tabular-nums}
 /* 正文：纯文本 <pre>（长文件靠 max-height 滚动看全，不做截断；空白保留、超长行软换行）。 */
 .own-market-fileText{margin:0;max-height:360px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:10px 12px;border:.5px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:var(--dsw-radius-md,12px);background:var(--dsw-alias-background-secondary,#f2f4f7);font:11.5px/17px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--dsw-alias-label-primary,#101828)}
-/* ── 标题区：左上角那枚 48×48 图标 ─────────────────────────────────────
-   两枚，各打一处：
-   ① **本文件自绘的那枚**（技能详情 Sparkles / 配方详情 BookMarked，类名 .own-market-detailIcon）
-      已按用户口径**从 JSX 连元素带样式一并撤掉**——本文件这半边不需要任何规则。
-   ② **官方 DetailTop 自己那枚**仍在我们的页面上：我们的条目注册成官方 plugins.item
-      （id=plugin-market，client.tsx），点进去走官方 ItemDetail → DetailTop 逐字渲染
-      div.detailHead > span.cardIcon[aria-hidden=true]（48×48，与官方 PluginManagerPage.module.css
-      的 cardIcon 同值）。用户不要它，故按**稳定后缀**隐藏：官方类名是 CSS module 哈希
-      （本机实测 ZVcBiW_cardIcon，哈希前缀随官方构建变），故匹配 _cardIcon 后缀而不是写死整名。
-      锚点 [data-plugin-item-detail] **刻意不写死值**：官方那个值是动态 item.id，写死 ="plugin-market"
-      在别的条目上会匹配不到（这一条是上一轮那两条规则的真正错处，不是「属性不存在」）。
-      作用域收在 [class*=_detailHead] 内：官方 crumbIcon 那枚 chevron 同样是 aria-hidden 的 span，
-      但它是 detailTop 的直系子节点、不在 detailHead 里，故不会被误伤。
-      命中不到即原样显示官方版式（不失效、不报错、不留半成品）。 */
-[data-plugin-item-detail] [class*="_detailHead"] [class*="_cardIcon"]{display:none}
+/* ① 本文件**自绘**的那枚 48×48 图标（技能详情 Sparkles / 配方详情 BookMarked，类名
+   .own-market-detailIcon）已按用户口径**从 JSX 连元素带样式一并撤掉**——本文件这半边不需要任何规则。
+   ② **官方 DetailTop 自己那枚**的隐藏规则**不在本文件里**，见 baseStyles（它服务的是官方详情页，
+   由列表视图那个分支挂载；寄居在 detailStyles 里就等于永不生效——真机已证）。 */
 
 .own-market-fileHint{margin:0;color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:12px;line-height:19px}
 .own-market-fileRetry{display:flex;align-items:center;gap:8px}
@@ -2874,12 +2994,72 @@ const detailStyles = `
 .own-market-upstreamNote{margin:2px 0 0;color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:11.5px;line-height:18px}
 `
 
-/** 组件行图标：四枚 lucide 图标按 id 定位，避免借用官方 `*Regular` 图标（资料库行与侧栏入口用同一族的 Library）。 */
-const COMPONENT_GLYPHS = { plugins: Package, skills: Sparkles, presets: BookMarked, library: Library } as const
+/**
+ * **官方「无自有图标」兜底图形**（ui-primitives 的 `PluginArtworkDefault`，逐值照抄）——技能行、插件行、
+ * 配方行、组件行四种都用它。
+ *
+ * ★ **为什么不 import 官方包**：`PluginArtworkDefault` 由 `@deepseek-ai/dsh-client-ui-primitives` 导出，
+ * 但它**不在**本包编译期 pin 的那个版本的类型面里（`official-ui.ts` 早已把这层接缝收窄到本包实际消费的签名）；
+ * 且本仓宪法是「官方 UI 零分叉」——引用官方原语是为了**复用行为**，而这里要的是**一枚静态图形**，
+ * 自己画一份同形 SVG 才是正解。故逐字照抄 viewBox / path / 渐变坐标，不引任何官方包。
+ *
+ * ★ **渐变 id 必须每次渲染唯一**（这一条最容易踩，官方为此专门写了 `useArtworkId()`，注释原文：
+ * 重复 id 会让所有 `url(#…)` 解析到第一个实例）：SVG 里 `fill="url(#id)"` 走的是**整篇文档**的
+ * id 解析。若 id 写死成常量，同页几十枚图标会**全部**解析到第一个同名 defs ⇒ 后面每一枚都染成
+ * 第一枚的颜色。
+ *
+ * ★ **为什么用模块级自增而不是 `useId()`**：本包的测试**把组件当纯函数直调**（不挂 React 渲染器），
+ * 那时 React 的 dispatcher 是 `null`，`useId()` 会直接抛 `Cannot read properties of null`——
+ * 而这枚图形在**每一行**里，行又是被直调取证的主力。`useId` 的存在意义是 SSR/hydration 的
+ * id 稳定性，本包是纯客户端渲染、没有注水，**那份稳定性在这里没有需求**；真正需要的只是
+ * 「每次渲染不重复」，一个模块级自增计数器逐一枚就够，且不引 hook、保持纯函数可直调。
+ * **绝不能**退化成「id 写死成常量」——那正是官方注释里警告的、会让整页图标染成同一色的坑。
+ *
+ * ★ **尺寸 30（不是 18）**：官方在**行的 40px 框里**画的是 30px 图形
+ * （app.asar 逐字：`CARD_ARTWORK_SIZE = 36` 是卡片位、`ROW_ARTWORK_SIZE = 30` 是行位，
+ * 注释原文「The size the artwork renders at inside a row's 40px frame」）。
+ * 真机验收「图形太小、比外框小很多、不协调」即由此而来——18px 偏小 40%。故本组件对齐
+ * `ROW_ARTWORK_SIZE`，**容器 `.own-market-rowIcon` 仍 40px 不动**（官方就是「40 框 + 30 图形」这个配比，
+ * 图形在框内居中，四周各留 5px）。
+ * `size` 是**可选入参**（形状照官方 `PluginArtworkTerminal` 的 `{ size = 36 }`），行位由调用点显式传 30；
+ * 留这个口是为了将来真出现「卡片位 36px」时不必再改形状。
+ */
+let artworkSequence = 0
 
-function ComponentGlyph({ id }: { readonly id: string }): ReactNode {
-  const Glyph = COMPONENT_GLYPHS[id as keyof typeof COMPONENT_GLYPHS] ?? Package
-  return <Glyph size={18} aria-hidden="true" />
+/** 行内那枚官方兜底图形的尺寸：官方 `ROW_ARTWORK_SIZE`（40px 框里的图形大小）。 */
+export const ENTERPRISE_ARTWORK_ROW_SIZE = 30
+
+function EnterpriseArtworkFallback({ size = ENTERPRISE_ARTWORK_ROW_SIZE }: { readonly size?: number }): ReactNode {
+  artworkSequence += 1
+  const gradientId = `own-market-art-${artworkSequence}`
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 36 36"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <path
+        d="M24.6294 8.63696C26.2862 8.63705 27.6294 9.98016 27.6294 11.637V12.7825C27.6292 14.4391 26.2861 15.7824 24.6294 15.7825H23.4839C22.6519 15.7825 21.5454 16.3459 21.5454 17.1778V18.1573C21.5454 18.7757 22.216 19.1966 22.8345 19.1965H24.6294C26.2861 19.1965 27.6292 20.5398 27.6294 22.1965V23.9924C27.6292 25.6491 26.2861 26.9924 24.6294 26.9924H22.8345C21.1778 26.9924 19.8347 25.649 19.8345 23.9924V22.1965C19.8345 21.7148 19.4957 21.2327 19.014 21.2327H16.4792C15.7975 21.2327 15.3374 22.0061 15.3374 22.6877V23.8333C15.3373 25.49 13.9942 26.8333 12.3374 26.8333H11.1919C9.53509 26.8333 8.19198 25.49 8.19189 23.8333V22.6877C8.19189 21.0309 9.53504 19.6877 11.1919 19.6877H12.3374C13.1964 19.6877 14.3999 19.0959 14.3999 18.2369V16.0185C14.3999 14.9518 15.2646 14.0872 16.3312 14.0872H19.435C20.0596 14.0872 20.484 13.4071 20.4839 12.7825V11.637C20.4839 9.98011 21.827 8.63696 23.4839 8.63696H24.6294ZM13.4116 11.2468C13.4116 12.6882 12.2431 13.8567 10.8018 13.8567C9.36037 13.8567 8.19189 12.6882 8.19189 11.2468C8.19189 9.80544 9.36037 8.63696 10.8018 8.63696C12.2431 8.63696 13.4116 9.80544 13.4116 11.2468Z"
+        fill={`url(#${gradientId})`}
+      />
+      <defs>
+        <linearGradient
+          id={gradientId}
+          x1="15.1481"
+          y1="9.94188"
+          x2="15.1481"
+          y2="13.6375"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stopColor="#54ECE7" />
+          <stop offset="1" stopColor="#658EFF" />
+        </linearGradient>
+      </defs>
+    </svg>
+  )
 }
 
 /**
@@ -2945,9 +3125,103 @@ export function EnterpriseMarketDetailActionsLive({ subject, tabSeat }: {
   return <EnterpriseMarketDetailActions subject={subject} tabSeat={state} />
 }
 
-/** 标题区右侧两枚按钮的文案真源（用户口径：本刀**都先占位**，不接真动作——刷新的 `store.refreshPlugins()` 与「添加插件」的企业上传语义留下一刀）。 */
+/**
+ * **标题行那一格的唯一占用者**（官方 `plugins.detail.badge` 槽）：把「企业」徽章与
+ * 两枚动作（刷新 + 「添加」）**渲染在一起**，于是它们的落点是 `_titleRow`。
+ *
+ * ★ **为什么必须搬到 badge 槽、而不能留在 `plugins.detail.actions`**（用户口径：
+ *   「刷新和添加应该和标题平行在一行……现在是在上方」）。官方 `DetailTop`（`client.js:2193-2210`）
+ *   的 DOM 是：
+ *     `[data-plugin-item-detail] > _detailTop[_crumb, _detailHead[_cardIcon, actions槽]]`，
+ *   而标题在**另一棵子树** `_detailMain > _titleRow`（`client.js:2313-2321`）。
+ *   ⇒ 动作槽天生落在 `_detailHead`，它在 `_titleRow` **上方**（`margin:32px 0 0`），
+ *     怎么调 CSS 都只是把那一行挪位置，**不会**与标题同排。
+ *   而 `plugins.detail.badge` 槽**就渲染在 `_titleRow` 里面**（`client.js:2315-2320`），
+ *   且 `_titleRow` 是 `align-items:center` 的 flex ⇒ **走这个槽，与标题的垂直对齐由官方免费给到**，
+ *   我们自己一个像素都不用算。右侧对齐由容器 `.own-market-titleActions{margin-left:auto}` 承担。
+ * ★ 两个子件各自按 subject 过滤（非本条目一律 null），故不影响官方其它详情页。
+ * ★ 本组件只是**组合**，不持状态：订阅在 `EnterpriseMarketDetailActionsLive` 里、账号读在
+ *   `EnterpriseMarketBadge` 里，两者本来就是 hook 组件（本组件因此也是）。
+ */
+export function EnterpriseMarketTitleSlot({ subject, store, tabSeat }: {
+  readonly subject: { readonly kind: string; readonly id?: string }
+  readonly store?: EnterpriseAccountStore | undefined
+  readonly tabSeat?: EnterpriseMarketTabSeat | undefined
+}): ReactNode {
+  return (
+    <>
+      <EnterpriseMarketBadge subject={subject} store={store} />
+      <EnterpriseMarketDetailActionsLive subject={subject} tabSeat={tabSeat} />
+    </>
+  )
+}
+
+/** 标题区右侧两枚按钮的文案真源（用户口径：本刀**都先占位**，不接真动作——刷新的 `store.refreshPlugins()` 留下一刀）。 */
 export const ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL = '刷新'
-export const ENTERPRISE_DETAIL_ACTION_ADD_LABEL = '添加插件'
+/** 「添加」下拉**技能页签**那一档的触发钮文案（**逐字照 Cherry** `library.skill_add.add` = 「添加技能」）。 */
+export const ENTERPRISE_DETAIL_ACTION_ADD_LABEL = '添加'
+
+/**
+ * 预留项的**唯一**可见原因（用户裁决原话逐字：「预留就是提示开发中」）。
+ * 三字，**不加**「即将上线」「敬请期待」这类修饰——那是占位符式文案，不是人话。
+ *
+ * ★ **为什么写进「可见标签」而不是挂 `title`**：官方 `MenuItemButton` 的实现只把
+ * `{children, shortcut, icon, disabled, danger, separatorBefore, onSelect}` 交给那一行
+ * （app.asar 逐字核过，**不透传 `title`**）⇒ 挂上去会被**静默丢弃**，那才是真的死控件。
+ * 产品宪法「禁用即须有**可见**说明」在这里是**硬约束**，不是可选风格。
+ */
+export const ENTERPRISE_ADD_MENU_DEVELOPING = '开发中'
+
+/**
+ * ★ **「添加」下拉：按页签取清单的纯投影**（本轮只填技能页签那一档）。
+ *
+ * 形状照本仓既有范式（`enterpriseMarketTabLabel` 那类纯投影 + `ENTERPRISE_MARKET_TABS` 页签真源）：
+ * 输入页签 id、输出该页签的清单数组。**其余页签返回 `[]` ⇒ 整段不渲染**（不是渲染一枚空的）——
+ * 这就是本仓「预留」的正确表达，与组件清单 `reserved` 那套同源（空清单即「不出现」，不给空壳）。
+ * 将来填插件页签只是往这里加一档，**组件一行不用改**。
+ *
+ * 四项文案与图标**逐字照 Cherry Studio** `SkillAddActions`
+ * （`resourceCatalog/catalog/ResourceGrid.tsx:162-210` + `zh-cn.json` 的 `library.skill_add.*`）：
+ * `Bot`/通过 Agent 创建（Cherry `:188` 的**条件项**）、`Search`/在线搜索、
+ * `FolderSearch`/系统搜索（Cherry `:198` 的**条件项**）、`Import`/本地导入。
+ * 条件项缺席时其余项**保持原相对位置**——我们四项全在（照抄形状，不做条件裁剪）。
+ *
+ * ★ **本轮只画 UI、不接执行** ⇒ 四项**全 `disabled`**，可见原因即上面那句「开发中」。
+ * ★ **Cherry 触发钮文案是「添加技能」不是「添加」**（`library.skill_add.add`）——技能页签这一档照它。
+ */
+export interface EnterpriseAddMenuEntry {
+  readonly id: 'create-with-agent' | 'online-search' | 'system-search' | 'local-import'
+  readonly label: string
+  /** Cherry 的条件项（`onCreateWithAgent` / `onSearchSystem`）——形状照抄，本轮四项全在。 */
+  readonly conditional: boolean
+}
+
+const ENTERPRISE_SKILL_ADD_MENU_ENTRIES: readonly EnterpriseAddMenuEntry[] = [
+  { id: 'create-with-agent', label: '通过 Agent 创建', conditional: true },
+  { id: 'online-search', label: '在线搜索', conditional: false },
+  { id: 'system-search', label: '系统搜索', conditional: true },
+  { id: 'local-import', label: '本地导入', conditional: false },
+]
+
+/** 按页签取「添加」下拉清单；无清单的页签**不渲染这枚下拉**。本轮只有技能页签有。 */
+export function enterpriseAddMenuEntries(tab: EnterpriseMarketTabId): readonly EnterpriseAddMenuEntry[] {
+  if (tab === 'skills') return ENTERPRISE_SKILL_ADD_MENU_ENTRIES
+  return []
+}
+
+/**
+ * 四项的图标**唯一映射**（按 id 定位）：`Bot` / `Search` / `FolderSearch` / `Import`，**均 13px**（照 Cherry）。
+ * ★ 全部取自本仓 pinned 的 lucide-react，**与 Cherry 用的同名图标一致**（无一处需要等价替代）。
+ * ★ 注意本版 lucide 的图标导出是 **forwardRef 对象**、**不是函数** ⇒ 只能当 `<X />` 用、
+ *   **不能** `X({...})` 直接调用（那会在运行期抛「not a function」）。故这里存组件本身。
+ */
+const ADD_MENU_ICONS = {
+  'create-with-agent': Bot,
+  'online-search': Search,
+  'system-search': FolderSearch,
+  'local-import': Import,
+} as const
+
 
 /**
  * 标题区右侧动作的**纯呈现**（照 `BadgeView`：不调 hook、测试直调）——挂在**官方 `plugins.detail.actions` 槽**上。
@@ -2967,6 +3241,80 @@ export const ENTERPRISE_DETAIL_ACTION_ADD_LABEL = '添加插件'
  * 只对我们这条 item（`kind==='item'` + `id==='plugin-market'`）出，其余一律 `null`。
  * @returns 标题右侧的【刷新】【添加插件】两枚占位按钮（无包装容器——官方 `detailActions` 已是 flex 容器）。
  */
+/**
+ * 「添加」下拉：触发钮（`＋` + 「添加」）+ 三项，**三项本轮全是「开发中」**。
+ *
+ * ★ **为什么用官方 `Menu` 原语、而不是本文件的 `EnterpriseMarketRowMenu`**：
+ * 官方 `Menu` 有 `anchor` prop（类型面注释逐字「the trigger element (rendered in place)」），
+ * 它本来就允许**调用方自带触发钮**，所以这里**零新增下拉语义**——开合、`aria-expanded`、
+ * 点击外部/Escape 关闭、方向键导航全归官方原语。本文件 `account-menu.tsx:464` 的个人中心菜单
+ * 已是同一范式（`anchor` + `autoFocus` + `portal` + `side`），照它写。
+ * ★ **为什么触发钮不直接复用 `EnterpriseMarketRowMenu` 的 `⋯` 外壳**（这条界线要写清，否则下一个人会来"消除重复"）：
+ * 复用的是**可访问性契约**（`role=menu/menuitem`、`disabled`、`title`、`aria-expanded`、**零 `aria-haspopup`**）——
+ * 这些必须全项目同源；**不复用的是触发钮外壳**：`⋯` 是**行操作**语义（这一行还有更多），
+ * `＋添加` 是**页面级动作**语义。为复用外壳而把「添加」画成 `⋯`，是把可访问性做对了、把产品做错了。
+ * ⇒ 这里只**新建一个触发钮**，不新建第二套下拉语义。
+ * ★ **三项为何全灰**：见 `ENTERPRISE_ADD_MENU_DEVELOPING` 的注释（官方安装弹层当前不可达）。
+ * ★ **可见原因放在标签里、不放 `title`**：官方 `MenuItemButton` 只把
+ *   `{children, shortcut, icon, disabled, danger, separatorBefore, onSelect}` 交给那一行
+ *   （asar 逐字核过，**不透传 `title`**）⇒ 挂 `title` 会被丢弃、等于没有原因；
+ *   而产品宪法要的是**禁用即须有可见说明**，不是只挂一句悬浮提示。
+ *   故渲染成「添加技能（开发中）」这样**看得见**的一行，**零新增 CSS 类**（复用官方 item 样式）。
+ *
+ * ★ **为什么分 Live / 纯函数两枚**（照本文件既有范式，与 `EnterpriseMarketDetailActions` / `…Live` 同款）：
+ * 本文件的测试**把组件当纯函数直调**（不挂 React 渲染器），此时 dispatcher 是 `null`，
+ * 组件里任何 hook 都会抛 `Cannot read properties of null`。所以**树内只放纯函数那枚**
+ * （开合状态由 `open` + `onToggle` 两个 prop 供给，可被直调取证），
+ * 持 hook 的 `…Live` 那一枚**由 `client.tsx` 注册进官方槽**（与 `EnterpriseMarketDetailActionsLive` 完全同款），
+ * **绝不进纯函数树** —— 这正是既有那条分层的意义。
+ */
+function EnterpriseMarketAddMenuView({ tab, open, onToggle }: {
+  readonly tab: EnterpriseMarketTabId
+  readonly open: boolean
+  readonly onToggle: () => void
+}): ReactNode {
+  const entries = enterpriseAddMenuEntries(tab)
+  // ★ 该页签**没有清单 ⇒ 整段不渲染**（不画一枚点开是空的触发钮）。这是「预留」的正确表达。
+  if (entries.length === 0) return null
+  return (
+    <OfficialMenu
+      anchor={<Button
+        size="md"
+        variant="primary"
+        className="own-market-rowBarAction own-market-addBtn"
+        aria-expanded={open}
+        aria-label={ENTERPRISE_DETAIL_ACTION_ADD_LABEL}
+        onClick={onToggle}
+      ><Plus aria-hidden size={12} />{ENTERPRISE_DETAIL_ACTION_ADD_LABEL}<ChevronDown aria-hidden size={12} /></Button>}
+      autoFocus
+      align="end"
+      className="own-menu-anchor own-market-addMenu"
+      onClose={onToggle}
+      open={open}
+      portal
+    >
+      {entries.map(entry => {
+        const Icon = ADD_MENU_ICONS[entry.id]
+        return (
+          <OfficialMenuItemButton
+            key={entry.id}
+            // 本轮**不接执行** ⇒ 四项全灰；可见原因写进标签（官方不透传 title，见常量注释）。
+            disabled
+            icon={<Icon aria-hidden size={13} />}
+            onSelect={() => undefined}
+          >{`${entry.label}（${ENTERPRISE_ADD_MENU_DEVELOPING}）`}</OfficialMenuItemButton>
+        )
+      })}
+    </OfficialMenu>
+  )
+}
+
+/** 唯一含副作用的一枚（**只由 `client.tsx` 注册进官方槽**，不进纯函数树）：持有下拉开合状态。 */
+function EnterpriseMarketAddMenu(): ReactNode {
+  const [open, setOpen] = useState(false)
+  return <EnterpriseMarketAddMenuView tab={ENTERPRISE_MARKET_DEFAULT_TAB} open={open} onToggle={() => { setOpen(value => !value) }} />
+}
+
 export function EnterpriseMarketDetailActions({ subject, tabSeat }: {
   readonly subject: { readonly kind: string; readonly id?: string }
   /**
@@ -2977,21 +3325,65 @@ export function EnterpriseMarketDetailActions({ subject, tabSeat }: {
 }): ReactNode {
   if (subject.kind !== 'item' || subject.id !== ENTERPRISE_MARKET_ENTRY_ID) return null
   // 两枚按钮**逐项用官方 `Button` 原语本体与官方变体**（用户口径：用官方的样式和执行效果）：
-  // · 刷新 = `variant="ghost"` + 前置图标，且**只给图标**（无可见文字 ⇒ `aria-label` 必须完整）
+  // · 刷新 = `variant="ghost"`（**无常态底、图标浅色**；用户口径「不是背景」）+ 前置图标，且**只给图标**（无可见文字 ⇒ `aria-label` 必须完整）
   // · 添加插件 = `variant="primary"` + 前置 `Plus` 图标（`md` = 36px 胶囊，与官方 Figma 按钮同形）
   // 官方原语自带 hover / active / focus-visible / disabled 四态，故「执行效果」不再由本文件自绘。
   return (
     <>
-      {/* 标题右侧**只剩 4 个页签**（用户口径：刷新/添加插件挪到搜索那一行去了）。 */}
+      {/* 标题行右侧：**只剩刷新 / 「添加技能」两枚，右对齐**（用户口径「把刷新和添加按钮放到标题行
+          右侧，右对齐」）。四枚页签**不在这里**（用户口径：「搜索栏，左侧是 4 个标签」⇒ 页签在工具行左端）。
+          两枚包在 .own-market-titleActions 里（margin-left:auto）⇒ 整组贴行右。
+          座位缺席（纯函数直调 / 未接线）⇒ 整格不渲染。 */}
       {tabSeat === undefined ? null : (
-        <EnterpriseMarketTabList
-          entries={tabSeat.entries}
-          activeTab={tabSeat.activeTab}
-          onSelect={tabSeat.onSelect}
-          className="own-market-titleTabs"
-        />
+        <div className="own-market-titleActions">
+          <EnterpriseMarketTitleActions
+            tab={tabSeat.activeTab}
+            addMenuOpen={tabSeat.addMenuOpen}
+            onToggleAddMenu={tabSeat.onToggleAddMenu}
+          />
+        </div>
       )}
     </>
+  )
+}
+
+/**
+ * 标题行右侧那两枚动作（**刷新** + **「添加」下拉**）。
+ *
+ * ★ **纯函数、不持 hook**（本文件硬规矩：测试把组件当纯函数直调，dispatcher 为 null，
+ *   任何 `useState` 都会抛 `Cannot read properties of null`）。开合态由 `addMenuOpen` /
+ *   `onToggleAddMenu` 两个 prop 供给 —— 与工具行那份 `EnterpriseMarketAddMenuView` **同一对口径**。
+ */
+function EnterpriseMarketTitleActions({
+  tab, addMenuOpen, onToggleAddMenu,
+}: {
+  readonly tab: EnterpriseMarketTabId
+  readonly addMenuOpen?: boolean | undefined
+  readonly onToggleAddMenu?: (() => void) | undefined
+}): ReactNode {
+  return (
+    <>
+      <EnterpriseMarketRefreshButton />
+      <EnterpriseMarketAddMenuView
+        tab={tab}
+        open={addMenuOpen === true}
+        onToggle={() => { onToggleAddMenu?.() }}
+      />
+    </>
+  )
+}
+
+/** 标题行那枚刷新钮（**与工具行那枚同源**：同一份 `Button` 原语、同一 `ghost` 变体、同一无障碍名）。 */
+function EnterpriseMarketRefreshButton(): ReactNode {
+  return (
+    <Button
+      size="md"
+      variant="ghost"
+      className="own-market-rowBarAction own-market-refreshBtn"
+      icon={<RefreshCw aria-hidden size={16} />}
+      aria-label={ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL}
+      title="占位：本刀未接真刷新，下一刀接 store.refreshPlugins()"
+    />
   )
 }
 
@@ -3104,6 +3496,16 @@ export interface EnterpriseMarketTabSeatState {
   readonly entries: EnterpriseMarketShellModel['tabEntries']
   readonly activeTab: EnterpriseMarketTabId
   readonly onSelect?: ((tab: EnterpriseMarketTabId) => void) | undefined
+  /**
+   * 标题行那枚「添加」下拉的开合态与切换回调（用户口径「把刷新和添加按钮放到标题行右侧」）。
+   *
+   * ★ **为什么它们必须走座位、不能走 props**：页面树（`plugins.item`）与标题行槽树
+   *   （`plugins.detail.actions`）是**两棵不同的 React 树**，props 传不过去 —— 座位是既有的唯一接缝。
+   *   控制器是 `useState` 的持有者，它把这两个值连同页签一起 publish 过来，标题行那份纯函数
+   *   组件才既拿得到状态、又**不持 hook**（直调测试 dispatcher 为 null，见 `EnterpriseMarketTitleActions`）。
+   */
+  readonly addMenuOpen?: boolean | undefined
+  readonly onToggleAddMenu?: (() => void) | undefined
 }
 
 /** 页签座位源（非 React）：两个注册面是**两棵 React 树**（页面树 / 官方标题行槽），只能靠它接起来。 */
@@ -3132,7 +3534,9 @@ export function createEnterpriseMarketTabSeat(): EnterpriseMarketTabSeat {
     publish(next) {
       const nextSignature = next === undefined
         ? undefined
-        : `${next.activeTab}|${next.entries.map(entry => `${entry.id}:${entry.text}`).join(',')}`
+        // ★ `addMenuOpen` **必须进签名**：它是标题行那枚「添加」下拉的开合态，只发页签名的话
+        //   点开下拉不会通知订阅者 ⇒ 菜单永远画不出来（与本项目反复踩的「测试替实现打工」同类）。
+        : `${next.activeTab}|${next.entries.map(entry => `${entry.id}:${entry.text}`).join(',')}|${String(next.addMenuOpen === true)}`
       if (nextSignature === signature) return
       signature = nextSignature
       state = next
@@ -3160,7 +3564,7 @@ export function useEnterpriseMarketTabSeat(
 
 function EnterpriseMarketTabStrip({
   model, onSelectTab, searchText, onSearchChange, filterOpen, onToggleFilter,
-  filterStatus, filterCategory, onFilterSelect, tabsInTitle,
+  filterStatus, filterCategory, onFilterSelect, tabsInTitle, addMenuOpen, onToggleAddMenu,
 }: {
   readonly model: EnterpriseMarketShellModel
   readonly onSelectTab?: ((tab: EnterpriseMarketTabId) => void) | undefined
@@ -3170,6 +3574,9 @@ function EnterpriseMarketTabStrip({
   /** 筛选下拉开合（缺席 = 关闭；点触发钮 no-op，不给死菜单）。 */
   readonly filterOpen?: boolean | undefined
   readonly onToggleFilter?: (() => void) | undefined
+  /** 「添加」下拉开合（缺席 = 关闭；点触发钮 no-op，不给死菜单）。 */
+  readonly addMenuOpen?: boolean | undefined
+  readonly onToggleAddMenu?: (() => void) | undefined
   /** 两组当前选中值（缺席按各自默认；纯函数不持状态，值从外部传）。 */
   readonly filterStatus?: EnterpriseMarketStatusFilter | undefined
   readonly filterCategory?: EnterpriseMarketCategory | 'all' | undefined
@@ -3184,9 +3591,16 @@ function EnterpriseMarketTabStrip({
   )
   return (
     <>
-      {/* 搜索栏 + 筛选钮（照参考图：搜索框**独立整行**、40px 高；筛选钮在它右端）。
-          搜索是真过滤（标题/描述/标识的子串匹配）；回调缺席时输入框 readOnly，不给假输入框。 */}
+      {/* 工具行（用户口径逐字：「搜索栏，左侧是 4 个标签，右侧是搜索栏和筛选按钮」）：
+          **左端＝四枚页签**（无条件渲染，不再看 `tabsInTitle` —— 页签的真源就在这一行，
+          座位只管标题行那两枚按钮，标题行不再出页签，故全页任何时刻只有一个 tablist）；
+          **右端＝搜索框（定宽 320px）+ 漏斗筛选钮**；中间由 .own-market-rowBarSpacer 吃掉剩余。 */}
       <div className="own-market-searchRow">
+        <EnterpriseMarketTabList
+          entries={model.tabEntries}
+          activeTab={model.activeTab}
+          onSelect={onSelectTab}
+        />
         <span className="own-market-query">
           <Search aria-hidden size={16} className="own-market-queryIcon" />
           <input
@@ -3199,6 +3613,8 @@ function EnterpriseMarketTabStrip({
             onChange={(event) => { onSearchChange?.(event.currentTarget.value) }}
           />
         </span>
+        {/* 弹性占位：把右组（漏斗 / 刷新 / 添加技能）整组推到行右（用户口径「靠右对齐」）。 */}
+        <span className="own-market-rowBarSpacer" aria-hidden="true" />
         <div className="own-market-filterWrap">
           <button
             type="button"
@@ -3239,32 +3655,10 @@ function EnterpriseMarketTabStrip({
           两枚都是**占位**（没接真动作），故 `title` 如实写明；走官方 `Button` 原语本体与官方变体。
           移动端自适应：整行 `flex-wrap:nowrap`，两枚按钮 `flex:none`，**搜索框吸收压缩**
           （`.own-market-query{flex:1 1 auto;min-width:120px}`）——放不下时压窄搜索框而**不换行、不溢出**。 */}
-      <Button
-        size="md"
-        variant="ghost"
-        className="own-market-rowBarAction"
-        icon={<RefreshCw aria-hidden size={16} />}
-        aria-label={ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL}
-        title="占位：本刀未接真刷新，下一刀接 store.refreshPlugins()"
-      />
-      <Button
-        size="md"
-        variant="primary"
-        className="own-market-rowBarAction"
-        icon={<Plus aria-hidden size={16} />}
-        aria-label={ENTERPRISE_DETAIL_ACTION_ADD_LABEL}
-        title="占位：企业插件由企业后台上传，员工端入口留下一刀"
-      >{ENTERPRISE_DETAIL_ACTION_ADD_LABEL}</Button>
+      {/* ★ 刷新 / 「添加技能」**已按用户口径搬到标题行右侧**（`EnterpriseMarketTitleActions`，
+          挂官方 `plugins.detail.actions` 槽那一格），**这里不再重复渲染** —— 全页任何时刻
+          这两枚只存在一处。工具行右边只剩漏斗那一枚筛选钮。 */}
       </div>
-      {tabsInTitle === true ? null : (
-        <div className="own-market-tabBar">
-          <EnterpriseMarketTabList
-            entries={model.tabEntries}
-            activeTab={model.activeTab}
-            onSelect={onSelectTab}
-          />
-        </div>
-      )}
     </>
   )
 }
@@ -3554,7 +3948,7 @@ function EnterpriseMarketComponentsPanel({ model, onToggleSection, onOpenLogin, 
               data-state={row.enabled ? 'on' : 'off'}
             >
               <div className="own-market-rowLine">
-                <span className="own-market-rowIcon" data-icon-kind={row.id}><ComponentGlyph id={row.id} /></span>
+                <span className="own-market-rowIcon"><EnterpriseArtworkFallback size={ENTERPRISE_ARTWORK_ROW_SIZE} /></span>
                 <div className="own-market-rowMain">
                   <span className="own-market-rowId">{row.label}</span>
                   <span className="own-market-rowNote">{row.note}</span>
@@ -4759,7 +5153,7 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
                   title={props.onOpenPresetDetail === undefined ? '详情入口未接通' : '查看详情'}
                   onClick={() => { props.onOpenPresetDetail?.(preset) }}
                 >
-                  <span className="own-market-rowIcon" data-icon-kind="presets"><BookMarked size={18} aria-hidden="true" /></span>
+                  <span className="own-market-rowIcon"><EnterpriseArtworkFallback size={ENTERPRISE_ARTWORK_ROW_SIZE} /></span>
                   <div className="own-market-rowMain">
                     <span className="own-market-cardHead">
                       {/* **两行结构**（用户口径：上面标题、下面描述），故第 1 行**只有标题**——
@@ -4823,7 +5217,7 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
                   title={props.onOpenSkillDetail === undefined ? '详情入口未接通' : '查看详情'}
                   onClick={() => { props.onOpenSkillDetail?.(skill) }}
                 >
-                  <span className="own-market-rowIcon" data-icon-kind="skills"><Sparkles size={18} aria-hidden="true" /></span>
+                  <span className="own-market-rowIcon"><EnterpriseArtworkFallback size={ENTERPRISE_ARTWORK_ROW_SIZE} /></span>
                   <div className="own-market-rowMain">
                     {/* 第 1 行 = 标题 + 两枚只读签（版本签取 `sourceDshVersion` 的**短号**、分类签取可选 `category`）：
                         单行 nowrap，标签过多时标题先省略、两枚签保持可见，行高不变。
@@ -4885,7 +5279,7 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
                   title={props.onOpenPluginDetail === undefined ? '详情入口未接通' : '查看详情'}
                   onClick={() => { props.onOpenPluginDetail?.(plugin) }}
                 >
-                  <span className="own-market-rowIcon" data-icon-kind="plugins"><Package size={18} aria-hidden="true" /></span>
+                  <span className="own-market-rowIcon"><EnterpriseArtworkFallback size={ENTERPRISE_ARTWORK_ROW_SIZE} /></span>
                   <div className="own-market-rowMain">
                     {/* 第 1 行 = 标题 + 「企业」签 + 版本短号签——**与技能行的标题行同款同枚**（同一串类名、
                         同一个 tone、同一枚官方 `Tag` 原语、每个类名都取自本文件既有声明，故一个新类都没有）。
@@ -5107,6 +5501,8 @@ export function EnterpriseMarketLegacyShell(props: EnterpriseMarketShellProps): 
         onSearchChange={props.onSearchChange}
         filterOpen={props.filterOpen}
         onToggleFilter={props.onToggleFilter}
+        addMenuOpen={props.addMenuOpen}
+        onToggleAddMenu={props.onToggleAddMenu}
         filterStatus={props.filterStatus}
         filterCategory={props.filterCategory}
         onFilterSelect={props.onFilterSelect}
@@ -5266,6 +5662,11 @@ export function useEnterpriseMarketController({ view, store, libraryGate, preset
   // `enterpriseMarketShellModel` 真的切可见行；分类筛选的取值恒为七类之一或 `'all'`。
   const [searchText, setSearchText] = useState('')
   const [filterOpen, setFilterOpen] = useState(false)
+  // 「添加技能」下拉开合（**与 `filterOpen` 同一范式**：状态在控制器、纯函数外壳只读）。
+  // ★ 这一对 state 是真机「点不开」的根因修复：此前 `addMenuOpen`/`onToggleAddMenu` 虽是
+  //   `EnterpriseMarketShellProps` 上的字段，却**没有任何供给点**（`client.tsx` 与控制器都不传）
+  //   ⇒ `open` 恒 undefined、点击恒 no-op，而单测直调时自己传了这两个 prop ⇒ **测试替实现打了工**。
+  const [addMenuOpen, setAddMenuOpen] = useState(false)
   const [filterStatus, setFilterStatus] = useState<EnterpriseMarketStatusFilter>('all')
   const [filterCategory, setFilterCategory] = useState<EnterpriseMarketCategory | 'all'>('all')
   // 「⋯」更多菜单的开合（**单选**：同一时刻只开一行；行键 = `enterpriseMarketRowKey(tab, id)`）。
@@ -5897,6 +6298,8 @@ export function useEnterpriseMarketController({ view, store, libraryGate, preset
     onSearchChange: (text) => { setSearchText(text) },
     filterOpen,
     onToggleFilter: () => { setFilterOpen(prev => !prev) },
+    addMenuOpen,
+    onToggleAddMenu: () => { setAddMenuOpen(prev => !prev) },
     filterStatus,
     filterCategory,
     onFilterSelect: (group, option) => {
@@ -6109,11 +6512,15 @@ export function EnterpriseMarketShellHost({ view, store, libraryGate, presetLaun
   const tabEntries = enterpriseMarketShellModel(shellProps).tabEntries
   const tabActive = shellProps.activeTab
   const tabSelect = shellProps.onSelectTab
+  const addOpen = shellProps.addMenuOpen
+  const toggleAdd = shellProps.onToggleAddMenu
   useEffect(() => {
     tabSeat?.publish(tabEntries === undefined || tabActive === undefined || tabSelect === undefined
       ? undefined
-      : { entries: tabEntries, activeTab: tabActive, onSelect: tabSelect })
-  }, [tabSeat, tabEntries, tabActive, tabSelect])
+      // 座位是页面树 → 标题行槽树这**两棵 React 树之间唯一的接缝**（props 传不过去），
+      // 所以标题行那枚「添加」下拉的开合态与回调也必须随座位一起过去。
+      : { entries: tabEntries, activeTab: tabActive, onSelect: tabSelect, addMenuOpen: addOpen, onToggleAddMenu: toggleAdd })
+  }, [tabSeat, tabEntries, tabActive, tabSelect, addOpen, toggleAdd])
   return (
     <>
       <EnterpriseMarketLegacyShell {...shellProps} tabsInTitle={tabSeat !== undefined} />

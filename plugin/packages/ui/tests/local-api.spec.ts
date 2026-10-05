@@ -414,6 +414,8 @@ describe('enterprise local browser API', () => {
       skillId: 'code-review-ent',
       displayName: '企业代码评审技能包',
       description: '企业统一的代码评审检查单',
+      // 契约 `RuntimeSkillSummary.builtin`（必填 boolean；服务端恒发真值）。
+      builtin: false,
       sourceDshVersion: '0.2.0-rc.2',
       sizeBytes: 2048,
       skillCount: 1,

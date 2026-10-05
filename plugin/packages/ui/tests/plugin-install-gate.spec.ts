@@ -55,6 +55,15 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
   StateDot: vi.fn(),
   Switch: vi.fn(),
   Tag: vi.fn(),
+  // `official-ui.ts` 在 **import 期**就把 Menu / MenuItemButton / 四枚 Icon 取成**模块级常量**
+  // ⇒ mock 缺任何一项都会在**加载期**抛「No "…" export is defined on the mock」，整份 spec 起不来。
+  // 本文件不测这些原语，补齐占位即可（**不是**放宽任何断言）。
+  Menu: vi.fn(),
+  MenuItemButton: vi.fn(),
+  IconEllipsisOutlineMedium: vi.fn(),
+  IconSettingsOutlineMedium: vi.fn(),
+  IconUserOutlineMedium: vi.fn(),
+  IconLoadingOutlineMedium: vi.fn(),
 }))
 
 afterEach(() => { vi.unstubAllGlobals() })
@@ -109,6 +118,12 @@ function shapeWithin(node: ReactNode): string {
     const value = props[key]
     if (typeof value === 'function') return `${key}=fn`
     if (value === undefined) return `${key}=undef`
+    // 卡片那枚官方兜底图标的**渐变 id 逐次唯一**（写死会让同页几十枚全解析到第一个同名 defs、
+    // 整页染成同一色——官方 `useArtworkId` 注释即此）⇒ 每次渲染都不同。
+    // 它是**实现细节**、不是本文件要守的不变式（这里守的是「不同 OS 声明 / 不同 UA 渲染出同一行」），
+    // 故归一成占位——**不是放松断言**：元素类型、其余全部 props、层级与可见文本照旧逐字比。
+    if (key === 'id' && typeof value === 'string' && value.startsWith('own-market-art-')) return `${key}=ARTIFACT-ID`
+    if (key === 'fill' && typeof value === 'string' && value.startsWith('url(#own-market-art-')) return `${key}=ARTIFACT-FILL`
     return `${key}=${JSON.stringify(value)}`
   }).join(' ')
   const type = typeof element.type === 'string' ? element.type : 'C'

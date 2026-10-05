@@ -33,6 +33,7 @@ import {
 import type { EnterprisePluginPageProps } from '../src/marketplace-entry.js'
 import {
   ENTERPRISE_MARKET_BADGE_TEXT,
+  ENTERPRISE_ARTWORK_ROW_SIZE,
   ENTERPRISE_MARKET_COMPONENTS,
   ENTERPRISE_MARKET_DEFAULT_EXPANDED,
   ENTERPRISE_MARKET_DISABLE_TEXT,
@@ -51,6 +52,8 @@ import {
   ENTERPRISE_MARKET_TABS,
   ENTERPRISE_DETAIL_ACTION_ADD_LABEL,
   ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL,
+  ENTERPRISE_ADD_MENU_DEVELOPING,
+  enterpriseAddMenuEntries,
   BadgeView,
   EnterpriseMarketBadge,
   EnterpriseMarketBadgeTag,
@@ -184,15 +187,8 @@ function textOf(node: ReactNode): string {
  */
 const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(20843 chars)",
+  "  style(26747 chars)",
   "  div[className=own-market-searchRow]",
-  "    span[className=own-market-query]",
-  "      #opaque:[object Object]",
-  "      input[type=search][className=own-market-queryInput][aria-label=搜索][placeholder=搜索技能、插件、配方][value=][readOnly=true][onChange=[fn]]",
-  "    div[className=own-market-filterWrap]",
-  "      button[type=button][className=own-market-filterBtn][aria-label=筛选][aria-expanded=false][onClick=[fn]]",
-  "        #opaque:[object Object]",
-  "  div[className=own-market-tabBar]",
   "    div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
   "      button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=true][aria-controls=market-panel-skills][tabIndex=0][onClick=[fn]][onKeyDown=[fn]]",
   "        #text:技能 1",
@@ -202,6 +198,13 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "        #text:配方 0",
   "      button[id=market-tab-components][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-components][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
   "        #text:组件 4",
+  "    span[className=own-market-query]",
+  "      #opaque:[object Object]",
+  "      input[type=search][className=own-market-queryInput][aria-label=搜索][placeholder=搜索技能、插件、配方][value=][readOnly=true][onChange=[fn]]",
+  "    span[className=own-market-rowBarSpacer][aria-hidden=true]",
+  "    div[className=own-market-filterWrap]",
+  "      button[type=button][className=own-market-filterBtn][aria-label=筛选][aria-expanded=false][onClick=[fn]]",
+  "        #opaque:[object Object]",
   "  div[id=market-panel-skills][role=tabpanel][aria-labelledby=market-tab-skills][hidden=false][className=own-market-panel]",
   "    section[className=own-market-section][data-market-section=enterprise-skills]",
   "      section[className=own-market-categoryGroup][data-enterprise-market-group=其他]",
@@ -211,8 +214,13 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "          li[className=own-market-row][data-enterprise-skill-package=1902500000000000001][data-enterprise-skill-id=meeting-notes][data-enterprise-skill-state=UPDATE_AVAILABLE]",
   "            div[className=own-market-rowLine]",
   "              button[type=button][className=own-market-rowOpen][data-enterprise-skill-open=1902500000000000001][aria-label=查看企业技能 会议纪要技能组 详情][disabled=true][title=详情入口未接通][onClick=[fn]]",
-  "                span[className=own-market-rowIcon][data-icon-kind=skills]",
-  "                  #opaque:[object Object]",
+  "                span[className=own-market-rowIcon]",
+  "                  svg[width=30][height=30][viewBox=0 0 36 36][fill=none][xmlns=http://www.w3.org/2000/svg][aria-hidden=true]",
+  "                    path[d=M24.6294 8.63696C26.2862 8.63705 27.6294 9.98016 27.6294 11.637V12.7825C27.6292 14.4391 26.2861 15.7824 24.6294 15.7825H23.4839C22.6519 15.7825 21.5454 16.3459 21.5454 17.1778V18.1573C21.5454 18.7757 22.216 19.1966 22.8345 19.1965H24.6294C26.2861 19.1965 27.6292 20.5398 27.6294 22.1965V23.9924C27.6292 25.6491 26.2861 26.9924 24.6294 26.9924H22.8345C21.1778 26.9924 19.8347 25.649 19.8345 23.9924V22.1965C19.8345 21.7148 19.4957 21.2327 19.014 21.2327H16.4792C15.7975 21.2327 15.3374 22.0061 15.3374 22.6877V23.8333C15.3373 25.49 13.9942 26.8333 12.3374 26.8333H11.1919C9.53509 26.8333 8.19198 25.49 8.19189 23.8333V22.6877C8.19189 21.0309 9.53504 19.6877 11.1919 19.6877H12.3374C13.1964 19.6877 14.3999 19.0959 14.3999 18.2369V16.0185C14.3999 14.9518 15.2646 14.0872 16.3312 14.0872H19.435C20.0596 14.0872 20.484 13.4071 20.4839 12.7825V11.637C20.4839 9.98011 21.827 8.63696 23.4839 8.63696H24.6294ZM13.4116 11.2468C13.4116 12.6882 12.2431 13.8567 10.8018 13.8567C9.36037 13.8567 8.19189 12.6882 8.19189 11.2468C8.19189 9.80544 9.36037 8.63696 10.8018 8.63696C12.2431 8.63696 13.4116 9.80544 13.4116 11.2468Z][fill=url(#ARTIFACT-ID)]",
+  "                    defs",
+  "                      linearGradient[id=ARTIFACT-ID][x1=15.1481][y1=9.94188][x2=15.1481][y2=13.6375][gradientUnits=userSpaceOnUse]",
+  "                        stop[stopColor=#54ECE7]",
+  "                        stop[offset=1][stopColor=#658EFF]",
   "                div[className=own-market-rowMain]",
   "                  span[className=own-market-cardHead]",
   "                    span[className=own-market-cardId own-market-skillTitle]",
@@ -245,15 +253,8 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
  */
 const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(20843 chars)",
+  "  style(26747 chars)",
   "  div[className=own-market-searchRow]",
-  "    span[className=own-market-query]",
-  "      #opaque:[object Object]",
-  "      input[type=search][className=own-market-queryInput][aria-label=搜索][placeholder=搜索技能、插件、配方][value=][readOnly=true][onChange=[fn]]",
-  "    div[className=own-market-filterWrap]",
-  "      button[type=button][className=own-market-filterBtn][aria-label=筛选][aria-expanded=false][onClick=[fn]]",
-  "        #opaque:[object Object]",
-  "  div[className=own-market-tabBar]",
   "    div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
   "      button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-skills][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
   "        #text:技能 1",
@@ -263,6 +264,13 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "        #text:配方 0",
   "      button[id=market-tab-components][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-components][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
   "        #text:组件 4",
+  "    span[className=own-market-query]",
+  "      #opaque:[object Object]",
+  "      input[type=search][className=own-market-queryInput][aria-label=搜索][placeholder=搜索技能、插件、配方][value=][readOnly=true][onChange=[fn]]",
+  "    span[className=own-market-rowBarSpacer][aria-hidden=true]",
+  "    div[className=own-market-filterWrap]",
+  "      button[type=button][className=own-market-filterBtn][aria-label=筛选][aria-expanded=false][onClick=[fn]]",
+  "        #opaque:[object Object]",
   "  div[id=market-panel-skills][role=tabpanel][aria-labelledby=market-tab-skills][hidden=true][className=own-market-panel]",
   "  div[id=market-panel-plugins][role=tabpanel][aria-labelledby=market-tab-plugins][hidden=false][className=own-market-panel]",
   "    section[className=own-market-section][data-market-section=enterprise-plugins]",
@@ -274,8 +282,13 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "            li[className=own-market-row][data-enterprise-plugin-package=ent-a][data-enterprise-plugin-state=ACTIVE]",
   "              div[className=own-market-rowLine]",
   "                button[type=button][className=own-market-rowOpen][data-enterprise-plugin-open=ent-a][aria-label=查看企业插件 ent-a 详情][disabled=true][title=详情入口未接通][onClick=[fn]]",
-  "                  span[className=own-market-rowIcon][data-icon-kind=plugins]",
-  "                    #opaque:[object Object]",
+  "                  span[className=own-market-rowIcon]",
+  "                    svg[width=30][height=30][viewBox=0 0 36 36][fill=none][xmlns=http://www.w3.org/2000/svg][aria-hidden=true]",
+  "                      path[d=M24.6294 8.63696C26.2862 8.63705 27.6294 9.98016 27.6294 11.637V12.7825C27.6292 14.4391 26.2861 15.7824 24.6294 15.7825H23.4839C22.6519 15.7825 21.5454 16.3459 21.5454 17.1778V18.1573C21.5454 18.7757 22.216 19.1966 22.8345 19.1965H24.6294C26.2861 19.1965 27.6292 20.5398 27.6294 22.1965V23.9924C27.6292 25.6491 26.2861 26.9924 24.6294 26.9924H22.8345C21.1778 26.9924 19.8347 25.649 19.8345 23.9924V22.1965C19.8345 21.7148 19.4957 21.2327 19.014 21.2327H16.4792C15.7975 21.2327 15.3374 22.0061 15.3374 22.6877V23.8333C15.3373 25.49 13.9942 26.8333 12.3374 26.8333H11.1919C9.53509 26.8333 8.19198 25.49 8.19189 23.8333V22.6877C8.19189 21.0309 9.53504 19.6877 11.1919 19.6877H12.3374C13.1964 19.6877 14.3999 19.0959 14.3999 18.2369V16.0185C14.3999 14.9518 15.2646 14.0872 16.3312 14.0872H19.435C20.0596 14.0872 20.484 13.4071 20.4839 12.7825V11.637C20.4839 9.98011 21.827 8.63696 23.4839 8.63696H24.6294ZM13.4116 11.2468C13.4116 12.6882 12.2431 13.8567 10.8018 13.8567C9.36037 13.8567 8.19189 12.6882 8.19189 11.2468C8.19189 9.80544 9.36037 8.63696 10.8018 8.63696C12.2431 8.63696 13.4116 9.80544 13.4116 11.2468Z][fill=url(#ARTIFACT-ID)]",
+  "                      defs",
+  "                        linearGradient[id=ARTIFACT-ID][x1=15.1481][y1=9.94188][x2=15.1481][y2=13.6375][gradientUnits=userSpaceOnUse]",
+  "                          stop[stopColor=#54ECE7]",
+  "                          stop[offset=1][stopColor=#658EFF]",
   "                  div[className=own-market-rowMain]",
   "                    span[className=own-market-cardHead]",
   "                      span[className=own-market-cardId own-market-skillTitle]",
@@ -302,8 +315,13 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "            li[className=own-market-row][data-enterprise-plugin-package=ent-b][data-enterprise-plugin-state=FAILED]",
   "              div[className=own-market-rowLine]",
   "                button[type=button][className=own-market-rowOpen][data-enterprise-plugin-open=ent-b][aria-label=查看企业插件 ent-b 详情][disabled=true][title=详情入口未接通][onClick=[fn]]",
-  "                  span[className=own-market-rowIcon][data-icon-kind=plugins]",
-  "                    #opaque:[object Object]",
+  "                  span[className=own-market-rowIcon]",
+  "                    svg[width=30][height=30][viewBox=0 0 36 36][fill=none][xmlns=http://www.w3.org/2000/svg][aria-hidden=true]",
+  "                      path[d=M24.6294 8.63696C26.2862 8.63705 27.6294 9.98016 27.6294 11.637V12.7825C27.6292 14.4391 26.2861 15.7824 24.6294 15.7825H23.4839C22.6519 15.7825 21.5454 16.3459 21.5454 17.1778V18.1573C21.5454 18.7757 22.216 19.1966 22.8345 19.1965H24.6294C26.2861 19.1965 27.6292 20.5398 27.6294 22.1965V23.9924C27.6292 25.6491 26.2861 26.9924 24.6294 26.9924H22.8345C21.1778 26.9924 19.8347 25.649 19.8345 23.9924V22.1965C19.8345 21.7148 19.4957 21.2327 19.014 21.2327H16.4792C15.7975 21.2327 15.3374 22.0061 15.3374 22.6877V23.8333C15.3373 25.49 13.9942 26.8333 12.3374 26.8333H11.1919C9.53509 26.8333 8.19198 25.49 8.19189 23.8333V22.6877C8.19189 21.0309 9.53504 19.6877 11.1919 19.6877H12.3374C13.1964 19.6877 14.3999 19.0959 14.3999 18.2369V16.0185C14.3999 14.9518 15.2646 14.0872 16.3312 14.0872H19.435C20.0596 14.0872 20.484 13.4071 20.4839 12.7825V11.637C20.4839 9.98011 21.827 8.63696 23.4839 8.63696H24.6294ZM13.4116 11.2468C13.4116 12.6882 12.2431 13.8567 10.8018 13.8567C9.36037 13.8567 8.19189 12.6882 8.19189 11.2468C8.19189 9.80544 9.36037 8.63696 10.8018 8.63696C12.2431 8.63696 13.4116 9.80544 13.4116 11.2468Z][fill=url(#ARTIFACT-ID)]",
+  "                      defs",
+  "                        linearGradient[id=ARTIFACT-ID][x1=15.1481][y1=9.94188][x2=15.1481][y2=13.6375][gradientUnits=userSpaceOnUse]",
+  "                          stop[stopColor=#54ECE7]",
+  "                          stop[offset=1][stopColor=#658EFF]",
   "                  div[className=own-market-rowMain]",
   "                    span[className=own-market-cardHead]",
   "                      span[className=own-market-cardId own-market-skillTitle]",
@@ -333,9 +351,31 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
  * 「安装中」那一条进度只在真的在装时才进 DOM，故两份结构大纲的**行部分一字未动**，
  * 变的只有 `<style>` 的长度那一行（`style(10507 chars)` → `style(12028 chars)`）。
  * 任何人再改这份 CSS（不管是加装饰还是删规则）都会在这里立刻显形。
+ *
+ * **本刀（搜索行降到官方 Input 那一档 + 框线变浅 + 上下层次）再基线化一次：
+ * 20843 → 22299 chars、校验和 1320448966 → 351544358。**
+ * 同样**只推基线、不放宽判据**（仍是上面那两道 + 两处大纲的 `style(N chars)`，锁的形态一字未改）。
+ * 这一刀 CSS 有三处变动，逐条记清，否则后人无从复核：
+ *   · **＋**：隐藏官方详情页那枚 48×48 图标的规则（`[data-plugin-item-detail] [class*="_detailHead"]
+ *     [class*="_cardIcon"]`）**从 `detailStyles` 挪进了 `baseStyles`**。它服务的是**列表视图**那个分支的
+ *     官方 `ItemDetail`，而 `detailStyles` 只在技能/配方详情子页面挂载 —— 寄居在那边等于**规则不在图标
+ *     真正出现的那页面上**（真机验收「图标没消失」即栽在这里；选择器本身是对的）。
+ *   · **－**：`.own-market-rowIcon[data-icon-kind=…]` 四条按类别上色的 static 规则**整组删除**
+ *     （官方兜底图形自带青蓝渐变，再上色会与渐变打架；每张卡都挂同一个「企业」标识本就零信息量），
+ *     容器改回中性色。
+ *   · **搜索行**：搜索框与漏斗钮整行降到官方 `Input.module.css` 那一档（`height:32px` / `padding:0 8px` /
+ *     `border-radius:8px` / `font-size:14px`，边框 `0.5px solid var(--dsw-alias-border-l4)`），
+ *     并把「工具行 → 内容区」的间距收成**单点**（见下面 ⑤）。
+ * ★ 兜底图形**尺寸 18 → 30**（官方 `ROW_ARTWORK_SIZE`：40px 框里放 30px 图形）**不动 CSS**，
+ *   只动 SVG 的 width/height，故不进这两道基线 —— 它由「gives every row the official fallback
+ *   artwork…」那条用例按「40 框 + 30 图形」这个配比单独锁死。
+ * ★ 详情那份 CSS（baseStyles + rowStyles + detailStyles）随之也变了，但**没有任何常量锁它的字节数**，
+ *   故本刀不必为它单独立基线（`EnterpriseSkillDetailPage` 那些用例按类名逐条断言，不按字节数）。
+ * ★ 反向锁在「keeps the rule that hides the official detail icon in the list-view stylesheet」那条用例里：
+ *   它直接锁「**这份** CSS 必须含那条规则」，比锁某张表的否定更贴近真实需求。
  */
-const LEGACY_STYLE_LENGTH = 20843
-const LEGACY_STYLE_CHECKSUM = 1320448966
+const LEGACY_STYLE_LENGTH = 26747
+const LEGACY_STYLE_CHECKSUM = 4237248219
 
 /** 「企业技能」节的目录 fixture：与 skill-market.spec 的列表投影同形（列表态 versionId/skills 为空）。 */
 const SKILL: EnterpriseRuntimeSkill = {
@@ -528,26 +568,32 @@ describe('enterprise marketplace entry', () => {
   // 本刀（用户裁决 A：4 个页签放到标题右侧）：页签的渲染位置由**座位是否注入**决定——
   // 注入 ⇒ 页面这一层不画页签、由官方 `plugins.detail.actions` 槽那一格渲染；不注入 ⇒ 留在页面里
   // （外壳自包含的默认形态）。两处**绝不并存**，故任何时刻全页只有一个 `tablist`。
-  it('moves the four page tabs into the title slot when the seat is injected, and never renders two tablists', () => {
+  // ★ **本刀的排版口径（用户逐字）**：「搜索栏，左侧是 4 个标签，右侧是搜索栏和筛选按钮」+
+  //   「把刷新和添加按钮放到标题行右侧，右对齐」。⇒ **页签在工具行左端**（不再看 `tabsInTitle`），
+  //   **标题行只出刷新 + 「添加技能」两枚**（页签不在标题行）。两处绝不并存，全页只有一个 `tablist`。
+  it('keeps the four page tabs in the tool row (left) and moves the two action buttons to the title slot', () => {
     const props = { view: 'page' as const, sessionUsable: true }
     const model = enterpriseMarketShellModel(props)
-    // ① 不注入座位：页签仍由页面渲染（外壳自包含）。
+    // ① 工具行左端恒有四枚页签（**与 `tabsInTitle` 无关** —— 页签真源就在这一行）。
     const bare = EnterpriseMarketLegacyShell(props)
-    expect(collectByRole(bare, 'tab')).toHaveLength(4)
-    // ② 注入座位（宿主在有座位时会传 `tabsInTitle`）：页面这一层一枚页签都不画。
+    const rowTabs = collectByRole(bare, 'tab')
+    expect(rowTabs.map(tab => tab['children'])).toEqual(['技能 0', '插件 0', '配方 0', '组件 4'])
+    expect(rowTabs.map(tab => tab['aria-selected'])).toEqual([true, false, false, false])
+    // ② 注入座位（宿主传 `tabsInTitle`）时**页签数量不变** —— 仍只有这一处，不长第二份。
     const seated = EnterpriseMarketLegacyShell({ ...props, tabsInTitle: true })
-    expect(collectByRole(seated, 'tab')).toEqual([])
-    expect(collectByRole(seated, 'tablist')).toEqual([])
-    // ③ 标题行那一格（同一个模型 + 座位状态）：四枚页签在前、两枚按钮在后（用户裁决 A 的排版）。
+    expect(collectByRole(seated, 'tab')).toHaveLength(4)
+    // ③ 标题行那一格：**零枚页签**（页签已搬去工具行），只出刷新 + 「添加技能」两枚动作。
     const slot = EnterpriseMarketDetailActions({
       subject: { kind: 'item', id: ENTERPRISE_MARKET_ENTRY_ID },
       tabSeat: { entries: model.tabEntries, activeTab: model.activeTab, onSelect: undefined },
     })
-    const slotTabs = collectByRole(slot, 'tab')
-    expect(slotTabs.map(tab => tab['children'])).toEqual(['技能 0', '插件 0', '配方 0', '组件 4'])
-    expect(slotTabs.map(tab => tab['aria-selected'])).toEqual([true, false, false, false])
-    // 标题槽**只出页签、不出按钮**（用户口径：刷新/添加插件挪到搜索行）。
-    expect(collectOfficialButtonProps(slot)).toEqual([])
+    expect(collectByRole(slot, 'tab')).toEqual([])
+    expect(collectByRole(slot, 'tablist')).toEqual([])
+    const slotActions = collectOfficialButtonProps(slot)
+    expect(slotActions.map(props => props['aria-label']))
+      .toEqual([ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL, ENTERPRISE_DETAIL_ACTION_ADD_LABEL])
+    // 标题槽这两枚动作**右对齐**（用户口径）：包在 margin-left:auto 的容器里。
+    expect(collectByClassName(slot, 'own-market-titleActions')).toHaveLength(1)
     // 非本条目 subject 仍然一律 null（槽是 root 级、三种详情页都会渲染，过滤口径不变）。
     expect(EnterpriseMarketDetailActions({ subject: { kind: 'item', id: 'bash' } })).toBeNull()
     // ④ 座位源：**签名没变不通知**（页面每帧都发布，不设这道闸就会自激重渲染）；变了才通知；退订即静默。
@@ -864,41 +910,121 @@ describe('enterprise marketplace entry', () => {
     expect(EnterpriseMarketDetailActions({ subject: { kind: 'row', pkg: { name: 'x' }, row: { rowId: 'y' } } })).toBeNull()
     expect(EnterpriseMarketDetailActions({ subject: { kind: 'package', pkg: { name: 'x' } } })).toBeNull()
     // 本条目但**座位没接线**：标题右侧这一格**什么都不出**（返回的是空 Fragment，不是 null——
-    // 因为是本条目，函数已经越过 subject 门）；页签在页面里、按钮在搜索行里。
+    // 因为是本条目，函数已经越过 subject 门）；**页签与两枚动作都只在座位在场时出**。
     const noSeat = EnterpriseMarketDetailActions({ subject: { kind: 'item', id: ENTERPRISE_MARKET_ENTRY_ID } })
     expect(textOf(noSeat)).toBe('')
     expect(collectByRole(noSeat, 'tab')).toEqual([])
     expect(collectOfficialButtonProps(noSeat)).toEqual([])
-    // 座位接线后：这一格**只出 4 个页签**，一枚按钮都没有（用户口径：刷新/添加插件挪到搜索那一行）。
+    // 座位接线后：这一格**零枚页签**（页签已搬去工具行左端）、**出两枚动作**（刷新 + 「添加」，右对齐）。
     const model = enterpriseMarketShellModel({ view: 'page', sessionUsable: true })
     const seated = EnterpriseMarketDetailActions({
       subject: { kind: 'item', id: ENTERPRISE_MARKET_ENTRY_ID },
       tabSeat: { entries: model.tabEntries, activeTab: model.activeTab, onSelect: undefined },
     })
-    expect(collectByRole(seated, 'tab')).toHaveLength(4)
-    expect(collectOfficialButtonProps(seated)).toEqual([])
-    // 两枚占位按钮现在**在搜索行**（与搜索、筛选同一行、位于筛选钮右侧）：变体/尺寸/图标/无障碍名/title 逐字锁死。
-    const page = EnterpriseMarketLegacyShell({ view: 'page', sessionUsable: true })
-    const actions = collectOfficialButtonProps(page).filter(props => props['className'] === 'own-market-rowBarAction')
+    expect(collectByRole(seated, 'tab')).toEqual([])
+    // 两枚动作在**标题槽**里（用户口径「把刷新和添加按钮放到标题行右侧」）：变体/尺寸/图标/无障碍名/title 逐字锁死。
+    const actions = collectOfficialButtonProps(seated)
     expect(actions).toHaveLength(2)
+    // 刷新 = `toolbar`（官方那一档**浅色实底**：`background: var(--dsw-alias-button-tool-bar-fill)`）；
+    // 刷新钮 = 官方 `variant="ghost"`（用户口径：「应该是没有背景的，我意思是**图标浅色**，不是背景」）。
+    // ★ **本条曾被写反**：早先断言 `toEqual(['toolbar',…])` + `not.toContain('ghost')`，并用一段
+    //   「ghost 常态透明所以用户看不到浅色」的注释把那个误解**合理化**了——那是把「浅色」读成
+    //   「浅灰实底」（`toolbar` = `button-tool-bar-fill`）造成的。**错误注释比错误代码更毒**，
+    //   它会让下一个人照着再错一次；两处一并改掉。
     expect(actions.map(props => props['variant'])).toEqual(['ghost', 'primary'])
+    // 反向锁的方向也跟着翻：现在要锁的是「刷新钮**不得**再回到有常态底的 toolbar/outline」。
+    expect(actions.map(props => props['variant'])).not.toContain('toolbar')
+    expect(actions.map(props => props['variant'])).not.toContain('outline')
     expect(actions.map(props => props['size'])).toEqual(['md', 'md'])
-    expect(actions.every(props => props['icon'] !== undefined && props['icon'] !== null)).toBe(true)
+    // 刷新钮仍用官方 `icon` prop；**「添加技能」触发钮按 Cherry 用内联 children**
+    // （`Plus` + 文字 + `ChevronDown`，`ResourceGrid.tsx:181-184`）——所以它**没有** `icon` prop。
+    // 这不是「图标丢了」：三枚图形都在 children 里，形状照 Cherry。
+    expect(actions[0]?.['icon']).toBeDefined()
+    expect(actions[1]?.['icon']).toBeUndefined()
+    expect(actions.every(props => props['variant'] !== undefined)).toBe(true)
     expect(actions.map(props => props['aria-label'])).toEqual([
       ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL,
       ENTERPRISE_DETAIL_ACTION_ADD_LABEL,
     ])
     expect(actions.map(props => props['title'])).toEqual([
       '占位：本刀未接真刷新，下一刀接 store.refreshPlugins()',
-      '占位：企业插件由企业后台上传，员工端入口留下一刀',
+      // 「添加技能」触发钮**刻意不挂 title**：本轮四项执行不接、原因写在各项的**可见标签**里
+      // （官方 MenuItemButton 不透传 title，挂了也会被静默丢弃 ⇒ 那才是真的死控件）。
+      undefined,
     ])
-    // 这份输入没有目录行 ⇒ 全页官方 Button 恰好就是这两枚（不会有第三枚偷偷进来）。
-    expect(collectOfficialButtonProps(page)).toHaveLength(2)
+    // 「添加技能」触发钮是**下拉触发钮**：开合用 aria-expanded 表达，
+    // 且**零 aria-haspopup**（本页既有源码级反锁禁 dialog 语义）。
+    expect(actions[1]?.['aria-expanded']).toBe(false)
+    expect(actions[1]?.['aria-label']).toBe(ENTERPRISE_DETAIL_ACTION_ADD_LABEL)
+    // ★ 触发钮文案**逐字照 Cherry** `library.skill_add.add` = 「添加技能」（**不是**「添加」）。
+    expect(ENTERPRISE_DETAIL_ACTION_ADD_LABEL).toBe('添加')
+    // 这份输入没有目录行 ⇒ 工具行那侧官方 Button 恰好零枚（两枚动作都在标题槽里）。
+    expect(collectOfficialButtonProps(EnterpriseMarketLegacyShell({ view: 'page', sessionUsable: true }))).toHaveLength(0)
   })
 
   // **反向锁（「企业标签不新增 CSS 类」）**：徽章与描述行胶囊只用官方原语 + 本文件**既有**的 `.own-market-tag`，
   // 源码里那个类的声明块仍然只有一条。（整份 `<style>` 的字节级基线已按**本刀**新增的进度动画
   // **再基线化**到 `LEGACY_STYLE_LENGTH` / `LEGACY_STYLE_CHECKSUM`——锁的形态没变，见那两个常量的注释。）
+  /**
+   * ★ **基线自证**：那三份 `style(NNNN chars)` / `LEGACY_STYLE_LENGTH` / `LEGACY_STYLE_CHECKSUM`
+   * 是**手写常量**，任何人改 CSS 都会踩到它们。这条断言让基线**自己成为可验证的产物**，
+   * 而不是靠人肉同步的负债——常量与真实 `<style>` 串一旦漂移，这里立刻红。
+   */
+  it('keeps the hand-written style baselines equal to the real <style> string (no human sync)', () => {
+    const css = collectStyleText(EnterpriseMarketLegacyShell({ view: 'page' }))
+    expect(css.length, 'LEGACY_STYLE_LENGTH 与真实 <style> 长度漂移了').toBe(LEGACY_STYLE_LENGTH)
+    expect(styleChecksum(css), 'LEGACY_STYLE_CHECKSUM 与真实 <style> 校验和漂移了').toBe(LEGACY_STYLE_CHECKSUM)
+    // 两份 outline 快照里那两行也必须与真实长度一致（它们是同一份基线的另两面）。
+    for (const line of [...LEGACY_SHELL_OUTLINE, ...LEGACY_PLUGINS_OUTLINE]) {
+      const matched = /^\s*style\((\d+) chars\)$/.exec(line)
+      if (matched === null) continue
+      expect(Number(matched[1]), 'outline 里的 style(N chars) 与真实长度漂移了').toBe(LEGACY_STYLE_LENGTH)
+    }
+  })
+
+  /**
+   * ★ 「添加技能」下拉：**按页签**、技能页签一套、**四项逐字照 Cherry**、执行本轮不接（全「开发中」）。
+   *
+   * 锁五件事：
+   * ① **按页签**：只有 `skills` 有清单；其余三个页签返回 `[]` ⇒ **整段不渲染**（不是渲染一枚空的）。
+   * ② **四项文案与顺序**逐字照 Cherry `zh-cn.json` 的 `library.skill_add.*`
+   *    （通过 Agent 创建 / 在线搜索 / 系统搜索 / 本地导入），**含两个条件项**（Cherry `:188`/`:198`）。
+   * ③ **顺序锁**：菜单项顺序 === 投影数组顺序（防止将来加项时插到中间漂了）。
+   * ④ 四项全「开发中」：本轮不接执行 ⇒ 没有一项被做成「看起来能点」；原因**写进可见标签**
+   *    （官方 `MenuItemButton` 不透传 `title`，挂了会被静默丢弃 ⇒ 那才是真的死控件）。
+   * ⑤ 不得出现占位符式文案（「即将上线」「敬请期待」等都不是用户口径）。
+   */
+  it('ships the Cherry-shaped 添加技能 dropdown on the skills tab only, every item marked 开发中', () => {
+    // ① 按页签：只有技能页签有清单；其余三个页签空清单（⇒ 渲染层整段不渲染）。
+    expect(enterpriseAddMenuEntries('skills').map(entry => entry.label))
+      .toEqual(['通过 Agent 创建', '在线搜索', '系统搜索', '本地导入'])
+    for (const tab of ['plugins', 'presets', 'components'] as const) {
+      expect(enterpriseAddMenuEntries(tab), tab).toEqual([])
+    }
+    // ②③ 顺序 === 投影数组顺序（含两个条件项，形状照抄 Cherry）。
+    const entries = enterpriseAddMenuEntries('skills')
+    expect(entries.map(entry => entry.id)).toEqual(['create-with-agent', 'online-search', 'system-search', 'local-import'])
+    expect(entries.map(entry => entry.conditional)).toEqual([true, false, true, false])
+    // ④ 「开发中」逐字三字；四项全 disabled。
+    expect(ENTERPRISE_ADD_MENU_DEVELOPING).toBe('开发中')
+    // ★ 触发钮现在落在**标题行右侧**（用户口径「把刷新和添加按钮放到标题行右侧，右对齐」），
+    //   不再在工具行 —— 故这里从标题槽那一格取它，而不是从页面外壳。
+    const addSlot = EnterpriseMarketDetailActions({
+      subject: { kind: 'item', id: ENTERPRISE_MARKET_ENTRY_ID },
+      tabSeat: { entries: [], activeTab: 'skills', onSelect: undefined },
+    })
+    const add = collectOfficialButtonProps(addSlot)
+      .find(props => props['aria-label'] === ENTERPRISE_DETAIL_ACTION_ADD_LABEL) ?? {}
+    expect(add['aria-label']).toBe('添加')
+    expect(add['aria-expanded']).toBe(false)
+    expect(add['aria-haspopup']).toBeUndefined()
+    // ⑤ 占位符式文案一律不许出现（用户口径就是「开发中」三字）。
+    const text = textOf(EnterpriseMarketLegacyShell({ view: 'page' })) + textOf(addSlot)
+    for (const placeholder of ['即将上线', '敬请期待', '暂未开放', 'TODO', 'Coming soon']) {
+      expect(text, placeholder).not.toContain(placeholder)
+    }
+  })
+
   it('adds no CSS class for the 企业 badge: only the existing .own-market-tag declaration is reused', async () => {
     const source = await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8')
     // `.own-market-tag` 在源码里只有**一处**声明（没有为徽章另开第二条规则）。
@@ -931,9 +1057,16 @@ describe('enterprise marketplace entry', () => {
       expect(tabsRule, label).toContain('margin:0')
       expect(tabsRule, label).toContain('flex-wrap:nowrap')
       const sectionRule = cssRuleBody(css, '.own-market-section')
-      expect(sectionRule, label).toContain('margin-top:12px')
-      expect(sectionRule, label).not.toContain('margin-top:24px')
+      // ★ 本刀起节容器**不再自带顶部间距**（margin-top 归 0 / 整条撤掉）：它原先与搜索行那处
+      //   同为 12px，两处相等 ⇒「工具行」与「内容区」一样重、上下等距（用户反馈「上下间隔一直」）。
+      //   现在间距**只由 .own-market-searchRow 的 margin-bottom 一处控制**（单点旋钮）。
+      expect(sectionRule, label).not.toContain('margin-top:')
       expect(sectionRule, label).toContain('gap:12px')
+      // 层次靠两个值**递进**：工具行 → 内容区 20px（单点控制）；分类组之间 40px。
+      const searchRule = cssRuleBody(css, '.own-market-searchRow')
+      expect(searchRule, label).toContain('margin-bottom:20px')
+      expect(searchRule, label).not.toContain('margin-bottom:12px')
+      expect(cssRuleBody(css, '.own-market-categoryGroup + .own-market-categoryGroup'), label).toContain('margin-top:40px')
       // 独立计数行退场：类规则整条删除（不留死样式），DOM 里也不再出现该容器。
       expect(cssRuleBody(css, '.own-market-sectionMeta'), label).toBe('')
       expect(collectByClassName(page, 'own-market-sectionMeta'), label).toEqual([])
@@ -1202,25 +1335,161 @@ describe('enterprise marketplace entry', () => {
     expect(cssRuleBody(css, '.own-market-row:hover')).not.toContain('button-tool-bar-hover')
   })
 
-  it('colors the row icons with the official static tokens, one hue per kind', () => {
+  /**
+   * ★ **反向锁（这条是本刀存在的全部理由）**：隐藏官方详情页左上角那枚 48×48 图标的规则
+   * **必须出现在列表视图这一份 `<style>` 里**。
+   *
+   * 官方那枚图标渲染在**旧外壳列表分支**的官方 `ItemDetail` → `DetailTop` 里，而这一份
+   * `<style>` 正是那个分支挂的（baseStyles + rowStyles）。**它曾经被写进 `detailStyles`**
+   * ——而 detailStyles 只在技能/配方详情子页面挂载 ⇒ 规则在图标真正出现的那页面上**压根不存在**，
+   * 真机验收「图标没消失」就是栽在这里（选择器本身是对的：`[class*="_cardIcon"]` 后缀匹配
+   * 能命中真机的 `u9Hv6q_cardIcon`）。
+   *
+   * 这条锁比「detailStyles 不含它」更直接：**它锁的是真实需求（这条规则必须在场），
+   * 而不是锁某张表的否定**。下一个人再把规则挪走，这条立刻红。
+   */
+  it('keeps the rule that hides the official detail icon in the list-view stylesheet', () => {
+    const listCss = collectStyleText(EnterpriseMarketLegacyShell({ view: 'page' }))
+    // 规则在场，且正文是那一条 display:none（不是被改成别的东西）。
+    expect(cssRuleBody(listCss, '[data-plugin-item-detail] [class*="_detailHead"] [class*="_cardIcon"]')).toBe('display:none')
+    // 锚点不写死属性值（官方那个值是动态 item.id）；也不许退化成过宽的 span[aria-hidden]
+    // （会误伤官方 crumbIcon 那枚同样是 aria-hidden 的 chevron span）。
+    expect(listCss).not.toContain('[data-plugin-item-detail="plugin-market"]')
+    expect(listCss).not.toContain('span[aria-hidden="true"]{display:none}')
+    // 两套外壳的列表分支都带（官方那份 ItemDetail 在哪个外壳下出现，规则都得在场）。
+    for (const { label, shell } of MARKET_SHELLS) {
+      expect(cssRuleBody(collectStyleText(shell({ view: 'page' })), '[data-plugin-item-detail] [class*="_detailHead"] [class*="_cardIcon"]'), label)
+        .toBe('display:none')
+    }
+  })
+
+  /**
+   * ★ **搜索栏那一行 = 官方 Input 那一档**（用户裁决：这一行整体降一档、框线变浅）。
+   * 四项逐值取自 pinned `ui-primitives@0.1.5-rc.2/lib/Input.module.css`：
+   * `height:32px` / `padding:0 8px` / `border-radius:8px` / `font-size:14px`，
+   * 边框取它同一行的 `border: 0.5px solid var(--dsw-alias-border-l4)`；漏斗钮与搜索框同高 32、同款边框。
+   * ⚠️ 0.5px 发丝线在低 DPR 屏偏淡是**官方同款取舍**，不是我们偷懒 —— 照做，不偷偷加粗。
+   * ★ 图标方框（`.own-market-rowIcon`）**保持官方 border-l3 不动**（用户明确裁决：图标框不参与变浅）。
+   * ★ 同一行右侧那两枚动作胶囊（刷新 / ＋添加插件）**保持官方 size=md(36px) 不动**：
+   *   官方 sm(28px) 自认「no dedicated figma node」，放在 32px 输入框旁会矮 4px 且不居中，
+   *   与用户这轮「变协调」的诉求相反（用户裁决采纳 A 方案）。
+   */
+  it('keeps the search row on the official Input tier: 32px, 0.5px l4 border, big radius, while the icon frame stays l3', () => {
+    const css = collectStyleText(EnterpriseMarketLegacyShell({ view: 'page' }))
+    const query = cssRuleBody(css, '.own-market-query')
+    expect(query).toContain('height:32px')
+    expect(query).toContain('padding:0 8px')
+    // 边框 0.5px + l4 逐字照官方 Input；圆角**刻意偏离**官方 Input 的 8px（用户口径要大圆角 → 胶囊档 999px）。
+    expect(query).toContain('border:.5px solid var(--dsw-alias-border-l4')
+    expect(query).not.toContain('border:1px')
+    expect(query).toContain('border-radius:999px')
+    expect(cssRuleBody(css, '.own-market-queryInput')).toContain('font-size:14px')
+    // ★ **筛选钮是图标按钮、不是输入框**（用户口径「筛选按钮不要外框」）：逐值照官方 _iconButton
+    //   （appearance:none; border:0; background:0 0; radius-sm; label-tertiary）。
+    //   **0.5px border-l4 只属于搜索框**——这条锁就是防止下一个人又把它当同一类、给图标按钮套上框。
+    const filter = cssRuleBody(css, '.own-market-filterBtn')
+    expect(filter).toContain('border:0')
+    expect(filter).not.toContain('border:1px')
+    expect(filter).not.toContain('border-l4')
+    expect(filter).toContain('background:0 0')
+    expect(filter).toContain('border-radius:var(--dsw-radius-sm')
+    expect(filter).toContain('var(--dsw-alias-label-tertiary')
+    // 高度仍 32（与搜索框同行齐平）——高度对齐 ≠ 样式同类。
+    expect(filter).toContain('width:32px')
+    expect(filter).toContain('height:32px')
+    // hover 仍有反馈（无框不等于无反馈）。
+    expect(cssRuleBody(css, '.own-market-filterBtn:hover')).toContain('background:')
+    // 图标方框：40×40 且**仍是 border-l3**（本轮明确不动它）。
+    const frame = cssRuleBody(css, '.own-market-rowIcon')
+    expect(frame).toContain('border:.5px solid var(--dsw-alias-border-l3')
+    expect(frame).not.toContain('border-l4')
+  })
+
+  /**
+   * ★ **用户裁决 B 锁成事实**：搜索框聚焦时**不得有蓝色 outline 环**，焦点提示**只由边框变色**承担。
+   * 提示不丢（边框从常态的 border-l4 变成明显一档的 label-secondary），只是不靠那圈刺眼的蓝框。
+   * 这条锁防的是「下一个人看到没有 focus 环，以为无障碍回退、又给加回去」。
+   * ★ 同时记一条事实：本文件**另有 10 条** focus 环规则（groupToggle / moreBtn / moreItem /
+   *   skillTag / storeTab / filterBtn / filterOption / rowOpen / crumb / fileOpen），
+   *   用户本轮只裁决了搜索框这一条，**那些一律未动** —— 焦点可见性是逐控件的取舍，不是一刀切。
+   */
+  it('drops the blue focus ring on the search box and keeps the cue as a border-colour change', () => {
+    const css = collectStyleText(EnterpriseMarketLegacyShell({ view: 'page' }))
+    const focus = cssRuleBody(css, '.own-market-query:has(.own-market-queryInput:focus-visible)')
+    expect(focus, '聚焦提示必须在场').not.toBe('')
+    expect(focus).toContain('border-color:')
+    expect(focus, '用户裁决 B：不得再有蓝色 outline 环').not.toContain('outline')
+    expect(focus).not.toContain('focus-ring-color')
+    // 常态边框仍是官方 Input 的 0.5px l4，聚焦时才换色 ⇒ 提示确实「只在聚焦时」出现。
+    expect(cssRuleBody(css, '.own-market-query')).toContain('border:.5px solid var(--dsw-alias-border-l4')
+  })
+
+  /**
+   * ★ 卡片标题「灰黑」+ 描述「再浅一点」（用户口径）。
+   * · 描述：改用官方 `.cardDesc` 那一档 **label-tertiary**（app.asar 逐字同款），原先 secondary 深一档。
+   * · 标题：**升一档**改用 label-primary（用户口径「卡片标题颜色再黑点，但不是全黑」）。
+   *   本仓 `--dsw-alias-label-*` 只有 primary / secondary / tertiary 三档（官方 token 定义逐字：
+   *   primary=static-neutral-bluish-1000、secondary=700、tertiary=600）。primary 官方实测
+   *   `#0f1115` —— **本身就不是纯黑**（偏蓝的黑），所以「深但不是纯黑」这条口径**正好落在官方
+   *   token 内**，不必造第四个颜色、不插 rgb 字面量。
+   *   ★ **本条曾被写反**：早先锁的是 label-secondary（当时的用户口径是「标题灰黑」），并用一段
+   *   「primary 与 secondary 之间没有更浅的语义档」的注释把它合理化。用户后来把口径改成「再黑点」，
+   *   于是翻转 —— **方向由用户口径定，注释只负责解释为什么落在官方档位内，不负责论证用户该要哪档**。
+   */
+  it('tones the card title to the official primary and the description to the official tertiary', () => {
+    const css = collectStyleText(EnterpriseMarketLegacyShell({ view: 'page' }))
+    expect(cssRuleBody(css, '.own-market-cardId')).toContain('color:var(--dsw-alias-label-primary')
+    expect(cssRuleBody(css, '.own-market-cardId')).not.toContain('color:var(--dsw-alias-label-secondary')
+    expect(cssRuleBody(css, '.own-market-cardDesc')).toContain('color:var(--dsw-alias-label-tertiary')
+    expect(cssRuleBody(css, '.own-market-cardDesc')).not.toContain('color:var(--dsw-alias-label-secondary')
+  })
+
+  it('gives every row the official fallback artwork: 40px frame + 30px graphic, neutral container, no per-kind tint', () => {
     const tree = EnterpriseMarketLegacyShell({
       view: 'page', sessionUsable: true, enterpriseSkills: enterpriseMarketSkillRows([SKILL]),
     })
-    // ① 行图标带类别标记（颜色选择器靠它命中）。
-    expect(collectByClassName(tree, 'own-market-rowIcon').map(props => props['data-icon-kind'])).toEqual(['skills'])
     const css = collectStyleText(tree)
-    // ② 几何仍是官方行图标那一套（本刀只动颜色）。
-    const icon = cssRuleBody(css, '.own-market-rowIcon')
-    expect(icon).toContain('width:40px')
-    expect(icon).toContain('border:.5px solid')
-    expect(icon).toContain('border-radius:var(--dsw-radius-md')
-    // ③ 四类颜色都取官方 static token，**不出现 rgb 字面量**（官方 FileTypeIcon 里唯一那个 violet
-    //    字面量是官方自己注明「设计平台没有对应 token」的例外，我们不复制那个例外）。
-    for (const kind of ['skills', 'plugins', 'presets', 'library']) {
-      const rule = cssRuleBody(css, `.own-market-rowIcon[data-icon-kind='${kind}']`)
-      expect(rule, kind).toContain('var(--dsw-static-')
-      expect(rule, kind).not.toContain('rgb(')
+    // ① **「40 框 + 30 图形」是官方的行内配比**，锁成事实：
+    //    app.asar 逐字 `CARD_ARTWORK_SIZE = 36`（卡片位）/ `ROW_ARTWORK_SIZE = 30`（行位），
+    //    官方注释原文「The size the artwork renders at inside a row's 40px frame」。
+    //    真机验收「图形太小、比外框小很多、不协调」即由此而来（当时误用 18px，偏小 40%）。
+    const frame = cssRuleBody(css, '.own-market-rowIcon')
+    expect(frame).toContain('width:40px')
+    expect(frame).toContain('height:40px')
+    expect(frame).toContain('border-radius:var(--dsw-radius-md')
+    // 容器边框**保持官方 border-l3 不动**（用户明确裁决：图标方框不参与本轮「框线变浅」）。
+    expect(frame).toContain('border:.5px solid var(--dsw-alias-border-l3')
+    const rowIcons = collectByClassName(tree, 'own-market-rowIcon')
+    expect(rowIcons.length).toBeGreaterThan(0)
+    const svgs = collectByTagName(tree, 'svg')
+    expect(svgs.length).toBe(rowIcons.length)
+    for (const svg of svgs) {
+      expect(svg['width'], '图形宽度必须是官方 ROW_ARTWORK_SIZE = 30').toBe(ENTERPRISE_ARTWORK_ROW_SIZE)
+      expect(svg['width']).toBe(30)
+      expect(svg['height']).toBe(30)
+      expect(svg['viewBox']).toBe('0 0 36 36')
     }
+    // ② **按类别上色已整组删除**：容器保持中性（官方 rowIcon 就是 secondary），图形自带青蓝渐变，
+    //    再挂按类别上色的 static token 会与它自己的渐变打架；每张卡都挂同一个「企业」标识本就零信息量。
+    for (const kind of ['skills', 'plugins', 'presets', 'library']) {
+      expect(cssRuleBody(css, `.own-market-rowIcon[data-icon-kind='${kind}']`), kind).toBe('')
+    }
+    // ③ 渐变两端色与官方逐字一致；id **逐枚唯一** —— 写死 id 会让同页几十枚图标全部解析到
+    //    第一个同名 defs、整页染成同一色（官方为此专门写了 useArtworkId）。id 是逐次唯一的
+    //    **实现细节**，故进这里断言、不进字面快照（快照里归一为 ARTIFACT-ID）。
+    const gradients = collectByTagName(tree, 'linearGradient')
+    expect(gradients.length).toBe(rowIcons.length)
+    const ids = gradients.map(el => el['id'])
+    expect(new Set(ids).size, '渐变 id 必须逐枚唯一').toBe(gradients.length)
+    for (const id of ids) expect(String(id)).toMatch(/^own-market-art-\d+$/)
+    for (const el of gradients) {
+      const stops = collectByTagName(el['children'] as ReactNode, 'stop')
+      expect(stops.map(s => s['stopColor'])).toEqual(['#54ECE7', '#658EFF'])
+    }
+    // ④ path 是官方那条接线块 + node 的几何（逐字取官方 PluginArtworkDefault 的 d）。
+    const paths = collectByTagName(tree, 'path').filter(el => String(el['fill'] ?? '').startsWith('url(#own-market-art-'))
+    expect(paths.length).toBe(rowIcons.length)
+    expect(String(paths[0]?.['d'])).toContain('M24.6294 8.63696')
   })
 
   it('keeps the skill card to two lines: title on top, description below, no extra tags on the title row', () => {
@@ -1863,12 +2132,15 @@ describe('enterprise marketplace entry', () => {
       expect(cssRuleBody(css, '.own-market-rowLine'), label).toContain('display:flex')
       expect(cssRuleBody(css, '.own-market-rowIcon'), label).toContain('width:40px')
       expect(cssRuleBody(css, '.own-market-rowMain'), label).toContain('flex-direction:column')
-      // 卡片标题/描述取值**照参考图**（用户裁决 A：对比他发的两张商店图）——
-      // 标题 15px/600/1.4（原 14px/500/20px 层级太弱）、描述 13px/1.55；
-      // 描述色同批提到 `label-secondary`（参考图的描述比 tertiary 更可读）。
+      // 卡片标题/描述取值——
+      // 标题 15px/**500**/1.4（字号是当时按参考图定的 15px；字重后按用户口径「细一号」从 600 收到 500，
+      // 正好与官方 .ZVcBiW_cardTitle 的 font-weight:500 同档）、描述 13px/1.55；
+      // 描述色为 `label-tertiary`（官方 .cardDesc 那一档）。
       const rowId = cssRuleBody(css, '.own-market-cardId')
       expect(rowId, label).toContain('font-size:15px')
-      expect(rowId, label).toContain('font-weight:600')
+      expect(rowId, label).toContain('font-weight:500')
+      // ★ 反向锁：字重**不得**回到 600（用户口径「细一号」），也不得压到 400（那是正文档、标题会塌）。
+      expect(rowId, label).not.toContain('font-weight:600')
       expect(rowId, label).toContain('line-height:1.4')
       expect(rowId, label).toContain('text-overflow:ellipsis')
       const desc = cssRuleBody(css, '.own-market-cardDesc')
@@ -3756,6 +4028,17 @@ function flattenElements(node: ReactNode, acc: ReactNode[] = []): ReactNode[] {
 }
 
 /**
+ * 把**逐次唯一**的渐变 id 归一成 `ARTIFACT-ID`（供 `domOutline` 的字面快照用；理由见那里那段注释）。
+ * 两处都要归一：`id="own-market-art-37"` 与 path 上的 `fill="url(#own-market-art-37)"`。
+ */
+function normalizeArtworkId(value: unknown): string {
+  const text = String(value)
+  if (text.startsWith('own-market-art-')) return 'ARTIFACT-ID'
+  if (text.startsWith('url(#own-market-art-')) return 'url(#ARTIFACT-ID)'
+  return text
+}
+
+/**
  * 某行的动作区 = `.own-market-rowLine` 的直属子元素（`[有更新]` 与 `[Switch]` 都落在这条行线上；
  * 行本体那枚可点 `<button>` 也是同级子元素）。版式统一后两套外壳的行是**同一条 rowLine**。
  */
@@ -3796,7 +4079,20 @@ function domOutline(node: ReactNode, depth = 0): string[] {
   if (type === 'style') return [`${pad}style(${String(props['children'] ?? '').length} chars)`]
   const attrs = Object.entries(props)
     .filter(([key, value]) => key !== 'children' && value !== undefined && value !== null)
-    .map(([key, value]) => `[${key}=${typeof value === 'function' ? '[fn]' : String(value)}]`)
+    /**
+     * ★ **逐次唯一的渐变 id 归一成一个占位**（后人看到 `ARTIFACT-ID` 会疑惑，故把理由写在这里）：
+     * 卡片那枚官方兜底图标的 `linearGradient id` **必须每次渲染都不同** —— 写死成常量的话，同页几十枚
+     * 图标的 `fill="url(#…)"` 会**全部**解析到文档里第一个同名 defs，整页染成同一色（官方为此专门写了
+     * `useArtworkId()`，注释原文即此）。所以它的数值**天然每次都不同**，字面快照锁它等于
+     * **锁了一个必然漂移的值**，写死具体数字只会永远红。
+     * 要归一的是**两处**，缺一不可（只归一 `id` 的话，path 上那枚 `fill="url(#…)"` 仍带着真实序号）：
+     *   · `id="own-market-art-37"`（linearGradient 上那枚 id 本身）
+     *   · `fill="url(#own-market-art-37)"`（path 上**引用**它的那个 url(#…)）
+     * 故快照照旧锁住「**有这么一枚 id、且它被引用着**」这个结构事实；而「id 逐枚唯一 / 命名规范 /
+     * 两端色值 / 图形尺寸」由「gives every row the official fallback artwork…」那条用例
+     * **逐条独立断言**（那里拿得到真实值）。一句话：**结构进快照、值进断言**，各司其职。
+     */
+    .map(([key, value]) => `[${key}=${typeof value === 'function' ? '[fn]' : normalizeArtworkId(value)}]`)
     .join('')
   for (const [mock, name] of MOCK_PRIMITIVES) {
     if (type === mock) return [`${pad}${name}${attrs}`, ...domOutline(props['children'] as ReactNode, depth + 1)]

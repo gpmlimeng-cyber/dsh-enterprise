@@ -37,8 +37,7 @@ import {
   ENTERPRISE_MARKET_ENTRY_ID,
   ENTERPRISE_MARKET_ENTRY_LABEL,
   ENTERPRISE_MARKET_ENTRY_ORDER,
-  EnterpriseMarketBadge,
-  EnterpriseMarketDetailActionsLive,
+  EnterpriseMarketTitleSlot,
   EnterpriseMarketLegacyPage,
   createEnterpriseMarketTabSeat,
 } from './marketplace-entry.js'
@@ -208,26 +207,23 @@ export function apply(ctx: SlotContextPort): void {
   ctx.slots.inject('plugins.detail.badge', () => ctx.slots.register({
     name: 'plugins.detail.badge',
     id: ENTERPRISE_MARKET_ENTRY_ID,
-    inject: () => ({ store }),
-  }, EnterpriseMarketBadge as (props: never) => ReactNode))
+    // ★ **本刀把两枚动作也并进这一格**（用户口径：「刷新和添加应该和标题平行在一行……现在是在上方」）。
+    //   官方 DOM：`plugins.detail.actions` 槽渲染在 `_detailHead` 里，而 `_detailHead` 在 `_titleRow`
+    //   **上方**（`margin:32px 0 0`，`client.js:2207`）⇒ 留在那个槽里**永远**只会显示在标题上方。
+    //   而 `plugins.detail.badge` 槽**就渲染在 `_titleRow` 内部**（`client.js:2315-2320`），且 `_titleRow`
+    //   是 `align-items:center` ⇒ 走这一格，与标题的垂直对齐由官方免费给到。
+    //   ⇒ 于是**撤掉 `plugins.detail.actions` 那处注册**（注册面回到四处，与 `bundle.spec.ts` 的既有期望一致），
+    //     本槽改注册组合件 `EnterpriseMarketTitleSlot`（徽章 + 两枚动作）。
+    //     座位源仍经 inject 注入（`EnterpriseMarketTitleSlot` 里的订阅包装要用它）。
+    inject: () => ({ store, tabSeat: marketTabSeat }),
+  }, EnterpriseMarketTitleSlot as (props: never) => ReactNode))
   /**
-   * **标题区右侧的两枚占位按钮**（用户口径：「在标题区域右侧增加刷新、添加插件按钮」）——走**官方
-   * `plugins.detail.actions` 槽**（`slot-contract.ts:116`，`kind:'list'/scope:'root'`，与 badge 槽 `:121` 同形）：
-   * 官方 `ItemDetail` 的 `DetailTop`（`PluginManagerPage.tsx:540`）在 `cardIcon` 图标**右侧**渲染
-   * `renderSlot('plugins.detail.actions', { subject })` ⇒ 官方 API 层次直接给了标题右侧动作位，**无需 DOM 装饰**。
-   * 两枚都是**占位**（用户裁决）：点击 no-op、不禁用、不给假进度，无障碍名带「占位」不冒充能用。
-   * ★ **subject 过滤在组件内做**（与 badge 槽同范式）：官方对 `kind:'list'` 槽**没有 `only` 过滤**，
-   * 且 `ItemDetail`/`RowDetail`/`PackageDetail` 三种详情页都渲染本槽 ⇒ `EnterpriseMarketDetailActions`
-   * 内部按 `kind==='item' && id==='plugin-market'` 收口，只对我们这条 item 出、其余返回 null（否则泄漏到每个页面）。
+   * ★ **`plugins.detail.actions` 那处注册已撤**（原为两枚占位按钮的落点）。
+   *   原因见上面 badge 槽那段注释：官方把 actions 槽渲染在 `_detailHead`（标题**上方**），
+   *   而用户要求两枚按钮**与标题同排** ⇒ 唯一能满足的位置是 `plugins.detail.badge` 槽
+   *   （它渲染在 `_titleRow` 内部）。两枚按钮现由 `EnterpriseMarketTitleSlot` 与徽章一起出。
+   *   撤掉后客户端注册面回到**四处**，与 `bundle.spec.ts` 的既有期望一致。
    */
-  ctx.slots.inject('plugins.detail.actions', () => ctx.slots.register({
-    name: 'plugins.detail.actions',
-    id: ENTERPRISE_MARKET_ENTRY_ID,
-    // 座位源经 `inject` 注入（与上面 badge 槽注入 store 是同一手法）⇒ 注册面是**具名组件**
-    // `EnterpriseMarketDetailActionsLive`：它订阅座位、再把状态交给纯函数 `EnterpriseMarketDetailActions`。
-    // 分两层是为了让纯函数仍能被测试直接调用（不因订阅而变成不可直调的 hook 组件）。
-    inject: () => ({ tabSeat: marketTabSeat }),
-  }, EnterpriseMarketDetailActionsLive as (props: never) => ReactNode))
   /**
    * **官方列表卡标题行的那枚「企业」签**（用户两次指定：必须在标题行、标题正后方）：官方 `ItemCard` 的
    * `CardHead` 只接 title/icon/description、**没有 tags 座位**（`dsh-client-ui-plugin-manager/lib/client.js:2083-2097`），
