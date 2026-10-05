@@ -1,6 +1,13 @@
 /**
  * [INPUT]: 依赖 `plugin-install-gate.ts` 的全部纯投影（锁定原因与词表 / 悬浮说明）、`marketplace-entry.tsx` 的目录页外壳与插件行 facts、`plugin-market.tsx` 的插件行门禁投影、`error-messages.ts` 的人话映射
  * [OUTPUT]: 锁五件事——① **平台彻底退出决策面**：这一叶不再读设备系统（UA 三个样本下同一行渲染逐字相同）、也不再读目录声明的 `operatingSystems`（源码级：叶与两个消费面里一个平台词、一个 UA 读法都不许留）；② **★不变式**：`installErrorCode` 缺席时，插件行的行为与文案与 OS 声明**完全无关**——「声明含当前平台 / 不含当前平台 / 根本没有该字段」三种形态渲染结果逐字相同（形状序列化 + 可见文本 + 可见说明 + 开关 props 四路同证），且与设备 UA 也无关；③ `installErrorCode` 存在（情形 A）：可见 alert（人话 +「下一步：」+ 技术信息里的码）+ 开关禁用，retryable 给真重发、终态不给假重试；④ 情形 C（no-entry / in-progress / restart / busy / fatal）的行上可见说明与唯一措辞；⑤ **两把反向锁**：插件行里凡 Switch 被禁用必须有非空可见 `role="status"|"alert"` 文本（含「只挂 title」的反例树），且**插件行可见文案里不得出现任何平台词**（含两个消费面的源码级锁）
+ * **本刀（Codex 插件商店口径：行动作不再用开关）**：`switchWithin` 的**取证落点换了一处、判据没换**——
+ *   已安装那一行的动作现在是「⋯」里的启停项（`.own-market-moreItem`，未接下拉宿主时按平铺渲染），
+ *   `slotWithin('install')`（未装那一格的「安装」按钮）照旧；故「分流两块各自守自己那条反向锁」
+ *   （`已装不给安装按钮 / 未装不给启停项`）、「禁用即须有可见说明」、「平台词零出现」三条不变式**逐条保留**；
+ *   死控件反例树改成「禁用 + 只挂 title 的动作项」（它自己的动作文案不算解释）；
+ *   「卸载」那条边界按新契约改写：市场行的「⋯」**可以**卸载，但**只给非内置项**
+ *   （`inCatalog === false`），内置/后台预置项不给；设置页详情那一面仍是唯一的**带确认**入口。
  * [POS]: 产品宪法「禁用控件不许只挂一句 title」与「平台不参与任何判断（界面不出现平台词）」两件事的机械门锁
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -31,6 +38,8 @@ import {
   type EnterprisePluginLockReason,
 } from '../src/plugin-install-gate.js'
 import {
+  ENTERPRISE_MARKET_DISABLE_TEXT,
+  ENTERPRISE_MARKET_ENABLE_TEXT,
   ENTERPRISE_PLUGIN_BLOCKED_RETRY_LABEL,
   EnterpriseMarketLegacyShell,
   enterpriseMarketPluginRowFacts,
@@ -122,6 +131,9 @@ function pluginRow(tree: ReactNode, name: string): ReactNode {
 /**
  * 子树里那一枚动作控件的 props——**按分流槽位取**（`data-enterprise-plugin-slot`），
  * 而不是按控件类型：分流本身就是被测对象，槽位缺席 = 这一格没画控件（未安装那一行没有开关）。
+ *
+ * **本刀（卡片操作区不再用开关）**：只有「未安装 ⇒ 安装按钮」那一格还带槽位属性；
+ * 已安装那一格给的是一枚「⋯」（未接下拉宿主时按**平铺**渲染，见 `toggleWithin`）。
  */
 function slotWithin(node: ReactNode, slot: 'install' | 'switch'): Record<string, unknown> | undefined {
   let found: Record<string, unknown> | undefined
@@ -131,9 +143,25 @@ function slotWithin(node: ReactNode, slot: 'install' | 'switch'): Record<string,
   return found
 }
 
-/** 已安装那一行的【开关】props（分流到 `'switch'` 那一格才存在）。 */
-const switchWithin = (node: ReactNode): Record<string, unknown> | undefined => slotWithin(node, 'switch')
-/** 未安装那一行的【＋】props（分流到 `'install'` 那一格才存在）。 */
+/** 行上「⋯」的**动作项**：启停那一项（文案恒为「停用」或「启用」，按当前启停位给相反的那一枚）。 */
+function menuItemWithin(node: ReactNode, label: string): Record<string, unknown> | undefined {
+  let found: Record<string, unknown> | undefined
+  walkTree(node, element => {
+    const props = element.props
+    if (element.type === 'button' && props['className'] === 'own-market-moreItem' && props['children'] === label) {
+      found = props as Record<string, unknown>
+    }
+  })
+  return found
+}
+
+/**
+ * 已安装那一行的**启停动作**（分流到 `'switch'` 那一格才存在）：本刀卡片不再用开关，
+ * 该动作是行上「⋯」里的那一项——两个方向取同一处（按当前启停位给相反的那一枚）。
+ */
+const switchWithin = (node: ReactNode): Record<string, unknown> | undefined =>
+  menuItemWithin(node, ENTERPRISE_MARKET_DISABLE_TEXT) ?? menuItemWithin(node, ENTERPRISE_MARKET_ENABLE_TEXT)
+/** 未安装那一行的【安装】按钮 props（分流到 `'install'` 那一格才存在）。 */
 const plusWithin = (node: ReactNode): Record<string, unknown> | undefined => slotWithin(node, 'install')
 
 /** 子树里全部 `role="status"|"alert"` 元素的可见文本。 */
@@ -342,7 +370,7 @@ describe('★不变式：installErrorCode 缺席时，插件行的行为与文�
     expect(texts.size, '不多一个字').toBe(1)
   })
 
-  it('keeps the row facts and the behaviour equal too (the switch still really toggles in every form)', () => {
+  it('keeps the row facts and the behaviour equal too (the action still really toggles in every form)', () => {
     const onTogglePluginEnabled = vi.fn()
     const facts = DECLARATION_FORMS.map(form => enterpriseMarketPluginRowFacts(
       { view: 'page', onTogglePluginEnabled },
@@ -353,14 +381,17 @@ describe('★不变式：installErrorCode 缺席时，插件行的行为与文�
     expect(facts[0]?.lockReason).toBeUndefined()
     expect(facts[0]?.slot).toBe('switch')
     expect(facts[0]?.switchTitle).toBe(ENTERPRISE_PLUGIN_DISABLE_TITLE)
-    // 行为也一样：三种形态下拨一下都真的走回调（没有任何一条被「声明」这件事挡死）。
+    // 行为也一样：三种形态下点「⋯」里那一项都真的走回调（没有任何一条被「声明」这件事挡死）。
+    // 已安装 + 启用着 ⇒ 那一项是「停用」，点它就是 `next = !enabled = false`。
     for (const form of DECLARATION_FORMS) {
       const line = pluginRow(
         EnterpriseMarketLegacyShell(shellProps(UA.androidPhone, installed({ operatingSystems: form.operatingSystems }), { onTogglePluginEnabled })),
         'ent-a',
       )
-      ;(switchWithin(line)!['onChange'] as (next: boolean) => void)(true)
-      expect(onTogglePluginEnabled, form.name).toHaveBeenLastCalledWith(expect.objectContaining({ packageName: 'ent-a' }), true)
+      const toggle = switchWithin(line)!
+      expect(toggle['children'], form.name).toBe(ENTERPRISE_MARKET_DISABLE_TEXT)
+      ;(toggle['onClick'] as () => void)()
+      expect(onTogglePluginEnabled, form.name).toHaveBeenLastCalledWith(expect.objectContaining({ packageName: 'ent-a' }), false)
     }
     expect(onTogglePluginEnabled).toHaveBeenCalledTimes(DECLARATION_FORMS.length)
   })
@@ -583,8 +614,8 @@ describe('目录行渲染：installErrorCode 与声明形态的组合', () => {
       expect(textWithin(current.line), current.form).not.toContain('这里暂时不能安装')
       expect(textWithin(current.line), current.form).not.toContain('未声明')
     }
-    // 拨一下就真的走回调（开关没被「声明形态」这件事挡死）。
-    ;(switchWithin(rendered[1]!.line)!['onChange'] as (next: boolean) => void)(true)
+    // 点一下就真的走回调（启停没被「声明形态」这件事挡死）。
+    ;(switchWithin(rendered[1]!.line)!['onClick'] as () => void)()
   })
 
   it('keeps the whole catalog page free of platform words, whichever declaration the catalog carries', () => {
@@ -689,11 +720,16 @@ describe('反向锁：插件行的禁用态必须带可见说明，不许只挂 
           ? { onInstallPlugin: vi.fn(), onTogglePluginEnabled: vi.fn() }
           : {}
         const line = pluginRow(EnterpriseMarketLegacyShell(shellProps(userAgent, scenario.row, extra)), 'ent-a')
-        const control = slotWithin(line, scenario.slot)
+        // 分流两块各取各的：未安装 ⇒ 安装按钮（槽位属性）；已安装 ⇒ 「⋯」里的启停项。
+        const control = scenario.slot === 'switch' ? switchWithin(line) : plusWithin(line)
         const where = `${scenario.name} / ${host}`
         expect(control, `${where}：分流到 ${scenario.slot} 那一格必须有控件`).toBeDefined()
-        // 另一格必须**不**存在（未安装不给开关、已安装不给 ＋）。
-        expect(slotWithin(line, scenario.slot === 'switch' ? 'install' : 'switch'), `${where}：出现了不该出现的控件`).toBeUndefined()
+        // 另一格必须**不**存在（未安装不给启停项、已安装不给安装按钮）。
+        if (scenario.slot === 'switch') {
+          expect(plusWithin(line), `${where}：出现了不该出现的控件`).toBeUndefined()
+        } else {
+          expect(switchWithin(line), `${where}：出现了不该出现的控件`).toBeUndefined()
+        }
         if (control!['disabled'] === true) {
           // 反向锁的核心：被禁用 ⇒ 行里必须有一个**非空**的可见说明（只挂 title 一律判红）。
           expect(visibleExplanations(line).length, `${where}：禁用了却只有 title`).toBeGreaterThan(0)
@@ -714,20 +750,20 @@ describe('反向锁：插件行的禁用态必须带可见说明，不许只挂 
     }
   })
 
-  it('would catch the old dead-control shape: the predicate is false for a title-only disabled switch', () => {
-    // 反例树：一枚禁用 + 只挂 title 的开关（就是改造前那一行的形状）。判据必须对它是空的——
+  it('would catch the old dead-control shape: the predicate is false for a title-only disabled action', () => {
+    // 反例树：一枚禁用 + 只挂 title 的动作（就是「死控件」那一行的形状）。判据必须对它是空的——
     // 否则上面那条反向锁就是空转。
     const deadControl = createElement(
       'li',
       { className: 'own-market-row', 'data-enterprise-plugin-package': 'ent-a' },
-      createElement(Switch as never, {
-        checked: false, label: '启用 ent-a', disabled: true,
-        title: '该插件当前不可安装', onChange: () => undefined,
-        'data-enterprise-plugin-slot': 'switch',
-      }),
+      createElement('button', {
+        className: 'own-market-moreItem', disabled: true, title: '该插件当前不可安装',
+        onClick: () => undefined, 'data-enterprise-plugin-slot': 'switch',
+      }, ENTERPRISE_MARKET_DISABLE_TEXT),
     )
     expect(switchWithin(deadControl)?.['disabled']).toBe(true)
-    expect(textWithin(deadControl)).toBe('')
+    // 它自己的动作文案（「停用」）照样在——但那**不是**「为什么动不了」的解释，故判据必须仍然为空。
+    expect(textWithin(deadControl)).toBe(ENTERPRISE_MARKET_DISABLE_TEXT)
     expect(visibleExplanations(deadControl)).toEqual([])
     // 同一判据在真实行上成立（说明它确实在测「有没有可见说明」）。
     const line = pluginRow(EnterpriseMarketLegacyShell(shellProps(
@@ -844,7 +880,7 @@ describe('反向锁：插件行动作分流——＋ / 开关 / 卸载三件不�
     expect(enterprisePluginRowAction({ state: 'ACTIVE' })).toBe('switch')
   })
 
-  it('已安装的行**给开关、不给【＋】**（装上之后就没有 ＋ 那一格了）', () => {
+  it('已安装的行**给启停项、不给安装按钮**（装上之后就没有安装那一格了）', () => {
     for (const done of [
       installed(),
       installed({ enabled: false }),
@@ -855,32 +891,33 @@ describe('反向锁：插件行动作分流——＋ / 开关 / 卸载三件不�
       const line = pluginRow(EnterpriseMarketLegacyShell(shellProps(
         UA.androidPhone, done, { onInstallPlugin: vi.fn(), onTogglePluginEnabled: vi.fn() },
       )), 'ent-a')
-      expect(plusWithin(line), `${done.state} 不该有 ＋（已安装那一格给的是开关）`).toBeUndefined()
-      expect(switchWithin(line), `${done.state} 该给一枚开关`).toBeDefined()
+      expect(plusWithin(line), `${done.state} 不该有安装按钮（已安装那一格给的是启停项）`).toBeUndefined()
+      expect(switchWithin(line), `${done.state} 该给一枚启停项`).toBeDefined()
     }
-    // 已安装 + 启用着 ⇒ checked=true；已停用 ⇒ checked=false（开关的 checked 就是**启停位**）。
+    // 已安装 + 启用着 ⇒ 那一项是「停用」；已停用 ⇒ 那一项是「启用」（文案就是**启停位**本身）。
     const on = pluginRow(EnterpriseMarketLegacyShell(shellProps(
       UA.androidPhone, installed(), { onTogglePluginEnabled: vi.fn() },
     )), 'ent-a')
-    expect(switchWithin(on)!['checked']).toBe(true)
+    expect(switchWithin(on)!['children']).toBe(ENTERPRISE_MARKET_DISABLE_TEXT)
     const off = pluginRow(EnterpriseMarketLegacyShell(shellProps(
       UA.androidPhone, installed({ enabled: false }), { onTogglePluginEnabled: vi.fn() },
     )), 'ent-a')
-    expect(switchWithin(off)!['checked']).toBe(false)
+    expect(switchWithin(off)!['children']).toBe(ENTERPRISE_MARKET_ENABLE_TEXT)
     // 已停用那一行的可见状态词是「已安装 · 已停用」——收敛到唯一那份词表，不是另造一句。
     expect(textWithin(off)).toContain(enterprisePluginInstalledStatusLabel(false))
     expect(enterprisePluginInstalledStatusLabel(false)).toBe('已安装 · 已停用')
   })
 
-  it('★关闭开关＝**停用**，绝不等于卸载：拨到关只叫停用那条路，行上一个「卸载」字都没有', async () => {
+  it('★关闭开关＝**停用**，绝不等于卸载：点「停用」只叫停用那条路，行上一个「卸载」字都没有', async () => {
     const onTogglePluginEnabled = vi.fn()
     const line = pluginRow(EnterpriseMarketLegacyShell(shellProps(
       UA.androidPhone, installed(), { onInstallPlugin: vi.fn(), onTogglePluginEnabled },
     )), 'ent-a')
-    // ① 行为：拨到 `false` 走的是「停用」那一条回声（分发到 `onTogglePluginEnabled(row,false)`），
+    // ① 行为：点「停用」走的是「停用」那一条回声（分发到 `onTogglePluginEnabled(row,false)`），
     //    这条路上根本没有卸载动作可走——`onInstallPlugin`（装/更新）一次都不该被叫。
     const toggle = switchWithin(line)!
-    ;(toggle['onChange'] as (next: boolean) => void)(false)
+    expect(toggle['children']).toBe(ENTERPRISE_MARKET_DISABLE_TEXT)
+    ;(toggle['onClick'] as () => void)()
     expect(onTogglePluginEnabled).toHaveBeenCalledTimes(1)
     expect(onTogglePluginEnabled).toHaveBeenCalledWith(expect.objectContaining({ packageName: 'ent-a' }), false)
     // ② 源码：**插件**这一条链上「点此卸载」那种行上说法已整段退场（先剥注释：文件头会如实引用旧说法）。
@@ -888,27 +925,30 @@ describe('反向锁：插件行动作分流——＋ / 开关 / 卸载三件不�
       expect(stripComments(await readFile(new URL(`../src/${name}`, import.meta.url), 'utf8')), name)
         .not.toContain('点此卸载')
     }
-    // `marketplace-entry.tsx` 里那一句仍属于**技能**行（技能没有启停位，它的开关本来就是装/卸）——
-    // 所以这里按**插件链**锁：插件那一枚开关读的是 `facts.switchTitle`（口径真源），不是那句技能文案。
+    // `marketplace-entry.tsx` 里那两条仍各归各的行（技能行没有启停位，它的动作本来就是装/卸）——
+    // 所以这里按**插件链**锁：插件那一项读的是 `facts.switchTitle`（口径真源），不是技能那条路径。
     const marketSource = stripComments(await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8'))
-    expect(marketSource).toContain("title={facts.switchTitle}")
+    expect(marketSource).toContain('title: facts.switchTitle')
     expect(marketSource).toContain('enterprisePluginSwitchTitle')
-    // 插件那一枚开关的 `onChange` 只走「启用/停用」，绝不走卸载。
-    expect(marketSource).toContain('props.onTogglePluginEnabled?.(plugin, next)')
-    // ③ 源码：插件行那一处写入口**只**调 `setPluginEnabled`，一个 `removePlugin` 都不许有。
+    // 插件那一项的 `onSelect` 只走「启用/停用」，绝不走卸载。
+    expect(marketSource).toContain('onToggleEnabled?.(!facts.enabled)')
+    // ③ 源码：插件行那一处启停写入口**只**调 `setPluginEnabled`。
     const market = stripComments(await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8'))
-    expect(market).not.toContain('removePlugin')
     expect(market).toContain('store!.setPluginEnabled(row.packageName, next)')
     // ④ 源码：停用那一支的失败前缀是「停用失败」，不是「卸载失败」。
     expect(market).toContain("return '停用失败'")
   })
 
-  it('★【卸载】只在详情页可达：列表行（两处渲染）都没有卸载入口', async () => {
-    // ① 插件市场行（`marketplace-entry.tsx`）：整文件没有任何卸载动作、也没有卸载措辞。
+  it('★【卸载】只在两处可达：市场行的「⋯」（非内置）与设置页详情的确认动作', async () => {
+    // ① 插件市场的行**确实**有卸载入口（本刀：菜单项「卸载」，与「企业设置 → 插件」详情共用同一个写入口），
+    //    但它**只给非内置项**（`enterpriseMarketPluginBuiltin`：仍由企业目录提供 = 后台分配/预置 = 内置，动不了）。
     const market = stripComments(await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8'))
-    expect(market).not.toContain('removePlugin')
+    expect((market.match(/\.removePlugin\(/g) ?? [])).toHaveLength(1)
+    // 列表行**没有**确认弹层（卸载确认只在设置页详情那一面）。
     expect(market).not.toContain('确认卸载')
-    // ② 「企业设置 → 插件」：`store.removePlugin` 全文件**只有一处**，且落在详情弹窗那一支里。
+    expect(market).not.toContain('<ConfirmAction')
+    expect(market).toContain('builtin ? [] : [')
+    // ② 「企业设置 → 插件」：`store.removePlugin` 全文件**只有一处**，且落在详情那一支里（列表行不给）。
     const card = stripComments(await readFile(new URL('../src/plugin-market.tsx', import.meta.url), 'utf8'))
     expect((card.match(/store\.removePlugin\(/g) ?? [])).toHaveLength(1)
     const detailStart = card.indexOf('const detailActions = (name: string)')
@@ -923,7 +963,7 @@ describe('反向锁：插件行动作分流——＋ / 开关 / 卸载三件不�
     expect(rowBody).not.toContain('卸载')
     expect(card).toContain('ENTERPRISE_PLUGIN_UNINSTALL_IMPACT')
     expect((card.match(/<ConfirmAction/g) ?? [])).toHaveLength(1)
-    // ③ 两处渲染的分流都读同一枚真源（不是各写一个 `state === 'ACTIVE'`）。
+    // ③ 三处渲染的分流都读同一枚真源（不是各写一个 `state === 'ACTIVE'`）。
     for (const source of [market, card]) expect(source).toContain('enterprisePluginInstalled(')
   })
 })

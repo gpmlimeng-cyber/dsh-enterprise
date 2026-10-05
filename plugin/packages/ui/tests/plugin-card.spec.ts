@@ -33,6 +33,9 @@
  *          纯投影 `enterpriseMarketPluginDetailBody(readme, description)`（README 优先、短描述回落），
  *          face A **仍不传**（源码级锁：那唯一一处渲染点里既没有 `description` 也没有 `readme`）
  *          ⇒ 上面⑧那条 pre-change 逐字大纲快照**原样通过**，本文件的渲染方式/版式/CSS 一个字未改。
+ * **本刀（Codex 插件商店口径）**：市场面插件行的标题行**零签**（企业签与版本短号签都撤下卡片）、
+ *   每张卡 `cardHead` 只有标题一枚子节点、正文里不再出现 `v{version}`，版本信息改到详情子页面看
+ *   （该用例由「三枚标题签」改写为「零签 + 两行」）。设置页那一面的卡片标题行（face A）不受影响。
  * [POS]: 本刀（详情从弹窗改成子页面）的机械门禁：把「不是浮层、是内容区切换」「字段一个不少、顺序不变」
  *        「不再有 dialog 语义」从口号变成可执行断言。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -320,23 +323,27 @@ describe('enterprise plugin rows in the plugin market page', () => {
     onTogglePlugin: () => undefined,
   })
 
-  it('gives every plugin row the same title tags as the skill rows and the description as its second line', () => {
+  it('keeps the market plugin card to two lines with no title tags, and moves the version into the detail', () => {
     const tree = shell()
-    // 标题行：三行都改成 cardHead（技能行/配方行同一枚结构），标题后紧跟「企业」签。
+    // 标题行：三行都改成 cardHead（技能行/配方行同一枚结构）。
     const heads = collectByClassName(tree, 'own-market-cardHead')
     expect(heads).toHaveLength(3)
-    const tags = collectOfficialTagProps(tree)
-    // ent-a / ent-b 有版本 → 「企业」+ 版本短号；ent-c 没有版本 → 只剩「企业」签。
-    expect(tags.map(props => props['children'])).toEqual(['企业', 'v1.2.0', '企业', 'v2.0.0', '企业'])
-    expect(tags.map(props => props['tone'])).toEqual(['info', 'neutral', 'info', 'neutral', 'info'])
-    for (const tag of [tags[1], tags[3]]) expect(tag?.['className']).toBe(PLAIN_TAGS)
+    // **本刀（分组卡片重构）**：标题行不再挂任何签——「企业」签与版本短号签都撤下卡片
+    //（用户口径：两行结构、标题行不留多余标签），故市场面**一枚官方 Tag 都没有**。
+    expect(collectOfficialTagProps(tree)).toEqual([])
+    for (const head of heads) {
+      // 只有一个子节点时 `children` 是**单个元素**而不是数组，故先归一成数组再数。
+      const kids = head['children'] as ReactNode
+      expect(Array.isArray(kids) ? kids : [kids]).toHaveLength(1)
+    }
     // 第二行：有描述说描述、没有描述说「暂无描述」、已下架说「已不在企业目录中」（既有口径不丢）。
     expect(collectByClassName(tree, 'own-market-cardDesc').map(props => textOf(props['children'])))
       .toEqual(['甲的描述。', '暂无描述', '已不在企业目录中'])
-    // **版本信息一个字都没丢**：`v{version}` 仍在行上（只是从第二行搬到了标题签）。
+    // **版本信息一个字都没丢**：它搬到**详情子页面**去看（同一枚 facts 供两处，由 marketplace-entry.spec 锁着）；
+    // 行上不再有 `v{version}`，也没有旧第二行那句「企业发布 · v…」。
     const text = textOf(tree)
-    expect(text).toContain('v1.2.0')
-    expect(text).toContain('v2.0.0')
+    expect(text).not.toContain('v1.2.0')
+    expect(text).not.toContain('v2.0.0')
     expect(text).not.toContain('企业发布 · v')
   })
 })
