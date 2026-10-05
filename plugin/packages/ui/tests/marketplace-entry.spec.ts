@@ -183,7 +183,14 @@ function textOf(node: ReactNode): string {
  */
 const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(18818 chars)",
+  "  style(18785 chars)",
+  "  div[className=own-market-searchRow]",
+  "    span[className=own-market-query]",
+  "      #opaque:[object Object]",
+  "      input[type=search][className=own-market-queryInput][aria-label=搜索][placeholder=搜索技能、插件、配方][value=][readOnly=true][onChange=[fn]]",
+  "    div[className=own-market-filterWrap]",
+  "      button[type=button][className=own-market-filterBtn][aria-label=筛选][aria-expanded=false][onClick=[fn]]",
+  "        #opaque:[object Object]",
   "  div[className=own-market-tabBar]",
   "    div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
   "      button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=true][aria-controls=market-panel-skills][tabIndex=0][onClick=[fn]][onKeyDown=[fn]]",
@@ -194,13 +201,6 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "        #text:企业配方 0",
   "      button[id=market-tab-components][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-components][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
   "        #text:包含内容 4",
-  "    div[className=own-market-queryBar]",
-  "      span[className=own-market-query]",
-  "        #opaque:[object Object]",
-  "        input[type=search][className=own-market-queryInput][aria-label=搜索][placeholder=搜索技能、插件、配方][value=][readOnly=true][onChange=[fn]]",
-  "      div[className=own-market-filterWrap]",
-  "        button[type=button][className=own-market-filterBtn][aria-label=筛选][aria-expanded=false][onClick=[fn]]",
-  "          #opaque:[object Object]",
   "  div[id=market-panel-skills][role=tabpanel][aria-labelledby=market-tab-skills][hidden=false][className=own-market-panel]",
   "    section[className=own-market-section][data-market-section=enterprise-skills]",
   "      section[className=own-market-categoryGroup][data-enterprise-market-group=其他]",
@@ -244,7 +244,14 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
  */
 const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(18818 chars)",
+  "  style(18785 chars)",
+  "  div[className=own-market-searchRow]",
+  "    span[className=own-market-query]",
+  "      #opaque:[object Object]",
+  "      input[type=search][className=own-market-queryInput][aria-label=搜索][placeholder=搜索技能、插件、配方][value=][readOnly=true][onChange=[fn]]",
+  "    div[className=own-market-filterWrap]",
+  "      button[type=button][className=own-market-filterBtn][aria-label=筛选][aria-expanded=false][onClick=[fn]]",
+  "        #opaque:[object Object]",
   "  div[className=own-market-tabBar]",
   "    div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
   "      button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-skills][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
@@ -255,13 +262,6 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "        #text:企业配方 0",
   "      button[id=market-tab-components][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-components][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
   "        #text:包含内容 4",
-  "    div[className=own-market-queryBar]",
-  "      span[className=own-market-query]",
-  "        #opaque:[object Object]",
-  "        input[type=search][className=own-market-queryInput][aria-label=搜索][placeholder=搜索技能、插件、配方][value=][readOnly=true][onChange=[fn]]",
-  "      div[className=own-market-filterWrap]",
-  "        button[type=button][className=own-market-filterBtn][aria-label=筛选][aria-expanded=false][onClick=[fn]]",
-  "          #opaque:[object Object]",
   "  div[id=market-panel-skills][role=tabpanel][aria-labelledby=market-tab-skills][hidden=true][className=own-market-panel]",
   "  div[id=market-panel-plugins][role=tabpanel][aria-labelledby=market-tab-plugins][hidden=false][className=own-market-panel]",
   "    section[className=own-market-section][data-market-section=enterprise-plugins]",
@@ -333,8 +333,8 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
  * 变的只有 `<style>` 的长度那一行（`style(10507 chars)` → `style(12028 chars)`）。
  * 任何人再改这份 CSS（不管是加装饰还是删规则）都会在这里立刻显形。
  */
-const LEGACY_STYLE_LENGTH = 18818
-const LEGACY_STYLE_CHECKSUM = 2669689267
+const LEGACY_STYLE_LENGTH = 18785
+const LEGACY_STYLE_CHECKSUM = 2572812549
 
 /** 「企业技能」节的目录 fixture：与 skill-market.spec 的列表投影同形（列表态 versionId/skills 为空）。 */
 const SKILL: EnterpriseRuntimeSkill = {
@@ -1111,7 +1111,7 @@ describe('enterprise marketplace entry', () => {
     // 行取值与旧外壳逐字节同源（同一份 `rowStyles`，两套外壳都渲染它）。
     const legacy = EnterpriseMarketLegacyShell({ view: 'page', sessionUsable: true, enterpriseSkills })
     const legacyCss = collectStyleText(legacy)
-    expect(cssRuleBody(legacyCss, '.own-market-cardId')).toContain('font-size:14px')
+    expect(cssRuleBody(legacyCss, '.own-market-cardId')).toContain('font-size:15px')
     expect(cssRuleBody(legacyCss, '.own-market-cardId')).toContain('text-overflow:ellipsis')
     expect(cssRuleBody(legacyCss, '.own-market-cardDesc')).toContain('font-size:13px')
     expect(cssRuleBody(legacyCss, '.own-market-cardDesc')).toContain('-webkit-line-clamp:1')
@@ -1763,14 +1763,17 @@ describe('enterprise marketplace entry', () => {
       expect(cssRuleBody(css, '.own-market-rowLine'), label).toContain('display:flex')
       expect(cssRuleBody(css, '.own-market-rowIcon'), label).toContain('width:40px')
       expect(cssRuleBody(css, '.own-market-rowMain'), label).toContain('flex-direction:column')
+      // 卡片标题/描述取值**照参考图**（用户裁决 A：对比他发的两张商店图）——
+      // 标题 15px/600/1.4（原 14px/500/20px 层级太弱）、描述 13px/1.55；
+      // 描述色同批提到 `label-secondary`（参考图的描述比 tertiary 更可读）。
       const rowId = cssRuleBody(css, '.own-market-cardId')
-      expect(rowId, label).toContain('font-size:14px')
-      expect(rowId, label).toContain('font-weight:500')
-      expect(rowId, label).toContain('line-height:20px')
+      expect(rowId, label).toContain('font-size:15px')
+      expect(rowId, label).toContain('font-weight:600')
+      expect(rowId, label).toContain('line-height:1.4')
       expect(rowId, label).toContain('text-overflow:ellipsis')
       const desc = cssRuleBody(css, '.own-market-cardDesc')
       expect(desc, label).toContain('font-size:13px')
-      expect(desc, label).toContain('line-height:18px')
+      expect(desc, label).toContain('line-height:1.55')
       expect(desc, label).toContain('-webkit-line-clamp:1')
       // 官方插件清单**卡片**那套取值一条都不许回来（DOM 与 CSS 双查）。
       for (const dead of [

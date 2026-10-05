@@ -17,6 +17,15 @@
  *      而**失败不禁用**（再点一次就是重试）；禁用原因与可见说明仍全部来自 gate 叶的唯一判定；
  *   ⑤ 样式：新增 `own-market-categoryGroup · categoryTitle · more · query · filter · panel[hidden]` 一族，
  *      与 `plugin-market.tsx` 那份 `<style>` 的类名**零交集**（两处都是全局单类选择器）。
+ *   ⑥ **本刀（版式照用户发的两张商店图再对齐一次）**：用户给的参考图（Xiaomi MiMo / Codex 商店）与我们旧取值
+ *      逐项对完，按「无边框 + 大留白 + 强层级」重取：搜索框从页签行里**挪出来独立成行**（`.own-market-searchRow`
+ *      = 40px 高的整行大搜索框 + 右端漏斗，照参考图的位置关系），页签条只留胶囊组；
+ *      网格行距 4px → **28px**、列距 20px → 24px；卡片标题 14/500/20px → **15px/600/1.4**；
+ *      描述改 `label-secondary` + `line-height:1.55`；图标去掉细描边、改 `background-secondary` + 10px 圆角
+ *      （参考图是彩色品牌图，我们没有品牌资产，故用柔和底色块去掉「占位感」）；
+ *      组标题 15px → **17px**、组间距 20px → 40px；卡片圆角 8px → 12px。
+ *      **不采用的**：官方 DSH 插件管理器那套「`.5px` 描边 + `radius-xl` + 卡片底色」（`.FfBBxq_card`）——
+ *      用户裁决是照参考图的无边框风格，故刻意不抄那一套；按钮形状仍用官方原语（胶囊 `radius:18px`）。
  *   本节所述为准；上面各「本刀」段落里凡是写「官方 `Switch` 是行主控件」「卡片标题行挂企业签/版本签」
  *   「本页没有任何卸载动作」的句子，均已被这一刀取代。
  * [POS]: ui 的企业市场入口（**唯一入口：官方插件页「官方」分组里的「插件市场」卡片**）。**本刀（详情子页面）**：技能行本体可点 → 面板整页切到该技能的详情子页面；**面板就是官方 `plugins.item` 的 page 视图、没有真实路由，故用一份视图状态切换（`skillDetailId` → `skillPage`），不硬造路由**。「返回技能列表」是唯一返回入口（面包屑按钮，键盘可达）。详情里的动作与行上**同源**：同一枚 `EnterpriseMarketSkillRowActions`、同一份 `enterpriseMarketSkillRowFacts`、同一个 `onToggleSkill` 回调、同一份 `skillActionError`，因此不存在第二套状态或第二个动作实现。文件树与预览只消费 Host 已有的两条只读子路由（`/enterprise/api/v1/local/skills/<id>/files` 与 `.../<id>/file?path=`，经 `store.api.skillFiles`/`store.api.skillFile` 发出）；**未安装就一条请求都不发**、如实说「安装后可浏览文件」，绝不伪造树；默认选中并预览 `SKILL.md`；预览是 `<pre>` 里的**纯文本子节点**（全文件无 `dangerouslySetInnerHTML`），长文件靠 `max-height` 滚动 + 字节提示；读取失败给 `role="alert"` + 稳定错误码 + 重试。**只读正文路由 `/skills/content` 按用户要求保留**（Host 侧注册与既有单测不动），本页统一走文件路由那一份路径实现。 以下为既有能力：企业插件行与组件行**不给**详情入口（用户只要求技能行；插件行本轮一字未动，组件行是交付排期清单）。**目录行的落点与行为**：点行本体进详情；`[有更新]`（真实 `<button>`，点击 = 更新到中心当前版本）与安装/卸载 `Switch` **常显在行上**且不触发详情；失败给 `role="alert"` + 稳定错误码且**不禁用**开关（再拨一次就是重试）。**三页签**（企业技能默认 / 企业插件 / 组件）共用 `EnterpriseMarketTabStrip` 一份实现：手写 `role="tablist"` + roving `tabIndex` + ←/→/Home/End 走焦并选中，`id`/`aria-controls`/`aria-labelledby` 三处同源；组件节是唯一还保留折叠语义的一节（折叠态列表整段不进 DOM）。**严禁**任何价格/交易/购买/购物车/客服之类的商业化字样——全树文本都不出现（由测试反向锁死）。`store` 与开登录回调均为可选注入：缺席时开关恒禁用、会话不可用时目录节不出现。**样式纪律**：本文件的类名与同包其他源文件**零交集**（两处 `<style>` 都是全局单类选择器，同名会互相覆盖）；主题只用 `--dsw-*` token，不新造颜色。 **本刀（版本签短号）**：真实 `sourceDshVersion` 是完整坐标（`skillhub.cn/dev-expert@2.0.3`），整串会把标题挤成一个字（真机截图已证）；故**列表里只显示版本号**（`enterpriseMarketSkillVersionLabel`，最后一个 `@` 之后），**完整坐标在签的 `title` 与详情徽标**；既有技能（无 `@` 的 `0.1.7-rc.2` 形态）显示形式一字不变，签的类名/tone/位置与行上其他东西不动。 **本刀（企业配方页签）**：配方行与配方详情用的是**同一批**类名（`.own-market-row*`/`.own-market-cardHead`/`.own-market-cardId`/`.own-market-cardDesc`/`.own-market-detail*`/`.own-market-skillTag`），**一个新类名都不加**——版式取值与技能/插件行逐值同源，故本刀 CSS 一字未动（`baseStyles`/`rowStyles`/`detailStyles` 三份字符串与改动前逐字节相同）。 **本刀**：三级降级链的调度与事实全在共享控制器一处（逐行读 `status`、真开关的 enable/disable、授权弹层的确认与取消），行上与详情里读的是同一份 facts、同一批回调；弹层不新增路由、不新增 slot。 **本刀（企业标签）**：徽章与胶囊只消费官方座位与官方原语——①「企业」徽章挂在官方 `plugins.detail.badge` 上（该座位在我们这条 item 详情页里真的会被渲染，已按官方实物核实，不是白挂）；② 与官方「实验性」签的**一致口径**是可验证的三件：同一枚官方 `Tag` 原语本体、同一个 `tone="info"`、props 恰好只有 `{className,tone,children}`（官方公开面之外一个属性都不给）；**拿不到的是官方那个本地尺寸覆盖类**（`PluginManagerPage` 的 `statusTag` = CSS module 哈希名 `X_2TxG_statusTag`，该包只导出 `NS`/`PANEL_ID`/`apply`/`inject`，`./src/*` 指向的 `src/` 未随包发布），故按「不新增 CSS 类」退到官方 primitives 公开面，尺寸差异如实记在 `EnterpriseMarketBadgeTag` 的注释里；③ 描述行与徽章同源（同一枚 `EnterpriseMarketBadgeTag`），两处不会漂成两个词。 **本刀（企业标签移回标题行）**：用户明确「企业应该在标题行，标题后面」两次，故描述行胶囊撤销、恢复纯文本；标题行那一枚**不再**由本文件渲染——它由 `market-entry-badge.ts` 在官方列表 DOM 上做装饰（克隆官方 Tag 实物，与官方「实验性」签逐像素一致），本文件只保留**详情页**那一枚 React 徽章；本文件与 `market-entry-badge.ts` 的分工是「React 槽 vs DOM 装饰」，两侧都读同一份 `ENTERPRISE_MARKET_BADGE_TEXT`，不会漂成两个词。 **本刀**：进度只在真的在装的那一行、只在有工序时进 DOM；多行各算各的（按包名归行），不影响别的行的可拨性。 **本刀（企业插件真取消）**：取消入口与进度**同一条链、同一份投影**——「能不能取消」由 Host 真受管态算（`plugin-install-progress.ts` 的 `ENTERPRISE_PLUGIN_CANCELABLE_STATES`），「在不在取消中」由同一份 store 快照的 `pluginCancelBusy` 算；不新增任何 CSS 类、不新增 slot、不新增路由，写入口与「企业设置 → 插件」那枚按钮同名同源（都是 `store.cancelPlugin`）；取消的收束走既有那条行内提示（`EnterpriseMarketRowError` + 唯一码表），不新造第二套「已取消」提示组件。
@@ -2543,17 +2552,17 @@ const baseStyles = `
    为什么是网格而不是原来的单列行：用户给了参考图并裁决 A（完全照图）。行结构（li.own-market-row
    → .own-market-rowLine → 行本体按钮 + 动作）**一字未动**——只把外层容器从单列 flex 换成两列 grid，
    故所有行级选择器与既有测试的树形断言照旧成立。 */
-.own-market-categoryGroup{display:flex;flex-direction:column;gap:12px;min-width:0}
-.own-market-categoryGroup + .own-market-categoryGroup{margin-top:20px}
+.own-market-categoryGroup{display:flex;flex-direction:column;gap:16px;min-width:0}
+.own-market-categoryGroup + .own-market-categoryGroup{margin-top:40px}
 /* 组标题 + 它下方那条**分割线**：分割线是标题自己的 border-bottom（不是一枚额外元素），
    故标题与线不可能错位；行间不再有任何分割线（用户口径：列表去除分割线）。
    类名**不叫 groupTitle**：组件节那枚折叠节头已经占了这个名字，同名会让两条规则互相覆盖。 */
-.own-market-categoryTitle{margin:0;padding-bottom:10px;border-bottom:0.5px solid var(--dsw-alias-border-l2,#e4e7ec);font-size:15px;line-height:22px;font-weight:600;color:var(--dsw-alias-label-primary,#101828)}
-.own-market-rows{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 20px;min-width:0}
+.own-market-categoryTitle{margin:0;padding-bottom:12px;border-bottom:0.5px solid var(--dsw-alias-border-l2,#e4e7ec);font-size:17px;line-height:26px;font-weight:600;color:var(--dsw-alias-label-primary,#101828)}
+.own-market-rows{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 24px;min-width:0}
 /* 卡片：左右内衬 + 圆角，hover 整块变灰（用户口径：卡片级 hover、背景变灰）。
    hover 取值照官方卡片实物（app.asar 里的 ._card:hover:not(._cardActive) 规则）：
    background:var(--dsw-alias-interactive-bg-hover)——不新造颜色、不用 color-mix 猜。 */
-.own-market-row{padding:10px 12px;border:0;border-radius:var(--dsw-radius-md,8px);min-width:0;transition:background .12s ease}
+.own-market-row{padding:10px 12px;border:0;border-radius:12px;min-width:0;transition:background .12s ease}
 .own-market-row:hover{background:var(--dsw-alias-interactive-bg-hover)}
 /* ── 卡片操作区的「⋯」更多菜单（用户口径：卡片不放开关键——未安装给「安装」、已安装给「⋯」；
    菜单项按各行真实能力给：更新 / 启用·停用 / 卸载）。hover 与 focus 取值照官方菜单实物
@@ -2578,7 +2587,7 @@ const baseStyles = `
    类名不同是刻意的：本文件与 plugin-market.tsx 各自挂一块全局单类选择器的 <style>，
    两处类名必须零交集（同名会互相覆盖），故各自一枚名字、值逐字相同。 */
 .own-market-rowLine{display:flex;align-items:center;gap:16px;min-width:0}
-.own-market-rowIcon{display:inline-flex;flex-shrink:0;align-items:center;justify-content:center;width:40px;height:40px;border:0.5px solid var(--dsw-alias-border-l3,#d0d5dd);border-radius:8px;color:var(--dsw-alias-label-secondary,#667085)}
+.own-market-rowIcon{display:inline-flex;flex-shrink:0;align-items:center;justify-content:center;width:40px;height:40px;border:0;border-radius:10px;background:var(--dsw-alias-background-secondary,#f2f4f7);color:var(--dsw-alias-label-secondary,#667085)}
 .own-market-rowMain{display:flex;flex:1;flex-direction:column;gap:2px;min-width:0}
 .own-market-rowId{font-size:13.5px;line-height:20px;font-weight:500;color:var(--dsw-alias-label-primary,#101828);overflow-wrap:anywhere}
 .own-market-row[data-state='off'] .own-market-rowId{color:var(--dsw-alias-label-secondary,#667085)}
@@ -2648,8 +2657,8 @@ const baseStyles = `
 .own-market-tabBar{display:flex;align-items:center;gap:12px;min-width:0;margin-top:0}
 /* 搜索框在**左**、筛选钮在**右**（用户口径）：两者同属一枚控件行，整体靠右、搜索框吃掉剩余宽度。
    搜索是真输入框：回调缺席时上层会传 readOnly，故不会出现「打了字没反应」的假控件。 */
-.own-market-queryBar{display:flex;flex:1 1 auto;align-items:center;gap:8px;min-width:0;margin-left:auto;max-width:420px}
-.own-market-query{display:flex;flex:1 1 auto;align-items:center;gap:6px;min-width:0;height:32px;padding:0 10px;border:1px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:var(--dsw-radius-md,6px);background:var(--dsw-alias-background-primary,#fff);color:var(--dsw-alias-label-tertiary,#98a2b3)}
+.own-market-searchRow{display:flex;align-items:center;gap:8px;min-width:0;margin-bottom:12px}
+.own-market-query{display:flex;flex:1 1 auto;align-items:center;gap:8px;min-width:0;height:40px;padding:0 12px;border:1px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:var(--dsw-radius-md,6px);background:var(--dsw-alias-background-primary,#fff);color:var(--dsw-alias-label-tertiary,#98a2b3)}
 .own-market-query:focus-within{border-color:var(--dsw-alias-border-l3,#d0d5dd);outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:1px}
 .own-market-queryIcon{flex:none}
 .own-market-queryInput{flex:1 1 auto;min-width:0;padding:0;border:0;background:transparent;color:var(--dsw-alias-label-primary,#101828);font:inherit;font-size:13px;line-height:20px}
@@ -2696,9 +2705,9 @@ const baseStyles = `
  * 渲染顺序：列表视图 = `baseStyles` + 这份行取值（与改动前逐字节相同）；详情子页面 = 再加一份 `detailStyles`。
  */
 const rowStyles = `
-.own-market-cardId{font-size:14px;line-height:20px;font-weight:500;color:var(--dsw-alias-label-primary,#101828);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.own-market-cardId{font-size:15px;line-height:1.4;font-weight:600;color:var(--dsw-alias-label-primary,#101828);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .own-market-row[data-state='off'] .own-market-cardId{color:var(--dsw-alias-label-secondary,#667085)}
-.own-market-cardDesc{color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:13px;line-height:18px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden}
+.own-market-cardDesc{color:var(--dsw-alias-label-secondary,#667085);font-size:13px;line-height:1.55;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden}
 /* 技能行**行本体**（图标 + 标题 + 描述那一片）是一枚真 button 元素：整片可点、原生键盘可达（Enter/Space）、
    有 focus 环与 hover 提示（光标 + 标题/描述转主色调）。取值照本文件既有口径：行图标与文案之间仍是 16px
    （= .own-market-rowLine 的 gap），因此包上这枚按钮**不改变行的几何**。
@@ -2992,30 +3001,10 @@ function EnterpriseMarketTabStrip({
     focusTab(event.currentTarget, nextIndex)
   }
   return (
-    <div className="own-market-tabBar">
-      {/* 胶囊页签组（保持 role=tablist 在这一层——ARIA 语义不因外层加筛选钮而改变）。 */}
-      <div role="tablist" aria-label={ENTERPRISE_MARKET_TABLIST_LABEL} className="own-market-storeTabs">
-        {model.tabEntries.map((tab, index) => {
-          const selected = tab.id === model.activeTab
-          return (
-            <button
-              key={tab.id}
-              id={ENTERPRISE_MARKET_TAB_IDS[tab.id].tab}
-              type="button"
-              role="tab"
-              className="own-market-storeTab"
-              aria-selected={selected}
-              aria-controls={ENTERPRISE_MARKET_TAB_IDS[tab.id].panel}
-              tabIndex={selected ? 0 : -1}
-              onClick={() => { onSelectTab?.(tab.id) }}
-              onKeyDown={(event) => { onTabKeyDown(event, index) }}
-            >{tab.text}</button>
-          )
-        })}
-      </div>
-      {/* 搜索栏 + 筛选钮：搜索框在**左**、筛选下拉在**右**（用户口径：筛选按钮左侧增加搜索栏）。
+    <>
+      {/* 搜索栏 + 筛选钮（照参考图：搜索框**独立整行**、40px 高；筛选钮在它右端）。
           搜索是真过滤（标题/描述/标识的子串匹配）；回调缺席时输入框 readOnly，不给假输入框。 */}
-      <div className="own-market-queryBar">
+      <div className="own-market-searchRow">
         <span className="own-market-query">
           <Search aria-hidden size={16} className="own-market-queryIcon" />
           <input
@@ -3065,7 +3054,30 @@ function EnterpriseMarketTabStrip({
           ) : null}
         </div>
       </div>
+
+    <div className="own-market-tabBar">
+      {/* 胶囊页签组（保持 role=tablist 在这一层——ARIA 语义不因外层加筛选钮而改变）。 */}
+      <div role="tablist" aria-label={ENTERPRISE_MARKET_TABLIST_LABEL} className="own-market-storeTabs">
+        {model.tabEntries.map((tab, index) => {
+          const selected = tab.id === model.activeTab
+          return (
+            <button
+              key={tab.id}
+              id={ENTERPRISE_MARKET_TAB_IDS[tab.id].tab}
+              type="button"
+              role="tab"
+              className="own-market-storeTab"
+              aria-selected={selected}
+              aria-controls={ENTERPRISE_MARKET_TAB_IDS[tab.id].panel}
+              tabIndex={selected ? 0 : -1}
+              onClick={() => { onSelectTab?.(tab.id) }}
+              onKeyDown={(event) => { onTabKeyDown(event, index) }}
+            >{tab.text}</button>
+          )
+        })}
+      </div>
     </div>
+    </>
   )
 }
 
