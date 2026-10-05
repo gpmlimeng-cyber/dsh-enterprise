@@ -10,6 +10,7 @@
         "skillId",
         "displayName",
         "description",
+        "builtin",
         "sourceDshVersion",
         "sizeBytes",
         "skillCount",
@@ -55,6 +56,9 @@
               "type": "null"
             }
           ]
+        },
+        "builtin": {
+          "type": "boolean"
         },
         "sourceDshVersion": {
           "type": "string",

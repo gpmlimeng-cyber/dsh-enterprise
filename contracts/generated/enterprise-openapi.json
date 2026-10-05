@@ -97342,6 +97342,7 @@
                           "skillId",
                           "displayName",
                           "description",
+                          "builtin",
                           "sourceDshVersion",
                           "sizeBytes",
                           "skillCount",
@@ -97387,6 +97388,9 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "builtin": {
+                            "type": "boolean"
                           },
                           "sourceDshVersion": {
                             "type": "string",
@@ -97928,6 +97932,7 @@
                             "skillId",
                             "displayName",
                             "description",
+                            "builtin",
                             "sourceDshVersion",
                             "sizeBytes",
                             "skillCount",
@@ -97973,6 +97978,9 @@
                                   "type": "null"
                                 }
                               ]
+                            },
+                            "builtin": {
+                              "type": "boolean"
                             },
                             "sourceDshVersion": {
                               "type": "string",
@@ -146710,6 +146718,7 @@
           "skillId",
           "displayName",
           "description",
+          "builtin",
           "sourceDshVersion",
           "sizeBytes",
           "skillCount",
@@ -146756,6 +146765,9 @@
               }
             ]
           },
+          "builtin": {
+            "type": "boolean"
+          },
           "sourceDshVersion": {
             "type": "string",
             "minLength": 1,
@@ -146788,6 +146800,7 @@
               "skillId",
               "displayName",
               "description",
+              "builtin",
               "sourceDshVersion",
               "sizeBytes",
               "skillCount",
@@ -146833,6 +146846,9 @@
                     "type": "null"
                   }
                 ]
+              },
+              "builtin": {
+                "type": "boolean"
               },
               "sourceDshVersion": {
                 "type": "string",

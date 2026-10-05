@@ -2726,6 +2726,7 @@ export type SkillRuntimeSkillSummary = {
     displayName: string;
     description: string;
     category?: SkillCategory | null;
+    builtin: boolean;
     sourceDshVersion: SkillSkillSourceDshVersion;
     sizeBytes: number;
     skillCount: number;

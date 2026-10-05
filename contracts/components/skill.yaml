@@ -4,11 +4,19 @@
 #          （`SkillCategory`：精选/效率/研究/编程/商业/创意/其他），`SkillPackage.category` 与
 #          `RuntimeSkillSummary.category` 都改为引用它。**manifest 是分类的唯一真源**（上传时以包内声明为准，
 #          见服务端 `SkillCatalogService`），故本刀**不改服务端写入通道**，只把「该写什么值」定死并在规约里写明。
-#          ★ 关于 featured（包级布尔标记）：**它今天没有流到员工端**——`featured` 只出现在
+#          ★ 关于 featured（包级布尔标记）：**它今天仍然没有流到员工端**——`featured` 只出现在
 #          `SkillMarks` 写体与 `SkillPackage` 管理端投影，`RuntimeSkillSummary` 无此字段、服务端两条 runtime
 #          查询也没 select 它、客户端解码层零命中。故「勾 featured 即精选」这条**要等 featured 贯通到
 #          runtime 投影后才能用**（需改 5 处：契约字段 → SkillViews 投影 → JdbcSkillStore 两条 SQL →
 #          本机 decode → 行模型/分组投影）。**本刀的验收只用 category: 精选 这一条入口**，不依赖 featured。
+#          **本刀（第三刀：builtin 贯通员工端投影）**：`builtin` 从「只活在管理端」推进到
+#          `RuntimeSkillSummary`（详情经 allOf 继承，故不在 detail 重复声明），形状与 `SkillPackage.builtin`
+#          一致且**必填**：数据库列是 `not null default false`（V36），服务端恒发真值，员工端据此
+#          把「已安装」分组收敛为**只显示非内置的已装行**。理由与 featured 那条同源——分组需要区分内置/非内置，
+#          而在此之前该事实到员工端就断链。三刀次序如实记录：第一刀 category 七类枚举（上一个 commit）、
+#          第二刀 featured 的缺口查明（本刀**未**修，仍未贯通）、**本刀 builtin**。
+#          ★ 边界提醒：`builtin` **不**改变可见性裁决——可见仍是服务端 `assignment ∪ builtin` 并集
+#          （JdbcSkillStore 两条 runtime 查询的 where 条件），本字段只是把该真值**投影**给员工端做展示分组。
 # [POS]: contracts/components 的企业技能目录真源，不投影 artifact 路径、SKILL.md 正文、包内脚本或签名私钥。
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 
@@ -258,7 +266,7 @@ SkillPackageResponse:
 RuntimeSkillSummary:
   type: object
   additionalProperties: false
-  required: [id, skillId, displayName, description, sourceDshVersion, sizeBytes, skillCount, updatedAt]
+  required: [id, skillId, displayName, description, builtin, sourceDshVersion, sizeBytes, skillCount, updatedAt]
   properties:
     id: {$ref: '#/SkillPackageId'}
     skillId: {$ref: '#/SkillPackageRef'}
@@ -275,6 +283,12 @@ RuntimeSkillSummary:
       oneOf:
         - $ref: '#/SkillCategory'
         - type: 'null'
+    # 包级内置标记：必填 boolean（与 SkillPackage.builtin 同一列的真值）。
+    # 员工端「已安装」分组据此只显示非内置的已装行，故不可选——缺席即协议违规，
+    # 绝不允许"缺席当 false"（同 SkillMarksRequest 的漏传即拒口径）。
+    # 注意：可见性**不**由它裁决——服务端仍按 assignment ∪ builtin 取并集决定可见。
+    builtin:
+      type: boolean
     sourceDshVersion: {$ref: '#/SkillSourceDshVersion'}
     sizeBytes:
       type: integer
@@ -288,7 +302,7 @@ RuntimeSkillSummary:
     updatedAt:
       type: string
       format: date-time
-# 详情 = 摘要 + 版本事实：category 由 RuntimeSkillSummary 分支一并继承，这里不重复声明。
+# 详情 = 摘要 + 版本事实：category 与 builtin 都由 RuntimeSkillSummary 分支一并继承，这里不重复声明。
 RuntimeSkillDetail:
   allOf:
     - $ref: '#/RuntimeSkillSummary'

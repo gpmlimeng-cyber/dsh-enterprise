@@ -341,7 +341,7 @@ class RuntimeProjectionContractDriftTest {
     private static SkillViews.RuntimeSummaryView skillSummaryView() {
         return new SkillViews.RuntimeSummaryView(
             "1902500000000000001", "meeting-notes", "会议纪要技能组",
-            "把会议录音与转写整理成结构化纪要。", null, "0.1.7-rc.2", 40960L, 2,
+            "把会议录音与转写整理成结构化纪要。", null, false, "0.1.7-rc.2", 40960L, 2,
             Instant.parse("2026-09-30T08:00:00Z")
         );
     }
@@ -349,7 +349,7 @@ class RuntimeProjectionContractDriftTest {
     private static SkillViews.RuntimeDetailView skillDetailView() {
         return new SkillViews.RuntimeDetailView(
             "1902500000000000001", "meeting-notes", "会议纪要技能组",
-            "把会议录音与转写整理成结构化纪要。", null, "1902500000000000101", "0.1.7-rc.2", 40960L,
+            "把会议录音与转写整理成结构化纪要。", null, false, "1902500000000000101", "0.1.7-rc.2", 40960L,
             "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789", 2,
             List.of(new SkillViews.EntryView(
                 "meeting-notes",
