@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 Cordis/Schemastery、Harness credentials/LLM/inventory、官方 dsh-deepseek-account-platform、官方 settings 的 volatile Config 投影、platform-client 的地址写入诊断串与本地路由端口、plugin-distribution 的企业插件分发 Service 与其制品下载内核、官方运行时身份与企业业务模块
- * [OUTPUT]: 对外提供 Web/Desktop 共用 bundle apply、官方 settings 的 volatile Server/账户后台地址字段、默认关闭的插件验签开关、Host 凭据持久化、**企业插件安装/卸载/取消（官方 `pluginManager` 安装面，经 `manager-wiring.ts` 延迟接线；不再有 `dsh plugin` 子进程、不再 inject `subprocess`）**、**企业技能一键安装端口与已装技能只读正文端口**、**企业配方一键启用端口（官方 inject 声明 + 延迟解析取 `pluginManager` 安装面 + 三个实时解引用的本机路由端口 + 既有运行时下载面取配方正文；服务时序上不可用则 fail-closed，等它出现再接线）**、条件 Session 同步注册、**资料库三面（本机路由 `/enterprise/api/v1/local/library/**` + 3 个 Host 工具 + `system-prompt/assemble` 注入；域与主体晚绑定，未登录/未开域 ⇒ 503 可重试）**，以及用 settings 自定义地址热重挂官方账户插件；安卓按 `browserHandoff: 'client'` 把登录浏览器交接给浏览器半（宿主进程没有可用的开源路径），地址不可持久化的每个判定点都写 warn/error 宿主日志
- * [POS]: bundle 的唯一 Host Loader 入口，组合平台认证、官方企业模型、账户后台地址、环境原生插件调和与企业技能落盘（`skill-install.ts`）**、企业配方一键启用（`preset/`核心 + `preset-source.ts` + `preset-service.ts` + `preset/wiring.ts` 的时序边界）与受管插件官方安装面（`manager-wiring.ts`，复用同一份 `deferOfficialServiceWiring`）、以及资料库纵深（`library/index.ts` 的 `createEnterpriseLibraryHost` + `mountEnterpriseLibraryFaces`）**；Session 同步仅在 sessionPolicy.enabled 时挂载
+ * [OUTPUT]: 对外提供 Web/Desktop 共用 bundle apply、官方 settings 的 volatile Server/账户后台地址字段、默认关闭的插件验签开关、Host 凭据持久化、**企业插件安装/卸载/取消（官方 `pluginManager` 安装面，经 `manager-wiring.ts` 延迟接线；不再有 `dsh plugin` 子进程、不再 inject `subprocess`）**、**企业技能一键安装端口、已装技能只读正文端口、通路一「本地上传」两端口（`skill-upload.ts`：multipart 闸门 + 独立自装清单 + 复用中心安装的加固落盘）与通路二「系统搜索」两端口（`skill-system.ts`：本机技能根盘点三态 + 纳入只登记不复制）、**通路三「在线搜索」两端口（`skill-online.ts`：三源 fan-out + codeload 整仓包 → 内存组 `.dshskill` → 复用加固落盘；公开源走**无凭据裸 fetch**、带令牌的平台面只用在本机记账）****、**企业配方一键启用端口（官方 inject 声明 + 延迟解析取 `pluginManager` 安装面 + 三个实时解引用的本机路由端口 + 既有运行时下载面取配方正文；服务时序上不可用则 fail-closed，等它出现再接线）**、条件 Session 同步注册、**资料库三面（本机路由 `/enterprise/api/v1/local/library/**` + 3 个 Host 工具 + `system-prompt/assemble` 注入；域与主体晚绑定，未登录/未开域 ⇒ 503 可重试）**，以及用 settings 自定义地址热重挂官方账户插件；安卓按 `browserHandoff: 'client'` 把登录浏览器交接给浏览器半（宿主进程没有可用的开源路径），地址不可持久化的每个判定点都写 warn/error 宿主日志
+ * [POS]: bundle 的唯一 Host Loader 入口，组合平台认证、官方企业模型、账户后台地址、环境原生插件调和与企业技能落盘（`skill-install.ts` 的中心安装 + 两条通路共用的 `placeEnterpriseSkillArchive`，以及 `skill-upload.ts` 的本地上传/自装清单）**、企业配方一键启用（`preset/`核心 + `preset-source.ts` + `preset-service.ts` + `preset/wiring.ts` 的时序边界）与受管插件官方安装面（`manager-wiring.ts`，复用同一份 `deferOfficialServiceWiring`）、以及资料库纵深（`library/index.ts` 的 `createEnterpriseLibraryHost` + `mountEnterpriseLibraryFaces`）**；Session 同步仅在 sessionPolicy.enabled 时挂载
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -54,6 +54,9 @@ import { registerEnterpriseHelpRoute } from './help-route.js'
 import { registerEnterpriseUsageRoute } from './usage-route.js'
 import { registerEnterpriseModelsStatusRoute } from './models-status.js'
 import { createEnterpriseSkillInstall } from './skill-install.js'
+import { installedSelfSkills, uploadSkillArchive } from './skill-upload.js'
+import { adoptSystemSkill, discoverSystemSkills } from './skill-system.js'
+import { installSkillFromResult, searchOnlineSkills } from './skill-online.js'
 import { registerEnterpriseSkillRoutes } from './skill-route.js'
 import {
   createEnterpriseLibraryHost,
@@ -684,12 +687,28 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
    * 落盘根由 `resolveEnterpriseDshHome()` 决议（与官方 `dsh-home-paths` 同一套优先级），
    * 即官方 `skill-filesystem` 的 `user-dsh` 根 `<dshHome>/skills`；watcher 深度 1 直发现，装完无需重启。
    */
-  const skillInstall = createEnterpriseSkillInstall({
-    platform: { request: (input, init) => platform.request(input, init) },
-    onError: (message, error) => {
+  const skillInstallOptions = {
+    platform: { request: (input: string, init?: RequestInit) => platform.request(input, init) },
+    onError: (message: string, error: unknown) => {
       ctx.logger.warn(`owndsh: ${message}`, error)
     },
-  })
+  }
+  const skillInstall = createEnterpriseSkillInstall(skillInstallOptions)
+  /**
+   * 通路三「在线搜索」的宿主接线（§B.2/§C）：**独立于** `skillInstallOptions` 的第二份依赖。
+   *
+   * ★为什么必须分开：上面那份的 `platform` 是**带 Bearer 的同源平台面**（`platform-service.ts:709-733`），
+   * 只能打企业服务器；而这条通路要打的是三个**公开**聚合源与 `codeload.github.com`。把令牌发到第三方
+   * 是绝不能发生的事，所以这里只给一个 `fetch` 形状的**无凭据**取数面 —— 模块的端口形状里根本没有
+   * 平台面这个字段（落盘步骤需要的那种形状由 `skill-online.ts` 自己用一个毒化桩满足）。
+   * 白名单、手动重定向、15s 超时、体量上限与「装不出来就丢」全在 `skill-online.ts` 里判。
+   */
+  const onlineSkillOptions = {
+    fetch: (input: string, init?: RequestInit) => fetch(input, init),
+    onError: (message: string, error: unknown) => {
+      ctx.logger.warn(`owndsh: ${message}`, error)
+    },
+  }
   /**
    * 配方一键启用（D1=A）的宿主接线：**延迟解析 + 晚绑定 + fail-closed**。
    *
@@ -782,6 +801,23 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
     skillAction: (action, packageId) => skillInstall.action(action, packageId),
     // 只读正文端口：点技能行看详情时读**已装**技能的 SKILL.md（路径安全全在 skill-install.ts 里 fail-closed）。
     skillContent: (packageId, name) => skillInstall.content(packageId, name),
+    // 通路一「本地上传」（§B.1 方案甲）：正文由本机路由有界读入（50 MiB 独立配额，绝不动 JSON 的 256 KiB），
+    // 这里只把「正文 + boundary」交给 bundle；分帧解析、闸门与落盘全在 skill-upload.ts（与中心安装同一套加固落盘）。
+    skillUpload: (body, boundary) => uploadSkillArchive(skillInstallOptions, body, boundary),
+    // 本机自装清单（§E.2③ 的独立状态文件）：与上面那条同源，只读、不碰中心口径的 installed.json。
+    skillSelfInstalled: () => installedSelfSkills(skillInstallOptions),
+    // 通路二「系统搜索」（盘点 + 纳入）：两个端口都**无条件**接线（判据全在调用时现场算，没有可缓存的状态）。
+    // 盘点只读本机技能根（`<dshHome>/skills` + 可注入的额外只读根，v1 默认空）；纳入**只登记不复制**，
+    // 落进的是与上一条同一份自装清单（`skill-system.ts` 复用 `upsertSelfInstalledRecord`，七键 + 0600 原子写）。
+    skillSystemSearch: () => discoverSystemSkills(skillInstallOptions),
+    skillAdopt: path => adoptSystemSkill(skillInstallOptions, path),
+    // 通路三「在线搜索」（三源 fan-out + 从结果安装）：两个端口**无条件**接线。
+    // ★公开源走的是**无凭据裸 fetch**，绝不能用上面那个带令牌的平台面 —— `platform-service.ts:709-733`
+    // 的 `request()` 是同源 + 注入 Authorization 的，拿它打第三方等于把企业令牌发给公网（而且会当场被
+    // 同源检查拒掉）。所以这里另开一个 `fetch` 形状的取数面；`skill-online.ts` 的端口形状里根本没有
+    // 平台面，落盘用的那个 `platform` 是毒化桩（真被调用就抛错）。
+    skillOnlineSearch: query => searchOnlineSkills(onlineSkillOptions, query),
+    skillInstallFromResult: source => installSkillFromResult(onlineSkillOptions, source),
     // 配方一键启用（三条本机路由：`/presets/<id>/{enable,disable,status}`）。三个端口**无条件**接线：
     // 它们在**调用时**才解引用 `presetHolder`，因此官方 pluginManager 稍后就绪时端口会真的进到路由。
     // 仍未就绪则由 `requirePresetService()` fail-closed：抛 `ENT_PRESET_INSTALL_FAILED`（唯一那张

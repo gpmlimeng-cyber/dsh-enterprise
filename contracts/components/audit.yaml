@@ -56,6 +56,14 @@ AuditAction:
     - BRANDING_ROLLED_BACK
     - FEEDBACK_SUBMITTED
     - FEEDBACK_STATUS_CHANGED
+    # 连接器六枚（V44 扩枚举）：与 AuditAction.java 的尾部六枚**逐字同序**，
+    # 顺序照 `docs/plan/connector-architecture.md` §6.5「必须记录的六类事件」。
+    - CONNECTOR_GRANTED
+    - CONNECTOR_REVOKED
+    - CONNECTOR_INBOUND_RECEIVED
+    - CONNECTOR_OUTBOUND_SENT
+    - CONNECTOR_DENIED
+    - CONNECTOR_UNSUPPORTED
 
 EmptyAuditMetadata: {type: object, additionalProperties: false, properties: {}}
 AuthAuditMetadata:

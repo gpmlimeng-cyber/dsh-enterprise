@@ -1,7 +1,7 @@
 ---
 feature: skill-catalog
 status: delivered
-updated: 2026-10-02
+updated: 2026-10-05
 branch: (working tree)
 ---
 
@@ -11,7 +11,7 @@ branch: (working tree)
 
 **What was built** — 企业控制面私有 `.dshskill` 目录：管理员在 `/skills` 上传验包、发布/退休并原子替换 ALL/USER 可见范围；员工在设置「技能」tab 浏览并复制装配指令，落盘到 `~/.dsh/skills/` 后由官方 `skill-filesystem` watcher 直接生效。包格式与 DSH 标准技能规范同构（`manifest.json` `format=dsh-skill` `version=1` + `skills/<name>/SKILL.md`，一包多技能）。
 
-**Verification** — 契约生成与 fixture 门禁 `@dshent/contracts` `9/9` PASS；服务端 `SkillArtifactInspectorTest` `8/8` + `AuditMetadataPolicyTest` `2/2`（合计 `10/10`，`-Pdev -Dmaven.test.skip=false` 真实执行）；控制台 `tsc --noEmit` 零诊断 + Vitest `79/79`（含技能 `4+7`）。迁移 `V35`、`RbacSeedTest`、跨端 HTTP/Harness E2E **未执行**——本机无 Docker（Testcontainers 不可用），如实标注为未验证。
+**Verification** — 契约生成与 fixture 门禁 `@dshent/contracts` `9/9` PASS；服务端 `AuditMetadataPolicyTest` `2/2`（`-Pdev -Dmaven.test.skip=false` 真实执行）；控制台 `tsc --noEmit` 零诊断 + Vitest `79/79`（含技能 `4+7`）。迁移 `V35`、`RbacSeedTest`、跨端 HTTP/Harness E2E **未执行**——本机无 Docker（Testcontainers 不可用），如实标注为未验证。**2026-10-02 修正**：本字段原记 `SkillArtifactInspectorTest` `8/8`，与源文件里实际的 `14` 个 `@Test` 不符（**原计数有误**，按实测改正）；另追加 `10` 条 §S2.2 资源文件用例 ⇒ 现共 `24`（`git show HEAD:` 读数 `14` + 新增 `10`）。**2026-10-05 实跑**：`SkillArtifactInspectorTest` **`24/24` 在本机最小独立跑道实跑通过**（`24 tests found / 24 started / 24 successful / 0 failed / 0 skipped`，JDK **`21.0.12`**（Termux 构建，与 `server/pom.xml:20` 的 `java.version=21` 同主版本）＋ `snakeyaml:2.6` ＋ `jackson-databind`/`jackson-core` `3.1.4`（`tools.jackson.core`）＋ `com.fasterxml.jackson.core:jackson-annotations:2.21` ＋ `junit-platform-console-standalone:6.0.3`，命令 `javac --release 21` + `ConsoleLauncher execute --select-class …`，须 `-Djava.io.tmpdir=<存在的目录>` 覆盖，见 §S2.2 末尾「运行环境备忘」）。★**这不等价于 Maven 实跑**：本跑道的 classpath 被窄化到上述 5 个 jar、未走 surefire 的选中集与 `argLine`/系统属性、未走 Maven 资源过滤 ⇒ **`SkillArtifactInspectorTest` 在 Maven 下是否被 surefire 选中、资源如何过滤，仍未验证**。
 
 ## [S1] Problem
 
@@ -48,7 +48,17 @@ skills/
 
 服务端验包**拒绝**：绝对路径、`..` 穿越、反斜杠路径、非 `manifest.json`/`skills/` 子树下的旁路目录、重复路径、缺失 `manifest.json`、非 `dsh-skill`/非 v1 manifest、非法 `id`、包内零个 `SKILL.md`、非 kebab-case 技能名、缺失 `name`/`description`、非法/非布尔调用策略、官方已废弃的旧字段名（`modelInvocable`/`userInvocable`/`disableModelInvocation`）、包内 frontmatter 重名、超 entry 数或解压上限（`413`）。
 
-服务端**不**解析或执行技能正文语义，深度语义由官方 `skill-filesystem` 负责。默认上限：单包压缩前 ≤ 50 MiB、解压后 ≤ 200 MiB、entry ≤ 10 000、包内技能 ≤ 200、单个 SKILL.md ≤ 256 KiB。
+服务端**不**解析或执行技能正文语义，深度语义由官方 `skill-filesystem` 负责。默认上限：单包压缩前 ≤ 50 MiB、解压后 ≤ 200 MiB、entry ≤ 10 000、包内技能 ≤ 200、根 `manifest.json` ≤ 1 MiB、`skills/<name>/SKILL.md` ≤ 256 KiB —— **后两条逐条目上限只作用于这两个路径**。
+
+**`skills/<name>/` 下的资源文件**（`references/*.md`、`scripts/*.py`、`assets/*`、`skills/<name>/LICENSE.txt`、裸目录条目 `skills` 与 `skills/<name>/references/`）**被接受、但不被解析**：路径裁决只看是否命中 `skills/` 前缀（`SkillArtifactInspector.java:134`），**只有恰好 3 段且末段为 `SKILL.md` 的条目**才被当作技能条目解析 frontmatter（`:118-120`）；判据还有三条——只有 manifest 与 `SKILL.md` 才建捕获缓冲（`:84`、`:90`），故资源文件**不计入** 1 MiB / 256 KiB 单文件上限（`:85`、`:91-92`）；资源文件**不占**「包内技能 ≤ 200」名额，只计入**解压总量与 entry 数** —— `SkillArtifactInspector.java:79` 的 `entries` 计数与 `:88-89` 的 `expanded` 累加是**无差别**施加于全部 entry 的两道闸；整包至少要有一个 `skills/<name>/SKILL.md`，只放资源文件仍被拒（`:114`）。
+
+员工端一键安装（§S2.7）同口径：解包只按中央目录的 `relative` 相对路径逐层收集（`plugin/packages/bundle/src/skill-archive.ts:142` 的 `segments.slice(2).join('/')`，任意深度），256 KiB 只压 `relative === 'SKILL.md'`（`:144`）；本地「已装技能」正文/文件读取的 256 KiB 是**读取路径**上限（`plugin/packages/bundle/src/skill-install.ts:786`、`:813`，越界返回 `ENT_SKILL_CONTENT_TOO_LARGE`），**安装本身**按字节原样落盘、不做单文件体积裁决。★**行号为 2026-10-05 实测（改这两份文件后需同步）**：本条原引 `skill-archive.ts:133`/`:135` 与 `skill-install.ts:715`/`:742`，那**不是写错**，而是刀 3a 改了这两个文件本身导致**整体位移**——`skill-archive.ts` 因 additive 多回 `displayName`（HEAD 152 行 → 现 161 行，+9）、`skill-install.ts` 因抽出 `placeEnterpriseSkillArchive`/`readInstalledSkillRecords`（942 → 1013 行，+71）；两处偏移量分别恰为 9 与 71，与文件增量一致。
+
+**运行环境备忘（本机，2026-10-05 实证；三条都是「名字/路径会骗人」的坑，跑任何编译产物/Java 测试前先读）**
+
+1. **`/data/data/...` 是 `noexec` tmpfs**（`/proc/mounts`：`tmpfs /data/data tmpfs rw,nosuid,nodev,noexec`），而 **`/data/user/0/...` 是同一份数据的可执行别名** ⇒ 本机执行任何编译产物或其子进程**必须用 `/data/user/0` 前缀**。这正是 `apt-get install openjdk-21` 连续 3 次下载 129 MB 成功后卡在配置阶段的根因：apt 派生的 dpkg 在 `execvp` 自己的 helper（`sh`/`rm`/`tar`/`diff`/`dpkg-deb`/`start-stop-daemon`）时被 `noexec` 拦掉，报成「`not found in PATH or not executable`」——**误导性地指向 PATH，实际 PATH 是对的**。
+2. **Termux 构建的 JDK 把 `java.io.tmpdir` 硬编码为 `/data/data/com.termux/files/usr/tmp/`**，本机该目录不存在 ⇒ `@TempDir` 会**全崩** `NoSuchFileException`（表现为整类用例「Failed to create default temp directory」，看着像代码全红，其实是环境）。**Maven `-Pdev` 实跑会踩同一个坑**，必须加 `-Djava.io.tmpdir=<存在的目录>`。另需 `LD_LIBRARY_PATH` 指向 `libandroid-shmem.so` 等，否则 `libjvm.so` 的 `dlopen` 失败。
+3. **Jackson 3 的注解 artifact 仍在 2.x groupId**：`tools.jackson.core:jackson-annotations:3.1.4` **是 404**，正确坐标是 `com.fasterxml.jackson.core:jackson-annotations:2.21`（依据 `jackson-databind-3.1.4.pom` 自身注释「Annotations remain at Jackson 2.x group id」＋ `jackson-bom-3.1.4.pom`）。仅凭「Jackson 3」这个名字去找依赖会持续踩坑。
 
 ### S2.3 数据模型（Flyway `V35`）
 
@@ -134,7 +144,7 @@ skills/
 
 - [x] T1: `paths/skill.yaml` + `components/skill.yaml` + 根协议 path/schema/错误码/fixture 登记并生成 contracts — acceptance: 管理 5 + runtime 3 operation 可生成；错误码进封闭目录；fixture 通过严格 Zod（`9/9`）
 - [x] T2: Flyway `V35` 建三表、唯一索引、`ent:skill` F 型权限行并扩展审计 action 白名单至 45 — acceptance: 静态核验菜单 ID 无冲突、F 型权限码 25 个与 RBAC 期望一致、审计 action 只增不减（真实迁移待 Docker）
-- [x] T3: Server `skill` 纵向模块：验包（含 SKILL.md frontmatter）、CAS 制品、发布/退休、assignments batch、runtime 列表/详情/下载授权 — acceptance: `SkillArtifactInspectorTest` 8/8、`AuditMetadataPolicyTest` 2/2、`mvn compile` 通过
+- [x] T3: Server `skill` 纵向模块：验包（含 SKILL.md frontmatter）、CAS 制品、发布/退休、assignments batch、runtime 列表/详情/下载授权 — acceptance: `SkillArtifactInspectorTest` `8/8`（★**该计数有误**：沿革与实测见上方 Verification）、`AuditMetadataPolicyTest` `2/2`、`mvn compile` 通过
 - [x] T4: 控制台 `/skills` 页 + 路由 + 上传/详情/可见范围 — acceptance: `tsc` 零诊断、Vitest 79/79（含技能 11）
 - [x] T5: 员工端「技能」tab + 复制装配指令（不自动落盘） — acceptance: 见员工端验证
 - [x] T6: GEB 三层文档回环（root CLAUDE.md、各 L2 成员清单、L3 头部）与门禁修正（`RbacSeedTest` 预存重复行缺陷）

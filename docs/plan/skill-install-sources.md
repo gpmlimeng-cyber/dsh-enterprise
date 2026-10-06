@@ -123,20 +123,28 @@
 
 | 事实 | 出处 |
 |---|---|
-| Host 侧同源只读/动作路由唯一注册点：`registerEnterpriseLocalApi`，前缀 `/enterprise/api/v1/local` | `plugin/packages/platform-client/src/local-api.ts:45`、`:60-70`（技能四条 exact 子路径）、`:554-660`（状态/正文/动作注册） |
-| 技能目录（中心镜像）在 bundle 侧注册成「`/skills` exact 列表 + `/skills` prefix 详情」，prefix handler 再按剩余段分派本机文件子路径 | `plugin/packages/bundle/src/skill-route.ts:12`、`:15`、`:254-291`、`:305-331` |
-| 稳定码 → HTTP 状态的**唯一映射表** `enterpriseLocalErrorStatus` | `plugin/packages/platform-client/src/local-api.ts:200-215` |
-| 未列进映射表的码**一律落 503** —— 现有 `ENT_SKILL_ARCHIVE_INVALID`/`SIZE_MISMATCH`/`HASH_MISMATCH`/`PACKAGE_MISMATCH`/`STATE_INVALID`/`INSTALL_FAILED`/`DOWNLOAD_FAILED` 全部落 503 | 同上一行（表内没有这些码） |
+| Host 侧同源只读/动作路由唯一注册点：`registerEnterpriseLocalApi`，前缀 `/enterprise/api/v1/local` | `plugin/packages/platform-client/src/local-api.ts:49`（前缀）、`:671`（注册函数）；技能族子路径常量集中在 `:90-139`（`/skills/{install,uninstall,installed,content,upload,self-installed,system-search,adopt}` 八条） |
+| 技能目录（中心镜像）在 bundle 侧注册成「`/skills` exact 列表 + `/skills` prefix 详情」，prefix handler 再按剩余段分派本机文件子路径 | `plugin/packages/bundle/src/skill-route.ts:3`、`:18-31`、`:254-291`、`:305-331` |
+| 稳定码 → HTTP 状态的**唯一映射表** `enterpriseLocalErrorStatus` | `plugin/packages/platform-client/src/local-api.ts:407`（技能族判定在 `:424-442`） |
+| ★**2026-10-05 更正（原条目有误）**：不能只说「未列进映射表的码一律落 503」——技能族的真实落点是 `ENT_SKILL_NAME_CONFLICT`→409、`ENT_SKILL_CONTENT_INVALID`→409、`ENT_SKILL_CONTENT_TOO_LARGE`→413，而 `ENT_SKILL_{DOWNLOAD_FAILED,SIZE_MISMATCH,HASH_MISMATCH,PACKAGE_MISMATCH,STATE_INVALID,INSTALL_FAILED}` 六枚**落表尾默认 503**；原条目把 `ENT_SKILL_ARCHIVE_INVALID` 也算进 503 那一组，**已不成立**（见下一行） | 同上一行（六枚在表内零命中；`ENT_SKILL_ARCHIVE_INVALID` 在 `:429-431`） |
+| ★**`ENT_SKILL_ARCHIVE_INVALID` 入表后 `/skills/install` 的同类失败 503→400 是修正，不是回归**：制品结构非法（ZIP/manifest 形状不对）重试多少次都一样，503 会把用户推去「过会儿再试」这条**错的下一步**；本地上传通路入表时把它与 `ENT_SKILL_UPLOAD_INVALID` / `ENT_SKILL_SKILLMD_INVALID` 一并判 **400**（同一张表 ⇒ `/skills/install` 与 `/skills/upload` 给出同一个状态码） | `plugin/packages/platform-client/src/local-api.ts:429-431` |
 | 客户端严格解码与错误码投影唯一入口 `enterpriseLocalErrorCode` | `plugin/packages/ui/src/local-api-decode.ts:317` |
 | 浏览器侧只发同源固定路径，调用方无法注入 origin/Authorization；错误码只认受控投影 | `plugin/packages/ui/src/local-api.ts:8-68`、`:261-271`、`:284-300` |
 | **二进制上传已有先例**：反馈的 multipart 本地路由，有界读取 `readBoundedBody(request, limit)` + `content-length` 预检 | `plugin/packages/bundle/src/feedback-route.ts:19-27`、`:377`、`:437-438`、`:451-453` |
-| JSON 本地正文上限仅 **256 KiB**（`MAX_LOCAL_BODY_BYTES`）——**装不下 50 MiB 的包** | `plugin/packages/platform-client/src/local-api.ts:28`、`:227` |
+| JSON 本地正文上限仅 **256 KiB**（`MAX_LOCAL_BODY_BYTES`）——**装不下 50 MiB 的包** | `plugin/packages/platform-client/src/local-api.ts:51`、`:492` |
+| ★**本地上传已落地，配额是独立的第二条**：`MAX_SKILL_UPLOAD_BODY_BYTES = 52_428_800`（50 MiB）只作用于 `POST /skills/upload`，**不动** `MAX_LOCAL_BODY_BYTES`（256 KiB = **所有** JSON 路由的上限）；multipart 解析复用反馈那条 `parseFeedbackMultipart`，不新造第二个 | `plugin/packages/platform-client/src/local-api.ts:155`、`:1052-1062`；`plugin/packages/bundle/src/skill-upload.ts:2-4` |
 
 **结论（两条）**
 1. 新接口挂在 `registerEnterpriseLocalApi` 家族里，命名与既有四条 `/skills/*` exact 子路径同族；
    必须在引擎 exact/prefix 两张表上抢在 bundle 的 `/skills` prefix 之前（否则被当成包 id，400）。
+   ★**2026-10-05 落地回读**：通路一「本地上传」与通路二「系统搜索」已按本条落地，**新增四条 exact 子路径**
+   （`POST /skills/upload`、`GET /skills/self-installed`、`GET /skills/system-search`、`POST /skills/adopt`）——
+   `skill-route.ts` 那条 `/skills` prefix 的**注册面与形状一字未改**，新子路径全部注册为 exact（exact 表优先命中，
+   不会掉进 prefix 被当成包 id）。
 2. **上传不能走 JSON 路由**（256 KiB 上限），必须走 multipart 有界读取 —— 与 `feedback-route.ts` 同一手法，
    但配额要另开一组（50 MiB 量级），**不能**改 `MAX_LOCAL_BODY_BYTES`（那会同时放宽所有 JSON 路由）。
+   ★**2026-10-05 落地回读**：已按本条实现且**两条上限真的互不影响**（`MAX_SKILL_UPLOAD_BODY_BYTES` 只在
+   `/skills/upload` 那条路径上判，`MAX_LOCAL_BODY_BYTES` 仍是所有 JSON 路由的 256 KiB）。
 
 ---
 

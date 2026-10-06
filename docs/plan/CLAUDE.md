@@ -15,7 +15,8 @@ skill-authoring.md: 「**创建技能**」方案（技能线第三条纵向）�
 skill-ingest-center.md: 「企业中心多渠道技能导入」方案（技能线第一条纵向），含共享渠道适配器抽象与放置位置、端到端导入流程与重复导入策略、中心独有治理口径（权限/审核/许可/provenance/内容安全缺口）、服务端改动清单（表/迁移/契约/错误码/审计）、控制台 UI 与三期人日。
 skill-install-sources.md: 「技能安装支持本地上传压缩包 + 粘贴 skillhub.cn / GitHub / npm **三方地址**」方案（技能线第二条纵向），含两条通路端到端流程与责任划分、三来源适配规格与扩展接口、客户端 fail-closed 校验闸门、信任与授权口径、安全清单、UI 设计、分期人日与明确不做；复用既有安装管线与验包闸门，不另起一套。
 cherry-skill-add-port.md: Cherry Studio 2.1.4「添加技能」移植的**决策与排期增量**——用户已拍板口径（四路全做、风险提示/审计/可见性三条后移）、设计地基（**闸门在落盘处、不在来源处**：三方安装复用 `skill-install.ts` 同一条加固路径）、五刀排期与依赖、三条绝不移（落盘正确性 / 路径逃逸+折叠碰撞 / 同名冲突预检）、与上述三份技能线文档的分工边界、刀 1 实现要点（含两条「测试替实现打了工」的实证）与未决项。**事实层以 docs/research/cherry-skill-add-2026-10-05.md 为准，本文不复述**；与 skill-install-sources / skill-authoring / skill-catalog 冲突时以那三份为准。
+mcp-conformance.md: MCP 接入的**官方合规基线**（只固化规范与结论，不实现、不改任何源文件）——DSH 官方 MCP 规范的真实坐标基准（含三个易踩路径坑）、**两条硬边界**（bundle 自己的 `cordis.patch.yml` ✅ / **profile 的** ❌）、配置型 bundle 交付形态与官方模板逐字、字段级契约与 `ConfigInput` 输入可选性、`failOnStartupError` 的企业取义、工具命名的不可逆契约（`serverName` 由企业冻结）、代际原子性、stdio 环境清洗、凭据 `!!js` 唯一写法、明确不支持面、装完验收动作与官方验收纪律（mock 截图不算验证）、本仓 4 份 patch 与 3 个真机 profile 的合规实测；另有写作过程中更正的**四处错误**与既有文档**待修正三处**。能力元数据与分期人日仍以 `connector-architecture.md` §3/§7 为准，本文是它的**实现约束层**。
 
-**本目录的阅读顺序**：要动手前先读**对应纵向**的方案（技能线三条：`skill-ingest-center` 导入 → `skill-install-sources` 安装 → `skill-authoring` 创建），再读 `add-skill-flow-reference` 取官方 UX 逐元素口径；`cherry-skill-add-port` 只在"这一轮决定了什么、先做哪一刀"时读，它不承载规格。
+**本目录的阅读顺序**：要动手前先读**对应纵向**的方案（技能线三条：`skill-ingest-center` 导入 → `skill-install-sources` 安装 → `skill-authoring` 创建；连接器线先读 `mcp-conformance` 取合规边界、再读 `connector-architecture` 取能力模型与分期），再读 `add-skill-flow-reference` 取官方 UX 逐元素口径；`cherry-skill-add-port` 只在"这一轮决定了什么、先做哪一刀"时读，它不承载规格。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

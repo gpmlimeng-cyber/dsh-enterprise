@@ -36,20 +36,25 @@
  *      座位缺席（纯函数直调 / 未接线）时页签留在页面里，外壳仍自包含。
  *      详情子页面**也照常发布**（既有契约「进详情时页头与四枚页签保持可见、一字不改」）。
  *      ② 卡片 hover **只变背景**：删掉把标题/描述染主色的那条规则（反锁守着，谁加回来先红）。
- *      ③ 「安装 / 启用」按钮 = **白底 + 有 hover，但与卡片 hover 不同一枚 token**：
- *      卡片 hover 走 `interactive-bg-hover`（整块变灰），按钮 hover 走官方**按钮族**的
- *      `button-tool-bar-hover`（.own-market-installBtn 同名双类抬特异性，不用 !important、不动官方样式表）。
+ *      ③ 「安装 / 启用」按钮 = 官方 **outline 档**，**本文件不覆盖它的任何背景**（`background:transparent`
+ *      + 0.5px 描边 + `label-primary` 黑字 ⇒ 浅色白底黑字、深色随主题翻）；历史两次错误覆盖见下方注释。
  *      ④ 卡片标题/描述取值照官方 `_cardName`/`_cardDesc`（15px/600/1.4 + `label-primary`、
  *      13px/1.55 + `label-secondary`），并删掉「已停用把标题压成次级灰」这条本地偏离。
  *      ⑤ 标题行**不再显示包名**（`BadgeView` 里那行 `<code data-plugin-name>` 撤掉，由反锁守着）。
  *   ⑧ **本刀（图标彩色 + 详情标题再清一次）**：卡片/组件图标几何照官方行图标（`ZVcBiW_rowIcon`：
  *      40×40 + `.5px solid border-l3` + `radius-md`），底色取**白**（不透明：卡片 hover 变灰时图标仍是白块），
- *      容器**保持中性色**（官方 rowIcon 就是 secondary）——里面的图形是**官方那枚「无自有图标」兜底**
- *      （`PluginArtworkDefault`：青蓝渐变 + 接线块/node），四种行（技能/插件/配方/组件）都用它，
- *      由 `EnterpriseArtworkFallback` 逐字照抄、渐变 id 经 `useId()` 逐次唯一（**同页多枚不得写死 id**，
- *      否则全部 url(#…) 解析到第一个实例、整页染成同一色）。原先按类别上色的
- *      `data-icon-kind` + 四条 `--dsw-static-*` 规则**整组删除**（与自带渐变冲突，且每张卡挂同一个「企业」
- *      标识本就零信息量），不留死样式。
+ *      容器**保持中性色**（官方 rowIcon 就是 secondary），四种行（技能/插件/配方/组件）共用一枚
+ *      `EnterpriseArtworkFallback`。
+ *      ★ **本段原写的「图形＝官方 `PluginArtworkDefault` 逐字照抄」与「渐变 id 经 `useId()` 唯一」
+ *      两句都已被取代（前者 task-17 ②，后者从来就是错的）**：
+ *      ① 图形自 task-17 ② 起**按条目稳定派生**——首字母 + 条目 id 的 FNV-1a hash 取一组既有
+ *         `--dsw-static-*` token 的色相，不再逐字照抄官方那枚青蓝图形（真源见组件上方那段）；
+ *      ② 渐变 id 一直由**模块级自增**给出、**从未**用过 `useId()`：本包测试把组件当纯函数直调
+ *         （dispatcher 为 `null`），`useId()` 会直接抛 —— 见 `EnterpriseArtworkFallback` 上方那段。
+ *      ③ 「同页多枚不得写死 id」这条要求仍然成立（否则全部 url(#…) 解析到第一个实例、整页同色）。
+ *      原先按类别上色的 `data-icon-kind` + 四条 `--dsw-static-*` 规则当时**整组删除**（与自带渐变冲突，
+ *      且每张卡挂同一个「企业」标识本就零信息量），不留死样式；task-17 的派生色是**逐条目**的、
+ *      没有第二套渐变与它竞争。
  *      详情页左上角那枚 48×48 图标**本刀直接从 JSX 撤掉**（真相是它本来就是本文件自己画的
  *      .own-market-detailIcon，不是官方 cardIcon；早先那两条按 [data-plugin-item-detail] 定位
  *      官方的覆盖规则锚在官方包里不存在的属性上，从未生效，一并删除）；
@@ -77,6 +82,97 @@
  *   **今天这批插件在界面上的标题与改前逐字相同**；只有声明了人类可读名的插件才看得出差别。
  *   ★ **市场面插件行没有详情页**（企业插件的详情在「企业设置 → 插件」那一面）⇒ 本行标题仍是纯文本，
  *   不造"_点了没反应"的假按钮；有详情入口的技能/配方行才是真 `<button>`，由 `plugin-card.spec.ts` 反向锁。 **本刀（插件行详情子页面，用户口径第 16 条，推翻第 15 条末尾那句批注）**：插件行标题改成真 `<button class="own-market-rowOpen">`（`data-enterprise-plugin-open` + 「查看企业插件 <名称> 详情」，**没有** `aria-haspopup`），点它把「企业插件」页签的**内容区**换成详情**子页面**（互斥由**复用的** `EnterprisePluginContentRegion` 保证、页头与四枚页签一字不改）；正文**原样复用** `plugin-market.tsx` 的 `EnterprisePluginDetailPage`（import 一处、渲染一处，零复制），它那份样式表由那边新导出的 `ENTERPRISE_PLUGIN_STYLES` 在详情态一并挂上（列表态一个字节都不多背）；动作区是行上**同一枚**新抽出的 `EnterpriseMarketPluginRowActions`（能装就装、已装就开关，本面**不引导卸载**）；返回两条真路径（返回按钮 + Esc，监听钉在本页根节点）；**浏览器返回键不接**（没有真实路由，不许硬造 `history`）；返回后按**同一枚** `scrollTargetOf` 的判定还原滚动位置、按包名把焦点还给那一枚标题按钮。 **本刀（插件市场详情补描述，用户口径第 19 条）**：本面（face B）把**行上第二行那条同一份真值**（`EnterpriseMarketPluginRow.description`）经 `EnterprisePluginDetailPage` 新增的**可选** prop `description` 传进详情 ⇒ 事实表之后多一段「描述」；face A 不传该 prop，故那一面输出逐字不变（additive 例外，同口径 18③）。 **本刀（口径 20：描述来自 README）**：详情「描述」段的**内容来源**从「制品 `package.json` 的短 `description`」换成「**插件制品里的 README**」——行投影新增**可选** `readme`（索引自目录项的 `PluginReadme`，缺席/null/空串一律不产出该键），正文由**唯一一枚**纯投影 `enterpriseMarketPluginDetailBody(readme, description)` 决定：**有 README 就用 README**，没有才**回落**到那枚短描述，两者都没有 ⇒ 整段不进 DOM（口径 19 的三态一条不丢，只是首选换了）。**行上第二行仍读短 `description`**（README 是整篇正文，不进两行 clamp 的卡片）。渲染方式与版式**一字未动**：仍是纯文本子节点 + `pre-wrap` 保换行 + 12 行块内滚动（全文件 `dangerouslySetInnerHTML` 零出现），**不新增依赖、不解析 Markdown**（全仓没有既有渲染器，技能正文也是 `<pre>` 纯文本）。face A（企业设置 → 插件）**不传** `readme`、也不传新的 prop ⇒ 它那一面的详情输出与口径 19 **逐字相同**（`plugin-card.spec.ts` 的字节级大纲快照原样绿）。 **本刀（口径 22：README 渲染成漂亮排版）**：README 不再当纯文本铺——详情那一段的**版式**改由新叶 `markdown-render.tsx` 的 `renderMarkdown` 排版（标题/段落/列表/代码块/引用/水平线/粗斜体/删除线/链接/行内代码/换行），本面只多传一枚**可选** prop `descriptionMarkdown`，取值来自**唯一一枚**纯投影 `enterpriseMarketPluginDetailMarkdown(page.row.readme)`（**有 README 才为真**；回落到短描述时仍为假 ⇒ 短描述那一支的版式与口径 19/20 **逐字相同**）。`description=` 那一行**一字未改**（口径 20 的正文判定点原样保留，两者同源同口径）。README 一律当**数据**：raw HTML 当纯文本、`javascript:`/`data:` 链接降级为文字、图片语法**绝不**渲染 `<img>`、全文件 `dangerouslySetInnerHTML`/`innerHTML` 零出现；解析在自写渲染器里（**不新增依赖**），块级逐行扫描 + 行内二分查找 + 深度/步数预算，病态输入也有界。
+ * **本刀（本地导入，只放开「添加技能」下拉里的那一项）**：「本地导入」从占位变成真能用的通路，
+ *   其余三项（通过 Agent 创建 / 在线搜索 / 系统搜索）**照旧全禁用**、可见原因仍是那句看得见的「开发中」。
+ *   ★ **这句清单已被后面两刀依次取代**（task-6 放开系统搜索、本刀放开通过 Agent 创建）——
+ *   现在的终态见本头部最后那一段「本刀（通过 Agent 创建）」。
+ *   ① **四项终态的唯一投影** `enterpriseAddMenuPlans(tab, onImportSkill)`（新导出 `ENTERPRISE_ADD_MENU_IMPORT_ID` /
+ *   `EnterpriseAddMenuEntryPlan` / `enterpriseAddMenuEntryPlan`）：本地导入**只在写入口在场时**才可点——缺席
+ *   （没有 store / 老调用方 / 纯函数直调）就照旧禁用，绝不画一枚「看着能点、点下去什么都不发生」的菜单项。
+ *   ② **写入口怎么送到标题行那棵树**：与 `addMenuOpen` 同一条缝 `EnterpriseMarketTabSeatState.onImportSkill`
+ *   （`publish` 签名多一位「在不在场」，函数本身不进签名，理由同 `onSelect`）。
+ *   ③ **文件选择器**：官方原生 `<input type="file">`（`accept=.dshskill,application/vnd.dsh.skill+zip,application/zip`），
+ *   行内 `display:none` —— **零新增 CSS 类**（`<style>` 两道字节级基线一字未动）；选中后**先清空 value** 再交出去
+ *   （否则同一个文件再选一次不触发 change = 点了没反应）。它挂在页面级 chrome `EnterpriseMarketSkillImportChrome` 上，
+ *   那份 chrome **三支视图都挂**（列表 / 技能详情 / 配方详情）：触发它的下拉住在官方标题行槽里、三支视图都在场，
+ *   少挂一支就是死控件（源码级判据 `{pageChrome}` 恰好五处 —— 列表 / 技能详情 / 配方详情 / 系统搜索 / 在线搜索）。
+ *   ④ **前端预检** `enterpriseSkillImportRejectReason` 只判一件事实：`> 50 MiB` 就地拦下、**一个字节都不发**，
+ *   稳定码 `ENT_SKILL_UPLOAD_TOO_LARGE`（空文件 / 扩展名 / 内容形状不在这里猜，那是 Host 闸门的权威判定）。
+ *   ⑤ **上传与收束**：`store.api.uploadSkill` = 同源 `POST /skills/upload`（multipart 恰好一个 `artifact` part；
+ *   响应与 `/skills/install` **同形** ⇒ 复用同一个严格解码器）；成功后走**既有**安装收束
+ *   （`setInstalledSkills(items)` 覆盖 + `catalogSource.retry()` 重取），再读 `store.api.selfInstalledSkills()`
+ *   （**另一份**记录：自装包没有中心雪花 id、不在企业已装清单里）按**用户原始文件名**精确匹配说出「装好了哪几个技能」；
+ *   这一次级读取失败**不改判成功**，只在反馈里如实补一句。
+ *   ⑥ **三态反馈的唯一落点** `EnterpriseMarketSkillImportNotice`（文案全由新叶 `skill-import.ts` 的纯投影产出）：
+ *   进行中 / 成功是 `role="status"` 的一句人话（含文件名与大小）；失败走**唯一**的失败提示组件（`role="alert"` +
+ *   人话 + 「下一步：」+ 折进「技术信息」的稳定码）**再加一枚真能点的「重新选择文件」**（上传失败的正确下一步是
+ *   **换一份文件**，不是原地重发同一份字节）。跨流码 `ENT_SKILL_ARCHIVE_INVALID` 在这里带 `flow="local-upload"`
+ *   取**本地上传流**的下一步（不说「重新下载」——这条流里技能包就是员工手里那份文件）。
+ *   **测试：+16 条**（`skill-import.spec.ts` 新文件 10 条、`marketplace-entry.spec.ts` +3、`local-api.spec.ts` +2、
+ *   `error-messages.spec.ts` +1；38 文件 591 条 → 39 文件 607 条，一条未删；两份结构大纲各 +1 行 = 那枚文件选择器，
+ *   CSS **零新增类**）。
+ * **本刀（系统搜索，只放开「添加技能」下拉里那一项）**：「系统搜索」从占位变成真能用的通路，
+ *   其余两项（通过 Agent 创建 / 在线搜索）**照旧全禁用**、可见原因仍是那句看得见的「开发中」，
+ *   **本地导入保持可用**（task-3 的成果，本刀一行未回退）。
+ *   ★ **上面那句「其余两项全禁用」已被本刀（通过 Agent 创建）取代**（现在只剩「在线搜索」是灰的）。① 四项终态的同一枚投影
+ *   `enterpriseAddMenuPlans(tab, wiring)` 改成吃一枚**接线对象** `EnterpriseAddMenuWiring`
+ *   （ID → 回调的唯一对应表在 `addMenuWriter`；没接线的项恒「开发中」）；② 结果面是
+ *   **页内视图切换**（口径 15：详情是子页面不是弹窗）——`props.systemSearch` 非空即整页换成
+ *   `EnterpriseSystemSearchPage`（列表/页签/节容器整段不挂载，无 `role="dialog"`、无 portal、无遮罩），
+ *   与技能/配方详情同一条形态，返回两条真路径（面包屑 + Esc）**并把滚动位置还原**；③ 结果面按
+ *   `rootId` 分组铺候选（`enterpriseSystemRootGroups`），每条给目录名 / frontmatter 名 / 描述（读不到就
+ *   不画那一行）/ 三态中文（`enterpriseSystemSkillRow`）；**只有 `available` 画【纳入】**，另两态在行上
+ *   写清为什么没有动作；④ 空结果分**两句**人话（根不存在 vs 根在但零候选，另加一句整体空话）；
+ *   ⑤ 纳入一次只允许一条（Host 的自装清单是「读—改—写」一份文件），在途时其余按钮禁用且**原因写在进行中
+ *   那一行里**；成功/失败**都重新盘点**（不自己把那条改成「已装」），失败只落在那一行（唯一提示组件 +
+ *   稳定码），进度落点、`role=status`/`role=alert`、「禁用即须有可见说明」全部沿用 task-3 那套。
+ *   ⑥ 三枚纳入码入表：`ENT_SKILL_DISCOVERY_UNKNOWN`(404，下一步是**重新搜索**而不是再发同一份 path)、
+ *   `ENT_SKILL_ALREADY_REGISTERED`(409，回列表刷新)、`ENT_SKILL_ADOPT_FAILED`(500，可重试)；
+ *   `ENT_SKILL_NAME_CONFLICT` 现在跨**三条**流（中心安装 / 本地上传 / 纳入），但三条流的下一步是同一件事
+ *   （先试卸载、卸不掉请管理员清），故**不留**流专属表述（由用例锁住「谁想加 actions 就先红」）。
+ *   **测试：+14 条**（`system-search.spec.ts` 新文件 7 条、`marketplace-entry.spec.ts` +3、
+ *   `local-api.spec.ts` +2、`error-messages.spec.ts` +2；39 文件 607 条 → 40 文件 621 条，一条未删；
+ *   CSS **零新增类**，两份结构大纲与两道字节级判据一字未动）。
+ * **本刀（通过 Agent 创建，只放开「添加技能」下拉里的第①项）**：第①项从占位变成真能用的通路，
+ *   **只剩「在线搜索」是灰的**（可见原因仍是那句看得见的「开发中」）；**本地导入 / 系统搜索一行未回退**。
+ *   ① 写入口就是 `EnterpriseAddMenuWiring.onCreateWithAgent`（ID→回调唯一表 `addMenuWriter` 多一档），
+ *   可用判据 = **端口在场**（与另两项同一条：缺席 ⇒ 该项禁用，绝不画点了没反应的菜单项）；
+ *   ② 点它 = 关下拉 + 调**既有**那枚 `EnterprisePresetLaunchPort`（配方第二级用的**同一枚**端口，
+ *   打开空白/新会话并把文本填进官方输入框、**不发送**）——**没有**第二个「开会话」端口（用例反向锁
+ *   `presetLaunch(` 恰好两处、且文件里不出现 `openWorkspace`/`setDraft`）；
+ *   ③ 那段草稿由新叶 `skill-create.ts` 的纯函数 `buildSkillCreateDraft()` 唯一产出（逐字可审、可测）：
+ *   说清目标 / 落点 `~/.dsh/skills/<技能名>/SKILL.md` / frontmatter 的 **name（全小写连字符，与目录名一致）
+ *   与 description 缺一不可**（官方 watcher 的硬门）/ **条件句**的 `skill-creator`（本机实测没装，
+ *   故写「如果已经装了…没有装就按上面的要求写文件」）/ 末尾给出下一步（写完怎么纳入）；
+ *   ④ 成功与「已复制」各一句 `role="status"`；失败走**唯一**提示组件 + **一枚真能点的「复制这句指令」**
+ *   （那枚按钮复制的就是**刚发出去的那一段**——草稿存在失败态里，复制内容 === 发出去的内容是结构性的）；
+ *   ⑤ 两枚**本机动作**码入表：`ENT_SKILL_CREATE_LAUNCH_FAILED`（下一步：把这句指令复制走）与
+ *   `ENT_SKILL_CREATE_COPY_FAILED`（下一步：检查剪贴板权限后重试）——下一步不同故分两枚，且都不带 preset 字样。
+ *   **测试：+8 条**（`skill-create.spec.ts` 新文件 5 条、`marketplace-entry.spec.ts` +2、`error-messages.spec.ts` +1；
+ *   40 文件 621 条 → 41 文件 629 条，一条未删；CSS **零新增类**，基线两个数字一字未动）。
+ * **本刀（在线搜索，四项里的最后一项）**：第②项从占位变成真能用的通路 ⇒ **四项全部可点**，
+ *   **本页一个「（开发中）」都不剩**（用例在投影层与真元素层各锁一遍：四项都接线时四行文案与整棵树
+ *   都不含那四个字；「机制」本身按宪法保留 —— 将来再有新项，没接线就还是它来兜）。
+ *   ① 写入口 = `EnterpriseAddMenuWiring.onOnlineSearch`（ID→回调唯一表 `addMenuWriter` 多一档）；
+ *   ② 点它 = 关下拉 + 整页切到 `EnterpriseOnlineSearchPage`（**第五支** return，与系统搜索**同一范式、
+ *   同一证据口径**：列表/页签/工具行/四个 tabpanel 整段不挂载，无 dialog role、无 portal、无遮罩，
+ *   只有一枚 `role="region"` + `tabIndex={-1}` 的焦点落点；返回两条真路径（面包屑 + Esc）+ 滚动还原）；
+ *   ③ **查询框在面内**（受控 input + 回车即搜 + 一枚真按钮）：输入按 300ms 防抖自动搜
+ *   （`ENTERPRISE_ONLINE_DEBOUNCE_MS`），不足 2 个字（`ENTERPRISE_ONLINE_QUERY_MIN`）**不搜**并写清为什么
+ *   （那句人话与按钮的 `disabled` 是同一件事的两种呈现）；④ **逐源的两种坏消息分开铺**：
+ *   `ok:false` 的源逐个说「这次没有取到」、`dropped>0` 的源逐个说「有 N 条不提供可安装的来源，已跳过」
+ *   —— 绝不合并成一句「部分失败」（本刀最要紧的一条），且**照实渲染收到的那个数**、界面不自己算；
+ *   ⑤ 每条结果给技能名 + 一句 facts（来源恒有，作者/星标/安装量缺席就不进那一句）+ 描述（缺席不画）
+ *   + 一枚【安装】；**一次只允许装一条**（Host 的自装清单是「读—改—写」一份文件），在途时其余按钮
+ *   一并禁用且原因写在可见那行里；成功走**既有**安装收束（响应覆盖已装态 + 目录取数源重取一次），
+ *   失败只落在那一行（唯一提示组件 + 稳定码）；
+ *   ⑥ 三枚新码入表（`ENT_SKILL_SOURCE_{UNKNOWN,UNREACHABLE,TOO_LARGE}`，下一步各不相同），并把
+ *   `ENT_SKILL_ARCHIVE_INVALID`/`ENT_SKILL_SKILLMD_INVALID`/`ENT_SKILL_INSTALL_FAILED` 三枚**跨流码**
+ *   补上 `'online-install'` 流的下一步（默认句里的「重新下载 / 重新发布」在在线安装下说不通）；
+ *   流值清单一并导出 `ENTERPRISE_ERROR_FLOWS`，逐流逐句由用例遍历。
+ *   **测试：+14 条**（`online-search.spec.ts` 新文件 8 条、`marketplace-entry.spec.ts` +3、`local-api.spec.ts` +2、
+ *   `error-messages.spec.ts` +1；41 文件 629 条 → 42 文件 643 条，一条未删；CSS **零新增类**，
+ *   两份结构大纲与两道字节级判据一字未动）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -86,11 +182,83 @@
 import { BookMarked, Bot, ChevronDown, FileText, Filter, Folder, FolderSearch, Import, Library, MoreHorizontal, Package, Plus, RefreshCw, Search, Sparkles, X } from 'lucide-react'
 import { Button, StateDot, Switch, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, Ref } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, Ref, RefObject } from 'react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { enterpriseSessionUsable, useAccount } from './account-state.js'
 import type { EnterpriseAccountStore } from './account-store.js'
 import { formatByteSize } from './display-format.js'
+// **本地导入**（本刀）那条通路的**纯事实层**：50 MiB 上限与 accept 串、三态状态机、尺寸预检、
+// 三句可见反馈与「这次装好了哪几个技能」的取法。页面这一层只画，一个判定都不在这里重写。
+import {
+  ENTERPRISE_SKILL_IMPORT_ACCEPT,
+  ENTERPRISE_SKILL_IMPORT_INPUT_LABEL,
+  ENTERPRISE_SKILL_IMPORT_RESELECT,
+  ENTERPRISE_SKILL_IMPORT_RESELECT_LABEL,
+  enterpriseSkillImportNames,
+  enterpriseSkillImportNotice,
+  enterpriseSkillImportRejectReason,
+  type EnterpriseSkillImportState,
+} from './skill-import.js'
+// **系统搜索**（本刀）那一面的纯事实层：结果面的全部文案、四态→页面的唯一投影、按根分组与单条候选的行投影。
+// 页面这一层只画，一个判定都不在这里重写（与 `skill-import.ts` 同一分工）。
+import {
+  ENTERPRISE_SYSTEM_ADOPT,
+  ENTERPRISE_SYSTEM_ADOPTING,
+  ENTERPRISE_SYSTEM_ADOPT_FAILED_PREFIX,
+  ENTERPRISE_SYSTEM_BACK_LABEL,
+  ENTERPRISE_SYSTEM_BACK_TEXT,
+  ENTERPRISE_SYSTEM_LOADING,
+  ENTERPRISE_SYSTEM_NOTE,
+  ENTERPRISE_SYSTEM_REFRESH,
+  ENTERPRISE_SYSTEM_REFRESH_LABEL,
+  ENTERPRISE_SYSTEM_TITLE,
+  enterpriseSystemAdoptedText,
+  enterpriseSystemAdoptingText,
+  enterpriseSystemCountText,
+  enterpriseSystemFace,
+  enterpriseSystemSkillRow,
+  type EnterpriseSystemFace,
+  type EnterpriseSystemSkillRow,
+} from './system-search.js'
+// **通过 Agent 创建**（本刀）那一项的纯事实层：那份交给助手的草稿、三段可见文案与三态反馈的唯一投影。
+import {
+  ENTERPRISE_SKILL_CREATE_COPY,
+  ENTERPRISE_SKILL_CREATE_COPY_FAILED_CODE,
+  ENTERPRISE_SKILL_CREATE_COPY_LABEL,
+  ENTERPRISE_SKILL_CREATE_LAUNCH_FAILED_CODE,
+  buildSkillCreateDraft,
+  enterpriseSkillCreateNotice,
+  type EnterpriseSkillCreateState,
+} from './skill-create.js'
+// **在线搜索**（本刀）那一面的纯事实层：查询档位、逐源两种坏消息、单条结果的行投影与整面状态投影。
+import {
+  ENTERPRISE_ONLINE_BACK_LABEL,
+  ENTERPRISE_ONLINE_BACK_TEXT,
+  ENTERPRISE_ONLINE_DEBOUNCE_MS,
+  ENTERPRISE_ONLINE_IDLE,
+  ENTERPRISE_ONLINE_INSTALL,
+  ENTERPRISE_ONLINE_INSTALLED,
+  ENTERPRISE_ONLINE_INSTALLING,
+  ENTERPRISE_ONLINE_INSTALL_BUSY_SUFFIX,
+  ENTERPRISE_ONLINE_INSTALL_FAILED_PREFIX,
+  ENTERPRISE_ONLINE_LOADING,
+  ENTERPRISE_ONLINE_NOTE,
+  ENTERPRISE_ONLINE_QUERY_LABEL,
+  ENTERPRISE_ONLINE_QUERY_MIN,
+  ENTERPRISE_ONLINE_QUERY_PLACEHOLDER,
+  ENTERPRISE_ONLINE_RESULTS_TITLE,
+  ENTERPRISE_ONLINE_SEARCH,
+  ENTERPRISE_ONLINE_SEARCH_LABEL,
+  ENTERPRISE_ONLINE_TITLE,
+  ENTERPRISE_ONLINE_TOO_SHORT,
+  enterpriseOnlineCountText,
+  enterpriseOnlineFace,
+  enterpriseOnlineInstalledText,
+  enterpriseOnlineInstallingText,
+  enterpriseOnlineQueryState,
+  enterpriseOnlineReadyText,
+  type EnterpriseOnlineResultRow,
+} from './online-search.js'
 import { ENTERPRISE_LIBRARY_GATE_DEFAULT, type EnterpriseLibraryGate, type EnterpriseLibraryGateSnapshot } from './library-gate.js'
 import {
   ENTERPRISE_PLUGIN_STYLES,
@@ -102,7 +270,7 @@ import {
   scrollTargetOf,
 } from './plugin-market.js'
 import { enterpriseMarketMockEnabled, enterpriseMarketMockSkillRows } from './market-mock.js'
-import type { EnterpriseInstalledSkill, EnterpriseInstalledSkillFile, EnterpriseLocalApi, EnterprisePluginCatalogItem, EnterprisePluginItem, EnterprisePresetApplicationKind, EnterprisePresetAuthorization, EnterprisePresetDisclosure, EnterprisePresetOfficialApplication, EnterprisePresetStatus, EnterpriseRuntimePreset, EnterpriseRuntimeSkill, EnterpriseSkillFileEntry, ManagedPluginState } from './local-api-decode.js'
+import type { EnterpriseInstalledSkill, EnterpriseInstalledSkillFile, EnterpriseLocalApi, EnterpriseOnlineSkillResult, EnterpriseOnlineSkillSearch, EnterprisePluginCatalogItem, EnterprisePluginItem, EnterprisePresetApplicationKind, EnterprisePresetAuthorization, EnterprisePresetDisclosure, EnterprisePresetOfficialApplication, EnterprisePresetStatus, EnterpriseRuntimePreset, EnterpriseRuntimeSkill, EnterpriseSkillFileEntry, EnterpriseSystemSkill, EnterpriseSystemSkills, ManagedPluginState } from './local-api-decode.js'
 import { enterpriseLocalErrorCode } from './local-api-decode.js'
 import { EnterpriseErrorNotice } from './error-notice.js'
 import { enterpriseErrorPresentation, enterpriseErrorRetryable } from './error-messages.js'
@@ -193,8 +361,13 @@ export {
  * 「企业」标签必须在**标题行、标题正后方**，在描述行是错的；描述行重新用完整四字交代这行是什么，
  * 列表标题行那枚签由 `market-entry-badge.ts` 的 DOM 装饰插在官方标题按钮正后方（官方 `CardHead` 不接受
  * `tags`，API 层次做不到，见该文件 [POS]）。
+ * **本刀（task-17 ③ 副标题顺序与页签同源）**：三个词**只换顺序、不动用词**——
+ * 页签真源 `ENTERPRISE_MARKET_TABS` 的顺序是 **技能 · 插件 · 配方 · 组件**，而这句话原先写成
+ * 「企业插件 · 技能 · 配方」（插件在最前），两处口径不同源。现改成与页签同序的
+ * 「**技能 · 企业插件 · 配方**」；★**「组件」不进这句话**是刻意的（组件是台账、不是目录，
+ * 与同文件那个搜索占位符排除它同一条口径），页签里有第四枚不代表描述行要列四样。
  */
-export const ENTERPRISE_MARKET_SUMMARY = '企业插件 · 技能 · 配方'
+export const ENTERPRISE_MARKET_SUMMARY = '技能 · 企业插件 · 配方'
 
 /**
  * 组件清单真源：**四行按交付顺序**。
@@ -786,6 +959,63 @@ export interface EnterpriseMarketShellProps {
    * 那样整页切走页签条。
    */
   readonly pluginPage?: EnterprisePluginPageProps | undefined
+  /**
+   * **本地导入**的接线面（本刀）：「添加技能 → 本地导入」那一条通路的文件选择器 DOM 引用、
+   * 三态反馈与两条回调。
+   *
+   * ★ 为什么它必须**三支视图**都挂（列表 / 技能详情 / 配方详情）：触发它的「添加」下拉住在官方
+   *   标题行槽里，而那格在我们这三支视图里**始终在场**（详情只换内容区、页头一格不动）
+   *   —— 少挂一支就会出现「在详情里点本地导入、界面毫无反应」的死控件。
+   * ★ 缺席（没有 store / 纯函数直调 / 老调用方）⇒ 整段不渲染：不画一枚点了没反应的选择器，
+   *   菜单里那一项也随之禁用（原因仍是可见的「开发中」，见 `enterpriseAddMenuEntryPlan`）。
+   */
+  readonly skillImport?: EnterpriseMarketSkillImportPort | undefined
+  /**
+   * **「系统搜索」结果面**（本刀）的输入（点「添加 → 系统搜索」后才非空）。
+   *
+   * 非空 = 这个面板**整页切换**成 `EnterpriseSystemSearchPage`（列表 / 页签条整段不渲染，与
+   * `skillPage`/`presetPage` **同一条**形态、**不是**弹层：无 `role="dialog"`、无 portal、无遮罩）；
+   * `undefined` = 正常列表视图。它不走路由、不新增 slot，就是一份视图状态。
+   */
+  readonly systemSearch?: EnterpriseSystemSearchPageProps | undefined
+  /**
+   * **打开系统搜索结果面**的动作（本刀）。
+   *
+   * ★ 为什么它不是 `systemSearch` 里的一枚字段：`systemSearch` 是**结果面自己的渲染输入**（页面只读它），
+   *   而「打开」是页面**级**动作——它由标题行槽那一格经 `EnterpriseMarketTabSeatState.onSystemSearch`
+   *   触发，宿主再从这里取同一枚函数发布给座位（**同一条接缝、同一个函数**，不存在第二份）。
+   * ★ 缺席（没有 store / 纯函数直调）时菜单里「系统搜索」那一项禁用，且这一面永远打不开。
+   */
+  readonly onOpenSystemSearch?: (() => void) | undefined
+  /**
+   * **「通过 Agent 创建」的接线面**（本刀）：三态反馈 + 那枚复制按钮的动作。
+   *
+   * 与 `skillImport` 同一条落点纪律（页面级 chrome，四支视图都挂）；缺席即整段不渲染，
+   * 菜单里那一项也随之禁用（原因仍是可见的「开发中」）。
+   */
+  readonly skillCreate?: EnterpriseMarketCreateSkillPort | undefined
+  /**
+   * **执行「通过 Agent 创建」的动作**（本刀）：开新会话并把那段草稿填进官方输入框。
+   *
+   * ★ 与 `onOpenSystemSearch` 同一条理由：它是页面**级**动作，由标题行槽那一格经座位触发，
+   *   宿主再从 shellProps 取同一枚函数发布过去（同一条接缝、同一个函数）。
+   * ★ 它内部用的就是注入进来的 `presetLaunch`（配方第二级降级链那一枚端口），**不是**第二个「开会话」端口。
+   *   缺席（宿主没接线 / 纯函数直调）⇒ 菜单里 ① 那一项禁用，绝不会出现点了没反应的菜单项。
+   */
+  readonly onCreateWithAgent?: (() => void) | undefined
+  /**
+   * **「在线搜索」结果面**的输入（本刀；点「添加 → 在线搜索」后才非空）。
+   *
+   * 非空 = 面板**整页切换**成 `EnterpriseOnlineSearchPage`（列表 / 页签条整段不渲染，与系统搜索同一形态、
+   * **不是**弹层）；`undefined` = 正常列表视图。
+   */
+  readonly onlineSearch?: EnterpriseOnlineSearchPageProps | undefined
+  /**
+   * **打开在线搜索结果面**的动作（本刀）：与 `onOpenSystemSearch` 同一条理由走座位（页面级动作）。
+   *
+   * 缺席（宿主没接线 / 纯函数直调）⇒ 菜单里 ② 那一项禁用，这一面永远打不开。
+   */
+  readonly onOpenOnlineSearch?: (() => void) | undefined
 }
 
 /**
@@ -2580,7 +2810,18 @@ export function enterpriseMarketPresetRowFacts(
  * 因为两处都注入全局单类选择器的 `<style>`，同名会互相覆盖（本仓已踩过，7557ffd 已改名）。
  */
 const baseStyles = `
-.own-market-entry{color:var(--dsw-alias-label-primary,#101828);font-size:13px;letter-spacing:0;min-width:0}
+/* ★ **本刀（task-20 E）：标题块 → 我们的工具行，32px → 视觉 16px**。
+   归属（官方 ItemDetail 逐字，已复核）：我们的页内容注册在官方 plugins.item 的 page 视图里，
+   官方把它渲染成 div._detailSections > section._detailSection[data-plugin-config] > (我们的 section.own-market-entry)
+   ⇒ 那段间距是**官方的** _detailSections 的 margin-top:32px，而 .own-market-entry 是 _detailSection 的子、
+   不是 _detailSections 的直接子（与派工时的假设不同，如实更正）。
+   手法：**只动我们自己的元素** —— 给 .own-market-entry 一个 -16px 的 margin-top，
+   官方那 32px 被抵消成视觉 16px，**不碰任何官方类名、不新增类**。
+   重叠核算：_detailSection 是 flex 纵向容器（gap:12px）且我们是它唯一的子 ⇒ 上提 16px 后
+   与上方 _detailMain 仍留 **32 − 16 = 16px** 净空 > 0 ⇒ **不会重叠**（父容器高度同步缩短 16px，
+   后续内容整体上移，与只改那处 margin 的视觉结果等价）。
+   命中不到即保持官方 32px 原样（不失效、不报错、不变形）。 */
+.own-market-entry{margin-top:-16px;color:var(--dsw-alias-label-primary,#101828);font-size:13px;letter-spacing:0;min-width:0}
 .own-market-entry *{box-sizing:border-box}
 .own-market-entry-summary{color:var(--dsw-alias-label-secondary,#667085)}
 /* 包名在 badge 槽内换行成标题下独立一行（照官方 .detailName：mono 12/18 tertiary）。
@@ -2617,11 +2858,23 @@ const baseStyles = `
    故标题与线不可能错位；行间不再有任何分割线（用户口径：列表去除分割线）。
    类名**不叫 groupTitle**：组件节那枚折叠节头已经占了这个名字，同名会让两条规则互相覆盖。 */
 .own-market-categoryTitle{margin:0;padding-bottom:12px;border-bottom:0.5px solid var(--dsw-alias-border-l2,#e4e7ec);font-size:17px;line-height:26px;font-weight:600;color:var(--dsw-alias-label-primary,#101828)}
-.own-market-rows{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 48px;min-width:0}
+/* ★ **本刀（task-19：列表纵向节奏与官方逐像素一致）**。用户口径：真机上「列表行间距比官方松散」。
+   官方真源（dsh-client-ui-plugin-manager 的 CSS module，逐字）：
+     · _cards{flex-direction:column;gap:2px}          ⇒ 行与行的**纵向**间隙 2px
+     · _cardHead{align-items:center;gap:14px;padding:8px} ⇒ 行内衬 8px、行内横向间隙 14px
+     · _cardIcon{width:48px;height:48px;border-radius:var(--dsw-radius-lg)}
+     · _cardMain{gap:4px} · _cardTitle{font-size:14px;line-height:20px} · _cardDesc{font-size:13px;line-height:18px}
+   官方单行高度 = 8(pad) + 48(图标撑高；文本栈 20+4+18=42 比它矮) + 8(pad) = 64，＋ 2(gap) = **66 CSS px/行**。
+   本档（**两列，>900px**）的纵向间隙取 **12px**：这是**有意偏离**——官方根本没有两列形态，
+   而 2px 在并排网格里会让上下相邻的两张卡**糊成一片**（四个 12px 圆角挤在 2px 里）。
+   12px 不是随手取的：它**等于卡片自己的 border-radius:12px**（见下面 .own-market-row），
+   于是「相邻卡片的圆角间距 = 圆角半径」，既不糊在一起也不显松散。
+   单列档（≤900px，用户当前所见）在下面那条媒体查询里覆盖成官方的 **2px** ⇒ 与官方逐像素一致。 */
+.own-market-rows{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 48px;min-width:0}
 /* 卡片：左右内衬 + 圆角，hover 整块变灰（用户口径：卡片级 hover、背景变灰）。
    hover 取值照官方卡片实物（app.asar 里的 ._card:hover:not(._cardActive) 规则）：
    background:var(--dsw-alias-interactive-bg-hover)——不新造颜色、不用 color-mix 猜。 */
-.own-market-row{padding:10px 12px;border:0;border-radius:12px;min-width:0;transition:background .12s ease}
+.own-market-row{padding:8px 12px;border:0;border-radius:12px;min-width:0;transition:background .12s ease}
 .own-market-row:hover{background:var(--dsw-alias-interactive-bg-hover)}
 /* ── 卡片操作区的「⋯」更多菜单（用户口径：卡片不放开关键——未安装给「安装」、已安装给「⋯」；
    菜单项按各行真实能力给：更新 / 启用·停用 / 卸载）。hover 与 focus 取值照官方菜单实物
@@ -2634,7 +2887,7 @@ const baseStyles = `
 .own-market-moreBtn{display:inline-grid;place-items:center;width:36px;height:28px;padding:0;border:0;border-radius:14px;background:transparent;color:var(--dsw-alias-label-secondary,#667085);cursor:pointer}
 .own-market-moreBtn:hover,.own-market-moreBtn[aria-expanded='true']{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary,#101828)}
 .own-market-moreBtn:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:1px}
-.own-market-moreMenu{position:absolute;top:calc(100% + 4px);right:0;z-index:30;min-width:120px;padding:4px;border:1px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:var(--dsw-radius-md,8px);background:var(--dsw-alias-background-primary,#fff);box-shadow:var(--dsw-shadow-lv2,0 8px 24px rgba(16,24,40,.12));display:flex;flex-direction:column;gap:2px}
+.own-market-moreMenu{position:absolute;top:calc(100% + 4px);right:0;z-index:30;min-width:120px;padding:4px;border:1px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:var(--dsw-radius-md,8px);background:var(--dsw-menu-surface-fill);box-shadow:var(--dsw-shadow-lv2,0 8px 24px rgba(16,24,40,.12));display:flex;flex-direction:column;gap:2px}
 .own-market-moreItem{display:block;width:100%;padding:6px 10px;border:0;border-radius:6px;background:transparent;color:var(--dsw-alias-label-primary,#101828);font:inherit;font-size:13px;line-height:20px;text-align:left;cursor:pointer}
 .own-market-moreItem:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}
 .own-market-moreItem:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:-1px}
@@ -2642,17 +2895,64 @@ const baseStyles = `
 /* 详情子页面没有下拉宿主 ⇒ 操作**平铺**（同一枚子块、同一份文案，只是不套一层菜单）。 */
 .own-market-moreInline{display:flex;flex:none;align-items:center;gap:4px}
 .own-market-moreInline .own-market-moreItem{width:auto}
-/* 「安装 / 启用」按钮：**白底 + 有 hover，但与卡片 hover 明显不同一枚 token**（用户口径）。
-   · 卡片 hover = interactive-bg-hover（整块变灰）
-   · 按钮 hover = button-tool-bar-hover（官方**按钮族**的 hover）——两枚 token 不是同一个，一眼分得开
-   类名写两遍是为了把特异性抬到官方那条之上（.own-market-installBtn.own-market-installBtn:hover
-   ＞ .toolbar:hover），**不写 !important、也不动官方样式表**；不新造颜色，三枚都是官方 token。 */
-.own-market-installBtn{background:var(--dsw-alias-background-primary,#fff)}
-.own-market-installBtn.own-market-installBtn:hover:not(:disabled){background:var(--dsw-alias-button-tool-bar-hover)}
-.own-market-installBtn.own-market-installBtn:active:not(:disabled){background:var(--dsw-alias-interactive-bg-active)}
+/* 「安装 / 启用」按钮：**故意不覆盖任何背景** —— 它是官方 Button 的 **outline 档**（三处调用都是
+   variant="outline"），官方 .outline 逐字是 background:transparent + border:0.5px solid
+   var(--dsw-alias-border-l3)，字色来自官方基类的 label-primary：
+     ⇒ 浅色主题：白卡片上就是**白底 + 黑字 + 0.5px 浅描边**（用户口径「安装按钮要白色背景黑字」）；
+     ⇒ 深色主题：随卡片变深、字随主题翻白 —— 两套主题都对，**不需要我们再补任何颜色**。
+   ★ 历史：这条覆盖**连续错过两次**，别再来第三次 ——
+     ① 曾写 background:var(--dsw-alias-background-primary,#fff)：该 token 名在本版 DSH 里不被定义
+        ⇒ 兜底 #fff 恒为白 ⇒ 深色主题白底压白字、字看不见（深色真机截图确认）。
+     ② 曾改照 .toolbar 变体（button-tool-bar-fill）：token 名**是对的**、色也随主题翻，但**档位错了**
+        —— 官方 outline 按钮在浅色下本该是白底，被盖成了工具栏灰（浅色真机截图确认）。
+   ⇒ 因此本文件里**不许再出现这个类的任何声明**（由 tests 那条反向锁守着：该选择器在本文件
+     CSS 里必须**查无此规则**，也就是它必须完全交给官方 .outline 自己）。 */
 @media (prefers-reduced-motion: reduce){.own-market-row{transition:none}}
-/* 窄屏回落单列：网格在极窄容器里会把标题挤成一个字（真机截图早已证过同类问题）。 */
-@media (max-width: 560px){.own-market-rows{grid-template-columns:minmax(0,1fr)}}
+/* ★ **本刀（task-19）**：单列档（≤900px = 用户当前所见）把纵向间隙覆盖成官方的 **2px**
+   （官方 _cards 的 gap:2px），于是 **单行 8 + 48 + 8 = 64，＋ 2 = 66 CSS px/行，与官方逐像素相同**
+   （本文件里这条算式由测试逐值先在 CSS 里确认再算，见那条「row rhythm」反向锁）。
+   两列档那条 12px 是**有意偏离**（理由写在上面的 .own-market-rows 注释里）。 */
+/* ★ **本刀（task-17 ①：两列网格把标题普遍挤断）——单列回落断点 560 → 900，值由算术推出**。
+   真机截图（DPR 由搜索框 max-width:320px 反推 = 890/320 = 2.781）实测：网格内容宽 ≈ 720 CSS px、
+   每列 ≈ 337px、标题可用宽 ≈ 200px ⇒ 6 条里 4 条被省略、2 条截在括号中间
+   （「露禾论文写作助手（免费…」）。**只改这一条断点，不动卡片内部结构**。
+
+   ① **最长那条标题需要多少 px 才不截断**（真源是本仓自己的导入清单
+      tools/skillhub-import/convert.py:123 的 displayName）：
+        「露禾论文写作助手（免费版pro）」= **13 个全角字 + 3 个半角字母**
+      标题字号取本文件 CSS 的真值 **15px**（.own-market-cardId 的 font-size，见下面那条规则），
+      不是描述行的 13px；半角按 0.5em：13×15 + 3×7.5 = 195 + 22.5 = **217.5px**。
+      ★ 若误用 13px 会算出 188.5px，反推出的断点会**低于截图当时的宽度**（那样这一刀修不掉
+        用户报的现象）——所以字号必须取标题自己的那一档。
+   ② **标题的非标题开销**（标题可用宽 = 列宽 − 这个数）：
+      .own-market-row 内衬 12+12 = 24、.own-market-rowLine gap 16、.own-market-rowIcon **48**、
+      .own-market-rowOpen gap 16、标题行 .own-market-cardHead 里那两枚签与 gap ≈ 41
+      ⇒ **≈ 145px**。（★ **task-19 把图标 40 → 48** ⇒ 比该刀之前的 137px 多 8px，见下面那条复核。）
+   ③ **两列要多少内容宽**：列宽 ≥ 217.5 + 145 = 362.5 ⇒ 网格内容宽 ≥ 2×362.5 + 列距 48 = **773px**。
+   ④ **内容宽 → 断点**：viewer 宽度里除内容之外还有 **≈123px**（截图里内容行左边缘在物理 249
+      ⇒ 89.5 CSS px = 官方折叠态侧栏轨道 56px + 内衬 ≈33.5px；右内衬同值 ⇒ 56 + 67 ≈ 123）。
+      自证：按 123 反推，截图那个宽度的内容宽 = 宽度 − 123，而那条截图（图标仍是 40px 的旧版）上
+      (内容宽 − 48)/2 = 337、减 137 = 200 三条实测同时成立 ⇒ 该宽度 ≈ **845px**、内容宽 ≈ 722px。
+      ⇒ **task-19 复核**：图标 40 → 48（+8px）⇒ 开销 145、两列需 773px 内容宽
+      ⇒ 断点下限 = 773 + 123 = **896px**，现取 **900px** 仍然够（余量从 20px 收到 **4px**，读数见 ⑤）。
+   ⑤ **三档核对**（单列下 列宽 = 内容宽；两列下 列宽 = (内容宽 − 48)/2；标题可用 = 列宽 − 145）：
+      · **850**（≤900 ⇒ 单列）：内容宽 727 ⇒ 列宽 727 ⇒ 标题可用 **582** ≥ 217.5 ✓
+      · **1024**（>900 ⇒ 两列）：内容宽 901 ⇒ 列宽 426.5 ⇒ 标题可用 **281.5** ≥ 217.5 ✓
+      · **1440**（两列）：内容宽 1317 ⇒ 列宽 634.5 ⇒ 标题可用 **489.5** ✓
+      · ★ 最紧的一档是**刚过断点**（901）：内容宽 778 ⇒ 列宽 365 ⇒ 标题可用 **220** ≥ 217.5 ✓（余 2.5px）
+      —— 这条才是「断点抬够了」的真正判据（断点以上不会再退回截断）。
+   ⑥ **为什么这一条与工具行那条断点分档**（工具行仍是 560，见下面那条 @media）：两者量的东西不同——
+      工具行那条量的是「四枚页签 + 搜索框 + 筛选钮这一行摆不摆得下」（移动端码，560 是它的档位，
+      与 720/900 这个数量级无关）；这一条量的是「**两列**里每列还装不装得下最长标题」。
+      把工具行的 560 一起抬上去会让窄屏下的两行结构平白提前到平板上生效，故**刻意分档**。
+   ⚠️ 本注释不许写花括号、也不许写反引号（本文件有按第一层大括号配对切分 CSS 的测试辅助，
+      注释里的左花括号会被它当成真规则开始；反引号会直接终止这份模板字符串——两件都已踩过）。
+   ⚠️ **不确定项**：官方侧栏在 ≥1024px 会从 56px 轨道自动展开到默认 280px（dsh-client-ui-layout 的
+      README「sidebar spans 264-420px, defaults to 280px ... below 1024px it collapses automatically」），
+      那会把内容宽一次压窄 ≈224px ⇒ 1024 且侧栏展开时内容宽 = 1024 − 347 = 677、两列下标题可用 177.5
+      < 217.5，最长那条仍会截断（1024–1104 这一带）。要覆盖它得把断点抬到 ≈1104，那会改动 ≥1024 的
+      版面（超出本条「不动桌面卡片」的口径）——故本轮**如实报为残留缺口**，不擅自抬。 */
+@media (max-width: 900px){.own-market-rows{grid-template-columns:minmax(0,1fr);gap:2px 0}}
 /* 未安装那一行那枚【＋】（圆形图标按钮）——与「企业设置 → 插件」卡片行那枚同形。
    值逐条取自 workdsh 的 .wd-skills .install（showcase 仓：skills/src/client/styles.ts:144-147）；
    类名不同是刻意的：本文件与 plugin-market.tsx 各自挂一块全局单类选择器的 <style>，
@@ -2663,8 +2963,8 @@ const baseStyles = `
    自带青蓝渐变的兜底图标（PluginArtworkDefault，见 EnterpriseArtworkFallback），若再按类别上
    --dsw-static-* 颜色会与它自己的渐变打架，故原来的 data-icon-kind 四类上色规则已整组删除，
    不留死样式。 */
-.own-market-rowIcon{display:inline-flex;flex-shrink:0;align-items:center;justify-content:center;width:40px;height:40px;border:.5px solid var(--dsw-alias-border-l3,#d0d5dd);border-radius:var(--dsw-radius-md,8px);background:var(--dsw-alias-background-primary,#fff);color:var(--dsw-alias-label-secondary,#667085)}
-.own-market-rowMain{display:flex;flex:1;flex-direction:column;gap:2px;min-width:0}
+.own-market-rowIcon{display:inline-flex;flex-shrink:0;align-items:center;justify-content:center;width:48px;height:48px;border:.5px solid var(--dsw-alias-border-l3,#d0d5dd);border-radius:var(--dsw-radius-md,8px);background:var(--dsw-alias-background-primary,#fff);color:var(--dsw-alias-label-secondary,#667085)}
+.own-market-rowMain{display:flex;flex:1;flex-direction:column;gap:4px;min-width:0}
 .own-market-rowId{font-size:13.5px;line-height:20px;font-weight:500;color:var(--dsw-alias-label-primary,#101828);overflow-wrap:anywhere}
 .own-market-row[data-state='off'] .own-market-rowId{color:var(--dsw-alias-label-secondary,#667085)}
 .own-market-rowNote{color:var(--dsw-alias-label-secondary,#667085);font-size:12px;line-height:19px;overflow-wrap:anywhere}
@@ -2690,7 +2990,7 @@ const baseStyles = `
    官方 Web 界面面根本没有「装插件」的授权弹层（只有一句信任声明），故这一层是我们自己的：
    覆盖层 + 居中卡片，类名一律 .own-market-approval*，与同包其他源文件零交集。 */
 .own-market-approvalBackdrop{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--dsw-alias-bg-mask-1,rgba(16,24,40,.45))}
-.own-market-approval{display:flex;flex-direction:column;gap:12px;width:min(100%,520px);max-height:100%;overflow:auto;padding:20px;border-radius:12px;background:var(--dsw-alias-background-primary,#fff);color:var(--dsw-alias-label-primary,#101828);box-shadow:var(--dsw-shadow-lv2,0 12px 32px rgba(16,24,40,.18))}
+.own-market-approval{display:flex;flex-direction:column;gap:12px;width:min(100%,520px);max-height:100%;overflow:auto;padding:20px;border-radius:12px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary,#101828);box-shadow:var(--dsw-shadow-lv2,0 12px 32px rgba(16,24,40,.18))}
 .own-market-approvalTitle{margin:0;font-size:15px;line-height:22px;font-weight:600}
 .own-market-approvalSubject{margin:0;font-size:13.5px;line-height:20px;font-weight:500;overflow-wrap:anywhere}
 .own-market-approvalStale{margin:0;padding:8px 10px;border-radius:6px;background:var(--dsw-alias-background-secondary,#f2f4f7);color:var(--dsw-alias-state-warn-primary,#b54708);font-size:12.5px;line-height:19px}
@@ -2733,13 +3033,45 @@ const baseStyles = `
    3px 内衬，四枚按钮装在里面；选中项 = 灰轨上的**白胶囊**（白底 + 轻投影，与官方/参考图那枚
    「公开」签同款）。font-size/line-height 仍逐字照上一版（13px/20px，用户未要求改）。
    ★ 轨道给 flex:0 0 auto：它是左端**定宽**那一块，右边由 .own-market-rowBarSpacer 吃空白。 */
-.own-market-storeTabs{display:flex;flex-wrap:nowrap;align-items:center;gap:2px;flex:0 0 auto;min-width:0;margin:0;padding:3px;border-radius:999px;background:var(--dsw-alias-background-secondary,#f2f4f7);border-bottom:0}
-.own-market-storeTab{background:transparent;border:0;border-radius:6px;color:var(--dsw-alias-label-secondary,#667085);cursor:pointer;font:inherit;font-size:13px;line-height:20px;padding:5px 12px;white-space:nowrap}
+/* ★ **本刀（task-20 B）：页签条 = 官方「分段胶囊」，且与搜索框等高 32**。官方真源逐字
+   （dsh-client-ui-primitives 的 SegmentedControl.module.css）：
+     .control 的声明 = position:relative;display:inline-grid;grid-auto-flow:column;grid-auto-columns:1fr;
+              gap:2px;padding:4px;border-radius:var(--dsw-radius-md);background:var(--dsw-alias-interactive-bg-hover)
+     .tab 的声明 = position:relative;z-index:1;height:28px;padding:0 16px;border:0;border-radius:var(--dsw-radius-sm);
+          background:transparent;color:var(--dsw-alias-label-secondary);font-size:13px;line-height:20px;
+          font-weight:500;white-space:nowrap;cursor:pointer
+   等高算术：**2(轨道内衬) + 28(段高) + 2(轨道内衬) = 32** = .own-market-query 的 height:32px
+   = 官方 Input.wrap 的 height:32px = .own-market-filterBtn 的 32px ⇒ 工具行三件齐平。
+   ★ **三处有意偏离（逐条给理由，别当成遗漏）**：
+     ① 轨道内衬取 **2px**（官方 4px）——唯一目的是让总高恰好落到 **32**（取 4 就变 36）。
+     ② 轨道与胶囊圆角取 **999px**（官方是 radius-md 8px / radius-sm 8px）——用户原话是「胶囊」。
+     ③ 官方另有一枚**绝对定位的白色滑动指示块**（160ms 位移）；我们**仍用「选中项自己的白底胶囊」**
+        （同款软阴影 token），**不新增 DOM、不新增 CSS 类**——视觉等价，只是没有那 160ms 滑动。
+   ★ **等宽**：inline-grid 上的 grid-auto-columns:1fr 会把每一列都撑到**最宽那一枚**的 max-content
+     （官方分段控件正是靠这个行为等宽）⇒ 轨道宽 = n × (最宽文案 + 32) + (n−1)×2 + 4，**不再逐枚算**。
+     逐字符宽口径与下面那条窄屏算式同源（全角 = 字号 13px、半角 = 6.5px）。 */
+.own-market-storeTabs{display:inline-grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2px;padding:2px;flex:0 0 auto;min-width:0;margin:0;border-radius:999px;background:var(--dsw-alias-interactive-bg-hover,#2631480f);border-bottom:0}
+.own-market-storeTab{display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 16px;border-radius:999px;background:transparent;border:0;color:var(--dsw-alias-label-secondary,#667085);cursor:pointer;font:inherit;font-size:13px;line-height:20px;white-space:nowrap}
 .own-market-storeTab:hover{color:var(--dsw-alias-label-primary,#101828)}
 .own-market-storeTab:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:1px}
-.own-market-storeTab[aria-selected='true']{background:var(--dsw-alias-background-primary,#fff);color:var(--dsw-alias-label-primary,#101828);font-weight:500;border-radius:999px;box-shadow:var(--dsw-shadow-lv1,0 1px 2px rgba(16,24,40,.06))}
+.own-market-storeTab[aria-selected='true']{background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary,#101828);font-weight:500;border-radius:999px;box-shadow:var(--dsw-elevation-soft)}
 .own-market-titleTabs{margin-right:auto}
-.own-market-titleActions{margin-left:auto}
+/* ★ **本刀（刷新 / 添加必须同行）**：原来这里**只有** margin-left:auto（一条规则、别无他物）。
+   三处事实链（逐条可复核，详见 tests 里那条反向锁）：
+     ① 官方标题行容器 _titleRow 是**会换行**的 flex（flex-wrap:wrap;align-items:center;gap:8px，
+        @deepseek-ai/dsh-client-ui-plugin-manager/lib/client.js 逐字）；
+     ② 我们这枚容器当时是 **block 级 flex item** ⇒ margin-left:auto 在主轴吃掉剩余空间后把它
+        压到 **min-content 宽度**（不是 max-content）——两个 inline 级子项的最小内容宽度就是**较宽的那一枚**；
+     ③ 两枚按钮本体是官方 Button 原语，官方 primitives/lib/Button.module.css 逐字 display:inline-flex
+        ⇒ 容器窄到装不下两枚时，它们在**容器内部**换行 ⇒ 用户看到的**两行**。
+   逐条对上：display:flex 让两枚成为**同一行 flex 项**（nowrap 是 flex 默认值，故无需再写）、
+   flex:none 让本容器**不压缩**（flex-basis:auto → max-content = 两枚之和 + gap; flex-shrink:0）
+   ⇒ 两枚在任何宽度下**都不再互相换行**；放不下时换行发生在**官方 _titleRow 那一层**，
+   即整组（两枚一起）落到第二行，仍然彼此同行 —— 那正是「两枚必须同一行」的语义。
+   gap:8px 与官方 _titleRow 的 gap 同值，故两枚之间的间距一像素没变（原来由 inline 空白折叠给出）。
+   ⚠️ 本规则是**桌面可见**的（用户口径①不限视口），故它不属于下面 560px 那条新查询。
+   ⚠️ 本 CSS 住在模板字符串里：注释里**一个反引号都不许有**（本仓已踩过 6+ 次，写了就 tsc/vite 解析失败）。 */
+.own-market-titleActions{display:flex;align-items:center;gap:8px;flex:none;margin-left:auto}
 /* 搜索行右侧那两枚（刷新 / 添加插件）：flex:none 恒不压缩，放不下时由搜索框让位。 */
 .own-market-rowBarAction{flex:none}
 /* ── 标签行：胶囊组在左、筛选触发钮在**最右**（参考图 1：标签靠左、≡ 靠右） ──
@@ -2796,7 +3128,7 @@ const baseStyles = `
    现在改成**定宽**（320px，与官方 SearchField 那一档同量级）+ 行尾补一个 margin-left:auto 的
    弹性占位 ⇒ **搜索框靠左、其余控件整组贴右**。三枚控件自身都是 flex:none，
    放不下时优先压搜索框（它有 max-width 兜底），它们恒不被压缩。 */
-.own-market-query{display:flex;flex:0 1 320px;align-items:center;gap:8px;min-width:120px;max-width:320px;height:32px;padding:0 8px;border:.5px solid var(--dsw-alias-border-l4,#d9dfe7);border-radius:999px;background:var(--dsw-alias-background-primary,#fff);color:var(--dsw-alias-label-tertiary,#98a2b3)}
+.own-market-query{display:flex;flex:0 1 320px;align-items:center;gap:8px;min-width:120px;max-width:320px;height:32px;padding:0 8px;border:.5px solid var(--dsw-alias-border-l4,#d9dfe7);border-radius:999px;background:var(--dsw-alias-bg-layer-1,#fff);color:var(--dsw-alias-label-tertiary,#98a2b3)}
 /* 搜索框：**hover 与鼠标点入一律不变**（用户口径「不要 hover」）；只有**键盘 Tab** 进来才出提示
    —— 用 :has(input:focus-visible) 把「鼠标焦点」与「键盘焦点」分开，无障碍不回退。 */
 .own-market-query:hover{border-color:var(--dsw-alias-border-l4,#d9dfe7)}
@@ -2826,15 +3158,67 @@ const baseStyles = `
 .own-market-filterBtn:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:1px}
 /* ── 筛选下拉（参考图 2 的两组：状态 + 类型；组头带勾、组内可选；本刀只做壳，过滤下一刀）── */
 .own-market-filterWrap{position:relative;flex:none}
-.own-market-filterMenu{position:absolute;top:calc(100% + 6px);right:0;z-index:30;min-width:168px;padding:6px;border:1px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:var(--dsw-radius-md,8px);background:var(--dsw-alias-background-primary,#fff);box-shadow:var(--dsw-shadow-lv2,0 8px 24px rgba(16,24,40,.12));display:flex;flex-direction:column;gap:2px}
+.own-market-filterMenu{position:absolute;top:calc(100% + 6px);right:0;z-index:30;min-width:168px;padding:6px;border:1px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:var(--dsw-radius-md,8px);background:var(--dsw-menu-surface-fill);box-shadow:var(--dsw-shadow-lv2,0 8px 24px rgba(16,24,40,.12));display:flex;flex-direction:column;gap:2px}
 .own-market-filterGroup{display:flex;flex-direction:column;gap:2px}
 .own-market-filterGroup + .own-market-filterGroup{margin-top:6px;padding-top:6px;border-top:1px solid var(--dsw-alias-border-l2,#e4e7ec)}
 .own-market-filterOption{display:flex;align-items:center;gap:8px;width:100%;border:0;border-radius:6px;padding:6px 8px;background:transparent;color:var(--dsw-alias-label-primary,#101828);font:inherit;font-size:13px;line-height:20px;text-align:left;cursor:pointer}
-.own-market-filterOption:hover{background:var(--dsw-alias-background-secondary,#f2f4f7)}
+.own-market-filterOption:hover{background:var(--dsw-alias-interactive-bg-hover)}
 .own-market-filterOption:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:-1px}
 .own-market-filterOption[aria-checked='true']{color:var(--dsw-alias-label-primary,#101828);font-weight:500}
 .own-market-filterCheck{flex:none;width:14px;color:var(--dsw-alias-label-primary,#101828);text-align:center}
 .own-market-filterLabel{flex:1;min-width:0}
+/* ★ **本刀（task-20 B）：这一行的三个子块在窄屏下放不下 ⇒ 两行形态**。
+   算术（逐值取自本文件自己的规则，不是估的）：
+     · 页签轨 .own-market-storeTabs = flex:0 0 auto（不收缩）+ **等宽**（grid-auto-columns:1fr）
+       ⇒ 轨道宽 = n × (最宽文案 + 32) + (n−1)×2 + 4（见上面那条等宽注释）；
+       逐字符宽（取上界）：全角字 = 字号 13px、半角数字与空格 = 6.5px。
+       同一份模型算出的四个用例（都含计数）：
+         · 全 0 计数（技能 0 / 插件 0 / 配方 0 / 组件 4）：最宽文案 39 ⇒ 4×71 + 6 + 4 = **294px**
+         · 真机截图那组（技能 11 / 插件 6 / 配方 1 / 组件 4）：最宽 45.5 ⇒ 4×77.5 + 6 + 4 = **320px**
+         · 两位数上界（技能 99 之类）：同 45.5 ⇒ **320px** —— 本刀按这一档定断点
+         · 若加第五枚「连接器」（三个全角字，MCP 方案要加的那一枚）：最宽 52 ⇒ 5×84 + 8 + 4 = **432px**
+     · 搜索框 .own-market-query = flex:0 1 320px;min-width:120px
+       ⇒ 它自己的最小贡献是 **120px**（min-width 覆盖 flex-basis:auto 的 min-content 解析）；
+     · 筛选钮 .own-market-filterBtn / 包裹 .own-market-filterWrap = flex:none ⇒ **32px**；
+     · 弹性占位 .own-market-rowBarSpacer 的 min-width:0 ⇒ 可压到 **0**，但它**仍占一道 gap**。
+   ⇒ 工具行摆成一行所需的最小内容宽 = 轨道 + **3×8**（四枚子块之间的三道 gap）+ 120 + 32 = 轨道 + **176px**。
+   ★ **本刀（task-20）把阈值算实**（上一把刀注释里那句「560 是宽松上限」是漏项算出来的：既漏了侧栏轨道，
+     也把三道 gap 当成两道，还按当时的逐枚宽而非等宽）：
+     内容可用宽 = 视口 − **56**（官方折叠态侧栏轨道；dsh-client-ui-layout README「below 1024px it collapses
+     automatically」⇒ 窄屏恒为 56px 轨道）− 2×clamp(24px,4vw,48px)（官方 _page 的左右内衬）。
+     取两位数上界那一档（轨道 320）⇒ 视口 ≥ 320 + 176 + 56 + 48 = **600px**；
+     该式的适用区间（视口 ≤ 600 时 4vw ≤ 24 ⇒ 内衬恒为下限 24px）与结论自洽 ⇒ 断点取 **600px**。
+     复核（都取临界点以上）：**601** 内容宽 = 601 − 56 − 48.08 = 496.9 ≥ 496 ✓（余 0.9px）；
+       **700** = 700 − 56 − 56 = 588 ✓；**1000** = 1000 − 56 − 80 = 864 ✓。
+     ★ **断点的约束区间在断点之上**（占位在场、三道 gap 才成立）；断点之下走两行形态，
+       本就不要求一行装得下 ⇒ 别用窄屏那 168px 反推它：600 是**紧的**，不是保守值。
+     ★ 如实记两处边界：① 刚过断点只剩 ≈1px 余量；② 若某个页签计数到**三位数**（轨道 346）需 **626px**、
+       若将来加第五枚「连接器」（轨道 432）需 **712px** —— 两者**当前不覆盖**，届时随断点一起抬。
+   ⚠️ **不确定项**：本机没有布局引擎，真实渲染观感一律属未验证，不许当作已验。
+   形态：**页签独占第一行（满宽、可横向滚动），搜索框 + 筛选钮落到第二行**。
+   四枚页签的**可读/可点/不重叠**由「满宽 + nowrap + 等宽 1fr」保住；超过可用宽时**横向滚动兜底**
+   （见 tests 里那条算术锁：它把上面每一个取值都先在 CSS 里确认过再算）。
+   选 flex-basis:100% 而不是新增包裹节点：**它自己就会把后面几块挤到下一行**，不必加一层 div。
+   ★ 本刀（task-15）把弹性占位**上移到搜索框之前**（桌面右对齐用），于是它在窄屏这一形态里
+   只剩「一个会涨开的空盒子」这一个副作用 ⇒ 这里直接 display:none（它本来就是 aria-hidden 的
+   纯装饰、不承载任何语义），第二行便干净地只剩「搜索框（铺满剩余）+ 筛选钮」两块；
+   DOM 顺序与视觉顺序彻底一致，**不需要任何 order**。
+   ★ **本刀（task-21）更正**：这里原先写 row-gap:0，理由是「8px 行距会叠在 margin-bottom:20px 之上、
+   底距变 28px」——**那是错的**：flex 的 row-gap 只在**两条线之间**插入，最后一条线之后**不加**，
+   故底距恒为 margin-bottom:20px。而 row-gap:0 的代价是两行**紧贴成 0 间距**（真机截图可见：
+   选中胶囊几乎与下面的搜索框连成一片）⇒ 本刀改成 row-gap:8px：既拿到两行之间的 8px 呼吸，
+   又不动「工具行 20px → 分类组 40px」那条层次口径。
+   断点取 **600px**，与本文件那条单列回落断点 **900px 分档**：那条量的是「两列里每列还装不装得下
+   最长标题」，这条量的是「工具行一行摆不摆得下」——两者数量级不同，一起抬会让两行结构平白提前。
+   桌面宽度（≥1024px）**一律不命中**。
+   ⚠️ 本注释**不许写反引号**：反引号会直接终止这份模板字符串（本仓已踩过）。
+   （注释里的花括号是安全的：splitTopLevelCss 会先把注释整段置空再做大括号配对。） */
+@media (max-width: 600px){
+  .own-market-searchRow{flex-wrap:wrap;row-gap:8px}
+  .own-market-storeTabs{flex:0 0 100%;max-width:100%;min-width:0;overflow-x:auto;overflow-y:hidden}
+  .own-market-query{flex:1 1 auto;max-width:none;min-width:120px}
+  .own-market-rowBarSpacer{display:none}
+}
 /* 面板：非当前页签只留一个 hidden 空壳（内容整段不挂载），显式补一条 [hidden] 规则，
    免得将来给 .own-market-panel 加上 display 类选择器后覆盖 UA 的 [hidden]{display:none}（本仓已踩过）。 */
 .own-market-panel{min-width:0}
@@ -2862,14 +3246,47 @@ const baseStyles = `
    取证（官方 plugin-manager 的 ItemDetail 逐字）：我们的条目注册成官方 plugins.item
    （id=plugin-market，client.tsx），点进去走官方 ItemDetail → DetailTop，渲染
    div[data-plugin-item-detail=item.id] > DetailTop > div.detailHead > span.cardIcon[aria-hidden=true]（48×48）。
-   · 锚点 [data-plugin-item-detail] **刻意不写死值**：官方那个值是动态 item.id，
-     写死 ="plugin-market" 在别的条目上会匹配不到（那才是旧规则的真正错处，不是「属性不存在」）。
+   · **作用域（收口）**：锚点带 :has(...own-market-entry...) 闸门 —— 只有「我们这个条目的详情里
+     挂着 section.own-market-entry」才命中；别的 item 详情、别的详情页一律**不命中**。
+     它与下面 C/D 两条用**同一条闸门、同一个锚点** ⇒ 本文件不再存在任何裸命中官方 detail 类的规则。
+     代价与 C/D 同一个：浏览器不支持 :has()、或官方改名 ⇒ 这三条**一起**静默失效、退回官方原值。
+   · 锚点仍**不写死属性值**（官方那个值是动态 item.id），也不写死官方类名整名（CSS module 有哈希前缀）。
    · 匹配 _cardIcon **后缀**而不是整名：官方类名是 CSS module 哈希（本机实测 ZVcBiW_cardIcon），
      哈希前缀随官方构建变，写死整名必失效。
    · 作用域收在 [class*=_detailHead] 内：官方 crumbIcon 那枚 chevron 同样是 aria-hidden 的 span，
      但它是 detailTop 的直系子节点、不在 detailHead 里，故不会被误伤。
    命中不到即原样显示官方版式（不失效、不报错、不留半成品）。 */
-[data-plugin-item-detail] [class*="_detailHead"] [class*="_cardIcon"]{display:none}
+[data-plugin-item-detail]:has([class*="_detailSections"] .own-market-entry) [class*="_detailHead"] [class*="_cardIcon"]{display:none}
+
+/* ── 官方详情页头的三处元素间距：只在我们这个 item 的详情里收紧（task-20 C + D） ──────────
+   用户口径：「标题离页面顶部太大」+「标题与描述要紧凑」。归属（官方 ItemDetail 逐字，已复核）：
+     div._detail[data-plugin-item-detail=item.id]
+       div._detailTop[padding-top:28px]
+         button._crumb
+         div._detailHead[margin:32px 0 0]        ← D 压到 12px
+       div._detailMain[margin-top:20px; gap:8px] ← D 压到 8px、C 把 gap 压到 4px
+         div._titleRow[ h3._detailTitle + 我们的企业徽章槽 ]
+         p._detailDesc[ 官方 desc 样式 + 我们的 summary 槽 → span.own-market-entry-summary ]
+       div._detailSections[margin-top:32px]
+   ★ **C 的手法据实更正**：原计划是给 .own-market-entry-summary 加 margin-top:-4px —— 实测**不成立**：
+     ① 它是一枚 <span>（inline），inline 盒的**纵向 margin 不参与布局**；
+     ② 它也不是 _detailMain 的直接子，而是被官方包在 p._detailDesc 里；
+     ⇒ 真正承载那 8px 的是**官方** _detailMain 的 gap:8px（在 _titleRow 与 p._detailDesc 之间），
+     故与 D 合并到同一条 :has() 覆盖里，把 gap 收紧到 **4px**（对齐官方根页 _pageIntro 的 margin:4px 0 0）。
+   ★ **作用域（Lead 特别授权，本仓唯一一处覆盖官方规则）**：锚点用官方**数据属性**
+     [data-plugin-item-detail]（ItemDetail 逐字渲染它；本文件既有的那条隐藏官方图标的规则
+     用的同一个锚点）——比 [class*=detail] 更紧：后者会把 _detailTop/_detailHead/_detailMain/
+     _detailSections 全都匹配上。:has() 里的 .own-market-entry 是**必需的**作用域闸门：
+     只有「这个详情的 sections 里挂着我们的入口」才会命中，**别的条目/别的详情页一律不被命中**。
+   ★ 子选择器用**类名子串**（_detailHead / _detailMain / _detailSections，与既有那条同口径）：
+     官方类名是 CSS module 的「哈希前缀_局部名」，前缀随官方构建变 ⇒ 只认 _局部名 这一段。
+     官方改名 / 浏览器不支持 :has() 时，这两条规则**整条失效**（选择器不合法即被丢弃），
+     版面退回官方原值 —— **静默降级、不报错、不变形**。这是与官方 CSS module 类名的**有意耦合**。
+   ★ **不改官方文件、不改官方样式表**，只在我们自己这份 <style> 里加这两条。
+   ★ 未覆盖的那一条：_detailTop 的 padding-top:28px **保留**（全应用统一的顶部内衬，官方「插件」根页
+     同样是 28px）；本刀只压两处**元素之间**的间距（32→12、20→8，共上移 32px）与标题↔描述的 8→4。 */
+[data-plugin-item-detail]:has([class*="_detailSections"] .own-market-entry) > [class*="_detailTop"] > [class*="_detailHead"]{margin-top:12px}
+[data-plugin-item-detail]:has([class*="_detailSections"] .own-market-entry) > [class*="_detailMain"]{margin-top:8px;gap:4px}
 `
 
 /**
@@ -2893,11 +3310,11 @@ const rowStyles = `
 /* 字重**细一号**（用户口径「卡片的标题细一号」）：600 → **500**，与官方 .ZVcBiW_cardTitle
    （app.asar 逐字 font-size:14px;font-weight:500;line-height:20px）同一档。字号仍是 15px（用户此前
    未要求改字号，只要求字重细一号）——**不要顺手把字号也压到官方的 14px**，那是另一条口径。 */
-.own-market-cardId{font-size:15px;line-height:1.4;font-weight:500;color:var(--dsw-alias-label-primary,#0f1115);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.own-market-cardId{font-size:15px;line-height:20px;font-weight:500;color:var(--dsw-alias-label-primary,#0f1115);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* 描述：改用官方 .cardDesc 那一档 **label-tertiary**（app.asar 逐字
    .ZVcBiW_cardDesc{ color:var(--dsw-alias-label-tertiary); font-size:13px }）——用户口径「再浅一点」，
    我们原先用的 secondary 比官方深一档。 */
-.own-market-cardDesc{color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:13px;line-height:1.55;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden}
+.own-market-cardDesc{color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:13px;line-height:18px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden}
 /* 技能行**行本体**（图标 + 标题 + 描述那一片）是一枚真 button 元素：整片可点、原生键盘可达（Enter/Space）、
    有 focus 环与 hover 提示（光标 + 标题/描述转主色调）。取值照本文件既有口径：行图标与文案之间仍是 16px
    （= .own-market-rowLine 的 gap），因此包上这枚按钮**不改变行的几何**。
@@ -2995,13 +3412,16 @@ const detailStyles = `
 `
 
 /**
- * **官方「无自有图标」兜底图形**（ui-primitives 的 `PluginArtworkDefault`，逐值照抄）——技能行、插件行、
- * 配方行、组件行四种都用它。
+ * **官方「无自有图标」兜底图形**（ui-primitives 的 `PluginArtworkDefault`）——技能行、插件行、配方行、
+ * 组件行四种都曾用它。★ **本段描述的是「改前」的形状**（`svg`/`defs`/`linearGradient`/两枚 `stop` 的
+ * **结构**仍照它，那几行形态一字未改）；**「逐值照抄」已不成立**：自 task-17 ② 起框里画的是
+ * **按条目派生**的首字母 + 派生色相，见下方「本刀（task-17 ②）」那段与 `EnterpriseArtworkFallback` 的实现。
  *
  * ★ **为什么不 import 官方包**：`PluginArtworkDefault` 由 `@deepseek-ai/dsh-client-ui-primitives` 导出，
  * 但它**不在**本包编译期 pin 的那个版本的类型面里（`official-ui.ts` 早已把这层接缝收窄到本包实际消费的签名）；
  * 且本仓宪法是「官方 UI 零分叉」——引用官方原语是为了**复用行为**，而这里要的是**一枚静态图形**，
- * 自己画一份同形 SVG 才是正解。故逐字照抄 viewBox / path / 渐变坐标，不引任何官方包。
+ * 自己画一份同形 SVG 才是正解。故逐字照抄 viewBox / 渐变坐标，不引任何官方包
+ * （`path` 本体自 task-17 ② 起已换成 `text`，见该刀那段）。
  *
  * ★ **渐变 id 必须每次渲染唯一**（这一条最容易踩，官方为此专门写了 `useArtworkId()`，注释原文：
  * 重复 id 会让所有 `url(#…)` 解析到第一个实例）：SVG 里 `fill="url(#id)"` 走的是**整篇文档**的
@@ -3026,12 +3446,80 @@ const detailStyles = `
  */
 let artworkSequence = 0
 
-/** 行内那枚官方兜底图形的尺寸：官方 `ROW_ARTWORK_SIZE`（40px 框里的图形大小）。 */
+/**
+ * ★ **本刀（task-17 ②：按条目稳定派生图标）**：改前每一行都渲染**同一枚**青蓝渐变图形
+ *   ⇒ 6/6 一模一样、可扫性为零（真机截图逐条可见）。现在同一份数据永远派生出同一枚图标：
+ *   **首字母**（来自该条目的可见标题）+ **由 id 的 hash 取一组既有 `--dsw-static-*` token 的色相**。
+ *   纯函数、无随机、无时间 ⇒ 同一目录在任何会话里都长一个样。
+ *
+ * 三条纪律（逐条可核对）：
+ *   · **零新增 CSS 类**：首字母与渐变全走 SVG 自己的表现属性（`fontSize` / `textAnchor` /
+ *     `dominantBaseline` / `stopColor`），容器 `.own-market-rowIcon` 那 40px 框与它的官方
+ *     `border-l3` **一字未动**（用户裁决：图标框不参与变浅）；「40 框 + 30 图形」这个官方配比也没动。
+ *   · **不新增 token、不新造颜色**：色相表全部取自仓内**既有**的 `--dsw-static-*` 族。
+ *     ★ 如实记下取舍：static 色族里**只有** blue / deepseek / green / amber / red 五个带色相
+ *     （其余是 neutral 或随主题的 alias）。其中 green / amber / red 在别处还兼作**状态色**——
+ *     这里只当**装饰性身份色**，从不承载语义（语义由首字母与行内文字承载），
+ *     故不违反「颜色不是唯一的信息载体」这条产品宪法。
+ *     ★ 这也**取代**了早先那条「按类别上色整组删除」的口径（当时的理由是「再挂一枚 static token
+ *     会与图形自带的青蓝渐变打架」）：本刀是**逐条目**派生、且**没有**第二套渐变与它竞争，
+ *     那枚写死的青蓝渐变本身就是被换掉的那一样。
+ *   · **渐变 id 仍逐枚唯一**（照官方 `useArtworkId()` 的理由：写死 id 会让同页几十枚 `url(#…)`
+ *     全部解析到文档里第一个 defs、整页染成同一色）。
+ *
+ * ★ **将来**：企业目录若给条目带上 `icon` 字段，应当**优先用它**，只在没有时才回落到这枚派生图标
+ *   （届时把那个字段接进来即可，本函数的入参形状不必改）。
+ */
+
+/**
+ * 身份色相表：**全部是仓内既有的 `--dsw-static-*` token**（同色相浅 → 深两枚，做渐变两端）。
+ * 顺序只影响「哪个 hash 落哪个色」，无先后语义。
+ */
+const ENTERPRISE_ARTWORK_HUES = [
+  { from: 'var(--dsw-static-blue-400)', to: 'var(--dsw-static-blue-600)' },
+  { from: 'var(--dsw-static-deepseek-400)', to: 'var(--dsw-static-deepseek-600)' },
+  { from: 'var(--dsw-static-green-400)', to: 'var(--dsw-static-green-500)' },
+  { from: 'var(--dsw-static-amber-400)', to: 'var(--dsw-static-amber-600)' },
+  { from: 'var(--dsw-static-red-400)', to: 'var(--dsw-static-red-600)' },
+] as const
+
+/** 行内那枚派生图形的尺寸：官方 `ROW_ARTWORK_SIZE`（40px 框里的图形大小）。 */
 export const ENTERPRISE_ARTWORK_ROW_SIZE = 30
 
-function EnterpriseArtworkFallback({ size = ENTERPRISE_ARTWORK_ROW_SIZE }: { readonly size?: number }): ReactNode {
+/** 色相档数（导出给测试逐档核对；加档必须同时改色相表与这条断言）。 */
+export const ENTERPRISE_ARTWORK_HUE_COUNT = ENTERPRISE_ARTWORK_HUES.length
+
+/**
+ * 条目 id → 色相档（**稳定**：同一 id 永远同一档）。用 FNV-1a——与本文件样式校验和、
+ * 以及测试里那两道字节基线**同一套算法**，不引第二套 hash。
+ */
+export function enterpriseArtworkHue(seed: string): { readonly from: string; readonly to: string } {
+  let hash = 2166136261
+  for (const char of seed) { hash ^= char.codePointAt(0)!; hash = Math.imul(hash, 16777619) >>> 0 }
+  return ENTERPRISE_ARTWORK_HUES[hash % ENTERPRISE_ARTWORK_HUES.length]!
+}
+
+/**
+ * 条目的**首字母**：优先取可见标题（`label`）的首个字符，标题缺席/空白才退回 id。
+ * 取不到任何字符时给「?」——**绝不渲染空白块**（一个连字母都没有的方块比同色更难扫，也更容易被当成加载中）。
+ * CJK 首字按整字取（用展开运算符逐**码位**遍历，不会把代理对劈成两半）。
+ */
+export function enterpriseArtworkInitial(label: string | undefined, seed: string): string {
+  const source = (label ?? '').trim() || seed.trim()
+  const first = [...source][0]
+  return first === undefined ? '?' : first.toUpperCase()
+}
+
+function EnterpriseArtworkFallback({ seed, label, size = ENTERPRISE_ARTWORK_ROW_SIZE }: {
+  /** 条目的稳定 id（技能包 id / 插件包名 / 配方 id / 组件 id）——色相由它派生。 */
+  readonly seed: string
+  /** 条目的可见标题（displayName / packageName / 组件标签）——首字母由它取。 */
+  readonly label?: string
+  readonly size?: number
+}): ReactNode {
   artworkSequence += 1
   const gradientId = `own-market-art-${artworkSequence}`
+  const hue = enterpriseArtworkHue(seed)
   return (
     <svg
       width={size}
@@ -3041,21 +3529,34 @@ function EnterpriseArtworkFallback({ size = ENTERPRISE_ARTWORK_ROW_SIZE }: { rea
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
     >
-      <path
-        d="M24.6294 8.63696C26.2862 8.63705 27.6294 9.98016 27.6294 11.637V12.7825C27.6292 14.4391 26.2861 15.7824 24.6294 15.7825H23.4839C22.6519 15.7825 21.5454 16.3459 21.5454 17.1778V18.1573C21.5454 18.7757 22.216 19.1966 22.8345 19.1965H24.6294C26.2861 19.1965 27.6292 20.5398 27.6294 22.1965V23.9924C27.6292 25.6491 26.2861 26.9924 24.6294 26.9924H22.8345C21.1778 26.9924 19.8347 25.649 19.8345 23.9924V22.1965C19.8345 21.7148 19.4957 21.2327 19.014 21.2327H16.4792C15.7975 21.2327 15.3374 22.0061 15.3374 22.6877V23.8333C15.3373 25.49 13.9942 26.8333 12.3374 26.8333H11.1919C9.53509 26.8333 8.19198 25.49 8.19189 23.8333V22.6877C8.19189 21.0309 9.53504 19.6877 11.1919 19.6877H12.3374C13.1964 19.6877 14.3999 19.0959 14.3999 18.2369V16.0185C14.3999 14.9518 15.2646 14.0872 16.3312 14.0872H19.435C20.0596 14.0872 20.484 13.4071 20.4839 12.7825V11.637C20.4839 9.98011 21.827 8.63696 23.4839 8.63696H24.6294ZM13.4116 11.2468C13.4116 12.6882 12.2431 13.8567 10.8018 13.8567C9.36037 13.8567 8.19189 12.6882 8.19189 11.2468C8.19189 9.80544 9.36037 8.63696 10.8018 8.63696C12.2431 8.63696 13.4116 9.80544 13.4116 11.2468Z"
+      {/*
+        ★ 形状：**首字母**（`text`）而不是官方那枚通用图形——这正是本刀的可扫性来源。
+        渐变沿对角线铺（viewBox 的 4,4 → 32,32），字号 19 在 36 的方框里上下各留 ≈8，
+        `textAnchor=middle` + `dominantBaseline=central` 把字压在 (18,18) 正中；
+        `fontWeight=600` 与官方标记（Tag/徽章）的字重同档。全部是 SVG 表现属性 ⇒ 零新增 CSS 类。
+      */}
+      <text
+        x="18"
+        y="18"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize="19"
+        fontWeight="600"
         fill={`url(#${gradientId})`}
-      />
+      >
+        {enterpriseArtworkInitial(label, seed)}
+      </text>
       <defs>
         <linearGradient
           id={gradientId}
-          x1="15.1481"
-          y1="9.94188"
-          x2="15.1481"
-          y2="13.6375"
+          x1="4"
+          y1="4"
+          x2="32"
+          y2="32"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="#54ECE7" />
-          <stop offset="1" stopColor="#658EFF" />
+          <stop stopColor={hue.from} />
+          <stop offset="1" stopColor={hue.to} />
         </linearGradient>
       </defs>
     </svg>
@@ -3186,7 +3687,10 @@ export const ENTERPRISE_ADD_MENU_DEVELOPING = '开发中'
  * `FolderSearch`/系统搜索（Cherry `:198` 的**条件项**）、`Import`/本地导入。
  * 条件项缺席时其余项**保持原相对位置**——我们四项全在（照抄形状，不做条件裁剪）。
  *
- * ★ **本轮只画 UI、不接执行** ⇒ 四项**全 `disabled`**，可见原因即上面那句「开发中」。
+ * ★ **四项现已全部可点**（本地导入 → task-3；系统搜索 → task-6；通过 Agent 创建 → task-9；
+ *   在线搜索 → 本刀）：每一面都有一份**同一落点口径**的写入口，缺席即那一项禁用并给可见原因；
+ *   本页因此**一个「（开发中）」都不剩**（用例反向锁死那四个字在本页零出现）。
+ *   逐项终态由纯投影 `enterpriseAddMenuPlans` 唯一产出（判据与理由见 `enterpriseAddMenuEntryPlan`）。
  * ★ **Cherry 触发钮文案是「添加技能」不是「添加」**（`library.skill_add.add`）——技能页签这一档照它。
  */
 export interface EnterpriseAddMenuEntry {
@@ -3207,6 +3711,122 @@ const ENTERPRISE_SKILL_ADD_MENU_ENTRIES: readonly EnterpriseAddMenuEntry[] = [
 export function enterpriseAddMenuEntries(tab: EnterpriseMarketTabId): readonly EnterpriseAddMenuEntry[] {
   if (tab === 'skills') return ENTERPRISE_SKILL_ADD_MENU_ENTRIES
   return []
+}
+
+/**
+ * **已被放开的那两项**的 id（「本地导入」= task-3、「系统搜索」= 本刀）——写成常量，免得
+ * 「哪一项可点」这件事散落在渲染层与用例里各写一遍字面量、将来加项时对不上。
+ */
+export const ENTERPRISE_ADD_MENU_CREATE_ID = 'create-with-agent'
+export const ENTERPRISE_ADD_MENU_ONLINE_ID = 'online-search'
+export const ENTERPRISE_ADD_MENU_IMPORT_ID = 'local-import'
+export const ENTERPRISE_ADD_MENU_SYSTEM_SEARCH_ID = 'system-search'
+
+/**
+ * 四项各自的**写入口接线**（谁在场，谁那一项就可点）。
+ *
+ * ★ 为什么是一枚对象而不是位置参数：可点的项会一项一项放开（task-3 放开了本地导入，本刀放开系统搜索，
+ *   将来还有通过 Agent 创建 / 在线搜索），位置参数每加一项就得改一次签名与全部调用点；
+ *   这枚对象让「新增一项 = 多一枚字段」，且**ID → 回调**的对应写在下面那枚投影里一处可见。
+ */
+export interface EnterpriseAddMenuWiring {
+  /**
+   * 通过 Agent 创建的写入口（本刀）：开新会话并把那段草稿填进输入框。
+   *
+   * ★ 它**就是**注入进来的那一枚 `EnterprisePresetLaunchPort`（配方第二级降级链用的同一枚），
+   *   控制器把它包成一个「无入参」的动作交下来——**没有**第二个「开会话」端口（用例有反向锁）。
+   */
+  readonly onCreateWithAgent?: (() => void) | undefined
+  /**
+   * 在线搜索的写入口（本刀）：打开「在线搜索」结果面（页内视图切换，不是弹窗）。
+   *
+   * 与另三份写入口同一条口径：缺席 ⇒ 那一项禁用 + 可见「开发中」，绝不画点了没反应的菜单项。
+   */
+  readonly onOnlineSearch?: (() => void) | undefined
+  /** 本地导入的写入口；缺席 ⇒ 那一项禁用（见 `enterpriseAddMenuEntryPlan` 的第②条）。 */
+  readonly onImportSkill?: (() => void) | undefined
+  /** 系统搜索的写入口；缺席 ⇒ 那一项禁用（同一条口径）。 */
+  readonly onSystemSearch?: (() => void) | undefined
+}
+
+/**
+ * 一项的**终态**：能不能点、不能点时的可见原因、以及真正渲染的那行文案。
+ *
+ * ★ 为什么要有这枚投影（而不是在 JSX 里 `entry.id === 'local-import'` 随手放行）：
+ *   「哪几项禁用了、为什么」是**产品口径**，必须能被纯函数直调取证；写进渲染层就只能在 JSX 里数数。
+ * ★ 为什么「写入口不在场」也要落成 `disabled + 可见原因`：官方 `MenuItemButton` 的 `onSelect`
+ *   只在真按钮上被调用，一项「看着能点、点下去什么都不发生」的菜单项是本仓反复禁掉的**最坏形态**。
+ *   故某一项的写入口缺席（没有 store / 纯函数直调 / 老调用方）时，那**一项**照旧是灰的，
+ *   原因仍是那句看得见的「开发中」，而不是一个死控件。
+ */
+export interface EnterpriseAddMenuEntryPlan {
+  readonly id: EnterpriseAddMenuEntry['id']
+  readonly label: string
+  /** `true` ⇒ 官方那枚真 `<button role="menuitem">` 带 `disabled`（不可聚焦、点不到）。 */
+  readonly disabled: boolean
+  /** 禁用时的**可见原因**（可见标签里那句；可点时缺席）。 */
+  readonly reason?: string | undefined
+  /** 真正渲染的文案：可点 = 标签本身；禁用 = 「标签（原因）」。 */
+  readonly text: string
+}
+
+/**
+ * 一项的写入口（**ID → 回调**的唯一对应表；新增一项只在这里加一行）。
+ *
+ * 四项都已接线（本刀把最后一项「在线搜索」也接上）⇒ 表里四档齐全；将来再有新项，没进表就恒禁用。
+ */
+function addMenuWriter(
+  id: EnterpriseAddMenuEntry['id'],
+  wiring: EnterpriseAddMenuWiring | undefined,
+): (() => void) | undefined {
+  if (id === ENTERPRISE_ADD_MENU_CREATE_ID) return wiring?.onCreateWithAgent
+  if (id === ENTERPRISE_ADD_MENU_ONLINE_ID) return wiring?.onOnlineSearch
+  if (id === ENTERPRISE_ADD_MENU_IMPORT_ID) return wiring?.onImportSkill
+  if (id === ENTERPRISE_ADD_MENU_SYSTEM_SEARCH_ID) return wiring?.onSystemSearch
+  return undefined
+}
+
+/**
+ * 一项 → 终态（纯投影）。
+ *
+ * 四条口径一起定死在这里：
+ * ① 没有写入口的项（**任何**此刻还没接线的项）**恒禁用**、原因恒为 `ENTERPRISE_ADD_MENU_DEVELOPING`；
+ *  ② 四项各自的写入口在场才可点，否则与①一样灰着并给同一句原因；
+ *  ③ 原因**写进可见文案**（官方 `MenuItemButton` 不透传 `title`，挂上去会被静默丢弃）；
+ *  ④ 可点那些项**不带**「（开发中）」——它们真的能用了，留着那三字就是假话。
+ *
+ * @param entry - Cherry 形状的四项之一。
+ * @param wiring - 写入口接线（缺席 ⇒ 四项全灰，与 task-3 之前的老调用方行为一致）。
+ * @returns 该一项的终态。
+ */
+export function enterpriseAddMenuEntryPlan(
+  entry: EnterpriseAddMenuEntry,
+  wiring?: EnterpriseAddMenuWiring | undefined,
+): EnterpriseAddMenuEntryPlan {
+  if (addMenuWriter(entry.id, wiring) !== undefined) {
+    return { id: entry.id, label: entry.label, disabled: false, text: entry.label }
+  }
+  return {
+    id: entry.id,
+    label: entry.label,
+    disabled: true,
+    reason: ENTERPRISE_ADD_MENU_DEVELOPING,
+    text: `${entry.label}（${ENTERPRISE_ADD_MENU_DEVELOPING}）`,
+  }
+}
+
+/**
+ * 按页签取**整份终态清单**（渲染层唯一的输入）：无清单的页签仍是 `[]` ⇒ 整段不渲染。
+ *
+ * @param tab - 页签 id（只有 `skills` 有清单）。
+ * @param wiring - 写入口接线。
+ * @returns 四项的终态（顺序 === `enterpriseAddMenuEntries(tab)` 的顺序）。
+ */
+export function enterpriseAddMenuPlans(
+  tab: EnterpriseMarketTabId,
+  wiring?: EnterpriseAddMenuWiring | undefined,
+): readonly EnterpriseAddMenuEntryPlan[] {
+  return enterpriseAddMenuEntries(tab).map(entry => enterpriseAddMenuEntryPlan(entry, wiring))
 }
 
 /**
@@ -3242,7 +3862,199 @@ const ADD_MENU_ICONS = {
  * @returns 标题右侧的【刷新】【添加插件】两枚占位按钮（无包装容器——官方 `detailActions` 已是 flex 容器）。
  */
 /**
- * 「添加」下拉：触发钮（`＋` + 「添加」）+ 三项，**三项本轮全是「开发中」**。
+ * **本地导入**的接线面（与 `libraryGate` 同一手法：控制器拥有状态、请求与 DOM 引用，页面只画）。
+ *
+ * ★ 为什么引用（`inputRef`）也要从控制器**传下来**、而不是让页面那一侧自己 `useRef`：
+ *   触发它的「添加」下拉住在**官方标题行槽**那棵树里（`plugins.detail.badge`），它够不到页面树里的
+ *   任何 hook —— 两棵树之间只有 `EnterpriseMarketTabSeat` 这条接缝（回调 `onOpen` 走那里过去）。
+ *   于是 `<input type="file">` 挂在页面这棵树上、引用由控制器持有，回调一点就点得着它。
+ * ★ 为什么 `onOpen`（打开选择器）与 `onSelect`（选到了文件）要分开：前者是**无输入**的用户手势
+ *   （菜单项、失败后那枚「重新选择文件」都调它），后者才带着浏览器交出来的 `File` 字节进入上传状态机。
+ */
+export interface EnterpriseMarketSkillImportPort {
+  /** 三态状态机（`undefined` = 空闲 ⇒ 反馈整段不进 DOM）。 */
+  readonly state: EnterpriseSkillImportState | undefined
+  /** 那个恒不可见的文件选择器的 DOM 引用（控制器持有；`RefObject` 的 `current` 天然可空）。 */
+  readonly inputRef: RefObject<HTMLInputElement>
+  /** 打开文件选择器（控制器里就是 `inputRef.current?.click()` 这一件事）。 */
+  readonly onOpen: () => void
+  /** 用户选中了一个文件（控制器先做尺寸预检，再发同源 multipart 上传）。 */
+  readonly onSelect: (file: File) => void
+}
+
+/**
+ * 原生文件选择器的**样式**：行内**视觉隐藏**（「1px 剪裁」那一套），不新增任何 CSS 类。
+ *
+ * ★ 为什么不用类名：本文件的 `<style>` 有字节级基线（长度 + FNV-1a）与「类名与同包其他文件零交集」
+ *   两道判据；而原生 file input 的外观**根本不该参与产品版面**——它是一枚只被脚本点开的能力，
+ *   给这样一个元素新造一个类，等于为一件看不见的东西付一份可被覆盖的全局样式债。
+ * ★ 为什么用「1px 剪裁」而不是 `display:none`：**照本仓既有那一枚**（`library-panel.tsx` 的
+ *   `.own-library-file` 就是这个手法 —— 它在本应用里已经跑过真机）。两者对「脚本点开选择器」都可行，
+ *   但沿用同一套手法就不必让下一个人去论证「这一枚为什么和另一枚不一样」；差别只在**行内 vs 类名**
+ *   （这里为了零新类走行内）。
+ */
+const IMPORT_INPUT_STYLE = {
+  border: 0,
+  clip: 'rect(0 0 0 0)',
+  height: '1px',
+  margin: '-1px',
+  overflow: 'hidden',
+  padding: 0,
+  position: 'absolute',
+  whiteSpace: 'nowrap',
+  width: '1px',
+} as const
+
+/**
+ * 本地导入的**可见反馈**（唯一落点；三态互斥，空闲时整段不进 DOM）。
+ *
+ * 两种形态刻意分开：
+ *   · 进行中 / 成功 ⇒ 一句人话（`role="status"`：不打断读屏，等它把手上的话说完再播报）；
+ *   · 失败 ⇒ 复用**唯一**的失败提示组件 `EnterpriseErrorNotice`（`role="alert"` + 人话 + 「下一步：」+
+ *     折进「技术信息」的稳定码），后面再跟一枚**真能走**的「重新选择文件」。
+ *
+ * ★ 为什么失败多那枚按钮、而不是只写一句「请重试」：上传失败的正确下一步**不是**原地重发同一份字节
+ *   （超限、不是有效技能包这两类再发一百次也一样），而是**换一份文件**——那就必须给一枚真按钮，
+ *   不能只在文案里说一句。它的动作就是重新打开同一个选择器（`onReselect`）。
+ * ★ 不给「重试」那枚：本状态机没有「保留上次那份 File 再发一次」的能力，画了就是死控件。
+ *
+ * @param props.state - 三态状态机（不是 `undefined`：空闲时调用方整段不渲染）。
+ * @param props.onReselect - 重新选择文件（缺席 ⇒ 不画那枚按钮，只出人话与下一步）。
+ * @returns 一句 `role="status"` 人话，或「唯一提示组件 + 重新选择文件」。
+ */
+export function EnterpriseMarketSkillImportNotice({ state, onReselect }: {
+  readonly state: EnterpriseSkillImportState
+  readonly onReselect?: (() => void) | undefined
+}): ReactNode {
+  const notice = enterpriseSkillImportNotice(state)
+  if (notice.kind === 'failed') {
+    return (
+      <>
+        {/* `flow="local-upload"` 是**必须**的：这枚码可能同时来自中心安装流，而那一条流的下一步（「重新下载」）
+            在这一条流里是错的 —— 技能包就是员工手里那份文件，他只能换一份（见 error-messages 的表注）。 */}
+        <EnterpriseErrorNotice className="own-market-inlineError" code={notice.code} prefix={notice.prefix} flow="local-upload" />
+        {onReselect === undefined ? null : (
+          <Button
+            size="sm"
+            icon={<FolderSearch aria-hidden size={14} />}
+            aria-label={ENTERPRISE_SKILL_IMPORT_RESELECT_LABEL}
+            onClick={() => { onReselect() }}
+          >{ENTERPRISE_SKILL_IMPORT_RESELECT}</Button>
+        )}
+      </>
+    )
+  }
+  return (
+    <p className="own-market-rowNote" role="status" data-enterprise-skill-import={notice.kind}>
+      {notice.text}
+    </p>
+  )
+}
+
+/**
+ * **「通过 Agent 创建」的接线面**（本刀；与 `EnterpriseMarketSkillImportPort` 同一手法：控制器持副作用，页面只画）。
+ *
+ * 三项各自不可替代：`state` 是三态反馈的唯一来源；`onCopy` 是失败态那枚按钮的动作（**唯一**能在失败后
+ * 继续走下去的路——把那段草稿复制走，粘给助手）；草稿本身**不进这个面**（它只在状态里跟着失败态走，
+ * 页面不显示正文：与配方那句「指令正文不上屏」同一条口径）。
+ */
+export interface EnterpriseMarketCreateSkillPort {
+  /** 三态反馈（`undefined` = 空闲 ⇒ 整段不进 DOM）。 */
+  readonly state: EnterpriseSkillCreateState | undefined
+  /** 把**刚发出去的那一段**草稿复制到剪贴板（参数由状态里带出来，复制的内容 === 发出去的内容）。 */
+  readonly onCopy: (draft: string) => void
+}
+
+/**
+ * **「通过 Agent 创建」的可见反馈**（唯一落点）：一句进行/成功人话，或**唯一提示组件 + 一枚真能点的复制按钮**。
+ *
+ * ★ 为什么失败态必须带一枚**真按钮**：这一项失败之后，「开新会话」这条路就断了（端口返回 false / 抛错），
+ *   用户能做的**唯一**一件真事是把那段草稿拿到手里（粘给助手、或换个时机再发）。只写一句「请重试」
+ *   等于把一个做不到的动作印在屏幕上——本仓产品宪法明确禁止。
+ * ★ 复制按钮在**两枚失败码下都画**：开新会话失败时它是「把那句指令拿到手」；复制失败时它同时就是重试
+ *   （那枚码的下一步正是「检查剪贴板权限后重试」）——两处都不给死按钮。
+ *
+ * @param props.port - 控制器给的接线面；缺席即整段不渲染。
+ * @returns 一句 `role="status"` 人话，或「唯一提示组件 + 复制按钮」。
+ */
+export function EnterpriseMarketCreateSkillNotice({ port }: {
+  readonly port?: EnterpriseMarketCreateSkillPort | undefined
+}): ReactNode {
+  if (port === undefined || port.state === undefined) return null
+  const notice = enterpriseSkillCreateNotice(port.state)
+  if (notice.kind === 'status') {
+    return (
+      <p className="own-market-rowNote" role="status" data-enterprise-skill-create="status">
+        {notice.text}
+      </p>
+    )
+  }
+  // 失败态：码交给人话映射（人话 + 「下一步：」+ 折叠的技术信息），旁边那枚按钮是**唯一**的出路。
+  // 草稿只在 `failed` 这一支里有（类型上也是），故这里断言它一定在。
+  const draft = port.state.kind === 'failed' ? port.state.draft : ''
+  return (
+    <>
+      <EnterpriseErrorNotice className="own-market-inlineError" code={notice.code} />
+      <div className="own-market-fileRetry">
+        <Button
+          size="sm"
+          icon={<FileText aria-hidden size={14} />}
+          aria-label={ENTERPRISE_SKILL_CREATE_COPY_LABEL}
+          onClick={() => { port.onCopy(draft) }}
+        >{ENTERPRISE_SKILL_CREATE_COPY}</Button>
+      </div>
+    </>
+  )
+}
+
+/**
+ * 本地导入的**页面级落点**：那枚恒不可见的文件选择器 + 它的反馈（**三支视图共用同一份**）。
+ *
+ * ★ 为什么必须三支视图都挂（列表 / 技能详情 / 配方详情）：触发它的「添加」下拉住在**官方标题行槽**里，
+ *   那格在我们这三支视图里**始终在场**（详情子页面只换内容区，页头一格不动）。少挂任何一支，
+ *   就会出现「在技能详情里点『本地导入』——界面毫无反应」的**死控件**，正是本仓最不许的形态。
+ * ★ 为什么 `port` 缺席就整段不渲染：没有写入口（没有 store / 纯函数直调）时**一枚元素都不画**——
+ *   不画一枚点了没反应的选择器，也不画一句没人能触发出来的反馈。
+ *
+ * @param props.port - 控制器给的接线面；缺席即整段不渲染。
+ * @returns 隐藏的 `<input type="file">`（可能还有一条反馈）。
+ */
+function EnterpriseMarketSkillImportChrome({ port }: {
+  readonly port?: EnterpriseMarketSkillImportPort | undefined
+}): ReactNode {
+  if (port === undefined) return null
+  return (
+    <>
+      <input
+        ref={port.inputRef}
+        type="file"
+        accept={ENTERPRISE_SKILL_IMPORT_ACCEPT}
+        aria-label={ENTERPRISE_SKILL_IMPORT_INPUT_LABEL}
+        style={IMPORT_INPUT_STYLE}
+        onChange={(event) => {
+          const file = event.currentTarget.files?.item(0) ?? null
+          // ★ 选完**立刻清空** input 的 value：不清的话「同一个文件再选一次」不会触发 change
+          //   （浏览器认为值没变）——那就是本仓最恨的「点了没反应」。清空是唯一让重选可用的做法。
+          event.currentTarget.value = ''
+          if (file !== null) port.onSelect(file)
+        }}
+      />
+      {port.state === undefined ? null : <EnterpriseMarketSkillImportNotice state={port.state} onReselect={port.onOpen} />}
+    </>
+  )
+}
+
+/**
+ * 「添加」触发钮上那枚**我们自己的**定位类名（`<style>` 里已声明，不是新类）。
+ *
+ * ★ 它同时被两处读：① 触发钮自己的 `className`（渲染）；② 从系统搜索结果面**返回列表**时那条
+ *   焦点还原（那枚按钮住在官方标题行槽那棵树里，够不着本页根节点，只能按类名在 document 里找）。
+ *   两处共用这一枚常量 ⇒ 将来改名不会一处改了一处没改（那种漂移会静默地让焦点还原失效）。
+ */
+const ADD_MENU_TRIGGER_CLASS = 'own-market-addBtn'
+
+/**
+ * 「添加」下拉：触发钮（`＋` + 「添加」）+ 四项。
  *
  * ★ **为什么用官方 `Menu` 原语、而不是本文件的 `EnterpriseMarketRowMenu`**：
  * 官方 `Menu` 有 `anchor` prop（类型面注释逐字「the trigger element (rendered in place)」），
@@ -3254,12 +4066,17 @@ const ADD_MENU_ICONS = {
  * 这些必须全项目同源；**不复用的是触发钮外壳**：`⋯` 是**行操作**语义（这一行还有更多），
  * `＋添加` 是**页面级动作**语义。为复用外壳而把「添加」画成 `⋯`，是把可访问性做对了、把产品做错了。
  * ⇒ 这里只**新建一个触发钮**，不新建第二套下拉语义。
- * ★ **三项为何全灰**：见 `ENTERPRISE_ADD_MENU_DEVELOPING` 的注释（官方安装弹层当前不可达）。
+ * ★ **哪几项能点、为什么不能点**：全部由纯投影 `enterpriseAddMenuPlans(tab, wiring)` 决定
+ *   （没接线的项恒「开发中」；本地导入 / 系统搜索**只在各自写入口在场时**才可点，
+ *   见 `enterpriseAddMenuEntryPlan` 与 `EnterpriseAddMenuWiring`）。
  * ★ **可见原因放在标签里、不放 `title`**：官方 `MenuItemButton` 只把
  *   `{children, shortcut, icon, disabled, danger, separatorBefore, onSelect}` 交给那一行
  *   （asar 逐字核过，**不透传 `title`**）⇒ 挂 `title` 会被丢弃、等于没有原因；
  *   而产品宪法要的是**禁用即须有可见说明**，不是只挂一句悬浮提示。
- *   故渲染成「添加技能（开发中）」这样**看得见**的一行，**零新增 CSS 类**（复用官方 item 样式）。
+ *   故渲染成「通过 Agent 创建（开发中）」这样**看得见**的一行，**零新增 CSS 类**（复用官方 item 样式）。
+ * ★ **选中即关下拉**：官方 `MenuItemButton` 的注释逐字「Closing the menu stays the owner's decision」
+ *   （组件行不会自己关）——本地导入点下去会弹系统文件选择器、系统搜索点下去会整页切到结果面，
+ *   下拉留在屏幕上就是一层多余的遮挡，故这里显式调 `onToggle` 收起，再走那一项的动作。
  *
  * ★ **为什么分 Live / 纯函数两枚**（照本文件既有范式，与 `EnterpriseMarketDetailActions` / `…Live` 同款）：
  * 本文件的测试**把组件当纯函数直调**（不挂 React 渲染器），此时 dispatcher 是 `null`，
@@ -3268,24 +4085,30 @@ const ADD_MENU_ICONS = {
  * 持 hook 的 `…Live` 那一枚**由 `client.tsx` 注册进官方槽**（与 `EnterpriseMarketDetailActionsLive` 完全同款），
  * **绝不进纯函数树** —— 这正是既有那条分层的意义。
  */
-function EnterpriseMarketAddMenuView({ tab, open, onToggle }: {
+function EnterpriseMarketAddMenuView({ tab, open, onToggle, wiring }: {
   readonly tab: EnterpriseMarketTabId
   readonly open: boolean
   readonly onToggle: () => void
+  /** 四项各自的写入口（缺席的那些项即禁用；见 `EnterpriseAddMenuWiring`）。 */
+  readonly wiring?: EnterpriseAddMenuWiring | undefined
 }): ReactNode {
-  const entries = enterpriseAddMenuEntries(tab)
+  const plans = enterpriseAddMenuPlans(tab, wiring)
   // ★ 该页签**没有清单 ⇒ 整段不渲染**（不画一枚点开是空的触发钮）。这是「预留」的正确表达。
-  if (entries.length === 0) return null
+  if (plans.length === 0) return null
   return (
     <OfficialMenu
       anchor={<Button
-        size="md"
+        // ★ **本刀（task-20 A）**：官方「插件」根页那枚「+ 添加插件」逐字是
+        //   Button variant="primary" size="sm" + IconPlusOutlineRegular size={13}
+        //   ⇒ 这里从 md(36px/14px/22px/内衬14/radius-md) 降到 **sm**(28px/12px/18px/内衬10/radius-sm)。
+        //   **刷新那枚一字不动**（用户口径「刷新可以」）；variant/aria/点击/禁用口径全部照旧。
+        size="sm"
         variant="primary"
-        className="own-market-rowBarAction own-market-addBtn"
+        className={`own-market-rowBarAction ${ADD_MENU_TRIGGER_CLASS}`}
         aria-expanded={open}
         aria-label={ENTERPRISE_DETAIL_ACTION_ADD_LABEL}
         onClick={onToggle}
-      ><Plus aria-hidden size={12} />{ENTERPRISE_DETAIL_ACTION_ADD_LABEL}<ChevronDown aria-hidden size={12} /></Button>}
+      ><Plus aria-hidden size={13} />{ENTERPRISE_DETAIL_ACTION_ADD_LABEL}<ChevronDown aria-hidden size={13} /></Button>}
       autoFocus
       align="end"
       className="own-menu-anchor own-market-addMenu"
@@ -3293,16 +4116,22 @@ function EnterpriseMarketAddMenuView({ tab, open, onToggle }: {
       open={open}
       portal
     >
-      {entries.map(entry => {
-        const Icon = ADD_MENU_ICONS[entry.id]
+      {plans.map(plan => {
+        const Icon = ADD_MENU_ICONS[plan.id]
         return (
           <OfficialMenuItemButton
-            key={entry.id}
-            // 本轮**不接执行** ⇒ 四项全灰；可见原因写进标签（官方不透传 title，见常量注释）。
-            disabled
+            key={plan.id}
+            // 禁用项由官方那枚真按钮的 `disabled` 承担（不可聚焦、点不到），可见原因写在文案里。
+            disabled={plan.disabled}
             icon={<Icon aria-hidden size={13} />}
-            onSelect={() => undefined}
-          >{`${entry.label}（${ENTERPRISE_ADD_MENU_DEVELOPING}）`}</OfficialMenuItemButton>
+            onSelect={() => {
+              // 理论上官方不会在禁用行上调它；这里再挡一次，免得将来有人把 disabled 摘了却忘了这里的语义。
+              if (plan.disabled) return
+              // 选中即关下拉（官方 `MenuItemButton` 不会自己关），再打开那一项对应的一面。
+              onToggle()
+              addMenuWriter(plan.id, wiring)?.()
+            }}
+          >{plan.text}</OfficialMenuItemButton>
         )
       })}
     </OfficialMenu>
@@ -3340,6 +4169,10 @@ export function EnterpriseMarketDetailActions({ subject, tabSeat }: {
             tab={tabSeat.activeTab}
             addMenuOpen={tabSeat.addMenuOpen}
             onToggleAddMenu={tabSeat.onToggleAddMenu}
+            onImportSkill={tabSeat.onImportSkill}
+            onSystemSearch={tabSeat.onSystemSearch}
+            onCreateWithAgent={tabSeat.onCreateWithAgent}
+            onOnlineSearch={tabSeat.onOnlineSearch}
           />
         </div>
       )}
@@ -3353,13 +4186,20 @@ export function EnterpriseMarketDetailActions({ subject, tabSeat }: {
  * ★ **纯函数、不持 hook**（本文件硬规矩：测试把组件当纯函数直调，dispatcher 为 null，
  *   任何 `useState` 都会抛 `Cannot read properties of null`）。开合态由 `addMenuOpen` /
  *   `onToggleAddMenu` 两个 prop 供给 —— 与工具行那份 `EnterpriseMarketAddMenuView` **同一对口径**。
+ * ★ `onImportSkill` 同理从座位来（**不是**页面 props）：它要点的那个文件选择器住在**页面树**里，
+ *   而这一格在**标题行槽树**里，两棵树之间只有座位这一条接缝（见 `EnterpriseMarketTabSeatState`）。
+ *   `onSystemSearch` 走同一条缝：它要打开的那一面（结果面）也是页面树里的一份视图状态。
  */
 function EnterpriseMarketTitleActions({
-  tab, addMenuOpen, onToggleAddMenu,
+  tab, addMenuOpen, onToggleAddMenu, onImportSkill, onSystemSearch, onCreateWithAgent, onOnlineSearch,
 }: {
   readonly tab: EnterpriseMarketTabId
   readonly addMenuOpen?: boolean | undefined
   readonly onToggleAddMenu?: (() => void) | undefined
+  readonly onImportSkill?: (() => void) | undefined
+  readonly onSystemSearch?: (() => void) | undefined
+  readonly onCreateWithAgent?: (() => void) | undefined
+  readonly onOnlineSearch?: (() => void) | undefined
 }): ReactNode {
   return (
     <>
@@ -3368,6 +4208,8 @@ function EnterpriseMarketTitleActions({
         tab={tab}
         open={addMenuOpen === true}
         onToggle={() => { onToggleAddMenu?.() }}
+        // **四份**写入口一起交下去：哪一项可点由 `enterpriseAddMenuEntryPlan` 按 ID 查这一组回调决定。
+        wiring={{ onCreateWithAgent, onOnlineSearch, onImportSkill, onSystemSearch }}
       />
     </>
   )
@@ -3506,6 +4348,33 @@ export interface EnterpriseMarketTabSeatState {
    */
   readonly addMenuOpen?: boolean | undefined
   readonly onToggleAddMenu?: (() => void) | undefined
+  /**
+   * **本地导入**的写入口（本刀）：打开那个住在页面树里的文件选择器。
+   *
+   * 它也必须走座位、不能走 props —— 理由与上面 `addMenuOpen` 逐字相同（两棵 React 树）。缺席时
+   * 菜单里那一项**照旧禁用**（原因仍是可见的「开发中」），绝不画一枚点了没反应的菜单项。
+   */
+  readonly onImportSkill?: (() => void) | undefined
+  /**
+   * **系统搜索**的写入口（本刀）：打开「本机技能目录」结果面（页内视图切换，不是弹窗）。
+   *
+   * 与 `onImportSkill` 同一条缝、同一条缺席口径：缺席时菜单里那一项**照旧禁用**（原因仍是可见的
+   * 「开发中」），绝不画一枚点了没反应的菜单项。
+   */
+  readonly onSystemSearch?: (() => void) | undefined
+  /**
+   * **通过 Agent 创建**的写入口（本刀）：开新会话并把那段草稿填进官方输入框。
+   *
+   * 同一条缝、同一条缺席口径：缺席时菜单里 ① 那一项**照旧禁用**（原因仍是可见的「开发中」），
+   * 绝不画一枚点了没反应的菜单项。
+   */
+  readonly onCreateWithAgent?: (() => void) | undefined
+  /**
+   * **在线搜索**的写入口（本刀）：打开「在线搜索」结果面。
+   *
+   * 同一条缝、同一条缺席口径：缺席时菜单里 ② 那一项**照旧禁用**（可见「开发中」），绝不画死控件。
+   */
+  readonly onOnlineSearch?: (() => void) | undefined
 }
 
 /** 页签座位源（非 React）：两个注册面是**两棵 React 树**（页面树 / 官方标题行槽），只能靠它接起来。 */
@@ -3520,6 +4389,9 @@ export interface EnterpriseMarketTabSeat {
  * 页面每帧都会发布（它在 render 后同步调），没有这道闸就会把订阅方拖进无限重渲染。
  * `onSelect` **不进签名**：它在控制器里每帧重建，进签名等于每帧通知；而它闭包住的只有两个 `setState`
  * （本身稳定），故保留首次那枚在语义上完全等价。
+ * 两个菜单写入口（`onImportSkill`/`onSystemSearch`）同一条理由——**只发「在不在场」这一位**：
+ * 函数每帧重建，但它们闭包住的只有稳定的 `setState`/`useRef`，故保留首次那枚等价；
+ * 而「有没有写入口」会让对应菜单项在可点/禁用之间翻面，故这一位必须进签名。
  */
 export function createEnterpriseMarketTabSeat(): EnterpriseMarketTabSeat {
   let state: EnterpriseMarketTabSeatState | undefined
@@ -3536,7 +4408,11 @@ export function createEnterpriseMarketTabSeat(): EnterpriseMarketTabSeat {
         ? undefined
         // ★ `addMenuOpen` **必须进签名**：它是标题行那枚「添加」下拉的开合态，只发页签名的话
         //   点开下拉不会通知订阅者 ⇒ 菜单永远画不出来（与本项目反复踩的「测试替实现打工」同类）。
-        : `${next.activeTab}|${next.entries.map(entry => `${entry.id}:${entry.text}`).join(',')}|${String(next.addMenuOpen === true)}`
+        // ★ 本地导入的写入口**只发它「在不在场」这一位**、不发函数本身：函数每帧重建（与 `onSelect`
+        //   同一处境，进签名等于每帧通知），而它闭包住的只有那枚**恒稳定**的 DOM 引用 ⇒ 保留首次那枚
+        //   在语义上完全等价；但「有没有写入口」会让那一项在可点/禁用之间翻面，故这一位必须在签名里。
+        //   `onSystemSearch` / `onCreateWithAgent` 同一条理由（它们闭包住的只有 setState 与 ref，本身稳定）。
+        : `${next.activeTab}|${next.entries.map(entry => `${entry.id}:${entry.text}`).join(',')}|${String(next.addMenuOpen === true)}|${String(next.onImportSkill !== undefined)}|${String(next.onSystemSearch !== undefined)}|${String(next.onCreateWithAgent !== undefined)}|${String(next.onOnlineSearch !== undefined)}`
       if (nextSignature === signature) return
       signature = nextSignature
       state = next
@@ -3594,13 +4470,21 @@ function EnterpriseMarketTabStrip({
       {/* 工具行（用户口径逐字：「搜索栏，左侧是 4 个标签，右侧是搜索栏和筛选按钮」）：
           **左端＝四枚页签**（无条件渲染，不再看 `tabsInTitle` —— 页签的真源就在这一行，
           座位只管标题行那两枚按钮，标题行不再出页签，故全页任何时刻只有一个 tablist）；
-          **右端＝搜索框（定宽 320px）+ 漏斗筛选钮**；中间由 .own-market-rowBarSpacer 吃掉剩余。 */}
+          **右端＝搜索框（定宽 320px）+ 漏斗筛选钮**；弹性占位住在**页签与搜索框之间**（不是搜索框右侧），
+          故剩余空白由它吃在左半边、把「搜索框 + 筛选钮」整组推到**行右**（task-15 用户口径）。 */}
       <div className="own-market-searchRow">
         <EnterpriseMarketTabList
           entries={model.tabEntries}
           activeTab={model.activeTab}
           onSelect={onSelectTab}
         />
+        {/* 弹性占位（**本刀 task-15 上移到这里**：用户口径「非移动端下搜索应该右对齐」）。
+            DOM 顺序 = 视觉顺序 = 焦点顺序：`[四枚页签][spacer][搜索框][筛选钮]`。
+            它住在搜索框**之前** ⇒ 吃掉的剩余空白落在搜索框**左边**，于是
+            「搜索框 320px + 筛选钮 32px」整组被推到**行右**（此前它住在搜索框之后，
+            空白被它在搜索框右边吃掉 ⇒ 搜索框紧贴页签、只有筛选钮贴行右 —— 那正是用户报的现象）。
+            它是 `aria-hidden` 的纯装饰、不可聚焦，故不改变 Tab 焦点序。 */}
+        <span className="own-market-rowBarSpacer" aria-hidden="true" />
         <span className="own-market-query">
           <Search aria-hidden size={16} className="own-market-queryIcon" />
           <input
@@ -3613,8 +4497,6 @@ function EnterpriseMarketTabStrip({
             onChange={(event) => { onSearchChange?.(event.currentTarget.value) }}
           />
         </span>
-        {/* 弹性占位：把右组（漏斗 / 刷新 / 添加技能）整组推到行右（用户口径「靠右对齐」）。 */}
-        <span className="own-market-rowBarSpacer" aria-hidden="true" />
         <div className="own-market-filterWrap">
           <button
             type="button"
@@ -3948,7 +4830,7 @@ function EnterpriseMarketComponentsPanel({ model, onToggleSection, onOpenLogin, 
               data-state={row.enabled ? 'on' : 'off'}
             >
               <div className="own-market-rowLine">
-                <span className="own-market-rowIcon"><EnterpriseArtworkFallback size={ENTERPRISE_ARTWORK_ROW_SIZE} /></span>
+                <span className="own-market-rowIcon"><EnterpriseArtworkFallback size={ENTERPRISE_ARTWORK_ROW_SIZE} seed={row.id} label={row.label} /></span>
                 <div className="own-market-rowMain">
                   <span className="own-market-rowId">{row.label}</span>
                   <span className="own-market-rowNote">{row.note}</span>
@@ -5153,7 +6035,7 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
                   title={props.onOpenPresetDetail === undefined ? '详情入口未接通' : '查看详情'}
                   onClick={() => { props.onOpenPresetDetail?.(preset) }}
                 >
-                  <span className="own-market-rowIcon"><EnterpriseArtworkFallback size={ENTERPRISE_ARTWORK_ROW_SIZE} /></span>
+                  <span className="own-market-rowIcon"><EnterpriseArtworkFallback size={ENTERPRISE_ARTWORK_ROW_SIZE} seed={preset.id} label={preset.displayName} /></span>
                   <div className="own-market-rowMain">
                     <span className="own-market-cardHead">
                       {/* **两行结构**（用户口径：上面标题、下面描述），故第 1 行**只有标题**——
@@ -5217,7 +6099,7 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
                   title={props.onOpenSkillDetail === undefined ? '详情入口未接通' : '查看详情'}
                   onClick={() => { props.onOpenSkillDetail?.(skill) }}
                 >
-                  <span className="own-market-rowIcon"><EnterpriseArtworkFallback size={ENTERPRISE_ARTWORK_ROW_SIZE} /></span>
+                  <span className="own-market-rowIcon"><EnterpriseArtworkFallback size={ENTERPRISE_ARTWORK_ROW_SIZE} seed={skill.id} label={skill.displayName} /></span>
                   <div className="own-market-rowMain">
                     {/* 第 1 行 = 标题 + 两枚只读签（版本签取 `sourceDshVersion` 的**短号**、分类签取可选 `category`）：
                         单行 nowrap，标签过多时标题先省略、两枚签保持可见，行高不变。
@@ -5279,7 +6161,7 @@ export function EnterpriseMarketInlineRows({ tab, model, props }: {
                   title={props.onOpenPluginDetail === undefined ? '详情入口未接通' : '查看详情'}
                   onClick={() => { props.onOpenPluginDetail?.(plugin) }}
                 >
-                  <span className="own-market-rowIcon"><EnterpriseArtworkFallback size={ENTERPRISE_ARTWORK_ROW_SIZE} /></span>
+                  <span className="own-market-rowIcon"><EnterpriseArtworkFallback size={ENTERPRISE_ARTWORK_ROW_SIZE} seed={plugin.packageName} label={enterprisePluginDisplayName(plugin.displayName, plugin.packageName)} /></span>
                   <div className="own-market-rowMain">
                     {/* 第 1 行 = 标题 + 「企业」签 + 版本短号签——**与技能行的标题行同款同枚**（同一串类名、
                         同一个 tone、同一枚官方 `Tag` 原语、每个类名都取自本文件既有声明，故一个新类都没有）。
@@ -5439,6 +6321,446 @@ function enterpriseMarketPluginDetail(page: EnterprisePluginPageProps, props: En
 }
 
 /**
+ * **「系统搜索」结果面的输入**（本刀；唯一构造点是共享控制器）。
+ *
+ * `state` 是盘点取数的四态（`EnterpriseListState`），`adopt` 是**当前在途**的那一条（页面据此把
+ * 其余纳入按钮禁用并说明原因），`adoptError` 是**哪一条**失败了与它的稳定码，`adoptedNotice` 是
+ * 刚刚纳入成功那一句。四件事实分开持有，是为了让「正在纳入哪条 / 哪条失败 / 刚成功哪条」都**归到行上**，
+ * 而不是互相覆盖成一句含混的页级状态。
+ */
+export interface EnterpriseSystemSearchPageProps {
+  /** 盘点取数四态（loading / failed / ready；`empty` 会在页面里补上那句整体空话）。 */
+  readonly state: EnterpriseListState<EnterpriseSystemSkills>
+  /** 在途的纳入（`path` 用来判定「这一行的那枚按钮现在不可点」）。 */
+  readonly adopt?: { readonly path: string; readonly name: string } | undefined
+  /** 哪一条纳入选失败了（`path` + 稳定码）：只落在那一行上。 */
+  readonly adoptError?: { readonly path: string; readonly code: string } | undefined
+  /** 刚刚纳入成功那一句（`role="status"`；下一次动作开始时清掉）。 */
+  readonly adoptedNotice?: string | undefined
+  /** 纳入一条候选（界面上只有 `available` 那些行会调它）。 */
+  readonly onAdopt: (skill: EnterpriseSystemSkill) => void
+  /** 重新盘点（失败态那枚重试；**真的**再发一次请求）。 */
+  readonly onReload: () => void
+  /** 返回（面包屑那枚）；缺席即不画面包屑（纯函数直调的老调用方）。 */
+  readonly onBack?: (() => void) | undefined
+  /**
+   * 整个结果面的 DOM 引用：控制器用它把**焦点**放到这一面上（`role="region"` + `tabIndex={-1}`，
+   * 读屏因此立刻报出「本机技能目录，区域」）与把**滚动位置**还原到进入前那一眼。
+   */
+  readonly pageRef?: Ref<HTMLDivElement> | undefined
+}
+
+/**
+ * **「系统搜索」结果面（纯函数，无 hook）——本刀唯一的整页切换面**。
+ *
+ * ★ **为什么是页内视图切换、不是弹窗**（口径 15：详情是子页面、不是弹窗）：
+ *   它由外壳按 `props.systemSearch !== undefined` **整页切换**渲染 —— 列表 / 页签条 / 节容器整段不挂载，
+ *   没有 `role="dialog"`、没有 portal、没有遮罩、没有第二棵树；返回只有两条真路径（面包屑按钮 + Esc）。
+ *   这与技能详情 / 配方详情**完全同一条形态**，故本页不会长出第二套「盖在列表上」的交互。
+ * ★ **为什么 `role="region"` + `tabIndex={-1}` + 程序化聚焦**：切面之后焦点必须落在**这一面**上
+ *   （否则读屏用户还在已经不在的那枚菜单项上）；region 的名字由 `aria-label` 给。
+ * ★ **为什么不画「已装 / 命名冲突」那两行的按钮**：这两态**没有任何**能做的动作（可做的是别的目录），
+ *   画一枚灰按钮等于给一个不存在的动作留位置；按既有口径「能走的路才画」，并在行上写清为什么。
+ * ★ **纳入一次只允许一条**：Host 侧的自装清单是「读—改—写」一份文件，两条并发会互相覆盖；
+ *   故在途时其余纳入按钮一并禁用，原因写在那一行可见的进行中说明里（不是只挂 `title`）。
+ */
+export function EnterpriseSystemSearchPage(props: EnterpriseSystemSearchPageProps): ReactNode {
+  const face = enterpriseSystemFace(props.state)
+  const busy = props.adopt
+  return (
+    <div
+      ref={props.pageRef}
+      className="own-market-detail"
+      data-enterprise-system-page="true"
+      role="region"
+      aria-label={ENTERPRISE_SYSTEM_TITLE}
+      tabIndex={-1}
+      data-enterprise-system-title="true"
+    >
+      {/* ① 面包屑（与技能/配方详情同一形制：可见文案 + 完整无障碍名）。 */}
+      {props.onBack === undefined ? null : (
+        <div className="own-market-detailTop">
+          <button
+            type="button"
+            className="own-market-crumb"
+            aria-label={ENTERPRISE_SYSTEM_BACK_LABEL}
+            title={ENTERPRISE_SYSTEM_BACK_LABEL}
+            onClick={() => { props.onBack?.() }}
+          >
+            <ChevronDown className="own-market-crumbIcon" size={12} aria-hidden="true" />
+            <span>{ENTERPRISE_SYSTEM_BACK_TEXT}</span>
+          </button>
+        </div>
+      )}
+      {/* ② 标题 + 一句人话（这一面在干什么）。 */}
+      <div className="own-market-detailMain">
+        <h3 className="own-market-detailTitle">{ENTERPRISE_SYSTEM_TITLE}</h3>
+        <p className="own-market-detailDesc">{ENTERPRISE_SYSTEM_NOTE}</p>
+        {/* 就绪态那枚**重新盘点**：本机技能目录是**外部可变**的（别处刚建好一个目录、或用户自己清了
+            一个），而原先只有**失败态**才有重试 ⇒ 一切正常时用户没有任何重取入口。它走的是**同一个**
+            `props.onReload`（真重发，不是刷新页面）。 */}
+        {face.kind === 'ready' ? (
+          <div className="own-market-fileRetry">
+            <Button
+              size="sm"
+              variant="outline"
+              icon={<RefreshCw aria-hidden size={14} />}
+              aria-label={ENTERPRISE_SYSTEM_REFRESH_LABEL}
+              onClick={() => { props.onReload() }}
+            >{ENTERPRISE_SYSTEM_REFRESH}</Button>
+          </div>
+        ) : null}
+      </div>
+      {/* ③ 纳入的可见反馈：进行中（同时是所有被禁用按钮的原因）与刚成功那句各占一行。 */}
+      {busy === undefined ? null : (
+        <p className="own-market-rowNote" role="status" data-enterprise-system-adopting={busy.path}>
+          {enterpriseSystemAdoptingText(busy.name)}
+        </p>
+      )}
+      {props.adoptedNotice === undefined ? null : (
+        <p className="own-market-rowNote" role="status" data-enterprise-system-adopted="true">
+          {props.adoptedNotice}
+        </p>
+      )}
+      {/* ④ 四态：加载中 / 失败（唯一提示组件 + 真重发）/ 就绪（按根分组的候选清单）。 */}
+      {face.kind === 'loading' ? (
+        <p className="own-market-rowNote" role="status" data-enterprise-system-state="loading">{ENTERPRISE_SYSTEM_LOADING}</p>
+      ) : null}
+      {face.kind === 'failed' ? (
+        <>
+          <EnterpriseErrorNotice className="own-market-inlineError" code={face.failedCode ?? ''} />
+          <div className="own-market-fileRetry">
+            <Button size="sm" icon={<RefreshCw aria-hidden size={14} />} aria-label={ENTERPRISE_LIST_RETRY_LABEL}
+              onClick={() => { props.onReload() }}>
+              {ENTERPRISE_LIST_RETRY}
+            </Button>
+          </div>
+        </>
+      ) : null}
+      {face.kind === 'ready' ? (
+        <div className="own-market-detailSections">
+          {/* 零候选时那句**整体**人话：与下面每组那句「按根」的空话分工不同（一个是整台机器、一个是某个位置）。 */}
+          {face.emptyNote === undefined ? null : (
+            <p className="own-market-rowNote" data-enterprise-system-empty="true">{face.emptyNote}</p>
+          )}
+          {face.groups.map((group) => (
+            <section
+              key={group.root.id}
+              className="own-market-detailSection"
+              aria-label={group.sectionLabel}
+              data-enterprise-system-root={group.root.id}
+              data-enterprise-system-root-present={group.root.present ? 'true' : 'false'}
+            >
+              <div className="own-market-sectionHead">
+                {/* 根的**人话标签**上屏；那条绝对路径只挂在悬浮说明里（展示事实，不参与任何构造）。
+                    ★ 与页名逐字相同时 `headLabel` 缺席 ⇒ 这一枚**不画**（否则屏幕上是「本机技能目录」
+                    上下各一遍；页标题已经说了这是哪里），只留右边那枚计数。 */}
+                {group.headLabel === undefined
+                  ? null
+                  : <h4 className="own-market-sectionTitle" title={group.root.path}>{group.headLabel}</h4>}
+                <span className="own-market-sectionCount">{enterpriseSystemCountText(group.skills.length)}</span>
+              </div>
+              {/* 根不存在 vs 根在但零候选：两句**不同**的话，这是本刀明确要求的两种人话。 */}
+              {group.emptyNote === undefined
+                ? null
+                : <p className="own-market-rowNote" data-enterprise-system-root-note={group.root.id}>{group.emptyNote}</p>}
+              {group.skills.length === 0 ? null : (
+                <ul className="own-market-rows">
+                  {group.skills.map((skill) => {
+                    const row = enterpriseSystemSkillRow(skill)
+                    const error = props.adoptError?.path === row.path ? props.adoptError : undefined
+                    const thisBusy = busy?.path === row.path
+                    return (
+                      <li
+                        key={row.path}
+                        className="own-market-row"
+                        data-enterprise-system-skill={row.path}
+                        data-enterprise-system-skill-state={row.state}
+                      >
+                        <div className="own-market-rowLine">
+                          <div className="own-market-rowMain">
+                            <span className="own-market-cardHead">
+                              <span className="own-market-cardId own-market-skillTitle">{row.title}</span>
+                            </span>
+                            {/* 描述读不到就**没有这一行**（不是空串、不是占位句）。 */}
+                            {row.description === undefined
+                              ? null
+                              : <span className="own-market-cardDesc">{row.description}</span>}
+                          </div>
+                          {/* 只有「可纳入」才有动作：在途那一条文案变「正在纳入…」且禁用，
+                              其余按钮在**别人在途**时一并禁用（原因写在上面的进行中那一行里，看得见）。 */}
+                          {row.adoptable ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="own-market-rowBarAction"
+                              disabled={thisBusy || busy !== undefined}
+                              aria-label={`${ENTERPRISE_SYSTEM_ADOPT}${row.title}`}
+                              onClick={() => { props.onAdopt(skill) }}
+                            >{thisBusy ? ENTERPRISE_SYSTEM_ADOPTING : ENTERPRISE_SYSTEM_ADOPT}</Button>
+                          ) : null}
+                        </div>
+                        <p className="own-market-rowNote" data-enterprise-system-skill-note={row.path}>{row.note}</p>
+                        {/* 失败只落在**这一行**上：人话 + 下一步 + 「技术信息」里的稳定码（唯一提示组件）。 */}
+                        {error === undefined
+                          ? null
+                          : <EnterpriseErrorNotice
+                            className="own-market-inlineError"
+                            code={error.code}
+                            prefix={ENTERPRISE_SYSTEM_ADOPT_FAILED_PREFIX}
+                          />}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </section>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+/**
+ * **「在线搜索」结果面的输入**（本刀；唯一构造点是共享控制器）。
+ *
+ * 五件事实分开持有（与系统搜索那一面同一条纪律）：查询框的当前文本、**取数四态**（含逐源状态）、
+ * 哪一条**正在**安装、哪一条失败、刚刚装成功哪一条——成功与失败都**归到行上**，不合并成一句页级状态。
+ */
+export interface EnterpriseOnlineSearchPageProps {
+  /** 搜索取数四态（loading / failed / ready；`empty` 会在页面里补上那句人话）。 */
+  readonly state: EnterpriseListState<EnterpriseOnlineSkillSearch>
+  /** 查询框里的当前文本（受控；判定在唯一投影 `enterpriseOnlineFace` 里）。 */
+  readonly query: string
+  /** 输入变化（控制器按 300ms 防抖决定何时真的搜）。 */
+  readonly onQueryChange: (query: string) => void
+  /** 立刻搜一次（回车 / 【搜索】按钮；不等防抖）。 */
+  readonly onSearch: () => void
+  /** 正在安装的那一条（`source` 用来判定「这一行的按钮现在不可点」）。 */
+  readonly install?: { readonly source: string; readonly name: string } | undefined
+  /** 哪一条安装失败了（`source` + 稳定码）：只落在那一行上。 */
+  readonly installError?: { readonly source: string; readonly code: string } | undefined
+  /** 刚刚装成功那一句（`role="status"`）。 */
+  readonly installedNotice?: string | undefined
+  /**
+   * 本次会话里**已经装好**的那些坐标（`installSource`）。
+   *
+   * ★ 装完那一条**收敛**：行上的按钮换成「已装」状态词（不再可点），否则同一条结果会被反复装。
+   *   判据由**控制器**持有（只有 Host 收下那次安装才写进去），纯组件只消费——它不乐观切换。
+   */
+  readonly installedSources?: readonly string[] | undefined
+  /** 安装一条结果（界面上每条结果都有一枚【安装】）。 */
+  readonly onInstall: (result: EnterpriseOnlineSkillResult) => void
+  /** 重新搜一次（失败态那枚重试；**真的**再发一次请求）。 */
+  readonly onReload: () => void
+  /** 返回（面包屑那枚）。 */
+  readonly onBack?: (() => void) | undefined
+  /** 整个面的 DOM 引用：进面把焦点放它、返回时按它还原滚动（与系统搜索同一套）。 */
+  readonly pageRef?: Ref<HTMLDivElement> | undefined
+}
+
+/**
+ * **「在线搜索」结果面（纯函数，无 hook）——本刀的整页切换面**。
+ *
+ * ★ **为什么是页内视图切换、不是弹窗**（口径 15/26，与系统搜索同一范式、同一证据口径）：
+ *   外壳按 `props.onlineSearch !== undefined` **整页切换**渲染 —— 列表 / 页签条 / 搜索行 / 四个 tabpanel
+ *   整段不挂载；没有 `role="dialog"`、没有 portal、没有遮罩。返回两条真路径（面包屑 + Esc）。
+ * ★ **查询框就在面内**（不是弹窗里的输入）：受控 input + 回车即可搜 + 一枚真按钮；不足门槛时**不搜**，
+ *   并在下面写清为什么（那一句人话与按钮的禁用是同一件事的两种呈现——禁用控件必须有可见说明）。
+ * ★ **逐源的两种坏消息分开铺**（本刀最要紧的一条）：`ok:false` 的源逐个说「这次没有取到」，
+ *   `dropped>0` 的源逐个说「有 N 条不提供可安装的来源，已跳过」——**绝不合并成一句「部分失败」**。
+ * ★ **安装一次只允许一条**：Host 的自装清单是「读—改—写」一份文件，并发会互相覆盖；在途时其余
+ *   安装按钮一并禁用，原因写在那一行可见的进行中说明里。失败只落在**那一行**（唯一提示组件 + 稳定码）。
+ */
+export function EnterpriseOnlineSearchPage(props: EnterpriseOnlineSearchPageProps): ReactNode {
+  const face = enterpriseOnlineFace(props.state, props.query, props.installedSources ?? [])
+  const busy = props.install
+  const queryReady = enterpriseOnlineQueryState(props.query) === 'ready'
+  // 计数与就绪播报都取纯投影：零结果时计数**整枚缺席**（那句空话已经把结论说了，不叠同义话）。
+  const countText = enterpriseOnlineCountText(face.rows.length)
+  const stateText = face.kind === 'idle'
+    ? ENTERPRISE_ONLINE_IDLE
+    : face.kind === 'too-short'
+      ? ENTERPRISE_ONLINE_TOO_SHORT
+      : face.kind === 'loading'
+        ? ENTERPRISE_ONLINE_LOADING
+        : undefined
+  return (
+    <div
+      ref={props.pageRef}
+      className="own-market-detail"
+      data-enterprise-online-page="true"
+      role="region"
+      aria-label={ENTERPRISE_ONLINE_TITLE}
+      tabIndex={-1}
+      data-enterprise-online-title="true"
+    >
+      {/* ① 面包屑（与另三面同一形制）。 */}
+      {props.onBack === undefined ? null : (
+        <div className="own-market-detailTop">
+          <button
+            type="button"
+            className="own-market-crumb"
+            aria-label={ENTERPRISE_ONLINE_BACK_LABEL}
+            title={ENTERPRISE_ONLINE_BACK_LABEL}
+            onClick={() => { props.onBack?.() }}
+          >
+            <ChevronDown className="own-market-crumbIcon" size={12} aria-hidden="true" />
+            <span>{ENTERPRISE_ONLINE_BACK_TEXT}</span>
+          </button>
+        </div>
+      )}
+      {/* ② 标题 + 一句人话。 */}
+      <div className="own-market-detailMain">
+        <h3 className="own-market-detailTitle">{ENTERPRISE_ONLINE_TITLE}</h3>
+        <p className="own-market-detailDesc">{ENTERPRISE_ONLINE_NOTE}</p>
+      </div>
+      {/* ③ 查询框（面内）：输入即按防抖自动搜，回车 / 按钮立刻搜；不足门槛时按钮禁用 + 下面那句人话。 */}
+      <div className="own-market-searchRow">
+        <span className="own-market-query">
+          <Search aria-hidden size={16} className="own-market-queryIcon" />
+          <input
+            type="search"
+            className="own-market-queryInput"
+            aria-label={ENTERPRISE_ONLINE_QUERY_LABEL}
+            placeholder={ENTERPRISE_ONLINE_QUERY_PLACEHOLDER}
+            value={props.query}
+            onChange={(event) => { props.onQueryChange(event.currentTarget.value) }}
+            onKeyDown={(event) => { if (event.key === 'Enter') props.onSearch() }}
+          />
+        </span>
+        <span className="own-market-rowBarSpacer" aria-hidden="true" />
+        <Button
+          size="sm"
+          variant="primary"
+          className="own-market-rowBarAction"
+          icon={<Search aria-hidden size={14} />}
+          aria-label={ENTERPRISE_ONLINE_SEARCH_LABEL}
+          disabled={!queryReady}
+          onClick={() => { props.onSearch() }}
+        >{ENTERPRISE_ONLINE_SEARCH}</Button>
+      </div>
+      {/* ④ 安装的可见反馈：进行中（同时是所有被禁用按钮的原因）与刚成功那句各占一行。 */}
+      {busy === undefined ? null : (
+        <p className="own-market-rowNote" role="status" data-enterprise-online-installing={busy.source}>
+          {enterpriseOnlineInstallingText(busy.name)}
+        </p>
+      )}
+      {props.installedNotice === undefined ? null : (
+        <p className="own-market-rowNote" role="status" data-enterprise-online-installed="true">{props.installedNotice}</p>
+      )}
+      {/* ⑤ 逐源的**两种**坏消息：一行一个源，各带源名与自己的原因（绝不合并成「部分失败」）。 */}
+      {face.notes.map(note => (
+        <p
+          key={`${note.kind}:${note.id}`}
+          className="own-market-rowNote"
+          data-enterprise-online-source-note={note.id}
+          data-enterprise-online-source-note-kind={note.kind}
+        >
+          {note.text}
+        </p>
+      ))}
+      {/* ⑥ 四态：空闲 / 太短 / 加载各一句 `role="status"` 人话；失败走唯一提示组件 + 真重发。 */}
+      {stateText === undefined ? null : (
+        <p className="own-market-rowNote" role="status" data-enterprise-online-state={face.kind}>{stateText}</p>
+      )}
+      {face.kind === 'failed' ? (
+        <>
+          <EnterpriseErrorNotice className="own-market-inlineError" code={face.failedCode ?? ''} />
+          <div className="own-market-fileRetry">
+            <Button size="sm" icon={<RefreshCw aria-hidden size={14} />} aria-label={ENTERPRISE_LIST_RETRY_LABEL}
+              onClick={() => { props.onReload() }}>
+              {ENTERPRISE_LIST_RETRY}
+            </Button>
+          </div>
+        </>
+      ) : null}
+      {face.kind === 'ready' ? (
+        <div className="own-market-detailSections">
+          {/* 节名与节的无障碍名都用 `ENTERPRISE_ONLINE_RESULTS_TITLE`（**不是页名**）：原先它们是同一个
+              常量 ⇒ 屏幕上「在线搜索技能」上下各一遍，节的无障碍名又与外层 `role="region"` 同名。 */}
+          <section className="own-market-detailSection" aria-label={ENTERPRISE_ONLINE_RESULTS_TITLE} data-enterprise-online-results="true">
+            <div className="own-market-sectionHead">
+              <h4 className="own-market-sectionTitle">{ENTERPRISE_ONLINE_RESULTS_TITLE}</h4>
+              {countText === undefined ? null : <span className="own-market-sectionCount">{countText}</span>}
+            </div>
+            {/* ⑥b 就绪**播报**：加载那行在转就绪时整行消失、结果区又不是 live region ⇒ 读屏用户根本
+                不知道搜完了。有结果时由这里补一句；**零结果时不走它**——那时由下面那句空话自己
+                播报（它带 `role="status"`），否则同屏会叠三句都在说「零」。 */}
+            {face.rows.length === 0 ? null : (
+              <p className="own-market-rowNote" role="status" data-enterprise-online-ready="true">
+                {enterpriseOnlineReadyText(face.rows.length)}
+              </p>
+            )}
+            {face.emptyNote === undefined ? null : (
+              <p className="own-market-rowNote" role="status" data-enterprise-online-empty="true">{face.emptyNote}</p>
+            )}
+            {face.rows.length === 0 ? null : (
+              <ul className="own-market-rows">
+                {face.rows.map((row) => {
+                  const result = props.state.kind === 'ready' || props.state.kind === 'empty'
+                    ? props.state.value.results.find(item => item.installSource === row.installSource)
+                    : undefined
+                  const error = props.installError?.source === row.installSource ? props.installError : undefined
+                  const thisBusy = busy?.source === row.installSource
+                  return (
+                    <li
+                      key={row.installSource}
+                      className="own-market-row"
+                      data-enterprise-online-result={row.installSource}
+                      data-enterprise-online-result-source={row.sourceId}
+                    >
+                      <div className="own-market-rowLine">
+                        <div className="own-market-rowMain">
+                          <span className="own-market-cardHead">
+                            <span className="own-market-cardId own-market-skillTitle">{row.name}</span>
+                          </span>
+                          {row.description === undefined
+                            ? null
+                            : <span className="own-market-cardDesc">{row.description}</span>}
+                        </div>
+                        {/* 每条结果都给一枚【安装】：在途那一条文案变「正在安装…」且禁用，其余按钮在
+                            **别人在途**时一并禁用（原因写在上面的进行中那一行里，看得见）。
+                            ★ 本次会话里**已经装好**的那一条：可走之路已经走完 ⇒ **不画**按钮，改画一枚
+                            看得见的「已装」状态词（与系统搜索那一面同一形制；反复给按钮 = 反复装同一条）。 */}
+                        {row.installed ? (
+                          <span
+                            className="own-market-rowState"
+                            data-enterprise-online-result-installed={row.installSource}
+                          >{ENTERPRISE_ONLINE_INSTALLED}</span>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="own-market-rowBarAction"
+                            disabled={thisBusy || busy !== undefined || result === undefined}
+                            aria-label={`${ENTERPRISE_ONLINE_INSTALL}${row.name}`}
+                            onClick={() => { if (result !== undefined) props.onInstall(result) }}
+                          >{thisBusy ? ENTERPRISE_ONLINE_INSTALLING : ENTERPRISE_ONLINE_INSTALL}</Button>
+                        )}
+                      </div>
+                      <p className="own-market-rowNote" data-enterprise-online-result-note={row.installSource}>{row.note}</p>
+                      {error === undefined ? null : (
+                        <EnterpriseErrorNotice
+                          className="own-market-inlineError"
+                          code={error.code}
+                          prefix={ENTERPRISE_ONLINE_INSTALL_FAILED_PREFIX}
+                        />
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </section>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+/**
  * **目录页外壳**（唯一一棵）：官方插件页「官方」分组里的「插件市场」卡片点进去的详情页正文
  * （官方 `plugins.item` 的 `page` 视图）。逐段取自 `9723a97`：
  *  · 技能行 = 行图标 + 官方两行卡片（第 1 行 `.own-market-cardId` 标题 + 紧随的版本签/分类签、第 2 行 `.own-market-cardDesc` 描述）
@@ -5452,16 +6774,63 @@ function enterpriseMarketPluginDetail(page: EnterprisePluginPageProps, props: En
  * 把视图状态清空即回到这里。它没有路由、没有新增 slot：面板本来就是官方 `plugins.item` 的 page 视图，
  * 切换只发生在这一个视图状态上。**配方详情（本刀）**：`props.presetPage` 走**同一条**形态
  * （`EnterprisePresetDetailPage`，面包屑「返回配方列表」），两者由控制器保证互斥（同一时刻只可能有一个非空）。
+ * **本刀（系统搜索结果面）**：`props.systemSearch` 是**第四条**整页切换分支（同一条形态：不是弹层），
+ * 由控制器保证与那三个详情目标互斥；它照样带上那份文件选择器 chrome（那一支里「添加」下拉也在场）。
+ * **本刀（在线搜索结果面）**：`props.onlineSearch` 是**第五条**整页切换分支（同一条形态）；
+ * 五面互斥（控制器保证同一时刻只可能有一个非空），chrome 在**五支**视图里都在场。
  *
  * 纯函数、无 hook（`useState` 在共享控制器里）：事实一律来自 `enterpriseMarketShellModel` 与行 facts，本组件只负责铺版面。
  */
 export function EnterpriseMarketLegacyShell(props: EnterpriseMarketShellProps): ReactNode {
   if (props.view === 'summary') return <EnterpriseMarketSummaryLine />
+  /**
+   * **页面级 chrome**：本地导入那枚恒不可见的文件选择器（task-3）＋「通过 Agent 创建」的反馈（本刀）。
+   *
+   * 四支视图**共用同一份**，因为触发它们的「添加」下拉住在官方标题行槽里、而那一格在这四支视图里
+   * **始终在场**（列表 / 技能详情 / 配方详情 / 系统搜索结果面）。少挂任何一支都会造出
+   * 「在那一面里点『本地导入 / 通过 Agent 创建』、界面毫无反应」的死控件（源码级判据：恰好四处）。
+   * 空闲时这一份只出一枚恒不可见的 `<input type="file">`，一条可见反馈都不出。
+   */
+  const pageChrome = (
+    <>
+      <EnterpriseMarketSkillImportChrome port={props.skillImport} />
+      <EnterpriseMarketCreateSkillNotice port={props.skillCreate} />
+    </>
+  )
+  /**
+   * **在线搜索的结果面**（本刀）：与系统搜索**同一条整页切换**形态（不是弹层：无 dialog、无 portal、
+   * 无遮罩），同样带上那份页面级 chrome（那一支里「添加」下拉照样在场，否则就是死控件）。
+   */
+  if (props.onlineSearch !== undefined) {
+    return (
+      <section ref={props.sectionRef} className="own-market-entry" aria-label={ENTERPRISE_MARKET_ENTRY_LABEL}>
+        <style>{baseStyles}{rowStyles}{detailStyles}</style>
+        {pageChrome}
+        <EnterpriseOnlineSearchPage {...props.onlineSearch} />
+      </section>
+    )
+  }
+  /**
+   * **系统搜索的结果面**（本刀）：与技能/配方详情**同一条整页切换**形态 —— 非空即整页换成
+   * `EnterpriseSystemSearchPage`（列表 / 页签条 / 节容器整段不挂载），**不是**弹层：
+   * 没有 `role="dialog"`、没有 portal、没有遮罩。返回靠面包屑按钮 + Esc（控制器里那条监听）。
+   * 它同样要带上文件选择器那份 chrome：那一支里「添加」下拉照样在场。
+   */
+  if (props.systemSearch !== undefined) {
+    return (
+      <section ref={props.sectionRef} className="own-market-entry" aria-label={ENTERPRISE_MARKET_ENTRY_LABEL}>
+        <style>{baseStyles}{rowStyles}{detailStyles}</style>
+        {pageChrome}
+        <EnterpriseSystemSearchPage {...props.systemSearch} />
+      </section>
+    )
+  }
   // 详情子页面：整页切换（列表那一支一字不挂载），样式把 detailStyles 一并带上。
   if (props.skillPage !== undefined) {
     return (
       <section ref={props.sectionRef} className="own-market-entry" aria-label={ENTERPRISE_MARKET_ENTRY_LABEL}>
         <style>{baseStyles}{rowStyles}{detailStyles}</style>
+        {pageChrome}
         <EnterpriseSkillDetailPage {...props.skillPage} />
       </section>
     )
@@ -5471,6 +6840,7 @@ export function EnterpriseMarketLegacyShell(props: EnterpriseMarketShellProps): 
     return (
       <section ref={props.sectionRef} className="own-market-entry" aria-label={ENTERPRISE_MARKET_ENTRY_LABEL}>
         <style>{baseStyles}{rowStyles}{detailStyles}</style>
+        {pageChrome}
         <EnterprisePresetDetailPage {...props.presetPage} />
       </section>
     )
@@ -5494,6 +6864,7 @@ export function EnterpriseMarketLegacyShell(props: EnterpriseMarketShellProps): 
           两份表类名**零交集**（`marketplace-entry.spec.ts` 的隔离不变量逐类守着），同页并存不会互相覆盖。 */}
       <style>{baseStyles}{rowStyles}</style>
       {pluginDetail === undefined ? null : <style>{ENTERPRISE_PLUGIN_STYLES}</style>}
+      {pageChrome}
       <EnterpriseMarketTabStrip
         model={model}
         onSelectTab={props.onSelectTab}
@@ -5948,6 +7319,507 @@ export function useEnterpriseMarketController({ view, store, libraryGate, preset
     }
     : undefined
   /**
+   * **本地导入**（本刀：「添加技能 → 本地导入」那一条通路）。三件东西都在这里、且**只在这里**：
+   *   ① 文件选择器的 DOM 引用（触发钮住在**标题行槽**那棵树里，它只经座位上的 `onImportSkill` 回调回指这里）；
+   *   ② 上传状态机（含「先做尺寸预检、再发 multipart」这条唯一顺序）；
+   *   ③ 上传动作本身（成功走**既有**安装收束：响应覆盖已装态 + 目录取数源重取一次）。
+   *
+   * ★ 为什么失败时只留稳定码、不在这里写人话：人话与下一步在 `error-messages.ts` 的唯一映射里
+   *   （本刀新入表三枚上传码），这里写第二句就是第二份码表；页面另外给一枚**真能走**的
+   *   「重新选择文件」（`EnterpriseMarketSkillImportNotice`），因为上传失败的正确下一步是换一份文件。
+   * ★ 为什么 `.abort()` 上一次：与行上装/卸同一条并发纪律（换文件即中止在途那一次，迟到结果由代际守卫丢弃）。
+   */
+  const skillImportInputRef = useRef<HTMLInputElement>(null)
+  const skillImportAbort = useRef<AbortController | null>(null)
+  const [skillImport, setSkillImport] = useState<EnterpriseSkillImportState>()
+  const onImportSkill: (() => void) | undefined = hasStore
+    ? () => { skillImportInputRef.current?.click() }
+    : undefined
+  const onSkillImportFile: ((file: File) => void) | undefined = hasStore
+    ? (file) => {
+      skillImportAbort.current?.abort()
+      const rejected = enterpriseSkillImportRejectReason(file)
+      if (rejected !== undefined) {
+        // 超限就地拦下：**一个字节都不发出去**（前端带上了文件名与大小，员工一眼看得出是哪一份、多大）。
+        setSkillImport({ kind: 'failed', name: file.name, bytes: file.size, code: rejected })
+        return
+      }
+      const controller = new AbortController()
+      skillImportAbort.current = controller
+      setSkillImport({ kind: 'uploading', name: file.name, bytes: file.size })
+      void (async () => {
+        try {
+          const items = await store!.api.uploadSkill(file, controller.signal)
+          if (controller.signal.aborted) return
+          // **既有安装收束一条都不新造**：Host 回的就是「安装后最新已装态」（与 `/skills/install` 同形），
+          // 故先覆盖它，再请目录取数源重取一次 —— 与行上装/卸之后那条刷新路径**完全同一条**。
+          setInstalledSkills(items)
+          catalogSource?.retry()
+          // 自装清单是**另一份**记录（企业已装清单里不含自装包）⇒ 「装好了哪几个技能」只能从它读。
+          // 它读不到**不影响**成功这件事：`listed:false` 就是那句如实的交代（不是静默吞掉）。
+          let names: readonly string[] = []
+          let listed = false
+          try {
+            const records = await store!.api.selfInstalledSkills(controller.signal)
+            if (controller.signal.aborted) return
+            names = enterpriseSkillImportNames(records, file.name)
+            listed = true
+          } catch {
+            // 次级事实读不到：如实记成「没读到」（界面那句 `ENTERPRISE_SKILL_IMPORT_UNLISTED` 会说出来），
+            // 绝不把一次**已经成功**的导入改判成失败。
+            listed = false
+          }
+          if (controller.signal.aborted) return
+          setSkillImport({ kind: 'done', name: file.name, bytes: file.size, names, listed })
+        } catch (error) {
+          if (controller.signal.aborted) return
+          setSkillImport({ kind: 'failed', name: file.name, bytes: file.size, code: enterpriseLocalErrorCode(error) })
+        }
+      })()
+    }
+    : undefined
+  const skillImportPort: EnterpriseMarketSkillImportPort | undefined =
+    onImportSkill === undefined || onSkillImportFile === undefined
+      ? undefined
+      : { state: skillImport, inputRef: skillImportInputRef, onOpen: onImportSkill, onSelect: onSkillImportFile }
+  // 离开页面即中止在途的上传（与资料库面板那条 `inFlight` 纪律同款：迟到结果不回填）。
+  useEffect(() => () => { skillImportAbort.current?.abort() }, [])
+  /**
+   * **通过 Agent 创建**（本刀）。它只做一件本机动作：把那段草稿交给**既有**的
+   * `EnterprisePresetLaunchPort`（配方第二级降级链用的**同一枚**端口 —— 打开一个空白/新会话并把文本
+   * 填进官方输入框，**不发送**）。这里**不新造第二个「开会话」端口**，也不碰官方结构面（那是 `preset-launch.ts`
+   * 与 `client.tsx` 的活）。
+   *
+   * 三条口径：
+   *   ① **可用性 = 端口在场**（与本地导入/系统搜索同一条：写入口缺席 ⇒ 菜单里那一项禁用 + 可见「开发中」）；
+   *   ② 成功/失败都落 `skillCreate` 那三态——成功说清「已经打开并把指令填好了，按发送即可」；
+   *   ③ 失败把人话交给唯一映射（`ENT_SKILL_CREATE_LAUNCH_FAILED`），并**把那段刚发出去的草稿存进状态里**：
+   *      界面那枚「复制这句指令」按钮复制的必须是**同一段字**（复制的内容 === 发出去的内容由此是结构性的）。
+   */
+  const [skillCreate, setSkillCreate] = useState<EnterpriseSkillCreateState>()
+  const onCreateWithAgent: (() => void) | undefined = presetLaunch === undefined
+    ? undefined
+    : () => {
+      const draft = buildSkillCreateDraft()
+      setSkillCreate(undefined)
+      void presetLaunch(draft).then(
+        (ok) => {
+          // ★ **口径（Lead 裁决，维持现状）**：成功那一刻官方会把主视图切到新会话，我们的市场页**可能随之被卸载**
+          //   ⇒ 下面那句 `{kind:'opened'}` 的 `role="status"` 未必来得及播报。**不改「先提示再切」**，三条理由：
+          //   ① 那是**拿用户的动作换我们自己的文案**——用户点的是「开会话」，为让自己那句话被看见而推迟他要的事，
+          //      还得引入一个定时器（定时器在测试里天然不稳）；本仓的取向一贯是「真反馈优先于我们的话」；
+          //   ② **真正的反馈本来就在**：新会话被打开、草稿躺在输入框里，用户按发送前看得见——那才是这件事的反馈；
+          //      我们这句只是**加分项**，不是唯一交代；
+          //   ③ **不必删它**：页面没被卸载的那些路径（以及将来切视图方式若变了）它仍然是对的；一个
+          //      「可能来不及播报的 live region」不构成违规。
+          setSkillCreate(ok
+            ? { kind: 'opened' }
+            : { kind: 'failed', code: ENTERPRISE_SKILL_CREATE_LAUNCH_FAILED_CODE, draft })
+        },
+        () => {
+          // 端口抛错与返回 false 同一条收束（都是「这一级没走成」），绝不静默。
+          setSkillCreate({ kind: 'failed', code: ENTERPRISE_SKILL_CREATE_LAUNCH_FAILED_CODE, draft })
+        },
+      )
+    }
+  /**
+   * 复制那一段草稿（失败态那枚按钮的**唯一**动作）。复制本身失败也如实可见：换一枚码 `..._COPY_FAILED`
+   * ——它的下一步（检查剪贴板权限后重试）与「开新会话失败」不同，而那枚按钮在旁边同时就是重试入口。
+   */
+  const onCopySkillCreateDraft: (draft: string) => void = (draft) => {
+    const clipboard = navigator.clipboard
+    if (clipboard === undefined) {
+      setSkillCreate({ kind: 'failed', code: ENTERPRISE_SKILL_CREATE_COPY_FAILED_CODE, draft })
+      return
+    }
+    void clipboard.writeText(draft).then(
+      () => { setSkillCreate({ kind: 'copied' }) },
+      () => { setSkillCreate({ kind: 'failed', code: ENTERPRISE_SKILL_CREATE_COPY_FAILED_CODE, draft }) },
+    )
+  }
+  const skillCreatePort: EnterpriseMarketCreateSkillPort | undefined = onCreateWithAgent === undefined
+    ? undefined
+    : { state: skillCreate, onCopy: onCopySkillCreateDraft }
+  /**
+   * **系统搜索 → 纳入**（本刀）。四件事实分开持有，全部挂在**控制器**这一处：
+   *   ① 结果面开不开（一份页内视图状态，不是弹窗、不是路由）；
+   *   ② 盘点的四态（`EnterpriseListState`：加载 / 空 / 就绪 / 失败 + 稳定码）；
+   *   ③ 哪一个目录**正在**纳入（一次只允许一条，理由见 `onAdoptSystemSkill`）；
+   *   ④ 哪一条失败、刚刚成功了哪一条（成功与失败都**归到行上**，不合并成一句含混的页级状态）。
+   *
+   * ★ 关掉这一面时**不中止**在途的纳入：那是一次**写**动作（Host 侧可能已经写进自装清单），
+   *   中止 fetch 并不会撤销它，只会让界面**不知道**结果 ⇒ 让它跑完（结算后照旧如实更新状态，
+   *   下次进来就看得到）。反过来说盘点那条只读请求由 effect 的 cleanup 正常中止（迟到结果不回填）。
+   */
+  const [systemSearchOpen, setSystemSearchOpen] = useState(false)
+  const [systemAttempt, setSystemAttempt] = useState(0)
+  const [systemState, setSystemState] = useState<EnterpriseListState<EnterpriseSystemSkills>>({ kind: 'loading' })
+  const [systemAdopt, setSystemAdopt] = useState<{ readonly path: string; readonly name: string }>()
+  const [systemAdoptError, setSystemAdoptError] = useState<{ readonly path: string; readonly code: string }>()
+  const [systemAdoptedNotice, setSystemAdoptedNotice] = useState<string>()
+  /** 结果面容器：进面时焦点落它（`role="region"` + `tabIndex={-1}`），返回时跟着那条 ref 还原滚动。 */
+  const systemPage = useRef<HTMLDivElement>(null)
+  /**
+   * 进结果面**那一刻**的滚动位置（点击那一下读，之后列表就被替换了；判定复用 `scrollTargetOf`）。
+   *
+   * `target` 允许是 `undefined`（这次没有可还原的滚动容器），但**这一格本身**只要非 `undefined`
+   * 就代表「用户确实从列表进过这一面」——返回时的还原与聚焦都靠它区分「刚返回」与「首次挂载」
+   * （否则首次挂载就会去抢焦点，那比不还原更糟）。
+   */
+  const systemScrollMemory = useRef<{ readonly target: HTMLElement | undefined; readonly top: number } | undefined>(undefined)
+  // ★ 这里**有意没有** `systemSearchAbort` / `systemAdoptAbort` 这类 ref（本刀删掉的四枚正是如此）：
+  //   取数那条**只读**请求的真中止由下面 effect 的 cleanup（`controller.abort()`）承担；纳入是**写**动作、
+  //   按口径**不**中止（中止只会让界面不知道结果）⇒ 存进 ref 只会多一枚**没人读**的字段。
+  /** 打开结果面（菜单项那一枚）：先记下滚动位置，再切面（切面后列表就没了，事后再读就晚了）。 */
+  const onOpenSystemSearch: (() => void) | undefined = hasStore
+    ? () => {
+      // ★ 只记**第一次**那一份位置：菜单在结果面里照旧可见，重复点同一项不该把「进面那一刻」的位置
+      //   覆盖成面内的位置。判据用 ref（不是 `systemSearchOpen` state）——座位只保留首次那枚回调，
+      //   闭包里的 state 会永远停在旧值，那正是本仓反复踩的「测试替实现打工」那一类陷阱。
+      if (systemScrollMemory.current === undefined) {
+        const target = scrollTargetOf(marketRoot.current)
+        systemScrollMemory.current = { target, top: target === undefined ? 0 : target.scrollTop }
+      }
+      // 五面互斥（同一时刻只可能有一个面非空）：进这一面即清掉另外四个目标。
+      setSkillDetailId(undefined)
+      setPresetDetailId(undefined)
+      setPluginDetailName(undefined)
+      setOnlineSearchOpen(false)
+      setSystemAdoptError(undefined)
+      setSystemAdoptedNotice(undefined)
+      setSystemSearchOpen(true)
+    }
+    : undefined
+  /**
+   * 返回列表（面包屑那一枚 + Esc 那一支共用**同一个**函数——两条真路径不允许各收敛一半）。
+   *
+   * 不清 `systemState`：下次进来先把上一次的真值铺着、同时发新请求（不整页闪，也不假装还新鲜）。
+   */
+  const onCloseSystemSearch: (() => void) | undefined = onOpenSystemSearch === undefined
+    ? undefined
+    : () => {
+      setSystemSearchOpen(false)
+      setSystemAdopt(undefined)
+      setSystemAdoptError(undefined)
+      setSystemAdoptedNotice(undefined)
+    }
+  /** 重新盘点（失败态那枚重试；**真的**再发一次请求）。 */
+  const onReloadSystemSearch: (() => void) | undefined = onOpenSystemSearch === undefined
+    ? undefined
+    : () => { setSystemAttempt(current => current + 1) }
+  const systemApi = store?.api
+  /**
+   * 盘点取数：只在「结果面开着 + 有 store」时发；关掉即中止（迟到结果不回填）。
+   *
+   * 重取（`systemAttempt` 变化）时**不**回到加载态：上一次的真值继续铺着，结果到了再换——
+   * 这与行上装/卸之后那条刷新是同一条「不整页闪」的口径；首帧才出「正在查找…」。
+   * 零候选落 `empty`（不是失败）：界面据此补上那句整体空话，同时照旧铺每组「按根」的那句。
+   */
+  useEffect(() => {
+    if (!systemSearchOpen || systemApi === undefined) return
+    const controller = new AbortController()
+    setSystemState(previous => previous.kind === 'ready' || previous.kind === 'empty' ? previous : { kind: 'loading' })
+    void systemApi.systemSearch(controller.signal).then(
+      (value) => {
+        if (controller.signal.aborted) return
+        setSystemState(value.skills.length === 0 ? { kind: 'empty', value } : { kind: 'ready', value })
+      },
+      (error: unknown) => {
+        if (controller.signal.aborted) return
+        setSystemState({ kind: 'failed', code: enterpriseLocalErrorCode(error) })
+      },
+    )
+    return () => { controller.abort() }
+  }, [systemSearchOpen, systemAttempt, systemApi])
+  /** 进结果面：焦点落到这一面（读屏立刻报出「本机技能目录，区域」），不留焦点在已经不在的菜单项上。 */
+  useLayoutEffect(() => {
+    if (!systemSearchOpen) return
+    systemPage.current?.focus()
+  }, [systemSearchOpen])
+  /**
+   * 返回列表：把滚动位置与焦点**还原到进入这一面前那一眼**（`useLayoutEffect` 在绘制前落定，看不见跳动）。
+   *
+   * 判据是 `systemScrollMemory`（见它的注释）：**从没进过这一面就什么都不做**（首次挂载不抢焦点）。
+   * 焦点回那枚「添加」触发钮——它住在**官方标题行槽**那棵树里（不在本页根节点内），是唯一代表
+   * 「你从哪儿出发」的元素；按**我们自己的类名**找（那枚按钮的类名与查找共用同一枚常量，不会漂）；
+   * 找不到就什么都不做（与既有 `pluginPage` 那条焦点还原同一容忍度：还原是加分项，不是硬失败）。
+   */
+  useLayoutEffect(() => {
+    if (systemSearchOpen) return
+    const saved = systemScrollMemory.current
+    if (saved === undefined) return
+    systemScrollMemory.current = undefined
+    if (saved.target !== undefined && saved.target.isConnected) saved.target.scrollTop = saved.top
+    document.querySelector<HTMLElement>(`.${ADD_MENU_TRIGGER_CLASS}`)?.focus()
+  }, [systemSearchOpen])
+  /**
+   * Esc 返回列表：与「插件详情」那一支**同一条**做法——监听钉在本页根节点上（不是 `document`），
+   * 只有焦点落在本页里时 Esc 才回列表；命中后 `stopPropagation`，免得继续冒泡把外层一起关掉。
+   * **浏览器返回键不接**：这一面没有真实路由（与技能/配方详情同一形态），硬造 `history` 会与宿主打架。
+   */
+  useEffect(() => {
+    if (!systemSearchOpen) return
+    const node = marketRoot.current
+    if (node === null) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      onCloseSystemSearch?.()
+    }
+    node.addEventListener('keydown', onKeyDown)
+    return () => { node.removeEventListener('keydown', onKeyDown) }
+  }, [systemSearchOpen])
+  /**
+   * 纳入一条候选（**只有 `available` 那些行会调它**，页面上另两态根本不画按钮）。
+   *
+   * ★ **一次只允许一条**：Host 侧的自装清单是「读—改—写」**一份文件**，两条并发会互相覆盖
+   *   （后写的那条会丢掉前一条）⇒ 在途时其余纳入按钮一并禁用，原因写在进行中那一行里（看得见）。
+   * ★ 成功**不**自己改那一条的 state：重新盘点一次，让 Host 回它现在真实的三态（不乐观切换）。
+   * ★ 失败**也**重新盘点一次：其中一枚码（`ENT_SKILL_DISCOVERY_UNKNOWN`）的含义正是「这条已经不是
+   *   候选了」，重取后它会如实变形/消失——这比留着一行 stale 的候选更诚实。
+   */
+  const onAdoptSystemSkill: ((skill: EnterpriseSystemSkill) => void) | undefined = store === undefined
+    ? undefined
+    : (skill) => {
+      if (systemAdopt !== undefined) return
+      const name = enterpriseSystemSkillRow(skill).title
+      setSystemAdoptError(undefined)
+      setSystemAdoptedNotice(undefined)
+      setSystemAdopt({ path: skill.path, name })
+      const controller = new AbortController()
+      void store.api.adoptSystemSkill(skill.path, controller.signal).then(
+        () => {
+          if (controller.signal.aborted) return
+          setSystemAdoptedNotice(enterpriseSystemAdoptedText(name))
+          setSystemAttempt(current => current + 1)
+        },
+        (error: unknown) => {
+          if (controller.signal.aborted) return
+          // 失败只落在**这一行**上（人话 + 下一步 + 技术信息里的码，由唯一提示组件渲染）。
+          setSystemAdoptError({ path: skill.path, code: enterpriseLocalErrorCode(error) })
+          setSystemAttempt(current => current + 1)
+        },
+      ).finally(() => {
+        // 结算即解锁（无论成败）；aborted 时不清（那时这份状态已由关面那一步清掉，且迟到结果不得回填）。
+        if (!controller.signal.aborted) setSystemAdopt(undefined)
+      })
+    }
+  /**
+   * **在线搜索 → 安装**（本刀）。五件事实分开持有（与系统搜索那一面同一条纪律），外加**防抖与两条查询档位**：
+   *   ① 结果面开不开（页内视图状态）；② 查询框文本；③ **真正搜过的那个词**（防抖 / 回车都写它）；
+   *   ④ 取数四态（含逐源状态：`ok:false` 与 `dropped` 是两种不同的坏消息，由纯投影分开成两句）；
+   *   ⑤ 哪一条在装 / 哪一条失败 / 刚装成功哪一条。
+   *
+   * ★ **防抖 300ms**（`ENTERPRISE_ONLINE_DEBOUNCE_MS`）：三个源是真的出网（每源一次取数、15s 超时），
+   *   逐字敲一下搜一次既慢又浪费；停手 300ms 才搜。回车 / 【搜索】按钮**立刻**搜（不等防抖）。
+   * ★ 关掉这一面**不中止**在途的安装（那是一次**写**动作：Host 侧可能已经写进自装清单，中止只会让界面
+   *   **不知道**结果）；搜索那条只读请求由 effect 的 cleanup 正常中止（迟到结果不回填）。
+   * ★ 新一次搜索**回到加载态**（与系统搜索那面的「重取不闪」刻意不同）：搜索换了关键词，上一次的结果
+   *   已经不是这一次的答案 —— 留着它只会让用户对着不对应的列表点安装，那比闪一下更糟。
+   */
+  const [onlineSearchOpen, setOnlineSearchOpen] = useState(false)
+  const [onlineQuery, setOnlineQuery] = useState('')
+  const [onlineSubmitted, setOnlineSubmitted] = useState('')
+  const [onlineAttempt, setOnlineAttempt] = useState(0)
+  const [onlineState, setOnlineState] = useState<EnterpriseListState<EnterpriseOnlineSkillSearch>>({ kind: 'loading' })
+  const [onlineInstall, setOnlineInstall] = useState<{ readonly source: string; readonly name: string }>()
+  const [onlineInstallError, setOnlineInstallError] = useState<{ readonly source: string; readonly code: string }>()
+  const [onlineInstalledNotice, setOnlineInstalledNotice] = useState<string>()
+  /**
+   * 本次会话里**已经装好**的那些坐标（`installSource`）。
+   *
+   * ★ 只有 Host 收下那次安装才写进它（不乐观切换）⇒ 行上的按钮收敛成「已装」状态词，同一条结果
+   *   不会被反复装。它**不**在开面/关面时清掉：装进自装清单是**落盘**的事，关一次面并不能撤销它。
+   */
+  const [onlineInstalledSources, setOnlineInstalledSources] = useState<readonly string[]>([])
+  /** 结果面容器：进面焦点落它，返回时跟着那条 ref 还原滚动（与系统搜索同一套）。 */
+  const onlinePage = useRef<HTMLDivElement>(null)
+  /** 进结果面那一刻的滚动位置（点击那一下读；判据与系统搜索同款：非 undefined 才代表「进过这一面」）。 */
+  const onlineScrollMemory = useRef<{ readonly target: HTMLElement | undefined; readonly top: number } | undefined>(undefined)
+  // 同上面系统搜索那一对：搜索那条只读请求的真中止在取数 effect 的 cleanup，安装那条写请求不中止
+  // ⇒ 不存 ref（本刀删掉的两枚正是如此）。
+  /** 防抖定时器（输入停止 300ms 后才真的搜；换输入 / 关面 / 卸载都要清）。 */
+  const onlineDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** 打开结果面（菜单项那一枚）：记滚动位置 + 清掉另四面 + 清上一次的安装反馈。 */
+  const onOpenOnlineSearch: (() => void) | undefined = hasStore
+    ? () => {
+      if (onlineScrollMemory.current === undefined) {
+        const target = scrollTargetOf(marketRoot.current)
+        onlineScrollMemory.current = { target, top: target === undefined ? 0 : target.scrollTop }
+      }
+      setSkillDetailId(undefined)
+      setPresetDetailId(undefined)
+      setPluginDetailName(undefined)
+      setSystemSearchOpen(false)
+      setOnlineInstallError(undefined)
+      setOnlineInstalledNotice(undefined)
+      setOnlineSearchOpen(true)
+    }
+    : undefined
+  /** 返回列表（面包屑 + Esc 共用同一个函数）。查询串与上次结果**留着**（再进来接着看）。 */
+  const onCloseOnlineSearch: (() => void) | undefined = onOpenOnlineSearch === undefined
+    ? undefined
+    : () => {
+      setOnlineSearchOpen(false)
+      setOnlineInstall(undefined)
+      setOnlineInstallError(undefined)
+      setOnlineInstalledNotice(undefined)
+    }
+  /** 立刻搜一次（回车 / 【搜索】按钮）：只把「要搜的那个词」定下来并催一次请求（门槛判定在下面那段注释里）。 */
+  const runOnlineSearch: (query: string) => void = (query) => {
+    const trimmed = query.trim()
+    // 不足门槛**不搜**：面上那句人话已经把原因说清（按钮同时也是禁用的），故这不是静默 no-op。
+    if (enterpriseOnlineQueryState(trimmed) !== 'ready') return
+    setOnlineSubmitted(trimmed)
+    setOnlineAttempt(current => current + 1)
+  }
+  /**
+   * 查询框输入：**300ms 防抖**后自动搜一次。
+   *
+   * 不足门槛时只清掉在途定时器、不排新的（那一句人话由纯投影 `enterpriseOnlineFace` 出，
+   * 与【搜索】按钮的 `disabled` 是同一件事的两种呈现）。
+   */
+  const onOnlineQueryChange: (query: string) => void = (next) => {
+    setOnlineQuery(next)
+    if (onlineDebounce.current !== null) {
+      clearTimeout(onlineDebounce.current)
+      onlineDebounce.current = null
+    }
+    const trimmed = next.trim()
+    if (enterpriseOnlineQueryState(trimmed) !== 'ready') return
+    onlineDebounce.current = setTimeout(() => {
+      onlineDebounce.current = null
+      runOnlineSearch(trimmed)
+    }, ENTERPRISE_ONLINE_DEBOUNCE_MS)
+  }
+  // 离开页面即清掉在途的防抖定时器（否则关面之后还会催一次请求）。
+  useEffect(() => () => { if (onlineDebounce.current !== null) clearTimeout(onlineDebounce.current) }, [])
+  const onlineApi = store?.api
+  /**
+   * 搜索取数：只在「结果面开着 + 有 store + 已搜过一个够长的词」时发；关面 / 换词即中止（迟到结果不回填）。
+   */
+  useEffect(() => {
+    if (!onlineSearchOpen || onlineApi === undefined) return
+    const query = onlineSubmitted.trim()
+    if (enterpriseOnlineQueryState(query) !== 'ready') return
+    const controller = new AbortController()
+    setOnlineState({ kind: 'loading' })
+    void onlineApi.onlineSearchSkills(query, controller.signal).then(
+      (value) => {
+        if (controller.signal.aborted) return
+        setOnlineState(value.results.length === 0 ? { kind: 'empty', value } : { kind: 'ready', value })
+      },
+      (error: unknown) => {
+        if (controller.signal.aborted) return
+        setOnlineState({ kind: 'failed', code: enterpriseLocalErrorCode(error) })
+      },
+    )
+    return () => { controller.abort() }
+  }, [onlineSearchOpen, onlineAttempt, onlineSubmitted, onlineApi])
+  /** 进结果面：焦点落到这一面（读屏立刻报出「在线搜索技能，区域」）。 */
+  useLayoutEffect(() => {
+    if (!onlineSearchOpen) return
+    onlinePage.current?.focus()
+  }, [onlineSearchOpen])
+  /**
+   * 返回列表：还原滚动位置 + 把焦点还给那枚「添加」触发钮（与系统搜索那条**同一套**做法与容忍度：
+   * 找不到就什么都不做；从没进过这一面就什么都不做，免得首次挂载抢焦点）。
+   */
+  useLayoutEffect(() => {
+    if (onlineSearchOpen) return
+    const saved = onlineScrollMemory.current
+    if (saved === undefined) return
+    onlineScrollMemory.current = undefined
+    if (saved.target !== undefined && saved.target.isConnected) saved.target.scrollTop = saved.top
+    document.querySelector<HTMLElement>(`.${ADD_MENU_TRIGGER_CLASS}`)?.focus()
+  }, [onlineSearchOpen])
+  /** Esc 返回列表（与另两面同一条：监听钉在本页根节点、命中即 stopPropagation）。 */
+  useEffect(() => {
+    if (!onlineSearchOpen) return
+    const node = marketRoot.current
+    if (node === null) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      onCloseOnlineSearch?.()
+    }
+    node.addEventListener('keydown', onKeyDown)
+    return () => { node.removeEventListener('keydown', onKeyDown) }
+  }, [onlineSearchOpen])
+  /**
+   * 安装一条在线结果（**一次只允许一条**：Host 的自装清单是「读—改—写」一份文件，并发会互相覆盖）。
+   *
+   * 成功后走**既有**安装收束：响应（与 `GET /skills/installed` 同形）覆盖已装态 + 目录取数源重取一次；
+   * 装进来的技能在**自装清单**里（与上传那条同一条纪律），故这里只说「已安装「x」」，不谎称它进了企业目录。
+   */
+  const onInstallOnlineResult: ((result: EnterpriseOnlineSkillResult) => void) | undefined = store === undefined
+    ? undefined
+    : (result) => {
+      if (onlineInstall !== undefined) return
+      setOnlineInstallError(undefined)
+      setOnlineInstalledNotice(undefined)
+      setOnlineInstall({ source: result.installSource, name: result.name })
+      const controller = new AbortController()
+      void store.api.installSkillFromResult(result.installSource, controller.signal).then(
+        (items) => {
+          if (controller.signal.aborted) return
+          setInstalledSkills(items)
+          catalogSource?.retry()
+          setOnlineInstalledNotice(enterpriseOnlineInstalledText(result.name))
+          // 同一条收敛（幂等：重复的坐标不重复记）。
+          setOnlineInstalledSources(previous => previous.includes(result.installSource)
+            ? previous
+            : [...previous, result.installSource])
+        },
+        (error: unknown) => {
+          if (controller.signal.aborted) return
+          // 失败只落在**这一行**上（人话 + 下一步 + 技术信息里的码，由唯一提示组件渲染）。
+          setOnlineInstallError({ source: result.installSource, code: enterpriseLocalErrorCode(error) })
+        },
+      ).finally(() => { if (!controller.signal.aborted) setOnlineInstall(undefined) })
+    }
+  /** 结果面的输入（唯一构造点）：开面且写入口在场时才构造（缺席 ⇒ 外壳那一支整段不渲染）。 */
+  const onlineSearch: EnterpriseOnlineSearchPageProps | undefined =
+    !onlineSearchOpen || onInstallOnlineResult === undefined || onCloseOnlineSearch === undefined
+      ? undefined
+      : {
+        state: onlineState,
+        query: onlineQuery,
+        onQueryChange: onOnlineQueryChange,
+        onSearch: () => { runOnlineSearch(onlineQuery) },
+        ...(onlineInstall === undefined ? {} : { install: onlineInstall }),
+        ...(onlineInstallError === undefined ? {} : { installError: onlineInstallError }),
+        ...(onlineInstalledNotice === undefined ? {} : { installedNotice: onlineInstalledNotice }),
+        installedSources: onlineInstalledSources,
+        onInstall: onInstallOnlineResult,
+        onReload: () => { runOnlineSearch(onlineQuery) },
+        onBack: onCloseOnlineSearch,
+        pageRef: onlinePage,
+      }
+  /**
+   * 结果面的输入（唯一构造点）：开面且写入口在场时才构造（缺席 ⇒ 外壳那一支整段不渲染）。
+   *
+   * ★ `onReload` 与 `onAdopt` 同一条件：`onReloadSystemSearch` 只在 `onOpenSystemSearch` 在场时才有值，
+   * 而这里的前置条件已经包含了后者 ⇒ 直接传它。原先写的是 `?? (() => undefined)`，那会在类型上
+   * 造出一条「点重试什么也不做」的静默通路（props 写成必需，实际却可缺席）。
+   */
+  const systemSearch: EnterpriseSystemSearchPageProps | undefined =
+    !systemSearchOpen || onAdoptSystemSkill === undefined || onCloseSystemSearch === undefined
+      || onReloadSystemSearch === undefined
+      ? undefined
+      : {
+        state: systemState,
+        ...(systemAdopt === undefined ? {} : { adopt: systemAdopt }),
+        ...(systemAdoptError === undefined ? {} : { adoptError: systemAdoptError }),
+        ...(systemAdoptedNotice === undefined ? {} : { adoptedNotice: systemAdoptedNotice }),
+        onAdopt: onAdoptSystemSkill,
+        onReload: onReloadSystemSearch,
+        onBack: onCloseSystemSearch,
+        pageRef: systemPage,
+      }
+  /**
    * 详情子页面打开时那条技能行的**当前投影**与它的**已装记录**。
    *
    * 详情目标只存**包 id**（不是行对象）：行在渲染时从**当前**目录投影里 `find` 出来，
@@ -6273,6 +8145,13 @@ export function useEnterpriseMarketController({ view, store, libraryGate, preset
     pendingSkill,
     onToggleSkill,
     pluginActionError,
+    // 本地导入（本刀）：文件选择器 + 三态反馈 + 两条回调。四支视图都要带（见该字段的注释）。
+    ...(skillImportPort === undefined ? {} : { skillImport: skillImportPort }),
+    // 通过 Agent 创建（本刀）：那份反馈 + 复制按钮的动作；以及**同一个**开会话动作（宿主发布给座位）。
+    ...(skillCreatePort === undefined ? {} : { skillCreate: skillCreatePort }),
+    ...(onCreateWithAgent === undefined ? {} : { onCreateWithAgent }),
+    // 在线搜索（本刀）：同一个开会话/开门动作两用 —— 反馈面 + 宿主发布给座位的写入口。
+    ...(onOpenOnlineSearch === undefined ? {} : { onOpenOnlineSearch }),
     // 「安装中」的真进度三件事实：直接来自同一份 store 快照（在途动作 + 轮询刷新的真实受管态 +
     // 那一路读不到的码），行 facts 拿到后经 `plugin-install-progress.ts` 的唯一投影折成进度与交代。
     ...(snapshot.pluginBusy === undefined ? {} : { pluginBusy: snapshot.pluginBusy }),
@@ -6327,8 +8206,22 @@ export function useEnterpriseMarketController({ view, store, libraryGate, preset
     // 点行本体只记**包 id**；行对象在渲染时从当前目录投影里取，详情与行因此永远看同一份数据。
     // **本刀（企业配方页签）**：配方行同理——点行标题只记配方 id，详情与行看同一份目录投影
     // （故三个详情目标天然互斥：点某一行的标题只会把那一行的目标写进状态、顺手清掉另两个）。
-    onOpenSkillDetail: (row) => { setSkillDetailId(row.id); setPresetDetailId(undefined); setPluginDetailName(undefined) },
-    onOpenPresetDetail: (row) => { setPresetDetailId(row.id); setSkillDetailId(undefined); setPluginDetailName(undefined) },
+    // **本刀（系统搜索）**：这一面也是「整页切换」的一份视图状态 ⇒ 进它也把另三个目标清掉
+    // （四条口径互斥；反过来另三个入口也各自关掉这一面，见 `onOpenSystemSearch` 与下面两处）。
+    onOpenSkillDetail: (row) => {
+      setSkillDetailId(row.id)
+      setPresetDetailId(undefined)
+      setPluginDetailName(undefined)
+      setSystemSearchOpen(false)
+      setOnlineSearchOpen(false)
+    },
+    onOpenPresetDetail: (row) => {
+      setPresetDetailId(row.id)
+      setSkillDetailId(undefined)
+      setPluginDetailName(undefined)
+      setSystemSearchOpen(false)
+      setOnlineSearchOpen(false)
+    },
     /**
      * 插件行标题那枚按钮的唯一回调（用户口径第 16 条）：**在点击这一刻**把两件事记下来 ——
      *  ① 滚动位置（列表一被替换，浏览器就会把容器的 `scrollTop` 夹回去，事后再读就晚了）；
@@ -6342,7 +8235,11 @@ export function useEnterpriseMarketController({ view, store, libraryGate, preset
       setPluginDetailName(row.packageName)
       setSkillDetailId(undefined)
       setPresetDetailId(undefined)
+      setSystemSearchOpen(false)
+      setOnlineSearchOpen(false)
     },
+    // 系统搜索那一面的打开动作（同一条缝：它由标题行槽那一格触发，宿主从这里取同一枚函数发布给座位）。
+    ...(onOpenSystemSearch === undefined ? {} : { onOpenSystemSearch }),
     // 本页根节点的挂点（控制器是唯一注入点）：Esc / 焦点还原 / 滚动还原都钉在这一个节点上。
     sectionRef: marketRoot,
   }
@@ -6433,6 +8330,8 @@ export function useEnterpriseMarketController({ view, store, libraryGate, preset
     ...(skillPage === undefined ? {} : { skillPage }),
     ...(presetPage === undefined ? {} : { presetPage }),
     ...(pluginPage === undefined ? {} : { pluginPage }),
+    ...(systemSearch === undefined ? {} : { systemSearch }),
+    ...(onlineSearch === undefined ? {} : { onlineSearch }),
   }
   /**
    * **授权弹层的输入只在这里构造一次**：行对象从当前目录投影里 `find`（目录刷新后不停在旧副本上）、
@@ -6514,13 +8413,43 @@ export function EnterpriseMarketShellHost({ view, store, libraryGate, presetLaun
   const tabSelect = shellProps.onSelectTab
   const addOpen = shellProps.addMenuOpen
   const toggleAdd = shellProps.onToggleAddMenu
+  /**
+   * 本地导入的写入口（本刀）：它住在**页面树**里（要点的那个文件选择器在那儿），而「添加」下拉住在
+   * **标题行槽树**里 ⇒ 只能随座位一起过去（与 `addMenuOpen`/`onToggleAddMenu` 完全同一条接缝）。
+   * 缺席即不发布这一枚：菜单里那一项随之**禁用**并给出可见原因，绝不画一枚点了没反应的菜单项。
+   */
+  const importOpen = shellProps.skillImport?.onOpen
+  /**
+   * 系统搜索的写入口（本刀）：与 `importOpen` 同一条理由走座位——它要打开的那一面是**页面树**里的
+   * 一份视图状态，而触发它的「添加」下拉住在**标题行槽树**里。缺席即不发布这一枚：菜单里那一项
+   * 随之**禁用**并给出可见原因，绝不画一枚点了没反应的菜单项。
+   */
+  const systemOpen = shellProps.onOpenSystemSearch
+  /**
+   * 通过 Agent 创建的写入口（本刀）：与 `importOpen`/`systemOpen` 同一条理由走座位——
+   * 它要开的那个新会话是**页面树**里的动作（控制器持 `presetLaunch`），而触发它的「添加」下拉住在
+   * **标题行槽树**里。缺席即不发布这一枚：菜单里 ① 那一项随之**禁用**并给出可见原因。
+   */
+  const createOpen = shellProps.onCreateWithAgent
+  /** 在线搜索的写入口（本刀）：与上两枚同一条理由走座位（它要打开的那一面是页面树里的视图状态）。 */
+  const onlineOpen = shellProps.onOpenOnlineSearch
   useEffect(() => {
     tabSeat?.publish(tabEntries === undefined || tabActive === undefined || tabSelect === undefined
       ? undefined
       // 座位是页面树 → 标题行槽树这**两棵 React 树之间唯一的接缝**（props 传不过去），
-      // 所以标题行那枚「添加」下拉的开合态与回调也必须随座位一起过去。
-      : { entries: tabEntries, activeTab: tabActive, onSelect: tabSelect, addMenuOpen: addOpen, onToggleAddMenu: toggleAdd })
-  }, [tabSeat, tabEntries, tabActive, tabSelect, addOpen, toggleAdd])
+      // 所以标题行那枚「添加」下拉的开合态、本地导入与系统搜索的写入口也必须随座位一起过去。
+      : {
+        entries: tabEntries,
+        activeTab: tabActive,
+        onSelect: tabSelect,
+        addMenuOpen: addOpen,
+        onToggleAddMenu: toggleAdd,
+        ...(importOpen === undefined ? {} : { onImportSkill: importOpen }),
+        ...(systemOpen === undefined ? {} : { onSystemSearch: systemOpen }),
+        ...(createOpen === undefined ? {} : { onCreateWithAgent: createOpen }),
+        ...(onlineOpen === undefined ? {} : { onOnlineSearch: onlineOpen }),
+      })
+  }, [tabSeat, tabEntries, tabActive, tabSelect, addOpen, toggleAdd, importOpen, systemOpen, createOpen, onlineOpen])
   return (
     <>
       <EnterpriseMarketLegacyShell {...shellProps} tabsInTitle={tabSeat !== undefined} />

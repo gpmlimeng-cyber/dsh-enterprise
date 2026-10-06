@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖详细设计第 13 节冻结的 MVP action 集合。
  * [OUTPUT]: 对外提供不能由任意字符串扩张的 AuditAction 枚举。
- * [POS]: audit 事件分类真源，与 V4+V34+V35+V36 数据库 check 约束保持同构。
+ * [POS]: audit 事件分类真源，与 V4+V34+V35+V36+V44 数据库 check 约束保持同构。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 package com.owndsh.enterprise.audit;
@@ -55,5 +55,19 @@ public enum AuditAction {
     BRANDING_PUBLISHED,
     BRANDING_ROLLED_BACK,
     FEEDBACK_SUBMITTED,
-    FEEDBACK_STATUS_CHANGED
+    FEEDBACK_STATUS_CHANGED,
+
+    /**
+     * 连接器六类事件（`docs/plan/connector-architecture.md` §6.5「必须记录的六类事件」）。
+     *
+     * ★ 这六枚与 `V44__enterprise_connector_catalog.sql` 的 check 白名单**必须逐字一致**：
+     * 本枚举是 Java 侧真源，那一份是数据库侧真源，两侧不同步就是运行时的 check 违约。
+     * 顺序与 §6.5 的行序一致：授权授予 / 授权撤销 / 入站接收 / 出站发起 / 被策略拒绝 / 平台不支持。
+     */
+    CONNECTOR_GRANTED,
+    CONNECTOR_REVOKED,
+    CONNECTOR_INBOUND_RECEIVED,
+    CONNECTOR_OUTBOUND_SENT,
+    CONNECTOR_DENIED,
+    CONNECTOR_UNSUPPORTED
 }

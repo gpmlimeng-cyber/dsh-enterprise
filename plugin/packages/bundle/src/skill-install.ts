@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 platform-client 的 `resolveEnterpriseDshHome`（与官方 `dsh-home-paths` 同一套 `显式 → $DSH_HOME → ~/.dsh` 优先级）、plugin-distribution 的 `downloadVerifiedArtifact`（size+SHA-256 强制校验 + `.part` 原子改名）、本包的 `projectSkillEnvelope` 与 `decodeDshSkillArchive`
- * [OUTPUT]: 对外提供 `createEnterpriseSkillInstall`（`status`/`action`/**`content`/`files`/`file`** 五个端口）与可单测的 `installedSkillStatus`/`installSkillPackage`（首次安装与**同包新版本原子升级**同一条路）/`uninstallSkillPackage`/**`installedSkillContent`**（读一条已装技能的 SKILL.md 正文）/**`installedSkillFiles`**（列一条已装技能包在本机真树上的全部条目）/**`installedSkillFile`**（读已装技能里的文本文件），以及三者**共用**的路径实现 **`requireRelativeSkillPath`**（唯一的相对路径门禁）与 **`resolveInstalledSkillTarget`**（唯一的落点解析：记录归属 + `lstat` + `realpath` 三重等式 + 256 KiB 上限）、`SKILL_LOCAL_ROOT_SEGMENTS`/`SKILL_CONTENT_FILENAME`/`SKILL_FILE_MAX_ENTRIES`/`SKILL_FILE_MAX_DEPTH` 与状态文件形状
+ * [OUTPUT]: 对外提供 `createEnterpriseSkillInstall`（`status`/`action`/`content`/`files`/`file` 五个端口）与可单测的 `installedSkillStatus`、**`readInstalledSkillRecords`**（不过滤的全量记录，供自装侧做「企业记录 ∪ 自装记录」预检）、**`placeEnterpriseSkillArchive`**（本刀从 `installSkillPackage` 尾部**原样抽出**的落盘引擎：落点冲突预检 + 暂存 + 逐个原子改名 + 失败整体回滚，中心安装与本地上传**共用同一份**）、`installSkillPackage`（首次安装与**同包新版本原子升级**同一条路）/`uninstallSkillPackage`/**`installedSkillContent`**（读一条已装技能的 SKILL.md 正文）/**`installedSkillFiles`**（列一条已装技能包在本机真树上的全部条目）/**`installedSkillFile`**（读已装技能里的文本文件），以及三者**共用**的路径实现 **`requireRelativeSkillPath`**（唯一的相对路径门禁）与 **`resolveInstalledSkillTarget`**（唯一的落点解析：记录归属 + `lstat` + `realpath` 三重等式 + 256 KiB 上限）、`SKILL_LOCAL_ROOT_SEGMENTS`/`SKILL_CONTENT_FILENAME`/`SKILL_FILE_MAX_ENTRIES`/`SKILL_FILE_MAX_DEPTH` 与状态文件形状
  * [POS]: bundle 技能纵深的**落盘所有者**——中心详情给出权威 `versionId`/`sha256`/技能名集合，Host 代取令牌下载并校验，再解到 `<dshHome>/enterprise/skill-staging/<uuid>` 后逐个**原子改名**进 `<dshHome>/skills/`；本机已装**同一个 packageId 的旧版本**时同一条路就是**原子升级**（旧目录先挪到 `<staging>-previous/<name>` 备份位、新目录再改名到位、失败原样挪回、成功后清掉旧版本孤儿目录），落点冲突预检只拒「同名目录被**别的包**占用」与「同名目录存在但不在本包记录里」，绝不就地半覆盖；这条路径正是官方 `dsh-skill-filesystem` 的 `user-dsh` 根（rank 400），watcher 深度 1 直发现，因此装完无需重启。官方 0.2.0-rc.2 全量核对后**不存在** skills 安装 RPC（`docs/compose/spec/skill-catalog.md` S2.1 已冻结同一结论），故这里落盘不违背「复用官方能力」：官方对技能的唯一能力面就是这套发现契约，本文件只写它承认的形状，且不执行包内任何内容。**另加一条只读家族（三个入口）**：技能详情子页面要读**已装**技能的本机文件——① `/skills/content` 读 `SKILL.md` 正文、② `/skills/<id>/files` 列本机真树、③ `/skills/<id>/file?path=` 读单个文本文件；客户端交来的永远只是**键形状**（包 id 雪花、相对路径），三者**共用同一份 `requireRelativeSkillPath` + `resolveInstalledSkillTarget` + 文本读取**：名字必须命中本包已装记录、落点由 Host 自己拼，再经 `lstat`（不跟随符号链接）+ `realpath` 逐字比对挡住符号链接逃逸，单文件复用包内 SKILL.md 的 256 KiB 上限，二进制（非法 UTF-8 或夹 NUL）按稳定码拒而不是丢进界面
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,7 +10,12 @@ import { lstat, mkdir, readdir, readFile, realpath, rename, rm, stat, writeFile 
 import { dirname, join } from 'node:path'
 import { resolveEnterpriseDshHome } from '@dshent/platform-client'
 import { downloadVerifiedArtifact } from '@dshent/plugin-distribution'
-import { decodeDshSkillArchive, SKILL_ARCHIVE_MAX_BYTES, SKILL_MD_MAX_BYTES } from './skill-archive.js'
+import {
+  decodeDshSkillArchive,
+  SKILL_ARCHIVE_MAX_BYTES,
+  SKILL_MD_MAX_BYTES,
+  type EnterpriseSkillArchive,
+} from './skill-archive.js'
 import { EnterpriseSkillInstallError, skillInstallError } from './skill-errors.js'
 import { ENTERPRISE_SKILLS_LIST_PATH, projectSkillEnvelope } from './skill-route.js'
 
@@ -268,6 +273,24 @@ export async function installedSkillStatus(
   return await statusOf(resolveDependencies(options))
 }
 
+/**
+ * 读**全部**企业已装记录（含技能目录已消失的陈旧记录），仅供本机自装侧做「企业记录 ∪ 自装记录」
+ * 的落点冲突预检（§E.3）与归属判定。
+ *
+ * 与 `installedSkillStatus` 的差别只有一条：那条会按「目录还在不在」过滤（界面不该看到假已装态），
+ * 这条**不过滤** —— 既有 `installSkillPackage` 的 `ownedElsewhere` 用的就是这个口径，
+ * 自装侧必须与它逐字相同，否则「记录还在、目录没了」的那一瞬间两侧会给出不同结论。
+ *
+ * @param options - 平台面、可选 dshHome、时钟与留痕端口。
+ * @returns 状态文件里的全部记录（顺序与文件一致）；文件不在即空数组。
+ * @throws {EnterpriseSkillInstallError} `ENT_SKILL_STATE_INVALID`：状态文件损坏或形状非法。
+ */
+export async function readInstalledSkillRecords(
+  options: EnterpriseSkillInstallOptions,
+): Promise<readonly InstalledSkillRecord[]> {
+  return await readRecords(resolveDependencies(options))
+}
+
 /** 已解析依赖上的同一份已装态实现，供动作完成后复用而不重算 dshHome。 */
 async function statusOf(deps: ResolvedDependencies): Promise<EnterpriseInstalledSkills> {
   const records = await readRecords(deps)
@@ -338,30 +361,99 @@ export async function installSkillPackage(
   }
 
   const records = await readRecords(deps)
-  const root = skillRoot(deps)
   // 同 sha256 且文件仍在即幂等成功：重复点「安装」不应报冲突，也不应重下或重写。
   const existing = records.find(record => record.packageId === id)
   if (existing !== undefined && existing.sha256 === detail.sha256) {
-    const present = await Promise.all(existing.names.map(name => exists(join(root, name, 'SKILL.md'))))
+    const present = await Promise.all(existing.names.map(name => exists(join(skillRoot(deps), name, 'SKILL.md'))))
     if (present.every(Boolean)) return await statusOf(deps)
   }
-  await mkdir(root, { recursive: true, mode: 0o700 })
   const ownedElsewhere = new Set(records
     .filter(record => record.packageId !== id)
     .flatMap(record => [...record.names]))
   // 本包**自己**旧版本落下的技能目录：升级时由本包原地替换，不算落点冲突。
   const ownNames = new Set(existing?.names ?? [])
-  for (const entry of archive.skills) {
-    // 判据一：同名技能目录被**别的包**占用 → 拒绝（两个包的清单会各自指向不同内容，绝不覆盖）。
-    if (ownedElsewhere.has(entry.name)) {
+  await placeEnterpriseSkillArchive(options, {
+    archive,
+    ownNames,
+    ownedElsewhere,
+    failureCode: 'ENT_SKILL_INSTALL_FAILED',
+    commit: async () => {
+      const record: InstalledSkillRecord = {
+        packageId: id,
+        skillId: detail.skillId,
+        displayName: detail.displayName,
+        versionId: detail.versionId,
+        sha256: detail.sha256,
+        names: archive.skills.map(entry => entry.name),
+        installedAt: deps.now().toISOString(),
+      }
+      await writeRecords(deps, [...records.filter(item => item.packageId !== id), record])
+      // 清单已指向新版本：旧版本里不再被本包引用、也不被别的包引用的目录随之清掉，不留孤儿技能目录。
+      const newNames = new Set(archive.skills.map(entry => entry.name))
+      for (const name of ownNames) {
+        if (newNames.has(name) || ownedElsewhere.has(name)) continue
+        await rm(join(skillRoot(deps), name), { force: true, recursive: true }).catch((error: unknown) => {
+          // 清单已更新、装是成功的：孤儿目录清理失败只留痕，不把一次成功的升级报成失败。
+          deps.onError?.(`enterprise skill upgrade left a stale directory ${name}`, error)
+        })
+      }
+    },
+  })
+  return await statusOf(deps)
+}
+
+/**
+ * 一个**已通过闸门**的解码包落进技能根时需要的全部判据与记账动作。
+ *
+ * 抽出来的原因（§E.3）：中心安装与本地上传必须走**同一套**「落点冲突预检 → 解到暂存区 →
+ * 逐个原子改名 → 失败整体回滚」，两处各写一套就会长出「自装能覆盖企业技能」这种只在一条路径上
+ * 成立的漏洞。调用方只负责算出两个名字集合与那一次原子记账，落盘编排一律在本函数里。
+ */
+export interface EnterpriseSkillPlacementRequest {
+  /** 已通过闸门（ZIP 结构 + manifest + frontmatter）的解码包。 */
+  readonly archive: EnterpriseSkillArchive
+  /** 允许被本次动作**原地替换**（原子升级）的技能目录名；其余同名目录一律判落点冲突。 */
+  readonly ownNames: ReadonlySet<string>
+  /** 被**别的**归属占用的技能目录名（企业记录 ∪ 自装记录 − 自己）；命中即拒而不覆盖。 */
+  readonly ownedElsewhere: ReadonlySet<string>
+  /** 全部目录改名到位后、清暂存之前的那一次**原子记账**（写企业清单 / 写自装清单）。 */
+  readonly commit: () => Promise<void>
+  /** 未分类失败（I/O 等）收敛成的稳定码：中心安装 `ENT_SKILL_INSTALL_FAILED`、本地上传 `ENT_SKILL_UPLOAD_FAILED`。 */
+  readonly failureCode: 'ENT_SKILL_INSTALL_FAILED' | 'ENT_SKILL_UPLOAD_FAILED'
+}
+
+/**
+ * 把解码包逐个原子改名进官方技能根；任一步失败都回到动作前的磁盘状态。
+ *
+ * 步骤与既有 `installSkillPackage` 的尾部**逐行同源**（本函数就是从那里原样抽出来的）：
+ * 先建技能根 → 落点冲突预检（**只拒**别的归属占用与来路不明的同名目录）→ 解到
+ * `<dshHome>/enterprise/skill-staging/<uuid>` → 本包旧目录先整体挪到备份位、暂存目录再逐个原子
+ * 改名进技能根 → `commit()` 原子记账 → 清暂存。`rename` 不允许覆盖非空目录，因此**没有**任何
+ * 「就地半覆盖」的可能；`commit()` 之后才做孤儿清理这件事由调用方的 commit 自己负责。
+ *
+ * @param options - 平台面、可选 dshHome、时钟与留痕端口。
+ * @param request - 解码包、两个名字集合、记账动作与失败码。
+ * @throws {EnterpriseSkillInstallError} `ENT_SKILL_NAME_CONFLICT`（落点被别的归属占用 / 存在但不在可替换集合里）、
+ *   `request.failureCode`（暂存/写盘/改名/记账未分类失败；已是本类的稳定错误原样穿透）。
+ */
+export async function placeEnterpriseSkillArchive(
+  options: EnterpriseSkillInstallOptions,
+  request: EnterpriseSkillPlacementRequest,
+): Promise<void> {
+  const deps = resolveDependencies(options)
+  const root = skillRoot(deps)
+  await mkdir(root, { recursive: true, mode: 0o700 })
+  for (const entry of request.archive.skills) {
+    // 判据一：同名技能目录被**别的**归属占用 → 拒绝（两份清单会各自指向不同内容，绝不覆盖）。
+    if (request.ownedElsewhere.has(entry.name)) {
       throw new EnterpriseSkillInstallError(
         'ENT_SKILL_NAME_CONFLICT',
         `a skill directory named ${entry.name} is owned by another package`,
       )
     }
-    // 判据二：同名目录存在但**不在本包记录里**（用户手工放的技能、或清单与磁盘不一致的残留）→ 一律拒绝，
-    // 绝不拿它当「可以覆盖的旧版本」。本包记录里的同名目录才允许走下面的原子升级替换。
-    if (!ownNames.has(entry.name) && await exists(join(root, entry.name))) {
+    // 判据二：同名目录存在但**不在可替换集合里**（用户手工放的技能、别的归属的残留）→ 一律拒绝，
+    // 绝不拿它当「可以覆盖的旧版本」。集合里的同名目录才允许走下面的原子升级替换。
+    if (!request.ownNames.has(entry.name) && await exists(join(root, entry.name))) {
       throw new EnterpriseSkillInstallError(
         'ENT_SKILL_NAME_CONFLICT',
         `a skill directory named ${entry.name} already exists`,
@@ -376,7 +468,7 @@ export async function installSkillPackage(
   const replaced: { readonly name: string, readonly aside: string }[] = []
   try {
     await mkdir(staging, { recursive: true, mode: 0o700 })
-    for (const entry of archive.skills) {
+    for (const entry of request.archive.skills) {
       const directory = join(staging, entry.name)
       for (const file of entry.files) {
         const target = join(directory, file.path)
@@ -387,9 +479,9 @@ export async function installSkillPackage(
     // 技能目录逐个原子改名：跨目录同文件系统 rename 是原子的，watcher 只会看到完整目录。
     // 升级（同名目录属于本包旧版本）时先把旧目录整体挪到备份位再放新目录——`rename` 不允许覆盖非空目录，
     // 也绝不能做「就地半覆盖」；挪走 → 放新 → 失败挪回，全程每一步都可回滚。
-    for (const entry of archive.skills) {
+    for (const entry of request.archive.skills) {
       const target = join(root, entry.name)
-      if (ownNames.has(entry.name) && await exists(target)) {
+      if (request.ownNames.has(entry.name) && await exists(target)) {
         const aside = join(backup, entry.name)
         await mkdir(backup, { recursive: true, mode: 0o700 })
         await rename(target, aside)
@@ -398,37 +490,16 @@ export async function installSkillPackage(
       await rename(join(staging, entry.name), join(root, entry.name))
       placed.push(entry.name)
     }
-    const record: InstalledSkillRecord = {
-      packageId: id,
-      skillId: detail.skillId,
-      displayName: detail.displayName,
-      versionId: detail.versionId,
-      sha256: detail.sha256,
-      names: archive.skills.map(entry => entry.name),
-      installedAt: deps.now().toISOString(),
-    }
-    await writeRecords(deps, [...records.filter(item => item.packageId !== id), record])
-    // 清单已指向新版本：旧版本里不再被本包引用、也不被别的包引用的目录随之清掉，不留孤儿技能目录。
-    const newNames = new Set(archive.skills.map(entry => entry.name))
-    for (const name of ownNames) {
-      if (newNames.has(name) || ownedElsewhere.has(name)) continue
-      await rm(join(root, name), { force: true, recursive: true }).catch((error: unknown) => {
-        // 清单已更新、装是成功的：孤儿目录清理失败只留痕，不把一次成功的升级报成失败。
-        deps.onError?.(`enterprise skill upgrade left a stale directory ${name}`, error)
-      })
-    }
+    await request.commit()
   } catch (error) {
     // 任何中途失败都回到动作前的磁盘状态：先撤掉本次放上的新目录，再把挪走的旧目录挪回原位。
     for (const name of placed) await rm(join(root, name), { force: true, recursive: true }).catch(() => undefined)
     for (const item of replaced) await rename(item.aside, join(root, item.name)).catch(() => undefined)
-    throw skillInstallError(error, 'ENT_SKILL_INSTALL_FAILED', 'skill package could not be installed')
+    throw skillInstallError(error, request.failureCode, 'skill package could not be installed')
   } finally {
     await rm(staging, { force: true, recursive: true }).catch(() => undefined)
     await rm(backup, { force: true, recursive: true }).catch(() => undefined)
   }
-
-  const status = await statusOf(deps)
-  return status
 }
 
 /**

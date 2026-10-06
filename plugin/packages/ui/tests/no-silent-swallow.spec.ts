@@ -2,7 +2,7 @@
  * [INPUT]: 只依赖 `node:fs/promises` 与 vitest；扫描 `src/**` 的**源码文本**（剥掉注释后再判）
  * [OUTPUT]: 本刀的**反向锁**——① 全包禁止「把失败变成默认值」的静默吞模式（`.catch(() => [])` / `catch(() => undefined)` 之类）； **本刀**：例外清单新增 `library-gate.ts`（本机设置读失败 → 按默认关 + 摆出 `ENT_LIBRARY_SETTING_READ_FAILED` 由组件行显示并可重试，不是静默回落）。
  *          ② 禁止空 catch 块；③ 每个含 catch 的源文件都必须在**已声明的例外清单**里且写明理由（新增一处 catch 就会先红）；
- *          ④ 四个列表页必须把失败接到显式失败态 + 重试（不许退回静默清空）
+ *          ④ 四个列表页必须把失败接到显式失败态 + 重试（不许退回静默清空） **本刀（本地导入）**：`marketplace-entry.tsx` 那条理由补齐「本地上传失败投影成稳定码 + 上传成功后次级读取（自装清单）失败只记 `listed=false` 并由界面那句如实交代」
  * [POS]: 「静默吞失败」这一类体验债的机械门禁：本仓没有 DOM 渲染测试，这条源码级不变量是**唯一**能在 CI 里拦住
  *        「又有人把一次取数失败 catch 成空数组」的地方
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -32,7 +32,7 @@ const ALLOWED_CATCH_FILES: Readonly<Record<string, string>> = {
   'local-api.ts': '响应体 JSON 解析失败被**重抛**成 ENT_LOCAL_RESPONSE_INVALID（兜底是显式失败，不是静默默认值）',
   'login-dialog.tsx': '登录发起失败 → 就地渲染 ENT_LOCAL_UNAVAILABLE 的显式失败态',
   'login-page.tsx': '登录轮询/凭证校验失败 → setError(人话) 的显式失败态',
-  'marketplace-entry.tsx': '详情文件树 / 文件正文取数失败 → 记稳定码 + 渲染失败态与重试（本轮改后不再有静默分支）',
+  'marketplace-entry.tsx': '详情文件树 / 文件正文取数失败 → 记稳定码 + 渲染失败态与重试（本轮改后不再有静默分支）；**本刀（本地导入）**：本地上传失败同样把错误投影成稳定码（`uploadSkill` 的 catch）落进导入反馈；上传成功后的**次级**读取（本机自装清单）读不到时只把 `listed` 记成 false —— 界面那句 `ENTERPRISE_SKILL_IMPORT_UNLISTED` 会说出来（导入本身仍如实报成功），不是静默吞',
   'market-mock.ts': '**临时演示数据的开关读取**（见该文件头：默认关、可一键删除）：读 localStorage 在隐私模式/被禁用时会抛，catch 里返回 false = 「开关没打开」这个**判定结果**，即按关闭处理——绝不允许「读不到开关」被当成「打开演示数据」',
   'preset-launch.ts': '降级链第二级（跳新会话并填入指令）的官方结构面调用：`openWorkspace` 抛错时返回 `false` 这个**结果值**给调用方（UI 据此出 ENT_PRESET_LAUNCH_FAILED 的显式行内提示 + 下一步），不是把取数失败变成默认值',
   'preset-market.tsx': '配方详情取数失败 → 记稳定码 + 渲染「列表级信息」+ 重试（本轮改后不再静默回落列表投影）',

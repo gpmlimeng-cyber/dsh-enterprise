@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 zod、生成契约、官方 settings 的 volatile Config 引用形状、installation 与本地 API 端口
- * [OUTPUT]: 对外提供 BootstrapSnapshot（插件分配含**可选位** `displayName`、`description` 与 `readme`，容旧服务端不发）、平台状态/错误（含安卓授权页交接时随 AUTHORIZING 下发的 `authorizeUrl`）、volatile 引用识别与无验收探针的 Service 配置（含 `browserHandoff` 开关，以及组合层注入的企业插件动作端口 `pluginAction`/`pluginStatus`、企业技能安装端口 `skillAction`/`skillStatus` 与只读正文端口 `skillContent`）
+ * [OUTPUT]: 对外提供 BootstrapSnapshot（插件分配含**可选位** `displayName`、`description` 与 `readme`，容旧服务端不发）、平台状态/错误（含安卓授权页交接时随 AUTHORIZING 下发的 `authorizeUrl`）、volatile 引用识别与无验收探针的 Service 配置（含 `browserHandoff` 开关，以及组合层注入的企业插件动作端口 `pluginAction`/`pluginStatus`、企业技能安装端口 `skillAction`/`skillStatus`、只读正文端口 `skillContent` 与**本地上传两端口 `skillUpload`/`skillSelfInstalled`**）
  * [POS]: platform-client 的公共契约层，隔离中心 HTTP 输入、Host 运行参数、官方 settings 引用与无秘密界面状态
  * **本刀（插件行动分流）**：`EnterprisePlatformServiceInternals` 新增 `pluginSetEnabled`（组合层注入的启用/停用端口），
  *   缺席即那两条路由按「分发不可用」如实拒——与 `pluginAction`/`pluginCancel` 同一条接线手法。
@@ -101,6 +101,18 @@ export interface EnterprisePlatformInternals {
   readonly skillStatus?: EnterpriseLocalApiOptions['skillStatus']
   /** 读一条**已装**技能的 SKILL.md 正文（点技能行看详情时用）；缺席即不注册那条只读路由。 */
   readonly skillContent?: EnterpriseLocalApiOptions['skillContent']
+  /** 通路一「本地上传」的 multipart 端口（bundle 侧解析分帧并落盘）；缺席即不注册 `/skills/upload`。 */
+  readonly skillUpload?: EnterpriseLocalApiOptions['skillUpload']
+  /** 本机**自装**清单（bundle 侧读独立状态文件）；缺席即不注册 `/skills/self-installed`。 */
+  readonly skillSelfInstalled?: EnterpriseLocalApiOptions['skillSelfInstalled']
+  /** 通路二「系统搜索」的盘点端口（bundle 侧扫本机技能根）；缺席即不注册 `/skills/system-search`。 */
+  readonly skillSystemSearch?: EnterpriseLocalApiOptions['skillSystemSearch']
+  /** 通路二「系统搜索」的纳入端口（bundle 侧只登记不复制）；缺席即不注册 `/skills/adopt`。 */
+  readonly skillAdopt?: EnterpriseLocalApiOptions['skillAdopt']
+  /** 通路三「在线搜索」的搜索端口（bundle 侧三源 fan-out）；缺席即不注册 `/skills/online-search`。 */
+  readonly skillOnlineSearch?: EnterpriseLocalApiOptions['skillOnlineSearch']
+  /** 通路三「在线搜索」的安装端口（bundle 侧 codeload 整仓包 + 复用加固落盘）；缺席即不注册那条动作。 */
+  readonly skillInstallFromResult?: EnterpriseLocalApiOptions['skillInstallFromResult']
   /** 企业配方一键启用（由 bundle 侧实现）；缺席时 `/presets/<id>/enable` 如实按非法请求拒。 */
   readonly presetEnable?: EnterpriseLocalApiOptions['presetEnable']
   /** 企业配方停用（按**声明 id**）；缺席时 `/presets/<id>/disable` 如实按非法请求拒。 */

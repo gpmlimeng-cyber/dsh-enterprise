@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖普通数据库所有者、空数据库、classpath V0-V43 migration 与旧版 baseline 0 历史。
+ * [INPUT]: 依赖普通数据库所有者、空数据库、classpath V0-V44 migration 与旧版 baseline 0 历史。
  * [OUTPUT]: 验证空库建表、旧库接管/升级、重复启动、字符串时间参数及数据库计量迁移约束。
  * [POS]: database 的持续 migration 门禁，防止后续任务只验证最终 schema 而遗漏中间版本不可升级。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -40,12 +40,13 @@ class EnterpriseMigrationTest {
         assertThat(database.jdbc().queryForObject(
             "select type from flyway_schema_history where version='0'", String.class
         )).isEqualTo("SQL");
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("43");
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("44");
         Integer tableCount = database.jdbc().queryForObject("""
             select count(*) from information_schema.tables
             where table_schema = 'public' and table_name like 'ent_%'
             """, Integer.class);
-        assertThat(tableCount).isEqualTo(43);
+        // V44 起 +2：`ent_connector` 与 `ent_connector_assignment`（连接器企业侧账本）。
+        assertThat(tableCount).isEqualTo(45);
         assertThat(database.jdbc().queryForObject(
             "select policy_type from ent_quota_policy where tenant_id='000000'",
             String.class
@@ -162,7 +163,7 @@ class EnterpriseMigrationTest {
 
         Flyway flyway = PostgresTestDatabase.migrate(database, null);
 
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("43");
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("44");
         assertThat(database.jdbc().queryForObject(
             "select type from flyway_schema_history where version='0'", String.class
         )).isEqualTo("BASELINE");
@@ -543,7 +544,7 @@ class EnterpriseMigrationTest {
             .run(context -> {
                 assertThat(context).hasSingleBean(Flyway.class);
                 assertThat(context.getBean(Flyway.class).info().current().getVersion().getVersion())
-                    .isEqualTo("43");
+                    .isEqualTo("44");
             });
     }
 }

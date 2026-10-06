@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖空数据库、classpath V0–V43 migration 与 V43 的五张资料库表。
- * [OUTPUT]: 资料库五张表的**真迁移读数**（空库迁移到 latest 后 `flyway.info().current()` 的版本号必为 43、五张表都在）与逐条约束的**行为证明**（重号被拒、草稿 8 MiB 上限、枚举白名单、树形状自洽、外键 restrict）。
+ * [INPUT]: 依赖空数据库、classpath V0–V44 migration 与 V43 的五张资料库表。
+ * [OUTPUT]: 资料库五张表的**真迁移读数**（空库迁移到 latest 后 `flyway.info().current()` 的版本号必为 44、五张表都在）与逐条约束的**行为证明**（重号被拒、草稿 8 MiB 上限、枚举白名单、树形状自洽、外键 restrict）。
  * [POS]: library 的持续 migration 门禁：它证明这些表不是"文档里写过"，而是**真在库上**且**约束真的拦得住坏数据**。
  * [PROTOCOL]: 变更时更新此头部并同步 EnterpriseMigrationTest 的版本/表计数断言，然后检查 CLAUDE.md
  */
@@ -22,12 +22,12 @@ class LibraryMigrationTest {
     );
 
     @Test
-    void migratesToVersion43AndCreatesTheFiveLibraryTables() {
+    void migratesToVersion44AndCreatesTheFiveLibraryTables() {
         var database = PostgresTestDatabase.create("library_migration");
         var flyway = PostgresTestDatabase.migrate(database, null);
 
-        // 真迁移读数：不是"应该有 V43"，而是 Flyway 自己报的当前版本。
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("43");
+        // 真迁移读数：不是"应该有 V44"，而是 Flyway 自己报的当前版本。
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("44");
         for (String table : TABLES) {
             assertThat(database.jdbc().queryForObject("""
                 select count(*) from information_schema.tables

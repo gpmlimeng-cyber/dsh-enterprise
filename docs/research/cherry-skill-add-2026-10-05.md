@@ -8,6 +8,7 @@
 # Cherry Studio「添加技能」功能取证报告
 
 - **取证对象**：Cherry Studio **2.1.4**（`package.json` 第 4 行 `"version": "2.1.4"`），本机解包完整源码
+- **权威坐标（本轮由用户提供仓库地址后实核补齐，供复现）**：`CherryHQ/cherry-studio` tag **`v2.1.4`** = commit **`072aab935a0340b3e5f288b8328f3aaae24c918d`**（`git ls-remote --tags` 实测命中）。取证当时的本机路径 `/tmp/cherry/cherry-studio-main` **已不存在**；后续复核一律按该 tag + commit。
 - **取证日期**：2026-10-05
 - **目的**：在写任何移植代码之前，查清上游「添加技能」（在线搜索 / 系统搜索 / 本地导入 / 通过 Agent 创建）的真实实现，作为排工期的证据
 - **结论摘要**：四项功能 Cherry 全部可用且**无鉴权**；但其中**三道 ZIP 安全门禁我们完全没有**，且我们的等价能力在别处已比它严。详见 §6。
@@ -205,6 +206,41 @@ const status = registered ? 'registered' : folderConflict ? 'conflict' : 'availa
 3. `candidate.status === 'conflict'` → `A different skill already uses the folder name`
 
 **注意顺序**：先 `realpath` 归一（`:402`）再查候选（`:404`），所以传入符号链接路径也会被归一到真实路径再比对。
+
+### 2.5 ★行号复核（Lead 在上游 tag `v2.1.4`（`072aab93`）上实测）
+
+**取证当时的 `/tmp/cherry/cherry-studio-main` 已不存在，本节是事后在真源上重做的核对。**
+取得方式（本机唯一可行的一条，全量 clone 会 `curl 56 Connection timed out`）：
+
+```bash
+git clone --depth 1 --single-branch --branch v2.1.4 \
+  --filter=blob:none --no-checkout https://github.com/CherryHQ/cherry-studio cherry-lite
+# 之后按需 git show HEAD:<path>（promisor 拉单个 blob），无需 checkout
+```
+
+**结论：§2.3/§2.4 的语义逐条命中（含 `installedByPath` 只收 `source==='system'`、三态三目表达式逐字、先 `realpath` 再查候选），但 `discoverSystem`/`importSystem` 体内的行号有 1–4 行偏移。以下为实测值，冲突时以此为准：**
+
+| 本报告原写 | **实测** | 内容 |
+|---|---|---|
+| `:335-343` | ✅ 准 | `installedByPath`（只收 `source === 'system'` 且 `sourceUrl.startsWith('file:')`） |
+| `:345` | ✅ 准 | `installedByFolder` = `normalizeFolderKey(skill.folderName)` |
+| `skillPaths.ts:25-27` | ✅ 准（连注释逐字） | `normalizeFolderKey` = `folderName.toLowerCase()` |
+| `:349` | **`:350`** | `candidates` Map |
+| `:358` | **`:359`** | `const canonicalPath = await fs.promises.realpath(entryPath)` |
+| `:368` | **`:367`** | `candidates.get(canonicalPath)` |
+| `:369-372` | **`:368-371`** | 重复 → `placements.push` + `continue` |
+| `:373-376` | **`:377-379`** | 三态；原文逐字 `const status = registered ? 'registered' : folderConflict ? 'conflict' : 'available'` |
+| `:379` | **`:382`** | candidate id = `createHash('sha256').update(canonicalPath).digest('hex')` |
+| `:358-359`、`:346-347` | **`:360`**、**`:346-348`** | 受管根排除 `canonicalPath === managedRoot \|\| canonicalPath.startsWith(managedRoot + path.sep)` |
+| `:400-425` | **`:405-428`** | `importSystem` 整体；三条硬拒在 **`:409-411` / `:412-414` / `:415-417`**；`realpath` 在 **`:406`** |
+| `:402`、`:404` | **`:406`**、**`:408`** | 「先 realpath 再查候选」 |
+
+**★一处本报告未记、但移植时必须知道的上游取舍**：Cherry 在 `:360` **主动排除它自己的受管根**（`canonicalPath === managedRoot || canonicalPath.startsWith(managedRoot + path.sep)`）⇒ 它不会把自家库里的技能当成"系统技能"再发现一遍。
+我们**反过来要包含 `<dshHome>/skills`**：它既是我们落盘的地方，**也是用户自己的技能根**，且是本机唯一确定的根（实测 `HOME` 下无任何其它 CLI 技能根）。**这是与上游相反的取舍，必须在实现处写明理由**，否则会被误读成漏抄了这条排除。
+
+**★另一条可直接引用的上游事实**（本报告原文未点名行号）：`SkillService.ts:419` 的
+`await this.installSkillDir(canonicalPath, 'system', pathToFileURL(canonicalPath).href, {…})`
+⇒ 「系统搜索导入」的来源标签 `'system'` **是上游自己的取值**，不是我们的发明。
 
 ---
 

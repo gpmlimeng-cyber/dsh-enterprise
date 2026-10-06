@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 只依赖共享 ZIP 内核 `zip-archive.ts`（`readZipEntries` + `ZipArchiveError`）与企业技能包契约（`.dshskill` = 根 `manifest.json` + `skills/<name>/SKILL.md`，真源见 `docs/compose/spec/skill-catalog.md` S2.2）
- * [OUTPUT]: 对外提供 `decodeDshSkillArchive(bytes)`（先在共享内核里完成容器层门禁，再做**技能布局**核对：只允许 `manifest.json` 与 `skills/` 子树、每条技能必须有 `SKILL.md`）、`manifestSkillId`、上限常量与 `EnterpriseSkillArchive` 形状
+ * [OUTPUT]: 对外提供 `decodeDshSkillArchive(bytes)`（先在共享内核里完成容器层门禁，再做**技能布局**核对：只允许 `manifest.json` 与 `skills/` 子树、每条技能必须有 `SKILL.md`；**本刀 additive 多回一个 `displayName`** = `manifest.json` 的 `name`，供本机自装记录取显示名）、上限常量与 `EnterpriseSkillArchive` 形状
  * [POS]: bundle 技能纵深的**制品解包边界**——ZIP 容器层已抽到 `zip-archive.ts`（与配方包 `.dshpreset` 共用同一份解析器）；本文件只保留**技能布局**判定，解压前完成路径逃逸与符号链接拒绝这件事由共享内核承担，之后才可能有字节落到磁盘；不解析 SKILL.md 正文（正文语义由官方 `skill-filesystem` 在发现时自行校验），也不执行包内任何内容
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -74,11 +74,18 @@ export interface SkillArchiveEntry {
 export interface EnterpriseSkillArchive {
   /** `manifest.json` 的 `id`；与中心详情的 `skillId` 同源。 */
   readonly skillId: string
+  /**
+   * `manifest.json` 的 `name`（人类可读显示名，服务端口径 ≤120）。
+   *
+   * **本刀（本地上传）additive 新增**：本机自装没有中心详情可借 displayName，只能取包内声明；
+   * 缺失 / 非字符串 / 空白 / 超长一律 undefined（**不放宽既有校验**：id/format/version 的判定一字未动）。
+   */
+  readonly displayName?: string
   readonly skills: readonly SkillArchiveEntry[]
 }
 
-/** 读 `manifest.json` 的 `id`；本包只认 `format=dsh-skill` 且 `version=1`。 */
-function manifestSkillId(text: string): string {
+/** 读 `manifest.json` 里本包需要的两个事实；`format`/`version` 一律只认 `dsh-skill` + 字符串 `"1"`。 */
+function readManifest(text: string): { readonly skillId: string; readonly displayName?: string } {
   let value: unknown
   try {
     value = JSON.parse(text) as unknown
@@ -96,7 +103,9 @@ function manifestSkillId(text: string): string {
   if (typeof id !== 'string' || id.length === 0 || id.length > 128 || !SKILL_PACKAGE_REF_PATTERN.test(id)) {
     throw invalid('manifest.json has an invalid id')
   }
-  return id
+  const name = manifest['name']
+  const displayName = typeof name === 'string' && name.trim().length > 0 && name.length <= 120 ? name : undefined
+  return displayName === undefined ? { skillId: id } : { skillId: id, displayName }
 }
 
 /**
@@ -113,7 +122,7 @@ export function decodeDshSkillArchive(bytes: Buffer): EnterpriseSkillArchive {
   const entries = readCentralDirectory(bytes)
   const manifest = entries.find(entry => entry.path === 'manifest.json' && entry.isDirectory === false)
   if (manifest === undefined || manifest.bytes === undefined) throw invalid('archive is missing manifest.json')
-  const skillId = manifestSkillId(manifest.bytes.toString('utf8'))
+  const { skillId, displayName } = readManifest(manifest.bytes.toString('utf8'))
 
   const skills = new Map<string, SkillArchiveFile[]>()
   for (const entry of entries) {
@@ -148,5 +157,5 @@ export function decodeDshSkillArchive(bytes: Buffer): EnterpriseSkillArchive {
     result.push({ name, files })
   }
   result.sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0))
-  return { skillId, skills: result }
+  return displayName === undefined ? { skillId, skills: result } : { skillId, displayName, skills: result }
 }

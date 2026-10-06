@@ -2,6 +2,21 @@
  * [INPUT]: 依赖浏览器 fetch 与 FormData/Blob、local-api-decode 的全部严格解码与失败码投影
  * [OUTPUT]: 对外提供 `createEnterpriseLocalApi`（固定同源路径的取数与动作，含请 Host 打开帮助中心的 `openHelp`、读**已装**技能正文的 `skillContent`，以及详情子页面用的 `skillFiles`（本机文件树）与 `skillFile`（树里一个文本文件））、五条同源技能路径常量（`ENTERPRISE_SKILL_{INSTALL,UNINSTALL,INSTALLED,CONTENT}_LOCAL_PATH` 与 `enterpriseSkillFilesPath`/`enterpriseSkillFilePath` 两条**动态**本机文件路径构造器）与 local-api-decode 的全部导出 **本刀（配方一键启用）**：新增三件配方动作 `presetStatus` / `enablePreset` / `disablePreset`（路径与 body 严格照路由形状：`GET …/presets/<雪花 id>/status`、`POST …/presets/<雪花 id>/enable`（body 关闭键集 `{}` 或恰好 `{confirmFingerprint}`）、`POST …/presets/<声明 id>/disable`（body 恒 `{}`））与三个路径构造器 `enterprisePreset{Enable,Status,Disable}Path` + 三条子路径共用的注册面前缀 `ENTERPRISE_PRESET_ACTION_LOCAL_PATH`） **本刀（企业插件真取消）**：新增 `cancelPlugin(packageName, signal)`——同源 POST `/enterprise/api/v1/local/plugins/cancel`，正文关闭键集恰好 `{packageName}`，响应与只读 `GET /plugins` **完全同形**（复用同一个严格解码器，**零新增字段**），并导出与 Host exact 注册面逐字同值的常量 `ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH`。
  * [POS]: dsh-ui 的浏览器网络边界——只发同源固定路径请求，调用方无法注入平台 origin 或 Authorization；DTO 契约与解码在 local-api-decode.ts，本文件只管发与收 **本刀**：`/presets` 那三条子路径由 Host 的同一个 prefix 按后缀分派，本文件只多三件固定路径的收发，边界口径（只同源、只发固定路径、键集封闭）一字未改。 **本刀（企业插件真取消）**：`/plugins/cancel` 是本族第三件动作（与 `install`/`remove` 同源同族），浏览器侧只多一次 POST 收发；取消的**结果**不由这条响应判定（响应同形、零新增字段），而是由那次安装请求自己的收束（`ENT_PLUGIN_INSTALL_CANCELLED`）读出来——故本文件不解析任何取消语义。
+ * **本刀（本地导入）**：`uploadSkill` 是本族第二条**上传**路径（`POST /skills/upload`，multipart 恰好一个
+ *   `artifact` file part，正文构造与反馈附件同一手法 `skillUploadForm`；响应与 `installSkill` 完全同形
+ *   ⇒ 复用同一个严格解码器），`selfInstalledSkills` 是它配套的那条只读 `GET /skills/self-installed`
+ *   （自装是**独立**记录，不比企业已装清单多一个字段）；并导出 `ENTERPRISE_SKILL_{UPLOAD,SELF_INSTALLED}_LOCAL_PATH`
+ *   与 multipart 字段名 `ENTERPRISE_SKILL_UPLOAD_FIELD`。浏览器只发同源固定路径与用户选中的文件字节，**不传任何宿主路径**。
+ * **本刀（系统搜索）**：新增 `systemSearch(signal)`（只读盘点 `GET /skills/system-search`：本机技能根 + 每条候选三态）
+ *   与 `adoptSystemSkill(path, signal)`（纳入 `POST /skills/adopt`，正文**关闭键集恰好 `{path}`**；`path` 只可能是
+ *   盘点投影里给过的那条 canonical 绝对路径，界面原样收下、原样回传，**从不拼、从不接受用户输入**；
+ *   响应与 `GET /skills/self-installed` 逐字同形 ⇒ 复用同一个严格解码器）；并导出与 `platform-client`
+ *   逐字同值的 `ENTERPRISE_SKILL_{SYSTEM_SEARCH,ADOPT}_LOCAL_PATH`（两条都是 exact 路由：否则会被 `/skills` prefix 当包 id）。
+ * **本刀（在线搜索）**：新增 `onlineSearchSkills(query, signal)`（只读 `GET /skills/online-search?q=…`）与
+ *   `installSkillFromResult(source, signal)`（`POST /skills/install-from-result`，正文**关闭键集恰好 `{source}`**；
+ *   `source` 只可能是搜索结果里原样回来的那条 `installSource`，界面原样回传、从不拼、从不解析；
+ *   响应与 `GET /skills/installed` 逐字同形 ⇒ 复用同一个严格解码器）；并导出与 `platform-client` 逐字同值的
+ *   `ENTERPRISE_SKILL_{ONLINE_SEARCH,INSTALL_FROM_RESULT}_LOCAL_PATH`。
  * **本刀（插件行动分流）**：新增 `setPluginEnabled(packageName, enabled, signal)` —— 两条**独立**的同源路径
  *   `POST /enterprise/api/v1/local/plugins/{enable,disable}`（方向由路径决定，正文恒是关闭键集 `{packageName}`），
  *   响应与只读 `GET /plugins` 完全同形故复用同一个严格解码器；并导出与 `platform-client` 逐字同值的
@@ -40,9 +55,12 @@ import {
   decodeEnterprisePresetEnable,
   decodeEnterprisePresetStatus,
   decodeEnterpriseRestoredSession,
+  decodeEnterpriseOnlineSkillSearch,
+  decodeEnterpriseSelfInstalledSkills,
   decodeEnterpriseServerUrl,
   decodeEnterpriseSkillDetail,
   decodeEnterpriseSkills,
+  decodeEnterpriseSystemSkills,
   decodeEnterpriseUninstall,
   decodeEnterpriseUsage,
   decodeRemoteSessions,
@@ -179,6 +197,19 @@ function feedbackForm(draft: EnterpriseFeedbackDraft): FormData {
     ...(contact === undefined ? {} : { contact }),
   })], { type: 'application/json' }))
   for (const attachment of draft.attachments) form.append('attachments', attachment, attachment.name)
+  return form
+}
+
+/**
+ * 本地技能包 → multipart 正文（**与 `feedbackForm` 同一手法**）。
+ *
+ * 恰好一个 file part，字段名与冻结契约逐字相同（`artifact`）；`content-type` 交给浏览器、
+ * boundary 由它生成。文件名原样带上——Host 只把它当**展示事实**（界面上那句「你选的是哪个文件」），
+ * 绝不据此拼任何路径；字节内容才是唯一被落盘的东西。
+ */
+function skillUploadForm(file: File): FormData {
+  const form = new FormData()
+  form.append(ENTERPRISE_SKILL_UPLOAD_FIELD, file, file.name)
   return form
 }
 
@@ -321,6 +352,40 @@ export function createEnterpriseLocalApi(
     uninstallSkill: async (packageId, signal) => decodeEnterpriseInstalledSkills(
       await requestJson('/skills/uninstall', jsonInit('POST', { packageId }, signal), fetcher),
     ),
+    // 本地导入两条（本刀）：上传是 multipart（正文构造见 `skillUploadForm`，与反馈附件同一手法），
+    // 自装清单是 GET。上传成功的响应与 install **完全同形** ⇒ 同一个解码器，一句都不改写。
+    uploadSkill: async (file, signal) => decodeEnterpriseInstalledSkills(
+      await requestJson('/skills/upload', {
+        body: skillUploadForm(file),
+        cache: 'no-store',
+        headers: { accept: 'application/json' },
+        method: 'POST',
+        signal,
+      }, fetcher),
+    ),
+    selfInstalledSkills: async signal => decodeEnterpriseSelfInstalledSkills(
+      await requestJson('/skills/self-installed', getInit(signal), fetcher),
+    ),
+    // 系统搜索两条（本刀）：盘点是 GET（只读，不改任何状态）；纳入是 POST，正文**关闭键集恰好 `{path}`**，
+    // `path` 就是盘点投影里那条候选的 canonical 绝对路径 —— 界面把它当**不透明值原样回传**，
+    // 从不拼、从不改、从不接受用户输入（Host 侧会再 realpath 一遍并在本次候选里逐字比对）。
+    // 纳入成功的响应与 `GET /skills/self-installed` **逐字同形** ⇒ 复用同一个解码器，一句都不改写。
+    systemSearch: async signal => decodeEnterpriseSystemSkills(
+      await requestJson('/skills/system-search', getInit(signal), fetcher),
+    ),
+    adoptSystemSkill: async (path, signal) => decodeEnterpriseSelfInstalledSkills(
+      await requestJson('/skills/adopt', jsonInit('POST', { path }, signal), fetcher),
+    ),
+    // 在线搜索两条（本刀）：搜索是 GET（只读，查询串进 `q` 并按标识符编码）；安装是 POST，
+    // 正文**关闭键集恰好 `{source}`**，`source` 就是搜索结果里原样回来的 `installSource`
+    // —— 界面把它当**不透明值原样回传**，从不拼、从不解析、从不接受用户输入（Host 侧再判源与坐标）。
+    // 安装成功的响应与 `GET /skills/installed` **逐字同形** ⇒ 复用同一个严格解码器，一句都不改写。
+    onlineSearchSkills: async (query, signal) => decodeEnterpriseOnlineSkillSearch(
+      await requestJson(`/skills/online-search?q=${encodeURIComponent(query)}`, getInit(signal), fetcher),
+    ),
+    installSkillFromResult: async (source, signal) => decodeEnterpriseInstalledSkills(
+      await requestJson('/skills/install-from-result', jsonInit('POST', { source }, signal), fetcher),
+    ),
     startLogin: async signal => decodeEnterpriseLoginStart(
       await requestJson('/auth/start', postInit(signal), fetcher),
     ),
@@ -397,6 +462,45 @@ export const ENTERPRISE_HELP_OPEN_LOCAL_PATH = `${LOCAL_API_PREFIX}/help/open`
  */export const ENTERPRISE_SKILL_INSTALL_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/install`
 export const ENTERPRISE_SKILL_UNINSTALL_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/uninstall`
 export const ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/installed`
+
+/**
+ * **本地导入**两条同源路径常量；Host 侧注册路径必须与它们逐字相同。
+ *
+ * `upload` 是 multipart 上传安装（与 `install` 同一个落盘内核、同一个响应形状，只是制品来自浏览器
+ * 而不是中心）；`self-installed` 是只读的一份**独立**清单——自装包没有中心雪花包 id，故它不会出现在
+ * `installed` 那份企业已装清单里，界面要说出「这次装了什么」只能读它。
+ */
+export const ENTERPRISE_SKILL_UPLOAD_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/upload`
+export const ENTERPRISE_SKILL_SELF_INSTALLED_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/self-installed`
+
+/**
+ * **系统搜索**两条同源路径常量（本刀）；Host 侧注册路径必须与它们逐字相同。
+ *
+ * `system-search` 是只读盘点（本机技能根 + 每条候选的三态：已认领 / 命名冲突 / 可纳入）；
+ * `adopt` 是**纳入**动作（`POST`，正文关闭键集恰好 `{path}`）——它把一条**本机已有**的技能目录
+ * 登记进自装清单，**不复制、不移动、不删除**。两条都是 exact 路由（否则 `system-search`/`adopt`
+ * 会掉进 Host 侧 `/skills` 详情 prefix 被当包 id 判 400），故常量必须两边逐字同值。
+ */
+export const ENTERPRISE_SKILL_SYSTEM_SEARCH_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/system-search`
+export const ENTERPRISE_SKILL_ADOPT_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/adopt`
+
+/**
+ * **在线搜索**两条同源路径常量（本刀）；Host 侧注册路径必须与它们逐字相同。
+ *
+ * `online-search` 是只读搜索（三源 fan-out 的归一化结果：逐源状态 + 结果清单），查询串进 `q`；
+ * `install-from-result` 是**安装**动作（`POST`，正文关闭键集恰好 `{source}`），坐标就是搜索结果里
+ * 原样回来的那条 `installSource`。两条都是 exact 路由（否则 `online-search`/`install-from-result`
+ * 会掉进 Host 侧 `/skills` 详情 prefix 被当包 id 判 400），故常量必须两边逐字同值。
+ */
+export const ENTERPRISE_SKILL_ONLINE_SEARCH_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/online-search`
+export const ENTERPRISE_SKILL_INSTALL_FROM_RESULT_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/install-from-result`
+
+/**
+ * 上传那条 multipart 里 file part 的**字段名**（冻结契约逐字：`artifact`）。
+ *
+ * 与路径常量一样是**契约面**而不是实现细节：Host 侧按这个字段名取文件，改名即两边同时破。
+ */
+export const ENTERPRISE_SKILL_UPLOAD_FIELD = 'artifact'
 
 /**
  * 已装技能**正文**的只读路径常量；Host 侧（platform-client 的 exact 路由）注册路径必须与它逐字相同。

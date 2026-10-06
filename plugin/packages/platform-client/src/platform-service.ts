@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Cordis Service/WebServer/settings、官方 settings 投影的 volatile Config 引用、configEditor 的只读 entry 读面、credentials、T02 contracts、PKCE/installation/browser 原语与 Node fetch
- * [OUTPUT]: 提供 ctx.enterprisePlatform、启动恢复、按需刷新/Token 轮换、品牌缓存的三个取数时机与地址写入失败的结构化诊断日志，并把组合层注入的企业插件动作端口（pluginStatus/pluginAction/**pluginCancel**）、企业技能安装端口（skillStatus/skillAction）与只读正文端口（skillContent）、**企业配方一键启用三端口（presetEnable/presetDisable/presetStatus）**原样转交给 `registerEnterpriseLocalApi`（技能动作缺席即不注册那三条动作路由，正文端口缺席即不注册 `/skills/content`，配方三端口缺席即 `/presets/<id>/{enable,disable,status}` 如实按非法请求拒）；仅无活动会话时允许清理凭据并修改 Server；安卓上宿主没有可用的系统浏览器通道（Termux/系统 am 都被包名↔uid 校验拒绝，壳的 androidBridge 在 WebView 里也取不到），改用 `browserHandoff: 'client'` 把授权 URL 挂上 AUTHORIZING 状态下发、并在宿主内代开服务端事务（GET 授权 URL 取 transaction_id → 取 /sources），由登录弹窗渲染原生表单、经本机路由代收账号密码与改密，成功后宿主自己跟随回环回调；离开该状态即收回，凭证不落盘不进日志
+ * [OUTPUT]: 提供 ctx.enterprisePlatform、启动恢复、按需刷新/Token 轮换、品牌缓存的三个取数时机与地址写入失败的结构化诊断日志，并把组合层注入的企业插件动作端口（pluginStatus/pluginAction/**pluginCancel**）、企业技能安装端口（skillStatus/skillAction）、只读正文端口（skillContent）与**本地上传两端口（skillUpload/skillSelfInstalled）**、**系统搜索两端口（skillSystemSearch/skillAdopt）**、**在线搜索两端口（skillOnlineSearch/skillInstallFromResult）**、**企业配方一键启用三端口（presetEnable/presetDisable/presetStatus）**原样转交给 `registerEnterpriseLocalApi`（技能动作缺席即不注册那三条动作路由，正文端口缺席即不注册 `/skills/content`，本地上传/自装清单两端口缺席即不注册 `/skills/upload`、`/skills/self-installed`，系统搜索两端口缺席即不注册 `/skills/system-search`、`/skills/adopt`，在线搜索两端口缺席即不注册 `/skills/online-search`、`/skills/install-from-result`，配方三端口缺席即 `/presets/<id>/{enable,disable,status}` 如实按非法请求拒）；仅无活动会话时允许清理凭据并修改 Server；安卓上宿主没有可用的系统浏览器通道（Termux/系统 am 都被包名↔uid 校验拒绝，壳的 androidBridge 在 WebView 里也取不到），改用 `browserHandoff: 'client'` 把授权 URL 挂上 AUTHORIZING 状态下发、并在宿主内代开服务端事务（GET 授权 URL 取 transaction_id → 取 /sources），由登录弹窗渲染原生表单、经本机路由代收账号密码与改密，成功后宿主自己跟随回环回调；离开该状态即收回，凭证不落盘不进日志
  * [POS]: platform-client 的 Host 业务核心，跨 Web/Desktop 复用官方凭据平面且不向 Client UI 暴露任何 Token；品牌缓存在这里装配（构造、登录成功、Server 切换各刷新一次），每个 `ENT_SETTINGS_UNAVAILABLE` 抛出点都留痕
  * **本刀（插件行动分流）**：把组合层注入的 `pluginSetEnabled` 原样转交给 `registerEnterpriseLocalApi`（与 `pluginCancel` 同一条路）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -350,6 +350,15 @@ export class EnterprisePlatformService extends Service {
       ...(internals.skillAction === undefined ? {} : { skillAction: internals.skillAction }),
       ...(internals.skillStatus === undefined ? {} : { skillStatus: internals.skillStatus }),
       ...(internals.skillContent === undefined ? {} : { skillContent: internals.skillContent }),
+      // 通路一「本地上传」两端口同样只做**原样转交**：分帧解析、闸门与落盘全在 bundle 侧。
+      ...(internals.skillUpload === undefined ? {} : { skillUpload: internals.skillUpload }),
+      ...(internals.skillSelfInstalled === undefined ? {} : { skillSelfInstalled: internals.skillSelfInstalled }),
+      // 通路二「系统搜索」两端口同样只做**原样转交**：盘点与纳入的语义全在 bundle 侧。
+      ...(internals.skillSystemSearch === undefined ? {} : { skillSystemSearch: internals.skillSystemSearch }),
+      ...(internals.skillAdopt === undefined ? {} : { skillAdopt: internals.skillAdopt }),
+      // 通路三「在线搜索」两端口同样只做**原样转交**：三源端点、白名单、抓包与落盘全在 bundle 侧。
+      ...(internals.skillOnlineSearch === undefined ? {} : { skillOnlineSearch: internals.skillOnlineSearch }),
+      ...(internals.skillInstallFromResult === undefined ? {} : { skillInstallFromResult: internals.skillInstallFromResult }),
       // 配方一键启用同样只做**原样转交**：语义（取配方正文、授权门、官方安装面）全在 bundle 侧。
       ...(internals.presetEnable === undefined ? {} : { presetEnable: internals.presetEnable }),
       ...(internals.presetDisable === undefined ? {} : { presetDisable: internals.presetDisable }),

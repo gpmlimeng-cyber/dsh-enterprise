@@ -4,9 +4,29 @@
  * **本刀（资料库）**：`enterpriseLocalErrorStatus` 新增四枚资料库码——`ENT_LIBRARY_CONFLICT` / `ENT_LIBRARY_DISABLED`→409、
  *   `ENT_LIBRARY_TOO_LARGE`→413、`ENT_LIBRARY_INTERNAL`→500（本表唯一一枚 500；表尾默认仍是 503「本机暂时不可用、可重试」，
  *   两者不同义），供 bundle 的 `library/route.ts` 把领域码 `library/*` 投影成 HTTP 时走同一张表。
+ * **本刀（本地上传）**：新注册两条 exact 子路径——`POST /skills/upload`（multipart，**恰好一个 `artifact` part**；
+ *   50 MiB **独立**配额 `MAX_SKILL_UPLOAD_BODY_BYTES`，绝不动 `MAX_LOCAL_BODY_BYTES` 那 256 KiB 的 JSON 上限；
+ *   运输层四件事=方法/content-length 预检/content-type 形状/有界读取，**分帧解析与表单语义在 bundle 侧**，
+ *   复用全仓唯一那份 `parseFeedbackMultipart`）与 `GET /skills/self-installed`（本机自装清单，与 `/skills/installed`
+ *   并列但读的是**另一份**状态文件）；两者都必须靠 exact 表抢在 bundle `/skills` 详情 prefix 之前（坐标见上方注释）；
+ *   并把上传族五枚码（含**既有** `ENT_SKILL_ARCHIVE_INVALID`）钉进 `enterpriseLocalErrorStatus`。
  * * **本刀（草稿/发布/修订）**：再新增两枚草稿族乐观锁冲突码——`ENT_LIBRARY_REVISION_CONFLICT`（草稿被改过 ⇒
  *   刷新后重试）与 `ENT_LIBRARY_BASE_REVISION_CONFLICT`（正文已有新版本 ⇒ 重新创建草稿），都判 409。两枚**分开**
  *   而不是并进 `ENT_LIBRARY_CONFLICT`：后者的人话是「请换一个名字」（重名冲突），对这两条是错的下一步。
+ * **本刀（系统搜索）**：再注册两条 exact 子路径——`GET /skills/system-search`（本机技能根盘点：每根
+ *   `{id,path,present}` + 每条候选三态 `registered|conflict|available`）与 `POST /skills/adopt`（正文**关闭键集**
+ *   恰好 `{path}`，把那条 canonical 绝对路径原样交给 bundle；成功回的是**与 `/skills/self-installed` 逐字同形**的
+ *   `{skills: […]}` ⇒ 界面复用既有解码器）。两条同样靠 exact 表抢在 bundle `/skills` 详情 prefix 之前
+ *   （否则 `system-search`/`adopt` 会被当成包 id 判 400）；纳入族三枚码钉进 `enterpriseLocalErrorStatus`：
+ *   `ENT_SKILL_DISCOVERY_UNKNOWN`→404、`ENT_SKILL_ALREADY_REGISTERED`→409、`ENT_SKILL_ADOPT_FAILED`→500
+ *   （`ENT_SKILL_NAME_CONFLICT` 已在表里判 409，不重复）。
+ * **本刀（在线搜索）**：再注册两条 exact 子路径——`GET /skills/online-search?q=…`（三源 fan-out 的归一化结果：
+ *   `{sources:[{id,ok}], results:[{sourceId,name,description?,author?,stars?,installs?,installSource}]}`，
+ *   部分成功如实报、全失败才错）与 `POST /skills/install-from-result`（正文**关闭键集**恰好 `{source}`，
+ *   即搜索响应里那枚 `installSource` 坐标串；成功回的是**与 `/skills/install` 逐字同形**的最新已装态）。
+ *   两条同样靠 exact 表抢在 bundle `/skills` 详情 prefix 之前；本刀往唯一那张码→状态表加四枚：
+ *   `ENT_SKILL_SOURCE_UNKNOWN`→400、`ENT_SKILL_SOURCE_UNREACHABLE`→502、`ENT_SKILL_SOURCE_TOO_LARGE`→413，
+ *   以及**既有** `ENT_SKILL_DOWNLOAD_FAILED`→502（此前不在表里 ⇒ 被折成 503；同族的「上游这次没给到」）。
  * [POS]: platform-client 的 Host/Client 同源协作边界，只序列化脱敏 DTO 并把认证 HTTP 留在 Host Service；路由形状受引擎 `match()`（`lib/index.js:322`）约束——exact 表整路径优先、prefix 只认 `pathname === prefix` 或 `pathname.startsWith(prefix + '/')`、多条命中取最长，故带尾斜杠的 prefix 会在引擎层空体 404 而根本不进 handler，而 `/skills/install` 这类子路径动作必须靠 exact 表抢在 `/skills` prefix 之前。`/skills/content` 的两个查询参数（包 id / 技能目录名）在这里只按形状收窄后原样转交：**名字不是路径**，是不是本包的、落点怎么拼、有没有符号链接逃逸，一律由 bundle 侧的已装记录与 `realpath` 判定
  * **本刀（插件行动分流）**：新注册两条 exact 动作路由 `POST <local>/plugins/{enable,disable}`（方向由 path 决定，
  *   正文关闭键集恰好 `{packageName}`，响应与 `GET /plugins` 同形）与可选端口 `pluginSetEnabled`；
@@ -47,6 +67,13 @@ const MAX_LOCAL_BODY_BYTES = 256 * 1024
  * 引擎层直接回 404（**空响应体，handler 根本不会被调用**）——这正是品牌位图、远端会话恢复与配方详情
  * 三条线空体 404 的根因，与 `bundle/src/skill-route.ts` 的详情路由同族（那里已修）。
  *
+ * ★可被证伪的坐标（本文件这几条 exact 子路径**承重**的依据，不是风格问题）：
+ * `@deepseek-ai/dsh-host-webserver/lib/index.js:148-149` 是 `exact` / `prefixes` **两张表**；
+ * `:322` 原注释「Longest-prefix-wins over the prefix table **after an exact-table miss**」；
+ * `:324-325` 先 `this.exact.get(pathname)` 且命中即返回；`:327-328` 才走 prefix 表并要求段边界。
+ * ⇒ `/skills/upload`（本刀新增）**确实**会命中 bundle 侧那条 `/skills` 前缀（`rest === 'upload'`），
+ * 因此它必须是 exact，否则会被详情 handler 当成包 id 去过 `^[1-9][0-9]{0,18}$` 而回 400。
+ *
  * exact 与 prefix 是引擎里的**两张表**（`register()` 只对同 kind、同 path 抛重复），
  * 所以 `/sessions`、`/presets` 上「列表 exact + 详情 prefix」共用同一字符串并不冲突，且 exact 优先命中；
  * `/sessions/sync` 这条 sibling exact 同理不会被上面那条更短的 prefix 抢走。
@@ -78,6 +105,91 @@ export const ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills
  * 因此即便有人手工构造请求，也拼不出技能目录之外的任何文件。
  */
 export const ENTERPRISE_SKILL_CONTENT_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/content`
+
+/**
+ * 通路一「本地上传」的 exact 动作路由：`POST <local>/skills/upload`（真源 `docs/plan/skill-install-sources.md` §B.1 方案甲）。
+ *
+ * 与上面四条同族，同样靠 exact 表抢在 bundle 侧 `/skills` 详情 prefix 之前 ——
+ * 否则 `rest === 'upload'` 会被详情 handler 当成包 id 去过 `^[1-9][0-9]{0,18}$` 而回 400
+ * （引擎两张表与「exact 先于 prefix」的逐行坐标见上面 `BRANDING_ASSET_PREFIX_ROUTE` 那段注释）。
+ * 请求是 `multipart/form-data`（**恰好一个** `artifact` 文件 part）；响应 `data` 与
+ * `POST /skills/install` 的 `data` **逐字同形**（`{skills: [...]}`，UI 侧复用既有解码器）。
+ */
+export const ENTERPRISE_SKILL_UPLOAD_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/upload`
+
+/**
+ * 本机**自装**清单的只读 exact 路由：`GET <local>/skills/self-installed`（§E.2③，与 `/skills/installed` 并列）。
+ *
+ * 自装记录**不在** `installed.json` 里（那份是严格八键 + 雪花 id 的中心口径），因此它需要自己这条只读面；
+ * 界面靠它回「已装 N 个技能在本机技能目录：a、b」，而**不会**在「企业技能」列表里看到自装行。
+ */
+export const ENTERPRISE_SKILL_SELF_INSTALLED_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/self-installed`
+
+/**
+ * 通路二「系统搜索」的**盘点** exact 只读路由：`GET <local>/skills/system-search`（本机技能根 + 候选三态）。
+ *
+ * 与上面六条同族，同样靠 exact 表抢在 bundle 侧 `/skills` 详情 prefix 之前 ——
+ * 引擎 `dsh-host-webserver/lib/index.js` 是两张表（`:148-149`），`:324-325` 先查 exact 命中即返回，
+ * `:327-328` 的 prefix 只认 `pathname === prefix || startsWith(prefix + '/')` ⇒ `/skills/system-search`
+ * **确实会被** `/skills` prefix 命中，这条 exact 是**承重**的（否则 `system-search` 会被当包 id 判 400）。
+ */
+export const ENTERPRISE_SKILL_SYSTEM_SEARCH_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/system-search`
+
+/**
+ * 通路二「系统搜索」的**纳入** exact 动作路由：`POST <local>/skills/adopt`，正文关闭键集恰好 `{path}`。
+ *
+ * 只做**形状收窄**（键集 / 非空有界字符串）并把那条 canonical 绝对路径原样转交：
+ * 「这条路径是不是本次盘点发现的、落点怎么拼、有没有符号链接逃逸」全由 bundle 侧判定
+ *（`skill-system.ts` 先 `realpath` 再查候选 + `requireRelativeSkillPath` + realpath 逐字等式）。
+ * 响应 `data` 与 `GET /skills/self-installed` **逐字同形**（`{skills: […]}`），界面因此复用同一份解码器。
+ */
+export const ENTERPRISE_SKILL_ADOPT_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/adopt`
+
+/**
+ * `/skills/adopt` 入参 `path` 的形状上限：与 bundle 侧同一条 1024（`MAX_ADOPT_PATH_LENGTH`）。
+ *
+ * 它是**运输层**的粗门禁，不承担路径语义：真正「这条路径算不算我们发现的那一条」由 bundle 侧按
+ * canonical 路径逐字比对（这里既不知道技能根在哪，也不知道 allowlist 是什么）。
+ */
+const MAX_SKILL_ADOPT_PATH_LENGTH = 1024
+
+/**
+ * 通路三「在线搜索」的**搜索** exact 只读路由：`GET <local>/skills/online-search?q=<查询串>`。
+ *
+ * 与上面八条同族，同样靠 exact 表抢在 bundle 侧 `/skills` 详情 prefix 之前 ——
+ * 否则 `online-search` 会被当成包 id 判 400。查询串只做**形状收窄**（非空、有界、无控制字符）后原样转交：
+ * 三个公开源的端点、白名单、超时、归一化与去重全在 bundle 侧（`skill-online.ts`）。
+ */
+export const ENTERPRISE_SKILL_ONLINE_SEARCH_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/online-search`
+
+/**
+ * 通路三「在线搜索」的**安装** exact 动作路由：`POST <local>/skills/install-from-result`，
+ * 正文关闭键集恰好 `{source}` —— 那个串就是搜索响应里原样回来的 `installSource`（`"<sourceId>:<reference>"`）。
+ *
+ * 响应 `data` 与 `POST /skills/install` **逐字同形**（最新已装态，界面复用既有解码器）；
+ * 真正装进来的技能在**自装清单**里（与 `/skills/upload` 同一条纪律）。
+ */
+export const ENTERPRISE_SKILL_INSTALL_FROM_RESULT_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/install-from-result`
+
+/** `/skills/online-search` 的 `q` 形状上限（与 bundle 侧 `MAX_QUERY_LENGTH` 同值 128）。 */
+const MAX_SKILL_ONLINE_QUERY_LENGTH = 128
+
+/** `/skills/install-from-result` 的 `source` 形状上限（与 bundle 侧那枚 1024 同值）。 */
+const MAX_SKILL_INSTALL_SOURCE_LENGTH = 1024
+
+/**
+ * 本地上传的**独立**配额：50 MiB（与 bundle 侧制品上限 `SKILL_ARCHIVE_MAX_BYTES` 逐字同值）。
+ *
+ * ★它与 `MAX_LOCAL_BODY_BYTES`（256 KiB，**所有** JSON 路由的正文上限）互不影响：把 JSON 上限抬到
+ * 50 MiB 等于同时放宽全部 JSON 动作路由的请求体，绝不允许；上传只在这条 multipart 路由上另开配额。
+ */
+export const MAX_SKILL_UPLOAD_BODY_BYTES = 52_428_800
+
+/** multipart boundary 的 RFC 2046 bchars 子集（与 bundle 侧 `feedback-route.ts` 同一份形状门禁）。 */
+const UPLOAD_BOUNDARY_SHAPE = /^[0-9A-Za-z'()+_,\-./:=? ]{1,70}$/
+
+/** 只回显受控形状的稳定码；否则换成表尾默认码，绝不把内码甩给界面。 */
+const LOCAL_ERROR_CODE_SHAPE = /^[A-Z][A-Z0-9_]{2,63}$/
 
 /**
  * 受管插件**取消**动作的 exact 注册 path：`POST <local>/plugins/cancel`，body 是关闭键集的 `{packageName}`。
@@ -216,6 +328,43 @@ export interface EnterpriseLocalApiOptions {
    */
   readonly skillContent?: (packageId: string, name: string) => Promise<unknown>
   /**
+   * 通路一「本地上传」的 Host 端口（bundle 的 `skill-upload.ts`）。
+   *
+   * 入参是本机路由**已按 50 MiB 配额有界读取**的 multipart 正文与它的 boundary：
+   * 运输层的四件事（方法 / `content-length` 预检 / `content-type` 形状 / 有界读取）在本文件，
+   * **分帧解析与表单语义（恰好一个 `artifact` part）在 bundle 侧** —— 那里才有全仓唯一那份
+   * multipart 分帧实现（`feedback-route.ts` 的 `parseFeedbackMultipart`），绝不新造第二个。
+   * 返回值原样进 `{data}`（bundle 回的是与 `/skills/install` 同形的企业已装态）。缺席即不注册这条路由。
+   */
+  readonly skillUpload?: (body: Buffer, boundary: string) => Promise<unknown>
+  /** 本机自装清单（bundle 的 `skill-upload.ts` 读独立状态文件）；缺席时不注册 `/skills/self-installed`。 */
+  readonly skillSelfInstalled?: () => unknown | Promise<unknown>
+  /**
+   * 通路二「系统搜索」的**盘点**端口（bundle 的 `skill-system.ts` 扫描本机技能根）；缺席时不注册
+   * `/skills/system-search`。只读：不改任何状态文件、不动任何技能目录。
+   */
+  readonly skillSystemSearch?: () => unknown | Promise<unknown>
+  /**
+   * 通路二「系统搜索」的**纳入**端口（bundle 的 `skill-system.ts`）；缺席时不注册 `/skills/adopt`。
+   *
+   * 入参是盘点投影里那枚 canonical 绝对路径。本文件**只**做键集与形状门禁，语义（是不是候选、
+   * 三态 fail-closed、只登记不复制）全在 bundle 侧；返回值原样进 `{data}`（与 `/skills/self-installed` 同形）。
+   */
+  readonly skillAdopt?: (path: string) => Promise<unknown>
+  /**
+   * 通路三「在线搜索」的**搜索**端口（bundle 的 `skill-online.ts` 三源 fan-out）；缺席时不注册
+   * `/skills/online-search`。只读：不改任何状态文件、不动任何技能目录。
+   */
+  readonly skillOnlineSearch?: (query: string) => unknown | Promise<unknown>
+  /**
+   * 通路三「在线搜索」的**安装**端口（bundle 的 `skill-online.ts`：codeload 整仓包 → 复用加固落盘）；
+   * 缺席时不注册 `/skills/install-from-result`。
+   *
+   * 入参是搜索投影里那枚 `installSource` 坐标串。本文件**只**做键集与形状门禁，语义（源白名单、
+   * 坐标解析、抓包、落盘）全在 bundle 侧；返回值原样进 `{data}`（与 `/skills/install` 同形）。
+   */
+  readonly skillInstallFromResult?: (source: string) => Promise<unknown>
+  /**
    * 企业配方**一键启用**（bundle 的 `preset-service.ts`）；缺席时 `<id>/enable` 如实按非法请求拒。
    *
    * 入参 `confirmFingerprint` 是员工在披露弹层里确认过的那份**集合指纹**：交上来即「确认并授权」，
@@ -273,6 +422,20 @@ function errorCode(error: unknown): string {
 }
 
 /**
+ * 与 {@link errorCode} 同源，但**没有**受控码时返回 undefined（上传/纳入路由要按状态兜底成同族码）。
+ *
+ * ★不能借道 `errorCode()`：那个函数在「异常身上根本没有 `code`」时会**替换**成 `ENT_PLATFORM_UNAVAILABLE`，
+ * 而那枚码本身符合受控码形状 ⇒ 会把下面两条投影函数的「按状态兜底」整段变成死代码，
+ * 于是「读正文时才发现超了 50 MiB」（`RangeError`，413）会被报成一句和事实无关的兜底码。
+ * 这里只认异常**真的携带**的、形状受控的 code。
+ */
+function controlledErrorCode(error: unknown): string | undefined {
+  if (typeof error !== 'object' || error === null || !('code' in error)) return undefined
+  const code: unknown = (error as { code?: unknown }).code
+  return typeof code === 'string' && LOCAL_ERROR_CODE_SHAPE.test(code) ? code : undefined
+}
+
+/**
  * 稳定错误码 → HTTP 状态的**唯一**映射（本地路由的失败投影）。
  *
  * 原先它是本文件私有的 `actionErrorStatus`，现在对外导出：`bundle/src/skill-route.ts` 的两条
@@ -300,6 +463,38 @@ export function enterpriseLocalErrorStatus(error: unknown): number {
   if (code === 'ENT_SKILL_CONTENT_INVALID') return 409
   // 正文超过包内 SKILL.md 的同一条上限（256 KiB）：请求合法但资源太大，判 413（与请求体超限同码）。
   if (code === 'ENT_SKILL_CONTENT_TOO_LARGE') return 413
+  // 本地上传通路（§B.1 步骤 4/5/6）：
+  //  · 超过 50 MiB 上传配额 → 413；
+  //  · 制品结构非法（`ENT_SKILL_ARCHIVE_INVALID`，**既有码、此前不在表里** ⇒ 会被表尾默认折成 503，
+  //    而「这个包的结构不合法」重试多少次都一样，503 是错的下一步）与 frontmatter 闸门不过 → 400；
+  //  · 制品落盘失败 → 500（本机写盘失败，与既有 `ENT_LIBRARY_INTERNAL` 同族）。
+  //  · `ENT_SKILL_NAME_CONFLICT` 已在上面判 409，不重复。
+  if (code === 'ENT_SKILL_UPLOAD_TOO_LARGE') return 413
+  if (code === 'ENT_SKILL_UPLOAD_INVALID'
+    || code === 'ENT_SKILL_ARCHIVE_INVALID'
+    || code === 'ENT_SKILL_SKILLMD_INVALID') return 400
+  if (code === 'ENT_SKILL_UPLOAD_FAILED') return 500
+  // 通路二「系统搜索 → 纳入」族（真源 `cherry-skill-add-2026-10-05.md` §2.4 的三条硬拒 + 一枚基础设施码）：
+  //  · 那条目录不在本次盘点候选里（含先 `realpath` 归一之后仍对不上）→ 404：它**不是**我们发现的东西，
+  //    多给一个状态码只会让界面以为「差一点就成」；
+  //  · 已被任一记录认领 → 409（请求合法，本机状态不允许重复登记）：与 `ENT_SKILL_NAME_CONFLICT` 同族但
+  //    **下一步不同**（这条是「不必再纳入」，那条是「换个名字」），故各留一枚码；
+  //  · 本机自己完不成这次登记（目录子树超过可摘要上限）→ 500：既不是「请求有问题」(4xx)、
+  //    也不是「暂时不可用」(表尾 503)，重试同样不会变好。
+  if (code === 'ENT_SKILL_DISCOVERY_UNKNOWN') return 404
+  if (code === 'ENT_SKILL_ALREADY_REGISTERED') return 409
+  if (code === 'ENT_SKILL_ADOPT_FAILED') return 500
+  // 通路三「在线搜索 → 从结果安装」族（真源 `docs/plan/skill-install-sources.md` §B.2/§C/§F.1）：
+  //  · 坐标不认（未知源 / 无 GitHub 坐标的源 / 坐标指不到技能）→ 400：**换一条结果**，重试同一串没有意义；
+  //  · 上游不可用（连不上 / 超时 / 非 200 / 重定向跨出白名单）→ 502：这是**上游**的故障，可稍后重试；
+  //    与既有 `ENT_PLATFORM_UNAVAILABLE`（本机平台面）不同源，也不该被折成 503 的「本机暂时不可用」；
+  //  · 上游体量超上限 → 413（请求合法，但这份资源太大，本机按纪律不收）。
+  //  · `ENT_SKILL_DOWNLOAD_FAILED`（**既有码，此前不在表里** ⇒ 会被表尾默认折成 503）与上面那条同族：
+  //    都是「上游这次没给到」，判 502；★它同时被中心安装 `/skills/install` 使用，故那条路由的同类失败
+  //    也从 503 变 502（更准确的状态，已在交付说明里点明）。
+  if (code === 'ENT_SKILL_SOURCE_UNKNOWN') return 400
+  if (code === 'ENT_SKILL_SOURCE_UNREACHABLE' || code === 'ENT_SKILL_DOWNLOAD_FAILED') return 502
+  if (code === 'ENT_SKILL_SOURCE_TOO_LARGE') return 413
   if (code === 'ENT_AUTH_REQUIRED' || code === 'ENT_AUTH_SESSION_EXPIRED') return 401
   if (code === 'ENT_DEVICE_REVOKED' || code === 'ENT_PERMISSION_DENIED') return 403
   if (code === 'ENT_RESOURCE_NOT_FOUND') return 404
@@ -308,7 +503,8 @@ export function enterpriseLocalErrorStatus(error: unknown): number {
   //  · 冲突族（同父重名 / 键已被占用 / 不可变修订已存在）→ 409（请求合法、本机状态不允许）；
   //  · 已停用 → 409（同族：请求合法，但这份资料当前不可被读取）；
   //  · 超限族（单文件 / 单会话选中集合）→ 413；
-  //  · 未分类内部错误 → 500（**本表唯一的 500**：表尾默认的 503 语义是"本机暂时不可用、可重试"，与它不同义）。
+  //  · 未分类内部错误 → 500（**与技能上传那枚 `ENT_SKILL_UPLOAD_FAILED` 同族**：都是「本机内部失败、
+  //    不是暂时不可用」，与表尾默认的 503 不同义）。
   //  **草稿族两枚乐观锁冲突**（草稿/发布这一刀新增，各自一枚而不是并进 `ENT_LIBRARY_CONFLICT`）：两者的下一步不同
   //  ——"草稿被别人改过 ⇒ 刷新后重试"与"正文已有新版本 ⇒ 重新创建草稿"；并进同码就会让界面拿一句"请换一个名字"
   //  （那是重名冲突的人话，对这两条是错的）。两枚都判 409：请求合法、当前状态不允许这一次写入。
@@ -360,6 +556,90 @@ async function requireEmptyObject(request: IncomingMessage): Promise<void> {
     || Object.keys(value as Record<string, unknown>).length !== 0) {
     throw new TypeError('action body must be an empty object')
   }
+}
+
+function singleHeader(value: string | readonly string[] | undefined): string | undefined {
+  return typeof value === 'string' ? value : value?.[0]
+}
+
+/**
+ * 从 `content-type` 头里取 multipart boundary；不是 `multipart/form-data` 或边界形状非法即 undefined。
+ *
+ * 与 bundle 侧 `feedback-route.ts` 的 `feedbackMultipartBoundary` 同一份形状门禁（bchars 子集），
+ * 只是这里**只取边界**：分帧与 part 语义留给 bundle 侧唯一那份 multipart 解析器。
+ */
+function multipartBoundaryOf(contentType: string | undefined): string | undefined {
+  if (contentType === undefined || !/^multipart\/form-data\s*;/i.test(contentType)) return undefined
+  const match = /boundary=(?:"([^"]*)"|([^;]*))/i.exec(contentType)
+  const boundary = (match?.[1] ?? match?.[2] ?? '').trim()
+  return UPLOAD_BOUNDARY_SHAPE.test(boundary) ? boundary : undefined
+}
+
+/**
+ * 有界读取请求正文；超过上限时继续排空（**不缓冲**）并返回 undefined。
+ *
+ * 与 bundle 侧 `feedback-route.ts` 的 `readBoundedBody` 同款手法：排空而不是 `destroy()`，
+ * 让浏览器读得到那条 413 响应，而不是一个 connection reset。
+ */
+async function readBoundedUploadBody(request: IncomingMessage, limit: number): Promise<Buffer | undefined> {
+  const chunks: Buffer[] = []
+  let total = 0
+  let overflow = false
+  for await (const chunk of request) {
+    const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array)
+    total += bytes.length
+    if (total > limit) {
+      overflow = true
+      continue
+    }
+    chunks.push(bytes)
+  }
+  return overflow ? undefined : Buffer.concat(chunks)
+}
+
+/**
+ * 上传路由的失败码投影：**受控码原样回显**（与其余路由不同 —— 见下），否则按状态兜底成上传族码。
+ *
+ * 为什么不像 `/skills/install` 那样把 400/413 折成 `ENT_INVALID_REQUEST`/`ENT_REQUEST_TOO_LARGE`：
+ * 冻结契约把 `ENT_SKILL_UPLOAD_INVALID`(400)、`ENT_SKILL_ARCHIVE_INVALID`(400)、`ENT_SKILL_SKILLMD_INVALID`(400)、
+ * `ENT_SKILL_UPLOAD_TOO_LARGE`(413) 逐枚写进了界面要认的码表，折掉它们就等于让用户看不到「是包不对还是路不对」。
+ */
+function uploadFailureCode(error: unknown, status: number): string {
+  const code = controlledErrorCode(error)
+  if (code !== undefined) return code
+  if (status === 413) return 'ENT_SKILL_UPLOAD_TOO_LARGE'
+  if (status === 400) return 'ENT_SKILL_UPLOAD_INVALID'
+  if (status === 500) return 'ENT_SKILL_UPLOAD_FAILED'
+  return 'ENT_PLATFORM_UNAVAILABLE'
+}
+
+/**
+ * `/skills/adopt` 的失败码投影：**受控码原样回显**（与上传那条同一考虑 —— 三条 fail-closed 的码各有
+ * 不同的下一步「看清单 / 不用再纳入 / 换个名字」，折成 `ENT_INVALID_REQUEST` 就等于把原因抹掉），
+ * 其余按状态兜底成同族码。
+ */
+function skillAdoptFailureCode(error: unknown, status: number): string {
+  const code = controlledErrorCode(error)
+  if (code !== undefined) return code
+  if (status === 413) return 'ENT_REQUEST_TOO_LARGE'
+  if (status === 400) return 'ENT_INVALID_REQUEST'
+  if (status === 404) return 'ENT_SKILL_DISCOVERY_UNKNOWN'
+  if (status === 409) return 'ENT_SKILL_NAME_CONFLICT'
+  if (status === 500) return 'ENT_SKILL_ADOPT_FAILED'
+  return 'ENT_PLATFORM_UNAVAILABLE'
+}
+
+/**
+ * 通路三两条路由的失败码投影：**受控码原样回显**（与上传/纳入同一考虑 —— 「坐标不认」「上游不可用」
+ * 「体量超限」三条的下一步完全不同，折成一枚就等于把原因抹掉），其余按状态兜底成同族码。
+ */
+function skillOnlineFailureCode(error: unknown, status: number): string {
+  const code = controlledErrorCode(error)
+  if (code !== undefined) return code
+  if (status === 413) return 'ENT_SKILL_SOURCE_TOO_LARGE'
+  if (status === 502) return 'ENT_SKILL_SOURCE_UNREACHABLE'
+  if (status === 400) return 'ENT_INVALID_REQUEST'
+  return 'ENT_PLATFORM_UNAVAILABLE'
 }
 
 function parseServerUrlInput(value: unknown): { readonly serverUrl: string } {
@@ -813,6 +1093,195 @@ export function registerEnterpriseLocalApi(
             writeJson(response, status, { error: {
               code: status === 400 ? 'ENT_INVALID_REQUEST' : errorCode(error),
             } })
+          }
+        },
+      }))
+    }
+
+    if (options.skillUpload !== undefined) {
+      const skillUpload = options.skillUpload
+      disposers.push(webServer.register({
+        kind: 'exact',
+        // 精确路径抢在 bundle 侧 `/skills` 详情 prefix 之前（否则 `upload` 会被当包 id 判 400）。
+        path: ENTERPRISE_SKILL_UPLOAD_LOCAL_PATH,
+        handler: async (request, response) => {
+          if (request.method !== 'POST') {
+            methodNotAllowed(response, 'POST')
+            return
+          }
+          const operation = `POST ${ENTERPRISE_SKILL_UPLOAD_LOCAL_PATH}`
+          // 还没读完正文的本地拒绝统一 `resume()` 排空（照 feedback-route 的既有手法），
+          // 让浏览器读得到这条 4xx/5xx，而不是一个 connection reset。
+          const reject = (status: number, code: string): void => {
+            request.resume()
+            writeJson(response, status, { error: { code } })
+          }
+          const declared = Number(singleHeader(request.headers['content-length']))
+          if (Number.isFinite(declared) && declared > MAX_SKILL_UPLOAD_BODY_BYTES) {
+            reject(413, 'ENT_SKILL_UPLOAD_TOO_LARGE')
+            return
+          }
+          const boundary = multipartBoundaryOf(singleHeader(request.headers['content-type']))
+          if (boundary === undefined) {
+            reject(400, 'ENT_SKILL_UPLOAD_INVALID')
+            return
+          }
+          try {
+            const body = await readBoundedUploadBody(request, MAX_SKILL_UPLOAD_BODY_BYTES)
+            // 超限时读盘已排空（不缓冲），这里只回稳定码 —— 与声明长度那一条同一个码。
+            if (body === undefined) throw new RangeError('upload body is too large')
+            writeJson(response, 200, { data: await skillUpload(body, boundary) })
+          } catch (error) {
+            const status = enterpriseLocalErrorStatus(error)
+            options.onError?.(operation, error, status)
+            writeJson(response, status, { error: { code: uploadFailureCode(error, status) } })
+          }
+        },
+      }))
+    }
+
+    if (options.skillSelfInstalled !== undefined) {
+      const skillSelfInstalled = options.skillSelfInstalled
+      disposers.push(webServer.register({
+        kind: 'exact',
+        path: ENTERPRISE_SKILL_SELF_INSTALLED_LOCAL_PATH,
+        handler: async (request, response) => {
+          if (request.method !== 'GET') {
+            methodNotAllowed(response, 'GET')
+            return
+          }
+          try {
+            writeJson(response, 200, { data: await skillSelfInstalled() })
+          } catch (error) {
+            const status = enterpriseLocalErrorStatus(error)
+            options.onError?.(`GET ${ENTERPRISE_SKILL_SELF_INSTALLED_LOCAL_PATH}`, error, status)
+            writeJson(response, status, { error: { code: status === 400 ? 'ENT_INVALID_REQUEST' : errorCode(error) } })
+          }
+        },
+      }))
+    }
+
+    if (options.skillSystemSearch !== undefined) {
+      const skillSystemSearch = options.skillSystemSearch
+      disposers.push(webServer.register({
+        kind: 'exact',
+        // 同一条承重理由：`system-search` 若掉进 bundle 侧 `/skills` 详情 prefix 会被当包 id 判 400。
+        path: ENTERPRISE_SKILL_SYSTEM_SEARCH_LOCAL_PATH,
+        handler: async (request, response) => {
+          if (request.method !== 'GET') {
+            methodNotAllowed(response, 'GET')
+            return
+          }
+          try {
+            writeJson(response, 200, { data: await skillSystemSearch() })
+          } catch (error) {
+            const status = enterpriseLocalErrorStatus(error)
+            options.onError?.(`GET ${ENTERPRISE_SKILL_SYSTEM_SEARCH_LOCAL_PATH}`, error, status)
+            writeJson(response, status, { error: { code: status === 400 ? 'ENT_INVALID_REQUEST' : errorCode(error) } })
+          }
+        },
+      }))
+    }
+
+    if (options.skillAdopt !== undefined) {
+      const skillAdopt = options.skillAdopt
+      disposers.push(webServer.register({
+        kind: 'exact',
+        // 同理：`adopt` 必须由 exact 表接住，否则会被 `/skills` 前缀当成包 id。
+        path: ENTERPRISE_SKILL_ADOPT_LOCAL_PATH,
+        handler: async (request, response) => {
+          if (request.method !== 'POST') {
+            methodNotAllowed(response, 'POST')
+            return
+          }
+          const operation = `POST ${ENTERPRISE_SKILL_ADOPT_LOCAL_PATH}`
+          try {
+            const value = await readJson(request)
+            if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+              throw new TypeError('invalid skill adopt')
+            }
+            const body = value as Record<string, unknown>
+            // 关闭键集恰好 `{path}`（与 `/plugins/{action}` 同一把尺）：越界键、非字符串、空串、超长
+            // 都在这里变成 400，**一次都不进** bundle —— 那条路径的语义（是不是候选）由 bundle 判定。
+            if (Object.keys(body).sort().join(',') !== 'path'
+              || typeof body['path'] !== 'string'
+              || body['path'].length === 0
+              || body['path'].length > MAX_SKILL_ADOPT_PATH_LENGTH) {
+              throw new TypeError('invalid skill adopt')
+            }
+            writeJson(response, 200, { data: await skillAdopt(body['path']) })
+          } catch (error) {
+            const status = enterpriseLocalErrorStatus(error)
+            options.onError?.(operation, error, status)
+            writeJson(response, status, { error: { code: skillAdoptFailureCode(error, status) } })
+          }
+        },
+      }))
+    }
+
+    if (options.skillOnlineSearch !== undefined) {
+      const skillOnlineSearch = options.skillOnlineSearch
+      disposers.push(webServer.register({
+        kind: 'exact',
+        // 同一条承重理由：`online-search` 若掉进 bundle 侧 `/skills` 详情 prefix 会被当包 id 判 400。
+        path: ENTERPRISE_SKILL_ONLINE_SEARCH_LOCAL_PATH,
+        handler: async (request, response) => {
+          if (request.method !== 'GET') {
+            methodNotAllowed(response, 'GET')
+            return
+          }
+          const operation = `GET ${ENTERPRISE_SKILL_ONLINE_SEARCH_LOCAL_PATH}`
+          try {
+            const query = requestUrl(request).searchParams.get('q')
+            // 只做形状收窄：非空、有界、无控制字符。语义（三源、白名单、超时、归一化）全在 bundle 侧。
+            if (query === null || query.length === 0 || query.length > MAX_SKILL_ONLINE_QUERY_LENGTH) {
+              throw new TypeError('invalid skill online search query')
+            }
+            for (const character of query) {
+              const point = character.codePointAt(0) ?? 0
+              if (point < 0x20 || point === 0x7f) throw new TypeError('invalid skill online search query')
+            }
+            writeJson(response, 200, { data: await skillOnlineSearch(query) })
+          } catch (error) {
+            const status = enterpriseLocalErrorStatus(error)
+            options.onError?.(operation, error, status)
+            writeJson(response, status, { error: { code: skillOnlineFailureCode(error, status) } })
+          }
+        },
+      }))
+    }
+
+    if (options.skillInstallFromResult !== undefined) {
+      const skillInstallFromResult = options.skillInstallFromResult
+      disposers.push(webServer.register({
+        kind: 'exact',
+        // 同理：`install-from-result` 必须由 exact 表接住，否则会被 `/skills` 前缀当成包 id。
+        path: ENTERPRISE_SKILL_INSTALL_FROM_RESULT_LOCAL_PATH,
+        handler: async (request, response) => {
+          if (request.method !== 'POST') {
+            methodNotAllowed(response, 'POST')
+            return
+          }
+          const operation = `POST ${ENTERPRISE_SKILL_INSTALL_FROM_RESULT_LOCAL_PATH}`
+          try {
+            const value = await readJson(request)
+            if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+              throw new TypeError('invalid skill install-from-result body')
+            }
+            const body = value as Record<string, unknown>
+            // 关闭键集恰好 `{source}`（与 `/plugins/{action}` 同一把尺）：越界键、非字符串、空串、超长
+            // 都在这里变成 400，**一次都不进** bundle —— 坐标语义（源白名单 / 解析）由 bundle 判定。
+            if (Object.keys(body).sort().join(',') !== 'source'
+              || typeof body['source'] !== 'string'
+              || body['source'].length === 0
+              || body['source'].length > MAX_SKILL_INSTALL_SOURCE_LENGTH) {
+              throw new TypeError('invalid skill install-from-result body')
+            }
+            writeJson(response, 200, { data: await skillInstallFromResult(body['source']) })
+          } catch (error) {
+            const status = enterpriseLocalErrorStatus(error)
+            options.onError?.(operation, error, status)
+            writeJson(response, status, { error: { code: skillOnlineFailureCode(error, status) } })
           }
         },
       }))

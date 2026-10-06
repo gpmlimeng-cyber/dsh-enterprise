@@ -1,6 +1,12 @@
 /**
  * [INPUT]: 依赖 error-messages 的唯一码 → 人话映射（含兜底）、error-notice 的「技术信息」钩子常量，以及 src 下全部界面源码里的 `ENT_*` 字面量
- * [OUTPUT]: 验证映射是**纯投影**且处处一致：逐码给出非空的「发生了什么 + 下一步」、文案里不出现裸码、未映射/空串/畸形形状一律落兜底人话、码原样保留可取；并锁死「ui src 里出现的每个码都在唯一映射里」 **本刀（企业插件真取消）**：码清单加 `ENT_PLUGIN_INSTALL_CANCELLED`（并逐字锁它的文案与 `retryable: true`）
+ * [OUTPUT]: 验证映射是**纯投影**且处处一致：逐码给出非空的「发生了什么 + 下一步」、文案里不出现裸码、未映射/空串/畸形形状一律落兜底人话、码原样保留可取；并锁死「ui src 里出现的每个码都在唯一映射里」 **本刀（企业插件真取消）**：码清单加 `ENT_PLUGIN_INSTALL_CANCELLED`（并逐字锁它的文案与 `retryable: true`） **本刀（在线搜索，+1 条）**：码清单加三枚在线来源码，并把「逐流逐句都成立」那条判据从**单流**扩到
+ *   遍历 `ENTERPRISE_ERROR_FLOWS`（`'local-upload'` + 本刀新增的 `'online-install'`），
+ *   同时锁住在线安装流下不许出现「重新下载 / 重新发布」这两句做不到的动作。
+ *   **本刀（通过 Agent 创建，+1 条）**：码清单加两枚本机动作码（开新会话失败 / 复制草稿失败），并逐字锁
+ *   「两枚的下一步互不相同」。**本刀（系统搜索，+2 条）**：码清单加三枚纳入码（并锁它们的下一步**互不相同**与终态/瞬时的划分），
+ *   并把「同名冲突跨三条流但**只有一句话**」写成机械判据（谁想给它加流专属表述，这条会先红）。
+ *   **本刀（本地导入，+1 条）**：码清单加四枚上传通路的码（`ENT_SKILL_UPLOAD_{TOO_LARGE,INVALID,FAILED}` + `ENT_SKILL_SKILLMD_INVALID`），并新增「**跨流码的按流下一步**」判据——逐码逐流（`local-upload`）审第二句的完整性与「本地上传流下不许出现『重新下载』」，且按流取值在不传流时与默认取值**逐字相同**
  * [POS]: 失败自愈的机械门禁——宪法「禁止把技术码砸给用户」与「一处定义、处处复用」的可执行版本
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,7 +18,9 @@ import {
   ENTERPRISE_ERROR_CODES,
   ENTERPRISE_ERROR_FALLBACK_ACTION,
   ENTERPRISE_ERROR_FALLBACK_MESSAGE,
+  ENTERPRISE_ERROR_FLOWS,
   enterpriseErrorAction,
+  enterpriseErrorActionIn,
   enterpriseErrorMessage,
   enterpriseErrorPresentation,
   enterpriseErrorRetryable,
@@ -26,6 +34,14 @@ const REQUIRED_CODES = [
   'ENT_SKILL_PACKAGE_MISMATCH', 'ENT_SKILL_INVALID_PACKAGE', 'ENT_SKILL_NAME_CONFLICT', 'ENT_SKILL_STATE_INVALID',
   'ENT_SKILL_INSTALL_FAILED', 'ENT_SKILL_CONTENT_TOO_LARGE', 'ENT_SKILL_CONTENT_INVALID', 'ENT_SKILL_TOO_LARGE',
   'ENT_SKILL_NOT_PUBLISHED', 'ENT_SKILL_VISIBILITY_DENIED',
+  // **本刀（本地导入）**：本地上传那条通路的四枚码（三枚上传码 + `SKILL.md` frontmatter 闸门那一枚）。
+  'ENT_SKILL_UPLOAD_TOO_LARGE', 'ENT_SKILL_UPLOAD_INVALID', 'ENT_SKILL_UPLOAD_FAILED', 'ENT_SKILL_SKILLMD_INVALID',
+  // **本刀（系统搜索 → 纳入）**：纳入那条通路的三枚码。
+  'ENT_SKILL_DISCOVERY_UNKNOWN', 'ENT_SKILL_ALREADY_REGISTERED', 'ENT_SKILL_ADOPT_FAILED',
+  // **本刀（通过 Agent 创建）**：那两项本机动作码（开新会话失败 / 复制草稿失败）。
+  'ENT_SKILL_CREATE_LAUNCH_FAILED', 'ENT_SKILL_CREATE_COPY_FAILED',
+  // **本刀（在线搜索 → 安装）**：三枚在线来源码。
+  'ENT_SKILL_SOURCE_UNKNOWN', 'ENT_SKILL_SOURCE_UNREACHABLE', 'ENT_SKILL_SOURCE_TOO_LARGE',
   // 插件链
   'ENT_PLUGIN_DOWNLOAD_FAILED', 'ENT_PLUGIN_HASH_MISMATCH', 'ENT_PLUGIN_SIZE_MISMATCH', 'ENT_PLUGIN_ARTIFACT_INVALID',
   'ENT_PLUGIN_ARCHIVE_TOO_LARGE', 'ENT_PLUGIN_SIGNATURE_INVALID', 'ENT_PLUGIN_INCOMPATIBLE', 'ENT_PLUGIN_BUSY',
@@ -81,7 +97,38 @@ describe('enterprise error vocabulary (single projection)', () => {
       expect(enterpriseErrorMessage(code), code).toBe(view.message)
       expect(enterpriseErrorAction(code), code).toBe(view.action)
       expect(enterpriseErrorRetryable(code), code).toBe(view.retryable)
+      // 不传流时「按流取值」与默认取值**逐字相同**（既有入口一个字节都不变）。
+      expect(enterpriseErrorActionIn(code), code).toBe(view.action)
     }
+  })
+
+  /**
+   * **本刀（本地导入）：跨流码的按流下一步**。
+   *
+   * 第③条口径（一个码一句话）挡的是**同一条流内**各写一套；而有的码真的跨了两条流、两条流的下一步
+   * 不同 —— 只有这种码才允许有第二句（`actions`）。这条用例逐码逐流地把第二句也审一遍，并**自证**
+   * 表里确实存在这样的码（否则这条会退化成永真）。
+   */
+  it('keeps every flow-specific next step as complete as the default one', () => {
+    let crossFlow = 0
+    for (const code of ENTERPRISE_ERROR_CODES) {
+      for (const flow of ENTERPRISE_ERROR_FLOWS) {
+        const scoped = enterpriseErrorActionIn(code, flow)
+        expect(scoped.length, `${code}/${flow}`).toBeGreaterThan(0)
+        expect(scoped.endsWith('。'), `${code}/${flow}`).toBe(true)
+        expect(scoped, `${code}/${flow}`).not.toContain('ENT_')
+        if (scoped === enterpriseErrorAction(code)) continue
+        crossFlow += 1
+        // 本地上传流里技能包就是员工手里那份文件 ⇒ 这一流下**不许**出现「重新下载」这个做不到的动作；
+        // 在线安装流同理（包在第三方仓库里、由本机替用户取，「请重新下载 / 联系企业管理员重新发布」都说不通）。
+        expect(scoped, `${code}/${flow}`).not.toContain('重新下载')
+        expect(scoped, `${code}/${flow}`).not.toContain('重新发布')
+      }
+    }
+    expect(crossFlow).toBeGreaterThan(0)
+    // 那一枚真实存在的跨流码：中心下载安装流那句原样保留（既有入口零改动）。
+    expect(enterpriseErrorAction('ENT_SKILL_ARCHIVE_INVALID')).toBe('请重新下载；仍然失败请联系企业管理员重新发布。')
+    expect(enterpriseErrorActionIn('ENT_SKILL_ARCHIVE_INVALID', 'local-upload')).toContain('重新选择')
   })
 
   it('falls back to a human sentence for unmapped, malformed, empty and missing codes', () => {
@@ -123,6 +170,85 @@ describe('enterprise error vocabulary (single projection)', () => {
     expect(ENTERPRISE_ERROR_ACTIONS.retry).toBe('重试')
     expect(ENTERPRISE_ERROR_ACTIONS.login).toBe('去登录')
     expect(ENTERPRISE_ERROR_ACTIONS.admin).toBe('联系企业管理员')
+  })
+
+  /**
+   * **本刀（系统搜索 → 纳入）**：纳入三枚码的下一步**各不相同**（这是它们存在的理由），
+   * 且终态/瞬时的划分与「同一输入再试有没有意义」一致。
+   */
+  it('keeps the adopt vocabulary distinct, with one executable next step each', () => {
+    const codes = ['ENT_SKILL_DISCOVERY_UNKNOWN', 'ENT_SKILL_ALREADY_REGISTERED', 'ENT_SKILL_ADOPT_FAILED'] as const
+    for (const code of codes) {
+      expect(ENTERPRISE_ERROR_CODES, code).toContain(code)
+      expect(enterpriseErrorPresentation(code).known, code).toBe(true)
+    }
+    // 三句话各不相同：找不到 → 重新搜索；已登记 → 回列表刷新；完不成 → 重试。
+    expect(new Set(codes.map(enterpriseErrorAction)).size).toBe(codes.length)
+    // 404（这份 path 再发一次必然还是 404）与 409（本机没坏，只是已经登记）都不是「再试一次」能解决的；
+    // 500（读盘/写盘的瞬时失败，或目录太大）重试有意义。
+    expect(enterpriseErrorRetryable('ENT_SKILL_DISCOVERY_UNKNOWN')).toBe(false)
+    expect(enterpriseErrorRetryable('ENT_SKILL_ALREADY_REGISTERED')).toBe(false)
+    expect(enterpriseErrorRetryable('ENT_SKILL_ADOPT_FAILED')).toBe(true)
+  })
+
+  /**
+   * **同名冲突现在是三条流共用的一个码**（中心安装 / 本地上传 / 系统搜索纳入）。
+   *
+   * 三条流的下一步**真的是同一件**事（先试卸载，卸不掉就请管理员清），故这个码**不**留流专属表述——
+   * 一句话对三条流都成立。谁将来想给它加 `actions`，这条会先红，逼他把理由写清楚。
+   */
+  it('keeps the same-name conflict one executable sentence in every flow', () => {
+    const action = enterpriseErrorAction('ENT_SKILL_NAME_CONFLICT')
+    for (const flow of [undefined, 'local-upload'] as const) {
+      expect(enterpriseErrorActionIn('ENT_SKILL_NAME_CONFLICT', flow)).toBe(action)
+    }
+    // 改前那句「请先卸载同名技能，再重试安装。」指向今天做不到的动作（自装的那份没有卸载面）。
+    expect(action).not.toBe('请先卸载同名技能，再重试安装。')
+    expect(action).toContain('无法卸载')
+    expect(action).toContain('企业管理员')
+  })
+
+  /**
+   * **本刀（通过 Agent 创建）**：两枚本机动作码的下一步**必须不同**（否则没必要分两枚）——
+   * 开新会话失败往「把指令复制走」走，剪贴板失败往「检查权限后重试」走。
+   */
+  it('keeps the two agent-creation action codes apart, each with its own executable step', () => {
+    const launch = enterpriseErrorAction('ENT_SKILL_CREATE_LAUNCH_FAILED')
+    const copy = enterpriseErrorAction('ENT_SKILL_CREATE_COPY_FAILED')
+    for (const code of ['ENT_SKILL_CREATE_LAUNCH_FAILED', 'ENT_SKILL_CREATE_COPY_FAILED']) {
+      expect(ENTERPRISE_ERROR_CODES, code).toContain(code)
+      expect(enterpriseErrorPresentation(code).known, code).toBe(true)
+      // 两枚码都不带预设/配方字样：它们只属于这一条通路，出现在技术信息里不该指向别的功能。
+      expect(code).not.toContain('PRESET')
+    }
+    expect(launch).not.toBe(copy)
+    expect(launch).toContain('复制')
+    expect(copy).toContain('剪贴板权限')
+  })
+
+  /**
+   * **本刀（在线搜索 → 安装）**：三枚来源码**各说各的下一步**（换一条结果 / 检查网络重试 / 换一条更小的），
+   * 且三枚既有跨流码在 `'online-install'` 流下取到的是**这一流说得通**的那句（默认句里的「重新下载 /
+   * 联系企业管理员重新发布」在在线安装下不成立：包在第三方仓库、由本机替用户取）。
+   */
+  it('keeps the online source codes and the online-install flow apart', () => {
+    const codes = ['ENT_SKILL_SOURCE_UNKNOWN', 'ENT_SKILL_SOURCE_UNREACHABLE', 'ENT_SKILL_SOURCE_TOO_LARGE'] as const
+    for (const code of codes) {
+      expect(ENTERPRISE_ERROR_CODES, code).toContain(code)
+      expect(enterpriseErrorPresentation(code).known, code).toBe(true)
+      expect(enterpriseErrorActionIn(code, 'online-install'), code).toBe(enterpriseErrorAction(code))
+    }
+    // 下一步三句互不相同（这是分三枚码的理由）。
+    expect(new Set(codes.map(enterpriseErrorAction)).size).toBe(codes.length)
+    // 跨流那三枚：在线安装流下有自己那句，且都不含做不到的动作。
+    for (const code of ['ENT_SKILL_ARCHIVE_INVALID', 'ENT_SKILL_SKILLMD_INVALID', 'ENT_SKILL_INSTALL_FAILED']) {
+      const online = enterpriseErrorActionIn(code, 'online-install')
+      expect(online, code).not.toBe(enterpriseErrorAction(code))
+      expect(online, code).not.toContain('重新下载')
+      expect(online, code).not.toContain('重新发布')
+    }
+    // 流值清单是唯一真源：两枚都在、且没有第三个。
+    expect([...ENTERPRISE_ERROR_FLOWS].sort()).toEqual(['local-upload', 'online-install'])
   })
 
   it('keeps every ENT_ code that appears in the ui sources inside the single table', async () => {

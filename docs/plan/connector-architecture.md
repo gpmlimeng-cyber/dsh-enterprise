@@ -8,6 +8,8 @@
 [OUTPUT]: 给出连接器（万能连接）的架构方案：公理与推导、三层架构（跨平台内核 / 主机能力面 / 企业侧）、
           能力的形式化描述与 L1/L2/L3 可执行判据、六类连接的适配规格（含 IM/邮件入站拓扑）、
           中国开箱即用清单、企业端配置/集成/部署、P0/P1/P2 人日与前置依赖、开放问题/明确不做/不确定项。
+          ★ §7 另含 **P0-1/P0-2 的落地登记**（2026-10-06，落点 `plugin/packages/bundle/src/connector/`）
+          与 §3.2/§3.3 **两处自相矛盾**的取严处置（实现取严的一侧，建议回写本节）。
 [POS]: docs/plan 下的方案文档（**只规划、不实现、不改任何源文件**）。与 docs/notes/connector-vision.md 不冲突，
        是它的第一份落地方案；跨平台部分落实 connector-vision.md §6，插件规范部分落实其 §5 的七条合规清单。
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md。
@@ -276,7 +278,7 @@
 | `reversibility` | **可逆性**：`reversible` / `compensable` / `irreversible` | 枚举 | **C4 第一轴** |
 | `blastRadius` | **影响半径**：`self` / `org` / `external`（含物理世界） | 枚举 | **C4 第二轴** |
 | `transport` | 传输：`mcp` / `http` / `openapi` / `a2a` / `acp` / `im-webhook` / `smtp` / `imap` / `mqtt` / … | 枚举 | C3：传输是可替换细节 |
-| `authRef` | **认证引用**：只写凭据**键名**，不写值 | 凭据引用串（官方 `ctx.credentials` ref） | C2；官方 `dsh-credentials/README.md:12` |
+| `authRef` | **认证引用**：只写凭据**键名**，不写值 | 凭据引用串（官方 `ctx.credentials` ref） | C2；官方 `dsh-credentials/README.md:12`。★**2026-10-06 更正**：对 **MCP 传输**，只有 `env`/`project-env`/`user-env` 三层能真正到达子进程；保管文件（`source: 'file'`）**到不了** —— 见 §4.1 约束 ⑤ |
 | `egressAllowlist` | **出站白名单**：能访问的域名/网段，显式声明 | 域名/网段列表 | 硬约束 §2（防 SSRF 与横向移动）；`docs/notes/connector-vision.md:56` |
 | `quota` | 限额：次数/窗口/并发/字节 | 结构化 | C5：策略要能约束程度 |
 | `inbound` | 是否支持入站及入口种类 | `none` / `webhook` / `long-poll` / `callback` | §4.7 拓扑 |
@@ -349,8 +351,37 @@ decide(actor, cap, host):
   `dsh-mcp-client/README.md:107-108`）。
 - **已知约束**：① `serverName` 在一个注册作用域内唯一，重复会在加载时失败（`:58`、`:128`）；
   ② stdio 的 `env` 会与**被清洗过的**环境合并（`:59`、`:136`）—— 密钥不能靠裸环境变量传，走凭据引用；
+   ★★ **第十八刀补（实现级发现的真 bug）**：凭据**键名的语法**当时写成了 `^[A-Za-z_][A-Za-z0-9_.-]{0,63}$`
+   （允许 `-` 与 `.`），而官方 `dsh-credentials/lib/index.js:13` 的 `REF_PATTERN` 是 `^[A-Za-z_][A-Za-z0-9_]*$`
+   （"POSIX-style environment-variable name"）。这不是风格问题：我们的配置型 bundle 写的是
+   `env: { KEY: !!js process.env.<键名> }`，键名带 `-` 时 **JS 把 `process.env.a-b` 解析成减法**（`NaN`/ReferenceError），
+   http 头那条 `` `Bearer ${process.env.a-b}` `` 会送出 `Bearer NaN` —— 也就是**旧语法能生成一份坏配置**。
+   已在宿主侧（`CONNECTOR_CREDENTIAL_KEY_PATTERN`）与服务端闸门（`ConnectorDescriptorGate.CREDENTIAL_KEY`）**同步收紧**到官方同一把尺，
+   并加了 26 格矩阵门禁（13 种"把值抄进配置"的形状 × 2 传输，逐格断言确切拒绝码）。
+   **残留（如实登记）**：不带连字符的密钥形状（如 `sklive1234`）仍可能被当作"名字"通过；根治要加一条语义约束——
+   **描述符里的引用必须出现在该连接的能力声明的 `authRef` 里**（声明是被审阅与审计的那一面），属后续刀。
   ③ 启动失败默认不阻断宿主，但该服务器的工具**一个都不出现**（`:71`）；要强约束才开 `failOnStartupError: true`；
-  ④ 官方 SDK 选用 2026-07-28 协议、不可用时回落旧修订（`:28`）—— 兼容性差异是真实风险，不要承诺"任意 MCP 服务器都行"。
+  ④ 官方 SDK 选用 2026-07-28 协议、不可用时回落旧修订（`:28`）—— 兼容性差异是真实风险，不要承诺"任意 MCP 服务器都行"；
+  ⑤ ★**（2026-10-06 新取证）凭据只到得了"环境层"，到不了"保管层"** —— 三条官方依据：
+     `cordis-plugin-loader/lib/index.js:233` 的 `!!js` 求值器是**同步**的（`new Function("ctx","expr","with (ctx) { return eval(expr) }")`），
+     而官方凭据面的 `resolve`/`describe` 是 **async**；`dsh-mcp-client/lib/types/index.d.ts:39` 的 `env` 只收
+     `Record<string, string>`；`dsh-credentials-local/README.md:115` 逐字 "**never loads the file into the environment**"。
+     ⇒ 配置里能写的只有 `!!js process.env.<键>`，故只有**启动环境 / 两个 `.env` 层**的值能进子进程；
+     **保管文件里的键（恰是 `writable: true` 的那一类）送不到**。★这条**推翻了 §7 P0-3 原来的写法**
+     （"`authRef` → 官方 `ctx.credentials`"对 MCP 不可实现），并让"管理端最容易做的动作（在设置里存一个键）"
+     成为**对 MCP 无效**的那一个 ⇒ 必须做成显式判据而不是静默零工具（实现见 P0-3 那一行的登记）。
+     ★ **实现级复核三处（2026-10-06 第十二刀，把上面那三条从 README/类型级升到实现级）**：
+     ① `dsh-app-boot/lib/index.js` 的 `loadLayeredEnv` 里逐字 `for (const [name,value] of Object.entries(layer.values))
+     if (process.env[name] === void 0) process.env[name] = value;` ⇒ **两个 `.env` 层确实被写进 `process.env`**（不覆盖已有值），
+     同一函数构造快照时的层 id 逐字是 `process` / `project-env` / `user-env`；
+     ② `dsh-credentials-local/lib/index.js:437-438` 的 `dotenvFallback(ref)` 取的就是 `['project-env','user-env']`，
+     `:477` 把 `process` 层报成 source `'env'` ⇒ 实现里"可送达"的那三个 id 与我们代码里的常量**逐一对应**；
+     同一文件全文**零** `process.env` 写操作 ⇒ 保管层永不进环境。
+     ③ `dsh-mcp-client/lib/*.js` **零**引用 `credentials`/`readRecord`/`credentialKey` ⇒ 官方 MCP 客户端根本不读凭据面；
+     反向核对 `readRecord` 的消费者是 `dsh-llm-pi-ai` / `dsh-deepseek-account-platform` / `dsh-storage-json`
+     这类**进程内自调凭据面**的适配器（记录里的 `env` 值服务的是它们，不是子进程）。
+     ⇒ 结论不变，但现在是**实现级已验**：`env`/`project-env`/`user-env` 三层的值在 `process.env` 里现成有、
+     `file` 层的值永远到不了子进程。取证写进了 `plugin/packages/bundle/src/connector/credentials.ts` 的两个常量注释。
 
 ### 4.2 HTTP / OpenAPI
 
@@ -532,6 +563,7 @@ decide(actor, cap, host):
 | 3 | **授权记录（grant）是持久记录，按 `<scope>/<id>` 归属** | 官方 `modifyRecord` 唯一写路径（`:65-81`） |
 | 4 | **变更要可追溯、可回滚** | 沿用品牌资产的 CAS + revision + 回滚范式（`console/src/features/branding/CLAUDE.md:7`） |
 | 5 | **⚠️ 环境已注入的键不可覆盖，会报只读** | 官方明确（`dsh-credentials/README.md:95`）—— 管理员界面必须先分辨这一点再报"改了没生效" |
+| 6 | ★**（2026-10-06 新取证）"能不能改"与"送不送得到"是两件事，且方向相反** | 对 **MCP 传输**：`writable: true`（存在保管文件里）恰恰是**送不到**子进程的那一类；`writable: false`（启动环境供的）反而送得到。依据见 §4.1 约束 ⑤。⇒ 管理端**不能**把"可写"当成"可用"，必须先判层再判送达 |
 
 ### 6.3 授权范围与策略求值
 
@@ -539,8 +571,9 @@ decide(actor, cap, host):
   （配方侧同构实现见 `docs/plan/enterprise-presets.md:71`）。
 - **策略**（可用性）：`角色 × 范围 × 平台 × 能力等级上限 × 额度`（C5）。管理员设定的是**上限**，
   员工不能自行放宽；员工只能进一步**收紧自己的同意**。
-- **失败一律 fail-closed**：引用不到 / 平台不支持 / 凭据不可写 / 未被分配 → **不可用并给可行动提示**，
-  绝不静默降级（与配方侧同口径，`docs/plan/enterprise-presets.md:268`）。
+- **失败一律 fail-closed**：引用不到（未配置）/**凭据送不到子进程**（见 §6.2 第 6 行）/ 平台不支持 / 未被分配
+  → **不可用并给可行动提示**，绝不静默降级（与配方侧同口径，`docs/plan/enterprise-presets.md:268`）。
+  ★注意这里**不是**"凭据不可写就拒"——按 §6.2 第 6 行，对 MCP 恰恰相反。
 
 ### 6.4 部署形态
 
@@ -580,25 +613,226 @@ decide(actor, cap, host):
 
 > 人日口径沿用仓库既有调研：**1 人日 = 1 名熟悉本仓库的工程师有效工作 6 小时，含实现 + 测试 + 文档**，
 > 不含排期等待与跨团队协调（`docs/plan/enterprise-presets.md:724`）。
-> 迁移号参考：现有迁移到 `V37`（`.../db/migration/V37__enterprise_skill_category.sql`），
-> `V38` 已被 `skill-ingest-center` 预定、`V39` 被配方二期预定（`docs/plan/enterprise-presets.md:730`、`:809`），
-> **故连接器从 `V40` 起，且开工前必须重新对齐一次迁移号**。
+> 迁移号参考（★**2026-10-06 实测更正**：原写"现有迁移到 `V37`、`V39` 被预定、故连接器从 `V40` 起"——**三条全已过期**）：
+> 实测 `server/owndsh-modules/owndsh-enterprise/src/main/resources/db/migration/` 现有 **`V0`–`V37`、`V39`–`V43`**
+> （`V43__enterprise_library.sql` 是当前最大；**`V38` 仍是空号**，`skill-ingest-center` 当年预定的那一枚尚未落地）。
+> `V39`（`V39__enterprise_preset_dependencies.sql`）与 `V40`（`V40__enterprise_plugin_description.sql`）**都已实际存在**，
+> 不是"被预定"。⇒ **连接器取 `V44`**（已核：V44 零命中）；**开工那一刻必须再核一次**（本段是快照，不是承诺）。
 
-### P0 — 最小可用：**"一条真能连上的出站 + 一套能管住的策略/审计"**（**11–18 人日**）
+### P0 — 最小可用：**"一条真能连上的出站 + 一套能管住的策略/审计"**（**12–20 人日**）
+
+> ★ 标题原写 **11–18**，与本节明细合计（`12–20`，逐项相加的算式就在下面）矛盾；**以明细为准**
+> （`docs/plan/mcp-conformance.md` §8.3 第 3 条已判定应改此处）。
 
 | 项 | 内容 | 人日 | 前置依赖 |
 |---|---|---|---|
 | P0-1 | 能力描述模型 + 注册表 + 策略求值器（§3.1/§3.2/§3.3）：纯内核、零平台依赖 | 2–3 | — |
 | P0-2 | **MCP 出站连接器**：生成官方 MCP 配置的配置型 bundle（不写第二套客户端） | 1.5–2.5 | ⚠️ 官方安装面可达性（同 §8.3 第 1 条） |
-| P0-3 | **凭据引用接入**：`authRef` → 官方 `ctx.credentials`；管理端"设没设/能不能改"观测面 | 1.5–2.5 | P0-1 |
-| P0-4 | 企业侧最小账本：连接条目 + 可见范围（全量原子替换 + CAS）+ 迁移 `V40` + 审计 6 事件扩枚举 | 2.5–4 | P0-1；⚠️ **迁移号须先对齐**（`V38`/`V39` 已占） |
-| P0-5 | 员工侧最小呈现：连接列表（三态：可用/需确认/不支持）+ 首次同意 + 可撤回；术语降维 | 2–3 | P0-3、P0-4 |
+| P0-3 | **凭据引用接入（2026-10-06 按取证改写）**：`authRef` → 官方 `ctx.credentials.describe` 的**只读观测面**（设没设/从哪来/能不能改，**永不说值**）＋**送达判定**（对 MCP 只有 `env`/`project-env`/`user-env` 三层真到得了子进程；保管文件那一层报「配了但送不到」并给「镜像进 `.env`/启动环境」的可行动指引）。★原写法「`authRef` → 官方 `ctx.credentials`」对 MCP **不可实现**，依据 §4.1 约束 ⑤ | 1.5–2.5 | P0-1 |
+| P0-4 | 企业侧最小账本：连接条目 + 可见范围（全量原子替换 + CAS）+ 迁移 **`V44`** + 审计 6 事件扩枚举 | 2.5–4 | P0-1；✅ **迁移号已对齐（2026-10-06 实测：取 `V44`，`V40` 已被 `enterprise_plugin_description` 占用）** |
+| P0-5 | 员工侧最小呈现：连接列表（三态：可用/需确认/不支持）+ 首次同意 + 可撤回；术语降维。★**细化方案见 `docs/plan/mcp-marketplace-tab.md`，人日以那边 §13 为准**（把它展开成与既有四枚页签同构的界面是 **8–12 人日** ⇒ 本行 `2–3` 是"只算最小列表"的历史口径，已被顶替） | 2–3 | P0-3、P0-4 |
 | P0-6 | 第一条**中国开箱即用**出站连接：企业微信群机器人 **或** 钉钉自定义机器人 **或** 只读 API（§5 第 1/3/10 行） | 1–2 | ⚠️ 需真机/真租户验证（§8.3 第 2 条） |
 | P0-7 | 联调 + 验收（三态呈现、L3 每次确认、策略拒绝可行动、审计逐条覆盖） | 1.5–3 | P0-1…P0-6 |
 
-**P0 合计 = 12–20 人日**（逐项区间相加：min 2+1.5+1.5+2.5+2+1+1.5 = 12.0；max 3+2.5+2.5+4+3+2+3 = 20.0）。**P0 的硬前置（"尚不存在"的能力）**：
-① 官方安装面在**客户端侧**发起是否与会话内 `plugin_manager` 同一条面 —— **未验证**（同 `docs/plan/enterprise-presets.md:818-821`）；
-② 迁移号 `V38`/`V39` 已被预定，连接器须确认 `V40` 可用。
+**P0 合计 = 12–20 人日**（逐项区间相加：min 2+1.5+1.5+2.5+2+1+1.5 = 12.0；max 3+2.5+2.5+4+3+2+3 = 20.0）。
+★ **但这个合计没有算 P0-5 的细化**：P0-5 那一行按"最小列表"估的 2–3 人日，在
+`docs/plan/mcp-marketplace-tab.md` §13 里展开成与既有四枚页签同构的界面后是 8–12 人日
+⇒ **修正后的 P0 ≈ 17–29 人日**（差额 5–9 是新增的，不悄悄吃掉）。**P0 的硬前置（"尚不存在"的能力）**：
+① 官方安装面在**客户端侧**发起是否与会话内 `plugin_manager` 同一条面 —— **已验证**（`docs/notes/preset-bundle-spike.md` §3/§4 与
+`docs/notes/preset-approval-spike.md` §2/§4/§5；`mcp-conformance.md` §8.1 已判定取值 —— 本行原写"未验证"是过期口径，
+剩下唯一未验证项收窄见 §8.3 第 1 条）；
+② ~~迁移号 `V38`/`V39` 已被预定，连接器须确认 `V40` 可用~~ ⇒ ✅ **已确认（2026-10-06 实测）**：
+`V40` **已被占用**（`V40__enterprise_plugin_description.sql`），当前最大是 `V43`，**连接器取 `V44`**（零命中）。
+本条从"硬前置"降级为"开工时再核一次"（§7 开头那段是快照，迁移号是共享资源，落刀当天必须重数一遍）。
+
+> ★ **落地登记（2026-10-06，本仓）**：P0-1（能力描述模型 + 注册表 + 策略求值器）与 P0-2 的**合成段**已落地，
+> 落点 `plugin/packages/bundle/src/connector/`（`capability.ts` / `policy.ts` / `bundle.ts` / `errors.ts` / `index.ts`），
+> 门禁 `plugin/packages/bundle/tests/connector-{capability,policy,bundle}.spec.ts`（73 条，含与官方 `templates/mcp/` 正文
+> "只差 row id 一行"的逐字节对照）。**纯内核：尚未接任何路由、安装面或企业目录**（`../index.ts` 一行 import 都没有）。
+> 落地时发现本节 §3.2 的表与 §3.3 的伪代码**互相矛盾两处**，实现按纪律 3「宽严就近取严」取严并逐条写在 `policy.ts` 文件头：
+> ① 「只读 + 可逆 + `blastRadius=external`」——伪代码的行序（L1 先判）会判 **L1 且"可默认放行"**，正是纪律 1 与 §8.2 第 5 条要堵的洞，
+> 本实现判 **L3**；② 「只读 + `compensable`」——表判成**三层皆不命中**，本实现判 **L2**。**两处都建议回写本节。**
+> ★ **第三处（2026-10-06 第十六刀补登记）**：§3.3 伪代码的同意步是无条件 `if !consent.granted -> REQUIRE_CONSENT`，而 §3.2 表 L1 行写"**可默认放行**"——两者冲突。本实现按**表**走：L1 在支持平台上免同意，仅本平台 `needs-confirm` 时要求，reason = `platform-needs-confirm`。（此前只写在 `connectorDecide` 的注释里，未进本节偏差清单。）⇒ 本节与 §3.3 的分歧**共三处**，均已逐条登记并有测试锁定。
+> ★ **P0-1 现有的三道穷举门禁**（都在 `plugin/packages/bundle/tests/connector-{policy,capability}.spec.ts`，断言里都带计数，方案回写后会红并提醒同步）：
+> ① **层级判据 279 格**（第十七刀前的第十五刀）：表唯一命中的 270 格与实现零不一致，3 格歧义取 L3、6 格未覆盖取 L2；
+> ② **决策顺序 1200 格**（第十六刀）：按"支配性"断言——被前一步挡住的格子，后面的步骤不许翻盘；
+> ③ **声明读取器变异 255 格**（第十七刀）：15 字段 × 16 畸形值 + 逐键删除，被接受的**恰为 12 个合法情形**，
+> ★ **双实现审计的覆盖面（第二十五刀收口）** —— 说清哪些是自动的、哪些只能人工逐条对，免得下一个人以为"没红就是同尺"：
+> · **自动**（`scripts/connector-parity.mjs`，**27 项**，不需要 JVM/DB）：传输词表 · 必填九枚 · 关闭键集 · 明文键名正则 ·
+>   自贴层级判据 · 三枚形状正则 · 另外八组取值域词表。有阳性对照。
+> · **只能人工逐条对**（本刀**无法**机械化，因为服务端跑不起来）：**"宿主查的每一条，服务端是否也查了"** 与
+>   **"同一份输入两侧的接受/拒绝是否一致"**。三刀的人工对照抓到三处（层级判据写法、取值域整片缺失、静默丢弃），
+>   故后来者动任一侧时，**必须重做一遍这张人工对照表**（清单见 `ConnectorDescriptorGate` 与 `capability.ts` 的校验段）。
+> ★★ **第二十四刀：同一维度（规则覆盖）再逐条对完，抓到第三处同源分歧 —— "静默丢弃"**
+> `{summary: 42}` 在宿主被拒（`optionalText` 走 `requireText`，非字符串**抛**），在服务端却被**当成"没写"悄悄丢掉**
+> （调用方先 `asString(...)`，非字符串变 null）。这正是本仓明令禁止的一类行为（"静默丢 = 悄悄少装能力"）。修法：
+> 两个文本 helper 改成**吃原始值并自己判类型**（`requireText`/`optionalText` 均 `Object` 入参），删掉 `asString` 这一层转换
+> （11 处调用点不再可能静默转换）；并把六处 `containsKey && != null` 守卫改成"**present 就校验**"——
+> 宿主侧"只有 `undefined` 算没写"，显式 `null`/空串一律走到校验里被拒；长度界也改成按**原始串**判（与宿主 `value.length > max` 同界）。
+> **残留（如实登记，未在本刀消除）**：宿主 `requireText` 返回**未 trim** 的原值，服务端返回 `trim()` 后的值
+> ⇒ 两边对"带前后空格"的声明**落库字节**会不同（接受/拒绝的判定已一致）。统一哪一侧是产品口径问题，
+> 留待下次动任一侧时一并裁定，不在这里单方面改。
+> ★★ **第二十三刀：同一门禁换维度查"规则覆盖"，抓到第二处实质缺口** —— 第二十二刀比的是**词表**（传输/键集/正则），这一刀问的是"**宿主查的每一条，服务端是不是也查了**"。结论：服务端闸门原来对 `effects` 只查"是不是非空数组"，而 `effects` 成员、`reversibility`、`blastRadius`、`transport`（声明侧）、`discovery`、`platformRequired`、`stateAddress`、`inbound`、`auditEvents`、`quota`、`egressAllowlist` 的**取值域一个都没查** ⇒ 库里能存进
+> `{effects:["frobnicate"], reversibility:"maybe", blastRadius:"galaxy"}` 这种**没人能求值**的声明 —— 而服务端正是台账与下发目录的**权威侧**（宿主的 `capability.ts` 一直查得很严）。已在 `ConnectorDescriptorGate` 补齐：
+> 6 组词表常量（其中声明侧传输词表**从 `ConnectorEntry.Transport` 派生**，保证枚举与闸门不会各说一套）+ 7 个校验方法 + 11 处调用；
+> 并把 8 组词表比对**并入** `scripts/connector-parity.mjs`（8 项 → **16 项**，有阳性对照：截断 `DISCOVERIES` ⇒ 报 ✗ 且 exit 1）。
+> ★ **跨语言一致性门禁（`scripts/connector-parity.mjs`，第二十二刀）**：连接器刻意做了**双实现**（宿主内核保护"本机生成的 bundle"、服务端闸门保护"库里那一行 + 下发的目录"，输入来源不同、不能互相代替），代价是**可能漂移**。这个脚本比对 8 项（传输词表 · 必填九枚 · 关闭键集 · 明文键名正则 · 自贴层级判据 · 三枚形状正则），不需要 JVM/DB ⇒ 本机可跑。**它已经抓到一次真实漂移**：层级自贴判据宿主按"键名**含** level/permission/tier"、服务端按"**精确相等**"⇒ 同一份声明两侧给出不同稳定码（`LEVEL_DECLARED` vs `DECLARATION_INVALID`）；已按宿主侧对齐，并做了**阳性对照**（注入漂移 ⇒ 报 ✗ 且 exit 1；还原 ⇒ 8/8 exit 0）。建议接进 CI 的 `plugin-check` 之后。
+> ★ **P0-2 输入面的三道穷举/锚定门禁**（`tests/connector-bundle.spec.ts`）：
+> ① **凭据引用矩阵 26 格**（第十八刀）：13 种"把值抄进配置"的形状 × 2 传输，逐格断言确切拒绝码；
+> ② **描述符变异 130 格**（第十九刀）：被接受的**恰为 2 个合法情形**（单字符 `command`、相对 `cwd`），
+>   其余一律拒 —— 含"`url` 无 http(s) scheme""`args` 里放非字符串""任何未知键"；
+> ③ **官方模板锚定**（第十四刀）：测试里抄录的官方 `templates/mcp/` 正文已与真文件逐字节/逐字段核对。
+> ⑤ **随机序列审计 120 种子 × 8 步 = 960 次操作**（第二十一刀，`tests/connector-install.spec.ts`）：
+>   单格枚举只能证明"每个分支单独对"，状态机的错常在**乱序**里。随机交错 install(三种变体)/uninstall/status 并随机让端口
+>   成功·抛错·`failed`·`cancelled`，每步查四条记账不变量：同一 id 至多一条记录 · `status` 与账一致 ·
+>   **失败的 install 不许改动账**（含"覆盖已有记录时失败"，旧记录必须原样留着）· 账里的摘要 = 最后一次成功装的那份。
+>   种子固定 ⇒ 可复现；违例为空与 960 都写进断言。
+> ④ **摘要敏感性矩阵 14 点**（第二十刀）：摘要对**每一个**字段敏感 ⇒ 渲染器没有"被静默忽略的字段"（有的话改它不换摘要、安装段就会跳过本该做的重装）。同配置同摘要另有独立用例。
+>    ★ 设计后果（不是 bug，已知即可）：展示名 `displayName` 会作为 `package.json.description` 进产物，**故纯改名也会产生新摘要、新落点目录、并触发一次重装**；内容寻址目录只增不删，改名会留旧目录。
+>   必需字段上一个畸形值都不接受（含 `effects` 空集、`platformRequired`/`discovery` 空集、`stateAddress` 空对象）。
+> ★ **第十五刀穷举审计（279 格）**：表唯一命中的 **270 格**（279 − 3 − 6）里本实现与表**零不一致**；表**自身歧义 3 格**（只读+可逆+`external`，L1/L3 两行都命中）、**未覆盖 6 格**（只读+`compensable`+`self`/`org`）—— 正是上面两处，本实现分别取 **L3 / L2**；与 §3.3 伪代码的差异恰为那 3 格，**无第三处未登记分歧**。⇒ "两处偏差"的准确说法是 **9 格（3+6）**，且登记完备。
+> 另有**一处方案未定、实现取严（待用户裁决）**：L3 被管理员 `preAuthorized` 锁死时，员工侧那次**首次同意仍然要**
+> （P0-5 那句"首次同意 + 可撤回"是员工自己的门，管理员预授权替代不了它）。
+> ★ **落地登记（2026-10-06，第二刀：P0-2 安装段）**：P0-2 的**安装段**已落地，落点
+> `plugin/packages/bundle/src/connector/install.ts`（+ 新增横切层 `src/plugin-install-port.ts`），门禁
+> `plugin/packages/bundle/tests/connector-install.spec.ts`（28 条，包内合计 43 文件 / 571 项）。要点：
+> ① **与配方纵深共用同一份官方面描述**——按 §8.2 第 1 条「不做第二个安装器」，把"端口契约的官方面 / `ChangeResult`
+> 投影 / 两个 ctx 取值器"从 `preset/install.ts` 抽到 `plugin-install-port.ts`，preset 侧按原名再导出
+> （对外 API 与行为一字未改，`preset-install.spec.ts` 16 条为锁）；
+> ② 编排语义：幂等（同连接器同内容摘要且 link 在 ⇒ 不重装）、并发拒绝、官方裁定三态原样透出、失败不禁用、
+> 本机已装清单 `<dshHome>/enterprise/connector-installs/installed.json`（逐字九键、损坏 fail-closed）、
+> `node_modules/<pkg>` 残壳清理（三道 fail-closed）；
+> ③ ★**§8.3 第 1 条那后半句在代码里现身说法，并在本刀期间被拆成两半登记**：
+> `CONNECTOR_TOOL_AVAILABILITY_AFTER_INSTALL` 恒 `unmeasured`（② 工具何时可调：**已由官方实现判明**，见 §8.3 第 1 条；该常量登记的是"尚无真机端到端读数"这一层）；
+> 而 ① 「行会不会进运行中的会话」**本刀已判明**——官方 `dsh-plugin-manager/lib/index.js:2042` 逐字
+> `application: this.ownerContext.get("hmr") !== void 0 ? "applied" : "restart-required"`，`:1801` 的 enable 分支
+> **新装**才走 `reload()` ⇒ `reconcileProfilePatches` 对运行中的 Loader 树现场和解，README `:67` 同义；
+> 本机 `dsh --profile web --dump-config` 第 10 行即有 `- id: hmr` ⇒ 我们这条安装回 `applied` ⇒ **首次安装不需要重启**；
+> 反过来，**换端点**（包名已在 manifest 里）官方直接回 `restart-required` ⇒ 要重启。两种都由官方裁定、我们原样透出。
+> 故 `needsNewSession` 现在**只**跟官方裁定走（`hot` ⇒ false），未验证的那半收敛为界面措辞：**「已接入，正在连接…」**
+> ——既不说"可以用了"（要 ② 的读数），也不说"请重启"（① 已判明）。全文取证见 `mcp-conformance.md` §9 第 1 条的
+> 「追加取证（第五条例证）」。**仍未消除的是 ② 的时间窗（本机无读数）。**
+>
+> ★ **落地登记（2026-10-06，第三刀：P0-3 凭据段）**：落点 `plugin/packages/bundle/src/connector/credentials.ts`
+> （+ 错误码两枚），门禁 `plugin/packages/bundle/tests/connector-credentials.spec.ts`（17 条）。交付：
+> ① 官方凭据面的**只读**端口（只声明 `describe`，**刻意不碰** `set`/`unset`/记录）与 `{configured, source?, writable}`
+> 的逐字段投影——测试里给描述塞了 `value` 也过不去（「值不过界」是锁住的，不是靠自觉）；
+> ② **送达判定** `deliverable`/`store-only`/`unknown-source`/`unconfigured`（provider 自定层 fail-closed 当送不到）；
+> ③ 预检闸门两枚稳定码 `ENT_CONNECTOR_CREDENTIAL_MISSING` 与 `ENT_CONNECTOR_CREDENTIAL_NOT_DELIVERABLE`
+> （**后者优先于前者**：同时「没配」与「配了送不到」时报后者，因为前者会把人引向「去设置里存一个」——那对 MCP 无效）；
+> ④ `connectorEndpointCredentialRefs` 从 stdio 的 `env[].key` / http 的 `headers[].key` 取待检清单（去重排序）。
+> ★ 顺带把「凭据键名规则」收敛成**唯一一份**（`capability.ts` 导出，`bundle.ts` 与 `credentials.ts` 共用）。
+> **本刀不写值、不读值、不桥接**：真要支持「保管面 → 子进程」只有上游给凭据感知取值、或我们自写桥接插件两条路，
+> 后者要让密钥物化进环境并自持重载，属 **P1 候选**，本刀**刻意不偷偷做掉**（见 `credentials.ts` 文件头的四条登记）。
+>
+> ★ **落地登记（2026-10-06，第四刀：P0-4 服务端账本·第一段）**：P0-4 的**迁移 + 审计枚举 + 声明闸门 + 管理编排**已落盘：
+> 迁移 `server/owndsh-modules/owndsh-enterprise/src/main/resources/db/migration/V44__enterprise_connector_catalog.sql`，
+代码 `.../java/com/owndsh/enterprise/connector/`（**9 个主文件**：application 6〔CatalogService · DescriptorGate · DeclarationException · AuditMetadata · MutationContext · ResourceNotFoundException〕· domain 2〔Entry · Assignment〕· persistence 1〔Store 端口〕），
+> 测试 `.../src/test/java/com/owndsh/enterprise/connector/`（2 个测试类，均带 `@Tag("dev")`）。要点：
+> ① 两张表 `ent_connector` / `ent_connector_assignment`（**全量原子替换 + CAS** 与配方/技能同构；`server_name` 租户内唯一，
+> 因为它是官方 MCP 命名空间、决定模型看到的工具名）；② 权限 `ent:connector:read|write`（id 1028/1029，已核全仓唯一）挂两个内置角色；
+> ③ `AuditAction` 扩**六枚**连接器动作，与 V44 的 check 白名单**逐字一致**；④ `ConnectorDescriptorGate` 是 bundle 侧
+> `ENT_CONNECTOR_SECRET_INLINE` / `ENT_CONNECTOR_LEVEL_DECLARED` 的**服务端同一份实现**（服务端不信任宿主侧校验过的输入）。
+>
+> ⚠️ **本段完全未编译、未执行 —— 如实登记，别当验过**：本机**没有 JDK、没有 Docker**，`mvnw` 门禁一次都没跑过；
+> 本机做过的只有**跨层一致性自检**（临时脚本、非仓库门禁）：审计枚举 52 ↔ V44 白名单 52 两向零差；传输词表 DDL/Java/TS
+> 三方 9/9/9 一致；权限 id 全仓唯一；两表不撞名；包名↔目录、类名↔文件名、括号平衡全过。
+> **电脑端必须补跑**（按 `server/CLAUDE.md` 的 Docker 口径；漏 `@Tag("dev")` 会被整类静默排除；Testcontainers 记得预拉 `postgres:17-alpine`）：
+>
+> ⚠️ **⚠️ 既有红（与本次连接器工作无关，先知道免得误判）：`plugin/` 根门禁 `pnpm run check` / `pnpm run test` 目前必红在**
+> **`client-plugin` 的 build 一步** —— 它的 `scripts/build.mjs` 与 `package.json`（`main: lib/index.js`）都要求 Host 半入口
+> `plugin/packages/client-plugin/src/index.ts`，但该文件**从未入过库**（`git cat-file -e HEAD:…` 失败、`git ls-files` 空、
+> 全历史无删除记录、未被 gitignore；`src/` 下只有 8 个子目录、无任何顶层源文件）。`release.yml` 的 `plugin-check` 任务
+> 正是 `pnpm --dir plugin run check`，故那条 CI 也会红。**该包自身的 `typecheck` 与 143 条测试都是绿的**，只有 esbuild
+> 那一步解析不到入口。⇒ 在它被修好之前，请**按包**跑门禁（`packages/*/` 逐个 `npx tsc -p tsconfig.json --noEmit` + `npx vitest run tests`，
+> 本次 9 包全绿），或由该包负责人补齐 Host 半入口 / 删掉遗留的 Host 构建段（二选一，属该纵深自己的裁决）。
+> `mvn -B -ntp -Pdev -pl owndsh-modules/owndsh-enterprise -am test -Dtest='Connector*'`，
+> 以及**迁移执行那一趟** —— 那是 V44 唯一能证明"建得起来"的方式。
+>
+> ★ **第九刀补（把"未验证"说得更准）**：V44 的 SQL 已用 `sql-parser-cst`（`dialect: 'postgresql'`）**解析通过**，
+> 且**对照组是仓库既有的 43 个迁移**（44/44 全部解析通过 ⇒ 该解析器对本仓这个方言/写法是够用的，失败才有意义）。
+> 另用同一份 SQL 做了三层跨迁移自检：**表名 69 个 / 索引名 82 个 / 触发器名 4 个跨迁移零重名**（索引名在 PG 里是 schema 级全局，
+> 这是真不变量）；约束名有 19 处跨迁移同名，但**约束名在各表内独立、且全部是既有文件**（V44 自身无重名）⇒ 非问题。
+> ⇒ 结论收窄为：**V44 语法无错、命名不撞车、语句清单与自述一致（2 表 + 4 索引 + 2 处审计 alter + 2 处 trigger alter + 权限/角色插入，
+> 白名单 52 枚）**；**仍未执行的只有"跑一遍 Postgres 建起来"**。
+>
+> ★ **第十刀补（同一手法用到 Java 上）**：`java-parser`（纯 JS，Chevrotain）解析本模块**全部 567 个 `.java`**，
+> **零失败** —— 其中既有 554 个文件本来就过 Maven 编译，故「解析器吃得住本仓的 Java 21 特性（record / sealed /
+> text block / switch 表达式 / 模式匹配）」这条前提是被**对照组**证明的，不是假设。
+> 我改/新增的 **13 个**（9 主文件 + 4 测试类）全部解析通过 ⇒ **Java 侧现在是「语法已验证、类型与执行未验证」**：
+> 括号/泛型/记录体这一类语法错已被排除；剩下的类型错（签名/可见性/泛型推断）与行为错，仍只有 `javac` + Postgres 能答。
+>
+> ★ **同轮补记（收尾刀）：发现并修掉五处「必红门禁」**——五处都是本刀自己引入的，如实登记成教训，供后面扩枚举/加迁移的人照抄：
+> 1. `AuditMetadataPolicyTest#everyFrozenActionHasOneConcreteMetadataSample` 要求**封闭枚举的每一枚**都有可序列化的 metadata DTO
+>    ⇒ 扩六枚动作就必须同步六枚 DTO/样本。★ 四枚**宿主侧**运行时事件（入站接收/出站发起/被拒绝/平台不支持）的 DTO
+>    **也必须**在服务端定义（否则该门禁红），但**不要**因此就在服务端补发那四类事件——那是伪造观测。
+>    另注该测试的敏感 key 正则禁 `tool`/`message`/`token` 等词，DTO 字段名不能踩。
+> 2. `RuntimeProjectionContractDriftTest#auditActionEnumEqualsContract` 断言 **Java 枚举 == `contracts/generated/enterprise-openapi.json` 的 enum**
+>    ⇒ 扩枚必须同步 `contracts/components/audit.yaml` 并**重生成**：`node plugin/packages/contracts/scripts/generate.mjs`
+>    （连带更新 `plugin/packages/contracts/src/generated/{types,zod,enterprise-meta}.gen.ts`、`fixtures-manifest.json`、`protocol-sha256.txt`）。
+>    ★★ 漂移门禁 `check:generated` 挂在 `@dshent/contracts` 的 **`typecheck`/`build` 脚本**里——直接跑 `npx tsc` 会**绕过**它
+>    （本会话前几轮的"9 包 tsc 全绿"就是这样漏掉的）；复跑用 `pnpm -C plugin --filter @dshent/contracts typecheck`。
+> 3. `EnterpriseMigrationTest` 有 **4 处**「迁移到最新后 `flyway.info().current()`」断言 + 1 处 `ent_*` 表数断言（43），
+>    `LibraryMigrationTest` 有 1 处同类 ⇒ 加一枚迁移就要全部推进：本次 **43 → 44**、表数 **43 → 45**（V44 两张表）。
+>    （`sys_menu`/`sys_role_menu` 的计数断言按 id/type 过滤，本次逐条核过、不受影响。）
+> 4. 新增审计动作还要看一眼 console：本次确认 `console/src` **不穷尽** `AuditAction`（活动页原样打印动作码），故无字典要补；
+>    但 `console/src/api/generated/*` 是**独立** generator（明确不在 `check:generated` 覆盖内），属已知陈旧面，
+>    电脑端可按需 `node console/scripts/generate-openapi.mjs`。
+> 6. ★（第七刀补）**RBAC 种子也是穷举门禁**：`RbacSeedTest#seedsFixedRolesAndEveryFrozenPermissionCode` 用 `perms like 'ent:%' and menu_type='F'`
+>    穷举**全部**权限码（本次 25 → 27），`#grantsSpecializedRolesOnlyTheirFrozenPermissionSets` 又逐角色穷举集合
+>    ⇒ V44 给 `plugin_admin`（role_id …003）授了 `ent:connector:read|write`（与 V30 把 preset/skill 给同一角色的先例一致），
+>    两处断言都必须同步。**权限码因此有三处真源**：迁移里的 `sys_menu` 行、`RbacSeedTest` 的两条断言、
+>    以及 `enterprise/help/facts/role-permissions.json`（后者是从运行实例采集的**快照**、本次已确认**早已过期且不被门禁读取**，
+>    故**不改**——改它就等于伪造采集来源；需要时在有库的机器上重新采集）。
+>
+> 5. **口径**：审计动作的"真源"现在是**四处**——`AuditAction.java`、V44 的 check 白名单、契约 `audit.yaml` 的 enum、
+>    以及生成物 JSON。任何一处漏改都是红，故扩枚按这份清单走。
+>
+> ⚠️ **写 `AdminConnectorController` 时的必读陷阱（第二十五刀实测确认）**：本仓**没有**任何关闭 Jackson 标量强转的配置
+> （`grep MapperFeature|ALLOW_COERCION|CoercionConfig` 零命中；企业模块里只有两处内部客户端自建 `JsonMapper`），
+> 而 Spring Boot 默认映射**会**把 `{"connectorId": 42}` 强转成 `"42"` —— `"42"` 又恰好通过 kebab 形状闸 ⇒
+> **服务端会收下一个宿主侧（TS）会拒的输入**，两侧再次不一致。可选的落法（按推荐序）：
+> ① 控制器**别直接吃强类型 DTO**，改吃 `Map<String,Object>`/`JsonNode`，把原始 token 交给闸门判类型
+>    （第二十四刀已把闸门的文本 helper 改成"吃原始值自己判类型"，正是为这条路准备的）；
+> ② 或为该端点显式关掉标量强转；③ 无论走哪条，都要**补一条**"数字/布尔当字符串传进来必须被拒"的测试。
+> **P0-4 仍缺**：`JdbcConnectorStore`（端口已定义，实现未写）、`EnterpriseConnectorConfiguration`（Spring 装配）、
+>
+> ### 下一刀照做清单（第二十八刀整理；这一段的**代码**我没写，理由见下）
+>
+> **为什么停在这里**：这三件都是**纯 Java**，而本机没有 JDK/Docker ⇒ 我只能做语法级验证，写了就是"不可编译验证的新代码"。
+> 与其再堆一层未验证面，不如把"该写什么、按什么形状写、验什么"写死，让有 JDK 的一侧照着填 —— 那是确定性的活。
+>
+> **① `persistence/JdbcConnectorStore.java`**（照 `JdbcPresetStore` 的既有写法：`JdbcTemplate` + `RowMapper` + `JsonMapper`）
+>   - 实现 `ConnectorStore` 的**全部十个方法**（接口已定稿，逐个都有注释说明语义：`findByConnectorId` / `findById` /
+>     `findByIdForUpdate`（`for update`，CAS 之外的第二道并发闸）/ `list`（`id > afterId order by id asc limit`）/ `insert` /
+>     `update(entry, expectedRevision)`（`where tenant_id=? and id=? and revision=?`，返回受影响行数是否 >0）/
+>     `incrementRevision` / `listAssignments` / `deleteAssignments` / `insertAssignment` / `subjectExists`）；
+>   - 三列 jsonb（`descriptor`/`capabilities`/`policy`）以**正文**存取（域对象持字符串，序列化在 application 层，与 preset 的 dependencies 同法）；
+>   - 传输列存**大写枚举名**（V44 的 check 与之同形），下发时用 `ConnectorEntry.Transport.wireValue()` 换回小写词表；
+>   - **别忘 `subjectExists`**：USER 可见范围必须命中真实成员（application 层已经会调它）。
+>
+> **② `EnterpriseConnectorConfiguration.java`**（照 `EnterprisePresetConfiguration`）：装配 `ConnectorStore`（注入 `JdbcTemplate`/`JsonMapper`）、
+>   `ConnectorDescriptorGate`（无状态）、`ConnectorCatalogService`（注入 `TransactionOperations`/`AuditSink`/雪花 `LongSupplier`/`Clock`），
+>   以及 web 层的 `IdentityAdminRequestContextResolver`/`EnterpriseCursorCodec` 由既有基础设施提供、这里不重复声明。
+>
+> **③ `web/AdminConnectorController.java` + DTO/view**（照 `AdminPresetController`）：`GET` 列表（cursor 分页，scope 取 `connector_entries`）、
+>   `POST` 新建、`POST /{id}/actions/activate|disable`（`If-Match: expectedRevision`）、`POST /{id}/assignments/batch`
+>   （`Idempotency-Key` + `If-Match`，全量原子替换）；权限用 V44 已种的 `ent:connector:read|write`；
+>   响应投影**关闭键集**（绝不吐 `descriptorJson`/`capabilitiesJson`/`policyJson` 正文以外的宿主信息，也不吐任何凭据值）；
+>   ★★ **必须处理第二十五刀实测确认的 Jackson 标量强转陷阱**（`{"connectorId": 42}` 会被默认映射转成 `"42"` 而通过 kebab 闸）：
+>   推荐控制器吃 `Map<String,Object>`/`JsonNode` 并把**原始 token** 交给闸门判类型（闸门的文本 helper 第二十四刀已改成"吃原始值自己判类型"）；
+>   并**补一条测试**："数字/布尔当字符串传进来必须被拒"。
+>
+> **④ 两道测试**：`JdbcConnectorStoreIntegrationTest`（真 PostgreSQL，照 `LibraryDraftServiceIntegrationTest` 的 `@Tag("dev")` 写法）与
+>   `ConnectorMigrationTest`（空库迁到 latest，**断言 `flyway.info().current()` 的版本号 == "44"** —— 与 `EnterpriseMigrationTest` 那三处同类断言保持一致的口径）。
+>
+> **⑤ 收口验收**：见本文件 §7 的"到电脑端的最短路径"（`scripts/connector-parity.mjs` → Docker 里的 `mvn -Pdev … -Dtest='Connector*'` → contracts `typecheck`）。
+> `AdminConnectorController` 与 web DTO（投影 / 关闭键集 / `If-Match` / `Idempotency-Key`）。
+>
+> **仍未做**：§8.3 第 1 条那条 spike 的**真机端到端复核**（「契约结论」已成立，该条第 ① ② 两半都已判明；
+> 缺的是独立复核与耗时测量）、P0-4 企业账本与 `V40`（迁移号仍未确认）、P0-5 员工侧呈现（含 `mcp-marketplace-tab.md` 的 C0–C5）、
+> P0-6 第一条中国出站连接，以及 P0-3 里那枚**刻意留出的 P1 候选**（保管面 → 子进程的桥接）。
+> **安装段仍未被任何路由或界面调用**（`../index.ts` 依旧零 import 本目录）⇒ 运行时行为与本刀之前完全相同。
 
 ### P1 — 治理与入站（**16–25 人日**）
 
@@ -692,11 +926,39 @@ decide(actor, cap, host):
 
 ### 8.3 不确定项（8 条，逐条写"为什么不确定"）
 
-1. **客户端侧发起装 bundle 是否与会话内 `plugin_manager` 同一条面 —— 未验证。**
-   不确定的原因：这是从官方 skill/README **推出来的**，本会话**没有真机执行过一次**
-   （同族未验证前提已记在 `docs/plan/enterprise-presets.md:818-821`）。
-   **需要的验证**：从 Web 客户端侧发起一次装 bundle，看官方安装结果里的 `application` 字段是否为 `applied`；
-   装完 Host 是否需重启才能生效。**开工第一步必须做这个 spike。**
+1. **客户端侧发起装 bundle 是否与会话内 `plugin_manager` 同一条面 —— 已验证（本条原写"未验证"，是过期口径）。**
+   证据：`docs/notes/preset-bundle-spike.md` §3/§4 与 `docs/notes/preset-approval-spike.md` §2/§4/§5
+   （CLI 面与服务面完全不在授权闸门内、普通 Host 插件可达 `ctx.pluginManager`、服务面自带
+   `install-log`/`install-state`/`waitForInstall`/`cancelInstall`）；`docs/plan/mcp-conformance.md` §8.1 已判定取值。
+   ★ **收窄后剩下的唯一未验证项**：装完一条 mcp-client 配置后，**工具是否当场（无需重启）进 `ctx.tools`** ——
+   官方 `references/host-plugin.md:60` 分开判了两种情况（**新装 bundle 可经 HMR 激活**；替换已装包换 JS 模块代才需重启），
+   `dsh-mcp-client/README:93` 也说改配置行是"原地重载连接"，但**没有**确证"HMR 已生效"与"工具已可用"是同一时刻。
+   **需要的验证**：临时 profile + 独立进程，装一条后立即查工具注册面，再重启复看。
+   **它决定**：连接器详情里那句落地交代是"已接入"还是"需要重新打开客户端"。
+   ★ **2026-10-06 追加取证：本条已拆成两半，前半已判明、后半仍缺读数。**
+   **① 行会不会进运行中的会话 —— 已判明（不需要重启）。** 判据来自官方安装面自己的代码，不是我们的推断：
+   `dsh-plugin-manager/lib/index.js:2042` 逐字 `application: this.ownerContext.get("hmr") !== void 0 ? "applied" : "restart-required"`
+   ⇒ **`applied` 的定义就是"现场有 HMR"**；`:1801` 的 enable 分支里**新装**（包名不在 manifest）才走
+   `await this.reload()`，而 `reload()` 就是 `reconcileProfilePatches(ownerContext.root, …)`——对**运行中的** Loader 树现场和解；
+   README `:67` 同义（"A live profile recomposes … reports `applied`"）。**本机实测**：`dsh --profile web --dump-config`
+   第 10 行即 `- id: hmr / name: '@deepseek-ai/dsh-hmr'` ⇒ 本机 web profile 有 HMR ⇒ 这类安装回 `applied`。
+   ★ 反向的一半同样由官方裁定：**改配置**（同一包名已在 manifest 里）走 `:1801` 的 `return "restart-required"`
+   ⇒ **换端点要重启**。两种都原样透出，我们不自造判断。
+   **② 工具何时可调 —— 也已判明（2026-10-06，由官方契约推出）。** 三条官方代码串起来正好锁死这一格：
+   `dsh-app-boot/lib/index.js:3468` 的 `reconcileProfilePatches` 在 `entry.update()` 之后 **`await ctx.loader.await()`**
+   （等整棵 Loader 树），随后 `inactiveEntries(ctx)` 把 **`FIBER_PENDING` 也算未就绪**，只要**新引入**的行在其中就
+   **当场抛**；而 `dsh-mcp-client/lib/types/index.d.ts:89` 逐字写它的 `apply` "Connect one MCP server and **publish its
+   initial tool generation before activation**"（`ctx.tools.register` 在 `lib/index.js:153`），`failOnStartupError`
+   决定初始连接/工具同步失败要不要让 activation 失败——我们在 P0-2 里把 `failOnStartupError` **恒设 `true`**。
+   ⇒ **`applied` 只会在「新行 ACTIVE」之后返回，而该行 ACTIVE 的定义里就包含「初始工具代已发布」**
+   ⇒ 「HMR 已生效」与「工具已可用」在这次安装的**返回时刻**是同一件事；服务器连不上时回的是
+   `application: 'failed'`（`reconcileProfilePatches` 抛 → `change()` 捕获），不是 `applied`。
+   ★ 两条实作后果：① 安装调用会**阻塞到握手结束**，服务器卡住则安装也卡住（由连接超时兜底）；
+   ② 这条结论**依赖** `failOnStartupError: true` 那个 P0-2 决定，两者配对，改一个必须复核另一个。
+   ⇒ 界面措辞据此定为「**已接入**」（`applied` 时工具已注册）；代码侧由 `src/connector/install.ts` 的
+   `ConnectorToolAvailability` 登记为 `proven-by-contract`（真机读数到手后改 `measured`）。
+   **仍未做的**是独立复核与耗时测量（临时 profile + 独立进程），它是复核、不是结论的前提。
+   完整取证见 `mcp-conformance.md` §9 第 1 条的「追加取证」。
 2. **中国 IM 厂商的逐字段回调协议与配额 —— 未取到。**
    不确定的原因：本次只取到**文档入口页**（§5 依据列），**未取到**逐字段加密/验签规范、频率上限表、计费口径。
    **需要的验证**：逐个厂商取到官方文档正文，并在真实租户里跑一次发送 + 一次回调。
@@ -721,6 +983,12 @@ decide(actor, cap, host):
 8. **邮件的"入站"是否成立取决于服务商 —— 待核实。**
    不确定的原因：SMTP 出站是通用能力，但**入站推送**没有任何跨厂商标准；IMAP 轮询是保底方案，
    其成本与延迟**未测**。**需要的验证**：确认目标企业邮箱是否提供推送式入站；否则按轮询设计并公开延迟。
+   ★ **第十三刀把这一格从"契约级"升到"实现级"**：`dsh-mcp-client` 的 `apply` 实现（`lib/index.js:809`）在
+   `:831` `await connection.ready`，而 `ready`（`:679` 构造）只在 `:657` 的 `await enqueueSync(generation, startupOpts)`
+   成功后才 resolve —— 工具正是在那里注册（`:518` 的 `enqueueSync` → `:153` `ctx.tools.register(definition)`）；
+   失败时 `ready` 回 `{error}`，`:832` 在 `failOnStartupError` 为真时**抛**（"initial connection or tool synchronization failed"）。
+   与 `lib/types/index.d.ts:89` 的类型注释（"publish its initial tool generation before activation"）逐字一致：
+   类型注释是承诺、上面这三行是实现 —— **`applied` ⇒ 该行 ACTIVE ⇒ 初始工具代已注册**，现在两侧都核过。
 
 ---
 

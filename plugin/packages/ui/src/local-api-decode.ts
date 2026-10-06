@@ -2,6 +2,14 @@
  * [INPUT]: 依赖 branding 的同源 LOGO 来源门禁与 `EnterpriseBrandingDocument` 形状、decode-primitives 的严格解码内核、skill-api-decode 的技能 DTO 与解码 **本刀**：修 `decodeEnterprisePresets` 的 `sizeBytes` 上界判定写反（原先任何非零大小的配方都被判畸形），改为与插件目录同款的 `<= 0`；**配方收尾刀**：`decodeEnterprisePresets` 补契约切片 B 的 `dependencies`（放**可选位**，旧服务端不输出也照旧可解），按契约 `PresetDependency` 逐条校验并把键集抽成导出的常量供漂移门禁比对。
  * [OUTPUT]: 对外提供连接/受管插件状态枚举、本地 API DTO 类型与严格解码（账号、品牌、插件、配方、Session、四窗口用量、反馈回执、原生登录的来源列表与凭证/改密结果、**企业技能已装态 / 已装正文 / 本机文件树 / 树里单个文本文件**）、配方引用 `EnterpriseRuntimePresetDependency` 与四份**运行时键集常量**（`ENTERPRISE_PRESET_ROW_REQUIRED_KEYS` / `ENTERPRISE_PRESET_ROW_OPTIONAL_KEYS` / `ENTERPRISE_PRESET_DEPENDENCY_KEYS` / `ENTERPRISE_PRESET_DEPENDENCY_OPTIONAL_KEYS`，是 `tests/preset-decode.spec.ts` 契约漂移门禁的被测真源）、`EnterpriseLocalApi` 契约（含本刀新增的**取消**端口 `cancelPlugin(packageName, signal)`——响应与只读 `GET /plugins` 同形，故复用同一个严格解码器、**零新增字段**）、失败码投影 `enterpriseLocalErrorCode`，并再导出 `EnterpriseLocalApiError` 与 skill-api-decode 的全部技能契约 **本刀（配方一键启用）**：新增 `decodeEnterprisePresetEnable` / `decodeEnterprisePresetDisable` / `decodeEnterprisePresetStatus` 与它们的 DTO（披露清单 `EnterprisePresetDisclosure`、已装记录 `EnterpriseInstalledPreset`、授权三态 `EnterprisePresetAuthorization`、官方原值 `EnterprisePresetOfficialApplication`）与九份**键集常量**（enable/disable 的必填+可选、status 的必填、已装八键、披露三件、`officialError` 的两键）——形状真源是 Host 的 `bundle/src/preset-service.ts` 三个脱敏视图，未知键一律拒，`status.installed` 是**必填位上的可空值**。
  * [POS]: dsh-ui 的浏览器取数契约层——只定义「主机可以说什么」与「什么不许说」，不含任何 fetch；网络执行留在 local-api.ts，界面只消费本文件的投影结果。逼近 800 行后按业务纵切出技能分片与共享内核，本文件仍是唯一对外真源 **本刀**：这三条是**本机动作**（不是中心契约），故键集常量单独导出、由 `tests/preset-enable-decode.spec.ts` 做封闭键集断言；本文件仍是唯一 DTO 真源。
+ * **本刀（系统搜索）**：`EnterpriseLocalApi` 新增两件——只读盘点 `systemSearch(signal)`（返回
+ *   `EnterpriseSystemSkills`：根清单 + 候选三态，形状与严格判据都在 `skill-api-decode.ts`）与动作
+ *   `adoptSystemSkill(path, signal)`（正文关闭键集恰好 `{path}`；响应与 `/skills/self-installed` **逐字同形**
+ *   ⇒ 复用同一个严格解码器；界面只回传它自己收到过的那条 path）。
+ * **本刀（在线搜索）**：`EnterpriseLocalApi` 再新增两件——只读搜索 `onlineSearchSkills(query, signal)`
+ *   （返回 `EnterpriseOnlineSkillSearch`：逐源状态 + 归一化结果，严格判据在 `skill-api-decode.ts`）与
+ *   `installSkillFromResult(source, signal)`（正文关闭键集恰好 `{source}`；响应与 `/skills/installed`
+ *   **逐字同形** ⇒ 复用同一个严格解码器；界面只回传它自己收到过的那条 `installSource`）。
  * **本刀（插件行动分流）**：`EnterprisePluginItem` 新增那一枚**启停位** `enabled`（与「装没装」正交；
  *   解码白名单把它放在**可选键**位、缺席时归一成 `true`——旧 Host 那一半不发这个键也照旧解得开，
  *   绝不存在「服务端先发、客户端不认」的中间态；形状不是布尔照样判畸形）。`EnterpriseLocalApi` 相应新增
@@ -29,7 +37,7 @@ import {
   timestamp,
 } from './decode-primitives.js'
 import type { JsonRecord } from './decode-primitives.js'
-import type { EnterpriseInstalledSkill, EnterpriseInstalledSkillContent, EnterpriseInstalledSkillFile, EnterpriseRuntimeSkill, EnterpriseSkillFiles } from './skill-api-decode.js'
+import type { EnterpriseInstalledSkill, EnterpriseInstalledSkillContent, EnterpriseInstalledSkillFile, EnterpriseOnlineSkillSearch, EnterpriseRuntimeSkill, EnterpriseSelfInstalledSkill, EnterpriseSkillFiles, EnterpriseSystemSkills } from './skill-api-decode.js'
 import type {
   EnterpriseLibraryHit,
   EnterpriseLibraryImportResult,
@@ -425,6 +433,57 @@ export interface EnterpriseLocalApi {
   installSkill(packageId: string, signal: AbortSignal): Promise<readonly EnterpriseInstalledSkill[]>
   /** 卸载一个已装技能包；返回卸载后的最新已装态。 */
   uninstallSkill(packageId: string, signal: AbortSignal): Promise<readonly EnterpriseInstalledSkill[]>
+  /**
+   * **本地导入**：把用户选中的 `.dshskill` 文件字节交给 Host 落盘安装（`POST /skills/upload`，multipart）。
+   *
+   * 与 `installSkill` 的**唯一**差别是制品从哪来：那条是 Host 代取中心制品，这条是浏览器经 multipart
+   * 把用户选的文件交上去（字段名固定 `artifact`，浏览器**不传任何宿主路径**）。
+   * 成功响应与 `installSkill` **完全同形**（`{data:{skills:[...]}}`，Host 侧同一个投影）⇒
+   * 复用同一个严格解码器，不为上传新写第二套解码。
+   *
+   * ★ 注意这份企业已装清单**不含**自装记录（自装包没有中心雪花包 id，是独立的一份记录）——
+   *   要说出「这次装了什么」得另读 `selfInstalledSkills`。
+   */
+  uploadSkill(file: File, signal: AbortSignal): Promise<readonly EnterpriseInstalledSkill[]>
+  /**
+   * **本机自装技能清单**（`GET /skills/self-installed`）：本地上传装进来的那些技能。
+   *
+   * 只读、只看形状，用来把一次上传的结果**说出来**（念出技能名）；它**不**与
+   * `installedSkills`（企业已装清单）混同——两者是两份独立记录（本层编码见
+   * `decodeEnterpriseSelfInstalledSkills` 的宽容口径）。
+   */
+  selfInstalledSkills(signal: AbortSignal): Promise<readonly EnterpriseSelfInstalledSkill[]>
+  /**
+   * **系统搜索（盘点）**：列出本机技能根与每条候选的三态（`GET /skills/system-search`，只读）。
+   *
+   * 它不改任何状态文件、不动任何技能目录；根不存在时 Host 静默给 `present: false`（**不是错误**），
+   * 界面据此说两种不同的空话（根不在 vs 根在但零候选）。候选里的 `path` 是 canonical 绝对路径，
+   * 界面原样收下、原样回传（见下一条），从不拼、从不接受用户输入。
+   */
+  systemSearch(signal: AbortSignal): Promise<EnterpriseSystemSkills>
+  /**
+   * **系统搜索（纳入）**：把一条**本机已有**的技能目录登记进自装清单（`POST /skills/adopt`，正文 `{path}`）。
+   *
+   * `path` 只可能是 `systemSearch()` 那次投影里给过的一条 `path`；响应与 `GET /skills/self-installed`
+   * **逐字同形** ⇒ 复用同一个严格解码器（Host 回畸形即整条失败，不会被当成「纳入成功」）。
+   * 登记**只写记录**：不复制、不移动、不删除那个目录（它本来就在官方加载的根里）。
+   */
+  adoptSystemSkill(path: string, signal: AbortSignal): Promise<readonly EnterpriseSelfInstalledSkill[]>
+  /**
+   * **在线搜索**：从三个公开来源里搜技能（`GET /skills/online-search?q=…`，只读）。
+   *
+   * 逐源状态与结果一起回来：`ok:false` 是「这个源这次没取到」，`dropped>0` 是「取到了但有 N 条装不出来」
+   * —— 两种不同的坏消息，界面分开说（不许混成一句「部分失败」）。
+   */
+  onlineSearchSkills(query: string, signal: AbortSignal): Promise<EnterpriseOnlineSkillSearch>
+  /**
+   * **在线安装**：把一条搜索结果装到本机（`POST /skills/install-from-result`，正文 `{source}`）。
+   *
+   * `source` 只可能是 `onlineSearchSkills()` 那次投影里给过的那条 `installSource`（界面原样回传，
+   * 从不拼、从不解析、不接受用户输入）；响应与 `GET /skills/installed` **逐字同形** ⇒ 复用同一个
+   * 严格解码器（Host 回畸形即整条失败，不会被当成「安装成功」）。
+   */
+  installSkillFromResult(source: string, signal: AbortSignal): Promise<readonly EnterpriseInstalledSkill[]>
   installPlugin(packageName: string, pluginVersionId: string, signal: AbortSignal): Promise<EnterprisePluginStatus>
   removePlugin(packageName: string, signal: AbortSignal): Promise<EnterprisePluginStatus>
   /**

@@ -17,7 +17,13 @@
 # Cherry Studio「添加技能」移植：决策与排期
 
 - **日期**：2026-10-05
-- **上游**：Cherry Studio **2.1.4**（完整源码，本机 `/tmp/cherry/cherry-studio-main`，非打包产物）
+- **上游**：Cherry Studio **2.1.4**
+  - **权威坐标（不可变；由用户于本轮提供仓库地址后实核）**：
+    `CherryHQ/cherry-studio` · tag **`v2.1.4`** · commit **`072aab935a0340b3e5f288b8328f3aaae24c918d`**
+    （`git ls-remote --tags` 实测命中，与该报告 `package.json` 的 `2.1.4` 一致）
+    · `https://github.com/CherryHQ/cherry-studio/tree/v2.1.4`
+  - ⚠️ 取证当时的解包路径 `/tmp/cherry/cherry-studio-main` **在本机已不存在**（本轮实核）。
+    **后续各刀一律以 tag + commit 为坐标**，不要再依赖任何本机临时解包路径；需要读源码就按该坐标取。
 - **事实真源**：[cherry-skill-add-2026-10-05.md](../research/cherry-skill-add-2026-10-05.md)（已入库 `18c9bc1`）
 - **一句话**：Cherry 的「添加技能」是一个**下拉菜单**，四项分别是「通过 Agent 创建 / 在线搜索 / 系统搜索 / 本地导入」；
   本轮决定**四路全要**，但按依赖分五刀落地，且**三方来源复用我们已有的加固落盘路径**。
@@ -55,6 +61,14 @@
 2. **后台可见性 / 来源标记**
 3. **审计**
 
+> ★**2026-10-05 补第 4 条：内容审核（moderation）缺席** —— Cherry 侧有 `moderation`（装前三方内容过审开关），
+> 我们**没有**。这一条**不能**被上面第 1/2/3 条那种「安全、审计后续再补」的措辞覆盖掉，因为**它问的是另一个问题**：
+> 上面三条后移回答的是「**装完之后**怎么看见、怎么追溯、怎么提醒」，而 moderation 回答的是「**装之前**要不要拦一道」。
+> 本仓的现有答案只有**结构性**的两道（闸门在落盘处 + `skill-frontmatter.ts` 的 D4 客户端闸门），它们拦的是
+> **形状非法**的包，**不拦「形状合法但内容不合适」**。⇒ 本项**显式后移**，触发条件：企业要对外开放三方来源
+> （即 `skill-install-sources.md` §E.1 那条「默认关闭、由管理员开关」被真正打开）时，**必须**先裁这一条，
+> 不能等到有用户投诉再补。
+
 ### 三条**绝不移**（Lead 划的线，性质是"功能能不能正确工作"，不是"安全洁癖"）
 
 1. **落盘仍走 `skill-install.ts`**（SHA-256 + 路径逃逸 + 符号链接 + 原子改名 + 归属记录）
@@ -70,9 +84,9 @@
 ## 3. 五刀排期与依赖
 
 ```
-刀 0（前置，阻塞中）  查明服务端验包收不收 skills/<name>/{references,scripts}/
+刀 0（前置，✅ 已完成 2026-10-05）  查明服务端验包收不收 skills/<name>/{references,scripts}/ —— 答：收
    ├─→ 刀 2  纳入 skill-creator 成内置包（builtin=true 预装）
-   └─→ 刀 3  三方来源（①在线搜索 ②系统搜索 ③本地导入）—— 取证已完成，可派
+   └─→ 刀 3  三方来源（①在线搜索 ②系统搜索 ③本地导入）—— ✅ 已落地（含第四路「通过 Agent 创建」）
             └─→ 刀 4  成品回流（Agent 产出 → 企业后台）
 
 刀 1（已落地）        「添加」下拉菜单 UI（执行不接）
@@ -80,11 +94,20 @@
 
 | 刀 | 内容 | 依赖 | 状态 |
 |---|---|---|---|
-| **0** | 查明服务端 `SkillArtifactInspector` 收不收 `skills/<name>/` 下的资源文件 | — | ⛔ **未做**（要动 `server/**/src/main/**`，被"同包不并行"阻塞） |
+| **0** | 查明服务端 `SkillArtifactInspector` 收不收 `skills/<name>/` 下的资源文件 | — | ✅ **已完成**（2026-10-05）：**收**——`references/`/`scripts/`/`LICENSE.txt` 被**接受但不被解析**、**不计入** 256 KiB 单文件上限、只计入解压总量与 entry 数；反例是**包根**的 `LICENSE.txt`/`README.md`（被拒）。产物：`docs/compose/spec/skill-catalog.md` §S2.2 + `SkillArtifactInspectorTest` 新增 10 条（该文件现共 24 条，**24/24 已在最小独立跑道实跑通过**）。**提交坐标：未提交**（工作树） |
 | **1** | 「添加」下拉菜单 UI（四项，执行不接，全「开发中」） | — | ✅ **已落地**（`417a904`） |
 | **2** | 纳入 `skill-creator` 成内置包，`builtin=true` 对全员预装 | 0 | ⬜ 未派 |
-| **3** | 三方来源：在线搜索 / 系统搜索 / 本地导入 ZIP | 0 | ⬜ 未派（取证已回） |
+| **3** | 三方来源：**①本地导入 ZIP ②系统搜索 ③在线搜索** ＋ **④通过 Agent 创建** | 0 | ✅ **已落地**（2026-10-05；未提交、未打包、未部署）：「本地导入」= 刀 3a（Host: `bundle/src/skill-upload.ts` + `platform-client` 的 `POST /skills/upload`；UI: 菜单项可用化），**已实现，代码全绿，未提交、未打包、未部署**；「系统搜索」= 刀 3b（Host: `bundle/src/skill-system.ts` + `GET /skills/system-search`、`POST /skills/adopt`；UI: 结果面走**页内视图**），同状态。「通过 Agent 创建」= 刀 3c（UI 侧 `skill-create.ts`）**已落地**；「在线搜索」= 刀 3d（Host: `bundle/src/skill-online.ts` + `tar-archive.ts`；UI: `online-search.ts`）**已落地**，`skill-install-sources.md` §F.1 的 SSRF 面已按落地实现的口径收束。★**唯一如实缺口**：真外网冒烟（`DSHENT_ONLINE_SMOKE=1`，默认 skip）**本机此刻无法通过，且已查明不是代码问题**——实测 `codeload.github.com` TLS 连接失败（curl 35）、`claude-plugins.dev` 超时（curl 28），而 codeload 是「真装成功」那条断言的**唯一**下载路径；`skills.sh` 与 `clawhub.ai` 为 200。默认门禁不受影响（opt-in + 默认 skip） |
 | **4** | 成品回流：Agent 产出的技能目录 → 打包 `.dshskill` → 企业后台上传 | 2、3 | ⬜ **本轮不做**（见 §6） |
+
+> **刀 3a / 3b 结案读数（出处：Lead 在冻结源码上独立复跑）**
+> ```text
+> bundle           36 passed | 1 skipped (37)   Tests 438 passed | 1 skipped (439)   tsc 0
+> platform-client   7 passed (7)                 Tests 113 passed (113)              tsc 0
+> ```
+> ★**这是【历史读数】，不是当前读数**：其后 task-10（「在线搜索」）已开始改动这两个包 ⇒ 引用它时必须带这句。
+> ★`ui` 的读数**本文件不写**（ui 侧当时正被另一刀改，且 ui 台账另行维护）。
+> ★我不在本机重跑这几条命令**是有意的**（理由同上：会读到 task-10 的中间态，那个数字毫无意义）。
 
 ### 刀 0 为什么是硬前置
 
@@ -93,6 +116,13 @@
 `skills/<name>/references/` **命中前缀、理应合法** —— 但**这是读代码推出的，不是实测**，必须实跑一次验包才能定打包形态。
 
 > 本轮 GEB 教训：本项目已因"照想象写上游不存在的东西"栽过三次。刀 0 就是不再栽第四次。
+>
+> ★**2026-10-05 收口**：刀 0 的答案是 **「收」** —— `skills/<name>/{references,scripts}/` 与
+> `skills/<name>/LICENSE.txt` 都被验包器**接受但不解析**、**不计入** 256 KiB 单文件上限（那条只压
+> `manifest.json` 与 `SKILL.md`）、只计入解压总量与 entry 数；**反例**是**包根**的 `LICENSE.txt`/`README.md`
+> （`SkillArtifactInspector.java:134` 只放行「根 `manifest.json`」「`skills/` 前缀」「裸 `skills`」，
+> 包根那份三个条件都不满足 ⇒ 拒）。⇒ 结论**支持**本刀原定的打包形态（资源文件随技能目录一起打包），
+> 下面 §3 的刀 2 因此**解锁**。逐条判据与 10 条新用例见 `docs/compose/spec/skill-catalog.md` §S2.2。
 
 ---
 
@@ -173,14 +203,28 @@ Cherry **直写本机受管目录**（`$CHERRY_STUDIO_SKILLS_DIR`），所以它
 ### 已补
 
 - **ZIP 路径折叠碰撞**：Cherry 有 `assertNoFoldedPathCollisions`（`NFC().toLowerCase()`），我们**零命中**（阳性对照已重做）。`A.md` 与 `a.md` 在 macOS/Windows 落到**同一文件**，装出来是哪一个取决于哪条后写 —— 属**功能正确性**。**已于 `402187c` 补上**（含三条阳性对照）。
+- ✅ **~~①服务端验包收不收资源文件~~（原「待裁 1」）** —— **2026-10-05 已闭环**：答 **「收」**。判据表 + 10 条新用例见 `docs/compose/spec/skill-catalog.md` §S2.2；`SkillArtifactInspectorTest` 现共 24 条、**24/24 已实跑通过**（最小独立跑道，JDK 21.0.12；**不等价于 Maven `-Pdev`**，边界见该 spec 的 Verification 段）。**未提交**。
+- ✅ **~~②自装记录 + 三态~~** —— 落点：`bundle/src/skill-upload.ts`（`self-installed.json`，**逐字七键**、0o600 原子写）与 `bundle/src/skill-system.ts`（三态 `registered|conflict|available`、**纳入只登记不复制**）。**未提交**。
+- ✅ **纳入路径不重跑 D4 闸门，是设计正确、不是缺口**（既定口径）：盘点的 `skillFacts()`（`bundle/src/skill-system.ts`）只要求 frontmatter 的 `name`（kebab）+ `description`，而 D4 闸门（`bundle/src/skill-frontmatter.ts`）还管 `whenToUse` / 两个布尔 / legacy 字段 / 重复键等**更严**的东西 ⇒ 确实存在「过得了 `skillFacts`、过不了 D4」的技能会进盘点并可纳入。**但这恰恰是对的**：D4 是给**进来的包**用的（本地上传 / 未来的在线安装 —— 那时要由我们自己决定「收不收」）；而盘点面对的是**已经躺在 `<dshHome>/skills` 里、官方 watcher 已经自己判定过要不要加载**的技能，我们只是把它**摆出来**、**不是重新裁决它**。再拿 D4 去二次否决，就是用一把比官方更严的尺子去否定**官方已经认下**的东西，还会让界面说的与实际能加载的对不上。
 
 ### 待裁 / 待做
 
-1. **服务端验包收不收资源文件**（刀 0）—— 决定 `.dshskill` 能否装带 `references/` 的技能
-2. **资源文件无单文件上限**（`256 KiB` 那条当前只管 `SKILL.md`）—— **双方共有的缺口**，需产品裁决
-3. **每条 SKILL.md 的 256 KiB 上限是否也适用 `references/`** —— 同上
+1. ~~**服务端验包收不收资源文件**（刀 0）—— 决定 `.dshskill` 能否装带 `references/` 的技能~~ → **已闭环，见上「已补」第 2 条**
+2. **资源文件无单文件上限**（`256 KiB` 那条当前只管 `SKILL.md`）—— **双方共有的缺口**，需产品裁决。
+   ★**2026-10-05 更新事实**：刀 0 已把「**接受**且**不适用**该上限」钉成**实测口径**（服务端客户端**两边**同口径，
+   见 `skill-catalog.md` §S2.2：服务端 `SkillArtifactInspector.java:84`/`:90` 只对 manifest 与 `SKILL.md` 建捕获缓冲；
+   客户端 `bundle/src/skill-archive.ts:142`/`:144` 同款）⇒ **不再是「实现未知」，只剩「是否要收得更紧」这一条产品取舍**
+3. **每条 SKILL.md 的 256 KiB 上限是否也适用 `references/`** —— 同上（现状：**不适用**）
 4. **那条源码级反锁**（§5.3）尚未落地
 5. **Cherry 的「系统搜索」15 个目录**：我们只有 DSH 一个根（`~/.dsh/skills`）。要不要开放其它 CLI 目录是产品决策，**规模与风险都远超一次 UI 移植**
+   → **Lead 已裁（刀 3b 派工时）**：本机 `HOME` 下**除 `~/.dsh/skills` 外没有任何其它 CLI 技能根**
+   （`.claude/skills`、`.codex/skills`、`.gemini/skills`、`.cursor/skills`、`.continue/skills`、`.aider/skills` 逐条 `[ -d ]` 实测均不存在）。
+   故刀 3b 的「系统搜索」**只盘点本机技能根**（v1 = `<dshHome>/skills`；另留一个**可注入的额外只读根清单**、默认空），
+   对每个候选给 `registered` / `conflict` / `available` 三态，并允许把「就位但未登记」的按**只登记、不复制**纳入刀 3a 的**同一份**自装记录。
+   **跨 CLI 目录导入显式后移**：它需要「从任意用户目录复制内容进受管根」这条**新的落盘语义**（不是 `.dshskill`、没有 manifest，得自己一套闸门），
+   不该和一次 UI 移植同批；将来放开只需往那个额外根清单里加条目，**盘点/三态/纳入的形状不变**。
+   ★三态有一处**有意偏离 Cherry**：Cherry 的 `installedByPath` 只收 `source==='system'` 的技能，会把自家库里的企业技能判成 `conflict`；
+   我们合并为 `registered` —— 否则界面对自家下发的技能显示「命名冲突」。
 
 ### 明确不做（本轮）
 

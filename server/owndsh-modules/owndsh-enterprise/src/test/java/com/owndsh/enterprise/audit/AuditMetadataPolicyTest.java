@@ -12,6 +12,8 @@ import com.owndsh.enterprise.auth.application.IdentityChangeMetadata;
 import com.owndsh.enterprise.auth.application.IdentityLinkMetadata;
 import com.owndsh.enterprise.auth.application.IdentityUnlinkMetadata;
 import com.owndsh.enterprise.auth.domain.IdentitySourceType;
+import com.owndsh.enterprise.connector.application.ConnectorAuditMetadata;
+import com.owndsh.enterprise.connector.domain.ConnectorEntry;
 import com.owndsh.enterprise.device.application.DeviceEnrollmentMetadata;
 import com.owndsh.enterprise.device.application.DeviceHeartbeatMetadata;
 import com.owndsh.enterprise.feedback.application.FeedbackAuditMetadata;
@@ -144,7 +146,15 @@ class AuditMetadataPolicyTest {
             new BrandingAuditMetadata.Published(1, 1, 3),
             new BrandingAuditMetadata.RolledBack(1, 2, 1, 3),
             new FeedbackAuditMetadata.Submitted(1, FeedbackType.ISSUE, 2),
-            new FeedbackAuditMetadata.StatusChanged(1, FeedbackStatus.NEW, FeedbackStatus.TRIAGED, 1)
+            new FeedbackAuditMetadata.StatusChanged(1, FeedbackStatus.NEW, FeedbackStatus.TRIAGED, 1),
+            // 连接器六枚（V44 扩枚举）。★ 恰六条：`Assignments`/`Changed` 都映射到既有的 CONFIG_CHANGED，
+            // 那枚已由上面的 RevisionChangedMetadata 覆盖，多列一条会让 containsExactlyInAnyOrder 变成重复。
+            new ConnectorAuditMetadata.Granted(1, "ent-demo", ConnectorEntry.Transport.MCP, 2),
+            new ConnectorAuditMetadata.Revoked(1, "ent-demo", ConnectorEntry.Status.ACTIVE),
+            new ConnectorAuditMetadata.InboundReceived(1, "ent-demo-read", true, true),
+            new ConnectorAuditMetadata.OutboundSent(1, "ent-demo-read", 1),
+            new ConnectorAuditMetadata.Denied(1, "ent-demo-read", "L3_REQUIRES_CONFIRMATION"),
+            new ConnectorAuditMetadata.Unsupported(1, "win32")
         );
     }
 

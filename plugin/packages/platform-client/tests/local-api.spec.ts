@@ -1,12 +1,12 @@
 /**
  * [INPUT]: 依赖 platform-client 本地 API 注册器与 Node 原生 HTTP server/fetch，路由分发复用同目录的引擎语义匹配器 `engine-route-match.ts`，并直接读 `contracts/fixtures/runtime-preset-*.json` 的契约真 fixture
- * [OUTPUT]: 验证方法/content-type/体积/DTO、平台/插件状态、**受管插件取消动作（关闭键集/405/错误投影/响应与 GET 同形、零新增字段）**、显式刷新、无常驻 SSE、探针退役与 disposer、**三条技能动作 exact 路由（形状/入参门禁/409 与 503 错误投影/405 Allow/端口缺席即不注册）**，以及**第四条技能路由 `/skills/content`（只读已装技能正文）的注册形状/键集门禁（缺参·多参·重复·非雪花·非 kebab 一律 400 且不进端口）/404·413·409·503 错误投影/405 Allow**，**配方一键启用三条子路径 `/presets/<id>/{enable,disable,status}`（由既有 `/presets` prefix 分派、注册面零新增字符串、关闭键集 400、雪花/kebab 闸门、405 Allow、端口缺席即 400、稳定码→状态投影与 onError 留痕）**，并用引擎语义锁死「三条详情 prefix 不带尾斜杠」——品牌位图 / 会话恢复 / 配方详情对子路径可达，且带尾斜杠的旧形状会漏掉子路径；同时锁死 `/skills/install|uninstall|installed` 靠 exact 表抢在 bundle 侧 `/skills` 详情 prefix 之前；**配方两端口回的不再是手写假体而是契约真 fixture**，让"服务端真实投影形状"进入这条测试（本刀：假体与真投影不同形正是关闭键集冲突被掩盖的原因）；并把**配方一键启用那一族的每一枚稳定码 → HTTP 状态**逐条钉在唯一那张映射表上
+ * [OUTPUT]: 验证方法/content-type/体积/DTO、平台/插件状态、**受管插件取消动作（关闭键集/405/错误投影/响应与 GET 同形、零新增字段）**、显式刷新、无常驻 SSE、探针退役与 disposer、**三条技能动作 exact 路由（形状/入参门禁/409 与 503 错误投影/405 Allow/端口缺席即不注册）**，以及**第四条技能路由 `/skills/content`（只读已装技能正文）的注册形状/键集门禁（缺参·多参·重复·非雪花·非 kebab 一律 400 且不进端口）/404·413·409·503 错误投影/405 Allow**，**配方一键启用三条子路径 `/presets/<id>/{enable,disable,status}`（由既有 `/presets` prefix 分派、注册面零新增字符串、关闭键集 400、雪花/kebab 闸门、405 Allow、端口缺席即 400、稳定码→状态投影与 onError 留痕）**，并用引擎语义锁死「三条详情 prefix 不带尾斜杠」——品牌位图 / 会话恢复 / 配方详情对子路径可达，且带尾斜杠的旧形状会漏掉子路径；同时锁死 `/skills/install|uninstall|installed` 靠 exact 表抢在 bundle 侧 `/skills` 详情 prefix 之前；**配方两端口回的不再是手写假体而是契约真 fixture**，让"服务端真实投影形状"进入这条测试（本刀：假体与真投影不同形正是关闭键集冲突被掩盖的原因）；**本地上传两条 exact 路由（`/skills/upload` 的 multipart 运输层门禁与 content-length 预检、端口失败码原样回显、以及该 exact 为什么承重；`/skills/self-installed` 的只读投影/405/损坏态投影）**，并把**配方一键启用那一族的每一枚稳定码 → HTTP 状态**逐条钉在唯一那张映射表上；**系统搜索两条 exact 路由（`/skills/system-search` 的只读投影/405/损坏态 503 与承重反例；`/skills/adopt` 的关闭键集门禁/受控码原样回显/405 与承重反例）与纳入族三枚码 → 404/409/500**
  * [POS]: platform-client Host/Client 协作回归测试，以真实 HTTP 锁定官方 webServer 契约；prefix 形状的判定不再用「裸 startsWith」假匹配器，而是逐行复刻引擎 `match()`，否则线上空体 404 在测试里是绿的
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { readFileSync } from 'node:fs'
-import { createServer, type Server } from 'node:http'
+import { createServer, request as httpRequest, type Server } from 'node:http'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH,
@@ -15,8 +15,15 @@ import {
   ENTERPRISE_SKILL_CONTENT_LOCAL_PATH,
   ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH,
   ENTERPRISE_SKILL_INSTALL_LOCAL_PATH,
+  ENTERPRISE_SKILL_SELF_INSTALLED_LOCAL_PATH,
+  ENTERPRISE_SKILL_ADOPT_LOCAL_PATH,
+  ENTERPRISE_SKILL_SYSTEM_SEARCH_LOCAL_PATH,
+  ENTERPRISE_SKILL_ONLINE_SEARCH_LOCAL_PATH,
+  ENTERPRISE_SKILL_INSTALL_FROM_RESULT_LOCAL_PATH,
   ENTERPRISE_SKILL_UNINSTALL_LOCAL_PATH,
+  ENTERPRISE_SKILL_UPLOAD_LOCAL_PATH,
   enterpriseLocalErrorStatus,
+  MAX_SKILL_UPLOAD_BODY_BYTES,
   registerEnterpriseLocalApi,
   type EnterpriseLocalPlatformPort,
   type EnterpriseLocalSessionPort,
@@ -53,6 +60,25 @@ describe('enterprise local error status mapping', () => {
     expect(enterpriseLocalErrorStatus(withCode('ENT_RESOURCE_NOT_FOUND'))).toBe(404)
     expect(enterpriseLocalErrorStatus(withCode('ENT_SKILL_CONTENT_INVALID'))).toBe(409)
     expect(enterpriseLocalErrorStatus(withCode('ENT_SKILL_CONTENT_TOO_LARGE'))).toBe(413)
+    // 本地上传通路：配额超限 413、表单/frontmatter/制品结构非法 400、制品落盘失败 500。
+    // ★`ENT_SKILL_ARCHIVE_INVALID` 是**既有码**，此前不在表里（会被表尾默认折成 503 —— 那是
+    // 「本机暂时不可用、可重试」，而「这个包的结构不合法」重试多少次都一样，是错的下一步）。
+    expect(enterpriseLocalErrorStatus(withCode('ENT_SKILL_UPLOAD_TOO_LARGE'))).toBe(413)
+    expect(enterpriseLocalErrorStatus(withCode('ENT_SKILL_UPLOAD_INVALID'))).toBe(400)
+    expect(enterpriseLocalErrorStatus(withCode('ENT_SKILL_ARCHIVE_INVALID'))).toBe(400)
+    expect(enterpriseLocalErrorStatus(withCode('ENT_SKILL_SKILLMD_INVALID'))).toBe(400)
+    expect(enterpriseLocalErrorStatus(withCode('ENT_SKILL_UPLOAD_FAILED'))).toBe(500)
+    expect(enterpriseLocalErrorStatus(withCode('ENT_SKILL_NAME_CONFLICT'))).toBe(409)
+    // 通路二「系统搜索 → 纳入」：不在本次盘点候选里 404、已被认领 409、本机自己完不成这次登记 500。
+    expect(enterpriseLocalErrorStatus(withCode('ENT_SKILL_DISCOVERY_UNKNOWN'))).toBe(404)
+    expect(enterpriseLocalErrorStatus(withCode('ENT_SKILL_ALREADY_REGISTERED'))).toBe(409)
+    expect(enterpriseLocalErrorStatus(withCode('ENT_SKILL_ADOPT_FAILED'))).toBe(500)
+    // 通路三「在线搜索 → 从结果安装」：坐标不认 400、上游不可用 502、上游体量超限 413；
+    // ★`ENT_SKILL_DOWNLOAD_FAILED` 是**既有码**、此前不在表里（被折成 503）——「上游这次没给到」判 502。
+    expect(enterpriseLocalErrorStatus(withCode('ENT_SKILL_SOURCE_UNKNOWN'))).toBe(400)
+    expect(enterpriseLocalErrorStatus(withCode('ENT_SKILL_SOURCE_UNREACHABLE'))).toBe(502)
+    expect(enterpriseLocalErrorStatus(withCode('ENT_SKILL_SOURCE_TOO_LARGE'))).toBe(413)
+    expect(enterpriseLocalErrorStatus(withCode('ENT_SKILL_DOWNLOAD_FAILED'))).toBe(502)
     // 未知/无码一律 503（绝不把内码或任意异常折成 2xx）。
     expect(enterpriseLocalErrorStatus(new Error('socket hang up'))).toBe(503)
     expect(enterpriseLocalErrorStatus(withCode('EACCES'))).toBe(503)
@@ -551,6 +577,461 @@ describe('enterprise local API', () => {
   it('registers no skill content route without the port', () => {
     registerEnterpriseLocalApi(webServer, { platform, pluginStatus })
     expect(routes.has(`exact:${ENTERPRISE_SKILL_CONTENT_LOCAL_PATH}`)).toBe(false)
+  })
+
+  // 通路一「本地上传」：`POST /skills/upload` —— 运输层四件事在这条 exact 路由上（方法 / content-length 预检 /
+  // content-type 形状 / 50 MiB 有界读取），分帧与表单语义在 bundle 侧；响应 `{data}` 与 `/skills/install` 同形。
+  it('serves the local upload route as an exact multipart action ahead of the /skills detail prefix', async () => {
+    const installed = { skills: [{ packageId: '901', names: ['code-review'] }] }
+    const skillUpload = vi.fn(async () => installed)
+    const onError = vi.fn()
+    registerEnterpriseLocalApi(webServer, { platform, pluginStatus, skillUpload, onError })
+
+    // 注册形状与常量逐字相同；它必须是 exact —— 否则 `/skills` 前缀会把 `upload` 当包 id。
+    expect(ENTERPRISE_SKILL_UPLOAD_LOCAL_PATH).toBe('/enterprise/api/v1/local/skills/upload')
+    expect(routes.get(`exact:${ENTERPRISE_SKILL_UPLOAD_LOCAL_PATH}`)?.kind).toBe('exact')
+    const detailPrefix: RegisteredRoute = {
+      kind: 'prefix', path: '/enterprise/api/v1/local/skills', handler: () => undefined,
+    }
+    const uploadRoute: RegisteredRoute = {
+      kind: 'exact', path: ENTERPRISE_SKILL_UPLOAD_LOCAL_PATH, handler: () => undefined,
+    }
+    expect(engineRouteMatch([detailPrefix, uploadRoute], ENTERPRISE_SKILL_UPLOAD_LOCAL_PATH)).toBe(uploadRoute)
+    // 反例（这条 exact 为什么是承重的）：没有它，同一路径**确实**会被 `/skills` 前缀吃掉。
+    expect(engineRouteMatch([detailPrefix], ENTERPRISE_SKILL_UPLOAD_LOCAL_PATH)).toBe(detailPrefix)
+
+    const boundary = '----dshentUploadBoundary'
+    const body = Buffer.from(
+      `--${boundary}\r\ncontent-disposition: form-data; name="artifact"; filename="team-notes.dshskill"\r\n`
+      + `content-type: application/octet-stream\r\n\r\nZIP-BYTES\r\n--${boundary}--\r\n`,
+      'utf8',
+    )
+    const post = (headers: Record<string, string>, payload: Buffer | string = body) =>
+      fetch(`${baseUrl}${ENTERPRISE_SKILL_UPLOAD_LOCAL_PATH}`, { body: payload, headers, method: 'POST' })
+
+    // 成功：正文与 boundary 原样交给端口；响应与 `/skills/install` 的 data 同形（单键 `{data}` 信封）。
+    const ok = await post({ 'content-type': `multipart/form-data; boundary=${boundary}` })
+    expect(ok.status).toBe(200)
+    expect(ok.headers.get('cache-control')).toBe('no-store')
+    await expect(ok.json()).resolves.toEqual({ data: installed })
+    expect(skillUpload).toHaveBeenCalledTimes(1)
+    const [receivedBody, receivedBoundary] = skillUpload.mock.calls[0]!
+    expect(Buffer.isBuffer(receivedBody)).toBe(true)
+    expect((receivedBody as Buffer).equals(body)).toBe(true)
+    expect(receivedBoundary).toBe(boundary)
+
+    // 运输层门禁：非 multipart / boundary 形状非法 → 400 `ENT_SKILL_UPLOAD_INVALID`，一次都不进端口。
+    for (const headers of [
+      { 'content-type': 'application/json' },
+      { 'content-type': `multipart/form-data; boundary=${'x'.repeat(100)}` },
+      {},
+    ]) {
+      const rejected = await post(headers)
+      expect(rejected.status).toBe(400)
+      await expect(rejected.json()).resolves.toEqual({ error: { code: 'ENT_SKILL_UPLOAD_INVALID' } })
+    }
+    expect(skillUpload).toHaveBeenCalledTimes(1)
+
+    // 端口抛出的每一枚上传族码经**唯一**那张表投影，且**码原样回显**（不折成 ENT_INVALID_REQUEST）。
+    for (const [code, status] of [
+      ['ENT_SKILL_UPLOAD_INVALID', 400],
+      ['ENT_SKILL_ARCHIVE_INVALID', 400],
+      ['ENT_SKILL_SKILLMD_INVALID', 400],
+      ['ENT_SKILL_NAME_CONFLICT', 409],
+      ['ENT_SKILL_UPLOAD_TOO_LARGE', 413],
+      ['ENT_SKILL_UPLOAD_FAILED', 500],
+      ['ENT_SKILL_STATE_INVALID', 503],
+    ] as const) {
+      skillUpload.mockRejectedValueOnce(Object.assign(new Error(code), { code }))
+      const rejected = await post({ 'content-type': `multipart/form-data; boundary=${boundary}` })
+      expect(rejected.status).toBe(status)
+      await expect(rejected.json()).resolves.toEqual({ error: { code } })
+    }
+    expect(onError).toHaveBeenCalledTimes(7)
+
+    // 405 契约：只认 POST。
+    const wrongMethod = await fetch(`${baseUrl}${ENTERPRISE_SKILL_UPLOAD_LOCAL_PATH}`)
+    expect(wrongMethod.status).toBe(405)
+    expect(wrongMethod.headers.get('allow')).toBe('POST')
+    expect(skillUpload).toHaveBeenCalledTimes(8)
+  })
+
+  // content-length 预检必须在**读完正文之前**就拒：这里直接发一个声明超过 50 MiB 配额的请求
+  // （真发 50 MiB 会拖慢门禁，且这正是「有界」要挡的那类请求）。用裸 http 才能绕过 fetch 对
+  // `content-length` 的禁用头限制；`flushHeaders()` 只发头，服务端预检即回，我们不等正文。
+  it('rejects an upload whose declared content-length exceeds the independent 50 MiB quota before reading it', async () => {
+    const skillUpload = vi.fn(async () => ({ skills: [] }))
+    registerEnterpriseLocalApi(webServer, { platform, pluginStatus, skillUpload })
+    const target = new URL(`${baseUrl}${ENTERPRISE_SKILL_UPLOAD_LOCAL_PATH}`)
+    const result = await new Promise<{ status: number, body: string }>((resolve, reject) => {
+      const request = httpRequest({
+        headers: {
+          'content-type': 'multipart/form-data; boundary=----dshentQuota',
+          'content-length': String(MAX_SKILL_UPLOAD_BODY_BYTES + 1),
+        },
+        hostname: target.hostname,
+        method: 'POST',
+        path: target.pathname,
+        port: target.port,
+      }, response => {
+        const chunks: Buffer[] = []
+        response.on('data', chunk => chunks.push(chunk as Buffer))
+        response.on('end', () => resolve({ body: Buffer.concat(chunks).toString('utf8'), status: response.statusCode ?? 0 }))
+      })
+      request.on('error', reject)
+      request.flushHeaders()
+    })
+    expect(result.status).toBe(413)
+    expect(JSON.parse(result.body)).toEqual({ error: { code: 'ENT_SKILL_UPLOAD_TOO_LARGE' } })
+    expect(skillUpload).not.toHaveBeenCalled()
+  })
+
+  // 本机自装清单的只读 exact 路由（§E.2③）：与 `/skills/installed` 并列，但读的是**另一份**状态文件。
+  it('serves the self-installed projection over its own exact read-only route', async () => {
+    const record = {
+      skillId: 'team-notes-pkg',
+      displayName: '会议纪要技能组',
+      sha256: 'b'.repeat(64),
+      names: ['team-notes'],
+      installedAt: '2026-10-03T00:00:00.000Z',
+      sourceType: 'upload',
+      sourceInput: 'team-notes.dshskill',
+    }
+    const skillSelfInstalled = vi.fn(async () => ({ skills: [record] }))
+    const onError = vi.fn()
+    registerEnterpriseLocalApi(webServer, { platform, pluginStatus, skillSelfInstalled, onError })
+
+    expect(ENTERPRISE_SKILL_SELF_INSTALLED_LOCAL_PATH).toBe('/enterprise/api/v1/local/skills/self-installed')
+    const route = routes.get(`exact:${ENTERPRISE_SKILL_SELF_INSTALLED_LOCAL_PATH}`)
+    expect(route?.kind).toBe('exact')
+    // 同一条 exact 承重：`self-installed` 若掉进 `/skills` 前缀会被当包 id。
+    expect(engineRouteMatch([
+      { kind: 'prefix', path: '/enterprise/api/v1/local/skills', handler: () => undefined },
+      { kind: 'exact', path: ENTERPRISE_SKILL_SELF_INSTALLED_LOCAL_PATH, handler: () => undefined },
+    ], ENTERPRISE_SKILL_SELF_INSTALLED_LOCAL_PATH)?.kind).toBe('exact')
+
+    const response = await fetch(`${baseUrl}${ENTERPRISE_SKILL_SELF_INSTALLED_LOCAL_PATH}`)
+    expect(response.status).toBe(200)
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    await expect(response.json()).resolves.toEqual({ data: { skills: [record] } })
+    expect(skillSelfInstalled).toHaveBeenCalledOnce()
+
+    // 自装清单损坏（`ENT_SKILL_STATE_INVALID` 不在表里 ⇒ 表尾默认 503）也必须码原样 + 留痕。
+    skillSelfInstalled.mockRejectedValueOnce(Object.assign(new Error('state'), { code: 'ENT_SKILL_STATE_INVALID' }))
+    const broken = await fetch(`${baseUrl}${ENTERPRISE_SKILL_SELF_INSTALLED_LOCAL_PATH}`)
+    expect(broken.status).toBe(503)
+    await expect(broken.json()).resolves.toEqual({ error: { code: 'ENT_SKILL_STATE_INVALID' } })
+    expect(onError).toHaveBeenCalled()
+
+    const wrongMethod = await fetch(`${baseUrl}${ENTERPRISE_SKILL_SELF_INSTALLED_LOCAL_PATH}`, {
+      body: '{}', headers: { 'content-type': 'application/json' }, method: 'POST',
+    })
+    expect(wrongMethod.status).toBe(405)
+    expect(wrongMethod.headers.get('allow')).toBe('GET')
+  })
+
+  it('registers neither the upload route nor the self-installed route without their ports', () => {
+    registerEnterpriseLocalApi(webServer, { platform, pluginStatus })
+    expect(routes.has(`exact:${ENTERPRISE_SKILL_UPLOAD_LOCAL_PATH}`)).toBe(false)
+    expect(routes.has(`exact:${ENTERPRISE_SKILL_SELF_INSTALLED_LOCAL_PATH}`)).toBe(false)
+  })
+
+  // 通路二「系统搜索」的**盘点**只读路由：读的是本机技能根（不是状态文件），响应是
+  // 每条根 `{id,path,present}` + 每条候选三态；它同样必须是 exact（否则会被 `/skills` 前缀当包 id）。
+  it('serves the system-search discovery over its own exact read-only route ahead of the /skills prefix', async () => {
+    const discovery = {
+      roots: [{ id: 'user-dsh', path: '/home/u/.dsh/skills', present: true }],
+      skills: [{
+        path: '/home/u/.dsh/skills/team-notes',
+        rootId: 'user-dsh',
+        name: 'team-notes',
+        displayName: 'team-notes',
+        description: '团队会议纪要',
+        state: 'available',
+      }],
+    }
+    const skillSystemSearch = vi.fn(async () => discovery)
+    const onError = vi.fn()
+    registerEnterpriseLocalApi(webServer, { platform, pluginStatus, skillSystemSearch, onError })
+
+    expect(ENTERPRISE_SKILL_SYSTEM_SEARCH_LOCAL_PATH).toBe('/enterprise/api/v1/local/skills/system-search')
+    expect(routes.get(`exact:${ENTERPRISE_SKILL_SYSTEM_SEARCH_LOCAL_PATH}`)?.kind).toBe('exact')
+    // 承重：没有这条 exact，`system-search` 会被 bundle 侧 `/skills` 详情 prefix 当成包 id。
+    const detailPrefix: RegisteredRoute = {
+      kind: 'prefix', path: '/enterprise/api/v1/local/skills', handler: () => undefined,
+    }
+    const searchRoute: RegisteredRoute = {
+      kind: 'exact', path: ENTERPRISE_SKILL_SYSTEM_SEARCH_LOCAL_PATH, handler: () => undefined,
+    }
+    expect(engineRouteMatch([detailPrefix, searchRoute], ENTERPRISE_SKILL_SYSTEM_SEARCH_LOCAL_PATH)).toBe(searchRoute)
+    expect(engineRouteMatch([detailPrefix], ENTERPRISE_SKILL_SYSTEM_SEARCH_LOCAL_PATH)).toBe(detailPrefix)
+
+    const response = await fetch(`${baseUrl}${ENTERPRISE_SKILL_SYSTEM_SEARCH_LOCAL_PATH}`)
+    expect(response.status).toBe(200)
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    await expect(response.json()).resolves.toEqual({ data: discovery })
+    expect(skillSystemSearch).toHaveBeenCalledOnce()
+
+    // 自装/企业清单损坏（`ENT_SKILL_STATE_INVALID` 不在表里 ⇒ 表尾默认 503）也必须码原样 + 留痕。
+    skillSystemSearch.mockRejectedValueOnce(Object.assign(new Error('state'), { code: 'ENT_SKILL_STATE_INVALID' }))
+    const broken = await fetch(`${baseUrl}${ENTERPRISE_SKILL_SYSTEM_SEARCH_LOCAL_PATH}`)
+    expect(broken.status).toBe(503)
+    await expect(broken.json()).resolves.toEqual({ error: { code: 'ENT_SKILL_STATE_INVALID' } })
+    expect(onError).toHaveBeenCalledTimes(1)
+
+    const wrongMethod = await fetch(`${baseUrl}${ENTERPRISE_SKILL_SYSTEM_SEARCH_LOCAL_PATH}`, {
+      body: '{}', headers: { 'content-type': 'application/json' }, method: 'POST',
+    })
+    expect(wrongMethod.status).toBe(405)
+    expect(wrongMethod.headers.get('allow')).toBe('GET')
+    // 405 由运输层直接拒，**一次都不进端口**（到这里端口只被成功那一次与损坏那一次调用过）。
+    expect(skillSystemSearch).toHaveBeenCalledTimes(2)
+  })
+
+  // 通路二「系统搜索」的**纳入**动作：正文关闭键集恰好 `{path}`（那条 canonical 绝对路径原样转交），
+  // 成功回的是与 `/skills/self-installed` 逐字同形的 `{skills: […]}`（界面复用同一份解码器）。
+  it('adopts a discovered directory through a closed-key-set exact action and echoes the family codes as-is', async () => {
+    const registered = {
+      skills: [{
+        skillId: 'team-notes',
+        displayName: 'team-notes',
+        sha256: 'c'.repeat(64),
+        names: ['team-notes'],
+        installedAt: '2026-10-05T00:00:00.000Z',
+        sourceType: 'system',
+        sourceInput: '/home/u/.dsh/skills/team-notes',
+      }],
+    }
+    const skillAdopt = vi.fn(async () => registered)
+    const onError = vi.fn()
+    registerEnterpriseLocalApi(webServer, { platform, pluginStatus, skillAdopt, onError })
+
+    expect(ENTERPRISE_SKILL_ADOPT_LOCAL_PATH).toBe('/enterprise/api/v1/local/skills/adopt')
+    expect(routes.get(`exact:${ENTERPRISE_SKILL_ADOPT_LOCAL_PATH}`)?.kind).toBe('exact')
+    // 承重：没有这条 exact，`adopt` 会被 bundle 侧 `/skills` prefix 吃掉。
+    const detailPrefix: RegisteredRoute = {
+      kind: 'prefix', path: '/enterprise/api/v1/local/skills', handler: () => undefined,
+    }
+    const adoptRoute: RegisteredRoute = {
+      kind: 'exact', path: ENTERPRISE_SKILL_ADOPT_LOCAL_PATH, handler: () => undefined,
+    }
+    expect(engineRouteMatch([detailPrefix, adoptRoute], ENTERPRISE_SKILL_ADOPT_LOCAL_PATH)).toBe(adoptRoute)
+    expect(engineRouteMatch([detailPrefix], ENTERPRISE_SKILL_ADOPT_LOCAL_PATH)).toBe(detailPrefix)
+
+    const post = (body: unknown) => fetch(`${baseUrl}${ENTERPRISE_SKILL_ADOPT_LOCAL_PATH}`, {
+      body: JSON.stringify(body),
+      headers: { 'content-type': 'application/json' },
+      method: 'POST',
+    })
+
+    const ok = await post({ path: '/home/u/.dsh/skills/team-notes' })
+    expect(ok.status).toBe(200)
+    await expect(ok.json()).resolves.toEqual({ data: registered })
+    expect(skillAdopt).toHaveBeenCalledWith('/home/u/.dsh/skills/team-notes')
+
+    // 关闭键集 + 形状门禁：键少/键多/非字符串/空串/超长一律 400，且**一次都不进端口**。
+    for (const body of [
+      {},
+      { path: '/a', extra: 1 },
+      { absolutePath: '/a' },
+      { path: 42 },
+      { path: '' },
+      { path: `/${'a'.repeat(1024)}` },
+    ]) {
+      const rejected = await post(body)
+      expect(rejected.status).toBe(400)
+      await expect(rejected.json()).resolves.toEqual({ error: { code: 'ENT_INVALID_REQUEST' } })
+    }
+    expect(skillAdopt).toHaveBeenCalledTimes(1)
+
+    // 读盘阶段才发现超限（`readJson` 抛 `RangeError`，413）⇒ 必须走**状态兜底**那一支，而不是一句与事实
+    // 无关的 `ENT_PLATFORM_UNAVAILABLE`。这条同时是「受控码探测不能借道会自动替换兜底码的 `errorCode()`」
+    // 那个死代码缺陷的回归锁（JSON 上限 256 KiB 与上传那 50 MiB 独立配额互不影响）。
+    const oversized = await post({ path: '/a', padding: 'x'.repeat(300 * 1024) })
+    expect(oversized.status).toBe(413)
+    await expect(oversized.json()).resolves.toEqual({ error: { code: 'ENT_REQUEST_TOO_LARGE' } })
+    expect(skillAdopt).toHaveBeenCalledTimes(1)
+
+    // 受控码**原样回显**：三条 fail-closed 各有不同下一步（看清单 / 不用再纳入 / 换个名字），
+    // 折成 `ENT_INVALID_REQUEST` 就等于把原因抹掉。
+    for (const [code, status] of [
+      ['ENT_SKILL_DISCOVERY_UNKNOWN', 404],
+      ['ENT_SKILL_ALREADY_REGISTERED', 409],
+      ['ENT_SKILL_NAME_CONFLICT', 409],
+      ['ENT_SKILL_ADOPT_FAILED', 500],
+      ['ENT_SKILL_STATE_INVALID', 503],
+    ] as const) {
+      skillAdopt.mockRejectedValueOnce(Object.assign(new Error(code), { code }))
+      const rejected = await post({ path: '/home/u/.dsh/skills/team-notes' })
+      expect(rejected.status).toBe(status)
+      await expect(rejected.json()).resolves.toEqual({ error: { code } })
+    }
+    // 六次键集/形状 400 + 一次超限兜底 413 + 五次受控码，各留一条痕（共 12 条）；
+    // 405 由运输层拒，不进端口也不留痕。
+    expect(onError).toHaveBeenCalledTimes(12)
+
+    const wrongMethod = await fetch(`${baseUrl}${ENTERPRISE_SKILL_ADOPT_LOCAL_PATH}`)
+    expect(wrongMethod.status).toBe(405)
+    expect(wrongMethod.headers.get('allow')).toBe('POST')
+    expect(skillAdopt).toHaveBeenCalledTimes(6)
+  })
+
+  it('registers neither the system-search route nor the adopt route without their ports', () => {
+    registerEnterpriseLocalApi(webServer, { platform, pluginStatus })
+    expect(routes.has(`exact:${ENTERPRISE_SKILL_SYSTEM_SEARCH_LOCAL_PATH}`)).toBe(false)
+    expect(routes.has(`exact:${ENTERPRISE_SKILL_ADOPT_LOCAL_PATH}`)).toBe(false)
+  })
+
+  // 通路三「在线搜索」的**搜索**只读路由：`?q=` 是唯一入参（形状收窄后原样转交），响应逐源 ok + 归一化结果。
+  it('serves the online-search fan-out over its own exact read-only route ahead of the /skills prefix', async () => {
+    const search = {
+      sources: [
+        { id: 'skills.sh', ok: true },
+        { id: 'claude-plugins.dev', ok: false },
+        { id: 'clawhub.ai', ok: true },
+      ],
+      results: [{
+        sourceId: 'skills.sh',
+        name: 'team-notes',
+        installs: 12,
+        installSource: 'skills.sh:obra/superpowers/team-notes',
+      }],
+    }
+    const skillOnlineSearch = vi.fn(async () => search)
+    const onError = vi.fn()
+    registerEnterpriseLocalApi(webServer, { platform, pluginStatus, skillOnlineSearch, onError })
+
+    expect(ENTERPRISE_SKILL_ONLINE_SEARCH_LOCAL_PATH).toBe('/enterprise/api/v1/local/skills/online-search')
+    expect(routes.get(`exact:${ENTERPRISE_SKILL_ONLINE_SEARCH_LOCAL_PATH}`)?.kind).toBe('exact')
+    // 承重：没有这条 exact，`online-search` 会被 bundle 侧 `/skills` 详情 prefix 当成包 id。
+    const detailPrefix: RegisteredRoute = {
+      kind: 'prefix', path: '/enterprise/api/v1/local/skills', handler: () => undefined,
+    }
+    const searchRoute: RegisteredRoute = {
+      kind: 'exact', path: ENTERPRISE_SKILL_ONLINE_SEARCH_LOCAL_PATH, handler: () => undefined,
+    }
+    expect(engineRouteMatch([detailPrefix, searchRoute], ENTERPRISE_SKILL_ONLINE_SEARCH_LOCAL_PATH)).toBe(searchRoute)
+    expect(engineRouteMatch([detailPrefix], ENTERPRISE_SKILL_ONLINE_SEARCH_LOCAL_PATH)).toBe(detailPrefix)
+
+    const ok = await fetch(`${baseUrl}${ENTERPRISE_SKILL_ONLINE_SEARCH_LOCAL_PATH}?q=${encodeURIComponent('会议 纪要')}`)
+    expect(ok.status).toBe(200)
+    expect(ok.headers.get('cache-control')).toBe('no-store')
+    await expect(ok.json()).resolves.toEqual({ data: search })
+    // 查询串只在这里做形状收窄：解码后原样交给端口（含空格与非 ASCII）。
+    expect(skillOnlineSearch).toHaveBeenCalledWith('会议 纪要')
+
+    // 形状门禁：缺 q / 空 q / 超长 / 含控制字符一律 400，且**一次都不进端口**。
+    for (const suffix of ['', '?q=', `?q=${'x'.repeat(129)}`, `?q=${encodeURIComponent('a\u0000b')}`]) {
+      const rejected = await fetch(`${baseUrl}${ENTERPRISE_SKILL_ONLINE_SEARCH_LOCAL_PATH}${suffix}`)
+      expect(rejected.status).toBe(400)
+      await expect(rejected.json()).resolves.toEqual({ error: { code: 'ENT_INVALID_REQUEST' } })
+    }
+    expect(skillOnlineSearch).toHaveBeenCalledTimes(1)
+
+    // 受控码原样回显：坐标不认 400 / 上游不可用 502 / 体量超限 413。
+    for (const [code, status] of [
+      ['ENT_SKILL_SOURCE_UNKNOWN', 400],
+      ['ENT_SKILL_SOURCE_UNREACHABLE', 502],
+      ['ENT_SKILL_SOURCE_TOO_LARGE', 413],
+      ['ENT_SKILL_DOWNLOAD_FAILED', 502],
+      ['ENT_SKILL_STATE_INVALID', 503],
+    ] as const) {
+      skillOnlineSearch.mockRejectedValueOnce(Object.assign(new Error(code), { code }))
+      const rejected = await fetch(`${baseUrl}${ENTERPRISE_SKILL_ONLINE_SEARCH_LOCAL_PATH}?q=x`)
+      expect(rejected.status).toBe(status)
+      await expect(rejected.json()).resolves.toEqual({ error: { code } })
+    }
+    expect(onError).toHaveBeenCalledTimes(9)
+
+    const wrongMethod = await fetch(`${baseUrl}${ENTERPRISE_SKILL_ONLINE_SEARCH_LOCAL_PATH}?q=x`, {
+      body: '{}', headers: { 'content-type': 'application/json' }, method: 'POST',
+    })
+    expect(wrongMethod.status).toBe(405)
+    expect(wrongMethod.headers.get('allow')).toBe('GET')
+    expect(skillOnlineSearch).toHaveBeenCalledTimes(6)
+  })
+
+  // 通路三的**安装**动作：正文关闭键集恰好 `{source}`，成功回的是与 `/skills/install` 逐字同形的已装态。
+  it('installs from a search result through a closed-key-set exact action and echoes the family codes as-is', async () => {
+    const installed = {
+      skills: [{
+        packageId: '1902500000000000001',
+        skillId: 'enterprise-pkg',
+        displayName: '企业技能包',
+        versionId: '1902500000000000101',
+        sha256: 'd'.repeat(64),
+        names: ['team-notes'],
+        installedAt: '2026-10-01T00:00:00.000Z',
+      }],
+    }
+    const skillInstallFromResult = vi.fn(async () => installed)
+    const onError = vi.fn()
+    registerEnterpriseLocalApi(webServer, { platform, pluginStatus, skillInstallFromResult, onError })
+
+    expect(ENTERPRISE_SKILL_INSTALL_FROM_RESULT_LOCAL_PATH).toBe('/enterprise/api/v1/local/skills/install-from-result')
+    expect(routes.get(`exact:${ENTERPRISE_SKILL_INSTALL_FROM_RESULT_LOCAL_PATH}`)?.kind).toBe('exact')
+    const detailPrefix: RegisteredRoute = {
+      kind: 'prefix', path: '/enterprise/api/v1/local/skills', handler: () => undefined,
+    }
+    const route: RegisteredRoute = {
+      kind: 'exact', path: ENTERPRISE_SKILL_INSTALL_FROM_RESULT_LOCAL_PATH, handler: () => undefined,
+    }
+    expect(engineRouteMatch([detailPrefix, route], ENTERPRISE_SKILL_INSTALL_FROM_RESULT_LOCAL_PATH)).toBe(route)
+    expect(engineRouteMatch([detailPrefix], ENTERPRISE_SKILL_INSTALL_FROM_RESULT_LOCAL_PATH)).toBe(detailPrefix)
+
+    const post = (body: unknown) => fetch(`${baseUrl}${ENTERPRISE_SKILL_INSTALL_FROM_RESULT_LOCAL_PATH}`, {
+      body: JSON.stringify(body),
+      headers: { 'content-type': 'application/json' },
+      method: 'POST',
+    })
+
+    const ok = await post({ source: 'skills.sh:obra/superpowers/team-notes' })
+    expect(ok.status).toBe(200)
+    await expect(ok.json()).resolves.toEqual({ data: installed })
+    expect(skillInstallFromResult).toHaveBeenCalledWith('skills.sh:obra/superpowers/team-notes')
+
+    // 关闭键集 + 形状门禁：键少/键多/非字符串/空串/超长一律 400，且一次都不进端口。
+    for (const body of [
+      {},
+      { source: 'skills.sh:a/b/c', extra: 1 },
+      { installSource: 'skills.sh:a/b/c' },
+      { source: 42 },
+      { source: '' },
+      { source: `skills.sh:${'a'.repeat(1024)}` },
+    ]) {
+      const rejected = await post(body)
+      expect(rejected.status).toBe(400)
+      await expect(rejected.json()).resolves.toEqual({ error: { code: 'ENT_INVALID_REQUEST' } })
+    }
+    expect(skillInstallFromResult).toHaveBeenCalledTimes(1)
+
+    for (const [code, status] of [
+      ['ENT_SKILL_SOURCE_UNKNOWN', 400],
+      ['ENT_SKILL_SOURCE_UNREACHABLE', 502],
+      ['ENT_SKILL_DOWNLOAD_FAILED', 502],
+      ['ENT_SKILL_SOURCE_TOO_LARGE', 413],
+      ['ENT_SKILL_ARCHIVE_INVALID', 400],
+      ['ENT_SKILL_SKILLMD_INVALID', 400],
+      ['ENT_SKILL_NAME_CONFLICT', 409],
+      ['ENT_SKILL_INSTALL_FAILED', 503],
+    ] as const) {
+      skillInstallFromResult.mockRejectedValueOnce(Object.assign(new Error(code), { code }))
+      const rejected = await post({ source: 'skills.sh:obra/superpowers/team-notes' })
+      expect(rejected.status).toBe(status)
+      await expect(rejected.json()).resolves.toEqual({ error: { code } })
+    }
+    expect(onError).toHaveBeenCalledTimes(14)
+
+    const wrongMethod = await fetch(`${baseUrl}${ENTERPRISE_SKILL_INSTALL_FROM_RESULT_LOCAL_PATH}`)
+    expect(wrongMethod.status).toBe(405)
+    expect(wrongMethod.headers.get('allow')).toBe('POST')
+    expect(skillInstallFromResult).toHaveBeenCalledTimes(9)
+  })
+
+  it('registers neither the online-search route nor the install-from-result route without their ports', () => {
+    registerEnterpriseLocalApi(webServer, { platform, pluginStatus })
+    expect(routes.has(`exact:${ENTERPRISE_SKILL_ONLINE_SEARCH_LOCAL_PATH}`)).toBe(false)
+    expect(routes.has(`exact:${ENTERPRISE_SKILL_INSTALL_FROM_RESULT_LOCAL_PATH}`)).toBe(false)
   })
 
   it('updates the Server origin and responds before invoking the optional restart after uninstall', async () => {

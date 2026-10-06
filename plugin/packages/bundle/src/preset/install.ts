@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 node:fs/path、platform-client 的 `resolveEnterpriseDshHome`、bundle.ts 的合成结果、authorization.ts 的三态查询，以及一个**可注入的安装端口** `PresetInstallPort`
+ * [INPUT]: 依赖 node:fs/path、platform-client 的 `resolveEnterpriseDshHome`、bundle.ts 的合成结果、authorization.ts 的三态查询、`../plugin-install-port.js` 的**横切官方面**（端口契约的官方面描述 / `ChangeResult` 投影 / 两个 ctx 取值器；与连接器纵深共用同一份），以及一个**可注入的安装端口** `PresetInstallPort`
  * [OUTPUT]: 对外提供安装端口契约与官方默认实现（`officialPresetInstallPort` / `presetPluginManagerFromContext` / `presetProfileDirFromContext`）、安装器 `createEnterprisePresetInstall`（幂等 + 并发拒绝 + 三态透出 + 统一结果对象 `{ok, application, installedNames, needsNewSession, errorCode?}`）、卸载与 `node_modules/<pkg>` link 残壳清理 `cleanPresetBundleLink`
- * [POS]: bundle 配方一键启用纵深的**安装段**——官方唯一安装面是 `ctx.pluginManager.installBundle(spec)`（`docs/notes/preset-approval-spike.md` §4 实证：普通 Host 插件 `inject: ['pluginManager']` 即可达，服务面**零弹层**、自带进度与取消）。本文件只把这条面**端口化**便于测试与替换：默认实现照原样转发官方服务、失败原样抛出（`cause` 保留官方错误），编排层负责稳定码、幂等、并发与 `application` 三态。卸载走官方 `removeBundle`，随后**自己**清掉官方不动的 `node_modules/<pkg>` link 残壳（spike §3⑤ 实证），且**绝不**删官方 `.plugin-manager/logs/*` 审计
+ * [POS]: bundle 配方一键启用纵深的**安装段**（★本刀起把与连接器共用的那一层抽到 `../plugin-install-port.ts`：`PresetApplication`/`PresetBundleApplication`/`PresetApplicationKind`/`OfficialPluginManagerLike` 与端口工厂、两个 ctx 取值器都改为从那里再导出，**对外 API 与运行时行为一字未改**）——官方唯一安装面是 `ctx.pluginManager.installBundle(spec)`（`docs/notes/preset-approval-spike.md` §4 实证：普通 Host 插件 `inject: ['pluginManager']` 即可达，服务面**零弹层**、自带进度与取消）。本文件只把这条面**端口化**便于测试与替换：默认实现照原样转发官方服务、失败原样抛出（`cause` 保留官方错误），编排层负责稳定码、幂等、并发与 `application` 三态。卸载走官方 `removeBundle`，随后**自己**清掉官方不动的 `node_modules/<pkg>` link 残壳（spike §3⑤ 实证），且**绝不**删官方 `.plugin-manager/logs/*` 审计
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -10,6 +10,18 @@ import { lstat, mkdir, readFile, readdir, readlink, realpath, rename, rm, writeF
 import { dirname, isAbsolute, join, resolve, sep } from 'node:path'
 import { resolveEnterpriseDshHome } from '@dshent/platform-client'
 import { EnterprisePresetError, presetBadRequest, presetError } from './errors.js'
+import {
+  OFFICIAL_APPLICATIONS,
+  isOfficialPluginManager,
+  officialApplicationKind,
+  pluginManagerFromContext,
+  profileDirFromContext,
+  projectOfficialResult,
+  type OfficialApplication,
+  type OfficialApplicationKind,
+  type OfficialBundleApplication,
+  type OfficialPluginManagerLike,
+} from '../plugin-install-port.js'
 import {
   PRESET_BUNDLE_FILENAMES,
   presetBundleRoot,
@@ -34,23 +46,20 @@ const HEX64_PATTERN = /^[0-9a-f]{64}$/
 const SEMVER_PATTERN = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/
 const MAX_DISPLAY_NAME_LENGTH = 120
 
-/** 官方 `ChangeResult.application` 的完整取值；**原样透出**，不由我们折叠。 */
-export type PresetApplication = 'applied' | 'restart-required' | 'overridden' | 'failed' | 'cancelled'
+/**
+ * 官方 `ChangeResult.application` 的完整取值；**原样透出**，不由我们折叠。
+ *
+ * ★ 本类型与下面这个端口家族自本刀起**住在 `../plugin-install-port.ts`**——与连接器纵深共用同一份官方面描述
+ * （纪律：`connector-architecture.md` §8.2 第 1 条「**不做第二个安装器 / 第二套运行时**」，官方规范只认一个安装面）。
+ * 此处按原名再导出，**对外 API 与运行时行为一字未改**（`tests/preset-install.spec.ts` 是这条的锁）。
+ */
+export type PresetApplication = OfficialApplication
 
 /** 给 UI 的三态（`hot` = 官方 `applied`；官方原值另存 `officialApplication`）。 */
-export type PresetApplicationKind = 'hot' | 'restart-required' | 'other'
+export type PresetApplicationKind = OfficialApplicationKind
 
 /** 官方安装/卸载结果的**受控投影**：只保留稳定字段，不放 pnpm 输出与宿主路径。 */
-export interface PresetBundleApplication {
-  readonly target: string
-  readonly changed: boolean
-  readonly application: PresetApplication
-  readonly stage?: string
-  readonly enabled?: boolean
-  readonly warnings?: readonly string[]
-  readonly failedAt?: 'registry' | 'spec-host'
-  readonly error?: { readonly code?: string; readonly diagnostic?: string }
-}
+export type PresetBundleApplication = OfficialBundleApplication
 
 /** 注入式安装端口；默认实现直接转发官方 `ctx.pluginManager`。 */
 export interface PresetInstallPort {
@@ -58,89 +67,34 @@ export interface PresetInstallPort {
   removeBundle(name: string): Promise<PresetBundleApplication>
 }
 
-/** 官方 `PluginManager` 的结构面（不 import 官方包，保持 bundle 的 peer 边界）。 */
-export interface OfficialPluginManagerLike {
-  installBundle(spec: string, options?: unknown): Promise<unknown>
-  removeBundle(name: string): Promise<unknown>
-}
+/** 官方 `PluginManager` 的结构面（`../plugin-install-port.ts` 的原样再导出，见上）。 */
+export type { OfficialPluginManagerLike }
 
-const PRESET_APPLICATIONS: readonly PresetApplication[] = ['applied', 'restart-required', 'overridden', 'failed', 'cancelled']
-
-function readApplication(value: unknown): PresetApplication {
-  return typeof value === 'string' && (PRESET_APPLICATIONS as readonly string[]).includes(value)
-    ? value as PresetApplication
-    : 'failed'
-}
-
-function readWarnings(value: unknown): readonly string[] | undefined {
-  if (!Array.isArray(value)) return undefined
-  const warnings = value.filter((item): item is string => typeof item === 'string')
-  return warnings.length === 0 ? undefined : warnings
-}
-
-function readOfficialError(value: unknown): PresetBundleApplication['error'] {
-  if (typeof value !== 'object' || value === null) return undefined
-  const row = value as Record<string, unknown>
-  const code = typeof row['code'] === 'string' && /^[a-z][a-z0-9-]{0,63}$/.test(row['code']) ? row['code'] : undefined
-  const diagnostic = typeof row['diagnostic'] === 'string' && row['diagnostic'].length <= 512 ? row['diagnostic'] : undefined
-  if (code === undefined && diagnostic === undefined) return undefined
-  return { ...(code === undefined ? {} : { code }), ...(diagnostic === undefined ? {} : { diagnostic }) }
-}
-
-/** 把一个官方 `ChangeResult` 逐字段投影成 `PresetBundleApplication`（缺失字段不伪造）。 */
-function projectOfficialResult(target: string, value: unknown): PresetBundleApplication {
-  if (typeof value !== 'object' || value === null) {
-    return { target, changed: false, application: 'failed' }
-  }
-  const row = value as Record<string, unknown>
-  const failedAt = row['failedAt'] === 'registry' || row['failedAt'] === 'spec-host' ? row['failedAt'] : undefined
-  const error = readOfficialError(row['error'])
-  const warnings = readWarnings(row['warnings'])
-  return {
-    target: typeof row['target'] === 'string' ? row['target'] : target,
-    changed: row['changed'] === true,
-    application: readApplication(row['application']),
-    ...(typeof row['stage'] === 'string' ? { stage: row['stage'] } : {}),
-    ...(typeof row['enabled'] === 'boolean' ? { enabled: row['enabled'] } : {}),
-    ...(warnings === undefined ? {} : { warnings }),
-    ...(failedAt === undefined ? {} : { failedAt }),
-    ...(error === undefined ? {} : { error }),
-  }
-}
+const PRESET_APPLICATIONS: readonly OfficialApplication[] = OFFICIAL_APPLICATIONS
 
 /** 官方默认安装端口：**原样转发**，不吞任何异常（官方错误由编排层当 `cause` 保留）。 */
 export function officialPresetInstallPort(manager: OfficialPluginManagerLike): PresetInstallPort {
-  if (typeof manager !== 'object' || manager === null
-    || typeof manager.installBundle !== 'function' || typeof manager.removeBundle !== 'function') {
+  if (!isOfficialPluginManager(manager)) {
     throw presetBadRequest('official plugin manager does not expose installBundle/removeBundle')
   }
   return {
     async installBundle(spec, options) {
-      const result = await manager.installBundle(spec, options ?? {})
-      return projectOfficialResult(spec, result)
+      return projectOfficialResult(spec, await manager.installBundle(spec, options ?? {}))
     },
     async removeBundle(name) {
-      const result = await manager.removeBundle(name)
-      return projectOfficialResult(name, result)
+      return projectOfficialResult(name, await manager.removeBundle(name))
     },
   }
 }
 
 /** 官方服务可达性：普通 Host 插件 `ctx.get('pluginManager')` 即可（spike §4 实证）。 */
 export function presetPluginManagerFromContext(ctx: { get(name: string): unknown }): OfficialPluginManagerLike | undefined {
-  const manager = ctx.get('pluginManager')
-  if (typeof manager !== 'object' || manager === null) return undefined
-  const candidate = manager as Record<string, unknown>
-  if (typeof candidate['installBundle'] !== 'function' || typeof candidate['removeBundle'] !== 'function') return undefined
-  return manager as OfficialPluginManagerLike
+  return pluginManagerFromContext(ctx)
 }
 
 /** 当前 profile 目录（`profileContext.dir`）；不在 profile 启动的进程里返回 undefined。 */
 export function presetProfileDirFromContext(ctx: { get(name: string): unknown }): string | undefined {
-  const profile = ctx.get('profileContext')
-  if (typeof profile !== 'object' || profile === null) return undefined
-  const dir = (profile as Record<string, unknown>)['dir']
-  return typeof dir === 'string' && dir.length > 0 ? dir : undefined
+  return profileDirFromContext(ctx)
 }
 
 /** Host 组合层一行接线：`ctx.get('pluginManager')` 在就给官方安装端口，缺席即 undefined（fail-closed，不猜）。 */
@@ -218,10 +172,9 @@ export interface EnterprisePresetInstall {
   busy(declarationId?: string): boolean
 }
 
+/** 官方原值 → 界面三态；实现住在 `../plugin-install-port.ts`（两个纵深同一根判据）。 */
 function applicationKind(application: PresetApplication): PresetApplicationKind {
-  if (application === 'applied') return 'hot'
-  if (application === 'restart-required') return 'restart-required'
-  return 'other'
+  return officialApplicationKind(application)
 }
 
 /** 读本机已装清单；不存在即空，损坏一律 fail-closed。 */

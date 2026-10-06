@@ -1,7 +1,17 @@
 /**
  * [INPUT]: 依赖 dsh-ui 同源 local-api、标准 Response 与 EventSource test double
  * [OUTPUT]: 验证账号/插件/技能严格解码、地址/卸载固定路径、脱敏投影、显式刷新与秘密字段拒绝，**已装技能正文取数**（同源 `/skills/content` + 两个标识符查询参数按 `encodeURIComponent` 编码、键集封闭拒绝宿主路径与超限正文），以及**本刀新增的详情子页面两条取数**——本机**文件树** `/skills/<id>/files` 与**树里单个文本文件** `/skills/<id>/file?path=`（相对路径只进查询串且一律 `encodeURIComponent`、Host 多塞宿主绝对路径或树内重复路径即 `ENT_LOCAL_RESPONSE_INVALID`） **本刀（企业插件真取消）新增**：`cancelPlugin` 的方法 / 路径 / body 逐字断言（`POST /enterprise/api/v1/local/plugins/cancel`、正文关闭键集恰好 `{packageName}`、路径常量与 Host 注册面同值），以及「响应仍是同一个严格解码器（多一个字段即畸形）」
- * [POS]: dsh-ui 浏览器网络边界测试，确保浏览器只能消费 Host 脱敏 DTO
+ * **本刀（系统搜索，+2 条）**：盘点那条只读面（`GET /skills/system-search`：根三键/候选五键封闭、三态字面、
+ *   候选的 `rootId` 必须在 `roots` 里、路径去重、两处封顶、两枚可选文本缺席即无键）与纳入那条动作路由
+ *   （`POST /skills/adopt`：路径常量逐字、正文关闭键集恰好 `{path}`、响应**复用** self-installed 那一个解码器
+ *   ——必备五键仍严格、provenance 类留痕字段按设计容忍）。
+ * **本刀（在线搜索，+2 条）**：搜索那条只读面（`GET /skills/online-search?q=…`：信封单键封闭、来源两键
+ *   （+可选 `dropped`，**只允许正数**）封闭、`ok` 布尔、结果三键（+四枚可选）封闭、两枚计数非负安全整数、
+ *   结果的 `sourceId` 必须在 `sources` 里、来源 id 去重与两处封顶；且**陌生来源 id 照旧解得开**——
+ *   Host 可增源，写死字面集会让良性变化变成整次搜索失败）与在线安装那条动作路由
+ *   （`POST /skills/install-from-result`：路径常量逐字、正文关闭键集恰好 `{source}`、响应**复用**
+ *   已装态那一个解码器）。
+ * [POS]: dsh-ui 浏览器网络边界测试，确保浏览器只能消费 Host 脱敏 DTO **本刀（本地导入，+2 条）**：上传那条 multipart 路由（`POST /enterprise/api/v1/local/skills/upload`、`FormData` 里**恰好一个** `artifact` file part、文件名原样带上、响应沿用**同一个**已装态严格解码器）与本机自装清单那条只读面（`GET …/skills/self-installed`：可选第六件 `sourceInput` 收下、provenance 多字段容忍、五枚必备事实仍严格）
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -12,10 +22,20 @@ import {
   decodeEnterpriseLoginForm,
   decodeEnterprisePluginStatus,
   decodeEnterpriseLocalStatus,
+  decodeEnterpriseOnlineSkillSearch,
+  decodeEnterpriseSelfInstalledSkills,
+  decodeEnterpriseSystemSkills,
   ENTERPRISE_CONNECTION_STATES,
   ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH,
   ENTERPRISE_PLUGIN_DISABLE_LOCAL_PATH,
   ENTERPRISE_PLUGIN_ENABLE_LOCAL_PATH,
+  ENTERPRISE_SKILL_ADOPT_LOCAL_PATH,
+  ENTERPRISE_SKILL_INSTALL_FROM_RESULT_LOCAL_PATH,
+  ENTERPRISE_SKILL_ONLINE_SEARCH_LOCAL_PATH,
+  ENTERPRISE_SKILL_SELF_INSTALLED_LOCAL_PATH,
+  ENTERPRISE_SKILL_SYSTEM_SEARCH_LOCAL_PATH,
+  ENTERPRISE_SKILL_UPLOAD_FIELD,
+  ENTERPRISE_SKILL_UPLOAD_LOCAL_PATH,
   MANAGED_PLUGIN_STATES,
 } from '../src/local-api.js'
 
@@ -513,6 +533,353 @@ describe('enterprise local browser API', () => {
     }))
     await expect(leaky.skillFiles('7001', signal)).rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
     await expect(leaky.skillFile('7001', 'code-review/SKILL.md', signal)).rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
+  })
+
+  /**
+   * **本刀（本地导入）**：上传那条 multipart 路由与它的响应解码。
+   *
+   * 三件事一起锁：① 路径常量与 Host 的 exact 注册面逐字相同；② 正文是 multipart（`FormData`）
+   * ——**恰好一个** file part、字段名逐字 `artifact`、文件名原样带上（它是 Host 的展示事实，不拼路径）；
+   * ③ 响应与 `POST /skills/install` **同形** ⇒ 走的仍是**同一个**严格解码器（不为上传新写第二套）。
+   */
+  it('uploads one selected file to the exact multipart route, reusing the installed-skills decoder', async () => {
+    const installed = {
+      packageId: '7001',
+      skillId: 'meeting-notes',
+      displayName: '会议纪要技能组',
+      versionId: '8001',
+      sha256: 'a'.repeat(64),
+      names: ['meeting-notes'],
+      installedAt: '2026-10-05T08:00:00.000Z',
+    }
+    const fetcher = vi.fn(async () => ok({ skills: [installed] }))
+    const api = createEnterpriseLocalApi(fetcher)
+    const signal = new AbortController().signal
+    const file = new File([new Uint8Array([0x50, 0x4b, 0x03, 0x04])], 'meeting-notes.dshskill', { type: 'application/zip' })
+    await expect(api.uploadSkill(file, signal)).resolves.toEqual([installed])
+    expect(ENTERPRISE_SKILL_UPLOAD_LOCAL_PATH).toBe('/enterprise/api/v1/local/skills/upload')
+    expect(ENTERPRISE_SKILL_UPLOAD_FIELD).toBe('artifact')
+    const [path, init] = fetcher.mock.calls[0]!
+    expect(path).toBe(ENTERPRISE_SKILL_UPLOAD_LOCAL_PATH)
+    expect(init).toMatchObject({ method: 'POST', cache: 'no-store', signal })
+    // 浏览器**只发用户选中的那份字节**：正文里没有任何宿主路径（本文件的既有边界口径）。
+    const body = init?.body
+    expect(body).toBeInstanceOf(FormData)
+    expect([...((body as FormData).keys())]).toEqual([ENTERPRISE_SKILL_UPLOAD_FIELD])
+    const part = (body as FormData).get(ENTERPRISE_SKILL_UPLOAD_FIELD)
+    expect(part).toBeInstanceOf(File)
+    expect((part as File).name).toBe('meeting-notes.dshskill')
+    expect(await (part as File).arrayBuffer()).toEqual(new Uint8Array([0x50, 0x4b, 0x03, 0x04]).buffer)
+    // 响应与 `/skills/install` 同形 ⇒ 同一个严格解码器：多一枚字段即整条判畸形。
+    const leaky = createEnterpriseLocalApi(vi.fn(async () => ok({ skills: [{ ...installed, provenance: 'upload' }] })))
+    await expect(leaky.uploadSkill(file, signal)).rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
+  })
+
+  /**
+   * **本刀（本地导入）**：本机自装清单那条只读面。
+   *
+   * 它是**另一份记录**（自装包没有中心雪花 id，故不在 `/skills/installed` 那份里），界面靠它说出
+   * 「这次装好了哪几个技能」。解码**刻意宽容**：Host 多附的来源留痕字段一律忽略（不能因为「多说了
+   * 一句来源」就把整句反馈判成畸形），但五枚必备事实的形状仍然严格（缺一枚 / names 为空即畸形）。
+   */
+  it('reads the self-installed catalogue over its own route and tolerates the provenance fields', async () => {
+    const record = {
+      skillId: 'meeting-notes',
+      displayName: '会议纪要技能组',
+      sha256: 'a'.repeat(64),
+      names: ['meeting-notes'],
+      installedAt: '2026-10-05T08:00:00.000Z',
+      // Host 侧如实填的两枚 provenance（§F.4）——界面只关心 `sourceInput`（用户原始文件名）。
+      sourceType: 'upload',
+      sourceInput: 'meeting-notes.dshskill',
+    }
+    const fetcher = vi.fn(async () => ok({ skills: [record] }))
+    const api = createEnterpriseLocalApi(fetcher)
+    const signal = new AbortController().signal
+    await expect(api.selfInstalledSkills(signal)).resolves.toEqual([{
+      skillId: 'meeting-notes',
+      displayName: '会议纪要技能组',
+      sha256: 'a'.repeat(64),
+      names: ['meeting-notes'],
+      installedAt: '2026-10-05T08:00:00.000Z',
+      sourceInput: 'meeting-notes.dshskill',
+    }])
+    expect(ENTERPRISE_SKILL_SELF_INSTALLED_LOCAL_PATH).toBe('/enterprise/api/v1/local/skills/self-installed')
+    // 只读那条面：GET（默认方法，故 init 里不显式写 method）、无正文、带 abort 信号。
+    expect(fetcher).toHaveBeenLastCalledWith(ENTERPRISE_SKILL_SELF_INSTALLED_LOCAL_PATH, expect.objectContaining({
+      cache: 'no-store', signal,
+    }))
+    const [, readInit] = fetcher.mock.calls[0]!
+    expect(readInit?.body).toBeUndefined()
+    expect(readInit?.method).toBeUndefined()
+    // 老 Host 不给 `sourceInput`（可选第六件）照样解得出——只少半句「装好了哪几个」，不判死整条记录。
+    const withoutInput = createEnterpriseLocalApi(vi.fn(async () => ok({
+      skills: [{ skillId: 'x', displayName: 'X', sha256: 'b'.repeat(64), names: ['x'], installedAt: '2026-10-05T08:00:00.000Z' }],
+    })))
+    await expect(withoutInput.selfInstalledSkills(signal)).resolves.toEqual([{
+      skillId: 'x', displayName: 'X', sha256: 'b'.repeat(64), names: ['x'], installedAt: '2026-10-05T08:00:00.000Z',
+    }])
+    // 必备五件仍然严格：缺一枚键、names 为空、信封形状不对 ⇒ 显式失败（绝不假装「没有自装技能」）。
+    for (const bad of [
+      { skills: [{ displayName: 'X', sha256: 'b'.repeat(64), names: ['x'], installedAt: '2026-10-05T08:00:00.000Z' }] },
+      { skills: [{ ...record, names: [] }] },
+      { skills: 'nope' },
+      {},
+    ]) {
+      await expect(createEnterpriseLocalApi(vi.fn(async () => ok(bad))).selfInstalledSkills(signal))
+        .rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    // 纯解码入口也能直接用（与浏览器 API 同一条判据）。
+    expect(decodeEnterpriseSelfInstalledSkills({ skills: [record] })).toHaveLength(1)
+  })
+
+  /**
+   * **本刀（系统搜索）**：盘点那条只读面 + 它的严格解码。
+   *
+   * 严格三条一起锁：① 信封单键封闭 `{roots, skills}`；② 根三键 / 候选五键（+两枚可选）封闭、
+   * `state` 只能是三字面；③ **每条候选的 `rootId` 必须在 `roots` 里**（界面按根分组铺设，
+   * 指向不存在根的候选没有诚实落点）＋ 路径去重与两处条数封顶。
+   */
+  it('reads the system skill roots over their own read-only route with a key-closed projection', async () => {
+    const roots = [
+      { id: 'user-dsh', path: '/data/user/0/com.deepcode.shell/files/.dsh/skills', present: true },
+      { id: 'other-cli', path: '/opt/other/skills', present: false },
+    ]
+    const skills = [
+      {
+        path: '/data/user/0/com.deepcode.shell/files/.dsh/skills/code-review',
+        rootId: 'user-dsh',
+        name: 'code-review',
+        displayName: '代码审查',
+        description: '把代码审查规则带进新会话。',
+        state: 'available',
+      },
+      { path: '/data/user/0/com.deepcode.shell/files/.dsh/skills/taken', rootId: 'user-dsh', name: 'taken', state: 'registered' },
+    ]
+    const fetcher = vi.fn(async () => ok({ roots, skills }))
+    const api = createEnterpriseLocalApi(fetcher)
+    const signal = new AbortController().signal
+    await expect(api.systemSearch(signal)).resolves.toEqual({ roots, skills })
+    expect(ENTERPRISE_SKILL_SYSTEM_SEARCH_LOCAL_PATH).toBe('/enterprise/api/v1/local/skills/system-search')
+    // 只读那条面：GET（默认方法、无正文）+ 三件既有纪律（no-store / abort / accept）。
+    expect(fetcher).toHaveBeenLastCalledWith(ENTERPRISE_SKILL_SYSTEM_SEARCH_LOCAL_PATH, expect.objectContaining({
+      cache: 'no-store', signal,
+    }))
+    expect(fetcher.mock.calls[0]?.[1]?.body).toBeUndefined()
+    // 纯解码入口同一条判据；两枚可选文本缺席时不产出那个键（不是空串）。
+    expect(decodeEnterpriseSystemSkills({ roots, skills }).skills[1]).toEqual({
+      path: '/data/user/0/com.deepcode.shell/files/.dsh/skills/taken', rootId: 'user-dsh', name: 'taken', state: 'registered',
+    })
+    // 可选文本口径**照本文件既有那两枚**（`whenToUse`/`category`）：缺席 / null / 空串都归一成「没有这个键」，
+    // 只有类型不对或超上限才判畸形（一份写着空描述的 SKILL.md 不该让整个盘点失败）。
+    for (const empty of [undefined, null, '']) {
+      expect(decodeEnterpriseSystemSkills({
+        roots, skills: [{ path: '/x/y', rootId: 'user-dsh', name: 'y', state: 'available', displayName: empty, description: empty }],
+      }).skills[0]).toEqual({ path: '/x/y', rootId: 'user-dsh', name: 'y', state: 'available' })
+    }
+    const candidate = () => ({ path: '/x/y', rootId: 'user-dsh', name: 'y', state: 'available' })
+    for (const [label, bad] of [
+      ['信封多一枚键', { roots, skills, extra: 1 }],
+      ['根多一枚键', { roots: [{ ...roots[0], extra: 1 }], skills: [] }],
+      ['根 present 不是布尔', { roots: [{ ...roots[0], present: 'true' }], skills: [] }],
+      ['候选多一枚键', { roots, skills: [{ ...candidate(), extra: 1 }] }],
+      ['state 不是三字面', { roots, skills: [{ ...candidate(), state: 'unknown' }] }],
+      ['候选的 rootId 不在 roots 里', { roots, skills: [{ ...candidate(), rootId: 'nowhere' }] }],
+      ['两枚候选同一条路径（Host 已按 canonical 去重）', { roots, skills: [candidate(), candidate()] }],
+      ['目录名不是官方 kebab', { roots, skills: [{ ...candidate(), name: 'Not Kebab' }] }],
+      ['路径含控制字符', { roots, skills: [{ ...candidate(), path: '/x/\u0000y' }] }],
+      ['路径超长（与 Host 的 1024 同值）', { roots, skills: [{ ...candidate(), path: `/x/${'y'.repeat(1024)}` }] }],
+      ['displayName 类型不对（非字符串）', { roots, skills: [{ ...candidate(), displayName: 42 }] }],
+      ['description 超上限', { roots, skills: [{ ...candidate(), description: 'z'.repeat(1025) }] }],
+      ['roots 不是数组', { roots: {}, skills: [] }],
+      ['skills 不是数组', { roots, skills: {} }],
+    ] as const) {
+      expect(() => decodeEnterpriseSystemSkills(bad), label).toThrow('ENT_LOCAL_RESPONSE_INVALID')
+      await expect(createEnterpriseLocalApi(vi.fn(async () => ok(bad))).systemSearch(signal), label)
+        .rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    }
+  })
+
+  /**
+   * **本刀（系统搜索 → 纳入）**：纳入那条动作路由。
+   *
+   * ① 路径常量与 Host 的 exact 注册面逐字相同（否则 `adopt` 会被 `/skills` 前缀当包 id）；
+   * ② 正文是**关闭键集恰好 `{path}`**（多一个键、非字符串、空串、超长都在 Host 侧 400，这里逐字锁住我们只发这一个键）；
+   * ③ 响应与 `GET /skills/self-installed` **逐字同形** ⇒ 走的仍是**同一个**严格解码器（Host 回畸形即失败，
+   *    不会被当成「纳入成功」）。
+   */
+  it('sends the adopt command to its exact same-origin route with the closed one-key body', async () => {
+    const canonical = '/data/user/0/com.deepcode.shell/files/.dsh/skills/code-review'
+    const record = {
+      skillId: 'code-review',
+      displayName: '代码审查',
+      sha256: 'a'.repeat(64),
+      names: ['code-review'],
+      installedAt: '2026-10-06T08:00:00.000Z',
+      sourceType: 'system',
+      sourceInput: canonical,
+    }
+    const fetcher = vi.fn(async () => ok({ skills: [record] }))
+    const api = createEnterpriseLocalApi(fetcher)
+    const signal = new AbortController().signal
+    await expect(api.adoptSystemSkill(canonical, signal)).resolves.toEqual([{
+      skillId: 'code-review',
+      displayName: '代码审查',
+      sha256: 'a'.repeat(64),
+      names: ['code-review'],
+      installedAt: '2026-10-06T08:00:00.000Z',
+      sourceInput: canonical,
+    }])
+    expect(ENTERPRISE_SKILL_ADOPT_LOCAL_PATH).toBe('/enterprise/api/v1/local/skills/adopt')
+    const [, init] = fetcher.mock.calls[0]!
+    expect(init).toMatchObject({
+      method: 'POST', body: JSON.stringify({ path: canonical }), cache: 'no-store', signal,
+    })
+    expect(Object.keys(JSON.parse(String(init?.body)))).toEqual(['path'])
+    // 用的是**同一个**解码器：它对自己的**必备五键**仍然严格（缺键 / names 为空 / 信封形状不对 ⇒ 整条失败），
+    // 故「Host 回了畸形」绝不会被当成「纳入成功」。
+    for (const bad of [
+      { skills: [{ ...record, skillId: undefined }] },
+      { skills: [{ ...record, names: [] }] },
+      { skills: 'nope' },
+    ]) {
+      await expect(createEnterpriseLocalApi(vi.fn(async () => ok(bad))).adoptSystemSkill(canonical, signal))
+        .rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    // 而 provenance 这类**留痕字段**按设计容忍（与 `GET /skills/self-installed` **逐字同一份**宽容口径：
+    // 多一句来源不该把一次成功的纳入判成失败）——这条同时证明两条路真的共用同一个解码器。
+    await expect(createEnterpriseLocalApi(vi.fn(async () => ok({
+      skills: [{ ...record, provenance: 'system', resolvedUrl: 'file:///x' }],
+    }))).adoptSystemSkill(canonical, signal)).resolves.toEqual([{
+      skillId: 'code-review',
+      displayName: '代码审查',
+      sha256: 'a'.repeat(64),
+      names: ['code-review'],
+      installedAt: '2026-10-06T08:00:00.000Z',
+      sourceInput: canonical,
+    }])
+  })
+
+  /**
+   * **本刀（在线搜索）**：搜索那条只读面 + 它的严格解码。
+   *
+   * 严格四条一起锁：① 信封单键封闭 `{sources, results}`；② 来源两键（+可选 `dropped`，**只允许正数**）
+   * 封闭、`ok` 是布尔；③ 结果三键（+四枚可选）封闭、两枚计数非负安全整数；
+   * ④ **结果的 `sourceId` 必须在 `sources` 里** ＋ 来源 id 去重与两处封顶。
+   * ★ 另一条口径：来源 id **不做封闭字面集**（Host 可增源）——多一个陌生 id 照旧解得开、显示时用它当源名。
+   */
+  it('reads the online skill sources over their own read-only route with a key-closed projection', async () => {
+    const sources = [
+      { id: 'skills.sh', ok: false },
+      { id: 'claude-plugins.dev', ok: true, dropped: 3 },
+      { id: 'clawhub.ai', ok: true },
+    ]
+    const results = [
+      {
+        sourceId: 'clawhub.ai',
+        name: 'code-review',
+        description: '把代码审查规则带进新会话。',
+        author: 'acme',
+        stars: 1200,
+        installs: 3400,
+        installSource: 'skills-sh:acme/tools/code-review',
+      },
+      { sourceId: 'clawhub.ai', name: 'meeting-notes', installSource: 'clawhub.ai:acme/notes/meeting-notes' },
+    ]
+    const fetcher = vi.fn(async () => ok({ sources, results }))
+    const api = createEnterpriseLocalApi(fetcher)
+    const signal = new AbortController().signal
+    await expect(api.onlineSearchSkills('code review', signal)).resolves.toEqual({ sources, results })
+    expect(ENTERPRISE_SKILL_ONLINE_SEARCH_LOCAL_PATH).toBe('/enterprise/api/v1/local/skills/online-search')
+    // 查询串进 `q` 并按标识符编码（空格、斜杠、中文都只变成查询串里的字面量）。
+    expect(fetcher.mock.calls[0]?.[0]).toBe('/enterprise/api/v1/local/skills/online-search?q=code%20review')
+    await api.onlineSearchSkills('a/b c', signal)
+    expect(fetcher.mock.calls[1]?.[0]).toBe('/enterprise/api/v1/local/skills/online-search?q=a%2Fb%20c')
+    expect(fetcher.mock.calls[0]?.[1]?.body).toBeUndefined()
+    // 两枚可选文本缺席时不产出那个键（不是空串）；`dropped` 为 0 时 Host 整键不产出，故这里也不该出现 0。
+    expect(decodeEnterpriseOnlineSkillSearch({
+      sources: [{ id: 'skills.sh', ok: true }],
+      results: [{ sourceId: 'skills.sh', name: 'x', installSource: 'skills.sh:o/r/x', description: '', author: null }],
+    })).toEqual({
+      sources: [{ id: 'skills.sh', ok: true }],
+      results: [{ sourceId: 'skills.sh', name: 'x', installSource: 'skills.sh:o/r/x' }],
+    })
+    // ★ 陌生来源 id 照旧解得开（Host 可增源；写死字面集会让良性变化变成整次搜索失败）。
+    expect(decodeEnterpriseOnlineSkillSearch({
+      sources: [{ id: 'brand-new.example', ok: true }],
+      results: [{ sourceId: 'brand-new.example', name: 'x', installSource: 'brand-new.example:o/r/x' }],
+    }).sources[0]?.id).toBe('brand-new.example')
+    // 反锁：去重键是**坐标串**，不是技能名 —— 同名不同坐标是**合法**的两条（别把约束扩大成「技能名唯一」）。
+    expect(decodeEnterpriseOnlineSkillSearch({
+      sources: [{ id: 'skills.sh', ok: true }, { id: 'clawhub.ai', ok: true }],
+      results: [
+        { sourceId: 'skills.sh', name: 'x', installSource: 'skills.sh:o/r/x' },
+        { sourceId: 'clawhub.ai', name: 'x', installSource: 'clawhub.ai:o/r/x' },
+      ],
+    }).results).toHaveLength(2)
+    const candidate = () => ({ sourceId: 'skills.sh', name: 'x', installSource: 'skills.sh:o/r/x' })
+    for (const [label, bad] of [
+      ['信封多一枚键', { sources, results, extra: 1 }],
+      ['来源多一枚键', { sources: [{ ...sources[0], extra: 1 }], results: [] }],
+      ['来源 ok 不是布尔', { sources: [{ id: 'skills.sh', ok: 'true' }], results: [] }],
+      ['dropped 为 0（Host 只在正数时产出）', { sources: [{ id: 'skills.sh', ok: true, dropped: 0 }], results: [] }],
+      ['dropped 不是整数', { sources: [{ id: 'skills.sh', ok: true, dropped: 1.5 }], results: [] }],
+      ['来源 id 重复', { sources: [{ id: 'skills.sh', ok: true }, { id: 'skills.sh', ok: false }], results: [] }],
+      ['结果多一枚键', { sources, results: [{ ...candidate(), extra: 1 }] }],
+      ['结果的 sourceId 不在 sources 里', { sources, results: [{ ...candidate(), sourceId: 'nowhere' }] }],
+      ['stars 不是安全整数', { sources, results: [{ ...candidate(), stars: 1.5 }] }],
+      ['stars 为负', { sources, results: [{ ...candidate(), stars: -1 }] }],
+      ['installSource 空串', { sources, results: [{ ...candidate(), installSource: '' }] }],
+      // ★ 本刀（复审整改）：坐标串是界面拿它当 React key、又把「这一行」对回原始结果的**唯一**依据
+      //   ⇒ 重复必须在这里判死（否则轻则 key 冲突、重则「点第二行装的是第一行」）。
+      ['installSource 重复', { sources, results: [candidate(), { ...candidate(), name: 'y' }] }],
+      ['name 超上限', { sources, results: [{ ...candidate(), name: 'z'.repeat(201) }] }],
+      ['description 类型不对', { sources, results: [{ ...candidate(), description: 42 }] }],
+      ['sources 不是数组', { sources: {}, results: [] }],
+      ['results 不是数组', { sources, results: {} }],
+    ] as const) {
+      expect(() => decodeEnterpriseOnlineSkillSearch(bad), label).toThrow('ENT_LOCAL_RESPONSE_INVALID')
+      await expect(createEnterpriseLocalApi(vi.fn(async () => ok(bad))).onlineSearchSkills('code', signal), label)
+        .rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    }
+  })
+
+  /**
+   * **本刀（在线搜索 → 安装）**：在线安装那条动作路由。
+   *
+   * ① 路径常量与 Host 的 exact 注册面逐字相同；② 正文是**关闭键集恰好 `{source}`**；
+   * ③ 响应与 `GET /skills/installed` **逐字同形** ⇒ 走的仍是**同一个**严格解码器。
+   */
+  it('sends the online install command to its exact same-origin route with the closed one-key body', async () => {
+    const coordinate = 'skills-sh:acme/tools/code-review'
+    const installed = {
+      packageId: '7001',
+      skillId: 'code-review',
+      displayName: '代码审查',
+      versionId: '8001',
+      sha256: 'a'.repeat(64),
+      names: ['code-review'],
+      installedAt: '2026-10-07T08:00:00.000Z',
+    }
+    const fetcher = vi.fn(async () => ok({ skills: [installed] }))
+    const api = createEnterpriseLocalApi(fetcher)
+    const signal = new AbortController().signal
+    await expect(api.installSkillFromResult(coordinate, signal)).resolves.toEqual([installed])
+    expect(ENTERPRISE_SKILL_INSTALL_FROM_RESULT_LOCAL_PATH).toBe('/enterprise/api/v1/local/skills/install-from-result')
+    const [, init] = fetcher.mock.calls[0]!
+    expect(init).toMatchObject({
+      method: 'POST', body: JSON.stringify({ source: coordinate }), cache: 'no-store', signal,
+    })
+    expect(Object.keys(JSON.parse(String(init?.body)))).toEqual(['source'])
+    // 用的是**同一个**已装态解码器：必备键仍严格（缺键 / 多出来的越界字段都整条失败）。
+    for (const bad of [
+      { skills: [{ ...installed, packageId: undefined }] },
+      { skills: [{ ...installed, provenance: 'github' }] },
+      { skills: 'nope' },
+    ]) {
+      await expect(createEnterpriseLocalApi(vi.fn(async () => ok(bad))).installSkillFromResult(coordinate, signal))
+        .rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    }
   })
 
   it('refreshes account state with one JSON request', async () => {

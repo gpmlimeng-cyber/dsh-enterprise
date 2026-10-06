@@ -116442,7 +116442,13 @@
                 "BRANDING_PUBLISHED",
                 "BRANDING_ROLLED_BACK",
                 "FEEDBACK_SUBMITTED",
-                "FEEDBACK_STATUS_CHANGED"
+                "FEEDBACK_STATUS_CHANGED",
+                "CONNECTOR_GRANTED",
+                "CONNECTOR_REVOKED",
+                "CONNECTOR_INBOUND_RECEIVED",
+                "CONNECTOR_OUTBOUND_SENT",
+                "CONNECTOR_DENIED",
+                "CONNECTOR_UNSUPPORTED"
               ]
             }
           },
@@ -116647,7 +116653,13 @@
                                   "BRANDING_PUBLISHED",
                                   "BRANDING_ROLLED_BACK",
                                   "FEEDBACK_SUBMITTED",
-                                  "FEEDBACK_STATUS_CHANGED"
+                                  "FEEDBACK_STATUS_CHANGED",
+                                  "CONNECTOR_GRANTED",
+                                  "CONNECTOR_REVOKED",
+                                  "CONNECTOR_INBOUND_RECEIVED",
+                                  "CONNECTOR_OUTBOUND_SENT",
+                                  "CONNECTOR_DENIED",
+                                  "CONNECTOR_UNSUPPORTED"
                                 ]
                               },
                               "resourceType": {
@@ -150365,7 +150377,13 @@
           "BRANDING_PUBLISHED",
           "BRANDING_ROLLED_BACK",
           "FEEDBACK_SUBMITTED",
-          "FEEDBACK_STATUS_CHANGED"
+          "FEEDBACK_STATUS_CHANGED",
+          "CONNECTOR_GRANTED",
+          "CONNECTOR_REVOKED",
+          "CONNECTOR_INBOUND_RECEIVED",
+          "CONNECTOR_OUTBOUND_SENT",
+          "CONNECTOR_DENIED",
+          "CONNECTOR_UNSUPPORTED"
         ]
       },
       "AuditMetadata": {
@@ -151219,7 +151237,13 @@
               "BRANDING_PUBLISHED",
               "BRANDING_ROLLED_BACK",
               "FEEDBACK_SUBMITTED",
-              "FEEDBACK_STATUS_CHANGED"
+              "FEEDBACK_STATUS_CHANGED",
+              "CONNECTOR_GRANTED",
+              "CONNECTOR_REVOKED",
+              "CONNECTOR_INBOUND_RECEIVED",
+              "CONNECTOR_OUTBOUND_SENT",
+              "CONNECTOR_DENIED",
+              "CONNECTOR_UNSUPPORTED"
             ]
           },
           "resourceType": {
@@ -152121,7 +152145,13 @@
                     "BRANDING_PUBLISHED",
                     "BRANDING_ROLLED_BACK",
                     "FEEDBACK_SUBMITTED",
-                    "FEEDBACK_STATUS_CHANGED"
+                    "FEEDBACK_STATUS_CHANGED",
+                    "CONNECTOR_GRANTED",
+                    "CONNECTOR_REVOKED",
+                    "CONNECTOR_INBOUND_RECEIVED",
+                    "CONNECTOR_OUTBOUND_SENT",
+                    "CONNECTOR_DENIED",
+                    "CONNECTOR_UNSUPPORTED"
                   ]
                 },
                 "resourceType": {
@@ -153068,7 +153098,13 @@
                         "BRANDING_PUBLISHED",
                         "BRANDING_ROLLED_BACK",
                         "FEEDBACK_SUBMITTED",
-                        "FEEDBACK_STATUS_CHANGED"
+                        "FEEDBACK_STATUS_CHANGED",
+                        "CONNECTOR_GRANTED",
+                        "CONNECTOR_REVOKED",
+                        "CONNECTOR_INBOUND_RECEIVED",
+                        "CONNECTOR_OUTBOUND_SENT",
+                        "CONNECTOR_DENIED",
+                        "CONNECTOR_UNSUPPORTED"
                       ]
                     },
                     "resourceType": {

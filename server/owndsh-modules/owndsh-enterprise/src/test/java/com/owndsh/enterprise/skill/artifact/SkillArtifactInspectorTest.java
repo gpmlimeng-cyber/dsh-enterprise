@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Jackson JsonMapper、SnakeYAML frontmatter 解析与不可信 .dshskill ZIP 字节流。
- * [OUTPUT]: 锁定 manifest 必填字段与可选 category 口径（缺失/null/空串归一为 null、超长与纯空白拒绝）、路径逃逸拒绝、SKILL.md frontmatter 必填与调用策略、旧字段拒收与包内重名拒绝。
+ * [OUTPUT]: 锁定 manifest 必填字段与可选 category 口径（缺失/null/空串归一为 null、超长与纯空白拒绝）、路径逃逸拒绝、SKILL.md frontmatter 必填与调用策略、旧字段拒收与包内重名拒绝；另锁定 skills/<name>/ 下资源文件的接受边界（接受但**不解析**、不占技能条目上限、不适用 manifest/SKILL.md 的逐条目字节上限、只计入解压总量与 entry 数）。
  * [POS]: skill/artifact 的单元验收，不依赖 PostgreSQL 与容器。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -35,6 +36,9 @@ class SkillArtifactInspectorTest {
 
     @TempDir
     Path temp;
+
+    /** 最近一次 {@link #writeZip} 写入的条目（按写入顺序），供断言归档里确实原样带上了资源文件。 */
+    private Map<String, byte[]> lastEntries = Map.of();
 
     @Test
     void acceptsMultiSkillPackageAndProjectsInvocationPolicy() throws Exception {
@@ -250,11 +254,245 @@ class SkillArtifactInspectorTest {
         assertTrue(exception.getMessage().contains("category"));
     }
 
+    /**
+     * `skills/<name>/` 下的资源文件被**接受**，但**只有恰好 3 段且末段为 `SKILL.md` 的条目**才被解析。
+     *
+     * <p>判据：`SkillArtifactInspector.java:118-120`（`isSkillFile` 要求 `segments.length == 3`）
+     * 与 `:84`（只有 manifest 与 SKILL.md 才建捕获缓冲）；资源文件在 `:90` 处 `capture == null`，
+     * 既不做字节上限比较也不进 `skillFiles`。技能条目数 = 1（`skills/<name>/SKILL.md`）。</p>
+     */
+    @Test
+    void acceptsResourceFilesUnderSkillDirectoryWithoutParsingThem() throws Exception {
+        SkillArtifactInspector.InspectedSkillPackage inspected = inspector.inspect(writeZip(Map.of(
+            "manifest.json", manifest("res", "资源包", "0.1.7-rc.2"),
+            "skills/res/SKILL.md", skill("res", "Use when testing.").getBytes(StandardCharsets.UTF_8),
+            "skills/res/references/notes.md", "# 资源正文\n".getBytes(StandardCharsets.UTF_8),
+            "skills/res/scripts/run.py", "print('hi')\n".getBytes(StandardCharsets.UTF_8),
+            "skills/res/LICENSE.txt", "MIT\n".getBytes(StandardCharsets.UTF_8)
+        )));
+
+        assertEquals(1, inspected.skills().size());
+        assertEquals("res", inspected.skills().getFirst().name());
+    }
+
+    /**
+     * 资源文件**不是**技能条目：没有 `SKILL.md` 时整包仍被拒，把资源当成技能条目会在这里露馅。
+     *
+     * <p>判据：`SkillArtifactInspector.java:118-120` + `:114`（`skillFiles.isEmpty()` ⇒ 拒绝）。</p>
+     */
+    @Test
+    void rejectsPackageWithOnlyResourceFilesAndNoSkillMarkdown() throws Exception {
+        SkillArtifactException exception = assertThrows(
+            SkillArtifactException.class,
+            () -> inspector.inspect(writeZip(Map.of(
+                "manifest.json", manifest("res-only", "只有资源", "0.1.7-rc.2"),
+                "skills/res-only/references/notes.md", "# 资源正文\n".getBytes(StandardCharsets.UTF_8)
+            )))
+        );
+        assertEquals("ENT_SKILL_INVALID_PACKAGE", exception.errorCode());
+        assertTrue(exception.getMessage().contains("SKILL.md"));
+    }
+
+    /**
+     * 资源文件**不**受 `SKILL.md` 的 256 KiB 逐条目上限约束：300 KiB 的 `references/` 被接受，
+     * 且写进归档的字节数与输入**逐字节等长**（307 200，既没被截断也没被改写）。
+     *
+     * <p>判据：`SkillArtifactInspector.java:44`（常量）、`:85`（`limit` 按 isManifest 二选一）、
+     * `:91-92`（比较只在 `capture != null` 分支内）；资源文件在 `:84`/`:90` 处不建捕获。</p>
+     */
+    @Test
+    void acceptsResourceFileLargerThanSkillMarkdownLimitAndKeepsItVerbatim() throws Exception {
+        byte[] oversized = new byte[307_200];
+        for (int index = 0; index < oversized.length; index++) oversized[index] = (byte) (index & 0x7f);
+
+        SkillArtifactInspector.InspectedSkillPackage inspected = inspector.inspect(writeZip(Map.of(
+            "manifest.json", manifest("big-res", "大资源", "0.1.7-rc.2"),
+            "skills/big-res/SKILL.md", skill("big-res", "Use when testing.").getBytes(StandardCharsets.UTF_8),
+            "skills/big-res/references/big.md", oversized
+        )));
+
+        assertEquals(1, inspected.skills().size());
+        assertArrayEquals(oversized, lastEntries.get("skills/big-res/references/big.md"));
+    }
+
+    /**
+     * 资源文件**本身**不做任何格式解析：`references/*.md` 里那份会被 `SKILL.md` 拒绝的无 frontmatter 正文出现在包里也照样接受。
+     *
+     * <p>判据：`SkillArtifactInspector.java:162-163` 只遍历 `skillFiles`，其内容由 `:118-120` 决定。</p>
+     */
+    @Test
+    void doesNotParseResourceFileContentAsSkillMarkdown() throws Exception {
+        SkillArtifactInspector.InspectedSkillPackage inspected = inspector.inspect(writeZip(Map.of(
+            "manifest.json", manifest("raw-res", "裸资源", "0.1.7-rc.2"),
+            "skills/raw-res/SKILL.md", skill("raw-res", "Use when testing.").getBytes(StandardCharsets.UTF_8),
+            "skills/raw-res/references/raw.md", "# no frontmatter\n".getBytes(StandardCharsets.UTF_8),
+            "skills/raw-res/references/binary.bin", new byte[]{0, 1, 2, 3, 0x7f}
+        )));
+
+        assertEquals(1, inspected.skills().size());
+        assertEquals("raw-res", inspected.skills().getFirst().name());
+    }
+
+    /**
+     * 深度 ≤ 3 的 `skills/<name>/LICENSE.txt` 被接受（只按 `skills/` 前缀裁决），与**包根**的 `LICENSE.txt` 相反。
+     *
+     * <p>判据：`SkillArtifactInspector.java:134`（只放行根 `manifest.json`、`skills/` 前缀与裸 `skills`）；
+     * 根级反例见 {@link #rejectsRootLevelLicenseAndReadme()}。</p>
+     */
+    @Test
+    void acceptsSkillsScopedLicenseAndReadme() throws Exception {
+        SkillArtifactInspector.InspectedSkillPackage inspected = inspector.inspect(writeZip(Map.of(
+            "manifest.json", manifest("lic", "授权包", "0.1.7-rc.2"),
+            "skills/lic/SKILL.md", skill("lic", "Use when testing.").getBytes(StandardCharsets.UTF_8),
+            "skills/lic/LICENSE.txt", "MIT\n".getBytes(StandardCharsets.UTF_8),
+            "skills/lic/README.md", "# 说明\n".getBytes(StandardCharsets.UTF_8)
+        )));
+
+        assertEquals(1, inspected.skills().size());
+    }
+
+    /**
+     * 反例：**包根**的 `LICENSE.txt` / `README.md` 被拒 —— 根位置只认 `manifest.json`。
+     *
+     * <p>判据：`SkillArtifactInspector.java:134-135`（`!"manifest.json".equals(name) && !name.startsWith("skills/")
+     * && !"skills".equals(name)` ⇒ `归档路径必须位于根或 skills/ 下`）。</p>
+     */
+    @Test
+    void rejectsRootLevelLicenseAndReadme() throws Exception {
+        SkillArtifactException license = assertThrows(
+            SkillArtifactException.class,
+            () -> inspector.inspect(writeZip(Map.of(
+                "manifest.json", manifest("root-lic", "根授权", "0.1.7-rc.2"),
+                "skills/root-lic/SKILL.md", skill("root-lic", "Use when testing.").getBytes(StandardCharsets.UTF_8),
+                "LICENSE.txt", "MIT\n".getBytes(StandardCharsets.UTF_8)
+            )))
+        );
+        assertEquals("ENT_SKILL_INVALID_PACKAGE", license.errorCode());
+        assertTrue(license.getMessage().contains("根或 skills/"));
+
+        SkillArtifactException readme = assertThrows(
+            SkillArtifactException.class,
+            () -> inspector.inspect(writeZip(Map.of(
+                "manifest.json", manifest("root-readme", "根说明", "0.1.7-rc.2"),
+                "skills/root-readme/SKILL.md", skill("root-readme", "Use when testing.").getBytes(StandardCharsets.UTF_8),
+                "README.md", "# 说明\n".getBytes(StandardCharsets.UTF_8)
+            )))
+        );
+        assertEquals("ENT_SKILL_INVALID_PACKAGE", readme.errorCode());
+        assertTrue(readme.getMessage().contains("根或 skills/"));
+    }
+
+    /**
+     * 裸 `skills` 条目不是路径走私：非空包接受它、零技能包仍以 `SKILL.md` 缺失被拒。
+     *
+     * <p>判据：`SkillArtifactInspector.java:134` 的 `!"skills".equals(name)` 放行分支；`isSkillFile`
+     * 对 1 段名返回 false（`:119-120`）。</p>
+     */
+    @Test
+    void toleratesBareSkillsDirectoryEntry() throws Exception {
+        SkillArtifactInspector.InspectedSkillPackage inspected = inspector.inspect(writeZip(Map.of(
+            "manifest.json", manifest("bare", "裸目录", "0.1.7-rc.2"),
+            "skills", new byte[0],
+            "skills/bare/SKILL.md", skill("bare", "Use when testing.").getBytes(StandardCharsets.UTF_8)
+        )));
+        assertEquals(1, inspected.skills().size());
+        assertEquals("bare", inspected.skills().getFirst().name());
+
+        SkillArtifactException empty = assertThrows(
+            SkillArtifactException.class,
+            () -> inspector.inspect(writeZip(Map.of(
+                "manifest.json", manifest("bare-empty", "裸目录空包", "0.1.7-rc.2"),
+                "skills", new byte[0]
+            )))
+        );
+        assertEquals("ENT_SKILL_INVALID_PACKAGE", empty.errorCode());
+        assertTrue(empty.getMessage().contains("SKILL.md"));
+    }
+
+    /**
+     * `skills/<name>/references/` 这类**显式目录条目**被接受且不产生任何解析：技能条目仍只有 1 个。
+     *
+     * <p>判据：`SkillArtifactInspector.java:118-120`（3 段判定只命中 `SKILL.md`）+ `:84`（目录条目 `capture == null`）。</p>
+     */
+    @Test
+    void acceptsExplicitResourceDirectoryEntries() throws Exception {
+        SkillArtifactInspector.InspectedSkillPackage inspected = inspector.inspect(writeZip(Map.of(
+            "manifest.json", manifest("dirs", "目录项", "0.1.7-rc.2"),
+            "skills/", new byte[0],
+            "skills/dirs/", new byte[0],
+            "skills/dirs/references/", new byte[0],
+            "skills/dirs/SKILL.md", skill("dirs", "Use when testing.").getBytes(StandardCharsets.UTF_8),
+            "skills/dirs/references/notes.md", "# 说明\n".getBytes(StandardCharsets.UTF_8)
+        )));
+
+        assertEquals(1, inspected.skills().size());
+        assertEquals("dirs", inspected.skills().getFirst().name());
+    }
+
+    /** 256 KiB 是闭区间上界：恰好 262 144 字节的 SKILL.md 必须仍然接受。 */
+    @Test
+    void acceptsSkillMarkdownOfExactlyTheByteLimit() throws Exception {
+        SkillArtifactInspector.InspectedSkillPackage inspected = inspector.inspect(writeZip(Map.of(
+            "manifest.json", manifest("bound", "边界", "0.1.7-rc.2"),
+            "skills/bound/SKILL.md", skillMarkdownOfSize(262_144)
+        )));
+
+        assertEquals("bound", inspected.skills().getFirst().name());
+    }
+
+    /** 越界一个字节即拒：256 KiB 逐条目上限只压在 `SKILL.md` 上（资源文件对照见超大资源用例）。 */
+    @Test
+    void rejectsSkillMarkdownOneByteOverTheLimit() throws Exception {
+        SkillArtifactException exception = assertThrows(
+            SkillArtifactException.class,
+            () -> inspector.inspect(writeZip(Map.of(
+                "manifest.json", manifest("over", "越界", "0.1.7-rc.2"),
+                "skills/over/SKILL.md", skillMarkdownOfSize(262_145)
+            )))
+        );
+        assertEquals("ENT_SKILL_INVALID_PACKAGE", exception.errorCode());
+        assertTrue(exception.getMessage().contains("SKILL.md 过大"));
+    }
+
     private Path archiveWithCategory(String categoryJson, String skillId) throws IOException {
         return writeZip(Map.of(
             "manifest.json", manifest(skillId, "分类测试", "0.1.7-rc.2", categoryJson),
             "skills/" + skillId + "/SKILL.md", skill(skillId, "Use when testing.").getBytes(StandardCharsets.UTF_8)
         ));
+    }
+
+    /**
+     * 构造**恰好** totalBytes 字节的合法 SKILL.md（frontmatter 有效，正文用 62 字节的注释行补齐，
+     * 余数落在最后一行），不做"近似"断言。
+     *
+     * <p>行宽必须与正文行**实际**字节数（`"# "` + 59 个 `a` + `\n` = 62）一致：早先按 63 计算，
+     * 每行少 1 字节，使本方法静默少造 `fullLines` 字节（`262_144` 只造出 `257_984`），
+     * 导致"恰好上界/越界 1 字节"两条用例根本没压到边界。末尾的 `assertEquals` 是不变量断言，
+     * 任何宽度与实际不符都会立刻失败，而不是静默造出偏小的包。
+     *
+     * <p>`tail` 可能落在 1..2（小于短行的最小 3 字节），此时不能再套 `"# " + repeat(tail - 3)`
+     * （会得到负的重复次数），故对 `tail ∈ {0,1,2}` 显式补齐。
+     */
+    private static byte[] skillMarkdownOfSize(int totalBytes) {
+        String frontmatter = """
+            ---
+            name: bound
+            description: Use when testing.
+            ---
+            """;
+        int remaining = totalBytes - frontmatter.length();
+        int fullLines = remaining / 62;
+        int tail = remaining % 62;
+        String body = ("# " + "a".repeat(59) + "\n").repeat(fullLines);
+        String padding = switch (tail) {
+            case 0 -> "";
+            case 1 -> "\n";
+            case 2 -> "b\n";
+            default -> "# " + "b".repeat(tail - 3) + "\n";
+        };
+        byte[] bytes = (frontmatter + body + padding).getBytes(StandardCharsets.UTF_8);
+        assertEquals(totalBytes, bytes.length);
+        return bytes;
     }
 
     private static SkillEntry entry(List<SkillEntry> skills, String name) {
@@ -286,8 +524,9 @@ class SkillArtifactInspectorTest {
 
     private Path writeZip(Map<String, byte[]> entries) throws IOException {
         Path archive = temp.resolve("package-" + System.nanoTime() + ".dshskill");
+        lastEntries = new LinkedHashMap<>(entries);
         try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(archive))) {
-            for (Map.Entry<String, byte[]> entry : new LinkedHashMap<>(entries).entrySet()) {
+            for (Map.Entry<String, byte[]> entry : lastEntries.entrySet()) {
                 zip.putNextEntry(new ZipEntry(entry.getKey()));
                 zip.write(entry.getValue());
                 zip.closeEntry();

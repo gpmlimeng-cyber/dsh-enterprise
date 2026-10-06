@@ -11,6 +11,35 @@
  *   当**透明**处理（`renderGrouped` 用 Fragment 铺行块，否则行子树会整段落进 `#opaque:`）；⑤ 两份结构大纲
  *   与共用 CSS 的长度/校验和按新结构**再基线化**（style 15215 → 18818、校验和 2453962714 → 2669689267），
  *   锁的形态（逐行大纲 + 长度 + FNV-1a）一字未改。**79 条（一条未删）。**
+ *   **本刀（本地导入，+3 条）**：① 四项的**终态**逐项锁死（只有「本地导入」可点，其余三项恒「开发中」；
+ *   写入口缺席时它**也**禁用——绝不出现「看着能点、点下去什么都不发生」的菜单项），真元素层再核一遍
+ *   `disabled` 与「点它 = 先收起下拉、再打开选择器」；② 接线面缺席时**一枚元素都不画**，在场时那枚
+ *   `<input type="file">` 的冻结属性（accept / 无障碍名 / 行内 `display:none`）与「选中即清空 value」
+ *   逐条取证，三态反馈（进行中 / 成功 / 失败 + 真能点的「重新选择文件」）逐态落 DOM，且跨流码
+ *   `ENT_SKILL_ARCHIVE_INVALID` 渲染出来的下一步**不是**「重新下载」；③ 三支视图都挂同一份 chrome
+ *   （`{skillImportChrome}` 恰好三处）—— 源码级反向锁，少挂一支才会红。两份结构大纲各 +1 行（那枚选择器），
+ *   `<style>` 长度与校验和**一字未动**（本刀零新增 CSS 类）。**92 条（一条未删）。**
+ *   **本刀（系统搜索，+3 条）**：① 四项终态改成吃**接线对象**后逐项重锁（可点的是「系统搜索 + 本地导入」，
+ *   另两项恒「开发中」；只接一项时只有那一项可点；写入口缺席时全部禁用；点那一项 = 先关下拉再走它自己的回调）；
+ *   ② 结果面是**页内视图切换不是弹窗**（工具行/四个 tabpanel 整段不挂载、树里无 dialog role、源码里无
+ *   `createPortal`、这一面只有一枚 `role="region"` + `tabIndex=-1` 的焦点落点、返回两条真路径与滚动还原的源码锁）；
+ *   ③ 按根分组 + **两种空话**（根不存在 vs 根在但零候选，另加整体空话）+ 每条候选的标题/描述/三态中文/
+ *   目录名那一句 + **只有可纳入才有按钮**（另两态在行上写清原因）+ 加载/失败（真重发）/在途（按钮禁用且
+ *   原因可见）/成功/失败五条反馈，以及「成功与失败**都**重新盘点、界面从不自己把那条改成已装」的源码锁。
+ *   两处既有计数按新结构更新：`{skillImportChrome}` 3 → 4（第四条分支）、`own-market-rows` 铺设点 3 → 4
+ *   （结果面每个根一组）；三处互斥源码锁改成正则（锁的是那几步调用与顺序，不是缩进）。**95 条（一条未删）。**
+ *   **本刀（通过 Agent 创建，+2 条）**：① 四项终态再扩一档（全部接上 ⇒ 只剩「在线搜索」灰着；逐项独立
+ *   三例；真元素层点第①项 = 先关下拉再走它自己的回调）；② 那一段反馈的三态逐态落 DOM（空闲一枚都不画 /
+ *   成功与「已复制」各一句 `role="status"` / 失败 = 唯一提示组件 + 一枚真能点的「复制这句指令」，
+ *   且交回去的草稿与构造器产出的逐字相同），外加「**绝不新造第二个开会话端口**」的源码反向锁
+ *   （`presetLaunch(` 恰好两处、文件里不出现 `openWorkspace`/`setDraft`）。**97 条（一条未删）。**
+ *   **本刀（在线搜索，+3 条）**：① 四项终态**全部接通**后逐项锁「四项全可点、四行文案与整棵树里
+ *   一个「（开发中）」都不剩」，并逐项独立（各只接一项时只有那一项可点）；② 结果面是**页内视图不是弹窗**
+ *   （工具行/四个 tabpanel 整段不挂载、无 dialog role、面内源码无 portal、只有一枚 region 容器，
+ *   且**查询框就在面内**：无障碍名/占位/受控值/输入回调/回车即搜），返回两条真路径 + 滚动还原的源码锁；
+ *   ③ 逐源**两种坏消息分开说**（两个 kind、各带源名、`dropped` 那个数**照实渲染**）+ 每条结果的
+ *   facts（来源恒有，作者/星标/安装量缺席不进那一句）+ 描述缺席不画 + 每行一枚【安装】（点它交回那条完整结果）
+ *   + 查询三档 / 四态 / 安装四条反馈逐态落 DOM。**100 条（一条未删）。**
  * [POS]: dsh-ui 插件市场入口（唯一入口：官方插件页「插件市场」卡片）的产品词汇与交互门禁，真实渲染与视觉由 Harness 快照与真机验收覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -18,8 +47,9 @@
 import { Fragment, isValidElement } from 'react'
 import type { ReactNode } from 'react'
 import { readFile, readdir } from 'node:fs/promises'
+import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
-import { StateDot, Button, Switch, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
+import { StateDot, Button, Switch, Tag, MenuItemButton } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { EnterpriseInstalledSkill, EnterpriseSkillFileEntry, EnterpriseRuntimeSkill } from '../src/local-api-decode.js'
 import { apply, inject } from '../src/client.js'
 // 插件详情子页面**原样复用**「企业设置 → 插件」那一份（本刀）：写法上与技能/配方详情同一条纪律——
@@ -30,7 +60,7 @@ import {
   ENTERPRISE_PLUGIN_DETAIL_PUBLISHER,
   ENTERPRISE_PLUGIN_DETAIL_TITLE,
 } from '../src/plugin-market.js'
-import type { EnterprisePluginPageProps } from '../src/marketplace-entry.js'
+import type { EnterpriseOnlineSearchPageProps, EnterprisePluginPageProps, EnterpriseSystemSearchPageProps } from '../src/marketplace-entry.js'
 import {
   ENTERPRISE_MARKET_BADGE_TEXT,
   ENTERPRISE_ARTWORK_ROW_SIZE,
@@ -47,13 +77,26 @@ import {
   ENTERPRISE_MARKET_SKILL_UPDATE_LABEL,
   ENTERPRISE_MARKET_SKILL_UPDATE_TAG,
   ENTERPRISE_MARKET_SUMMARY,
+  ENTERPRISE_ARTWORK_HUE_COUNT,
+  enterpriseArtworkHue,
+  enterpriseArtworkInitial,
   ENTERPRISE_MARKET_TAB_IDS,
   ENTERPRISE_MARKET_TABLIST_LABEL,
   ENTERPRISE_MARKET_TABS,
   ENTERPRISE_DETAIL_ACTION_ADD_LABEL,
   ENTERPRISE_DETAIL_ACTION_REFRESH_LABEL,
   ENTERPRISE_ADD_MENU_DEVELOPING,
+  ENTERPRISE_ADD_MENU_CREATE_ID,
+  ENTERPRISE_ADD_MENU_IMPORT_ID,
+  ENTERPRISE_ADD_MENU_ONLINE_ID,
+  ENTERPRISE_ADD_MENU_SYSTEM_SEARCH_ID,
+  EnterpriseSystemSearchPage,
+  EnterpriseMarketCreateSkillNotice,
+  EnterpriseOnlineSearchPage,
+  EnterpriseMarketSkillImportNotice,
   enterpriseAddMenuEntries,
+  enterpriseAddMenuEntryPlan,
+  enterpriseAddMenuPlans,
   BadgeView,
   EnterpriseMarketBadge,
   EnterpriseMarketBadgeTag,
@@ -141,6 +184,77 @@ import {
   enterpriseSkillUpstreamNameNote,
   ENTERPRISE_MARKET_SECTION_IDS,
 } from '../src/marketplace-entry.js'
+// **本刀（本地导入）**：那条通路的**纯事实层**（上限 / accept / 三态 / 人话）——页面只画、判定全在它那儿。
+import {
+  ENTERPRISE_SKILL_IMPORT_ACCEPT,
+  ENTERPRISE_SKILL_IMPORT_INPUT_LABEL,
+  ENTERPRISE_SKILL_IMPORT_MAX_BYTES,
+  ENTERPRISE_SKILL_IMPORT_RESELECT,
+  ENTERPRISE_SKILL_IMPORT_RESELECT_LABEL,
+  ENTERPRISE_SKILL_IMPORT_TOO_LARGE_CODE,
+  type EnterpriseSkillImportState,
+} from '../src/skill-import.js'
+// **本刀（系统搜索）**：结果面那一层的文案与纯投影（页面只画、判定都在 system-search.ts）。
+import {
+  ENTERPRISE_SYSTEM_ADOPT,
+  ENTERPRISE_SYSTEM_ADOPT_FAILED_PREFIX,
+  ENTERPRISE_SYSTEM_ADOPTING,
+  ENTERPRISE_SYSTEM_BACK_LABEL,
+  ENTERPRISE_SYSTEM_BACK_TEXT,
+  ENTERPRISE_SYSTEM_CONFLICT_NOTE,
+  ENTERPRISE_SYSTEM_DIRECTORY_PREFIX,
+  ENTERPRISE_SYSTEM_EMPTY,
+  ENTERPRISE_SYSTEM_LOADING,
+  ENTERPRISE_SYSTEM_REFRESH,
+  ENTERPRISE_SYSTEM_REFRESH_LABEL,
+  ENTERPRISE_SYSTEM_REGISTERED_NOTE,
+  ENTERPRISE_SYSTEM_ROOT_ABSENT,
+  ENTERPRISE_SYSTEM_ROOT_EMPTY,
+  ENTERPRISE_SYSTEM_SECTION_LABEL,
+  ENTERPRISE_SYSTEM_STATE_AVAILABLE,
+  ENTERPRISE_SYSTEM_TITLE,
+  enterpriseSystemAdoptedText,
+  enterpriseSystemAdoptingText,
+} from '../src/system-search.js'
+// **本刀（通过 Agent 创建）**：那一项的草稿、三段文案与三态反馈（页面只画、判定都在 skill-create.ts）。
+import {
+  ENTERPRISE_SKILL_CREATE_COPIED,
+  ENTERPRISE_SKILL_CREATE_COPY,
+  ENTERPRISE_SKILL_CREATE_COPY_FAILED_CODE,
+  ENTERPRISE_SKILL_CREATE_COPY_LABEL,
+  ENTERPRISE_SKILL_CREATE_LAUNCH_FAILED_CODE,
+  ENTERPRISE_SKILL_CREATE_OPENED,
+  buildSkillCreateDraft,
+} from '../src/skill-create.js'
+// **本刀（在线搜索）**：那一面的文案与纯投影（页面只画、判定都在 online-search.ts）。
+import {
+  ENTERPRISE_ONLINE_AUTHOR_PREFIX,
+  ENTERPRISE_ONLINE_BACK_LABEL,
+  ENTERPRISE_ONLINE_BACK_TEXT,
+  ENTERPRISE_ONLINE_EMPTY,
+  ENTERPRISE_ONLINE_IDLE,
+  ENTERPRISE_ONLINE_INSTALL,
+  ENTERPRISE_ONLINE_INSTALLED,
+  ENTERPRISE_ONLINE_INSTALLING,
+  ENTERPRISE_ONLINE_INSTALLS_PREFIX,
+  ENTERPRISE_ONLINE_INSTALL_FAILED_PREFIX,
+  ENTERPRISE_ONLINE_LOADING,
+  ENTERPRISE_ONLINE_QUERY_LABEL,
+  ENTERPRISE_ONLINE_QUERY_PLACEHOLDER,
+  ENTERPRISE_ONLINE_RESULTS_TITLE,
+  ENTERPRISE_ONLINE_SEARCH,
+  ENTERPRISE_ONLINE_SEARCH_LABEL,
+  ENTERPRISE_ONLINE_SOURCE_PREFIX,
+  ENTERPRISE_ONLINE_STARS_PREFIX,
+  ENTERPRISE_ONLINE_TITLE,
+  ENTERPRISE_ONLINE_TOO_SHORT,
+  enterpriseOnlineCountText,
+  enterpriseOnlineInstalledText,
+  enterpriseOnlineInstallingText,
+  enterpriseOnlineReadyText,
+} from '../src/online-search.js'
+// 列表失败态那两枚共享常量（结果面的重试按钮就用这一份，不另写一句「重试」）。
+import { ENTERPRISE_LIST_RETRY, ENTERPRISE_LIST_RETRY_LABEL } from '../src/list-state.js'
 
 vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
   Button: vi.fn(),
@@ -184,10 +298,18 @@ function textOf(node: ReactNode): string {
  * 行块由 `renderGrouped`（Fragment）铺出，故 `domOutline` 把 Fragment 也当**透明**处理——
  * 否则行子树会整段落在 `#opaque:Symbol(react.fragment)` 后面、这份快照就白锁了。
  * 任何人再改行结构/类名/属性/顺序或那份 CSS，这里都会立刻显形。
+ *
+ * **本刀（本地导入）再基线化一次**：`<style>` 之后多一枚**恒不可见**的文件选择器（那份 chrome 挂在页面级，
+ * 三支视图都挂）。变化**只有这一行**：`style(...)` 的长度与 FNV-1a 校验和**一字未动**（CSS 零新增类，
+ * 那枚 input 用行内 `display:none` 收起），锁的形态（逐行大纲 + 长度 + 校验和）也一字未改。
  */
 const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(26747 chars)",
+  "  style(38597 chars)",
+  // **本刀（本地导入）**加的这一行：接线面在场时那份 `<style>` 之后紧跟一枚**恒不可见**的文件选择器
+  //（行内 `display:none`，零新增 CSS 类 ⇒ `<style>` 长度与校验和一字未动）。空闲态（`state === undefined`）
+  // **不出**任何反馈，故整份大纲只多这一行；三种状态下的反馈另有专门用例逐条锁。
+  "  input[type=file][accept=.dshskill,application/vnd.dsh.skill+zip,application/zip][aria-label=选择要导入的技能包文件][style=[object Object]][onChange=[fn]]",
   "  div[className=own-market-searchRow]",
   "    div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
   "      button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=true][aria-controls=market-panel-skills][tabIndex=0][onClick=[fn]][onKeyDown=[fn]]",
@@ -198,10 +320,10 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "        #text:配方 0",
   "      button[id=market-tab-components][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-components][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
   "        #text:组件 4",
+  "    span[className=own-market-rowBarSpacer][aria-hidden=true]",
   "    span[className=own-market-query]",
   "      #opaque:[object Object]",
   "      input[type=search][className=own-market-queryInput][aria-label=搜索][placeholder=搜索技能、插件、配方][value=][readOnly=true][onChange=[fn]]",
-  "    span[className=own-market-rowBarSpacer][aria-hidden=true]",
   "    div[className=own-market-filterWrap]",
   "      button[type=button][className=own-market-filterBtn][aria-label=筛选][aria-expanded=false][onClick=[fn]]",
   "        #opaque:[object Object]",
@@ -216,11 +338,12 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "              button[type=button][className=own-market-rowOpen][data-enterprise-skill-open=1902500000000000001][aria-label=查看企业技能 会议纪要技能组 详情][disabled=true][title=详情入口未接通][onClick=[fn]]",
   "                span[className=own-market-rowIcon]",
   "                  svg[width=30][height=30][viewBox=0 0 36 36][fill=none][xmlns=http://www.w3.org/2000/svg][aria-hidden=true]",
-  "                    path[d=M24.6294 8.63696C26.2862 8.63705 27.6294 9.98016 27.6294 11.637V12.7825C27.6292 14.4391 26.2861 15.7824 24.6294 15.7825H23.4839C22.6519 15.7825 21.5454 16.3459 21.5454 17.1778V18.1573C21.5454 18.7757 22.216 19.1966 22.8345 19.1965H24.6294C26.2861 19.1965 27.6292 20.5398 27.6294 22.1965V23.9924C27.6292 25.6491 26.2861 26.9924 24.6294 26.9924H22.8345C21.1778 26.9924 19.8347 25.649 19.8345 23.9924V22.1965C19.8345 21.7148 19.4957 21.2327 19.014 21.2327H16.4792C15.7975 21.2327 15.3374 22.0061 15.3374 22.6877V23.8333C15.3373 25.49 13.9942 26.8333 12.3374 26.8333H11.1919C9.53509 26.8333 8.19198 25.49 8.19189 23.8333V22.6877C8.19189 21.0309 9.53504 19.6877 11.1919 19.6877H12.3374C13.1964 19.6877 14.3999 19.0959 14.3999 18.2369V16.0185C14.3999 14.9518 15.2646 14.0872 16.3312 14.0872H19.435C20.0596 14.0872 20.484 13.4071 20.4839 12.7825V11.637C20.4839 9.98011 21.827 8.63696 23.4839 8.63696H24.6294ZM13.4116 11.2468C13.4116 12.6882 12.2431 13.8567 10.8018 13.8567C9.36037 13.8567 8.19189 12.6882 8.19189 11.2468C8.19189 9.80544 9.36037 8.63696 10.8018 8.63696C12.2431 8.63696 13.4116 9.80544 13.4116 11.2468Z][fill=url(#ARTIFACT-ID)]",
+  "                    text[x=18][y=18][textAnchor=middle][dominantBaseline=central][fontSize=19][fontWeight=600][fill=url(#ARTIFACT-ID)]",
+  "                      #text:会",
   "                    defs",
-  "                      linearGradient[id=ARTIFACT-ID][x1=15.1481][y1=9.94188][x2=15.1481][y2=13.6375][gradientUnits=userSpaceOnUse]",
-  "                        stop[stopColor=#54ECE7]",
-  "                        stop[offset=1][stopColor=#658EFF]",
+  "                      linearGradient[id=ARTIFACT-ID][x1=4][y1=4][x2=32][y2=32][gradientUnits=userSpaceOnUse]",
+  "                        stop[stopColor=var(--dsw-static-green-400)]",
+  "                        stop[offset=1][stopColor=var(--dsw-static-green-500)]",
   "                div[className=own-market-rowMain]",
   "                  span[className=own-market-cardHead]",
   "                    span[className=own-market-cardId own-market-skillTitle]",
@@ -253,7 +376,9 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
  */
 const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(26747 chars)",
+  "  style(38597 chars)",
+  // 同一行文件选择器（三支视图共用同一份 chrome；插件页签这一份没有插件详情在场，故不挂第二份样式表）。
+  "  input[type=file][accept=.dshskill,application/vnd.dsh.skill+zip,application/zip][aria-label=选择要导入的技能包文件][style=[object Object]][onChange=[fn]]",
   "  div[className=own-market-searchRow]",
   "    div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
   "      button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-skills][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
@@ -264,10 +389,10 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "        #text:配方 0",
   "      button[id=market-tab-components][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-components][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
   "        #text:组件 4",
+  "    span[className=own-market-rowBarSpacer][aria-hidden=true]",
   "    span[className=own-market-query]",
   "      #opaque:[object Object]",
   "      input[type=search][className=own-market-queryInput][aria-label=搜索][placeholder=搜索技能、插件、配方][value=][readOnly=true][onChange=[fn]]",
-  "    span[className=own-market-rowBarSpacer][aria-hidden=true]",
   "    div[className=own-market-filterWrap]",
   "      button[type=button][className=own-market-filterBtn][aria-label=筛选][aria-expanded=false][onClick=[fn]]",
   "        #opaque:[object Object]",
@@ -284,11 +409,12 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "                button[type=button][className=own-market-rowOpen][data-enterprise-plugin-open=ent-a][aria-label=查看企业插件 ent-a 详情][disabled=true][title=详情入口未接通][onClick=[fn]]",
   "                  span[className=own-market-rowIcon]",
   "                    svg[width=30][height=30][viewBox=0 0 36 36][fill=none][xmlns=http://www.w3.org/2000/svg][aria-hidden=true]",
-  "                      path[d=M24.6294 8.63696C26.2862 8.63705 27.6294 9.98016 27.6294 11.637V12.7825C27.6292 14.4391 26.2861 15.7824 24.6294 15.7825H23.4839C22.6519 15.7825 21.5454 16.3459 21.5454 17.1778V18.1573C21.5454 18.7757 22.216 19.1966 22.8345 19.1965H24.6294C26.2861 19.1965 27.6292 20.5398 27.6294 22.1965V23.9924C27.6292 25.6491 26.2861 26.9924 24.6294 26.9924H22.8345C21.1778 26.9924 19.8347 25.649 19.8345 23.9924V22.1965C19.8345 21.7148 19.4957 21.2327 19.014 21.2327H16.4792C15.7975 21.2327 15.3374 22.0061 15.3374 22.6877V23.8333C15.3373 25.49 13.9942 26.8333 12.3374 26.8333H11.1919C9.53509 26.8333 8.19198 25.49 8.19189 23.8333V22.6877C8.19189 21.0309 9.53504 19.6877 11.1919 19.6877H12.3374C13.1964 19.6877 14.3999 19.0959 14.3999 18.2369V16.0185C14.3999 14.9518 15.2646 14.0872 16.3312 14.0872H19.435C20.0596 14.0872 20.484 13.4071 20.4839 12.7825V11.637C20.4839 9.98011 21.827 8.63696 23.4839 8.63696H24.6294ZM13.4116 11.2468C13.4116 12.6882 12.2431 13.8567 10.8018 13.8567C9.36037 13.8567 8.19189 12.6882 8.19189 11.2468C8.19189 9.80544 9.36037 8.63696 10.8018 8.63696C12.2431 8.63696 13.4116 9.80544 13.4116 11.2468Z][fill=url(#ARTIFACT-ID)]",
+  "                      text[x=18][y=18][textAnchor=middle][dominantBaseline=central][fontSize=19][fontWeight=600][fill=url(#ARTIFACT-ID)]",
+  "                        #text:E",
   "                      defs",
-  "                        linearGradient[id=ARTIFACT-ID][x1=15.1481][y1=9.94188][x2=15.1481][y2=13.6375][gradientUnits=userSpaceOnUse]",
-  "                          stop[stopColor=#54ECE7]",
-  "                          stop[offset=1][stopColor=#658EFF]",
+  "                        linearGradient[id=ARTIFACT-ID][x1=4][y1=4][x2=32][y2=32][gradientUnits=userSpaceOnUse]",
+  "                          stop[stopColor=var(--dsw-static-red-400)]",
+  "                          stop[offset=1][stopColor=var(--dsw-static-red-600)]",
   "                  div[className=own-market-rowMain]",
   "                    span[className=own-market-cardHead]",
   "                      span[className=own-market-cardId own-market-skillTitle]",
@@ -317,11 +443,12 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "                button[type=button][className=own-market-rowOpen][data-enterprise-plugin-open=ent-b][aria-label=查看企业插件 ent-b 详情][disabled=true][title=详情入口未接通][onClick=[fn]]",
   "                  span[className=own-market-rowIcon]",
   "                    svg[width=30][height=30][viewBox=0 0 36 36][fill=none][xmlns=http://www.w3.org/2000/svg][aria-hidden=true]",
-  "                      path[d=M24.6294 8.63696C26.2862 8.63705 27.6294 9.98016 27.6294 11.637V12.7825C27.6292 14.4391 26.2861 15.7824 24.6294 15.7825H23.4839C22.6519 15.7825 21.5454 16.3459 21.5454 17.1778V18.1573C21.5454 18.7757 22.216 19.1966 22.8345 19.1965H24.6294C26.2861 19.1965 27.6292 20.5398 27.6294 22.1965V23.9924C27.6292 25.6491 26.2861 26.9924 24.6294 26.9924H22.8345C21.1778 26.9924 19.8347 25.649 19.8345 23.9924V22.1965C19.8345 21.7148 19.4957 21.2327 19.014 21.2327H16.4792C15.7975 21.2327 15.3374 22.0061 15.3374 22.6877V23.8333C15.3373 25.49 13.9942 26.8333 12.3374 26.8333H11.1919C9.53509 26.8333 8.19198 25.49 8.19189 23.8333V22.6877C8.19189 21.0309 9.53504 19.6877 11.1919 19.6877H12.3374C13.1964 19.6877 14.3999 19.0959 14.3999 18.2369V16.0185C14.3999 14.9518 15.2646 14.0872 16.3312 14.0872H19.435C20.0596 14.0872 20.484 13.4071 20.4839 12.7825V11.637C20.4839 9.98011 21.827 8.63696 23.4839 8.63696H24.6294ZM13.4116 11.2468C13.4116 12.6882 12.2431 13.8567 10.8018 13.8567C9.36037 13.8567 8.19189 12.6882 8.19189 11.2468C8.19189 9.80544 9.36037 8.63696 10.8018 8.63696C12.2431 8.63696 13.4116 9.80544 13.4116 11.2468Z][fill=url(#ARTIFACT-ID)]",
+  "                      text[x=18][y=18][textAnchor=middle][dominantBaseline=central][fontSize=19][fontWeight=600][fill=url(#ARTIFACT-ID)]",
+  "                        #text:E",
   "                      defs",
-  "                        linearGradient[id=ARTIFACT-ID][x1=15.1481][y1=9.94188][x2=15.1481][y2=13.6375][gradientUnits=userSpaceOnUse]",
-  "                          stop[stopColor=#54ECE7]",
-  "                          stop[offset=1][stopColor=#658EFF]",
+  "                        linearGradient[id=ARTIFACT-ID][x1=4][y1=4][x2=32][y2=32][gradientUnits=userSpaceOnUse]",
+  "                          stop[stopColor=var(--dsw-static-deepseek-400)]",
+  "                          stop[offset=1][stopColor=var(--dsw-static-deepseek-600)]",
   "                  div[className=own-market-rowMain]",
   "                    span[className=own-market-cardHead]",
   "                      span[className=own-market-cardId own-market-skillTitle]",
@@ -367,15 +494,108 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
  *     `border-radius:8px` / `font-size:14px`，边框 `0.5px solid var(--dsw-alias-border-l4)`），
  *     并把「工具行 → 内容区」的间距收成**单点**（见下面 ⑤）。
  * ★ 兜底图形**尺寸 18 → 30**（官方 `ROW_ARTWORK_SIZE`：40px 框里放 30px 图形）**不动 CSS**，
- *   只动 SVG 的 width/height，故不进这两道基线 —— 它由「gives every row the official fallback
- *   artwork…」那条用例按「40 框 + 30 图形」这个配比单独锁死。
+ *   只动 SVG 的 width/height，故不进这两道基线 —— 它由「derives each row icon from the item id…」
+ *   那条用例（task-17 ② 改名，原名 `gives every row the official fallback artwork…`）按
+ *   「40 框 + 30 图形」这个配比单独锁死。
  * ★ 详情那份 CSS（baseStyles + rowStyles + detailStyles）随之也变了，但**没有任何常量锁它的字节数**，
  *   故本刀不必为它单独立基线（`EnterpriseSkillDetailPage` 那些用例按类名逐条断言，不按字节数）。
  * ★ 反向锁在「keeps the rule that hides the official detail icon in the list-view stylesheet」那条用例里：
  *   它直接锁「**这份** CSS 必须含那条规则」，比锁某张表的否定更贴近真实需求。
+ *
+ * **本刀（刷新/添加同行 + 移动端四页签/搜索/筛选适配 + 工具行搜索框右对齐）再基线化一次：
+ * 26747 → 29717 chars、校验和 4237248219 → 1049969647。**
+ * 同样**只推基线、不放宽判据**（仍是「长度 + FNV-1a 校验和」两道，上面两份大纲里的
+ * `style(N chars)` 那两行也照旧逐字锁着）——本刀 CSS 有四处变动，逐条记清，否则后人无从复核：
+ *   · **改**：`.own-market-titleActions` 由只有 `margin-left:auto` 一条声明，改成
+ *     `display:flex;align-items:center;gap:8px;flex:none;margin-left:auto`（缺陷①：两枚按钮必须同行，
+ *     三处事实链与算术见源文件该规则上方的注释）。**这条是桌面可见的**。
+ *   · **＋**：一条 `@media (max-width: 560px){…}`（缺陷②：移动端四页签 + 搜索框 + 筛选钮），
+ *     内含 `.own-market-searchRow` / `.own-market-storeTabs` / `.own-market-query` /
+ *     `.own-market-rowBarSpacer` 四条**既有类名**的窄屏取值。**一个新 CSS 类都没加**，
+ *     且四条规定只在这一条查询里 ⇒ 桌面（≥1024px）逐字节不生效。
+ *   · **＋**：两处纯注释（本刀的口径与算术说明，零声明）。
+ * ★ **本刀（task-15：非移动端搜索右对齐）动了 DOM**：列表工具行里那枚
+ *   `<span className="own-market-rowBarSpacer">` 由「搜索框**之后**」上移到「搜索框**之前**」——
+ *   `.own-market-query` 是 `flex:0 1 320px`（不 grow），占位原先住在它右边 ⇒ 空白吃在搜索框右侧、
+ *   搜索框紧贴页签（用户报的现象）；上移后空白吃在左侧 ⇒「搜索框 320px + 筛选钮 32px」整组贴行右。
+ *   故两份大纲里那行 spacer **随之上移一行**（**行内容一字未改**，只换了它与 query 块的先后），
+ *   且两处 `style(29602 chars)` → `style(29717 chars)`。
+ *   ⇒ 这两项**都是再基线化、不是放宽判据**：锁的形态（逐行大纲 + 长度 + FNV-1a 两道）一字未改。
+ * ★ **本刀（task-16：把窄屏算术锁从「假锁」改成真锁）**：CSS **声明一条都没动**（四页签 / 搜索框 /
+ *   筛选钮的窄屏取值、断点 560px、overflow-x:auto 全部原样），只改了两处**注释里的算术**：
+ *   ① 源里那段窄屏说明的宽度模型（含计数文本、逐枚文案、212 是**下界**的纠正）；
+ *   ② 本条注释本身。注释也是 `baseStyles` 的字节 ⇒ `style(29717 chars)` → `style(30488 chars)`、
+ *   FNV-1a 校验和随之再基线化（29717/1049969647 → 30488/3379417455）。
+ *   两份大纲里那两行 `style(N chars)` 同步改数 —— **仍是再基线化，不是放宽判据**。
+ * ★ **本刀（task-17：行网格断点 560→900 + 逐条目派生图标 + 副标题顺序）**：CSS **真声明只改了一条**
+ *   （`.own-market-rows` 那条单列回落的断点值 560 → 900，见源里那条带完整算术推导的注释）；
+ *   另加了两处**注释**。⇒ `style(30488 chars)` → `style(32819 chars)`、
+ *   FNV-1a 校验和 3379417455 → 2122687982（**再基线化，不是放宽判据**）。
+ *   两份大纲**结构上各多一行**：图标由官方那枚 `path` 换成「首字母 `text` + 它的 `#text` 子节点」
+ *   （每处 +1 行），而 `svg`/`defs`/`linearGradient`/两枚 `stop` 这五行的**形态一字未改**，
+ *   只把两枚 `stopColor` 从写死的 `#54ECE7`/`#658EFF` 换成逐条目派生的既有 token 引用；
+ *   `linearGradient` 的几何由竖直线段（x1=x2=15.1481）改成对角铺（4,4 → 32,32）。
+ *   锁的形态（逐行大纲 + 长度 + FNV-1a 两道）一字未改。
+ * ★ **本刀（task-19：列表纵向节奏与官方逐像素一致）**：CSS **真声明改了 7 条取值**
+ *   （`.own-market-rows` 基准档 `gap:28px 48px`→`gap:12px 48px`、≤900px 档补 `gap:2px 0`、
+ *   `.own-market-row` 内衬 `10px 12px`→`8px 12px`、`.own-market-rowIcon` `40px`→`48px`、
+ *   `.own-market-rowMain` `gap:2px`→`4px`、`.own-market-cardId` `line-height:1.4`→`20px`、
+ *   `.own-market-cardDesc` `line-height:1.55`→`18px`）＋两处注释。⇒
+ *   `style(32819 chars)` → `style(34025 chars)`、FNV-1a 校验和 2122687982 → **2926950019**
+ *   （**再基线化，不是放宽判据**）。★ 两份大纲这次**只动了 `style(N chars)` 那一行**：
+ *   图标容器 40→48 只改 CSS，**渲染出的 `<svg>` 仍是 `width=30`**（`ROW_ARTWORK_SIZE` 未动）
+ *   ⇒ 大纲的节点结构一行未变。
+ * ★ **本刀（task-20：页头节奏收口）**：CSS **真声明改了 7 处**——`① 页签条改官方分段胶囊`
+ *   （`.own-market-storeTabs` 由 flex 改 `display:inline-grid;grid-auto-flow:column;grid-auto-columns:1fr`
+ *   + `padding:3px`→`2px` + 背景由 alias-background-secondary 换官方轨道填充 alias-interactive-bg-hover；
+ *   `.own-market-storeTab` 由 `padding:5px 12px` 改 `height:28px;padding:0 16px;border-radius:999px`
+ *   + inline-flex 居中；选中态的 box-shadow 由 lv1 改官方 `--dsw-elevation-soft`）、
+ *   `② 工具行断点 560px → 600px`、`③ .own-market-entry 加 margin-top:-16px`（E）、
+ *   `④⑤ 新增两条 :has() 作用域的官方 detailHead/detailMain 覆盖`（C+D）。
+ *   ⇒ `style(34025 chars)` → `style(38113 chars)`、FNV-1a 校验和 2926950019 → **1011282763**
+ *   （**再基线化，不是放宽判据**）。★ 两份大纲**仍只动 `style(N chars)` 那一行**：A 改的是官方
+ *   `Button` 的 props（测试里是 `vi.fn()`，不进大纲），B/C/D/E 全是 CSS ⇒ 节点结构一行未变。
+ * ★ **本刀（task-20 收口：隐藏官方图标那条也加闸门）**：本文件原先唯一一条**裸命中**官方 detail 类的
+ *   规则——隐藏官方 48×48 图标的 `[data-plugin-item-detail] [class*="_detailHead"] [class*="_cardIcon"]`
+ *   ——锚点也挂上 `:has(...own-market-entry...)` 闸门（与 C/D 同一条、同一个锚点）⇒ 本文件里**再无**
+ *   任何会命中**其它 item 详情**的官方类覆盖（那条 `bare` 断言现为**空列表**）。同刀把添加钮里的
+ *   `ChevronDown` 12→13（与同钮的 `Plus` 对齐；它是 props、不进基线）。⇒ `style(38113 chars)` →
+ *   `style(38471 chars)`、FNV-1a 校验和 1011282763 → **298844786**（**再基线化，不是放宽判据**）；
+ *   两份大纲**仍只动 `style(N chars)` 那一行**。
+ * ★ **本刀（task-21：深色主题下的「白底白字」根因修复 + 窄屏行距）**：真机截图（深色主题）暴露六处
+ *   「浅色填充 + 随主题翻转的字色」⇒ 白字压白、字看不见。**根因不是间距，是一批本版 DSH 根本不定义
+ *   的 alias token 名**（`grep -rl dsw-alias-background-primary <整个 DSH 安装>` 一处都没有）——
+ *   `var(...,#fff)` 的**兜底值**在生效，浅色主题下恰好对、深色主题下全错。逐处照官方对应面取**成对**
+ *   token：选中页签 ← 官方分段控件指示块（`bg-layer-1` + `label-primary`）、授权弹层 ← 官方 `Modal`
+ *   （`bg-layer-2`）、两个下拉菜单 ← 官方弹出面（`menu-surface-fill`）、筛选项 hover ← 与同族
+ *   `moreItem:hover` 对齐（`interactive-bg-hover`）。同刀把窄屏换行形态的 `row-gap` 由 **0 改成 8px**
+ *   （并**更正**旧注释里「8px 会叠在 margin-bottom 上、底距变 28px」那条**错误结论**：flex 的 row-gap
+ *   只在两条线之间插入，最后一条线之后不加 ⇒ 底距恒为 20px）。⇒ `style(38471 chars)` → `style(38520 chars)`、
+ *   FNV-1a 校验和 298844786 → **913835772**（**再基线化，不是放宽判据**）；两份大纲**仍只动
+ *   `style(N chars)` 那一行**。
+ * ★ **同刀第三次更正（安装/启用按钮）**：浅色真机截图暴露它是**灰底** —— 我上一版把它照 `.toolbar`
+ *   变体填了 `button-tool-bar-fill`：token 名**是对的**、色也随主题翻，但**档位错了**：它根本不是
+ *   工具栏按钮，而是官方**普通按钮的 `outline` 档**（三处调用都是 `variant="outline"`，官方
+ *   `.outline{background:transparent;border:0.5px solid var(--dsw-alias-border-l3)}` 在浅色卡片上
+ *   **本来就是白底黑字 + 一条浅描边**）。⇒ 正解是把那三条覆盖**整条删掉**，这个类完全交回官方
+ *   （由反向锁守着：本文件 CSS 里**查无该规则**）。⇒ `style(38520 chars)` → `style(38605 chars)`、
+ *   FNV-1a 校验和 913835772 → **2310043017**（**再基线化，不是放宽判据**）；两份大纲**仍只动
+ *   `style(N chars)` 那一行**。
+ * ★ **复审整改（在线/系统搜索两面的审查）**：搜索框 `.own-market-query` 的底色也是那枚**本版 DSH
+ *   不存在**的 token（`background-primary` ⇒ 兜底 `#fff` 恒白 ⇒ 深色下就是一块白），按官方 Input 所在的
+ *   面取 `bg-layer-1`（与本页选中页签**同一枚**，浅色下仍是白）。⇒ `style(38605 chars)` → `style(38597 chars)`、
+ *   FNV-1a 校验和 2310043017 → **3703247831**（**再基线化，不是放宽判据**）；两份大纲**仍只动
+ *   `style(N chars)` 那一行**。本刀其余改动全在 JSX 与别名文案上，CSS 只动这一处（-8 字符 = 换掉那个
+ *   更长的 token 名本身），故长度差额可逐字对上。
+ *   ★ 同一根因的**另外两处仍未动**（`.own-market-rowIcon` 的白底、`.own-market-addMenu` 的
+ *   `--dsw-specific-menu`）：那两处各自挂着一句**用户口径**（「图标白底不透明」「添加技能下拉白底」），
+ *   换 token 等于在深色下推翻它们 ⇒ 留给「8 个失效 token 名 / 约 70 处」那一趟统一裁决。
+ *   ★ DOM 换位只发生在**列表工具行**；在线搜索面那一行是独立 DOM（子项 = 查询框 + spacer + 按钮，
+ *   无 `.own-market-filterWrap`），本刀**一字未动**，由专门用例逐子项锁住（D2）。
+ *   任何人再改这份 CSS（加装饰或删规则）都会在这里、以及那两处 `style(N chars)` 上立刻显形。
  */
-const LEGACY_STYLE_LENGTH = 26747
-const LEGACY_STYLE_CHECKSUM = 4237248219
+const LEGACY_STYLE_LENGTH = 38597
+const LEGACY_STYLE_CHECKSUM = 3703247831
 
 /** 「企业技能」节的目录 fixture：与 skill-market.spec 的列表投影同形（列表态 versionId/skills 为空）。 */
 const SKILL: EnterpriseRuntimeSkill = {
@@ -468,13 +688,21 @@ describe('enterprise marketplace entry', () => {
     expect(summary.length).toBeGreaterThan(0)
     // **本刀（企业标签移回标题行）**：描述行**恢复**成完整的「企业插件 · 技能 · 配方」——
     // 用户两次指出标签必须在标题行，故描述行不再承载「企业」二字之外的任何胶囊。
-    expect(summary).toBe('企业插件 · 技能 · 配方')
+    // **本刀（task-17 ③）**：三个词**只换顺序**，与页签真源 `ENTERPRISE_MARKET_TABS` 的
+    // 「技能 · 插件 · 配方 · 组件」同序 ⇒ 现在是「技能 · 企业插件 · 配方」。
+    expect(summary).toBe('技能 · 企业插件 · 配方')
     expect(summary).toContain('企业插件')
+    // 顺序与页签同源（本刀的核心判据）：逐词在页签文案里的**先后位次**必须一致。
+    const orderOf = (word: string): number => summary.indexOf(word)
+    expect(orderOf('技能')).toBeLessThan(orderOf('企业插件'))
+    expect(orderOf('企业插件')).toBeLessThan(orderOf('配方'))
+    // ★ 反向锁：**「组件」不许进这句话**（组件是台账不是目录，与页签第四枚无关）。
+    expect(summary).not.toContain('组件')
     // 「企业」标签（文案常量）不再以胶囊身份出现在描述行；描述行的「企业插件」是一个整词。
     expect(ENTERPRISE_MARKET_BADGE_TEXT).toBe('企业')
   })
 
-  it('renders the description line as the plain 企业插件 · 技能 · 配方 text, with no tag on it at all', () => {
+  it('renders the description line as the plain 技能 · 企业插件 · 配方 text, with no tag on it at all', () => {
     // 描述行 = 官方 `plugins.item` 的 `summary` 视图（官方把它渲染在列表卡描述与详情页正文两处）。
     for (const { label, shell } of MARKET_SHELLS) {
       const summary = shell({ view: 'summary' })
@@ -935,7 +1163,14 @@ describe('enterprise marketplace entry', () => {
     // 反向锁的方向也跟着翻：现在要锁的是「刷新钮**不得**再回到有常态底的 toolbar/outline」。
     expect(actions.map(props => props['variant'])).not.toContain('toolbar')
     expect(actions.map(props => props['variant'])).not.toContain('outline')
-    expect(actions.map(props => props['size'])).toEqual(['md', 'md'])
+    // ★ **本刀（task-20 A）**：官方「插件」根页那枚「+ 添加插件」是 `size="sm"` ⇒ 添加钮由 md 降到 sm，
+    //   **刷新钮一字不动（仍 md）**。
+    expect(actions.map(props => props['size'])).toEqual(['md', 'sm'])
+    // 官方两档的真值（dsh-client-ui-primitives 的 Button.module.css 逐字）：
+    //   .md 高 36px / 字 14px / 行高 22px / 内衬 14px / radius-md；.sm 高 28px / 字 12px / 行高 18px / 内衬 10px / radius-sm。
+    expect(['md', 'sm']).toContain(actions[0]?.['size'])
+    expect(actions[0]?.['size']).toBe('md')
+    expect(actions[1]?.['size']).toBe('sm')
     // 刷新钮仍用官方 `icon` prop；**「添加技能」触发钮按 Cherry 用内联 children**
     // （`Plus` + 文字 + `ChevronDown`，`ResourceGrid.tsx:181-184`）——所以它**没有** `icon` prop。
     // 这不是「图标丢了」：三枚图形都在 children 里，形状照 Cherry。
@@ -983,18 +1218,18 @@ describe('enterprise marketplace entry', () => {
   })
 
   /**
-   * ★ 「添加技能」下拉：**按页签**、技能页签一套、**四项逐字照 Cherry**、执行本轮不接（全「开发中」）。
+   * ★ 「添加技能」下拉：**按页签**、技能页签一套、**四项逐字照 Cherry**，**本刀起只放开「本地导入」那一项**。
    *
    * 锁五件事：
    * ① **按页签**：只有 `skills` 有清单；其余三个页签返回 `[]` ⇒ **整段不渲染**（不是渲染一枚空的）。
    * ② **四项文案与顺序**逐字照 Cherry `zh-cn.json` 的 `library.skill_add.*`
    *    （通过 Agent 创建 / 在线搜索 / 系统搜索 / 本地导入），**含两个条件项**（Cherry `:188`/`:198`）。
    * ③ **顺序锁**：菜单项顺序 === 投影数组顺序（防止将来加项时插到中间漂了）。
-   * ④ 四项全「开发中」：本轮不接执行 ⇒ 没有一项被做成「看起来能点」；原因**写进可见标签**
-   *    （官方 `MenuItemButton` 不透传 `title`，挂了会被静默丢弃 ⇒ 那才是真的死控件）。
+   * ④ 三项仍是「开发中」：原因**写进可见标签**（官方 `MenuItemButton` 不透传 `title`，挂了会被静默丢弃
+   *    ⇒ 那才是真的死控件）；本地导入那一项的终态另有一条专门用例逐条锁（本刀）。
    * ⑤ 不得出现占位符式文案（「即将上线」「敬请期待」等都不是用户口径）。
    */
-  it('ships the Cherry-shaped 添加技能 dropdown on the skills tab only, every item marked 开发中', () => {
+  it('ships the Cherry-shaped 添加技能 dropdown on the skills tab only, keeping the three unwired items at 开发中', () => {
     // ① 按页签：只有技能页签有清单；其余三个页签空清单（⇒ 渲染层整段不渲染）。
     expect(enterpriseAddMenuEntries('skills').map(entry => entry.label))
       .toEqual(['通过 Agent 创建', '在线搜索', '系统搜索', '本地导入'])
@@ -1023,6 +1258,819 @@ describe('enterprise marketplace entry', () => {
     for (const placeholder of ['即将上线', '敬请期待', '暂未开放', 'TODO', 'Coming soon']) {
       expect(text, placeholder).not.toContain(placeholder)
     }
+  })
+
+  /**
+   * ★ **本刀（本地导入）：四项的终态逐项锁死** —— 只有「本地导入」可点，其余三项仍是可见的「开发中」。
+   *
+   * 三条一起锁，缺一条都会漏掉一种坏形态：
+   *  ① **纯投影**：哪一项禁用、禁用时那句可见原因、真正渲染的文案（可点那一项**不许**带「开发中」）；
+   *  ② **写入口缺席时必须退回禁用**（没有 store / 老调用方 / 纯函数直调）——绝不出现「看着能点、
+   *     点下去什么都不发生」的菜单项，也绝不把「能点」这件事做成一句空承诺；
+   *  ③ **真元素**（官方 `MenuItemButton` 本体）：四项的 `disabled` 逐项相同；点第 4 项 =
+   *     **先收起下拉、再打开文件选择器**（官方组件行不会自己关菜单，故这一下必须由我们做）；
+   *     点禁用项时两个回调都不许被调到。
+   */
+  it('opens exactly the wired add-menu items and leaves the rest at 开发中', () => {
+    const onCreateWithAgent = vi.fn()
+    const onOnlineSearch = vi.fn()
+    const onImportSkill = vi.fn()
+    const onSystemSearch = vi.fn()
+    const wiring = { onCreateWithAgent, onOnlineSearch, onImportSkill, onSystemSearch }
+    const plans = enterpriseAddMenuPlans('skills', wiring)
+    expect(plans.map(plan => plan.id))
+      .toEqual([ENTERPRISE_ADD_MENU_CREATE_ID, ENTERPRISE_ADD_MENU_ONLINE_ID, ENTERPRISE_ADD_MENU_SYSTEM_SEARCH_ID, ENTERPRISE_ADD_MENU_IMPORT_ID])
+    // **本刀（在线搜索）**：最后一项也放开了 ⇒ **四项全部可点**。
+    expect(plans.map(plan => plan.disabled)).toEqual([false, false, false, false])
+    expect(plans.map(plan => plan.text)).toEqual(['通过 Agent 创建', '在线搜索', '系统搜索', '本地导入'])
+    // ★ 四项都接线之后，「（开发中）」这四个字在本页**一个都不剩**：四行文案里一处都没有。
+    for (const plan of plans) {
+      expect(plan.text, plan.id).not.toContain(ENTERPRISE_ADD_MENU_DEVELOPING)
+      expect(plan.reason, plan.id).toBeUndefined()
+    }
+    // 禁用项都带**可见原因**；可点那些项没有原因（留着「开发中」就是假话）。
+    for (const plan of plans) {
+      if (plan.disabled) expect(plan.reason, plan.id).toBe(ENTERPRISE_ADD_MENU_DEVELOPING)
+      else expect(plan.reason, plan.id).toBeUndefined()
+    }
+    // ★ 逐项独立：各只接一项 ⇒ 只有那一项可点（其余照旧灰着）
+    //   （「哪一项可点」由**各自**的写入口决定，不是「接了一个就全开」）。
+    expect(enterpriseAddMenuPlans('skills', { onImportSkill }).map(plan => plan.disabled)).toEqual([true, true, true, false])
+    expect(enterpriseAddMenuPlans('skills', { onSystemSearch }).map(plan => plan.disabled)).toEqual([true, true, false, true])
+    expect(enterpriseAddMenuPlans('skills', { onCreateWithAgent }).map(plan => plan.disabled)).toEqual([false, true, true, true])
+    expect(enterpriseAddMenuPlans('skills', { onOnlineSearch }).map(plan => plan.disabled)).toEqual([true, false, true, true])
+    // ② 写入口缺席 ⇒ 两项都照旧禁用、原因照旧看得见（同一句「开发中」，不是 no-op 的死控件）。
+    const unwiredPlans = enterpriseAddMenuPlans('skills')
+    expect(unwiredPlans.map(plan => plan.disabled)).toEqual([true, true, true, true])
+    expect(unwiredPlans[0]!.text).toBe(`通过 Agent 创建（${ENTERPRISE_ADD_MENU_DEVELOPING}）`)
+    expect(unwiredPlans[1]!.text).toBe(`在线搜索（${ENTERPRISE_ADD_MENU_DEVELOPING}）`)
+    expect(unwiredPlans[2]!.text).toBe(`系统搜索（${ENTERPRISE_ADD_MENU_DEVELOPING}）`)
+    expect(unwiredPlans[3]!.text).toBe(`本地导入（${ENTERPRISE_ADD_MENU_DEVELOPING}）`)
+    expect(enterpriseAddMenuEntryPlan(enterpriseAddMenuEntries('skills')[3]!).disabled).toBe(true)
+    // 单参入口与整份清单入口对同一项必须算出同一份终态（两处不可能漂）。
+    expect(enterpriseAddMenuEntryPlan(enterpriseAddMenuEntries('skills')[0]!, { onCreateWithAgent }).disabled).toBe(false)
+    expect(enterpriseAddMenuEntryPlan(enterpriseAddMenuEntries('skills')[1]!, { onOnlineSearch }).disabled).toBe(false)
+    expect(enterpriseAddMenuEntryPlan(enterpriseAddMenuEntries('skills')[3]!, { onImportSkill }).disabled).toBe(false)
+    expect(enterpriseAddMenuEntryPlan(enterpriseAddMenuEntries('skills')[2]!, { onSystemSearch }).disabled).toBe(false)
+    // 无清单的页签仍是空清单（渲染层据此整段不渲染）。
+    for (const tab of ['plugins', 'presets', 'components'] as const) {
+      expect(enterpriseAddMenuPlans(tab, { onImportSkill, onSystemSearch }), tab).toEqual([])
+    }
+    // ③ 真元素：四项都是官方 `MenuItemButton`，禁用位与文案逐项相同。
+    const onToggleAddMenu = vi.fn()
+    const seat = {
+      entries: [], activeTab: 'skills' as const, onSelect: undefined, addMenuOpen: true, onToggleAddMenu,
+      onCreateWithAgent, onOnlineSearch, onImportSkill, onSystemSearch,
+    }
+    const slot = EnterpriseMarketDetailActions({
+      subject: { kind: 'item', id: ENTERPRISE_MARKET_ENTRY_ID },
+      tabSeat: seat,
+    })
+    const items = collectOfficialMenuItemProps(slot)
+    expect(items).toHaveLength(4)
+    expect(items.map(props => props['disabled'])).toEqual([false, false, false, false])
+    expect(items.map(props => props['children'])).toEqual(plans.map(plan => plan.text))
+    for (const props of items) expect(typeof props['onSelect']).toBe('function')
+    // ★ **「（开发中）」在这棵树里一个都不剩**（四项全接线的状态下，整棵树任何一处文本都没有那四个字）。
+    expect(textOf(slot)).not.toContain(ENTERPRISE_ADD_MENU_DEVELOPING)
+    // 四项**逐项独立**：点哪一项就走它自己那一枚回调（下面用顺序数组逐个证）。
+    expect(onToggleAddMenu).not.toHaveBeenCalled()
+    expect(onCreateWithAgent).not.toHaveBeenCalled()
+    expect(onImportSkill).not.toHaveBeenCalled()
+    expect(onSystemSearch).not.toHaveBeenCalled()
+    expect(onOnlineSearch).not.toHaveBeenCalled()
+    // 点「系统搜索」：**先收起下拉、再打开结果面**（顺序 = 用户看到的那一下），且**不**去碰另两项。
+    const order: string[] = []
+    onToggleAddMenu.mockImplementation(() => { order.push('close') })
+    onCreateWithAgent.mockImplementation(() => { order.push('create') })
+    onOnlineSearch.mockImplementation(() => { order.push('online') })
+    onSystemSearch.mockImplementation(() => { order.push('system-search') })
+    onImportSkill.mockImplementation(() => { order.push('import') })
+    // 四项逐个点一遍：每一项都「先关下拉、再走它自己那一枚回调」，且**不**碰别的回调。
+    for (const [index, expected] of [[0, 'create'], [1, 'online'], [2, 'system-search'], [3, 'import']] as const) {
+      order.length = 0
+      items[index]!['onSelect']()
+      expect(order, String(index)).toEqual(['close', expected])
+    }
+    // 座位**没带写入口**时，真 DOM 里那两项也禁用（不是「能点但 no-op」）；只带一个时只有那一项可点。
+    const bare = EnterpriseMarketDetailActions({
+      subject: { kind: 'item', id: ENTERPRISE_MARKET_ENTRY_ID },
+      tabSeat: { entries: [], activeTab: 'skills', onSelect: undefined, addMenuOpen: true, onToggleAddMenu },
+    })
+    expect(collectOfficialMenuItemProps(bare).map(props => props['disabled'])).toEqual([true, true, true, true])
+    const bareDisabled = collectOfficialMenuItemProps(EnterpriseMarketDetailActions({
+      subject: { kind: 'item', id: ENTERPRISE_MARKET_ENTRY_ID },
+      tabSeat: { entries: [], activeTab: 'skills', onSelect: undefined, addMenuOpen: true, onToggleAddMenu, onImportSkill },
+    })).map(props => props['disabled'])
+    expect(bareDisabled).toEqual([true, true, true, false])
+    // 只带「通过 Agent 创建」的写入口 ⇒ 真元素里也只有①可点（逐项独立）。
+    expect(collectOfficialMenuItemProps(EnterpriseMarketDetailActions({
+      subject: { kind: 'item', id: ENTERPRISE_MARKET_ENTRY_ID },
+      tabSeat: { entries: [], activeTab: 'skills', onSelect: undefined, addMenuOpen: true, onToggleAddMenu, onCreateWithAgent },
+    })).map(props => props['disabled'])).toEqual([false, true, true, true])
+    // 只带「在线搜索」的写入口 ⇒ 真元素里只有②可点，且树里其余三项仍带可见「开发中」。
+    const onlyOnline = EnterpriseMarketDetailActions({
+      subject: { kind: 'item', id: ENTERPRISE_MARKET_ENTRY_ID },
+      tabSeat: { entries: [], activeTab: 'skills', onSelect: undefined, addMenuOpen: true, onToggleAddMenu, onOnlineSearch },
+    })
+    expect(collectOfficialMenuItemProps(onlyOnline).map(props => props['disabled'])).toEqual([true, false, true, true])
+    expect(collectOfficialMenuItemProps(onlyOnline)[1]!['children']).toBe('在线搜索')
+  })
+
+  /**
+   * ★ **本刀（本地导入）：文件选择器 + 三条可见反馈**。
+   *
+   * ① **没有写入口就一枚元素都不画**（不画点了没反应的选择器）；
+   * ② 接线面在场时那枚 `<input type="file">` 的**冻结属性**逐条锁死（accept 串 / 无障碍名 / 行内收起），
+   *    且空闲态**不出**任何反馈（安静的页面上不加噪音）；
+   * ③ 选中文件的那一下：**先把 value 清空再交出去**——不清的话「同一个文件再选一次」不会触发 change
+   *    （浏览器认为值没变），那就是一次点了没反应；没选中任何文件即什么都不做；
+   * ④ 三态都**看得见**：进行中 / 成功（含技能名）各一句 `role="status"`；失败走**唯一**的失败提示组件
+   *    （`role="alert"` + 「下一步：」+ 折进「技术信息」的稳定码）+ 一枚**真能点**的「重新选择文件」。
+   * ⑤ **跨流那一枚码**：`ENT_SKILL_ARCHIVE_INVALID` 在本地上传流下给的下一步**不是**「重新下载」
+   *    （技能包就是员工手里那份文件）——这条在**渲染出来的文本**上锁死，不只看纯投影。
+   */
+  it('wires the local-import picker with frozen attributes and shows busy / done / failed feedback', () => {
+    const onOpen = vi.fn()
+    const onSelect = vi.fn()
+    const port = (state: EnterpriseSkillImportState | undefined) => ({
+      state, inputRef: { current: null }, onOpen, onSelect,
+    })
+    // ① 没有接线面：一枚元素都不画（连选择器都没有 ⇒ 不可能有「点了没反应」的入口）。
+    const bare = EnterpriseMarketLegacyShell({ view: 'page', sessionUsable: true })
+    expect(collectByProp(bare, 'accept')).toEqual([])
+    expect(collectByProp(bare, 'data-enterprise-skill-import')).toEqual([])
+    // ② 冻结属性 + 空闲态不出反馈。
+    const idle = EnterpriseMarketLegacyShell({ view: 'page', sessionUsable: true, skillImport: port(undefined) })
+    const inputs = collectByProp(idle, 'accept')
+    expect(inputs).toHaveLength(1)
+    expect(inputs[0]!['type']).toBe('file')
+    expect(inputs[0]!['accept']).toBe(ENTERPRISE_SKILL_IMPORT_ACCEPT)
+    expect(inputs[0]!['aria-label']).toBe(ENTERPRISE_SKILL_IMPORT_INPUT_LABEL)
+    // 恒不可见：行内「1px 剪裁」（与资料库那枚同一套手法，只是走行内以保**零新增 CSS 类**
+    // —— 那份 `<style>` 的两道字节级判据一字未动，由基线用例锁）。
+    expect(inputs[0]!['style']).toMatchObject({
+      position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0 0 0 0)',
+    })
+    expect(collectByProp(idle, 'data-enterprise-skill-import')).toEqual([])
+    expect(collectByProp(idle, 'data-enterprise-error-code')).toEqual([])
+    // 详情子页面那一支也带同一份（否则「在技能详情里点本地导入」就是死控件）。
+    const skill = enterpriseMarketSkillRows([SKILL])[0]!
+    const skillPageTree = EnterpriseMarketLegacyShell({
+      view: 'page',
+      sessionUsable: true,
+      skillImport: port(undefined),
+      skillPage: {
+        row: skill,
+        facts: enterpriseMarketSkillRowFacts({ view: 'page', enterpriseSkills: [skill] }, skill),
+        fileEntries: [],
+        filesLoading: false,
+        fileLoading: false,
+        onSelectFile: vi.fn(),
+        onBack: vi.fn(),
+      },
+    })
+    expect(collectByProp(skillPageTree, 'accept')).toHaveLength(1)
+    // ③ 选中文件：先清空 value（让「同一个文件再选一次」仍然触发），再把 File 交给上层。
+    const file = { name: 'meeting-notes.dshskill', size: 2048 } as unknown as File
+    const event = { currentTarget: { files: { item: () => file }, value: 'C:\\fakepath\\meeting-notes.dshskill' } }
+    inputs[0]!['onChange'](event)
+    expect(onSelect).toHaveBeenCalledWith(file)
+    expect(event.currentTarget.value).toBe('')
+    // 用户在原生选择器里按了取消（没选中任何文件）⇒ 什么都不做，也不是一次静默失败。
+    onSelect.mockClear()
+    const cancelled = { currentTarget: { files: { item: () => null }, value: 'kept' } }
+    inputs[0]!['onChange'](cancelled)
+    expect(onSelect).not.toHaveBeenCalled()
+    expect(cancelled.currentTarget.value).toBe('')
+    // ④ 三态可见：进行中 / 成功各一句 role="status"；失败 = 唯一提示组件 + 真能点的重选按钮。
+    const busy = EnterpriseMarketLegacyShell({
+      view: 'page', sessionUsable: true, skillImport: port({ kind: 'uploading', name: file.name, bytes: file.size }),
+    })
+    const busyNote = collectByProp(busy, 'data-enterprise-skill-import')[0]!
+    expect(busyNote['data-enterprise-skill-import']).toBe('busy')
+    expect(busyNote['role']).toBe('status')
+    expect(textOf(busyNote['children'] as ReactNode)).toContain(file.name)
+    expect(textOf(busyNote['children'] as ReactNode)).toContain('2.0 KiB')
+    // 那枚纯组件本身也**可直接直调**（本仓的取证范式）：同一份状态给出同一句话、同一枚 role。
+    const directBusy = EnterpriseMarketSkillImportNotice({ state: { kind: 'uploading', name: file.name, bytes: file.size } })
+    expect(textOf(directBusy)).toContain(file.name)
+    expect((directBusy as { props: Record<string, unknown> }).props['role']).toBe('status')
+    const done = EnterpriseMarketLegacyShell({
+      view: 'page',
+      sessionUsable: true,
+      skillImport: port({ kind: 'done', name: file.name, bytes: file.size, names: ['meeting-notes'], listed: true }),
+    })
+    const doneNote = collectByProp(done, 'data-enterprise-skill-import')[0]!
+    expect(doneNote['data-enterprise-skill-import']).toBe('done')
+    expect(textOf(doneNote['children'] as ReactNode)).toContain('meeting-notes')
+    const failed = EnterpriseMarketLegacyShell({
+      view: 'page',
+      sessionUsable: true,
+      skillImport: port({ kind: 'failed', name: file.name, bytes: file.size, code: ENTERPRISE_SKILL_IMPORT_TOO_LARGE_CODE }),
+    })
+    // 失败**不是**一句 status 就完了：走唯一提示组件（人话 + 下一步 + 技术信息里的码）。
+    expect(collectByProp(failed, 'data-enterprise-skill-import')).toEqual([])
+    expect(collectByProp(failed, 'data-enterprise-error-code')[0]?.['data-enterprise-error-code'])
+      .toBe(ENTERPRISE_SKILL_IMPORT_TOO_LARGE_CODE)
+    expect(textOf(failed)).toContain('下一步：')
+    expect(textOf(failed)).toContain(file.name)
+    // 那枚「重新选择文件」是**真按钮**（有写入口 ⇒ 点得动；点它就是重新打开选择器）。
+    const reselect = collectOfficialButtonProps(failed)
+      .find(props => props['aria-label'] === ENTERPRISE_SKILL_IMPORT_RESELECT_LABEL)
+    expect(reselect?.['children']).toBe(ENTERPRISE_SKILL_IMPORT_RESELECT)
+    onOpen.mockClear()
+    reselect?.['onClick']()
+    expect(onOpen).toHaveBeenCalledTimes(1)
+    // ⑤ 跨流码：本地上传流下渲染出来的「下一步」不许是「重新下载」（那句在这条流里是错的）。
+    const archive = EnterpriseMarketLegacyShell({
+      view: 'page',
+      sessionUsable: true,
+      skillImport: port({ kind: 'failed', name: file.name, bytes: file.size, code: 'ENT_SKILL_ARCHIVE_INVALID' }),
+    })
+    const actionText = textOf(collectByClassName(archive, 'own-error-action')[0]?.['children'] as ReactNode)
+    expect(actionText).toContain('重新选择')
+    expect(actionText).not.toContain('重新下载')
+  })
+
+  /* ───────────── 本刀（在线搜索 → 安装）：页内结果面 + 查询框 + 逐源两种坏消息 ───────────── */
+
+  /** 一份在线搜索真值：一个源挂了、一个源丢了 3 条、一个源正常；两条结果（一条带全套元信息）。 */
+  function onlineValue(over: Partial<{ sources: readonly any[]; results: readonly any[] }> = {}) {
+    return {
+      sources: [
+        { id: 'skills.sh', ok: false },
+        { id: 'claude-plugins.dev', ok: true, dropped: 3 },
+        { id: 'clawhub.ai', ok: true },
+      ],
+      results: [
+        { sourceId: 'clawhub.ai', name: 'code-review', description: '把代码审查规则带进新会话。', author: 'acme', stars: 1200, installs: 3400, installSource: 'skills-sh:acme/tools/code-review' },
+        { sourceId: 'clawhub.ai', name: 'meeting-notes', installSource: 'clawhub.ai:acme/notes/meeting-notes' },
+      ],
+      ...over,
+    }
+  }
+
+  /** 在线结果面的输入（唯一构造点在控制器里；这里按同一形状直调那枚纯组件）。 */
+  function onlinePageInput(over: Record<string, unknown> = {}): EnterpriseOnlineSearchPageProps {
+    return {
+      state: { kind: 'ready', value: onlineValue() },
+      query: 'code',
+      onQueryChange: vi.fn(),
+      onSearch: vi.fn(),
+      onInstall: vi.fn(),
+      onReload: vi.fn(),
+      onBack: vi.fn(),
+      ...over,
+    } as EnterpriseOnlineSearchPageProps
+  }
+
+  /**
+   * ★ **本刀（在线搜索）：结果面是页内视图切换，不是弹窗**（口径 15/26，与系统搜索同一证据口径）。
+   *
+   * ① `onlineSearch` 非空 = **整页切换**（工具行 / 四个 tabpanel 整段不挂载）；② 树里没有 dialog role、
+   * 源码里没有 portal、这一面只有**一枚** region（`tabIndex={-1}` 的焦点落点）；③ 返回两条真路径
+   * （面包屑 + Esc）且返回后还原滚动；④ **查询框就在面内**（不是弹窗里的输入）。
+   */
+  it('opens the online-search result face as an in-page view switch with an in-face query box', async () => {
+    const tree = EnterpriseMarketLegacyShell({ view: 'page', sessionUsable: true, onlineSearch: onlinePageInput() })
+    expect(collectByClassName(tree, 'own-market-searchRow')).toHaveLength(1)
+    expect(collectByRole(tree, 'tab')).toEqual([])
+    expect(collectByRole(tree, 'tablist')).toEqual([])
+    expect(collectByRole(tree, 'tabpanel')).toEqual([])
+    expect(collectByRole(tree, 'dialog')).toEqual([])
+    expect(collectByRole(tree, 'region')).toHaveLength(1)
+    const region = collectByRole(tree, 'region')[0]!
+    expect(region['aria-label']).toBe(ENTERPRISE_ONLINE_TITLE)
+    expect(region['tabIndex']).toBe(-1)
+    expect(region['data-enterprise-online-page']).toBe('true')
+    // 面包屑是可见返回入口（与另三面同一形制）。
+    const crumb = collectByClassName(tree, 'own-market-crumb')[0]!
+    expect(crumb['aria-label']).toBe(ENTERPRISE_ONLINE_BACK_LABEL)
+    expect(textOf(crumb['children'] as ReactNode)).toContain(ENTERPRISE_ONLINE_BACK_TEXT)
+    // ④ 查询框（面内）：无障碍名 / 占位 / 受控值 / 输入回调 / 回车即搜。
+    const input = collectByClassName(tree, 'own-market-queryInput')[0]!
+    expect(input['aria-label']).toBe(ENTERPRISE_ONLINE_QUERY_LABEL)
+    expect(input['placeholder']).toBe(ENTERPRISE_ONLINE_QUERY_PLACEHOLDER)
+    expect(input['value']).toBe('code')
+    const onQueryChange = vi.fn()
+    const onSearch = vi.fn()
+    const controlled = EnterpriseOnlineSearchPage(onlinePageInput({ onQueryChange, onSearch }))
+    const controlledInput = collectByClassName(controlled, 'own-market-queryInput')[0]!
+    controlledInput['onChange']({ currentTarget: { value: 'meeting' } })
+    expect(onQueryChange).toHaveBeenCalledWith('meeting')
+    controlledInput['onKeyDown']({ key: 'Enter' })
+    expect(onSearch).toHaveBeenCalledTimes(1)
+    // 源码级反向锁：无 portal / 无 dialog；切面判据与 Esc / 滚动还原都在（与系统搜索同一套）。
+    const source = stripComments(await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8'))
+    expect(source).toContain('if (props.onlineSearch !== undefined)')
+    const faceStart = source.indexOf('export function EnterpriseOnlineSearchPage(')
+    const faceEnd = source.indexOf('\nexport function ', faceStart + 1)
+    expect(faceStart).toBeGreaterThan(0)
+    expect(faceEnd).toBeGreaterThan(faceStart)
+    const faceSource = source.slice(faceStart, faceEnd)
+    expect(faceSource).not.toContain('role="dialog"')
+    expect(faceSource).not.toContain('createPortal')
+    expect((faceSource.match(/role="region"/g) ?? []).length).toBe(1)
+    expect(source).toMatch(/if \(!onlineSearchOpen\) return[\s\S]{0,200}marketRoot\.current[\s\S]{0,300}Escape/)
+    expect(source).toMatch(/onOpenOnlineSearch[\s\S]{0,300}scrollTargetOf\(marketRoot\.current\)/)
+    expect(source).toMatch(/onlineScrollMemory\.current[\s\S]{0,200}scrollTop = saved\.top/)
+  })
+
+  /**
+   * ★ **本刀（在线搜索）：逐源的两种坏消息分开说 + 结果逐条给足事实**。
+   *
+   * ① `ok:false` 的源一句、`dropped>0` 的源另一句，两行都在、都带源名、kind 不同；
+   * ② 每条结果：技能名 + 那一句 facts（来源恒有，作者/星标/安装量缺席就不进那一句）+ 描述（缺席不画）
+   *    + 一枚【安装】；③ 点【安装】交回去的是**那一条完整的结果**（含 `installSource` 那条坐标）。
+   */
+  it('says the two kinds of source news separately and gives every result its facts and one install action', () => {
+    const tree = EnterpriseOnlineSearchPage(onlinePageInput())
+    const notes = collectByProp(tree, 'data-enterprise-online-source-note')
+    expect(notes.map(props => props['data-enterprise-online-source-note'])).toEqual(['skills.sh', 'claude-plugins.dev'])
+    expect(notes.map(props => props['data-enterprise-online-source-note-kind'])).toEqual(['failed', 'dropped'])
+    const noteTexts = notes.map(props => textOf(props['children'] as ReactNode))
+    expect(noteTexts[0]).toContain('skills.sh')
+    expect(noteTexts[0]).toContain('没有取到')
+    // **照实渲染收到的那个数**（3 条），界面不自己算、也不假设它恒等于某个值。
+    expect(noteTexts[1]).toContain('3 条')
+    expect(noteTexts[1]).toContain('不提供可安装的来源')
+    expect(noteTexts[0]).not.toContain('部分失败')
+    // 每行：标题取技能名；描述缺席的那条**没有第二行**；facts 那句在行上。
+    const rows = collectByProp(tree, 'data-enterprise-online-result')
+    expect(rows.map(props => props['data-enterprise-online-result-source'])).toEqual(['clawhub.ai', 'clawhub.ai'])
+    expect(collectByClassName(tree, 'own-market-cardId').map(props => textOf(props['children'] as ReactNode)))
+      .toEqual(['code-review', 'meeting-notes'])
+    expect(collectByClassName(tree, 'own-market-cardDesc')).toHaveLength(1)
+    const rowNotes = collectByProp(tree, 'data-enterprise-online-result-note').map(props => textOf(props['children'] as ReactNode))
+    expect(rowNotes[0]).toContain(`${ENTERPRISE_ONLINE_SOURCE_PREFIX}clawhub.ai`)
+    expect(rowNotes[0]).toContain(`${ENTERPRISE_ONLINE_AUTHOR_PREFIX}acme`)
+    // 两枚计数走千分位（第三方给的大数：真机上到过 963199 ⇒ 「963,199」）。
+    expect(rowNotes[0]).toContain(`${ENTERPRISE_ONLINE_STARS_PREFIX}1,200`)
+    expect(rowNotes[0]).toContain(`${ENTERPRISE_ONLINE_INSTALLS_PREFIX}3,400`)
+    // 第二条只有来源那一段（另外三枚缺席 ⇒ 一句里没有它们的标签）。
+    expect(rowNotes[1]).toBe(`${ENTERPRISE_ONLINE_SOURCE_PREFIX}clawhub.ai`)
+    // 每条一行一枚【安装】，点它交回**那一条**结果（坐标原样）。
+    const onInstall = vi.fn()
+    const clickable = EnterpriseOnlineSearchPage(onlinePageInput({ onInstall }))
+    const buttons = collectOfficialButtonProps(clickable)
+      .filter(props => typeof props['aria-label'] === 'string' && (props['aria-label'] as string).startsWith(ENTERPRISE_ONLINE_INSTALL))
+    expect(buttons.map(props => props['aria-label'])).toEqual([`${ENTERPRISE_ONLINE_INSTALL}code-review`, `${ENTERPRISE_ONLINE_INSTALL}meeting-notes`])
+    buttons[0]!['onClick']()
+    expect(onInstall.mock.calls[0]?.[0]).toMatchObject({ installSource: 'skills-sh:acme/tools/code-review' })
+  })
+
+  /**
+   * ★ **本刀（在线搜索）：查询三档 + 四态 + 安装四条反馈**。
+   *
+   * ① 空闲 / 太短各一句人话，且【搜索】按钮在不足门槛时**禁用**（原因就是那句看得见的人话）；
+   * ② 加载一句 `role="status"`、失败走唯一提示组件 + **真能点**的重试、零结果另给一句人话；
+   * ③ 在途：那一行按钮变「正在安装…」且**所有**安装按钮禁用，原因写在页面上看得见的那一句里；
+   * ④ 成功一句 `role="status"`；失败只落在**那一行**（人话 + 下一步 + 技术信息里的稳定码）。
+   */
+  it('turns the query tiers, the fetch states and the install state machine into visible feedback', () => {
+    // ① 空闲 / 太短。
+    const idle = EnterpriseOnlineSearchPage(onlinePageInput({ query: '   ' }))
+    expect(collectByProp(idle, 'data-enterprise-online-state')[0]?.['data-enterprise-online-state']).toBe('idle')
+    expect(textOf(idle)).toContain(ENTERPRISE_ONLINE_IDLE)
+    const short = EnterpriseOnlineSearchPage(onlinePageInput({ query: 'a' }))
+    expect(textOf(short)).toContain(ENTERPRISE_ONLINE_TOO_SHORT)
+    expect(collectByProp(short, 'data-enterprise-online-result')).toEqual([])
+    const shortButton = collectOfficialButtonProps(short)
+      .find(props => props['aria-label'] === ENTERPRISE_ONLINE_SEARCH_LABEL)!
+    expect(shortButton['disabled']).toBe(true)
+    // 够长时那枚按钮可点（同一枚按钮的两种状态）。
+    const readyButton = collectOfficialButtonProps(EnterpriseOnlineSearchPage(onlinePageInput()))
+      .find(props => props['aria-label'] === ENTERPRISE_ONLINE_SEARCH_LABEL)!
+    expect(readyButton['disabled']).toBe(false)
+    // ② 加载 / 失败（真重发）/ 零结果。
+    const loading = EnterpriseOnlineSearchPage(onlinePageInput({ state: { kind: 'loading' } }))
+    expect(textOf(loading)).toContain(ENTERPRISE_ONLINE_LOADING)
+    const onReload = vi.fn()
+    const failed = EnterpriseOnlineSearchPage(onlinePageInput({
+      state: { kind: 'failed', code: 'ENT_SKILL_SOURCE_UNREACHABLE' }, onReload,
+    }))
+    expect(collectByProp(failed, 'data-enterprise-error-code')[0]?.['data-enterprise-error-code']).toBe('ENT_SKILL_SOURCE_UNREACHABLE')
+    expect(textOf(failed)).toContain('下一步：')
+    const retry = collectOfficialButtonProps(failed).find(props => props['aria-label'] === ENTERPRISE_LIST_RETRY_LABEL)!
+    retry['onClick']()
+    expect(onReload).toHaveBeenCalledTimes(1)
+    const empty = EnterpriseOnlineSearchPage(onlinePageInput({ state: { kind: 'empty', value: onlineValue({ results: [] }) } }))
+    expect(collectByProp(empty, 'data-enterprise-online-empty').map(props => textOf(props['children'] as ReactNode)))
+      .toEqual([ENTERPRISE_ONLINE_EMPTY])
+    // 零结果时逐源那两句**照铺**（否则用户以为三个源本来就没东西）。
+    expect(collectByProp(empty, 'data-enterprise-online-source-note')).toHaveLength(2)
+    // ③ 在途：按钮禁用 + 文案变「正在安装…」+ 页面那句可见原因。
+    const source = 'skills-sh:acme/tools/code-review'
+    const adopting = EnterpriseOnlineSearchPage(onlinePageInput({ install: { source, name: 'code-review' } }))
+    expect(collectByProp(adopting, 'data-enterprise-online-installing')[0]?.['data-enterprise-online-installing']).toBe(source)
+    expect(textOf(adopting)).toContain(enterpriseOnlineInstallingText('code-review'))
+    const busyButtons = collectOfficialButtonProps(adopting)
+      .filter(props => typeof props['aria-label'] === 'string' && (props['aria-label'] as string).startsWith(ENTERPRISE_ONLINE_INSTALL))
+    expect(busyButtons.map(props => props['children'])).toEqual([ENTERPRISE_ONLINE_INSTALLING, ENTERPRISE_ONLINE_INSTALL])
+    expect(busyButtons.every(props => props['disabled'] === true)).toBe(true)
+    // ④ 成功那句 + 失败只落在那一行（含「技术信息」里的码，别的行干净）。
+    const installed = EnterpriseOnlineSearchPage(onlinePageInput({ installedNotice: enterpriseOnlineInstalledText('code-review') }))
+    expect(textOf(collectByProp(installed, 'data-enterprise-online-installed')[0]?.['children'] as ReactNode))
+      .toBe('已安装「code-review」。')
+    const installFailed = EnterpriseOnlineSearchPage(onlinePageInput({
+      installError: { source, code: 'ENT_SKILL_NAME_CONFLICT' },
+    }))
+    expect(collectByProp(installFailed, 'data-enterprise-error-code').map(props => props['data-enterprise-error-code']))
+      .toEqual(['ENT_SKILL_NAME_CONFLICT'])
+    expect(textOf(installFailed)).toContain(ENTERPRISE_ONLINE_INSTALL_FAILED_PREFIX)
+    expect(textOf(installFailed)).toContain('请先卸载同名技能再试')
+    expect(collectByProp(installFailed, 'data-enterprise-online-result')).toHaveLength(2)
+  })
+
+  /**
+   * ★ **复审整改（页名重复 / 结果计数 / 就绪播报 / 行上收敛 / 两枚行内动作的档位）**。
+   *
+   * ① 结果面那一节的**可见名与无障碍名**都换成 `ENTERPRISE_ONLINE_RESULTS_TITLE`（原先它们与页名是
+   *   **同一个常量** ⇒ 同屏上下各一遍，节的无障碍名又与外层 `role="region"` 同名）；
+   * ② 节头那枚计数是 `enterpriseOnlineCountText(...)` 的产出——视图层原本自己拼 `` `${n} 条结果` ``，
+   *   那串既没有任何用例锁过、零结果时还与那句空话同义；
+   * ③ 有结果时就绪态补一句 `role="status"` 播报：加载那行在转就绪时**整行消失**，结果区又不是 live
+   *   region ⇒ 读屏用户不知道搜完了；**零结果时不叠这一句**，改由那句空话自己带 `role="status"` 播报；
+   * ④ 本次会话里已经装好的那一条：**不画**按钮、改画「已装」状态词（反复给按钮 = 反复装同一条）；
+   * ⑤「纳入」与「安装」两枚行内动作取官方普通按钮的 `outline` 档（与市场页三处安装按钮同档）——
+   *   `ghost` 只靠 hover 出底，**触屏没有 hover**，真机上就是一枚看不出能点的裸文字。
+   */
+  it('routes the section name, the count and the ready announcement through the projections, and settles an installed row', async () => {
+    const tree = EnterpriseOnlineSearchPage(onlinePageInput())
+    // ① 节名 ≠ 页名（同屏只说一遍页名；两个 landmark 也不同名）。
+    const section = collectByProp(tree, 'data-enterprise-online-results')[0]!
+    expect(section['aria-label']).toBe(ENTERPRISE_ONLINE_RESULTS_TITLE)
+    expect(collectByClassName(tree, 'own-market-sectionTitle').map(props => textOf(props['children'] as ReactNode)))
+      .toEqual([ENTERPRISE_ONLINE_RESULTS_TITLE])
+    // ② 计数走投影（真源只有 online-search.ts 一处）。
+    expect(textOf(collectByClassName(tree, 'own-market-sectionCount')[0]?.['children'] as ReactNode))
+      .toBe(enterpriseOnlineCountText(2))
+    const ready = collectByProp(tree, 'data-enterprise-online-ready')[0]!
+    expect(ready['role']).toBe('status')
+    expect(textOf(ready['children'] as ReactNode)).toBe(enterpriseOnlineReadyText(2))
+    // ③ 零结果：计数**整枚缺席**（不再与那句空话同义）、**不**另加播报、那句空话自己是 live region。
+    const empty = EnterpriseOnlineSearchPage(onlinePageInput({ state: { kind: 'empty', value: onlineValue({ results: [] }) } }))
+    expect(collectByClassName(empty, 'own-market-sectionCount')).toEqual([])
+    expect(collectByProp(empty, 'data-enterprise-online-ready')).toEqual([])
+    expect(collectByProp(empty, 'data-enterprise-online-empty')[0]?.['role']).toBe('status')
+    // ④ 装好的那一条收敛：状态词上屏、那一条**不画**按钮（另一条照旧给按钮）。
+    const settledSource = 'skills-sh:acme/tools/code-review'
+    const settled = EnterpriseOnlineSearchPage(onlinePageInput({ installedSources: [settledSource] }))
+    const settledRow = collectByProp(settled, 'data-enterprise-online-result-installed')[0]!
+    expect(settledRow['data-enterprise-online-result-installed']).toBe(settledSource)
+    expect(textOf(settledRow['children'] as ReactNode)).toBe(ENTERPRISE_ONLINE_INSTALLED)
+    const settledButtons = collectOfficialButtonProps(settled)
+      .filter(props => typeof props['aria-label'] === 'string' && (props['aria-label'] as string).startsWith(ENTERPRISE_ONLINE_INSTALL))
+    expect(settledButtons.map(props => props['aria-label'])).toEqual([`${ENTERPRISE_ONLINE_INSTALL}meeting-notes`])
+    // ⑤ 两枚行内动作的档位（按 aria-label 前缀认出它们，与上面那条既有用例同一套取法）。
+    expect(settledButtons.map(props => props['variant'])).toEqual(['outline'])
+    const install = collectOfficialButtonProps(tree)
+      .filter(props => typeof props['aria-label'] === 'string' && (props['aria-label'] as string).startsWith(ENTERPRISE_ONLINE_INSTALL))
+    expect(install.map(props => props['variant'])).toEqual(['outline', 'outline'])
+    const adopt = collectOfficialButtonProps(EnterpriseSystemSearchPage(systemPageInput()))
+      .filter(props => typeof props['aria-label'] === 'string' && (props['aria-label'] as string).startsWith(ENTERPRISE_SYSTEM_ADOPT))
+    expect(adopt).toHaveLength(1)
+    expect(adopt[0]?.['variant']).toBe('outline')
+    // 源码级反向锁：这一面里不许再出现视图层自己拼的计数文案（真源只有 online-search.ts 一处）。
+    const source = stripComments(await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8'))
+    const faceStart = source.indexOf('export function EnterpriseOnlineSearchPage(')
+    const faceEnd = source.indexOf('\nexport function ', faceStart + 1)
+    expect(faceStart).toBeGreaterThan(0)
+    expect(source.slice(faceStart, faceEnd)).not.toContain('条结果')
+  })
+
+  /**
+   * ★ **复审整改（就绪态的重取入口）**：本机技能目录是**外部可变**的（别处刚建好一个目录、用户自己
+   *   清了一个），而原先只有**失败态**才有重试 ⇒ 一切正常时用户没有任何入口。这枚「重新盘点」走的是
+   *   **同一个** `props.onReload`（真重发，不是刷新页面）；加载 / 失败态**不画**它（失败态由既有那枚
+   *   「重试」承担，不给两枚同义入口）。
+   */
+  it('offers a real reload entry in the ready state, and never a second one next to the failure retry', () => {
+    const onReload = vi.fn()
+    const ready = EnterpriseSystemSearchPage(systemPageInput({ onReload }))
+    const refresh = collectOfficialButtonProps(ready)
+      .find(props => props['aria-label'] === ENTERPRISE_SYSTEM_REFRESH_LABEL)!
+    expect(refresh['children']).toBe(ENTERPRISE_SYSTEM_REFRESH)
+    expect(refresh['variant']).toBe('outline')
+    refresh['onClick']()
+    expect(onReload).toHaveBeenCalledTimes(1)
+    for (const state of [{ kind: 'loading' }, { kind: 'failed', code: 'ENT_LOCAL_UNAVAILABLE' }]) {
+      const tree = EnterpriseSystemSearchPage(systemPageInput({ state, onReload }))
+      expect(collectOfficialButtonProps(tree).filter(props => props['aria-label'] === ENTERPRISE_SYSTEM_REFRESH_LABEL))
+        .toEqual([])
+    }
+  })
+
+  /* ───────────── 本刀（通过 Agent 创建）：反馈三态 + 复制走 + 不开第二个端口 ───────────── */
+
+  /**
+   * ★ **本刀（通过 Agent 创建）**：那一段反馈的三态都看得见，且失败后**唯一**能走的路是一枚真按钮。
+   *
+   * ① 空闲（`state === undefined` / 整个 port 缺席）⇒ 一枚元素都不画；
+   * ② 成功与「已复制」各一句 `role="status"` 人话（说清已经发生什么 + 你只要做什么）；
+   * ③ 失败走**唯一**提示组件（人话 +「下一步：」+ 折进技术信息的稳定码），旁边那枚「复制这句指令」
+   *    **真能点**，且点它交回去的正是**刚发出去的那一段草稿**（复制的内容 === 发出去的内容）；
+   * ④ 复制失败换另一枚码（下一步不同），那枚按钮同时就是重试入口。
+   */
+  it('shows the agent-creation feedback, and offers the draft copy as the one real way out of a failure', () => {
+    const draft = buildSkillCreateDraft()
+    // ① 没有接线面 / 空闲：一枚元素都不画。
+    expect(collectByProp(EnterpriseMarketLegacyShell({ view: 'page', sessionUsable: true }), 'data-enterprise-skill-create'))
+      .toEqual([])
+    expect(collectByProp(EnterpriseMarketCreateSkillNotice({ port: { state: undefined, onCopy: vi.fn() } }), 'data-enterprise-skill-create'))
+      .toEqual([])
+    // ② 成功。
+    const opened = EnterpriseMarketCreateSkillNotice({ port: { state: { kind: 'opened' }, onCopy: vi.fn() } })
+    const openedNote = collectByProp(opened, 'data-enterprise-skill-create')[0]!
+    expect(openedNote['data-enterprise-skill-create']).toBe('status')
+    expect(openedNote['role']).toBe('status')
+    expect(textOf(openedNote['children'] as ReactNode)).toBe(ENTERPRISE_SKILL_CREATE_OPENED)
+    // ② 复制成功那句也走同一个落点。
+    const copied = EnterpriseMarketCreateSkillNotice({ port: { state: { kind: 'copied' }, onCopy: vi.fn() } })
+    expect(textOf(collectByProp(copied, 'data-enterprise-skill-create')[0]?.['children'] as ReactNode))
+      .toBe(ENTERPRISE_SKILL_CREATE_COPIED)
+    // ③ 失败：唯一提示组件 + 真能点的复制按钮；交回去的草稿与构造器产出的**逐字相同**。
+    const onCopy = vi.fn()
+    const failed = EnterpriseMarketCreateSkillNotice({
+      port: { state: { kind: 'failed', code: ENTERPRISE_SKILL_CREATE_LAUNCH_FAILED_CODE, draft }, onCopy },
+    })
+    expect(collectByProp(failed, 'data-enterprise-skill-create')).toEqual([])
+    expect(collectByProp(failed, 'data-enterprise-error-code')[0]?.['data-enterprise-error-code'])
+      .toBe(ENTERPRISE_SKILL_CREATE_LAUNCH_FAILED_CODE)
+    expect(textOf(failed)).toContain('下一步：')
+    // 失败态那句人话必须指向**屏幕上真有的那枚按钮**（「复制这句指令」），不是一句空劝。
+    expect(textOf(failed)).toContain(ENTERPRISE_SKILL_CREATE_COPY)
+    const copyButton = collectOfficialButtonProps(failed)
+      .find(props => props['aria-label'] === ENTERPRISE_SKILL_CREATE_COPY_LABEL)!
+    expect(copyButton['children']).toBe(ENTERPRISE_SKILL_CREATE_COPY)
+    copyButton['onClick']()
+    expect(onCopy).toHaveBeenCalledTimes(1)
+    expect(onCopy.mock.calls[0]?.[0]).toBe(draft)
+    // ④ 复制失败那枚码：同一枚按钮仍在（它就是重试入口），人话与下一步换了一套。
+    const copyFailed = EnterpriseMarketCreateSkillNotice({
+      port: { state: { kind: 'failed', code: ENTERPRISE_SKILL_CREATE_COPY_FAILED_CODE, draft }, onCopy },
+    })
+    expect(collectByProp(copyFailed, 'data-enterprise-error-code')[0]?.['data-enterprise-error-code'])
+      .toBe(ENTERPRISE_SKILL_CREATE_COPY_FAILED_CODE)
+    expect(textOf(copyFailed)).toContain('剪贴板权限')
+    expect(collectOfficialButtonProps(copyFailed)
+      .filter(props => props['aria-label'] === ENTERPRISE_SKILL_CREATE_COPY_LABEL)).toHaveLength(1)
+  })
+
+  /**
+   * ★ **本刀（通过 Agent 创建）：绝不新造第二个「开会话」端口**。
+   *
+   * 控制器只有**一处**注入面（`useEnterpriseMarketController` 的 `presetLaunch`），它被用在两处：
+   * 配方第二级降级链与本刀这一项。任何「第二个端口 / 第二套官方结构面接线」都会让这条红。
+   */
+  it('reuses the one and only session-launch port for the agent-creation item', async () => {
+    const source = stripComments(await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8'))
+    // 同一个端口被两条通路用（配方那一级 + 本刀）。
+    expect((source.match(/presetLaunch\(/g) ?? []).length).toBe(2)
+    // 本刀那条通路的形状：先构造草稿、再交给同一个端口；成功/失败都落三态反馈（没有静默分支）。
+    expect(source).toMatch(/const draft = buildSkillCreateDraft\(\)[\s\S]{0,200}presetLaunch\(draft\)/)
+    expect(source).toMatch(/setSkillCreate\(ok[\s\S]{0,200}ENTERPRISE_SKILL_CREATE_LAUNCH_FAILED_CODE/)
+    // 没有第二个端口类型 / 没有直接碰官方结构面（那是 preset-launch.ts 与 client.tsx 的活）。
+    for (const forbidden of ['EnterpriseSkillCreateLaunchPort', 'openWorkspace', 'setDraft']) {
+      expect(source, forbidden).not.toContain(forbidden)
+    }
+    // 复制走那条路用的是既有的剪贴板写法（与配方第三级同一个 API），没有引入新依赖。
+    expect(source).toContain('navigator.clipboard')
+  })
+
+  /**
+   * **五支视图**（列表 / 技能详情 / 配方详情 / 系统搜索结果面 / **在线搜索结果面**）都必须挂同一份
+   * **页面级 chrome** —— 源码级逐支锁（`{pageChrome}` 恰好五处）。这份 chrome 装两样东西：
+   * **本地导入**那枚恒不可见的文件选择器（task-3）与**通过 Agent 创建**那条反馈（task-9）。
+   * 每一支里「添加」下拉照样在场，少挂一处就是「在那一面里点本地导入 / 通过 Agent 创建、界面毫无反应」
+   * 的死控件。
+   */
+  it('mounts the page chrome into all five views of the shell', async () => {
+    const source = stripComments(await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8'))
+    expect((source.match(/\{pageChrome\}/g) ?? []).length).toBe(5)
+    // 这份 chrome 里**两样**都在（不是只搬了其中一样；搬漏一样就是其中一项没反馈）。
+    expect(source).toContain('<EnterpriseMarketSkillImportChrome port={props.skillImport} />')
+    expect(source).toContain('<EnterpriseMarketCreateSkillNotice port={props.skillCreate} />')
+    // 触发它们的「添加」下拉只有一处实现（标题行槽那一格），本次改动没有新增第二个下拉。
+    expect((source.match(/<EnterpriseMarketAddMenuView/g) ?? []).length).toBe(2)
+  })
+
+  /* ───────────── 本刀（系统搜索 → 纳入）：结果面 = 页内视图切换 + 纳入四条可见反馈 ───────────── */
+
+  /** 一份盘点真值：一枚在的根、一枚不存在的根，三条候选各占一态（可纳入 / 命名冲突 / 已装）。 */
+  function systemValue(over: Partial<{ roots: readonly any[]; skills: readonly any[] }> = {}) {
+    const root = { id: 'user-dsh', path: '/data/user/0/com.deepcode.shell/files/.dsh/skills', present: true }
+    const absent = { id: 'other-cli', path: '/opt/other/skills', present: false }
+    const base = `${root.path}`
+    return {
+      roots: [root, absent],
+      skills: [
+        { path: `${base}/code-review`, rootId: 'user-dsh', name: 'code-review', displayName: '代码审查', description: '把代码审查规则带进新会话。', state: 'available' },
+        { path: `${base}/taken`, rootId: 'user-dsh', name: 'taken', state: 'conflict' },
+        { path: `${base}/done`, rootId: 'user-dsh', name: 'done', state: 'registered' },
+      ],
+      ...over,
+    }
+  }
+
+  /** 结果面的输入（唯一构造点在控制器里；这里按同一形状直调那枚纯组件）。 */
+  function systemPageInput(over: Record<string, unknown> = {}): EnterpriseSystemSearchPageProps {
+    return {
+      state: { kind: 'ready', value: systemValue() },
+      onAdopt: vi.fn(),
+      onReload: vi.fn(),
+      onBack: vi.fn(),
+      ...over,
+    } as EnterpriseSystemSearchPageProps
+  }
+
+  /** 与「系统搜索」那一整段控制器源码（测试里只做源码级判据，故按段落切片即可）。 */
+  function sourceOfSystemFlow(): string {
+    const source = readFileSync(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8')
+    const start = source.indexOf('const [systemSearchOpen, setSystemSearchOpen]')
+    const end = source.indexOf('const systemSearch: EnterpriseSystemSearchPageProps')
+    expect(start).toBeGreaterThan(0)
+    expect(end).toBeGreaterThan(start)
+    return source.slice(start, end)
+  }
+
+  /**
+   * ★ **本刀（系统搜索）：结果面是页内视图切换，不是弹窗**（口径 15）。
+   *
+   * 四件一起锁：① `systemSearch` 非空 = **整页切换**（列表 / 页签条 / 节容器整段不挂载），
+   * 与技能/配方详情**同一条**形态；② 树里**没有** `role="dialog"`、没有 portal、没有遮罩类；
+   * ③ 承载形式是一枚 `role="region"` + `tabIndex={-1}` 的容器（进面后焦点落它，读屏立刻报出这一面）；
+   * ④ 返回只有两条真路径（面包屑按钮 + Esc，后者是控制器里钉在本页根节点上的那一条）。
+   */
+  it('opens the system-search result face as an in-page view switch — never a dialog, never a portal', async () => {
+    const tree = EnterpriseMarketLegacyShell({ view: 'page', sessionUsable: true, systemSearch: systemPageInput() })
+    // ① 整页切换：工具行（页签条 / 搜索框 / 筛选）与四个 tabpanel 一个都不在。
+    expect(collectByClassName(tree, 'own-market-searchRow')).toEqual([])
+    expect(collectByRole(tree, 'tab')).toEqual([])
+    expect(collectByRole(tree, 'tablist')).toEqual([])
+    expect(collectByRole(tree, 'tabpanel')).toEqual([])
+    // ② 无弹层语义：没有 dialog role，也没有第二个详情容器（结果面就是那**一个** region）。
+    expect(collectByRole(tree, 'dialog')).toEqual([])
+    expect(collectByRole(tree, 'region')).toHaveLength(1)
+    // ③ 承载形式与焦点落点：region + aria-label + tabIndex=-1（程序化聚焦）。
+    const region = collectByRole(tree, 'region')[0]!
+    expect(region['aria-label']).toBe(ENTERPRISE_SYSTEM_TITLE)
+    expect(region['tabIndex']).toBe(-1)
+    expect(region['data-enterprise-system-page']).toBe('true')
+    // ④ 面包屑是可见的返回入口（完整无障碍名 + 我们自己的可见文案）。
+    const crumb = collectByClassName(tree, 'own-market-crumb')[0]!
+    expect(crumb['aria-label']).toBe(ENTERPRISE_SYSTEM_BACK_LABEL)
+    expect(textOf(crumb['children'] as ReactNode)).toContain(ENTERPRISE_SYSTEM_BACK_TEXT)
+    // 源码级反向锁：这一面不许引入 portal / dialog 语义。
+    // ★ 判据**只圈这一面那一段源码**（不是整个文件）：本文件里另有**一处**合法 dialog——
+    //   配方一键启用那份授权弹层（`role="dialog"`，用户明确要求过的确认层），把它一起算进来
+    //   只会让这条断言变成「整个文件永远不许有 dialog」，那不是本刀要锁的东西。
+    const source = stripComments(await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8'))
+    expect(source).not.toContain('createPortal')
+    const faceStart = source.indexOf('export function EnterpriseSystemSearchPage(')
+    // 切到**下一个**导出的函数为止（不写死下一个函数的名字：那一面之后还会再插新面）。
+    const faceEnd = source.indexOf('\nexport function ', faceStart + 1)
+    expect(faceStart).toBeGreaterThan(0)
+    expect(faceEnd).toBeGreaterThan(faceStart)
+    const faceSource = source.slice(faceStart, faceEnd)
+    expect(faceSource).not.toContain('role="dialog"')
+    expect(faceSource).not.toContain('createPortal')
+    // 这一面里**只有**那一枚 region（没有第二层承载容器）。
+    expect((faceSource.match(/role="region"/g) ?? []).length).toBe(1)
+    // 切面那一道判据本身也在源码里（否则「列表整段不挂载」这句话会变成一句注释）。
+    expect(source).toContain('if (props.systemSearch !== undefined)')
+    // Esc 那条真路径：监听钉在本页根节点上（不是 document），且只在结果面开着时挂。
+    expect(source).toMatch(/if \(!systemSearchOpen\) return[\s\S]{0,200}marketRoot\.current[\s\S]{0,300}Escape/)
+    // 返回后还原滚动位置（点击那一下读、返回时写回；判定复用既有 `scrollTargetOf`）。
+    expect(source).toMatch(/onOpenSystemSearch[\s\S]{0,300}scrollTargetOf\(marketRoot\.current\)/)
+    expect(source).toMatch(/systemScrollMemory\.current[\s\S]{0,200}scrollTop = saved\.top/)
+  })
+
+  /**
+   * ★ **本刀（系统搜索）：按根分组 + 两种空话 + 每条候选的诚实交代**。
+   *
+   * 锁五件事：① 分组顺序 = Host 的根顺序；② 「根不存在」与「根在但零候选」是**两句不同**的人话；
+   * ③ 标题取 frontmatter 技能名、描述缺席就整行不出、目录名进那一句 note；④ 三态中文上屏；
+   * ⑤ **只有可纳入那一条**有按钮，另两态在行上写清为什么没有动作。
+   */
+  it('groups candidates per root with the two kinds of empty sentence and one action per adoptable row', () => {
+    const input = systemPageInput()
+    const tree = EnterpriseSystemSearchPage(input)
+    const sections = collectByProp(tree, 'data-enterprise-system-root')
+    expect(sections.map(props => props['data-enterprise-system-root'])).toEqual(['user-dsh', 'other-cli'])
+    // 根的人话标签：唯一那枚本机根给「本机技能目录」，注入的根用 id；绝对路径只在 title 里（展示事实）。
+    // ★ 本刀（复审整改）：本机根那枚标签**与页名逐字相同** ⇒ 那枚可见节头**不画**（画了屏幕上就是
+    //   「本机技能目录」上下各一遍），只留它右边那枚计数；另一枚根（标签 ≠ 页名）照旧出节头。
+    const titles = collectByClassName(tree, 'own-market-sectionTitle')
+    expect(titles.map(props => textOf(props['children'] as ReactNode))).toEqual(['other-cli'])
+    expect(titles[0]!['title']).toBe('/opt/other/skills')
+    // 两节的**无障碍名**：会与页名重复的那一节换成中性词，另一枚照旧用根的人话标签
+    //   ⇒ 两个 landmark 不同名，也与外层 `role="region"`（页名）不同名。
+    expect(sections.map(props => props['aria-label'])).toEqual([ENTERPRISE_SYSTEM_SECTION_LABEL, 'other-cli'])
+    // ② 不存在的那枚根：用「这个位置还没有技能目录」那句（**不是**「没有找到技能目录」那句）。
+    const rootNotes = collectByProp(tree, 'data-enterprise-system-root-note')
+    expect(rootNotes.map(props => textOf(props['children'] as ReactNode))).toEqual([ENTERPRISE_SYSTEM_ROOT_ABSENT])
+    // 零候选的根（present=true）用另一句 —— 两句都要求得出来，故这里再单独跑一份真值。
+    const presentEmpty = EnterpriseSystemSearchPage(systemPageInput({
+      state: { kind: 'empty', value: { roots: [{ id: 'user-dsh', path: '/p', present: true }], skills: [] } },
+    }))
+    expect(collectByProp(presentEmpty, 'data-enterprise-system-root-note').map(props => textOf(props['children'] as ReactNode)))
+      .toEqual([ENTERPRISE_SYSTEM_ROOT_EMPTY])
+    // 零候选时那句**整体**空话也在（两个层次都要有：一个是整台机器，一个是某个位置）。
+    expect(collectByProp(presentEmpty, 'data-enterprise-system-empty').map(props => textOf(props['children'] as ReactNode)))
+      .toEqual([ENTERPRISE_SYSTEM_EMPTY])
+    // ③④⑤ 三条候选各一行：状态中文与（另两态的）原因都看得见。
+    const rows = collectByProp(tree, 'data-enterprise-system-skill')
+    expect(rows.map(props => props['data-enterprise-system-skill-state'])).toEqual(['available', 'conflict', 'registered'])
+    const notes = collectByProp(tree, 'data-enterprise-system-skill-note').map(props => textOf(props['children'] as ReactNode))
+    expect(notes[0]).toBe(`${ENTERPRISE_SYSTEM_DIRECTORY_PREFIX}code-review · ${ENTERPRISE_SYSTEM_STATE_AVAILABLE}`)
+    expect(notes[1]).toContain(ENTERPRISE_SYSTEM_CONFLICT_NOTE)
+    expect(notes[2]).toContain(ENTERPRISE_SYSTEM_REGISTERED_NOTE)
+    // 标题：有 frontmatter 技能名用名字，没有就用目录名；描述缺席的那两条没有第二行。
+    expect(collectByClassName(tree, 'own-market-cardId').map(props => textOf(props['children'] as ReactNode)))
+      .toEqual(['代码审查', 'taken', 'done'])
+    expect(collectByClassName(tree, 'own-market-cardDesc')).toHaveLength(1)
+    // ⑤ 只有可纳入那一条有【纳入】；另两行**一个按钮都不画**（能走的路才画，原因写在行上）。
+    const adoptButtons = collectOfficialButtonProps(tree)
+      .filter(props => typeof props['aria-label'] === 'string' && (props['aria-label'] as string).startsWith(ENTERPRISE_SYSTEM_ADOPT))
+    expect(adoptButtons).toHaveLength(1)
+    expect(adoptButtons[0]!['aria-label']).toBe(`${ENTERPRISE_SYSTEM_ADOPT}代码审查`)
+    expect(adoptButtons[0]!['children']).toBe(ENTERPRISE_SYSTEM_ADOPT)
+    expect(adoptButtons[0]!['disabled']).toBe(false)
+    // 点它 = 把**那一条**候选（含 canonical path）原样交回控制器。
+    const onAdopt = vi.fn()
+    const clickable = EnterpriseSystemSearchPage(systemPageInput({ onAdopt }))
+    const button = collectOfficialButtonProps(clickable)
+      .find(props => typeof props['aria-label'] === 'string' && (props['aria-label'] as string).startsWith(ENTERPRISE_SYSTEM_ADOPT))!
+    button['onClick']()
+    expect(onAdopt).toHaveBeenCalledTimes(1)
+    expect(onAdopt.mock.calls[0]?.[0]).toMatchObject({ path: `${systemValue().roots[0]!.path}/code-review`, state: 'available' })
+  })
+
+  /**
+   * ★ **本刀（系统搜索）：加载 / 失败 / 纳入的四条可见反馈**。
+   *
+   * ① 加载中有一句 `role="status"`（不空白）；② 失败走唯一提示组件 + **真能点**的重试
+   * （点它真的调 `onReload`）；③ 在途：那一行按钮变「正在纳入…」且**所有**纳入按钮禁用，
+   * 原因写在页面上看得见的那一句里；④ 成功一句 `role="status"`；⑤ 失败只落在**那一行**上
+   * （人话 + 下一步 + 技术信息里的稳定码），别的行不受影响。
+   */
+  it('turns the discover / adopt state machine into visible feedback', () => {
+    // ① 加载中。
+    const loading = EnterpriseSystemSearchPage(systemPageInput({ state: { kind: 'loading' } }))
+    expect(collectByProp(loading, 'data-enterprise-system-state')[0]?.['data-enterprise-system-state']).toBe('loading')
+    expect(textOf(loading)).toContain(ENTERPRISE_SYSTEM_LOADING)
+    // ② 失败：唯一提示组件 + 真重发。
+    const onReload = vi.fn()
+    const failed = EnterpriseSystemSearchPage(systemPageInput({
+      state: { kind: 'failed', code: 'ENT_LOCAL_UNAVAILABLE' }, onReload,
+    }))
+    expect(collectByProp(failed, 'data-enterprise-error-code')[0]?.['data-enterprise-error-code']).toBe('ENT_LOCAL_UNAVAILABLE')
+    expect(textOf(failed)).toContain('下一步：')
+    // 失败态**不**铺候选行（没有真值就不假装有）。
+    expect(collectByProp(failed, 'data-enterprise-system-skill')).toEqual([])
+    const retryButton = collectOfficialButtonProps(failed)
+      .find(props => props['aria-label'] === ENTERPRISE_LIST_RETRY_LABEL)!
+    expect(retryButton['children']).toBe(ENTERPRISE_LIST_RETRY)
+    retryButton['onClick']()
+    expect(onReload).toHaveBeenCalledTimes(1)
+    // ③ 在途：按钮禁用 + 文案变「正在纳入…」，页面上那句**可见原因**也在。
+    const path = `${systemValue().roots[0]!.path}/code-review`
+    const adopting = EnterpriseSystemSearchPage(systemPageInput({
+      adopt: { path, name: '代码审查' },
+    }))
+    expect(collectByProp(adopting, 'data-enterprise-system-adopting')[0]?.['data-enterprise-system-adopting']).toBe(path)
+    expect(textOf(adopting)).toContain(enterpriseSystemAdoptingText('代码审查'))
+    const busyButtons = collectOfficialButtonProps(adopting)
+      .filter(props => typeof props['aria-label'] === 'string' && (props['aria-label'] as string).startsWith(ENTERPRISE_SYSTEM_ADOPT))
+    expect(busyButtons.map(props => props['children'])).toEqual([ENTERPRISE_SYSTEM_ADOPTING])
+    // 一次只允许一条：在途时**其余**纳入按钮也禁用（Host 的自装清单是「读—改—写」一份文件）。
+    expect(busyButtons.every(props => props['disabled'] === true)).toBe(true)
+    // ④ 成功那句是 `role="status"`。
+    const adopted = EnterpriseSystemSearchPage(systemPageInput({ adoptedNotice: enterpriseSystemAdoptedText('代码审查') }))
+    const status = collectByProp(adopted, 'data-enterprise-system-adopted')
+    expect(status[0]?.['data-enterprise-system-adopted']).toBe('true')
+    expect(textOf(status[0]!['children'] as ReactNode)).toBe('已纳入「代码审查」。')
+    // ⑤ 失败只落在那一行上（含「技术信息」里的稳定码），别的行没有提示。
+    const failedAdopt = EnterpriseSystemSearchPage(systemPageInput({
+      adoptError: { path, code: 'ENT_SKILL_NAME_CONFLICT' },
+    }))
+    const notices = collectByProp(failedAdopt, 'data-enterprise-error-code')
+    expect(notices.map(props => props['data-enterprise-error-code'])).toEqual(['ENT_SKILL_NAME_CONFLICT'])
+    // 前缀说清是「纳入失败」（人话与下一步由唯一映射给）。
+    expect(textOf(failedAdopt)).toContain(ENTERPRISE_SYSTEM_ADOPT_FAILED_PREFIX)
+    expect(textOf(failedAdopt)).toContain('请先卸载同名技能再试')
+    // 只有出错那一行挂提示：其余两行干净。
+    const withError = collectByProp(failedAdopt, 'data-enterprise-system-skill')
+    expect(withError).toHaveLength(3)
+    // ★ 源码级：成功之后**重新盘点**（让 Host 把那一行回成 registered），而不是界面自己把那一条改成
+    //   「已装」（乐观切换 = 界面比磁盘更乐观，本仓反复禁掉的那件事）。
+    expect(stripComments(sourceOfSystemFlow()))
+      .toMatch(/setSystemAdoptedNotice\(enterpriseSystemAdoptedText\(name\)\)[\s\S]{0,200}setSystemAttempt/)
+    expect(stripComments(sourceOfSystemFlow())).not.toContain("state: 'registered'")
+    // 成功与失败**都**重新盘点（前者让那行变已装、后者让那条 stale 候选如实变形/消失）。
+    expect((stripComments(sourceOfSystemFlow()).match(/setSystemAttempt\(current => current \+ 1\)/g) ?? []).length).toBeGreaterThanOrEqual(2)
   })
 
   it('adds no CSS class for the 企业 badge: only the existing .own-market-tag declaration is reused', async () => {
@@ -1055,7 +2103,11 @@ describe('enterprise marketplace entry', () => {
       // 顶部间距：两个取值都收紧到压缩后的定值（节内 gap 不动，仍是 12）。
       const tabsRule = cssRuleBody(css, '.own-market-storeTabs')
       expect(tabsRule, label).toContain('margin:0')
-      expect(tabsRule, label).toContain('flex-wrap:nowrap')
+      // ★ **本刀（task-20 B）**：页签条由 flex 改成官方分段控件的 inline-grid（等宽）。
+      //   原来这里锁的 `flex-wrap:nowrap`（「不许换行」）在 grid 上已无意义 ⇒ 等价判据换成
+      //   `grid-auto-flow:column`（列向排布，**永远不会换行**），锁的意图一字未变。
+      expect(tabsRule, label).toContain('grid-auto-flow:column')
+      expect(tabsRule, label).toContain('grid-auto-columns:1fr')
       const sectionRule = cssRuleBody(css, '.own-market-section')
       // ★ 本刀起节容器**不再自带顶部间距**（margin-top 归 0 / 整条撤掉）：它原先与搜索行那处
       //   同为 12px，两处相等 ⇒「工具行」与「内容区」一样重、上下等距（用户反馈「上下间隔一直」）。
@@ -1327,9 +2379,14 @@ describe('enterprise marketplace entry', () => {
     expect(icon).toContain('var(--dsw-alias-background-primary')
     expect(icon).not.toContain('background:none')
     expect(icon).not.toContain('background:transparent')
-    // ② 安装钮 = 白底 + 有 hover，但 hover 用的是官方**按钮族** token，**不是**卡片那枚。
-    expect(cssRuleBody(css, '.own-market-installBtn')).toContain('var(--dsw-alias-background-primary')
-    expect(css).toContain('.own-market-installBtn.own-market-installBtn:hover:not(:disabled){background:var(--dsw-alias-button-tool-bar-hover)')
+    // ② 安装钮 = 官方 **outline 档**，**本文件故意不覆盖它的任何背景**（反向锁：查无此规则）。
+    //    ★ task-21 两次更正：原先填 background-primary —— 那枚 token 在本版 DSH 里不被定义
+    //    （var 的兜底 #fff 在生效）⇒ 深色主题下白字压白、字看不见；随后改照官方 .toolbar 变体
+    //    （button-tool-bar-fill）—— token 名对、色也随主题翻，但**档位错了**：官方 outline 按钮在
+    //    浅色下本该是**白底黑字**，被盖成了工具栏灰（浅色真机截图确认）。⇒ 正解是**什么都不覆盖**，
+    //    让官方 .outline 的 background:transparent + 0.5px 描边 + label-primary 在两套主题里自己生效。
+    expect(cssRuleBody(css, '.own-market-installBtn')).toBe('')
+    expect(css).not.toContain('.own-market-installBtn.own-market-installBtn')
     // 卡片 hover 仍是那一枚（两处不是同一个 token，故视觉上分得开）。
     expect(cssRuleBody(css, '.own-market-row:hover')).toContain('var(--dsw-alias-interactive-bg-hover)')
     expect(cssRuleBody(css, '.own-market-row:hover')).not.toContain('button-tool-bar-hover')
@@ -1351,14 +2408,16 @@ describe('enterprise marketplace entry', () => {
   it('keeps the rule that hides the official detail icon in the list-view stylesheet', () => {
     const listCss = collectStyleText(EnterpriseMarketLegacyShell({ view: 'page' }))
     // 规则在场，且正文是那一条 display:none（不是被改成别的东西）。
-    expect(cssRuleBody(listCss, '[data-plugin-item-detail] [class*="_detailHead"] [class*="_cardIcon"]')).toBe('display:none')
+    expect(cssRuleBody(listCss, '[data-plugin-item-detail]:has([class*="_detailSections"] .own-market-entry) [class*="_detailHead"] [class*="_cardIcon"]')).toBe('display:none')
     // 锚点不写死属性值（官方那个值是动态 item.id）；也不许退化成过宽的 span[aria-hidden]
     // （会误伤官方 crumbIcon 那枚同样是 aria-hidden 的 chevron span）。
+    // ★ 收口：这条也必须带 :has(...own-market-entry...) 作用域 —— 否则它会连**其它 item 详情**的
+    //   官方图标一起藏掉（本仓原先正是这个状态，由下面那条 `bare` 断言守着）。
     expect(listCss).not.toContain('[data-plugin-item-detail="plugin-market"]')
     expect(listCss).not.toContain('span[aria-hidden="true"]{display:none}')
     // 两套外壳的列表分支都带（官方那份 ItemDetail 在哪个外壳下出现，规则都得在场）。
     for (const { label, shell } of MARKET_SHELLS) {
-      expect(cssRuleBody(collectStyleText(shell({ view: 'page' })), '[data-plugin-item-detail] [class*="_detailHead"] [class*="_cardIcon"]'), label)
+      expect(cssRuleBody(collectStyleText(shell({ view: 'page' })), '[data-plugin-item-detail]:has([class*="_detailSections"] .own-market-entry) [class*="_detailHead"] [class*="_cardIcon"]'), label)
         .toBe('display:none')
     }
   })
@@ -1444,21 +2503,19 @@ describe('enterprise marketplace entry', () => {
     expect(cssRuleBody(css, '.own-market-cardDesc')).not.toContain('color:var(--dsw-alias-label-secondary')
   })
 
-  it('gives every row the official fallback artwork: 40px frame + 30px graphic, neutral container, no per-kind tint', () => {
+  it('derives each row icon from the item id: initial letter + a hue from existing --dsw-static tokens (task-17 ②)', async () => {
     const tree = EnterpriseMarketLegacyShell({
       view: 'page', sessionUsable: true, enterpriseSkills: enterpriseMarketSkillRows([SKILL]),
     })
     const css = collectStyleText(tree)
-    // ① **「40 框 + 30 图形」是官方的行内配比**，锁成事实：
-    //    app.asar 逐字 `CARD_ARTWORK_SIZE = 36`（卡片位）/ `ROW_ARTWORK_SIZE = 30`（行位），
-    //    官方注释原文「The size the artwork renders at inside a row's 40px frame」。
-    //    真机验收「图形太小、比外框小很多、不协调」即由此而来（当时误用 18px，偏小 40%）。
+    // ① **容器仍是官方的**：40px 框 + radius-md + border-l3（用户裁决：图标框不参与变浅）。
+    //    本刀只换框**里面**画什么，容器这一层一个字都没动。
     const frame = cssRuleBody(css, '.own-market-rowIcon')
-    expect(frame).toContain('width:40px')
-    expect(frame).toContain('height:40px')
+    expect(frame).toContain('width:48px')
+    expect(frame).toContain('height:48px')
     expect(frame).toContain('border-radius:var(--dsw-radius-md')
-    // 容器边框**保持官方 border-l3 不动**（用户明确裁决：图标方框不参与本轮「框线变浅」）。
     expect(frame).toContain('border:.5px solid var(--dsw-alias-border-l3')
+    // ② **图形尺寸仍是官方 ROW_ARTWORK_SIZE = 30**、viewBox 仍 36（「40 框 + 30 图形」这个配比不动）。
     const rowIcons = collectByClassName(tree, 'own-market-rowIcon')
     expect(rowIcons.length).toBeGreaterThan(0)
     const svgs = collectByTagName(tree, 'svg')
@@ -1469,29 +2526,50 @@ describe('enterprise marketplace entry', () => {
       expect(svg['height']).toBe(30)
       expect(svg['viewBox']).toBe('0 0 36 36')
     }
-    // ② **按类别上色已整组删除**：容器保持中性（官方 rowIcon 就是 secondary），图形自带青蓝渐变，
-    //    再挂按类别上色的 static token 会与它自己的渐变打架；每张卡都挂同一个「企业」标识本就零信息量。
-    for (const kind of ['skills', 'plugins', 'presets', 'library']) {
-      expect(cssRuleBody(css, `.own-market-rowIcon[data-icon-kind='${kind}']`), kind).toBe('')
-    }
-    // ③ 渐变两端色与官方逐字一致；id **逐枚唯一** —— 写死 id 会让同页几十枚图标全部解析到
-    //    第一个同名 defs、整页染成同一色（官方为此专门写了 useArtworkId）。id 是逐次唯一的
-    //    **实现细节**，故进这里断言、不进字面快照（快照里归一为 ARTIFACT-ID）。
+    // ③ **首字母**：画的是 `text`，且文字来自该条目的**可见标题**（会议纪要技能组 ⇒ 会）。
+    //    ★ 反向锁：那枚「每行都一样」的通用图形 `path` 已**一个都不剩**（这正是可扫性为零的根因）。
+    expect(collectByTagName(tree, 'path'), '通用图形必须已被首字母取代').toHaveLength(0)
+    const texts = collectByTagName(tree, 'text')
+    expect(texts.length).toBe(rowIcons.length)
+    for (const node of texts) expect(textOf(node['children'] as ReactNode)).toBe('会')
+    // ④ **色相**：两端取自既有的 `--dsw-static-*` token（逐枚同一档），且 `linearGradient` id 逐枚唯一
+    //    （写死 id 会让同页几十枚解析到第一个 defs、整页染成同一色 —— 官方为此专门写了 useArtworkId）。
     const gradients = collectByTagName(tree, 'linearGradient')
     expect(gradients.length).toBe(rowIcons.length)
     const ids = gradients.map(el => el['id'])
     expect(new Set(ids).size, '渐变 id 必须逐枚唯一').toBe(gradients.length)
     for (const id of ids) expect(String(id)).toMatch(/^own-market-art-\d+$/)
+    const expectedHue = enterpriseArtworkHue(SKILL.id)
     for (const el of gradients) {
       const stops = collectByTagName(el['children'] as ReactNode, 'stop')
-      expect(stops.map(s => s['stopColor'])).toEqual(['#54ECE7', '#658EFF'])
+      expect(stops.map(s => s['stopColor'])).toEqual([expectedHue.from, expectedHue.to])
+      // 两端必须**都是既有 token 的 var() 引用**（不是十六进制字面量、不是新造颜色）。
+      for (const stop of stops) expect(String(stop['stopColor'])).toMatch(/^var\(--dsw-static-[a-z]+-\d+\)$/)
     }
-    // ④ path 是官方那条接线块 + node 的几何（逐字取官方 PluginArtworkDefault 的 d）。
-    const paths = collectByTagName(tree, 'path').filter(el => String(el['fill'] ?? '').startsWith('url(#own-market-art-'))
-    expect(paths.length).toBe(rowIcons.length)
-    expect(String(paths[0]?.['d'])).toContain('M24.6294 8.63696')
+    // ⑤ **稳定派生**：同一 id 恒同一档；色相表**恰五档**、十枚 token 全部是仓内既有的 `--dsw-static-*`。
+    expect(enterpriseArtworkHue(SKILL.id)).toEqual(expectedHue)
+    expect(ENTERPRISE_ARTWORK_HUE_COUNT).toBe(5)
+    const source = await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8')
+    for (const token of [
+      '--dsw-static-blue-400', '--dsw-static-blue-600',
+      '--dsw-static-deepseek-400', '--dsw-static-deepseek-600',
+      '--dsw-static-green-400', '--dsw-static-green-500',
+      '--dsw-static-amber-400', '--dsw-static-amber-600',
+      '--dsw-static-red-400', '--dsw-static-red-600',
+    ]) expect(source, token).toContain(token)
+    // ⑥ **首字母的边界**：CJK 取整字、ASCII 大写、空白/缺席一律退回 id、彻底取不到给「?」（绝不空白块）。
+    expect(enterpriseArtworkInitial('会议纪要技能组', 'x')).toBe('会')
+    expect(enterpriseArtworkInitial('meeting notes', 'x')).toBe('M')
+    expect(enterpriseArtworkInitial('', 'meeting-notes')).toBe('M')
+    expect(enterpriseArtworkInitial('   ', 'meeting-notes')).toBe('M')
+    expect(enterpriseArtworkInitial(undefined, 'luhe-paper-free')).toBe('L')
+    expect(enterpriseArtworkInitial(undefined, '')).toBe('?')
+    // ⑦ **可扫性判据**（这条是本刀的目的）：截图里那六条真实 id **不再全落同一档**。
+    const six = ['1902500000000000001', 'luhe-paper-free', 'contextweave-interactive-architecture',
+      'owndsh-test-hello', 'meeting-notes', 'luhe-paper-free-pro']
+    const hues = six.map(id => `${enterpriseArtworkHue(id).from}`)
+    expect(new Set(hues).size, '六个真实条目至少落到三档，否则等于没区分').toBeGreaterThanOrEqual(3)
   })
-
   it('keeps the skill card to two lines: title on top, description below, no extra tags on the title row', () => {
     // 用户口径（本刀）：卡片两行结构——上面标题、下面描述；标题行**不留多余标签**。
     // 故版本签（own-market-skillVersionTag）与分类签（own-market-skillCategoryTag）都不再上卡片：
@@ -2130,7 +3208,7 @@ describe('enterprise marketplace entry', () => {
       expect(groupTitle, label).toContain('border-bottom:0.5px solid')
       expect(groupTitle, label).toContain('font-weight:600')
       expect(cssRuleBody(css, '.own-market-rowLine'), label).toContain('display:flex')
-      expect(cssRuleBody(css, '.own-market-rowIcon'), label).toContain('width:40px')
+      expect(cssRuleBody(css, '.own-market-rowIcon'), label).toContain('width:48px')
       expect(cssRuleBody(css, '.own-market-rowMain'), label).toContain('flex-direction:column')
       // 卡片标题/描述取值——
       // 标题 15px/**500**/1.4（字号是当时按参考图定的 15px；字重后按用户口径「细一号」从 600 收到 500，
@@ -2141,11 +3219,11 @@ describe('enterprise marketplace entry', () => {
       expect(rowId, label).toContain('font-weight:500')
       // ★ 反向锁：字重**不得**回到 600（用户口径「细一号」），也不得压到 400（那是正文档、标题会塌）。
       expect(rowId, label).not.toContain('font-weight:600')
-      expect(rowId, label).toContain('line-height:1.4')
+      expect(rowId, label).toContain('line-height:20px')
       expect(rowId, label).toContain('text-overflow:ellipsis')
       const desc = cssRuleBody(css, '.own-market-cardDesc')
       expect(desc, label).toContain('font-size:13px')
-      expect(desc, label).toContain('line-height:1.55')
+      expect(desc, label).toContain('line-height:18px')
       expect(desc, label).toContain('-webkit-line-clamp:1')
       // 官方插件清单**卡片**那套取值一条都不许回来（DOM 与 CSS 双查）。
       for (const dead of [
@@ -2566,11 +3644,13 @@ describe('enterprise marketplace entry', () => {
     expect(source).toContain('export function EnterpriseMarketInlineRows(')
     // **本刀（企业配方页签）**：三个目录页签（技能 / 插件 / 配方）各调用同一枚子块一次——三处、一枚实现。
     expect((source.match(/<EnterpriseMarketInlineRows /g) ?? []).length).toBe(3)
-    // 反向锁：本文件里 `own-market-rows` 只有**三处**显式铺设点——
+    // 反向锁：本文件里 `own-market-rows` 只有**四处**显式铺设点——
     // **本刀（分组 + 两列卡片网格）**把三个目录页签那三处收敛成 `renderGrouped` 里的**一处**
-    //（三个页签都走同一枚分组渲染器，一处容器管住两列网格），加组件清单一处、配方详情包含内容一处 = 3。
-    // 没有第四处（将来谁再手写一套行列表，这条会先红）。
-    expect((source.match(/className="own-market-rows"/g) ?? []).length).toBe(3)
+    //（三个页签都走同一枚分组渲染器，一处容器管住两列网格），加组件清单一处、配方详情包含内容一处 = 3；
+    // **本刀（系统搜索）**加第四处：结果面里「每个根一组候选」也走**同一枚**类名（同一套行版式，零新类）；
+    // **本刀（在线搜索）**加第五处：在线结果面同理。
+    // 没有第六处（将来谁再手写一套行列表，这条会先红）。
+    expect((source.match(/className="own-market-rows"/g) ?? []).length).toBe(5)
   })
 
   // ══ 结构快照门禁：旧外壳的**当前**输出（行本体可点这一刀之后的结构）逐行锁死 ══════════════════════
@@ -2596,6 +3676,16 @@ describe('enterprise marketplace entry', () => {
       pluginActionError: { id: 'ent-a', action: 'uninstall' as const, code: 'ENT_PLUGIN_SIGNATURE_INVALID' },
       onToggleSkill: () => undefined,
       onTogglePluginEnabled: () => undefined,
+      // **本刀（本地导入）**：接线面在场（真运行时恒在场：入口是官方插件页里那张卡，sessionUsable 那只
+      // 是页内门控）⇒ 那份大纲里就该有它的**文件选择器**那一行（空闲态不出反馈，故只多这一行）。
+      // 判据不是「多一行」，而是「**列表视图里它真的在**」：它挂在整个页面级 chrome 上，
+      // 三支视图（列表 / 技能详情 / 配方详情）都要有（触发它的「添加」下拉住标题行槽里、三支都在场）。
+      skillImport: {
+        state: undefined,
+        inputRef: { current: null },
+        onOpen: () => undefined,
+        onSelect: () => undefined,
+      },
     }
     const skillsTree = EnterpriseMarketLegacyShell(props)
     expect(domOutline(skillsTree)).toEqual(LEGACY_SHELL_OUTLINE)
@@ -2686,6 +3776,545 @@ describe('enterprise marketplace entry', () => {
  *  ⑦ 读取失败 → `role="alert"` + 稳定错误码 + 重试；预览是 `<pre>` 里的**纯文本子节点**（全文件无 `dangerouslySetInnerHTML`）；
  *  ⑧ 详情里的动作与行上**同源**（同一枚子块 / 同一份 facts / 同一个回调）。
  */
+
+/**
+ * ★ **本刀（刷新 / 添加同行 + 移动端四页签 / 搜索框 / 筛选钮）的两条反向锁。**
+ *
+ * 为什么单独起一个 describe：这两条锁的是**同一份 CSS 的取值与作用域**，与页面行为无关
+ * （本机无布局引擎，jsdom 不算盒模型，故一切几何结论都只能由「CSS 取值 + 算术」取证，
+ * 而不是把组件挂上去量——那会是一条**假绿的锁**）。
+ *
+ * 三条锁：
+ *  ① **缺陷①**：`.own-market-titleActions` 必须让两枚按钮成为同一行 flex 项、且自身不压缩
+ *     （`display:flex` + `flex:none`）。它的取值**桌面可见**（用户口径①不限视口），故住在**顶层**，不出现在任何媒体查询里；
+ *  ② **缺陷②**：窄屏那四条规则必须**只**住在 `@media (max-width: 560px)` 里
+ *     （`splitTopLevelCss` 把顶层与媒体块分开后逐条断言）⇒ 桌面（≥1024px）不命中，版面逐字节不变；
+ *  ③ **算术**：把每一块的 min-content 宽度按**本文件自己的 CSS 取值**算出来，
+ *     证明 360 / 390 / 414px 三个窄宽度下两行都不溢出（页签 297px < 360px；第二行只要 120+32=152px）。
+ */
+describe('enterprise market responsive layout (refresh+add one row, narrow-screen toolbar)', () => {
+  const shellCss = (): string => collectStyleText(EnterpriseMarketLegacyShell({ view: 'page' }))
+
+  /**
+   * 页签行几何的**唯一一份取值**（全部取自本文件 CSS，不是估的）：
+   *   · `.own-market-storeTab` 的 `padding:5px 12px` ⇒ 每枚横向内衬 **12×2 = 24px**；
+   *   · `.own-market-storeTab` 的 `font-size:13px` ⇒ 逐字符宽按下面的假设算；
+   *   · `.own-market-storeTabs` 的 `gap:2px` ⇒ **n−1** 道；`padding:3px` ⇒ 两端 **3×2 = 6px**。
+   */
+  // ★ **本刀（task-20 B）**：页签条改成官方分段胶囊（等宽）⇒ 三处取值随之改：
+  //   每枚横向内衬 12×2 → **16×2 = 32**（官方 .tab 的 padding:0 16px）、轨道内衬 3×2 → **2×2 = 4**
+  //   （官方是 4px，我们取 2px 是为了总高落到 32），并且**不再逐枚算宽**（见下面 measureTabs）。
+  const TAB_H_PADDING = 16 * 2
+  const TAB_FONT_SIZE = 13
+  const TAB_GAP = 2
+  const TAB_TRACK_PADDING = 2 * 2
+  /**
+   * **单字符宽的假设**（取不到真实字体度量，故取**上界**，宁可估宽不估窄）：
+   *   · CJK（含全角标点、CJK 扩展 A）**1em** = `font-size` = **13px** —— 本仓沿用既有口径；
+   *   · 数字与空格按**半角 0.5em** = 6.5px。
+   *
+   * ★ **task-16 纠正**：上一把刀写成「数字计数是半角 ⇒ 真实更窄 ⇒ 212 是上界」——**方向反了**。
+   *   两处都错：① 页签文案是 `enterpriseMarketTabLabel(label, count) = label + ' ' + count`
+   *   （`src/marketplace-entry.tsx:549`），**计数就渲染在页签里面**（真机截图「技能 11」），
+   *   漏掉它只会把宽度**算小**；② 多数码合成字符只会让文案**更宽**，不可能更窄。
+   *   故旧模型算出的 **212 是下界**，不是上界（本文件第 ③ 条用例末尾把这一点也锁进断言）。
+   */
+  const measureText = (text: string): number => {
+    let width = 0
+    for (const char of text) width += /[\u2e80-\u9fff\uff00-\uffef]/.test(char) ? TAB_FONT_SIZE : TAB_FONT_SIZE / 2
+    return width
+  }
+  /**
+   * 一组**最终页签文案**（已含计数）的整条页签轨宽度（**上界**）。
+   *
+   * ★ **本刀（task-20 B）起是「等宽」模型**：轨道是 `display:inline-grid` +
+   *   `grid-auto-columns:1fr`（官方分段控件的行为）⇒ **每一列都被撑到最宽那一枚**的 max-content
+   *   ⇒ 轨道宽 = n × (最宽文案 + 32) + (n−1)×2 + 4。故加一枚页签**会同时改变所有列的宽度**，
+   *   不再是「只加一列」的线性增量。
+   * ★ 文案**不在测试里另养一份清单**（上一把刀的 `TAB_LABELS` 就是那样，故源里加第五枚页签时
+   *   这条锁**不会红**——它保护的正是它测不到的那件事）。这里一律从源真源派生：
+   *   `ENTERPRISE_MARKET_TABS` → `enterpriseMarketShellModel(props).tabEntries` →
+   *   `enterpriseMarketTabLabel(label, count)`。改源即改此算术。
+   */
+  const measureTabs = (labels: readonly string[]): number => {
+    const widest = Math.max(...labels.map(label => measureText(label)))
+    return labels.length * (widest + TAB_H_PADDING)
+      + TAB_GAP * (labels.length - 1) + TAB_TRACK_PADDING
+  }
+
+  it('keeps the refresh / add slot to one row at every width (defect 1: display:flex + flex:none, top level)', () => {
+    const css = shellCss()
+    const rule = cssRuleBody(css, '.own-market-titleActions')
+    // 缺陷①的三条取值逐字锁住：缺任何一条，两枚按钮就会在容器内部换行（用户看到的「两行」）。
+    expect(rule).toContain('display:flex')
+    expect(rule).toContain('flex:none')
+    expect(rule).toContain('margin-left:auto')
+    // `gap` 与官方 `_titleRow` 同值：两枚之间的间距一像素没变（原来由 inline 空白折叠给出）。
+    expect(rule).toContain('gap:8px')
+    // ★ 这三条取值是**桌面可见**的 ⇒ 必须住在**顶层**，不许只写在某个媒体查询里。
+    const topLevel = splitTopLevelCss(css).map(part => part.text).join('\n')
+    expect(topLevel).toContain('.own-market-titleActions{display:flex')
+  })
+
+  it('scopes every narrow-screen toolbar rule to the 560px breakpoint only (defect 2: desktop stays byte-identical)', () => {
+    const css = shellCss()
+    const topLevel = splitTopLevelCss(css).filter(part => part.scope === 'top')
+    const topText = topLevel.map(part => part.text).join('\n')
+    const mediaBlocks = splitTopLevelCss(css).filter(part => part.scope === 'media')
+
+    // ── ① 桌面/宽屏那一套取值**仍在顶层**，且窄屏形态**一个字都没混进顶层**（这是最强反回归判据）。
+    expect(cssRuleBody(topText, '.own-market-searchRow')).toContain('flex-wrap:nowrap')
+    expect(cssRuleBody(topText, '.own-market-storeTabs')).toContain('flex:0 0 auto')
+    expect(cssRuleBody(topText, '.own-market-query')).toContain('flex:0 1 320px')
+    expect(cssRuleBody(topText, '.own-market-rowBarSpacer')).toContain('flex:1 1 auto')
+    // ★ 注意：本文件**顶层本来就有**合法的 `flex-wrap:wrap`（如 `.own-market-titleRow`、进度行），
+    //   所以这里**不能**对整份顶层串做子串否定（那会恒红）；必须**按规则**锁「这一条没被改成换行」。
+    expect(cssRuleBody(topText, '.own-market-searchRow'), '窄屏的换行形态不许出现在顶层').toContain('flex-wrap:nowrap')
+    expect(topText, '页签满宽不许出现在顶层').not.toContain('flex:0 0 100%')
+    expect(topText, '页签横向滚动不许出现在顶层').not.toContain('overflow-x:auto')
+    expect(cssRuleBody(topText, '.own-market-rowBarSpacer'), '窄屏隐藏占位那条不许出现在顶层').not.toContain('display:none')
+
+    // ── ② 窄屏形态**确实住在** 560px 那条媒体查询里（既锁断点值、也锁四条规则的取值逐字）。
+    const narrow = mediaBlocks.filter(part => part.text.indexOf('.own-market-storeTabs{flex:0 0 100%') !== -1)
+    expect(narrow).toHaveLength(1)
+    const narrowText = narrow[0]!.text
+    expect(cssRuleBody(narrowText, '.own-market-searchRow')).toContain('flex-wrap:wrap')
+    // ★ task-21 更正：原先写 row-gap:0 并说「8px 会叠在 margin-bottom 上、底距变 28px」——**错的**：
+    //   flex 的 row-gap 只在两条线之间插入、最后一条线之后**不加** ⇒ 底距恒为 margin-bottom:20px。
+    //   而 row-gap:0 让两行紧贴（真机截图里胶囊与搜索框连成一片）⇒ 改成 8px。
+    expect(cssRuleBody(narrowText, '.own-market-searchRow')).toContain('row-gap:8px')
+    // 页签独占第一行：满宽 + 不收缩 + 横向滚动（超宽时用到滚动，见下面那条算术锁）。
+    expect(cssRuleBody(narrowText, '.own-market-storeTabs')).toContain('flex:0 0 100%')
+    expect(cssRuleBody(narrowText, '.own-market-storeTabs')).toContain('overflow-x:auto')
+    // 搜索框在第二行吃掉剩余宽度（上限解除），但它的 120px 下限不许动。
+    expect(cssRuleBody(narrowText, '.own-market-query')).toContain('flex:1 1 auto')
+    expect(cssRuleBody(narrowText, '.own-market-query')).toContain('min-width:120px')
+    // 弹性占位在窄屏这一形态里只剩「会涨开的空盒子」这一个副作用 ⇒ 直接不显示；
+    // 它本来就是 aria-hidden 的纯装饰，故第二行干净地只剩「搜索框（铺满）+ 筛选钮」两块。
+    expect(cssRuleBody(narrowText, '.own-market-rowBarSpacer')).toContain('display:none')
+  })
+
+  /**
+   * **窄屏可用宽**（W）：本仓**没有**权威的窄屏「内容宽」常量——可测到的只有容器自身语义
+   * （`.own-market-query` 的 `flex:0 1 320px;max-width:320px` ⇒ 工具行内搜索框一个都不压时**恰好**
+   * 320px 可用）与断点值（`@media (max-width: 560px)`）。取**最保守的那一条**，并把不确定性写明：
+   *   · 真机（375 CSS px 宽）实测内容宽 ≈ **343px**，故 **320px** 是一个**下界型**假设：真实可用宽只会更大；
+   *   · 因此「放得下」的结论在真机上**只会更容易成立**，而「放不下」的结论在更窄的屏上**只会更成立**；
+   *   · 反过来说，**320–560px 之间**（含 360 / 390 / 414）五枚页签可能仍放得下 ⇒ 横向滚动那条降级路径
+   *     在这些宽度上**不一定被触发**，这属于**未验证项**（本机无布局引擎，不许编渲染结论）；
+   *   · ★ **它同时是「下界型假设」的落点**：真机 360px 下若可用宽 **< 264**（本模型算出的四枚总宽），
+   *     四枚页签就会超宽、**横向滚动**（页签轨那条 `overflow-x:auto` 兜底），而不是换行或被压到 0 宽 ——
+   *     即「四枚在 320px 放得下」这条断言**不保证**在任意真机宽度下都成立，只保证在本假设下成立。
+   */
+  const NARROW_AVAILABLE_WIDTH = 320
+
+  it('fits four tabs and overflows with a fifth (per-tab text, counted labels, derived from ENTERPRISE_MARKET_TABS)', () => {
+    const css = shellCss()
+    const topText = splitTopLevelCss(css).filter(part => part.scope === 'top').map(part => part.text).join('\n')
+    const narrowText = splitTopLevelCss(css).filter(part => part.scope === 'media' && part.text.indexOf('.own-market-storeTabs{flex:0 0 100%') !== -1).map(part => part.text).join('\n')
+
+    // ── 先确认算术依赖的取值**真的在 CSS 里**（否则下面的算式就是照着注释算的，不是照着代码算的）。
+    expect(cssRuleBody(topText, '.own-market-storeTab')).toContain('padding:0 16px')
+    expect(cssRuleBody(topText, '.own-market-storeTab')).toContain('height:28px')
+    expect(cssRuleBody(topText, '.own-market-storeTab')).toContain('font-size:13px')
+    expect(cssRuleBody(topText, '.own-market-storeTab')).toContain('white-space:nowrap')
+    expect(cssRuleBody(topText, '.own-market-storeTabs')).toContain('gap:2px')
+    expect(cssRuleBody(topText, '.own-market-storeTabs')).toContain('padding:2px')
+    // **等宽**是 task-20 的承重取值：只认 grid-auto-columns:1fr，逐枚宽的口径就不成立。
+    expect(cssRuleBody(topText, '.own-market-storeTabs')).toContain('grid-auto-columns:1fr')
+    expect(cssRuleBody(topText, '.own-market-storeTabs')).toContain('grid-auto-flow:column')
+    expect(cssRuleBody(topText, '.own-market-query')).toContain('min-width:120px')
+    expect(cssRuleBody(topText, '.own-market-filterBtn')).toContain('width:32px')
+    expect(cssRuleBody(narrowText, '.own-market-storeTabs')).toContain('flex:0 0 100%')
+    // 横向滚动兜底那条必须在窄屏块里（第五枚超宽时**唯一**的降级路径）。
+    expect(cssRuleBody(narrowText, '.own-market-storeTabs')).toContain('overflow-x:auto')
+
+    /**
+     * ── 被测对象 = 源真源的派生结果，**不是**测试内手抄的一份清单。
+     *
+     * `enterpriseMarketShellModel` 是外壳与页签条**唯一**的模型入口，它的 `tabEntries` 就是
+     * `ENTERPRISE_MARKET_TABS.map(tab => … enterpriseMarketTabLabel(tab.label, count))`
+     * （`src/marketplace-entry.tsx:1947-1951`）⇒ 源里加/删/改页签，这里**必红**。
+     * 每个用例显式给出计数，是为了让文案宽**不依赖 fixture 的偶然条数**（计数只由模型决定）。
+     */
+    const cases: readonly { readonly name: string; readonly counts: readonly number[] }[] = [
+      { name: '零计数（与 294px 那条核对对应）', counts: [0, 0, 0, 0] },
+      { name: '真机截图那一组计数（技能 11 / 插件 6 / 配方 1 / 组件 4）', counts: [11, 6, 1, 4] },
+      { name: '十位数（上界方向：计数位数越多越宽）', counts: [10, 10, 10, 10] },
+    ]
+    for (const { name, counts } of cases) {
+      const entries = enterpriseMarketShellModel({ view: 'page', sessionUsable: true }).tabEntries
+      // ① 枚数与逐枚基础词都从源真源派生（测试里再抄一份清单就会被这条抓住）。
+      expect(entries.map(entry => entry.label), name).toEqual(ENTERPRISE_MARKET_TABS.map(tab => tab.label))
+      // ② 文案**确实含计数**（不是只有基础词）——这正是上一把刀漏掉的那一项。
+      for (const entry of entries) expect(entry.text, name).toBe(enterpriseMarketTabLabel(entry.label, entry.count))
+
+      // 逐枚文案：基础词取**源真源**（entries 的 label），计数由本用例显式给定 ⇒ 文案宽不依赖 fixture。
+      const fourLabels = entries.map((entry, index) => enterpriseMarketTabLabel(entry.label, counts[index] ?? 0))
+      const fourTotal = measureTabs(fourLabels)
+      // ② 现状四枚**必须放得下**。
+      expect(fourTotal, `${name}：四枚页签放不进 ${NARROW_AVAILABLE_WIDTH}px`).toBeLessThanOrEqual(NARROW_AVAILABLE_WIDTH)
+
+      // ③ **第五枚「连接器」（3 个全角字，MCP 方案要加的那一枚）必须如实断言超宽**，
+      //    由页签轨 `overflow-x:auto`（窄屏块里已逐字确认）横向滚动兜底——不许再用漏项模型声称放得下。
+      const fifthLabel = enterpriseMarketTabLabel('连接器', 0)
+      // 第五枚的文案宽 = 3 个全角字 + 「 0」两个半角 ⇒ 比任一枚两字基础词都宽。
+      expect(measureText(fifthLabel), '三枚全角字 + 半角计数').toBeGreaterThan(measureText(fourLabels[0]!))
+      const fiveTotal = measureTabs([...fourLabels, fifthLabel])
+      expect(fiveTotal, `${name}：加了第五枚页签却没有超宽（模型或断点假设失效了）`).toBeGreaterThan(NARROW_AVAILABLE_WIDTH)
+      // ★ **等宽**下加一枚页签的增量不再是「一列」：新枚的文案（连接器 0 = 52px）**比原四枚都宽**
+      //   ⇒ 它成为新的最宽列 ⇒ **所有列**都从 39+32=71 涨到 52+32=84，再加它自己那一列与一道 gap。
+      const connectorTextWidth = [...'连接器 0'].reduce((sum, char) => sum + measureText(char), 0)
+      expect(connectorTextWidth).toBe(3 * TAB_FONT_SIZE + 2 * (TAB_FONT_SIZE / 2))
+      expect(fiveTotal - fourTotal, name).toBe(
+        4 * (connectorTextWidth - measureText(fourLabels[0]!))   // 四列各涨这么多
+        + connectorTextWidth + TAB_H_PADDING + TAB_GAP,          // 再加新那一列与一道 gap
+      )
+    }
+
+    // ── 第二行：搜索框（下限 120）+ 筛选钮（32）；`.own-market-filterWrap` 是 flex:none，随内容取 32。
+    const secondRowMin = 120 + 32
+    expect(secondRowMin).toBe(152)
+    expect(secondRowMin).toBeLessThanOrEqual(NARROW_AVAILABLE_WIDTH)
+  })
+
+  it('pins the arithmetic to the numbers it claims (default fixture + on-device cross-check) and corrects 「212 是上界」', async () => {
+    const entries = enterpriseMarketShellModel({ view: 'page', sessionUsable: true }).tabEntries
+    const fourLabels = entries.map(entry => entry.text)
+    const fourTotal = measureTabs(fourLabels)
+    const fiveTotal = measureTabs([...fourLabels, enterpriseMarketTabLabel('连接器', 0)])
+    const secondRowMin = 120 + 32
+
+    // ── ① 默认 fixture（零计数）的逐值读数（**等宽**模型）：四枚文案都是 2 全角 + 1 半角 = 39
+    //      ⇒ 最宽 39、每列 39+32 = 71 ⇒ 4×71 + 3×2 + 4 = **294**；加「连接器 0」(52) ⇒ 5×84 + 8 + 4 = **432**。
+    expect(entries.map(entry => entry.text)).toEqual(['技能 0', '插件 0', '配方 0', '组件 4'])
+    expect(fourTotal).toBe(294)
+    expect(fiveTotal).toBe(432)
+    expect(secondRowMin).toBe(152)
+
+    /**
+     * ── ② 与**真机截图硬测量**对照（Lead 用 DPR=2.781 反推：页签轨实宽 = 物理 249..1000 = 752px
+     *    ⇒ 752 / 2.781 = **270.4 CSS px**）。截图那一组的真实计数是 **技能 11 / 插件 6 / 配方 1 / 组件 4**。
+     *
+     *    ★ 那条实测是**改动前**的几何（逐枚宽 + 内衬 24 + 轨道内衬 6），故对照也只能按**旧公式**做：
+     *      `技能 11` 45.5 + `插件 6` 39 + `配方 1` 39 + `组件 4` 39 + 4×24 内衬 + 3×2 gap + 6 = **270.5px**
+     *      ⇒ 与实测 **差 0.04%** —— 这一条验的是 `measureText` 的**逐字符宽假设**，不是当前版式。
+     *      （`配方 0` 与 `配方 1` 在本模型里**同宽**——两者都是一个半角数字；截图实际是 1，故用 1。）
+     *    ★ **若把数字也按 1em（不区分半角）**：四条文案各 4/3/3/3 个全角字 ⇒ 52+39+39+39 = 169，
+     *      加 96 + 6 + 6 = **277px** ⇒ 与实测差 **2.4%**。这是**另一种假设下的上界**，不是本模型的读数；
+     *      本模型仍按 task-16 的规格用 **0.5em**（更贴真实字体度量，且仍不低估）。
+     *    ★ 本机没有布局引擎 ⇒ 这不是「我渲染过」，是**把模型钉到一条已存在的实测读数上**。
+     */
+    const onDeviceLabels = ENTERPRISE_MARKET_TABS.map((tab, index) => enterpriseMarketTabLabel(tab.label, [11, 6, 1, 4][index] ?? 0))
+    // 旧公式（改动前的逐枚宽 + 内衬 24 + 轨道内衬 6）逐字复算：
+    const legacyTrack = onDeviceLabels.reduce((sum, label) => sum + measureText(label) + 12 * 2, 0)
+      + 2 * (onDeviceLabels.length - 1) + 3 * 2
+    expect(legacyTrack).toBe(270.5)
+    // ★ **task-20 起几何变了**：等宽 + 内衬 32 ⇒ 同一组计数现在是 **320px**（实测 270.4 对应的是旧版式，
+    //   两者**不可再直接比**；这条差异是有意为之 —— 用户要的是「分段胶囊 + 与搜索框等高」）。
+    expect(measureTabs(onDeviceLabels)).toBe(320)
+    // 半角假设的反证：把同一个「技能 11」按 1em 算就会多出 6.5px，四条合计正好是上面那个 277。
+    expect(measureText('技能 11')).toBe(2 * TAB_FONT_SIZE + 3 * (TAB_FONT_SIZE / 2))
+    expect(4 * TAB_FONT_SIZE + 3 * TAB_FONT_SIZE + 3 * TAB_FONT_SIZE + 3 * TAB_FONT_SIZE).toBe(169)
+    expect(169 + 4 * (12 * 2) + 3 * 2 + 3 * 2).toBe(277)
+
+    /**
+     * ── ③ ★ 上一把刀那句「212 是**上界**」的纠正（反向锁）。
+     *    旧模型 = 每枚只数 2 个全角字、**不含计数**：
+     *      n × (2 × 13 + 24) + 2 × (n − 1) + 6 ⇒ 四枚 = **212**。
+     *    它对同一份四枚页签漏掉了「计数文本」⇒ 它算出的是**下界**：
+     *    含计数的模型恒 **≥** 这个数（等号只在计数为空串时成立，而 `label + ' ' + count` 永不为空）。
+     */
+    //    （那一刀的公式里每枚内衬是 24、轨道内衬 6，故这里按**当年的取值**复算 212。）
+    const staleLowerBound = fourLabels.length * (2 * TAB_FONT_SIZE + 12 * 2)
+      + TAB_GAP * (fourLabels.length - 1) + 3 * 2
+    expect(staleLowerBound).toBe(212)
+    expect(fourTotal, '含计数的模型必须 ≥ 旧模型的 212（旧模型是下界，不是上界）').toBeGreaterThan(staleLowerBound)
+
+    // ── ④ 源注释与模型**同一口径**（清掉 545 / 212 并存那处自相矛盾）：
+    //      既不许再出现空口无凭的「溢出门槛」，也不许再出现方向说反的「上界」说法。
+    const source = await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8')
+    expect(source, '旧的「545 溢出门槛」口径必须已被清掉').not.toMatch(/545\s*溢出门槛/)
+    expect(source, '「数字计数更窄 / 212 是上界」这个方向说反的说法必须已被清掉')
+      .not.toMatch(/数字计数是半角，真实更窄/)
+    // 断点声明只留真规则那几处：注释不再复述（只写数值，避免复制粘贴出第二个「声明样」的串）。
+    // **本刀（task-17 ①）**：网格那条断点由 560 抬到 900 ⇒ 560 现在**只剩工具行那一条**、
+    // 900 只有网格那一条（两处分档，见下面那组专门的用例）。
+    // **本刀（task-20 B）**：工具行那条断点由 560 抬到 **600**（等宽页签变宽 + 补齐侧栏轨道与三道 gap）。
+    expect(source.split('@media (max-width: 560px)').length - 1).toBe(0)
+    expect(source.split('@media (max-width: 600px)').length - 1).toBe(1)
+    expect(source.split('@media (max-width: 900px)').length - 1).toBe(1)
+    // 含计数的模型与源注释里的读数同源（注释与断言不许各说一套）。
+    // ★ task-20 起页签改成**等宽**分段胶囊 ⇒ 四枚 264 → **294**（零计数档）、五枚 342 → **432**。
+    expect(source).toContain('294px')
+    expect(source).toContain('432px')
+    expect(source).toContain('320px')
+  })
+
+/**
+ * ★ **本刀（task-17 ①）**：行网格「两列 → 单列」的回落断点。
+ *
+ * 用户在那张真机截图上看到的是「两列里标题普遍被省略」。断点 560 → 900 **不是看着合适**，
+ * 而是由「最长那条标题需要多少 px 才不截断」反推出来的；下面三条用例把每一步都钉成断言：
+ *  ① 断点值确实住在 `@media (max-width: 900px)` 里（顶层仍是两列，未动桌面卡片）；
+ *  ② 两条断点**分档**（工具行仍 560）——它们量的是不同的东西，且互不串档；
+ *  ③ 850 / 1024 / 1440 三档 + 「刚过断点」那一档的 列数 → 列宽 → 标题可用宽，逐档 ≥ 最长标题所需。
+ */
+describe('enterprise market row grid breakpoint (task-17 ①: two columns truncate the longest title)', () => {
+  const css = (): string => collectStyleText(EnterpriseMarketLegacyShell({ view: 'page' }))
+  /** 截图里最长那条标题的**真源**：本仓导入清单 `tools/skillhub-import/convert.py:123` 的 displayName。 */
+  const LONGEST_TITLE = '露禾论文写作助手（免费版pro）'
+  /** 标题字号取本文件 CSS 的**真值**（`.own-market-cardId` 的 15px，不是描述行的 13px）。 */
+  const TITLE_FONT_SIZE = 15
+  /**
+   * 标题可用宽 = 列宽 − 这个开销（行内衬 24 + 两道 gap 32 + 图标 **48** + 标题行两枚签与 gap ≈ 41）。
+   * ★ **task-19 把图标 40 → 48** ⇒ 这个数由 137 涨到 **145**（+8），断点下限随之上移，见下面那条用例。
+   */
+  const TITLE_OVERHEAD = 145
+  /** `.own-market-rows` 的列距（`gap:28px 48px` 的第二个值）。 */
+  const GRID_COLUMN_GAP = 48
+  /** 视口 − 内容宽（截图实测反推：折叠态侧栏轨道 56 + 两侧内衬 ≈67）。 */
+  const CHROME = 123
+  const GRID_BREAKPOINT = 900
+  /** **task-20 B**：工具行那条断点由 560 抬到 600（等宽页签更宽 + 补齐侧栏轨道与三道 gap，见源注释算式）。 */
+  const TOOL_ROW_BREAKPOINT = 600
+
+  /** 一个文案的**上界**宽（CJK 1em、数字与空格 0.5em——与上面那条页签算术同一口径）。 */
+  const textWidth = (text: string): number => {
+    let width = 0
+    for (const char of text) width += /[\u2e80-\u9fff\uff00-\uffef]/.test(char) ? TITLE_FONT_SIZE : TITLE_FONT_SIZE / 2
+    return width
+  }
+  /** 某视口下：内容宽 → 列宽 → 标题可用宽（单列 = 内容宽；两列 = 各半再减一道列距）。 */
+  const layoutAt = (viewport: number): { readonly columns: number; readonly column: number; readonly title: number } => {
+    const content = viewport - CHROME
+    const columns = viewport <= GRID_BREAKPOINT ? 1 : 2
+    const column = columns === 1 ? content : (content - GRID_COLUMN_GAP) / 2
+    return { columns, column, title: column - TITLE_OVERHEAD }
+  }
+
+  it('puts the grid single-column fallback at 900px, derived from the longest title (not 560)', async () => {
+    const parts = splitTopLevelCss(css())
+    const topText = parts.filter(part => part.scope === 'top').map(part => part.text).join('\n')
+    const media = parts.filter(part => part.scope === 'media')
+
+    // ① 顶层仍是**两列**、列距一字未动（本刀不碰桌面卡片内部结构）。
+    expect(cssRuleBody(topText, '.own-market-rows')).toContain('grid-template-columns:repeat(2,minmax(0,1fr))')
+    expect(cssRuleBody(topText, '.own-market-rows')).toContain('gap:12px 48px')
+    // ② 单列回落**只**住在断点 900 的那条媒体查询里，且全文件只有这一条 900 断点（注释不复述声明）。
+    const single = media.filter(part => part.text.includes('.own-market-rows{grid-template-columns:minmax(0,1fr)'))
+    expect(single).toHaveLength(1)
+    expect(single[0]!.text).toContain('@media (max-width: 900px)')
+    const source = await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8')
+    expect(source.split('@media (max-width: 900px)').length - 1, '900 断点声明只许一处').toBe(1)
+
+    // ③ 断点值由算术推出，逐步给读数：
+    //    最长标题 13 个全角字 + 3 个半角字母、字号 15px ⇒ 217.5px；
+    //    两列要 2×(217.5 + 137) + 48 = 757px 内容宽；再加视口里内容之外的那 ≈123px ⇒ 下限 880px。
+    expect(LONGEST_TITLE, '标题真源不许被改写').toBe('露禾论文写作助手（免费版pro）')
+    expect([...LONGEST_TITLE].length).toBe(16)
+    expect(textWidth(LONGEST_TITLE)).toBe(217.5)
+    expect(2 * (217.5 + TITLE_OVERHEAD) + GRID_COLUMN_GAP).toBe(773)
+    expect(773 + CHROME).toBe(896)
+    // **task-19 复核**：图标 40 → 48 后下限由 880 抬到 896 ⇒ 900 **仍然够**（余量从 20px 收到 4px）。
+    expect(GRID_BREAKPOINT).toBeGreaterThanOrEqual(896)
+    expect(GRID_BREAKPOINT).toBeLessThan(1024)
+    // 与截图实测互为印证：视口 845（= 722 + 123）下两列的列宽正好是实测的 337px。
+    expect((845 - CHROME - GRID_COLUMN_GAP) / 2).toBe(337)
+  })
+
+  it('keeps the tool row at 600 while the grid moves to 900: the two breakpoints stay separate tiers', () => {
+    const media = splitTopLevelCss(css()).filter(part => part.scope === 'media')
+    // 工具行那四条窄屏取值仍在 560 那条里（本刀**一字未动**它）。
+    const toolRow = media.filter(part => part.text.includes('.own-market-storeTabs{flex:0 0 100%'))
+    expect(toolRow).toHaveLength(1)
+    expect(toolRow[0]!.text).toContain(`@media (max-width: ${TOOL_ROW_BREAKPOINT}px)`)
+    expect(TOOL_ROW_BREAKPOINT).toBe(600)
+    expect(cssRuleBody(toolRow[0]!.text, '.own-market-searchRow')).toContain('flex-wrap:wrap')
+    // ★ 分档 = **互不串档**：工具行那条里没有网格规则，网格那条里没有工具行规则。
+    expect(toolRow[0]!.text, '网格规则不许混进工具行那档').not.toContain('.own-market-rows{grid-template-columns:minmax(0,1fr)')
+    const grid = media.filter(part => part.text.includes('.own-market-rows{grid-template-columns:minmax(0,1fr)'))
+    expect(grid).toHaveLength(1)
+    expect(grid[0]!.text, '工具行规则不许混进网格那档').not.toContain('.own-market-storeTabs{flex:0 0 100%')
+    expect(grid[0]!.text).not.toContain('flex-wrap:wrap')
+    expect(grid[0]!.text).not.toContain('display:none')
+    // 两档的断点值必须不同（同值就是「分档」失败）。
+    expect(TOOL_ROW_BREAKPOINT).not.toBe(GRID_BREAKPOINT)
+  })
+
+  it('fits the longest title at 850 / 1024 / 1440 and just above the breakpoint', () => {
+    // ① 三档逐档给读数（列数 → 列宽 → 标题可用宽）。
+    expect(layoutAt(850)).toEqual({ columns: 1, column: 727, title: 582 })
+    expect(layoutAt(1024)).toEqual({ columns: 2, column: 426.5, title: 281.5 })
+    expect(layoutAt(1440)).toEqual({ columns: 2, column: 634.5, title: 489.5 })
+    // ★ 最紧的一档是**刚过断点**（901）——它才是「断点抬够了」的真正判据（余量只有 2.5px）。
+    expect(layoutAt(901)).toEqual({ columns: 2, column: 365, title: 220 })
+    for (const viewport of [850, 901, 1024, 1440]) {
+      expect(layoutAt(viewport).title, `${viewport}px：最长标题仍会被省略`).toBeGreaterThanOrEqual(217.5)
+    }
+    // ② 截图那个宽度（845）在**旧的 560 断点**下仍是两列、且装不下 ⇒ 用户报的现象可复现。
+    //    ★ 截图当时图标还是 **40px** ⇒ 那时的开销是 **137**（不是本刀之后的 145）；337 − 137 = 200，
+    //    正是截图里那个 ≈200px。用现在的 145 反推同一列只有 **192** —— 图标长大本身让文本列更窄，
+    //    这也正是 task-19 必须重算断点的原因。
+    const SCREENSHOT_TITLE_OVERHEAD = 137
+    expect((845 - CHROME - GRID_COLUMN_GAP) / 2 - SCREENSHOT_TITLE_OVERHEAD).toBe(200)
+    expect(200).toBeLessThan(217.5)
+    expect((845 - CHROME - GRID_COLUMN_GAP) / 2 - TITLE_OVERHEAD).toBe(192)
+    // ③ 同一宽度在**新的 900 断点**下变成单列 ⇒ 标题可用宽 577 ≥ 217.5，现象消失。
+    expect(layoutAt(845)).toEqual({ columns: 1, column: 722, title: 577 })
+  })
+})
+
+/**
+ * ★ **本刀（task-19：列表纵向节奏与官方逐像素一致）**。用户口径：真机上「列表行间距比官方松散」。
+ *
+ * Lead 实测：我们 **94.4 CSS px/行** vs 官方 **66**（差 43%，差 28.4px —— 几乎正好是那条 `row-gap:28px`）。
+ * 官方真源（`dsh-client-ui-plugin-manager/lib/client.js` 的 CSS module，逐字）：
+ *   `_cards{gap:2px}` · `_cardHead{gap:14px;padding:8px}` · `_cardIcon{width:48px;height:48px}` ·
+ *   `_cardMain{gap:4px}` · `_cardTitle{font-size:14px;line-height:20px}` · `_cardDesc{font-size:13px;line-height:18px}`
+ * ⇒ 官方 = 8 + 48 + 8 = 64，＋2 = **66**。
+ *
+ * 这条用例**先**把算式依赖的每一个取值在 CSS 里确认，**再**做算术（不许照着注释算）。
+ */
+describe('enterprise market row rhythm (task-19: 66 CSS px per row, same as the official list)', () => {
+  const css = (): string => collectStyleText(EnterpriseMarketLegacyShell({ view: 'page' }))
+
+  it('pins the row rhythm to 8 + 48 + 8 + 2 = 66, computed from the seven CSS values themselves', () => {
+    const parts = splitTopLevelCss(css())
+    const top = parts.filter(part => part.scope === 'top').map(part => part.text).join('\n')
+    const narrow = parts
+      .filter(part => part.scope === 'media' && part.text.includes('.own-market-rows{grid-template-columns:minmax(0,1fr)'))
+      .map(part => part.text).join('\n')
+
+    // ── ① 七条取值逐条先在 CSS 里确认（缺任何一条，下面的算式就只是在复述注释）。
+    const row = cssRuleBody(top, '.own-market-row')
+    const icon = cssRuleBody(top, '.own-market-rowIcon')
+    const main = cssRuleBody(top, '.own-market-rowMain')
+    const title = cssRuleBody(top, '.own-market-cardId')
+    const desc = cssRuleBody(top, '.own-market-cardDesc')
+    expect(row).toContain('padding:8px 12px')          // 官方 _cardHead{padding:8px}（横向仍 12，见注释）
+    expect(icon).toContain('width:48px')               // 官方 _cardIcon{width:48px}
+    expect(icon).toContain('height:48px')              // 官方 _cardIcon{height:48px}
+    expect(main).toContain('gap:4px')                  // 官方 _cardMain{gap:4px}
+    expect(title).toContain('line-height:20px')        // 官方 _cardTitle{line-height:20px}
+    expect(desc).toContain('line-height:18px')         // 官方 _cardDesc{line-height:18px}
+    expect(cssRuleBody(narrow, '.own-market-rows')).toContain('gap:2px 0')   // 官方 _cards{gap:2px}（单列档）
+    // ★ **标题字号保持 15px**（用户只要求「间距」）——不许顺手改成官方的 14px。
+    expect(title).toContain('font-size:15px')
+    expect(title).not.toContain('font-size:14px')
+    // ★ 两列档的 12px 是**有意偏离**（官方没有两列形态）：它等于卡片自己的圆角半径。
+    expect(cssRuleBody(top, '.own-market-rows')).toContain('gap:12px 48px')
+    expect(row).toContain('border-radius:12px')
+
+    // ── ② 然后才算（数字全部来自上面这些真值）。
+    const PAD_V = 8
+    const ICON = 48
+    const MAIN_GAP = 4
+    const TITLE_LH = 20
+    const DESC_LH = 18
+    const GAP_SINGLE = 2
+    // 文本栈 20 + 4 + 18 = 42 比图标 48 矮 ⇒ **行高由图标决定**（与官方同一结论）。
+    const textStack = TITLE_LH + MAIN_GAP + DESC_LH
+    expect(textStack).toBe(42)
+    expect(textStack).toBeLessThan(ICON)
+    const rowHeight = PAD_V * 2 + ICON
+    expect(rowHeight).toBe(64)
+    expect(rowHeight + GAP_SINGLE).toBe(66)
+
+    // ── ③ 官方逐条对照：同一个算式、同一个 66（官方值即上面注释里逐字引的那七条）。
+    const OFFICIAL = { padV: 8, icon: 48, gap: 2, mainGap: 4, titleLh: 20, descLh: 18 }
+    expect([PAD_V, ICON, GAP_SINGLE, MAIN_GAP, TITLE_LH, DESC_LH])
+      .toEqual([OFFICIAL.padV, OFFICIAL.icon, OFFICIAL.gap, OFFICIAL.mainGap, OFFICIAL.titleLh, OFFICIAL.descLh])
+    expect(OFFICIAL.padV * 2 + OFFICIAL.icon + OFFICIAL.gap).toBe(66)
+
+    // ── ④ 如实记录一处**刻意不对齐**：官方 `_cardHead{gap:14px}` 是「图标 ↔ 文本」的横向间隙，
+    //    我们对应的是 `.own-market-rowOpen{gap:16px}`（+2px）。本刀的冻结清单里没有它 ⇒ 不动；
+    //    且它只会让「标题可用宽」更**保守**（需求更大），故 900px 断点仍成立（见上面那组用例）。
+    expect(cssRuleBody(top, '.own-market-rowOpen')).toContain('gap:16px')
+    expect(cssRuleBody(top, '.own-market-rowLine')).toContain('gap:16px')
+  })
+})
+
+  /**
+   * ★ **task-15（用户口径：「非移动端下，搜索应该右对齐」）的两条锁。**
+   *
+   * 缺陷机制（逐条可复核）：`.own-market-query` 是 `flex:0 1 320px`（**不 grow**），
+   * `.own-market-rowBarSpacer` 是 `flex:1 1 auto`（吃光剩余）——**spacer 原先住在搜索框之后**，
+   * 于是空白被它吃在搜索框**右边** ⇒ 搜索框紧贴页签（左），只有筛选钮贴行右。
+   * 修法：把 spacer **上移到搜索框之前**（DOM = 视觉 = 焦点序），空白改吃在搜索框左边，
+   * 于是「搜索框 320px + 筛选钮 32px」整组被推到行右。
+   *
+   * 下面用**渲染树**（不是文本快照）取证：`.own-market-searchRow` 的**直接子元素顺序**。
+   */
+  it('renders the tool row as tabs → spacer → search → filter so desktop pushes search+filter right (D1)', () => {
+    const tree = EnterpriseMarketLegacyShell({ view: 'page' })
+    const rows = collectByClassName(tree, 'own-market-searchRow')
+    // 列表分支恰好一条工具行（页签 / 搜索 / 筛选同一条）。
+    expect(rows).toHaveLength(1)
+    const children = rows[0]!['children'] as ReactNode
+    /**
+     * 把一个子节点解析成「它最终渲染出的那个 DOM 元素的 className」。
+     * 为什么需要展开：工具行第一项是**函数组件** `EnterpriseMarketTabList`（它的 className 在函数体里拼），
+     * 直接读 props 会得到 undefined；用 createElement 调一次就拿得到真正落到 DOM 的那个类名。
+     * 文本节点（JSX 换行空白）返回 undefined，由调用方过滤掉。
+     */
+    const resolveClass = (node: ReactNode): string | undefined => {
+      if (!isValidElement(node)) return undefined
+      if (typeof node.type === 'function') {
+        const rendered = (node.type as (p: unknown) => ReactNode)(node.props)
+        return resolveClass(rendered)
+      }
+      const cls = (node.props as Record<string, unknown>)['className']
+      return typeof cls === 'string' ? cls : undefined
+    }
+    const order = (Array.isArray(children) ? children : [children])
+      .map(resolveClass)
+      .filter((cls): cls is string => cls !== undefined)
+    // ① 精确顺序（D1 核心证据）：占位在**搜索框之前** ⇒ 桌面下剩余空白吃在搜索框左侧，
+    //    「搜索框 320px + 筛选钮 32px」整组因此贴行右。
+    expect(order).toEqual([
+      'own-market-storeTabs',
+      'own-market-rowBarSpacer',
+      'own-market-query',
+      'own-market-filterWrap',
+    ])
+  })
+
+  it('leaves the online-search query row untouched (its own DOM: query → spacer → button) (D2)', () => {
+    // 在线搜索面是**另一处独立 DOM**：本刀的换位只动了列表工具行，那一行的子元素顺序一字未改。
+    const tree = EnterpriseMarketLegacyShell({
+      view: 'page',
+      onlineSearch: {
+        // `loading` 是最小合法态（`enterpriseOnlineFace` 在 idle/too-short/loading 上都不读 value）
+        state: { kind: 'loading' },
+        query: 'pdf',
+        onQueryChange: () => undefined,
+        onSearch: () => undefined,
+        onInstall: () => undefined,
+        onReload: () => undefined,
+      },
+    } as unknown as EnterpriseMarketShellProps)
+    const rows = collectByClassName(tree, 'own-market-searchRow')
+    expect(rows).toHaveLength(1)
+    const children = rows[0]!['children'] as ReactNode
+    const resolveClass = (node: ReactNode): string | undefined => {
+      if (!isValidElement(node)) return undefined
+      if (typeof node.type === 'function') {
+        const rendered = (node.type as (p: unknown) => ReactNode)(node.props)
+        return resolveClass(rendered)
+      }
+      const cls = (node.props as Record<string, unknown>)['className']
+      return typeof cls === 'string' ? cls : undefined
+    }
+    const order = (Array.isArray(children) ? children : [children]).map(resolveClass)
+    // 查询框仍在左、占位仍是第二项、官方搜索按钮（无 className ⇒ undefined）仍在最右。
+    expect(order).toEqual(['own-market-query', 'own-market-rowBarSpacer', undefined])
+    // ★ 这一行**没有** `.own-market-filterWrap`：所以窄屏那条 `display:none`（隐藏占位）
+    //   只命中列表工具行；在线搜索行的占位在窄屏仍按基规则吃空白 ⇒ 那一面行为不变。
+    expect(order).not.toContain('own-market-filterWrap')
+  })
+})
+
 describe('enterprise skill detail page', () => {
   /** 详情用例的目录行：带分类、且能判「有更新」（两枚动作因此都出得来）。 */
   const row = () => enterpriseMarketSkillRows([SKILL_WITH_CATEGORY], [SKILL_DETAIL])[0]!
@@ -2899,14 +4528,16 @@ describe('enterprise skill detail page', () => {
     expect(collectByClassName(detail, 'own-market-detail')).toHaveLength(1)
     // 视图状态只有一份：详情目标只记**技能包 id**，行对象在渲染时从当前目录投影里取
     // （目录刷新后详情不会停在旧副本上；条目消失时 `skillPage` 自己就是 undefined，界面回到列表）。
-    // **本刀（插件详情子页面）**：开的这一刻顺带清掉另两个详情目标（三个目标天然互斥，见下一条）。
-    expect(source)
-      .toContain('onOpenSkillDetail: (row) => { setSkillDetailId(row.id); setPresetDetailId(undefined); setPluginDetailName(undefined) }')
-    // 配方详情目标与技能详情目标**互斥**（同一时刻只可能有一个非空，故外壳那两支 return 不可能同时命中），
-    // 插件详情目标（本刀）同样在这一条互斥口径里。
-    expect(source)
-      .toContain('onOpenPresetDetail: (row) => { setPresetDetailId(row.id); setSkillDetailId(undefined); setPluginDetailName(undefined) }')
-    expect(source).toContain('setPluginDetailName(row.packageName)')
+    // **本刀（插件详情子页面 / 系统搜索）**：开的这一刻顺带清掉另几个目标（四个目标天然互斥，见下一条）。
+    // 这里用正则而不是逐字串：处理体已经因为多清一个目标而换行，断言要锁的是**那几步调用及其顺序**，
+    // 不是缩进（锁缩进只会让下一个人改一次格式就红，却不改变任何语义）。
+    expect(source).toMatch(/onOpenSkillDetail: \(row\) => \{[\s\S]{0,400}?setSkillDetailId\(row\.id\)[\s\S]{0,200}?setPresetDetailId\(undefined\)[\s\S]{0,200}?setPluginDetailName\(undefined\)[\s\S]{0,200}?setSystemSearchOpen\(false\)/)
+    // 配方详情目标与技能详情目标**互斥**（同一时刻只可能有一个非空，故外壳那几支 return 不可能同时命中），
+    // 插件详情目标与系统搜索结果面同样在这一条互斥口径里。
+    expect(source).toMatch(/onOpenPresetDetail: \(row\) => \{[\s\S]{0,400}?setPresetDetailId\(row\.id\)[\s\S]{0,200}?setSkillDetailId\(undefined\)[\s\S]{0,200}?setPluginDetailName\(undefined\)[\s\S]{0,200}?setSystemSearchOpen\(false\)/)
+    expect(source).toMatch(/onOpenPluginDetail: \(row\) => \{[\s\S]{0,400}?setPluginDetailName\(row\.packageName\)[\s\S]{0,200}?setSkillDetailId\(undefined\)[\s\S]{0,200}?setPresetDetailId\(undefined\)[\s\S]{0,200}?setSystemSearchOpen\(false\)/)
+    // 反过来：进系统搜索结果面也要清掉那三个详情目标（互斥是双向的，不是「单向记得清」）。
+    expect(source).toMatch(/onOpenSystemSearch[\s\S]{0,600}setSkillDetailId\(undefined\)[\s\S]{0,200}setPresetDetailId\(undefined\)[\s\S]{0,200}setPluginDetailName\(undefined\)/)
     expect(source).toContain('enterpriseSkills.find(item => item.id === skillDetailId)')
     expect(source).toContain('const skillPage: EnterpriseSkillPageProps | undefined = skillPageRow === undefined ? undefined :')
   })
@@ -2977,12 +4608,12 @@ describe('enterprise skill detail page', () => {
     // **本刀（撤掉左上角那枚 48×48 图标）反向锁**：
     //  ① 本文件自绘的那枚（.own-market-detailIcon）连元素带样式一并删除，不许复活；
     //  ② 官方 DetailTop 自己那枚仍在我们页面上（我们注册成官方 plugins.item，id=plugin-market），
-    //     按**稳定后缀** _cardIcon 隐藏，作用域收在 detailHead 内（不误伤 crumbIcon 的 chevron）。
-    //     锚点 [data-plugin-item-detail] **刻意不写死值**——官方那个值是动态 item.id，
-    //     写死 ="plugin-market" 才是上一轮那两条规则真正的错处（**不是**「属性不存在」：
-    //     对 app.asar 逐字复核，官方 JSX 里该属性存在，取 item.id）。
+    //     按**稳定后缀** _cardIcon 隐藏；作用域是两道：收在 detailHead 内（不误伤 crumbIcon 的 chevron）
+    //     ＋ :has(...own-market-entry...) 闸门（不误伤**其它 item 详情** —— 原先那条裸锚点会误伤）。
+    //     锚点 [data-plugin-item-detail] **仍不写死值**：官方那个值是动态 item.id（对 app.asar 逐字
+    //     复核过属性存在、取 item.id）；固定值形制不得回来（见下面那条 not.toContain 锁）。
     expect(cssRuleBody(css, '.own-market-detailIcon')).toBe('')
-    expect(cssRuleBody(css, '[data-plugin-item-detail] [class*="_detailHead"] [class*="_cardIcon"]')).toBe('display:none')
+    expect(cssRuleBody(css, '[data-plugin-item-detail]:has([class*="_detailSections"] .own-market-entry) [class*="_detailHead"] [class*="_cardIcon"]')).toBe('display:none')
     // 写死属性值的形制不得回来（永不生效）；过宽的 span[aria-hidden] 也不得回来（会误伤官方 crumbIcon）。
     expect(css).not.toContain('[data-plugin-item-detail="plugin-market"]')
     expect(css).not.toContain('span[aria-hidden="true"]{display:none}')
@@ -3262,16 +4893,24 @@ describe('enterprise skill detail page', () => {
     // 目录取数不再在这里手写请求/兜底——下面两条同时锁住「没有人把第二套目录取数加回本文件」。
     // **本刀（配方一键启用）**：多了一处「逐行读本机真值（status）」的 effect，它也带一处关页面即中止，
     // 故计数 3 → 4（文件树 / 文件正文 / 配方详情三处 + 配方真值一处）。
-    expect((source.match(/controller\.abort\(\)/g) ?? []).length).toBe(4)
+    // **本刀（系统搜索）**：盘点的取数 effect 再带一处（关面即中止，迟到结果不回填）⇒ 4 → 5；
+    // **本刀（在线搜索）**：搜索的取数 effect 同一条 ⇒ 5 → 6。
+    expect((source.match(/controller\.abort\(\)/g) ?? []).length).toBe(6)
     expect(source).toContain('createEnterpriseSkillCatalogSource')
     expect((source.match(/api\.skills\(/g) ?? []).length).toBe(1)
     expect((source.match(/api\.installedSkills\(/g) ?? []).length).toBe(1)
     expect((source.match(/controller\.signal\.aborted/g) ?? []).length).toBeGreaterThanOrEqual(6)
     // 失败不静默：每一处 catch（技能动作 / 文件树 / 文件正文 / **配方详情** / **配方真值** /
-    // **配方启用** / **配方停用**）都把错误经 `enterpriseLocalErrorCode` 投影成稳定码，交给纯视图出
+    // **配方启用** / **配方停用** / **本地上传**）都把错误经 `enterpriseLocalErrorCode` 投影成稳定码，交给纯视图出
     // role="alert" 或行内提示；本条用例关心的两个文件取数各占一处。
-    //（目录那一条改由 `enterpriseDegradedRead`（list-state.ts）投影稳定码，故本文件里只剩这七处。）
-    expect((source.match(/enterpriseLocalErrorCode\(error\)/g) ?? []).length).toBe(7)
+    //（目录那一条改由 `enterpriseDegradedRead`（list-state.ts）投影稳定码，故本文件里原有七处；
+    //  **本刀（本地导入）**：本地上传那一条通路也把失败投影成稳定码（`uploadSkill` 的 catch 一处，故 7 → 8），
+    //  它落进 `EnterpriseMarketSkillImportNotice` 的失败态——人话 + 下一步 + 「技术信息」里的码，绝不静默；
+    //  **本刀（系统搜索）**再加两处：盘点取数失败（落进结果面的失败态 + 真重发）与纳入失败
+    //  （落进**那一行**的唯一提示组件）⇒ 8 → 10；
+    //  **本刀（在线搜索）**再加两处：搜索取数失败（结果面失败态 + 真重发）与在线安装失败
+    //  （落进**那一行**的唯一提示组件）⇒ 10 → 12。）
+    expect((source.match(/enterpriseLocalErrorCode\(error\)/g) ?? []).length).toBe(12)
     // 界面不拼宿主路径、不读文件系统（那是 Host 的活）：两个 effect 只把**键**（包 id / 树里那条路径）交出去。
     //（`~/.dsh/skills` 那句只出现在行上那枚开关的悬浮文案里，是给用户看的落盘说明，不是我们构造的路径。）
     expect(source).not.toContain('readFileSync')
@@ -3860,6 +5499,28 @@ function collectOfficialButtonProps(node: ReactNode, acc: Record<string, any>[] 
   return acc
 }
 
+/**
+ * 收集元素树里所有**官方 `MenuItemButton` 本体**的元素 props（`node.type === MenuItemButton`，
+ * 与 `collectOfficialButtonProps` 同一套身份判定）。
+ *
+ * 用途（本刀）：「添加技能」下拉四项的**终态**（哪一项可点、文案、激活回调）读的是**真元素**，
+ * 而不是纯投影数组——投影算对了但渲染层没照它画，是两回事。
+ */
+function collectOfficialMenuItemProps(node: ReactNode, acc: Record<string, any>[] = []): Record<string, any>[] {
+  if (Array.isArray(node)) { for (const child of node) collectOfficialMenuItemProps(child, acc); return acc }
+  if (!isValidElement(node)) return acc
+  const props = node.props as Record<string, unknown>
+  if (node.type === (MenuItemButton as unknown)) acc.push(props as Record<string, any>)
+  if (typeof node.type === 'function') {
+    const rendered = (node.type as (p: unknown) => ReactNode)(props)
+    if (rendered !== undefined && rendered !== null) return collectOfficialMenuItemProps(rendered as ReactNode, acc)
+  }
+  for (const value of Object.values(props)) {
+    if (value !== null && typeof value === 'object') collectOfficialMenuItemProps(value as ReactNode, acc)
+  }
+  return acc
+}
+
 /** 收集元素树里所有 `<Switch>` 的 props（`vi.fn()` mock 的组件由 JSX 引用，props 存于 element.props）；嵌套函数组件先展开再递归。 */
 /**
  * 按**分流槽位**收集动作控件 props（`data-enterprise-plugin-slot`）。
@@ -4085,11 +5746,13 @@ function domOutline(node: ReactNode, depth = 0): string[] {
      * 图标的 `fill="url(#…)"` 会**全部**解析到文档里第一个同名 defs，整页染成同一色（官方为此专门写了
      * `useArtworkId()`，注释原文即此）。所以它的数值**天然每次都不同**，字面快照锁它等于
      * **锁了一个必然漂移的值**，写死具体数字只会永远红。
-     * 要归一的是**两处**，缺一不可（只归一 `id` 的话，path 上那枚 `fill="url(#…)"` 仍带着真实序号）：
+     * 要归一的是**两处**，缺一不可（只归一 `id` 的话，引用它的那枚 `fill="url(#…)"` 仍带着真实序号）：
      *   · `id="own-market-art-37"`（linearGradient 上那枚 id 本身）
-     *   · `fill="url(#own-market-art-37)"`（path 上**引用**它的那个 url(#…)）
+     *   · `fill="url(#own-market-art-37)"`（**引用**它的那个 url(#…)）
+     *   ★ task-17 ② 起图形本体是 `text`（不再是官方那枚 `path`），故这第二处落在 `text` 上 ——
+     *     归一逻辑与占位名都没变。
      * 故快照照旧锁住「**有这么一枚 id、且它被引用着**」这个结构事实；而「id 逐枚唯一 / 命名规范 /
-     * 两端色值 / 图形尺寸」由「gives every row the official fallback artwork…」那条用例
+     * 两端色值 / 图形尺寸」由「derives each row icon from the item id…」那条用例（task-17 ② 改名）
      * **逐条独立断言**（那里拿得到真实值）。一句话：**结构进快照、值进断言**，各司其职。
      */
     .map(([key, value]) => `[${key}=${typeof value === 'function' ? '[fn]' : normalizeArtworkId(value)}]`)
@@ -4149,6 +5812,200 @@ function collectByClassName(node: ReactNode, name: string, acc: Record<string, a
   return acc
 }
 
+/**
+ * ★ **本刀（task-20）的四组门禁**：A 添加钮档位 / B 工具行等高 32 / B 窄屏阈值重算 / D 的
+ * `:has()` 作用域与「不许裸命中官方类」。前两组锁取值与算术，后两组锁「覆盖的边界」。
+ */
+describe('enterprise market page-head rhythm (task-20)', () => {
+  const shellCss20 = (): string => collectStyleText(EnterpriseMarketLegacyShell({ view: 'page', sessionUsable: true }))
+  const topText = (): string => splitTopLevelCss(shellCss20()).filter(part => part.scope === 'top').map(part => part.text).join('\n')
+
+  it('drops the add trigger to the official sm tier and keeps refresh at md (task-20 A)', async () => {
+    const model = enterpriseMarketShellModel({ view: 'page', sessionUsable: true })
+    const seated = EnterpriseMarketDetailActions({
+      subject: { kind: 'item', id: ENTERPRISE_MARKET_ENTRY_ID },
+      tabSeat: { entries: model.tabEntries, activeTab: model.activeTab, onSelect: undefined },
+    })
+    const actions = collectOfficialButtonProps(seated)
+    // ① 两枚动作的档位：**刷新仍 md**（用户口径「刷新可以」）、**添加降到 sm**（官方「插件」根页那枚逐字）。
+    expect(actions.map(props => props['size'])).toEqual(['md', 'sm'])
+    expect(actions.map(props => props['variant'])).toEqual(['ghost', 'primary'])
+    // ② 官方两档真值（Button.module.css 逐字）：md 高 36 / 字 14 / 行高 22 / 内衬 14 / radius-md；
+    //    sm 高 28 / 字 12 / 行高 18 / 内衬 10 / radius-sm —— 这些是**官方原语**的取值，本文件不许覆盖。
+    const source = await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8')
+    expect(source).toContain('size="sm"\n        variant="primary"')
+    expect(source).toContain('<Plus aria-hidden size={13} />')
+    expect(source).not.toContain('<Plus aria-hidden size={12} />')
+    // ③ 刷新钮**一字未动**：仍 md、仍 RefreshCw 16。
+    expect(source).toContain('<RefreshCw aria-hidden size={16} />')
+    expect(source).toContain('size="md"\n      variant="ghost"')
+    // ④ 下拉定位不依赖按钮高度：官方 `Menu` 走 `portal` + `align` 由运行时量取触发钮矩形，
+    //    本文件对那个锚点**只有一条 token 覆盖**、没有任何 top/left/偏移规则（高度变化因此不影响定位）。
+    const css = shellCss20()   // 锚点规则住在 baseStyles 里（外壳挂载），详情动作组件自己不挂 <style>
+    expect(source).toContain('align="end"')
+    expect(source).toContain('portal')
+    const anchorRules = [...css.matchAll(/\.own-market-addMenu[^{]*\{([^}]*)\}/g)].map(m => m[1]!)
+    expect(anchorRules.length).toBeGreaterThan(0)
+    for (const body of anchorRules) {
+      expect(body).not.toContain('top:')
+      expect(body).not.toContain('left:')
+      expect(body).not.toContain('position:')
+    }
+  })
+
+  it('makes the tab track exactly as tall as the search box: 2 + 28 + 2 = 32 (task-20 B)', () => {
+    const css = shellCss20()
+    const tabs = cssRuleBody(css, '.own-market-storeTabs')
+    const tab = cssRuleBody(css, '.own-market-storeTab')
+    const query = cssRuleBody(css, '.own-market-query')
+    const filter = cssRuleBody(css, '.own-market-filterBtn')
+    // ── ① 先把算式依赖的取值在 CSS 里确认（不许照注释算）。
+    expect(tabs).toContain('padding:2px')
+    expect(tab).toContain('height:28px')
+    expect(query).toContain('height:32px')
+    expect(filter).toContain('width:32px')
+    expect(filter).toContain('height:32px')
+    // ── ② 再算：轨道内衬(上+下) + 段高 = 32，必须**与搜索框读出来的那个高度逐字相等**。
+    const trackPadding = 2
+    const tabHeight = 28
+    const searchHeight = 32
+    expect(trackPadding * 2 + tabHeight).toBe(32)
+    expect(query).toContain(`height:${trackPadding * 2 + tabHeight}px`)
+    expect(trackPadding * 2 + tabHeight).toBe(searchHeight)
+    // ── ③ 三处**有意偏离**逐条钉住（防后人当遗漏「修回去」）：
+    //    ① 轨道内衬 2px（官方 4px）——唯一目的是总高落到 32。
+    expect(tabs).toContain('padding:2px')
+    expect(tabs).not.toContain('padding:4px')
+    //    ② 轨道/胶囊圆角 999px（官方 radius-md / radius-sm）——用户原话「胶囊」。
+    expect(tabs).toContain('border-radius:999px')
+    expect(tab).toContain('border-radius:999px')
+    expect(tabs).not.toContain('var(--dsw-radius-md)')
+    //    ③ 我们**不用**官方那枚绝对定位滑动指示块：选中态是选中项自己那枚**随主题翻转**的浮起胶囊。
+    expect(tabs).not.toContain('position:relative')
+    expect(tab).not.toContain('position:absolute')
+    expect(tab).not.toContain('z-index')
+    //    ★ task-21 更正：填色改官方分段控件指示块那枚 bg-layer-1（与字色 label-primary **成对**、
+    //    随主题一起翻转）；原先的 background-primary 在本版 DSH 里不存在 ⇒ 兜底 #fff ⇒ 深色下白字压白。
+    expect(cssRuleBody(css, ".own-market-storeTab[aria-selected='true']"))
+      .toContain('background:var(--dsw-alias-bg-layer-1)')
+    expect(cssRuleBody(css, ".own-market-storeTab[aria-selected='true']"))
+      .toContain('box-shadow:var(--dsw-elevation-soft)')
+    // ── ④ 官方轨道填充（可见的灰底）逐字照抄；等宽由 grid 行为承担。
+    expect(tabs).toContain('var(--dsw-alias-interactive-bg-hover,#2631480f)')
+    expect(tabs).toContain('display:inline-grid')
+    expect(tabs).toContain('grid-auto-columns:1fr')
+  })
+
+  it('derives the tool-row breakpoint from the equal-width track: 320 + 176 + 56 + 48 = 600 (task-20 B)', () => {
+    const top = topText()
+    const media = splitTopLevelCss(shellCss20()).filter(part => part.scope === 'media')
+    // ── ① 先把算式依赖的取值在 CSS 里确认。
+    expect(cssRuleBody(top, '.own-market-storeTabs')).toContain('flex:0 0 auto')      // 页签轨不收缩
+    expect(cssRuleBody(top, '.own-market-query')).toContain('min-width:120px')       // 搜索框最小贡献
+    expect(cssRuleBody(top, '.own-market-filterBtn')).toContain('width:32px')        // 筛选钮
+    expect(cssRuleBody(top, '.own-market-searchRow')).toContain('gap:8px')
+    expect(cssRuleBody(top, '.own-market-rowBarSpacer')).toContain('min-width:0')    // 占位可压到 0，但**仍占一道 gap**
+    // ── ② 工具行一行所需的最小内容宽：四枚子块 ⇒ **三道** gap（上一把刀按两道算，是漏项）。
+    const ROW_GAPS = 3 * 8
+    const TAB_TRACK = 320          // 等宽模型的最坏档（两位数计数），由上面那条几何用例逐值算出
+    const QUERY_MIN = 120
+    const FILTER = 32
+    const minRow = TAB_TRACK + ROW_GAPS + QUERY_MIN + FILTER
+    expect(minRow).toBe(496)
+    // ── ③ 视口侧：官方折叠态侧栏轨道 56 + 官方 _page 的左右内衬 2×clamp(24px,4vw,48px)（窄屏取下限 24）。
+    const RAIL = 56
+    const PADDING = 2 * 24
+    expect(minRow + RAIL + PADDING).toBe(600)
+    const toolRow = media.filter(part => part.text.includes('.own-market-storeTabs{flex:0 0 100%'))
+    expect(toolRow).toHaveLength(1)
+    expect(toolRow[0]!.text).toContain(`@media (max-width: ${minRow + RAIL + PADDING}px)`)
+    // ── ④ 临界点以上逐档复核（内衬按 clamp(24px,4vw,48px) 随视口长）。
+    for (const viewport of [601, 700, 1000]) {
+      const padding = 2 * Math.min(48, Math.max(24, 0.04 * viewport))
+      expect(viewport - RAIL - padding, `${viewport}px：工具行放不下`).toBeGreaterThanOrEqual(minRow)
+    }
+  })
+
+  it('scopes every official detail override behind :has(...own-market-entry...): never a bare official class (task-20 C/D + 收口)', async () => {
+    const css = shellCss20()
+    const source = await readFile(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8')
+    // ── ① 两条覆盖逐字存在，且**都**带 `:has(... .own-market-entry ...)` 作用域闸门。
+    const overrides = [
+      '[data-plugin-item-detail]:has([class*="_detailSections"] .own-market-entry) > [class*="_detailTop"] > [class*="_detailHead"]{margin-top:12px}',
+      '[data-plugin-item-detail]:has([class*="_detailSections"] .own-market-entry) > [class*="_detailMain"]{margin-top:8px;gap:4px}',
+    ]
+    for (const rule of overrides) expect(css, rule).toContain(rule)
+    // ── ② 反向锁：本文件里**凡**用 `:has(` 去命中官方 detail 类的规则，选择器里都必须含 `.own-market-entry`
+    //      作用域；反过来，任何 `_detail*` 覆盖规则都必须带 `:has(`（不许裸命中官方类）。
+    const detailSelectors = [...css.matchAll(/([^\n{}]*_detail[^\n{}]*)\{/g)].map(match => match[1]!)
+    const scoped = detailSelectors.filter(selector => selector.includes(':has('))
+    expect(scoped, '带 :has 的官方 detail 覆盖恰好三条（C/D 两条 + 收口后的隐藏图标一条）').toHaveLength(3)
+    for (const selector of scoped) {
+      expect(selector, '官方 detail 类名的覆盖必须带 :has(...own-market-entry...) 作用域').toContain('.own-market-entry')
+      expect(selector).toContain('[data-plugin-item-detail]')
+    }
+    // ★ **收口后不再有例外**：「隐藏官方左上角图标」那条是**更早一刀**留下的，原先只锚在官方数据
+    //   属性上、不带 :has 作用域 ⇒ 它会命中**其它 item 详情**（任务书里登记为唯一例外）。本次把它
+    //   一并挂到同一条闸门上 ⇒ 本文件里**任何**命中官方 detail 类的规则都必须带
+    //   :has(...own-market-entry...)，一条裸的都不许有；将来谁再加一条裸的，这条断言会先红。
+    const bare = detailSelectors.filter(selector => !selector.includes(':has('))
+    expect(bare, '裸命中官方 detail 类的规则（无 :has 作用域）必须为空').toEqual([])
+    // ── ③ C 的手法**据实更正**：真正承载「标题↔描述 8px」的是官方 `_detailMain{gap:8px}`（在 `_titleRow`
+    //      与 `p._detailDesc` 之间），而 `span.own-market-entry-summary` 是 inline 盒（纵向 margin 不参与
+    //      布局）且不是 `_detailMain` 的直接子 ⇒ 那条计划里的 `margin-top:-4px` **是空操作**，不许写。
+    expect(cssRuleBody(css, '.own-market-entry-summary')).not.toContain('margin-top')
+    expect(cssRuleBody(css, '.own-market-entry-summary')).toBe('color:var(--dsw-alias-label-secondary,#667085)')
+    // ── ④ 官方「插件」根页的页头节奏没被我们改：本文件里一个 `_pageHead/_pageTitle/_pageIntro` 都不出现。
+    //    只看**代码**（剥掉注释——本刀的注释里引述了这些官方类名，不剥会恒红）。
+    const code = stripComments(source)
+    for (const official of ['_pageHead', '_pageTitle', '_pageIntro', '_toolbar']) {
+      expect(code, official).not.toContain(official)
+    }
+    // ── ⑤ `_detailTop{padding-top:28px}` **保留**（只压元素间距）：本文件不许出现对它的 padding 覆盖。
+    expect(css).not.toMatch(/_detailTop[^{]*\{[^}]*padding/)
+  })
+
+  it('paints every light surface with the official theme-flipping token pair (task-21 token 对账)', () => {
+    const css = shellCss20()
+    // 真机截图（**深色主题**）暴露：六处「浅色填充 + 随主题翻转的字色」⇒ 白字压白、字看不见。
+    // 根因是一批**本版 DSH 根本不定义**的 alias token 名（var 的兜底 #fff 在生效；浅色主题下
+    // 兜底恰好是对的，所以只在深色下暴露）。逐处照官方对应面取**成对** token：
+    //   · 选中页签        ← 官方 SegmentedControl 的指示块：bg-layer-1 + label-primary
+    //   · 授权弹层        ← 官方 Modal 面：bg-layer-2 + label-primary
+    //   · 两个下拉菜单     ← 官方弹出面：menu-surface-fill（项字色 label-primary 不变）
+    //   · 筛选项 hover     ← 与同族 .own-market-moreItem:hover 对齐：interactive-bg-hover
+    // ★ 第五处（安装/启用按钮）**不是**换 token，而是**把覆盖整条删掉** —— 见下面那条反向锁。
+    const pairs: readonly (readonly [string, string])[] = [
+      [".own-market-storeTab[aria-selected='true']", 'background:var(--dsw-alias-bg-layer-1)'],
+      ['.own-market-approval', 'background:var(--dsw-alias-bg-layer-2)'],
+      ['.own-market-moreMenu', 'background:var(--dsw-menu-surface-fill)'],
+      ['.own-market-filterMenu', 'background:var(--dsw-menu-surface-fill)'],
+      ['.own-market-filterOption:hover', 'background:var(--dsw-alias-interactive-bg-hover)'],
+      // ★ **复审整改补的第六处**：搜索框的底色原先也是那枚不存在的 token ⇒ 兜底 #fff 恒白（深色下
+      //   就是一块白）。它按官方 Input 所在的面取 `bg-layer-1`（与本页选中页签同一枚；浅色下仍是白）。
+      //   这一处保留了 `,#fff` 兜底，故只断言到 token 名为止。
+      ['.own-market-query', 'background:var(--dsw-alias-bg-layer-1'],
+    ]
+    for (const [selector, fill] of pairs) {
+      const body = cssRuleBody(css, selector)
+      expect(body, selector).toContain(fill)
+      // 反向锁：这五处**不许**再退回那枚不存在的 token —— 它的兜底 #fff 就是白底白字的来源。
+      expect(body, selector).not.toContain('--dsw-alias-background-primary')
+    }
+    // ★ **安装/启用按钮那条反向锁（第三次更正）**：它**不是工具栏按钮，是普通按钮** —— 官方
+    //   `.outline{background:transparent;border:0.5px solid var(--dsw-alias-border-l3)}` 在浅色卡片上
+    //   **本来就是白底黑字 + 一条浅描边**（用户口径）。本文件曾给它填过两种背景：background-primary
+    //   ⇒ 深色下白块压白字；button-tool-bar-fill ⇒ 浅色下变成工具栏灰。**两次都错**。
+    //   ⇒ 现在的要求是：本文件 CSS 里**查无该规则**，这个类完全交给官方 .outline。
+    expect(cssRuleBody(css, '.own-market-installBtn')).toBe('')
+    expect(css).not.toContain('.own-market-installBtn.own-market-installBtn')
+    // ★ **已知存量（本轮有意未动）**：本文件另有 8 个失效 token 名、约 70 处仍在用
+    //   （background-secondary / accent-primary / status-error / status-warning / stroke-border-2 /
+    //   label-on-primary / label-disabled / fill-secondary）。它们今天表现为「深色下仍是浅色块」，
+    //   字色多落在仍存在的 state-warn / 兜底深色上，故**不造成字看不见**；全面对账另立一刀。
+  })
+})
+
 /** 取元素树里 `<style>` 注入的 CSS 文本（视觉口径可直接断言，不必等真机算样式）。 */
 function collectStyleText(node: ReactNode): string {
   if (Array.isArray(node)) return node.map(collectStyleText).join('')
@@ -4163,6 +6020,58 @@ function collectStyleText(node: ReactNode): string {
 function cssRuleBody(css: string, selector: string): string {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   return new RegExp(`${escaped}\\{([^}]*)\\}`).exec(css)?.[1] ?? ''
+}
+
+/**
+ * 把一份 CSS 文本切成**顶层片段**与**媒体查询片段**（按第一层大括号配对扫描）。
+ *
+ * 为什么要它：本刀的窄屏取值必须**只**住在 `@media (max-width: 560px)` 里，
+ * 而「顶层不含某取值」这种反向锁**不能用子串搜索** —— `@media{…}` 的整段文本本来就在顶层串里，
+ * `expect(css).not.toContain('flex-wrap:wrap')` 会把媒体块里的规则也算进来，恒红。
+ * 故先按第一层括号把片段分开，再分别断言：顶层 = 宽屏那一套、媒体块 = 窄屏那一套。
+ */
+function splitTopLevelCss(css: string): { readonly scope: 'top' | 'media'; readonly text: string }[] {
+  /**
+   * ★ 注释必须**先整体失效**：CSS 注释里出现 `{`（例如引述一条媒体查询）会让大括号配对算错，
+   *   从而把后面所有片段切歪（本仓已踩过一次：媒体块里的规则因此「看起来不在媒体块里」）。
+   *   做法：把注释替换成**等长空白** ⇒ 偏移量与原文一致，注释里的括号再不参与配对。
+   */
+  let blanked = ''
+  let k = 0
+  while (k < css.length) {
+    if (css.startsWith('/*', k)) {
+      const end = css.indexOf('*/', k + 2)
+      const stop = end === -1 ? css.length : end + 2
+      blanked += ' '.repeat(stop - k)
+      k = stop
+      continue
+    }
+    blanked += css[k]
+    k += 1
+  }
+  const out: { scope: 'top' | 'media'; text: string }[] = []
+  let headerStart = -1
+  let headerHasMedia = false
+  let depth = 0
+  for (let i = 0; i < blanked.length; i += 1) {
+    const char = blanked[i]
+    if (char === '{') { depth += 1; continue }
+    if (char === '}') {
+      depth -= 1
+      if (depth === 0) {
+        out.push({ scope: headerHasMedia ? 'media' : 'top', text: css.slice(headerStart, i + 1) })
+        headerStart = -1
+        headerHasMedia = false
+      }
+      continue
+    }
+    // 只在**第一层**收集「头」（选择器 / at-rule）；块内声明不参与。
+    if (depth === 0) {
+      if (headerStart === -1) { if (/\s/.test(char)) continue; headerStart = i }
+      if (char === '@') headerHasMedia = css.slice(i, i + 6) === '@media'
+    }
+  }
+  return out
 }
 
 /**

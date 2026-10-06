@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 V4/V19/V20/V23/V30/V32/V34/V35 固定 sys_role/sys_menu/sys_role_menu seed 与不可变 trigger。
- * [OUTPUT]: 验证五角色、25 权限码、最小角色集合和 built-in 数据库保护。
+ * [INPUT]: 依赖 V4/V19/V20/V23/V30/V32/V34/V35/V44 固定 sys_role/sys_menu/sys_role_menu seed 与不可变 trigger。
+ * [OUTPUT]: 验证五角色、27 权限码、最小角色集合和 built-in 数据库保护。
  * [POS]: T03 RBAC seed 退出门禁，确保权限真源不是 remark 或仅靠 UI 约定。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -52,7 +52,8 @@ class RbacSeedTest {
             "ent:session:read", "ent:session:delete", "ent:session:content:read",
             "ent:audit:read", "ent:member:read", "ent:member:write", "ent:usage:read",
             "ent:branding:read", "ent:branding:write",
-            "ent:feedback:read", "ent:feedback:write"
+            "ent:feedback:read", "ent:feedback:write",
+            "ent:connector:read", "ent:connector:write"
         );
     }
 
@@ -64,7 +65,8 @@ class RbacSeedTest {
         );
         assertThat(permissionsFor("plugin_admin")).containsExactlyInAnyOrder(
             "ent:plugin:read", "ent:plugin:write", "ent:preset:read", "ent:preset:write",
-            "ent:skill:read", "ent:skill:write", "ent:member:read"
+            "ent:skill:read", "ent:skill:write", "ent:connector:read", "ent:connector:write",
+            "ent:member:read"
         );
         assertThat(permissionsFor("auditor")).containsExactlyInAnyOrder(
             "ent:usage:read", "ent:session:read", "ent:session:content:read", "ent:audit:read"
