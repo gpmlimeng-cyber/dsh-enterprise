@@ -140,8 +140,10 @@ const BANNED_EMPLOYEE_WORDS = [
   // 换来的那条**新口径**（页签不带「企业 / 技术 / 包含」这类词）由下面那条用例单独锁死。
 ] as const
 
-/** 页签真源：四名逐字为 技能 / 插件 / 配方 / 组件，且**不带「企业」前缀**（「企业」由标题行徽章承担）。 */
-const MARKET_TAB_LABELS = ['技能', '插件', '配方', '组件'] as const
+/** 页签真源：五名逐字为 技能 / 插件 / 配方 / 连接器 / 组件，且**不带「企业」前缀**（「企业」由标题行徽章承担）。
+ *  ★ 本刀新增第五枚「连接器」（P0-5）：**不含** `MCP` 字样——术语降维的三步里不出现它，
+ *    `MCP` 只允许出现在后台管理端与客户端详情里的「技术信息」折叠区（见 connector-architecture.md §3）。 */
+const MARKET_TAB_LABELS = ['技能', '插件', '配方', '连接器', '组件'] as const
 
 function expectNoBanned(text: string, where: string): void {
   for (const word of BANNED_EMPLOYEE_WORDS) expect(stripUpstream(text), `${where} / ${word}`).not.toContain(word)

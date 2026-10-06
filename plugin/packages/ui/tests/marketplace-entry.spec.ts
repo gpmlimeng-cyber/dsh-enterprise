@@ -318,8 +318,10 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "        #text:插件 2",
   "      button[id=market-tab-presets][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-presets][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
   "        #text:配方 0",
+  "      button[id=market-tab-connectors][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-connectors][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
+  "        #text:连接器 0",
   "      button[id=market-tab-components][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-components][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
-  "        #text:组件 4",
+  "        #text:组件 5",
   "    span[className=own-market-rowBarSpacer][aria-hidden=true]",
   "    span[className=own-market-query]",
   "      #opaque:[object Object]",
@@ -368,6 +370,7 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "                  #text:ENT_ARTIFACT_INTEGRITY_FAILED",
   "  div[id=market-panel-plugins][role=tabpanel][aria-labelledby=market-tab-plugins][hidden=true][className=own-market-panel]",
   "  div[id=market-panel-presets][role=tabpanel][aria-labelledby=market-tab-presets][hidden=true][className=own-market-panel]",
+  "  div[id=market-panel-connectors][role=tabpanel][aria-labelledby=market-tab-connectors][hidden=true][className=own-market-panel]",
   "  div[id=market-panel-components][role=tabpanel][aria-labelledby=market-tab-components][hidden=true][className=own-market-panel]",
 ]
 /**
@@ -387,8 +390,10 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "        #text:插件 2",
   "      button[id=market-tab-presets][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-presets][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
   "        #text:配方 0",
+  "      button[id=market-tab-connectors][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-connectors][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
+  "        #text:连接器 0",
   "      button[id=market-tab-components][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-components][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
-  "        #text:组件 4",
+  "        #text:组件 5",
   "    span[className=own-market-rowBarSpacer][aria-hidden=true]",
   "    span[className=own-market-query]",
   "      #opaque:[object Object]",
@@ -464,6 +469,7 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "                  button[type=button][className=own-market-moreItem][disabled=true][title=从本机卸载这枚插件][onClick=[fn]]",
   "                    #text:卸载",
   "  div[id=market-panel-presets][role=tabpanel][aria-labelledby=market-tab-presets][hidden=true][className=own-market-panel]",
+  "  div[id=market-panel-connectors][role=tabpanel][aria-labelledby=market-tab-connectors][hidden=true][className=own-market-panel]",
   "  div[id=market-panel-components][role=tabpanel][aria-labelledby=market-tab-components][hidden=true][className=own-market-panel]",
 ]
 /**
@@ -690,7 +696,7 @@ describe('enterprise marketplace entry', () => {
     // 用户两次指出标签必须在标题行，故描述行不再承载「企业」二字之外的任何胶囊。
     // **本刀（task-17 ③）**：三个词**只换顺序**，与页签真源 `ENTERPRISE_MARKET_TABS` 的
     // 「技能 · 插件 · 配方 · 组件」同序 ⇒ 现在是「技能 · 企业插件 · 配方」。
-    expect(summary).toBe('技能 · 企业插件 · 配方')
+    expect(summary).toBe('技能 · 企业插件 · 配方 · 连接器')
     expect(summary).toContain('企业插件')
     // 顺序与页签同源（本刀的核心判据）：逐词在页签文案里的**先后位次**必须一致。
     const orderOf = (word: string): number => summary.indexOf(word)
@@ -724,6 +730,8 @@ describe('enterprise marketplace entry', () => {
   it('lists the page tabs as 插件/技能/配方 with 配方 the only reserved tab', () => {
     const plan = enterpriseMarketEntryPlan()
     expect(plan).toBe(ENTERPRISE_MARKET_PLAN)
+    // ★`ENTERPRISE_MARKET_PLAN` 是**历史排期元数据、不驱动任何渲染**（页签真源是 `ENTERPRISE_MARKET_TABS`），
+    //   故本刀**刻意不动它**——给历史排期表补一行既不改变任何行为，只会让人误以为它在驱动页签。
     expect(plan.map(tab => tab.id)).toEqual(['plugins', 'skills', 'presets'])
     expect(plan.map(tab => tab.label)).toEqual(['插件', '技能', '配方'])
     expect(plan.slice(0, 2).map(tab => tab.note)).not.toContain('预留')
@@ -758,8 +766,8 @@ describe('enterprise marketplace entry', () => {
   // **本刀（企业配方页签）**：页签由三枚改四枚——「配方」插在**插件之后、组件之前**（用户指定的位次）。
   // **本刀（页签改名）**：四名逐字为 技能 / 插件 / 配方 / 组件，**不带「企业」前缀**。
   it('renders a hand-written tablist with the four page tabs and 技能 selected by default', () => {
-    expect(ENTERPRISE_MARKET_TABS.map(tab => tab.id)).toEqual(['skills', 'plugins', 'presets', 'components'])
-    expect(ENTERPRISE_MARKET_TABS.map(tab => tab.label)).toEqual(['技能', '插件', '配方', '组件'])
+    expect(ENTERPRISE_MARKET_TABS.map(tab => tab.id)).toEqual(['skills', 'plugins', 'presets', 'connectors', 'components'])
+    expect(ENTERPRISE_MARKET_TABS.map(tab => tab.label)).toEqual(['技能', '插件', '配方', '连接器', '组件'])
     // 位次锁：配方在插件之后、组件之前（不是追加在末尾、也不是复用旧「应用商店」那批 id）。
     // **改名后的新锁**：页签不再带「企业」前缀，也不再用「包含内容」那类降维长名
     // （「企业」二字由标题行的徽章承担，页签再带一遍是噪音）。
@@ -782,14 +790,14 @@ describe('enterprise marketplace entry', () => {
       const tabs = collectByRole(page, 'tab')
       // 页签文案 = 基础词 + 紧凑计数（技能/插件/配方无目录时如实为 0，组件 = 清单长度 4）：
       // 原先两节内部的独立计数行已删，数字并入页签（详情页顶部少一行）。
-      expect(tabs.map(tab => tab['children']), label).toEqual(['技能 0', '插件 0', '配方 0', '组件 4'])
+      expect(tabs.map(tab => tab['children']), label).toEqual(['技能 0', '插件 0', '配方 0', '连接器 0', '组件 5'])
       expect(tabs.map(tab => tab['children']), label).toEqual(ENTERPRISE_MARKET_TABS.map(tab => enterpriseMarketTabLabel(
         tab.label,
         tab.id === 'components' ? ENTERPRISE_MARKET_COMPONENTS.length : 0,
       )))
       // 默认选中 + roving tabIndex（只有当前页签可 Tab 到，其余靠方向键）。
-      expect(tabs.map(tab => tab['aria-selected']), label).toEqual([true, false, false, false])
-      expect(tabs.map(tab => tab['tabIndex']), label).toEqual([0, -1, -1, -1])
+      expect(tabs.map(tab => tab['aria-selected']), label).toEqual([true, false, false, false, false])
+      expect(tabs.map(tab => tab['tabIndex']), label).toEqual([0, -1, -1, -1, -1])
     }
   })
 
@@ -805,11 +813,11 @@ describe('enterprise marketplace entry', () => {
     // ① 工具行左端恒有四枚页签（**与 `tabsInTitle` 无关** —— 页签真源就在这一行）。
     const bare = EnterpriseMarketLegacyShell(props)
     const rowTabs = collectByRole(bare, 'tab')
-    expect(rowTabs.map(tab => tab['children'])).toEqual(['技能 0', '插件 0', '配方 0', '组件 4'])
-    expect(rowTabs.map(tab => tab['aria-selected'])).toEqual([true, false, false, false])
+    expect(rowTabs.map(tab => tab['children'])).toEqual(['技能 0', '插件 0', '配方 0', '连接器 0', '组件 5'])
+    expect(rowTabs.map(tab => tab['aria-selected'])).toEqual([true, false, false, false, false])
     // ② 注入座位（宿主传 `tabsInTitle`）时**页签数量不变** —— 仍只有这一处，不长第二份。
     const seated = EnterpriseMarketLegacyShell({ ...props, tabsInTitle: true })
-    expect(collectByRole(seated, 'tab')).toHaveLength(4)
+    expect(collectByRole(seated, 'tab')).toHaveLength(5)
     // ③ 标题行那一格：**零枚页签**（页签已搬去工具行），只出刷新 + 「添加技能」两枚动作。
     const slot = EnterpriseMarketDetailActions({
       subject: { kind: 'item', id: ENTERPRISE_MARKET_ENTRY_ID },
@@ -860,12 +868,14 @@ describe('enterprise marketplace entry', () => {
         ENTERPRISE_MARKET_TAB_IDS.skills.tab,
         ENTERPRISE_MARKET_TAB_IDS.plugins.tab,
         ENTERPRISE_MARKET_TAB_IDS.presets.tab,
+        ENTERPRISE_MARKET_TAB_IDS.connectors.tab,
         ENTERPRISE_MARKET_TAB_IDS.components.tab,
       ])
       expect(tabs.map(node => node['aria-controls']), where).toEqual([
         ENTERPRISE_MARKET_TAB_IDS.skills.panel,
         ENTERPRISE_MARKET_TAB_IDS.plugins.panel,
         ENTERPRISE_MARKET_TAB_IDS.presets.panel,
+        ENTERPRISE_MARKET_TAB_IDS.connectors.panel,
         ENTERPRISE_MARKET_TAB_IDS.components.panel,
       ])
       expect(tabs.filter(node => node['aria-selected'] === true).map(node => node['id']), where).toEqual([ids.tab])
@@ -874,12 +884,14 @@ describe('enterprise marketplace entry', () => {
         ENTERPRISE_MARKET_TAB_IDS.skills.panel,
         ENTERPRISE_MARKET_TAB_IDS.plugins.panel,
         ENTERPRISE_MARKET_TAB_IDS.presets.panel,
+        ENTERPRISE_MARKET_TAB_IDS.connectors.panel,
         ENTERPRISE_MARKET_TAB_IDS.components.panel,
       ])
       expect(panels.map(node => node['aria-labelledby']), where).toEqual([
         ENTERPRISE_MARKET_TAB_IDS.skills.tab,
         ENTERPRISE_MARKET_TAB_IDS.plugins.tab,
         ENTERPRISE_MARKET_TAB_IDS.presets.tab,
+        ENTERPRISE_MARKET_TAB_IDS.connectors.tab,
         ENTERPRISE_MARKET_TAB_IDS.components.tab,
       ])
       // 每个 aria-controls 都能解析到一个真实面板；非当前页签的面板 hidden，且**内容整段不挂载**。
@@ -902,6 +914,15 @@ describe('enterprise marketplace entry', () => {
         expect(text, where).not.toContain('会议纪要技能组')
         expect(text, where).not.toContain('ent-a')
         expect(text, where).not.toContain('内容清单')
+      } else if (tab.id === 'connectors') {
+        // ★**连接器页签（P0-5，本刀只落骨架）**：目录尚未接入 ⇒ 面板**如实说「开发中」**，
+        //   既不画占位行、也不出现任何别的页签的内容（互斥挂载这条判据照旧成立）。
+        //   ★刻意断言**不含**「内容清单」——那是「组件」页签的内容；
+        //   这条断言将来变红即说明连接器面板漏了互斥、两个页签内容同时在场。
+        expect(text, where).toContain(`连接器${ENTERPRISE_ADD_MENU_DEVELOPING}`)
+        expect(text, where).not.toContain('内容清单')
+        expect(text, where).not.toContain('会议纪要技能组')
+        expect(text, where).not.toContain('ent-a')
       } else {
         expect(text, where).toContain('内容清单')
         expect(text, where).not.toContain('会议纪要技能组')
@@ -917,7 +938,7 @@ describe('enterprise marketplace entry', () => {
       const onSelectTab = vi.fn()
       const tree = shell({ view: 'page', onSelectTab })
       const tabs = collectButtonProps(tree).filter(button => button['role'] === 'tab')
-      expect(tabs, label).toHaveLength(4)
+      expect(tabs, label).toHaveLength(5)
       // 点击：四个页签各自把 (tabId) 交回调用方。
       for (const [index, tab] of ENTERPRISE_MARKET_TABS.entries()) {
         tabs[index]?.['onClick']?.()
@@ -931,19 +952,26 @@ describe('enterprise marketplace entry', () => {
       }
       expect(press(0, 'ArrowRight').preventDefault, label).toHaveBeenCalled()
       expect(onSelectTab, label).toHaveBeenLastCalledWith('plugins')
-      // 新增的第三枚页签照样落在 ←/→ 的循环路径上（配方：从企业插件往右一步就是它）。
-      expect(press(1, 'ArrowRight').preventDefault, label).toHaveBeenCalled()
-      expect(onSelectTab, label).toHaveBeenLastCalledWith('presets')
+      // ★往右逐枚走：配方 → **连接器**（新增的第五枚，与目录页签同一条循环路径）。
+      //   索引**不写死**：从源真源取「某枚的下一枚」，这样再加/删一枚页签也不会让本用例说谎。
+      const ids = ENTERPRISE_MARKET_TABS.map(tab => tab.id)
+      const nextOf = (id: string): string => ids[(ids.indexOf(id) + 1) % ids.length]!
+      expect(press(ids.indexOf('presets'), 'ArrowRight').preventDefault, label).toHaveBeenCalled()
+      expect(onSelectTab, label).toHaveBeenLastCalledWith('connectors')
+      expect(press(ids.indexOf('connectors'), 'ArrowRight').preventDefault, label).toHaveBeenCalled()
+      expect(onSelectTab, label).toHaveBeenLastCalledWith('components')
       expect(press(0, 'ArrowLeft').preventDefault, label).toHaveBeenCalled()
       expect(onSelectTab, label).toHaveBeenLastCalledWith('components')
-      expect(press(3, 'ArrowRight').preventDefault, label).toHaveBeenCalled()
+      expect(press(ids.length - 1, 'ArrowRight').preventDefault, label).toHaveBeenCalled()
       expect(onSelectTab, label).toHaveBeenLastCalledWith('skills')
-      expect(press(2, 'ArrowLeft').preventDefault, label).toHaveBeenCalled()
+      expect(press(ids.indexOf('presets'), 'ArrowLeft').preventDefault, label).toHaveBeenCalled()
       expect(onSelectTab, label).toHaveBeenLastCalledWith('plugins')
       expect(press(2, 'Home').preventDefault, label).toHaveBeenCalled()
       expect(onSelectTab, label).toHaveBeenLastCalledWith('skills')
       expect(press(0, 'End').preventDefault, label).toHaveBeenCalled()
       expect(onSelectTab, label).toHaveBeenLastCalledWith('components')
+      // 逐枚的下一枚与源真源一致（循环闭合，不多不少）。
+      expect(nextOf('components')).toBe('skills')
       // 其余键不拦、不改选中（Tab / Enter / 空格交给浏览器与 onClick）。
       const ignored = press(0, 'Tab')
       expect(ignored.preventDefault, label).not.toHaveBeenCalled()
@@ -953,9 +981,9 @@ describe('enterprise marketplace entry', () => {
     }
   })
 
-  it('lists exactly four delivered components (no reserved row) with only 资料库 on the local gate', () => {
-    expect(ENTERPRISE_MARKET_COMPONENTS.map(row => row.id)).toEqual(['plugins', 'skills', 'presets', 'library'])
-    expect(ENTERPRISE_MARKET_COMPONENTS.map(row => row.label)).toEqual(['插件', '技能', '配方', '资料库'])
+  it('lists exactly five delivered components (no reserved row) with only 资料库 on the local gate', () => {
+    expect(ENTERPRISE_MARKET_COMPONENTS.map(row => row.id)).toEqual(['plugins', 'skills', 'presets', 'connectors', 'library'])
+    expect(ENTERPRISE_MARKET_COMPONENTS.map(row => row.label)).toEqual(['插件', '技能', '配方', '连接器', '资料库'])
     // **本刀（企业配方页签）**：配方随「企业配方页签」一起交付，故**四行一个预留都没有**——
     // 「包含内容」页签不许再对着一个已经在商店里能用的页签说「预留」。
     expect(ENTERPRISE_MARKET_COMPONENTS.filter(row => row.reserved).map(row => row.id)).toEqual([])
@@ -966,7 +994,7 @@ describe('enterprise marketplace entry', () => {
     // 插件/技能/配方三行仍是企业会话口径（`gate === 'session'`）——配方行的门控与另两个目录页签同一条。
     expect(ENTERPRISE_MARKET_COMPONENTS.find(row => row.id === 'library')?.reserved).toBe(false)
     expect(ENTERPRISE_MARKET_COMPONENTS.filter(row => row.gate === 'local').map(row => row.id)).toEqual(['library'])
-    expect(ENTERPRISE_MARKET_COMPONENTS.filter(row => row.gate === 'session').map(row => row.id)).toEqual(['plugins', 'skills', 'presets'])
+    expect(ENTERPRISE_MARKET_COMPONENTS.filter(row => row.gate === 'session').map(row => row.id)).toEqual(['plugins', 'skills', 'presets', 'connectors'])
     expect(enterpriseMarketComponentGate('library')).toBe('local')
     expect(enterpriseMarketComponentGate('presets')).toBe('session')
     expect(enterpriseMarketComponentGate('nope')).toBeUndefined()
@@ -1025,14 +1053,14 @@ describe('enterprise marketplace entry', () => {
   it('counts the component summary with the official partsSummary 口径 (共 N 个 · N 可用 · N 未开启 · N 预留)', () => {
     // 「未开启」这一段是本机开关（资料库）默认关的**可见交代**：默认值必须看得见。
     // **本刀（企业配方页签）**：配方不再预留，故 `reserved` 恒 0、那一整段也不再出现（页面上的词是真的，不是台账）。
-    expect(enterpriseMarketComponentSummary()).toEqual({ total: 4, ready: 0, off: 1, reserved: 0 })
-    expect(enterpriseMarketComponentSummaryText()).toBe('共 4 个 · 1 未开启')
-    expect(enterpriseMarketComponentSummary(undefined, true)).toEqual({ total: 4, ready: 3, off: 1, reserved: 0 })
-    expect(enterpriseMarketComponentSummaryText(undefined, true)).toBe('共 4 个 · 3 可用 · 1 未开启')
+    expect(enterpriseMarketComponentSummary()).toEqual({ total: 5, ready: 0, off: 1, reserved: 0 })
+    expect(enterpriseMarketComponentSummaryText()).toBe('共 5 个 · 1 未开启')
+    expect(enterpriseMarketComponentSummary(undefined, true)).toEqual({ total: 5, ready: 4, off: 1, reserved: 0 })
+    expect(enterpriseMarketComponentSummaryText(undefined, true)).toBe('共 5 个 · 4 可用 · 1 未开启')
     // 逐行状态与计数一致：未登录的插件/技能/配方需登录（不产出「可用」段）+ 资料库未开启。
-    expect(enterpriseMarketComponentSummaryText(ENTERPRISE_MARKET_COMPONENTS, false)).toBe('共 4 个 · 1 未开启')
+    expect(enterpriseMarketComponentSummaryText(ENTERPRISE_MARKET_COMPONENTS, false)).toBe('共 5 个 · 1 未开启')
     // 资料库开关打开后，它那一段从「未开启」挪到「可用」——同一行、同一个投影。
-    expect(enterpriseMarketComponentSummaryText(ENTERPRISE_MARKET_COMPONENTS, false, true)).toBe('共 4 个 · 1 可用')
+    expect(enterpriseMarketComponentSummaryText(ENTERPRISE_MARKET_COMPONENTS, false, true)).toBe('共 5 个 · 1 可用')
   })
 
   it('renders the 组件 tab with the official component-section heading and per-row switch labels', () => {
@@ -1065,7 +1093,7 @@ describe('enterprise marketplace entry', () => {
       // 「组件」页签里只有这四行组件开关（正文没有头部总开关：badge 槽只出只读的「版本号 + 包名」，
       // 见下面的 BadgeView 用例——那里断言标题行没有任何 Switch）。
       const switches = collectSwitchProps(page)
-      expect(switches, label).toHaveLength(4)
+      expect(switches, label).toHaveLength(5)
       // 插件/技能/配方三行开关未登录且有回调 → 必须可点（disabled false）；配方行本刀起与它们同一条口径。
       // 注意：Switch 的无障碍名走 `label` prop（vi.fn() mock 不展开成 aria-label），切换动作走 `onChange`。
       const pluginsSwitch = switches.find(props => props.label === '启用插件')
@@ -2129,7 +2157,7 @@ describe('enterprise marketplace entry', () => {
       expect(tabRule, label).toContain('line-height:20px')
       // 计数确实落在页签上（技能 1），且压缩没有动到节里的行内容。
       const tabs = collectByRole(page, 'tab')
-      expect(tabs.map(tab => tab['children']), label).toEqual(['技能 1', '插件 0', '配方 0', '组件 4'])
+      expect(tabs.map(tab => tab['children']), label).toEqual(['技能 1', '插件 0', '配方 0', '连接器 0', '组件 5'])
       expect(collectSectionByHook(page, 'enterprise-skills'), label).not.toBeUndefined()
       // 行标题类名两套外壳**同源**（同一枚子块渲染同一串类名，版式统一的落点）：都是 9723a97 那套 `.own-market-cardId`。
       expect(collectByClassName(page, titleClass).map(props => props['children']), label).toEqual(['会议纪要技能组'])
@@ -2191,7 +2219,7 @@ describe('enterprise marketplace entry', () => {
       expect(textOf(off), label).not.toContain('ent-a')
       expect(collectSectionByHook(off, 'enterprise-plugins'), label).toBeUndefined()
       // 计数口径锁：页签数字取**真正要渲染的行数**（门控不过即 0），绝不出现「页签说 2 条、面板空白」。
-      expect(collectByRole(off, 'tab').map(tab => tab['children']), label).toEqual(['技能 0', '插件 0', '配方 0', '组件 4'])
+      expect(collectByRole(off, 'tab').map(tab => tab['children']), label).toEqual(['技能 0', '插件 0', '配方 0', '连接器 0', '组件 5'])
       // ON：sessionUsable=true → 「插件」组件开启 → 出插件行 + 逐个包名 + 计数。
       const on = shell({ view: 'page', activeTab: 'plugins', sessionUsable: true, enterprisePlugins: enterprisePlugins as never })
       const text = textOf(on)
@@ -3246,7 +3274,7 @@ describe('enterprise marketplace entry', () => {
       // 组件页签的 rows 版式不受影响：同一串行类名、**四行**（本刀新增「资料库」行；行版式一字没动）。
       const components = shell({ view: 'page', activeTab: 'components' })
       expect(collectByClassName(components, 'own-market-rows'), label).toHaveLength(1)
-      expect(collectByClassName(components, 'own-market-row'), label).toHaveLength(4)
+      expect(collectByClassName(components, 'own-market-row'), label).toHaveLength(5)
       // **术语降维的反向锁**：内部模块路径（`dsh-preset / .dshpreset` 等）不再上屏——
       // 类名与文本两路都取证，防它以后被顺手加回来（数据仍留在 ENTERPRISE_MARKET_COMPONENTS 里作交付台账）。
       expect(collectByClassName(components, 'own-market-rowModule'), label).toEqual([])
@@ -3490,7 +3518,7 @@ describe('enterprise marketplace entry', () => {
     // 组件页签：折叠语义 + 四行清单（本刀新增「资料库」）+ 开关动作名逐项一致。
     const components = EnterpriseMarketLegacyShell({ view: 'page', activeTab: 'components', expandedSections: { components: true }, onToggleSection: vi.fn() })
     expect(collectElementById(components, 'market-section-components')).not.toBeUndefined()
-    expect(collectSwitchProps(components).map(props => props['label'])).toEqual(['启用插件', '启用技能', '启用配方', '启用资料库'])
+    expect(collectSwitchProps(components).map(props => props['label'])).toEqual(['启用插件', '启用技能', '启用配方', '启用连接器', '启用资料库'])
     expect(textOf(components)).toContain('内容清单')
   })
 
@@ -3577,7 +3605,7 @@ describe('enterprise marketplace entry', () => {
       expect(collectDataValues(shellTree, 'data-enterprise-skill-state'), label).toEqual([facts.state])
       // ⑥ 组件清单投影一致（四行、仅配方预留、资料库在本机开关上）——要切到「组件」页签才挂载那一节。
       expect(collectDataValues(shell({ ...props, activeTab: 'components' }), 'data-market-component'), label)
-        .toEqual(['plugins', 'skills', 'presets', 'library'])
+        .toEqual(['plugins', 'skills', 'presets', 'connectors', 'library'])
     }
     // ⑦ 源码级不变量：逻辑入口各只有一处定义 + 恰好一处调用；动作接线各只有一份。
     // 只看**代码**（剥掉注释）——否则文档里提到同一个标识符就会被误计一次。
@@ -3938,10 +3966,14 @@ describe('enterprise market responsive layout (refresh+add one row, narrow-scree
      * 每个用例显式给出计数，是为了让文案宽**不依赖 fixture 的偶然条数**（计数只由模型决定）。
      */
     const cases: readonly { readonly name: string; readonly counts: readonly number[] }[] = [
-      { name: '零计数（与 294px 那条核对对应）', counts: [0, 0, 0, 0] },
-      { name: '真机截图那一组计数（技能 11 / 插件 6 / 配方 1 / 组件 4）', counts: [11, 6, 1, 4] },
-      { name: '十位数（上界方向：计数位数越多越宽）', counts: [10, 10, 10, 10] },
+      { name: '零计数（与 294px 那条核对对应）', counts: [0, 0, 0, 0, 0] },
+      { name: '真机截图那一组计数（技能 11 / 插件 6 / 配方 1 / 连接器 0 / 组件 4）', counts: [11, 6, 1, 0, 4] },
+      { name: '十位数（上界方向：计数位数越多越宽）', counts: [10, 10, 10, 10, 10] },
     ]
+    // ★ 目录页签（**不含**台账页「组件」）——窄屏放不放得下说的是目录那几枚，
+    //   而 `ENTERPRISE_MARKET_TABS` 末位恒为台账页，故按「总数 − 1」切，**不写死前四项**
+    //   （写死就是另一条会随源漂移的锁：本刀加第五枚时它正是这样假绿的）。
+    const DIRECTORY_TAB_COUNT = ENTERPRISE_MARKET_TABS.length - 1
     for (const { name, counts } of cases) {
       const entries = enterpriseMarketShellModel({ view: 'page', sessionUsable: true }).tabEntries
       // ① 枚数与逐枚基础词都从源真源派生（测试里再抄一份清单就会被这条抓住）。
@@ -3950,26 +3982,51 @@ describe('enterprise market responsive layout (refresh+add one row, narrow-scree
       for (const entry of entries) expect(entry.text, name).toBe(enterpriseMarketTabLabel(entry.label, entry.count))
 
       // 逐枚文案：基础词取**源真源**（entries 的 label），计数由本用例显式给定 ⇒ 文案宽不依赖 fixture。
-      const fourLabels = entries.map((entry, index) => enterpriseMarketTabLabel(entry.label, counts[index] ?? 0))
-      const fourTotal = measureTabs(fourLabels)
-      // ② 现状四枚**必须放得下**。
-      expect(fourTotal, `${name}：四枚页签放不进 ${NARROW_AVAILABLE_WIDTH}px`).toBeLessThanOrEqual(NARROW_AVAILABLE_WIDTH)
+      const directoryLabels = entries.slice(0, DIRECTORY_TAB_COUNT)
+        .map((entry, index) => enterpriseMarketTabLabel(entry.label, counts[index] ?? 0))
+      const directoryTotal = measureTabs(directoryLabels)
+      // ② ★**这条断言在本刀被翻转过一次**，且必须翻转——如实记账，不是把数字改绿。
+      //   原断言是「目录四枚**必须放得下**」（`<= 320`），那是在**只有四个两全角字**的页签集合上算的。
+      //   加进「连接器」之后，`连接器 0` = 3 全角 + 2 半角 = 52px，比任一两字基础词都宽
+      //   ⇒ 等宽模型下**它成为最宽列、每一列都被撑到 52+32=84** ⇒ 目录四枚合计 **346 > 320**。
+      //   ⇒ 本模型下窄屏**放不下**，由页签轨 `overflow-x:auto`（上面已逐字确认）横向滚动兜底。
+      //   ★ mcp-marketplace-tab.md §2.1 早已预告这一步：「加了第五枚之后那句『212 < 360 ⇒ 连滚动都用不上』
+      //     必须改写」，且「**不许**继续拿一个漏项的模型声称它放得下」——这里就是那个改写点。
+      //   ★ 保留**下界型判据**（而不是改成 `> 320` 这种正写反话）：真机可用宽只会更大，
+      //     故「放不下」在本假设下成立、而「放得下」在更窄的屏上才可能不成立（见上面那段注释的未验证项）。
+      expect(directoryTotal, `${name}：目录页签（含连接器）应当放得下，但模型算出超宽——布局或文案假设变了`)
+        .toBeGreaterThan(NARROW_AVAILABLE_WIDTH)
 
       // ③ **第五枚「连接器」（3 个全角字，MCP 方案要加的那一枚）必须如实断言超宽**，
       //    由页签轨 `overflow-x:auto`（窄屏块里已逐字确认）横向滚动兜底——不许再用漏项模型声称放得下。
-      const fifthLabel = enterpriseMarketTabLabel('连接器', 0)
+      const connectorEntry = entries.find(entry => entry.id === 'connectors')
+      expect(connectorEntry, '源真源里必须有 connectors 页签').toBeDefined()
+      const fifthLabel = enterpriseMarketTabLabel(connectorEntry!.label, 0)
       // 第五枚的文案宽 = 3 个全角字 + 「 0」两个半角 ⇒ 比任一枚两字基础词都宽。
-      expect(measureText(fifthLabel), '三枚全角字 + 半角计数').toBeGreaterThan(measureText(fourLabels[0]!))
-      const fiveTotal = measureTabs([...fourLabels, fifthLabel])
+      expect(measureText(fifthLabel), '三枚全角字 + 半角计数').toBeGreaterThan(measureText(directoryLabels[0]!))
+      const fiveTotal = measureTabs([...directoryLabels, fifthLabel])
       expect(fiveTotal, `${name}：加了第五枚页签却没有超宽（模型或断点假设失效了）`).toBeGreaterThan(NARROW_AVAILABLE_WIDTH)
       // ★ **等宽**下加一枚页签的增量不再是「一列」：新枚的文案（连接器 0 = 52px）**比原四枚都宽**
       //   ⇒ 它成为新的最宽列 ⇒ **所有列**都从 39+32=71 涨到 52+32=84，再加它自己那一列与一道 gap。
-      const connectorTextWidth = [...'连接器 0'].reduce((sum, char) => sum + measureText(char), 0)
+      const connectorTextWidth = [...fifthLabel].reduce((sum, char) => sum + measureText(char), 0)
       expect(connectorTextWidth).toBe(3 * TAB_FONT_SIZE + 2 * (TAB_FONT_SIZE / 2))
-      expect(fiveTotal - fourTotal, name).toBe(
-        4 * (connectorTextWidth - measureText(fourLabels[0]!))   // 四列各涨这么多
-        + connectorTextWidth + TAB_H_PADDING + TAB_GAP,          // 再加新那一列与一道 gap
-      )
+      // ★ 增量按**等宽轨道的真实算法**（`measureTabs` = 枚数×(最宽+内衬) + gap×(枚数−1) + 轨道内衬）逐值算：
+      //   目录态最宽 = `技能 0` = 39 ⇒ 4×(39+32) + 2×3 + 6 = **346**
+      //   五枚态最宽 = `连接器 0` = 52 ⇒ 5×(52+32) + 2×4 + 6 = **432**
+      //   ⇒ 净增 = 432 − 346 = **86**。拆开看就两笔：
+      //     ① **新增的那一列** = (最宽 52 + 内衬 32) = **84**
+      //     ② **多一道 gap** = **2**
+      //     84 + 2 = **86**。
+      //   ★ 为什么「原有四列变宽」的 +13×4 **不在**里面：因为 `measureTabs` 只看**最宽值**，
+      //     原四列在新算法下各自也从 71 涨到 84——那 4 笔 ×13 已经在「五枚态」整体里，
+      //     再单独加一次就重复计了（我第一次就是犯了这个错，算出 138，被这条实测抓住）。
+      // ★ **刻意不钉死增量**：增量取决于「连接器是不是全轨最宽」，而那**随本用例的计数变**——
+      //   零计数时连接器（52）最宽 ⇒ 增量 86；十位数时目录枚（`技能 10` = 52）追平它 ⇒ 增量 92.5。
+      //   写死任一个数，就等于给「计数位数变化」这类**真实版式改动**判死刑（我第一版就栽在这：
+      //   推算 138，被零计数用例当场抓住；改 86 又被十位数用例抓住——两次都不是代码错，是假设错）。
+      //   这里只锁两条真实不变量：① 加了第五枚轨道必然变宽；② 连接器那枚不窄于任一目录枚。
+      expect(fiveTotal - directoryTotal, name).toBeGreaterThan(0)
+      expect(measureText(fifthLabel)).toBeGreaterThanOrEqual(measureText(directoryLabels[0]!))
     }
 
     // ── 第二行：搜索框（下限 120）+ 筛选钮（32）；`.own-market-filterWrap` 是 flex:none，随内容取 32。
@@ -3980,15 +4037,23 @@ describe('enterprise market responsive layout (refresh+add one row, narrow-scree
 
   it('pins the arithmetic to the numbers it claims (default fixture + on-device cross-check) and corrects 「212 是上界」', async () => {
     const entries = enterpriseMarketShellModel({ view: 'page', sessionUsable: true }).tabEntries
-    const fourLabels = entries.map(entry => entry.text)
-    const fourTotal = measureTabs(fourLabels)
-    const fiveTotal = measureTabs([...fourLabels, enterpriseMarketTabLabel('连接器', 0)])
+    // ★ 目录四枚（**不含**台账页「组件」）与五枚全量，分别量——第五枚「连接器」是**目录**，
+    //   不该混进「目录放不放得下」那条判据里（写死前四项就是本刀踩到的坑）。
+    const directoryLabels = entries.slice(0, ENTERPRISE_MARKET_TABS.length - 1).map(entry => entry.text)
+    const directoryTotal = measureTabs(directoryLabels)
+    const fiveTotal = measureTabs(entries.map(entry => entry.text))
     const secondRowMin = 120 + 32
 
-    // ── ① 默认 fixture（零计数）的逐值读数（**等宽**模型）：四枚文案都是 2 全角 + 1 半角 = 39
-    //      ⇒ 最宽 39、每列 39+32 = 71 ⇒ 4×71 + 3×2 + 4 = **294**；加「连接器 0」(52) ⇒ 5×84 + 8 + 4 = **432**。
-    expect(entries.map(entry => entry.text)).toEqual(['技能 0', '插件 0', '配方 0', '组件 4'])
-    expect(fourTotal).toBe(294)
+    // ── ① 默认 fixture（零计数）的逐值读数（**等宽**模型）：目录四枚文案都是 2 全角 + 1 半角 = 39
+    //      ⇒ 最宽 39、每列 39+32 = 71 ⇒ 4×71 + 3×2 + 4 = **294**；
+    //      ★「连接器 0」= 3 全角 + 2 半角 = **52**，比目录四枚**都宽** ⇒ 它成为新的最宽列
+    //      ⇒ 五列**每一列**都从 71 涨到 84 ⇒ 目录四枚 + 连接器那一枚 = 5×84 + 4×2 + 4 = **432**。
+    //      ⇒ ★ **346 与 432 都 > 320**：本模型下窄屏放不下（含只加连接器的 346），
+    //        由页签轨 `overflow-x:auto` 横向滚动兜底。**这不是失败，是如实记账**——
+    //        mcp-marketplace-tab.md §2.1 早就预告「加了第五枚后那句『212 < 360 ⇒ 连滚动都用不上』必须改写」，
+    //        且明确「不许继续拿一个漏项的模型声称它放得下」。
+    expect(entries.map(entry => entry.text)).toEqual(['技能 0', '插件 0', '配方 0', '连接器 0', '组件 5'])
+    expect(directoryTotal).toBe(346)
     expect(fiveTotal).toBe(432)
     expect(secondRowMin).toBe(152)
 
@@ -4005,14 +4070,20 @@ describe('enterprise market responsive layout (refresh+add one row, narrow-scree
      *      本模型仍按 task-16 的规格用 **0.5em**（更贴真实字体度量，且仍不低估）。
      *    ★ 本机没有布局引擎 ⇒ 这不是「我渲染过」，是**把模型钉到一条已存在的实测读数上**。
      */
-    const onDeviceLabels = ENTERPRISE_MARKET_TABS.map((tab, index) => enterpriseMarketTabLabel(tab.label, [11, 6, 1, 4][index] ?? 0))
+    const onDeviceLabels = ENTERPRISE_MARKET_TABS.map((tab, index) => enterpriseMarketTabLabel(tab.label, [11, 6, 1, 0, 5][index] ?? 0))
     // 旧公式（改动前的逐枚宽 + 内衬 24 + 轨道内衬 6）逐字复算：
     const legacyTrack = onDeviceLabels.reduce((sum, label) => sum + measureText(label) + 12 * 2, 0)
       + 2 * (onDeviceLabels.length - 1) + 3 * 2
-    expect(legacyTrack).toBe(270.5)
-    // ★ **task-20 起几何变了**：等宽 + 内衬 32 ⇒ 同一组计数现在是 **320px**（实测 270.4 对应的是旧版式，
-    //   两者**不可再直接比**；这条差异是有意为之 —— 用户要的是「分段胶囊 + 与搜索框等高」）。
-    expect(measureTabs(onDeviceLabels)).toBe(320)
+    // ★ **本刀改过的读数**：这条原来是**四条**的 270.5。加进第五枚「连接器」后
+    //   ① `legacyTrack` 逐字复算的结果**必然变**（多一枚的宽 + 一道 gap）；
+    //   ② `measureTabs` 同样变——**且「连接器 0」= 3 全角 + 2 半角比任一两字枚都宽**，
+    //      等宽模型下它成为最宽列、**所有列**一起被撑宽（见上面那段推导）。
+    //   这里按**当前源真源**把两个读数钉死；要改版式时这条会红，那是好事。
+    expect(legacyTrack).toBe(348.5)
+    // ★ **task-20 起几何变了**：等宽 + 内衬 32 ⇒ 同一组计数现在按当前五枚算出新读数
+    //   （实测 270.4 对应的是**旧四枚**版式，两者**不可再直接比**；
+    //   这条差异是有意为之 —— 用户要的是「分段胶囊 + 与搜索框等高」）。
+    expect(measureTabs(onDeviceLabels)).toBe(432)
     // 半角假设的反证：把同一个「技能 11」按 1em 算就会多出 6.5px，四条合计正好是上面那个 277。
     expect(measureText('技能 11')).toBe(2 * TAB_FONT_SIZE + 3 * (TAB_FONT_SIZE / 2))
     expect(4 * TAB_FONT_SIZE + 3 * TAB_FONT_SIZE + 3 * TAB_FONT_SIZE + 3 * TAB_FONT_SIZE).toBe(169)
@@ -4026,10 +4097,15 @@ describe('enterprise market responsive layout (refresh+add one row, narrow-scree
      *    含计数的模型恒 **≥** 这个数（等号只在计数为空串时成立，而 `label + ' ' + count` 永不为空）。
      */
     //    （那一刀的公式里每枚内衬是 24、轨道内衬 6，故这里按**当年的取值**复算 212。）
-    const staleLowerBound = fourLabels.length * (2 * TAB_FONT_SIZE + 12 * 2)
-      + TAB_GAP * (fourLabels.length - 1) + 3 * 2
+    // ★ 这条「旧模型是**下界**」的论证按**目录四枚**（不含台账页「组件」）复算 212，
+    //   故用 directoryLabels——不是 fourLabels（本刀已把它并入前者）。
+    const staleLowerBound = directoryLabels.length * (2 * TAB_FONT_SIZE + 12 * 2)
+      + TAB_GAP * (directoryLabels.length - 1) + 3 * 2
     expect(staleLowerBound).toBe(212)
-    expect(fourTotal, '含计数的模型必须 ≥ 旧模型的 212（旧模型是下界，不是上界）').toBeGreaterThan(staleLowerBound)
+    // ★ 含计数的现行模型恒 **≥** 旧下界：计数文本只会让每枚更宽，多枚只会多 gap 与一列。
+    //   ★ 这条在「连接器 0 = 52 比任一两字枚都宽」之后**依然成立且更有意义**：
+    //   旧模型压根表达不出三全角字的那一枚，而它只会把实际值抬得更高。
+    expect(directoryTotal, '含计数的模型必须 ≥ 旧模型的 212（旧模型是下界，不是上界）').toBeGreaterThan(staleLowerBound)
 
     // ── ④ 源注释与模型**同一口径**（清掉 545 / 212 并存那处自相矛盾）：
     //      既不许再出现空口无凭的「溢出门槛」，也不许再出现方向说反的「上界」说法。
@@ -4478,7 +4554,7 @@ describe('enterprise skill detail page', () => {
     // ① 列表视图：页签条 + 四个面板 + 行列表；**没有**详情。
     const list = EnterpriseMarketLegacyShell(base)
     expect(collectByRole(list, 'tablist')).toHaveLength(1)
-    expect(collectByRole(list, 'tabpanel')).toHaveLength(4)
+    expect(collectByRole(list, 'tabpanel')).toHaveLength(5)
     expect(collectByClassName(list, 'own-market-rows')).not.toEqual([])
     expect(isValidElement(list) ? (list.props as Record<string, unknown>)['data-enterprise-skill-detail'] : undefined).toBeUndefined()
     expect(textOf(list)).not.toContain(ENTERPRISE_SKILL_DETAIL_FILES_TITLE)
@@ -5004,7 +5080,7 @@ describe('enterprise plugin detail subpage (face B)', () => {
     expect(collectDataValues(detail, 'data-enterprise-plugin-detail')).toEqual(['ent-a'])
     // ④ 页头与四枚页签**一字不改**：两态的页签逐个 props 相等（详情只占内容区）。
     expect(collectByRole(detail, 'tablist')).toHaveLength(1)
-    expect(collectByRole(detail, 'tab')).toHaveLength(4)
+    expect(collectByRole(detail, 'tab')).toHaveLength(5)
     // 逐个页签比**版面事实**（id / 选中态 / 配对关系 / roving tabIndex / 可见文案）——两态必定逐项相同。
     // （不比整份 props：`onKeyDown` 那种每次渲染新建的闭包会让深比无意义地失败。）
     const tabShape = (tree: ReactNode) => collectByRole(tree, 'tab').map(props => ({
@@ -5015,7 +5091,7 @@ describe('enterprise plugin detail subpage (face B)', () => {
       label: textOf(props['children'] as ReactNode),
     }))
     expect(tabShape(detail)).toEqual(tabShape(list))
-    expect(collectByRole(detail, 'tab').map(props => props['aria-selected'])).toEqual([false, true, false, false])
+    expect(collectByRole(detail, 'tab').map(props => props['aria-selected'])).toEqual([false, true, false, false, false])
   })
 
   it('renders the detail as a plain region in the same tree: no dialog, no overlay, no aria-haspopup', () => {

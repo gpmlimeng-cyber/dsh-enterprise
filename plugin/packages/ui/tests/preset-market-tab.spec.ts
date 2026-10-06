@@ -268,8 +268,8 @@ function detailWithoutDependencies(): Record<string, unknown> {
 
 describe('企业配方 page tab (with 企业技能 / 企业插件 side by side)', () => {
   it('adds 配方 as the third store tab, right after 插件 and before 组件', () => {
-    expect(ENTERPRISE_MARKET_TABS.map(tab => tab.id)).toEqual(['skills', 'plugins', 'presets', 'components'])
-    expect(ENTERPRISE_MARKET_TABS.map(tab => tab.label)).toEqual(['技能', '插件', '配方', '组件'])
+    expect(ENTERPRISE_MARKET_TABS.map(tab => tab.id)).toEqual(['skills', 'plugins', 'presets', 'connectors', 'components'])
+    expect(ENTERPRISE_MARKET_TABS.map(tab => tab.label)).toEqual(['技能', '插件', '配方', '连接器', '组件'])
     // 位次是**用户指定的**：插件之后、组件之前（不是追加到末尾）。
     expect(ENTERPRISE_MARKET_TABS[2]?.id).toBe('presets')
     // id 是新取的 `presets`（**不复用**已按用户要求移除的旧「应用商店」那批 id/文案）。
@@ -286,12 +286,14 @@ describe('企业配方 page tab (with 企业技能 / 企业插件 side by side)'
       ENTERPRISE_MARKET_TAB_IDS.skills.tab,
       ENTERPRISE_MARKET_TAB_IDS.plugins.tab,
       ENTERPRISE_MARKET_TAB_IDS.presets.tab,
+      ENTERPRISE_MARKET_TAB_IDS.connectors.tab,
       ENTERPRISE_MARKET_TAB_IDS.components.tab,
     ])
     expect(panels.map(panel => panel['id'])).toEqual([
       ENTERPRISE_MARKET_TAB_IDS.skills.panel,
       ENTERPRISE_MARKET_TAB_IDS.plugins.panel,
       ENTERPRISE_MARKET_TAB_IDS.presets.panel,
+      ENTERPRISE_MARKET_TAB_IDS.connectors.panel,
       ENTERPRISE_MARKET_TAB_IDS.components.panel,
     ])
     // 四向配对：每个页签的 aria-controls 都能解析到一枚 aria-labelledby 指回它的面板。
@@ -301,7 +303,7 @@ describe('企业配方 page tab (with 企业技能 / 企业插件 side by side)'
       expect(panel?.['aria-labelledby']).toBe(tab['id'])
     }
     // roving tabIndex 只剩当前页签可 Tab 到。
-    expect(tabs.map(tab => tab['tabIndex'])).toEqual([0, -1, -1, -1])
+    expect(tabs.map(tab => tab['tabIndex'])).toEqual([0, -1, -1, -1, -1])
     // ←/→/Home/End 仍是「走焦 + 选中」一步到位：配方参与循环（从企业插件往右一步就是它）。
     const onSelectTab = vi.fn()
     const keyboard = byRole(EnterpriseMarketLegacyShell({ view: 'page', onSelectTab }), 'tab')
@@ -310,17 +312,19 @@ describe('企业配方 page tab (with 企业技能 / 企业插件 side by side)'
     expect(onSelectTab).toHaveBeenLastCalledWith('presets')
     press(2, 'ArrowLeft')
     expect(onSelectTab).toHaveBeenLastCalledWith('plugins')
-    press(3, 'ArrowRight')
+    // ★ 索引**不写死**：`press(3, …)` 在四枚下指「末位往右绕回首枚」，
+    //   加第五枚后 3 不再是末位 ⇒ 改成从源真源取末位，否则这条会在**错的页签**上自证通过。
+    press(ENTERPRISE_MARKET_TABS.length - 1, 'ArrowRight')
     expect(onSelectTab).toHaveBeenLastCalledWith('skills')
     press(0, 'End')
     expect(onSelectTab).toHaveBeenLastCalledWith('components')
-    press(3, 'Home')
+    press(ENTERPRISE_MARKET_TABS.length - 1, 'Home')
     expect(onSelectTab).toHaveBeenLastCalledWith('skills')
   })
 
   it('counts the 企业配方 tab from the rows it really renders (and keeps it at 0 without a directory)', () => {
     const withoutDirectory = enterpriseMarketShellModel({ view: 'page', sessionUsable: true })
-    expect(withoutDirectory.tabEntries.map(entry => entry.id)).toEqual(['skills', 'plugins', 'presets', 'components'])
+    expect(withoutDirectory.tabEntries.map(entry => entry.id)).toEqual(['skills', 'plugins', 'presets', 'connectors', 'components'])
     expect(withoutDirectory.tabCounts.presets).toBe(0)
     expect(withoutDirectory.presetsPanel).toEqual({ kind: 'hidden' })
     const withDirectory = enterpriseMarketShellModel({
@@ -332,7 +336,9 @@ describe('企业配方 page tab (with 企业技能 / 企业插件 side by side)'
     expect(withDirectory.presetsPanel).toEqual({ kind: 'ready' })
     // 四枚页签的文案同源：组件那枚恒取组件清单长度，其余取自真实行数。
     expect(withoutDirectory.tabEntries.map(entry => entry.text)).toEqual([
-      '技能 0', '插件 0', '配方 0', `组件 ${ENTERPRISE_MARKET_COMPONENTS.length}`,
+      // ★连接器计数恒 0（目录尚未接入，见 src 那枚 tabCounts 注释）——
+      //   刻意**不**拿别的数组长度顶替：面板空白却喊「有 N 条」是既有明确禁止的行为。
+      '技能 0', '插件 0', '配方 0', '连接器 0', `组件 ${ENTERPRISE_MARKET_COMPONENTS.length}`,
     ])
   })
 })
@@ -635,7 +641,7 @@ describe('企业配方 detail sub-page', () => {
     const list = EnterpriseMarketLegacyShell(listProps)
     // 列表视图：页签条 + 四个面板 + 配方行；没有详情。
     expect(byRole(list, 'tablist')).toHaveLength(1)
-    expect(byRole(list, 'tabpanel')).toHaveLength(4)
+    expect(byRole(list, 'tabpanel')).toHaveLength(5)
     expect(byData(list, 'data-enterprise-preset-detail')).toEqual([])
     // 点**行标题**（行本体）才进详情；动作区那枚药丸与它无关（结构性同级，不冒泡）。
     const copyAndOpen = byData(EnterpriseMarketLegacyShell({ ...listProps, onCopyPresetInstruction: vi.fn() }), 'data-enterprise-preset-open')[0]
@@ -923,8 +929,8 @@ describe('reverse locks for the 企业配方 tab', () => {
     for (const legacy of ['应用商店', 'market-tab-store', 'market-panel-store', 'EnterpriseMarketStore', 'EnterpriseMarketStorePage']) {
       expect(source, legacy).not.toContain(legacy)
     }
-    // 页签 id 就是这四枚（新取的 `presets`），没有第五枚、也没有复用旧 id。
-    expect(Object.keys(ENTERPRISE_MARKET_TAB_IDS).sort()).toEqual(['components', 'plugins', 'presets', 'skills'])
+    // 页签 id 就是这五枚（第四枚是 P0-5 新取的 `connectors`），没有第六枚、也没有复用旧 id。
+    expect(Object.keys(ENTERPRISE_MARKET_TAB_IDS).sort()).toEqual(['components', 'connectors', 'plugins', 'presets', 'skills'])
     // 页签条上出现的文案里没有一个「商店」字样（那是被移除的独立入口的名字）。
     expect(ENTERPRISE_MARKET_TABS.map(tab => tab.label).join(' ')).not.toContain('商店')
   })

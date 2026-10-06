@@ -362,12 +362,12 @@ export {
  * 列表标题行那枚签由 `market-entry-badge.ts` 的 DOM 装饰插在官方标题按钮正后方（官方 `CardHead` 不接受
  * `tags`，API 层次做不到，见该文件 [POS]）。
  * **本刀（task-17 ③ 副标题顺序与页签同源）**：三个词**只换顺序、不动用词**——
- * 页签真源 `ENTERPRISE_MARKET_TABS` 的顺序是 **技能 · 插件 · 配方 · 组件**，而这句话原先写成
+ * 页签真源 `ENTERPRISE_MARKET_TABS` 的顺序是 **技能 · 插件 · 配方 · 连接器 · 组件**，而这句话原先写成
  * 「企业插件 · 技能 · 配方」（插件在最前），两处口径不同源。现改成与页签同序的
- * 「**技能 · 企业插件 · 配方**」；★**「组件」不进这句话**是刻意的（组件是台账、不是目录，
- * 与同文件那个搜索占位符排除它同一条口径），页签里有第四枚不代表描述行要列四样。
+ * 「**技能 · 企业插件 · 配方 · 连接器**」；★**「组件」不进这句话**是刻意的（组件是台账、不是目录，
+ * 与同文件那个搜索占位符排除它同一条口径），页签里有第五枚不代表描述行要列全五样。
  */
-export const ENTERPRISE_MARKET_SUMMARY = '技能 · 企业插件 · 配方'
+export const ENTERPRISE_MARKET_SUMMARY = '技能 · 企业插件 · 配方 · 连接器'
 
 /**
  * 组件清单真源：**四行按交付顺序**。
@@ -385,6 +385,11 @@ export const ENTERPRISE_MARKET_COMPONENTS = [
   { gate: 'session', id: 'plugins', label: '插件', module: 'enterprise plugins · remote.pluginManager', note: '企业发布的插件与官方插件包', reserved: false },
   { gate: 'session', id: 'skills', label: '技能', module: 'official skills/list', note: '企业发布的技能包与装配指令', reserved: false },
   { gate: 'session', id: 'presets', label: '配方', module: 'dsh-preset / .dshpreset', note: '企业配方广场', reserved: false },
+  // ★第五行（P0-5 连接器）：`gate` 取 `session` 而非 `local`——企业下发是主路径（管理员配好、员工只读），
+  // 目录本身要登录才取得到，与技能/插件/配方三行同一条口径。
+  // ★「用户自己配本机连接」是**写入口**（手动添加），与 `gate` 表达的「这枚开关归谁管」是两件事，
+  // 不因此把门控降成 `local`。五件门控投影全部按 id 查表 ⇒ 加这一行即自动生效。
+  { gate: 'session', id: 'connectors', label: '连接器', module: 'mcp-client · cordis-plugin-development', note: '企业统一接好的系统，点一下就能用', reserved: false },
   { gate: 'local', id: 'library', label: '资料库', module: 'library · local settings', note: '把资料集中收好，随时取用', reserved: false },
 ] as const
 
@@ -398,8 +403,8 @@ export const ENTERPRISE_MARKET_PLAN = [
   { id: 'presets', label: '配方', note: '预留' },
 ] as const
 
-/** `page` 视图**四枚**页签的 id（页签条顺序即 `ENTERPRISE_MARKET_TABS` 的数组顺序）。 */
-export type EnterpriseMarketTabId = 'skills' | 'plugins' | 'presets' | 'components'
+/** `page` 视图**五枚**页签的 id（页签条顺序即 `ENTERPRISE_MARKET_TABS` 的数组顺序）。 */
+export type EnterpriseMarketTabId = 'skills' | 'plugins' | 'presets' | 'connectors' | 'components'
 
 /**
  * 页签条真源：**顺序即渲染顺序**，第一项同时是默认选中项（见 `ENTERPRISE_MARKET_DEFAULT_TAB`）。
@@ -410,11 +415,16 @@ export type EnterpriseMarketTabId = 'skills' | 'plugins' | 'presets' | 'componen
  * （原先企业技能 / 企业插件两节内部各占一行的 `N 个` 计数行已退场，数字并入页签，见该投影）。
  */
 export const ENTERPRISE_MARKET_TABS = [
-  // 页签名（用户口径）：**去「企业」前缀**、四名逐字为 技能 / 插件 / 配方 / 组件。
+  // 页签名（用户口径）：**去「企业」前缀**、五名逐字为 技能 / 插件 / 配方 / 连接器 / 组件。
   // 「企业」二字已由标题行的「企业」徽章承担，页签再带一遍是噪音（且比竞品多两个字）。
   { id: 'skills', label: '技能' },
   { id: 'plugins', label: '插件' },
   { id: 'presets', label: '配方' },
+  // ★第五枚页签（P0-5 连接器）：位次＝**配方之后、组件之前**——`components` 是台账页、
+  // 必须恒居末，而「连接器」与技能/插件/配方同属目录（依据口径 2「包含内容之前」）。
+  // ★可见文案**不含** `MCP` 字样：照 connector-architecture.md §3 的术语降维纪律，
+  // MCP 只允许出现在后台管理端与客户端详情里的「技术信息」折叠区。
+  { id: 'connectors', label: '连接器' },
   { id: 'components', label: '组件' },
 ] as const
 
@@ -551,6 +561,7 @@ export const ENTERPRISE_MARKET_TAB_IDS: Record<EnterpriseMarketTabId, { readonly
   skills: { tab: 'market-tab-skills', panel: 'market-panel-skills' },
   plugins: { tab: 'market-tab-plugins', panel: 'market-panel-plugins' },
   presets: { tab: 'market-tab-presets', panel: 'market-panel-presets' },
+  connectors: { tab: 'market-tab-connectors', panel: 'market-panel-connectors' },
   components: { tab: 'market-tab-components', panel: 'market-panel-components' },
 }
 
@@ -570,7 +581,7 @@ export function enterpriseMarketTabLabel(label: string, count: number): string {
  * **目录类**页签（有行列表的那三个 = 技能 / 插件 / 配方）：`EnterpriseMarketInlineRows` 与行 facts、行键投影都用它定位。
  * 「包含内容」页签恒四行（插件/技能/配方 + 资料库）、是台账式清单而不是目录，故不在这个联合里（它走 `EnterpriseMarketComponentsPanel`）。
  */
-export type EnterpriseMarketDirectoryTabId = 'skills' | 'plugins' | 'presets'
+export type EnterpriseMarketDirectoryTabId = 'skills' | 'plugins' | 'presets' | 'connectors'
 
 /**
  * 行的开合状态真源（共享控制器 `useEnterpriseMarketController` 的 `useState<string | null>`）：
@@ -1949,6 +1960,9 @@ export function enterpriseMarketShellModel(props: EnterpriseMarketShellProps): E
     skills: skillsVisible ? enterpriseSkills.length : 0,
     plugins: pluginsVisible ? enterprisePlugins.length : 0,
     presets: presetsVisible ? enterprisePresets.length : 0,
+    // ★连接器（P0-5）：本刀只落**页签真源**，尚无目录数据源 ⇒ 如实记 0。
+    // 刻意**不**拿任何别的数组长度顶替——「面板空白时还在喊有 N 条」是既有明确禁止的行为。
+    connectors: 0,
     components: ENTERPRISE_MARKET_COMPONENTS.length,
   }
   return {
@@ -6939,6 +6953,23 @@ export function EnterpriseMarketLegacyShell(props: EnterpriseMarketShellProps): 
             ) : (
               <EnterpriseMarketListHint state={model.presetsPanel} onRetry={props.onRetryPresets} />
             )}
+          </section>
+        ) : null}
+      </EnterpriseMarketPanel>
+      {/* 「连接器」页签（P0-5）：★**本刀只落页签骨架，目录尚未接入** ⇒
+          面板里只说一句真话（企业还没下发任何连接器），**不画任何一行占位、不编造计数**。
+          数据源、行模型与详情面按 docs/plan/mcp-marketplace-tab.md §4/§5 后续刀接入，
+          届时只替换这一段，`EnterpriseMarketPanel` 与页签真源一个字都不用动。
+          ★术语降维：可见文案**不出现** `MCP`（照 connector-architecture.md §3 的三步纪律）。 */}
+      <EnterpriseMarketPanel tab="connectors" activeTab={model.activeTab}>
+        {model.activeTab === 'connectors' ? (
+          <section className="own-market-section" data-market-section="enterprise-connectors">
+            <EnterpriseMarketListHint state={{
+              kind: 'empty',
+              // ★说「开发中」而不是「目录为空」——后台确实**还没接**这一类数据，
+              //   说成「空」会让管理员以为企业没配连接器（真实原因不同，下一步也不同）。
+              hint: `连接器${ENTERPRISE_ADD_MENU_DEVELOPING}`,
+            }} />
           </section>
         ) : null}
       </EnterpriseMarketPanel>
