@@ -21,7 +21,7 @@ src/main/java/com/owndsh/enterprise/audit/: 45-action 显式 metadata DTO、只�
 src/main/java/com/owndsh/enterprise/deployment/: deploy profile 一次性管理员、PostgreSQL 锁和初始化完成标记边界；局部地图见 deployment/CLAUDE.md。
 src/main/java/com/owndsh/enterprise/crypto/: HKDF-SHA-256 用途派生与 AES-256-GCM 秘密/cursor 保护，不暴露 master key 或派生 key。
 src/main/java/com/owndsh/enterprise/revision/: 固定 BOOTSTRAP scope 的 optimistic CAS、稳定冲突错误码与审计同事务编排。
-src/main/resources/db/migration/: PostgreSQL `V0` 至 `V35` 真源，V0 承接原 Host 基线，空库与旧 baseline 0 共用后续迁移，建立企业事实、Refresh Session、实测 usage 快照、独立配额扣额、配方广场、品牌单行配置、问题反馈两张表与技能目录三表；局部地图见 db/migration/CLAUDE.md。
+src/main/resources/db/migration/: PostgreSQL `V0` 至 `V44` 真源，V0 承接原 Host 基线，空库与旧 baseline 0 共用后续迁移，建立企业事实、Refresh Session、实测 usage 快照、独立配额扣额、配方广场、品牌单行配置、问题反馈两张表、技能目录三表与连接器目录两表（V44）；★**空库迁到 latest 已于 2026-10-06 首次在真 PostgreSQL 上跑通**（`EnterpriseMigrationTest` 8/8、177.4s，表数断言 43→45），执行读数见 docs/plan/connector-architecture.md §7；局部地图见 db/migration/CLAUDE.md。
 src/main/resources/static/enterprise/auth/: 无 Token 的公开身份源选择、LOCAL 首次改密/验证码、LDAP 密码与 OIDC 跳转页；局部地图见 auth/CLAUDE.md。
 src/test/java/com/owndsh/enterprise/: 单元和 Testcontainers 集成验收，覆盖数据库、身份、PKCE/Redis、Refresh Token 轮换/重放、设备、模型、配额、插件、协议和事务边界；局部地图见 src/test/CLAUDE.md。
 

@@ -799,8 +799,43 @@ decide(actor, cap, host):
 >
 > ### 下一刀照做清单（第二十八刀整理；这一段的**代码**我没写，理由见下）
 >
-> **为什么停在这里**：这三件都是**纯 Java**，而本机没有 JDK/Docker ⇒ 我只能做语法级验证，写了就是"不可编译验证的新代码"。
-> 与其再堆一层未验证面，不如把"该写什么、按什么形状写、验什么"写死，让有 JDK 的一侧照着填 —— 那是确定性的活。
+> ★ **第二十九刀更新（2026-10-06）——本节的两个前提都已改变，照着填之前先读这段**：
+>
+> **① 「本机没有 JDK/Docker」已不成立。** 本机 JDK 21.0.11 + Maven 3.9 与 Docker 均可用，
+> `postgres:17-alpine` / `redis` / `ryuk` 镜像**本机已有**（外网不通，`docker pull` 会超时，
+> 但**本地已有就无需拉** —— 别把那个超时误读成"环境不支持 Testcontainers"）。
+>
+> **② 上一刀「未编译未执行」的登记已关闭——而且是靠一次真实编译抓到一个真缺陷。**
+> `ConnectorDescriptorGate` 存在一处 `QUOTA_KEYS` **重复定义**（两键旧版与四键现行并存），
+> **整个 enterprise 模块编译不过** ⇒ 已由 `8195635` 修掉（行为零变更：两处引用本就解析到四键版）。
+> 实跑读数：`compile` BUILD SUCCESS · `Connector*` **29/29** · `EnterpriseMigrationTest`
+> （**真 PostgreSQL，V44 空库建表**）**8/8**、177.4s · `RbacSeedTest` / 契约漂移门禁 /
+> `LibraryMigrationTest` / `AuditMetadataPolicyTest` **13/13**。
+> ⇒ **V44 已证明"建得起来"**；上一刀列的五处必红门禁全部实跑为绿。
+>
+> **⇒ 因此本清单现在只剩「顺序」这一个真问题**（不再是工具链问题）：
+> `../index.ts` 对 `connector/` **仍零 import** ⇒ 连接器段**没有任何路由或界面调用**。
+> 现在把下面三份纯后端文件写完，装到本机**你在界面上仍然看不到任何变化**。
+> 下一刀应**先裁定接线顺序**（宿主 import + 本地路由 + console 页面在后端持久层之先还是之后），
+> 再照本清单落码 —— 否则又是一次「刀很扎实但用户看不见」的往返。
+>
+> ⚠️ **本机跑后端测试的正确命令（两个必踩的坑，照抄这两行）**：
+> ```bash
+> mvn -B -ntp -Pdev -pl owndsh-modules/owndsh-enterprise -am test \
+>     -Dtest='<类名>' -Dmaven.test.skip=false -Dsurefire.failIfNoSpecifiedTests=false
+> ```
+> 坑一：根 `pom.xml:66` 有 `<maven.test.skip>true</maven.test.skip>` **全局默认**，
+> 而 `dev` profile **只设了 `profiles.active`、未覆盖它** ⇒ 不显式传 `-Dmaven.test.skip=false`
+> 的结果是 **`BUILD SUCCESS` + `Tests are skipped.`**，看着绿、其实一条没跑。
+> 坑二：`-am` 会把 upstream 模块一并拉进来，而它们没有匹配 `-Dtest` 的类 ⇒ 必须加
+> `-Dsurefire.failIfNoSpecifiedTests=false`（**属性名带 `surefire.` 前缀**，
+> 写成 `-DfailIfNoSpecifiedTests=false` 不生效）。
+> ★两个坑**都只表现为"绿"、不表现为"红"** —— 与 CLAUDE.md 那条「漏 `@Tag("dev")` 会被整类静默排除」
+> 是同一族陷阱：**假绿比假红贵得多**。
+>
+> **为什么当初停在这里（历史记录，保留以说明本清单的由来）**：这三件都是纯 Java，
+> 而当时本机没有 JDK/Docker ⇒ 只能做语法级验证，写了就是"不可编译验证的新代码"。
+> 与其再堆一层未验证面，不如把"该写什么、按什么形状写、验什么"写死 —— 那是确定性的活。
 >
 > **① `persistence/JdbcConnectorStore.java`**（照 `JdbcPresetStore` 的既有写法：`JdbcTemplate` + `RowMapper` + `JsonMapper`）
 >   - 实现 `ConnectorStore` 的**全部十个方法**（接口已定稿，逐个都有注释说明语义：`findByConnectorId` / `findById` /
