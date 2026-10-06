@@ -305,12 +305,12 @@ function textOf(node: ReactNode): string {
  */
 const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(38597 chars)",
+  "  style(39229 chars)",
   // **本刀（本地导入）**加的这一行：接线面在场时那份 `<style>` 之后紧跟一枚**恒不可见**的文件选择器
   //（行内 `display:none`，零新增 CSS 类 ⇒ `<style>` 长度与校验和一字未动）。空闲态（`state === undefined`）
   // **不出**任何反馈，故整份大纲只多这一行；三种状态下的反馈另有专门用例逐条锁。
   "  input[type=file][accept=.dshskill,application/vnd.dsh.skill+zip,application/zip][aria-label=选择要导入的技能包文件][style=[object Object]][onChange=[fn]]",
-  "  div[className=own-market-searchRow]",
+  "  div[className=own-market-navBar]",
   "    div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
   "      button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=true][aria-controls=market-panel-skills][tabIndex=0][onClick=[fn]][onKeyDown=[fn]]",
   "        #text:技能 1",
@@ -322,6 +322,7 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "        #text:连接器 0",
   "      button[id=market-tab-components][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-components][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
   "        #text:组件 5",
+  "  div[className=own-market-searchRow]",
   "    span[className=own-market-rowBarSpacer][aria-hidden=true]",
   "    span[className=own-market-query]",
   "      #opaque:[object Object]",
@@ -379,10 +380,10 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
  */
 const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(38597 chars)",
+  "  style(39229 chars)",
   // 同一行文件选择器（三支视图共用同一份 chrome；插件页签这一份没有插件详情在场，故不挂第二份样式表）。
   "  input[type=file][accept=.dshskill,application/vnd.dsh.skill+zip,application/zip][aria-label=选择要导入的技能包文件][style=[object Object]][onChange=[fn]]",
-  "  div[className=own-market-searchRow]",
+  "  div[className=own-market-navBar]",
   "    div[role=tablist][aria-label=企业市场][className=own-market-storeTabs]",
   "      button[id=market-tab-skills][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-skills][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
   "        #text:技能 1",
@@ -394,6 +395,7 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "        #text:连接器 0",
   "      button[id=market-tab-components][type=button][role=tab][className=own-market-storeTab][aria-selected=false][aria-controls=market-panel-components][tabIndex=-1][onClick=[fn]][onKeyDown=[fn]]",
   "        #text:组件 5",
+  "  div[className=own-market-searchRow]",
   "    span[className=own-market-rowBarSpacer][aria-hidden=true]",
   "    span[className=own-market-query]",
   "      #opaque:[object Object]",
@@ -589,7 +591,7 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
  *   `style(N chars)` 那一行**。
  * ★ **复审整改（在线/系统搜索两面的审查）**：搜索框 `.own-market-query` 的底色也是那枚**本版 DSH
  *   不存在**的 token（`background-primary` ⇒ 兜底 `#fff` 恒白 ⇒ 深色下就是一块白），按官方 Input 所在的
- *   面取 `bg-layer-1`（与本页选中页签**同一枚**，浅色下仍是白）。⇒ `style(38605 chars)` → `style(38597 chars)`、
+ *   面取 `bg-layer-1`（与本页选中页签**同一枚**，浅色下仍是白）。⇒ `style(38605 chars)` → `style(39229 chars)`、
  *   FNV-1a 校验和 2310043017 → **3703247831**（**再基线化，不是放宽判据**）；两份大纲**仍只动
  *   `style(N chars)` 那一行**。本刀其余改动全在 JSX 与别名文案上，CSS 只动这一处（-8 字符 = 换掉那个
  *   更长的 token 名本身），故长度差额可逐字对上。
@@ -600,8 +602,8 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
  *   无 `.own-market-filterWrap`），本刀**一字未动**，由专门用例逐子项锁住（D2）。
  *   任何人再改这份 CSS（加装饰或删规则）都会在这里、以及那两处 `style(N chars)` 上立刻显形。
  */
-const LEGACY_STYLE_LENGTH = 38597
-const LEGACY_STYLE_CHECKSUM = 3703247831
+const LEGACY_STYLE_LENGTH = 39229
+const LEGACY_STYLE_CHECKSUM = 832929093
 
 /** 「企业技能」节的目录 fixture：与 skill-market.spec 的列表投影同形（列表态 versionId/skills 为空）。 */
 const SKILL: EnterpriseRuntimeSkill = {
@@ -3899,11 +3901,14 @@ describe('enterprise market responsive layout (refresh+add one row, narrow-scree
     //   所以这里**不能**对整份顶层串做子串否定（那会恒红）；必须**按规则**锁「这一条没被改成换行」。
     expect(cssRuleBody(topText, '.own-market-searchRow'), '窄屏的换行形态不许出现在顶层').toContain('flex-wrap:nowrap')
     expect(topText, '页签满宽不许出现在顶层').not.toContain('flex:0 0 100%')
+    // ★本刀：页签行的**居中**住在顶层（宽屏真居中），降级为靠左只在窄屏块里。
+    expect(cssRuleBody(topText, '.own-market-navBar')).toContain('justify-content:center')
     expect(topText, '页签横向滚动不许出现在顶层').not.toContain('overflow-x:auto')
     expect(cssRuleBody(topText, '.own-market-rowBarSpacer'), '窄屏隐藏占位那条不许出现在顶层').not.toContain('display:none')
 
     // ── ② 窄屏形态**确实住在** 560px 那条媒体查询里（既锁断点值、也锁四条规则的取值逐字）。
-    const narrow = mediaBlocks.filter(part => part.text.indexOf('.own-market-storeTabs{flex:0 0 100%') !== -1)
+    // ★本刀：按新的窄屏取值定位这条媒体块（页签轨已独占一行，改为 flex:0 1 auto + 靠左滚动）。
+    const narrow = mediaBlocks.filter(part => part.text.indexOf('.own-market-storeTabs{flex:0 1 auto') !== -1)
     expect(narrow).toHaveLength(1)
     const narrowText = narrow[0]!.text
     expect(cssRuleBody(narrowText, '.own-market-searchRow')).toContain('flex-wrap:wrap')
@@ -3912,7 +3917,12 @@ describe('enterprise market responsive layout (refresh+add one row, narrow-scree
     //   而 row-gap:0 让两行紧贴（真机截图里胶囊与搜索框连成一片）⇒ 改成 8px。
     expect(cssRuleBody(narrowText, '.own-market-searchRow')).toContain('row-gap:8px')
     // 页签独占第一行：满宽 + 不收缩 + 横向滚动（超宽时用到滚动，见下面那条算术锁）。
-    expect(cssRuleBody(narrowText, '.own-market-storeTabs')).toContain('flex:0 0 100%')
+    // ★本刀：页签轨已从工具行左端提到**页面最顶独占一行**（父级 .own-market-navBar），
+    //   故窄屏不再要求它「独占 100% 宽」，而是**可收缩 + 溢出滚动 + 靠左**。
+    expect(cssRuleBody(narrowText, '.own-market-storeTabs')).toContain('flex:0 1 auto')
+    expect(cssRuleBody(narrowText, '.own-market-storeTabs')).toContain('max-width:100%')
+    // 居中在窄屏要降为靠左：轨道比视口宽时居中会让两端各露半截、看着像被裁掉。
+    expect(cssRuleBody(narrowText, '.own-market-navBar')).toContain('justify-content:flex-start')
     expect(cssRuleBody(narrowText, '.own-market-storeTabs')).toContain('overflow-x:auto')
     // 搜索框在第二行吃掉剩余宽度（上限解除），但它的 120px 下限不许动。
     expect(cssRuleBody(narrowText, '.own-market-query')).toContain('flex:1 1 auto')
@@ -3939,7 +3949,7 @@ describe('enterprise market responsive layout (refresh+add one row, narrow-scree
   it('fits four tabs and overflows with a fifth (per-tab text, counted labels, derived from ENTERPRISE_MARKET_TABS)', () => {
     const css = shellCss()
     const topText = splitTopLevelCss(css).filter(part => part.scope === 'top').map(part => part.text).join('\n')
-    const narrowText = splitTopLevelCss(css).filter(part => part.scope === 'media' && part.text.indexOf('.own-market-storeTabs{flex:0 0 100%') !== -1).map(part => part.text).join('\n')
+    const narrowText = splitTopLevelCss(css).filter(part => part.scope === 'media' && part.text.indexOf('.own-market-storeTabs{flex:0 1 auto') !== -1).map(part => part.text).join('\n')
 
     // ── 先确认算术依赖的取值**真的在 CSS 里**（否则下面的算式就是照着注释算的，不是照着代码算的）。
     expect(cssRuleBody(topText, '.own-market-storeTab')).toContain('padding:0 16px')
@@ -3953,7 +3963,12 @@ describe('enterprise market responsive layout (refresh+add one row, narrow-scree
     expect(cssRuleBody(topText, '.own-market-storeTabs')).toContain('grid-auto-flow:column')
     expect(cssRuleBody(topText, '.own-market-query')).toContain('min-width:120px')
     expect(cssRuleBody(topText, '.own-market-filterBtn')).toContain('width:32px')
-    expect(cssRuleBody(narrowText, '.own-market-storeTabs')).toContain('flex:0 0 100%')
+    // ★本刀：页签轨已从工具行左端提到**页面最顶独占一行**（父级 .own-market-navBar），
+    //   故窄屏不再要求它「独占 100% 宽」，而是**可收缩 + 溢出滚动 + 靠左**。
+    expect(cssRuleBody(narrowText, '.own-market-storeTabs')).toContain('flex:0 1 auto')
+    expect(cssRuleBody(narrowText, '.own-market-storeTabs')).toContain('max-width:100%')
+    // 居中在窄屏要降为靠左：轨道比视口宽时居中会让两端各露半截、看着像被裁掉。
+    expect(cssRuleBody(narrowText, '.own-market-navBar')).toContain('justify-content:flex-start')
     // 横向滚动兜底那条必须在窄屏块里（第五枚超宽时**唯一**的降级路径）。
     expect(cssRuleBody(narrowText, '.own-market-storeTabs')).toContain('overflow-x:auto')
 
@@ -4201,8 +4216,9 @@ describe('enterprise market row grid breakpoint (task-17 ①: two columns trunca
 
   it('keeps the tool row at 600 while the grid moves to 900: the two breakpoints stay separate tiers', () => {
     const media = splitTopLevelCss(css()).filter(part => part.scope === 'media')
-    // 工具行那四条窄屏取值仍在 560 那条里（本刀**一字未动**它）。
-    const toolRow = media.filter(part => part.text.includes('.own-market-storeTabs{flex:0 0 100%'))
+    // ★本刀：工具行那档的窄屏取值——页签轨已搬到页面最顶独占一行，
+    //   故它在 600 那档里是 `flex:0 1 auto` + 溢出滚动（不再是「独占 100% 宽」）。
+    const toolRow = media.filter(part => part.text.includes('.own-market-storeTabs{flex:0 1 auto'))
     expect(toolRow).toHaveLength(1)
     expect(toolRow[0]!.text).toContain(`@media (max-width: ${TOOL_ROW_BREAKPOINT}px)`)
     expect(TOOL_ROW_BREAKPOINT).toBe(600)
@@ -4346,14 +4362,17 @@ describe('enterprise market row rhythm (task-19: 66 CSS px per row, same as the 
     const order = (Array.isArray(children) ? children : [children])
       .map(resolveClass)
       .filter((cls): cls is string => cls !== undefined)
-    // ① 精确顺序（D1 核心证据）：占位在**搜索框之前** ⇒ 桌面下剩余空白吃在搜索框左侧，
-    //    「搜索框 320px + 筛选钮 32px」整组因此贴行右。
+    // ① 精确顺序（★本刀改写）：页签已从工具行**提到页面最顶独占一行**（`.own-market-navBar`），
+    //    故工具行**不再含页签**——剩下三项，而「占位在搜索框之前」这条 D1 判据**原样保留**：
+    //    桌面下剩余空白仍吃在搜索框左侧，「搜索框 320px + 筛选钮 32px」整组仍贴行右。
+    //    ★判据**没有被放宽**：仍是精确顺序断言；少掉的那一项是因为它真的搬走了。
     expect(order).toEqual([
-      'own-market-storeTabs',
       'own-market-rowBarSpacer',
       'own-market-query',
       'own-market-filterWrap',
     ])
+    // ★并**反向钉住**页签不在工具行里——将来有人把它塞回来，这条会响。
+    expect(order).not.toContain('own-market-storeTabs')
   })
 
   it('leaves the online-search query row untouched (its own DOM: query → spacer → button) (D2)', () => {
@@ -5992,7 +6011,8 @@ describe('enterprise market page-head rhythm (task-20)', () => {
     const RAIL = 56
     const PADDING = 2 * 24
     expect(minRow + RAIL + PADDING).toBe(600)
-    const toolRow = media.filter(part => part.text.includes('.own-market-storeTabs{flex:0 0 100%'))
+    // ★本刀：同 600 那档——页签轨已独占一行，窄屏取值为 flex:0 1 auto。
+    const toolRow = media.filter(part => part.text.includes('.own-market-storeTabs{flex:0 1 auto'))
     expect(toolRow).toHaveLength(1)
     expect(toolRow[0]!.text).toContain(`@media (max-width: ${minRow + RAIL + PADDING}px)`)
     // ── ④ 临界点以上逐档复核（内衬按 clamp(24px,4vw,48px) 随视口长）。

@@ -3127,6 +3127,13 @@ const baseStyles = `
 /* 行内的弹性占位：把「漏斗 / 刷新 / 添加技能」整组推到行右（用户口径「靠右对齐」）。
    搜索框定宽之后，中间那段空白由这一枚吃掉；三枚按钮自身都是 flex:none，恒不被压缩。 */
 .own-market-rowBarSpacer{flex:1 1 auto;min-width:0}
+/* ★本刀新增：页签行容器——页签从工具行左端提到页面最顶、**独占一行并居中**。
+   为什么要有这一枚容器而不是给 .own-market-storeTabs 居中：那一枚是页签轨本身，
+   它是 inline-grid、宽度由内容决定；直接给它 margin:auto 只会在**父级是 flex 且轨宽撑不满**时
+   居中，一旦窄屏被 overflow-x:auto 压缩就会贴左（这正是我们要的降级）。
+   父级用 flex + justify-content:center ⇒ 宽屏**真居中**、窄屏内容溢出时**自然靠左并滚动**，
+   两种形态都不需要额外条件分支。 */
+.own-market-navBar{display:flex;justify-content:center;align-items:center;flex-wrap:nowrap;min-width:0}
 /* 「添加技能」下拉**白底**（用户口径）：官方 Menu 卡片底色走 var(--dsw-specific-menu)
    （dsh-client-ui-primitives/lib/Menu.module.css:18 逐字），**不是** background-primary，
    所以不覆盖就拿不到白底。作用域收在 .own-market-addMenu 这枚 className 上，只改这一个下拉，
@@ -3229,7 +3236,11 @@ const baseStyles = `
    （注释里的花括号是安全的：splitTopLevelCss 会先把注释整段置空再做大括号配对。） */
 @media (max-width: 600px){
   .own-market-searchRow{flex-wrap:wrap;row-gap:8px}
-  .own-market-storeTabs{flex:0 0 100%;max-width:100%;min-width:0;overflow-x:auto;overflow-y:hidden}
+  /* ★本刀：页签轨已独占一行（父级 .own-market-navBar），窄屏不再需要它「独占 100% 宽」——
+     改成**溢出即横向滚动**，并把 justify-content 从 center 降为 flex-start
+     （轨道比视口宽时居中会让左右两端都露半截、看着像被裁掉；靠左 + 滚动才是可读的降级）。 */
+  .own-market-navBar{justify-content:flex-start}
+  .own-market-storeTabs{flex:0 1 auto;max-width:100%;min-width:0;overflow-x:auto;overflow-y:hidden}
   .own-market-query{flex:1 1 auto;max-width:none;min-width:120px}
   .own-market-rowBarSpacer{display:none}
 }
@@ -4481,23 +4492,22 @@ function EnterpriseMarketTabStrip({
   )
   return (
     <>
-      {/* 工具行（用户口径逐字：「搜索栏，左侧是 4 个标签，右侧是搜索栏和筛选按钮」）：
-          **左端＝四枚页签**（无条件渲染，不再看 `tabsInTitle` —— 页签的真源就在这一行，
-          座位只管标题行那两枚按钮，标题行不再出页签，故全页任何时刻只有一个 tablist）；
-          **右端＝搜索框（定宽 320px）+ 漏斗筛选钮**；弹性占位住在**页签与搜索框之间**（不是搜索框右侧），
-          故剩余空白由它吃在左半边、把「搜索框 + 筛选钮」整组推到**行右**（task-15 用户口径）。 */}
-      <div className="own-market-searchRow">
+      {/* ① 页签行（**本刀：页签从工具行左端提到页面最顶、独占一行居中**）。
+          用户口径：「把页签移动到页面的最上面」「和返回插件列表一行」「放到中间」。
+          ⇒ 页签是**页面级导航**，层级高于工具行（搜索/筛选是页面内工具），
+            故 DOM 顺序也必须是 `[页签行][工具行]`——**顺序即视觉顺序即焦点顺序**。
+          ★ 仍**无条件**渲染、不看 `tabsInTitle`：全页任何时刻只有一个 tablist。 */}
+      <div className="own-market-navBar">
         <EnterpriseMarketTabList
           entries={model.tabEntries}
           activeTab={model.activeTab}
           onSelect={onSelectTab}
         />
-        {/* 弹性占位（**本刀 task-15 上移到这里**：用户口径「非移动端下搜索应该右对齐」）。
-            DOM 顺序 = 视觉顺序 = 焦点顺序：`[四枚页签][spacer][搜索框][筛选钮]`。
-            它住在搜索框**之前** ⇒ 吃掉的剩余空白落在搜索框**左边**，于是
-            「搜索框 320px + 筛选钮 32px」整组被推到**行右**（此前它住在搜索框之后，
-            空白被它在搜索框右边吃掉 ⇒ 搜索框紧贴页签、只有筛选钮贴行右 —— 那正是用户报的现象）。
-            它是 `aria-hidden` 的纯装饰、不可聚焦，故不改变 Tab 焦点序。 */}
+      </div>
+      {/* ② 工具行（**本刀起只剩搜索与筛选**）：搜索框（定宽 320px）+ 漏斗筛选钮**整组贴行右**。
+          弹性占位在搜索框**之前** ⇒ 它吃掉的剩余空白落在左侧、把右组推到底（task-15 用户口径）；
+          它是 `aria-hidden` 的纯装饰、不可聚焦，故不改变 Tab 焦点序。 */}
+      <div className="own-market-searchRow">
         <span className="own-market-rowBarSpacer" aria-hidden="true" />
         <span className="own-market-query">
           <Search aria-hidden size={16} className="own-market-queryIcon" />
