@@ -7,6 +7,13 @@
  * [POS]: connector/application 的**声明闸门**——bundle 侧 `ENT_CONNECTOR_SECRET_INLINE` / `ENT_CONNECTOR_LEVEL_DECLARED`
  *        两条纪律的服务端同一份实现（服务端不信任宿主侧校验过的输入，自己再判一次）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ *
+ * ★ 2026-10-06（第二十九刀）编译闸门登记：本类此前有**一处 `QUOTA_KEYS` 重复定义**——:75 的旧两键版与
+ *   :90 的四键版并存，`javac` 报「已在类中定义了变量」而**整个 enterprise 模块编译不过**（连带 5 条
+ *   `@Slf4j` 的 `log` 找不到符号级联幻影，与本类无关）。已删旧版，两处引用本就解析到四键版 ⇒ **行为零变更**。
+ *   ★**教训比"解析器不够用"更值得记**：上一刀用 `java-parser` 走完全部 567 个 .java 且**零失败**，
+ *   而**重复字段这种错解析器根本看不见** ⇒「语法解析通过」**不等于**「编译通过」，
+ *   本仓对 Java 侧的语法级验证**不得**当作编译验证登记。
  */
 package com.owndsh.enterprise.connector.application;
 
@@ -72,7 +79,6 @@ public final class ConnectorDescriptorGate {
         "summary", "authRef", "egressAllowlist", "quota", "inbound", "auditEvents"
     );
     private static final Set<String> POLICY_KEYS = Set.of("maxLevel", "quota");
-    private static final Set<String> QUOTA_KEYS = Set.of("maxCalls", "windowSeconds");
     private static final Set<String> LEVELS = Set.of("L1", "L2", "L3");
 
     // ── ②（2026-10-06 第二十三刀）补齐与宿主**同一把尺**的取值域 ──
@@ -87,6 +93,7 @@ public final class ConnectorDescriptorGate {
     private static final Set<String> STATE_ADDRESS_KINDS = Set.of("object", "device", "field", "resource");
     private static final Set<String> HOST_PLATFORMS = Set.of("android", "darwin", "linux", "win32");
     private static final Set<String> PLATFORM_SUPPORTS = Set.of("supported", "needs-confirm", "unsupported");
+    /** 配额键：与 `capability.ts:374` 的 `['maxCalls','windowSeconds','maxConcurrency','maxBytes']` 逐字一致。 */
     private static final Set<String> QUOTA_KEYS = Set.of("maxCalls", "windowSeconds", "maxConcurrency", "maxBytes");
     /** 审计动作名（`SCREAMING_SNAKE`）；与 `capability.ts` 的 `AUDIT_ACTION_PATTERN` 同尺。 */
     private static final Pattern AUDIT_ACTION = Pattern.compile("^[A-Z][A-Z0-9_]{1,63}$");
