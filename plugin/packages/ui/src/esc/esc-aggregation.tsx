@@ -26,6 +26,8 @@
  *   ② 技能卡的「+」与「更多+去试试」按**已装清单**分流。★**匹配键是名字，不是 id**（实测纠正）：
  *   已装那份的 `packageId` 是雪花号（实测 `2105915576743428098`）、广场那条的 `id` 是 `4194`，
  *   两套坐标系对不上；真正的公共键是 kebab 名（已装 `skillId` / 广场 `name`）。
+ *   ★**口径 43（本刀）**：这份 `installedIds` 现在也交给**精选行**（技能页）——那一行的卡片已改成
+ *   广场那张卡，已装分流必须同源，否则同一条技能在上面写「+」、下面写「更多 + 去试试」。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -342,11 +344,15 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
             onSelect: onResourceTypeChange,
           }),
       // ★用户裁决：「精选」排在**第二栏**（三页签那一行之下、维度标签之上）
+      //   ★口径 43：这一行的卡片改用**广场那张卡**，故已装技能名集合要一并交下去——
+      //     否则精选里的技能卡只会画「+」，而同一条技能在下面广场里却画成「更多 + 去试试」，
+      //     同一屏里同一件东西两种形态。用的是**同一份** `installedIds`（只读集合，不复制）。
       belowLeading:
         resourceType === 'skill' || resourceType === 'expert'
           ? createElement(EnterpriseEscFeatured, {
               api,
               targetType: resourceType === 'skill' ? 'Skill' : 'Agent',
+              installedSkillNames: resourceType === 'skill' ? installedIds : undefined,
             })
           : undefined,
       resourceType,

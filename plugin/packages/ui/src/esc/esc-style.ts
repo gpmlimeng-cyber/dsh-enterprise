@@ -84,6 +84,13 @@
  *         ⇒ 标题那一格随之下缩、省略号就落在召唤左侧。**两个状态正是用户那一句话的两半**；
  *      ④ **撤下**右下角那枚 hover 浮现的收藏钮（`.esc-corner-box` / `.esc-star-box`）——它是旧三层版式的
  *         浮层，新版式底部是标签行 ⇒ 它只会压在标签行上（记录与理由留在原地那段注释里，两条规则整块删掉）。
+ *   ⑫ **口径 43（用户裁决「精选的卡片调整成和非精选的一致」）**：**精选卡与广场卡合成同一张卡**，
+ *      故上一版那套"薄壳卡"的样式**整组下线**（`.esc-card-featured`、`.esc-featured-icon`、
+ *      `.esc-featured-image`(-empty)、`.esc-featured-label` 共八条规则/位）。精选卡现在吃到的是
+ *      `.esc-card` + `.esc-card-skill` / `.esc-card-expert` 那几条（边框、底色、hover、标签行全都同源）。
+ *      `.esc-featured`/`-head`/`-title`/`-refresh`/`-body`/`-grid`/`-note` 与 `--esc-grid-cols` **一字未动**
+ *      —— 前六条是这一行自己的壳与四态，最后那条是两段网格列对齐的那个真源（口径 39）。
+ *      数字后果：全文 `font-size` 声明 27 → 26 处（下线的那条 `.esc-featured-label` 是唯一带字号的一条）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -583,24 +590,17 @@ const CSS = `
 .esc-featured-refresh:hover { color: var(--dsw-alias-brand-primary); }
 .esc-featured-refresh:focus-visible { outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color); outline-offset: 2px; }
 .esc-featured-body { position: relative; }
-/* 精选卡**刻意只两格**（图标 + 标题）：那条接口没有描述/作者/收藏量/安装量/使用量，
-   薄壳是用户裁决（见 esc-featured.tsx 文件头）——宁可简，不编字段。 */
-/* ★用户裁决⑤：精选卡与下面那些卡片**用同一套几何**——栅格列宽（minmax(300px,1fr)）、列间距（16px）、
-   卡高（170px）、内衬（16px）、圆角、边框、背景，逐值照 .esc-list-section / .esc-card 那几行。
-   此前精选那行自成一套（220px 列、64px 矮卡），真机截图里两段网格**列数都对不齐**。 */
+/* ★**口径 43（用户裁决「精选的卡片调整成和非精选的一致」）**：精选卡现在就是广场那张卡
+   （.esc-card + .esc-card-skill / .esc-card-expert），几何/边框/底色/hover 全由那几条规则给。
+   于是**上一版那套"薄壳卡"的规则整组下线**：.esc-card-featured（行向布局 + 自己的 hover）、
+   .esc-card-featured .esc-featured-icon / .esc-featured-label 两条后代位，以及
+   .esc-featured-icon / .esc-featured-image / .esc-featured-image-empty / .esc-featured-label
+   四条（40px 图片 + 单行标题）。它们服务的那个薄壳（图标 + 标题、无描述无标签行）已不再存在——
+   留着就是死样式，而且会让"精选自带一套几何"这件事看起来仍然成立。
+   ★栅格仍与广场**同一个真源**（--esc-grid-cols + gap: 12px，见口径 39 那一段）：
+   两段网格列对齐这条不变量一字未动。
+   ⚠本段整体在一枚模板字符串内 ⇒ 注释里**不许出现反引号**（会截断字符串，本刀当场踩过一次）。 */
 .esc-featured-grid { display: grid; grid-template-columns: var(--esc-grid-cols); gap: 12px; align-content: start; }
-/* 精选卡 = 图标 + 标题**同处一行**，与普通卡片的「头行」同一形态（不是各自占一行）。 */
-.esc-card-featured { flex-direction: row; align-items: center; gap: 12px; min-height: 84px; padding: 16px 20px; cursor: default; }
-/* 精选卡里的图标 + 标题：照普通卡片的「头行」版式（图标在左、标题在右） */
-/* 精选卡与普通卡片**同一套内部结构**：图标在左、标题在右，同处那一行。
-   （此前这里用 margin-top:-46px 把标题硬拉回图标那行——那是 hack，负边距撑出的空白在真机上很明显。） */
-.esc-card-featured .esc-featured-icon { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.esc-card-featured .esc-featured-label { flex: 1; min-width: 0; }
-.esc-card-featured:hover { border-color: var(--dsw-alias-border-l1); background-color: var(--dsw-alias-interactive-bg-hover); box-shadow: var(--dsw-shadow-lv2); }
-.esc-featured-icon { flex-shrink: 0; }
-.esc-featured-image { display: block; width: 40px; height: 40px; border-radius: var(--dsw-radius-md, 8px); object-fit: cover; background: var(--dsw-alias-bg-skeleton); }
-.esc-featured-image-empty { border: 1px solid var(--dsw-alias-border-l1); }
-.esc-featured-label { min-width: 0; overflow: hidden; color: var(--dsw-alias-label-primary); font-size: calc(13px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); line-height: 20px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 /* 精选行自己的失败/未登录说明：复用本页既有的失败色与提示字号，不另立一套。 */
 .esc-featured-note { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 0; color: var(--dsw-alias-state-error-primary); font-size: calc(13px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); line-height: 20px; }
 .esc-featured-note .esc-sub { margin: 0; color: var(--dsw-alias-label-secondary); }

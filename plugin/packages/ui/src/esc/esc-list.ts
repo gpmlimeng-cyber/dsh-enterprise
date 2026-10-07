@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 React 的 hook 原语、`esc-api` 的 `EnterpriseEscApi` 契约、`esc-constants` 的成功码与分类根映射、`esc-types` 的归一化类型与 `mapPublishedStats`
- * [OUTPUT]: 对外提供 `useEnterpriseEscResourceList`（`{list, loading, hasMore, error, loadMore, updateItem, reload}`）与 `escResourceAdapters` 适配器表（各资源类型 × 数据源的取数与提取口径）
+ * [OUTPUT]: 对外提供 `useEnterpriseEscResourceList`（`{list, loading, hasMore, error, loadMore, updateItem, reload}`）、`escResourceAdapters` 适配器表（各资源类型 × 数据源的取数与提取口径）与 `escPublishedTargetIdOf`（精选行回查的公共键，口径 43）
  * [POS]: esc 页面的**归一化数据层**，逐字移植自 NUWAX `ResourceAggregation/hooks/useResourceList.ts`（574 行）。
  *   ★改动的只有三处**注入点**，判定逻辑一字未动：① `@/services/*` 那六个函数 → `EnterpriseEscApi` 的六个同签名方法；
  *   ② `SUCCESS_CODE` → `ESC_SUCCESS_CODE`；③ umi 的类型 → 本包 `esc-types`。
@@ -8,6 +8,11 @@
  *   记进 `error`，由页面说出来（仓库的 no-silent-swallow 门禁也要求如此；原页面"读失败=空列表"会让员工以为"平台没有东西"）。
  *   ★原有纪律逐条保留：过期响应丢弃（`requestIdRef`）、重置加载必须放行（否则新条件的请求发不出去）、
  *   全量接口的内存切片与双击防重入、`updateItem` 的两层缓存同步。
+ *   ★**口径 43（本刀）**：新增 `escPublishedTargetIdOf` —— 精选行（官方推荐）回查广场目录的那个**公共键**。
+ *     真机实测（本机现役宿主，同一刻两条取数）：推荐记录 `targetId=158` 的那条 `dev-engineer-toolkit`，
+ *     广场那条是**平台 `id=4194` / `targetId=158`** —— `id` 与 `targetId` 是**两套坐标系**，
+ *     同一套的是 `targetId`（7 条技能 + 7 条专家逐条命中，`label` 与 `name` 亦逐字相同）。
+ *     ⇒ 这一格就是「验过之后才敢接」的那一格（`esc-featured.tsx` 文件头早先记为待验）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -103,6 +108,29 @@ const mapPublishedItem = (item: EscPublishedItem, idPrefix: string): ResourceIte
   subscribed: item.subscribed === true,
   stats: mapPublishedStats(item.statistics),
 })
+
+/**
+ * 精选行（官方推荐）回查广场目录用的**公共键**：平台已发布条目的 `targetId`（口径 43）。
+ *
+ * 为什么不是 `ResourceItem.id`：那是本页拼出来的 `${前缀}-${平台 id}` 字符串，而推荐记录给的
+ * `targetId` 指向平台坐标里的**另一枚号**。真机实测（本机现役宿主、同一刻两条取数）：
+ *
+ * ```text
+ * 推荐  targetId=158 label=dev-engineer-toolkit
+ * 广场  平台 id=4194  targetId=158  name=dev-engineer-toolkit   ← 逐字同上
+ * ```
+ *
+ * ⇒ `id`（4194）与 `targetId`（158）**不是一套坐标系**；同一套的是 `targetId`
+ * （7 条技能 + 7 条专家**逐条命中**，`label` 与 `name` 亦逐字相同）。
+ * 这就是 `esc-featured.tsx` 文件头早先记为「与那份列表是否同一套坐标系在源码里查不到、必须实跑」
+ * 的那一格——本刀实跑过，故回查接得上。
+ *
+ * 取值口：`mapPublishedItem` 把平台 `targetId` 分别写进 `agentId`（专家）或 `skillId`（技能），
+ * 两者**互斥**（按 `idPrefix` 二选一），故这里取并集的那一枚即是它。
+ */
+export function escPublishedTargetIdOf(item: ResourceItem): number | undefined {
+  return item.agentId ?? item.skillId
+}
 
 /** 连接器提供方归一化（逐字对齐原文件）。 */
 const mapConnectorItem = (item: EscConnectorProvider, idPrefix: string): ResourceItem => ({

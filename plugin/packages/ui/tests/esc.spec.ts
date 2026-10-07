@@ -10,6 +10,14 @@
  *    ③ **样式级**：标题行 `gap: 0` + 间距挪到动作格（三个数从 CSS 提取后比对：`[0, 12, 12]`）、
  *       `.esc-summon-slot` 默认 `max-width: 0`/`opacity: 0`、卡片 hover 才 `max-width: none`/`opacity: 1`，
  *       并反向锁住"旧三层版式那两处动作位不许被这一刀带改"与"撤下的收藏浮标不许回来"
+ * ⑩ **口径 43（用户裁决「精选的卡片调整成和非精选的一致」）**：精选卡与广场卡是**同一张卡**——
+ *    ① **回查键**（`escPublishedTargetIdOf`：专家 `agentId` / 技能 `skillId`，两枚互斥；不许拿本页拼的 `id`）；
+ *    ② **回查投影**（命中＝广场那份真值；没命中＝只有 `label` + `icon`，其余一格都不编）；
+ *    ③ **回查请求**（走广场系统广场那**同一个适配器** ⇒ 参数逐字相同；索引键是平台 `targetId`）；
+ *    ④ **回查边界**（空候选零请求 / 翻页有上限 / 平台非成功码即停手）；
+ *    ⑤ **渲染树级**（`element.type === EnterpriseEscCard`、开关与广场同组、头行与标签行逐格同形、
+ *       标签行画真值、没回查到则下半截如实缺口）；
+ *    ⑥ **反向锁**（薄壳那套类名与自画图标兜底都不许回来；列真源与列对齐不许被改；已装分流同源）。
  * [POS]: esc 页面的**无 React 契约回归**；视觉与真实交互由构建产物手工冒烟覆盖（本仓 vitest 没有 DOM）
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -30,7 +38,15 @@ import {
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from '../src/esc/esc-copy.js'
 import { EnterpriseEscCard, SKILL_MORE_ENTRIES } from '../src/esc/esc-card.js'
 import { EnterpriseEscToolbar } from '../src/esc/esc-toolbar.js'
-import { ENTERPRISE_ESC_FEATURED_MAX, enterpriseEscFeaturedBody } from '../src/esc/esc-featured.js'
+import {
+  ENTERPRISE_ESC_FEATURED_LOOKUP_EMPTY,
+  ENTERPRISE_ESC_FEATURED_LOOKUP_MAX_PAGES,
+  ENTERPRISE_ESC_FEATURED_LOOKUP_PAGE_SIZE,
+  ENTERPRISE_ESC_FEATURED_MAX,
+  enterpriseEscFeaturedBody,
+  enterpriseEscFeaturedItem,
+  loadEnterpriseEscFeaturedLookup,
+} from '../src/esc/esc-featured.js'
 import {
   enterpriseErrorAction,
   enterpriseErrorMessage,
@@ -47,10 +63,10 @@ import {
   enterpriseEscPanelOptions,
 } from '../src/esc/esc-entry.js'
 import { decideAutoFill, shouldTriggerBottomLoad } from '../src/esc/esc-aggregation.js'
-import { escCategoryChildrenOf, escResourceAdapters, missingEndpointCodeOf } from '../src/esc/esc-list.js'
+import { escCategoryChildrenOf, escPublishedTargetIdOf, escResourceAdapters, missingEndpointCodeOf } from '../src/esc/esc-list.js'
 import { EnterpriseEscResourceTabs } from '../src/esc/esc-resource-tabs.js'
 import { EnterpriseEscStyle } from '../src/esc/esc-style.js'
-import type { EscCategoryNode, EscRecommendRecord } from '../src/esc/esc-types.js'
+import type { EscCategoryNode, EscRecommendRecord, ResourceItem } from '../src/esc/esc-types.js'
 
 // 官方原语包在本仓不可直接加载（它依赖的 `clsx` 没进本包依赖树），既有 ui 测试一律 mock 掉它；
 // 本文件不渲染任何组件，只需让模块图加载得起来。
@@ -566,7 +582,11 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     // 反向锁：delta 必须是**加法**（乘法会破坏层级：11px 与 18px 不能按比例一起放大）
     expect(css).not.toMatch(/font-size: calc\([0-9.]+px \*/)
     // 反向锁：页面的字号不许自带媒体档二次声明（唯一真源仍是各规则本体 + 那两个 delta）
-    expect(declarations.match(/font-size/g) ?? []).toHaveLength(27)
+    // ★口径 43 把这一格从 27 收到 **26**：下线的那条 `.esc-featured-label`（薄壳精选卡的单行标题）
+    //   是这一刀里**唯一**带字号的一条规则，它的字号随卡片一起退场（卡片现在用 `.esc-card-title`）。
+    //   收这一格不是放宽判据——"每一处字号都必须是 calc(基准 + 两个 delta)"这条本体一字未动。
+    expect(declarations.match(/font-size/g) ?? []).toHaveLength(26)
+    expect(declarations).not.toContain('.esc-featured-label')
   })
 
   it('样式层（本刀）：「精选」上下间距调大到同值（上 20 = 精选自身 6 + 维度行 14）', () => {
@@ -1665,5 +1685,236 @@ describe('esc：失败面收口（本刀 —— 精选行与列表页同一套�
       (asElement(enterpriseEscFeaturedBody({ kind: 'ready', items: records.slice(0, 5) }, () => undefined))
         .props['children'] as readonly unknown[]),
     ).toHaveLength(5)
+  })
+
+  /* ══════════════ 口径 43（本轮用户裁决「精选的卡片调整成和非精选的一致」）══════════════
+   * 这一组门禁的骨架是**真机那一对坐标系**（本机现役宿主，同一刻两条取数）：
+   *   推荐 `targetId=158` label=dev-engineer-toolkit ↔ 广场 平台 id=4194 / **targetId=158** name 逐字相同。
+   * 故"精选卡 = 广场卡"这句话必须落在**同一个组件引用 + 同一份投影 + 同一套参数**上，
+   * 而不是"两边长得像"——后者在任何一处单独被改掉时仍会绿。 */
+
+  it('★口径 43 的回查键：平台条目的 `targetId`（专家走 agentId、技能走 skillId，两枚互斥）', () => {
+    expect(escPublishedTargetIdOf({ id: 'skill-4194', name: 'dev-engineer-toolkit', skillId: 158 })).toBe(158)
+    expect(escPublishedTargetIdOf({ id: 'agent-4087', name: '数字仓管员（测试）', agentId: 268 })).toBe(268)
+    // 连接器那条没有这个键（精选行不画连接器，拿不到回查键是对的）
+    expect(escPublishedTargetIdOf({ id: 'system-conn-aliyun_oss', name: 'OSS' })).toBeUndefined()
+    // 反向锁：**不许**拿本页拼出来的 id 当回查键（那是 `${前缀}-${平台 id}`，与 targetId 不是一套坐标系）
+    expect(escPublishedTargetIdOf({ id: 'skill-4194', name: 'dev-engineer-toolkit' })).toBeUndefined()
+  })
+
+  it('★口径 43 的回查投影：命中就用广场那份真值；没命中只画推荐自己有的两格（绝不编字段）', () => {
+    const record: EscRecommendRecord = {
+      id: 8,
+      targetType: 'Skill',
+      targetId: 158,
+      recType: 'Official',
+      label: 'dev-engineer-toolkit',
+      icon: 'https://agent.example/api/logo/skill/dev-engineer-toolkit',
+    }
+    const joinedItem: ResourceItem = {
+      id: 'skill-4194',
+      name: 'dev-engineer-toolkit',
+      description: '当开发项目需要搜索可用工具（API）、可',
+      icon: 'https://agent.example/api/logo/skill/dev-engineer-toolkit',
+      publishUser: { nickName: '李猛' },
+      stats: [{ type: 'star', value: 1 }],
+    }
+    // ① 命中：逐格就是广场那份（描述/作者/统计都真）
+    expect(enterpriseEscFeaturedItem(record, new Map([[158, joinedItem]]))).toEqual(joinedItem)
+    // ② 没命中：只有 label 与 icon 两格，其余**一格都不编**
+    const missed = enterpriseEscFeaturedItem(record, ENTERPRISE_ESC_FEATURED_LOOKUP_EMPTY)
+    expect(missed).toEqual({
+      id: 'recommend-8',
+      name: 'dev-engineer-toolkit',
+      icon: 'https://agent.example/api/logo/skill/dev-engineer-toolkit',
+    })
+    expect(missed.description).toBeUndefined()
+    expect(missed.publishUser).toBeUndefined()
+    expect(missed.stats).toBeUndefined()
+    // ③ id 前缀与广场那套（`agent-4087` / `skill-4055`）**不可能撞**：将来拿它去寻址也改不到广场那条
+    expect(missed.id.startsWith('recommend-')).toBe(true)
+    // ④ 回查到的键**对不上**时同样算没命中——绝不"就近取一条"
+    expect(enterpriseEscFeaturedItem(record, new Map([[749, joinedItem]])).stats).toBeUndefined()
+  })
+
+  it('★口径 43 的回查请求：走广场同一档适配器（参数同源）、按 targetId 建索引、复用同一份投影', async () => {
+    const skill = spyApi({
+      code: '0000',
+      data: {
+        records: [
+          {
+            id: 4194,
+            targetId: 158,
+            name: 'dev-engineer-toolkit',
+            description: '当开发项目需要搜索可用工具（API）、可',
+            publishUser: { nickName: '李猛' },
+            statistics: { collectCount: 1, userCount: null, convCount: null },
+          },
+        ],
+        current: 1,
+        pages: 1,
+      },
+    })
+    const index = await loadEnterpriseEscFeaturedLookup({ api: skill.api, targetType: 'Skill', wanted: [158] })
+    // ① 参数就是**广场系统广场那一档**（同一份适配器 ⇒ 不可能漂）：空分类 + 空关键字 + official
+    expect(skill.calls).toHaveLength(1)
+    expect(skill.calls[0]!.method).toBe('publishedSkillList')
+    expect(skill.calls[0]!.params).toEqual({
+      page: 1,
+      pageSize: ENTERPRISE_ESC_FEATURED_LOOKUP_PAGE_SIZE,
+      category: '',
+      kw: undefined,
+      official: true,
+    })
+    // ② 索引键是**平台 targetId**（158），不是广场那条的平台 id（4194）
+    expect([...index.keys()]).toEqual([158])
+    expect(index.has(4194)).toBe(false)
+    // ③ 投影走的是 `mapPublishedItem`（与广场同一份）⇒ 描述/作者/统计都在，缺口仍按平台没回的那几格算
+    expect(index.get(158)?.name).toBe('dev-engineer-toolkit')
+    expect(index.get(158)?.publishUser?.nickName).toBe('李猛')
+    expect(index.get(158)?.stats).toEqual([{ type: 'star', value: 1 }])
+
+    // 专家档：参数与广场专家那一档逐字相同（官方 + ChatBot 子类型）；★平台回的 0 照旧留着
+    const expert = spyApi({
+      code: '0000',
+      data: {
+        records: [{ id: 4087, targetId: 268, name: '数字仓管员（测试）', statistics: { userCount: 5, convCount: 82, collectCount: 0 } }],
+        current: 1,
+        pages: 1,
+      },
+    })
+    const expertIndex = await loadEnterpriseEscFeaturedLookup({ api: expert.api, targetType: 'Agent', wanted: [268] })
+    expect(expert.calls[0]!.method).toBe('publishedAgentList')
+    expect(expert.calls[0]!.params).toEqual({
+      page: 1,
+      pageSize: ENTERPRISE_ESC_FEATURED_LOOKUP_PAGE_SIZE,
+      category: '',
+      kw: undefined,
+      targetType: 'Agent',
+      targetSubType: 'ChatBot',
+      official: true,
+    })
+    expect(expertIndex.get(268)?.stats).toEqual([
+      { type: 'user', value: 5 },
+      { type: 'link', value: 82 },
+      { type: 'star', value: 0 },
+    ])
+  })
+
+  it('★口径 43 的回查边界：候选为空一条请求都不发、翻页有上限、平台非成功码就用手上已有的', async () => {
+    // ① 没有候选 ⇒ 一条请求都不发（别为了空数组打一趟平台）
+    const idle = spyApi({ code: '0000', data: { records: [], current: 1, pages: 1 } })
+    expect((await loadEnterpriseEscFeaturedLookup({ api: idle.api, targetType: 'Skill', wanted: [] })).size).toBe(0)
+    expect(idle.calls).toHaveLength(0)
+    // ② 一直找不到 ⇒ 翻到上限就停手（有界：不许为了 6 枚卡片把整本目录拉光）
+    const deep = spyApi({ code: '0000', data: { records: [{ id: 1, targetId: 1, name: 'x' }], current: 1, pages: 99 } })
+    expect((await loadEnterpriseEscFeaturedLookup({ api: deep.api, targetType: 'Skill', wanted: [999] })).size).toBe(0)
+    expect(deep.calls).toHaveLength(ENTERPRISE_ESC_FEATURED_LOOKUP_MAX_PAGES)
+    // ③ 平台不是成功码 ⇒ 停手并交回手上已有的（**不**把回查的失败升级成整行的失败态）
+    const rejected = spyApi({ code: '4040', data: { records: [{ id: 1, targetId: 158, name: 'x' }] } })
+    expect((await loadEnterpriseEscFeaturedLookup({ api: rejected.api, targetType: 'Skill', wanted: [158] })).size).toBe(0)
+    expect(rejected.calls).toHaveLength(1)
+    // ④ 平台说没有更多页 ⇒ 不再翻第二页（hasMore 为假）
+    const onePage = spyApi({ code: '0000', data: { records: [{ id: 1, targetId: 1, name: 'x' }], current: 1, pages: 1 } })
+    await loadEnterpriseEscFeaturedLookup({ api: onePage.api, targetType: 'Skill', wanted: [999] })
+    expect(onePage.calls).toHaveLength(1)
+  })
+
+  it('★口径 43：精选卡**就是广场那张卡**——同组件、同开关、下半截画真值；没回查到就如实缺口', () => {
+    const record: EscRecommendRecord = { id: 12, targetType: 'Agent', targetId: 67, recType: 'Official', label: '流程管理专家' }
+    const item: ResourceItem = {
+      id: 'agent-3915',
+      name: '流程管理专家',
+      description: '专注于流程管理的Agent，流程架构设计、流程挖',
+      icon: 'https://agent.example/api/f/local/default/x.png',
+      agentId: 67,
+      publishUser: { nickName: '王培培' },
+      // ★顺序照 `mapPublishedStats`（人 / 会话 / 收藏），★收藏这一格是平台真回的 0（不是缺口）
+      stats: [
+        { type: 'user', value: 6 },
+        { type: 'link', value: 51 },
+        { type: 'star', value: 0 },
+      ],
+    }
+    const ready = (lookup: ReadonlyMap<number, ResourceItem>, targetType: 'Agent' | 'Skill') =>
+      asElement(enterpriseEscFeaturedBody({ kind: 'ready', items: [record] }, () => undefined, { lookup, targetType }))
+    // ① 精选卡的元素类型**就是广场那张卡**（同一个组件引用，不是"长得像"的另一张）
+    const expertCard = asElement(childrenOf(ready(new Map([[67, item]]), 'Agent'))[0])
+    expect(expertCard.type).toBe(EnterpriseEscCard)
+    // ② 卡片开关与广场**同一组**（专家档：裁圆图标 + 召唤 + showStats；技能档见⑥）
+    expect(expertCard.props).toMatchObject({ iconShape: 'circle', showSummon: true, showStats: true, showUse: false })
+    // ③ 排出来的树与广场卡逐格同形：头行 = 「标题行 + 描述独立一行」，底部 = 标签行，旧三层版的描述格不出现
+    const tree = asElement(EnterpriseEscCard(expertCard.props as never))
+    const [header, content, tags] = childrenOf(tree)
+    expect(asElement(header).props['className']).toBe('esc-card-header')
+    expect(content).toBeNull()
+    expect(asElement(tags).props['className']).toBe('esc-card-tags')
+    const headMain = asElement(childrenOf(asElement(header))[1])
+    expect(
+      childrenOf(headMain)
+        .filter(node => node !== null && node !== undefined)
+        .map(node => asElement(node).props['className']),
+    ).toEqual(['esc-card-titlerow', 'esc-card-headdesc'])
+    // ④ 标签行第 1 格是**回查才有的作者真值**（那一格就是广场卡的同一枚 `AuthorRow`：本仓 vitest
+    //    没有 DOM，故按元素核对——类名/作者名都在 props 上，并不去调用那个带 useState 的组件）
+    const authorCell = asElement(childrenOf(asElement(tags))[0])
+    expect(authorCell.props['className']).toBe('esc-tag esc-tag-author')
+    expect(authorCell.props['title']).toBe('王培培')
+    expect(asElement(authorCell.props['children']).props['name']).toBe('王培培')
+    // 后三格按裁决⑧的项序（收藏 → 安装 → 使用）画平台真数（★真回的 0 留着，不是缺口短横）
+    expect(childrenOf(asElement(tags)).slice(1).map(textOf)).toEqual(['0', '6', '51'])
+    // ⑤ 没回查到 ⇒ **同一张卡**，下半截如实留空/短横：描述与作者都不出现，三格画缺口短横
+    const missedCard = asElement(childrenOf(ready(ENTERPRISE_ESC_FEATURED_LOOKUP_EMPTY, 'Agent'))[0])
+    expect(missedCard.type).toBe(EnterpriseEscCard)
+    const missedTree = asElement(EnterpriseEscCard(missedCard.props as never))
+    expect(asElement(childrenOf(missedTree)[2]).props['className']).toBe('esc-card-tags')
+    // 标题 + 标题行里那枚默认收起的「召唤」（形态在、宽度由 CSS 收到 0）+ 三格缺口短横
+    expect(textOf(missedTree)).toBe(
+      `流程管理专家${ENTERPRISE_ESC_COPY.summon}${ENTERPRISE_ESC_LOCAL_COPY.statUnavailable.repeat(3)}`,
+    )
+    // ⑥ 技能档：方形图标 + 常驻「+」；已装清单命中 ⇒ 换成「更多 + 去试试」（与广场同一条口径）
+    const skillRecord: EscRecommendRecord = { id: 8, targetType: 'Skill', targetId: 158, recType: 'Official', label: 'dev-engineer-toolkit' }
+    const skillCard = asElement(
+      childrenOf(
+        asElement(
+          enterpriseEscFeaturedBody({ kind: 'ready', items: [skillRecord] }, () => undefined, {
+            lookup: new Map([[158, { id: 'skill-4194', name: 'dev-engineer-toolkit' }]]),
+            targetType: 'Skill',
+            installedSkillNames: new Set(['dev-engineer-toolkit']),
+          }),
+        ),
+      )[0],
+    )
+    expect(skillCard.props).toMatchObject({ iconShape: 'square', showUse: true, installed: true, showSummon: false })
+    // 反向锁：读不到已装清单（不传集合）⇒ 按"未装"画「+」，与广场卡同一条口径（不谎称已装）
+    const noList = asElement(childrenOf(ready(ENTERPRISE_ESC_FEATURED_LOOKUP_EMPTY, 'Skill'))[0])
+    expect(noList.props['installed']).toBe(false)
+  })
+
+  it('★口径 43 反向锁：薄壳卡那套（类名/样式/自画的图标与标题）不许回来；列真源与列对齐不许被改', () => {
+    const css = (EnterpriseEscStyle() as unknown as { props: { children: string } }).props.children
+    // ① 样式层：剥注释之后，那四个"薄壳专属"的类名一个都不许留（留着就是死样式，
+    //    而且会让"精选自带一套几何"这件事看起来仍然成立）
+    const declarations = css.replace(/\/\*[\s\S]*?\*\//g, '')
+    for (const dead of ['esc-card-featured', 'esc-featured-icon', 'esc-featured-image', 'esc-featured-label']) {
+      expect(declarations, dead).not.toContain(dead)
+    }
+    // ② 栅格仍是**同一个真源** + 同一个 gap（口径 39"两段网格列对齐"那条不变量一字未动）
+    expect(/\.esc-featured-grid \{[^}]*grid-template-columns: var\(--esc-grid-cols\); gap: 12px;/.test(css)).toBe(true)
+    // ③ 源码层：精选卡不许自画内部结构（图标 / 标题 / 图片兜底都归 `EnterpriseEscCard`）
+    //    —— 上一版那三样正是薄壳的痕迹，`enterpriseEscImageSrc` 也随之退场。
+    //    判据先**剥注释**：本文件的文件头正是用这些类名记录"哪一套下线了"的（不剥会被自己的记录骗红）。
+    const featured = readFileSync(new URL('../src/esc/esc-featured.tsx', import.meta.url), 'utf8')
+    const featuredCode = featured.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
+    expect(featuredCode).not.toContain('esc-card-featured')
+    expect(featuredCode).not.toContain('esc-featured-label')
+    expect(featuredCode).not.toContain('esc-featured-image')
+    expect(featuredCode).not.toContain('enterpriseEscImageSrc')
+    expect(featuredCode).toContain('createElement(EnterpriseEscCard,')
+    // ④ 精选行也不许自造一套列模板（列数只有 CSS 里那一个真源）
+    expect(featuredCode).not.toContain('grid-template-columns')
+    // ⑤ 已装分流与广场**同源**：聚合区把同一份 `installedIds` 交给精选行（技能页）
+    const aggregation = readFileSync(new URL('../src/esc/esc-aggregation.tsx', import.meta.url), 'utf8')
+    expect(aggregation).toContain("installedSkillNames: resourceType === 'skill' ? installedIds : undefined")
   })
 })
