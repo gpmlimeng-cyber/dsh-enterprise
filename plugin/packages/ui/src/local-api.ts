@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖浏览器 fetch 与 FormData/Blob、local-api-decode 的全部严格解码与失败码投影
- * [OUTPUT]: 对外提供 `createEnterpriseLocalApi`（固定同源路径的取数与动作，含请 Host 打开帮助中心的 `openHelp`、读**已装**技能正文的 `skillContent`，以及详情子页面用的 `skillFiles`（本机文件树）与 `skillFile`（树里一个文本文件））、五条同源技能路径常量（`ENTERPRISE_SKILL_{INSTALL,UNINSTALL,INSTALLED,CONTENT}_LOCAL_PATH` 与 `enterpriseSkillFilesPath`/`enterpriseSkillFilePath` 两条**动态**本机文件路径构造器）与 local-api-decode 的全部导出 **本刀（配方一键启用）**：新增三件配方动作 `presetStatus` / `enablePreset` / `disablePreset`（路径与 body 严格照路由形状：`GET …/presets/<雪花 id>/status`、`POST …/presets/<雪花 id>/enable`（body 关闭键集 `{}` 或恰好 `{confirmFingerprint}`）、`POST …/presets/<声明 id>/disable`（body 恒 `{}`））与三个路径构造器 `enterprisePreset{Enable,Status,Disable}Path` + 三条子路径共用的注册面前缀 `ENTERPRISE_PRESET_ACTION_LOCAL_PATH`） **本刀（企业插件真取消）**：新增 `cancelPlugin(packageName, signal)`——同源 POST `/enterprise/api/v1/local/plugins/cancel`，正文关闭键集恰好 `{packageName}`，响应与只读 `GET /plugins` **完全同形**（复用同一个严格解码器，**零新增字段**），并导出与 Host exact 注册面逐字同值的常量 `ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH`。
+ * [OUTPUT]: **本刀（登录入口换成 NUWAX）**：`createEnterpriseLocalApi` 新增三个同源方法 `nuwaxStatus` / `nuwaxLogin(account,password)` / `nuwaxLogout`（前两条响应同形 ⇒ 共用 `decodeEnterpriseNuwaxStatus`；口令只进 POST 正文，不写 URL 也不进请求头）与三条导出常量 `ENTERPRISE_NUWAX_{LOGIN,LOGOUT,STATUS}_LOCAL_PATH`（与 Host 的 exact 注册面逐字同值）。对外提供 `createEnterpriseLocalApi`（固定同源路径的取数与动作，含请 Host 打开帮助中心的 `openHelp`、读**已装**技能正文的 `skillContent`，以及详情子页面用的 `skillFiles`（本机文件树）与 `skillFile`（树里一个文本文件））、五条同源技能路径常量（`ENTERPRISE_SKILL_{INSTALL,UNINSTALL,INSTALLED,CONTENT}_LOCAL_PATH` 与 `enterpriseSkillFilesPath`/`enterpriseSkillFilePath` 两条**动态**本机文件路径构造器）与 local-api-decode 的全部导出 **本刀（配方一键启用）**：新增三件配方动作 `presetStatus` / `enablePreset` / `disablePreset`（路径与 body 严格照路由形状：`GET …/presets/<雪花 id>/status`、`POST …/presets/<雪花 id>/enable`（body 关闭键集 `{}` 或恰好 `{confirmFingerprint}`）、`POST …/presets/<声明 id>/disable`（body 恒 `{}`））与三个路径构造器 `enterprisePreset{Enable,Status,Disable}Path` + 三条子路径共用的注册面前缀 `ENTERPRISE_PRESET_ACTION_LOCAL_PATH`） **本刀（企业插件真取消）**：新增 `cancelPlugin(packageName, signal)`——同源 POST `/enterprise/api/v1/local/plugins/cancel`，正文关闭键集恰好 `{packageName}`，响应与只读 `GET /plugins` **完全同形**（复用同一个严格解码器，**零新增字段**），并导出与 Host exact 注册面逐字同值的常量 `ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH`。
  * [POS]: dsh-ui 的浏览器网络边界——只发同源固定路径请求，调用方无法注入平台 origin 或 Authorization；DTO 契约与解码在 local-api-decode.ts，本文件只管发与收 **本刀**：`/presets` 那三条子路径由 Host 的同一个 prefix 按后缀分派，本文件只多三件固定路径的收发，边界口径（只同源、只发固定路径、键集封闭）一字未改。 **本刀（企业插件真取消）**：`/plugins/cancel` 是本族第三件动作（与 `install`/`remove` 同源同族），浏览器侧只多一次 POST 收发；取消的**结果**不由这条响应判定（响应同形、零新增字段），而是由那次安装请求自己的收束（`ENT_PLUGIN_INSTALL_CANCELLED`）读出来——故本文件不解析任何取消语义。
  * **本刀（本地导入）**：`uploadSkill` 是本族第二条**上传**路径（`POST /skills/upload`，multipart 恰好一个
  *   `artifact` file part，正文构造与反馈附件同一手法 `skillUploadForm`；响应与 `installSkill` 完全同形
@@ -61,6 +61,7 @@ import {
   decodeEnterpriseSkillDetail,
   decodeEnterpriseSkills,
   decodeEnterpriseSystemSkills,
+  decodeEnterpriseNuwaxStatus,
   decodeEnterpriseUninstall,
   decodeEnterpriseUsage,
   decodeRemoteSessions,
@@ -109,6 +110,18 @@ const PLUGIN_CANCEL_PATH = '/plugins/cancel'
  */
 const PLUGIN_ENABLE_PATH = '/plugins/enable'
 const PLUGIN_DISABLE_PATH = '/plugins/disable'
+
+/**
+ * NUWAX 员工登录三条**相对**路径（本刀：登录入口换成 NUWAX）。
+ *
+ * 与 Host 的 `bundle/src/nuwax-route.ts` 注册的三条 exact 路径逐字同值
+ * （`/enterprise/api/v1/local/nuwax/{login,logout,status}`）；三条互不为前缀，不抢路由。
+ * `login` 与 `logout` 是动作、`status` 是只读投影——前者收 `{account,password}` 关闭键集，
+ * 后两者不读正文。
+ */
+const NUWAX_LOGIN_PATH = '/nuwax/login'
+const NUWAX_LOGOUT_PATH = '/nuwax/logout'
+const NUWAX_STATUS_PATH = '/nuwax/status'
 
 function errorCode(value: unknown): string {
   const code = decodeEnterpriseErrorCode(value)
@@ -220,6 +233,19 @@ export function createEnterpriseLocalApi(
 ): EnterpriseLocalApi {
   return {
     status: async signal => decodeEnterpriseLocalStatus(await requestJson('/status', getInit(signal), fetcher)),
+    /**
+     * NUWAX 三条（本刀：登录入口换成 NUWAX）——与上面那条 `status` 同一层，都是同源固定路径。
+     *
+     * 口令只进这一次 POST 的正文：不写 URL、不进 header、不回显、不落盘；`login` 与 `status`
+     * 的响应**同形**，因此共用同一个严格解码器（宿主多回一个键即整条判畸形）。
+     */
+    nuwaxStatus: async signal => decodeEnterpriseNuwaxStatus(
+      await requestJson(NUWAX_STATUS_PATH, getInit(signal), fetcher),
+    ),
+    nuwaxLogin: async (account: string, password: string, signal: AbortSignal) => decodeEnterpriseNuwaxStatus(
+      await requestJson(NUWAX_LOGIN_PATH, jsonInit('POST', { account, password }, signal), fetcher),
+    ),
+    nuwaxLogout: async signal => postNoContent(NUWAX_LOGOUT_PATH, signal, fetcher),
     branding: async signal => decodeEnterpriseBranding(await requestJson('/branding', getInit(signal), fetcher)),
     refresh: async signal => decodeEnterpriseLocalStatus(await requestJson('/refresh', jsonInit('POST', {}, signal), fetcher)),
     setServerUrl: async (serverUrl, signal) => decodeEnterpriseServerUrl(
@@ -450,6 +476,10 @@ export const ENTERPRISE_PLUGIN_ENABLE_LOCAL_PATH = `${LOCAL_API_PREFIX}${PLUGIN_
 export const ENTERPRISE_PLUGIN_DISABLE_LOCAL_PATH = `${LOCAL_API_PREFIX}${PLUGIN_DISABLE_PATH}`
 
 /** 保持在同源路径上的反馈提交路径常量；测试与文档用它核对 Host 的注册路径。 */
+/** NUWAX 三条注册面路径（与 Host 的 exact 路径逐字同值；界面这一侧也从拼不出第二条）。 */
+export const ENTERPRISE_NUWAX_LOGIN_LOCAL_PATH = `${LOCAL_API_PREFIX}${NUWAX_LOGIN_PATH}`
+export const ENTERPRISE_NUWAX_LOGOUT_LOCAL_PATH = `${LOCAL_API_PREFIX}${NUWAX_LOGOUT_PATH}`
+export const ENTERPRISE_NUWAX_STATUS_LOCAL_PATH = `${LOCAL_API_PREFIX}${NUWAX_STATUS_PATH}`
 export const ENTERPRISE_FEEDBACK_LOCAL_PATH = `${LOCAL_API_PREFIX}/feedback`
 
 /** 「帮助与文档」的同源路径常量：Host 侧同源路由的注册路径必须与它逐字相同。 */

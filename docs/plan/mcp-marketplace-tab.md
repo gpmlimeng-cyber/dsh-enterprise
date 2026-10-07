@@ -1,5 +1,5 @@
 <!--
-[INPUT]: 依赖用户口径（连接器 = 插件市场页的第五枚页签，与技能/插件/配方/组件同一套体系）、`docs/plan/connector-architecture.md`（能力模型 §3 / 员工侧呈现 P0-5 / 分期 §7 / 开放问题 §8）、`docs/plan/mcp-conformance.md`（合规边界 §2 / 配置型 bundle 交付形态 §3 / 字段契约 §4）、`plugin/packages/ui/src/marketplace-entry.tsx`（页签真源、共享控制器、行子块、四态、座位）、`plugin/packages/platform-client/src/local-api.ts`（同源路由与唯一码表）、`docs/notes/direction-decisions.md`（口径 2/17/18/26）。
+[INPUT]: 依赖用户口径（连接器 = 插件市场页的第五枚页签，与技能/插件/配方/组件同一套体系）、`docs/plan/connector-architecture.md`（能力模型 §3 / 员工侧呈现 P0-5 / 分期 §7 / 开放问题 §8）、`docs/plan/mcp-conformance.md`（合规边界 §2 / 配置型 bundle 交付形态 §3 / 字段契约 §4）、`plugin/packages/ui/src/marketplace-entry.tsx`（页签真源、共享控制器、行子块、四态、座位）、`plugin/packages/platform-client/src/local-api.ts`（同源路由与唯一码表）、`docs/notes/direction-decisions.md`（口径 2/17/18/26）、`docs/research/nuwax-plugin-backend-2026-10-06.md`（§11 的取数源候选：企业目录改由 NUWAX 平台适配器供数，及其两条实测硬缺口）。
 [OUTPUT]: 「连接器（MCP）」作为插件市场页第五枚页签的**市场面落地方案**——页签真源的逐处同步点、组件台账行、行模型与行 facts、行版式、内容区四态、详情面形态裁决与逐段内容、添加下拉两条写入口、市场面→官方安装面那条链的实现约束、Host 路由与码表增量、权限与凭据的界面落法、市场面增量人日、明确不做与不确定项。**本文只钉落点与形状，不新增能力元数据**：能力声明字段与 L1/L2/L3 判据以 `connector-architecture.md` §3 为准，官方合规边界以 `mcp-conformance.md` §2 为准，两者冲突时以那两份为准。
 [POS]: docs/plan 下连接器线的**第三份、也是最后一份**——`connector-architecture.md` 给「能力与分期」，`mcp-conformance.md` 给「实现约束」，本文给「员工侧界面落在哪、长什么样」。它把 P0-5 那句「员工侧最小呈现：连接列表」从一句话展开成一套与既有页签同构的界面，因此**会使 P0-5 的人日上升**（§13 如实算差额）。
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -380,6 +380,13 @@ readonly onAddConnectorManual?: (() => void) | undefined
 3. **关闭键集**：每个 body 只读固定键集，越界键 / 非字符串 / 空串 / 超长一律拒（`:1204` 那把尺）。
 4. **失败码 → HTTP 状态的唯一映射** `enterpriseLocalErrorStatus`（`:502` 一族）加新码；
    bundle 侧路由与 platform-client 侧**必须共用同一张表**（`:3` 自述）。
+
+★ **取数源候选（2026-10-06 登记，本节形状一概不动）**：上表四条路由的**路径与形状不变**，
+变化的只是它们背后的「企业目录」实现——候选从「自研中心目录」（`ConnectorCatalogService` / `V44`）
+换成 **NUWAX 平台适配器**。证据面见 `docs/research/nuwax-plugin-backend-2026-10-06.md`：
+其 §5 给出与 11 个后台的逐条判决，§6 给出两条**实测**硬缺口（`export` 一律吐 `type:"sse"`、
+而官方 `dsh-mcp-client` 只有 stdio/streamable-http ⇒ **目录可列、安装装不上**；凭据只能走 URL query
+⇒ 与本仓「凭据只允许引用、值永不过界」冲突）。⇒ **本节（C3）照原样可做**，装包口径见该文 §6/§12。
 
 ---
 

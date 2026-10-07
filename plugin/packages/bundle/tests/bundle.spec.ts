@@ -1,6 +1,7 @@
 /**
  * [INPUT]: 依赖 bundle manifest/Config/patch、构建产物和 Node vm 中的官方 React lazy-CJS seed 模型
- * [OUTPUT]: 验证默认关闭的验签配置、dsh.bundle/dsh.client、credentials/pi-ai/分发注入、兼容 peers 与 Client apply
+ * [OUTPUT]: 验证默认关闭的验签配置、dsh.bundle/dsh.client、credentials/pi-ai/分发注入、兼容 peers、Client apply
+ *   与 Client 座位清单（含「专家·技能·连接器」两处常驻座位：`sidebar.panellist` 入口 + 同名 `main` 面板，口径 31）
  * [POS]: bundle 发布不变量测试，拒绝 Typert ambient shim、Harness 源码路径和未打包运行依赖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -141,11 +142,25 @@ describe('enterprise bundle', () => {
     // 外观组读 ui-theme，快捷键面板读 ui-shortcuts，资料库 `@` 触发器源读官方 inputTriggers
     // （口径 24 / `a027c47`：`client.tsx` 新增 `ctx.inject(['inputTriggers'])` —— 它**不进硬注入数组**、
     // 缺席时只是没有 `@` 源，但仍是 Client 组合根的一次 inject，故断言必须如实收下它）。
-    // 客户端注册**四个** settings/plugins 座位
-    // （企业设置页 / 个人中心登录入口 / 官方插件页市场卡片 / 插件详情徽标）。
-    // 独立应用商店的两处座位（`main` 面板 + `sidebar.panellist` 入口）已按用户要求撤销，故不再是六处。
+    // 客户端注册**六个**座位 = 四个 settings/plugins 座位
+    // （企业设置页 / 个人中心登录入口 / 官方插件页市场卡片 / 插件详情徽标）
+    // ＋「专家·技能·连接器」的两处**常驻**座位（`sidebar.panellist` 入口 + 同名 `main` 面板，口径 31）。
+    // 独立应用商店的两处座位已按用户要求撤销；资料库那两处仍在管理门（本用例的假 ctx 里门是关的）⇒ 不计入。
     expect(injected).toEqual([['theme'], ['shortcuts'], ['inputTriggers']])
-    expect(register).toHaveBeenCalledTimes(4)
+    expect(register).toHaveBeenCalledTimes(6)
+    // 逐条钉住这两处座位：**同名**是官方配对条件（list id → 同 key 的 main 面板），漂移就是一个点不开的死入口。
+    const seatOptions = register.mock.calls.map(call => call[0] as Record<string, unknown>)
+    const escPanel = seatOptions.find(options => options['name'] === 'sidebar.panellist')
+    expect(escPanel).toEqual({
+      name: 'sidebar.panellist',
+      id: 'expert-skill-connector',
+      order: 30,
+      label: '专家·技能·连接器',
+    })
+    const escMain = seatOptions.filter(options => options['name'] === 'main')
+    expect(escMain).toHaveLength(1)
+    expect(escMain[0]).toMatchObject({ name: 'main', key: 'expert-skill-connector' })
+    expect(escMain[0]?.['inject']).toBeTypeOf('function')
   })
 
   it('contains no ambient Remote shim or sibling source import', async () => {

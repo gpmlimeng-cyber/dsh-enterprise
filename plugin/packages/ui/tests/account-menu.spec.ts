@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 menu-model 的入口决策/菜单模型/分组与发丝线常量/状态机/效果执行器、account-menu 的触发按钮元素工厂与源码、menu-styles 的注入样式表、maintenance-view 的右侧控件源码，以及 account-state 的账号投影与 login-dialog 的入口投影
- * [OUTPUT]: 锁定入口一律弹菜单（未登录七态也走菜单且不直开弹窗）、末行会话动作位三态共用同一格、三组分区内容与顺序（偏好＝外观·我的用量·设置·快捷键／企业服务＝帮助与反馈·帮助与文档·维护／会话）、**发丝线数量 === 视觉块数 − 1 = 3**、更新行的「状态标签 + 快捷键按钮」两件事都不重复行标签、帮助与文档未配置即禁用且有可见提示、外部点击与 Esc 关闭、焦点去向与各行的效果序列、我们自有的发丝线取更浅 token 且不覆盖官方 CSS、品牌行已移除，以及四个弹窗「开关与元素同树」与右侧控件 stopPropagation 的源码级不变量
+ * [OUTPUT]: 锁定入口一律弹菜单（**本刀：按 NUWAX 两态遍历**，未登录不直开弹窗）、末行会话动作位三态共用同一格**且由 NUWAX 登录态推导**（头部两行取昵称 + 账号 · 租户）、三组分区内容与顺序（偏好＝外观·我的用量·设置·快捷键／企业服务＝帮助与反馈·帮助与文档·维护／会话）、**发丝线数量 === 视觉块数 − 1 = 3**、更新行的「状态标签 + 快捷键按钮」两件事都不重复行标签、帮助与文档未配置即禁用且有可见提示、外部点击与 Esc 关闭、焦点去向与各行的效果序列、我们自有的发丝线取更浅 token 且不覆盖官方 CSS、品牌行已移除，以及四个弹窗「开关与元素同树」与右侧控件 stopPropagation 的源码级不变量
  * [POS]: dsh-ui 个人中心菜单的无 React 契约回归，真实 DOM 与视觉由 Harness 手工冒烟覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -32,7 +32,7 @@ import {
   ENTERPRISE_HELP_UNCONFIGURED_HINT,
 } from '../src/help-link.js'
 import { ENTERPRISE_MENU_STYLES } from '../src/menu-styles.js'
-import type { EnterpriseAccountBootstrap, EnterpriseLocalStatus } from '../src/local-api.js'
+import type { EnterpriseAccountBootstrap, EnterpriseLocalStatus, EnterpriseNuwaxPrincipal } from '../src/local-api.js'
 
 vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
   Button: vi.fn(),
@@ -79,26 +79,28 @@ const bootstrap: EnterpriseAccountBootstrap = {
   user: status.user!,
 }
 
-/** 未登录全部七态：undefined 与六个终态。 */
-const SIGNED_OUT_STATES = [undefined, 'UNCONFIGURED', 'SIGNED_OUT', 'CANCELLED', 'FAILED', 'AUTH_EXPIRED', 'DEVICE_REVOKED'] as const
-/** 登录进行中：浏览器授权、设备注册、配置同步。 */
-const IN_FLIGHT_STATES = ['AUTHORIZING', 'ENROLLING', 'BOOTSTRAPPING'] as const
-const USABLE_STATES = ['READY', 'REFRESHING'] as const
+/**
+ * **NUWAX 夹具（本刀：登录入口换成 NUWAX）**——菜单头部与会话行现在由它们推导，
+ * 原来的企业 11 态清单不再参与菜单判定（企业那份事实照旧驱动市场与用量）。
+ */
+const NUWAX_PRINCIPAL: EnterpriseNuwaxPrincipal = { uid: 538565, userName: '538565', nickName: '李猛', tenantId: 1 }
+const NUWAX_IN = { state: 'signed-in', principal: NUWAX_PRINCIPAL } as const
+const NUWAX_OUT = { state: 'signed-out' } as const
+/** 未登录（含还没读到状态）、已登录——菜单只认这三种输入。 */
+const NUWAX_STATUSES = [undefined, NUWAX_OUT, NUWAX_IN] as const
 
 const identityOf = (state: EnterpriseLocalStatus['state'], user: EnterpriseLocalStatus['user'] = undefined) =>
   enterpriseAccountIdentity({ phase: 'ready', status: { ...status, state, user } })
 
-/** 菜单模型：头部两行与行项集合都由登录态与能力面推导。 */
-describe('the personal-center menu model follows the account state', () => {
-  it('shows 未登录 plus one guiding line and the login row on the last line while signed out', () => {
-    for (const [state, guide] of [
-      ['UNCONFIGURED', '设置 DSH Enterprise Server 地址后即可登录'],
-      ['SIGNED_OUT', '尚未连接企业服务'],
-      ['AUTH_EXPIRED', '企业会话已失效，请重新登录'],
-    ] as const) {
-      const model = enterpriseAccountMenu({ state, busy: undefined, identity: identityOf(state) })
+/** 菜单模型：头部两行与行项集合都随 NUWAX 登录态与能力面变化。 */
+describe('the personal-center menu model follows the NUWAX login state', () => {
+  it('shows 未登录 plus the NUWAX guiding line and the login row on the last line while signed out', () => {
+    for (const nuwax of [undefined, NUWAX_OUT] as const) {
+      const model = enterpriseAccountMenu({ nuwax, nuwaxBusy: undefined, identity: identityOf('SIGNED_OUT') })
       expect(model.title).toBe('未登录')
-      expect(model.detail).toBe(guide)
+      // 登录入口已经不需要地址了：那句「设置 DSH Enterprise Server 地址后即可登录」不许再出现。
+      expect(model.detail).toBe('请使用你的 NUWAX 账号登录')
+      expect(model.detail).not.toContain('Server')
       expect(model.presentsAccount).toBe(false)
       // 官方用 t('more')：未登录的按钮是菜单触发器，不再是登录按钮。
       expect(model.triggerLabel).toBe('更多')
@@ -110,34 +112,38 @@ describe('the personal-center menu model follows the account state', () => {
     }
   })
 
-  it('shows nickname, login name and department with a confirmed sign-out on the last line once connected', () => {
+  it('shows the NUWAX nickname, account and tenant with a confirmed sign-out on the last line once signed in', () => {
     const model = enterpriseAccountMenu({
-      state: 'READY',
-      busy: undefined,
+      nuwax: NUWAX_IN,
+      nuwaxBusy: undefined,
       identity: enterpriseAccountIdentity({ phase: 'ready', status, bootstrap }),
     })
     expect(model).toMatchObject({
-      title: '张三', detail: 'zhangsan · 20011', initial: '张', presentsAccount: true, triggerLabel: '张三',
+      title: '李猛', detail: '538565 · 租户 1', initial: '李', presentsAccount: true, triggerLabel: '李猛',
     })
     expect(model.session).toEqual([{ id: 'logout', label: '退出登录', disabled: false, danger: true }])
     expect(enterpriseMenuSections(model).at(-1)).toBe('session')
   })
 
-  it('moves the progress row into the same last-line slot while an authorization is in flight', () => {
-    const identity = identityOf('AUTHORIZING')
-    const model = enterpriseAccountMenu({ state: 'AUTHORIZING', busy: 'login', identity })
+  it('moves the progress row into the same last-line slot while a NUWAX login is in flight', () => {
+    const identity = identityOf('SIGNED_OUT')
+    const model = enterpriseAccountMenu({ nuwax: NUWAX_OUT, nuwaxBusy: 'login', identity })
     expect(model.session).toEqual([{ id: 'progress', label: '查看登录进度', disabled: false }])
-    // 登录中已按账号信息呈现头部，但按钮仍是官方 t('more') 的「更多」，还没拿到企业会话。
-    expect(model).toMatchObject({ title: '企业账号', detail: '请在系统浏览器中完成企业登录', presentsAccount: true, triggerLabel: '更多' })
-    expect(enterpriseAccountMenu({ state: 'SIGNED_OUT', busy: 'login', identity }).session)
-      .toEqual([{ id: 'login', label: '登录', disabled: true }])
-    expect(enterpriseAccountMenu({ state: 'READY', busy: 'logout', identity }).session)
+    // 登录中立刻按账号信息呈现头部（主体还没回来 ⇒ 回落「NUWAX 账号」），按钮仍是官方 t('more') 的「更多」。
+    expect(model).toMatchObject({
+      title: 'NUWAX 账号',
+      detail: '正在向 NUWAX 平台核对账号与口令',
+      presentsAccount: true,
+      triggerLabel: '更多',
+    })
+    // 正在退出：行在，但置灰（防重复提交）——注意它读的是 `nuwaxBusy` 而不是企业那枚 `busy`。
+    expect(enterpriseAccountMenu({ nuwax: NUWAX_IN, nuwaxBusy: 'logout', identity }).session)
       .toEqual([{ id: 'logout', label: '正在退出', disabled: true, danger: true }])
   })
 
-  it('keeps 外观、我的用量、设置 and 帮助与反馈 in the menu for every account state', () => {
-    for (const state of [...SIGNED_OUT_STATES, ...IN_FLIGHT_STATES, ...USABLE_STATES]) {
-      const model = enterpriseAccountMenu({ state, busy: undefined, identity: identityOf(state) })
+  it('keeps 外观、我的用量、设置 and 帮助与反馈 in the menu for every login state', () => {
+    for (const nuwax of NUWAX_STATUSES) {
+      const model = enterpriseAccountMenu({ nuwax, nuwaxBusy: undefined, identity: identityOf('SIGNED_OUT') })
       expect(enterpriseMenuSections(model)).toContain('appearance')
       expect(enterpriseMenuSections(model)).toContain('usage')
       expect(enterpriseMenuSections(model)).toContain('settings')
@@ -149,18 +155,24 @@ describe('the personal-center menu model follows the account state', () => {
     }
   })
 
-  it('orders the three semantic groups and drops the department placeholder', () => {
-    const signedOut = enterpriseAccountMenu({ state: 'SIGNED_OUT', busy: undefined, identity: identityOf('SIGNED_OUT') })
+  it('orders the three semantic groups and never leaks a department placeholder', () => {
+    const signedOut = enterpriseAccountMenu({ nuwax: NUWAX_OUT, nuwaxBusy: undefined, identity: identityOf('SIGNED_OUT') })
     expect(enterpriseMenuSections(signedOut))
       .toEqual(['appearance', 'usage', 'settings', 'feedback', 'docs', 'maintenance', 'session'])
     expect(enterpriseMenuBlocks(signedOut).map(block => block.id))
       .toEqual(['preferences', 'enterprise', 'session'])
 
-    const connected = enterpriseAccountMenu({ state: 'READY', busy: undefined, identity: identityOf('READY', { ...status.user!, departmentId: null }) })
-    expect(connected.detail).toBe('zhangsan')
+    // 头部第二行取 NUWAX 账号与租户，**不再**取企业部门（部门未知时那句「未设置部门」不许进菜单）。
+    const connected = enterpriseAccountMenu({
+      nuwax: NUWAX_IN,
+      nuwaxBusy: undefined,
+      identity: identityOf('READY', { ...status.user!, departmentId: null }),
+    })
+    expect(connected.detail).toBe('538565 · 租户 1')
+    expect(connected.detail).not.toContain('未设置部门')
 
     const featured = enterpriseAccountMenu({
-      state: 'READY', busy: undefined, identity: identityOf('READY', status.user), capabilities: ALL_CAPABILITIES,
+      nuwax: NUWAX_IN, nuwaxBusy: undefined, identity: identityOf('READY', status.user), capabilities: ALL_CAPABILITIES,
     })
     expect(enterpriseMenuSections(featured))
       .toEqual(['appearance', 'usage', 'settings', 'shortcuts', 'feedback', 'docs', 'maintenance', 'session'])
@@ -175,16 +187,20 @@ describe('the personal-center menu model follows the account state', () => {
   })
 
   it('puts 我的用量 immediately before 设置', () => {
-    for (const state of [...SIGNED_OUT_STATES, ...IN_FLIGHT_STATES, ...USABLE_STATES]) {
-      const sections = enterpriseMenuSections(enterpriseAccountMenu({ state, busy: undefined, identity: identityOf(state) }))
-      expect(sections.indexOf('usage'), state).toBe(sections.indexOf('settings') - 1)
+    for (const nuwax of NUWAX_STATUSES) {
+      const sections = enterpriseMenuSections(enterpriseAccountMenu({
+        nuwax, nuwaxBusy: undefined, identity: identityOf('SIGNED_OUT'),
+      }))
+      expect(sections.indexOf('usage'), String(nuwax)).toBe(sections.indexOf('settings') - 1)
     }
   })
 
-  it('keeps the brand fallback initial when the projection has no display name', () => {
+  it('takes the menu initial from the NUWAX nickname and falls back to the brand letter while signed out', () => {
     const identity = enterpriseAccountIdentity({ phase: 'ready', status: { ...status, user: undefined } })
     expect(identity.displayName).toBe('企业账号')
-    expect(enterpriseAccountMenu({ state: 'SIGNED_OUT', busy: undefined, identity }).initial).toBe('企')
+    // 未登录（含没读到状态）头部落回品牌首字母，不再拿企业那句占位当首字。
+    expect(enterpriseAccountMenu({ nuwax: undefined, nuwaxBusy: undefined, identity }).initial).toBe('D')
+    expect(enterpriseAccountMenu({ nuwax: NUWAX_IN, nuwaxBusy: undefined, identity }).initial).toBe('李')
   })
 })
 
@@ -194,7 +210,7 @@ describe('the personal-center menu model follows the account state', () => {
  */
 describe('the hairline separators only mark group boundaries', () => {
   const anyModel = enterpriseAccountMenu({
-    state: 'READY', busy: undefined, identity: identityOf('READY', status.user), capabilities: ALL_CAPABILITIES,
+    nuwax: NUWAX_IN, nuwaxBusy: undefined, identity: identityOf('READY', status.user), capabilities: ALL_CAPABILITIES,
   })
 
   it('pins the separator count to the block count instead of the section count', () => {
@@ -219,15 +235,15 @@ describe('the hairline separators only mark group boundaries', () => {
 /** 维护组与快捷键入口只在对应能力存在时出现：能就显示、不能就隐藏，绝不假装点了有用。 */
 describe('the maintenance group follows the detected desktop capabilities', () => {
   it('always offers the reload row and hides restart/update without the matching channel', () => {
-    const model = enterpriseAccountMenu({ state: 'SIGNED_OUT', busy: undefined, identity: identityOf('SIGNED_OUT') })
+    const model = enterpriseAccountMenu({ nuwax: NUWAX_OUT, nuwaxBusy: undefined, identity: identityOf('SIGNED_OUT') })
     expect(model.maintenance).toEqual([{ id: 'reload', label: '重新载入页面', disabled: false }])
     expect(model.shortcuts).toBeUndefined()
   })
 
   it('adds 重新启动应用 only when the official renderer-action channel exists', () => {
     const withActions = enterpriseAccountMenu({
-      state: 'SIGNED_OUT',
-      busy: undefined,
+      nuwax: NUWAX_OUT,
+      nuwaxBusy: undefined,
       identity: identityOf('SIGNED_OUT'),
       capabilities: { restart: true, shortcuts: false, updates: false },
     })
@@ -236,8 +252,8 @@ describe('the maintenance group follows the detected desktop capabilities', () =
 
   it('hides the whole 更新 row while the official updates channel is unavailable', () => {
     const withoutUpdates = enterpriseAccountMenu({
-      state: 'SIGNED_OUT',
-      busy: undefined,
+      nuwax: NUWAX_OUT,
+      nuwaxBusy: undefined,
       identity: identityOf('SIGNED_OUT'),
       capabilities: { restart: false, shortcuts: false, updates: false },
       update: { phase: 'available' },
@@ -247,8 +263,8 @@ describe('the maintenance group follows the detected desktop capabilities', () =
 
   it('keeps the 更新 row label constant while the phase moves', () => {
     const row = (update: { readonly phase: string } | undefined) => enterpriseAccountMenu({
-      state: 'SIGNED_OUT',
-      busy: undefined,
+      nuwax: NUWAX_OUT,
+      nuwaxBusy: undefined,
       identity: identityOf('SIGNED_OUT'),
       capabilities: ALL_CAPABILITIES,
       update: update as never,
@@ -267,7 +283,7 @@ describe('the maintenance group follows the detected desktop capabilities', () =
 /** 队列第 9 项：帮助与文档由平台地址派生，未配置时禁用（原因只走 title，不再占用行尾）。 */
 describe('the 帮助与文档 row follows the platform address', () => {
   it('enables the row without any trailing hint when the platform address is configured', () => {
-    const model = enterpriseAccountMenu({ state: 'READY', busy: undefined, identity: identityOf('READY', status.user) })
+    const model = enterpriseAccountMenu({ nuwax: NUWAX_IN, nuwaxBusy: undefined, identity: identityOf('READY', status.user) })
     // 行右侧不写字（2026-10-01 用户裁定）：hint 必须缺席，只有 title 保留说明。
     expect(model.docs).toEqual({
       disabled: false,
@@ -285,7 +301,7 @@ describe('the 帮助与文档 row follows the platform address', () => {
       phase: 'ready',
       status: { ...status, platformUrl: null, state: 'UNCONFIGURED', user: undefined },
     })
-    const unconfigured = enterpriseAccountMenu({ state: 'UNCONFIGURED', busy: undefined, identity })
+    const unconfigured = enterpriseAccountMenu({ nuwax: NUWAX_OUT, nuwaxBusy: undefined, identity })
     expect(identity.isPlatformConfigured).toBe(false)
     expect(unconfigured.docs.disabled).toBe(true)
     expect(unconfigured.docs.hint).toBeUndefined()
@@ -295,17 +311,17 @@ describe('the 帮助与文档 row follows the platform address', () => {
 
 /** 入口不再按登录态分叉：任何状态都先弹菜单，登录弹窗只能由菜单行项打开。 */
 describe('the trigger always opens the menu', () => {
-  it('answers 菜单 for every signed-out, in-flight and usable state', () => {
-    for (const state of [...SIGNED_OUT_STATES, ...IN_FLIGHT_STATES, ...USABLE_STATES]) {
-      expect(enterpriseMenuEntryPath(state, undefined)).toBe('menu')
-      expect(enterpriseMenuEntryPath(state, 'login')).toBe('menu')
-      expect(enterpriseMenuEntryPath(state, 'logout')).toBe('menu')
+  it('answers 菜单 for every NUWAX login shape', () => {
+    for (const nuwax of NUWAX_STATUSES) {
+      expect(enterpriseMenuEntryPath(nuwax, undefined)).toBe('menu')
+      expect(enterpriseMenuEntryPath(nuwax, 'login')).toBe('menu')
+      expect(enterpriseMenuEntryPath(nuwax, 'logout')).toBe('menu')
     }
   })
 
-  it('opens the menu, never the login dialog, from every signed-out state', () => {
-    for (const state of SIGNED_OUT_STATES) {
-      expect(enterpriseMenuEntryPath(state, undefined)).toBe('menu')
+  it('opens the menu, never the login dialog, from every signed-out shape', () => {
+    for (const nuwax of [undefined, NUWAX_OUT] as const) {
+      expect(enterpriseMenuEntryPath(nuwax, undefined)).toBe('menu')
       const launch = enterpriseMenuTransition(ENTERPRISE_MENU_CLOSED, { type: 'launch', dialogOpen: false })
       expect(launch.state).toEqual(ENTERPRISE_MENU_OPEN)
       expect(launch.effects).toEqual(['focus-menu'])

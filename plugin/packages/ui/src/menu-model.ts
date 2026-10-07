@@ -1,17 +1,11 @@
 /**
- * [INPUT]: 依赖 account-state 的账号投影与状态文案映射、login-dialog 的入口投影、desktop-runtime 的更新状态投影、help-link 的帮助站地址派生与文案、local-api 的连接状态联合，以及 account-store/account-state 的脱敏投影类型
- * [OUTPUT]: 对外提供入口决策 enterpriseMenuEntryPath、菜单模型 enterpriseAccountMenu 与 EnterpriseAccountMenuModel、分组 enterpriseMenuBlocks/enterpriseMenuSections 与常量 ENTERPRISE_MENU_BLOCK_IDS/ENTERPRISE_MENU_VISUAL_BLOCKS/ENTERPRISE_MENU_SEPARATOR_COUNT、能力面 EnterpriseMenuCapabilities，以及开关状态机 enterpriseMenuTransition/enterpriseMenuKeyEvent/enterpriseMenuCommandEffects/applyEnterpriseMenuEffects
+ * [INPUT]: 依赖 account-state 的账号投影（仅帮助与文档那行用它的平台地址）、login-dialog 的入口投影、login-page 的 NUWAX 状态呈现、desktop-runtime 的更新状态投影、help-link 的帮助站地址派生与文案、local-api 的 NUWAX 登录态联合，以及 account-store/account-state 的脱敏投影类型
+ * [OUTPUT]: **本刀（登录入口换成 NUWAX）**：`EnterpriseAccountMenuInput` 的 `state`/`busy`（企业连接态）换成 `nuwax`/`nuwaxBusy`——头部两行与会话行都由 NUWAX 登录态推导，`identity` 只剩一个用途（帮助与文档那行仍按企业平台地址是否配置判禁用）。对外提供入口决策 enterpriseMenuEntryPath、菜单模型 enterpriseAccountMenu 与 EnterpriseAccountMenuModel、分组 enterpriseMenuBlocks/enterpriseMenuSections 与常量 ENTERPRISE_MENU_BLOCK_IDS/ENTERPRISE_MENU_VISUAL_BLOCKS/ENTERPRISE_MENU_SEPARATOR_COUNT、能力面 EnterpriseMenuCapabilities，以及开关状态机 enterpriseMenuTransition/enterpriseMenuKeyEvent/enterpriseMenuCommandEffects/applyEnterpriseMenuEffects
  * [POS]: dsh-ui 个人中心菜单的纯决策层（无 React、无 DOM、无 store 副作用）：行项集合、分组边界与发丝线条数都从「登录态 × 能力面 × 平台配置」推导，组件只消费这些事实。发丝线条数被 `ENTERPRISE_MENU_SEPARATOR_COUNT` 这个常量锁死（头部 + 三组 = 4 个视觉块 → 3 条线），防止再退化为「每个 section 边界都画线」
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import {
-  ENTERPRISE_LOADING_PRESENTATION,
-  enterpriseLoginInFlight,
-  enterpriseStatePresentation,
-  type EnterpriseAccountIdentity,
-} from './account-state.js'
-import type { EnterpriseAccountAction } from './account-store.js'
+import type { EnterpriseAccountIdentity } from './account-state.js'
 import {
   enterpriseUpdateTrailing,
   type EnterpriseUpdatePresentation,
@@ -24,7 +18,8 @@ import {
   enterpriseHelpUrl,
 } from './help-link.js'
 import { enterpriseLoginEntry } from './login-dialog.js'
-import type { EnterpriseConnectionState } from './local-api.js'
+import { enterpriseNuwaxPresentation, type EnterpriseNuwaxBusy } from './login-page.js'
+import type { EnterpriseNuwaxStatus } from './local-api.js'
 /**
  * 菜单里可被选中的命令；分组由模型给出，顺序即视觉顺序。
  *
@@ -55,8 +50,8 @@ export type EnterpriseMenuEntryPath = 'menu'
  * 参数说明判定输入域，答案不再依赖它们。
  */
 export function enterpriseMenuEntryPath(
-  _state: EnterpriseConnectionState | undefined,
-  _busy: EnterpriseAccountAction | undefined,
+  _nuwax: EnterpriseNuwaxStatus | undefined,
+  _busy: EnterpriseNuwaxBusy | undefined,
 ): EnterpriseMenuEntryPath {
   return 'menu'
 }
@@ -129,8 +124,15 @@ export const ENTERPRISE_MENU_CAPABILITIES_NONE: EnterpriseMenuCapabilities = {
 }
 
 export interface EnterpriseAccountMenuInput {
-  readonly state: EnterpriseConnectionState | undefined
-  readonly busy: EnterpriseAccountAction | undefined
+  /**
+   * **NUWAX 登录态**（本刀：登录入口换成 NUWAX 之后，菜单头部与会话行都由它推导）。
+   *
+   * 企业连接态（`EnterpriseConnectionState`）**不再**出现在这里：那份事实照旧驱动市场与用量，
+   * 但它不再决定"登录入口长什么样"——否则就会出现「企业连上了、NUWAX 没登录」时菜单说已登录、
+   * 点开却是一面 NUWAX 表单的自相矛盾。
+   */
+  readonly nuwax: EnterpriseNuwaxStatus | undefined
+  readonly nuwaxBusy: EnterpriseNuwaxBusy | undefined
   readonly identity: EnterpriseAccountIdentity
   readonly capabilities?: EnterpriseMenuCapabilities | undefined
   /** 官方更新状态；缺席或相位 idle 都按「检查更新」呈现。 */
@@ -153,29 +155,27 @@ function updateRow(trailing: EnterpriseUpdateTrailing): EnterpriseMenuItem {
 }
 
 /**
- * 菜单模型：行项集合随登录态与能力面变化，文案复用账号区的状态映射，不新增第二套词汇。
- * 已连接显示昵称加登录名/部门；登录中身份可能已从 bootstrap 取到，同样按账号信息呈现，
- * 不再回落「未登录」；其余状态显示「未登录」加当前状态的引导语。部门未知时不出现在这一行里，
- * 让「未设置部门」这类占位不进入菜单头部。帮助与文档在平台地址未配置时禁用并把原因写在行右侧。
+ * 菜单模型：行项集合随**NUWAX 登录态**与能力面变化，文案复用登录页的状态映射，不新增第二套词汇。
+ * 已登录显示 NUWAX 昵称加账号/租户；登录中同样按账号信息呈现，不再回落「未登录」；
+ * 其余状态显示「未登录」加当前状态的引导语。帮助与文档仍按**企业平台地址**是否配置决定禁用，
+ * 那是另一份事实（它决定帮助站连不连得上），因此 `identity` 只在这里用。
  */
 export function enterpriseAccountMenu(input: EnterpriseAccountMenuInput): EnterpriseAccountMenuModel {
-  const entry = enterpriseLoginEntry(input.state, input.busy)
-  const presentation = input.state === undefined
-    ? ENTERPRISE_LOADING_PRESENTATION
-    : enterpriseStatePresentation(input.state)
+  const entry = enterpriseLoginEntry(input.nuwax, input.nuwaxBusy)
+  const presentation = enterpriseNuwaxPresentation(input.nuwax, input.nuwaxBusy)
+  const principal = input.nuwax?.state === 'signed-in' ? input.nuwax.principal : undefined
   const usable = entry.action === 'logout'
-  const inFlight = enterpriseLoginInFlight(input.state)
+  const inFlight = input.nuwaxBusy === 'login'
   const identified = usable || inFlight
   const capabilities = input.capabilities ?? ENTERPRISE_MENU_CAPABILITIES_NONE
-  const detail = [input.identity.loginName, input.identity.isDepartmentKnown ? input.identity.department : '']
-    .filter(part => part !== '').join(' · ')
+  const detail = principal === undefined ? '' : `${principal.userName} · 租户 ${principal.tenantId}`
   const helpConfigured = enterpriseHelpUrl(input.identity.platformUrl) !== undefined
   return {
-    title: identified ? input.identity.displayName : '未登录',
+    title: identified ? (principal?.nickName ?? 'NUWAX 账号') : '未登录',
     detail: identified && detail !== '' ? detail : presentation.description,
-    initial: initialOf(input.identity.displayName),
+    initial: initialOf(principal?.nickName ?? ''),
     presentsAccount: identified,
-    triggerLabel: usable ? input.identity.displayName : TRIGGER_MORE_LABEL,
+    triggerLabel: usable ? (principal?.nickName ?? TRIGGER_MORE_LABEL) : TRIGGER_MORE_LABEL,
     usage: { id: 'usage', label: USAGE_LABEL, disabled: false },
     feedback: { id: 'feedback', label: FEEDBACK_LABEL, disabled: false },
     docs: {
@@ -194,7 +194,7 @@ export function enterpriseAccountMenu(input: EnterpriseAccountMenuInput): Enterp
       ...(capabilities.restart ? [{ id: 'restart', label: RESTART_LABEL, disabled: false } as const] : []),
     ],
     session: usable
-      ? [{ id: 'logout', label: input.busy === 'logout' ? '正在退出' : '退出登录', disabled: entry.disabled, danger: true }]
+      ? [{ id: 'logout', label: input.nuwaxBusy === 'logout' ? '正在退出' : '退出登录', disabled: entry.disabled, danger: true }]
       : inFlight
         ? [{ id: 'progress', label: '查看登录进度', disabled: false }]
         : [{ id: 'login', label: '登录', disabled: entry.disabled }],

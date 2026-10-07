@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 React（Ref/ReactElement/KeyboardEvent 类型）、official-ui 接缝提供的官方 Menu/MenuItemButton/官方图标、Lucide 的图标组（LogOut/Gauge/MessageSquareText/BookOpen/RotateCw/Power/Download/Keyboard）、account-state 的账号投影与状态文案、login-dialog 的入口投影与弹窗、usage-panel 的行内折叠用量块、feedback-dialog 的反馈表单弹窗、account-view 的登出确认、theme-options 的外观选项组、desktop-runtime 的桌面能力面与更新状态、maintenance-view 的维护反馈弹窗与右侧状态控件、shortcuts-view 的官方快捷键只读源与速查弹窗、shortcuts-open 的 reach-in 打开器、help-link 的帮助站地址派生与打开口径，以及 EnterpriseAccountStore 的脱敏快照
- * [OUTPUT]: 对外提供入口决策 enterpriseMenuEntryPath、菜单纯决策 enterpriseAccountMenu/enterpriseMenuSections/enterpriseMenuBlocks/enterpriseMenuTransition/enterpriseMenuCommandEffects/applyEnterpriseMenuEffects、发丝线常量 ENTERPRISE_MENU_SEPARATOR_COUNT、触发按钮元素工厂 enterpriseMenuTriggerElement 与菜单组件 EnterpriseAccountMenu（样式表由 menu-styles 持有），后者占据官方 settings.launcher 座位
- * [POS]: dsh-ui 唯一的侧栏账号入口。末行固定是「会话动作位」（未登录=登录、登录中=查看登录进度、已连接=退出登录）；视觉上只有三个分组块——【偏好】外观 · 我的用量 · 设置 · 快捷键 ／【企业服务】帮助与反馈 · 帮助与文档 · 检查更新 · 重新载入页面 · 重新启动应用（按能力）／【会话】登录 · 退出登录，发丝线只画在头部与相邻分组之间（3 条）。卡片本体、菜单行、portal 定位、自动聚焦与 Esc 全部交给官方 Menu/MenuItemButton 原语，因此宽度/圆角/阴影/行几何/悬停与危险色都随宿主版本与官方一致；我们自己持有的只有官方没有的部分——触发按钮（官方那颗在 ui-settings-account 包内不导出）、账号头部、外观选项组、行内用量块、维护行右侧状态控件与全部发丝线——并逐条照官方 0.2.0-rc.2 实物取值（ui-settings-account/lib/client.js:1612 的 AccountMenu.module.css、ui-settings-general/lib/client.js:60 的 SettingsRoot、ui-primitives 的 Menu/SegmentedControl CSS）。触发按钮的 background 只由 ENTERPRISE_MENU_STYLES 的类规则声明，元素本身不带任何内联样式，否则内联优先级会压掉 :hover
+ * [OUTPUT]: **本刀（登录入口换成 NUWAX）**：末行会话动作位与头部账号事实改读 `snapshot.nuwax` / `snapshot.nuwaxBusy`，退出确认传 `target="nuwax"`（退的是 NUWAX 会话）。对外提供入口决策 enterpriseMenuEntryPath、菜单纯决策 enterpriseAccountMenu/enterpriseMenuSections/enterpriseMenuBlocks/enterpriseMenuTransition/enterpriseMenuCommandEffects/applyEnterpriseMenuEffects、发丝线常量 ENTERPRISE_MENU_SEPARATOR_COUNT、触发按钮元素工厂 enterpriseMenuTriggerElement 与菜单组件 EnterpriseAccountMenu（样式表由 menu-styles 持有），后者占据官方 settings.launcher 座位
+ * [POS]: dsh-ui 唯一的侧栏账号入口。末行固定是「会话动作位」（**本刀起由 NUWAX 登录态驱动**：未登录=登录、登录中=查看登录进度、已登录=退出登录）；视觉上只有三个分组块——【偏好】外观 · 我的用量 · 设置 · 快捷键 ／【企业服务】帮助与反馈 · 帮助与文档 · 检查更新 · 重新载入页面 · 重新启动应用（按能力）／【会话】登录 · 退出登录，发丝线只画在头部与相邻分组之间（3 条）。卡片本体、菜单行、portal 定位、自动聚焦与 Esc 全部交给官方 Menu/MenuItemButton 原语，因此宽度/圆角/阴影/行几何/悬停与危险色都随宿主版本与官方一致；我们自己持有的只有官方没有的部分——触发按钮（官方那颗在 ui-settings-account 包内不导出）、账号头部、外观选项组、行内用量块、维护行右侧状态控件与全部发丝线——并逐条照官方 0.2.0-rc.2 实物取值（ui-settings-account/lib/client.js:1612 的 AccountMenu.module.css、ui-settings-general/lib/client.js:60 的 SettingsRoot、ui-primitives 的 Menu/SegmentedControl CSS）。触发按钮的 background 只由 ENTERPRISE_MENU_STYLES 的类规则声明，元素本身不带任何内联样式，否则内联优先级会压掉 :hover
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -222,8 +222,8 @@ export function EnterpriseAccountMenu(props: EnterpriseAccountMenuProps): ReactN
     if (update?.phase === 'checking') setUpdateChecked(true)
   }, [update?.phase])
   const model = enterpriseAccountMenu({
-    state: snapshot.status?.state,
-    busy: snapshot.busy,
+    nuwax: snapshot.nuwax,
+    nuwaxBusy: snapshot.nuwaxBusy,
     identity,
     capabilities: {
       restart: desktop.actions !== undefined,
@@ -239,9 +239,10 @@ export function EnterpriseAccountMenu(props: EnterpriseAccountMenuProps): ReactN
   const openUpdate = (): void => { desktop.updates.open() }
   /** 「快捷键」行的官方键帽：取官方注册表里 `shortcuts.open` 那条，取不到就不显示按键。 */
   const shortcutsEntry = enterpriseShortcutKeys(shortcutRows, 'shortcuts.open')
-  const entry = enterpriseLoginEntry(snapshot.status?.state, snapshot.busy)
+  // 会话行与入口都读 **NUWAX 登录态**（本刀：登录入口换成 NUWAX）；企业连接态照旧驱动市场与用量。
+  const entry = enterpriseLoginEntry(snapshot.nuwax, snapshot.nuwaxBusy)
   // 入口去向只有一个答案（菜单），aria-haspopup 因此恒为 menu；类型由决策函数给出。
-  const entryPath = enterpriseMenuEntryPath(snapshot.status?.state, snapshot.busy)
+  const entryPath = enterpriseMenuEntryPath(snapshot.nuwax, snapshot.nuwaxBusy)
   const signedIn = entry.action === 'logout'
   const [menu, setMenu] = useState<EnterpriseMenuState>(ENTERPRISE_MENU_CLOSED)
   const menuRef = useRef(menu)
@@ -468,7 +469,7 @@ export function EnterpriseAccountMenu(props: EnterpriseAccountMenuProps): ReactN
       initial: model.initial,
       label: model.triggerLabel,
       signedIn,
-      state: snapshot.status?.state ?? snapshot.phase,
+      state: snapshot.nuwax?.state ?? snapshot.phase,
       wide: props.wide,
     }, {
       onClick: () => { run({ type: 'launch', dialogOpen: dialog.open }) },
@@ -484,9 +485,10 @@ export function EnterpriseAccountMenu(props: EnterpriseAccountMenuProps): ReactN
     {panel(startLogout)}
   </OfficialMenu>
   // 退出确认挂在菜单之外，所以菜单关闭不会卸载确认弹窗；未登录时没有行项引用它的开启器。
+  // `target="nuwax"`：这一格退出的是 NUWAX 会话（本刀之后它就是"登录入口"那个登录）。
   return <>
     <style>{ENTERPRISE_MENU_STYLES}</style>
-    <LogoutConfirmation store={props.store} disabled={entry.disabled}>{launcher}</LogoutConfirmation>
+    <LogoutConfirmation store={props.store} disabled={entry.disabled} target="nuwax">{launcher}</LogoutConfirmation>
     {/* 登录弹窗必须与菜单同树渲染：开关是本组件状态，缺这一行会让「登录」点击静默失效（不崩溃、不报错）。 */}
     <EnterpriseLoginDialog onClose={dialog.closeDialog} open={dialog.open} store={props.store} />
     {/* 「帮助与反馈」同理：开关是 feedbackDialog 的状态，表单与提交都在弹窗内收敛。 */}

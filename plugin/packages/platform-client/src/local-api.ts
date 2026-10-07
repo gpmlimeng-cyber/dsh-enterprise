@@ -32,6 +32,13 @@
  *   正文关闭键集恰好 `{packageName}`，响应与 `GET /plugins` 同形）与可选端口 `pluginSetEnabled`；
  *   组合层没接线（旧 bundle）时如实 **503**（不是 404），界面那枚开关永远拿得到一句可重试的真话。
  *   ★ 停用只摘 bundle 层（官方 `setBundleEnabled(name,false)`），**绝不等同于卸载**。
+ * **本刀（插件侧 NUWAX 员工登录）**：本文件**不注册任何新路由**（三条 `/nuwax/{login,logout,status}` 由 bundle 的
+ *   `nuwax-route.ts` 自持），只往唯一那张码→状态表加五枚（第六枚 `ENT_NUWAX_NOT_CONFIGURED` 有意落在**表尾 503**
+ *   默认上：部署配置问题就是"本机这块暂时不可用、可重试"）：
+ *   `ENT_NUWAX_INVALID_CREDENTIALS`→401（凭据不对，与既有 `ENT_AUTH_REQUIRED` 同域）、
+ *   `ENT_NUWAX_REJECTED`→403（凭据有效但平台不允许这次登录：风控/验证码/账号被锁，**不是**"再输一次就好"）、
+ *   `ENT_NUWAX_UNAVAILABLE`/`ENT_NUWAX_TIMEOUT`/`ENT_NUWAX_PROTOCOL`→502（**上游**故障或上游回了读不懂的东西，
+ *   与既有 `ENT_SKILL_SOURCE_UNREACHABLE` 同族，绝不折成 503 的"本机暂时不可用"）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -533,6 +540,16 @@ export function enterpriseLocalErrorStatus(error: unknown): number {
     || code === 'ENT_PRESET_UNINSTALL_FAILED'
     || code === 'ENT_PRESET_BUNDLE_WRITE_FAILED'
     || code === 'ENT_PRESET_ARTIFACT_UNAVAILABLE') return 503
+  // 插件侧 NUWAX 员工登录族（bundle 的 `nuwax-route.ts` 把 `nuwax-auth.ts` 的六枚码投影到本表）：
+  //  · 凭据不对 → 401（与既有 `ENT_AUTH_REQUIRED` 同域：这一层就是"你是谁"没通过）；
+  //  · 平台拒绝（风控/验证码/账号被锁）→ 403：请求合法、身份也对，是**平台侧不允许这次登录**，
+  //    与 `ENT_PERMISSION_DENIED` 同判（"再输一次同样的口令"不是正确的下一步）；
+  //  · 上游不可达 / 超时 / 上游回了读不懂的东西 → 502：三种都是**上游**的事，可稍后重试，
+  //    与 `ENT_SKILL_SOURCE_UNREACHABLE` 同族；★不折成 503 —— 那句人话是"本机暂时不可用"，会指错方向。
+  //  · `ENT_NUWAX_NOT_CONFIGURED`（部署没配平台地址）**有意不列**：表尾 503 就是它的状态。
+  if (code === 'ENT_NUWAX_INVALID_CREDENTIALS') return 401
+  if (code === 'ENT_NUWAX_REJECTED') return 403
+  if (code === 'ENT_NUWAX_UNAVAILABLE' || code === 'ENT_NUWAX_TIMEOUT' || code === 'ENT_NUWAX_PROTOCOL') return 502
   return 503
 }
 

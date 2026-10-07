@@ -53,6 +53,10 @@ import { registerEnterpriseFeedbackRoute } from './feedback-route.js'
 import { registerEnterpriseHelpRoute } from './help-route.js'
 import { registerEnterpriseUsageRoute } from './usage-route.js'
 import { registerEnterpriseModelsStatusRoute } from './models-status.js'
+import { registerEnterpriseEscReadRoute } from './esc-route.js'
+import { readEscMockSwitch } from './esc-mock.js'
+import { createNuwaxSessionHolder } from './nuwax-auth.js'
+import { registerEnterpriseNuwaxRoutes } from './nuwax-route.js'
 import { createEnterpriseSkillInstall } from './skill-install.js'
 import { installedSelfSkills, uploadSkillArchive } from './skill-upload.js'
 import { adoptSystemSkill, discoverSystemSkills } from './skill-system.js'
@@ -905,6 +909,35 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
   }, (message, error) => {
     ctx.logger.warn(`owndsh: ${message}`, error)
   }), 'enterpriseHelp.routes')
+  // 插件侧 NUWAX 员工登录（口径 29：企业后台换成 NUWAX，账号面走员工自己的 NUWAX 账号）。
+  // 三条 exact 本机路由：POST /nuwax/login（账号+口令进、登录态出）、POST /nuwax/logout、GET /nuwax/status。
+  // ★票据只活在宿主进程内存里（不落盘、不回浏览器，响应只给派生的 principal/expiresAt）；
+  // ★平台地址由部署配置 `DSHENT_NUWAX_ORIGIN` 在**首次登录时**决议（缺配置不拖垮插件启动，每次登录读当前配置）；
+  // ★`fetch` 用宿主全局（与在线搜索那条无凭据取数面同一个形状），只打配置里的那一个 origin、且不跟随重定向。
+  const nuwaxAuth = createNuwaxSessionHolder({
+    fetch: (input: string, init?: RequestInit) => fetch(input, init),
+  })
+  ctx.effect(() => registerEnterpriseNuwaxRoutes(ctx.webServer, {
+    holder: nuwaxAuth,
+    onError: (message, error) => {
+      ctx.logger.warn(`owndsh: ${message}`, error)
+    },
+  }), 'enterpriseNuwaxAuth.routes')
+  // 「专家·技能·连接器」页面的宿主只读代理（口径 31）：浏览器只打同源本机路由，宿主带着**同一枚**员工票据
+  // 去 NUWAX 取数——复用上面那个 holder 实例，**绝不**建第二份登录态（否则两处登录态必然漂移）。
+  // ★只读是结构性的：闭集六条全是读端点（含三条"读语义的 POST"）；收藏/启停/建连这些写动作本刀不做、不在闭集里；
+  // ★票据仍不出宿主；响应把平台信封**原样**交回页面，故原页面的取数口径一字不改。
+  // ★`mock` 是**演示数据**开关（口径 32）：平台上没有连接器域（`/api/connector/providers` 回
+  // `No static resource …`），于是给这一栏留一条"看得到版式"的路。**默认关**——开关是
+  // `${DSH_HOME}/enterprise/esc-mock.json` 这个文件（`DSHENT_ESC_MOCK_FILE` 可改址），
+  // 缺席/畸形/读不到一律当关；开着时页面顶部常驻一条「模拟数据」横幅，绝不冒充平台数据。
+  ctx.effect(() => registerEnterpriseEscReadRoute(ctx.webServer, {
+    holder: nuwaxAuth,
+    mock: () => readEscMockSwitch(process.env),
+    onError: (message, error) => {
+      ctx.logger.warn(`owndsh: ${message}`, error)
+    },
+  }), 'enterpriseEsc.routes')
   // [组件拆分·块②] Session 同步已抽为 `mountSession`（纯移动，行为未改），返回的 handle 回写外层
   // 变量（block ① 的 sessionLocalPort 闭包读它）；session 已由 bootstrap sessionPolicy 门控。
   sessionSyncHandle = mountSession(ctx, platform, sessions, sessionPersistence)

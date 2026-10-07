@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 dsh-ui 同源 local-api、标准 Response 与 EventSource test double
- * [OUTPUT]: 验证账号/插件/技能严格解码、地址/卸载固定路径、脱敏投影、显式刷新与秘密字段拒绝，**已装技能正文取数**（同源 `/skills/content` + 两个标识符查询参数按 `encodeURIComponent` 编码、键集封闭拒绝宿主路径与超限正文），以及**本刀新增的详情子页面两条取数**——本机**文件树** `/skills/<id>/files` 与**树里单个文本文件** `/skills/<id>/file?path=`（相对路径只进查询串且一律 `encodeURIComponent`、Host 多塞宿主绝对路径或树内重复路径即 `ENT_LOCAL_RESPONSE_INVALID`） **本刀（企业插件真取消）新增**：`cancelPlugin` 的方法 / 路径 / body 逐字断言（`POST /enterprise/api/v1/local/plugins/cancel`、正文关闭键集恰好 `{packageName}`、路径常量与 Host 注册面同值），以及「响应仍是同一个严格解码器（多一个字段即畸形）」
+ * [OUTPUT]: 验证账号/插件/技能严格解码、地址/卸载固定路径、脱敏投影、显式刷新与秘密字段拒绝，**本刀（登录入口换成 NUWAX，+2 条）**：NUWAX 三条路径常量逐字 + 登录正文关闭键集 `{account,password}` + 口令不进 URL/请求头 + 登录态解码（`ticket` 键、两态与主体不匹配、非整数 `uid`/`expiresAt` 一律畸形），**已装技能正文取数**（同源 `/skills/content` + 两个标识符查询参数按 `encodeURIComponent` 编码、键集封闭拒绝宿主路径与超限正文），以及**本刀新增的详情子页面两条取数**——本机**文件树** `/skills/<id>/files` 与**树里单个文本文件** `/skills/<id>/file?path=`（相对路径只进查询串且一律 `encodeURIComponent`、Host 多塞宿主绝对路径或树内重复路径即 `ENT_LOCAL_RESPONSE_INVALID`） **本刀（企业插件真取消）新增**：`cancelPlugin` 的方法 / 路径 / body 逐字断言（`POST /enterprise/api/v1/local/plugins/cancel`、正文关闭键集恰好 `{packageName}`、路径常量与 Host 注册面同值），以及「响应仍是同一个严格解码器（多一个字段即畸形）」
  * **本刀（系统搜索，+2 条）**：盘点那条只读面（`GET /skills/system-search`：根三键/候选五键封闭、三态字面、
  *   候选的 `rootId` 必须在 `roots` 里、路径去重、两处封顶、两枚可选文本缺席即无键）与纳入那条动作路由
  *   （`POST /skills/adopt`：路径常量逐字、正文关闭键集恰好 `{path}`、响应**复用** self-installed 那一个解码器
@@ -26,6 +26,9 @@ import {
   decodeEnterpriseSelfInstalledSkills,
   decodeEnterpriseSystemSkills,
   ENTERPRISE_CONNECTION_STATES,
+  ENTERPRISE_NUWAX_LOGIN_LOCAL_PATH,
+  ENTERPRISE_NUWAX_LOGOUT_LOCAL_PATH,
+  ENTERPRISE_NUWAX_STATUS_LOCAL_PATH,
   ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH,
   ENTERPRISE_PLUGIN_DISABLE_LOCAL_PATH,
   ENTERPRISE_PLUGIN_ENABLE_LOCAL_PATH,
@@ -321,6 +324,69 @@ describe('enterprise local browser API', () => {
     const boundary = 'y'.repeat(120)
     expect(decodeEnterprisePluginStatus({ ...status, catalog: [{ ...base, displayName: boundary }] })
       .catalog?.[0]?.displayName).toBe(boundary)
+  })
+
+  // NUWAX 三条（本刀：登录入口换成 NUWAX）：两条动作 + 一条只读。三条路径各自逐字断言，
+  // 登录正文是**关闭键集**恰好 `{account,password}`，两处响应都走同一个严格解码器。
+  it('sends the NUWAX login over its exact route with the closed two-key body and locks all three paths', async () => {
+    const signedIn = {
+      state: 'signed-in',
+      // 服务地址随投影一起过来（界面页脚显示「这次登录打到哪台」；是地址不是凭据）。
+      origin: 'https://agent.sunoasis.com.cn',
+      principal: { uid: 538565, userName: '538565', nickName: '李猛', tenantId: 1 },
+      expiresAt: 1_000,
+    }
+    const fetcher = vi.fn(async () => ok(signedIn))
+    const api = createEnterpriseLocalApi(fetcher)
+    const signal = new AbortController().signal
+
+    await expect(api.nuwaxLogin('538565', 'p@ss', signal)).resolves.toEqual(signedIn)
+    expect(ENTERPRISE_NUWAX_LOGIN_LOCAL_PATH).toBe('/enterprise/api/v1/local/nuwax/login')
+    const loginCall = fetcher.mock.calls.at(-1)
+    expect(loginCall?.[0]).toBe(ENTERPRISE_NUWAX_LOGIN_LOCAL_PATH)
+    expect(loginCall?.[1]).toEqual(expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ account: '538565', password: 'p@ss' }), cache: 'no-store', signal,
+    }))
+    // 正文是**关闭键集**：恰好两个键、键名逐字（多一个键 Host 侧就 400）。
+    expect(Object.keys(JSON.parse(String(loginCall?.[1]?.body)))).toEqual(['account', 'password'])
+    // ★口令只进正文：URL 与请求头里都不许出现它。
+    expect(loginCall?.[0]).not.toContain('p@ss')
+    expect(JSON.stringify(loginCall?.[1]?.headers)).not.toContain('p@ss')
+
+    // 只读那条：同源 GET（`getInit` 不写 method）、无正文。
+    await expect(api.nuwaxStatus(signal)).resolves.toEqual(signedIn)
+    expect(ENTERPRISE_NUWAX_STATUS_LOCAL_PATH).toBe('/enterprise/api/v1/local/nuwax/status')
+    const statusCall = fetcher.mock.calls.at(-1)
+    expect(statusCall?.[0]).toBe(ENTERPRISE_NUWAX_STATUS_LOCAL_PATH)
+    expect(statusCall?.[1]?.method).toBeUndefined()
+
+    // 登出那条：同源 POST，响应无正文 ⇒ 成不成只看 2xx。
+    await expect(api.nuwaxLogout(signal)).resolves.toBeUndefined()
+    expect(ENTERPRISE_NUWAX_LOGOUT_LOCAL_PATH).toBe('/enterprise/api/v1/local/nuwax/logout')
+    expect(fetcher.mock.calls.at(-1)?.[0]).toBe(ENTERPRISE_NUWAX_LOGOUT_LOCAL_PATH)
+    expect(fetcher.mock.calls.at(-1)?.[1]).toEqual(expect.objectContaining({ method: 'POST', signal }))
+  })
+
+  it('refuses a NUWAX projection that leaks the ticket or breaks the two-state shape', async () => {
+    const principal = { uid: 1, userName: 'u', nickName: 'n', tenantId: 1 }
+    const decode = async (data: unknown) => await createEnterpriseLocalApi(vi.fn(async () => ok(data)))
+      .nuwaxStatus(new AbortController().signal)
+    // ★票据绝不进浏览器契约：多一个 `ticket` 键即整条判畸形（宿主本就不发，这里再挡一层）。
+    await expect(decode({ state: 'signed-in', principal, ticket: 'secret' })).rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    // 两态与主体**同生共死**：少了它会把「已登录」画成空账号，多了它会把「已登出」画成已登录。
+    await expect(decode({ state: 'signed-in' })).rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    await expect(decode({ state: 'signed-out', principal })).rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    // 态与主体字段各自有形状门禁。
+    await expect(decode({ state: 'refreshing' })).rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    await expect(decode({ state: 'signed-in', principal: { ...principal, uid: '1' } })).rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    await expect(decode({ state: 'signed-in', principal, expiresAt: 1.5 })).rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    // 服务地址：**可缺席**（部署显式停用 ⇒ 界面画占位），但在场必须是非空字符串——
+    // 空串会让页脚画出一片空白，比"读不到"更坏。
+    await expect(decode({ state: 'signed-out', origin: '' })).rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    await expect(decode({ state: 'signed-out', origin: 123 })).rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    await expect(decode({ state: 'signed-out', origin: 'https://nuwax.example.com' }))
+      .resolves.toEqual({ state: 'signed-out', origin: 'https://nuwax.example.com' })
+    await expect(decode({ state: 'signed-out' })).resolves.toEqual({ state: 'signed-out' })
   })
 
   // 取消在途安装（本刀）：与 install/remove 同族同源——方法 / 路径 / body 逐字断言；

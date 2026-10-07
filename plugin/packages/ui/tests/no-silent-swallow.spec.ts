@@ -30,8 +30,10 @@ const ALLOWED_CATCH_FILES: Readonly<Record<string, string>> = {
   'list-state.ts': '`enterpriseDegradedRead` 的显式降级：捕获后**交出稳定错误码**（code 字段），界面据此如实说明 + 可重试',
   'local-api-decode.ts': 'URL/形状门禁：非法输入返回 false 这个**判定结果**（解码布尔），与取数失败无关',
   'local-api.ts': '响应体 JSON 解析失败被**重抛**成 ENT_LOCAL_RESPONSE_INVALID（兜底是显式失败，不是静默默认值）',
-  'login-dialog.tsx': '登录发起失败 → 就地渲染 ENT_LOCAL_UNAVAILABLE 的显式失败态',
-  'login-page.tsx': '登录轮询/凭证校验失败 → setError(人话) 的显式失败态',
+  // ★ 本刀（登录入口换成 NUWAX）：`login-dialog.tsx` 与 `login-page.tsx` 两条从这份清单里**退场**——
+  //   两处原有的 catch（登录发起失败就地渲染、轮询/凭证校验失败 setError）随企业登录事务一起走了；
+  //   现在登录页**一个 catch 都没有**：失败全由 store 收敛成 `nuwaxErrorCode`（唯一提示组件出人话 +
+  //   下一步），组件那面 `finally` 只负责把口令从画面里抹掉。清单是双向比对的，故这里必须同步删掉两行。
   'marketplace-entry.tsx': '详情文件树 / 文件正文取数失败 → 记稳定码 + 渲染失败态与重试（本轮改后不再有静默分支）；**本刀（本地导入）**：本地上传失败同样把错误投影成稳定码（`uploadSkill` 的 catch）落进导入反馈；上传成功后的**次级**读取（本机自装清单）读不到时只把 `listed` 记成 false —— 界面那句 `ENTERPRISE_SKILL_IMPORT_UNLISTED` 会说出来（导入本身仍如实报成功），不是静默吞',
   'market-mock.ts': '**临时演示数据的开关读取**（见该文件头：默认关、可一键删除）：读 localStorage 在隐私模式/被禁用时会抛，catch 里返回 false = 「开关没打开」这个**判定结果**，即按关闭处理——绝不允许「读不到开关」被当成「打开演示数据」',
   'preset-launch.ts': '降级链第二级（跳新会话并填入指令）的官方结构面调用：`openWorkspace` 抛错时返回 `false` 这个**结果值**给调用方（UI 据此出 ENT_PRESET_LAUNCH_FAILED 的显式行内提示 + 下一步），不是把取数失败变成默认值',

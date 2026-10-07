@@ -20,6 +20,8 @@ import {
   EnterpriseSidebarBrandName,
 } from './brand-occupants.js'
 import { createEnterpriseDesktopSource } from './desktop-runtime.js'
+import { createEnterpriseEscApi } from './esc/esc-api.js'
+import { bindEnterpriseEscSeats } from './esc/esc-entry.js'
 import { bindEnterpriseLibrarySeats, bindEnterpriseLibrarySeat } from './library-entry.js'
 import { createEnterpriseLibraryGate } from './library-gate.js'
 import { createEnterpriseLibraryCatalogSource, enterpriseLibraryItems } from './library-panel.js'
@@ -286,6 +288,19 @@ export function apply(ctx: SlotContextPort): void {
     search: (query, signal) => libraryApi.librarySearch(query, signal),
     readText: (assetId, signal) => libraryApi.libraryReadText(assetId, signal),
   })
+  /**
+   * **「专家·技能·连接器」独立页面**（口径 31，本刀）。
+   *
+   * 座位形状与上面资料库那两处**逐字相同**（`sidebar.panellist` 的 id 与 `main` 的 key 同名），
+   * 只有一个结构差异：**常驻**——它是一级入口，不设管理门；"能不能看到东西"由页面按取数结果如实呈现
+   * （宿主进程里没有 NUWAX 会话 ⇒ 本机路由回 401 `ENT_AUTH_REQUIRED` ⇒ 页面画「请先登录 NUWAX 账号」+ 重试，
+   * 而不是拿空列表假装"平台没有内容"）。
+   *
+   * 取数面只打同源本机路由 `POST /enterprise/api/v1/local/esc/read`：平台路径由**宿主**的只读闭集裁决
+   * （浏览器这边拼不出平台 URL、也拿不到票据），平台信封原样回给页面。
+   */
+  const escApi = createEnterpriseEscApi((input, init) => fetch(input, init))
+  bindEnterpriseEscSeats(ctx.slots, escApi)
   /**
    * **资料库 P1-A：把资料加入当前对话**（口径 23，本刀）。
    *

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 client apply 的官方 slot 注册、login-dialog 的弹窗状态机/入口投影/关闭语义/提交计划与 account-state 的账号投影
- * [OUTPUT]: 锁定全屏门禁退场（不再注册 shell.overlay 阻断层；座位面收敛为 settings.section/launcher + plugins.item/plugins.detail.badge 共四处——独立应用商店的 main/sidebar.panellist 两处已随侧栏入口撤销）、账号区登录入口、弹窗开关与取消语义、登录成功自动关闭、脱敏快照与含 ENT_SETTINGS_UNAVAILABLE 的错误码中文文案 **本刀**：inject 面末尾追加资料库两处座位名（`sidebar.panellist`/`main`），并把「已撤的商店座位不再注册」的锁细化为「那两处槽上此刻一个占用者都没有、`enterprise-store` 与 `library` 都不在注册表里」。**P1-A**：inject 面再追加 composer 两处座位名（`conversation.input.dock` / `conversation.input.left`），同样门默认关 ⇒ 零占用者。
+ * [INPUT]: 依赖 client apply 的官方 slot 注册、login-dialog 的弹窗状态机（`nuwax` 转移）/入口投影与 account-state 的账号投影
+ * [OUTPUT]: 锁定全屏门禁退场（不再注册 shell.overlay 阻断层；座位面收敛为 settings.section/launcher + plugins.item/plugins.detail.badge 共四处——独立应用商店的 main/sidebar.panellist 两处已随侧栏入口撤销）、账号区登录入口（**本刀：由 NUWAX 两态驱动**）、弹窗开关与「关窗不取消」、NUWAX 已登录即自动关闭、脱敏快照与含 ENT_SETTINGS_UNAVAILABLE 的错误码中文文案 **本刀**：inject 面末尾追加资料库两处座位名（`sidebar.panellist`/`main`），并把「已撤的商店座位不再注册」的锁细化为「那两处槽上此刻一个占用者都没有、`enterprise-store` 与 `library` 都不在注册表里」。**P1-A**：inject 面再追加 composer 两处座位名（`conversation.input.dock` / `conversation.input.left`），同样门默认关 ⇒ 零占用者。
  * [POS]: dsh-ui 登录入口的无 React 契约回归，真实 DOM 交互与视觉由 Harness 手工冒烟覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -11,13 +11,11 @@ import type { EnterpriseAccountSnapshot } from '../src/account-store.js'
 import { apply } from '../src/client.js'
 import {
   ENTERPRISE_LOGIN_DIALOG_CLOSED,
-  enterpriseLoginDialogCloseAction,
   enterpriseLoginDialogReducer,
   enterpriseLoginEntry,
-  enterpriseLoginSubmitPlan,
   type EnterpriseLoginDialogState,
 } from '../src/login-dialog.js'
-import type { EnterpriseAccountBootstrap, EnterpriseLocalStatus } from '../src/local-api.js'
+import type { EnterpriseAccountBootstrap, EnterpriseLocalStatus, EnterpriseNuwaxPrincipal } from '../src/local-api.js'
 
 vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
   Button: vi.fn(),
@@ -29,6 +27,11 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
   Menu: vi.fn(),
   MenuItemButton: vi.fn(),
   Modal: vi.fn(),
+  // esc（口径 31）用到的原语：工具栏的 Pill 与卡片上的 Switch/Tag（本文件不渲染它们，
+  // 但 mock 面要如实列出，免得"mock 里没有这个导出"变成一条与本次改动无关的假失败）。
+  Pill: vi.fn(),
+  Switch: vi.fn(),
+  Tag: vi.fn(),
 }))
 
 const status: EnterpriseLocalStatus = {
@@ -43,6 +46,9 @@ const bootstrap: EnterpriseAccountBootstrap = {
   device: { id: '90018', installationId: '4c96d076-a80a-4b6c-8df6-f0db804b6f0a', status: 'ACTIVE' },
   user: status.user!,
 }
+
+/** NUWAX 主体夹具：字段取自宿主 `getLoginInfo` 的受控投影（uid/tenantId 是数字，两个名字是非空串）。 */
+const principalFixture: EnterpriseNuwaxPrincipal = { uid: 538565, userName: '538565', nickName: '李猛', tenantId: 1 }
 
 /** 产品决策：进入系统不再有任何全屏门禁，未登录也能正常使用宿主。 */
 describe('the full-screen access gate is retired', () => {
@@ -74,6 +80,10 @@ describe('the full-screen access gate is retired', () => {
       // 管理门（本机设置）默认关，故这里只 inject、**一个占用者都不注册**。
       'sidebar.panellist',
       'main',
+      // 口径 31：esc（「专家·技能·连接器」）的两处座位**紧随其后**且**常驻**（不设管理门）——
+      // 槽名与资料库那两处相同，但注册表里**真的有两行**（下面的独占断言）。
+      'sidebar.panellist',
+      'main',
       // P1-A（把资料加入当前对话）：composer 的两处座位（已选条目条 + `@ 资料库` 按钮）同一个门驱动，同上只 inject。
       'conversation.input.dock',
       'conversation.input.left',
@@ -81,12 +91,15 @@ describe('the full-screen access gate is retired', () => {
     // composer 那两格此刻同样一个占用者都没有（门默认关 ⇒ 既有输入区一行都不变）。
     expect(registrations.map(options => options['name'])).not.toContain('conversation.input.dock')
     expect(registrations.map(options => options['name'])).not.toContain('conversation.input.left')
-    // 本刀撤销侧栏「应用商店」：那两处座位的占用者不再出现——`main` / `sidebar.panellist` 上此刻
-    // 一行注册都没有（资料库的门默认关），已撤的商店 id 也不许回来；`shell.overlay` 依旧不碰。
+    // 撤销锁（口径 31 之后更新）：`main`/`sidebar.panellist` 这两个槽上此刻恰好各**一个**占用者，
+    // 且是同一个 esc 页面（`expert-skill-connector`）——**不是**当初那两处应用商店座位；
+    // 资料库那两处仍被管理门（默认关）压着、一行注册都没有。`shell.overlay` 依旧不碰。
     expect(registrations.map(options => options['key'] ?? options['id'])).not.toContain('enterprise-store')
     expect(registrations.map(options => options['key'] ?? options['id'])).not.toContain('library')
-    expect(registrations.map(options => options['name'])).not.toContain('main')
-    expect(registrations.map(options => options['name'])).not.toContain('sidebar.panellist')
+    const seatNames = registrations.map(options => options['name'])
+    expect(seatNames.filter(name => name === 'main')).toHaveLength(1)
+    expect(seatNames.filter(name => name === 'sidebar.panellist')).toHaveLength(1)
+    expect(registrations.map(options => options['key'] ?? options['id'])).toContain('expert-skill-connector')
     expect(injected).not.toContain('shell.overlay')
     expect(registrations.map(options => options['name'])).not.toContain('shell.overlay')
   })
@@ -100,19 +113,29 @@ describe('the full-screen access gate is retired', () => {
   })
 })
 
-/** 账号设置区在未登录时给出明确登录入口：点击动作就是打开同一个弹窗。 */
+/**
+ * 账号设置区在未登录时给出明确登录入口：点击动作就是打开同一个弹窗。
+ * **本刀（口径 30：登录入口换成 NUWAX）**：入口投影的输入域从「企业连接 11 态」换成「NUWAX 两态」——
+ * 未登录（含还没读到状态）恒可点，只有真的已登录才是退出。
+ */
 describe('the account area offers a login entry while disconnected', () => {
-  it('exposes an open-login action for every unauthenticated state', () => {
-    for (const state of [undefined, 'UNCONFIGURED', 'SIGNED_OUT', 'CANCELLED', 'FAILED', 'AUTH_EXPIRED', 'DEVICE_REVOKED'] as const) {
-      expect(enterpriseLoginEntry(state, undefined)).toEqual({ action: 'open-login', label: '登录', disabled: false })
+  const signedIn = { state: 'signed-in', principal: principalFixture } as const
+  const signedOut = { state: 'signed-out' } as const
+
+  it('exposes an open-login action for every unauthenticated shape', () => {
+    for (const status of [undefined, signedOut] as const) {
+      expect(enterpriseLoginEntry(status, undefined)).toEqual({ action: 'open-login', label: '登录', disabled: false })
     }
-    expect(enterpriseLoginEntry('AUTHORIZING', undefined)).toEqual({ action: 'open-login', label: '登录进行中', disabled: false })
+    // 在途的登录仍可点：点开就是那面正在转圈的表单（不是"登录"两个字被冻住）。
+    expect(enterpriseLoginEntry(signedOut, 'login')).toEqual({ action: 'open-login', label: '登录进行中', disabled: false })
   })
 
-  it('switches to confirmed sign-out only for a usable session and disables entries while busy', () => {
-    expect(enterpriseLoginEntry('READY', undefined)).toEqual({ action: 'logout', label: '退出登录', disabled: false })
-    expect(enterpriseLoginEntry('REFRESHING', undefined)).toEqual({ action: 'logout', label: '退出登录', disabled: false })
-    expect(enterpriseLoginEntry('SIGNED_OUT', 'login')).toEqual({ action: 'open-login', label: '登录', disabled: true })
+  it('switches to a confirmed sign-out only for a signed-in NUWAX session, and greys it while leaving', () => {
+    expect(enterpriseLoginEntry(signedIn, undefined)).toEqual({ action: 'logout', label: '退出登录', disabled: false })
+    expect(enterpriseLoginEntry(signedIn, 'logout')).toEqual({ action: 'logout', label: '正在退出', disabled: true })
+    // 已登录时一次登录在途是不可能的（表单已经不在了），但真出现也不许把退出按钮变灰锁死：
+    // 判据只看 `nuwaxBusy`，不看具体的那个方向。
+    expect(enterpriseLoginEntry(signedIn, 'login')).toEqual({ action: 'logout', label: '退出登录', disabled: true })
   })
 })
 
@@ -128,26 +151,30 @@ describe('the login dialog opens on demand and closes without blocking', () => {
     expect(enterpriseLoginDialogReducer(open, { type: 'open' })).toBe(open)
   })
 
-  it('cancels an in-flight login through the existing cancel path when the dialog closes', () => {
-    for (const state of ['AUTHORIZING', 'ENROLLING', 'BOOTSTRAPPING'] as const) {
-      expect(enterpriseLoginDialogCloseAction(state, undefined)).toBe('cancel')
-    }
-    expect(enterpriseLoginDialogCloseAction('AUTHORIZING', 'cancel')).toBe('none')
-    for (const state of ['READY', 'REFRESHING', 'SIGNED_OUT', 'FAILED', 'AUTH_EXPIRED', undefined] as const) {
-      expect(enterpriseLoginDialogCloseAction(state, undefined)).toBe('none')
-    }
+  /**
+   * **契约退场（本刀：登录入口换成 NUWAX）**：原 `enterpriseLoginDialogCloseAction(state, busy)`
+   * 随企业登录事务一起走了——NUWAX 登录是**一条单往返的本机 POST**，没有宿主侧事务可撤销，
+   * 关窗因此不取消任何东西：那次请求照旧把它自己的结果写进共享快照（成功时弹窗也已经关着了）。
+   */
+  it('never cancels anything on close: a NUWAX login is one round trip with no host-side transaction', () => {
+    const open: EnterpriseLoginDialogState = { open: true }
+    const closed = enterpriseLoginDialogReducer(open, { type: 'close' })
+    expect(closed.open).toBe(false)
+    // 关窗后收到「还没登录」的推送**不许**把弹窗又弹开（否则关闭按钮等于失效）。
+    expect(enterpriseLoginDialogReducer(closed, { type: 'nuwax', status: { state: 'signed-out' } })).toBe(closed)
   })
 })
 
 /** 登录成功后弹窗自动关闭，账号信息立即可见；弹窗与账号区共用同一 store 快照。 */
 describe('a successful login closes the dialog and exposes the account', () => {
-  it('closes on the first usable state pushed from the shared snapshot', () => {
+  it('closes on the first signed-in NUWAX status pushed from the shared snapshot', () => {
     const open: EnterpriseLoginDialogState = { open: true }
-    expect(enterpriseLoginDialogReducer(open, { type: 'status', state: undefined }).open).toBe(true)
-    expect(enterpriseLoginDialogReducer(open, { type: 'status', state: 'AUTHORIZING' }).open).toBe(true)
-    expect(enterpriseLoginDialogReducer(open, { type: 'status', state: 'READY' }).open).toBe(false)
-    expect(enterpriseLoginDialogReducer(open, { type: 'status', state: 'REFRESHING' }).open).toBe(false)
-    expect(enterpriseSessionUsable('READY')).toBe(true)
+    expect(enterpriseLoginDialogReducer(open, { type: 'nuwax', status: undefined }).open).toBe(true)
+    expect(enterpriseLoginDialogReducer(open, { type: 'nuwax', status: { state: 'signed-out' } }).open).toBe(true)
+    expect(enterpriseLoginDialogReducer(open, {
+      type: 'nuwax',
+      status: { state: 'signed-in', principal: principalFixture },
+    }).open).toBe(false)
   })
 
   it('projects login name, department, platform, device and version from a connected bootstrap', () => {
@@ -183,19 +210,13 @@ describe('a successful login closes the dialog and exposes the account', () => {
   })
 })
 
-/** 弹窗只提交一次：留空沿用已保存地址，地址变化先保存再登录，都没有则就地拒绝。 */
-describe('the login dialog submits through the shared store exactly once', () => {
-  it('plans server saving and login from the typed and saved addresses', () => {
-    expect(enterpriseLoginSubmitPlan('', 'https://enterprise.example.com')).toEqual({ kind: 'login' })
-    expect(enterpriseLoginSubmitPlan('  https://enterprise.example.com  ', 'https://enterprise.example.com')).toEqual({ kind: 'login' })
-    expect(enterpriseLoginSubmitPlan('https://new.example.com', 'https://enterprise.example.com'))
-      .toEqual({ kind: 'save-then-login', serverUrl: 'https://new.example.com' })
-    expect(enterpriseLoginSubmitPlan('https://first.example.com', null))
-      .toEqual({ kind: 'save-then-login', serverUrl: 'https://first.example.com' })
-    expect(enterpriseLoginSubmitPlan('', null)).toEqual({ kind: 'reject', errorCode: 'ENT_INVALID_REQUEST' })
-    expect(enterpriseLoginSubmitPlan('   ', null)).toEqual({ kind: 'reject', errorCode: 'ENT_INVALID_REQUEST' })
-  })
-})
+/**
+ * **契约退场（本刀）**：`enterpriseLoginSubmitPlan` 与整面 Server 地址编辑器一起走了——
+ * NUWAX 登录不需要任何地址（平台地址由部署配置在宿主侧决议），也就没有"先存地址再登录"这条合并动作。
+ * 逐字替换它的判据在 `tests/login-page.spec.ts`（本地先判：两项都要填）与 `nuwax-session.spec.ts`
+ * （真打 /nuwax/login 的正文与稳定码）里。
+ */
+
 
 /** 快照契约本身不变：官方账号区停用后 store 仍是唯一事实源。 */
 it('keeps the shared snapshot free of secrets and tokens', () => {

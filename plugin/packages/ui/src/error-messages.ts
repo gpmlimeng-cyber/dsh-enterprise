@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 接收任意 `ENT_*` 稳定错误码（来源可以是本地路由投影、store 快照、动作 promise 的 catch）
- * [OUTPUT]: 对外提供**唯一一份**错误码 → 员工可读呈现的纯投影：`enterpriseErrorPresentation`（人话 + 下一步动作 + 是否可重试 + 码原样保留）、`enterpriseErrorMessage` / `enterpriseErrorAction` / `enterpriseErrorRetryable` 与三条兜底常量。**本刀（资料库入口）**：新增三码——`ENT_LIBRARY_UNAVAILABLE`（资料库还没接线：页面失败态的「接入中」）、`ENT_LIBRARY_SETTING_READ_FAILED` / `ENT_LIBRARY_SETTING_SAVE_FAILED`（本机设置读/写失败：组件行那枚开关的失败态与重试），一律人话 + 下一步、不含裸码 **本刀（配方一键启用）**：新增十一枚配方启用码（`ENT_PRESET_AUTHORIZATION_REQUIRED` / `_AUTHORIZATION_STALE` / `_INSTALL_IN_PROGRESS` / `_INSTALL_CANCELLED` / `_STATE_INVALID` / `_RECIPE_INVALID` / `_INSTALL_FAILED` / `_UNINSTALL_FAILED` / `_BUNDLE_WRITE_FAILED` / `_ARTIFACT_UNAVAILABLE`）与降级链第二级那枚 `ENT_PRESET_LAUNCH_FAILED`（没打开新会话 → 请改用「复制导入指令」）。**本刀（企业插件真取消）**：新增一枚 `ENT_PLUGIN_INSTALL_CANCELLED`（「这次安装被取消了。请重试。」，`retryable: true`）——取消是员工自己的动作、本机什么都没变（Host 已把记录回到安装前），故它的收束就是再试一次，与配方族那枚同判。**本刀（本地导入）**：新增三枚上传码 `ENT_SKILL_UPLOAD_{TOO_LARGE,INVALID,FAILED}`——超限与「不是有效技能包」是终态（下一步是**换一份文件**，`skill-import.ts` 的「重新选择文件」那枚按钮承担动作），只有落盘失败可原地再试；再补一枚 Host 侧第 4 枚 `ENT_SKILL_SKILLMD_INVALID`（ZIP 结构没问题、是 `SKILL.md` 的 frontmatter 写错了 ⇒ 下一步是**改文件头**，与「换一份文件」不同）。**本刀（系统搜索 → 纳入）**：新增三枚纳入码 `ENT_SKILL_DISCOVERY_UNKNOWN` / `ENT_SKILL_ALREADY_REGISTERED` / `ENT_SKILL_ADOPT_FAILED`；并把「一个码只有一句话」的边界写清（同流一套、真跨流的码用 `actions` 按流取，见下表注）。**本刀（在线搜索）**：新增三枚在线来源码 `ENT_SKILL_SOURCE_{UNKNOWN,UNREACHABLE,TOO_LARGE}`（下一步各不相同：换一条结果 / 检查网络重试 / 换一条结果），并把 `ENT_SKILL_ARCHIVE_INVALID`、`ENT_SKILL_SKILLMD_INVALID`、`ENT_SKILL_INSTALL_FAILED` 三枚**跨流码**补上 `'online-install'` 这一流的口径（那三句默认文案里的「重新下载 / 重新导入 / 联系企业管理员」在**在线安装流**下说不通——包在第三方仓库、本机替用户取）；流值清单一并导出成 `ENTERPRISE_ERROR_FLOWS`（供逐流逐句的机械判据遍历）。**本刀（通过 Agent 创建）**：新增两枚**本机动作**码 `ENT_SKILL_CREATE_{LAUNCH,COPY}_FAILED`——前者是「新会话没开起来」（下一步：把这句指令复制走，界面那枚按钮就是它），后者是「剪贴板没写成」（下一步：检查权限后重试）；两枚刻意分开，因为下一步真的不同。
+ * [OUTPUT]: **本刀（登录入口换成 NUWAX）**：表里新增六枚 NUWAX 码（`ENT_NUWAX_NOT_CONFIGURED` / `_INVALID_CREDENTIALS` / `_REJECTED` / `_UNAVAILABLE` / `_TIMEOUT` / `_PROTOCOL`），下一步逐句不同——被平台拒绝（风控/账号锁定）是**终态**，不给「再输一次同样的口令」画饼。对外提供**唯一一份**错误码 → 员工可读呈现的纯投影：`enterpriseErrorPresentation`（人话 + 下一步动作 + 是否可重试 + 码原样保留）、`enterpriseErrorMessage` / `enterpriseErrorAction` / `enterpriseErrorRetryable` 与三条兜底常量。**本刀（资料库入口）**：新增三码——`ENT_LIBRARY_UNAVAILABLE`（资料库还没接线：页面失败态的「接入中」）、`ENT_LIBRARY_SETTING_READ_FAILED` / `ENT_LIBRARY_SETTING_SAVE_FAILED`（本机设置读/写失败：组件行那枚开关的失败态与重试），一律人话 + 下一步、不含裸码 **本刀（配方一键启用）**：新增十一枚配方启用码（`ENT_PRESET_AUTHORIZATION_REQUIRED` / `_AUTHORIZATION_STALE` / `_INSTALL_IN_PROGRESS` / `_INSTALL_CANCELLED` / `_STATE_INVALID` / `_RECIPE_INVALID` / `_INSTALL_FAILED` / `_UNINSTALL_FAILED` / `_BUNDLE_WRITE_FAILED` / `_ARTIFACT_UNAVAILABLE`）与降级链第二级那枚 `ENT_PRESET_LAUNCH_FAILED`（没打开新会话 → 请改用「复制导入指令」）。**本刀（企业插件真取消）**：新增一枚 `ENT_PLUGIN_INSTALL_CANCELLED`（「这次安装被取消了。请重试。」，`retryable: true`）——取消是员工自己的动作、本机什么都没变（Host 已把记录回到安装前），故它的收束就是再试一次，与配方族那枚同判。**本刀（本地导入）**：新增三枚上传码 `ENT_SKILL_UPLOAD_{TOO_LARGE,INVALID,FAILED}`——超限与「不是有效技能包」是终态（下一步是**换一份文件**，`skill-import.ts` 的「重新选择文件」那枚按钮承担动作），只有落盘失败可原地再试；再补一枚 Host 侧第 4 枚 `ENT_SKILL_SKILLMD_INVALID`（ZIP 结构没问题、是 `SKILL.md` 的 frontmatter 写错了 ⇒ 下一步是**改文件头**，与「换一份文件」不同）。**本刀（系统搜索 → 纳入）**：新增三枚纳入码 `ENT_SKILL_DISCOVERY_UNKNOWN` / `ENT_SKILL_ALREADY_REGISTERED` / `ENT_SKILL_ADOPT_FAILED`；并把「一个码只有一句话」的边界写清（同流一套、真跨流的码用 `actions` 按流取，见下表注）。**本刀（在线搜索）**：新增三枚在线来源码 `ENT_SKILL_SOURCE_{UNKNOWN,UNREACHABLE,TOO_LARGE}`（下一步各不相同：换一条结果 / 检查网络重试 / 换一条结果），并把 `ENT_SKILL_ARCHIVE_INVALID`、`ENT_SKILL_SKILLMD_INVALID`、`ENT_SKILL_INSTALL_FAILED` 三枚**跨流码**补上 `'online-install'` 这一流的口径（那三句默认文案里的「重新下载 / 重新导入 / 联系企业管理员」在**在线安装流**下说不通——包在第三方仓库、本机替用户取）；流值清单一并导出成 `ENTERPRISE_ERROR_FLOWS`（供逐流逐句的机械判据遍历）。**本刀（通过 Agent 创建）**：新增两枚**本机动作**码 `ENT_SKILL_CREATE_{LAUNCH,COPY}_FAILED`——前者是「新会话没开起来」（下一步：把这句指令复制走，界面那枚按钮就是它），后者是「剪贴板没写成」（下一步：检查权限后重试）；两枚刻意分开，因为下一步真的不同。
  * [POS]: ui 的员工侧文案降维层（失败自愈）——产品宪法「必须给稳定错误码时，也要配对一句人话与下一步动作，禁止把技术码直接砸给用户」的唯一落点；界面只消费本模块，不再各写一份码表
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -121,6 +121,19 @@ const ENTERPRISE_ERROR_TABLE: Readonly<Record<string, EnterpriseErrorEntry>> = {
   ENT_IDENTITY_ALREADY_LINKED: { message: '这个身份已经绑定过账号。', action: '请直接登录，或联系企业管理员。', retryable: false },
   ENT_LAST_ENTERPRISE_ADMIN: { message: '这是最后一个企业管理员。', action: '请先指定接替的管理员。', retryable: false },
   ENT_LAST_MEMBER_IDENTITY: { message: '这是最后一个可登录身份。', action: '请先绑定新的登录方式。', retryable: false },
+
+  // ── NUWAX 员工登录（口径 29/30：登录入口换成 NUWAX） ───────────────────────────
+  // 六枚与宿主 `bundle/src/nuwax-auth.ts` 的 `NuwaxAuthErrorCode` 一一对应，也是 platform-client
+  // 那张码→HTTP 状态表的五枚（第六枚 `ENT_NUWAX_NOT_CONFIGURED` 落在表尾 503）的界面侧措辞。
+  // 逐句的「下一步」刻意各不相同：**再输一次同样的口令不是万能解**——
+  // 凭据错是「检查后重试」，被平台拒绝（风控/账号锁定）是「确认账号状态或找管理员」，
+  // 地址没配是「本机部署问题」，超时/连不上/回畸形才是「稍后重试」。
+  ENT_NUWAX_NOT_CONFIGURED: { message: 'NUWAX 平台地址还没有配置。', action: '请联系企业管理员完成部署配置。', retryable: false },
+  ENT_NUWAX_INVALID_CREDENTIALS: { message: 'NUWAX 账号或口令不正确。', action: '请检查账号与口令后重试。', retryable: true },
+  ENT_NUWAX_REJECTED: { message: 'NUWAX 平台拒绝了这次登录。', action: '请确认账号状态，或联系企业管理员。', retryable: false },
+  ENT_NUWAX_UNAVAILABLE: { message: '暂时连不上 NUWAX 平台。', action: '请检查网络后重试。', retryable: true },
+  ENT_NUWAX_TIMEOUT: { message: 'NUWAX 平台响应超时。', action: '请稍后重试。', retryable: true },
+  ENT_NUWAX_PROTOCOL: { message: 'NUWAX 平台返回了无法识别的结果。', action: '请重试；仍然失败请联系企业管理员。', retryable: true },
 
   // ── 用量配额 ─────────────────────────────────────────────────────────────────
   ENT_QUOTA_RPM_EXCEEDED: { message: '请求太频繁，已超出企业限额。', action: '请稍候再试。', retryable: true },

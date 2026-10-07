@@ -17,6 +17,8 @@ import {
   EnterpriseSidebarBrandName,
   inject,
 } from '../src/client.js'
+import { EnterpriseEscIcon } from '../src/esc/esc-entry.js'
+import { EnterpriseEscPanel } from '../src/esc/esc-page.js'
 
 vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
   Button: vi.fn(),
@@ -28,6 +30,11 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
   Menu: vi.fn(),
   MenuItemButton: vi.fn(),
   Modal: vi.fn(),
+  // esc（口径 31）用到的原语：工具栏的 Pill 与卡片上的 Switch/Tag（本文件不渲染它们，
+  // 但 mock 面要如实列出，免得"mock 里没有这个导出"变成一条与本次改动无关的假失败）。
+  Pill: vi.fn(),
+  Switch: vi.fn(),
+  Tag: vi.fn(),
 }))
 
 describe('enterprise Client plugin', () => {
@@ -74,6 +81,11 @@ describe('enterprise Client plugin', () => {
       'conversation.hero.brand.mark',
       'sidebar.panellist',
       'main',
+      // **口径 31 新增的两处 esc 座位**（「专家·技能·连接器」独立页面，`bindEnterpriseEscSeats` 同一套 inject 手法）：
+      // 与资料库那两处**结构差异只有一条**——它**常驻**（不设管理门），故这两处 inject 之后**真的注册占用者**
+      // （见下面 `registrations` 里那两条 `expert-skill-connector`，槽名同样落在 `sidebar.panellist`/`main` 上）。
+      'sidebar.panellist',
+      'main',
       // **P1-A 新增的两处 composer 座位**（`bindEnterpriseLibrarySeat` 同一个 inject 手法）：
       // 「本轮已加入的资料」条（dock）与「@ 资料库」按钮（input.left）。门默认关 ⇒ 只 inject、不注册。
       'conversation.input.dock',
@@ -84,6 +96,10 @@ describe('enterprise Client plugin', () => {
       { name: 'settings.launcher' },
       { name: 'plugins.item', id: 'plugin-market', order: 50, label: '插件市场' },
       { name: 'plugins.detail.badge', id: 'plugin-market' },
+      // esc 两处座位（常驻）：侧栏一级入口的 metadata 与 `main` 的同名 key——**同名是结构性的**
+      // （官方按同名配对；不同名就是一个点不开的死入口），故这里把两边一起锁住。
+      { name: 'sidebar.panellist', id: 'expert-skill-connector', order: 30, label: '专家·技能·连接器' },
+      { name: 'main', key: 'expert-skill-connector' },
     ])
     expect(registrations.map(item => item.component)).toEqual([
       EnterpriseSettingsSection,
@@ -94,6 +110,9 @@ describe('enterprise Client plugin', () => {
       // ★ 从 `plugins.detail.actions` 搬到 `plugins.detail.badge`：官方把 actions 槽渲染在 `_detailHead`
       //   （标题**上方**），badge 槽才渲染在 `_titleRow` 内部 ⇒ 只有这样两枚按钮才与标题同排（用户口径）。
       EnterpriseMarketTitleSlot,
+      // esc 的两处常驻占用者（口径 31）：图标组件 + 整页组件，与上面那条 `sidebar.panellist`/`main` 配对。
+      EnterpriseEscIcon,
+      EnterpriseEscPanel,
     ])
     // 设置区、个人中心、市场入口三个座位共享同一个脱敏 store；badge 槽位也无 inject 之外的多余源。
     const stores = registrations.slice(0, 3).map(item => (item.options['inject'] as () => { store: unknown })().store)
@@ -154,13 +173,16 @@ describe('enterprise Client plugin', () => {
     expect(registrations.map(item => item.options['name'])).not.toContain('shell.overlay')
     // 官方账户行整行停用后，个人中心只由 launcher 座位承载，不再挂 footer 动作，避免第二入口。
     expect(registrations.map(item => item.options['name'])).not.toContain('sidebar.footer.action')
-    // 本刀撤销侧栏「应用商店」：那两处座位（`sidebar.panellist` 一级入口 + `main` 整页面板）不再有占用者
-    // ——**注意**：本刀之后这两个槽名会被资料库的两处座位 inject 到（见上面的 inject 面锁），
-    // 但管理门默认关，所以**注册表里仍然一行都没有**；这里锁的就是「没有占用者」而不是「没有 inject」。
+    // 撤销锁（口径 31 之后更新）：`sidebar.panellist`/`main` 这两个**槽名**上此刻恰好各有一个占用者，
+    // 且两边是**同一个** esc 页面（`expert-skill-connector`，常驻一级入口）——**不是**当初那两处应用商店座位。
+    // 资料库那两处仍由管理门（默认关）压着、一个占用者都不注册（见上面的 inject 面锁）。
     // 卡片仍留在官方插件页（plugins.item 未撤）、也不占设置页页签。
     const names = registrations.map(item => item.options['name'])
-    expect(names).not.toContain('sidebar.panellist')
-    expect(names).not.toContain('main')
+    expect(names.filter(name => name === 'sidebar.panellist')).toHaveLength(1)
+    expect(names.filter(name => name === 'main')).toHaveLength(1)
+    const occupantIds = registrations.map(item => item.options['key'] ?? item.options['id'])
+    expect(occupantIds).toContain('expert-skill-connector')
+    expect(occupantIds).not.toContain('library')
     // 反向锁：无论谁回来，都别把那个已撤的商店 id 带回来。
     expect(registrations.map(item => item.options['key'] ?? item.options['id'])).not.toContain('enterprise-store')
     expect(names).toContain('plugins.item')
@@ -195,7 +217,10 @@ describe('enterprise Client plugin', () => {
       'sidebar.brand.mark',
       'sidebar.brand.name',
       'conversation.hero.brand.mark',
-      // 资料库的两处座位用同一套 inject 手法；管理门默认关，故这里也只 inject、不注册。
+      // 资料库的两处座位用同一套 inject 手法；管理门默认关，故这里也只 inject、不注册；
+      // esc 的两处**常驻**座位紧随其后（同一个 `sidebar.panellist`/`main` 槽名，注册表里会多两行，见下）。
+      'sidebar.panellist',
+      'main',
       'sidebar.panellist',
       'main',
       // P1-A 的两处 composer 座位同上：只 inject、不注册（门默认关）。
@@ -207,6 +232,9 @@ describe('enterprise Client plugin', () => {
       'settings.launcher',
       'plugins.item',
       'plugins.detail.badge',
+      // esc 的两处常驻占用者（品牌未配置也不影响它们）。
+      'sidebar.panellist',
+      'main',
     ])
   })
 
@@ -251,10 +279,10 @@ describe('enterprise Client plugin', () => {
         on: vi.fn(() => () => undefined),
         effect: effect => { effect() },
       })
-      // 前**四**处是本插件的既有注册（设置区／个人中心／市场入口／**标题行那一格**），后三处是品牌座位。
-      // （`plugins.detail.actions` 已撤 ⇒ 由五变四，见上面那段注释。）
-      await vi.waitFor(() => { expect(registrations).toHaveLength(7) })
-      const seats = registrations.slice(4)
+      // 前**四**处是本插件的既有注册（设置区／个人中心／市场入口／**标题行那一格**），接着是 esc 的两处
+      // 常驻座位（口径 31），最后三处是品牌座位。（`plugins.detail.actions` 已撤 ⇒ 由五变四；esc 两处常驻 ⇒ 7 → 9。）
+      await vi.waitFor(() => { expect(registrations).toHaveLength(9) })
+      const seats = registrations.slice(6)
       expect(seats.map(item => item.options)).toMatchObject([
         { name: 'sidebar.brand.mark', priority: -10 },
         { name: 'sidebar.brand.name', priority: -10 },
@@ -305,11 +333,14 @@ describe('enterprise Client plugin', () => {
       effect: effect => { effect() },
     })
     // ① 门默认关：composer 两处座位一个都没注册，`@` 源也没注册。
+    //    （esc 的两处是**常驻**的，与这道门无关，故在清单里如实出现。）
     expect(registrations.map(item => item.options['name'])).toEqual([
       'settings.section',
       'settings.launcher',
       'plugins.item',
       'plugins.detail.badge',
+      'sidebar.panellist',
+      'main',
     ])
     expect(registerSource).not.toHaveBeenCalled()
 

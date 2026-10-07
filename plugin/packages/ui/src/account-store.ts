@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖同源 JSON API 和宿主事件触发的状态读取
- * [OUTPUT]: 提供按需账号/插件操作、明确的地址保存结果与共享 snapshot；仅登录期间有界查询；原样承载宿主在 AUTHORIZING 下发的 `authorizeUrl`（不产生副作用，由登录弹窗消费） **本刀（企业插件安装的动态过程效果）**：新增「安装中」的**真进度**轮询——动作在途时按 `ENTERPRISE_PLUGIN_PROGRESS_POLL_MS` 反复读**我们自己那条只读** `GET /plugins`（Host 每走一步工序都先写真实受管态、这条路由同步投影它），把 Host 真走到的阶段刷进快照；`pluginSettled` 记动作收束时的**真实受管态**（收束交代的唯一真源）；`pluginProgressErrorCode` 单独承载「进度这一路读不到」（**不**改写 `pluginErrorCode`，因为读不到进度不等于安装失败，且下一拍会自愈重读）；装完自停（`#pluginProgressActive` 判据），store 卸载时也停表。 **本刀（企业插件真取消）**：新增 `cancelPlugin(packageName)`——同源 `POST /plugins/cancel`（正文关闭键集 `{packageName}`，响应与只读 `GET /plugins` 同形 ⇒ 收下即回到安装前的真状态）；`pluginCancelBusy` 单独承载「本客户端的取消请求还在路上」（**不**改写 `pluginBusy`：安装还在跑与请在途取消是两件事实），失败把稳定码写进 `pluginErrorCode`（唯一提示组件出人话 + 下一步，按钮仍在即可重试），并刻意**不**碰 `pluginProgressErrorCode` / 账号 `errorCode` 这些不相关的码；本方法**不**自行宣判「已取消」（那次安装请求会以 `ENT_PLUGIN_INSTALL_CANCELLED` 自己收束）。
+ * [OUTPUT]: **本刀（登录入口换成 NUWAX）**：snapshot 新增三格**独立**切片 `nuwax` / `nuwaxBusy` / `nuwaxErrorCode` 与三个动作 `nuwaxLogin` / `nuwaxLogout` / `refreshNuwax`（三条纪律：只读刷新不覆盖在途结果；企业状态每次重建快照都原样保留这三格；NUWAX 动作只挂 store 生命周期信号，**不**借用会在企业状态被接受时重置的 `#accountSignal`——否则企业那边刷新一下就会把在途登录 abort 掉）。提供按需账号/插件操作、明确的地址保存结果与共享 snapshot；仅登录期间有界查询；原样承载宿主在 AUTHORIZING 下发的 `authorizeUrl`（不产生副作用，由登录弹窗消费） **本刀（企业插件安装的动态过程效果）**：新增「安装中」的**真进度**轮询——动作在途时按 `ENTERPRISE_PLUGIN_PROGRESS_POLL_MS` 反复读**我们自己那条只读** `GET /plugins`（Host 每走一步工序都先写真实受管态、这条路由同步投影它），把 Host 真走到的阶段刷进快照；`pluginSettled` 记动作收束时的**真实受管态**（收束交代的唯一真源）；`pluginProgressErrorCode` 单独承载「进度这一路读不到」（**不**改写 `pluginErrorCode`，因为读不到进度不等于安装失败，且下一拍会自愈重读）；装完自停（`#pluginProgressActive` 判据），store 卸载时也停表。 **本刀（企业插件真取消）**：新增 `cancelPlugin(packageName)`——同源 `POST /plugins/cancel`（正文关闭键集 `{packageName}`，响应与只读 `GET /plugins` 同形 ⇒ 收下即回到安装前的真状态）；`pluginCancelBusy` 单独承载「本客户端的取消请求还在路上」（**不**改写 `pluginBusy`：安装还在跑与请在途取消是两件事实），失败把稳定码写进 `pluginErrorCode`（唯一提示组件出人话 + 下一步，按钮仍在即可重试），并刻意**不**碰 `pluginProgressErrorCode` / 账号 `errorCode` 这些不相关的码；本方法**不**自行宣判「已取消」（那次安装请求会以 `ENT_PLUGIN_INSTALL_CANCELLED` 自己收束）。
  * [POS]: dsh-ui 的浏览器状态控制器，在官方 slot 与 Settings tabs 间共享事实且隔离网络细节 **本刀**：进度轮询只读、可达、有界（在途才轮、无工序即停），并刻意与动作成败解耦。
  * **本刀（插件行动分流）**：新增 `setPluginEnabled(packageName, enabled)`——与装/卸**同一条链**
  *   （同 `#pluginAction` 的串行纪律、在途事实 `pluginBusy`、进度轮询与收束交代 `pluginSettled`），
@@ -13,6 +13,7 @@ import type {
   EnterpriseAccountBootstrap,
   EnterpriseLocalApi,
   EnterpriseLocalStatus,
+  EnterpriseNuwaxStatus,
   EnterprisePluginStatus,
   EnterpriseRemoteSession,
   EnterpriseSessionSyncStatus,
@@ -73,6 +74,18 @@ export interface EnterpriseAccountSnapshot {
   readonly sessionLoading?: boolean
   readonly sessionErrorCode?: string
   readonly restoreResult?: { readonly restoredSessionId: string; readonly sourceSessionId: string }
+  /**
+   * **NUWAX 登录态**（本刀：登录入口换成 NUWAX）——它与企业连接是两件事，故独立成格、互不覆盖。
+   *
+   * 三格的分工：
+   *  · `nuwax` = **最后一次读到的真值**（登录/登出/刷新三条路都写它，值就是宿主回的投影）；
+   *  · `nuwaxBusy` = 本客户端刚发出、还没结束的那次 NUWAX 动作（只有登录/登出两种）；
+   *  · `nuwaxErrorCode` = NUWAX 族动作的失败码（**刻意不并进** 账号的 `errorCode`：企业连接好好的，
+   *    不该因为一次 NUWAX 口令打错而在别处冒出企业错误）。
+   */
+  readonly nuwax?: EnterpriseNuwaxStatus
+  readonly nuwaxBusy?: 'login' | 'logout'
+  readonly nuwaxErrorCode?: string
 }
 
 function connected(status: EnterpriseLocalStatus): boolean {
@@ -371,6 +384,74 @@ export class EnterpriseAccountStore {
     this.#pluginPollTimer = setTimeout(() => { void tick() }, ENTERPRISE_PLUGIN_PROGRESS_POLL_MS)
   }
 
+  /**
+   * 读一次 NUWAX 登录态（只读、幂等）。
+   *
+   * 两条纪律：① **不覆盖在途动作的结果**——一次登录/登出请求还在飞时不接受这条读的结果
+   * （否则「动作刚成功、紧接着读到的旧态」会把刚建立的状态抹回去）；② 失败只写 `nuwaxErrorCode`，
+   * 不碰企业那三格（连接的 `errorCode` / `sessionErrorCode` / 插件码）。
+   */
+  async refreshNuwax(): Promise<void> {
+    const signal = this.#signal()
+    try {
+      const nuwax = await this.#api.nuwaxStatus(signal)
+      if (!signal.aborted && this.#snapshot.nuwaxBusy === undefined) this.#set({ ...this.#snapshot, nuwax })
+    } catch (error) {
+      if (!signal.aborted) this.#set({ ...this.#snapshot, nuwaxErrorCode: enterpriseLocalErrorCode(error) })
+    }
+  }
+
+  /** 用**员工自己的 NUWAX 账号**登录（口令只经本机回环交给宿主，本层不落盘、不记日志）。 */
+  async nuwaxLogin(account: string, password: string): Promise<boolean> {
+    return await this.#nuwaxAction('login', signal => this.#api.nuwaxLogin(account, password, signal))
+  }
+
+  /** 丢弃宿主进程内的 NUWAX 会话（无正文回执，只看 2xx；不调平台的登出）。 */
+  async nuwaxLogout(): Promise<boolean> {
+    return await this.#nuwaxAction('logout', async signal => {
+      await this.#api.nuwaxLogout(signal)
+      return { state: 'signed-out' } as const
+    })
+  }
+
+  /**
+   * NUWAX 两个动作的唯一执行链（与 `#action` 同形，但**不碰**企业那些格，也不发企业刷新）。
+   *
+   * 登出的响应没有正文（只看 2xx），故由调用方给出「登出后就是 signed-out」这条真值——
+   * 它不是乐观猜测：宿主那条路由的语义就是「丢掉进程内那一份会话」，成不成以 2xx 为准。
+   */
+  async #nuwaxAction(
+    action: 'login' | 'logout',
+    operation: (signal: AbortSignal) => Promise<EnterpriseNuwaxStatus>,
+  ): Promise<boolean> {
+    if (this.#snapshot.nuwaxBusy !== undefined) return false
+    /**
+     * ★只挂 **store 生命周期**信号（`#signal`），**不**用 `#accountSignal()`。
+     *
+     * `#accountSignal` 里那枚 `#accountRequests` 会在企业状态每次被接受时重置（`#acceptStatus` 的
+     * accountChanged 分支），于是"企业那边刷新一下"就会把在途的 NUWAX 登录 abort 掉——两条本来
+     * 互不相干的会话被一条信号串在一起，员工会看到登录莫名其妙地失败。故 NUWAX 动作只在 store 被
+     * 真正卸载（最后一个订阅者走人）时中止。
+     */
+    const signal = this.#signal()
+    const { nuwaxErrorCode: _error, ...rest } = this.#snapshot
+    this.#set({ ...rest, nuwaxBusy: action })
+    try {
+      const nuwax = await operation(signal)
+      if (signal.aborted) return false
+      this.#set({ ...this.#snapshot, nuwax })
+      return true
+    } catch (error) {
+      if (!signal.aborted) this.#set({ ...this.#snapshot, nuwaxErrorCode: enterpriseLocalErrorCode(error) })
+      return false
+    } finally {
+      if (!signal.aborted) {
+        const { nuwaxBusy: _busy, ...settled } = this.#snapshot
+        this.#set(settled)
+      }
+    }
+  }
+
   async startLogin(): Promise<void> {
     await this.#action('login', signal => this.#api.startLogin(signal))
   }
@@ -397,6 +478,8 @@ export class EnterpriseAccountStore {
   #start(): void {
     this.#lifetime = new AbortController()
     void this.refresh()
+    // NUWAX 登录态与企业的这一次刷新是两条独立的读：一条读不到不影响另一条上屏。
+    void this.refreshNuwax()
   }
 
   #stop(): void {
@@ -498,6 +581,14 @@ export class EnterpriseAccountStore {
       ...(retain && this.#snapshot.pluginProgressErrorCode !== undefined
         ? { pluginProgressErrorCode: this.#snapshot.pluginProgressErrorCode }
         : {}),
+      /**
+       * NUWAX 三格**无条件原样保留**：它与企业连接是两条独立的会话，企业状态每刷新一次
+       * （`#acceptStatus` 会整体重建快照）就把 NUWAX 登录态抹掉是不可接受的——那会让员工
+       * 每次企业刷新后都"被登出"一次。企业侧换账号（accountChanged）同样不动它。
+       */
+      ...(this.#snapshot.nuwax === undefined ? {} : { nuwax: this.#snapshot.nuwax }),
+      ...(this.#snapshot.nuwaxBusy === undefined ? {} : { nuwaxBusy: this.#snapshot.nuwaxBusy }),
+      ...(this.#snapshot.nuwaxErrorCode === undefined ? {} : { nuwaxErrorCode: this.#snapshot.nuwaxErrorCode }),
       ...(this.#snapshot.busy === undefined ? {} : { busy: this.#snapshot.busy }),
       ...(status.errorCode === undefined ? {} : { errorCode: status.errorCode }),
     })

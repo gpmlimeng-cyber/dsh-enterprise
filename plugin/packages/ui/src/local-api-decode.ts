@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 branding 的同源 LOGO 来源门禁与 `EnterpriseBrandingDocument` 形状、decode-primitives 的严格解码内核、skill-api-decode 的技能 DTO 与解码 **本刀**：修 `decodeEnterprisePresets` 的 `sizeBytes` 上界判定写反（原先任何非零大小的配方都被判畸形），改为与插件目录同款的 `<= 0`；**配方收尾刀**：`decodeEnterprisePresets` 补契约切片 B 的 `dependencies`（放**可选位**，旧服务端不输出也照旧可解），按契约 `PresetDependency` 逐条校验并把键集抽成导出的常量供漂移门禁比对。
- * [OUTPUT]: 对外提供连接/受管插件状态枚举、本地 API DTO 类型与严格解码（账号、品牌、插件、配方、Session、四窗口用量、反馈回执、原生登录的来源列表与凭证/改密结果、**企业技能已装态 / 已装正文 / 本机文件树 / 树里单个文本文件**）、配方引用 `EnterpriseRuntimePresetDependency` 与四份**运行时键集常量**（`ENTERPRISE_PRESET_ROW_REQUIRED_KEYS` / `ENTERPRISE_PRESET_ROW_OPTIONAL_KEYS` / `ENTERPRISE_PRESET_DEPENDENCY_KEYS` / `ENTERPRISE_PRESET_DEPENDENCY_OPTIONAL_KEYS`，是 `tests/preset-decode.spec.ts` 契约漂移门禁的被测真源）、`EnterpriseLocalApi` 契约（含本刀新增的**取消**端口 `cancelPlugin(packageName, signal)`——响应与只读 `GET /plugins` 同形，故复用同一个严格解码器、**零新增字段**）、失败码投影 `enterpriseLocalErrorCode`，并再导出 `EnterpriseLocalApiError` 与 skill-api-decode 的全部技能契约 **本刀（配方一键启用）**：新增 `decodeEnterprisePresetEnable` / `decodeEnterprisePresetDisable` / `decodeEnterprisePresetStatus` 与它们的 DTO（披露清单 `EnterprisePresetDisclosure`、已装记录 `EnterpriseInstalledPreset`、授权三态 `EnterprisePresetAuthorization`、官方原值 `EnterprisePresetOfficialApplication`）与九份**键集常量**（enable/disable 的必填+可选、status 的必填、已装八键、披露三件、`officialError` 的两键）——形状真源是 Host 的 `bundle/src/preset-service.ts` 三个脱敏视图，未知键一律拒，`status.installed` 是**必填位上的可空值**。
+ * [OUTPUT]: **本刀（登录入口换成 NUWAX）**：新增 `EnterpriseNuwaxStatus` / `EnterpriseNuwaxPrincipal` / `ENTERPRISE_NUWAX_STATES` 与严格解码 `decodeEnterpriseNuwaxStatus`（键集封闭——多一个 `ticket` 即畸形；两态与主体同生共死；`expiresAt` 是 epoch 毫秒整数，不是 RFC3339；`origin` 是服务地址、可缺席但在场必须非空），`EnterpriseLocalApi` 相应新增 `nuwaxStatus` / `nuwaxLogin` / `nuwaxLogout`。对外提供连接/受管插件状态枚举、本地 API DTO 类型与严格解码（账号、品牌、插件、配方、Session、四窗口用量、反馈回执、原生登录的来源列表与凭证/改密结果、**企业技能已装态 / 已装正文 / 本机文件树 / 树里单个文本文件**）、配方引用 `EnterpriseRuntimePresetDependency` 与四份**运行时键集常量**（`ENTERPRISE_PRESET_ROW_REQUIRED_KEYS` / `ENTERPRISE_PRESET_ROW_OPTIONAL_KEYS` / `ENTERPRISE_PRESET_DEPENDENCY_KEYS` / `ENTERPRISE_PRESET_DEPENDENCY_OPTIONAL_KEYS`，是 `tests/preset-decode.spec.ts` 契约漂移门禁的被测真源）、`EnterpriseLocalApi` 契约（含本刀新增的**取消**端口 `cancelPlugin(packageName, signal)`——响应与只读 `GET /plugins` 同形，故复用同一个严格解码器、**零新增字段**）、失败码投影 `enterpriseLocalErrorCode`，并再导出 `EnterpriseLocalApiError` 与 skill-api-decode 的全部技能契约 **本刀（配方一键启用）**：新增 `decodeEnterprisePresetEnable` / `decodeEnterprisePresetDisable` / `decodeEnterprisePresetStatus` 与它们的 DTO（披露清单 `EnterprisePresetDisclosure`、已装记录 `EnterpriseInstalledPreset`、授权三态 `EnterprisePresetAuthorization`、官方原值 `EnterprisePresetOfficialApplication`）与九份**键集常量**（enable/disable 的必填+可选、status 的必填、已装八键、披露三件、`officialError` 的两键）——形状真源是 Host 的 `bundle/src/preset-service.ts` 三个脱敏视图，未知键一律拒，`status.installed` 是**必填位上的可空值**。
  * [POS]: dsh-ui 的浏览器取数契约层——只定义「主机可以说什么」与「什么不许说」，不含任何 fetch；网络执行留在 local-api.ts，界面只消费本文件的投影结果。逼近 800 行后按业务纵切出技能分片与共享内核，本文件仍是唯一对外真源 **本刀**：这三条是**本机动作**（不是中心契约），故键集常量单独导出、由 `tests/preset-enable-decode.spec.ts` 做封闭键集断言；本文件仍是唯一 DTO 真源。
  * **本刀（系统搜索）**：`EnterpriseLocalApi` 新增两件——只读盘点 `systemSearch(signal)`（返回
  *   `EnterpriseSystemSkills`：根清单 + 候选三态，形状与严格判据都在 `skill-api-decode.ts`）与动作
@@ -66,6 +66,41 @@ export const ENTERPRISE_CONNECTION_STATES = [
 ] as const
 
 export type EnterpriseConnectionState = typeof ENTERPRISE_CONNECTION_STATES[number]
+
+/**
+ * `signed-in` / `signed-out` 两态（**本刀：登录入口换成 NUWAX** 的浏览器侧词汇）。
+ *
+ * 与企业的 `EnterpriseConnectionState` 刻意分开：那 11 态描述的是**企业服务连接**，这两态描述的是
+ * **员工与 NUWAX 平台之间的会话**——本刀只把「登录入口」这一格换成后者，前者照旧驱动市场与用量。
+ */
+export const ENTERPRISE_NUWAX_STATES = ['signed-in', 'signed-out'] as const
+
+export type EnterpriseNuwaxState = typeof ENTERPRISE_NUWAX_STATES[number]
+
+/** NUWAX 认证主体（宿主 `getLoginInfo` 的受控投影：四个字段，没有口令、没有票据）。 */
+export interface EnterpriseNuwaxPrincipal {
+  readonly uid: number
+  readonly userName: string
+  readonly nickName: string
+  readonly tenantId: number
+}
+
+/**
+ * 对界面可见的 NUWAX 登录态——**与宿主 `nuwax-route.ts` 的响应体逐字同形**。
+ *
+ * ★票据不在契约里：它只活在宿主进程内存中（`nuwax-auth.ts` 的安全红线），本文件既不接受也不透传。
+ * ★`origin` 是宿主投影的 NUWAX **服务地址**（部署配置决议出的那一台）——是**地址不是凭据**：
+ * 界面用它显示「这次登录打到哪台」；部署显式停用该能力时它缺席（宿主不编地址，界面也不编）。
+ */
+export interface EnterpriseNuwaxStatus {
+  readonly state: EnterpriseNuwaxState
+  /** 宿主决议出的 NUWAX 服务地址（`DSHENT_NUWAX_ORIGIN`，缺配置时是企业默认值）。 */
+  readonly origin?: string
+  /** 只有 `signed-in` 才有（`signed-out` 带上它即判畸形）。 */
+  readonly principal?: EnterpriseNuwaxPrincipal
+  /** 会话过期时刻（epoch 毫秒）；平台没给过期时间时宿主按有界兜底算，故通常都在。 */
+  readonly expiresAt?: number
+}
 
 export const MANAGED_PLUGIN_STATES = [
   'EXPECTED',
@@ -539,6 +574,27 @@ export interface EnterpriseLocalApi {
     nodeIds: readonly string[],
     signal: AbortSignal,
   ): Promise<EnterpriseLibrarySelectionReceipt>
+  /**
+   * **NUWAX 登录态**（`GET /nuwax/status`，只读、幂等）。
+   *
+   * 宿主只回派生的 `{state, principal?, expiresAt?}`：**票据与口令都不回来**，故这条可以在界面上
+   * 随便读、随便轮询，读到的永远是「登录态」而不是「凭据」。
+   */
+  nuwaxStatus(signal: AbortSignal): Promise<EnterpriseNuwaxStatus>
+  /**
+   * **用员工自己的 NUWAX 账号登录**（`POST /nuwax/login`，正文关闭键集恰好 `{account, password}`）。
+   *
+   * 口令由浏览器经本机回环交给宿主、由宿主转发给 NUWAX 平台，**不落盘、不记日志、不回显**；
+   * 成功即回到最新登录态（与 `nuwaxStatus()` 同形），失败按六枚 NUWAX 稳定码抛出。
+   */
+  nuwaxLogin(account: string, password: string, signal: AbortSignal): Promise<EnterpriseNuwaxStatus>
+  /**
+   * **丢弃宿主进程内的 NUWAX 会话**（`POST /nuwax/logout`，无正文要求）。
+   *
+   * 只丢本机这一份（**不**调平台的登出——那会把员工在别的端上的会话一起踢下线）；
+   * 成不成只看响应是否 2xx，随后读一次 `nuwaxStatus()` 就是真值。
+   */
+  nuwaxLogout(signal: AbortSignal): Promise<void>
   startLogin(signal: AbortSignal): Promise<{ readonly flowId: string }>
   cancelLogin(signal: AbortSignal): Promise<{ readonly cancelled: boolean }>
   /** 原生登录（安卓）本轮的认证来源；没有进行中的原生事务时按 400 拒绝。 */
@@ -561,6 +617,68 @@ export interface EnterpriseLocalApi {
     readonly restoredSessionId: string
     readonly sourceSessionId: string
   }>
+}
+
+/** NUWAX 主体：四键封闭；`uid` / `tenantId` 是安全非负整数，两个名字必须是非空串。 */
+function decodeNuwaxPrincipal(value: unknown): EnterpriseNuwaxPrincipal | undefined {
+  const principal = record(value)
+  if (principal === undefined
+    || !hasExactKeys(principal, ['uid', 'userName', 'nickName', 'tenantId'])
+    || !Number.isSafeInteger(principal['uid']) || (principal['uid'] as number) < 0
+    || !nonEmptyString(principal['userName'])
+    || !nonEmptyString(principal['nickName'])
+    || !Number.isSafeInteger(principal['tenantId']) || (principal['tenantId'] as number) < 0) {
+    return undefined
+  }
+  return {
+    uid: principal['uid'] as number,
+    userName: principal['userName'],
+    nickName: principal['nickName'],
+    tenantId: principal['tenantId'] as number,
+  }
+}
+
+/**
+ * 严格解码 NUWAX 登录态（`GET /nuwax/status` 与 `/nuwax/login` 的**同一个**投影 ⇒ 共用一个解码器）。
+ *
+ * 三条判据，逐条对着宿主 `nuwax-auth.ts` 的输出：
+ *  ① 键集封闭 `{state, origin?, principal?, expiresAt?}`——多一个键（尤其 `ticket` / `password`）一律判畸形：
+ *     宿主本就不发，这里再挡一层，免得将来宿主手滑把票据投影出来时前端默默收下；
+ *  ② 两态与主体**同生共死**：`signed-in` 必须有主体、`signed-out` 不许有——否则界面会把「已登出」
+ *     画成「已登录」，这比读不到更坏；
+ *  ③ `expiresAt` 是 epoch 毫秒（**不是** RFC3339 字符串，故用整数判据而非 `timestamp()`）；
+ *  ④ `origin` 可缺席（部署显式停用），但在场时必须是**非空字符串**——空串会让页脚画出一片空白，
+ *     比"读不到"更坏（读不到至少会画占位）。
+ */
+export function decodeEnterpriseNuwaxStatus(value: unknown): EnterpriseNuwaxStatus {
+  const status = record(value)
+  if (status === undefined
+    || !hasExactKeys(status, ['state'], ['origin', 'principal', 'expiresAt'])
+    || !ENTERPRISE_NUWAX_STATES.includes(status['state'] as EnterpriseNuwaxState)) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  const origin = status['origin']
+  if (origin !== undefined && (typeof origin !== 'string' || origin.length === 0)) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  const principal = status['principal'] === undefined ? undefined : decodeNuwaxPrincipal(status['principal'])
+  if (status['principal'] !== undefined && principal === undefined) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  const expiresAt = status['expiresAt']
+  if (expiresAt !== undefined && (!Number.isSafeInteger(expiresAt) || (expiresAt as number) < 0)) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  const state = status['state'] as EnterpriseNuwaxState
+  if ((state === 'signed-in') !== (principal !== undefined)) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  return {
+    state,
+    ...(origin === undefined ? {} : { origin: origin as string }),
+    ...(principal === undefined ? {} : { principal }),
+    ...(expiresAt === undefined ? {} : { expiresAt: expiresAt as number }),
+  }
 }
 
 /**
