@@ -63,9 +63,14 @@
  *         默认档（手机竖屏）单列，其余档取 `minmax(min(262px, (100% - gap) / 2), 1fr)` 的
  *         auto-fill ⇒ **平板横竖屏都最少两列**（横屏掉成单列的真因：内容区 532px 比 262×2+12=536
  *         差 4px，见网格规则上方那段实测）；
- *      ② **技能卡头行**：图标与"标题 + 描述"块垂直居中（`.esc-card-skill .esc-card-header`），
- *         动作位（+ / 更多 + 去试试）从**绝对定位浮在标题上**改成头行里的**一格**（`.esc-skill-actions`）
+ *      ② **技能卡头行**：图标与"标题行 + 描述"整块垂直居中（`.esc-card-skill .esc-card-header`），
+ *         动作位（+ / 更多 + 去试试）从**绝对定位浮在标题上**改成**流里的一格**（`.esc-skill-actions`）
  *         ⇒ 标题的省略号由 flex 分配、不再积压到安装图标底下。
+ *   ⑩ **口径 41（本轮真机裁决「技能卡片描述的截断位置应该是卡片边缘而不是安装按钮，因为他是独立一行」）**：
+ *      技能卡的**描述独立成一行**——新增 `.esc-skill-titlerow`（「标题 + 动作位」那一行），动作位
+ *      从"headmain 的兄弟"收成这一行的第二格 ⇒ 它只吃**标题那一行**的宽度，描述那一行的右端回到
+ *      **卡片内缘**（与下面那条标签行对齐、省略号落在卡片边缘）。口径 39 的三条效果一字不减：
+ *      标题仍 `flex: 1 / min-width: 0` 且省略号永远落在动作位左侧，仍不靠任何预留魔数。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -305,23 +310,34 @@ const CSS = `
 .esc-card-image { width: 40px; height: 40px; border-radius: 10px; object-fit: cover; flex-shrink: 0; background: var(--dsw-alias-bg-skeleton); }
 .esc-card-image-circle { border-radius: 50%; }
 .esc-card-headmain { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
-/* ★本刀（用户裁决⑦）：标题与描述**合成一块**、与图标同处卡片头那一行（描述在标题正下方）。
-   描述不再独占一整行——那行原来固定 32px 高（两行），真机截图里把卡片撑得很高。
-   现在描述在 headmain 内、标题之下，随卡片高度自适应。 */
+/* ★本刀（用户裁决⑦）：标题与描述**同处卡片头**（描述在标题正下方的一个独立行里，不再各占一大格）。
+   描述那一行原来是固定 32px 高的两行截断，真机截图里把卡片撑得很高；现在它是**单行**（见下面那条）。 */
 .esc-card-title { margin: 0; color: var(--dsw-alias-label-primary); font-size: calc(14.5px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); font-weight: 650; line-height: 1.4; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* 头里的那一格描述：单行截断（与标题同一个块，不占独立行高）。 */
-/* ★真图实测：描述是**单行**截断（不是 SPEC 文字里那个两行/min-height 38px）。 */
-.esc-card-headdesc { margin: 3px 0 0; color: var(--dsw-alias-label-secondary); font-size: calc(12px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 技能卡的描述——**独立一行**（口径 41：用户裁决「截断位置应该是卡片边缘而不是安装按钮，因为他是独立一行」）。
+   它在 headmain 里是「标题行」的**下一行**，而动作位只吃标题那一行的宽 ⇒ 这一行的右端是**卡片内缘**
+   （与下面那条标签行对齐），省略号落在卡片边缘。
+   flex: none 与头行/页脚同一条纪律（见上面 .esc-card-header 那段）：任何超出都不许把它压扁。 */
+.esc-card-headdesc { margin: 3px 0 0; color: var(--dsw-alias-label-secondary); font-size: calc(12px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; }
 /* ★**口径 39（用户裁决「标题和描述加一起要和图标中间对齐」）**：技能卡的头行**垂直居中**。
    .esc-card-header 默认 align-items: stretch，而图标是定高 40px 的 img（stretch 对定高项无效 ⇒
    回落成 start）⇒ 头行比图标高时图标被钉在行首、看上去偏上（真机截图里就是"图标顶在标题上方"）。
-   技能卡的头行里只有「图标 + 标题/描述块」两格，居中正是用户要的那一句。
+   技能卡的头行里只有「图标 + headmain（标题行 + 描述）」两格，居中正是用户要的那一句。
    ★**为什么只对技能卡**：专家/连接器的头行是**三层**（标题 + 分类/作者行），它们的图标本来就该对齐
    第一行（那是另一套版式，用户没提、也不该顺手改）。这两条按 .esc-card-skill 收口，不外溢。 */
 .esc-card-skill .esc-card-header { align-items: center; }
-/* 同一处：技能卡的 headmain 里只有「标题 + 描述」两格，只要它们贴成一块、整块与图标居中；
+/* 同一处：技能卡的 headmain 里是「标题行 + 描述」两格，只要它们贴成一块、整块与图标居中；
    space-between（头行里把内容上下撑开）是给专家卡那三层版式留的，技能卡这一档换成 center。 */
 .esc-card-skill .esc-card-headmain { justify-content: center; }
+/* ★**口径 41（用户裁决「技能卡片描述的截断位置应该是卡片边缘而不是安装按钮，因为他是独立一行」）**：
+   技能卡头里的**第一行**——「标题 + 动作位」。动作位从 headmain 的**兄弟**收成这一行的**第二格**，
+   于是它只吃**标题那一行**的宽度，不再让掉描述那一行的右端（描述因此吃到卡片内缘）。
+   口径 39 的效果一字不减：标题那格 flex: 1 / min-width: 0、动作格 flex: none ⇒ 标题的省略号
+   仍**永远**落在动作位左侧、仍不靠任何预留魔数（字号跟随壳的「字体大小」设置，魔数会当场失效）。
+   align-items: flex-start + 动作位自带的 align-self: flex-start ⇒ 那枚「+」仍对齐**标题那一行**
+   （口径 39 按真图钉的口径），不跟"标题 + 描述"整块居中。 */
+.esc-skill-titlerow { display: flex; align-items: flex-start; gap: 12px; flex: none; }
+/* 标题那一格必须仍可收缩（min-width: 0），否则 flex 分配不到宽度、省略号不生效。 */
+.esc-skill-titlerow .esc-card-title { flex: 1; min-width: 0; }
 .esc-card-author-row { display: flex; align-items: center; gap: 12px; }
 /* 官方 AuthorInfo/index.less：容器 min-width: 30px; gap: 4px; flex: 0 1 auto，
    头像 **16×16**（原实现写的是 14×14，比官方小一圈），名字 height: 16px; line-height: 16px。 */
@@ -462,16 +478,21 @@ const CSS = `
 .esc-try-now { white-space: nowrap; }
 
 /* —— 技能卡右侧动作区（workbuddy 那一版式：未装「+」，已装「更多 + 去试试」）——
-   ★**口径 39（用户裁决「标题不要和安装图标积压在一起」）**：这一格从**绝对定位**改成头行里的
-   **一格 flex 子项**。原先它是 position: absolute; top: 12px; right: 16px —— 是**浮在**标题上的：
+   ★**口径 39（用户裁决「标题不要和安装图标积压在一起」）**：这一格从**绝对定位**改成**流里的一格**。
+   原先它是 position: absolute; top: 12px; right: 16px —— 是**浮在**标题上的：
    .esc-card-title 是 white-space: nowrap 的单行截断，它的可用宽度是整条头行（图标到卡片右边缘），
    于是长标题（真机截图里的 dev-engineer-toolkit）一直排到那一枚「+」底下才截断，
-   读起来就是"标题和安装图标积压在一起"。改成流里的一格之后，标题那格的宽度由 flex **分配**：
-   headmain 是 flex: 1 / min-width: 0，动作格是 flex: none ⇒ 省略号**永远**落在动作位左侧。
+   读起来就是"标题和安装图标积压在一起"。进流之后，标题那格的宽度由 flex **分配**：
+   标题是 flex: 1 / min-width: 0，动作格是 flex: none ⇒ 省略号**永远**落在动作位左侧。
    ★为什么不用"给标题预留 32px 右内衬"那条省事写法：预留值是个**魔数**，而字号在本页是跟随壳的
    「字体大小」设置走的（口径 38 那一刀）——设置一变大，已装态那枚「去试试」会变宽，魔数当场失效、
    标题又被压回去。让 flex 去量，才是唯一不随字号漂的写法。
-   align-self: flex-start：那枚「+」按真图（与 workbuddy 一致）对齐**标题那一行**，不跟整块居中。 */
+   ★**口径 41（用户裁决「描述截断位置应该是卡片边缘而不是安装按钮」）**：这一格现在是
+   「标题行」（.esc-skill-titlerow）里的第二格，而不再是 headmain 的兄弟——两者差别只在
+   **描述那一行的右端**：做兄弟时整块 headmain 都要按 flex: none 给它让宽（描述跟着短一截），
+   收进标题行之后它只吃标题那一行的宽，描述那一行吃到卡片内缘。口径 39 那三条效果一字不减。
+   align-self: flex-start：那枚「+」按真图（与 workbuddy 一致）对齐**标题那一行**，不跟整块居中。
+   （它现在是「标题行」的子项，"整块"也就只是标题那一行——这条声明在 口径 41 之后依然是它的语义。） */
 .esc-skill-actions { display: flex; align-items: center; gap: 8px; flex: none; align-self: flex-start; }
 /* ★用户裁决⑥：右上角那枚「安装」按钮此前是个**灰色圆圈小方块**（截图里看不出是加号），且颜色偏淡。
    现在改成 workbuddy 那种**淡底 + 可辨识的加号**：bg-layer-2 作底（比白卡略深一档，有边界感）、

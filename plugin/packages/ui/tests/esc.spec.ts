@@ -645,13 +645,43 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     expect(actions).toContain('flex: none')
     // 标题那一格必须仍可收缩（min-width: 0），否则 flex 分配不到宽度、省略号不生效
     expect(ruleBody('.esc-card-headmain')).toContain('min-width: 0')
-    // ④ 源码级锁：动作位挂在**头行**里（结构改动，不是靠 CSS 调出来的）——「图标 | 标题/描述 | 动作」
+    // ④ 源码级锁：动作位挂在**头行**里（结构改动，不是靠 CSS 调出来的）——口径 41 起它更靠里一格
+    //    （在「标题行」内，见下一条用例），这里锁的是最早那条根因：它必须在流里、不许回到卡片直属层。
     const cardSource = readFileSync(new URL('../src/esc/esc-card.tsx', import.meta.url), 'utf8')
     const headerBlock = /'esc-card-header'([\s\S]*?)\n    \),/.exec(cardSource)
     expect(headerBlock, '头行那段').not.toBeNull()
     expect(headerBlock![1]).toContain('skillActionBox')
-    // 反向锁：动作位不许再作为**卡片直属子节点**出现（两处都挂就会画两枚「+」）
-    expect(cardSource.match(/^\s*skillActionBox,$/gm) ?? []).toHaveLength(0)
+    // 反向锁：动作位不许回到**卡片直属层**（4 空格缩进）或**头行直属层**（6 空格缩进）——
+    // 那两个位置正是"挂在卡片上"（口径 39 之前的绝对定位档）与"与 headmain 平级"（口径 39 那一档、
+    // 也是口径 41 要修的根因）两种旧写法；它现在只该是「标题行」的子节点（更深的缩进）。
+    expect(cardSource.match(/^ {4,6}skillActionBox,$/gm) ?? []).toHaveLength(0)
+  })
+
+  it('★口径 41（用户裁决「技能卡片描述的截断位置应该是卡片边缘而不是安装按钮，因为他是独立一行」）：描述独立成行、右端到卡片内缘', () => {
+    const cardSource = readFileSync(new URL('../src/esc/esc-card.tsx', import.meta.url), 'utf8')
+    // ① 结构（源码级）：动作位收进**「标题行」**这一格——它只该吃标题那一行的宽。
+    //    判据是"取标题行那一块源码"：从 `'esc-skill-titlerow'` 到描述那一格的字面量。
+    const titleRow = /'esc-skill-titlerow'([\s\S]*?)showUse === true && hasText\(item\.description\)/.exec(cardSource)
+    expect(titleRow, '标题行那段').not.toBeNull()
+    expect(titleRow![1]).toContain('skillActionBox')
+    // ② 描述**不在**标题行里（独立一行）——这正是"截断落到卡片边缘"的结构前提：
+    //    描述若在标题行内，它的右端就要给动作位让宽，省略号又落回安装按钮左边缘。
+    expect(titleRow![1]).not.toContain('item.description')
+    // 反向锁：那条"动作位与 headmain 平级（头行第三格）"的旧写法不许回来——它是本故障的根因。
+    expect(cardSource).not.toMatch(/^\s*showUse === true \? skillActionBox : null,$/m)
+    // ③ 专家/连接器两档的标题还是**裸 h3**（那两套版式一字未动：不给它们套标题行）
+    expect(cardSource).toContain(": createElement('h3', { className: 'esc-card-title', title: item.name, children: item.name }),")
+    // ④ 样式层：标题行是 flex 行、且不吃下一行的宽；标题那格仍可收缩（省略号才生效）
+    expect(ruleBody('.esc-skill-titlerow')).toContain('display: flex')
+    expect(ruleBody('.esc-skill-titlerow')).toContain('flex: none')
+    const rowTitle = ruleBody('.esc-skill-titlerow .esc-card-title')
+    expect(rowTitle).toContain('flex: 1')
+    expect(rowTitle).toContain('min-width: 0')
+    // ⑤ 描述那一行：单行截断落在**它自己的**右端（= 卡片内缘）+ 不许被压扁（与头行/页脚同一纪律）
+    const headdesc = ruleBody('.esc-card-headdesc')
+    expect(headdesc).toContain('white-space: nowrap')
+    expect(headdesc).toContain('text-overflow: ellipsis')
+    expect(headdesc).toContain('flex: none')
   })
 
   it('样式层（口径 35）：原子对齐官方的五条 + 三条失效 token 的反向锁', () => {
@@ -968,6 +998,47 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
     expect(card({ showStats: false }).props['className']).toBe('esc-card esc-card-compact')
   })
 
+  it('★口径 41（用户裁决「技能卡片描述的截断位置应该是卡片边缘而不是安装按钮，因为他是独立一行」）：描述与动作位**不同格**', () => {
+    // 这一条是**渲染树级**判据（比源码正则强）：描述那一格的祖先链里不许出现动作位/标题行，
+    // 且头行的最后一格必须是 headmain ⇒ headmain 的右端 = 卡片内缘 ⇒ 描述那一行的右端 = 卡片内缘。
+    // （口径 39 那一档里动作位是 headmain 的**兄弟**，headmain 就得按 flex: none 给它让宽——
+    //   描述跟着短一截、省略号落在安装按钮左边缘，正是用户指出的那一句。）
+    const root = card({ showUse: true })
+    const pathOf = (className: string): string[] | undefined => {
+      const walk = (node: unknown, path: string[]): string[] | undefined => {
+        if (node === null || node === undefined || node === false || typeof node !== 'object') return undefined
+        if (Array.isArray(node)) {
+          for (const child of node) { const hit = walk(child, path); if (hit !== undefined) return hit }
+          return undefined
+        }
+        const element = node as Element
+        const own = typeof element.props['className'] === 'string' ? element.props['className'] : ''
+        const next = own === '' ? path : [...path, own]
+        if (own.split(' ').includes(className)) return next
+        for (const child of childrenOf(element)) { const hit = walk(child, next); if (hit !== undefined) return hit }
+        return undefined
+      }
+      return walk(root, [])
+    }
+    const descPath = pathOf('esc-card-headdesc')
+    const actionPath = pathOf('esc-skill-actions')
+    expect(descPath, '描述那一格').toBeDefined()
+    expect(actionPath, '动作位那一格').toBeDefined()
+    // ① 描述不在动作位那一格、也不在「标题行」里 ⇒ 它的可用宽度不被动作位切掉（独立一行）
+    expect(descPath).not.toContain('esc-skill-titlerow')
+    expect(descPath).not.toContain('esc-skill-actions')
+    // ② 动作位在「标题行」里 ⇒ 它只吃标题那一行的宽
+    expect(actionPath).toContain('esc-skill-titlerow')
+    // ③ 两格同在 headmain 之下，而头行的**最后一格是 headmain**、头行里没有第三格（动作位已不在那儿）
+    expect(descPath).toContain('esc-card-headmain')
+    expect(actionPath).toContain('esc-card-headmain')
+    const header = asElement(childrenOf(root).find(node => node !== null && node !== undefined
+      && typeof node === 'object' && asElement(node).props['className'] === 'esc-card-header'))
+    const headerChildren = childrenOf(header).filter(node => node !== null && node !== undefined && node !== false)
+    expect(headerChildren).toHaveLength(2)
+    expect(asElement(headerChildren[1]).props['className']).toBe('esc-card-headmain')
+  })
+
   it('统计行：星形图标跟随收藏态切实心（原文两处 collected 都生效）', () => {
     const statsOf = (collected: boolean) => {
       const root = card({}, { collected })
@@ -1074,23 +1145,28 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
     // 专家（召唤）与连接器（连接/断开）两档**一字未改**，仍照原页面的形态。
     // ⇒ 这条用例的判据随之改成「按语义找那一格」，不再按下标硬取——按下标锁渲染树，
     //   改一处版式就得重排一堆断言，而版式本来就是要改的东西。
+    // ★**口径 39**：技能卡的动作位搬进了**流里**（图标 | 标题/描述 | 动作），专家/连接器两档
+    //   仍在卡片直属层 ⇒ 两处都找。
+    // ★**口径 41**：技能卡那一格又往里收了一格（headmain → 「标题行」）⇒ 改成**在整棵卡片子树里
+    //   按类名找**：判据只认"那一格在这张卡里"，深度与顺序都不预设——版式本来就是要改的东西，
+    //   每收一格就来改一次取法，那才是把测试绑死在版式上。
+    // ★第二参是**这张卡自己的数据**：已连接/未连接的形态不同，必须渲染它自己那张卡，
+    //   否则会拿到默认那张（未连接）卡的动作位，断言就成了拿 A 比 A。
     const actionBoxOf = (props: Parameters<typeof card>[0], item?: Record<string, unknown>): Element => {
       // 先摘掉 null/undefined/false（React 不渲染的槽位在 createElement 的 children 里就是它们），
-      // 再按类名找——顺序会随版式变，**位置**不会。
-      // ★**口径 39**：技能卡的动作位搬进了**头行**（图标 | 标题/描述 | 动作 三格），专家/连接器两档
-      //   仍在卡片直属层 ⇒ 两处都找。头行本身也按类名认（不按下标硬取）。
-      // ★第二参是**这张卡自己的数据**：已连接/未连接的形态不同，必须渲染它自己那张卡，
-      //   否则会拿到默认那张（未连接）卡的动作位，断言就成了拿 A 比 A。
-      const direct = childrenOf(card(props, item))
-      const header = direct.find(node => node !== null && node !== undefined && typeof node === 'object'
-        && (node as Element).props['className'] === 'esc-card-header')
-      const boxes = [...direct, ...(header === undefined ? [] : childrenOf(asElement(header)))]
-        .filter((node): node is Element =>
-          node !== null && node !== undefined && node !== false && typeof node === 'object')
-      const matches = boxes.filter(node => typeof node.props['className'] === 'string'
-        && /esc-action-box|esc-skill-actions/.test(node.props['className']))
-      expect(matches).toHaveLength(1)
-      return matches[0]!
+      // 再按类名找。
+      const found: Element[] = []
+      const walk = (node: unknown): void => {
+        if (node === null || node === undefined || node === false || typeof node !== 'object') return
+        if (Array.isArray(node)) { node.forEach(walk); return }
+        const element = node as Element
+        if (typeof element.props['className'] === 'string'
+          && /esc-action-box|esc-skill-actions/.test(element.props['className'])) found.push(element)
+        childrenOf(element).forEach(walk)
+      }
+      walk(card(props, item))
+      expect(found).toHaveLength(1)
+      return found[0]!
     }
     // —— 专家：召唤（形态照旧）
     const summonBox = actionBoxOf({ showSummon: true })

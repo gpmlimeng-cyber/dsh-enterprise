@@ -22,14 +22,21 @@
  *   于是这一层**永远不会画出一个破图**。
  *   ★付费角标**不做**：它的唯一用途是引到"订阅"这条本刀未移植的动作链，连它依赖的租户配置
  *   （`enableSubscription`）一起留给 B 档；故本文件没有付费相关的 prop。
- *   ★**口径 39（用户裁决「标题不要和安装图标积压在一起」）**：技能卡的动作位**进头行**——
- *     从"挂在卡片直属层 + 绝对定位浮在标题上"改成头行里的第三格（图标 | 标题/描述 | 动作）。
+ *   ★**口径 39（用户裁决「标题不要和安装图标积压在一起」）**：技能卡的动作位**进流**——
+ *     从"挂在卡片直属层 + 绝对定位浮在标题上"改成头行里的一格（原为「图标 | 标题/描述 | 动作」的第三格，
+ *     口径 41 起收成「标题行」里的第二格，见下）。
  *     原先那条 `position: absolute; top: 12px; right: 16px` 是浮在标题上的，而标题是 nowrap 单行截断，
  *     可用宽度是整条头行 ⇒ 长标题一直排到「+」底下才截断（真机截图里就是 `dev-engineer-toolkit+`），
- *     用户读成"标题和安装图标积压在一起"。进头行之后标题那格 `flex: 1 / min-width: 0`、
+ *     用户读成"标题和安装图标积压在一起"。进流之后标题那格 `flex: 1 / min-width: 0`、
  *     动作格 `flex: none` ⇒ 省略号**永远**落在动作位左侧（不靠预留魔数，字号变大也不会塌）。
- *     与它配套的两条版式在样式层：`.esc-card-skill .esc-card-header { align-items: center }`（图标与
- *     "标题 + 描述"这一块垂直居中）与 `.esc-skill-actions`（不再绝对定位，`align-self: flex-start`）。
+ *     与它配套的版式在样式层：`.esc-card-skill .esc-card-header { align-items: center }`（图标与
+ *     "标题行 + 描述"整块垂直居中）与 `.esc-skill-actions`（不再绝对定位，`align-self: flex-start`）。
+ *   ★**口径 41（用户裁决「技能卡片描述的截断位置应该是卡片边缘而不是安装按钮，因为他是独立一行」）**：
+ *     技能卡的动作位**再往里收一格**——从"头行的第三格"改成「标题行」（`.esc-skill-titlerow`）里的第二格。
+ *     根因：动作位是 headmain 的**兄弟**时，headmain（描述那一行的右端）要按 `flex: none` 给它让掉一整块宽，
+ *     可它只对齐**标题那一行**（`align-self: flex-start`）⇒ 描述那一行让掉的宽度是白丢的，
+ *     省略号落在安装按钮左边缘（用户看见的就是这一句）。收进标题行之后它只吃标题那一行的宽，
+ *     描述那一行吃到**卡片内缘**（与下面那条标签行对齐）。口径 39 的三条效果一字不减（见上）。
  *   ★**口径 40（用户裁决「技能底部的图标使用专家底部的图标，作者头像使用和专家一致的」）**：
  *     技能卡底部那一行与专家卡底部**共用同一套零件**（细节与理由都写在下面 `tagRow` 那一段）：
  *     ① 作者那一格 → 专家卡用的同一枚 `AuthorRow`（真头像 + 首字兜底 + 同一套名字样式）；
@@ -352,10 +359,27 @@ export function EnterpriseEscCard({
       createElement(
         'div',
         { className: 'esc-card-headmain' },
-        createElement('h3', { className: 'esc-card-title', title: item.name, children: item.name }),
-        // ★本刀（用户裁决⑦）：**技能卡的描述搬进卡片头**——与标题合成一块、与图标同处一行，
-        //   不再独占下面一整行（那条行固定 32px 两行高，真机截图里把每张卡都撑高了）。
-        //   专家/连接器两档**描述留在原位**（它们的描述更长、需要两行，这一档不搬）。
+        // ★**口径 41（用户裁决「技能卡片描述的截断位置应该是卡片边缘而不是安装按钮，因为他是独立一行」）**：
+        //   技能卡的头里就此分成**两行**——第一行是「标题 + 动作位」（`.esc-skill-titlerow`），
+        //   第二行是描述（`.esc-card-headdesc`，独立成行）。
+        //   为什么非要把动作位再往里收一格：口径 39 把它放进**头行**时，它是 headmain 的**兄弟**，
+        //   于是 headmain 的可用宽度（也就是描述那一行的右端）被它按 `flex: none` 让掉一整块，
+        //   描述的省略号就落在动作位的左边缘。可动作位只对齐**标题那一行**（`align-self: flex-start`），
+        //   描述那一行上并没有东西压着它 ⇒ 让掉的那块宽度是白丢的——这正是用户看到的"描述被安装按钮截住"。
+        //   收进「标题行」之后：动作位只吃标题那一行的宽度（口径 39 的效果**一字不减**：标题那格仍是
+        //   `flex: 1 / min-width: 0`、动作格仍是 `flex: none`，省略号**永远**落在动作位左侧），
+        //   描述那一行则吃到**卡片内缘**（headmain 现在是头行里最后一格 ⇒ 右端与下面那条标签行对齐）。
+        //   专家/连接器两档**标题仍是裸的 h3**（它们是另一套版式，用户没提、也不该顺手改）。
+        showUse === true
+          ? createElement(
+              'div',
+              { className: 'esc-skill-titlerow' },
+              createElement('h3', { className: 'esc-card-title', title: item.name, children: item.name }),
+              skillActionBox,
+            )
+          : createElement('h3', { className: 'esc-card-title', title: item.name, children: item.name }),
+        // 技能卡的描述：**独立一行**（口径 41）——右端到卡片内缘、单行截断。
+        // 专家/连接器两档**描述留在原位**（它们的描述更长、需要两行，这一档不搬）。
         showUse === true && hasText(item.description)
           ? createElement('p', { className: 'esc-card-headdesc', title: item.description, children: item.description })
           : null,
@@ -384,13 +408,8 @@ export function EnterpriseEscCard({
           ? createElement(AuthorRow, { avatar: item.publishUser.avatar, name: publishName })
           : null,
       ),
-      // ★**口径 39（用户裁决「标题不要和安装图标积压在一起」）**：技能卡的动作位进**头行**，
-      //   成为「图标 | 标题/描述 | 动作」三格里的第三格。
-      //   原先它挂在卡片直属层、`position: absolute; top: 12px; right: 16px` —— 浮在标题上，
-      //   长标题一直排到「+」底下才截断（真机截图里就是 `dev-engineer-toolkit+`）。
-      //   进头行之后宽度由 flex 分配（标题那格 flex: 1 / min-width: 0，这格 flex: none）
-      //   ⇒ 省略号永远落在动作位左侧，不靠任何"预留多少 px"的魔数（见样式层 `.esc-skill-actions`）。
-      showUse === true ? skillActionBox : null,
+      // 动作位**不在这里**：口径 39 它进过头行（头行第三格），口径 41 起再往里收一格、
+      // 挂进上面的「标题行」——它该吃的是**标题那一行**的宽度，不该让掉描述那一行（见上）。
     ),
     // 技能卡的描述已挪进卡片头（见上），故这一格**只给专家/连接器**渲染。
     showUse === true ? null : createElement('div', { className: 'esc-card-content', children: item.description ?? '' }),
