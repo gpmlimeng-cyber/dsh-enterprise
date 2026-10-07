@@ -156,7 +156,10 @@ const CSS = `
 /* ★用户裁决：二级分类同样走**凹槽型**（与前两行同一形态）。 */
 .esc-category-tabs { display: flex; align-items: center; gap: 20px; margin-top: 14px; flex-wrap: nowrap; overflow-x: auto; }
 /* ★本刀（用户裁决⑥）：二级分类用**小圆角**——workbuddy 那排分类是近乎方角的短标签。 */
-.esc-category-tabs .esc-pill { height: 28px; padding: 0 8px; display: inline-flex; align-items: center; background: none; box-shadow: none; border: 0; border-radius: 6px; font-size: 14px; font-weight: 500; line-height: 1; color: var(--dsw-alias-label-secondary); transition: color .15s, background .15s; }
+/* ★用户裁决（本轮，真机）：「一级二级分类标签再小一号」——一级（全部/Agent/经营管理…）与二级
+   （选中一级后展开的子分类）**同挂这一类**（渲染点只有 esc-toolbar.tsx 一处），故一档改完两级同时生效：
+   字号 14px → **13px**（字重/行高/间距/选中灰底都不动，只收字号这一档）。 */
+.esc-category-tabs .esc-pill { height: 28px; padding: 0 8px; display: inline-flex; align-items: center; background: none; box-shadow: none; border: 0; border-radius: 6px; font-size: 13px; font-weight: 500; line-height: 1; color: var(--dsw-alias-label-secondary); transition: color .15s, background .15s; }
 .esc-category-tabs .esc-pill:hover { color: var(--dsw-alias-label-primary); }
 /* ★用户裁决（本轮）：二级分类的「未选中」与上面两行**同步深一档**（三行一体） */
 .esc-category-tabs .esc-pill:not([data-esc-selected='true']) { color: var(--dsw-alias-label-tertiary); }
@@ -375,8 +378,15 @@ const CSS = `
 
 /* —— 技能卡底部那条「标签行」（取代原页面的统计页脚）：
    逐项是 图标 + 值；缺的项显示一个短横（如实说「本该有数字、现在没有」，0 会被读成「装过 0 次」）。 */
-.esc-card-skill { height: 170px; }
-.esc-card-tags { display: flex; align-items: center; gap: 12px; flex: none; flex-wrap: nowrap; overflow: hidden; margin-top: auto; padding-top: 6px; }
+/* ★用户裁决（本轮，真机）：「技能卡片中间空白太多，去除空白行」。
+   原先这里是 height: 170px 定高（照 workbuddy 真图取的卡高），而下面那条标签行又带
+   margin-top: auto —— 两者合起来把标签行顶到卡底，于是在**描述与标签行之间**留出一条空白：
+   那条空白不是内容，是**声明出来的**。卡高改由内容决定（.esc-card 的 min-height: 84px 仍在，
+   描述那一格是定高 32px 的两行截断 ⇒ 同排卡片内容高度天然一致，不会因此变成参差）。 */
+.esc-card-skill { height: auto; }
+/* ★用户裁决（本轮）：「去除空白行」——margin-top: auto 已去掉。它与上面那条定高一起把标签行
+   顶到卡底、在中间留白；现在标签行**紧贴描述**（间距 = .esc-card 的 gap 12 + 这里 6px 上衬）。 */
+.esc-card-tags { display: flex; align-items: center; gap: 12px; flex: none; flex-wrap: nowrap; overflow: hidden; padding-top: 6px; }
 .esc-tag { display: inline-flex; align-items: center; gap: 4px; color: var(--dsw-alias-label-secondary); font-size: 11px; line-height: 1.4; white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* SPEC：统计行的图标 opacity .7（数字不降权，图标降权——那才是"次要信息"的正确表达）。 */
 .esc-tag svg { opacity: .7; }

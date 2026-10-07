@@ -428,6 +428,7 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     // 官方逐值：栅格 300px/16px、卡片 170px（无统计行 130px）、内衬 16px、卡内间距 16px、头行 12px、
     // 图标 48px、标题 16px/20px、描述 16px 行高 + 32px 两行、页脚 24px、统计间距 16px
     // ★用户裁决「完全按 SPEC」：网格 262/12（SPEC §4.1）、卡片间距 12、内衬 16px 20px（SPEC §4.2）
+    // ★用户裁决（本轮，真机）覆盖了上面那条 170px 定高：卡片改由**内容**决定高度（见下一个用例）。
     expect(css).toContain('grid-template-columns: repeat(auto-fill, minmax(262px, 1fr))')
     expect(css).toMatch(/\.esc-list-section \{[^}]*gap: 12px/)
     expect(css).toMatch(/\.esc-card \{[^}]*gap: 12px; padding: 16px 20px;/)
@@ -461,6 +462,27 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     // 边框：从 `.5px` 发丝线换成 `1px` 可见边框（用户先前明确要过），hover 只换颜色（不换宽度 ⇒ 无布局抖动）
     expect(css).toContain('border: 1px solid var(--dsw-alias-border-l2)')
     expect(css).not.toContain('.5px solid var(--dsw-alias-stroke-border-2)')
+  })
+
+  it('样式层（本轮两条真机裁决）：卡片去定高去顶底留白 + 一二级分类标签收一档', () => {
+    // ① 「技能卡片中间空白太多，去除空白行」：那条空白是**声明出来的**——
+    //    `height: 170px` 定高 + 标签行的 `margin-top: auto` 一起把标签行顶到卡底。
+    expect(css).toContain('.esc-card-skill { height: auto; }')
+    expect(css).not.toMatch(/\.esc-card-skill \{[^}]*height: 170px/)
+    expect(css).not.toMatch(/\.esc-card-tags \{[^}]*margin-top: auto/)
+    // 反向锁：卡片仍要有底（min-height 84px 不许被顺手删掉），标签行仍要贴住内容那一格
+    expect(css).toMatch(/\.esc-card \{[^}]*min-height: 84px;/)
+    expect(css).toMatch(/\.esc-card-tags \{[^}]*padding-top: 6px;/)
+    // ② 「一级二级分类标签再小一号」：两级同挂 `.esc-category-tabs .esc-pill`（渲染点只有一处）
+    expect(css).toMatch(/\.esc-category-tabs \.esc-pill \{[^}]*font-size: 13px;/)
+    expect(css).not.toMatch(/\.esc-category-tabs \.esc-pill \{[^}]*font-size: 14px;/)
+    // 反向锁：只收字号这一档——行高/字重/间距/选中灰底都不许被顺手改
+    expect(css).toMatch(/\.esc-category-tabs \.esc-pill \{[^}]*font-weight: 500;/)
+    expect(css).toContain(".esc-category-tabs .esc-pill[data-esc-selected='true'] { background: var(--dsw-alias-interactive-bg-hover);")
+    expect(css).toMatch(/\.esc-category-tabs \{[^}]*gap: 20px;/)
+    // 源码级锁：两级的渲染点只有一处，故"一档改完两级同时生效"这句话成立
+    const toolbarSource = readFileSync(new URL('../src/esc/esc-toolbar.tsx', import.meta.url), 'utf8')
+    expect(toolbarSource.match(/esc-category-tabs/g) ?? []).toHaveLength(1)
   })
 
   it('样式层（口径 35）：原子对齐官方的五条 + 三条失效 token 的反向锁', () => {
