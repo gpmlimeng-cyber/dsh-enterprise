@@ -937,9 +937,10 @@ describe('esc：演示数据开关（口径 32）', () => {
     //    占满一行的是「三页签」与「右块」这**两格**，不是搜索格自己（口径 37 那条写法见上一条反向锁）。
     expect(mobile).toContain('.esc-toolbar-row { flex-wrap: wrap; row-gap: 12px; }')
     expect(mobile).toContain('.esc-toolbar-leading { flex: 1 1 100%; }')
-    expect(mobile).toContain('.esc-toolbar-right { flex: 1 1 100%; margin-left: 0; }')
-    // ② 搜索框在第二行里吃剩余（不再是 220px 定宽），下限仍是口径 37 那枚 120px
-    expect(mobile).toContain('.esc-search { width: auto; flex: 1 1 auto; min-width: 120px; }')
+    //    ★口径 45 起右块多了折行兜底与 8px 间隙（那条见下面用例②；这里只锁"整块占满一行"这一件）
+    expect(mobile).toContain('.esc-toolbar-right { flex: 1 1 100%; margin-left: 0;')
+    // ② 搜索框在第二行里吃剩余（不再是 220px 定宽）；下限与 basis 由口径 45 重定（见下一条用例）
+    expect(mobile).toContain('.esc-search { width: auto; flex: 1 1 0; min-width: 88px; }')
     // ③ 反向锁：**桌面档**三件事一字不动 —— 同一个类两档两种布局，改动不许外溢到桌面
     const baseRow = /\.esc-toolbar-row \{([^}]*)\}/.exec(css)?.[1] ?? ''
     const baseRight = /\.esc-toolbar-right \{([^}]*)\}/.exec(css)?.[1] ?? ''
@@ -957,6 +958,46 @@ describe('esc：演示数据开关（口径 32）', () => {
     expect(toolbar).toContain("{ className: 'esc-toolbar-row' }")
     expect(toolbar).toContain("{ className: 'esc-toolbar-leading' }")
     expect(toolbar).toContain("{ className: 'esc-toolbar-right' }")
+  })
+
+  it('★口径 45（用户裁决「移动端搜索已安装添加要显示完，搜索栏自适应，不要溢出」）', () => {
+    const css = (EnterpriseEscStyle() as unknown as { props: { children: string } }).props.children
+    const mobile = /@media \(pointer: coarse\), \(max-width: 1024px\), \(max-height: 700px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? ''
+    // ① 搜索框：basis 必须是 **0** —— 行断开用的是**假设主尺寸**，而 basis: auto 取的是内容宽
+    //    （官方 Input 外框基准约 240px）⇒ 一打开 wrap 就会先断行、把「添加技能」提前顶到第三行，
+    //    根本轮不到收缩（"开了 wrap 反而更散"那个坑）。
+    expect(mobile).toContain('.esc-search { width: auto; flex: 1 1 0; min-width: 88px; }')
+    //    下限必须是**数**且 ≤ 96：真机第一栏可用宽 377.5（分屏窗口 1170 物理 ÷ dpr 2.75 −
+    //    .esc-content 的 24×2 内衬）减去右块固定宽 233（口径 45 收紧后）只剩 144.5 ⇒ 下限一旦高于
+    //    96.5 就会在边界上溢出**裁切**（口径 44 那枚 120 正是这么把右端那枚按钮裁掉的）。
+    const mobileSearch = /\.esc-search \{([^}]*)\}/.exec(mobile)?.[1] ?? ''
+    const floor = Number(/min-width: (\d+)px/.exec(mobileSearch)?.[1])
+    expect(Number.isFinite(floor)).toBe(true)
+    expect(floor).toBeLessThanOrEqual(96)
+    expect(floor).toBeGreaterThanOrEqual(72) // 再小就不是搜索框了（官方 Input 自身内衬+图标就 39px）
+    // ② 兜底：右块**允许折行** ⇒ 容器再窄也只是"多一行"，不可能"裁半枚"（"不要溢出"的结构保证）
+    const mobileRight = /\.esc-toolbar-right \{([^}]*)\}/.exec(mobile)?.[1] ?? ''
+    expect(mobileRight).toContain('flex-wrap: wrap')
+    expect(mobileRight).toContain('column-gap: 8px')
+    // ③ 移动档把两枚按钮的内衬收到 8px。`.esc-root` 前缀**不是装饰**：两条基类在本文件里位于这段
+    //    @media **之后**，同特异性下后者胜 ⇒ 不提特异性这两条根本不会生效。
+    expect(mobile).toContain('.esc-root .esc-installed { padding: 0 8px; }')
+    expect(mobile).toContain('.esc-root .esc-add-skill { padding: 0 8px; }')
+    // ④ 反向锁：**桌面档**三条基线一字不动（本刀只动移动档）
+    const baseRight = /\.esc-toolbar-right \{([^}]*)\}/.exec(css)?.[1] ?? ''
+    const baseSearch = /\.esc-search \{([^}]*)\}/.exec(css)?.[1] ?? ''
+    expect(baseSearch).toContain('width: 220px')
+    expect(baseSearch).toContain('flex: none')
+    expect(baseSearch).not.toContain('min-width: 88px')
+    expect(baseRight).toContain('margin-left: auto')
+    expect(baseRight).not.toContain('flex-wrap: wrap')
+    expect(baseRight).not.toContain('column-gap')
+    // ⑤ 反向锁：口径 44 那枚 **120px** 下限不许回来（它正是"边界上裁半枚"的那个数）
+    expect(mobile).not.toContain('min-width: 120px')
+    // ⑥ 反向锁：不许靠改官方 Input 自己的内衬/图标格去省宽度（那是原语的面，不是我们的）
+    expect(css).not.toMatch(/\.esc-search \{[^}]*padding:/)
+    // ⑦ 本档**仍不另立判据**（口径 30 那条 @media 全文只有一处）
+    expect(css.match(/@media \(pointer: coarse\), \(max-width: 1024px\), \(max-height: 700px\) \{/g)).toHaveLength(1)
   })
 
   it('★用户裁决（本轮）两条：非选中页签深一档 · 移动端整页单滚动面', () => {
