@@ -884,7 +884,7 @@ describe('esc：演示数据开关（口径 32）', () => {
     // 撤的是"页面上的提示"，不是机器可读的事实：`escMockStatus` 这条协议仍在（上面两条测试照旧盯着它）
   })
 
-  it('★用户裁决「搜索栏动态自适应宽度，和系统广场和空间放一行」：自适应在同一行里完成（旧整行换行档已撤 · 口径 38 真机「不在一行」再关掉主行 wrap）', () => {
+  it('★用户裁决「搜索栏动态自适应宽度，和系统广场和空间放一行」：自适应在同一行里完成（旧整行换行档已撤 · 口径 38 真机「不在一行」再关掉主行 wrap · 口径 44 起移动档拆两行而桌面档 wrap 仍关着）', () => {
     const css = (EnterpriseEscStyle() as unknown as { props: { children: string } }).props.children
     // ① 药丸组不参与压缩、② 药丸里的字不折行 ⇒ 标签永不被挤压（上一轮口径，仍然保留）
     expect(css).toContain('.esc-source-tabs {')
@@ -897,26 +897,66 @@ describe('esc：演示数据开关（口径 32）', () => {
     expect(css).toMatch(/\.esc-pill \{ white-space: nowrap; \}/)
     // ③ ★**用户裁决②③ 撤掉了「自适应吃满剩余宽度」那一档**——真机截图里那枚搜索框几乎占满整行，
     //    与 workbuddy（约 200px、右对齐）差得最远。现在**定宽 200px**、窄屏收到 160px。
-    expect(css).toMatch(/.esc-search {[^}]*width: 220px/)
-    expect(css).toMatch(/\.esc-search \{[^}]*flex: none/)
-    // 反向锁：`flex: 1 1 auto`（吃满剩余宽度）那一档已被用户裁决撤下，不许回来
-    expect(css).not.toMatch(/\.esc-search \{[^}]*flex: 1 1 auto/)
+    // ★口径 44 起，下面这批反向锁一律改成"取**桌面那一条声明块本身**"再比对：
+    //    全文扫会被移动档里**同名类的两档布局**误伤——同一个类在 @media 里本来就是另一套值，
+    //    那不是"回退"，恰恰是这张表要的那件事（口径 39 的网格就是这个形态）。
+    const baseSearch = /\.esc-search \{([^}]*)\}/.exec(css)?.[1] ?? ''
+    expect(baseSearch).toContain('width: 220px')
+    expect(baseSearch).toContain('flex: none')
+    // 反向锁：`flex: 1 1 auto`（吃满剩余宽度）那一档已被用户裁决撤下，**桌面档**不许回来
+    //   （移动档里它回来了，但那是"第二行内吃剩余"，口径 44 —— 见下面那条用例）
+    expect(baseSearch).not.toContain('flex: 1 1 auto')
     expect(css).not.toContain('flex: 0 1 214px')
     // ④ 右块**不再伸缩**（`margin-left: auto` 把它整体推到右边）——与主 tab 同一行、居右
-    expect(css).toMatch(/\.esc-toolbar-right \{[^}]*flex: none/)
-    expect(css).toMatch(/\.esc-toolbar-right \{[^}]*margin-left: auto/)
-    expect(css).not.toMatch(/\.esc-toolbar-right \{[^}]*flex: 1 1 auto/)
-    // ⑤ 反向锁：那条"搜索格整行占满"的窄屏档会把它挤到第二行，不许回来
-    // （判据取"声明块里出现"：注释里为了记录历史可以写这串）
-    expect(css).not.toMatch(/\{[^}]*flex: 1 1 100%/)
+    const baseRight = /\.esc-toolbar-right \{([^}]*)\}/.exec(css)?.[1] ?? ''
+    expect(baseRight).toContain('flex: none')
+    expect(baseRight).toContain('margin-left: auto')
+    expect(baseRight).not.toContain('flex: 1 1 auto')
+    // ⑤ 反向锁：口径 37 那条"**搜索格自己**整行占满"的写法不许回来 —— 口径 44 的拆行走的不是它，
+    //    走的是"第一栏的两个子格各占一行"（占满一行的是 .esc-toolbar-leading / .esc-toolbar-right）
+    expect(css).not.toMatch(/\.esc-search \{[^}]*flex: 1 1 100%/)
     // ★用户裁决②：定宽那一档的收窄档 —— 手机上 200px 会挤掉右块其余两枚，收到 160px（不是 96px 那种塌成缝）
+    //    ★口径 44 备注：触屏设备上这条被移动档的 `width: auto` 接管（同一条 CSS 里更靠后 ⇒ 后者胜），
+    //      但它**不是死代码**——桌面浏览器把窗口拖到 560px 以下时，生效的正是它。
     expect(css).toMatch(/@media \(max-width: 560px\) \{[\s\S]*\.esc-search \{ width: 160px; \}/)
-    // ⑥ ★口径 38（真机截图「4 不在一行」）：主行**不换行** —— 手机宽度下 药丸组 + 右块 的 flex 基准
-    //    之和（~140 + 24 + 搜索框 ~240）超过容器，`wrap` 会把右块整块顶到第二行；nowrap + 搜索框
-    //    自身下限才能让"同一行 + 自适应"同时成立。
-    expect(css).toMatch(/\.esc-toolbar-row \{[^}]*flex-wrap: nowrap/)
-    expect(css).not.toMatch(/\.esc-toolbar-row \{[^}]*flex-wrap: wrap/)
-    expect(css).not.toMatch(/\.esc-toolbar-row \{[^}]*row-gap/)
+    // ⑥ ★口径 38（真机截图「4 不在一行」）：**桌面档**主行不换行 —— 窄容器下 药丸组 + 右块 的 flex 基准
+    //    之和（~140 + 24 + 搜索框 ~240）超过容器时，nowrap + 搜索框自身下限才能让"同一行 + 自适应"成立。
+    //    ★口径 44 取代的只是**移动档**那一条：wrap、row-gap 与两个子格的 100% 必须只出现在移动档的 @media 里。
+    const baseRow = /\.esc-toolbar-row \{([^}]*)\}/.exec(css)?.[1] ?? ''
+    expect(baseRow).toContain('flex-wrap: nowrap')
+    expect(baseRow).not.toContain('flex-wrap: wrap')
+    expect(baseRow).not.toContain('row-gap')
+    const mobileBlock = /@media \(pointer: coarse\), \(max-width: 1024px\), \(max-height: 700px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? ''
+    expect(mobileBlock).toContain('.esc-toolbar-row { flex-wrap: wrap; row-gap: 12px; }')
+  })
+
+  it('★口径 44（用户裁决「移动端下，专家技能连接器，和右侧搜索、已安装、添加分成两行」）', () => {
+    const css = (EnterpriseEscStyle() as unknown as { props: { children: string } }).props.children
+    const mobile = /@media \(pointer: coarse\), \(max-width: 1024px\), \(max-height: 700px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? ''
+    // ① 第一栏拆两行：主行允许换行（12px 行距）+ 两个子格各占满一行。
+    //    占满一行的是「三页签」与「右块」这**两格**，不是搜索格自己（口径 37 那条写法见上一条反向锁）。
+    expect(mobile).toContain('.esc-toolbar-row { flex-wrap: wrap; row-gap: 12px; }')
+    expect(mobile).toContain('.esc-toolbar-leading { flex: 1 1 100%; }')
+    expect(mobile).toContain('.esc-toolbar-right { flex: 1 1 100%; margin-left: 0; }')
+    // ② 搜索框在第二行里吃剩余（不再是 220px 定宽），下限仍是口径 37 那枚 120px
+    expect(mobile).toContain('.esc-search { width: auto; flex: 1 1 auto; min-width: 120px; }')
+    // ③ 反向锁：**桌面档**三件事一字不动 —— 同一个类两档两种布局，改动不许外溢到桌面
+    const baseRow = /\.esc-toolbar-row \{([^}]*)\}/.exec(css)?.[1] ?? ''
+    const baseRight = /\.esc-toolbar-right \{([^}]*)\}/.exec(css)?.[1] ?? ''
+    const baseSearch = /\.esc-search \{([^}]*)\}/.exec(css)?.[1] ?? ''
+    expect(baseRow).toContain('flex-wrap: nowrap')
+    expect(baseRow).not.toContain('row-gap')
+    expect(baseRight).toContain('margin-left: auto')
+    expect(baseSearch).toContain('width: 220px')
+    // ④ 反向锁：本档**不许另立判据**——"移动端"在本文件里只有一条 @media 定义（口径 30 那条：
+    //    真机 CSS 视口 862×610，560px 那档对这台设备是死代码，pointer: coarse 才是稳的判据）。
+    //    拆行若挂到第二条宽度档上，两档会各自漂。
+    expect(css.match(/@media \(pointer: coarse\), \(max-width: 1024px\), \(max-height: 700px\) \{/g)).toHaveLength(1)
+    // ⑤ 结构级：拆分点必须在「三页签 / 右块」之间 —— 两格是主行的**两个子格**（行序在组件里，不靠 CSS 排）
+    const toolbar = readFileSync(new URL('../src/esc/esc-toolbar.tsx', import.meta.url), 'utf8')
+    expect(toolbar).toContain("{ className: 'esc-toolbar-row' }")
+    expect(toolbar).toContain("{ className: 'esc-toolbar-leading' }")
+    expect(toolbar).toContain("{ className: 'esc-toolbar-right' }")
   })
 
   it('★用户裁决（本轮）两条：非选中页签深一档 · 移动端整页单滚动面', () => {
