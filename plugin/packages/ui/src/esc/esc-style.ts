@@ -107,6 +107,9 @@
  *      容器再窄时最后那枚按钮整枚落到下一行 —— 宁可多一行，绝不裁半枚。
  *      ★尺子更正：口径 44 写的「CSS 视口 608、内容区 560」是**竖屏全屏**那一档；分屏/横屏下第一栏可用宽
  *      分别是 377.5（1170 物理 ÷ 2.75 − 48）与 532（860 − 280 侧栏 − 48）。三条规则在两档下都成立。
+ *   ★**口径 46/47**：新增 `.esc-card-switch`（已安装技能卡标题行那一格＝官方 Switch 的位置）与
+ *   「已安装技能」页那一组几何（`.esc-installed-*`、`.esc-import-error`）；字号声明 26 → 29（三处新字号，
+ *   全是 calc(基准 + 两 delta)，门禁里那一格随之加一档）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -592,6 +595,12 @@ const CSS = `
      为什么要挪：专家卡的召唤格**默认收起**（宽度 0）而 gap 对收起态照样计 12px ⇒ 标题会平白短 12px。
      让动作格自带间距以后，技能卡这边**像素不变**（12px 一处没少），专家卡那边收起态才是真零占位。 */
 .esc-skill-actions { display: flex; align-items: center; gap: 8px; flex: none; align-self: flex-start; margin-left: 12px; }
+/* ★**口径 47（用户裁决「已安装按钮打开已安装技能页面……唯一不同是安装图标改为开关按钮，去除底部标签」）**：
+   已安装技能卡标题行那一格放的是官方 Switch（flex: 0 0 auto; width: 36px; height: 20px 的胶囊，
+   原语自己的尺寸与配色，我们只给**位置**）：与技能卡那枚「+」**同一格**（标题行第二格），
+   间距同样走自己那 12px（理由见上一条：这一格自带间距，收起/展开才不会靠容器 gap 算错宽度）。
+   align-self: center 是因为它的高度（20px）只有标题行高的一半——靠上会显得飘。 */
+.esc-card-switch { flex: none; align-self: center; margin-left: 12px; }
 /* ★**口径 42（用户裁决「区别是右上角技能是安装，专家是召唤，但是专家的召唤默认不显示，hover 时才显示，
    显示按钮时标题如果太长就截断」）**：专家卡那枚「召唤」的格子。
    位置与技能卡那枚「+」**完全相同**（标题行的第二格），差别只在**默认状态**：
@@ -665,6 +674,24 @@ const CSS = `
 .esc-featured-note .esc-sub { margin: 0; color: var(--dsw-alias-label-secondary); }
 .esc-retry { border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md, 8px); background: none; padding: 4px 12px; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: calc(13px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); cursor: pointer; }
 .esc-retry:hover { background: var(--dsw-alias-interactive-bg-hover); }
+
+/* ══════════════ 口径 47：已安装技能页（第二个视图）══════════════
+ * 版式照用户那张参考图：页头（返回 + 标题 + 总数）→ 分组标题 → 卡片网格。
+ * 卡片本身**零新样式**（还是 .esc-card + .esc-card-skill 那一套），这里只有页头/分组标题/提示
+ * 三种几何；开关那一格（.esc-card-switch）在卡片那段里。网格仍取同一个列真源 --esc-grid-cols
+ * （口径 39），故这一页的卡片列与列表页**永远对齐**，不靠巧合。 */
+.esc-installed-head { display: flex; align-items: center; gap: 12px; flex: none; margin-bottom: 16px; }
+/* 标题字号与三页签（.esc-resource-tab）同档 18px —— 同一页里的"页标题级"字号只有一个来源。 */
+.esc-installed-title { font-size: calc(18px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); font-weight: 600; line-height: 1; color: var(--dsw-alias-label-primary); }
+.esc-installed-group { display: flex; flex-direction: column; gap: 12px; padding-bottom: 16px; }
+.esc-installed-group-title { margin: 0; font-size: calc(14px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); font-weight: 600; line-height: 20px; color: var(--dsw-alias-label-primary); }
+.esc-installed-hint { display: flex; align-items: center; gap: 8px; font-size: calc(13px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); line-height: 20px; color: var(--dsw-alias-label-tertiary); }
+/* 卸载失败的落点：唯一提示件自己带行内样式，这里只给它上下留白与失败色（与精选行那条同色）。 */
+.esc-installed-error { margin-bottom: 12px; color: var(--dsw-alias-state-error-primary); }
+/* 工具栏下方那条**本地导入失败**的落点（同上：唯一提示件带行内样式，这里只给失败色与间距）。 */
+.esc-import-error { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; color: var(--dsw-alias-state-error-primary); }
+.esc-installed-back { flex: none; }
+.esc-installed-retry { flex: none; align-self: flex-start; margin-top: 12px; }
 
 
 `

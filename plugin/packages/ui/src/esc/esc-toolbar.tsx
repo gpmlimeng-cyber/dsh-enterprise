@@ -13,6 +13,8 @@
  *   搜索框内容仍可全选删除，但少了那枚 × 按钮。
  *   ★用户裁决：药丸**不要描边**——本文件给每枚 `Pill` 都挂上 `esc-pill`（`esc-style` 用它压掉官方选中态自带的
  *   1px inset 环），于是资源类型 / 主 tab / 二级分类三行是同一套"无描边药丸"视觉。
+ *   ★**口径 46/47**：右块那两枚不再是死控件——`onAddSkill`（本地导入，照商城那套）与 `onOpenInstalled`
+ *   （切已安装技能页）；**判据是端口在不在场**，缺席即置灰并写明原因（不再写死 disabled）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -58,6 +60,19 @@ export interface EnterpriseEscToolbarProps {
    */
   readonly leading?: ReactNode | undefined
   readonly belowLeading?: ReactNode | undefined
+  /**
+   * ★口径 46：「添加技能」那枚的**写入口**（本地导入：打开文件选择器）。
+   *
+   * 与 `libraryGate` / `presetLaunch` 同一条注入范式：**端口缺席 ⇒ 这枚按钮置灰**并写明原因
+   * （`actionNotPorted`）。这条位是"禁用即须有可见说明"的**唯一**判据来源 —— 不许写死 `disabled`。
+   */
+  readonly onAddSkill?: (() => void) | undefined
+  /**
+   * ★口径 47：「已安装」那枚的入口（切到已安装技能页）。
+   *
+   * 同上：缺席即置灰写明原因，绝不画一枚点了没反应的控件。
+   */
+  readonly onOpenInstalled?: (() => void) | undefined
 }
 
 /**
@@ -93,6 +108,8 @@ export function EnterpriseEscToolbar({
   installedCountFailed,
   leading,
   belowLeading,
+  onAddSkill,
+  onOpenInstalled,
 }: EnterpriseEscToolbarProps): ReactNode {
   return createElement(
     'div',
@@ -126,15 +143,21 @@ export function EnterpriseEscToolbar({
           'aria-label': ENTERPRISE_ESC_COPY.searchPlaceholder,
           onChange: (event: { target: { value: string } }) => onKeywordChange(event.target.value),
         }),
-        /* 两枚控件（workbuddy 顶栏右块）。本刀**不接线**（筛选与添加动作都不做），
-           但按产品宪法**不许只挂一句 title 的死控件**：看得见、有文案、有 title，只是置灰。 */
+        /* 两枚控件（workbuddy 顶栏右块）。
+           ★口径 46/47 起它们**不再是死控件**：「添加技能」接本地导入（照商城那套机制），
+             「已安装」切到已安装技能页。写入口缺席（纯函数直调 / 没有本机写面）时仍回到
+             "看得见 + 有文案 + 有 title + 置灰"那一态 —— 判据就是 `onAddSkill` / `onOpenInstalled`
+             在不在场，不再写死 `disabled`。 */
         createElement(
           'button',
           {
             type: 'button',
             className: 'esc-installed',
-            disabled: true,
-            title: ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted,
+            disabled: onOpenInstalled === undefined,
+            onClick: onOpenInstalled,
+            title: onOpenInstalled === undefined
+              ? ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted
+              : ENTERPRISE_ESC_LOCAL_COPY.installedFilterOpen,
           },
           createElement(Download, { size: 14, 'aria-hidden': true }),
           createElement('span', null, ENTERPRISE_ESC_COPY.installedFilter),
@@ -157,8 +180,13 @@ export function EnterpriseEscToolbar({
             variant: 'primary',
             size: 'sm',
             className: 'esc-add-skill',
-            disabled: true,
-            title: ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted,
+            // ★口径 46：这一枚今天**能用**——它走的是商城页「添加」下拉里那条「本地导入」
+            //   同一套机制（同一个 hook、同一枚隐藏选择器、同一条 multipart 路由）。
+            disabled: onAddSkill === undefined,
+            onClick: onAddSkill,
+            title: onAddSkill === undefined
+              ? ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted
+              : ENTERPRISE_ESC_LOCAL_COPY.addSkillLocalImport,
           },
           createElement(Plus, { size: 14, 'aria-hidden': true }),
           ENTERPRISE_ESC_COPY.addSkill,

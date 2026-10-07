@@ -28,6 +28,8 @@
  *   两套坐标系对不上；真正的公共键是 kebab 名（已装 `skillId` / 广场 `name`）。
  *   ★**口径 43（本刀）**：这份 `installedIds` 现在也交给**精选行**（技能页）——那一行的卡片已改成
  *   广场那张卡，已装分流必须同源，否则同一条技能在上面写「+」、下面写「更多 + 去试试」。
+ *   ★**口径 46/47**：新增 `skillPort`（本机技能写入口）与 `onOpenInstalled`；本地导入走**与商城页同一枚**
+ *   `useEnterpriseSkillImport`，隐藏选择器与三态反馈挂在工具栏下方一格（触发钮在哪棵树，落点就在哪棵树）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -43,7 +45,8 @@ import { enterpriseErrorMessage, enterpriseErrorRetryable } from '../error-messa
 import { EnterpriseEscFeatured } from './esc-featured.js'
 import { EnterpriseEscResourceTabs } from './esc-resource-tabs.js'
 import { EnterpriseEscToolbar } from './esc-toolbar.js'
-import type { ResourceSourceEnum, ResourceTypeEnum } from './esc-types.js'
+import { EnterpriseSkillImportChrome, useEnterpriseSkillImport } from '../skill-import-port.js'
+import type { EnterpriseEscSkillPort, ResourceSourceEnum, ResourceTypeEnum } from './esc-types.js'
 
 /** 触底判据的提前量：距底 80px 就拉下一页（原 `InfiniteScroll` 的默认手感）。 */
 const SCROLL_THRESHOLD_PX = 80
@@ -120,12 +123,21 @@ export interface EnterpriseEscAggregationProps {
    * 由 `esc-page` 持有状态与刷新令牌，本层只负责把页签的点击交上去。
    */
   readonly onResourceTypeChange?: ((code: ResourceTypeEnum) => void) | undefined
+  /**
+   * ★口径 46：本机技能写入口（本地导入 + 自装清单 + 卸载）。
+   *
+   * 缺席 ⇒ 工具栏那枚「添加技能」回到"置灰 + 写明原因"那一态（不画一枚点了没反应的选择器）。
+   * ★它**不进** `api`（那一面是结构性只读的，见 `esc-types.ts` 的长注释）。
+   */
+  readonly skillPort?: EnterpriseEscSkillPort | undefined
+  /** ★口径 47：「已安装」那枚的入口（由页壳切视图；缺席即置灰写明原因）。 */
+  readonly onOpenInstalled?: (() => void) | undefined
 }
 
 /** 工具栏下方那句如实说明（本页新增，不是原文的一部分）。 */
 
 /** 资源聚合内容区。 */
-export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChange }: EnterpriseEscAggregationProps): ReactNode {
+export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChange, skillPort, onOpenInstalled }: EnterpriseEscAggregationProps): ReactNode {
   // 主 tab：系统广场/团队空间（连接器另有"已连接的"、技能另有"我启用的"）
   const [source, setSource] = useState<ResourceSourceEnum>('system')
   // 二级分类 key（空串=全部；团队维度下它承载空间 id）
@@ -297,31 +309,60 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
   const [installedReadFailed, setInstalledReadFailed] = useState(false)
   /** 已装包 id 集合（卡片据此在「+」与「更多+去试试」之间分流）。读不到时是空集 ⇒ 按"未装"画「+」。 */
   const [installedIds, setInstalledIds] = useState<ReadonlySet<string>>(new Set<string>())
+  /**
+   * ★口径 46：**本地导入成功之后**请上面那次读重跑一遍。
+   *
+   * 为什么不直接改 `installedCount`：导入成功回的是**企业**已装清单，而本机自装包**不在**那一份里
+   * （见 `esc-installed.tsx` 文件头）——所以这里只重跑"真值那一趟"，让界面显示的就是真值。
+   */
+  const [installedRefreshToken, setInstalledRefreshToken] = useState(0)
   useEffect(() => {
     if (resourceType !== 'skill') return
     const controller = new AbortController()
     setInstalledCount(undefined)
     setInstalledReadFailed(false)
     setInstalledIds(new Set<string>())
-    api
-      .installedSkills(controller.signal)
-      .then(list => {
+    void (async () => {
+      try {
+        const list = await api.installedSkills(controller.signal)
         if (controller.signal.aborted) return
-        setInstalledCount(list.length)
         // ★**实测纠正**（别照我上一版的猜测）：已装清单的 `packageId` 是雪花号
         //   （实测 `2105915576743428098`），而广场列表那条的 `id` 是 `4194` —— **两套坐标系对不上**。
         //   真正的公共键是**名字**：已装那份有 `skillId`（kebab 名，如 `interactive-architecture-diagram`），
         //   广场那份有 `name`（同为 kebab 名，如 `dev-engineer-toolkit`）。
         //   故这里收**名字集合**，不去收 packageId（收了就永远命中不了）。
         setInstalledIds(new Set(list.map(each => each.skillId)))
-      })
-      .catch(() => {
+        /**
+         * ★口径 47：那枚「已安装(N)」说的是**本机一共装了多少** ⇒ 要把**本机自装**那一份也算上。
+         *
+         * 不加这一条就会出现一处自相矛盾：本地导入成功后，「已安装技能」页里明明多了一张卡，
+         * 而工具栏那枚计数纹丝不动（那一份读的是**企业**已装清单，自装包没有中心雪花 id、不在里面）。
+         * 自装清单读不到时的处置与另一份同一条纪律：**交 `？`**（宁可说"不知道"，也不给一个偏小的数）。
+         * 写入口缺席（没有本机写面）时这一份恒为 0 ⇒ 计数行为与口径 47 之前**逐字相同**。
+         */
+        const selfRecords = skillPort === undefined ? [] : await skillPort.selfInstalledSkills(controller.signal)
+        if (controller.signal.aborted) return
+        setInstalledCount(list.length + selfRecords.length)
+      } catch {
         // ★读不到就如实说读不到（交工具栏出那枚 `？`），**不回落成 0**、也不把整页拖进失败态。
         if (controller.signal.aborted) return
         setInstalledReadFailed(true)
-      })
+      }
+    })()
     return () => controller.abort()
-  }, [api, resourceType])
+  }, [api, resourceType, skillPort, installedRefreshToken])
+  /**
+   * ★口径 46：本地导入那台状态机（**与商城页同一枚 `useEnterpriseSkillImport`**）。
+   *
+   * 触发钮在工具栏里、隐藏选择器与反馈挂在这一层（工具栏下方一格）——两处树的接缝就是这枚 port。
+   * 写入口缺席（没有本机写面）⇒ hook 返回 `undefined` ⇒ 按钮置灰写明原因、选择器一枚都不画。
+   */
+  const skillImportPort = useEnterpriseSkillImport({
+    uploadSkill: skillPort === undefined ? undefined : (file, signal) => skillPort.uploadSkill(file, signal),
+    selfInstalledSkills: skillPort === undefined ? undefined : signal => skillPort.selfInstalledSkills(signal),
+    // 导入成功后只做一件事：请"本机已装"那一趟读重跑（真值仍由它说，不在这里自己加减）。
+    onInstalled: () => setInstalledRefreshToken(token => token + 1),
+  })
 
   return createElement(
     'div',
@@ -373,6 +414,18 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
       // 连接器页不展示"更多"入口（产品要求），专家/技能页保留
       showMore: resourceType !== 'connector',
       categoriesUnavailable: unavailable,
+      // ★口径 46：那枚「添加技能」的写入口（缺席时它自己回到"置灰 + 写明原因"）。
+      onAddSkill: skillImportPort?.onOpen,
+      // ★口径 47：那枚「已安装」的入口（切视图由页壳做）。
+      onOpenInstalled,
+    }),
+    // ★口径 46：本地导入那枚**恒不可见**的文件选择器 + 它的三态反馈（挂在工具栏下方一格）。
+    //   与商城页那三处落点同一条纪律：**触发钮在哪个视图里，落点就得在哪个视图里**——少挂一处
+    //   就是"点了没反应"的死控件。
+    createElement(EnterpriseSkillImportChrome, {
+      port: skillImportPort,
+      noteClassName: 'esc-toolbar-note',
+      errorClassName: 'esc-import-error',
     }),
     signedOut === true
       ? createElement(

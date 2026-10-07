@@ -11,6 +11,9 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+/** ★口径 46/47：本机技能写入口那两条记录形状（**类型**导入，故本文件仍无运行时依赖）。 */
+import type { EnterpriseInstalledSkill, EnterpriseSelfInstalledSkill } from '../skill-api-decode.js'
+
 /** 资源类型：专家&专家团 / 技能 / 连接器。 */
 export type ResourceTypeEnum = 'expert' | 'skill' | 'connector'
 
@@ -233,4 +236,23 @@ export const mapPublishedStats = (
     ...cellOf('link', statistics.convCount),
     ...cellOf('star', statistics.collectCount),
   ]
+}
+
+/**
+ * ★口径 46/47：esc 页需要的**本机技能写入口**（只读那六条平台取数之外的那些）。
+ *
+ * ★ 为什么不塞进 `EnterpriseEscApi`：那一面是**结构性只读**的（宿主侧那张闭集恰好六条读端点，
+ *   浏览器连平台 URL 都拼不出来）。把写动作混进去，等于让"esc 只读"这条不变式名存实亡。
+ *   写入口走**独立端口**，与 `libraryGate` / `presetLaunch` / 商城那枚 `skillImport` 同一条注入范式。
+ * ★ 三条都是**同源本机路由**（`/enterprise/api/v1/local/skills/*`），不碰平台、不碰 NUWAX 会话：
+ *   · `uploadSkill`：本地导入（multipart，字段名固定 `artifact`）；
+ *   · `selfInstalledSkills`：本机自装清单（**用户自定义**那一组的唯一来源）；
+ *   · `uninstallSkill`：卸载一枚**企业**已装技能包（`packageId` 是中心雪花 id）。
+ * ★ 本机自装包**没有**中心雪花 id，也就**没有**卸载路由（见 `skill-upload.ts` 的落盘面）——
+ *   故「用户自定义」那一组的开关只能是**置灰 + 写明原因**，绝不画一枚拨了没反应的控件。
+ */
+export interface EnterpriseEscSkillPort {
+  readonly uploadSkill: (file: File, signal: AbortSignal) => Promise<readonly EnterpriseInstalledSkill[]>
+  readonly selfInstalledSkills: (signal: AbortSignal) => Promise<readonly EnterpriseSelfInstalledSkill[]>
+  readonly uninstallSkill: (packageId: string, signal: AbortSignal) => Promise<readonly EnterpriseInstalledSkill[]>
 }

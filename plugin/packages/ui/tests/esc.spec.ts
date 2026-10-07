@@ -22,7 +22,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import {
   createEnterpriseEscApi,
@@ -38,6 +38,20 @@ import {
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from '../src/esc/esc-copy.js'
 import { EnterpriseEscCard, SKILL_MORE_ENTRIES } from '../src/esc/esc-card.js'
 import { EnterpriseEscToolbar } from '../src/esc/esc-toolbar.js'
+import {
+  EnterpriseSkillImportChrome,
+  EnterpriseSkillImportNotice,
+} from '../src/skill-import-port.js'
+import {
+  ENTERPRISE_SKILL_IMPORT_ACCEPT,
+  ENTERPRISE_SKILL_IMPORT_RESELECT_LABEL,
+} from '../src/skill-import.js'
+import {
+  ENTERPRISE_ESC_INSTALLED_KINDS,
+  enterpriseEscCenterInstalledCard,
+  enterpriseEscInstalledTitleOf,
+  enterpriseEscSelfInstalledCard,
+} from '../src/esc/esc-installed-model.js'
 import {
   ENTERPRISE_ESC_FEATURED_LOOKUP_EMPTY,
   ENTERPRISE_ESC_FEATURED_LOOKUP_MAX_PAGES,
@@ -585,7 +599,10 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     // ★口径 43 把这一格从 27 收到 **26**：下线的那条 `.esc-featured-label`（薄壳精选卡的单行标题）
     //   是这一刀里**唯一**带字号的一条规则，它的字号随卡片一起退场（卡片现在用 `.esc-card-title`）。
     //   收这一格不是放宽判据——"每一处字号都必须是 calc(基准 + 两个 delta)"这条本体一字未动。
-    expect(declarations.match(/font-size/g) ?? []).toHaveLength(26)
+    // ★口径 47 把这一格从 26 放到 **29**：新增的「已安装技能」页有三处字号（页标题 18 / 分组标题 14 /
+    //   分组提示 13），三处都是同一条 calc(基准 + 两个 delta) 形态 —— 加这一格**不是**放宽判据：
+    //   上面那条"不许裸 px 字号"、下面那条抽样、以及"delta 必须是加法"那两条反向锁一字未动。
+    expect(declarations.match(/font-size/g) ?? []).toHaveLength(29)
     expect(declarations).not.toContain('.esc-featured-label')
   })
 
@@ -1997,5 +2014,220 @@ describe('esc：失败面收口（本刀 —— 精选行与列表页同一套�
     // ⑤ 已装分流与广场**同源**：聚合区把同一份 `installedIds` 交给精选行（技能页）
     const aggregation = readFileSync(new URL('../src/esc/esc-aggregation.tsx', import.meta.url), 'utf8')
     expect(aggregation).toContain("installedSkillNames: resourceType === 'skill' ? installedIds : undefined")
+  })
+})
+
+describe('esc：口径 46/47（「添加技能」照商城那套做 · 「已安装」打开已安装技能页）', () => {
+  type Element = { readonly type: unknown; readonly props: Record<string, unknown> }
+  const asElement = (node: unknown) => node as Element
+  const childrenOf = (element: Element) => {
+    const children = element.props['children']
+    return Array.isArray(children) ? children : children === undefined || children === null ? [] : [children]
+  }
+  /** 深度优先把整棵元素树摊平（`<>…</>` 是一个 Fragment 元素，故一律按 children 走）。 */
+  const walk = (node: unknown, out: Element[] = []): Element[] => {
+    if (node === null || node === undefined || typeof node !== 'object') return out
+    if (Array.isArray(node)) {
+      for (const each of node) walk(each, out)
+      return out
+    }
+    const element = node as Element
+    out.push(element)
+    for (const each of childrenOf(element)) walk(each, out)
+    return out
+  }
+  const byProp = (node: unknown, prop: string) => walk(node).filter(each => each.props[prop] !== undefined)
+  const classesOf = (node: unknown) =>
+    walk(node).map(each => each.props['className']).filter((value): value is string => typeof value === 'string')
+  const toolbarOf = (props: Record<string, unknown>) =>
+    asElement(
+      EnterpriseEscToolbar({
+        resourceType: 'skill',
+        source: 'system',
+        onSourceChange: () => undefined,
+        categories: [],
+        activeCategory: '',
+        onCategoryChange: () => undefined,
+        keyword: '',
+        onKeywordChange: () => undefined,
+        ...props,
+      } as never),
+    )
+  /** 右块（更多 / 搜索 / 已安装 / 添加）——按类名找，别按下标取行。 */
+  const rightOf = (element: Element) => {
+    const row = childrenOf(element).find(
+      (node): node is Element => typeof node === 'object' && node !== null && (node as Element).props['className'] === 'esc-toolbar-row',
+    )!
+    return childrenOf(asElement(row)).find(
+      (node): node is Element => typeof node === 'object' && node !== null && (node as Element).props['className'] === 'esc-toolbar-right',
+    )!
+  }
+  const item = { id: 'skill-1', name: 'dev-engineer-toolkit', description: '示例描述' }
+  const card = (props: Record<string, unknown> = {}) =>
+    asElement(EnterpriseEscCard({ item, ...props } as never))
+
+  it('工具栏那两枚：写入口在场 ⇒ 真按钮；缺席 ⇒ 置灰 + 写明原因（判据是端口，不是写死的 disabled）', () => {
+    const onAddSkill = vi.fn()
+    const onOpenInstalled = vi.fn()
+    // ① 缺席（纯函数直调 / 没有本机写面）：与口径 47 之前逐字同态 —— 置灰 + actionNotPorted
+    const bare = rightOf(toolbarOf({}))
+    const installedBare = asElement(childrenOf(bare)[2])
+    expect(installedBare.props['disabled']).toBe(true)
+    expect(installedBare.props['title']).toBe(ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted)
+    const addBare = asElement(childrenOf(bare)[3])
+    expect(addBare.props['disabled']).toBe(true)
+    expect(addBare.props['title']).toBe(ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted)
+    // ② 在场：能点、点的是那一枚回调、悬浮说明换成"会发生什么"
+    const wired = rightOf(toolbarOf({ onAddSkill, onOpenInstalled }))
+    const installed = asElement(childrenOf(wired)[2])
+    expect(installed.props['disabled']).toBe(false)
+    expect(installed.props['onClick']).toBe(onOpenInstalled)
+    expect(installed.props['title']).toBe(ENTERPRISE_ESC_LOCAL_COPY.installedFilterOpen)
+    const add = asElement(childrenOf(wired)[3])
+    expect(add.props['disabled']).toBe(false)
+    expect(add.props['onClick']).toBe(onAddSkill)
+    expect(add.props['title']).toBe(ENTERPRISE_ESC_LOCAL_COPY.addSkillLocalImport)
+  })
+
+  it('卡片：给了开关就画开关（标题行第二格）+ 标签行整行撤下；不给则两档一切照旧（反向锁）', () => {
+    const onChange = vi.fn()
+    const swapped = card({ showUse: true, showTags: false, actionSwitch: { checked: true, disabled: false, title: '关闭即卸载', onChange } })
+    // ① 还是技能卡那一档（同一套版式与分层类名）
+    expect(swapped.props['className']).toBe('esc-card esc-card-skill')
+    const header = asElement(childrenOf(swapped)[0])
+    const headmain = asElement(childrenOf(header)[1])
+    const titlerow = asElement(childrenOf(headmain)[0])
+    expect(titlerow.props['className']).toBe('esc-card-titlerow')
+    // ② 标题行第二格＝开关（受控 + 可访问名＝技能名 + 悬浮说明；不是技能卡那枚「+」）
+    const slot = asElement(childrenOf(titlerow)[1])
+    expect(slot.props['className']).toBe('esc-card-switch')
+    expect(slot.props['checked']).toBe(true)
+    expect(slot.props['disabled']).toBe(false)
+    expect(slot.props['label']).toBe('dev-engineer-toolkit')
+    expect(slot.props['title']).toBe('关闭即卸载')
+    ;(slot.props['onChange'] as (next: boolean) => void)(false)
+    expect(onChange).toHaveBeenCalledWith(false)
+    // ③ 「去除底部标签」：整棵树里一个 esc-card-tags 都没有
+    expect(classesOf(swapped)).not.toContain('esc-card-tags')
+    // ④ 反向锁：不传 showTags 时标签行仍在（技能卡/专家卡两条既有档一字未变）
+    expect(classesOf(card({ showUse: true, actionSwitch: { checked: true, onChange } }))).toContain('esc-card-tags')
+    expect(classesOf(card({ showUse: true }))).toContain('esc-card-tags')
+  })
+
+  it('已安装页的纯投影：分组顺序 / 组名 / 卡片字段 / 哪一组那枚开关拨不动', () => {
+    // 用户自定义（本机自装）：没有中心雪花 id ⇒ 开关**恒拨不动**
+    const self = enterpriseEscSelfInstalledCard({
+      skillId: 'meeting-notes', displayName: '会议纪要', sha256: 'a', names: ['meeting-notes'], installedAt: '2026-10-07', sourceInput: 'notes.dshskill',
+    })
+    expect(self.key).toBe('self-meeting-notes')
+    expect(self.item.name).toBe('会议纪要')
+    expect(self.item.description).toBe('meeting-notes')
+    expect(self.locked).toBe(true)
+    // 显示名缺 ⇒ 回落 skillId（记录里一定有它）——不画一张空标题
+    expect(enterpriseEscSelfInstalledCard({ skillId: 'k', displayName: '', sha256: 'a', names: [], installedAt: '' }).item.name).toBe('k')
+    // 来自市场（企业已装）：key 走 packageId（两套 id 命名空间不撞），开关能拨
+    const center = enterpriseEscCenterInstalledCard({
+      packageId: '2105915576743428098', skillId: 'dev-engineer-toolkit', displayName: '开发工程工具箱', versionId: 'v1', sha256: 'b', names: ['tools', 'helpers'], installedAt: '',
+    })
+    expect(center.key).toBe('installed-2105915576743428098')
+    expect(center.item.name).toBe('开发工程工具箱')
+    expect(center.item.description).toBe('tools、helpers')
+    expect(center.locked).toBe(false)
+    // 顺序：用户自定义在前（参考图就是这个顺序）+ 组名逐字
+    expect(ENTERPRISE_ESC_INSTALLED_KINDS).toEqual(['self', 'center'])
+    expect(enterpriseEscInstalledTitleOf('self')).toBe('用户自定义')
+    expect(enterpriseEscInstalledTitleOf('center')).toBe('来自市场')
+  })
+
+  it('本地导入是**同一份实现**：状态机与三件事实全仓只有一处，两面都 import 同一叶片（结构级不变式）', () => {
+    const leaf = readFileSync(new URL('../src/skill-import-port.tsx', import.meta.url), 'utf8')
+    const market = readFileSync(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8')
+    const aggregation = readFileSync(new URL('../src/esc/esc-aggregation.tsx', import.meta.url), 'utf8')
+    // ① 商城页与 esc 页都 import 同一个 hook（不是"各写一套、长得像"）
+    expect(market).toContain("from './skill-import-port.js'")
+    expect(aggregation).toContain("from '../skill-import-port.js'")
+    expect(market).toContain('useEnterpriseSkillImport')
+    expect(aggregation).toContain('useEnterpriseSkillImport')
+    // ② 状态机的**心脏**（上传那一次调用）在整个 src 里只出现一处 —— 这条比"渲染出来像"强得多
+    const srcDir = new URL('../src/', import.meta.url)
+    const owners = readdirSync(srcDir)
+      .filter(name => /\.tsx?$/.test(name))
+      .filter(name => readFileSync(new URL(name, srcDir), 'utf8').includes('await uploadSkill(file, controller.signal)'))
+    expect(owners).toEqual(['skill-import-port.tsx'])
+    // ③ 冻结属性 / 尺寸预检 / 选完清 value / 换文件即中止这四件事实也只剩一处
+    expect(leaf).toContain('ENTERPRISE_SKILL_IMPORT_ACCEPT')
+    expect(leaf).toContain('enterpriseSkillImportRejectReason(file)')
+    expect(leaf).toContain("event.currentTarget.value = ''")
+    expect(leaf).toContain('abortRef.current?.abort()')
+    // ④ esc 那一侧三条接线事实：按钮接 port、落点在工具栏下方、已安装页用同一张卡的两处差异
+    expect(aggregation).toContain('onAddSkill: skillImportPort?.onOpen')
+    expect(aggregation).toContain('EnterpriseSkillImportChrome')
+    const installed = readFileSync(new URL('../src/esc/esc-installed.tsx', import.meta.url), 'utf8')
+    expect(installed).toContain('actionSwitch:')
+    expect(installed).toContain('showTags: false')
+    // 写入口**不进**只读面（那条不变式不许被这一刀破）：esc-api 里一个 upload/uninstall 都没有
+    const escApi = readFileSync(new URL('../src/esc/esc-api.ts', import.meta.url), 'utf8')
+    expect(escApi).not.toContain('uploadSkill')
+    expect(escApi).not.toContain('uninstallSkill')
+  })
+
+  it('本地导入的落点：恒不可见选择器（属性冻结）+ 三态反馈走 esc 自己的类名（不是商城那两个类）', () => {
+    const onOpen = vi.fn()
+    const onSelect = vi.fn()
+    const port = (state: unknown) => ({ state, inputRef: { current: null }, onOpen, onSelect })
+    const esc = { noteClassName: 'esc-toolbar-note', errorClassName: 'esc-import-error' }
+    // ① 写入口缺席 ⇒ 一枚元素都不画
+    expect(EnterpriseSkillImportChrome({ port: undefined })).toBeNull()
+    // ② 空闲 ⇒ 只有选择器；属性与商城那枚**逐字同值**（accept 串、无 multiple、1px 剪裁）
+    const idle = EnterpriseSkillImportChrome({ port: port(undefined) as never, ...esc })
+    const inputs = byProp(idle, 'accept')
+    expect(inputs).toHaveLength(1)
+    expect(inputs[0]!.props['type']).toBe('file')
+    expect(inputs[0]!.props['accept']).toBe(ENTERPRISE_SKILL_IMPORT_ACCEPT)
+    expect(inputs[0]!.props['multiple']).toBeUndefined()
+    expect(inputs[0]!.props['style']).toMatchObject({ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0 0 0 0)' })
+    expect(byProp(idle, 'data-enterprise-skill-import')).toHaveLength(0)
+    // ③ 选中文件：**先清空 value** 再把 File 交出去（同一份文件再选一次仍然触发）
+    const file = { name: 'notes.dshskill', size: 2048 } as unknown as File
+    const event = { currentTarget: { files: { item: () => file }, value: 'C:\\fakepath\\notes.dshskill' } }
+    ;(inputs[0]!.props['onChange'] as (event: unknown) => void)(event)
+    expect(onSelect).toHaveBeenCalledWith(file)
+    expect(event.currentTarget.value).toBe('')
+    // ④ 反馈那一格：Chrome 把 **esc 自己的类名**与「重新选择文件」那一枚动作交给反馈件
+    //    （这里查的是"交给谁、交了什么"；真画出来的东西由下面直接调那枚**纯组件**来验）
+    const busyState = { kind: 'uploading', name: 'notes.dshskill', bytes: 2048 }
+    const noticeOf = (state: unknown) => {
+      const chrome = EnterpriseSkillImportChrome({ port: port(state) as never, ...esc })
+      const found = walk(chrome).find(each => each.props['state'] === state)
+      expect(found, '反馈件').toBeTruthy()
+      return found!.props
+    }
+    const busyProps = noticeOf(busyState)
+    expect(busyProps['noteClassName']).toBe('esc-toolbar-note')
+    expect(busyProps['errorClassName']).toBe('esc-import-error')
+    expect(busyProps['onReselect']).toBe(onOpen)
+    // ⑤ 进行中 / 成功各一句 `role="status"`（不打断读屏），不是静默
+    const busyBody = asElement(EnterpriseSkillImportNotice(busyProps as never))
+    expect(busyBody.props['className']).toBe('esc-toolbar-note')
+    expect(busyBody.props['role']).toBe('status')
+    expect(busyBody.props['data-enterprise-skill-import']).toBe('busy')
+    const doneBody = asElement(
+      EnterpriseSkillImportNotice({ state: { kind: 'done', name: 'notes.dshskill', bytes: 2048, names: ['meeting-notes'], listed: true }, onReselect: onOpen, ...esc } as never),
+    )
+    expect(doneBody.props['role']).toBe('status')
+    expect(String(doneBody.props['children'])).toContain('meeting-notes')
+    // ⑥ 失败 ⇒ 唯一提示件（esc 那一枚类名 + 稳定码 + **本地上传流**的下一步）+ 一枚**真能点**的「重新选择文件」
+    const failedBody = EnterpriseSkillImportNotice({
+      state: { kind: 'failed', name: 'notes.dshskill', bytes: 2048, code: 'ENT_SKILL_UPLOAD_INVALID' }, onReselect: onOpen, ...esc,
+    } as never)
+    const notice = walk(failedBody).find(each => each.props['code'] === 'ENT_SKILL_UPLOAD_INVALID')
+    expect(notice, '唯一提示件').toBeTruthy()
+    expect(notice!.props['className']).toBe('esc-import-error')
+    // `flow="local-upload"` 是必须的：这枚码在中心安装流下的下一步（重新下载）在这一条流里是错的
+    expect(notice!.props['flow']).toBe('local-upload')
+    const reselect = walk(failedBody).find(each => each.props['aria-label'] === ENTERPRISE_SKILL_IMPORT_RESELECT_LABEL)
+    expect(reselect, '重新选择文件').toBeTruthy()
+    ;(reselect!.props['onClick'] as () => void)()
+    expect(onOpen).toHaveBeenCalledTimes(1)
   })
 })

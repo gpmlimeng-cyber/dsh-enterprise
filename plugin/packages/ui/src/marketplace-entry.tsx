@@ -173,6 +173,8 @@
  *   **测试：+14 条**（`online-search.spec.ts` 新文件 8 条、`marketplace-entry.spec.ts` +3、`local-api.spec.ts` +2、
  *   `error-messages.spec.ts` +1；41 文件 629 条 → 42 文件 643 条，一条未删；CSS **零新增类**，
  *   两份结构大纲与两道字节级判据一字未动）。
+ *   ★**口径 46**：本地导入那条通路的**视图与副作用**整段搬到新叶 `skill-import-port.tsx`——商城与 esc
+ *   两面 import **同一枚** `useEnterpriseSkillImport`；本文件留三个类型/值别名，既有源文断言与调用点一字未动。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -187,18 +189,9 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalS
 import { enterpriseSessionUsable, useAccount } from './account-state.js'
 import type { EnterpriseAccountStore } from './account-store.js'
 import { formatByteSize } from './display-format.js'
-// **本地导入**（本刀）那条通路的**纯事实层**：50 MiB 上限与 accept 串、三态状态机、尺寸预检、
-// 三句可见反馈与「这次装好了哪几个技能」的取法。页面这一层只画，一个判定都不在这里重写。
-import {
-  ENTERPRISE_SKILL_IMPORT_ACCEPT,
-  ENTERPRISE_SKILL_IMPORT_INPUT_LABEL,
-  ENTERPRISE_SKILL_IMPORT_RESELECT,
-  ENTERPRISE_SKILL_IMPORT_RESELECT_LABEL,
-  enterpriseSkillImportNames,
-  enterpriseSkillImportNotice,
-  enterpriseSkillImportRejectReason,
-  type EnterpriseSkillImportState,
-} from './skill-import.js'
+// **本地导入**那条通路的**纯事实层**（50 MiB 上限与 accept 串、三态文案、按文件名匹配自装记录）
+// 仍住在 `skill-import.ts`；本文件从口径 46 起**不再直接引用它**——视图与副作用都经
+// `skill-import-port.js` 那枚**共用** hook 与两枚共用视图件，页面这一层只画。
 // **系统搜索**（本刀）那一面的纯事实层：结果面的全部文案、四态→页面的唯一投影、按根分组与单条候选的行投影。
 // 页面这一层只画，一个判定都不在这里重写（与 `skill-import.ts` 同一分工）。
 import {
@@ -272,6 +265,14 @@ import {
 import { enterpriseMarketMockEnabled, enterpriseMarketMockSkillRows } from './market-mock.js'
 import type { EnterpriseInstalledSkill, EnterpriseInstalledSkillFile, EnterpriseLocalApi, EnterpriseOnlineSkillResult, EnterpriseOnlineSkillSearch, EnterprisePluginCatalogItem, EnterprisePluginItem, EnterprisePresetApplicationKind, EnterprisePresetAuthorization, EnterprisePresetDisclosure, EnterprisePresetOfficialApplication, EnterprisePresetStatus, EnterpriseRuntimePreset, EnterpriseRuntimeSkill, EnterpriseSkillFileEntry, EnterpriseSystemSkill, EnterpriseSystemSkills, ManagedPluginState } from './local-api-decode.js'
 import { enterpriseLocalErrorCode } from './local-api-decode.js'
+// **本地导入**那条通路的**视图与副作用层**（本刀把它从本文件抽成独立叶片）：状态机 `useEnterpriseSkillImport`
+// 与两枚视图件由**商城页与 esc 页共用**——两面各 import 同一个 hook，不可能再长出第二套状态机。
+import {
+  EnterpriseSkillImportChrome,
+  EnterpriseSkillImportNotice,
+  useEnterpriseSkillImport,
+  type EnterpriseSkillImportPort,
+} from './skill-import-port.js'
 import { EnterpriseErrorNotice } from './error-notice.js'
 import { enterpriseErrorPresentation, enterpriseErrorRetryable } from './error-messages.js'
 // 插件行「给哪一枚控件 / 为什么拨不动」的唯一口径（与「企业设置 → 插件」共用同一份）；平台不参与任何判断。
@@ -3896,85 +3897,31 @@ const ADD_MENU_ICONS = {
  * ★ 为什么 `onOpen`（打开选择器）与 `onSelect`（选到了文件）要分开：前者是**无输入**的用户手势
  *   （菜单项、失败后那枚「重新选择文件」都调它），后者才带着浏览器交出来的 `File` 字节进入上传状态机。
  */
-export interface EnterpriseMarketSkillImportPort {
-  /** 三态状态机（`undefined` = 空闲 ⇒ 反馈整段不进 DOM）。 */
-  readonly state: EnterpriseSkillImportState | undefined
-  /** 那个恒不可见的文件选择器的 DOM 引用（控制器持有；`RefObject` 的 `current` 天然可空）。 */
-  readonly inputRef: RefObject<HTMLInputElement>
-  /** 打开文件选择器（控制器里就是 `inputRef.current?.click()` 这一件事）。 */
-  readonly onOpen: () => void
-  /** 用户选中了一个文件（控制器先做尺寸预检，再发同源 multipart 上传）。 */
-  readonly onSelect: (file: File) => void
-}
+/**
+ * 本地导入的接线面（**类型别名**：真源在 `skill-import-port.tsx`，商城与 esc 两面共用同一副形状）。
+ */
+export type EnterpriseMarketSkillImportPort = EnterpriseSkillImportPort
 
 /**
- * 原生文件选择器的**样式**：行内**视觉隐藏**（「1px 剪裁」那一套），不新增任何 CSS 类。
+ * 本地导入的反馈件与页面级落点（**值别名**：两枚都指向 `skill-import-port.tsx` 里那**同一份**实现）。
  *
- * ★ 为什么不用类名：本文件的 `<style>` 有字节级基线（长度 + FNV-1a）与「类名与同包其他文件零交集」
- *   两道判据；而原生 file input 的外观**根本不该参与产品版面**——它是一枚只被脚本点开的能力，
- *   给这样一个元素新造一个类，等于为一件看不见的东西付一份可被覆盖的全局样式债。
- * ★ 为什么用「1px 剪裁」而不是 `display:none`：**照本仓既有那一枚**（`library-panel.tsx` 的
- *   `.own-library-file` 就是这个手法 —— 它在本应用里已经跑过真机）。两者对「脚本点开选择器」都可行，
- *   但沿用同一套手法就不必让下一个人去论证「这一枚为什么和另一枚不一样」；差别只在**行内 vs 类名**
- *   （这里为了零新类走行内）。
+ * ★ 为什么不直接改成本叶的名字：本文件里有三处既有引用的**源文断言**（用例逐字比对
+ *   `<EnterpriseMarketSkillImportChrome port={props.skillImport} />` 与直接调用反馈件），
+ *   别名让「实现只有一份」与「既有断言一字不动」同时成立。
  */
-const IMPORT_INPUT_STYLE = {
-  border: 0,
-  clip: 'rect(0 0 0 0)',
-  height: '1px',
-  margin: '-1px',
-  overflow: 'hidden',
-  padding: 0,
-  position: 'absolute',
-  whiteSpace: 'nowrap',
-  width: '1px',
-} as const
+export const EnterpriseMarketSkillImportNotice = EnterpriseSkillImportNotice
+export const EnterpriseMarketSkillImportChrome = EnterpriseSkillImportChrome
 
-/**
- * 本地导入的**可见反馈**（唯一落点；三态互斥，空闲时整段不进 DOM）。
- *
- * 两种形态刻意分开：
- *   · 进行中 / 成功 ⇒ 一句人话（`role="status"`：不打断读屏，等它把手上的话说完再播报）；
- *   · 失败 ⇒ 复用**唯一**的失败提示组件 `EnterpriseErrorNotice`（`role="alert"` + 人话 + 「下一步：」+
- *     折进「技术信息」的稳定码），后面再跟一枚**真能走**的「重新选择文件」。
- *
- * ★ 为什么失败多那枚按钮、而不是只写一句「请重试」：上传失败的正确下一步**不是**原地重发同一份字节
- *   （超限、不是有效技能包这两类再发一百次也一样），而是**换一份文件**——那就必须给一枚真按钮，
- *   不能只在文案里说一句。它的动作就是重新打开同一个选择器（`onReselect`）。
- * ★ 不给「重试」那枚：本状态机没有「保留上次那份 File 再发一次」的能力，画了就是死控件。
- *
- * @param props.state - 三态状态机（不是 `undefined`：空闲时调用方整段不渲染）。
- * @param props.onReselect - 重新选择文件（缺席 ⇒ 不画那枚按钮，只出人话与下一步）。
- * @returns 一句 `role="status"` 人话，或「唯一提示组件 + 重新选择文件」。
- */
-export function EnterpriseMarketSkillImportNotice({ state, onReselect }: {
-  readonly state: EnterpriseSkillImportState
-  readonly onReselect?: (() => void) | undefined
-}): ReactNode {
-  const notice = enterpriseSkillImportNotice(state)
-  if (notice.kind === 'failed') {
-    return (
-      <>
-        {/* `flow="local-upload"` 是**必须**的：这枚码可能同时来自中心安装流，而那一条流的下一步（「重新下载」）
-            在这一条流里是错的 —— 技能包就是员工手里那份文件，他只能换一份（见 error-messages 的表注）。 */}
-        <EnterpriseErrorNotice className="own-market-inlineError" code={notice.code} prefix={notice.prefix} flow="local-upload" />
-        {onReselect === undefined ? null : (
-          <Button
-            size="sm"
-            icon={<FolderSearch aria-hidden size={14} />}
-            aria-label={ENTERPRISE_SKILL_IMPORT_RESELECT_LABEL}
-            onClick={() => { onReselect() }}
-          >{ENTERPRISE_SKILL_IMPORT_RESELECT}</Button>
-        )}
-      </>
-    )
-  }
-  return (
-    <p className="own-market-rowNote" role="status" data-enterprise-skill-import={notice.kind}>
-      {notice.text}
-    </p>
-  )
-}
+
+/* ★本刀（口径 46）：那枚恒不可见的文件选择器那套**行内**样式已随「本地导入」整条通路搬到
+   `skill-import-port.tsx`（`ENTERPRISE_SKILL_IMPORT_INPUT_STYLE`）——商城与 esc 两面共用同一枚
+   `EnterpriseSkillImportChrome`，属性的「冻结」判据因此只可能在**一处**漂。 */
+
+
+/* ★本刀（口径 46）：可见反馈件已搬到 `skill-import-port.tsx` —— 上面那两个**值别名**
+   （`EnterpriseMarketSkillImportNotice` / `…Chrome`）指的就是它。两枚 `own-market-*` 类名
+   以**参数默认值**留在那枚实现里，故商城这一面的渲染逐字未变。 */
+
 
 /**
  * **「通过 Agent 创建」的接线面**（本刀；与 `EnterpriseMarketSkillImportPort` 同一手法：控制器持副作用，页面只画）。
@@ -4032,42 +3979,10 @@ export function EnterpriseMarketCreateSkillNotice({ port }: {
   )
 }
 
-/**
- * 本地导入的**页面级落点**：那枚恒不可见的文件选择器 + 它的反馈（**三支视图共用同一份**）。
- *
- * ★ 为什么必须三支视图都挂（列表 / 技能详情 / 配方详情）：触发它的「添加」下拉住在**官方标题行槽**里，
- *   那格在我们这三支视图里**始终在场**（详情子页面只换内容区，页头一格不动）。少挂任何一支，
- *   就会出现「在技能详情里点『本地导入』——界面毫无反应」的**死控件**，正是本仓最不许的形态。
- * ★ 为什么 `port` 缺席就整段不渲染：没有写入口（没有 store / 纯函数直调）时**一枚元素都不画**——
- *   不画一枚点了没反应的选择器，也不画一句没人能触发出来的反馈。
- *
- * @param props.port - 控制器给的接线面；缺席即整段不渲染。
- * @returns 隐藏的 `<input type="file">`（可能还有一条反馈）。
- */
-function EnterpriseMarketSkillImportChrome({ port }: {
-  readonly port?: EnterpriseMarketSkillImportPort | undefined
-}): ReactNode {
-  if (port === undefined) return null
-  return (
-    <>
-      <input
-        ref={port.inputRef}
-        type="file"
-        accept={ENTERPRISE_SKILL_IMPORT_ACCEPT}
-        aria-label={ENTERPRISE_SKILL_IMPORT_INPUT_LABEL}
-        style={IMPORT_INPUT_STYLE}
-        onChange={(event) => {
-          const file = event.currentTarget.files?.item(0) ?? null
-          // ★ 选完**立刻清空** input 的 value：不清的话「同一个文件再选一次」不会触发 change
-          //   （浏览器认为值没变）——那就是本仓最恨的「点了没反应」。清空是唯一让重选可用的做法。
-          event.currentTarget.value = ''
-          if (file !== null) port.onSelect(file)
-        }}
-      />
-      {port.state === undefined ? null : <EnterpriseMarketSkillImportNotice state={port.state} onReselect={port.onOpen} />}
-    </>
-  )
-}
+/* ★本刀（口径 46）：页面级落点（隐藏选择器 + 反馈）已搬到 `skill-import-port.tsx`，
+   本文件用的是上面那枚**值别名** `EnterpriseMarketSkillImportChrome` ⇒ 三支视图的调用点
+   （列表 / 技能详情 / 配方详情）与它的源文断言一字未动，而实现只有一份。 */
+
 
 /**
  * 「添加」触发钮上那枚**我们自己的**定位类名（`<style>` 里已声明，不是新类）。
@@ -7370,61 +7285,21 @@ export function useEnterpriseMarketController({ view, store, libraryGate, preset
    *   「重新选择文件」（`EnterpriseMarketSkillImportNotice`），因为上传失败的正确下一步是换一份文件。
    * ★ 为什么 `.abort()` 上一次：与行上装/卸同一条并发纪律（换文件即中止在途那一次，迟到结果由代际守卫丢弃）。
    */
-  const skillImportInputRef = useRef<HTMLInputElement>(null)
-  const skillImportAbort = useRef<AbortController | null>(null)
-  const [skillImport, setSkillImport] = useState<EnterpriseSkillImportState>()
-  const onImportSkill: (() => void) | undefined = hasStore
-    ? () => { skillImportInputRef.current?.click() }
-    : undefined
-  const onSkillImportFile: ((file: File) => void) | undefined = hasStore
-    ? (file) => {
-      skillImportAbort.current?.abort()
-      const rejected = enterpriseSkillImportRejectReason(file)
-      if (rejected !== undefined) {
-        // 超限就地拦下：**一个字节都不发出去**（前端带上了文件名与大小，员工一眼看得出是哪一份、多大）。
-        setSkillImport({ kind: 'failed', name: file.name, bytes: file.size, code: rejected })
-        return
-      }
-      const controller = new AbortController()
-      skillImportAbort.current = controller
-      setSkillImport({ kind: 'uploading', name: file.name, bytes: file.size })
-      void (async () => {
-        try {
-          const items = await store!.api.uploadSkill(file, controller.signal)
-          if (controller.signal.aborted) return
-          // **既有安装收束一条都不新造**：Host 回的就是「安装后最新已装态」（与 `/skills/install` 同形），
-          // 故先覆盖它，再请目录取数源重取一次 —— 与行上装/卸之后那条刷新路径**完全同一条**。
-          setInstalledSkills(items)
-          catalogSource?.retry()
-          // 自装清单是**另一份**记录（企业已装清单里不含自装包）⇒ 「装好了哪几个技能」只能从它读。
-          // 它读不到**不影响**成功这件事：`listed:false` 就是那句如实的交代（不是静默吞掉）。
-          let names: readonly string[] = []
-          let listed = false
-          try {
-            const records = await store!.api.selfInstalledSkills(controller.signal)
-            if (controller.signal.aborted) return
-            names = enterpriseSkillImportNames(records, file.name)
-            listed = true
-          } catch {
-            // 次级事实读不到：如实记成「没读到」（界面那句 `ENTERPRISE_SKILL_IMPORT_UNLISTED` 会说出来），
-            // 绝不把一次**已经成功**的导入改判成失败。
-            listed = false
-          }
-          if (controller.signal.aborted) return
-          setSkillImport({ kind: 'done', name: file.name, bytes: file.size, names, listed })
-        } catch (error) {
-          if (controller.signal.aborted) return
-          setSkillImport({ kind: 'failed', name: file.name, bytes: file.size, code: enterpriseLocalErrorCode(error) })
-        }
-      })()
-    }
-    : undefined
-  const skillImportPort: EnterpriseMarketSkillImportPort | undefined =
-    onImportSkill === undefined || onSkillImportFile === undefined
-      ? undefined
-      : { state: skillImport, inputRef: skillImportInputRef, onOpen: onImportSkill, onSelect: onSkillImportFile }
-  // 离开页面即中止在途的上传（与资料库面板那条 `inFlight` 纪律同款：迟到结果不回填）。
-  useEffect(() => () => { skillImportAbort.current?.abort() }, [])
+  /**
+   * ★本刀（口径 46）：状态机整段搬进 `skill-import-port.tsx` 的 `useEnterpriseSkillImport`
+   *   —— esc 页那枚「添加技能」用的是**同一个 hook**，两面不再各持一套「选文件→预检→上传→说出来」。
+   *   这里只把商城这一面**自己的真值**交出去：上传成功后覆盖已装态、并请目录取数源重取。
+   */
+  const skillImportPort: EnterpriseMarketSkillImportPort | undefined = useEnterpriseSkillImport({
+    uploadSkill: hasStore ? (file, signal) => store!.api.uploadSkill(file, signal) : undefined,
+    selfInstalledSkills: hasStore ? signal => store!.api.selfInstalledSkills(signal) : undefined,
+    onInstalled: items => {
+      // **既有安装收束一条都不新造**：Host 回的就是「安装后最新已装态」（与 `/skills/install` 同形），
+      // 故先覆盖它，再请目录取数源重取一次 —— 与行上装/卸之后那条刷新路径**完全同一条**。
+      setInstalledSkills(items)
+      catalogSource?.retry()
+    },
+  })
   /**
    * **通过 Agent 创建**（本刀）。它只做一件本机动作：把那段草稿交给**既有**的
    * `EnterprisePresetLaunchPort`（配方第二级降级链用的**同一枚**端口 —— 打开一个空白/新会话并把文本

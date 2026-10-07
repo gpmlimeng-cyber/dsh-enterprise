@@ -9,6 +9,7 @@
  *   **同一个常量**（官方按同名配对，不同名就是一个点不开的死入口）。
  *   ★与资料库的**唯一结构差异**：资料库那两处由管理门（本机设置，默认关）驱动、关就真撤；esc 是**常驻**一级入口，
  *   故这里不引入门——注册即接线。登录与否由页面自己按取数结果如实呈现（未登录 ⇒ 401 ⇒ 画「请先登录」那一态）。
+ *   ★**口径 46/47**：`main` 槽的 inject 面多带一枚 `skillPort`（本机技能写入口）——它**不进** `api`。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -16,6 +17,7 @@ import { LayoutGrid } from 'lucide-react'
 import { createElement, type ReactNode } from 'react'
 import type { EnterpriseEscApi } from './esc-api.js'
 import { EnterpriseEscPanel } from './esc-page.js'
+import type { EnterpriseEscSkillPort } from './esc-types.js'
 
 /** 侧栏一级入口的 id，同时是 `main` 槽的 key（官方约定：list id 指向同名的 main 面板）。 */
 export const ENTERPRISE_ESC_ENTRY_ID = 'expert-skill-connector'
@@ -54,12 +56,17 @@ export function enterpriseEscPanelOptions(): Readonly<Record<string, unknown>> {
 }
 
 /** `main`（keyed/root 槽）的注册选项：`key` 与侧栏 `id` 取自**同一个常量**，同名不可能漂移。 */
-export function enterpriseEscMainOptions(api: EnterpriseEscApi): Readonly<Record<string, unknown>> {
+export function enterpriseEscMainOptions(
+  api: EnterpriseEscApi,
+  skillPort?: EnterpriseEscSkillPort | undefined,
+): Readonly<Record<string, unknown>> {
   return {
     name: 'main',
     key: ENTERPRISE_ESC_ENTRY_ID,
-    // 取数面经 inject 交给页面：页面只认这六个同源方法，拿不到平台 origin、也拼不出平台 URL。
-    inject: () => ({ api }),
+    // 取数面经 inject 交给页面：页面只认那六个同源**只读**方法，拿不到平台 origin、也拼不出平台 URL。
+    // ★口径 46：本机技能写入口（本地导入 / 自装清单 / 卸载）另走一枚端口随 inject 一起下去——
+    //   它**不进** `api`（那一面是结构性只读的，见 `esc-types.ts` 的长注释）。
+    inject: () => ({ api, skillPort }),
   }
 }
 
@@ -76,18 +83,23 @@ export interface EnterpriseEscSeatPorts {
  *
  * @param ports - `ctx.slots`。
  * @param api - 页面取数面（经 `main` 的 inject 面交给页面）。
+ * @param skillPort - 本机技能写入口（口径 46；可选——缺席时那两枚按钮置灰写明原因）。
  * @returns 两处座位的注销器（顺序与注册顺序一致；实际生命周期由 `ports.inject` 接管）。
  */
 export function bindEnterpriseEscSeats(
   ports: EnterpriseEscSeatPorts,
   api: EnterpriseEscApi,
+  skillPort?: EnterpriseEscSkillPort | undefined,
 ): readonly unknown[] {
   return [
     ports.inject('sidebar.panellist', () =>
       ports.register(enterpriseEscPanelOptions(), EnterpriseEscIcon as (props: never) => ReactNode),
     ),
     ports.inject('main', () =>
-      ports.register(enterpriseEscMainOptions(api), EnterpriseEscPanel as unknown as (props: never) => ReactNode),
+      ports.register(
+        enterpriseEscMainOptions(api, skillPort),
+        EnterpriseEscPanel as unknown as (props: never) => ReactNode,
+      ),
     ),
   ]
 }

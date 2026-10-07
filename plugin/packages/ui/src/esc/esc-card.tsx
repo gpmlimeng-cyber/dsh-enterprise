@@ -67,6 +67,8 @@
  *        ⚠这枚按钮本来就是**置灰未接线**的占位（点了不会有动作）⇒ 撤下不丢任何可用的功能；
  *        要它回来是一行的事（放回标签行尾部或卡头），说一声即可。
  *     ⑤ 专家卡**仍无阴影**（SPEC §7：技能卡是可点入口、专家卡是列表项）——这一刀改的是版式，不是分层。
+ *   ★**口径 46/47**：新增两枚 props——`actionSwitch`（标题行第二格改画官方 Switch，已安装技能卡用）与
+ *   `showTags: false`（底部标签行整行撤下）；默认值让技能卡/专家卡两条既有档**一字未变**。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -114,6 +116,31 @@ export interface EnterpriseEscCardProps {
    * 但工具栏那一行已经出了「已安装（？）」的缺口标记 ⇒ 用户不会把「不知道」误读成「没装」。
    */
   readonly installed?: boolean | undefined
+  /**
+   * ★**口径 47（用户裁决「已安装按钮打开已安装技能页面……唯一不同是安装图标改为开关按钮，去除底部标签」）**：
+   * 给了它，标题行那一格就画**开关**（官方 `Switch` 原语），不再画技能那枚「+」/「更多 + 去试试」。
+   *
+   * ★为什么是一个小对象而不是四枚散参：这四个数**必须同生同死**（`checked` 与 `onChange` 分开传，
+   *   就会出现"受控但没人接"的半个开关）。`title` 是**置灰原因**的唯一落点（本仓纪律：禁用即须有可见说明）。
+   * ★`disabled` 与 `undefined` 是两件事实：**能不能拨**与**当前开着没有**（后者恒为 `true`——这张卡
+   *   只在"已装"列表里出现）。
+   */
+  readonly actionSwitch?: EscCardSwitch | undefined
+  /**
+   * ★**口径 47**：底部那条标签行整行撤下（已安装技能页用）。
+   *
+   * 默认 `true`（= 技能卡/专家卡都画那条行）——只有显式传 `false` 才不画，故既有两档的渲染一字未变。
+   */
+  readonly showTags?: boolean | undefined
+}
+
+/** 已安装技能卡那一枚开关（口径 47）；见 `actionSwitch` 的长注释。 */
+export interface EscCardSwitch {
+  readonly checked: boolean
+  readonly disabled?: boolean | undefined
+  /** 置灰原因（悬浮说明；`disabled` 为真时**必须**给）。 */
+  readonly title?: string | undefined
+  readonly onChange: (next: boolean) => void
 }
 
 /**
@@ -154,6 +181,8 @@ export function EnterpriseEscCard({
   showUse,
   showConnect,
   installed,
+  actionSwitch,
+  showTags = true,
 }: EnterpriseEscCardProps): ReactNode {
   const notPorted = ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted
   const connected = item.connected === true
@@ -230,6 +259,23 @@ export function EnterpriseEscCard({
             : null,
         )
       : null
+
+  // ★口径 47（用户原话「……唯一不同是安装图标改为开关按钮，去除底部标签」）：
+  //   已安装技能页那张卡把**标题行第二格**换成官方 `Switch` 原语——它表达的是**这一包装没装**
+  //   （拨下去＝卸载：本机今天**没有**技能启停路由，故开关只能表达"装/卸"这件真事；
+  //     用户自定义那一档连卸载路由都没有，于是它拿到的 `disabled` 会是 true + 一句写明的原因）。
+  //   位置与技能卡那枚「+」完全相同（同一个 `esc-card-titlerow` 的第二格）⇒ 版式一字未动。
+  const switchBox =
+    actionSwitch === undefined
+      ? null
+      : createElement(Switch, {
+          checked: actionSwitch.checked,
+          onChange: actionSwitch.onChange,
+          disabled: actionSwitch.disabled === true,
+          label: item.name,
+          title: actionSwitch.title,
+          className: 'esc-card-switch',
+        })
 
   // 专家「召唤」（口径 42）。
   //
@@ -418,7 +464,11 @@ export function EnterpriseEscCard({
               'div',
               { className: 'esc-card-titlerow' },
               createElement('h3', { className: 'esc-card-title', title: item.name, children: item.name }),
-              showUse === true ? skillActionBox : summonSlot,
+              // ★口径 47：那一格给了开关就画开关（开关优先）——已安装技能卡既不画技能那枚「+」，
+              //   也不画专家那枚「召唤」。
+              actionSwitch === undefined
+                ? showUse === true ? skillActionBox : summonSlot
+                : switchBox,
             )
           : createElement('h3', { className: 'esc-card-title', title: item.name, children: item.name }),
         // 描述：**独立一行**（口径 41）——右端到卡片内缘、单行截断。口径 42 起专家卡也走这一格
@@ -435,7 +485,11 @@ export function EnterpriseEscCard({
     // 已在卡片头里独立成行（见上）。口径 42 起专家卡不再走这一格。
     tagRowLayout ? null : createElement('div', { className: 'esc-card-content', children: item.description ?? '' }),
     // 底部那一行：标签行版式＝标签行（作者 + 三格统计，口径 40/42）；旧三层版式＝统计页脚。
-    tagRowLayout ? tagRow : showStats === true ? createElement('div', { className: 'esc-card-footer' }, statsRow) : null,
+    // ★**口径 47**：标签行可以**整行撤下**（`showTags: false`，已安装技能页用——它与技能卡的唯一
+    //   区别就是没有这一行）。默认 `true`，故技能卡/专家卡既有渲染一字未变；旧三层那一支不看它。
+    tagRowLayout
+      ? (showTags ? tagRow : null)
+      : showStats === true ? createElement('div', { className: 'esc-card-footer' }, statsRow) : null,
     // 连接器那两枚（常驻开关 + hover 浮现的连接/断开）仍在卡片直属层（旧三层版式，绝对定位右上角）。
     connectBox,
   )

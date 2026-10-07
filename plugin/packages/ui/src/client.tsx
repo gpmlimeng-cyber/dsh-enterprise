@@ -300,7 +300,19 @@ export function apply(ctx: SlotContextPort): void {
    * （浏览器这边拼不出平台 URL、也拿不到票据），平台信封原样回给页面。
    */
   const escApi = createEnterpriseEscApi((input, init) => fetch(input, init))
-  bindEnterpriseEscSeats(ctx.slots, escApi)
+  /**
+   * ★口径 46/47：本机技能写入口 —— 与资料库那三件动作**同一份** `createEnterpriseLocalApi()`
+   * （固定同源路径、严格解码、不认识 origin/Authorization）。它给 esc 页两件事：
+   * 「添加技能」（本地导入：与商城页**同一枚** `useEnterpriseSkillImport`）与「已安装技能」页
+   * （自装清单 `GET …/skills/self-installed` + 卸载 `POST …/skills/uninstall`）。
+   * ★它**不进** `escApi`：那一面是结构性只读的（宿主那张闭集恰好六条读端点），写入口走独立端口。
+   */
+  const escSkillApi = createEnterpriseLocalApi()
+  bindEnterpriseEscSeats(ctx.slots, escApi, {
+    uploadSkill: (file, signal) => escSkillApi.uploadSkill(file, signal),
+    selfInstalledSkills: signal => escSkillApi.selfInstalledSkills(signal),
+    uninstallSkill: (packageId, signal) => escSkillApi.uninstallSkill(packageId, signal),
+  })
   /**
    * **资料库 P1-A：把资料加入当前对话**（口径 23，本刀）。
    *

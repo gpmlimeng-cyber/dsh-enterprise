@@ -5012,8 +5012,13 @@ describe('enterprise skill detail page', () => {
     //  **本刀（系统搜索）**再加两处：盘点取数失败（落进结果面的失败态 + 真重发）与纳入失败
     //  （落进**那一行**的唯一提示组件）⇒ 8 → 10；
     //  **本刀（在线搜索）**再加两处：搜索取数失败（结果面失败态 + 真重发）与在线安装失败
-    //  （落进**那一行**的唯一提示组件）⇒ 10 → 12。）
-    expect((source.match(/enterpriseLocalErrorCode\(error\)/g) ?? []).length).toBe(12)
+    //  （落进**那一行**的唯一提示组件）⇒ 10 → 12。
+    //  **本刀（口径 46）**：本地上传那一条通路（连同它的 catch）整段搬进两面共用的
+    //  `skill-import-port.tsx` ⇒ 本文件里 12 → 11，**总数不变**。判据因此改成"两个文件加起来"，
+    //  而不是跟着搬家把期望值改小 —— 改小等于把一条失败路径从这条不变量里划掉。
+    const importPortSource = stripComments(await readFile(new URL('../src/skill-import-port.tsx', import.meta.url), 'utf8'))
+    const codeProjections = (text: string): number => (text.match(/enterpriseLocalErrorCode\(error\)/g) ?? []).length
+    expect(codeProjections(source) + codeProjections(importPortSource)).toBe(12)
     // 界面不拼宿主路径、不读文件系统（那是 Host 的活）：两个 effect 只把**键**（包 id / 树里那条路径）交出去。
     //（`~/.dsh/skills` 那句只出现在行上那枚开关的悬浮文案里，是给用户看的落盘说明，不是我们构造的路径。）
     expect(source).not.toContain('readFileSync')
