@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 esc 各模块的真源（`esc-copy` 的文案、`esc-constants` 的常量、`esc-api` 的取数面、`esc-entry` 的两处座位、`esc-list` 的适配器表与分类投影）与一个假 `fetch`
- * [OUTPUT]: 锁定口径 31 的界面侧契约：① **文案逐字**（与 NUWAX `zh-CN.ts` 同值，不许"顺手润色"）；② 左栏三项与资源类型全集；③ 两处座位的身份（`sidebar.panellist` 的 id 与 `main` 的 key **同名**、order/label）与**常驻**注册（与资料库那两处由门驱动不同）；④ 取数面只打同源固定路径、正文关闭键集 `{path, params}`、六个方法各自的平台路径、错误码投影；⑤ **适配器口径**（各资源类型 × 数据源的真实参数差异，这是移植里最容易抄错的地方）与响应提取判据；⑥ **本轮两条用户裁决**：非选中页签的色阶（dimmed → tertiary：三行同步，带反向下锁）与移动端「整页单滚动面」那一档（滚动面由列表提到内容区；含"挪了滚动面之后触底加载与自动补拉必须跟着挪"的源码级锁）；⑦ **本刀四组**：触碰底入口必须问 hasMore（真机故障「下滑加载不起作用、一直闪屏」的两条纯判据双向断言 + 源码级反向锁）、顶部两行 18px 与分类行 gap 8px、字号一律走 calc(基准+两 delta) 且不许有裸 px 字号、精选上下间距相等（20 = 6+14）与精选最多画 6 枚
+ * [OUTPUT]: 锁定口径 31 的界面侧契约：① **文案逐字**（与 NUWAX `zh-CN.ts` 同值，不许"顺手润色"）；② 左栏三项与资源类型全集；③ 两处座位的身份（`sidebar.panellist` 的 id 与 `main` 的 key **同名**、order/label）与**常驻**注册（与资料库那两处由门驱动不同）；④ 取数面只打同源固定路径、正文关闭键集 `{path, params}`、六个方法各自的平台路径、错误码投影；⑤ **适配器口径**（各资源类型 × 数据源的真实参数差异，这是移植里最容易抄错的地方）与响应提取判据；⑥ **本轮两条用户裁决**：非选中页签的色阶（dimmed → tertiary：三行同步，带反向下锁）与移动端「整页单滚动面」那一档（滚动面由列表提到内容区；含"挪了滚动面之后触底加载与自动补拉必须跟着挪"的源码级锁）；⑦ **本刀四组**：触碰底入口必须问 hasMore（真机故障「下滑加载不起作用、一直闪屏」的两条纯判据双向断言 + 源码级反向锁）、顶部两行 18px 与分类行 gap 8px、字号一律走 calc(基准+两 delta) 且不许有裸 px 字号、精选上下间距相等（20 = 6+14）与精选最多画 6 枚；⑧ **口径 39 两条真机裁决**：网格列模板走**同一真源** `--esc-grid-cols`（算式三数从 CSS 提取后比对，532/560/800/1200 四档列数为 `[2,2,2,4]`，并把旧规则在同两姿态上的 `[1,2]` 钉成受检事实）+ 技能卡头行居中与动作位进流（含"不许再作为卡片直属子节点"的源码级反向锁）
  * [POS]: esc 页面的**无 React 契约回归**；视觉与真实交互由构建产物手工冒烟覆盖（本仓 vitest 没有 DOM）
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -446,7 +446,10 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     // 图标 48px、标题 16px/20px、描述 16px 行高 + 32px 两行、页脚 24px、统计间距 16px
     // ★用户裁决「完全按 SPEC」：网格 262/12（SPEC §4.1）、卡片间距 12、内衬 16px 20px（SPEC §4.2）
     // ★用户裁决（本轮，真机）覆盖了上面那条 170px 定高：卡片改由**内容**决定高度（见下一个用例）。
-    expect(css).toContain('grid-template-columns: repeat(auto-fill, minmax(262px, 1fr))')
+    // ★**口径 39**（用户裁决「平板下最少两列，只有手机竖屏才一列」）：列模板不再是各写一条的
+    //   `repeat(auto-fill, minmax(262px, 1fr))`（那条要 536px 才排两列 ⇒ 横屏内容区 532px 掉成单列），
+    //   改成两条网格**共用**的真源 `--esc-grid-cols`（真源本身的算式与两档实测见下一个用例）。
+    expect(css).toContain('grid-template-columns: var(--esc-grid-cols)')
     expect(css).toMatch(/\.esc-list-section \{[^}]*gap: 12px/)
     expect(css).toMatch(/\.esc-card \{[^}]*gap: 12px; padding: 16px 20px;/)
     expect(css).toMatch(/\.esc-card \{[^}]*min-height: 84px;/)
@@ -583,6 +586,72 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     //   ★正则锚到行首（`m`）：不锚的话，上面那段**注释里提到过同一个选择器名**，会误配成第二处声明。
     expect(css.match(/^\.esc-resource-tab[^{]*\{[^}]*font-size/gm) ?? []).toHaveLength(1)
     expect(css.match(/^\.esc-source-tabs [^{]*\.esc-pill[^{]*\{[^}]*font-size/gm) ?? []).toHaveLength(1)
+  })
+
+  it('★口径 39（用户裁决「平板下最少两列，只有手机竖屏才一列」）：列模板走同一真源，532/560/1200 三档列数算得对', () => {
+    // **这一条门禁盯的是一个 4px 的差**：真机（这台折叠屏，dpr = 440dpi ÷ 160 = 2.75）
+    //   · 横屏 物理 2364×1672 ⇒ CSS 视口 860×608，且侧栏**停靠**（截图实测 ≈280）⇒ 内容区 532px；
+    //   · 竖屏 物理 1672×2364 ⇒ CSS 视口 608×860，侧栏是抽屉（汉堡键）⇒ 内容区 560px。
+    // 旧规则 `minmax(262px, 1fr)` 的门槛是 2×262 + 12 = **536px** ⇒ 竖屏 560 排两列、横屏 532 掉回
+    // 一列——用户报的"横向一列、竖着两列"就是这 4px。新算式对 532 与 560 都必须给两列。
+    // ① 两条网格（列表 + 精选）**逐字相同**且都取真源：列数一漂，精选行与下面那段就列不对齐
+    const gridRules = [...css.matchAll(/\.(?:esc-list-section|esc-featured-grid) \{[^}]*\}/g)].map(hit => hit[0])
+    expect(gridRules).toHaveLength(2)
+    expect(gridRules.map(body => /grid-template-columns: ([^;]+);/.exec(body)?.[1])).toEqual([
+      'var(--esc-grid-cols)',
+      'var(--esc-grid-cols)',
+    ])
+    // ② 真源的默认档 = **手机竖屏** = 单列（用户原话里唯一该是一列的那一档）
+    expect(ruleBody('.esc-root')).toContain('--esc-grid-cols: minmax(0, 1fr)')
+    // ③ 非手机竖屏那一档的判据逐字就是那句话：宽度 > 560 **或** 横屏
+    const tier = /@media \(min-width: 561px\), \(orientation: landscape\) \{([\s\S]*?)\n\}/.exec(css)
+    expect(tier, '非手机竖屏那一档').not.toBeNull()
+    // ④ 算式：min(262px, (100% - gap) / 2) —— 三个数都从 CSS 里**提取**出来比对，不在这儿重写一遍
+    const formula = /--esc-grid-cols: repeat\(auto-fill, minmax\(min\(([0-9]+)px, calc\(\(100% - ([0-9]+)px\) \/ ([0-9]+)\)\), 1fr\)\)/.exec(tier![1]!)
+    expect(formula, '列模板算式').not.toBeNull()
+    const base = Number(formula![1])
+    const formulaGap = Number(formula![2])
+    const divisor = Number(formula![3])
+    const cssGap = Number(/\.esc-list-section \{[^}]*gap: ([0-9]+)px;/.exec(css)?.[1])
+    // 算式里那个 gap 必须**等于**两条网格的 gap：抄错一个数，列数就会在某个宽度上悄悄掉一列
+    expect([base, divisor, formulaGap]).toEqual([262, 2, cssGap])
+    // ⑤ 用 auto-fill 的定义把列数算出来（min = min(base, (W - gap) / divisor)）：
+    //    横屏 532 与竖屏 560 都 ≥ 2（**这两个数就是用户报的那两台姿态**），宽屏照旧随宽度长
+    const columnsAt = (width: number): number => {
+      const min = Math.min(base, (width - formulaGap) / divisor)
+      return Math.floor((width + formulaGap) / (min + formulaGap))
+    }
+    expect([columnsAt(532), columnsAt(560), columnsAt(800), columnsAt(1200)]).toEqual([2, 2, 2, 4])
+    // ⑥ **把故障本身钉住**：旧规则（硬编码 262px）在同一台设备的两个姿态上，横屏只有 1 列
+    //    —— 这就是用户报的"横向一列、竖着两列"。它不写进 CSS、只活在这条门禁里：
+    //    日后若有人把 `min()` 拆掉换回硬编码，上面那条 ⑤ 会红，这条会告诉他是"哪一台姿态塌了"。
+    const columnsLegacy = (width: number): number => Math.floor((width + 12) / (262 + 12))
+    expect([columnsLegacy(532), columnsLegacy(560)]).toEqual([1, 2])
+    // ⑦ 反向锁：那条硬编码的 `minmax(262px, 1fr)`（536px 门槛的来源）不许回来。
+    //    判据剥注释后扫——注释里引述旧写法是正常的（本用例上方与源文件里都写了）。
+    expect(css.replace(/\/\*[\s\S]*?\*\//g, '')).not.toContain('minmax(262px, 1fr)')
+  })
+
+  it('★口径 39（用户裁决「标题和描述加一起要和图标中间对齐」「标题不要和安装图标积压在一起」）：技能卡头行居中 + 动作位进流', () => {
+    // ① 图标与「标题 + 描述」这一块**垂直居中**（只对技能卡；专家/连接器是三层版式，不动）
+    expect(ruleBody('.esc-card-skill .esc-card-header')).toContain('align-items: center')
+    // ② headmain 不再把内容上下撑开（space-between 是给专家卡那三层版式的），技能卡收成一块居中
+    expect(ruleBody('.esc-card-skill .esc-card-headmain')).toContain('justify-content: center')
+    // 反向锁：**通用**那条头行规则不许被改成居中（改了会连专家/连接器一起动，那是另一套版式）
+    expect(ruleBody('.esc-card-header')).not.toContain('align-items: center')
+    // ③ 动作位（+ / 更多 + 去试试）进流：不再绝对定位——它是"压在标题上"的根因
+    const actions = ruleBody('.esc-skill-actions')
+    expect(actions).not.toContain('position: absolute')
+    expect(actions).toContain('flex: none')
+    // 标题那一格必须仍可收缩（min-width: 0），否则 flex 分配不到宽度、省略号不生效
+    expect(ruleBody('.esc-card-headmain')).toContain('min-width: 0')
+    // ④ 源码级锁：动作位挂在**头行**里（结构改动，不是靠 CSS 调出来的）——「图标 | 标题/描述 | 动作」
+    const cardSource = readFileSync(new URL('../src/esc/esc-card.tsx', import.meta.url), 'utf8')
+    const headerBlock = /'esc-card-header'([\s\S]*?)\n    \),/.exec(cardSource)
+    expect(headerBlock, '头行那段').not.toBeNull()
+    expect(headerBlock![1]).toContain('skillActionBox')
+    // 反向锁：动作位不许再作为**卡片直属子节点**出现（两处都挂就会画两枚「+」）
+    expect(cardSource.match(/^\s*skillActionBox,$/gm) ?? []).toHaveLength(0)
   })
 
   it('样式层（口径 35）：原子对齐官方的五条 + 三条失效 token 的反向锁', () => {
@@ -924,10 +993,16 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
     const actionBoxOf = (props: Parameters<typeof card>[0], item?: Record<string, unknown>): Element => {
       // 先摘掉 null/undefined/false（React 不渲染的槽位在 createElement 的 children 里就是它们），
       // 再按类名找——顺序会随版式变，**位置**不会。
+      // ★**口径 39**：技能卡的动作位搬进了**头行**（图标 | 标题/描述 | 动作 三格），专家/连接器两档
+      //   仍在卡片直属层 ⇒ 两处都找。头行本身也按类名认（不按下标硬取）。
       // ★第二参是**这张卡自己的数据**：已连接/未连接的形态不同，必须渲染它自己那张卡，
       //   否则会拿到默认那张（未连接）卡的动作位，断言就成了拿 A 比 A。
-      const boxes = childrenOf(card(props, item)).filter((node): node is Element =>
-        node !== null && node !== undefined && node !== false && typeof node === 'object')
+      const direct = childrenOf(card(props, item))
+      const header = direct.find(node => node !== null && node !== undefined && typeof node === 'object'
+        && (node as Element).props['className'] === 'esc-card-header')
+      const boxes = [...direct, ...(header === undefined ? [] : childrenOf(asElement(header)))]
+        .filter((node): node is Element =>
+          node !== null && node !== undefined && node !== false && typeof node === 'object')
       const matches = boxes.filter(node => typeof node.props['className'] === 'string'
         && /esc-action-box|esc-skill-actions/.test(node.props['className']))
       expect(matches).toHaveLength(1)

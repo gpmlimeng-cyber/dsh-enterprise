@@ -58,6 +58,14 @@
  *      ③ 「精选」上下间距同为 20（上 margin-top 20 = 下 6+14），原先上方是 0（贴死）。
  *      ④ 精选行**最多画 6 枚**（展示上限，不是取数上限，见 `esc-featured.tsx`）。
  *      ⑤ 触底「加载中」那行换定高紧凑行 `.esc-scroll-loader`（原先复用整屏态会被顶一下）。
+ *   ⑨ **口径 39（本轮两条真机裁决）**：
+ *      ① **网格列数**：两条网格（列表 + 精选）改用**同一个真源** `--esc-grid-cols`，
+ *         默认档（手机竖屏）单列，其余档取 `minmax(min(262px, (100% - gap) / 2), 1fr)` 的
+ *         auto-fill ⇒ **平板横竖屏都最少两列**（横屏掉成单列的真因：内容区 532px 比 262×2+12=536
+ *         差 4px，见网格规则上方那段实测）；
+ *      ② **技能卡头行**：图标与"标题 + 描述"块垂直居中（`.esc-card-skill .esc-card-header`），
+ *         动作位（+ / 更多 + 去试试）从**绝对定位浮在标题上**改成头行里的**一格**（`.esc-skill-actions`）
+ *         ⇒ 标题的省略号由 flex 分配、不再积压到安装图标底下。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -77,7 +85,12 @@ const CSS = `
    --esc-fs-delta（见移动档）——两个 delta 相加，层级关系不变（全体同加同一个数）。
    ★纪律：本页**不许再出现裸 px 字号**（"font-size: 13px;" 这种形式），门禁逐条扫（见 spec）。
    ★注意：本段整体在一枚模板字符串内，注释里**不许出现反引号**（会截断字符串）。 */
-.esc-root { min-height: 0; background: var(--dsw-alias-bg-base); display: flex; flex-direction: column; height: 100%; --esc-fs-delta: 0px; }
+/* ★**网格列数（口径 39）**：两条网格（列表 .esc-list-section 与精选 .esc-featured-grid）的列模板
+   走这**同一个真源**，默认档（手机竖屏）是**单列**；非手机竖屏那一档由下面的 @media 换成"最少两列、
+   宽度够更多"。为什么默认取单列、而不是"默认两列 + 手机档收一列"：用户那一句裁决的判据就是
+   **手机竖屏**，把它写成默认档，页面在"最窄的那一种设备"上就不会先排出两列再被覆盖回来
+   （CSS 只有一条最终值，但读代码的人一眼能看出哪个是兜底）。详见网格规则上方那段。 */
+.esc-root { min-height: 0; background: var(--dsw-alias-bg-base); display: flex; flex-direction: column; height: 100%; --esc-fs-delta: 0px; --esc-grid-cols: minmax(0, 1fr); }
 /* 内容区内衬照官方 index.less:12 的 .content-wrapper { padding: 16px 24px }（原为 10px 16px，是"紧凑"那一刀
    遗留的缩水值，官方从来不是这个数）。 */
 .esc-content { flex: 1; min-width: 0; min-height: 0; padding: 16px 24px; display: flex; flex-direction: column; overflow: hidden; }
@@ -234,7 +247,29 @@ const CSS = `
  *   故 hover 底色一律用它。
  */
 
-.esc-list-section { display: grid; grid-template-columns: repeat(auto-fill, minmax(262px, 1fr)); gap: 12px; padding-bottom: 16px; align-content: start; }
+/* ══════════════ 网格列数（口径 39 · 用户裁决「平板下最少两列，只有手机竖屏才一列」）══════════════
+ * **真机事实**（这台折叠屏，dpr = 440dpi ÷ 160 = 2.75）：
+ *   · 横屏：物理 2364×1672 ⇒ CSS 视口 **860×608**；此时壳的侧栏是**停靠**的（截图实测 ≈ 280 CSS px），
+ *     内容区只剩 860 − 280 − 48（.esc-content 的左右内衬 24×2）= **532px**；
+ *   · 竖屏：物理 1672×2364 ⇒ CSS 视口 **608×860**；竖屏侧栏是**抽屉**（顶栏有汉堡键，不占宽），
+ *     内容区 = 608 − 48 = **560px**。
+ * 而原来那条 minmax(262px, 1fr) 要 2 × 262 + 12（gap）= **536px** 才肯排第二列 ⇒
+ *   **竖屏 560 ≥ 536 ⇒ 两列；横屏 532 < 536 ⇒ 掉回一列**——差的正是这 4px。
+ * 这就是「横向一列、竖着两列」的**全部来处**：不是"横屏没适配"，是差 4 像素。
+ * 修法：最小列宽不放死 262，取 min(262px, (100% − gap) ÷ 2)——
+ *   · 容器 ≥ 536px：min 就是 262 ⇒ 列数照旧随宽度长（宽屏 3/4 列，与官方栅格口径一致）；
+ *   · 容器 < 536px：min 收成"两列各占一半"（532 ⇒ 260/列）⇒ **永远排得下两列**，
+ *     付出的只是每列 2px 的宽度，读起来与 262 那一档没有任何差别。
+ * 手机竖屏那一档（≤560px 且 portrait）留在默认档 ⇒ 仍是单列（用户要的"只有手机竖屏一列"）。
+ * ★两条网格**共用** --esc-grid-cols 这一个真源，不各写一份：选精选行时上下两段网格是**列对齐**的，
+ *   各写一份迟早会漂（口径 ⑤ 定的"两段同一套几何"就是为这件事）。
+ * ★min() 里那个 12px 必须等于两条 grid 规则里的 gap（门禁按**提取值**比对，不靠人眼，见 spec）。
+ */
+@media (min-width: 561px), (orientation: landscape) {
+  .esc-root { --esc-grid-cols: repeat(auto-fill, minmax(min(262px, calc((100% - 12px) / 2)), 1fr)); }
+}
+
+.esc-list-section { display: grid; grid-template-columns: var(--esc-grid-cols); gap: 12px; padding-bottom: 16px; align-content: start; }
 
 /* —— 卡片（原 CardWrapper/index.less + ResourceCard/index.less）——
    ★★用户裁决「参考官方的，除了侧边栏其他参考官方一比一还原布局和元素，使用 dsh 的 ui 体系」（最新一刀，
@@ -277,6 +312,16 @@ const CSS = `
 /* 头里的那一格描述：单行截断（与标题同一个块，不占独立行高）。 */
 /* ★真图实测：描述是**单行**截断（不是 SPEC 文字里那个两行/min-height 38px）。 */
 .esc-card-headdesc { margin: 3px 0 0; color: var(--dsw-alias-label-secondary); font-size: calc(12px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* ★**口径 39（用户裁决「标题和描述加一起要和图标中间对齐」）**：技能卡的头行**垂直居中**。
+   .esc-card-header 默认 align-items: stretch，而图标是定高 40px 的 img（stretch 对定高项无效 ⇒
+   回落成 start）⇒ 头行比图标高时图标被钉在行首、看上去偏上（真机截图里就是"图标顶在标题上方"）。
+   技能卡的头行里只有「图标 + 标题/描述块」两格，居中正是用户要的那一句。
+   ★**为什么只对技能卡**：专家/连接器的头行是**三层**（标题 + 分类/作者行），它们的图标本来就该对齐
+   第一行（那是另一套版式，用户没提、也不该顺手改）。这两条按 .esc-card-skill 收口，不外溢。 */
+.esc-card-skill .esc-card-header { align-items: center; }
+/* 同一处：技能卡的 headmain 里只有「标题 + 描述」两格，只要它们贴成一块、整块与图标居中；
+   space-between（头行里把内容上下撑开）是给专家卡那三层版式留的，技能卡这一档换成 center。 */
+.esc-card-skill .esc-card-headmain { justify-content: center; }
 .esc-card-author-row { display: flex; align-items: center; gap: 12px; }
 /* 官方 AuthorInfo/index.less：容器 min-width: 30px; gap: 4px; flex: 0 1 auto，
    头像 **16×16**（原实现写的是 14×14，比官方小一圈），名字 height: 16px; line-height: 16px。 */
@@ -416,8 +461,18 @@ const CSS = `
    动作按钮那一层灰来自原语 .button:disabled { opacity: .4 }，用户裁决「换成全黑按钮」⇒ 只把冲淡按回去。 */
 .esc-try-now { white-space: nowrap; }
 
-/* —— 技能卡右侧动作区（workbuddy 那一版式：未装「+」，已装「更多 + 去试试」）—— */
-.esc-skill-actions { position: absolute; top: 12px; right: 16px; display: flex; align-items: center; gap: 8px; z-index: 1; }
+/* —— 技能卡右侧动作区（workbuddy 那一版式：未装「+」，已装「更多 + 去试试」）——
+   ★**口径 39（用户裁决「标题不要和安装图标积压在一起」）**：这一格从**绝对定位**改成头行里的
+   **一格 flex 子项**。原先它是 position: absolute; top: 12px; right: 16px —— 是**浮在**标题上的：
+   .esc-card-title 是 white-space: nowrap 的单行截断，它的可用宽度是整条头行（图标到卡片右边缘），
+   于是长标题（真机截图里的 dev-engineer-toolkit）一直排到那一枚「+」底下才截断，
+   读起来就是"标题和安装图标积压在一起"。改成流里的一格之后，标题那格的宽度由 flex **分配**：
+   headmain 是 flex: 1 / min-width: 0，动作格是 flex: none ⇒ 省略号**永远**落在动作位左侧。
+   ★为什么不用"给标题预留 32px 右内衬"那条省事写法：预留值是个**魔数**，而字号在本页是跟随壳的
+   「字体大小」设置走的（口径 38 那一刀）——设置一变大，已装态那枚「去试试」会变宽，魔数当场失效、
+   标题又被压回去。让 flex 去量，才是唯一不随字号漂的写法。
+   align-self: flex-start：那枚「+」按真图（与 workbuddy 一致）对齐**标题那一行**，不跟整块居中。 */
+.esc-skill-actions { display: flex; align-items: center; gap: 8px; flex: none; align-self: flex-start; }
 /* ★用户裁决⑥：右上角那枚「安装」按钮此前是个**灰色圆圈小方块**（截图里看不出是加号），且颜色偏淡。
    现在改成 workbuddy 那种**淡底 + 可辨识的加号**：bg-layer-2 作底（比白卡略深一档，有边界感）、
    字色走主文字色（加号看得清），尺寸放大到 30px，hover 才加深。 */
@@ -460,7 +515,7 @@ const CSS = `
 /* ★用户裁决⑤：精选卡与下面那些卡片**用同一套几何**——栅格列宽（minmax(300px,1fr)）、列间距（16px）、
    卡高（170px）、内衬（16px）、圆角、边框、背景，逐值照 .esc-list-section / .esc-card 那几行。
    此前精选那行自成一套（220px 列、64px 矮卡），真机截图里两段网格**列数都对不齐**。 */
-.esc-featured-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(262px, 1fr)); gap: 12px; align-content: start; }
+.esc-featured-grid { display: grid; grid-template-columns: var(--esc-grid-cols); gap: 12px; align-content: start; }
 /* 精选卡 = 图标 + 标题**同处一行**，与普通卡片的「头行」同一形态（不是各自占一行）。 */
 .esc-card-featured { flex-direction: row; align-items: center; gap: 12px; min-height: 84px; padding: 16px 20px; cursor: default; }
 /* 精选卡里的图标 + 标题：照普通卡片的「头行」版式（图标在左、标题在右） */

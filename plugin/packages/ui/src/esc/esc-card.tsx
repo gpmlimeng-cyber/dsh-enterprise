@@ -21,6 +21,14 @@
  *   于是这一层**永远不会画出一个破图**。
  *   ★付费角标**不做**：它的唯一用途是引到"订阅"这条本刀未移植的动作链，连它依赖的租户配置
  *   （`enableSubscription`）一起留给 B 档；故本文件没有付费相关的 prop。
+ *   ★**口径 39（用户裁决「标题不要和安装图标积压在一起」）**：技能卡的动作位**进头行**——
+ *     从"挂在卡片直属层 + 绝对定位浮在标题上"改成头行里的第三格（图标 | 标题/描述 | 动作）。
+ *     原先那条 `position: absolute; top: 12px; right: 16px` 是浮在标题上的，而标题是 nowrap 单行截断，
+ *     可用宽度是整条头行 ⇒ 长标题一直排到「+」底下才截断（真机截图里就是 `dev-engineer-toolkit+`），
+ *     用户读成"标题和安装图标积压在一起"。进头行之后标题那格 `flex: 1 / min-width: 0`、
+ *     动作格 `flex: none` ⇒ 省略号**永远**落在动作位左侧（不靠预留魔数，字号变大也不会塌）。
+ *     与它配套的两条版式在样式层：`.esc-card-skill .esc-card-header { align-items: center }`（图标与
+ *     "标题 + 描述"这一块垂直居中）与 `.esc-skill-actions`（不再绝对定位，`align-self: flex-start`）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -383,11 +391,17 @@ export function EnterpriseEscCard({
           ? createElement(AuthorRow, { avatar: item.publishUser.avatar, name: publishName })
           : null,
       ),
+      // ★**口径 39（用户裁决「标题不要和安装图标积压在一起」）**：技能卡的动作位进**头行**，
+      //   成为「图标 | 标题/描述 | 动作」三格里的第三格。
+      //   原先它挂在卡片直属层、`position: absolute; top: 12px; right: 16px` —— 浮在标题上，
+      //   长标题一直排到「+」底下才截断（真机截图里就是 `dev-engineer-toolkit+`）。
+      //   进头行之后宽度由 flex 分配（标题那格 flex: 1 / min-width: 0，这格 flex: none）
+      //   ⇒ 省略号永远落在动作位左侧，不靠任何"预留多少 px"的魔数（见样式层 `.esc-skill-actions`）。
+      showUse === true ? skillActionBox : null,
     ),
     // 技能卡的描述已挪进卡片头（见上），故这一格**只给专家/连接器**渲染。
     showUse === true ? null : createElement('div', { className: 'esc-card-content', children: item.description ?? '' }),
     showUse === true ? tagRow : showStats === true ? createElement('div', { className: 'esc-card-footer' }, statsRow) : null,
-    skillActionBox,
     summonOrUseBox,
     connectBox,
     collectBox,
