@@ -3,12 +3,13 @@
  * [OUTPUT]: 对外提供 `EnterpriseEscCard`（专家/技能/连接器共用的聚合卡片）与 `SKILL_MORE_ENTRIES`（技能卡「更多」下拉那三行的**纯数据**）
  * [POS]: esc 页面的**卡片层**，同时移植了 NUWAX 的 `CardWrapper`（容器版式）与 `ResourceCard`（业务内容与动作位）两个组件。
  *   ★**本刀（workbuddy 风格重构）——技能卡这一档被换掉了三处**，专家/连接器两档一字未动：
- *     ① **底部那条「标签行」取代原来的「统计页脚」**：逐项渲染收藏 / 安装 / 作者 / 使用，
+ *     ① **底部那条「标签行」取代原来的「统计页脚」**：逐项渲染作者 / 收藏 / 安装 / 使用，
  *        缺的那几项按缺口显示 `-`（**不编数**：0 会被读成「装过 0 次」，见 `esc-copy` 的说明）；
  *     ② **动作位按「是否已安装」分流**——未安装＝一枚**常驻圆形「+」**（不再是原页面那种 hover 才浮现的
  *        「使用」按钮，也不再挂那枚启用开关）；已安装＝**「更多」下拉 + 「去试试」**两枚并排。
  *        「更多」用官方 `Menu` 原语（自带遮罩/Esc/外部点击/`danger` 行），不自造下拉；
- *     ③ **发布者头像 + 昵称那行只在专家卡上渲染**（技能卡的作者已在标签行里），故连接器的状态行
+ *     ③ **发布者头像 + 昵称那行只在专家卡的头里渲染**（技能卡的作者在底部标签行里——口径 40 起
+ *        那一格与专家卡共用同一枚 `AuthorRow`），故连接器的状态行
  *        `.esc-extra-box` 与标题**平级**，不再嵌在发布者行内部。
  *     ★那一档已装态取自本仓**既有真值**（`GET /skills/installed` 那张清单），不是新接口、不猜；
  *       `undefined`（读不到）与 `false`（确实没装）分开表达，读不到时顶栏另有「已安装（？）」缺口标记。
@@ -29,11 +30,18 @@
  *     动作格 `flex: none` ⇒ 省略号**永远**落在动作位左侧（不靠预留魔数，字号变大也不会塌）。
  *     与它配套的两条版式在样式层：`.esc-card-skill .esc-card-header { align-items: center }`（图标与
  *     "标题 + 描述"这一块垂直居中）与 `.esc-skill-actions`（不再绝对定位，`align-self: flex-start`）。
+ *   ★**口径 40（用户裁决「技能底部的图标使用专家底部的图标，作者头像使用和专家一致的」）**：
+ *     技能卡底部那一行与专家卡底部**共用同一套零件**（细节与理由都写在下面 `tagRow` 那一段）：
+ *     ① 作者那一格 → 专家卡用的同一枚 `AuthorRow`（真头像 + 首字兜底 + 同一套名字样式）；
+ *     ② 三枚统计图标 → 专家页脚那**唯一**一套 `statIconOf`（人 / 会话 / 收藏），
+ *        原先这一行独有的两枚外来字形（安装的箭头、使用量的柱状图）**整枚下线**。
+ *     ⇒ 两处的作者与图标现在是**同一个函数**画出来的；星形实心跟随收藏态这条口径也只剩一处实现。
+ *     顺序与项数**没动**（作者 → 收藏量 → 安装量 → 使用量，仍是上一轮用户裁决⑧的顺序）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { Button, Menu, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
-import { BarChart3, Bot, Download, Folder, MessageSquare, MoreHorizontal, Pencil, Plus, Star, Trash2, User } from 'lucide-react'
+import { Bot, Folder, MessageSquare, MoreHorizontal, Pencil, Plus, Star, Trash2, User } from 'lucide-react'
 import { createElement, useState, type ReactNode } from 'react'
 import { enterpriseEscImageSrc } from './esc-api.js'
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from './esc-copy.js'
@@ -112,37 +120,14 @@ export function EnterpriseEscCard({
   const connected = item.connected === true
   const publishName = item.publishUser?.nickName || item.publishUser?.userName || ''
 
-  const authorRow = createElement(
-    'div',
-    { className: 'esc-card-author-row' },
-    item.publishUser ? createElement(AuthorRow, { avatar: item.publishUser.avatar, name: publishName }) : null,
-    // 连接器卡片：分类 + 连接状态（原文口径：分类为空时不画状态点）
-    showConnect === true
-      ? createElement(
-          'div',
-          { className: 'esc-extra-box' },
-          createElement(
-            'span',
-            { className: 'esc-connect-info' },
-            hasText(item.category) ? createElement('span', { className: 'esc-connect-category' }, item.category) : null,
-            createElement(
-              'span',
-              {
-                className: `esc-connect-status ${connected ? 'esc-status-connected' : 'esc-status-disconnected'}`,
-              },
-              hasText(item.category) ? createElement('span', { className: 'esc-status-dot' }) : null,
-              connected ? ENTERPRISE_ESC_COPY.connected : ENTERPRISE_ESC_COPY.disconnected,
-            ),
-          ),
-        )
-      : null,
-  )
-
   /**
    * 统计行图标。
    *
    * ★原文口径（`ResourceCard/index.tsx:186`）：星形图标**跟随收藏态切实心**（与广场卡片一致），
    * 其余两枚恒用线框图标；这一格是"同一份 collected 在两处都生效"的第二处，别只改角标那处。
+   *
+   * ★**口径 40 起它是全页唯一的一套统计图标**：专家页脚与技能卡底部标签行都从这里取
+   * （见下面 `tagRow`），故"两处图标长得一样"是**结构上**成立的，不是两边各抄一份抄得像。
    */
   const statIconOf = (type: ResourceStatType): ReactNode =>
     type === 'star' && item.collected === true
@@ -294,41 +279,49 @@ export function EnterpriseEscCard({
   // 平台那条列表接口目前只给 `stats` 三格（人/会话/收藏），安装量与使用量**没有**来源。
   // ★本刀（用户裁决⑧）：顺序改为 **作者 → 收藏量 → 安装量 → 使用量**（原来是收藏/安装/作者/使用）。
   //   作者排第一是因为它是唯一来自卡片主数据（`publishUser`）的那一格，另三格都是统计/占位。
+  // ★**口径 40（用户裁决「技能底部的图标使用专家底部的图标，作者头像使用和专家一致的」）**：
+  //   技能卡底部这一行改成**与专家卡底部共用同一套零件**，两处不再各画一份：
+  //   ① **作者那一格**：原先是这一行独有的一枚 lucide `User` 字形 + 名字，现在换成**专家卡用的那一枚
+  //      `AuthorRow`**（真头像经 `enterpriseEscImageSrc` 换本机代理、加载失败退首字字母头像、
+  //      名字同一套 `.esc-author-name`）⇒ 两处的作者是**同一个组件**画出来的，改一处必同时生效。
+  //   ② **三枚统计图标**：原来收藏是 `Star`、安装是 `Download`、使用是 `BarChart3`（后两枚是这一行
+  //      独有的"外来"字形，与专家页脚那套对不上），现在一律走专家页脚那**唯一**一套 `statIconOf`
+  //      （人 / 会话 / 收藏三枚）⇒ 星形实心跟随收藏态那条口径也自动同源（原先两处各写一遍 `fill` 判据）。
+  //      ⚠**字形与指标的对应按"这一格在数什么"定**：安装量＝「多少人装了」⇒ 人形（`user`）；
+  //        使用量＝「被用了多少次」⇒ 会话气泡（`link`）；收藏量本就是收藏 ⇒ 星形（`star`）。
+  //      ⚠平台对**技能**不回 `userCount`/`convCount`（真机实测 7 条技能全是 `null`，而专家那两条是真数），
+  //        故安装 / 使用两格照旧如实画 `-`——**不编数**（见 `ENTERPRISE_ESC_LOCAL_COPY.statUnavailable`）。
+  //   ★**顺序没动**（作者 → 收藏量 → 安装量 → 使用量）：上一轮用户裁决⑧钉的就是这个顺序，
+  //     这一刀只换"用哪几枚图标、作者怎么画"，不重排、不增删格子。
+  //   ★**4 项也没动**：作者是我们平台真有的数据（`publishUser`），删掉是丢信息；安装 / 使用两格
+  //     留着是**缺口标记**（等平台的统计面接上就自动出数），不是装饰。
   const collectStat = (item.stats ?? []).find(stat => stat.type === 'star')
   const tagRow = createElement(
     'div',
     { className: 'esc-card-tags' },
-    // ★**用户裁决：底部保留我们自己的 4 项**（作者 / 收藏量 / 安装量 / 使用量），
-    //   只是**视觉对标** workbuddy 真图 —— 即那两枚统计项的排布与字号（11px、gap 12、图标 opacity .7），
-    //   而**不是**把项目减成它那两项。作者是我们平台真有的数据（`publishUser`），删掉是丢信息。
     hasText(publishName)
       ? createElement(
           'span',
           { className: 'esc-tag esc-tag-author', title: publishName },
-          createElement(User, { size: 12, 'aria-hidden': true }),
-          createElement('span', null, publishName),
+          createElement(AuthorRow, { avatar: item.publishUser?.avatar, name: publishName }),
         )
       : null,
     createElement(
       'span',
       { className: 'esc-tag', title: ENTERPRISE_ESC_COPY.statCollect },
-      createElement(Star, {
-        size: 12,
-        'aria-hidden': true,
-        fill: item.collected === true ? 'currentColor' : 'none',
-      }),
+      statIconOf('star'),
       createElement('span', null, collectStat === undefined ? ENTERPRISE_ESC_LOCAL_COPY.statUnavailable : String(collectStat.value)),
     ),
     createElement(
       'span',
       { className: 'esc-tag', title: ENTERPRISE_ESC_COPY.statInstall },
-      createElement(Download, { size: 12, 'aria-hidden': true }),
+      statIconOf('user'),
       createElement('span', null, ENTERPRISE_ESC_LOCAL_COPY.statUnavailable),
     ),
     createElement(
       'span',
       { className: 'esc-tag', title: ENTERPRISE_ESC_COPY.statUsage },
-      createElement(BarChartIcon, null),
+      statIconOf('link'),
       createElement('span', null, ENTERPRISE_ESC_LOCAL_COPY.statUnavailable),
     ),
   )
@@ -406,11 +399,6 @@ export function EnterpriseEscCard({
     connectBox,
     collectBox,
   )
-}
-
-/** 使用量那枚图标（lucide `BarChart3`，只在本文件用到一次）。 */
-function BarChartIcon(): ReactNode {
-  return createElement(BarChart3, { size: 12, 'aria-hidden': true })
 }
 
 /**

@@ -983,6 +983,90 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
     expect(fillOf(hollow[0])).toBe(fillOf(filled[0]))
   })
 
+  it('★口径 40（用户裁决「技能底部的图标使用专家底部的图标，作者头像使用和专家一致的」）：技能卡底部与专家卡底部**共用同一套零件**', () => {
+    // 判据不是"画出来的样子像"，而是**同一个函数引用**——版式可以随手改，这条锁不该跟着松：
+    //   ① 技能标签行那三枚统计图标 ≡ 专家页脚那三枚（`statIconOf` 是唯一实现，星形实心跟随收藏态
+    //      那条口径也因此不可能在两边分叉）；
+    //   ② 技能标签行的作者 ≡ 专家卡头里的那枚 `AuthorRow`（连组件都是同一枚 ⇒ 真头像经同一条
+    //      图片代理、破图退同一枚首字字母头像、名字同一套样式）。
+    // ★另一条被就地钉住的旧口径：**项数与顺序都不许动**（作者 → 收藏量 → 安装量 → 使用量，
+    //   用户裁决⑧）——这一刀只换"用哪几枚图标、作者怎么画"。
+    const byClass = (element: Element, className: string): Element => {
+      const found = childrenOf(element)
+        .filter((node): node is Element => node !== null && node !== undefined && typeof node === 'object')
+        .find(node => node.props['className'] === className)
+      expect(found, `找不到 ${className}`).toBeTruthy()
+      return found as Element
+    }
+    const nodesOf = (element: Element) =>
+      childrenOf(element).filter((node): node is Element =>
+        node !== null && node !== undefined && node !== false && typeof node === 'object')
+
+    // —— ① 作者那一格
+    const skillTags = byClass(card({ showUse: true }, {
+      publishUser: { nickName: '张三', avatar: 'https://example.com/a.png' },
+    }), 'esc-card-tags')
+    const tagItems = nodesOf(skillTags)
+    expect(tagItems).toHaveLength(4)
+    const authorTag = tagItems[0]!
+    expect(asElement(authorTag).props['className']).toBe('esc-tag esc-tag-author')
+    // 整个作者格只有**一枚**子元素——原来那枚独用的 `User` 字形 + 名字的两格写法已撤下
+    const authorChildren = childrenOf(asElement(authorTag))
+    expect(authorChildren).toHaveLength(1)
+    // 它和专家卡头里那枚是**同一个组件**（引用相等），且原样接住了这张卡自己的头像地址
+    const expertHeadMain = childrenOf(childrenOf(card({ showSummon: true }))[0]!)[1]!
+    const expertAuthor = nodesOf(asElement(expertHeadMain))
+      .find(node => typeof node.type === 'function' && (node.props as { name?: string }).name === '张三')!
+    expect(expertAuthor).toBeTruthy()
+    expect(asElement(authorChildren[0]!).type).toBe(expertAuthor.type)
+    expect(asElement(authorChildren[0]!).props['avatar']).toBe('https://example.com/a.png')
+    expect(asElement(authorChildren[0]!).props['name']).toBe('张三')
+
+    // —— ② 三枚统计图标：逐枚与**专家页脚自己渲染出来的**那三枚比 `type`（不重抄一份图标清单）
+    const expertFooter = byClass(
+      card({ showStats: true }, {
+        stats: [
+          { type: 'user', value: 1 },
+          { type: 'link', value: 2 },
+          { type: 'star', value: 3 },
+        ],
+      }),
+      'esc-card-footer',
+    )
+    const expertIcons = childrenOf(byClass(expertFooter, 'esc-count-box')).map(node => childrenOf(asElement(node))[0])
+    const skillIcons = tagItems.slice(1).map(node => childrenOf(asElement(node))[0])
+    expect(skillIcons.map(node => asElement(node).type)).toEqual([
+      asElement(expertIcons[2]).type, // 收藏量 ← 专家页脚的「收藏」（星形）
+      asElement(expertIcons[0]).type, // 安装量 ← 专家页脚的「人数」（人形）
+      asElement(expertIcons[1]).type, // 使用量 ← 专家页脚的「会话」（气泡）
+    ])
+    // 星形实心跟随收藏态：技能行这一枚也走同一枚实现（`collected === true` ⇒ `fill: currentColor`）
+    const collectedTagRow = byClass(card({ showUse: true }, { collected: true }), 'esc-card-tags')
+    expect((asElement(childrenOf(nodesOf(collectedTagRow)[1]!)[0]).props as { fill?: string }).fill).toBe('currentColor')
+    // 安装 / 使用两格**照旧如实画缺口**（平台对技能不回 userCount/convCount，不许拿 0 顶上）
+    expect(asElement(childrenOf(tagItems[2]!)[1]).props['children']).toBe(ENTERPRISE_ESC_LOCAL_COPY.statUnavailable)
+    expect(asElement(childrenOf(tagItems[3]!)[1]).props['children']).toBe(ENTERPRISE_ESC_LOCAL_COPY.statUnavailable)
+    // 顺序与语义仍是上一轮钉的那四格（作者 → 收藏 → 安装 → 使用）
+    expect(tagItems.map(node => asElement(node).props['title'])).toEqual([
+      '张三',
+      ENTERPRISE_ESC_COPY.statCollect,
+      ENTERPRISE_ESC_COPY.statInstall,
+      ENTERPRISE_ESC_COPY.statUsage,
+    ])
+
+    // —— ③ 源码级反向锁：那两枚"外来"图标（安装的箭头 / 使用量的柱状图）与它们的实现不许回归
+    const cardSourceForTagRow = readFileSync(new URL('../src/esc/esc-card.tsx', import.meta.url), 'utf8')
+    expect(cardSourceForTagRow).toContain(
+      "import { Bot, Folder, MessageSquare, MoreHorizontal, Pencil, Plus, Star, Trash2, User } from 'lucide-react'",
+    )
+    expect(cardSourceForTagRow).not.toContain('function BarChartIcon')
+    // 作者呈现全文件只有**两处**，且都走同一枚组件（专家卡头 / 技能标签行）
+    expect(cardSourceForTagRow.match(/createElement\(AuthorRow/g) ?? []).toHaveLength(2)
+    // 技能标签行那三枚统计图标**只能**经 `statIconOf` 拿到（不许再就地 createElement 一枚图标）
+    const tagRowSource = cardSourceForTagRow.slice(cardSourceForTagRow.indexOf('const tagRow ='))
+    expect(tagRowSource.match(/statIconOf\('(star|user|link)'\)/g) ?? []).toHaveLength(3)
+  })
+
   it('动作位：A 档一律置灰 + 写明原因；召唤 / 立即使用 / 连接 / 断开 四枚文案与原文逐字一致', () => {
     // ★**本刀（workbuddy 风格重构）**：技能卡的右侧动作位**换了形态**——原来那枚「使用 + 启用开关」
     // （容器 `esc-action-box esc-action-box-pinned`、按钮 hover 浮现）已撤下，现在按**是否已安装**分流：
