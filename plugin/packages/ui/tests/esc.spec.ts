@@ -10,14 +10,24 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createEnterpriseEscApi,
   enterpriseEscImageSrc,
+  escErrorCodeOf,
+  escPlatformErrorCode,
   ENTERPRISE_ESC_IMAGE_LOCAL_PATH,
   ENTERPRISE_ESC_MOCK_LOCAL_PATH,
   ENTERPRISE_ESC_READ_LOCAL_PATH,
+  ESC_MISSING_ENDPOINT_CODES,
   type EnterpriseEscApi,
 } from '../src/esc/esc-api.js'
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from '../src/esc/esc-copy.js'
 import { EnterpriseEscCard, SKILL_MORE_ENTRIES } from '../src/esc/esc-card.js'
 import { EnterpriseEscToolbar } from '../src/esc/esc-toolbar.js'
+import { enterpriseEscFeaturedBody } from '../src/esc/esc-featured.js'
+import {
+  enterpriseErrorAction,
+  enterpriseErrorMessage,
+  enterpriseErrorPresentation,
+  enterpriseErrorRetryable,
+} from '../src/error-messages.js'
 import { ESC_DEFAULT_CATEGORY_MENUS, ESC_RESOURCE_MORE_HREF, ESC_RESOURCE_TYPES, ESC_SUCCESS_CODE } from '../src/esc/esc-constants.js'
 import {
   bindEnterpriseEscSeats,
@@ -27,7 +37,7 @@ import {
   enterpriseEscMainOptions,
   enterpriseEscPanelOptions,
 } from '../src/esc/esc-entry.js'
-import { escCategoryChildrenOf, escResourceAdapters } from '../src/esc/esc-list.js'
+import { escCategoryChildrenOf, escResourceAdapters, missingEndpointCodeOf } from '../src/esc/esc-list.js'
 import { EnterpriseEscResourceTabs } from '../src/esc/esc-resource-tabs.js'
 import { EnterpriseEscStyle } from '../src/esc/esc-style.js'
 import type { EscCategoryNode } from '../src/esc/esc-types.js'
@@ -907,5 +917,97 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
       .find(node => node.props['className'] === 'esc-toolbar-note')!
     expect(asElement(unavailable).props['className']).toBe('esc-toolbar-note')
     expect(asElement(unavailable).props['children']).toBe(ENTERPRISE_ESC_LOCAL_COPY.categoriesUnavailable)
+  })
+})
+
+describe('esc：失败面收口（本刀 —— 精选行与列表页同一套判据）', () => {
+  type Element = { readonly type: unknown; readonly props: Record<string, unknown> }
+  const asElement = (node: unknown) => node as Element
+  const childrenOf = (element: Element) => {
+    const children = element.props['children']
+    return Array.isArray(children) ? children : children === undefined || children === null ? [] : [children]
+  }
+  /** 整棵树的可见文本（`null`/布尔槽位按 React 的规则不渲染）。 */
+  const textOf = (node: unknown): string => {
+    if (node === null || node === undefined || typeof node === 'boolean') return ''
+    if (typeof node === 'string' || typeof node === 'number') return String(node)
+    return childrenOf(asElement(node)).map(textOf).join('')
+  }
+
+  it('★精选行失败态：人话与下一步取自唯一码表、稳定码上屏、**平台原话一个字都不上屏**、终态不画「重试」', () => {
+    const body = asElement(
+      enterpriseEscFeaturedBody({ kind: 'failed', code: ESC_MISSING_ENDPOINT_CODES.recommend }, () => undefined),
+    )
+    expect(body.props['className']).toBe('esc-featured-note')
+    expect(body.props['role']).toBe('alert')
+    const kids = childrenOf(body)
+    // ① 人话（唯一码表那句）② 下一步 ③ 稳定码 ④ 终态 ⇒ 第 4 格是 null，**不画**「重试」
+    expect(asElement(kids[0]).props['children']).toBe(enterpriseErrorMessage('ENT_ESC_RECOMMEND_UNAVAILABLE'))
+    expect(asElement(kids[1]).props['className']).toBe('esc-sub')
+    expect(asElement(kids[1]).props['children']).toBe(enterpriseErrorAction('ENT_ESC_RECOMMEND_UNAVAILABLE'))
+    expect(asElement(kids[2]).props['className']).toBe('esc-state-code')
+    expect(asElement(kids[2]).props['children']).toBe('ENT_ESC_RECOMMEND_UNAVAILABLE')
+    expect(kids[3]).toBeNull()
+    expect(enterpriseErrorRetryable('ENT_ESC_RECOMMEND_UNAVAILABLE')).toBe(false)
+    // 平台那句自由文本（`No static resource …`）在这棵树里**没有位置**：状态里只有码
+    expect(textOf(body)).not.toContain('No static resource')
+    // ★源码级反向锁：这条行不再把平台 `message` 拼上屏、也不再自留一句「加载失败」前缀
+    const source = readFileSync(new URL('../src/esc/esc-featured.tsx', import.meta.url), 'utf8')
+    expect(source).not.toContain('envelope.message')
+    expect(source).not.toContain('loadFailed')
+    expect('loadFailed' in ENTERPRISE_ESC_LOCAL_COPY).toBe(false)
+  })
+
+  it('★可重试的码才画「重试」：那枚按钮的回调就是重发（与「换一批」同一条路）', () => {
+    const retry = vi.fn()
+    const body = asElement(enterpriseEscFeaturedBody({ kind: 'failed', code: 'ENT_NUWAX_UNAVAILABLE' }, retry))
+    expect(enterpriseErrorRetryable('ENT_NUWAX_UNAVAILABLE')).toBe(true)
+    const button = asElement(childrenOf(body)[3])
+    expect(button.type).toBe('button')
+    expect(button.props['className']).toBe('esc-retry')
+    expect(button.props['children']).toBe(ENTERPRISE_ESC_LOCAL_COPY.retry)
+    ;(button.props['onClick'] as () => void)()
+    expect(retry).toHaveBeenCalledTimes(1)
+  })
+
+  it('★平台 `4040` 按**面**归一：三面各说各的事实，其余码原样透传', () => {
+    expect(escPlatformErrorCode('4040', ESC_MISSING_ENDPOINT_CODES.connector)).toBe('ENT_ESC_CONNECTOR_UNAVAILABLE')
+    expect(escPlatformErrorCode('4040', ESC_MISSING_ENDPOINT_CODES.directory)).toBe('ENT_ESC_DIRECTORY_UNAVAILABLE')
+    expect(escPlatformErrorCode('4040', ESC_MISSING_ENDPOINT_CODES.recommend)).toBe('ENT_ESC_RECOMMEND_UNAVAILABLE')
+    // 其余码一个字都不改（含非 4040 的数字码、字符串码与空值）
+    expect(escPlatformErrorCode('4030', ESC_MISSING_ENDPOINT_CODES.recommend)).toBe('4030')
+    expect(escPlatformErrorCode(4041, ESC_MISSING_ENDPOINT_CODES.recommend)).toBe('4041')
+    expect(escPlatformErrorCode(undefined, ESC_MISSING_ENDPOINT_CODES.recommend)).toBe('')
+    // 取异常里的码：本机路由那枚原样取出、取不到回本机兜底码（不再借页内某句前缀顶替）
+    expect(escErrorCodeOf({ code: 'ENT_AUTH_REQUIRED' })).toBe('ENT_AUTH_REQUIRED')
+    expect(escErrorCodeOf(new Error('boom'))).toBe('ENT_LOCAL_RESPONSE_INVALID')
+    expect(escErrorCodeOf({ code: '' })).toBe('ENT_LOCAL_RESPONSE_INVALID')
+    // 三枚都在**唯一码表**里、都不可重试、三句话两两不同
+    //（同一件事不许说两种话；三件不同的事也不许说成同一句）
+    const messages = (['connector', 'directory', 'recommend'] as const).map(key => {
+      const code = ESC_MISSING_ENDPOINT_CODES[key]
+      expect(enterpriseErrorPresentation(code).known, code).toBe(true)
+      expect(enterpriseErrorRetryable(code), code).toBe(false)
+      return enterpriseErrorMessage(code)
+    })
+    expect(new Set(messages).size).toBe(3)
+  })
+
+  it('★列表面的 `4040` 也按资源类型取码：专家/技能不再被说成「没有连接器目录」', () => {
+    expect(missingEndpointCodeOf('connector')).toBe('ENT_ESC_CONNECTOR_UNAVAILABLE')
+    expect(missingEndpointCodeOf('expert')).toBe('ENT_ESC_DIRECTORY_UNAVAILABLE')
+    expect(missingEndpointCodeOf('skill')).toBe('ENT_ESC_DIRECTORY_UNAVAILABLE')
+    // 这两句话措辞**必须不同**——本刀修的正是"专家/技能面上报连接器"那句假话
+    expect(enterpriseErrorMessage(missingEndpointCodeOf('expert')))
+      .not.toBe(enterpriseErrorMessage(missingEndpointCodeOf('connector')))
+  })
+
+  it('★本刀只动失败那一态：加载 / 空 / 未登录三态的标记与文案一字未改', () => {
+    expect(textOf(enterpriseEscFeaturedBody({ kind: 'loading' }, () => undefined))).toBe(ENTERPRISE_ESC_COPY.loading)
+    expect(textOf(enterpriseEscFeaturedBody({ kind: 'empty' }, () => undefined))).toBe(ENTERPRISE_ESC_COPY.emptyData)
+    const signedOut = asElement(enterpriseEscFeaturedBody({ kind: 'unauthenticated' }, () => undefined))
+    expect(signedOut.props['className']).toBe('esc-featured-note')
+    expect(textOf(signedOut)).toContain(ENTERPRISE_ESC_LOCAL_COPY.signInRequiredTitle)
+    expect(textOf(signedOut)).toContain(ENTERPRISE_ESC_LOCAL_COPY.signInRequiredBody)
   })
 })

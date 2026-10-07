@@ -112,7 +112,9 @@ export type EnterpriseEscCopyKey = keyof typeof ENTERPRISE_ESC_COPY
  *
  * 每一句都对应一处**如实缺口**或一处 DSH 体系差异，写明原因而不是留白：
  *  · `signInRequired*`：原页面的数据来自 NUWAX 平台会话，DSH 侧要先登录员工 NUWAX 账号；
- *  · `loadFailed`：原页面读不到数据时静默画空态；本刀改为**说出来**（仓库的 no-silent-swallow 门禁也要求如此）；
+ *  · ★口径 31 曾有过 `loadFailed`（「加载失败」）——**本刀（失败面收口）撤下**：失败态的"发生了什么"
+ *    一律取自 `error-messages.ts` 那张**唯一码表**（人话 + 下一步），页内不再自留一句笼统前缀，
+ *    否则同一件事会出现两套措辞（本页原先正是平台原话 + 这枚前缀拼出来的）；
  *  · `actionNotPorted`：召唤/立即使用/连接/启停/付费这些动作本刀不做，按钮置灰并写明原因；
  *  · `moreExternal`：「更多」在原页面 `history.push` 到 NUWAX 广场分类页；**用户裁决**改指向公开技能广场
  *    `https://skillhub.cn/`（见 `esc-constants.ts` 的 `ESC_RESOURCE_MORE_HREF`），这枚是那链接的说明文字；
@@ -123,7 +125,6 @@ export type EnterpriseEscCopyKey = keyof typeof ENTERPRISE_ESC_COPY
 export const ENTERPRISE_ESC_LOCAL_COPY = {
   signInRequiredTitle: '请先登录 NUWAX 账号',
   signInRequiredBody: '这个页面读取的是 NUWAX 平台的专家、技能与连接器目录，登录后才能看到内容。',
-  loadFailed: '加载失败',
   /** 分类字典读不到时的那句提示（列表本身仍可看，只是筛选少了）。 */
   categoriesUnavailable: '分类暂时读不到',
   actionNotPorted: '该动作尚未在 DSH 侧接入',

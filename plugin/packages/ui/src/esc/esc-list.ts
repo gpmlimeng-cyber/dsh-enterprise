@@ -12,21 +12,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ESC_CONNECTOR_CATEGORY_ROOT_KEY, ESC_SUCCESS_CODE } from './esc-constants.js'
-
-/**
- * 平台业务码 → 本仓稳定码（**只翻这一枚**，其余原样透传）。
- *
- * ★`4040` 是平台那句 `No static resource …`：实测这台部署**没有 `/api/connector/providers` 这个端点**
- *   （同页的技能/专家列表正常回 200 ⇒ 不是网络、不是会话、也不是我们本机路由的问题；NUWAX 前端源码里
- *   `systemManage.ts:496` 写的路径也确实是它，即**代码没错、部署缺这一版能力**）。
- *   直接把 `4040` 甩给人没有意义（用户读不出该干什么），翻成一枚说人话、且**不可重试**的稳定码：
- *   重试对"端点不存在"永远无效，下一步只能是找管理员。
- */
-function escPlatformErrorCode(code: string | number | undefined): string {
-  return String(code ?? '') === '4040' ? 'ENT_ESC_CONNECTOR_UNAVAILABLE' : String(code ?? '')
-}
+import { ESC_MISSING_ENDPOINT_CODES, escErrorCodeOf, escPlatformErrorCode } from './esc-api.js'
 import type { EnterpriseEscApi } from './esc-api.js'
+import { ESC_CONNECTOR_CATEGORY_ROOT_KEY, ESC_SUCCESS_CODE } from './esc-constants.js'
 import type {
   EscCategoryNode,
   EscConnectorProvider,
@@ -36,6 +24,21 @@ import type {
 } from './esc-types.js'
 import { mapPublishedStats } from './esc-types.js'
 import type { ResourceItem, ResourceSourceEnum, ResourceTypeEnum } from './esc-types.js'
+
+/**
+ * 本面在「这台部署没有这个端点」（平台 `4040`）时该说的那枚稳定码。
+ *
+ * ★按**取数面**分（本刀纠正）：连接器面缺的是连接器目录，专家/技能面缺的是"这一类目录"。
+ *   上一刀那条映射**不看面**、对任何一面都说"没有连接器目录"——专家/技能面一旦也回 `4040`，
+ *   那就是在跟员工说假话。三枚码本身仍在 `error-messages.ts` 那张唯一码表里，
+ *   这里只决定"哪一面取哪一枚"。
+ *   ★导出是为了让测试直调核对**每一面各自那一枚**（与 `escCategoryChildrenOf` 同一个做法）。
+ */
+export function missingEndpointCodeOf(resourceType: ResourceTypeEnum): string {
+  return resourceType === 'connector'
+    ? ESC_MISSING_ENDPOINT_CODES.connector
+    : ESC_MISSING_ENDPOINT_CODES.directory
+}
 
 /** 服务端分页请求参数（逐字对齐原文件）。 */
 export interface EscServerFetchParams {
@@ -383,7 +386,7 @@ export function useEnterpriseEscResourceList({
             setError(undefined)
           } else {
             // ★与原文的差异：原文件只在 reset 时清空列表、**不说明为什么**；这里如实记下码与原话
-            setError({ code: escPlatformErrorCode(res?.code), message: typeof res?.message === 'string' ? res.message : '' })
+            setError({ code: escPlatformErrorCode(res?.code, missingEndpointCodeOf(resourceType)), message: typeof res?.message === 'string' ? res.message : '' })
             if (reset) {
               setList([])
               setHasMore(false)
@@ -398,7 +401,7 @@ export function useEnterpriseEscResourceList({
               setError(undefined)
             } else {
               rawListRef.current = []
-              setError({ code: escPlatformErrorCode(res?.code), message: typeof res?.message === 'string' ? res.message : '' })
+              setError({ code: escPlatformErrorCode(res?.code, missingEndpointCodeOf(resourceType)), message: typeof res?.message === 'string' ? res.message : '' })
             }
           }
           // 全量数据按分类/关键字做客户端筛选后内存切片；
@@ -424,7 +427,7 @@ export function useEnterpriseEscResourceList({
         // ★与原文的差异：请求抛错（本机 401 / 上游故障 / 网络断）在原文里会变成"空列表"；
         // 这里记成可读事实，由页面说出来（本行也是本文件唯一一处 catch，不吞不默认）
         setError({
-          code: errorCodeOf(caught),
+          code: escErrorCodeOf(caught),
           message: caught instanceof Error ? caught.message : '',
         })
         if (reset) {
@@ -483,12 +486,6 @@ export function useEnterpriseEscResourceList({
   }, [])
 
   return { list, loading, hasMore, error, loadMore, updateItem, reload }
-}
-
-/** 取异常里的稳定码（本包唯一错误类带 `code`；取不到交回本机兜底码）。 */
-function errorCodeOf(error: unknown): string {
-  const code: unknown = (error as { code?: unknown } | null)?.code
-  return typeof code === 'string' && code.length > 0 ? code : 'ENT_LOCAL_RESPONSE_INVALID'
 }
 
 /**

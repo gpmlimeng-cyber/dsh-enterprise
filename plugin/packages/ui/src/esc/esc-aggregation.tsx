@@ -189,9 +189,10 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
   return createElement(
     'div',
     { className: 'esc-content' },
-    // ★用户裁决④ + 本刀：「精选技能」那一行在**内容区最顶部**，三页签则排进**工具栏左侧**
-    //   （与「更多/搜索/已安装/添加」同处那一行 ⇒ 同排由 flex 保证）。
-    //   精选只在技能页出现——它读官方推荐的 `targetType=Skill` 档，专家/连接器页挂它只是空请求。
+    // ★用户裁决④ + 本刀：三页签排进**工具栏第一栏左侧**（与「更多/搜索/已安装/添加」同处那一行
+    //   ⇒ 同排由 flex 保证）；「精选」那一行走工具栏**第二栏**（`belowLeading`：三页签之下、
+    //   维度标签之上），**专家页与技能页都挂**（两页只有 `targetType` 不同），连接器页不挂。
+    //   ★原先这段注释写的是"精选只在技能页出现"——与实现不符，本刀按实现改正。
     createElement(EnterpriseEscToolbar, {
       // ★用户裁决④：三页签作为**主行左侧插槽**进去（与右块同一个 flex 行），不再是兄弟元素
       leading: onResourceTypeChange === undefined

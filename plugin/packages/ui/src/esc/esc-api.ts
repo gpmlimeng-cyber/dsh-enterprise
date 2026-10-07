@@ -3,7 +3,9 @@
  * [OUTPUT]: 对外提供 `createEnterpriseEscApi`（六个取数方法，签名与 NUWAX `services/{square,systemManage,workspace}` 里那六个函数**逐条同名同参**，外加一条信息性的 `escMockStatus`）、
  *   路径常量 `ENTERPRISE_ESC_READ_LOCAL_PATH`、图片代理路径常量 `ENTERPRISE_ESC_IMAGE_LOCAL_PATH`、
  *   演示数据开关路径常量 `ENTERPRISE_ESC_MOCK_LOCAL_PATH`、
- *   图片地址改写器 `enterpriseEscImageSrc` 与 `EnterpriseEscApi`/`EnterpriseEscMockStatus` 契约类型
+ *   图片地址改写器 `enterpriseEscImageSrc`、平台业务码归一器 `escPlatformErrorCode`/`escErrorCodeOf`、
+ *   「本部署没有这个端点」的**面级**稳定码真源 `ESC_MISSING_ENDPOINT_CODES`，
+ *   以及 `EnterpriseEscApi`/`EnterpriseEscMockStatus` 契约类型
  * [POS]: esc 页面的**浏览器取数面**——只打同源本机路由 `POST {前缀}/esc/read`，正文 `{path, params}`；
  *   平台路径与方法由**宿主**的只读闭集裁决（浏览器这边连 URL 都拼不出来）。故原页面的取数逻辑
  *   （`useResourceList` 那套适配器）可以**一字不改**地移植过来，只是把 `apiXxx(...)` 的注入源从
@@ -72,6 +74,53 @@ export function enterpriseEscImageSrc(raw: string | null | undefined): string | 
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined
   return `${LOCAL_API_PREFIX}${ENTERPRISE_ESC_IMAGE_LOCAL_PATH}?src=${encodeURIComponent(raw)}`
+}
+
+/**
+ * 平台把「本部署没有这个端点」翻成的那枚业务码。
+ *
+ * 实测：打一个这台部署**不存在的路径**时，平台走到静态资源兜底，回 `code: '4040'` + 一句
+ * `No static resource …`（首例是 `/api/connector/providers`）。
+ */
+export const ESC_PLATFORM_MISSING_ENDPOINT_CODE = '4040'
+
+/**
+ * **面级**稳定码真源：同一枚平台 `4040` 在不同的取数面上该说的话不同 ——
+ * 缺的到底是连接器目录、这一类目录、还是推荐内容，只有**发起那次请求的那一面**知道。
+ *
+ * ★上一刀只有一条「`4040` ⇒ 连接器目录不存在」的映射，且**不看是哪个面**：于是专家 / 技能目录
+ *   或精选行一旦也回 `4040`，界面对员工说的是「没有连接器目录」——那是一句**假话**。
+ *   本刀把这句话交回给取数面自己（三枚码都在 `error-messages.ts` 那张唯一码表里）。
+ */
+export const ESC_MISSING_ENDPOINT_CODES = {
+  /** 连接器列表（`GET /api/connector/providers`，实测这台部署缺它）。 */
+  connector: 'ENT_ESC_CONNECTOR_UNAVAILABLE',
+  /** 专家 / 技能目录（`POST /api/published/{agent,skill}/list`）。 */
+  directory: 'ENT_ESC_DIRECTORY_UNAVAILABLE',
+  /** 精选行（`POST /api/system/display/recommend/list`）。 */
+  recommend: 'ENT_ESC_RECOMMEND_UNAVAILABLE',
+} as const
+
+/**
+ * 平台业务码 → 界面用的稳定码（**只归一 `4040` 这一枚**，其余原样透传）。
+ *
+ * `missingEndpointCode` 由调用方按**自己的取数面**给（见 `ESC_MISSING_ENDPOINT_CODES`）。
+ * 平台原话（`No static resource …`）**一律不上屏** —— 那是上游实现细节，员工读不出下一步；
+ * 界面上只出「人话 + 稳定码」。
+ */
+export function escPlatformErrorCode(code: unknown, missingEndpointCode: string): string {
+  const raw = String(code ?? '')
+  return raw === ESC_PLATFORM_MISSING_ENDPOINT_CODE ? missingEndpointCode : raw
+}
+
+/**
+ * 取异常里的稳定码（本机路由抛的 `EnterpriseLocalApiError` 带 `code`；取不到交回本机兜底码）。
+ *
+ * 与 `esc-list.ts` 原先那份私有实现同值 —— 本刀把它提到边界层，让列表与精选两处**共用一份**。
+ */
+export function escErrorCodeOf(error: unknown): string {
+  const code: unknown = (error as { code?: unknown } | null)?.code
+  return typeof code === 'string' && code.length > 0 ? code : 'ENT_LOCAL_RESPONSE_INVALID'
 }
 
 /** 单个查询参数值的形状（扁平标量或**同质标量数组**；团队维度「全部」页签就传数字数组 `spaceIds`）。 */

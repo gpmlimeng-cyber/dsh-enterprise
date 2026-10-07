@@ -48,9 +48,11 @@ export function EnterpriseEscPanel({ api }: EnterpriseEscPanelProps): ReactNode 
     //   此前页签住在 `.esc-root`、工具栏住在 `.esc-content`（聚合区）——**两个容器、两行**，
     //   怎么调 CSS 都不可能同排。解法是**结构**而不是样式：把页签交给聚合区，由它排进工具栏**左侧**，
     //   与右块同处那个 `justify-content: space-between` 的主行里 ⇒ 同排由 flex 保证，不靠巧合。
-    //   ★「精选技能」那一行仍住在聚合区**上方**（截图里它是第一行，下面才是维度/分类/列表）。
-    //     它**只在技能页出现**——那一行读官方推荐的 `targetType=Skill` 档，
-    //     专家/连接器页挂它就是挂一条空行（没有 Agent/Plugin 档的取数，那是不该有的请求）。
+    //   ★「精选」那一行由聚合区经工具栏的**第二栏**（`belowLeading`）挂出——**专家页与技能页都挂**
+    //     （两页同一套逻辑，只有 `targetType` 不同：`Agent` / `Skill`），连接器页不挂
+    //     （连接器目录走 `/api/connector/providers`，与官方推荐那条取数面无关）。
+    //     ★这一段原先写的是"精选住在聚合区上方、只在技能页出现"——**两句都与实现不符**：
+    //       本刀按实现改正（源码里的注释说假话，与代码说谎一样贵）。
     createElement(EnterpriseEscAggregation, {
       key: `${resourceType}-${refreshToken}`,
       api,
