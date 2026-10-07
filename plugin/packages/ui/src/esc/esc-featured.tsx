@@ -41,6 +41,15 @@ import { ESC_SUCCESS_CODE } from './esc-constants.js'
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from './esc-copy.js'
 import type { EscRecommendRecord, EscRecommendTargetTypeEnum } from './esc-types.js'
 
+/**
+ * 「精选」这一行**最多画几枚**（用户原话「精选最多显示六个」）。
+ *
+ * 是**展示上限**，不是取数上限：平台给多少照旧原样进状态（本机实测 `total: 19`），
+ * 只有这一行截前六枚 ⇒ "平台给了 19 条"这件事在任何地方都不会被说成"只有 6 条"。
+ * 取 6 也是版式上的一个整档：宽屏三列 ⇒ 两行收满，窄屏两列 ⇒ 三行收满，不会出现半行孤卡。
+ */
+export const ENTERPRISE_ESC_FEATURED_MAX = 6
+
 /** 精选行入参。 */
 export interface EnterpriseEscFeaturedProps {
   readonly api: EnterpriseEscApi
@@ -174,10 +183,16 @@ export function enterpriseEscFeaturedBody(state: EnterpriseEscFeaturedState, ret
           : null,
       )
     case 'ready':
+      /* ★本刀（用户原话「精选最多显示六个」）：**展示上限**，不是把平台的条数改掉——
+         状态里仍然如实留着平台给的这一批（`/api/display/recommend/list` 本机实测 total 19），
+         只有这一行**画**前六枚。所以这是"页面只展示六枚"，不是"平台只给了六枚"，
+         两者不许混为一谈（"换一批"照旧重发同一个请求，也不本地补位凑数）。 */
       return createElement(
         'div',
         { className: 'esc-featured-grid' },
-        state.items.map(record => createElement(FeaturedCard, { key: String(record.id), record })),
+        state.items
+          .slice(0, ENTERPRISE_ESC_FEATURED_MAX)
+          .map(record => createElement(FeaturedCard, { key: String(record.id), record })),
       )
   }
 }

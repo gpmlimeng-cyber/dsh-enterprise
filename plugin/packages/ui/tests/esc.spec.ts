@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 esc 各模块的真源（`esc-copy` 的文案、`esc-constants` 的常量、`esc-api` 的取数面、`esc-entry` 的两处座位、`esc-list` 的适配器表与分类投影）与一个假 `fetch`
- * [OUTPUT]: 锁定口径 31 的界面侧契约：① **文案逐字**（与 NUWAX `zh-CN.ts` 同值，不许"顺手润色"）；② 左栏三项与资源类型全集；③ 两处座位的身份（`sidebar.panellist` 的 id 与 `main` 的 key **同名**、order/label）与**常驻**注册（与资料库那两处由门驱动不同）；④ 取数面只打同源固定路径、正文关闭键集 `{path, params}`、六个方法各自的平台路径、错误码投影；⑤ **适配器口径**（各资源类型 × 数据源的真实参数差异，这是移植里最容易抄错的地方）与响应提取判据；⑥ **本轮两条用户裁决**：非选中页签的色阶（dimmed → tertiary：三行同步，带反向下锁）与移动端「整页单滚动面」那一档（滚动面由列表提到内容区；含"挪了滚动面之后触底加载与自动补拉必须跟着挪"的源码级锁）
+ * [OUTPUT]: 锁定口径 31 的界面侧契约：① **文案逐字**（与 NUWAX `zh-CN.ts` 同值，不许"顺手润色"）；② 左栏三项与资源类型全集；③ 两处座位的身份（`sidebar.panellist` 的 id 与 `main` 的 key **同名**、order/label）与**常驻**注册（与资料库那两处由门驱动不同）；④ 取数面只打同源固定路径、正文关闭键集 `{path, params}`、六个方法各自的平台路径、错误码投影；⑤ **适配器口径**（各资源类型 × 数据源的真实参数差异，这是移植里最容易抄错的地方）与响应提取判据；⑥ **本轮两条用户裁决**：非选中页签的色阶（dimmed → tertiary：三行同步，带反向下锁）与移动端「整页单滚动面」那一档（滚动面由列表提到内容区；含"挪了滚动面之后触底加载与自动补拉必须跟着挪"的源码级锁）；⑦ **本刀四组**：触碰底入口必须问 hasMore（真机故障「下滑加载不起作用、一直闪屏」的两条纯判据双向断言 + 源码级反向锁）、顶部两行 18px 与分类行 gap 8px、字号一律走 calc(基准+两 delta) 且不许有裸 px 字号、精选上下间距相等（20 = 6+14）与精选最多画 6 枚
  * [POS]: esc 页面的**无 React 契约回归**；视觉与真实交互由构建产物手工冒烟覆盖（本仓 vitest 没有 DOM）
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -21,7 +21,7 @@ import {
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from '../src/esc/esc-copy.js'
 import { EnterpriseEscCard, SKILL_MORE_ENTRIES } from '../src/esc/esc-card.js'
 import { EnterpriseEscToolbar } from '../src/esc/esc-toolbar.js'
-import { enterpriseEscFeaturedBody } from '../src/esc/esc-featured.js'
+import { ENTERPRISE_ESC_FEATURED_MAX, enterpriseEscFeaturedBody } from '../src/esc/esc-featured.js'
 import {
   enterpriseErrorAction,
   enterpriseErrorMessage,
@@ -41,7 +41,7 @@ import { decideAutoFill, shouldTriggerBottomLoad } from '../src/esc/esc-aggregat
 import { escCategoryChildrenOf, escResourceAdapters, missingEndpointCodeOf } from '../src/esc/esc-list.js'
 import { EnterpriseEscResourceTabs } from '../src/esc/esc-resource-tabs.js'
 import { EnterpriseEscStyle } from '../src/esc/esc-style.js'
-import type { EscCategoryNode } from '../src/esc/esc-types.js'
+import type { EscCategoryNode, EscRecommendRecord } from '../src/esc/esc-types.js'
 
 // 官方原语包在本仓不可直接加载（它依赖的 `clsx` 没进本包依赖树），既有 ui 测试一律 mock 掉它；
 // 本文件不渲染任何组件，只需让模块图加载得起来。
@@ -393,6 +393,22 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
   /** 取出 `EnterpriseEscStyle` 里那串 CSS（它是纯字符串，故能直接断言规则文本）。 */
   const css = (EnterpriseEscStyle() as unknown as { props: { children: string } }).props.children
 
+  /**
+   * 本页字号的**唯一合法形态**（本刀起）：`calc(<基准>px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px))`。
+   * 写成函数而不是直接把字符串写进断言，是为了让每条字号断言**同时**锁住两件事：
+   *   ① 基准值（视觉层级）；② 必须带**两个** delta（跟随壳「字体大小」设置 + 移动档视口自适应）——少一个就红。
+   */
+  const fsValue = (base: string): string =>
+    `calc(${base}px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px))`
+  const fs = (base: string): string => `font-size: ${fsValue(base)};`
+
+  /** 取某个选择器对应规则的**声明体**（`{ … }` 之间的原文），供逐条断言。 */
+  const ruleBody = (head: string): string => {
+    const hit = new RegExp(`${head.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`).exec(css)
+    expect(hit, head).not.toBeNull()
+    return hit![1]!
+  }
+
   it('三个菜单渲染成页签：顺序/文案来自兜底菜单，选中项带 active，重复点当前项也回调', () => {
     const onSelect = vi.fn()
     const element = EnterpriseEscResourceTabs({ activeKey: 'skill', onSelect }) as unknown as {
@@ -440,9 +456,10 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     //   描述 **12px/line-height1.6/两行截断/min-height 38px**、统计行 **11px/gap10/图标 opacity .7**
     // ★真图实测：图标是 **40px 圆角方块**（radius 10），不是 SPEC 文字写的 28 正圆
     expect(css).toMatch(/\.esc-card-image \{[^}]*width: 40px; height: 40px; border-radius: 10px;/)
-    expect(css).toMatch(/\.esc-card-title \{[^}]*font-size: 14.5px; font-weight: 650;[^}]*line-height: 1.4;/)
+    expect(ruleBody('.esc-card-title')).toContain(fs('14.5'))
+    expect(css).toMatch(/\.esc-card-title \{[^}]*font-weight: 650;[^}]*line-height: 1.4;/)
     expect(css).toMatch(/\.esc-card-content \{[^}]*line-height: 16px; height: 32px/)
-    expect(css).toMatch(/\.esc-tag \{[^}]*font-size: 11px;/)
+    expect(ruleBody('.esc-tag')).toContain(fs('11'))
     expect(css).toMatch(/\.esc-tag svg \{ opacity: \.7; \}/)
     expect(css).toContain('.esc-card-footer { height: 24px;')
     expect(css).toMatch(/\.esc-count-box \{[^}]*gap: 10px/)
@@ -475,8 +492,8 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     expect(css).toMatch(/\.esc-card \{[^}]*min-height: 84px;/)
     expect(css).toMatch(/\.esc-card-tags \{[^}]*padding-top: 6px;/)
     // ② 「一级二级分类标签再小一号」：两级同挂 `.esc-category-tabs .esc-pill`（渲染点只有一处）
-    expect(css).toMatch(/\.esc-category-tabs \.esc-pill \{[^}]*font-size: 13px;/)
-    expect(css).not.toMatch(/\.esc-category-tabs \.esc-pill \{[^}]*font-size: 14px;/)
+    expect(ruleBody('.esc-category-tabs .esc-pill')).toContain(fs('13'))
+    expect(ruleBody('.esc-category-tabs .esc-pill')).not.toContain(fs('14'))
     // 反向锁：只收字号这一档——行高/字重/选中灰底都不许被顺手改
     //   ★本刀例外：那一刀的"间距也不许动"被**新的用户裁决**取代了（「全部那行分类标签之间间距紧凑些」），
     //     gap 20px → 8px 见下一处断言；除 gap 外的反向锁原样留着。
@@ -488,15 +505,64 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     expect(toolbarSource.match(/esc-category-tabs/g) ?? []).toHaveLength(1)
   })
 
+  it('样式层（本刀）：字号一律接壳的字体缩放 + 移动档视口自适应（不许再出现裸 px 字号）', () => {
+    // 壳的真源：布局层把用户「字体大小」设置写成 --dsh-content-font-size: Npx，
+    // 主题层再由它派生一条**加法** delta：body{--dsh-content-font-delta:calc(var(--dsh-content-font-size,14px) - 14px)}
+    // ⇒ 壳内每个组件都写 calc(基准px + var(--dsh-content-font-delta, 0px))。本页原先 27 处字号全是硬编码 px，
+    // 是壳里唯一"不跟随字体设置"的一块，本刀接上，并叠一档 --esc-fs-delta（移动档视口自适应）。
+    // ① 桌面档 delta 为 0 ⇒ 桌面像素观感与本刀之前一致（壳那一路仍然生效）
+    expect(ruleBody('.esc-root')).toContain('--esc-fs-delta: 0px')
+    // ② 移动档把它换成一条 clamp 的视口函数（100vmin：宽高里较小的一维；横竖屏都不会反向）
+    const mobile = /@media \(pointer: coarse\), \(max-width: 1024px\), \(max-height: 700px\) \{([\s\S]*?)\n\}/.exec(css)
+    expect(mobile, '移动档').not.toBeNull()
+    expect(mobile![1]).toContain('--esc-fs-delta: clamp(-1.5px, (100vmin - 400px) * 0.007, 1.5px)')
+    // ③ ★门禁本体：全份 CSS **不许有裸 px 字号**——每一处都必须是"基准 + 两个 delta"的 calc 形态。
+    //    这条同时防两件事：新写的规则退回硬编码；以及有人"顺手简化"把某个 delta 去掉。
+    // ★先剥注释再扫：注释里引述"旧写法长什么样"是正常的（本刀注释里就写了），
+    //   不剥的话门禁会被自己的注释骗红——那会逼着后人把注释写含糊。
+    const declarations = css.replace(/\/\*[\s\S]*?\*\//g, '')
+    const bare = declarations.match(/font-size: [0-9.]+px;/g) ?? []
+    expect(bare, `裸 px 字号：${bare.join(' ')}`).toEqual([])
+    // 逐个抽样：三档字号都在（小字/正文/大字），且都带两个 delta（`fs()` 就是那条唯一合法形态）
+    expect(ruleBody('.esc-scroll-loader')).toContain(fs('12'))
+    expect(ruleBody('.esc-tag')).toContain(fs('11'))
+    expect(ruleBody('.esc-card-title')).toContain(fs('14.5'))
+    expect(ruleBody('.esc-resource-tab')).toContain(fs('18'))
+    // 反向锁：delta 必须是**加法**（乘法会破坏层级：11px 与 18px 不能按比例一起放大）
+    expect(css).not.toMatch(/font-size: calc\([0-9.]+px \*/)
+    // 反向锁：页面的字号不许自带媒体档二次声明（唯一真源仍是各规则本体 + 那两个 delta）
+    expect(declarations.match(/font-size/g) ?? []).toHaveLength(27)
+  })
+
+  it('样式层（本刀）：「精选」上下间距调大到同值（上 20 = 精选自身 6 + 维度行 14）', () => {
+    // 结构事实（esc-toolbar.tsx）：工具栏里三行依次是 .esc-toolbar-row（三页签）→ .esc-toolbar-second（精选）
+    // → .esc-source-tabs（维度），而 .esc-toolbar 是**普通块容器、行间没有 gap** ⇒ 原先"精选与上方"= 0px
+    //（两行直接贴死，正是"太挤"的来处），"精选与下方"= 8 + 14 = 22px。
+    // 用户原话「精选和上方间距调大，上下间距一样」⇒ 两个数取同一个 20：
+    //   上 = .esc-toolbar-second 的 margin-top
+    //   下 = .esc-featured 的 padding-bottom + .esc-source-tabs 的 margin-top（那 14px 是官方值，且连接器页
+    //        没有精选行时它就是唯一的上间距，故不挪它，改精选那一侧）
+    const num = (re: RegExp): number => Number(re.exec(css)?.[1])
+    const above = num(/\.esc-toolbar-second \{[^}]*margin-top: ([0-9]+)px;/)
+    const featuredBottom = num(/\.esc-featured \{[^}]*padding-bottom: ([0-9]+)px;/)
+    const sourceTop = num(/\.esc-source-tabs \{[^}]*margin-top: ([0-9]+)px;/)
+    expect([above, featuredBottom, sourceTop]).toEqual([20, 6, 14])
+    // ★门禁是"上下相等"这条不变量本身（不是把两个 20 硬写两遍）
+    expect(above).toBe(featuredBottom + sourceTop)
+    // 反向锁：上方不许退回贴死（0），也不许反而比下方小——两种都是"回到用户抱怨的那个样子"
+    expect(above).toBeGreaterThan(0)
+    expect(above).toBeGreaterThanOrEqual(featuredBottom + sourceTop)
+  })
+
   it('样式层（本轮真机裁决）：顶部两行标签同收一档到 18px，且两行继续逐值相等', () => {
     // 用户原话「专家技能连接器和系统广场，工作空间小一号」⇒ **两行各收一档**（两处原本都是 20px）：
     //   行① 专家/技能/连接器  → `.esc-resource-tab`
     //   行② 系统广场/团队空间/我启用的 → `.esc-source-tabs .esc-pill`
-    expect(css).toMatch(/\.esc-resource-tab \{[^}]*font-size: 18px;/)
-    expect(css).toMatch(/\.esc-source-tabs \.esc-pill \{[^}]*font-size: 18px;/)
+    expect(ruleBody('.esc-resource-tab')).toContain(fs('18'))
+    expect(ruleBody('.esc-source-tabs .esc-pill')).toContain(fs('18'))
     // 反向锁①：20px 那一档不许回来（两处都锁，只锁一处会留半条退路）
-    expect(css).not.toMatch(/\.esc-resource-tab \{[^}]*font-size: 20px;/)
-    expect(css).not.toMatch(/\.esc-source-tabs \.esc-pill \{[^}]*font-size: 20px;/)
+    expect(ruleBody('.esc-resource-tab')).not.toContain(fs('20'))
+    expect(ruleBody('.esc-source-tabs .esc-pill')).not.toContain(fs('20'))
     // 反向锁②：两行是**同一套视觉语言** ⇒ font-size / font-weight / line-height 逐值相等。
     //   判据是"提取后比对"，不是"两边各写一条 toMatch"——后者在任何一处被单独改掉时仍会绿。
     const body = (head: string): string => {
@@ -507,7 +573,7 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     const triplet = (head: string): readonly (string | undefined)[] =>
       ['font-size', 'font-weight', 'line-height'].map(prop => new RegExp(`${prop}: ([^;]+);`).exec(body(head))?.[1])
     expect(triplet('.esc-resource-tab')).toEqual(triplet('.esc-source-tabs .esc-pill'))
-    expect(triplet('.esc-resource-tab')).toEqual(['18px', '600', '1'])
+    expect(triplet('.esc-resource-tab')).toEqual([fsValue('18'), '600', '1'])
     // 反向锁③：本刀**只收字号**——高度/字重/行高/容器间距一个都不许被顺手改（改了就是新裁决，得显式改这条）
     expect(css).toMatch(/\.esc-resource-tab \{[^}]*height: 32px;/)
     expect(css).toMatch(/\.esc-source-tabs \.esc-pill \{[^}]*height: 30px;/)
@@ -1183,5 +1249,30 @@ describe('esc：失败面收口（本刀 —— 精选行与列表页同一套�
     expect(signedOut.props['className']).toBe('esc-featured-note')
     expect(textOf(signedOut)).toContain(ENTERPRISE_ESC_LOCAL_COPY.signInRequiredTitle)
     expect(textOf(signedOut)).toContain(ENTERPRISE_ESC_LOCAL_COPY.signInRequiredBody)
+  })
+
+  it('★本刀（用户裁决「精选最多显示六个」）：只画 6 枚，状态里仍如实留着平台给的那一批', () => {
+    // 本机实测 /api/display/recommend/list ⇒ 0000 / total 19 ⇒ 上限是**展示**规则，不是取数规则：
+    // 平台给多少照旧原样进状态（`items` 就是入参那一批），只有这一行截前六枚。
+    const records: readonly EscRecommendRecord[] = Array.from({ length: 19 }, (_unused, index) => ({
+      id: 1000 + index,
+      targetType: 'Skill',
+      targetId: index,
+      recType: 'recommend',
+      label: `推荐${index}`,
+    }))
+    const grid = asElement(enterpriseEscFeaturedBody({ kind: 'ready', items: records }, () => undefined))
+    expect(grid.props['className']).toBe('esc-featured-grid')
+    expect(ENTERPRISE_ESC_FEATURED_MAX).toBe(6)
+    expect(grid.props['children'] as readonly unknown[]).toHaveLength(6)
+    // 恰好六条 ⇒ 一枚不少；不足六条 ⇒ 照原样画（上限只截多，不许把不足的也裁掉或补齐）
+    expect(
+      (asElement(enterpriseEscFeaturedBody({ kind: 'ready', items: records.slice(0, 6) }, () => undefined))
+        .props['children'] as readonly unknown[]),
+    ).toHaveLength(6)
+    expect(
+      (asElement(enterpriseEscFeaturedBody({ kind: 'ready', items: records.slice(0, 5) }, () => undefined))
+        .props['children'] as readonly unknown[]),
+    ).toHaveLength(5)
   })
 })

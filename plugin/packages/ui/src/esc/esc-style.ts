@@ -46,6 +46,18 @@
  *         → `--dsw-alias-bg-layer-1`（卡片底色）；`--dsw-alias-background-secondary` → `--dsw-alias-bg-skeleton`（图标兜底底）。
  *         失效 token 会让声明"计算期无效"：hover 边框回退成 `currentColor`（用户截图里那张**黑边卡片**就是
  *         这一条，不是设计），卡片底色/图标底色则回退成透明。
+ *   ⑧ **字号体系 + 三处间距/上限（本刀）**：
+ *      ① 字号：全页 27 处硬编码 px ⇒ 接上壳的字体缩放
+ *         （`calc(基准px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px))`）。
+ *         壳的真源：布局层写 `--dsh-content-font-size: Npx`（用户的「字体大小」设置），主题层派生
+ *         加法 delta（`body{--dsh-content-font-delta:calc(--dsh-content-font-size,14px - 14px)}`）。
+ *         本页原先不跟随；现在两档都跟随。`--esc-fs-delta` 在桌面档是 `0px`（像素观感不变），
+ *         移动档换成 `clamp(-1.5px, (100vmin - 400px) * 0.007, 1.5px)` 的**视口自适应**一档。
+ *         纪律：本页不许再出现裸 px 字号（门禁剥注释后逐条扫）。
+ *      ② 顶部两行 20px → 18px（用户「小一号」）；分类行 gap 20px → 8px（用户「紧凑些」）。
+ *      ③ 「精选」上下间距同为 20（上 margin-top 20 = 下 6+14），原先上方是 0（贴死）。
+ *      ④ 精选行**最多画 6 枚**（展示上限，不是取数上限，见 `esc-featured.tsx`）。
+ *      ⑤ 触底「加载中」那行换定高紧凑行 `.esc-scroll-loader`（原先复用整屏态会被顶一下）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -57,7 +69,15 @@ const CSS = `
    抄的（卡片 170/130 = 内容 136/96 + 内衬 32 + 描边 2）⇒ 少了它整块长胖 34px，紧凑卡片还会因内容超出而
    把描述挤掉半行。故在 esc 子树内补上同一条（作用域内，不外溢到壳）。 */
 .esc-root, .esc-root *, .esc-root *::before, .esc-root *::after { box-sizing: border-box; }
-.esc-root { min-height: 0; background: var(--dsw-alias-bg-base); display: flex; flex-direction: column; height: 100%; }
+/* ★**字号体系（本刀）**：本页原先 27 处字号全是硬编码 px ⇒ **完全不跟随**壳的字体缩放。
+   壳的做法是"一条加法 delta"：body 上
+   --dsh-content-font-delta: calc(var(--dsh-content-font-size,14px) - 14px)
+   （布局层把用户的「字体大小」设置写成 --dsh-content-font-size: Npx），壳内每个组件都写
+   calc(基准px + var(--dsh-content-font-delta, 0px))。故本页同样接上，并**再叠一档视口自适应**
+   --esc-fs-delta（见移动档）——两个 delta 相加，层级关系不变（全体同加同一个数）。
+   ★纪律：本页**不许再出现裸 px 字号**（"font-size: 13px;" 这种形式），门禁逐条扫（见 spec）。
+   ★注意：本段整体在一枚模板字符串内，注释里**不许出现反引号**（会截断字符串）。 */
+.esc-root { min-height: 0; background: var(--dsw-alias-bg-base); display: flex; flex-direction: column; height: 100%; --esc-fs-delta: 0px; }
 /* 内容区内衬照官方 index.less:12 的 .content-wrapper { padding: 16px 24px }（原为 10px 16px，是"紧凑"那一刀
    遗留的缩水值，官方从来不是这个数）。 */
 .esc-content { flex: 1; min-width: 0; min-height: 0; padding: 16px 24px; display: flex; flex-direction: column; overflow: hidden; }
@@ -79,7 +99,7 @@ const CSS = `
    ★本刀**只收字号**：height 32 / font-weight 600 / line-height 1 / 图标 gap 6 / 容器 gap 20 一个都不动；
    并且本行与维度行（「.esc-source-tabs .esc-pill」）**必须继续逐值相等**——它们是同一套视觉语言
    （判据：两处 font-size/weight/line-height 提取后直接比对，见 spec）。 */
-.esc-resource-tab { height: 32px; padding: 0; display: inline-flex; align-items: center; gap: 6px; background: none !important; box-shadow: none !important; border: 0; border-radius: 0; font-size: 18px; font-weight: 600; line-height: 1; color: var(--dsw-alias-label-secondary); transition: color .15s; }
+.esc-resource-tab { height: 32px; padding: 0; display: inline-flex; align-items: center; gap: 6px; background: none !important; box-shadow: none !important; border: 0; border-radius: 0; font-size: calc(18px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); font-weight: 600; line-height: 1; color: var(--dsw-alias-label-secondary); transition: color .15s; }
 /* ★用户裁决（本轮）：「非选中的页签颜色深一点」。
    ★先把上一版注释里那句**假话**改掉：它写着「label-dimmed 是主题里最接近 50% 黑的一枚」——不是。
      主题浅色阶梯的真值（dsh-client-ui-theme 真源）：dimmed #e1e5ee（≈12% 黑，几乎是白）
@@ -116,7 +136,15 @@ const CSS = `
 /* ★第一栏：三页签在左、右块在右（用户裁决「精选应在第2栏」顺带定的行序）。 */
 .esc-toolbar-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: nowrap; }
 /* 第二栏：「精选」那一行 —— 撑满整宽，卡片网格自己铺。 */
-.esc-toolbar-second { flex-shrink: 0; width: 100%; }
+/* ★本刀（用户原话「精选和上方间距调大，上下间距一样」）：
+   结构事实——工具栏里三行依次是 .esc-toolbar-row（三页签）→ .esc-toolbar-second（精选）→ .esc-source-tabs（维度），
+   而 .esc-toolbar 是普通块容器、行与行之间**没有** gap ⇒ 原先"精选与上方"的间距是 **0**（两行直接贴死，
+   这正是"太挤"的来处），"精选与下方"则是 8px（.esc-featured 的底部内衬）+ 14px（维度行上边距）= 22px。
+   本刀把上下的两个数**调成同一个值 20**：上 = 这里的 margin-top: 20px；
+   下 = .esc-featured 的 6px 底部内衬 + 维度行的 14px 上边距（那 14px 是官方值，且连接器页**没有精选行**
+   时它就是与上方之间的唯一间距，故不挪它，改精选那一侧）。
+   ★门禁是"上下相等"这条不变量本身（三个数提取后相加比对），不是把两个 20 硬写两遍。 */
+.esc-toolbar-second { flex-shrink: 0; width: 100%; margin-top: 20px; }
 /* 主行左侧插槽：三页签与右块真同处这一行（用户裁决④） */
 .esc-toolbar-leading { flex: none; display: flex; align-items: center; }
 /* ★本刀（用户裁决⑤）：维度标签（系统广场/团队空间/我启用的）与顶栏三页签同一套：无底色、
@@ -127,7 +155,7 @@ const CSS = `
 /* ★用户裁决：维度标签（系统广场/团队空间/我启用的）也走**凹槽型**——与三页签同一形态。
    容器：底色 + 淡描边 + 圆角 6px + 内衬 2px；项在槽内，选中项凸起白块。 */
 .esc-source-tabs { display: flex; align-items: center; gap: 20px; margin-top: 14px; flex: none; flex-wrap: nowrap; }
-.esc-source-tabs .esc-pill { height: 30px; padding: 0; display: inline-flex; align-items: center; background: none !important; box-shadow: none !important; border: 0; border-radius: 0; font-size: 18px; font-weight: 600; line-height: 1; color: var(--dsw-alias-label-secondary); transition: color .15s; }
+.esc-source-tabs .esc-pill { height: 30px; padding: 0; display: inline-flex; align-items: center; background: none !important; box-shadow: none !important; border: 0; border-radius: 0; font-size: calc(18px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); font-weight: 600; line-height: 1; color: var(--dsw-alias-label-secondary); transition: color .15s; }
 .esc-source-tabs .esc-pill:hover { color: var(--dsw-alias-label-primary); }
 /* ★用户裁决（本轮）：维度标签的「未选中」与三页签**同步深一档**（同一套视觉语言，不许一行深一行浅） */
 .esc-source-tabs .esc-pill:not([data-esc-selected='true']) { color: var(--dsw-alias-label-tertiary); }
@@ -153,7 +181,7 @@ const CSS = `
 .esc-search { width: 220px; height: 32px; flex: none; min-width: 0; max-width: none; border-radius: 6px; }
 /* 「更多」现在是一枚**真超链接**（用户裁决指向 https://skillhub.cn/）⇒ 补 text-decoration: none 保持原观感；
    原来那条 .esc-more:disabled 随"置灰"写法一起撤掉（它不再是按钮）。 */
-.esc-more { flex-shrink: 0; font-size: 12px; color: var(--dsw-alias-label-tertiary); white-space: nowrap; background: none; border: 0; padding: 0; font-family: inherit; cursor: pointer; text-decoration: none; }
+.esc-more { flex-shrink: 0; font-size: calc(12px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); color: var(--dsw-alias-label-tertiary); white-space: nowrap; background: none; border: 0; padding: 0; font-family: inherit; cursor: pointer; text-decoration: none; }
 /* ★口径 35⑤：accent-primary 这个名字 **在 dsh 主题里不存在**（403 枚 token 里查无此名，带上 --dsw-alias-
    前缀写出来就是计算期无效）⇒ 这条 hover 色一直没生效，官方那枚是 @colorPrimary。改用真名 brand-primary。 */
 .esc-more:hover { color: var(--dsw-alias-brand-primary); }
@@ -173,7 +201,7 @@ const CSS = `
 /* ★用户裁决（本轮，真机）：「一级二级分类标签再小一号」——一级（全部/Agent/经营管理…）与二级
    （选中一级后展开的子分类）**同挂这一类**（渲染点只有 esc-toolbar.tsx 一处），故一档改完两级同时生效：
    字号 14px → **13px**（字重/行高/间距/选中灰底都不动，只收字号这一档）。 */
-.esc-category-tabs .esc-pill { height: 28px; padding: 0 8px; display: inline-flex; align-items: center; background: none; box-shadow: none; border: 0; border-radius: 6px; font-size: 13px; font-weight: 500; line-height: 1; color: var(--dsw-alias-label-secondary); transition: color .15s, background .15s; }
+.esc-category-tabs .esc-pill { height: 28px; padding: 0 8px; display: inline-flex; align-items: center; background: none; box-shadow: none; border: 0; border-radius: 6px; font-size: calc(13px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); font-weight: 500; line-height: 1; color: var(--dsw-alias-label-secondary); transition: color .15s, background .15s; }
 .esc-category-tabs .esc-pill:hover { color: var(--dsw-alias-label-primary); }
 /* ★用户裁决（本轮）：二级分类的「未选中」与上面两行**同步深一档**（三行一体） */
 .esc-category-tabs .esc-pill:not([data-esc-selected='true']) { color: var(--dsw-alias-label-tertiary); }
@@ -184,7 +212,7 @@ const CSS = `
 /* ★口径 35：官方那一行的 .category-tab/.category-tab-active 两条**已删**——本页的分类页签用的是官方
    Pill 原语（视觉由原语自带），这两条从来没被任何元素挂上；其中 -active 那格还挂着同一枚失效 token
    （background-secondary）。容器 .esc-category-tabs 仍照官方 :41 的 margin-top: 14px。 */
-.esc-toolbar-note { margin-top: 6px; font-size: 12px; color: var(--dsw-alias-label-tertiary); }
+.esc-toolbar-note { margin-top: 6px; font-size: calc(12px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); color: var(--dsw-alias-label-tertiary); }
 
 /* —— 列表区（原 ResourceAggregation/index.less）——
    ★口径 34/35：栅格回官方值（最小列宽 300px、间距 16px；"紧凑档"的 220/10 已撤回）。 */
@@ -245,30 +273,30 @@ const CSS = `
 /* ★本刀（用户裁决⑦）：标题与描述**合成一块**、与图标同处卡片头那一行（描述在标题正下方）。
    描述不再独占一整行——那行原来固定 32px 高（两行），真机截图里把卡片撑得很高。
    现在描述在 headmain 内、标题之下，随卡片高度自适应。 */
-.esc-card-title { margin: 0; color: var(--dsw-alias-label-primary); font-size: 14.5px; font-weight: 650; line-height: 1.4; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.esc-card-title { margin: 0; color: var(--dsw-alias-label-primary); font-size: calc(14.5px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); font-weight: 650; line-height: 1.4; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* 头里的那一格描述：单行截断（与标题同一个块，不占独立行高）。 */
 /* ★真图实测：描述是**单行**截断（不是 SPEC 文字里那个两行/min-height 38px）。 */
-.esc-card-headdesc { margin: 3px 0 0; color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.esc-card-headdesc { margin: 3px 0 0; color: var(--dsw-alias-label-secondary); font-size: calc(12px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .esc-card-author-row { display: flex; align-items: center; gap: 12px; }
 /* 官方 AuthorInfo/index.less：容器 min-width: 30px; gap: 4px; flex: 0 1 auto，
    头像 **16×16**（原实现写的是 14×14，比官方小一圈），名字 height: 16px; line-height: 16px。 */
 .esc-author { display: flex; align-items: center; gap: 4px; overflow: hidden; min-width: 30px; flex: 0 1 auto; }
 .esc-author-avatar { width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; }
-.esc-author-name { font-size: 12px; height: 16px; line-height: 16px; color: var(--dsw-alias-label-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.esc-extra-box { min-width: 120px; flex: 1 1 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--dsw-alias-label-tertiary); font-size: 12px; overflow: hidden; }
+.esc-author-name { font-size: calc(12px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); height: 16px; line-height: 16px; color: var(--dsw-alias-label-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.esc-extra-box { min-width: 120px; flex: 1 1 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--dsw-alias-label-tertiary); font-size: calc(12px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); overflow: hidden; }
 /* 描述：官方那一格是 EllipsisTooltip 渲染的 <div class="text-ellipsis-2 {module}.content">——
    text-ellipsis-2（styles/custom.less:11-23）给 display:-webkit-box / -webkit-line-clamp:2 /
    -webkit-box-orient:vertical / overflow:hidden / **text-overflow:ellipsis / word-break:break-all /
    white-space:normal**，.content（CardWrapper/index.less:61-67）给 line-height:16px; height:32px;
    color:font-tertiary; font-size:12px; font-weight:strong。本页原先漏了 text-ellipsis-2 里那三条，
    现补齐；再加 flex: none（见上，描述不许被压扁）。 */
-.esc-card-content { line-height: 16px; height: 32px; color: var(--dsw-alias-label-tertiary); font-size: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; word-break: break-all; white-space: normal; flex: none; }
+.esc-card-content { line-height: 16px; height: 32px; color: var(--dsw-alias-label-tertiary); font-size: calc(12px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; word-break: break-all; white-space: normal; flex: none; }
 /* 页脚：官方只有【有统计行】的专家卡片才渲染这个元素（{showStats && <footer/>}，height: 24px）——
    技能/连接器卡片没有它（否则多出 24px + 16px 间隙，正是把描述挤出内容盒的那 40px）。渲染与否由卡片的
    showStats 决定（见 esc-card.tsx），这里只保证它的几何。 */
 .esc-card-footer { height: 24px; display: flex; align-items: center; flex: none; }
 .esc-count-box { display: flex; align-items: center; gap: 10px; flex: 1; }
-.esc-count-text { display: flex; align-items: center; font-size: 12px; color: var(--dsw-alias-label-tertiary); gap: 4px; }
+.esc-count-text { display: flex; align-items: center; font-size: calc(12px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); color: var(--dsw-alias-label-tertiary); gap: 4px; }
 .esc-action-box { position: absolute; top: 12px; right: 16px; display: flex; align-items: center; gap: 4px; opacity: 0; transition: opacity .3s ease-in-out; z-index: -1; }
 .esc-card:hover .esc-action-box { opacity: 1; z-index: 1; }
 .esc-action-box-pinned { opacity: 1; z-index: 1; }
@@ -291,36 +319,36 @@ const CSS = `
 .esc-corner-box { position: absolute; right: 16px; bottom: 12px; display: flex; align-items: center; }
 .esc-star-box { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; cursor: pointer; background: none; border: 0; padding: 0; }
 .esc-connect-info { display: flex; align-items: center; gap: 8px; overflow: hidden; }
-.esc-connect-category { color: var(--dsw-alias-label-tertiary); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.esc-connect-status { display: flex; align-items: center; flex-shrink: 0; gap: 4px; font-size: 12px; white-space: nowrap; }
+.esc-connect-category { color: var(--dsw-alias-label-tertiary); font-size: calc(12px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.esc-connect-status { display: flex; align-items: center; flex-shrink: 0; gap: 4px; font-size: calc(12px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); white-space: nowrap; }
 .esc-status-dot { width: 6px; height: 6px; border-radius: 50%; background-color: currentcolor; }
 .esc-status-connected { color: var(--dsw-alias-state-success-primary); }
 .esc-status-disconnected { color: var(--dsw-alias-label-tertiary); }
 
 /* —— 三态与提示（本页新增：原页面读不到数据时是"静默空态"）—— */
-.esc-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--dsw-alias-label-tertiary); font-size: 13px; text-align: center; padding: 20px; }
-.esc-state-title { color: var(--dsw-alias-label-secondary); font-size: 14px; }
+.esc-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--dsw-alias-label-tertiary); font-size: calc(13px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); text-align: center; padding: 20px; }
+.esc-state-title { color: var(--dsw-alias-label-secondary); font-size: calc(14px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); }
 .esc-state-error { color: var(--dsw-alias-state-error-primary); }
-.esc-state-code { font-size: 12px; color: var(--dsw-alias-label-tertiary); word-break: break-all; }
+.esc-state-code { font-size: calc(12px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); color: var(--dsw-alias-label-tertiary); word-break: break-all; }
 /* ★本刀（真机故障「下滑加载中…会一直闪屏」的可见面）：触底加载那一行原先复用整屏态「.esc-state」
    （内衬 20px、字号 13px）——它出现在滚动内容里，**出现/消失都会把列表顶一下**。当底部一遍遍
    发空补拉时，那行一闪一缩就是用户看到的"闪"。改成**定高紧凑行**：高度固定 28px、12px 字、
    内衬为 0 ⇒ 它出现或消失只占这 28px，不再牵动整段列表（判据侧的根因修复见 esc-aggregation.tsx）。 */
-.esc-scroll-loader { flex: none; height: 28px; display: flex; align-items: center; justify-content: center; color: var(--dsw-alias-label-tertiary); font-size: 12px; }
+.esc-scroll-loader { flex: none; height: 28px; display: flex; align-items: center; justify-content: center; color: var(--dsw-alias-label-tertiary); font-size: calc(12px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); }
 /* 空态插图（官方是 antd <Empty> 的默认插图；dsh 无 Empty 原语 ⇒ 用 token 画一张等价物，见 esc-aggregation.tsx）。 */
 .esc-empty-art { display: flex; align-items: center; justify-content: center; width: 64px; height: 64px; border-radius: var(--dsw-radius-lg, 12px); background: var(--dsw-alias-bg-skeleton); color: var(--dsw-alias-label-tertiary); }
 
 /* —— 首屏加载（官方那一态画的是 components/custom/Loading：居中的一枚转圈图标 + 「加载中...」，
    色走主色、字号 12、间距 8px）——原先是本页自造的六张骨架卡，口径 35 按官方换成这一枚。 */
-.esc-loading { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--dsw-alias-brand-primary); font-size: 12px; }
+.esc-loading { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--dsw-alias-brand-primary); font-size: calc(12px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); }
 .esc-loading-icon { animation: esc-spin 1s linear infinite; }
 @keyframes esc-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .esc-loading-icon { animation: none; } }
 
 /* —— 未登录门（未登录那态：原页面不存在，因为那时它总在平台内）—— */
 .esc-gate { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 32px; text-align: center; }
-.esc-gate-title { font-size: 15px; font-weight: 500; color: var(--dsw-alias-label-primary); }
-.esc-gate-body { font-size: 13px; color: var(--dsw-alias-label-secondary); max-width: 420px; line-height: 20px; }
+.esc-gate-title { font-size: calc(15px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); font-weight: 500; color: var(--dsw-alias-label-primary); }
+.esc-gate-body { font-size: calc(13px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); color: var(--dsw-alias-label-secondary); max-width: 420px; line-height: 20px; }
 
 /* —— 窄屏 ——
    ★口径 37：这一档原本是「药丸组保持自然宽度，搜索框整行占满（flex: 1 1 100%）」，那必然换行、把搜索框
@@ -355,6 +383,12 @@ const CSS = `
   .esc-content::-webkit-scrollbar { display: none; }
   /* 列表退回普通块：高度随内容走（不再自己滚），否则会变成「格子里再滚」的套娃。 */
   .esc-scroll { flex: none; min-height: 0; overflow: visible; }
+  /* ★本刀（用户原话「我希望移动端下的字体能自适应缩放」）：移动档再叠一档**视口自适应**字号。
+     取 100vmin（宽高里较小的那一维：横竖屏都不会反向）——视口越小 delta 越负、越大越正，
+     clamp 夹在 ±1.5px（≈13px 基准的一成上下：看得出"随屏缩放"，又不至于把已排好的卡片挤变形）。
+     ★只暴露**一个** delta、全体字号同加同一个数 ⇒ 层级关系不变；桌面档 --esc-fs-delta: 0px
+     （见 .esc-root），故桌面像素观感与本刀之前一致，而壳「字体大小」那一路在两档都生效。 */
+  .esc-root { --esc-fs-delta: clamp(-1.5px, (100vmin - 400px) * 0.007, 1.5px); }
 }
 
 /* ══════════════ 本刀（workbuddy 风格重构）：以下为本刀新增的类 ══════════════
@@ -364,7 +398,7 @@ const CSS = `
 /* —— 顶栏右块新增的两枚控件（截图里排在搜索框右侧的那一对）——
    ★两枚**本刀都不接线**（筛选与添加动作都不做），但按产品宪法不许只挂一句 title 的死控件：
    它们**看得见、有文案、有 title**，只是置灰。 */
-.esc-installed { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; height: 32px; padding: 0 12px; border-radius: var(--dsw-radius-md, 8px); border: 1px solid var(--dsw-alias-border-l2); background: none; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 13px; white-space: nowrap; cursor: pointer; }
+.esc-installed { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; height: 32px; padding: 0 12px; border-radius: var(--dsw-radius-md, 8px); border: 1px solid var(--dsw-alias-border-l2); background: none; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: calc(13px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); white-space: nowrap; cursor: pointer; }
 .esc-installed:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); }
 .esc-installed:disabled { cursor: default; opacity: .6; }
 .esc-installed-count { color: var(--dsw-alias-label-tertiary); font-variant-numeric: tabular-nums; }
@@ -406,7 +440,7 @@ const CSS = `
 /* ★用户裁决（本轮）：「去除空白行」——margin-top: auto 已去掉。它与上面那条定高一起把标签行
    顶到卡底、在中间留白；现在标签行**紧贴描述**（间距 = .esc-card 的 gap 12 + 这里 6px 上衬）。 */
 .esc-card-tags { display: flex; align-items: center; gap: 12px; flex: none; flex-wrap: nowrap; overflow: hidden; padding-top: 6px; }
-.esc-tag { display: inline-flex; align-items: center; gap: 4px; color: var(--dsw-alias-label-secondary); font-size: 11px; line-height: 1.4; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.esc-tag { display: inline-flex; align-items: center; gap: 4px; color: var(--dsw-alias-label-secondary); font-size: calc(11px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); line-height: 1.4; white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* SPEC：统计行的图标 opacity .7（数字不降权，图标降权——那才是"次要信息"的正确表达）。 */
 .esc-tag svg { opacity: .7; }
 .esc-tag-author { min-width: 0; overflow: hidden; }
@@ -414,10 +448,10 @@ const CSS = `
 .esc-tag-author > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* —— 「精选技能」那一行（workbuddy 版式：标题栏 + 「换一批」+ 卡片网格）—— */
-.esc-featured { flex-shrink: 0; padding-bottom: 8px; }
+.esc-featured { flex-shrink: 0; padding-bottom: 6px; }
 .esc-featured-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-.esc-featured-title { margin: 0; color: var(--dsw-alias-label-primary); font-size: 15px; font-weight: 600; line-height: 22px; }
-.esc-featured-refresh { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; border: 0; background: none; padding: 0; color: var(--dsw-alias-label-tertiary); font-family: inherit; font-size: 12px; cursor: pointer; }
+.esc-featured-title { margin: 0; color: var(--dsw-alias-label-primary); font-size: calc(15px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); font-weight: 600; line-height: 22px; }
+.esc-featured-refresh { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; border: 0; background: none; padding: 0; color: var(--dsw-alias-label-tertiary); font-family: inherit; font-size: calc(12px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); cursor: pointer; }
 .esc-featured-refresh:hover { color: var(--dsw-alias-brand-primary); }
 .esc-featured-refresh:focus-visible { outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color); outline-offset: 2px; }
 .esc-featured-body { position: relative; }
@@ -438,11 +472,11 @@ const CSS = `
 .esc-featured-icon { flex-shrink: 0; }
 .esc-featured-image { display: block; width: 40px; height: 40px; border-radius: var(--dsw-radius-md, 8px); object-fit: cover; background: var(--dsw-alias-bg-skeleton); }
 .esc-featured-image-empty { border: 1px solid var(--dsw-alias-border-l1); }
-.esc-featured-label { min-width: 0; overflow: hidden; color: var(--dsw-alias-label-primary); font-size: 13px; line-height: 20px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.esc-featured-label { min-width: 0; overflow: hidden; color: var(--dsw-alias-label-primary); font-size: calc(13px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); line-height: 20px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 /* 精选行自己的失败/未登录说明：复用本页既有的失败色与提示字号，不另立一套。 */
-.esc-featured-note { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 0; color: var(--dsw-alias-state-error-primary); font-size: 13px; line-height: 20px; }
+.esc-featured-note { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 0; color: var(--dsw-alias-state-error-primary); font-size: calc(13px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); line-height: 20px; }
 .esc-featured-note .esc-sub { margin: 0; color: var(--dsw-alias-label-secondary); }
-.esc-retry { border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md, 8px); background: none; padding: 4px 12px; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 13px; cursor: pointer; }
+.esc-retry { border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md, 8px); background: none; padding: 4px 12px; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: calc(13px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); cursor: pointer; }
 .esc-retry:hover { background: var(--dsw-alias-interactive-bg-hover); }
 `
 
