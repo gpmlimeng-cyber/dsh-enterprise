@@ -13,8 +13,13 @@
 # node_modules 字节数也不变，但装进去的仍是旧代码。
 #
 # 所以正确顺序是：先让 lockfile 不再认识 dshent-plugin（否则 pnpm 直接拿 lock 里的旧
-# resolution 复原），再清掉 store 里的这条 file: 链接，最后 pnpm install --force 重装。
+# resolution 复原），再清掉 store 里的这条 file: 链接，最后 `pnpm install` 重装
+# （★在**没有** store/links 目录的机器上不加 `--force`，理由见步骤 5 那段注释：
+#    `--force` 会重新解析整张依赖图，本机另有一条 `github:` 依赖要走 git+ssh ⇒ 必失败）。
 # 三步缺一，校验就会拿 md5 失败——这正是校验步骤存在的意义。
+#
+# ★本机（Android/Termux）**没有 ssh**：任何让 pnpm 重新解析 `github:` 依赖的路径都会以
+#   exit 128 失败。故本脚本在本机只允许"不 force"的路径；要 force 需显式 DSHENT_PNPM_FORCE=1。
 # ---------------------------------------------------------------------------
 
 set -eu
@@ -47,10 +52,12 @@ run_install=true
 
 usage() {
   cat <<EOF
-用法: $0 [--pack] [--install] [--help]
+用法: $0 [--pack] [--install] [--extract] [--help]
 
   --pack      只重新打包 bundle 并覆盖 baseline 制品
-  --install   只把 baseline 制品装机到各 profile（跳过打包）
+  --install   只把 baseline 制品装机到各 profile（跳过打包，走 pnpm）
+  --extract   只装机，但**绕开 pnpm**：直接把 baseline 解到 node_modules 并就地改
+              lockfile 里那一行 integrity（离线、不碰其它依赖；见步骤 5 的说明）
   (都不给)    先打包，再装机，最后校验
 
 环境变量:
@@ -67,6 +74,7 @@ while [ $# -gt 0 ]; do
   case $1 in
     --pack) run_install=false ;;
     --install) run_pack=false ;;
+    --extract) run_pack=false; DSHENT_INSTALL_BY_EXTRACT=1 ;;
     -h|--help) usage; exit 0 ;;
     *) printf '未知参数: %s\n\n' "$1" >&2; usage >&2; exit 2 ;;
   esac
@@ -192,16 +200,32 @@ install_into_profile() {
   profile_dir=$1
   profile_name=$(basename "$profile_dir")
 
-  step "profile:$profile_name" "装机到 $profile_dir"
+  extract_mode=${DSHENT_INSTALL_BY_EXTRACT:-0}
+  step "profile:$profile_name" "装机到 $profile_dir（模式: $([ "$extract_mode" = 1 ] && echo extract || echo pnpm)）"
   [ -d "$profile_dir" ] || { printf 'profile 不存在: %s\n' "$profile_dir" >&2; fail; }
   lock_path="$profile_dir/pnpm-lock.yaml"
   [ -f "$lock_path" ] || { printf '缺少 lockfile: %s\n' "$lock_path" >&2; fail; }
 
-  # (1) 清掉已安装的包本体与 .pnpm 里的实例
+  # (1) 清掉已安装的包本体与 .pnpm 里的实例（extract 模式先把原目录留一份备份）
+  if [ "$extract_mode" = "1" ] && [ -d "$profile_dir/node_modules/$bundle_name" ]; then
+    rm -rf "$profile_dir/node_modules/$bundle_name.bak-extract"
+    cp -r "$profile_dir/node_modules/$bundle_name" "$profile_dir/node_modules/$bundle_name.bak-extract"
+    printf '已备份原安装目录: node_modules/%s.bak-extract\n' "$bundle_name"
+  fi
   rm -rf "$profile_dir/node_modules/dshent-plugin"
   if [ -d "$profile_dir/node_modules/.pnpm" ]; then
     find "$profile_dir/node_modules/.pnpm" -maxdepth 1 -name 'dshent-plugin*' -exec rm -rf {} +
   fi
+
+  # extract 模式：**不剥锁**（就地改 integrity），也不碰 store 与 allowBuilds —— 全程不跑 pnpm。
+  # 为什么这条路径必须存在：本机没有 ssh，而 profile 里另有一条 `github:adoresever/graph-memory`
+  # 直连依赖；只要 pnpm 决定重新解析它（实测其元数据缓存过期后就会，约十几分钟），
+  # `git ls-remote git+ssh://…` 就失败，而此刻 dshent-plugin 已被删掉 ⇒ profile 缺包。
+  # 加不加 --force 都躲不过（两条路都实测踩过），故给一条完全不依赖解析的装机路径。
+  if [ "$extract_mode" = "1" ]; then
+    cp -p "$lock_path" "$lock_path.bak-$(date +%Y%m%d-%H%M%S)"
+    printf '[skip] lockfile 剥块 / store 清理 / allowBuilds（extract 模式：不跑 pnpm）\n'
+  else
 
   # (2) 让 lockfile 不再认识这个包（否则 pnpm 直接按旧 resolution 复原旧内容）
   cp -p "$lock_path" "$lock_path.bak-$(date +%Y%m%d-%H%M%S)"
@@ -244,8 +268,47 @@ install_into_profile() {
     printf '已把 %s 中未决的 allowBuilds 项置为 false\n' "$workspace_config"
   fi
 
-  # (5) 强制重装，让 pnpm 按新 tgz 重新解析
-  ( cd "$profile_dir" && pnpm install --force )
+  fi  # ← extract 模式的 if/else 到此结束（下面 (5) 再按模式分岔）
+
+  # (5) 装机：extract 模式离线拷 + 改锁；pnpm 模式交给 pnpm 重新解析。
+  #
+  # ★pnpm 模式的两个坑（本机 2026-10-07 两条路都实测踩过，故默认推荐 --extract）：
+  #   ① `--force`：让 pnpm 把**整张依赖图**重新解析 ⇒ 要走
+  #      `git ls-remote git+ssh://git@github.com/adoresever/graph-memory.git`，
+  #      本机没有 ssh ⇒ exit 128；而此刻包已被删掉 ⇒ profile 缺包。
+  #   ② 不加 `--force` 只是**躲得了一时**：pnpm 的元数据缓存过期后（实测十几分钟）
+  #      它照样重新解析那条 `github:` 依赖，同一条命令从"通过"变成"失败"。
+  #   故 DSHENT_PNPM_FORCE=1 才 force；而**推荐**用 --extract。
+  if [ "$extract_mode" = "1" ]; then
+    # 两步都是离线操作：不解析依赖图，因此不可能被那条 github: 依赖拖垮。
+    # ① 把 verify-source 那一步已经解好的 baseline（$verify_tmp/package）整棵拷进 node_modules；
+    # ② 把 lockfile 里这一条 file: 依赖的 integrity 换成 tgz 的真值（pnpm 就是这么记的）。
+    mkdir -p "$profile_dir/node_modules/$bundle_name"
+    cp -r "$verify_tmp/package/." "$profile_dir/node_modules/$bundle_name/"
+    new_integrity=$(node -e 'const c=require("crypto"),f=require("fs");process.stdout.write("sha512-"+c.createHash("sha512").update(f.readFileSync(process.argv[1])).digest("base64"))' "$baseline_bundle")
+    node -e '
+      const fs = require("fs")
+      const lockPath = process.argv[1]
+      const neu = process.argv[2]
+      const needle = process.argv[3]
+      const lines = fs.readFileSync(lockPath, "utf8").split("\n")
+      let hit = 0
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes("tarball: file:") && lines[i].includes(needle)) {
+          lines[i] = lines[i].replace(/integrity: sha512-[A-Za-z0-9+/=]+/, "integrity: " + neu)
+          hit++
+        }
+      }
+      fs.writeFileSync(lockPath, lines.join("\n"))
+      if (hit === 0) { console.error("lockfile 里找不到 " + needle + " 那一行，未改动"); process.exit(3) }
+      console.log("lockfile 已就地更新 " + hit + " 行 integrity")
+    ' "$lock_path" "$new_integrity" "$bundle_file"
+    printf '新 integrity: %s\n' "$new_integrity"
+  elif [ "${DSHENT_PNPM_FORCE:-0}" = "1" ]; then
+    ( cd "$profile_dir" && pnpm install --force )
+  else
+    ( cd "$profile_dir" && pnpm install )
+  fi
 
   # (6) 校验：装出来的文件必须与 baseline 解包结果 md5 一致
   installed_file="$profile_dir/node_modules/$bundle_name/$verify_relative_path"
