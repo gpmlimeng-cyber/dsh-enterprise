@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 esc 各模块的真源（`esc-copy` 的文案、`esc-constants` 的常量、`esc-api` 的取数面、`esc-entry` 的两处座位、`esc-list` 的适配器表与分类投影）与一个假 `fetch`
- * [OUTPUT]: 锁定口径 31 的界面侧契约：① **文案逐字**（与 NUWAX `zh-CN.ts` 同值，不许"顺手润色"）；② 左栏三项与资源类型全集；③ 两处座位的身份（`sidebar.panellist` 的 id 与 `main` 的 key **同名**、order/label）与**常驻**注册（与资料库那两处由门驱动不同）；④ 取数面只打同源固定路径、正文关闭键集 `{path, params}`、六个方法各自的平台路径、错误码投影；⑤ **适配器口径**（各资源类型 × 数据源的真实参数差异，这是移植里最容易抄错的地方）与响应提取判据
+ * [OUTPUT]: 锁定口径 31 的界面侧契约：① **文案逐字**（与 NUWAX `zh-CN.ts` 同值，不许"顺手润色"）；② 左栏三项与资源类型全集；③ 两处座位的身份（`sidebar.panellist` 的 id 与 `main` 的 key **同名**、order/label）与**常驻**注册（与资料库那两处由门驱动不同）；④ 取数面只打同源固定路径、正文关闭键集 `{path, params}`、六个方法各自的平台路径、错误码投影；⑤ **适配器口径**（各资源类型 × 数据源的真实参数差异，这是移植里最容易抄错的地方）与响应提取判据；⑥ **本轮两条用户裁决**：非选中页签的色阶（dimmed → tertiary：三行同步，带反向下锁）与移动端「整页单滚动面」那一档（滚动面由列表提到内容区；含"挪了滚动面之后触底加载与自动补拉必须跟着挪"的源码级锁）
  * [POS]: esc 页面的**无 React 契约回归**；视觉与真实交互由构建产物手工冒烟覆盖（本仓 vitest 没有 DOM）
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -604,6 +604,48 @@ describe('esc：演示数据开关（口径 32）', () => {
     expect(css).toMatch(/\.esc-toolbar-row \{[^}]*flex-wrap: nowrap/)
     expect(css).not.toMatch(/\.esc-toolbar-row \{[^}]*flex-wrap: wrap/)
     expect(css).not.toMatch(/\.esc-toolbar-row \{[^}]*row-gap/)
+  })
+
+  it('★用户裁决（本轮）两条：非选中页签深一档 · 移动端整页单滚动面', () => {
+    const css = (EnterpriseEscStyle() as unknown as { props: { children: string } }).props.children
+    // ① 「非选中的页签颜色深一点」：三行标签（三页签 / 维度 / 二级分类）的未选中色**同步**提到 tertiary。
+    //    事实依据：dimmed 在浅色主题下是 `#e1e5ee`（≈12% 黑，几乎是白）——上一版注释把它当"50% 黑"是假话，
+    //    真机上「专家/连接器」因此淡到快看不见。tertiary 在浅色是 `#adb2b8`、深色是 `#81858c`
+    //    （深色主题下比 dimmed 的 `#43454a` 更亮）⇒ 两套主题都是"对比更强"这一个方向。
+    expect(css).toContain(".esc-resource-tab:not([data-esc-selected='true']) { color: var(--dsw-alias-label-tertiary); }")
+    expect(css).toContain(
+      ".esc-source-tabs .esc-pill:not([data-esc-selected='true']) { color: var(--dsw-alias-label-tertiary); }",
+    )
+    expect(css).toContain(
+      ".esc-category-tabs .esc-pill:not([data-esc-selected='true']) { color: var(--dsw-alias-label-tertiary); }",
+    )
+    // 反向锁：三行的未选中都不许退回 dimmed（退回去就是"又淡到看不见"）
+    expect(css).not.toMatch(/:not\(\[data-esc-selected='true'\]\) \{ color: var\(--dsw-alias-label-dimmed\); \}/)
+    // 选中仍是主文字色 —— 深一档只动"未选中"，不许顺手把选中一起改了
+    expect(css).toMatch(/\.esc-resource-tab\[data-esc-selected='true'\] \{[^}]*color: var\(--dsw-alias-label-primary\);/)
+
+    // ② 移动端：滚动面从「列表那口小格子」提到**内容区自身** ⇒ 工具栏/精选/维度/分类与卡片一起滚（全屏滚动）
+    expect(css).toMatch(/@media \(pointer: coarse\), \(max-width: 1024px\), \(max-height: 700px\) \{/)
+    expect(css).toMatch(/@media \(pointer: coarse\)[\s\S]*\.esc-content \{ overflow-y: auto;/)
+    expect(css).toMatch(/@media \(pointer: coarse\)[\s\S]*\.esc-scroll \{ flex: none; min-height: 0; overflow: visible; \}/)
+    // 反向锁：桌面档那两口"钉死工具栏 + 只有列表滚"的声明**不许被动**（动的只是 @media 里那一档）
+    expect(css).toMatch(/\.esc-content \{[^}]*overflow: hidden; \}/)
+    expect(css).toMatch(/\.esc-scroll \{ flex: 1; min-height: 0; overflow-y: auto; \}/)
+    // 反向锁：判据不许退回"只看宽度"——本机真机 CSS 视口约 862×610（按那枚 220px 定宽搜索框反推 dpr≈2.74），
+    // 宽 862 永远够不着 560px 档 ⇒ 那档对这台设备是死代码；`pointer: coarse` 与横竖屏无关，才是稳的判据。
+    // （判据取「560px 那一档的**块内**」而不是整份 CSS：滚动面那条注释里本来就会写到 .esc-content）
+    const narrowBlock = /@media \(max-width: 560px\) \{\n([\s\S]*?)\n\}/.exec(css)
+    expect(narrowBlock).not.toBeNull()
+    expect(narrowBlock?.[1]).not.toContain('.esc-content')
+
+    // ③ 源码级：挪了滚动面 ⇒ 触底加载与「不满屏自动补拉」都得跟着挪
+    //    （不跟着挪的两个后果：移动端触底不加载；以及一口气把所有页拉光——因为问错了 clientHeight）
+    const aggregation = readFileSync(new URL('../src/esc/esc-aggregation.tsx', import.meta.url), 'utf8')
+    expect(aggregation).toContain("{ className: 'esc-content', ref: boxRef, onScroll: handleScroll }")
+    expect(aggregation).toContain('const activeScroller = useCallback')
+    expect(aggregation).toContain('const scroller = activeScroller()')
+    expect(aggregation).toContain('if (contentRef.current.scrollHeight <= scroller.clientHeight) loadMore()')
+    expect(aggregation).not.toContain('contentRef.current.scrollHeight <= containerRef.current.clientHeight')
   })
 
   it('★用户裁决（本轮）工具栏结构：药丸组挂 `esc-source-tabs`（样式层那条 no-shrink 规则的落点）', () => {

@@ -75,9 +75,14 @@ const CSS = `
 .esc-resource-tabs { flex: none; display: inline-flex; align-items: center; gap: 20px; flex-wrap: nowrap; }
 /* ★用户裁决⑦：三页签**再大一号**（15px → 17px），字重仍 600。 */
 .esc-resource-tab { height: 32px; padding: 0; display: inline-flex; align-items: center; gap: 6px; background: none !important; box-shadow: none !important; border: 0; border-radius: 0; font-size: 20px; font-weight: 600; line-height: 1; color: var(--dsw-alias-label-secondary); transition: color .15s; }
-/* 未选中 = 50% 黑（用户口径「inactive black 50%」）。取主题里最接近的一枚：
-   label-dimmed 在浅色主题下那一档 —— 选中/未选中的对比靠「纯黑 vs 这一档」拉开。 */
-.esc-resource-tab:not([data-esc-selected='true']) { color: var(--dsw-alias-label-dimmed); }
+/* ★用户裁决（本轮）：「非选中的页签颜色深一点」。
+   ★先把上一版注释里那句**假话**改掉：它写着「label-dimmed 是主题里最接近 50% 黑的一枚」——不是。
+     主题浅色阶梯的真值（dsh-client-ui-theme 真源）：dimmed #e1e5ee（≈12% 黑，几乎是白）
+     → secondary #cfd3d6 → tertiary #adb2b8 → 要真 50% 黑得用静态 --dsw-static-neutral-bluish-600 #81858c。
+     上一版取了最浅的那一枚，所以真机上「专家/连接器」淡到几乎看不见（截图即证据）。
+   本档取 **label-tertiary**：浅色主题下深一档（#e1e5ee → #adb2b8）；深色主题下**更亮**
+   （dimmed #43454a → tertiary #81858c）⇒ 两套主题里的方向都是「对比更强」，深色主题不会反向变糊。 */
+.esc-resource-tab:not([data-esc-selected='true']) { color: var(--dsw-alias-label-tertiary); }
 .esc-resource-tab:hover { color: var(--dsw-alias-label-primary); }
 /* 图标继承 currentColor（原 SVG 就是这个设计）⇒ 选中/非选中的灰黑自动跟随文字。 */
 .esc-tab-icon { flex-shrink: 0; fill: currentColor; }
@@ -116,7 +121,8 @@ const CSS = `
 .esc-source-tabs { display: flex; align-items: center; gap: 20px; margin-top: 14px; flex: none; flex-wrap: nowrap; }
 .esc-source-tabs .esc-pill { height: 30px; padding: 0; display: inline-flex; align-items: center; background: none !important; box-shadow: none !important; border: 0; border-radius: 0; font-size: 20px; font-weight: 600; line-height: 1; color: var(--dsw-alias-label-secondary); transition: color .15s; }
 .esc-source-tabs .esc-pill:hover { color: var(--dsw-alias-label-primary); }
-.esc-source-tabs .esc-pill:not([data-esc-selected='true']) { color: var(--dsw-alias-label-dimmed); }
+/* ★用户裁决（本轮）：维度标签的「未选中」与三页签**同步深一档**（同一套视觉语言，不许一行深一行浅） */
+.esc-source-tabs .esc-pill:not([data-esc-selected='true']) { color: var(--dsw-alias-label-tertiary); }
 /* ★用户裁决⑤：**选中变黑**。判据是 data-esc-selected（我们自己的标记）而不是 .active——
    官方 Pill 把 active 渲染成它那份 CSS Modules 哈希类名，外部样式表选不中（实测）。 */
 .esc-source-tabs .esc-pill[data-esc-selected='true'] { background: none !important; box-shadow: none !important; color: var(--dsw-alias-label-primary); }
@@ -152,7 +158,8 @@ const CSS = `
 /* ★本刀（用户裁决⑥）：二级分类用**小圆角**——workbuddy 那排分类是近乎方角的短标签。 */
 .esc-category-tabs .esc-pill { height: 28px; padding: 0 8px; display: inline-flex; align-items: center; background: none; box-shadow: none; border: 0; border-radius: 6px; font-size: 14px; font-weight: 500; line-height: 1; color: var(--dsw-alias-label-secondary); transition: color .15s, background .15s; }
 .esc-category-tabs .esc-pill:hover { color: var(--dsw-alias-label-primary); }
-.esc-category-tabs .esc-pill:not([data-esc-selected='true']) { color: var(--dsw-alias-label-dimmed); }
+/* ★用户裁决（本轮）：二级分类的「未选中」与上面两行**同步深一档**（三行一体） */
+.esc-category-tabs .esc-pill:not([data-esc-selected='true']) { color: var(--dsw-alias-label-tertiary); }
 /* ★用户裁决③：**选中要有标签背景**（同一枚中性 hover 面，非选中无底色）。判据同上，走 data-esc-selected。 */
 /* ★用户裁决③：选中是**灰色背景**（不是黑字块、也不是凹槽白块）。
    底色走 interactive-bg-hover（约 6% 黑）——本主题的 bg-layer-1/2/3 三者同值，不能拿它们做灰底。 */
@@ -303,6 +310,29 @@ const CSS = `
   .esc-search { width: 160px; }
   /* 三行标签的间距也收一档，否则「系统广场 / 团队空间 / 我启用的」自己就换行了。 */
   .esc-resource-tabs, .esc-source-tabs, .esc-category-tabs { gap: 4px; }
+}
+
+/* ══════════════ 移动端（触屏 / 窄 / 矮）：整页单滚动面 ══════════════
+ * ★用户裁决（本轮，真机）：「移动端页面不要冻结，支持全屏滚动」。
+ *   原先（=桌面档）滚动面在**列表那一口小格子**里：.esc-content 的 overflow:hidden 把
+ *   工具栏/精选/维度/分类整片钉死在页顶，只有下面的 .esc-scroll 能滚 —— 手机上视口本来就矮，
+ *   首屏再被工具栏和精选行吃掉两三成，可滚区域只剩一小条，手指落在上半屏什么都不会动，
+ *   观感就是「页面冻住了」。
+ *   本档把**滚动面提到内容区自身**：.esc-content 成为滚动容器 ⇒ 工具栏、精选行、维度、分类
+ *   与卡片**一起滚**（这才是「全屏滚动」），.esc-scroll 退回普通块（不再是自己的滚动容器）。
+ *   ★判据为什么是「触屏 / 宽 / 高」三条**并集**、而不是只写宽度：本机真机实测 CSS 视口约 862×610
+ *     （按截图里那枚 220px 定宽搜索框反推 dpr≈2.74 —— 它没吃到 160px 那档，正说明宽度档没触发），
+ *     宽 862 永远够不着既有的 560px 档 ⇒ 那档对这台设备是死代码。pointer: coarse 与宽度、
+ *     与横竖屏都无关，是这台设备上唯一稳的判据；另两条宽度/高度档兜住桌面浏览器里的小窗口。
+ *   ★列表的触底加载**判据不改**：它挂在「谁在滚就用谁的 scrollHeight/clientHeight」上
+ *     （见 esc-aggregation.tsx 的 activeScroller），所以这一档不会把无限滚动改坏。 */
+@media (pointer: coarse), (max-width: 1024px), (max-height: 700px) {
+  /* 高度仍是确定的（flex: 1; min-height: 0 没动）⇒ 内容区自己当滚动面是成立的。 */
+  .esc-content { overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  /* 滚动条藏掉：桌面档那条 .esc-scroll-hidden 管的是列表，这一档滚动面换成了内容区。 */
+  .esc-content::-webkit-scrollbar { display: none; }
+  /* 列表退回普通块：高度随内容走（不再自己滚），否则会变成「格子里再滚」的套娃。 */
+  .esc-scroll { flex: none; min-height: 0; overflow: visible; }
 }
 
 /* ══════════════ 本刀（workbuddy 风格重构）：以下为本刀新增的类 ══════════════

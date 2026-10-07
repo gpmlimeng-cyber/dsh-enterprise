@@ -14,7 +14,11 @@
  *   没有这个页内 URL，故去掉（左栏重复点击驱动的整区刷新仍按原文用 `key` remount 实现）；
  *   ② 原页面读不到数据时静默画空态，这里画出**失败态 + 稳定码 + 重试**；
  *   ③ 未登录（平台回 401）单独成一态：写明"请先登录 NUWAX 账号"，而不是显示成"平台没有数据"。
- *   ★`react-infinite-scroll-component` 换成容器自身的 `onScroll` 判据（同一个容器、同一个滚动源，行为等价）。
+ *   ★`react-infinite-scroll-component` 换成容器自身的 `onScroll` 判据。
+ *   ★**本刀（用户裁决「移动端页面不要冻结、支持全屏滚动」）**：滚动面在两种档位下**不是同一个元素**——
+ *   桌面档是列表（`.esc-scroll`，工具栏钉死）；移动档（触屏/窄/矮）整个内容区（`.esc-content`）才是滚动面
+ *   （样式表那条 @media 定的）。因此触底加载与「不满屏自动补拉」都改成**问真正在滚的那一个**
+ *   （`activeScroller()`：判据是真实溢出，不是 `matchMedia`——断点只有一个真源）。
  *   ★**本刀（用户裁决②③⑧ + 补半成品）**：① 顶栏「已安装(N)」的计数**真正接线**了——上一刀只定义了
  *   `installedCount` 这个 prop 却没人去读那份清单，真机截图里「已安装」光秃秃没有数字。
  *   本刀经 `api.installedSkills()`（复用 `GET /skills/installed` 那份**既有真值**，不是新接口）读一次，
@@ -110,12 +114,27 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
   // 滚动容器与内容区，用于不满屏自动补拉
   const containerRef = useRef<HTMLDivElement | null>(null)
   const contentRef = useRef<HTMLDivElement | null>(null)
+  /**
+   * ★移动端那一档（触屏/窄/矮，见 `esc-style.ts` 里同名的那条 @media）把**滚动面从列表挪到了内容区**：
+   *   `.esc-content` 成为滚动容器、`.esc-scroll` 退回普通块。于是"到底谁在滚"在两种档位下不同，
+   *   而「不满屏自动补拉」必须问**真正在滚的那一个**要 `clientHeight`
+   *   （问错了的后果：手机上一口气把所有页都拉光）。
+   *   ★判据取真实溢出（`scrollHeight > clientHeight`）而不是 `matchMedia`：断点只有一个真源（样式表），
+   *     JS 不另立一套断点，两边不可能漂移；样式改档位时这里自动跟随。
+   */
+  const boxRef = useRef<HTMLDivElement | null>(null)
+  const activeScroller = useCallback((): HTMLDivElement | null => {
+    const box = boxRef.current
+    if (box !== null && box.scrollHeight > box.clientHeight + 1) return box
+    return containerRef.current
+  }, [])
 
-  /** 列表内容没填满容器且还有更多 ⇒ 自动补拉（原文同判据，含 100ms 延迟）。 */
+  /** 列表内容没填满容器且还有更多 ⇒ 自动补拉（原文同判据，含 100ms 延迟；"容器"= 当前真正在滚的那一个）。 */
   const checkAndAutoFill = useCallback(() => {
-    if (!containerRef.current || !contentRef.current || loading || !hasMore || list.length === 0) return
-    if (contentRef.current.scrollHeight <= containerRef.current.clientHeight) loadMore()
-  }, [loading, hasMore, list, loadMore])
+    const scroller = activeScroller()
+    if (scroller === null || !contentRef.current || loading || !hasMore || list.length === 0) return
+    if (contentRef.current.scrollHeight <= scroller.clientHeight) loadMore()
+  }, [activeScroller, loading, hasMore, list, loadMore])
 
   useEffect(() => {
     const timer = window.setTimeout(checkAndAutoFill, 100)
@@ -188,7 +207,12 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
 
   return createElement(
     'div',
-    { className: 'esc-content' },
+    // ★本刀（用户裁决「移动端不要冻结、支持全屏滚动」）：内容区自己也是**滚动面**——
+    //   桌面档它是 `overflow: hidden`（滚动在下面那口 `.esc-scroll` 格子里，工具栏钉死）；
+    //   移动档（触屏/窄/矮）由样式表把它变成滚动容器 ⇒ 工具栏/精选/维度/分类与卡片一起滚。
+    //   所以 `onScroll` 这里也挂一份：挪了滚动面之后，触底加载必须跟着挪（同一条 `handleScroll`，
+    //   判据读 `currentTarget`，两档各自成立）。
+    { className: 'esc-content', ref: boxRef, onScroll: handleScroll },
     // ★用户裁决④ + 本刀：三页签排进**工具栏第一栏左侧**（与「更多/搜索/已安装/添加」同处那一行
     //   ⇒ 同排由 flex 保证）；「精选」那一行走工具栏**第二栏**（`belowLeading`：三页签之下、
     //   维度标签之上），**专家页与技能页都挂**（两页只有 `targetType` 不同），连接器页不挂。
