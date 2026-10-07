@@ -2,14 +2,15 @@
  * [INPUT]: 依赖 React 的 createElement/useState、lucide-react 的图标、官方原语 `Button`/`Menu`/`Switch`（`@deepseek-ai/dsh-client-ui-primitives`）、`esc-api` 的 `enterpriseEscImageSrc`、`esc-copy` 的文案与 `esc-types` 的 `ResourceItem`
  * [OUTPUT]: 对外提供 `EnterpriseEscCard`（专家/技能/连接器共用的聚合卡片）与 `SKILL_MORE_ENTRIES`（技能卡「更多」下拉那三行的**纯数据**）
  * [POS]: esc 页面的**卡片层**，同时移植了 NUWAX 的 `CardWrapper`（容器版式）与 `ResourceCard`（业务内容与动作位）两个组件。
- *   ★**本刀（workbuddy 风格重构）——技能卡这一档被换掉了三处**，专家/连接器两档一字未动：
+ *   ★**本刀（workbuddy 风格重构）——技能卡这一档被换掉了三处**（当时专家/连接器两档一字未动；
+ *     ★口径 42 起**专家卡也换成了同一套版式**，见下面那一段 ⇒ 现在只剩连接器与"无 props 的默认档"是三层旧版式）：
  *     ① **底部那条「标签行」取代原来的「统计页脚」**：逐项渲染作者 / 收藏 / 安装 / 使用，
  *        缺的那几项按缺口显示 `-`（**不编数**：0 会被读成「装过 0 次」，见 `esc-copy` 的说明）；
  *     ② **动作位按「是否已安装」分流**——未安装＝一枚**常驻圆形「+」**（不再是原页面那种 hover 才浮现的
  *        「使用」按钮，也不再挂那枚启用开关）；已安装＝**「更多」下拉 + 「去试试」**两枚并排。
  *        「更多」用官方 `Menu` 原语（自带遮罩/Esc/外部点击/`danger` 行），不自造下拉；
- *     ③ **发布者头像 + 昵称那行只在专家卡的头里渲染**（技能卡的作者在底部标签行里——口径 40 起
- *        那一格与专家卡共用同一枚 `AuthorRow`），故连接器的状态行
+ *     ③ ~~发布者头像 + 昵称那行只在专家卡的头里渲染~~ ⇒ **口径 42 起两档的作者都在底部标签行里**
+ *        （全文件只剩一处 `AuthorRow` 渲染点，见下面 `tagRow`），故连接器的状态行
  *        `.esc-extra-box` 与标题**平级**，不再嵌在发布者行内部。
  *     ★那一档已装态取自本仓**既有真值**（`GET /skills/installed` 那张清单），不是新接口、不猜；
  *       `undefined`（读不到）与 `false`（确实没装）分开表达，读不到时顶栏另有「已安装（？）」缺口标记。
@@ -29,10 +30,10 @@
  *     可用宽度是整条头行 ⇒ 长标题一直排到「+」底下才截断（真机截图里就是 `dev-engineer-toolkit+`），
  *     用户读成"标题和安装图标积压在一起"。进流之后标题那格 `flex: 1 / min-width: 0`、
  *     动作格 `flex: none` ⇒ 省略号**永远**落在动作位左侧（不靠预留魔数，字号变大也不会塌）。
- *     与它配套的版式在样式层：`.esc-card-skill .esc-card-header { align-items: center }`（图标与
+ *     与它配套的版式在样式层：`.esc-card-tagrow .esc-card-header { align-items: center }`（图标与
  *     "标题行 + 描述"整块垂直居中）与 `.esc-skill-actions`（不再绝对定位，`align-self: flex-start`）。
  *   ★**口径 41（用户裁决「技能卡片描述的截断位置应该是卡片边缘而不是安装按钮，因为他是独立一行」）**：
- *     技能卡的动作位**再往里收一格**——从"头行的第三格"改成「标题行」（`.esc-skill-titlerow`）里的第二格。
+ *     技能卡的动作位**再往里收一格**——从"头行的第三格"改成「标题行」（`.esc-card-titlerow`）里的第二格。
  *     根因：动作位是 headmain 的**兄弟**时，headmain（描述那一行的右端）要按 `flex: none` 给它让掉一整块宽，
  *     可它只对齐**标题那一行**（`align-self: flex-start`）⇒ 描述那一行让掉的宽度是白丢的，
  *     省略号落在安装按钮左边缘（用户看见的就是这一句）。收进标题行之后它只吃标题那一行的宽，
@@ -44,6 +45,28 @@
  *        原先这一行独有的两枚外来字形（安装的箭头、使用量的柱状图）**整枚下线**。
  *     ⇒ 两处的作者与图标现在是**同一个函数**画出来的；星形实心跟随收藏态这条口径也只剩一处实现。
  *     顺序与项数**没动**（作者 → 收藏量 → 安装量 → 使用量，仍是上一轮用户裁决⑧的顺序）。
+ *   ★**口径 42（用户裁决「专家卡片调整成和技能卡片布局一致，标题描述，底部标签。区别是右上角技能是安装，
+ *     专家是召唤，但是专家的召唤默认不显示，hover 时才显示，显示按钮时标题如果太长就截断」）**：
+ *     专家卡**整套换成技能卡那一版式**，四件事一起动（第⑤条是没动的前提），缺一件都不是这套版式：
+ *     ① **头行**：从「标题（+ 作者行）」换成「**标题行** + 描述独立一行」——即口径 39/41 那一套
+ *        （描述因此落在**卡片内缘**、单行截断）。专家卡的作者行从卡头**搬到底部标签行**，
+ *        于是全文件只剩**一处** `AuthorRow` 渲染点（口径 40 要求两档同一枚零件，这一刀把"两处"
+ *        收成了"一处"——同一枚零件 + 同一个渲染点，物理上不可能再分叉）；
+ *     ② **底部**：从「统计页脚（`.esc-card-footer`/`.esc-count-box`）」换成**标签行**（`.esc-card-tags`），
+ *        项序与技能卡一致（作者 → 收藏 → 安装 → 使用，裁决⑧）。⚠值**改为真值驱动**：
+ *        哪一格在 `item.stats` 里就画那一格的真数（专家卡的人数/会话本就是真数，**不许因为"技能卡没有"
+ *        就把这三格钉死**），不在就画缺口短横 —— 为此 `mapPublishedStats` 也收了一处（见那个函数的注释）；
+ *     ③ **右上角那格**：技能卡是**常驻**的安装「+」（口径 39/41 进流），专家卡是**默认收起**的「召唤」
+ *        （`.esc-summon-slot`：`max-width: 0` ⇒ 收起时**零占位**，标题拿到整行宽、不截断；
+ *        卡片 hover 才展开 ⇒ 标题那一格随之缩到"整行 − 12 − 按钮宽"，**长标题就在这时截断**——
+ *        用户那句话的两个半句正是这件事的两面）。⚠它仍**置灰未接线**（`.esc-action-solid` + `title` 写明原因），
+ *        与连接器那两枚一个口径；触摸屏上靠 Chrome/WebView 的**粘滞 hover**（点一下卡片即出现）；
+ *     ④ **右下角那枚 hover 浮现的收藏钮（`.esc-corner-box`/`.esc-star-box`）撤下**：它是旧三层版式的**浮层**，
+ *        新版式底部是标签行（收藏量就在那一行里）⇒ 它会**浮在标签行上**；技能卡也没有它。
+ *        连同两条样式规则一起下线（那条"官方几何"的记录留在样式层的反向锁注释里）。
+ *        ⚠这枚按钮本来就是**置灰未接线**的占位（点了不会有动作）⇒ 撤下不丢任何可用的功能；
+ *        要它回来是一行的事（放回标签行尾部或卡头），说一声即可。
+ *     ⑤ 专家卡**仍无阴影**（SPEC §7：技能卡是可点入口、专家卡是列表项）——这一刀改的是版式，不是分层。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -66,9 +89,18 @@ export interface EnterpriseEscCardProps {
   readonly item: ResourceItem
   /** 图标形态：专家/专家团按「人」形资源裁圆，技能与连接器保持方形。 */
   readonly iconShape?: 'square' | 'circle' | undefined
-  /** 是否显示底部统计行（原页面仅专家卡片展示）。 */
+  /**
+   * 是否显示底部**统计那一行**。
+   * ★**口径 42**：底部那一行的**形态**随版式走（标签行版式＝`.esc-card-tags`，含作者 + 三格统计；
+   * 旧三层版式＝`.esc-card-footer`/`.esc-count-box`），本开关只对**旧三层版式**生效——
+   * 标签行版式（技能/专家）**恒**渲染那条标签行（技能卡传 `false` 时它也在，那是口径 40 起的事实）。
+   */
   readonly showStats?: boolean | undefined
-  /** 是否显示「召唤」动作位（专家卡片）。 */
+  /**
+   * 是否按**专家卡**展示。
+   * ★**口径 42 起它同时决定两件事**：① 根类名 `esc-card-expert`（无阴影，SPEC §7）；
+   * ② 走**标签行版式**（与技能卡同一套头与底），右上角那格放**默认收起、hover 才展开**的「召唤」。
+   */
   readonly showSummon?: boolean | undefined
   /** 是否显示「立即使用」动作位与启用开关（技能卡片）。 */
   readonly showUse?: boolean | undefined
@@ -199,12 +231,19 @@ export function EnterpriseEscCard({
         )
       : null
 
-  // 专家「召唤」：原页面那枚 hover 浮现的实底按钮（技能卡已由上面的 workbuddy 形态接管）。
-  const summonBox =
+  // 专家「召唤」（口径 42）。
+  //
+  // ★位置与技能卡那枚「+」**完全相同**——「标题行」的第二格；区别只在**默认状态**：
+  //   技能卡那枚是**常驻**的（workbuddy 真图里一直看得见），专家这枚**默认收起、卡片 hover 才展开**。
+  //   收起态由样式层的 `.esc-summon-slot`（`max-width: 0` + `opacity: 0`）做到**零占位** ⇒
+  //   标题拿到整行宽、不会被一个看不见的按钮提前截断；展开时标题那一格随之缩短、省略号落在这枚按钮左侧
+  //   —— 用户那句「显示按钮时标题如果太长就截断」正是这两个状态的对照。
+  //   它仍**置灰未接线**（与连接器那两枚同档），故不需要键盘焦点路径（见样式层那段注释）。
+  const summonSlot =
     showSummon === true
       ? createElement(
           'div',
-          { className: 'esc-action-box' },
+          { className: 'esc-summon-slot' },
           createElement(Button, {
             variant: 'primary',
             size: 'sm',
@@ -215,8 +254,6 @@ export function EnterpriseEscCard({
           }),
         )
       : null
-
-  const summonOrUseBox = summonBox
 
   // 连接器：已连接 = 常驻启用开关 + hover 浮现的「断开」；未连接 = hover 浮现的「连接」（原文口径，同上）
   const connectBox =
@@ -257,52 +294,42 @@ export function EnterpriseEscCard({
         )
       : null
 
-  const collectBox =
-    showSummon === true
-      ? createElement(
-          'div',
-          { className: 'esc-corner-box' },
-          createElement(
-            'button',
-            {
-              type: 'button',
-              className: 'esc-star-box esc-hover-reveal',
-              disabled: true,
-              title: notPorted,
-              'aria-label': item.collected === true ? ENTERPRISE_ESC_COPY.cancelCollect : ENTERPRISE_ESC_COPY.collect,
-            },
-            createElement(Star, {
-              size: 16,
-              'aria-hidden': true,
-              fill: item.collected === true ? 'currentColor' : 'none',
-            }),
-          ),
-        )
-      : null
+  // ★**口径 42**：右下角那枚 hover 浮现的收藏钮（`.esc-corner-box` + `.esc-star-box`）**整块撤下**——
+  //   它是**旧三层版式**的浮层（bottom 12 / right 16，绝对定位），而新版式底部是标签行
+  //   （收藏量就在那一行里）⇒ 它只会**浮在标签行上**；技能卡也没有它（用户要的正是这两档一致）。
+  //   它本来就是**置灰未接线**的占位（`disabled` + title 写明原因）⇒ 撤下不丢任何可用功能。
 
   // ★**本刀（workbuddy 风格）**：底部那条**标签行**取代原页面的「发布者行 + 统计页脚」两层。
   // 截图里的顺序是：⚡收藏量 · ✔安装量 · 作者 · 使用量 —— 逐项**按实际有没有**渲染，
   // 缺的项留一个 `-` 占位而不是编一个数（见 `ENTERPRISE_ESC_LOCAL_COPY.statUnavailable` 的理由）。
-  // 平台那条列表接口目前只给 `stats` 三格（人/会话/收藏），安装量与使用量**没有**来源。
-  // ★本刀（用户裁决⑧）：顺序改为 **作者 → 收藏量 → 安装量 → 使用量**（原来是收藏/安装/作者/使用）。
+  // ★本刀（用户裁决⑧）：顺序为 **作者 → 收藏量 → 安装量 → 使用量**（原来是收藏/安装/作者/使用）。
   //   作者排第一是因为它是唯一来自卡片主数据（`publishUser`）的那一格，另三格都是统计/占位。
   // ★**口径 40（用户裁决「技能底部的图标使用专家底部的图标，作者头像使用和专家一致的」）**：
-  //   技能卡底部这一行改成**与专家卡底部共用同一套零件**，两处不再各画一份：
-  //   ① **作者那一格**：原先是这一行独有的一枚 lucide `User` 字形 + 名字，现在换成**专家卡用的那一枚
-  //      `AuthorRow`**（真头像经 `enterpriseEscImageSrc` 换本机代理、加载失败退首字字母头像、
-  //      名字同一套 `.esc-author-name`）⇒ 两处的作者是**同一个组件**画出来的，改一处必同时生效。
-  //   ② **三枚统计图标**：原来收藏是 `Star`、安装是 `Download`、使用是 `BarChart3`（后两枚是这一行
-  //      独有的"外来"字形，与专家页脚那套对不上），现在一律走专家页脚那**唯一**一套 `statIconOf`
-  //      （人 / 会话 / 收藏三枚）⇒ 星形实心跟随收藏态那条口径也自动同源（原先两处各写一遍 `fill` 判据）。
+  //   ① **作者那一格**走**专家卡用的那一枚 `AuthorRow`**（真头像经 `enterpriseEscImageSrc` 换本机代理、
+  //      加载失败退首字字母头像、名字同一套 `.esc-author-name`）；
+  //   ② **三枚统计图标**一律走那**唯一**一套 `statIconOf`（人 / 会话 / 收藏）⇒ 星形实心跟随收藏态
+  //      那条口径也自动同源（原先两处各写一遍 `fill` 判据）。
   //      ⚠**字形与指标的对应按"这一格在数什么"定**：安装量＝「多少人装了」⇒ 人形（`user`）；
   //        使用量＝「被用了多少次」⇒ 会话气泡（`link`）；收藏量本就是收藏 ⇒ 星形（`star`）。
-  //      ⚠平台对**技能**不回 `userCount`/`convCount`（真机实测 7 条技能全是 `null`，而专家那两条是真数），
-  //        故安装 / 使用两格照旧如实画 `-`——**不编数**（见 `ENTERPRISE_ESC_LOCAL_COPY.statUnavailable`）。
-  //   ★**顺序没动**（作者 → 收藏量 → 安装量 → 使用量）：上一轮用户裁决⑧钉的就是这个顺序，
-  //     这一刀只换"用哪几枚图标、作者怎么画"，不重排、不增删格子。
-  //   ★**4 项也没动**：作者是我们平台真有的数据（`publishUser`），删掉是丢信息；安装 / 使用两格
-  //     留着是**缺口标记**（等平台的统计面接上就自动出数），不是装饰。
-  const collectStat = (item.stats ?? []).find(stat => stat.type === 'star')
+  // ★**口径 42（用户裁决「专家卡片调整成和技能卡片布局一致…底部标签」）——这一行现在是两档共用的那一行**，
+  //   故值必须**真值驱动**，不能像上一版那样把后两格钉死成短横：
+  //     ① 语料（口径 40 那一版）：平台对**技能**不回 `userCount`/`convCount`（真机 7 条技能全是 `null`），
+  //        而**专家**那两格是**真数**（截图里的 👤2 💬12）⇒ 把后两格写死 `-`，等于让专家卡丢真数据；
+  //     ② 现在：`tagCellOf` 按"这一格在不在 `item.stats` 里"决定画真数还是短横 ⇒
+  //        技能卡画成 `★1 👤- 💬-`（一字未变），专家卡画成 `★0 👤2 💬12`（真数保住）。
+  //        ★前提是**投影层不再把 `null` 假装成 `0`**（口径 42 同时改了 `mapPublishedStats`，
+  //          否则两档都会拿到一个"真的 0"，这一行就分不清"没有这个数"和"确实是 0"）。
+  //   ★**顺序与项数都没动**：作者 → 收藏量 → 安装量 → 使用量（裁决⑧），四格一个不增不减；
+  //     作者是我们平台真有的数据（`publishUser`），删掉是丢信息。
+  const tagCellOf = (type: ResourceStatType, title: string): ReactNode => {
+    const stat = (item.stats ?? []).find(entry => entry.type === type)
+    return createElement(
+      'span',
+      { className: 'esc-tag', title },
+      statIconOf(type),
+      createElement('span', null, stat === undefined ? ENTERPRISE_ESC_LOCAL_COPY.statUnavailable : String(stat.value)),
+    )
+  }
   const tagRow = createElement(
     'div',
     { className: 'esc-card-tags' },
@@ -313,27 +340,42 @@ export function EnterpriseEscCard({
           createElement(AuthorRow, { avatar: item.publishUser?.avatar, name: publishName }),
         )
       : null,
-    createElement(
-      'span',
-      { className: 'esc-tag', title: ENTERPRISE_ESC_COPY.statCollect },
-      statIconOf('star'),
-      createElement('span', null, collectStat === undefined ? ENTERPRISE_ESC_LOCAL_COPY.statUnavailable : String(collectStat.value)),
-    ),
-    createElement(
-      'span',
-      { className: 'esc-tag', title: ENTERPRISE_ESC_COPY.statInstall },
-      statIconOf('user'),
-      createElement('span', null, ENTERPRISE_ESC_LOCAL_COPY.statUnavailable),
-    ),
-    createElement(
-      'span',
-      { className: 'esc-tag', title: ENTERPRISE_ESC_COPY.statUsage },
-      statIconOf('link'),
-      createElement('span', null, ENTERPRISE_ESC_LOCAL_COPY.statUnavailable),
-    ),
+    tagCellOf('star', ENTERPRISE_ESC_COPY.statCollect),
+    tagCellOf('user', ENTERPRISE_ESC_COPY.statInstall),
+    tagCellOf('link', ENTERPRISE_ESC_COPY.statUsage),
   )
 
-  // 卡片根类名：技能卡按 workbuddy 那一版式（**带标签行**），专家/连接器沿用原页面的两层。
+  // 连接器卡片：分类 + 连接状态（原文口径：分类为空时不画状态点）。它只在旧三层版式里出现，
+  // 故与标签行版式互斥（口径 42 的那两档头里只有「标题行 + 描述」两格）。
+  const connectorExtraBox =
+    showConnect === true
+      ? createElement(
+          'div',
+          { className: 'esc-extra-box' },
+          createElement(
+            'span',
+            { className: 'esc-connect-info' },
+            hasText(item.category) ? createElement('span', { className: 'esc-connect-category' }, item.category) : null,
+            createElement(
+              'span',
+              {
+                className: `esc-connect-status ${connected ? 'esc-status-connected' : 'esc-status-disconnected'}`,
+              },
+              hasText(item.category) ? createElement('span', { className: 'esc-status-dot' }) : null,
+              connected ? ENTERPRISE_ESC_COPY.connected : ENTERPRISE_ESC_COPY.disconnected,
+            ),
+          ),
+        )
+      : null
+
+  // ★**口径 42（用户裁决「专家卡片调整成和技能卡片布局一致，标题描述，底部标签」）**：
+  //   专家卡与技能卡现在是**同一套版式**（头行＝「标题行 + 描述独立一行」、底部＝标签行），
+  //   差别只在标题行第二格放谁（技能＝常驻的安装「+」，专家＝默认收起的「召唤」，见上面 `summonSlot`）
+  //   与卡片的层级（技能有阴影、专家无，SPEC §7）。
+  //   判据只覆盖这两档：连接器与"无 props 的默认档"仍是原页面的三层版式（用户没提、也不该顺手改）。
+  const tagRowLayout = showUse === true || showSummon === true
+
+  // 卡片根类名：技能卡与专家卡走版式那一套（**带标签行**），连接器沿用原页面的两层。
   return createElement(
     'div',
     {
@@ -360,63 +402,42 @@ export function EnterpriseEscCard({
         'div',
         { className: 'esc-card-headmain' },
         // ★**口径 41（用户裁决「技能卡片描述的截断位置应该是卡片边缘而不是安装按钮，因为他是独立一行」）**：
-        //   技能卡的头里就此分成**两行**——第一行是「标题 + 动作位」（`.esc-skill-titlerow`），
+        //   头里就此分成**两行**——第一行是「标题 + 动作格」（`.esc-card-titlerow`），
         //   第二行是描述（`.esc-card-headdesc`，独立成行）。
-        //   为什么非要把动作位再往里收一格：口径 39 把它放进**头行**时，它是 headmain 的**兄弟**，
+        //   为什么非要把动作格再往里收一格：口径 39 把它放进**头行**时，它是 headmain 的**兄弟**，
         //   于是 headmain 的可用宽度（也就是描述那一行的右端）被它按 `flex: none` 让掉一整块，
-        //   描述的省略号就落在动作位的左边缘。可动作位只对齐**标题那一行**（`align-self: flex-start`），
+        //   描述的省略号就落在动作格的左边缘。可动作格只对齐**标题那一行**（`align-self: flex-start`），
         //   描述那一行上并没有东西压着它 ⇒ 让掉的那块宽度是白丢的——这正是用户看到的"描述被安装按钮截住"。
-        //   收进「标题行」之后：动作位只吃标题那一行的宽度（口径 39 的效果**一字不减**：标题那格仍是
-        //   `flex: 1 / min-width: 0`、动作格仍是 `flex: none`，省略号**永远**落在动作位左侧），
+        //   收进「标题行」之后：动作格只吃标题那一行的宽度（口径 39 的效果**一字不减**：标题那格仍是
+        //   `flex: 1 / min-width: 0`、动作格仍是 `flex: none`，省略号**永远**落在动作格左侧），
         //   描述那一行则吃到**卡片内缘**（headmain 现在是头行里最后一格 ⇒ 右端与下面那条标签行对齐）。
-        //   专家/连接器两档**标题仍是裸的 h3**（它们是另一套版式，用户没提、也不该顺手改）。
-        showUse === true
+        //   ★**口径 42 起这一套对专家卡同样成立**（它此前是"标题 + 作者行"两层），
+        //     故这条判据从 `showUse` 放宽到两档共用；连接器/默认档的标题仍是**裸 h3**。
+        tagRowLayout
           ? createElement(
               'div',
-              { className: 'esc-skill-titlerow' },
+              { className: 'esc-card-titlerow' },
               createElement('h3', { className: 'esc-card-title', title: item.name, children: item.name }),
-              skillActionBox,
+              showUse === true ? skillActionBox : summonSlot,
             )
           : createElement('h3', { className: 'esc-card-title', title: item.name, children: item.name }),
-        // 技能卡的描述：**独立一行**（口径 41）——右端到卡片内缘、单行截断。
-        // 专家/连接器两档**描述留在原位**（它们的描述更长、需要两行，这一档不搬）。
-        showUse === true && hasText(item.description)
+        // 描述：**独立一行**（口径 41）——右端到卡片内缘、单行截断。口径 42 起专家卡也走这一格
+        // （它的描述此前是 `.esc-card-content` 的两行截断，见下面那句反向说明）。
+        tagRowLayout && hasText(item.description)
           ? createElement('p', { className: 'esc-card-headdesc', title: item.description, children: item.description })
           : null,
-        // 连接器卡片：分类 + 连接状态（原文口径：分类为空时不画状态点）
-        showConnect === true
-          ? createElement(
-              'div',
-              { className: 'esc-extra-box' },
-              createElement(
-                'span',
-                { className: 'esc-connect-info' },
-                hasText(item.category) ? createElement('span', { className: 'esc-connect-category' }, item.category) : null,
-                createElement(
-                  'span',
-                  {
-                    className: `esc-connect-status ${connected ? 'esc-status-connected' : 'esc-status-disconnected'}`,
-                  },
-                  hasText(item.category) ? createElement('span', { className: 'esc-status-dot' }) : null,
-                  connected ? ENTERPRISE_ESC_COPY.connected : ENTERPRISE_ESC_COPY.disconnected,
-                ),
-              ),
-            )
-          : null,
-        // 专家卡片保留原页面的头像 + 昵称行（技能卡的作者已在下面那条标签行里）。
-        showSummon === true && item.publishUser
-          ? createElement(AuthorRow, { avatar: item.publishUser.avatar, name: publishName })
-          : null,
+        connectorExtraBox,
       ),
       // 动作位**不在这里**：口径 39 它进过头行（头行第三格），口径 41 起再往里收一格、
       // 挂进上面的「标题行」——它该吃的是**标题那一行**的宽度，不该让掉描述那一行（见上）。
     ),
-    // 技能卡的描述已挪进卡片头（见上），故这一格**只给专家/连接器**渲染。
-    showUse === true ? null : createElement('div', { className: 'esc-card-content', children: item.description ?? '' }),
-    showUse === true ? tagRow : showStats === true ? createElement('div', { className: 'esc-card-footer' }, statsRow) : null,
-    summonOrUseBox,
+    // 描述那一格（两行截断的 `.esc-card-content`）**只给旧三层版式**：标签行版式（技能/专家）的描述
+    // 已在卡片头里独立成行（见上）。口径 42 起专家卡不再走这一格。
+    tagRowLayout ? null : createElement('div', { className: 'esc-card-content', children: item.description ?? '' }),
+    // 底部那一行：标签行版式＝标签行（作者 + 三格统计，口径 40/42）；旧三层版式＝统计页脚。
+    tagRowLayout ? tagRow : showStats === true ? createElement('div', { className: 'esc-card-footer' }, statsRow) : null,
+    // 连接器那两枚（常驻开关 + hover 浮现的连接/断开）仍在卡片直属层（旧三层版式，绝对定位右上角）。
     connectBox,
-    collectBox,
   )
 }
 

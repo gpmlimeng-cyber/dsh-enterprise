@@ -1,6 +1,15 @@
 /**
  * [INPUT]: 依赖 esc 各模块的真源（`esc-copy` 的文案、`esc-constants` 的常量、`esc-api` 的取数面、`esc-entry` 的两处座位、`esc-list` 的适配器表与分类投影）与一个假 `fetch`
- * [OUTPUT]: 锁定口径 31 的界面侧契约：① **文案逐字**（与 NUWAX `zh-CN.ts` 同值，不许"顺手润色"）；② 左栏三项与资源类型全集；③ 两处座位的身份（`sidebar.panellist` 的 id 与 `main` 的 key **同名**、order/label）与**常驻**注册（与资料库那两处由门驱动不同）；④ 取数面只打同源固定路径、正文关闭键集 `{path, params}`、六个方法各自的平台路径、错误码投影；⑤ **适配器口径**（各资源类型 × 数据源的真实参数差异，这是移植里最容易抄错的地方）与响应提取判据；⑥ **本轮两条用户裁决**：非选中页签的色阶（dimmed → tertiary：三行同步，带反向下锁）与移动端「整页单滚动面」那一档（滚动面由列表提到内容区；含"挪了滚动面之后触底加载与自动补拉必须跟着挪"的源码级锁）；⑦ **本刀四组**：触碰底入口必须问 hasMore（真机故障「下滑加载不起作用、一直闪屏」的两条纯判据双向断言 + 源码级反向锁）、顶部两行 18px 与分类行 gap 8px、字号一律走 calc(基准+两 delta) 且不许有裸 px 字号、精选上下间距相等（20 = 6+14）与精选最多画 6 枚；⑧ **口径 39 两条真机裁决**：网格列模板走**同一真源** `--esc-grid-cols`（算式三数从 CSS 提取后比对，532/560/800/1200 四档列数为 `[2,2,2,4]`，并把旧规则在同两姿态上的 `[1,2]` 钉成受检事实）+ 技能卡头行居中与动作位进流（含"不许再作为卡片直属子节点"的源码级反向锁）
+ * [OUTPUT]: 锁定口径 31 的界面侧契约：① **文案逐字**（与 NUWAX `zh-CN.ts` 同值，不许"顺手润色"）；② 左栏三项与资源类型全集；③ 两处座位的身份（`sidebar.panellist` 的 id 与 `main` 的 key **同名**、order/label）与**常驻**注册（与资料库那两处由门驱动不同）；④ 取数面只打同源固定路径、正文关闭键集 `{path, params}`、六个方法各自的平台路径、错误码投影；⑤ **适配器口径**（各资源类型 × 数据源的真实参数差异，这是移植里最容易抄错的地方）与响应提取判据；⑥ **本轮两条用户裁决**：非选中页签的色阶（dimmed → tertiary：三行同步，带反向下锁）与移动端「整页单滚动面」那一档（滚动面由列表提到内容区；含"挪了滚动面之后触底加载与自动补拉必须跟着挪"的源码级锁）；⑦ **本刀四组**：触碰底入口必须问 hasMore（真机故障「下滑加载不起作用、一直闪屏」的两条纯判据双向断言 + 源码级反向锁）、顶部两行 18px 与分类行 gap 8px、字号一律走 calc(基准+两 delta) 且不许有裸 px 字号、精选上下间距相等（20 = 6+14）与精选最多画 6 枚；⑧ **口径 39 两条真机裁决**：网格列模板走**同一真源** `--esc-grid-cols`（算式三数从 CSS 提取后比对，532/560/800/1200 四档列数为 `[2,2,2,4]`，并把旧规则在同两姿态上的 `[1,2]` 钉成受检事实）+ 技能卡头行居中与动作位进流（含"不许再作为卡片直属子节点"的源码级反向锁）；
+ * ⑨ **口径 42（用户裁决「专家卡片调整成和技能卡片布局一致，标题描述，底部标签。区别是右上角技能是安装，专家是召唤，但是专家的召唤默认不显示，hover 时才显示，显示按钮时标题如果太长就截断」）**：
+ *    ① **渲染树级**：专家卡＝技能卡的同一套结构（标题行 + 描述独立一行 + 底部标签行），只是标题行第二格换成
+ *       `.esc-summon-slot`；作者从卡头搬进标签行（全文件只剩**一处** `AuthorRow` 渲染点）、旧三层版式的
+ *       `.esc-card-content`/`.esc-card-footer` 与右下角收藏浮标都不再出现；两档标签行**逐格同形**；
+ *    ② **真值驱动**：标签行三格按 `item.stats` 画真数或缺口短横（专家卡的人数/会话不许因"技能卡没有"被钉死），
+ *       配套在**投影层**钉住"平台没回的字段不入列"（`null` 不许被 `?? 0` 假装成真数，反向锁：真回的 0 要留着）；
+ *    ③ **样式级**：标题行 `gap: 0` + 间距挪到动作格（三个数从 CSS 提取后比对：`[0, 12, 12]`）、
+ *       `.esc-summon-slot` 默认 `max-width: 0`/`opacity: 0`、卡片 hover 才 `max-width: none`/`opacity: 1`，
+ *       并反向锁住"旧三层版式那两处动作位不许被这一刀带改"与"撤下的收藏浮标不许回来"
  * [POS]: esc 页面的**无 React 契约回归**；视觉与真实交互由构建产物手工冒烟覆盖（本仓 vitest 没有 DOM）
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -344,6 +353,26 @@ describe('esc：适配器口径（各资源类型 × 数据源的参数差异）
     const skill = published.extract({ code: '0000', data: { records: [{ id: 12, targetId: 202, name: '技能乙' }], current: 1, pages: 1 } }, 1, 20)
     expect(skill.items[0]).toMatchObject({ skillId: undefined, agentId: 202 })
     expect(skill.hasMore).toBe(false)
+    // ★**口径 42**：平台**没回**的统计字段**不入列**（原写法 `?? 0` 会把"没回"与"回了 0"压成同一个数，
+    //   卡片层就分不清"该画缺口短横"与"确实是 0"）。真机事实：技能只回 collectCount，专家才回人数/会话。
+    const partial = published.extract(
+      { code: '0000', data: { records: [{ id: 13, targetId: 303, name: '技能丙', statistics: { collectCount: 5 } }], current: 1, pages: 1 } },
+      1,
+      20,
+    )
+    expect(partial.items[0]!.stats).toEqual([{ type: 'star', value: 5 }])
+    expect(skill.items[0]!.stats).toEqual([])
+    // 反向锁：**真回了 0** 的字段必须留在列里（那不是缺口，是"确实是 0"）
+    const zero = published.extract(
+      { code: '0000', data: { records: [{ id: 14, targetId: 404, name: '专家丁', statistics: { userCount: 0, convCount: 2, collectCount: 0 } }], current: 1, pages: 1 } },
+      1,
+      20,
+    )
+    expect(zero.items[0]!.stats).toEqual([
+      { type: 'user', value: 0 },
+      { type: 'link', value: 2 },
+      { type: 'star', value: 0 },
+    ])
     // 连接器：本页取满即认为还有下一页
     const full = Array.from({ length: 20 }, (_, index) => ({ id: index + 1, service: `s${index}`, displayName: `S${index}` }))
     expect(connector.extract({ code: '0000', data: { records: full, pageNum: 1 } }, 1, 20).hasMore).toBe(true)
@@ -466,9 +495,13 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     expect(css).toMatch(/\.esc-tag svg \{ opacity: \.7; \}/)
     expect(css).toContain('.esc-card-footer { height: 24px;')
     expect(css).toMatch(/\.esc-count-box \{[^}]*gap: 10px/)
-    // 收藏回右下角绝对定位、命中区 32px；动作位回右上角绝对定位（top 12 / right 16）
-    expect(css).toContain('.esc-corner-box { position: absolute; right: 16px; bottom: 12px;')
-    expect(css).toMatch(/\.esc-star-box \{[^}]*width: 32px; height: 32px;/)
+    // 收藏**不再**回右下角绝对定位、命中区也不再是 32px —— 口径 42 把那一枚浮标整条撤下
+    // （专家卡与技能卡同版式，底部是标签行 ⇒ 浮层只会压在标签行上；见下一个用例里的正向判据）。
+    //   这里做**反向锁**：两条规则连同类名一起不许回来（文案里的记录留在样式层那段"已撤下"注释里，
+    //   故判据先**剥注释**——不剥的话门禁会被自己的注释骗红，那会逼着后人把记录写含糊）。
+    const cssDeclarations = css.replace(/\/\*[\s\S]*?\*\//g, '')
+    expect(cssDeclarations).not.toContain('esc-corner-box')
+    expect(cssDeclarations).not.toContain('esc-star-box')
     expect(css).toMatch(/\.esc-action-box \{ position: absolute; top: 12px; right: 16px;/)
     // hover 浮现：官方那枚 `.hover-reveal-btn` 挂不上 dsh 的 Button（`:disabled{opacity:.4}` 0,2,0 压单类），
     // 故由外层 span 承载 —— 这条选择器必须留着，否则按钮会一直可见、压在标题上。
@@ -478,7 +511,6 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     expect(css).not.toContain('.esc-card-compact { height: 104px; }')
     expect(css).not.toContain('.esc-card-compact { height: 96px; }')
     expect(css).not.toContain('esc-card-pinned')
-    expect(css).not.toMatch(/\.esc-star-box \{[^}]*width: 22px/)
     expect(css).not.toContain('.esc-card-footer { min-height: 0;')
     // 边框：从 `.5px` 发丝线换成 `1px` 可见边框（用户先前明确要过），hover 只换颜色（不换宽度 ⇒ 无布局抖动）
     expect(css).toContain('border: 1px solid var(--dsw-alias-border-l2)')
@@ -632,49 +664,55 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     expect(css.replace(/\/\*[\s\S]*?\*\//g, '')).not.toContain('minmax(262px, 1fr)')
   })
 
-  it('★口径 39（用户裁决「标题和描述加一起要和图标中间对齐」「标题不要和安装图标积压在一起」）：技能卡头行居中 + 动作位进流', () => {
-    // ① 图标与「标题 + 描述」这一块**垂直居中**（只对技能卡；专家/连接器是三层版式，不动）
-    expect(ruleBody('.esc-card-skill .esc-card-header')).toContain('align-items: center')
-    // ② headmain 不再把内容上下撑开（space-between 是给专家卡那三层版式的），技能卡收成一块居中
-    expect(ruleBody('.esc-card-skill .esc-card-headmain')).toContain('justify-content: center')
-    // 反向锁：**通用**那条头行规则不许被改成居中（改了会连专家/连接器一起动，那是另一套版式）
+  it('★口径 39（用户裁决「标题和描述加一起要和图标中间对齐」「标题不要和安装图标积压在一起」）：标签行版式头行居中 + 动作格进流', () => {
+    // ① 图标与「标题 + 描述」这一块**垂直居中**——★口径 42 起技能卡与专家卡共用**同一条规则**
+    //    （选择器两档并列写在一处：两档的头结构现在完全相同，抄两份必然分叉）
+    expect(ruleBody('.esc-card-skill .esc-card-header, .esc-card-expert .esc-card-header')).toContain('align-items: center')
+    // ② headmain 不再把内容上下撑开（space-between 是给三层版式留的），标签行版式收成一块居中
+    expect(ruleBody('.esc-card-skill .esc-card-headmain, .esc-card-expert .esc-card-headmain')).toContain('justify-content: center')
+    // 反向锁：**通用**那条头行规则不许被改成居中（改了会连连接器/默认档一起动，那是另一套版式）
     expect(ruleBody('.esc-card-header')).not.toContain('align-items: center')
-    // ③ 动作位（+ / 更多 + 去试试）进流：不再绝对定位——它是"压在标题上"的根因
+    // ③ 动作格（+ / 更多 + 去试试 / 召唤）进流：不再绝对定位——它是"压在标题上"的根因
     const actions = ruleBody('.esc-skill-actions')
     expect(actions).not.toContain('position: absolute')
     expect(actions).toContain('flex: none')
     // 标题那一格必须仍可收缩（min-width: 0），否则 flex 分配不到宽度、省略号不生效
     expect(ruleBody('.esc-card-headmain')).toContain('min-width: 0')
-    // ④ 源码级锁：动作位挂在**头行**里（结构改动，不是靠 CSS 调出来的）——口径 41 起它更靠里一格
+    // ④ 源码级锁：动作格挂在**头行**里（结构改动，不是靠 CSS 调出来的）——口径 41 起它更靠里一格
     //    （在「标题行」内，见下一条用例），这里锁的是最早那条根因：它必须在流里、不许回到卡片直属层。
     const cardSource = readFileSync(new URL('../src/esc/esc-card.tsx', import.meta.url), 'utf8')
     const headerBlock = /'esc-card-header'([\s\S]*?)\n    \),/.exec(cardSource)
     expect(headerBlock, '头行那段').not.toBeNull()
     expect(headerBlock![1]).toContain('skillActionBox')
-    // 反向锁：动作位不许回到**卡片直属层**（4 空格缩进）或**头行直属层**（6 空格缩进）——
+    // ★口径 42：专家那枚「召唤」也必须在头行里（它同样是"进流的一格"，只是默认收起）
+    expect(headerBlock![1]).toContain('summonSlot')
+    // 反向锁：动作格不许回到**卡片直属层**（4 空格缩进）或**头行直属层**（6 空格缩进）——
     // 那两个位置正是"挂在卡片上"（口径 39 之前的绝对定位档）与"与 headmain 平级"（口径 39 那一档、
     // 也是口径 41 要修的根因）两种旧写法；它现在只该是「标题行」的子节点（更深的缩进）。
     expect(cardSource.match(/^ {4,6}skillActionBox,$/gm) ?? []).toHaveLength(0)
+    expect(cardSource.match(/^ {4,6}summonSlot,$/gm) ?? []).toHaveLength(0)
   })
 
-  it('★口径 41（用户裁决「技能卡片描述的截断位置应该是卡片边缘而不是安装按钮，因为他是独立一行」）：描述独立成行、右端到卡片内缘', () => {
+  it('★口径 41/42（用户裁决「技能卡片描述的截断位置应该是卡片边缘而不是安装按钮，因为他是独立一行」）：描述独立成行、右端到卡片内缘', () => {
     const cardSource = readFileSync(new URL('../src/esc/esc-card.tsx', import.meta.url), 'utf8')
-    // ① 结构（源码级）：动作位收进**「标题行」**这一格——它只该吃标题那一行的宽。
-    //    判据是"取标题行那一块源码"：从 `'esc-skill-titlerow'` 到描述那一格的字面量。
-    const titleRow = /'esc-skill-titlerow'([\s\S]*?)showUse === true && hasText\(item\.description\)/.exec(cardSource)
+    // ① 结构（源码级）：动作格收进**「标题行」**这一格——它只该吃标题那一行的宽。
+    //    判据是"取标题行那一块源码"：从 `'esc-card-titlerow'`（口径 42 前的旧名是 esc-skill-titlerow）
+    //    到描述那一格的字面量。★口径 42 起这一行**两档共用**：技能＝常驻动作格，专家＝收起态召唤格。
+    const titleRow = /'esc-card-titlerow'([\s\S]*?)tagRowLayout && hasText\(item\.description\)/.exec(cardSource)
     expect(titleRow, '标题行那段').not.toBeNull()
     expect(titleRow![1]).toContain('skillActionBox')
+    expect(titleRow![1]).toContain('summonSlot')
     // ② 描述**不在**标题行里（独立一行）——这正是"截断落到卡片边缘"的结构前提：
-    //    描述若在标题行内，它的右端就要给动作位让宽，省略号又落回安装按钮左边缘。
+    //    描述若在标题行内，它的右端就要给动作格让宽，省略号又落回安装按钮左边缘。
     expect(titleRow![1]).not.toContain('item.description')
-    // 反向锁：那条"动作位与 headmain 平级（头行第三格）"的旧写法不许回来——它是本故障的根因。
+    // 反向锁：那条"动作格与 headmain 平级（头行第三格）"的旧写法不许回来——它是本故障的根因。
     expect(cardSource).not.toMatch(/^\s*showUse === true \? skillActionBox : null,$/m)
-    // ③ 专家/连接器两档的标题还是**裸 h3**（那两套版式一字未动：不给它们套标题行）
+    // ③ 三层版式（连接器/默认档）的标题还是**裸 h3**（那两档一字未动：不给它们套标题行）
     expect(cardSource).toContain(": createElement('h3', { className: 'esc-card-title', title: item.name, children: item.name }),")
     // ④ 样式层：标题行是 flex 行、且不吃下一行的宽；标题那格仍可收缩（省略号才生效）
-    expect(ruleBody('.esc-skill-titlerow')).toContain('display: flex')
-    expect(ruleBody('.esc-skill-titlerow')).toContain('flex: none')
-    const rowTitle = ruleBody('.esc-skill-titlerow .esc-card-title')
+    expect(ruleBody('.esc-card-titlerow')).toContain('display: flex')
+    expect(ruleBody('.esc-card-titlerow')).toContain('flex: none')
+    const rowTitle = ruleBody('.esc-card-titlerow .esc-card-title')
     expect(rowTitle).toContain('flex: 1')
     expect(rowTitle).toContain('min-width: 0')
     // ⑤ 描述那一行：单行截断落在**它自己的**右端（= 卡片内缘）+ 不许被压扁（与头行/页脚同一纪律）
@@ -682,6 +720,40 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     expect(headdesc).toContain('white-space: nowrap')
     expect(headdesc).toContain('text-overflow: ellipsis')
     expect(headdesc).toContain('flex: none')
+  })
+
+  it('★口径 42（用户裁决「专家卡片调整成和技能卡片布局一致，标题描述，底部标签。区别是右上角技能是安装，专家是召唤，但是专家的召唤默认不显示，hover 时才显示，显示按钮时标题如果太长就截断」）：样式层', () => {
+    // ① **标题行改成 gap: 0，间距挪到动作格自己身上**——这是"收起态真零占位"的前提：
+    //    gap 是**容器**属性，对宽度为 0 的召唤格照样会算 12px ⇒ 标题会平白短 12px
+    //    （用户要的正是"没显示按钮时不截断、显示按钮才截断"）。两个数从 CSS 里**提取后比对**，
+    //    而不是在这儿重写一遍 12：抄错一个数，收起态的宽度就悄悄多/少了 12px。
+    expect(ruleBody('.esc-card-titlerow')).toContain('gap: 0')
+    const gapInRow = Number(/gap: ([0-9]+)(?:px)?;/.exec(ruleBody('.esc-card-titlerow'))?.[1])
+    const skillGap = Number(/margin-left: ([0-9]+)px/.exec(ruleBody('.esc-skill-actions'))?.[1])
+    const summonReveal = Number(/\.esc-card:hover \.esc-summon-slot \{([^}]*)\}/.exec(css)?.[1]?.match(/margin-left: ([0-9]+)px/)?.[1])
+    expect([gapInRow, skillGap, summonReveal]).toEqual([0, 12, 12])
+    // 反向锁：标题行不许再回到"容器 gap 带间距"那一档（那会让收起态也占 12px）
+    expect(ruleBody('.esc-card-titlerow')).not.toMatch(/gap: 12px/)
+    // ② 召唤格：默认**零占位 + 透明**，卡片 hover 才展开
+    const slot = ruleBody('.esc-summon-slot')
+    expect(slot).toContain('max-width: 0')
+    expect(slot).toContain('overflow: hidden')
+    expect(slot).toContain('opacity: 0')
+    expect(slot).toContain('flex: none')
+    const reveal = ruleBody('.esc-card:hover .esc-summon-slot')
+    expect(reveal).toContain('max-width: none')   // 展开＝由内容定宽（不用百分比/魔法上限）
+    expect(reveal).toContain('opacity: 1')
+    // 反向锁：不许用 display 切换（那口淡入就没了）——口径 42 明确选了 max-width: 0 这条
+    expect(slot).not.toContain('display: none')
+    expect(reveal).not.toContain('display: flex')
+    // ③ 旧三层版式那两处**不许**被这一刀带改：连接器/默认档的动作位仍绝对定位、仍 hover 浮现
+    expect(ruleBody('.esc-action-box')).toContain('position: absolute')
+    expect(css).toContain('.esc-card:hover .esc-action-box { opacity: 1; z-index: 1; }')
+    expect(css).toContain('.esc-hover-reveal { opacity: 0; pointer-events: none;')
+    // ④ 撤下的两条：右下角收藏浮标（规则 + 类名都不许回来）——判据先剥注释（样式层留着撤回记录）
+    const declarations = css.replace(/\/\*[\s\S]*?\*\//g, '')
+    expect(declarations).not.toContain('esc-corner-box')
+    expect(declarations).not.toContain('esc-star-box')
   })
 
   it('样式层（口径 35）：原子对齐官方的五条 + 三条失效 token 的反向锁', () => {
@@ -998,45 +1070,115 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
     expect(card({ showStats: false }).props['className']).toBe('esc-card esc-card-compact')
   })
 
-  it('★口径 41（用户裁决「技能卡片描述的截断位置应该是卡片边缘而不是安装按钮，因为他是独立一行」）：描述与动作位**不同格**', () => {
-    // 这一条是**渲染树级**判据（比源码正则强）：描述那一格的祖先链里不许出现动作位/标题行，
+  it('★口径 41/42：描述与动作格**不同格**（技能＝常驻动作格 / 专家＝默认收起的召唤格，两档同判）', () => {
+    // 这一条是**渲染树级**判据（比源码正则强）：描述那一格的祖先链里不许出现动作格/标题行，
     // 且头行的最后一格必须是 headmain ⇒ headmain 的右端 = 卡片内缘 ⇒ 描述那一行的右端 = 卡片内缘。
-    // （口径 39 那一档里动作位是 headmain 的**兄弟**，headmain 就得按 flex: none 给它让宽——
+    // （口径 39 那一档里动作格是 headmain 的**兄弟**，headmain 就得按 flex: none 给它让宽——
     //   描述跟着短一截、省略号落在安装按钮左边缘，正是用户指出的那一句。）
-    const root = card({ showUse: true })
-    const pathOf = (className: string): string[] | undefined => {
-      const walk = (node: unknown, path: string[]): string[] | undefined => {
-        if (node === null || node === undefined || node === false || typeof node !== 'object') return undefined
-        if (Array.isArray(node)) {
-          for (const child of node) { const hit = walk(child, path); if (hit !== undefined) return hit }
+    // ★口径 42：**两档都跑一遍**（技能与专家现在同版式）——判据本身与"放的是哪一枚动作"无关。
+    const cases = [
+      { props: { showUse: true }, action: 'esc-skill-actions' },
+      { props: { showSummon: true }, action: 'esc-summon-slot' },
+    ] as const
+    for (const one of cases) {
+      const root = card(one.props)
+      const pathOf = (className: string): string[] | undefined => {
+        const walk = (node: unknown, path: string[]): string[] | undefined => {
+          if (node === null || node === undefined || node === false || typeof node !== 'object') return undefined
+          if (Array.isArray(node)) {
+            for (const child of node) { const hit = walk(child, path); if (hit !== undefined) return hit }
+            return undefined
+          }
+          const element = node as Element
+          const own = typeof element.props['className'] === 'string' ? element.props['className'] : ''
+          const next = own === '' ? path : [...path, own]
+          if (own.split(' ').includes(className)) return next
+          for (const child of childrenOf(element)) { const hit = walk(child, next); if (hit !== undefined) return hit }
           return undefined
         }
-        const element = node as Element
-        const own = typeof element.props['className'] === 'string' ? element.props['className'] : ''
-        const next = own === '' ? path : [...path, own]
-        if (own.split(' ').includes(className)) return next
-        for (const child of childrenOf(element)) { const hit = walk(child, next); if (hit !== undefined) return hit }
-        return undefined
+        return walk(root, [])
       }
-      return walk(root, [])
+      const descPath = pathOf('esc-card-headdesc')
+      const actionPath = pathOf(one.action)
+      expect(descPath, `描述那一格（${one.action}）`).toBeDefined()
+      expect(actionPath, `动作格那一格（${one.action}）`).toBeDefined()
+      // ① 描述不在动作格那一格、也不在「标题行」里 ⇒ 它的可用宽度不被动作格切掉（独立一行）
+      expect(descPath).not.toContain('esc-card-titlerow')
+      expect(descPath).not.toContain(one.action)
+      // ② 动作格在「标题行」里 ⇒ 它只吃标题那一行的宽
+      expect(actionPath).toContain('esc-card-titlerow')
+      // ③ 两格同在 headmain 之下，而头行的**最后一格是 headmain**、头行里没有第三格（动作格已不在那儿）
+      expect(descPath).toContain('esc-card-headmain')
+      expect(actionPath).toContain('esc-card-headmain')
+      const header = asElement(childrenOf(root).find(node => node !== null && node !== undefined
+        && typeof node === 'object' && asElement(node).props['className'] === 'esc-card-header'))
+      const headerChildren = childrenOf(header).filter(node => node !== null && node !== undefined && node !== false)
+      expect(headerChildren).toHaveLength(2)
+      expect(asElement(headerChildren[1]).props['className']).toBe('esc-card-headmain')
     }
-    const descPath = pathOf('esc-card-headdesc')
-    const actionPath = pathOf('esc-skill-actions')
-    expect(descPath, '描述那一格').toBeDefined()
-    expect(actionPath, '动作位那一格').toBeDefined()
-    // ① 描述不在动作位那一格、也不在「标题行」里 ⇒ 它的可用宽度不被动作位切掉（独立一行）
-    expect(descPath).not.toContain('esc-skill-titlerow')
-    expect(descPath).not.toContain('esc-skill-actions')
-    // ② 动作位在「标题行」里 ⇒ 它只吃标题那一行的宽
-    expect(actionPath).toContain('esc-skill-titlerow')
-    // ③ 两格同在 headmain 之下，而头行的**最后一格是 headmain**、头行里没有第三格（动作位已不在那儿）
-    expect(descPath).toContain('esc-card-headmain')
-    expect(actionPath).toContain('esc-card-headmain')
-    const header = asElement(childrenOf(root).find(node => node !== null && node !== undefined
-      && typeof node === 'object' && asElement(node).props['className'] === 'esc-card-header'))
-    const headerChildren = childrenOf(header).filter(node => node !== null && node !== undefined && node !== false)
-    expect(headerChildren).toHaveLength(2)
-    expect(asElement(headerChildren[1]).props['className']).toBe('esc-card-headmain')
+  })
+
+  it('★口径 42（用户裁决「专家卡片调整成和技能卡片布局一致，标题描述，底部标签」）：专家卡的结构＝技能卡的结构 + 那枚收起的召唤', () => {
+    // ① 根类名：专家卡仍带 esc-card-expert（**无阴影**，SPEC §7 的分层策略不因版式而变）
+    const root = card({ showSummon: true })
+    expect(root.props['className']).toBe('esc-card esc-card-expert')
+    const [, , bottom] = childrenOf(root)
+    // ② 底部＝**标签行**（不再是统计页脚 esc-card-footer），且这是**同一枚** `.esc-card-tags`
+    const tagRow = asElement(bottom)
+    expect(tagRow.props['className']).toBe('esc-card-tags')
+    expect(childrenOf(root).map(node => (node === null ? null : asElement(node).props['className']))).toEqual([
+      'esc-card-header',
+      null, // 旧三层版式那一格两行描述（专家卡已不用）
+      'esc-card-tags',
+      null, // 连接器那两枚动作（专家卡不画）
+    ])
+    // ③ 头＝「标题行（标题 + 召唤格） + 描述独立一行」，与技能卡逐格同形
+    const headMain = childrenOf(asElement(childrenOf(root)[0]!))[1]!
+    expect(asElement(headMain).props['className']).toBe('esc-card-headmain')
+    const headKids = childrenOf(asElement(headMain))
+    expect(asElement(headKids[0]!).props['className']).toBe('esc-card-titlerow')
+    const titleRowKids = childrenOf(asElement(headKids[0]!))
+    expect(asElement(titleRowKids[0]!).props['className']).toBe('esc-card-title')
+    expect(asElement(titleRowKids[1]!).props['className']).toBe('esc-summon-slot')
+    expect(asElement(headKids[1]!).props['className']).toBe('esc-card-headdesc')
+    expect(asElement(headKids[1]!).props['children']).toBe('示例描述')
+    // ④ 召唤格**只有**那枚置灰的实底按钮（形态与连接器那两枚同档），且它**默认收起**是样式层的事
+    const summonKids = childrenOf(asElement(titleRowKids[1]!)).filter(node => node !== null && node !== undefined)
+    expect(summonKids).toHaveLength(1)
+    expect(asElement(summonKids[0]!).props['children']).toBe(ENTERPRISE_ESC_COPY.summon)
+    expect(asElement(summonKids[0]!).props['disabled']).toBe(true)
+    expect(asElement(summonKids[0]!).props['className']).toBe('esc-action-solid')
+    // ⑤ 作者那一格从**卡头**搬到**标签行**（口径 40 要的"两档同一枚零件"由此变成"同一个渲染点"）
+    const authorTag = childrenOf(tagRow)[0]!
+    expect(asElement(authorTag).props['className']).toBe('esc-tag esc-tag-author')
+    expect(asElement(childrenOf(asElement(authorTag))[0]!).props['name']).toBe('张三')
+    // ⑥ 标签行三格**真值驱动**：示例专家有 user 3 / star 7、没有 link ⇒ 画 `★7 👤3 💬-`
+    //    （口径 42 之前这三格是按"技能卡"钉死的：后两格恒为短横 ⇒ 专家卡的真数会被丢掉）
+    const cells = childrenOf(tagRow).slice(1).map(node => asElement(node))
+    expect(cells.map(node => node.props['title'])).toEqual([
+      ENTERPRISE_ESC_COPY.statCollect,
+      ENTERPRISE_ESC_COPY.statInstall,
+      ENTERPRISE_ESC_COPY.statUsage,
+    ])
+    expect(cells.map(node => childrenOf(node)[1] && asElement(childrenOf(node)[1]).props['children'])).toEqual(['7', '3', '-'])
+    // ⑦ 旧三层版式那两格**不许**再出现在专家卡上：页面内容里没有 esc-card-content、卡上也没有收藏浮标
+    const classNames: string[] = []
+    const collect = (node: unknown): void => {
+      if (node === null || node === undefined || node === false || typeof node !== 'object') return
+      if (Array.isArray(node)) { node.forEach(collect); return }
+      const element = node as Element
+      if (typeof element.props['className'] === 'string') classNames.push(element.props['className'])
+      childrenOf(element).forEach(collect)
+    }
+    collect(root)
+    expect(classNames).not.toContain('esc-card-content')
+    expect(classNames).not.toContain('esc-card-footer')
+    expect(classNames.some(name => name.includes('esc-corner-box') || name.includes('esc-star-box'))).toBe(false)
+    // ⑧ 源码级反向锁：全文件只剩**一处** `AuthorRow` 渲染点、且没有 `collectBox` 这类浮层
+    //    （类名那两条由上面的渲染树判据看住；这里看的是"那格代码还在不在"，注释里提到旧类名是允许的）
+    const cardSource = readFileSync(new URL('../src/esc/esc-card.tsx', import.meta.url), 'utf8')
+    expect(cardSource.match(/createElement\(AuthorRow/g) ?? []).toHaveLength(1)
+    expect(cardSource).not.toContain('collectBox')
   })
 
   it('统计行：星形图标跟随收藏态切实心（原文两处 collected 都生效）', () => {
@@ -1056,12 +1198,15 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
 
   it('★口径 40（用户裁决「技能底部的图标使用专家底部的图标，作者头像使用和专家一致的」）：技能卡底部与专家卡底部**共用同一套零件**', () => {
     // 判据不是"画出来的样子像"，而是**同一个函数引用**——版式可以随手改，这条锁不该跟着松：
-    //   ① 技能标签行那三枚统计图标 ≡ 专家页脚那三枚（`statIconOf` 是唯一实现，星形实心跟随收藏态
+    //   ① 标签行那三枚统计图标 ≡ 旧三层版式页脚那三枚（`statIconOf` 是唯一实现，星形实心跟随收藏态
     //      那条口径也因此不可能在两边分叉）；
-    //   ② 技能标签行的作者 ≡ 专家卡头里的那枚 `AuthorRow`（连组件都是同一枚 ⇒ 真头像经同一条
-    //      图片代理、破图退同一枚首字字母头像、名字同一套样式）。
+    //   ② 两档的作者 ≡ 同一枚 `AuthorRow`（连组件都是同一枚 ⇒ 真头像经同一条图片代理、
+    //      破图退同一枚首字字母头像、名字同一套样式）。
     // ★另一条被就地钉住的旧口径：**项数与顺序都不许动**（作者 → 收藏量 → 安装量 → 使用量，
     //   用户裁决⑧）——这一刀只换"用哪几枚图标、作者怎么画"。
+    // ★**口径 42 起的加强**：两档连**渲染点**都是同一个 `tagRow`（口径 40 那时还是"各画一处、
+    //   共用零件"；口径 42 把专家卡的作者从卡头搬进标签行 ⇒ 只剩一处），故这里的比对改成
+    //   "技能卡那一行 ≡ 专家卡那一行"——两行是**同一段源码**渲染的。
     const byClass = (element: Element, className: string): Element => {
       const found = childrenOf(element)
         .filter((node): node is Element => node !== null && node !== undefined && typeof node === 'object')
@@ -1072,11 +1217,10 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
     const nodesOf = (element: Element) =>
       childrenOf(element).filter((node): node is Element =>
         node !== null && node !== undefined && node !== false && typeof node === 'object')
-
-    // —— ① 作者那一格
-    const skillTags = byClass(card({ showUse: true }, {
-      publishUser: { nickName: '张三', avatar: 'https://example.com/a.png' },
-    }), 'esc-card-tags')
+    // 技能卡的标签行：**统计只给 star**（平台对技能真机回的就是这样）⇒ 另两格照旧如实画缺口
+    const skillItem = { publishUser: { nickName: '张三', avatar: 'https://example.com/a.png' }, stats: [{ type: 'star', value: 1 }] }
+    const skillTags = byClass(card({ showUse: true }, skillItem), 'esc-card-tags')
+    const expertTags = byClass(card({ showSummon: true }, skillItem), 'esc-card-tags')
     const tagItems = nodesOf(skillTags)
     expect(tagItems).toHaveLength(4)
     const authorTag = tagItems[0]!
@@ -1084,16 +1228,19 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
     // 整个作者格只有**一枚**子元素——原来那枚独用的 `User` 字形 + 名字的两格写法已撤下
     const authorChildren = childrenOf(asElement(authorTag))
     expect(authorChildren).toHaveLength(1)
-    // 它和专家卡头里那枚是**同一个组件**（引用相等），且原样接住了这张卡自己的头像地址
-    const expertHeadMain = childrenOf(childrenOf(card({ showSummon: true }))[0]!)[1]!
-    const expertAuthor = nodesOf(asElement(expertHeadMain))
-      .find(node => typeof node.type === 'function' && (node.props as { name?: string }).name === '张三')!
-    expect(expertAuthor).toBeTruthy()
-    expect(asElement(authorChildren[0]!).type).toBe(expertAuthor.type)
+
+    // —— ① 作者那一格：**两档同一个组件引用**（还接住了这张卡自己的头像地址）
+    const expertAuthorTag = nodesOf(expertTags)[0]!
+    const expertAuthorChild = childrenOf(asElement(expertAuthorTag))[0]!
+    expect(asElement(authorChildren[0]!).type).toBe(asElement(expertAuthorChild).type)
     expect(asElement(authorChildren[0]!).props['avatar']).toBe('https://example.com/a.png')
     expect(asElement(authorChildren[0]!).props['name']).toBe('张三')
+    // ★加强：两档的**标签行结构逐格同形**（连"哪几格在"都一样）——同一段源码渲染的
+    expect(nodesOf(expertTags).map(node => asElement(node).props['className'])).toEqual(
+      tagItems.map(node => asElement(node).props['className']),
+    )
 
-    // —— ② 三枚统计图标：逐枚与**专家页脚自己渲染出来的**那三枚比 `type`（不重抄一份图标清单）
+    // —— ② 三枚统计图标：逐枚与**旧三层版式页脚自己渲染出来的**那三枚比 `type`（不重抄一份图标清单）
     const expertFooter = byClass(
       card({ showStats: true }, {
         stats: [
@@ -1107,14 +1254,16 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
     const expertIcons = childrenOf(byClass(expertFooter, 'esc-count-box')).map(node => childrenOf(asElement(node))[0])
     const skillIcons = tagItems.slice(1).map(node => childrenOf(asElement(node))[0])
     expect(skillIcons.map(node => asElement(node).type)).toEqual([
-      asElement(expertIcons[2]).type, // 收藏量 ← 专家页脚的「收藏」（星形）
-      asElement(expertIcons[0]).type, // 安装量 ← 专家页脚的「人数」（人形）
-      asElement(expertIcons[1]).type, // 使用量 ← 专家页脚的「会话」（气泡）
+      asElement(expertIcons[2]).type, // 收藏量 ← 页脚的「收藏」（星形）
+      asElement(expertIcons[0]).type, // 安装量 ← 页脚的「人数」（人形）
+      asElement(expertIcons[1]).type, // 使用量 ← 页脚的「会话」（气泡）
     ])
-    // 星形实心跟随收藏态：技能行这一枚也走同一枚实现（`collected === true` ⇒ `fill: currentColor`）
-    const collectedTagRow = byClass(card({ showUse: true }, { collected: true }), 'esc-card-tags')
+    // 星形实心跟随收藏态：标签行这一枚也走同一枚实现（`collected === true` ⇒ `fill: currentColor`）
+    const collectedTagRow = byClass(card({ showUse: true }, { ...skillItem, collected: true }), 'esc-card-tags')
     expect((asElement(childrenOf(nodesOf(collectedTagRow)[1]!)[0]).props as { fill?: string }).fill).toBe('currentColor')
-    // 安装 / 使用两格**照旧如实画缺口**（平台对技能不回 userCount/convCount，不许拿 0 顶上）
+    // ★口径 42：这三格是**真值驱动**的——有那一格就画真数（专家卡的人数/会话不许丢），
+    //   没有就画缺口短横（技能卡的安装/使用就是这个形态；0 不许拿来顶上，见样式层那句"不编数"）。
+    expect(childrenOf(tagItems[1]!).slice(1).map(node => asElement(node).props['children'])).toEqual(['1'])
     expect(asElement(childrenOf(tagItems[2]!)[1]).props['children']).toBe(ENTERPRISE_ESC_LOCAL_COPY.statUnavailable)
     expect(asElement(childrenOf(tagItems[3]!)[1]).props['children']).toBe(ENTERPRISE_ESC_LOCAL_COPY.statUnavailable)
     // 顺序与语义仍是上一轮钉的那四格（作者 → 收藏 → 安装 → 使用）
@@ -1131,11 +1280,14 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
       "import { Bot, Folder, MessageSquare, MoreHorizontal, Pencil, Plus, Star, Trash2, User } from 'lucide-react'",
     )
     expect(cardSourceForTagRow).not.toContain('function BarChartIcon')
-    // 作者呈现全文件只有**两处**，且都走同一枚组件（专家卡头 / 技能标签行）
-    expect(cardSourceForTagRow.match(/createElement\(AuthorRow/g) ?? []).toHaveLength(2)
-    // 技能标签行那三枚统计图标**只能**经 `statIconOf` 拿到（不许再就地 createElement 一枚图标）
-    const tagRowSource = cardSourceForTagRow.slice(cardSourceForTagRow.indexOf('const tagRow ='))
-    expect(tagRowSource.match(/statIconOf\('(star|user|link)'\)/g) ?? []).toHaveLength(3)
+    // 作者呈现全文件只剩**一处**（口径 42 起专家卡的作者也在这条标签行里 ⇒ 同一个渲染点；
+    // 口径 40 那时是"专家卡头 + 标签行"两处共用同一枚组件，这一刀把它收成了一处）
+    expect(cardSourceForTagRow.match(/createElement\(AuthorRow/g) ?? []).toHaveLength(1)
+    // 标签行那三格**只能**经 `statIconOf` 拿到（不许再就地 createElement 一枚图标）——
+    // 三格共用的工厂 `tagCellOf` 里是**唯一**一处 `statIconOf`，由它按 type 取那一枚。
+    const tagRowSource = cardSourceForTagRow.slice(cardSourceForTagRow.indexOf('const tagCellOf ='))
+    expect(tagRowSource.match(/statIconOf\((type|'[a-z]+')\)/g) ?? []).toHaveLength(1)
+    expect(tagRowSource.match(/tagCellOf\('(star|user|link)', /g) ?? []).toHaveLength(3)
   })
 
   it('动作位：A 档一律置灰 + 写明原因；召唤 / 立即使用 / 连接 / 断开 四枚文案与原文逐字一致', () => {
@@ -1161,16 +1313,17 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
         if (Array.isArray(node)) { node.forEach(walk); return }
         const element = node as Element
         if (typeof element.props['className'] === 'string'
-          && /esc-action-box|esc-skill-actions/.test(element.props['className'])) found.push(element)
+          && /esc-action-box|esc-skill-actions|esc-summon-slot/.test(element.props['className'])) found.push(element)
         childrenOf(element).forEach(walk)
       }
       walk(card(props, item))
       expect(found).toHaveLength(1)
       return found[0]!
     }
-    // —— 专家：召唤（形态照旧）
+    // —— 专家：召唤（口径 42 起它的**位置**与技能卡那枚「+」一样，是「标题行」里的第二格；
+    //    形态照旧：实底置灰的那一枚。**默认收起**是样式层的事——.esc-summon-slot 的 max-width: 0）。
     const summonBox = actionBoxOf({ showSummon: true })
-    expect(asElement(summonBox).props['className']).toBe('esc-action-box')
+    expect(asElement(summonBox).props['className']).toBe('esc-summon-slot')
     const summon = asElement(childrenOf(summonBox)[0])
     expect(summon.props['children']).toBe('召唤')
     expect(summon.props['disabled']).toBe(true)
@@ -1215,8 +1368,11 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
     expect(cardSource).not.toContain('BotMessageSquare')
     expect(cardSource).not.toContain("'aria-label': ENTERPRISE_ESC_COPY.useNow")
     // 「全黑」靠主题 token，不靠内联颜色：**召唤 / 去试试 / 连接 / 断开**四枚恰好 4 处
-    // （技能那枚已换成 workbuddy 的「+」与「去试试」，不再有第二个 `esc-action-solid`）
-    expect(cardSource.match(/esc-action-solid/g) ?? []).toHaveLength(4)
+    // （技能那枚已换成 workbuddy 的「+」与「去试试」，不再有第二个 esc-action-solid）
+    // ★判据先**剥注释**：注释里引述类名是正常的（口径 42 那段注释就提到了它），
+    //   不剥的话门禁会被自己的注释骗红——那会逼着后人把记录写含糊。
+    const cardCode = cardSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '')
+    expect(cardCode.match(/esc-action-solid/g) ?? []).toHaveLength(4)
     // ★口径 36：**失效 token 的源码级反向锁** —— 这三枚在 DSH 主题里根本不存在（真实名见 esc-style.ts
     // 头部的映射表），用了就等于整条声明作废（描边回退 currentColor 变成黑边、底色回退透明）。
     // 卡片源码里一个都不许留（CSS 侧另有同款反向锁）。

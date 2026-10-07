@@ -404,7 +404,9 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
                     //   匹配键是**名字**（见上面那段实测纠正：packageId 与广场 id 不是一套坐标系）。
                     //   命中不到就按未装画「+」——宁可少给一次「更多」，也不谎称已装。
                     installed: resourceType === 'skill' && installedIds.has(item.name),
-                    // 底部统计行仅专家卡片展示（技能本就无统计；连接器工具数统计已下线）
+                    // 底部那一行：★**口径 42** 起**专家卡也走标签行**（作者 + 三格统计，与技能卡同一行，
+                    //   见 esc-card.tsx 的 tagRowLayout）⇒ 这一位现在只对**旧三层版式**生效：
+                    //   连接器靠它不画那条空页脚（技能卡本就靠标签行、不看它）。
                     showStats: resourceType === 'expert',
                     showConnect: resourceType === 'connector',
                   }),

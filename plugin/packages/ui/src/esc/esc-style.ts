@@ -63,14 +63,27 @@
  *         默认档（手机竖屏）单列，其余档取 `minmax(min(262px, (100% - gap) / 2), 1fr)` 的
  *         auto-fill ⇒ **平板横竖屏都最少两列**（横屏掉成单列的真因：内容区 532px 比 262×2+12=536
  *         差 4px，见网格规则上方那段实测）；
- *      ② **技能卡头行**：图标与"标题行 + 描述"整块垂直居中（`.esc-card-skill .esc-card-header`），
+ *      ② **技能卡头行**：图标与"标题行 + 描述"整块垂直居中（`.esc-card-skill .esc-card-header`
+ *         ——口径 42 起这条规则的选择器是**两档并列**，见⑪），
  *         动作位（+ / 更多 + 去试试）从**绝对定位浮在标题上**改成**流里的一格**（`.esc-skill-actions`）
  *         ⇒ 标题的省略号由 flex 分配、不再积压到安装图标底下。
  *   ⑩ **口径 41（本轮真机裁决「技能卡片描述的截断位置应该是卡片边缘而不是安装按钮，因为他是独立一行」）**：
- *      技能卡的**描述独立成一行**——新增 `.esc-skill-titlerow`（「标题 + 动作位」那一行），动作位
- *      从"headmain 的兄弟"收成这一行的第二格 ⇒ 它只吃**标题那一行**的宽度，描述那一行的右端回到
+ *      技能卡的**描述独立成一行**——新增 `.esc-card-titlerow`（「标题 + 动作位」那一行，口径 42 起改名共用），
+ *      动作位从"headmain 的兄弟"收成这一行的第二格 ⇒ 它只吃**标题那一行**的宽度，描述那一行的右端回到
  *      **卡片内缘**（与下面那条标签行对齐、省略号落在卡片边缘）。口径 39 的三条效果一字不减：
  *      标题仍 `flex: 1 / min-width: 0` 且省略号永远落在动作位左侧，仍不靠任何预留魔数。
+ *   ⑪ **口径 42（本轮真机裁决「专家卡片调整成和技能卡片布局一致，标题描述，底部标签。区别是右上角技能是安装，
+ *      专家是召唤，但是专家的召唤默认不显示，hover 时才显示，显示按钮时标题如果太长就截断」）**：
+ *      ① **专家卡整套换成技能卡那一版式**——头行的两条居中规则、标题行 `.esc-card-titlerow`、
+ *         描述行 `.esc-card-headdesc`、底部标签行 `.esc-card-tags` 现在**两档共用**（①那条居中规则
+ *         写成"技能 + 专家"两档并列的**同一条规则**，不是一个抄一份）；
+ *      ② **标题行改成 `gap: 0`**，动作格自带 `margin-left: 12px`：`gap` 是**容器**属性，它对"收起态的
+ *         召唤格"照样算 12px ⇒ 标题会平白短 12px。让每一格自带间距，"收起 = 零占位"才成立（见③）；
+ *      ③ **新增 `.esc-summon-slot`**（专家那枚「召唤」的格子）：默认 `max-width: 0` + `opacity: 0`
+ *         ⇒ 标题拿到整行宽、长标题**不**截断；卡片 `:hover` 才展开（`max-width: none` + `margin-left: 12px`）
+ *         ⇒ 标题那一格随之下缩、省略号就落在召唤左侧。**两个状态正是用户那一句话的两半**；
+ *      ④ **撤下**右下角那枚 hover 浮现的收藏钮（`.esc-corner-box` / `.esc-star-box`）——它是旧三层版式的
+ *         浮层，新版式底部是标签行 ⇒ 它只会压在标签行上（记录与理由留在原地那段注释里，两条规则整块删掉）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -283,6 +296,8 @@ const CSS = `
    标题 16px/20px、描述 16px 行高 + 32px 两行、页脚 24px、统计项间距 16px、额外信息行 120px/12px、
    栅格列宽 300px、卡间距 16px、骨架高 170px；收藏 .esc-corner-box 回到**右下角绝对定位**
    （right 16 / bottom 12，命中区 32px）；动作位 .esc-action-box 回到**右上角绝对定位**（top 12 / right 16）。
+   ⚠这两条里的**收藏那一半已被口径 42 撤下**（新版式底部是标签行，浮层会压在它上面，见下面那段"已撤下"）；
+   动作位那一半仍**有效但只对连接器生效**（专家卡的召唤已进流，技能卡的动作位口径 39 起就已进流）。
    本页只保留两处**用户明确要过**的差异：① 左栏（官方是侧边栏 ⇒ 用户裁决改成本页顶部药丸）；
    ② 边框 1px 可见（官方 .5px 发丝线 ⇒ 用户先前明确要"看得见的边框"）。 */
 /* ★用户裁决⑧：边框**浅一点**——由 border-l2 调到 border-l1（主题里 l1 比 l2 更淡一档）。 */
@@ -318,26 +333,35 @@ const CSS = `
    （与下面那条标签行对齐），省略号落在卡片边缘。
    flex: none 与头行/页脚同一条纪律（见上面 .esc-card-header 那段）：任何超出都不许把它压扁。 */
 .esc-card-headdesc { margin: 3px 0 0; color: var(--dsw-alias-label-secondary); font-size: calc(12px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; }
-/* ★**口径 39（用户裁决「标题和描述加一起要和图标中间对齐」）**：技能卡的头行**垂直居中**。
+/* ★**口径 39（用户裁决「标题和描述加一起要和图标中间对齐」）**：标签行版式的头行**垂直居中**。
    .esc-card-header 默认 align-items: stretch，而图标是定高 40px 的 img（stretch 对定高项无效 ⇒
    回落成 start）⇒ 头行比图标高时图标被钉在行首、看上去偏上（真机截图里就是"图标顶在标题上方"）。
-   技能卡的头行里只有「图标 + headmain（标题行 + 描述）」两格，居中正是用户要的那一句。
-   ★**为什么只对技能卡**：专家/连接器的头行是**三层**（标题 + 分类/作者行），它们的图标本来就该对齐
-   第一行（那是另一套版式，用户没提、也不该顺手改）。这两条按 .esc-card-skill 收口，不外溢。 */
-.esc-card-skill .esc-card-header { align-items: center; }
-/* 同一处：技能卡的 headmain 里是「标题行 + 描述」两格，只要它们贴成一块、整块与图标居中；
-   space-between（头行里把内容上下撑开）是给专家卡那三层版式留的，技能卡这一档换成 center。 */
-.esc-card-skill .esc-card-headmain { justify-content: center; }
+   这一档的头行里只有「图标 + headmain（标题行 + 描述）」两格，居中正是用户要的那一句。
+   ★**口径 42**：这一套现在**专家卡也走**（用户裁决「专家卡片调整成和技能卡片布局一致」）⇒
+   选择器写成**两档并列的同一条规则**（不是两边各写一份：两档的头现在结构完全相同，抄两份必然分叉）。
+   ★**谁不受影响**：连接器与"无 props 的默认档"仍是三层版式，它们的图标本来就该对齐第一行。
+   （⚠默认档的根类名也是 esc-card-expert，故它也会吃到这两条——生产上从不渲染那一档，
+     而它的头里只有一个标题，居中与 space-between 的差别只在那一个标题的垂直位置。） */
+.esc-card-skill .esc-card-header, .esc-card-expert .esc-card-header { align-items: center; }
+/* 同一处：这一档的 headmain 里是「标题行 + 描述」两格，只要它们贴成一块、整块与图标居中；
+   space-between（头行里把内容上下撑开）是给三层版式留的，标签行版式换成 center。 */
+.esc-card-skill .esc-card-headmain, .esc-card-expert .esc-card-headmain { justify-content: center; }
 /* ★**口径 41（用户裁决「技能卡片描述的截断位置应该是卡片边缘而不是安装按钮，因为他是独立一行」）**：
-   技能卡头里的**第一行**——「标题 + 动作位」。动作位从 headmain 的**兄弟**收成这一行的**第二格**，
+   头里的**第一行**——「标题 + 动作格」。动作格从 headmain 的**兄弟**收成这一行的**第二格**，
    于是它只吃**标题那一行**的宽度，不再让掉描述那一行的右端（描述因此吃到卡片内缘）。
    口径 39 的效果一字不减：标题那格 flex: 1 / min-width: 0、动作格 flex: none ⇒ 标题的省略号
-   仍**永远**落在动作位左侧、仍不靠任何预留魔数（字号跟随壳的「字体大小」设置，魔数会当场失效）。
-   align-items: flex-start + 动作位自带的 align-self: flex-start ⇒ 那枚「+」仍对齐**标题那一行**
-   （口径 39 按真图钉的口径），不跟"标题 + 描述"整块居中。 */
-.esc-skill-titlerow { display: flex; align-items: flex-start; gap: 12px; flex: none; }
+   仍**永远**落在动作格左侧、仍不靠任何预留魔数（字号跟随壳的「字体大小」设置，魔数会当场失效）。
+   align-items: flex-start + 动作格自带的 align-self: flex-start ⇒ 动作格对齐**标题那一行**。
+   ★**口径 42**：这一行**两档共用**（技能＝常驻动作格 .esc-skill-actions，专家＝默认收起的
+   .esc-summon-slot，见下面那两条）。类名也从 esc-skill-titlerow 改成 esc-card-titlerow——
+   它已经不是技能卡专属的那一行了。
+   ★**gap: 0（口径 42 的关键一处）**：两格之间的 12px 改由**动作格自己**用 margin-left 带。
+   因为 gap 是**容器**属性——它对"收起态的召唤格"（宽度 0）照样会算 12px，于是标题会平白短 12px、
+   在卡片右边缘提前出现省略号（那正是用户不想看到的：没显示按钮时不该截断）。
+   让每一格自带间距，"收起 = 真零占位"才成立。 */
+.esc-card-titlerow { display: flex; align-items: flex-start; gap: 0; flex: none; }
 /* 标题那一格必须仍可收缩（min-width: 0），否则 flex 分配不到宽度、省略号不生效。 */
-.esc-skill-titlerow .esc-card-title { flex: 1; min-width: 0; }
+.esc-card-titlerow .esc-card-title { flex: 1; min-width: 0; }
 .esc-card-author-row { display: flex; align-items: center; gap: 12px; }
 /* 官方 AuthorInfo/index.less：容器 min-width: 30px; gap: 4px; flex: 0 1 auto，
    头像 **16×16**（原实现写的是 14×14，比官方小一圈），名字 height: 16px; line-height: 16px。 */
@@ -375,10 +399,15 @@ const CSS = `
    <span>** 承载这一幕（span 上没有竞争规则，稳），语义与官方一致：容器常驻、按钮单独浮现。 */
 .esc-hover-reveal { opacity: 0; pointer-events: none; transition: opacity .3s ease-in-out; }
 .esc-card:hover .esc-hover-reveal { opacity: 1; pointer-events: auto; }
-/* 收藏：回到官方口径（右下角绝对定位 right 16 / bottom 12，命中区 32px）。
-   官方 .corner-box 没有 gap（付费 Tag 自己带 marginRight: 0）⇒ 本页也去掉那枚 4px。 */
-.esc-corner-box { position: absolute; right: 16px; bottom: 12px; display: flex; align-items: center; }
-.esc-star-box { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; cursor: pointer; background: none; border: 0; padding: 0; }
+/* —— 已撤下（口径 42）：右下角那枚 hover 浮现的收藏钮 ——
+   它原来在这里画两条规则：.esc-corner-box { position: absolute; right: 16px; bottom: 12px; }
+   （官方口径：收藏钮回右下角、命中区 32px 的 .esc-star-box），按钮自己挂 .esc-hover-reveal
+   浮现在右下角。口径 42 起**专家卡与技能卡同版式**（底部是**标签行**，收藏量就在那一行里）⇒
+   那个浮层只会**压在标签行上**，故两条规则连同渲染点一起撤下（技能卡本来也没有它）。
+   ★那枚按钮一直是**置灰未接线**的占位（disabled + title 写明原因，点了不会有动作）
+     ⇒ 撤下**不丢任何可用功能**；收藏量仍在标签行里如实显示（真数或缺口短横）。
+   ★要它回来：放进标签行尾部或卡头即可（一行的事）——但**别再回到"绝对定位浮在内容上"**，
+     那正是本页从口径 39 起一路在拆的形态（浮层压住标题/描述/标签行）。 */
 .esc-connect-info { display: flex; align-items: center; gap: 8px; overflow: hidden; }
 .esc-connect-category { color: var(--dsw-alias-label-tertiary); font-size: calc(12px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .esc-connect-status { display: flex; align-items: center; flex-shrink: 0; gap: 4px; font-size: calc(12px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); white-space: nowrap; }
@@ -488,12 +517,35 @@ const CSS = `
    「字体大小」设置走的（口径 38 那一刀）——设置一变大，已装态那枚「去试试」会变宽，魔数当场失效、
    标题又被压回去。让 flex 去量，才是唯一不随字号漂的写法。
    ★**口径 41（用户裁决「描述截断位置应该是卡片边缘而不是安装按钮」）**：这一格现在是
-   「标题行」（.esc-skill-titlerow）里的第二格，而不再是 headmain 的兄弟——两者差别只在
+   「标题行」（.esc-card-titlerow，口径 42 前的旧名是 .esc-skill-titlerow）里的第二格，而不再是 headmain 的兄弟——两者差别只在
    **描述那一行的右端**：做兄弟时整块 headmain 都要按 flex: none 给它让宽（描述跟着短一截），
    收进标题行之后它只吃标题那一行的宽，描述那一行吃到卡片内缘。口径 39 那三条效果一字不减。
    align-self: flex-start：那枚「+」按真图（与 workbuddy 一致）对齐**标题那一行**，不跟整块居中。
-   （它现在是「标题行」的子项，"整块"也就只是标题那一行——这条声明在 口径 41 之后依然是它的语义。） */
-.esc-skill-actions { display: flex; align-items: center; gap: 8px; flex: none; align-self: flex-start; }
+   （它现在是「标题行」的子项，"整块"也就只是标题那一行——这条声明在 口径 41 之后依然是它的语义。）
+   ★**口径 42**：间距从「标题行的 gap: 12px」挪到这一格自己的 margin-left（同值）。
+     为什么要挪：专家卡的召唤格**默认收起**（宽度 0）而 gap 对收起态照样计 12px ⇒ 标题会平白短 12px。
+     让动作格自带间距以后，技能卡这边**像素不变**（12px 一处没少），专家卡那边收起态才是真零占位。 */
+.esc-skill-actions { display: flex; align-items: center; gap: 8px; flex: none; align-self: flex-start; margin-left: 12px; }
+/* ★**口径 42（用户裁决「区别是右上角技能是安装，专家是召唤，但是专家的召唤默认不显示，hover 时才显示，
+   显示按钮时标题如果太长就截断」）**：专家卡那枚「召唤」的格子。
+   位置与技能卡那枚「+」**完全相同**（标题行的第二格），差别只在**默认状态**：
+     · 收起（默认）：max-width: 0 + overflow: hidden + opacity: 0 ⇒ 宽度与间距都是 0，
+       标题拿到**整行**宽 ⇒ 长标题照常铺满、**不**截断；
+     · 展开（卡片 hover）：max-width: none ⇒ 由内容定宽、margin-left 补回 12px 间距
+       ⇒ 标题那一格缩到"整行 − 12 − 按钮宽"，**省略号就落在召唤左侧**。
+   用户那句话的两个半句正是这两个状态的对照。
+   ★为什么 max-width: 0 而不是 display: none：display 不能过渡（那口淡入就没了）。
+     收起态用 max-width: 0 与 display: none 的占位效果**完全相同**（都是 0×0），
+     前提是间距不挂在容器的 gap 上（见 .esc-card-titlerow 的 gap: 0 那条）。
+   ★触发只有 :hover：这枚按钮**置灰未接线**（disabled ⇒ 不可聚焦，连点击都不响应），
+     与 .esc-hover-reveal 同一口径，故不需要 :focus-within 路径（等它接线时再补）。
+   ★触摸屏：Chrome/WebView 的 hover 会在**点按后粘住** ⇒ 点一下卡片即出现（这也是它在手机上
+     唯一的露出方式——卡片本身没有 onClick，点它不会导航走）。
+   ★过渡只走 opacity：宽度那一跳没有过渡（max-width 由 0 到 none 不可插值）⇒
+     淡入看得见、淡出是"瞬间收起"。这一条是**刻意留的**，不是漏写（要对称淡出就得把 max-width
+     写成一个魔数上限，而那会随壳的字号设置失效——口径 39 明确不要那种写法）。 */
+.esc-summon-slot { display: flex; align-items: center; flex: none; align-self: flex-start; max-width: 0; margin-left: 0; overflow: hidden; opacity: 0; transition: opacity .2s ease-out; }
+.esc-card:hover .esc-summon-slot { max-width: none; margin-left: 12px; opacity: 1; }
 /* ★用户裁决⑥：右上角那枚「安装」按钮此前是个**灰色圆圈小方块**（截图里看不出是加号），且颜色偏淡。
    现在改成 workbuddy 那种**淡底 + 可辨识的加号**：bg-layer-2 作底（比白卡略深一档，有边界感）、
    字色走主文字色（加号看得清），尺寸放大到 30px，hover 才加深。 */
@@ -554,13 +606,14 @@ const CSS = `
 .esc-featured-note .esc-sub { margin: 0; color: var(--dsw-alias-label-secondary); }
 .esc-retry { border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md, 8px); background: none; padding: 4px 12px; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: calc(13px + var(--dsh-content-font-delta, 0px) + var(--esc-fs-delta, 0px)); cursor: pointer; }
 .esc-retry:hover { background: var(--dsw-alias-interactive-bg-hover); }
-`
 
+
+`
 /**
  * 把 esc 页面样式注入一次。
  *
  * 内联 `<style>` 是本包既有的样式手法（官方原语只给结构，视觉由消费方自持），故这里与
- * `login-page.tsx`/`library-panel.tsx` 同一路子：一个纯字符串 + 一个只渲染 `<style>` 的组件。
+ * login-page.tsx/library-panel.tsx 同一路子：一个纯字符串 + 一个只渲染 `<style>` 的组件。
  */
 export function EnterpriseEscStyle(): ReactNode {
   return createElement('style', { 'data-dshent-esc': 'true' }, CSS)

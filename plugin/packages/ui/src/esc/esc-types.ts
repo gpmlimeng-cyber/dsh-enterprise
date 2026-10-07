@@ -6,7 +6,8 @@
  *   引了整族类型（agent/library/square/systemManage/workspace），DSH 侧没有那套类型，逐个内联一份完整副本
  *   只会带来"抄错一个字段就编译不过"的假精度；这里按 **消费点** 声明，字段名与平台一致。② 包一层 `Esc` 前缀，
  *   因为本包已有自己的 `Page`/`RequestResponse` 语境，撞名会让读者以为两者同源。
- *   ★`mapPublishedStats` 三格（人/会话/收藏）与原文件逐字同序同义。
+ *   ★`mapPublishedStats` 三格（人/会话/收藏）与原文件同序同义，但**如实收了一处**（口径 42）：
+ *    平台没回的字段**不入列**（原文件写 `?? 0`，把"没回"与"回了 0"压成同一个数，见函数上方那段）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -209,14 +210,27 @@ export interface EscPlatformEnvelope<T> {
   readonly success?: boolean | undefined
 }
 
-/** 广场已发布条目的统计信息映射为卡片统计项（人/会话/收藏，与原文件同序）。 */
+/**
+ * 广场已发布条目的统计信息映射为卡片统计项（人/会话/收藏，与原文件同序）。
+ *
+ * ★**口径 42（用户裁决「专家卡片调整成和技能卡片布局一致…底部标签」）**：只映射**平台真回了数**的那几格。
+ *   原写法三格都写 `?? 0` —— 它把"平台没回这个人数字段"与"平台回了一个 0"压成了同一个 0，
+ *   可这两件事在界面上该说完全不同的话（前者是缺口、该画短横；后者是"确实是 0"）。
+ *   卡片层拿不到这个区分，就只能把某一格**钉死**成短横：口径 40 那一版的技能标签行正是如此
+ *   （安装/使用两格写死 `-`）——代价是**专家卡那两格的真数**从此没法复用同一行。
+ *   ⇒ 现在 `null` / `undefined` / 非数字一律**不入列**，卡片层按"这一格在不在"决定画真数还是短横。
+ *   真机事实（本轮复测）：平台对**技能**不回 `userCount`/`convCount`（7 条全是 `null`），
+ *   对**专家**回真数 —— 于是同一行在两种卡上分别画成 `★1 👤- 💬-` 与 `★0 👤2 💬12`。
+ */
 export const mapPublishedStats = (
   statistics?: EscStatistics | undefined,
 ): ResourceStat[] => {
   if (!statistics) return []
+  const cellOf = (type: ResourceStatType, value: number | null | undefined): readonly ResourceStat[] =>
+    typeof value === 'number' ? [{ type, value }] : []
   return [
-    { type: 'user', value: statistics.userCount ?? 0 },
-    { type: 'link', value: statistics.convCount ?? 0 },
-    { type: 'star', value: statistics.collectCount ?? 0 },
+    ...cellOf('user', statistics.userCount),
+    ...cellOf('link', statistics.convCount),
+    ...cellOf('star', statistics.collectCount),
   ]
 }
