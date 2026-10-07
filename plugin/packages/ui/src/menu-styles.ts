@@ -80,7 +80,7 @@ export const ENTERPRISE_MENU_STYLES = `
       /* 行右侧的弱化提示（帮助与文档的「需登录」/「请先配置企业 Server 地址」）：次要色、可省略。 */
       .own-menu-row-hint { color: var(--dsw-alias-label-tertiary, #667085); flex: none; font-size: 12px; line-height: 18px; }
       /* 行内可见反馈（帮助打开失败）：警示色，就摆在那一行下面，菜单不关。 */
-      .own-menu-notice { color: var(--dsw-alias-status-warning, #b54708); font-size: 12px; line-height: 18px; margin: 2px 8px 6px; overflow-wrap: anywhere; }
+      .own-menu-notice { color: var(--dsw-alias-state-warn-primary, #b54708); font-size: 12px; line-height: 18px; margin: 2px 8px 6px; overflow-wrap: anywhere; }
       /* 右侧动作入口：品牌蓝 + 悬停下划线；它是行内的 pointer 入口，键盘由行本身承担。 */
       .own-update-action { color: var(--dsw-alias-state-business-primary, #4d6bfe); cursor: pointer; flex: none; font-size: 13px; line-height: 20px; }
       .own-update-action:hover { text-decoration: underline; }
@@ -99,11 +99,11 @@ export const ENTERPRISE_MENU_STYLES = `
       .own-usage-period { color: var(--dsw-alias-label-secondary, #475467); font-size: 12px; line-height: 18px; }
       /* 剩余额度百分比：等宽数字、右对齐；耗尽（0%）走警示色。 */
       .own-usage-percent { color: var(--dsw-alias-label-primary, #101828); font-size: 12px; font-variant-numeric: tabular-nums; line-height: 18px; text-align: right; }
-      .own-usage-percent[data-exhausted='true'] { color: var(--dsw-alias-status-error, #c4320a); font-weight: 500; }
+      .own-usage-percent[data-exhausted='true'] { color: var(--dsw-alias-state-error-primary, #c4320a); font-weight: 500; }
       /* 详情：本期预留，aria-disabled 只是「还没有详情页」的可见态，点击给出「即将上线」提示。 */
       .own-usage-details { background: none; border: 0; color: var(--dsw-alias-label-tertiary, #667085); cursor: default; font: inherit; font-size: 12px; line-height: 18px; padding: 0; text-align: right; }
       .own-usage-hint { align-items: center; color: var(--dsw-alias-label-secondary, #475467); display: flex; font-size: 12px; gap: 6px; line-height: 18px; margin: 0; }
-      .own-usage-error { color: var(--dsw-alias-status-error, #c4320a); font-size: 12px; line-height: 18px; margin: 0; }
+      .own-usage-error { color: var(--dsw-alias-state-error-primary, #c4320a); font-size: 12px; line-height: 18px; margin: 0; }
       .own-usage-notice { color: var(--dsw-alias-label-tertiary, #667085); font-size: 12px; line-height: 18px; margin: 0; }
       .own-usage-refresh { align-self: flex-end; background: none; border: 0; color: var(--dsw-alias-state-business-primary, #4d6bfe); cursor: pointer; font: inherit; font-size: 12px; line-height: 18px; padding: 0; }
       .own-usage-refresh:hover { text-decoration: underline; }

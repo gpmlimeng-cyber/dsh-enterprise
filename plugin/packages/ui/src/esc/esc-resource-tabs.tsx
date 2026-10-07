@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 React 的 createElement、lucide-react 的三枚图标、官方原语 `Pill`（`@deepseek-ai/dsh-client-ui-primitives`）、
- *   `esc-constants` 的兜底菜单与 `esc-types` 的类型
+ * [INPUT]: 依赖 React 的 createElement、官方原语 `Pill`（`@deepseek-ai/dsh-client-ui-primitives`）、
+ *   `esc-constants` 的兜底菜单、`esc-tab-icons` 的三枚 workbuddy 图标 path 与 `esc-types` 的类型
  * [OUTPUT]: 对外提供 `EnterpriseEscResourceTabs`（{activeKey, onSelect} → 内容页左上角的三个药丸页签）+ 菜单图标映射 `ENTERPRISE_ESC_MENU_ICON`
  * [POS]: esc 页面的**页面切换器**（原来是左栏，用户裁决「三个菜单放到内容页左上角，作为药丸页签切换页面」）。
  *   ★来源不变：菜单数据仍是 `ESC_DEFAULT_CATEGORY_MENUS`（原文件在"后端还没配这个菜单"时的既有兜底；
@@ -13,21 +13,30 @@
  */
 
 import { Pill } from '@deepseek-ai/dsh-client-ui-primitives'
-import { LayoutGrid, Link, Sparkles, Users } from 'lucide-react'
 import { createElement, type ReactNode } from 'react'
 import { ESC_DEFAULT_CATEGORY_MENUS } from './esc-constants.js'
 import { ENTERPRISE_ESC_COPY } from './esc-copy.js'
+import { WORKBUDDY_ESC_TAB_PATH } from './esc-tab-icons.js'
 import type { ResourceTypeEnum } from './esc-types.js'
 
-/** 菜单图标：NUWAX 那三个图标标识 → lucide 同义图标（映射只此一份）。 */
+/**
+ * 页签图标：**workbuddy 那三枚真图**（逐字取其 path 的 d，见 `esc-tab-icons.ts`）。
+ *
+ * ★原先是三枚 lucide 同义图标（`Users`/`Sparkles`/`Link`）——那是**近似**，不是同一枚图。
+ * 用户裁决「专家、技能、连接器图片换成这个」之后一律换掉，不再保留近似图标。
+ * 填色走 CSS 的 `currentColor`（与原 SVG 一致）⇒ 选中黑、非选中灰由样式层管，图标自己不写死颜色。
+ */
 export const ENTERPRISE_ESC_MENU_ICON: Readonly<Record<ResourceTypeEnum, () => ReactNode>> = {
-  expert: () => createElement(Users, { size: 14, 'aria-hidden': true }),
-  skill: () => createElement(Sparkles, { size: 14, 'aria-hidden': true }),
-  connector: () => createElement(Link, { size: 14, 'aria-hidden': true }),
+  expert: () => createElement('svg', { className: 'esc-tab-icon', viewBox: '0 0 16 16', width: 16, height: 16, 'aria-hidden': true },
+    ...WORKBUDDY_ESC_TAB_PATH.expert.map(d => createElement('path', { key: d.slice(0, 12), d }))),
+  skill: () => createElement('svg', { className: 'esc-tab-icon', viewBox: '0 0 16 16', width: 16, height: 16, 'aria-hidden': true },
+    ...WORKBUDDY_ESC_TAB_PATH.skill.map(d => createElement('path', { key: d.slice(0, 12), d }))),
+  connector: () => createElement('svg', { className: 'esc-tab-icon', viewBox: '0 0 16 16', width: 16, height: 16, 'aria-hidden': true },
+    ...WORKBUDDY_ESC_TAB_PATH.connector.map(d => createElement('path', { key: d.slice(0, 12), d }))),
 }
 
 /** 兜底图标（`ENTERPRISE_ESC_MENU_ICON` 里查不到时的退路，正常路径取不到它）。 */
-const FALLBACK_ICON = (): ReactNode => createElement(LayoutGrid, { size: 14, 'aria-hidden': true })
+const FALLBACK_ICON = (): ReactNode => createElement('svg', { className: 'esc-tab-icon', viewBox: '0 0 16 16', width: 16, height: 16, 'aria-hidden': true })
 
 /** 页签入参。 */
 export interface EnterpriseEscResourceTabsProps {
@@ -49,6 +58,8 @@ export function EnterpriseEscResourceTabs({ activeKey, onSelect }: EnterpriseEsc
           className: 'esc-resource-tab esc-pill',
           active: item.code === activeKey,
           'aria-current': item.code === activeKey ? 'page' : undefined,
+          // 同上：选中态由我们自己的标记驱动（官方 active 落到它那份哈希类名上，外部选不中）。
+          ...{ 'data-esc-selected': item.code === activeKey },
           onClick: () => onSelect(item.code),
         },
         (ENTERPRISE_ESC_MENU_ICON[item.code] ?? FALLBACK_ICON)(),

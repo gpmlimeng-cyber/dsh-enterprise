@@ -143,7 +143,7 @@ const NOTICE_STYLES = `
       [role="dialog"]:has(.own-maintenance-body) { box-sizing: border-box; width: min(420px, calc(100vw - 48px)); }
       .own-maintenance-content { min-height: 0; overflow-y: auto; }
       .own-maintenance-text { color: var(--dsw-alias-label-secondary, #475467); font-size: 13px; line-height: 20px; margin: 0; }
-      .own-maintenance-text[data-tone='warning'] { color: var(--dsw-alias-status-warning, #b54708); }
+      .own-maintenance-text[data-tone='warning'] { color: var(--dsw-alias-state-warn-primary, #b54708); }
 `
 
 const FOOTER_STYLE: CSSProperties = { display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }

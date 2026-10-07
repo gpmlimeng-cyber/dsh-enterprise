@@ -573,7 +573,9 @@ describe('the injected stylesheet owns every trigger interaction state', () => {
     expect(tracks).toHaveLength(3)
     // 耗尽用警示色，剩余百分比右对齐。
     expect(ENTERPRISE_MENU_STYLES).toContain(".own-usage-percent[data-exhausted='true']")
-    expect(ENTERPRISE_MENU_STYLES).toContain('var(--dsw-alias-status-error, #c4320a)')
+    // ★ 本刀：`status-error` 在本版 DSH 主题里查无此名（声明计算期无效）⇒ 换成主题真源 `state-error-primary`
+    //   （= `--dsw-static-red-600`）。断言跟的是**这枚警示色**，故 token 名跟着换，判据未放宽。
+    expect(ENTERPRISE_MENU_STYLES).toContain('var(--dsw-alias-state-error-primary, #c4320a)')
   })
 
   it('falls back to a theme-neutral currentColor overlay instead of a dark-on-dark colour', () => {

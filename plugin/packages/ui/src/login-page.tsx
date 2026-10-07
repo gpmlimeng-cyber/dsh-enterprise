@@ -79,7 +79,7 @@ const accountName: CSSProperties = { fontSize: 14, fontWeight: 600, lineHeight: 
 const accountDetail: CSSProperties = { color: 'var(--dsw-alias-label-tertiary, #667085)', fontSize: 12, lineHeight: '18px', overflowWrap: 'anywhere' }
 
 const alert: CSSProperties = {
-  color: 'var(--dsw-alias-status-error, #c4320a)',
+  color: 'var(--dsw-alias-state-error-primary, #c4320a)',
   fontSize: 13,
   lineHeight: '20px',
   margin: '0 0 16px',
@@ -88,7 +88,7 @@ const alert: CSSProperties = {
 
 const meta: CSSProperties = {
   alignItems: 'center',
-  borderTop: '1px solid var(--dsw-alias-stroke-border-2, #e4e7ec)',
+  borderTop: '1px solid var(--dsw-alias-border-l2, #e4e7ec)',
   color: 'var(--dsw-alias-label-tertiary, #667085)',
   display: 'flex',
   fontSize: 12,
@@ -117,7 +117,7 @@ const versionRow: CSSProperties = { alignItems: 'center', display: 'flex', flex:
 
 const actions: CSSProperties = { alignItems: 'center', display: 'flex', gap: 8, justifyContent: 'space-between', marginTop: 14, width: '100%' }
 
-const restart: CSSProperties = { color: 'var(--dsw-alias-status-warning, #b54708)', fontSize: 13, margin: '12px 0 0' }
+const restart: CSSProperties = { color: 'var(--dsw-alias-state-warn-primary, #b54708)', fontSize: 13, margin: '12px 0 0' }
 
 /** 弹窗正文的样式块与原件同源；档位/焦点环都取自宿主 token，键位动画由弹窗壳统一提供。 */
 const style = `
@@ -137,7 +137,7 @@ export function enterpriseNuwaxPresentation(
     return {
       title: '正在登录',
       description: '正在向 NUWAX 平台核对账号与口令',
-      color: 'var(--dsw-alias-accent-primary, #2563eb)',
+      color: 'var(--dsw-alias-brand-primary, #2563eb)',
       icon: 'progress',
     }
   }
@@ -145,7 +145,7 @@ export function enterpriseNuwaxPresentation(
     return {
       title: '正在退出',
       description: '正在丢弃本机的 NUWAX 会话',
-      color: 'var(--dsw-alias-status-warning, #b54708)',
+      color: 'var(--dsw-alias-state-warn-primary, #b54708)',
       icon: 'progress',
     }
   }
@@ -325,7 +325,7 @@ export function EnterpriseNuwaxLoginPage(props: EnterpriseNuwaxLoginPageProps): 
     >{busy === 'logout' ? '正在退出' : '退出登录'}</Button>}</LogoutConfirmation> : null}
     <div style={meta}>
       <span style={metaSource}>
-        <span aria-hidden style={{ background: serviceAddress === undefined ? 'var(--dsw-alias-label-disabled, #d0d5dd)' : presentation.color, borderRadius: '50%', flex: 'none', height: 6, width: 6 }} />
+        <span aria-hidden style={{ background: serviceAddress === undefined ? 'var(--dsw-alias-label-dimmed, #d0d5dd)' : presentation.color, borderRadius: '50%', flex: 'none', height: 6, width: 6 }} />
         <span data-enterprise-nuwax-origin={serviceAddress} style={metaValue} title={serviceAddress ?? undefined}>{serviceAddress ?? NUWAX_SERVICE_ADDRESS_UNKNOWN}</span>
       </span>
       <span style={versionRow}>

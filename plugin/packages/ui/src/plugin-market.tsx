@@ -464,16 +464,16 @@ const styles = `
 .own-market{color:var(--dsw-alias-label-primary,#101828);font-size:13px;letter-spacing:0;min-width:0}
 .own-market *{box-sizing:border-box}
 .own-market-toolbar,.own-market-tabs,.own-market-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.own-market-tabs{border-bottom:1px solid var(--dsw-alias-stroke-border-2,#e4e7ec);gap:20px;margin-bottom:18px}
+.own-market-tabs{border-bottom:1px solid var(--dsw-alias-border-l2,#e4e7ec);gap:20px;margin-bottom:18px}
 .own-market-tabs button{color:var(--dsw-alias-label-secondary,#475467);font:inherit;border:0;border-bottom:2px solid transparent;background:none;padding:10px 0;cursor:pointer}
-.own-market-tabs button[aria-pressed=true]{color:var(--dsw-alias-label-primary,#101828);border-bottom-color:var(--dsw-alias-accent-primary,#2563eb)}
-.own-market-toolbar{margin-bottom:18px}.own-market-search{display:flex;align-items:center;gap:8px;flex:1;min-width:140px;border:1px solid var(--dsw-alias-stroke-border-2,#d0d5dd);border-radius:6px;padding:0 10px;height:36px}
-.own-market-search input{width:100%;min-width:0;border:0;background:none;color:inherit;font:inherit;outline:none}.own-market-search:focus-within{outline:2px solid var(--dsw-alias-accent-primary,#2563eb);outline-offset:2px}
+.own-market-tabs button[aria-pressed=true]{color:var(--dsw-alias-label-primary,#101828);border-bottom-color:var(--dsw-alias-brand-primary,#2563eb)}
+.own-market-toolbar{margin-bottom:18px}.own-market-search{display:flex;align-items:center;gap:8px;flex:1;min-width:140px;border:1px solid var(--dsw-alias-border-l2,#d0d5dd);border-radius:6px;padding:0 10px;height:36px}
+.own-market-search input{width:100%;min-width:0;border:0;background:none;color:inherit;font:inherit;outline:none}.own-market-search:focus-within{outline:2px solid var(--dsw-alias-brand-primary,#2563eb);outline-offset:2px}
 .own-market-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,245px),1fr));gap:12px}
-.own-market-card{display:flex;flex-direction:column;gap:14px;min-width:0;padding:16px;border:1px solid var(--dsw-alias-stroke-border-2,#e4e7ec);border-radius:8px;background:var(--dsw-alias-background-primary,transparent)}
-.own-market-card:focus-within,.own-market-card:hover{border-color:var(--dsw-alias-accent-primary,#2563eb)}
+.own-market-card{display:flex;flex-direction:column;gap:14px;min-width:0;padding:16px;border:1px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:8px;background:var(--dsw-alias-bg-layer-1,transparent)}
+.own-market-card:focus-within,.own-market-card:hover{border-color:var(--dsw-alias-brand-primary,#2563eb)}
 .own-market-title{display:flex;align-items:flex-start;gap:10px;color:inherit;text-align:left;border:0;padding:0;background:none;cursor:pointer;font:inherit;min-width:0;width:100%}
-.own-market-glyph{display:grid;place-items:center;width:36px;height:36px;flex-shrink:0;border-radius:6px;background:var(--dsw-alias-background-secondary,#f2f4f7);color:var(--dsw-alias-label-secondary,#475467)}
+.own-market-glyph{display:grid;place-items:center;width:36px;height:36px;flex-shrink:0;border-radius:6px;background:var(--dsw-alias-bg-skeleton,#f2f4f7);color:var(--dsw-alias-label-secondary,#475467)}
 .own-market-title strong{display:block;font-size:14px;line-height:21px;overflow-wrap:anywhere}.own-market-sub{color:var(--dsw-alias-label-secondary,#667085);font-size:12px;line-height:19px;overflow-wrap:anywhere}
 .own-market-card footer{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:auto;min-height:30px}
 .own-market-empty{text-align:center;padding:44px 12px;color:var(--dsw-alias-label-secondary,#667085)}
@@ -486,8 +486,8 @@ const styles = `
    画的是**不确定态**流光而不是会填满的进度条——这条链从 Host 只拿得到阶段、拿不到百分比
    （留档在 plugin-install-progress.ts 的文件头）；动效只是装饰，阶段文字是独立文本节点。 */
 .own-plugin-progress{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0;padding:2px 0}
-.own-plugin-progressFlow{position:relative;display:block;flex:0 1 96px;width:96px;height:4px;border-radius:2px;background:var(--dsw-alias-background-secondary,#f2f4f7);overflow:hidden}
-.own-plugin-progressFlow::after{content:'';position:absolute;top:0;bottom:0;width:40%;border-radius:2px;background:var(--dsw-alias-accent-primary,#2563eb);animation:own-plugin-progress-flow 1.3s ease-in-out infinite}
+.own-plugin-progressFlow{position:relative;display:block;flex:0 1 96px;width:96px;height:4px;border-radius:2px;background:var(--dsw-alias-bg-skeleton,#f2f4f7);overflow:hidden}
+.own-plugin-progressFlow::after{content:'';position:absolute;top:0;bottom:0;width:40%;border-radius:2px;background:var(--dsw-alias-brand-primary,#2563eb);animation:own-plugin-progress-flow 1.3s ease-in-out infinite}
 .own-plugin-progressText{color:var(--dsw-alias-label-secondary,#667085);font-size:12px;line-height:19px}
 .own-plugin-progressNote{color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:12px;line-height:19px;overflow-wrap:anywhere}
 .own-plugin-progressSettled{color:var(--dsw-alias-label-secondary,#667085);font-size:12px;line-height:19px;overflow-wrap:anywhere}

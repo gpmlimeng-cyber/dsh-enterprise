@@ -74,7 +74,7 @@ export function resolveAccountOrigin(
 
 const input: CSSProperties = {
   background: 'var(--dsw-alias-bg-layer-2, #fff)',
-  border: '1px solid var(--dsw-alias-stroke-border-2, #d0d5dd)',
+  border: '1px solid var(--dsw-alias-border-l2, #d0d5dd)',
   borderRadius: 8,
   boxSizing: 'border-box',
   color: 'var(--dsw-alias-label-primary, #101828)',
@@ -82,17 +82,17 @@ const input: CSSProperties = {
   fontSize: 13,
   height: 40,
   minWidth: 0,
-  outlineColor: 'var(--dsw-alias-accent-primary, #2563eb)',
+  outlineColor: 'var(--dsw-alias-brand-primary, #2563eb)',
   padding: '0 13px',
   width: '100%',
 }
 
 const saveButton: CSSProperties = {
   alignItems: 'center',
-  background: 'var(--dsw-alias-accent-primary, #2563eb)',
+  background: 'var(--dsw-alias-brand-primary, #2563eb)',
   border: '1px solid transparent',
   borderRadius: 8,
-  color: 'var(--dsw-alias-label-on-primary, #fff)',
+  color: 'var(--dsw-alias-label-primary-foreground, #fff)',
   cursor: 'pointer',
   display: 'inline-flex',
   font: 'inherit',
@@ -212,9 +212,9 @@ export function AccountOriginEditor({ api, disabled = false }: {
       </button>
       <span id={statusId} role="status" style={{
         color: notice !== undefined
-          ? 'var(--dsw-alias-status-error, #c4320a)'
+          ? 'var(--dsw-alias-state-error-primary, #c4320a)'
           : remounted === false
-            ? 'var(--dsw-alias-status-warning, #b54708)'
+            ? 'var(--dsw-alias-state-warn-primary, #b54708)'
             : 'var(--dsw-alias-state-success-primary, #16803c)',
         fontSize: 13,
         lineHeight: '20px',

@@ -2915,7 +2915,7 @@ const baseStyles = `
      ⇒ 浅色主题：白卡片上就是**白底 + 黑字 + 0.5px 浅描边**（用户口径「安装按钮要白色背景黑字」）；
      ⇒ 深色主题：随卡片变深、字随主题翻白 —— 两套主题都对，**不需要我们再补任何颜色**。
    ★ 历史：这条覆盖**连续错过两次**，别再来第三次 ——
-     ① 曾写 background:var(--dsw-alias-background-primary,#fff)：该 token 名在本版 DSH 里不被定义
+     ① 曾写 background:var(--dsw-alias-bg-layer-1,#fff)：该 token 名在本版 DSH 里不被定义
         ⇒ 兜底 #fff 恒为白 ⇒ 深色主题白底压白字、字看不见（深色真机截图确认）。
      ② 曾改照 .toolbar 变体（button-tool-bar-fill）：token 名**是对的**、色也随主题翻，但**档位错了**
         —— 官方 outline 按钮在浅色下本该是白底，被盖成了工具栏灰（浅色真机截图确认）。
@@ -2977,7 +2977,7 @@ const baseStyles = `
    自带青蓝渐变的兜底图标（PluginArtworkDefault，见 EnterpriseArtworkFallback），若再按类别上
    --dsw-static-* 颜色会与它自己的渐变打架，故原来的 data-icon-kind 四类上色规则已整组删除，
    不留死样式。 */
-.own-market-rowIcon{display:inline-flex;flex-shrink:0;align-items:center;justify-content:center;width:48px;height:48px;border:.5px solid var(--dsw-alias-border-l3,#d0d5dd);border-radius:var(--dsw-radius-md,8px);background:var(--dsw-alias-background-primary,#fff);color:var(--dsw-alias-label-secondary,#667085)}
+.own-market-rowIcon{display:inline-flex;flex-shrink:0;align-items:center;justify-content:center;width:48px;height:48px;border:.5px solid var(--dsw-alias-border-l3,#d0d5dd);border-radius:var(--dsw-radius-md,8px);background:var(--dsw-alias-bg-layer-1,#fff);color:var(--dsw-alias-label-secondary,#667085)}
 .own-market-rowMain{display:flex;flex:1;flex-direction:column;gap:4px;min-width:0}
 .own-market-rowId{font-size:13.5px;line-height:20px;font-weight:500;color:var(--dsw-alias-label-primary,#101828);overflow-wrap:anywhere}
 .own-market-row[data-state='off'] .own-market-rowId{color:var(--dsw-alias-label-secondary,#667085)}
@@ -2991,8 +2991,8 @@ const baseStyles = `
    文字与动效是**两件东西**——阶段文字是上面那句独立文本节点，关掉动效（下面那条 media query）
    后阶段文字与进度语义一字不少。类名与同包其他源文件零交集（两处 style 都是全局单类选择器）。 */
 .own-market-progress{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0}
-.own-market-progressFlow{position:relative;display:block;flex:0 1 96px;width:96px;height:4px;border-radius:2px;background:var(--dsw-alias-background-secondary,#f2f4f7);overflow:hidden}
-.own-market-progressFlow::after{content:'';position:absolute;top:0;bottom:0;width:40%;border-radius:2px;background:var(--dsw-alias-accent-primary,#2563eb);animation:own-market-progress-flow 1.3s ease-in-out infinite}
+.own-market-progressFlow{position:relative;display:block;flex:0 1 96px;width:96px;height:4px;border-radius:2px;background:var(--dsw-alias-bg-skeleton,#f2f4f7);overflow:hidden}
+.own-market-progressFlow::after{content:'';position:absolute;top:0;bottom:0;width:40%;border-radius:2px;background:var(--dsw-alias-brand-primary,#2563eb);animation:own-market-progress-flow 1.3s ease-in-out infinite}
 .own-market-progressText{color:var(--dsw-alias-label-secondary,#667085);font-size:12px;line-height:19px}
 .own-market-progressNote{color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:12px;line-height:19px;overflow-wrap:anywhere}
 .own-market-progressSettled{margin:0;color:var(--dsw-alias-label-secondary,#667085);font-size:12px;line-height:19px;overflow-wrap:anywhere}
@@ -3007,12 +3007,12 @@ const baseStyles = `
 .own-market-approval{display:flex;flex-direction:column;gap:12px;width:min(100%,520px);max-height:100%;overflow:auto;padding:20px;border-radius:12px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary,#101828);box-shadow:var(--dsw-shadow-lv2,0 12px 32px rgba(16,24,40,.18))}
 .own-market-approvalTitle{margin:0;font-size:15px;line-height:22px;font-weight:600}
 .own-market-approvalSubject{margin:0;font-size:13.5px;line-height:20px;font-weight:500;overflow-wrap:anywhere}
-.own-market-approvalStale{margin:0;padding:8px 10px;border-radius:6px;background:var(--dsw-alias-background-secondary,#f2f4f7);color:var(--dsw-alias-state-warn-primary,#b54708);font-size:12.5px;line-height:19px}
+.own-market-approvalStale{margin:0;padding:8px 10px;border-radius:6px;background:var(--dsw-alias-bg-skeleton,#f2f4f7);color:var(--dsw-alias-state-warn-primary,#b54708);font-size:12.5px;line-height:19px}
 .own-market-approvalList{display:flex;flex-direction:column;gap:6px;min-width:0}
 .own-market-approvalListTitle{margin:0;font-size:12.5px;line-height:19px;font-weight:500;color:var(--dsw-alias-label-secondary,#667085)}
 .own-market-approvalItems{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 .own-market-approvalItem{display:flex;flex-direction:column;gap:2px;min-width:0;padding:8px 10px;border:0.5px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:6px}
-.own-market-approvalDisclaimer{margin:0;padding:10px 12px;border-radius:8px;background:var(--dsw-alias-background-secondary,#f2f4f7);color:var(--dsw-alias-state-warn-primary,#b54708);font-size:12.5px;line-height:19px}
+.own-market-approvalDisclaimer{margin:0;padding:10px 12px;border-radius:8px;background:var(--dsw-alias-bg-skeleton,#f2f4f7);color:var(--dsw-alias-state-warn-primary,#b54708);font-size:12.5px;line-height:19px}
 .own-market-approvalActions{display:flex;justify-content:flex-end;gap:8px}
 /* 标题 + 两枚签：**单行 nowrap flex**，行高锁 20px（官方 Tag 固定 19px 高 < 20px，故加签不改变这一行的高度）。
    标签过多时**标题先让步**：标题 flex:0 1 auto + min-width:0 先省略，两枚签 .own-market-tag 的 flex:none 保持可见；
@@ -3025,7 +3025,7 @@ const baseStyles = `
 .own-market-rowStateFailed{color:var(--dsw-alias-state-error-primary,#c4320a)}
 /* 技能行右侧那枚「有更新」辅助动作（两套外壳同一取值）：无边框圆角淡底（标签观感，不是第二枚开关）、
    键盘可达 + focus-ring、禁用态降透明——它是开关左侧的快捷路，不抢主控件的位置。 */
-.own-market-skillTag{flex:none;border:0;border-radius:999px;padding:1px 10px;background:var(--dsw-alias-background-secondary,#f2f4f7);font-size:12.5px;line-height:18px;color:var(--dsw-alias-accent-primary,#2563eb);font-variant-numeric:tabular-nums;cursor:pointer}
+.own-market-skillTag{flex:none;border:0;border-radius:999px;padding:1px 10px;background:var(--dsw-alias-bg-skeleton,#f2f4f7);font-size:12.5px;line-height:18px;color:var(--dsw-alias-brand-primary,#2563eb);font-variant-numeric:tabular-nums;cursor:pointer}
 .own-market-skillTag:hover:not(:disabled){background:var(--dsw-alias-border-l2,#e4e7ec);color:var(--dsw-alias-label-primary,#101828)}
 .own-market-skillTag:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,#2563eb);outline-offset:2px}
 .own-market-skillTag:disabled{cursor:default;opacity:.6}
@@ -3138,7 +3138,7 @@ const baseStyles = `
    （dsh-client-ui-primitives/lib/Menu.module.css:18 逐字），**不是** background-primary，
    所以不覆盖就拿不到白底。作用域收在 .own-market-addMenu 这枚 className 上，只改这一个下拉，
    **不动官方那张样式表**（官方 Menu 自己也在别处用它那份 token）。 */
-.own-market-addMenu{--dsw-specific-menu:var(--dsw-alias-background-primary,#fff)}
+.own-market-addMenu{--dsw-specific-menu:var(--dsw-alias-bg-layer-1,#fff)}
 /* ★ **圆角刻意偏离官方 Input**（用户口径「搜索框使用大圆角」）：官方 Input.module.css 本身是
    border-radius: 8px（--dsw-radius-md），同族的 .iconButton 则是 var(--dsw-radius-sm)；
    而官方 Button 基类是 18px 胶囊（sm 档 14px）。「大圆角」在本仓 token 体系里最接近的是**胶囊档**，
@@ -3418,7 +3418,7 @@ const detailStyles = `
 .own-market-filePreviewPath{font-family:var(--dsw-font-mono,ui-monospace,SFMono-Regular,Menlo,monospace);color:var(--dsw-alias-label-secondary,#667085);font-size:11.5px;line-height:16px;overflow-wrap:anywhere}
 .own-market-filePreviewMeta{margin-left:auto;color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:11px;line-height:16px;font-variant-numeric:tabular-nums}
 /* 正文：纯文本 <pre>（长文件靠 max-height 滚动看全，不做截断；空白保留、超长行软换行）。 */
-.own-market-fileText{margin:0;max-height:360px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:10px 12px;border:.5px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:var(--dsw-radius-md,12px);background:var(--dsw-alias-background-secondary,#f2f4f7);font:11.5px/17px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--dsw-alias-label-primary,#101828)}
+.own-market-fileText{margin:0;max-height:360px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:10px 12px;border:.5px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:var(--dsw-radius-md,12px);background:var(--dsw-alias-bg-skeleton,#f2f4f7);font:11.5px/17px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--dsw-alias-label-primary,#101828)}
 /* ① 本文件**自绘**的那枚 48×48 图标（技能详情 Sparkles / 配方详情 BookMarked，类名
    .own-market-detailIcon）已按用户口径**从 JSX 连元素带样式一并撤掉**——本文件这半边不需要任何规则。
    ② **官方 DetailTop 自己那枚**的隐藏规则**不在本文件里**，见 baseStyles（它服务的是官方详情页，

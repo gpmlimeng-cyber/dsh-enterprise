@@ -1,16 +1,21 @@
 /**
- * [INPUT]: 依赖 React 的 createElement、lucide-react 的图标、官方原语 `Button`/`Switch`（`@deepseek-ai/dsh-client-ui-primitives`）、`esc-copy` 的文案与 `esc-types` 的 `ResourceItem`
- * [OUTPUT]: 对外提供 `EnterpriseEscCard`——专家/技能/连接器共用的聚合卡片（图标 + 标题 + 发布者 + 两行描述 + 统计页脚 + hover 动作位）
+ * [INPUT]: 依赖 React 的 createElement/useState、lucide-react 的图标、官方原语 `Button`/`Menu`/`Switch`（`@deepseek-ai/dsh-client-ui-primitives`）、`esc-api` 的 `enterpriseEscImageSrc`、`esc-copy` 的文案与 `esc-types` 的 `ResourceItem`
+ * [OUTPUT]: 对外提供 `EnterpriseEscCard`（专家/技能/连接器共用的聚合卡片）与 `SKILL_MORE_ENTRIES`（技能卡「更多」下拉那三行的**纯数据**）
  * [POS]: esc 页面的**卡片层**，同时移植了 NUWAX 的 `CardWrapper`（容器版式）与 `ResourceCard`（业务内容与动作位）两个组件。
- *   ★`CardWrapper` 的版式逐条照抄：170px（无统计行时 130px）高、16px 内衬、12px 圆角、0.5px 边、
- *   48px 图标（专家裁圆、技能/连接器方形）、标题 16/20、发布者行 12px、描述两行截断、页脚 24px。
- *   ★动作位按 A 档**置灰**（本刀口径：看得见的那一页先搬，动作诚实置灰并写明原因）：召唤 / 立即使用 /
- *   连接 / 断开 / 启用开关 / 收藏 全部 `disabled` + `title=「该动作尚未在 DSH 侧接入」`；位置、几何与
- *   hover 浮现行为与原文一致——**不是**把它们删掉（删掉版式就与线上不同了）。
+ *   ★**本刀（workbuddy 风格重构）——技能卡这一档被换掉了三处**，专家/连接器两档一字未动：
+ *     ① **底部那条「标签行」取代原来的「统计页脚」**：逐项渲染收藏 / 安装 / 作者 / 使用，
+ *        缺的那几项按缺口显示 `-`（**不编数**：0 会被读成「装过 0 次」，见 `esc-copy` 的说明）；
+ *     ② **动作位按「是否已安装」分流**——未安装＝一枚**常驻圆形「+」**（不再是原页面那种 hover 才浮现的
+ *        「使用」按钮，也不再挂那枚启用开关）；已安装＝**「更多」下拉 + 「去试试」**两枚并排。
+ *        「更多」用官方 `Menu` 原语（自带遮罩/Esc/外部点击/`danger` 行），不自造下拉；
+ *     ③ **发布者头像 + 昵称那行只在专家卡上渲染**（技能卡的作者已在标签行里），故连接器的状态行
+ *        `.esc-extra-box` 与标题**平级**，不再嵌在发布者行内部。
+ *     ★那一档已装态取自本仓**既有真值**（`GET /skills/installed` 那张清单），不是新接口、不猜；
+ *       `undefined`（读不到）与 `false`（确实没装）分开表达，读不到时顶栏另有「已安装（？）」缺口标记。
+ *   ★动作位一律按 A 档**置灰**并写明原因（召唤 / 连接 / 断开 / 安装 / 更多三行 / 去试试）：看得见的那一页
+ *   先搬，动作诚实置灰——**不是**把它们删掉（删掉版式就与线上不同了）。
  *   ★两处 DSH 体系替换：① 图标兜底（原文 `agent_image.png`）→ lucide 中性图标 + token 底色；
  *   ② 发布者头像兜底（原文 `avatar.png`）→ 昵称首字字母头像。
- *   ★**口径 35③**：页脚（24px 统计行）只在 `showStats` 时渲染（官方 `{showStats && <footer/>}`），
- *   动作位/连接位/收藏位（绝对定位、不参与流布局）直接挂在卡片下——与官方渲染树一致。
  *   ★**图片地址一律先过 `enterpriseEscImageSrc`**（图标与头像两处）：平台给的是**要票据的绝对地址**，
  *   浏览器直连必破图（实测技能图标 401、头像 200+`{"code":"4010"}`）——换不出来的地址就落到上面两条兜底，
  *   于是这一层**永远不会画出一个破图**。
@@ -19,8 +24,8 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { Button, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
-import { Bot, MessageSquare, Star, User } from 'lucide-react'
+import { Button, Menu, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
+import { BarChart3, Bot, Download, Folder, MessageSquare, MoreHorizontal, Pencil, Plus, Star, Trash2, User } from 'lucide-react'
 import { createElement, useState, type ReactNode } from 'react'
 import { enterpriseEscImageSrc } from './esc-api.js'
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from './esc-copy.js'
@@ -46,7 +51,39 @@ export interface EnterpriseEscCardProps {
   readonly showUse?: boolean | undefined
   /** 是否按连接器卡片展示（分类 + 连接状态行、连接/断开动作位）。 */
   readonly showConnect?: boolean | undefined
+  /**
+   * ★**本刀（workbuddy 风格）**：这一个布尔位决定技能卡右侧给哪种动作形态——
+   * `false`（未安装）＝ 一枚**常驻的圆形「+」**；`true`（已安装）＝ **「更多」下拉 + 「去试试」**两枚。
+   * 取值来源是本仓**既有真值**（`GET /skills/installed` 那张清单），不是新接口、不猜。
+   * `undefined` 与 `false` 是**两件事实**：读不到已装清单时按「未装」画「+」，
+   * 但工具栏那一行已经出了「已安装（？）」的缺口标记 ⇒ 用户不会把「不知道」误读成「没装」。
+   */
+  readonly installed?: boolean | undefined
 }
+
+/**
+ * 「更多」下拉里的三行（照 workbuddy 截图：编辑 / 打开文件夹 / 卸载，卸载是危险档）。
+ *
+ * ★显式标出 `danger?` —— 不标的话 TS 会把三条推成三个互不相容的字面量联合，
+ * 于是 `.map` 里读 `entry.danger` 直接报错（这就是 `MenuItem` 期望的那个可选位）。
+ */
+export interface SkillMoreEntry {
+  readonly id: 'edit' | 'open-folder' | 'uninstall'
+  readonly label: string
+  readonly danger?: boolean | undefined
+}
+
+/**
+ * ★**导出**：这三条的**内容**（id / 文案 / 危险档）是纯数据，测试要能直查——
+ * 而 `SkillMoreActions` 自己持有 `open` 态，在没有 React 调度器的纯函数测试里渲染不出来。
+ * 导出它就能让「三行逐字 + 逐行置灰 + 卸载是危险档」这条判据落在**真数据**上，
+ * 而不是靠把组件硬渲染一遍。
+ */
+export const SKILL_MORE_ENTRIES: readonly SkillMoreEntry[] = [
+  { id: 'edit', label: '编辑' },
+  { id: 'open-folder', label: '打开文件夹' },
+  { id: 'uninstall', label: '卸载', danger: true },
+]
 
 /**
  * 一张资源卡片。
@@ -61,6 +98,7 @@ export function EnterpriseEscCard({
   showSummon,
   showUse,
   showConnect,
+  installed,
 }: EnterpriseEscCardProps): ReactNode {
   const notPorted = ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted
   const connected = item.connected === true
@@ -119,51 +157,66 @@ export function EnterpriseEscCard({
         )
       : null
 
-  // 专家「召唤」/ 技能「立即使用」：技能那一档容器常驻（开关一直看得见），**按钮单独 hover 浮现**
-  // （原文 `.hover-reveal-btn` 的口径）。dsh 的 `Button` 自带 `:disabled { opacity: .4 }`（0,2,0）会压过
-  // 单类（0,1,0），故那枚类挂不上按钮 —— 改由**外层 `<span>`** 承载（span 上没有竞争规则，稳）。
-  const summonOrUseBox =
-    showSummon === true || showUse === true
+  // 专家「召唤」/ 技能动作位。
+  //
+  // ★**本刀（workbuddy 风格）**：技能卡右侧改成 workbuddy 那两种形态——
+  //   未安装：一枚**常驻圆形「+」**（不是原页面那种 hover 才浮现的按钮，截图里它一直看得见）；
+  //   已安装：**「更多」下拉 + 「去试试」**两枚并排。
+  // 两枚动作本刀都**不接线**（安装/编辑/打开文件夹/卸载/去试用都不是本页这条纵深的事），
+  // 但照旧**置灰 + 写明原因**，且「更多」是真能打开的下拉（形态对、行为空），
+  // 这样用户看到的版式就是上线后的样子，差的那一步一眼可见。
+  const skillActionBox =
+    showUse === true
       ? createElement(
           'div',
-          { className: showUse === true ? 'esc-action-box esc-action-box-pinned' : 'esc-action-box' },
-          showUse === true
+          { className: 'esc-skill-actions' },
+          installed === true
+            ? createElement(SkillMoreActions, { name: item.name, notPorted })
+            : createElement(
+                'button',
+                {
+                  type: 'button',
+                  className: 'esc-install-plus',
+                  disabled: true,
+                  title: notPorted,
+                  'aria-label': `${ENTERPRISE_ESC_COPY.installSkill}：${item.name}`,
+                },
+                createElement(Plus, { size: 16, 'aria-hidden': true }),
+              ),
+          installed === true
             ? createElement(
-                'span',
-                { className: 'esc-hover-reveal' },
-                createElement(Button, {
+                Button,
+                {
                   variant: 'primary',
                   size: 'sm',
+                  className: 'esc-action-solid esc-try-now',
                   disabled: true,
-                  className: 'esc-action-solid',
-                  // ★用户裁决：「技能选中的『立即使用』太长了，改成一个机器人聊天的图标即可」→ 曾经 icon-only；
-                  // 之后用户又判「使用图标有点丑还是换成使用俩字」⇒ **回到文字**，且只要两个字。
-                  // 文字写在可见 children 上（不再借 `aria-label` 承担文案 —— 可见名与无障碍名同源，
-                  // 不会出现"读屏念四字、眼睛看两字"的 label-in-name 偏差）；两字也比原来的四字窄 24px 左右，
-                  // 窄列里对标题的挤压比第一版小。悬停提示仍说明 A 档置灰的理由。
                   title: notPorted,
-                  children: ENTERPRISE_ESC_COPY.useNowDisplay,
-                }),
+                  children: ENTERPRISE_ESC_COPY.tryNow,
+                },
               )
-            : createElement(Button, {
-                variant: 'primary',
-                size: 'sm',
-                disabled: true,
-                className: 'esc-action-solid',
-                title: notPorted,
-                children: ENTERPRISE_ESC_COPY.summon,
-              }),
-          showUse === true
-            ? createElement(Switch, {
-                checked: item.skillEnabled === true,
-                onChange: () => undefined,
-                disabled: true,
-                label: item.name,
-                title: notPorted,
-              })
             : null,
         )
       : null
+
+  // 专家「召唤」：原页面那枚 hover 浮现的实底按钮（技能卡已由上面的 workbuddy 形态接管）。
+  const summonBox =
+    showSummon === true
+      ? createElement(
+          'div',
+          { className: 'esc-action-box' },
+          createElement(Button, {
+            variant: 'primary',
+            size: 'sm',
+            disabled: true,
+            className: 'esc-action-solid',
+            title: notPorted,
+            children: ENTERPRISE_ESC_COPY.summon,
+          }),
+        )
+      : null
+
+  const summonOrUseBox = summonBox
 
   // 连接器：已连接 = 常驻启用开关 + hover 浮现的「断开」；未连接 = hover 浮现的「连接」（原文口径，同上）
   const connectBox =
@@ -227,16 +280,70 @@ export function EnterpriseEscCard({
         )
       : null
 
-  // 卡片根类名与官方一致：有统计行 = 170px，无统计行 = 紧凑 130px（`esc-card-compact`）。
-  //
-  // ★口径 35③：**页脚元素只在有统计行时才渲染**——官方是 `{showStats && <footer/>}`
-  //   （`ResourceCard/index.tsx:178-196`），技能/连接器卡片根本没有这个 24px 元素。
-  //   原先本页恒渲染它，于是紧凑卡片的内容 48+32+24+32=136 超出 130 的内容盒 6px，
-  //   flex-shrink 就近把**描述**压扁 ⇒ 描述第二行被切掉半截（实测缺口 9px ≈ 3.3 CSS px）。
-  //   动作位/连接位/收藏位本来就是绝对定位（不参与流布局、不产生间隙），故与官方一样**直接挂在卡片下**。
+  // ★**本刀（workbuddy 风格）**：底部那条**标签行**取代原页面的「发布者行 + 统计页脚」两层。
+  // 截图里的顺序是：⚡收藏量 · ✔安装量 · 作者 · 使用量 —— 逐项**按实际有没有**渲染，
+  // 缺的项留一个 `-` 占位而不是编一个数（见 `ENTERPRISE_ESC_LOCAL_COPY.statUnavailable` 的理由）。
+  // 平台那条列表接口目前只给 `stats` 三格（人/会话/收藏），安装量与使用量**没有**来源。
+  // ★本刀（用户裁决⑧）：顺序改为 **作者 → 收藏量 → 安装量 → 使用量**（原来是收藏/安装/作者/使用）。
+  //   作者排第一是因为它是唯一来自卡片主数据（`publishUser`）的那一格，另三格都是统计/占位。
+  const collectStat = (item.stats ?? []).find(stat => stat.type === 'star')
+  const tagRow = createElement(
+    'div',
+    { className: 'esc-card-tags' },
+    // ★**用户裁决：底部保留我们自己的 4 项**（作者 / 收藏量 / 安装量 / 使用量），
+    //   只是**视觉对标** workbuddy 真图 —— 即那两枚统计项的排布与字号（11px、gap 12、图标 opacity .7），
+    //   而**不是**把项目减成它那两项。作者是我们平台真有的数据（`publishUser`），删掉是丢信息。
+    hasText(publishName)
+      ? createElement(
+          'span',
+          { className: 'esc-tag esc-tag-author', title: publishName },
+          createElement(User, { size: 12, 'aria-hidden': true }),
+          createElement('span', null, publishName),
+        )
+      : null,
+    createElement(
+      'span',
+      { className: 'esc-tag', title: ENTERPRISE_ESC_COPY.statCollect },
+      createElement(Star, {
+        size: 12,
+        'aria-hidden': true,
+        fill: item.collected === true ? 'currentColor' : 'none',
+      }),
+      createElement('span', null, collectStat === undefined ? ENTERPRISE_ESC_LOCAL_COPY.statUnavailable : String(collectStat.value)),
+    ),
+    createElement(
+      'span',
+      { className: 'esc-tag', title: ENTERPRISE_ESC_COPY.statInstall },
+      createElement(Download, { size: 12, 'aria-hidden': true }),
+      createElement('span', null, ENTERPRISE_ESC_LOCAL_COPY.statUnavailable),
+    ),
+    createElement(
+      'span',
+      { className: 'esc-tag', title: ENTERPRISE_ESC_COPY.statUsage },
+      createElement(BarChartIcon, null),
+      createElement('span', null, ENTERPRISE_ESC_LOCAL_COPY.statUnavailable),
+    ),
+  )
+
+  // 卡片根类名：技能卡按 workbuddy 那一版式（**带标签行**），专家/连接器沿用原页面的两层。
   return createElement(
     'div',
-    { className: showStats === true ? 'esc-card' : 'esc-card esc-card-compact' },
+    {
+      // ★SPEC §7 分层策略：技能卡（有阴影，可点入口）· 专家/连接器卡（无阴影，列表项）。
+      //   这三类此前共用同一个类名，阴影一刀切——那与 workbuddy 的分层策略相反。
+      className:
+        showUse === true
+          ? 'esc-card esc-card-skill'
+          // ★判据顺序按「哪一种卡」排，**不能先判 showStats**——连接器卡默认 `showStats` 也是 true，
+          //   先判它会被误判成专家卡（分层类名给错 ⇒ 该无阴影的卡带着阴影）。
+          : showConnect === true
+            ? 'esc-card esc-card-connector'
+            : showSummon === true
+              ? 'esc-card esc-card-expert'
+              : showStats === true
+                ? 'esc-card esc-card-expert'
+                : 'esc-card esc-card-compact',
+    },
     createElement(
       'header',
       { className: 'esc-card-header' },
@@ -245,14 +352,92 @@ export function EnterpriseEscCard({
         'div',
         { className: 'esc-card-headmain' },
         createElement('h3', { className: 'esc-card-title', title: item.name, children: item.name }),
-        authorRow,
+        // ★本刀（用户裁决⑦）：**技能卡的描述搬进卡片头**——与标题合成一块、与图标同处一行，
+        //   不再独占下面一整行（那条行固定 32px 两行高，真机截图里把每张卡都撑高了）。
+        //   专家/连接器两档**描述留在原位**（它们的描述更长、需要两行，这一档不搬）。
+        showUse === true && hasText(item.description)
+          ? createElement('p', { className: 'esc-card-headdesc', title: item.description, children: item.description })
+          : null,
+        // 连接器卡片：分类 + 连接状态（原文口径：分类为空时不画状态点）
+        showConnect === true
+          ? createElement(
+              'div',
+              { className: 'esc-extra-box' },
+              createElement(
+                'span',
+                { className: 'esc-connect-info' },
+                hasText(item.category) ? createElement('span', { className: 'esc-connect-category' }, item.category) : null,
+                createElement(
+                  'span',
+                  {
+                    className: `esc-connect-status ${connected ? 'esc-status-connected' : 'esc-status-disconnected'}`,
+                  },
+                  hasText(item.category) ? createElement('span', { className: 'esc-status-dot' }) : null,
+                  connected ? ENTERPRISE_ESC_COPY.connected : ENTERPRISE_ESC_COPY.disconnected,
+                ),
+              ),
+            )
+          : null,
+        // 专家卡片保留原页面的头像 + 昵称行（技能卡的作者已在下面那条标签行里）。
+        showSummon === true && item.publishUser
+          ? createElement(AuthorRow, { avatar: item.publishUser.avatar, name: publishName })
+          : null,
       ),
     ),
-    createElement('div', { className: 'esc-card-content', children: item.description ?? '' }),
-    showStats === true ? createElement('div', { className: 'esc-card-footer' }, statsRow) : null,
+    // 技能卡的描述已挪进卡片头（见上），故这一格**只给专家/连接器**渲染。
+    showUse === true ? null : createElement('div', { className: 'esc-card-content', children: item.description ?? '' }),
+    showUse === true ? tagRow : showStats === true ? createElement('div', { className: 'esc-card-footer' }, statsRow) : null,
+    skillActionBox,
     summonOrUseBox,
     connectBox,
     collectBox,
+  )
+}
+
+/** 使用量那枚图标（lucide `BarChart3`，只在本文件用到一次）。 */
+function BarChartIcon(): ReactNode {
+  return createElement(BarChart3, { size: 12, 'aria-hidden': true })
+}
+
+/**
+ * 已安装技能那枚「更多」下拉（workbuddy 截图里的 `⋯`）。
+ *
+ * ★形态照截图（三行：编辑 / 打开文件夹 / 卸载，卸载是危险档），**行为空**：三行都置灰并写明原因——
+ * 那三个动作分别属于技能编辑/文件/卸载三条纵深，都不在本页这一刀里。
+ * 用官方 `Menu` 原语（它自带遮罩、Esc、外部点击关闭、`danger` 行），不自造下拉。
+ */
+function SkillMoreActions({ name, notPorted }: { readonly name: string; readonly notPorted: string }): ReactNode {
+  const [open, setOpen] = useState(false)
+  return createElement(
+    Menu,
+    {
+      open,
+      // 官方 Menu 是「触发器 + 条件列表」两合一：`anchor` 落在原位、列表跟随它。
+      anchor: createElement(
+        'button',
+        {
+          type: 'button',
+          className: 'esc-more-btn',
+          'aria-label': `${ENTERPRISE_ESC_COPY.moreActions}：${name}`,
+          'aria-expanded': open,
+          title: ENTERPRISE_ESC_COPY.moreActions,
+        },
+        createElement(MoreHorizontal, { size: 16, 'aria-hidden': true }),
+      ),
+      items: SKILL_MORE_ENTRIES.map(entry => ({
+        id: entry.id,
+        label: entry.label,
+        disabled: true,
+        title: notPorted,
+        danger: 'danger' in entry && entry.danger === true,
+        icon: createElement(entry.danger === true ? Trash2 : entry.id === 'edit' ? Pencil : Folder, {
+          size: 14,
+          'aria-hidden': true,
+        }),
+      })),
+      onSelect: () => setOpen(false),
+      onClose: () => setOpen(false),
+    },
   )
 }
 

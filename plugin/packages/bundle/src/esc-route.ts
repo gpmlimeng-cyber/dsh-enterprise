@@ -91,8 +91,28 @@ export type EnterpriseEscPlatformMethod = 'GET' | 'POST'
  *
  * ★三条 `POST` 是**读语义**的端点（平台的查询接口用 POST 传查询体），闭集里没有任何一条会改平台状态——
  * 收藏、启用/停用、连接器建连/断开这些写动作本刀不做，故**不在**闭集里（想加就得先想清楚那次改动的后果）。
+ *
+ * ★**本刀新增第七条**（内容区那一行「精选技能」）：
+ *  · `POST /api/system/display/recommend/list`（`recType=Official` + `targetType=Skill`）
+ *
+ *   证据来自 NUWAX 前端源码（`feat-2026.9.30`）：
+ *   · 端点与服务函数：`src/pages/SystemManagement/RecommendManage/services/recomment.ts:52`
+ *     `apiSystemGetDisplayRecommendList` → `POST /api/system/display/recommend/list`；
+ *   · 「官方推荐」页的实调参数：`RecommendListPage/index.tsx:190-198`，即
+ *     `{pageNo:1, pageSize:LIST_PAGE_SIZE, recType:'Official', targetType:<枚举>}`；
+ *   · `Skill` 是官方推荐页**真实支持**的档位：`constants.ts:25-37` 的 `OFFICIAL_RECOMMEND_CONFIG`
+ *     里含 `DisplayRecommendTargetTypeEnum.Skill`（枚举本体 `types/interfaces/displayRecommend.ts:13-20`）；
+ *   · ★**平台成功码是 `'0000'`（字符串）**——`src/constants/codes.constants.ts:11`
+ *     `export const SUCCESS_CODE = '0000'`。此前那份手写契约里写的 `"code": 0` 是**笔误**，
+ *     本仓 `ESC_SUCCESS_CODE='0000'` 无需改动；本面不做成功判定（透传信封），故这一条只是记录。
+ *
+ *   ★**为什么它与前六条不是一回事**（这是接之前查实的事实，不是猜测）：这条是**管理端**接口
+ *   （前端仅 `RecommendManage` 后台页在调，`/api/system/**` 且带 `@RequireResource` 权限注解），
+ *   而前六条是**员工端**目录接口。两者同走本机路由、同用 NUWAX 会话票据，但**员工账号是否有
+ *   `display_recommend_query` 权限未验** ⇒ 403 是可能的，界面必须如实出失败态而不是假装没有数据。
  */
 export const ENTERPRISE_ESC_READ_ENDPOINTS: Readonly<Record<string, EnterpriseEscPlatformMethod>> = {
+  '/api/system/display/recommend/list': 'POST',
   '/api/published/category/list': 'GET',
   '/api/space/list': 'GET',
   '/api/connector/providers': 'GET',

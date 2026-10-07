@@ -16,7 +16,7 @@ import {
   type EnterpriseEscApi,
 } from '../src/esc/esc-api.js'
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from '../src/esc/esc-copy.js'
-import { EnterpriseEscCard } from '../src/esc/esc-card.js'
+import { EnterpriseEscCard, SKILL_MORE_ENTRIES } from '../src/esc/esc-card.js'
 import { EnterpriseEscToolbar } from '../src/esc/esc-toolbar.js'
 import { ESC_DEFAULT_CATEGORY_MENUS, ESC_RESOURCE_MORE_HREF, ESC_RESOURCE_TYPES, ESC_SUCCESS_CODE } from '../src/esc/esc-constants.js'
 import {
@@ -37,6 +37,7 @@ import type { EscCategoryNode } from '../src/esc/esc-types.js'
 vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
   Button: vi.fn(),
   Input: vi.fn(),
+  Menu: vi.fn(),
   Pill: vi.fn(),
   Switch: vi.fn(),
   Tag: vi.fn(),
@@ -416,17 +417,23 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
   it('样式层：卡片几何**一比一还原官方** + 1px 可见边框（最新裁决；被撤回的紧凑档做反向锁）', () => {
     // 官方逐值：栅格 300px/16px、卡片 170px（无统计行 130px）、内衬 16px、卡内间距 16px、头行 12px、
     // 图标 48px、标题 16px/20px、描述 16px 行高 + 32px 两行、页脚 24px、统计间距 16px
-    expect(css).toContain('grid-template-columns: repeat(auto-fill, minmax(300px, 1fr))')
-    expect(css).toMatch(/\.esc-list-section \{[^}]*gap: 16px/)
-    expect(css).toMatch(/\.esc-card \{[^}]*gap: 16px; padding: 16px;/)
-    expect(css).toMatch(/\.esc-card \{[^}]*height: 170px;/)
-    expect(css).toContain('.esc-card-compact { height: 130px; }')
+    // ★用户裁决「完全按 SPEC」：网格 262/12（SPEC §4.1）、卡片间距 12、内衬 16px 20px（SPEC §4.2）
+    expect(css).toContain('grid-template-columns: repeat(auto-fill, minmax(262px, 1fr))')
+    expect(css).toMatch(/\.esc-list-section \{[^}]*gap: 12px/)
+    expect(css).toMatch(/\.esc-card \{[^}]*gap: 12px; padding: 16px 20px;/)
+    expect(css).toMatch(/\.esc-card \{[^}]*min-height: 84px;/)
+    expect(css).toContain('.esc-card-compact { min-height: 84px; }')
     expect(css).toMatch(/\.esc-card-header \{[^}]*gap: 12px/)
-    expect(css).toMatch(/\.esc-card-image \{[^}]*width: 48px; height: 48px;/)
-    expect(css).toMatch(/\.esc-card-title \{[^}]*font-size: 16px;[^}]*line-height: 20px/)
+    // ★用户裁决「完全按 SPEC」§4.3：图标 **28×28 正圆**、标题 **14.5px/650/line-height1.4**、
+    //   描述 **12px/line-height1.6/两行截断/min-height 38px**、统计行 **11px/gap10/图标 opacity .7**
+    // ★真图实测：图标是 **40px 圆角方块**（radius 10），不是 SPEC 文字写的 28 正圆
+    expect(css).toMatch(/\.esc-card-image \{[^}]*width: 40px; height: 40px; border-radius: 10px;/)
+    expect(css).toMatch(/\.esc-card-title \{[^}]*font-size: 14.5px; font-weight: 650;[^}]*line-height: 1.4;/)
     expect(css).toMatch(/\.esc-card-content \{[^}]*line-height: 16px; height: 32px/)
+    expect(css).toMatch(/\.esc-tag \{[^}]*font-size: 11px;/)
+    expect(css).toMatch(/\.esc-tag svg \{ opacity: \.7; \}/)
     expect(css).toContain('.esc-card-footer { height: 24px;')
-    expect(css).toMatch(/\.esc-count-box \{[^}]*gap: 16px/)
+    expect(css).toMatch(/\.esc-count-box \{[^}]*gap: 10px/)
     // 收藏回右下角绝对定位、命中区 32px；动作位回右上角绝对定位（top 12 / right 16）
     expect(css).toContain('.esc-corner-box { position: absolute; right: 16px; bottom: 12px;')
     expect(css).toMatch(/\.esc-star-box \{[^}]*width: 32px; height: 32px;/)
@@ -461,8 +468,19 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     expect(css).toMatch(/\.esc-card-content \{[^}]*text-overflow: ellipsis; word-break: break-all; white-space: normal; flex: none;/)
     expect(css).toMatch(/\.esc-card-header \{[^}]*flex: none;/)
     expect(css).toMatch(/\.esc-card-footer \{[^}]*flex: none;/)
-    // ④ hover：官方是「换描边色 + 抬升一层阴影」
-    expect(css).toContain('.esc-card:hover { border-color: var(--dsw-alias-brand-primary); box-shadow: var(--dsw-shadow-lv3); }')
+    // ④ ★**用户裁决⑨ 覆盖了官方那一档**：hover 改成**背景变浅灰、边框不变**（此前是「换主色描边 + 抬升阴影」，
+    //    真机截图里那条主色描边过于抢眼）。判据随之改为：边框**保持不变**（回到 `border-l2`）、
+    //    底色走主题里那枚中性 hover 面、且**不加**抬升阴影。
+    // ★用户裁决⑧**再收一档**：灰更浅（`bg-layer-2`，比 `interactive-bg-hover` 淡一档），
+    //   边框回到 `l1`（与静止态同色 ⇒ 视觉上只有底色在动），且过渡只走 `background-color .15s`
+    //   （此前那条 `transition: all .3s` 会把 border/box-shadow 也算进去，hover 显得一顿一顿）。
+    expect(css).toContain('.esc-card:hover { border-color: var(--dsw-alias-border-l1); background-color: var(--dsw-alias-interactive-bg-hover); box-shadow: var(--dsw-shadow-lv2); }')
+    expect(css).toContain('transition: background .2s ease-out, box-shadow .2s ease-out, border-color .2s ease-out;')
+    // 反向锁（**只针对卡片本体**）：`.esc-card` 那条 `transition: all .3s` 已被撤下——它把
+    // border/box-shadow 也算进过渡，是 hover 发顿的根因。别处（如收藏角标）的那条不在裁决范围，不动。
+    expect(css).not.toMatch(/\.esc-card \{[^}]*transition: all \.3s/)
+    // 反向锁：主色描边那一档已被用户裁决撤下，不许悄悄回来
+    expect(css).not.toContain('.esc-card:hover { border-color: var(--dsw-alias-brand-primary)')
     // ⑤ 加载态换成官方那枚 Loading（转圈 + 「加载中...」），骨架卡整条退场
     expect(css).toMatch(/\.esc-loading \{[^}]*color: var\(--dsw-alias-brand-primary\);/)
     expect(css).toContain('@keyframes esc-spin')
@@ -548,23 +566,34 @@ describe('esc：演示数据开关（口径 32）', () => {
     // ① 药丸组不参与压缩、② 药丸里的字不折行 ⇒ 标签永不被挤压（上一轮口径，仍然保留）
     expect(css).toContain('.esc-source-tabs {')
     expect(css).toMatch(/\.esc-source-tabs \{[^}]*flex: none/)
+    // ★用户裁决④：三页签作为**主行 leading 插槽**与右块同处一个 flex 行（结构改动，不是 CSS 调出来的）
+    expect(css).toContain('.esc-toolbar-leading { flex: none;')
+    // ★用户裁决（两栏结构）：第一栏一行、第二栏一行
+    expect(css).toContain('.esc-toolbar-row { display: flex;')
+    expect(css).toContain('.esc-toolbar-second {')
     expect(css).toMatch(/\.esc-pill \{ white-space: nowrap; \}/)
-    // ③ 搜索框自适应：可长可缩（下限 120px，窄屏 96px），不再固定 214px
-    expect(css).toMatch(/\.esc-search \{[^}]*flex: 1 1 auto/)
-    expect(css).toMatch(/\.esc-search \{[^}]*min-width: 120px/)
+    // ③ ★**用户裁决②③ 撤掉了「自适应吃满剩余宽度」那一档**——真机截图里那枚搜索框几乎占满整行，
+    //    与 workbuddy（约 200px、右对齐）差得最远。现在**定宽 200px**、窄屏收到 160px。
+    expect(css).toMatch(/.esc-search {[^}]*width: 220px/)
+    expect(css).toMatch(/\.esc-search \{[^}]*flex: none/)
+    // 反向锁：`flex: 1 1 auto`（吃满剩余宽度）那一档已被用户裁决撤下，不许回来
+    expect(css).not.toMatch(/\.esc-search \{[^}]*flex: 1 1 auto/)
     expect(css).not.toContain('flex: 0 1 214px')
-    // ④ 工具栏右块必须一起伸缩 —— 否则搜索框就算 flex: 1 也没有可长的地方（它得先有空间）
-    expect(css).toMatch(/\.esc-toolbar-right \{[^}]*flex: 1 1 auto/)
+    // ④ 右块**不再伸缩**（`margin-left: auto` 把它整体推到右边）——与主 tab 同一行、居右
+    expect(css).toMatch(/\.esc-toolbar-right \{[^}]*flex: none/)
+    expect(css).toMatch(/\.esc-toolbar-right \{[^}]*margin-left: auto/)
+    expect(css).not.toMatch(/\.esc-toolbar-right \{[^}]*flex: 1 1 auto/)
     // ⑤ 反向锁：那条"搜索格整行占满"的窄屏档会把它挤到第二行，不许回来
     // （判据取"声明块里出现"：注释里为了记录历史可以写这串）
     expect(css).not.toMatch(/\{[^}]*flex: 1 1 100%/)
-    expect(css).toMatch(/@media \(max-width: 560px\) \{[\s\S]*\.esc-search \{ min-width: 96px; \}/)
+    // ★用户裁决②：定宽那一档的收窄档 —— 手机上 200px 会挤掉右块其余两枚，收到 160px（不是 96px 那种塌成缝）
+    expect(css).toMatch(/@media \(max-width: 560px\) \{[\s\S]*\.esc-search \{ width: 160px; \}/)
     // ⑥ ★口径 38（真机截图「4 不在一行」）：主行**不换行** —— 手机宽度下 药丸组 + 右块 的 flex 基准
     //    之和（~140 + 24 + 搜索框 ~240）超过容器，`wrap` 会把右块整块顶到第二行；nowrap + 搜索框
     //    自身下限才能让"同一行 + 自适应"同时成立。
-    expect(css).toMatch(/\.esc-toolbar-main \{[^}]*flex-wrap: nowrap/)
-    expect(css).not.toMatch(/\.esc-toolbar-main \{[^}]*flex-wrap: wrap/)
-    expect(css).not.toMatch(/\.esc-toolbar-main \{[^}]*row-gap/)
+    expect(css).toMatch(/\.esc-toolbar-row \{[^}]*flex-wrap: nowrap/)
+    expect(css).not.toMatch(/\.esc-toolbar-row \{[^}]*flex-wrap: wrap/)
+    expect(css).not.toMatch(/\.esc-toolbar-row \{[^}]*row-gap/)
   })
 
   it('★用户裁决（本轮）工具栏结构：药丸组挂 `esc-source-tabs`（样式层那条 no-shrink 规则的落点）', () => {
@@ -578,8 +607,15 @@ describe('esc：演示数据开关（口径 32）', () => {
       keyword: '',
       onKeywordChange: () => undefined,
     }) as unknown as { readonly props: { readonly children: readonly { props: { className?: string } }[] } }
-    const main = toolbar.props.children[0] as unknown as { props: { children: readonly { props: { className?: string } }[] } }
-    expect(main.props.children[0]!.props.className).toBe('esc-source-tabs')
+    // ★用户裁决（两栏结构）：第一栏是 `.esc-toolbar-row`（三页签 + 右块），维度标签与
+    //   二级分类各自另起一行，精选在第二栏。children 含 null 槽位 ⇒ 先摘掉再断言。
+    const classNames = toolbar.props.children
+      .filter((node): node is { props: { className?: string } } => node !== null && node !== undefined)
+      .map(node => node.props.className)
+    expect(classNames).toContain('esc-toolbar-row')
+    expect(classNames).toContain('esc-source-tabs')
+    // ★二级分类**只在有分类时**才渲染（`categories.length > 0`）——本用例传的是空数组，故不该出现。
+    expect(classNames).not.toContain('esc-category-tabs')
   })
 })
 
@@ -609,7 +645,8 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
 
   it('卡片结构照官方：头/描述/页脚三行落位；**页脚只在有统计行时才渲染**（口径 35③）', () => {
     const root = card({})
-    expect(root.props['className']).toBe('esc-card')
+    // ★SPEC §7 分层策略：专家卡**无阴影** ⇒ 根类名多一枚 esc-card-expert（技能卡有、专家卡无）
+    expect(root.props['className']).toBe('esc-card esc-card-expert')
     const [header, content, footer] = childrenOf(root)
     expect(asElement(header).props['className']).toBe('esc-card-header')
     const headMain = childrenOf(asElement(header))[1]!
@@ -645,41 +682,73 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
   })
 
   it('动作位：A 档一律置灰 + 写明原因；召唤 / 立即使用 / 连接 / 断开 四枚文案与原文逐字一致', () => {
-    // ★口径 35③：动作位/连接位/收藏位是**卡片的直接子节点**（绝对定位，不参与流布局）——与官方一致：
-    //   有统计行时卡片子节点依次是 头 / 描述 / 页脚 / 动作位 / 连接位 / 收藏位。
-    const summonBox = childrenOf(card({ showSummon: true }))[3]!
-    const useBox = childrenOf(card({ showUse: true }))[3]!
+    // ★**本刀（workbuddy 风格重构）**：技能卡的右侧动作位**换了形态**——原来那枚「使用 + 启用开关」
+    // （容器 `esc-action-box esc-action-box-pinned`、按钮 hover 浮现）已撤下，现在按**是否已安装**分流：
+    //   未安装 ⇒ 一枚**常驻圆形「+」**（`.esc-install-plus`）；已安装 ⇒ **「更多」下拉 + 「去试试」**。
+    // 专家（召唤）与连接器（连接/断开）两档**一字未改**，仍照原页面的形态。
+    // ⇒ 这条用例的判据随之改成「按语义找那一格」，不再按下标硬取——按下标锁渲染树，
+    //   改一处版式就得重排一堆断言，而版式本来就是要改的东西。
+    const actionBoxOf = (props: Parameters<typeof card>[0], item?: Record<string, unknown>): Element => {
+      // 先摘掉 null/undefined/false（React 不渲染的槽位在 createElement 的 children 里就是它们），
+      // 再按类名找——顺序会随版式变，**位置**不会。
+      // ★第二参是**这张卡自己的数据**：已连接/未连接的形态不同，必须渲染它自己那张卡，
+      //   否则会拿到默认那张（未连接）卡的动作位，断言就成了拿 A 比 A。
+      const boxes = childrenOf(card(props, item)).filter((node): node is Element =>
+        node !== null && node !== undefined && node !== false && typeof node === 'object')
+      const matches = boxes.filter(node => typeof node.props['className'] === 'string'
+        && /esc-action-box|esc-skill-actions/.test(node.props['className']))
+      expect(matches).toHaveLength(1)
+      return matches[0]!
+    }
+    // —— 专家：召唤（形态照旧）
+    const summonBox = actionBoxOf({ showSummon: true })
     expect(asElement(summonBox).props['className']).toBe('esc-action-box')
-    expect(asElement(useBox).props['className']).toBe('esc-action-box esc-action-box-pinned')
-    const summon = asElement(childrenOf(asElement(summonBox))[0])
+    const summon = asElement(childrenOf(summonBox)[0])
     expect(summon.props['children']).toBe('召唤')
     expect(summon.props['disabled']).toBe(true)
     expect(summon.props['className']).toBe('esc-action-solid')
     expect(summon.props['title']).toBe(ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted)
-    // 技能卡：容器常驻（开关一直看得见），**按钮包在 `.esc-hover-reveal` 外层 span 里**单独浮现
-    // ——官方那枚 `.hover-reveal-btn` 的口径；挂外层 span 是因为 dsh 的 `Button` 自带
-    // `:disabled { opacity: .4 }`（0,2,0）会压过单类（0,1,0）。
-    const useReveal = asElement(childrenOf(asElement(useBox))[0])
-    expect(useReveal.type).toBe('span')
-    expect(useReveal.props['className']).toBe('esc-hover-reveal')
-    const use = asElement(childrenOf(useReveal)[0])
-    // 用户裁决「技能选中的使用图标有点丑还是换成使用俩字」：**回到文字、只要两个字**。
-    // 可见 children 承载文案（不再借 aria-label，免得读屏念四字、眼睛看两字）；
-    // 官方那串「立即使用」仍逐字留在词典里（`useNow`），页面显示的是 `useNowDisplay`。
-    expect(use.props['children']).toBe(ENTERPRISE_ESC_COPY.useNowDisplay)
-    expect(use.props['children']).toBe('使用')
+    // —— 技能·未安装：一枚常驻「+」，无障碍名带技能名；**不画**「去试试」与「更多」
+    const plusBox = actionBoxOf({ showUse: true })
+    expect(asElement(plusBox).props['className']).toBe('esc-skill-actions')
+    const plusRow = asElement(plusBox)
+    const plusChildren = childrenOf(plusRow).filter(node => node !== null && node !== undefined && node !== false)
+    expect(plusChildren).toHaveLength(1)
+    const plus = asElement(plusChildren[0])
+    expect(plus.props['className']).toBe('esc-install-plus')
+    expect(plus.props['disabled']).toBe(true)
+    expect(plus.props['title']).toBe(ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted)
+    expect(plus.props['aria-label']).toContain(ENTERPRISE_ESC_COPY.installSkill)
+    // —— 技能·已安装：「更多」下拉 + 「去试试」两枚并排
+    const installedBox = actionBoxOf({ showUse: true, installed: true })
+    const installedChildren = childrenOf(asElement(installedBox)).filter(node => node !== null && node !== undefined && node !== false)
+    expect(installedChildren).toHaveLength(2)
+    // 「去试试」是官方 Button 原语（挂 `esc-action-solid`），同样置灰 + 写明原因
+    const tryNow = asElement(installedChildren[1])
+    expect(tryNow.props['children']).toBe(ENTERPRISE_ESC_COPY.tryNow)
+    expect(tryNow.props['disabled']).toBe(true)
+    expect(tryNow.props['className']).toBe('esc-action-solid esc-try-now')
+    expect(tryNow.props['title']).toBe(ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted)
+    // 「更多」是官方 `Menu` 原语（自带遮罩/Esc/外部点击），触发钮带无障碍名与 aria-expanded。
+    // ★它自己持有 `open` 态（有副作用），纯函数测试渲染不出来 ⇒ 断言落在**导出的那份纯数据**上
+    //   （`SKILL_MORE_ENTRIES`），组件本体只用「存在且挂官方 Menu」这一条盖住。
+    const moreWrapper = asElement(installedChildren[0])
+    expect(typeof moreWrapper.type).toBe('function')
+    const cardSourceForMore = readFileSync(new URL('../src/esc/esc-card.tsx', import.meta.url), 'utf8')
+    expect(cardSourceForMore).toContain('items: SKILL_MORE_ENTRIES.map(')
+    // 三行逐字（编辑 / 打开文件夹 / 卸载），卸载是**危险档**，其余不带该位
+    expect(SKILL_MORE_ENTRIES.map(entry => entry.id)).toEqual(['edit', 'open-folder', 'uninstall'])
+    expect(SKILL_MORE_ENTRIES.map(entry => entry.label)).toEqual(['编辑', '打开文件夹', '卸载'])
+    expect(SKILL_MORE_ENTRIES[2]!.danger).toBe(true)
+    expect(SKILL_MORE_ENTRIES[0]!.danger).toBeUndefined()
     expect(ENTERPRISE_ESC_COPY.useNow).toBe('立即使用')
-    expect(use.props['icon']).toBeUndefined()
-    expect(use.props['aria-label']).toBeUndefined()
-    expect(use.props['disabled']).toBe(true)
-    // ★用户裁决「卡片选中显示的操作按钮的灰色，换成全黑按钮」：技能那枚挂 `esc-action-solid`
-    expect(use.props['className']).toBe('esc-action-solid')
     // 源码级反向锁：那枚机器人图标（连 import）与"靠 aria-label 承担文案"的写法都不许再回来
     const cardSource = readFileSync(new URL('../src/esc/esc-card.tsx', import.meta.url), 'utf8')
     expect(cardSource).not.toContain('BotMessageSquare')
     expect(cardSource).not.toContain("'aria-label': ENTERPRISE_ESC_COPY.useNow")
-    // 「全黑」靠主题 token，不靠内联颜色：四枚动作按钮的 className 恰好 4 处
-    expect(cardSource.match(/className: 'esc-action-solid'/g) ?? []).toHaveLength(4)
+    // 「全黑」靠主题 token，不靠内联颜色：**召唤 / 去试试 / 连接 / 断开**四枚恰好 4 处
+    // （技能那枚已换成 workbuddy 的「+」与「去试试」，不再有第二个 `esc-action-solid`）
+    expect(cardSource.match(/esc-action-solid/g) ?? []).toHaveLength(4)
     // ★口径 36：**失效 token 的源码级反向锁** —— 这三枚在 DSH 主题里根本不存在（真实名见 esc-style.ts
     // 头部的映射表），用了就等于整条声明作废（描边回退 currentColor 变成黑边、底色回退透明）。
     // 卡片源码里一个都不许留（CSS 侧另有同款反向锁）。
@@ -689,22 +758,22 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
     }
     // 首字字母头像的兜底底色必须落在真 token 上（原先是那枚失效的 background-secondary）
     expect(cardSource).toContain("background: 'var(--dsw-alias-bg-skeleton)'")
-    // 卡片根类名与官方一致：只有"有/无统计行"两种（一比一还原那一刀撤回了 esc-card-pinned）
-    expect(card({ showUse: true, showStats: false }).props['className']).toBe('esc-card esc-card-compact')
-    expect(card({ showSummon: true }).props['className']).toBe('esc-card')
-    expect(card({ showConnect: true, showStats: false }).props['className']).toBe('esc-card esc-card-compact')
-    // 技能卡的启用开关：checked 绑 skillEnabled、同样置灰
-    const useSwitch = asElement(childrenOf(asElement(useBox))[1])
-    expect(useSwitch.props['checked']).toBe(false)
-    expect(useSwitch.props['disabled']).toBe(true)
+    // 卡片根类名：技能卡是 workbuddy 那一版（**带标签行**，故另起 `esc-card-skill`）；
+    // 专家/连接器沿用原页面的「有/无统计行」两种。
+    expect(card({ showSummon: true }).props['className']).toBe('esc-card esc-card-expert')
+    // ★SPEC §7：连接器卡属「列表项」那一档 ⇒ 无阴影、走 esc-card-connector
+    expect(card({ showConnect: true, showStats: false }).props['className']).toBe('esc-card esc-card-connector')
     // 连接器：未连接只画「连接」；已连接画「断开」+ 开关；标签都是原页面的行内字面量
     const disconnected = card({ showConnect: true })
-    const connectBox = childrenOf(disconnected)[4]!
-    const connect = asElement(childrenOf(asElement(connectBox))[0])
+    const connectBox = actionBoxOf({ showConnect: true })
+    const connect = asElement(childrenOf(connectBox)[0])
     expect(connect.props['children']).toBe('连接')
     expect(connect.props['className']).toBe('esc-action-solid')
-    const connectedCard = card({ showConnect: true }, { connected: true, connectionEnabled: true })
-    const connectedBox = childrenOf(connectedCard)[4]!
+    expect(disconnected.props['className']).toBe('esc-card esc-card-connector')
+    const connectedItem = { connected: true, connectionEnabled: true }
+    const connectedCard = card({ showConnect: true }, connectedItem)
+    const connectedBox = actionBoxOf({ showConnect: true }, connectedItem)
+    expect(asElement(connectedCard).props['className']).toBe('esc-card esc-card-connector')
     expect(asElement(connectedBox).props['className']).toBe('esc-action-box esc-action-box-pinned')
     const breakReveal = asElement(childrenOf(asElement(connectedBox))[0])
     expect(breakReveal.type).toBe('span')
@@ -715,12 +784,17 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
   })
 
   it('连接器卡片的状态行：分类为空时**不画**状态圆点，但状态文字照画（原文口径）', () => {
+    // ★**本刀**：卡片头里那格「发布者行」只在**专家卡**上渲染（技能卡的作者已挪进底部标签行），
+    //   连接器的状态行 `.esc-extra-box` 因此从「发布者行里面」**上移到头信息里，与标题平级**。
+    //   判据改成**按类名找**那一格，不再按下标数位置——版式本来就是要改的东西。
     const statusRowOf = (item: Record<string, unknown>) => {
-      const root = card({ showConnect: true }, item)
-      const header = childrenOf(root)[0]!
+      const header = childrenOf(card({ showConnect: true }, item))[0]!
       const headMain = childrenOf(asElement(header))[1]!
-      const authorRowDiv = childrenOf(asElement(headMain))[1]!
-      return childrenOf(asElement(authorRowDiv))[1]!
+      const extraBox = childrenOf(asElement(headMain))
+        .filter((node): node is Element => node !== null && node !== undefined && node !== false && typeof node === 'object')
+        .find(node => node.props['className'] === 'esc-extra-box')
+      expect(extraBox).toBeTruthy()
+      return extraBox as Element
     }
     const withCategory = statusRowOf({ category: '存储与文件' })
     const status = childrenOf(childrenOf(asElement(withCategory))[0]!)[1]!
@@ -746,8 +820,25 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
           onKeywordChange: () => undefined,
         } as never),
       )
-      const main = childrenOf(toolbar)[0]!
-      return childrenOf(childrenOf(asElement(main))[0]!).map(node => asElement(node).props['children'])
+      // ★维度标签已**移出第一栏**（用户裁决：精选在第2栏、维度另起一行）⇒ 判据改成
+      //   在整棵工具栏树里**按类名找**那一格，不再按「主行的第几格」取。
+      const walk = (node: unknown, out: Element[] = []): Element[] => {
+        if (Array.isArray(node)) {
+          for (const each of node) walk(each, out)
+          return out
+        }
+        if (node === null || node === undefined || node === false) return out
+        if (typeof node !== 'object') return out
+        const element = node as Element
+        if (element.props['className'] === 'esc-source-tabs') {
+          out.push(element)
+          return out
+        }
+        return walk(element.props['children'], out)
+      }
+      const sourceTabs = walk(toolbar)[0]
+      expect(sourceTabs).toBeTruthy()
+      return childrenOf(sourceTabs as Element).map(node => asElement(node).props['children'])
     }
     expect(labelsOf('expert')).toEqual(['系统广场', '团队空间'])
     expect(labelsOf('skill')).toEqual(['系统广场', '团队空间', '我启用的'])
@@ -769,7 +860,18 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
           ...props,
         } as never),
       )
-    const rightOf = (element: Element) => childrenOf(childrenOf(element)[0]!)[1]!
+    // ★右块在**第一栏**（`.esc-toolbar-row`）里，按类名找（行序改过，别按下标取）
+    const rightOf = (element: Element) => {
+      const row = childrenOf(element)
+        .filter((node): node is Element => node !== null && node !== undefined && node !== false && typeof node === 'object')
+        .find(node => node.props['className'] === 'esc-toolbar-row')
+      expect(row).toBeTruthy()
+      const found = childrenOf(row as Element)
+        .filter((node): node is Element => node !== null && node !== undefined && node !== false && typeof node === 'object')
+        .find(node => node.props['className'] === 'esc-toolbar-right')
+      expect(found).toBeTruthy()
+      return found as Element
+    }
     // 「更多」= **真超链接**（用户裁决指向 https://skillhub.cn/）：只有系统广场维度可见/可点，
     // 其余两维保留占位（visibility 隐藏 + 不吃点击），连接器页整格不画 —— 与官方口径一致。
     const moreLink = asElement(childrenOf(rightOf(toolbarOf({ source: 'system' })))[0])
@@ -793,10 +895,16 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
       ],
       activeCategory: '存储与文件',
     })
-    const categoryRow = childrenOf(withCategories)[1]!
+    // 二级分类行在第一栏**之后**（两栏结构），按类名找
+    const categoryRow = withCategories.props.children
+      .filter((node): node is Element => node !== null && node !== undefined && node !== false && typeof node === 'object')
+      .find(node => node.props['className'] === 'esc-category-tabs')!
     expect(childrenOf(asElement(categoryRow)).map(node => asElement(node).props['active'])).toEqual([false, true])
     // 分类读不到时给一句人话（本页新增；原页面静默）：分类数组为空 ⇒ 分类行整格是 null，提示在第三格
-    const unavailable = childrenOf(toolbarOf({ categoriesUnavailable: true }))[2]!
+    // ★两栏结构后提示行的下标变了 ⇒ 按类名找（别按下标）
+    const unavailable = toolbarOf({ categoriesUnavailable: true }).props.children
+      .filter((node): node is Element => node !== null && node !== undefined && node !== false && typeof node === 'object')
+      .find(node => node.props['className'] === 'esc-toolbar-note')!
     expect(asElement(unavailable).props['className']).toBe('esc-toolbar-note')
     expect(asElement(unavailable).props['children']).toBe(ENTERPRISE_ESC_LOCAL_COPY.categoriesUnavailable)
   })

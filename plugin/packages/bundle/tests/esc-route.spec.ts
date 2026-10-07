@@ -188,8 +188,11 @@ describe('esc-route：注册形状与只读闭集', () => {
     await harness.dispose()
   })
 
-  it('闭集里六条全是只读端点（三条 GET + 三条读语义 POST），写端点一条都没有', async () => {
+  it('闭集里七条全是只读端点（三条 GET + 四条读语义 POST），写端点一条都没有', async () => {
     expect(ENTERPRISE_ESC_READ_ENDPOINTS).toEqual({
+      // ★本刀新增第七条：「精选技能」那一行（官方推荐）。它是**读语义**的 POST，
+      //   查询体四格全部由客户端取数面封死，页面改不了 —— 见 esc-constants.ts 的出处注释。
+      '/api/system/display/recommend/list': 'POST',
       '/api/published/category/list': 'GET',
       '/api/space/list': 'GET',
       '/api/connector/providers': 'GET',
@@ -204,6 +207,12 @@ describe('esc-route：注册形状与只读闭集', () => {
       '/api/published/agent/collect/1',
       '/api/connector/connections/api-key',
       '/api/connector/connections/1/status',
+      // ★本刀：推荐管理那组**写**端点一条都不许进来。本面只放行那条 `list`（只读查询）——
+      //   `save`/`update`/`delete/{id}`/`updateSort` 全是改平台数据，必须永远留在闭集之外。
+      '/api/system/display/recommend/save',
+      '/api/system/display/recommend/update',
+      '/api/system/display/recommend/delete/1',
+      '/api/system/display/recommend/updateSort',
     ]) {
       expect(Object.keys(ENTERPRISE_ESC_READ_ENDPOINTS)).not.toContain(writePath)
     }

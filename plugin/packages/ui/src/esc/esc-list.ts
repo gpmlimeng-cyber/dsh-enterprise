@@ -13,6 +13,19 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ESC_CONNECTOR_CATEGORY_ROOT_KEY, ESC_SUCCESS_CODE } from './esc-constants.js'
+
+/**
+ * 平台业务码 → 本仓稳定码（**只翻这一枚**，其余原样透传）。
+ *
+ * ★`4040` 是平台那句 `No static resource …`：实测这台部署**没有 `/api/connector/providers` 这个端点**
+ *   （同页的技能/专家列表正常回 200 ⇒ 不是网络、不是会话、也不是我们本机路由的问题；NUWAX 前端源码里
+ *   `systemManage.ts:496` 写的路径也确实是它，即**代码没错、部署缺这一版能力**）。
+ *   直接把 `4040` 甩给人没有意义（用户读不出该干什么），翻成一枚说人话、且**不可重试**的稳定码：
+ *   重试对"端点不存在"永远无效，下一步只能是找管理员。
+ */
+function escPlatformErrorCode(code: string | number | undefined): string {
+  return String(code ?? '') === '4040' ? 'ENT_ESC_CONNECTOR_UNAVAILABLE' : String(code ?? '')
+}
 import type { EnterpriseEscApi } from './esc-api.js'
 import type {
   EscCategoryNode,
@@ -370,7 +383,7 @@ export function useEnterpriseEscResourceList({
             setError(undefined)
           } else {
             // ★与原文的差异：原文件只在 reset 时清空列表、**不说明为什么**；这里如实记下码与原话
-            setError({ code: String(res?.code ?? ''), message: typeof res?.message === 'string' ? res.message : '' })
+            setError({ code: escPlatformErrorCode(res?.code), message: typeof res?.message === 'string' ? res.message : '' })
             if (reset) {
               setList([])
               setHasMore(false)
@@ -385,7 +398,7 @@ export function useEnterpriseEscResourceList({
               setError(undefined)
             } else {
               rawListRef.current = []
-              setError({ code: String(res?.code ?? ''), message: typeof res?.message === 'string' ? res.message : '' })
+              setError({ code: escPlatformErrorCode(res?.code), message: typeof res?.message === 'string' ? res.message : '' })
             }
           }
           // 全量数据按分类/关键字做客户端筛选后内存切片；

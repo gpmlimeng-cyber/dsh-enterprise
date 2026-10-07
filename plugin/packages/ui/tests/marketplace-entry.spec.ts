@@ -305,7 +305,7 @@ function textOf(node: ReactNode): string {
  */
 const LEGACY_SHELL_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(39229 chars)",
+  "  style(39167 chars)",
   // **本刀（本地导入）**加的这一行：接线面在场时那份 `<style>` 之后紧跟一枚**恒不可见**的文件选择器
   //（行内 `display:none`，零新增 CSS 类 ⇒ `<style>` 长度与校验和一字未动）。空闲态（`state === undefined`）
   // **不出**任何反馈，故整份大纲只多这一行；三种状态下的反馈另有专门用例逐条锁。
@@ -380,7 +380,7 @@ const LEGACY_SHELL_OUTLINE: readonly string[] = [
  */
 const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
   "section[className=own-market-entry][aria-label=插件市场]",
-  "  style(39229 chars)",
+  "  style(39167 chars)",
   // 同一行文件选择器（三支视图共用同一份 chrome；插件页签这一份没有插件详情在场，故不挂第二份样式表）。
   "  input[type=file][accept=.dshskill,application/vnd.dsh.skill+zip,application/zip][aria-label=选择要导入的技能包文件][style=[object Object]][onChange=[fn]]",
   "  div[className=own-market-navBar]",
@@ -598,12 +598,17 @@ const LEGACY_PLUGINS_OUTLINE: readonly string[] = [
  *   ★ 同一根因的**另外两处仍未动**（`.own-market-rowIcon` 的白底、`.own-market-addMenu` 的
  *   `--dsw-specific-menu`）：那两处各自挂着一句**用户口径**（「图标白底不透明」「添加技能下拉白底」），
  *   换 token 等于在深色下推翻它们 ⇒ 留给「8 个失效 token 名 / 约 70 处」那一趟统一裁决。
+ *   ★ **本刀（扫清 esc 之外那 9 枚失效 token）**：上面让位的那一趟到了——`.own-market-rowIcon` 的白底与
+ *   `.own-market-addMenu` 的 `--dsw-specific-menu` **同样换成 `bg-layer-1`**：那两句用户口径要的是「这块**别**随深色
+ *   变灰」，而 `bg-layer-1` 在本版主题里恒为 `neutral-bluish-00`（浅色白、深色也白），**口径不但没被推翻，
+ *     反而从「兜底 #fff 碰巧是白」变成「主题真源就是白」**——深色下那块白底仍在。故
+ *   `style(39229 chars)` → `style(39167 chars)`、FNV-1a `832929093` → **607217447**（**再基线化，不是放宽判据**）。
  *   ★ DOM 换位只发生在**列表工具行**；在线搜索面那一行是独立 DOM（子项 = 查询框 + spacer + 按钮，
  *   无 `.own-market-filterWrap`），本刀**一字未动**，由专门用例逐子项锁住（D2）。
  *   任何人再改这份 CSS（加装饰或删规则）都会在这里、以及那两处 `style(N chars)` 上立刻显形。
  */
-const LEGACY_STYLE_LENGTH = 39229
-const LEGACY_STYLE_CHECKSUM = 832929093
+const LEGACY_STYLE_LENGTH = 39167
+const LEGACY_STYLE_CHECKSUM = 607217447
 
 /** 「企业技能」节的目录 fixture：与 skill-market.spec 的列表投影同形（列表态 versionId/skills 为空）。 */
 const SKILL: EnterpriseRuntimeSkill = {
@@ -1237,7 +1242,7 @@ describe('enterprise marketplace entry', () => {
    */
   it('keeps the hand-written style baselines equal to the real <style> string (no human sync)', () => {
     const css = collectStyleText(EnterpriseMarketLegacyShell({ view: 'page' }))
-    expect(css.length, 'LEGACY_STYLE_LENGTH 与真实 <style> 长度漂移了').toBe(LEGACY_STYLE_LENGTH)
+    console.log('REAL_LEN='+css.length+' REAL_SUM='+styleChecksum(css)); expect(css.length).toBe(LEGACY_STYLE_LENGTH)
     expect(styleChecksum(css), 'LEGACY_STYLE_CHECKSUM 与真实 <style> 校验和漂移了').toBe(LEGACY_STYLE_CHECKSUM)
     // 两份 outline 快照里那两行也必须与真实长度一致（它们是同一份基线的另两面）。
     for (const line of [...LEGACY_SHELL_OUTLINE, ...LEGACY_PLUGINS_OUTLINE]) {
@@ -2406,7 +2411,10 @@ describe('enterprise marketplace entry', () => {
     const css = collectStyleText(EnterpriseMarketLegacyShell({ view: 'page', sessionUsable: true }))
     // ① 图标容器**白底不透明**（卡片 hover 变灰时图标仍是白块）——反锁：不许退回 transparent/none。
     const icon = cssRuleBody(css, '.own-market-rowIcon')
-    expect(icon).toContain('var(--dsw-alias-background-primary')
+    // ★ 本刀：`background-primary` 在本版 DSH 主题里查无此名 ⇒ 声明计算期无效（白底压根没生效，
+    //   真正兜底的是 var 的 `#fff`）。换成主题真源 `bg-layer-1`——它在 0.1.7-rc.2 里恒为
+    //   `neutral-bluish-00`，**浅色白、深色也白**，正是这条锁要的「白块」，且不再靠兜底碰运气。
+    expect(icon).toContain('var(--dsw-alias-bg-layer-1')
     expect(icon).not.toContain('background:none')
     expect(icon).not.toContain('background:transparent')
     // ② 安装钮 = 官方 **outline 档**，**本文件故意不覆盖它的任何背景**（反向锁：查无此规则）。

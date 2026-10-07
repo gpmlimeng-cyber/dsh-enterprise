@@ -11,10 +11,34 @@
  */
 
 import { ENTERPRISE_ESC_COPY } from './esc-copy.js'
-import type { CategoryMenuItem, ResourceTypeEnum } from './esc-types.js'
+import type { CategoryMenuItem, EscRecommendTargetTypeEnum, EscRecommendType, ResourceTypeEnum } from './esc-types.js'
 
 /** 平台业务成功码（与 NUWAX `SUCCESS_CODE` 同值：`src/constants/codes.constants.ts`）。 */
 export const ESC_SUCCESS_CODE = '0000'
+
+/* ══════════════ 本刀：「精选技能」（官方推荐）那一行的查询常量 ═══════════════
+ * 全部逐字取自 NUWAX 前端源码（`feat-2026.9.30`），每一格都写了出处——
+ * 这四格**由取数面自己封死**（`esc-api.ts` 的 `officialRecommendedSkills`），页面改不了它们。 */
+
+/** 平台端点（宿主白名单闭集里的第七条；`bundle/src/esc-route.ts` 有一份同名字面量，两边必须一致）。 */
+export const ENTERPRISE_ESC_RECOMMEND_PATH = '/api/system/display/recommend/list'
+
+/** `recType`：官方推荐（`DisplayRecTypeEnum.Official`，`RecommendManage/types/index.ts:10`）。 */
+export const ENTERPRISE_ESC_RECOMMEND_REC_TYPE: EscRecommendType = 'Official'
+
+/** `targetType`：技能档（`DisplayRecommendTargetTypeEnum.Skill`，`types/interfaces/displayRecommend.ts:17`）。 */
+export const ENTERPRISE_ESC_RECOMMEND_TARGET_TYPE: EscRecommendTargetTypeEnum = 'Skill'
+
+/** `pageNo`：官方那页固定传 1（`RecommendListPage/index.tsx:191` 的 `pageNo: 1`）。 */
+export const ENTERPRISE_ESC_RECOMMEND_PAGE_NO = 1
+
+/**
+ * `pageSize`：官方那页用它自己的 `LIST_PAGE_SIZE`（同一文件），本刀**不抄那个常量**而是取一个明确的展示上限。
+ *
+ * ★理由：`LIST_PAGE_SIZE` 是**管理端后台表格**的分页尺寸；本页这一行是精选位、摆的是卡片，
+ * 数量由设计定。把一个后台表格参数偷偷变成产品版式决策，正是本仓反复在治的那种「语义漂移」。
+ */
+export const ENTERPRISE_ESC_RECOMMEND_PAGE_SIZE = 10
 
 /** 全部资源类型（顺序即左栏顺序）。 */
 export const ESC_RESOURCE_TYPES: readonly ResourceTypeEnum[] = ['expert', 'skill', 'connector']

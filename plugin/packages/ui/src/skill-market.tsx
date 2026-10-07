@@ -30,13 +30,13 @@ const styles = `
 .own-skill{color:var(--dsw-alias-label-primary,#101828);font-size:13px;letter-spacing:0;min-width:0}
 .own-skill *{box-sizing:border-box}
 .own-skill-toolbar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
-.own-skill-search{display:flex;align-items:center;gap:8px;flex:1;min-width:160px;border:1px solid var(--dsw-alias-stroke-border-2,#d0d5dd);border-radius:6px;padding:0 10px;height:36px}
+.own-skill-search{display:flex;align-items:center;gap:8px;flex:1;min-width:160px;border:1px solid var(--dsw-alias-border-l2,#d0d5dd);border-radius:6px;padding:0 10px;height:36px}
 .own-skill-search input{width:100%;min-width:0;border:0;background:none;color:inherit;font:inherit;outline:none}
 .own-skill-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px}
-.own-skill-card{display:flex;flex-direction:column;gap:12px;min-width:0;padding:16px;border:1px solid var(--dsw-alias-stroke-border-2,#e4e7ec);border-radius:8px;background:var(--dsw-alias-background-primary,transparent)}
-.own-skill-card:hover,.own-skill-card:focus-within{border-color:var(--dsw-alias-accent-primary,#2563eb)}
+.own-skill-card{display:flex;flex-direction:column;gap:12px;min-width:0;padding:16px;border:1px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:8px;background:var(--dsw-alias-bg-layer-1,transparent)}
+.own-skill-card:hover,.own-skill-card:focus-within{border-color:var(--dsw-alias-brand-primary,#2563eb)}
 .own-skill-title{display:flex;align-items:flex-start;gap:10px;color:inherit;text-align:left;border:0;padding:0;background:none;cursor:pointer;font:inherit;width:100%}
-.own-skill-glyph{display:grid;place-items:center;width:36px;height:36px;flex-shrink:0;border-radius:6px;background:var(--dsw-alias-background-secondary,#f2f4f7);color:var(--dsw-alias-label-secondary,#475467)}
+.own-skill-glyph{display:grid;place-items:center;width:36px;height:36px;flex-shrink:0;border-radius:6px;background:var(--dsw-alias-bg-skeleton,#f2f4f7);color:var(--dsw-alias-label-secondary,#475467)}
 .own-skill-title strong{display:block;font-size:14px;line-height:21px;overflow-wrap:anywhere}
 .own-skill-sub{color:var(--dsw-alias-label-secondary,#667085);font-size:12px;line-height:19px;overflow-wrap:anywhere}
 .own-skill-meta{margin-top:auto;color:var(--dsw-alias-label-tertiary,#98a2b3);font-size:11px}
@@ -48,11 +48,11 @@ const styles = `
 .own-skill-installed{display:inline-flex;align-items:center;gap:4px;flex:none;color:var(--dsw-alias-state-success-primary,#027a48);font-size:11.5px;line-height:18px}
 .own-skill-trust{display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:8px;background:#fff7ed;color:#9a3412;font-size:12.5px;line-height:19px}
 .own-skill-entries{display:flex;flex-direction:column;gap:8px;list-style:none;margin:0;padding:0;min-width:0}
-.own-skill-entry{display:flex;flex-direction:column;gap:4px;min-width:0;padding:10px 12px;border:1px solid var(--dsw-alias-stroke-border-2,#e4e7ec);border-radius:8px}
+.own-skill-entry{display:flex;flex-direction:column;gap:4px;min-width:0;padding:10px 12px;border:1px solid var(--dsw-alias-border-l2,#e4e7ec);border-radius:8px}
 .own-skill-entryHead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
 .own-skill-entryName{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:19px;color:var(--dsw-alias-label-primary,#101828);overflow-wrap:anywhere}
-.own-skill-policy{flex:none;border:1px solid var(--dsw-alias-stroke-border-2,#d0d5dd);border-radius:999px;padding:1px 8px;color:var(--dsw-alias-label-secondary,#475467);font-size:11px;line-height:17px;white-space:nowrap}
-.own-skill-copy{width:100%;min-height:160px;resize:vertical;border:1px solid var(--dsw-alias-stroke-border-2,#d0d5dd);border-radius:8px;padding:12px;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--dsw-alias-label-primary,#101828);background:var(--dsw-alias-background-primary,#fff)}
+.own-skill-policy{flex:none;border:1px solid var(--dsw-alias-border-l2,#d0d5dd);border-radius:999px;padding:1px 8px;color:var(--dsw-alias-label-secondary,#475467);font-size:11px;line-height:17px;white-space:nowrap}
+.own-skill-copy{width:100%;min-height:160px;resize:vertical;border:1px solid var(--dsw-alias-border-l2,#d0d5dd);border-radius:8px;padding:12px;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--dsw-alias-label-primary,#101828);background:var(--dsw-alias-bg-layer-1,#fff)}
 `
 
 /**

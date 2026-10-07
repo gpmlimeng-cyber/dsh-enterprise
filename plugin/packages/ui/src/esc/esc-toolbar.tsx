@@ -16,8 +16,8 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { Input, Pill } from '@deepseek-ai/dsh-client-ui-primitives'
-import { Search } from 'lucide-react'
+import { Button, Input, Pill } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Download, Plus, Search } from 'lucide-react'
 import { createElement, type ReactNode } from 'react'
 import { ESC_RESOURCE_MORE_HREF, ESC_RESOURCE_MORE_SQUARE_PATH } from './esc-constants.js'
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from './esc-copy.js'
@@ -40,6 +40,24 @@ export interface EnterpriseEscToolbarProps {
   readonly showMore?: boolean | undefined
   /** 分类字典读不到时的降级提示（本页新增：原页面静默）。 */
   readonly categoriesUnavailable?: boolean | undefined
+  /**
+   * 本机已装技能数（顶栏「已安装(N)」那枚的计数）。
+   *
+   * ★`undefined` 与 `0` 是两件事实：读不到就是读不到，界面出「已安装」不带计数并另缀一枚 `？`
+   * （**不写0**——写0 等于对用户谎称「这台机器上一个技能都没装」）；读到空清单才真的是 0。
+   * ★取值来自本仓**既有真值** `GET /skills/installed`，不是新接口。
+   */
+  readonly installedCount?: number | undefined
+  /** 本机已装清单读不到时的可见说明（与 `installedCount === undefined` 同时给）。 */
+  readonly installedCountFailed?: boolean | undefined
+  /**
+   * ★用户裁决（两栏结构）：
+   *   · `leading` ＝ **第一栏左侧**：三页签（与右块同处这一行）。
+   *   · `belowLeading` ＝ **第二栏**：「精选技能 / 精选专家」那一行。
+   * 两个插槽把**行序**收进本组件，调用方不必关心谁先谁后。
+   */
+  readonly leading?: ReactNode | undefined
+  readonly belowLeading?: ReactNode | undefined
 }
 
 /**
@@ -71,31 +89,20 @@ export function EnterpriseEscToolbar({
   onKeywordChange,
   showMore = true,
   categoriesUnavailable,
+  installedCount,
+  installedCountFailed,
+  leading,
+  belowLeading,
 }: EnterpriseEscToolbarProps): ReactNode {
   return createElement(
     'div',
     { className: 'esc-toolbar' },
+    /* ★第一栏：三页签（leading）在左 + 右块（更多/搜索/已安装/添加）在右。
+       维度标签与二级分类各自另起一行（见下），不再挤在这一行里。 */
     createElement(
       'div',
-      { className: 'esc-toolbar-main' },
-      createElement(
-        'div',
-        // 用户裁决（移动端）：这枚容器**不参与压缩**（`.esc-source-tabs { flex: none }`）——宽度不够时先缩搜索框、
-        // 再整行换行，从而标签的四个字永远不会被压成两行。
-        { className: 'esc-source-tabs' },
-        sourceOptionsOf(resourceType).map(option =>
-          createElement(
-            Pill,
-            {
-              key: option.value,
-              className: 'esc-pill',
-              active: option.value === source,
-              onClick: () => onSourceChange(option.value),
-              children: option.label,
-            },
-          ),
-        ),
-      ),
+      { className: 'esc-toolbar-row' },
+      leading === undefined ? null : createElement('div', { className: 'esc-toolbar-leading' }, leading),
       createElement(
         'div',
         { className: 'esc-toolbar-right' },
@@ -119,6 +126,63 @@ export function EnterpriseEscToolbar({
           'aria-label': ENTERPRISE_ESC_COPY.searchPlaceholder,
           onChange: (event: { target: { value: string } }) => onKeywordChange(event.target.value),
         }),
+        /* 两枚控件（workbuddy 顶栏右块）。本刀**不接线**（筛选与添加动作都不做），
+           但按产品宪法**不许只挂一句 title 的死控件**：看得见、有文案、有 title，只是置灰。 */
+        createElement(
+          'button',
+          {
+            type: 'button',
+            className: 'esc-installed',
+            disabled: true,
+            title: ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted,
+          },
+          createElement(Download, { size: 14, 'aria-hidden': true }),
+          createElement('span', null, ENTERPRISE_ESC_COPY.installedFilter),
+          installedCount === undefined
+            ? null
+            : createElement('span', { className: 'esc-installed-count', children: `(${installedCount})` }),
+          installedCountFailed === true
+            ? createElement('span', {
+                className: 'esc-installed-failed',
+                role: 'status',
+                children: '？',
+                title: ENTERPRISE_ESC_LOCAL_COPY.categoriesUnavailable,
+              })
+            : null,
+        ),
+        createElement(
+          Button,
+          {
+            // ★主按钮走**近黑实底**（本主题 button-primary-fill 即近黑），品牌色只留给状态标识。
+            variant: 'primary',
+            size: 'sm',
+            className: 'esc-add-skill',
+            disabled: true,
+            title: ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted,
+          },
+          createElement(Plus, { size: 14, 'aria-hidden': true }),
+          ENTERPRISE_ESC_COPY.addSkill,
+        ),
+      ),
+    ),
+    // ★第二栏：「精选」那一行（用户裁决）
+    belowLeading === undefined ? null : createElement('div', { className: 'esc-toolbar-second' }, belowLeading),
+    // 维度标签（系统广场/团队空间/我启用的）—— **无背景**（用户裁决）
+    createElement(
+      'div',
+      { className: 'esc-source-tabs' },
+      sourceOptionsOf(resourceType).map(option =>
+        createElement(
+          Pill,
+          {
+            key: option.value,
+            className: 'esc-pill',
+            active: option.value === source,
+            ...{ 'data-esc-selected': option.value === source },
+            onClick: () => onSourceChange(option.value),
+            children: option.label,
+          },
+        ),
       ),
     ),
     categories.length > 0
@@ -130,6 +194,7 @@ export function EnterpriseEscToolbar({
               key: item.key === '' ? '__all__' : item.key,
               className: 'esc-pill',
               active: item.key === activeCategory,
+              ...{ 'data-esc-selected': item.key === activeCategory },
               onClick: () => onCategoryChange(item.key),
               children: item.label,
             }),

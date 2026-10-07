@@ -63,8 +63,28 @@ const CSS = `
 .esc-content { flex: 1; min-width: 0; min-height: 0; padding: 16px 24px; display: flex; flex-direction: column; overflow: hidden; }
 
 /* —— 资源类型页签（原左栏 CategorySidebar 的三项，用户裁决改到内容页左上角作药丸）—— */
-.esc-resource-tabs { flex-shrink: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 16px 0; }
-.esc-resource-tab { height: 26px; padding: 0 10px; }
+/* ★本刀（用户裁决①②⑤，三行标签同一套语言）：**不要底色**——那层胶囊底是官方 Pill 的
+   自带底 + 我们之前压描边时留下的观感；workbuddy 那三行标签都是**纯文字**。
+   字号/字重各加一档（官方 Pill 的 13px/400 ⇒ 这里 15px/600），非选中走三级文字色、
+   选中走主文字色。.esc-root .esc-pill 那条把原语底色一起压掉（见下方）。 */
+/* ★用户裁决④：页签行现在**排进工具栏那一行**（与右块同排），故不再自带一整行的高度与内衬——
+   否则「三页签」与「搜索/已安装/添加」之间会多出一条空白带。左右内衬交给 .esc-content 那 24px。 */
+/* ★用户裁决：三页签改**凹槽型**（SPEC §3.7 那种「整条容器有底槽、选中项凸起白块」的形态）。
+   容器：底色 + 一圈更淡的描边 + 圆角 6px + 内衬 2px；项与项之间 gap 2px（凹槽是一体的，
+   项之间要留缝就散了形）。字号/字重按用户口径：**20px / 600**、容器 gap **20px**。 */
+.esc-resource-tabs { flex: none; display: inline-flex; align-items: center; gap: 20px; flex-wrap: nowrap; }
+/* ★用户裁决⑦：三页签**再大一号**（15px → 17px），字重仍 600。 */
+.esc-resource-tab { height: 32px; padding: 0; display: inline-flex; align-items: center; gap: 6px; background: none !important; box-shadow: none !important; border: 0; border-radius: 0; font-size: 20px; font-weight: 600; line-height: 1; color: var(--dsw-alias-label-secondary); transition: color .15s; }
+/* 未选中 = 50% 黑（用户口径「inactive black 50%」）。取主题里最接近的一枚：
+   label-dimmed 在浅色主题下那一档 —— 选中/未选中的对比靠「纯黑 vs 这一档」拉开。 */
+.esc-resource-tab:not([data-esc-selected='true']) { color: var(--dsw-alias-label-dimmed); }
+.esc-resource-tab:hover { color: var(--dsw-alias-label-primary); }
+/* 图标继承 currentColor（原 SVG 就是这个设计）⇒ 选中/非选中的灰黑自动跟随文字。 */
+.esc-tab-icon { flex-shrink: 0; fill: currentColor; }
+/* 选中态：官方 Pill 用 aria/active 两条属性表达，这里两条都盖（不靠 class，避免原语换实现就失效）。 */
+/* 同上：选中变黑靠我们自己的标记（官方 active 是它那份哈希类名，外部选不中）。 */
+/* ★选中：**纯黑字 + 一枚白块**（凹槽里"凸起"的那一格）。白块走 bg-layer-1（= neutral-bluish-00）。 */
+.esc-resource-tab[data-esc-selected='true'] { background: none !important; box-shadow: none !important; color: var(--dsw-alias-label-primary); }
 
 /* 用户裁决：药丸不要描边——官方 Pill 的选中态自带 1px inset 环（box-shadow），这里逐条压掉。
    ★两条选择器（0,2,0）压得过官方那条单类（0,1,0），故不需要 !important，也不靠加载顺序。
@@ -79,10 +99,31 @@ const CSS = `
      flex-wrap: wrap 于是把右块整块顶到第二行、搜索框与主 tab 分了行。改成 nowrap：搜索框自己
      缩到下限（120px / 窄屏 96px）留在同一行，药丸组仍 flex: none 不被压。 */
 /* 官方 ResourceToolbar/index.less:6 是 margin-bottom: 16px（原 10px 同样是"紧凑"那一刀遗留）。 */
+/* ★用户裁决④：工具栏紧跟在页签行下面，故上边距收成 0（原 16px 是给「工具栏自己就是第一行」时的间距），
+   那一档的分隔由分类行自己的 margin-top 承担。 */
 .esc-toolbar { flex-shrink: 0; margin-bottom: 16px; }
-.esc-toolbar-main { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: nowrap; }
-.esc-source-tabs { display: flex; align-items: center; gap: 8px; flex: none; flex-wrap: nowrap; }
-.esc-toolbar-right { display: flex; align-items: center; gap: 12px; flex: 1 1 auto; min-width: 0; justify-content: flex-end; }
+.esc-toolbar-main { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: nowrap; }
+/* ★第一栏：三页签在左、右块在右（用户裁决「精选应在第2栏」顺带定的行序）。 */
+.esc-toolbar-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: nowrap; }
+/* 第二栏：「精选」那一行 —— 撑满整宽，卡片网格自己铺。 */
+.esc-toolbar-second { flex-shrink: 0; width: 100%; }
+/* 主行左侧插槽：三页签与右块真同处这一行（用户裁决④） */
+.esc-toolbar-leading { flex: none; display: flex; align-items: center; }
+/* ★本刀（用户裁决⑤）：维度标签（系统广场/团队空间/我启用的）与顶栏三页签同一套：无底色、
+   15px/600，非选中灰、选中黑。不参与压缩（flex: none）——标签永不被压。 */
+/* ★用户裁决：维度标签（系统广场/团队空间/我启用的）也走**凹槽型**——与三页签同一形态。
+   容器：底色 + 淡描边 + 圆角 6px + 内衬 2px；项在槽内，选中项凸起白块。 */
+.esc-source-tabs { display: flex; align-items: center; gap: 20px; margin-top: 14px; flex: none; flex-wrap: nowrap; }
+.esc-source-tabs .esc-pill { height: 30px; padding: 0; display: inline-flex; align-items: center; background: none !important; box-shadow: none !important; border: 0; border-radius: 0; font-size: 20px; font-weight: 600; line-height: 1; color: var(--dsw-alias-label-secondary); transition: color .15s; }
+.esc-source-tabs .esc-pill:hover { color: var(--dsw-alias-label-primary); }
+.esc-source-tabs .esc-pill:not([data-esc-selected='true']) { color: var(--dsw-alias-label-dimmed); }
+/* ★用户裁决⑤：**选中变黑**。判据是 data-esc-selected（我们自己的标记）而不是 .active——
+   官方 Pill 把 active 渲染成它那份 CSS Modules 哈希类名，外部样式表选不中（实测）。 */
+.esc-source-tabs .esc-pill[data-esc-selected='true'] { background: none !important; box-shadow: none !important; color: var(--dsw-alias-label-primary); }
+/* ★本刀（用户裁决②③）：右块**不再吃满剩余宽度**（此前 flex: 1 1 auto 让搜索框把整行撑满，
+   与 workbuddy 那张里「约 200px 的小搜索框 + 右对齐」差得最远）。改为 flex: none + 右对齐：
+   主 tab 在左、右块整体靠右，两者同一行（主行已是 nowrap，窄屏时靠搜索框自己的 min-width 兜底）。 */
+.esc-toolbar-right { display: flex; align-items: center; gap: 12px; flex: none; margin-left: auto; }
 /* ★口径 37 用户裁决：「搜索栏动态自适应宽度，和系统广场和空间放一行」。
    原先是固定宽（214px，官方那格的值）+ 右块 flex: 0 1 auto ⇒ 一点都不"自适应"；窄屏那一档又把右块
    整行占满（flex: 1 1 100%）⇒ 必然换行、与主 tab 分成两行。现在：右块、搜索框**都参与伸缩**
@@ -92,7 +133,10 @@ const CSS = `
    注意 .esc-search 落在官方 Input 的**外层 span** 上（铺 icon + input 两格，原语是 inline-flex、
    基准宽 ≈ 输入框默认 20 字符 ≈ 240px），它内部的 .input 本来就是 flex: 1 / min-width: 0
    ⇒ 宽度跟着外层走。 */
-.esc-search { width: auto; flex: 1 1 auto; min-width: 120px; max-width: none; }
+/* ★本刀（用户裁决②）：**定宽**——此前是 flex: 1 1 auto 自适应吃满剩余宽度。真机截图里那枚搜索框
+   几乎占满整行，与 workbuddy（约 200px、右对齐）完全不是一回事。现在定在 200px，
+   窄屏那一档（下面 @media）再收到 160px；**不再伸缩**，避免又把右块撑开。 */
+.esc-search { width: 220px; height: 32px; flex: none; min-width: 0; max-width: none; border-radius: 6px; }
 /* 「更多」现在是一枚**真超链接**（用户裁决指向 https://skillhub.cn/）⇒ 补 text-decoration: none 保持原观感；
    原来那条 .esc-more:disabled 随"置灰"写法一起撤掉（它不再是按钮）。 */
 .esc-more { flex-shrink: 0; font-size: 12px; color: var(--dsw-alias-label-tertiary); white-space: nowrap; background: none; border: 0; padding: 0; font-family: inherit; cursor: pointer; text-decoration: none; }
@@ -101,7 +145,18 @@ const CSS = `
 .esc-more:hover { color: var(--dsw-alias-brand-primary); }
 .esc-more-hidden { visibility: hidden; pointer-events: none; }
 /* 官方 ResourceToolbar/index.less:41 是 margin-top: 14px（原 8px）。 */
-.esc-category-tabs { display: flex; align-items: center; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+/* ★本刀（用户裁决⑤）：维度标签这一行与顶栏三页签**同一套视觉语言**（无底色、字号字重各加一档、
+   非选中灰 / 选中黑）；.esc-source-tabs 里的每一枚都挂这条。 */
+/* ★用户裁决：二级分类同样走**凹槽型**（与前两行同一形态）。 */
+.esc-category-tabs { display: flex; align-items: center; gap: 20px; margin-top: 14px; flex-wrap: nowrap; overflow-x: auto; }
+/* ★本刀（用户裁决⑥）：二级分类用**小圆角**——workbuddy 那排分类是近乎方角的短标签。 */
+.esc-category-tabs .esc-pill { height: 28px; padding: 0 8px; display: inline-flex; align-items: center; background: none; box-shadow: none; border: 0; border-radius: 6px; font-size: 14px; font-weight: 500; line-height: 1; color: var(--dsw-alias-label-secondary); transition: color .15s, background .15s; }
+.esc-category-tabs .esc-pill:hover { color: var(--dsw-alias-label-primary); }
+.esc-category-tabs .esc-pill:not([data-esc-selected='true']) { color: var(--dsw-alias-label-dimmed); }
+/* ★用户裁决③：**选中要有标签背景**（同一枚中性 hover 面，非选中无底色）。判据同上，走 data-esc-selected。 */
+/* ★用户裁决③：选中是**灰色背景**（不是黑字块、也不是凹槽白块）。
+   底色走 interactive-bg-hover（约 6% 黑）——本主题的 bg-layer-1/2/3 三者同值，不能拿它们做灰底。 */
+.esc-category-tabs .esc-pill[data-esc-selected='true'] { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); font-weight: 600; }
 /* ★口径 35：官方那一行的 .category-tab/.category-tab-active 两条**已删**——本页的分类页签用的是官方
    Pill 原语（视觉由原语自带），这两条从来没被任何元素挂上；其中 -active 那格还挂着同一枚失效 token
    （background-secondary）。容器 .esc-category-tabs 仍照官方 :41 的 margin-top: 14px。 */
@@ -111,7 +166,23 @@ const CSS = `
    ★口径 34/35：栅格回官方值（最小列宽 300px、间距 16px；"紧凑档"的 220/10 已撤回）。 */
 .esc-scroll { flex: 1; min-height: 0; overflow-y: auto; }
 .esc-scroll-hidden::-webkit-scrollbar { display: none; }
-.esc-list-section { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; padding-bottom: 16px; align-content: start; }
+
+/* ══════════════ 本刀（对标 workbuddy UI-SPEC v5.7.6 的真实数值）══════════════
+ * ★**用户裁决（最终）：完全按 SPEC 的原始数值**，不为宽屏做任何折中——
+ *   卡片 min-height:84px、网格 minmax(262px,1fr) + gap 12px、圆角 16、内衬 16px 20px、
+ *   图标 28 正圆、标题 14.5px/650、描述 12px 两行截断 min-height 38px、
+ *   统计行 11px/gap 10px/图标 opacity .7、云端按钮 22px、过渡 .2s、
+ *   搜索框 220px/h32/radius6、Tab 药丸 13px/500+容器 gap 4px、主按钮近黑、技能卡有阴影专家卡无。
+ *   （我此前自作主张按宽屏折中到 120/280/14，用户裁决撤掉了那个折中。）
+ * ★★**一个实测坑，必须记下来**（否则下一个人会重踩）：
+ *   本主题里 bg-layer-1 / bg-layer-2 / bg-layer-3 **三者逐字同值**
+ *   （都是 --dsw-static-neutral-bluish-00）⇒ 拿它们做 hover 底色 = **和静止态一模一样，
+ *   hover 等于没生效**。上一刀正踩了这个坑（用户反馈"hover 有点卡顿"，其实是压根没变色）。
+ *   唯一能与卡片底色拉开对比的是 interactive-bg-hover（#2631480f，约 6% 黑），
+ *   故 hover 底色一律用它。
+ */
+
+.esc-list-section { display: grid; grid-template-columns: repeat(auto-fill, minmax(262px, 1fr)); gap: 12px; padding-bottom: 16px; align-content: start; }
 
 /* —— 卡片（原 CardWrapper/index.less + ResourceCard/index.less）——
    ★★用户裁决「参考官方的，除了侧边栏其他参考官方一比一还原布局和元素，使用 dsh 的 ui 体系」（最新一刀，
@@ -122,19 +193,38 @@ const CSS = `
    （right 16 / bottom 12，命中区 32px）；动作位 .esc-action-box 回到**右上角绝对定位**（top 12 / right 16）。
    本页只保留两处**用户明确要过**的差异：① 左栏（官方是侧边栏 ⇒ 用户裁决改成本页顶部药丸）；
    ② 边框 1px 可见（官方 .5px 发丝线 ⇒ 用户先前明确要"看得见的边框"）。 */
-.esc-card { position: relative; display: flex; flex-direction: column; gap: 16px; padding: 16px; border-radius: var(--dsw-radius-lg, 12px); border: 1px solid var(--dsw-alias-border-l2); background-color: var(--dsw-alias-bg-layer-1); box-shadow: var(--dsw-shadow-lv2); transition: all .3s ease-in-out; cursor: pointer; height: 170px; }
+/* ★用户裁决⑧：边框**浅一点**——由 border-l2 调到 border-l1（主题里 l1 比 l2 更淡一档）。 */
+.esc-card { position: relative; display: flex; flex-direction: column; gap: 12px; padding: 16px 20px; border-radius: 16px; border: 1px solid var(--dsw-alias-border-l1); background-color: var(--dsw-alias-bg-layer-1); box-shadow: var(--dsw-shadow-lv2); transition: background .2s ease-out, box-shadow .2s ease-out, border-color .2s ease-out; cursor: pointer; min-height: 84px; }
 /* ★口径 35②/⑤：官方 hover 是【换描边色 + 抬升一层阴影】（CardWrapper/index.less:17-22 那三行 shadow）。
    原实现只换描边色，且那个色名（accent-primary 那名）在 dsh 主题里不存在 ⇒ hover 时边框回退成
    currentColor（截图里的"黑边卡片"）。这里改成真 token + 补上抬升阴影（用 dsh 的 lv3 表达官方那一层）。 */
-.esc-card:hover { border-color: var(--dsw-alias-brand-primary); box-shadow: var(--dsw-shadow-lv3); }
-.esc-card-compact { height: 130px; }
+/* ★本刀（用户裁决⑨）：hover 改成**背景变浅灰、边框不变**（此前是「换主色描边 + 抬升阴影」，
+   真机截图里那条主色描边过于抢眼）。底色取主题里那枚中性 hover 面（interactive-bg-hover），
+   边框**一字不动**（保持 border-l2），也不加阴影——只让底色动。 */
+/* ★用户裁决⑧：**灰更浅**（bg-layer-2 —— 主题里比 interactive-bg-hover 淡一档）、
+   边框**一字不动**（仍是 l1，与静止态同色 ⇒ 视觉上只有底色在动）；
+   ★**流畅一点**：.esc-card 那条 transition: all .3s ease-in-out 改成
+   background-color .15s ease-out——只让底色这一条属性做过渡（all 会把 border/box-shadow 也算进去，
+   且 .3s 对底色来说偏慢，点一下就有一顿一顿的迟滞感）。 */
+.esc-card:hover { border-color: var(--dsw-alias-border-l1); background-color: var(--dsw-alias-interactive-bg-hover); box-shadow: var(--dsw-shadow-lv2); }
+.esc-card-compact { min-height: 84px; }
+/* ★SPEC §7 分层策略：**技能卡有阴影（它是可点的入口）、专家/连接器卡无**（它们是列表项）。
+   官方那套"所有卡一刀切同一阴影"在这里是错的——两类卡的交互语义不同，视觉权重就该不同。 */
+.esc-card-expert, .esc-card-connector { box-shadow: none; }
 /* 三行都 flex: none：官方紧凑卡片的 96px 内容盒恰好容纳「头 48 + 间隙 16 + 描述 32」，本页一旦因任何原因
    超出（例如宿主的长字号设置/文本放大），被压扁的必然是描述 ⇒ 那正是"第二行被切掉半截"的形态。钉死它。 */
 .esc-card-header { display: flex; gap: 12px; flex: none; }
-.esc-card-image { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: var(--dsw-alias-bg-skeleton); }
+/* ★真图实测（workbuddy 实际 UI，SPEC 文字没写对）：图标是 **40px 圆角方块**（radius 10），不是正圆。 */
+.esc-card-image { width: 40px; height: 40px; border-radius: 10px; object-fit: cover; flex-shrink: 0; background: var(--dsw-alias-bg-skeleton); }
 .esc-card-image-circle { border-radius: 50%; }
 .esc-card-headmain { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
-.esc-card-title { margin: 0; color: var(--dsw-alias-label-primary); font-size: 16px; font-weight: 600; line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* ★本刀（用户裁决⑦）：标题与描述**合成一块**、与图标同处卡片头那一行（描述在标题正下方）。
+   描述不再独占一整行——那行原来固定 32px 高（两行），真机截图里把卡片撑得很高。
+   现在描述在 headmain 内、标题之下，随卡片高度自适应。 */
+.esc-card-title { margin: 0; color: var(--dsw-alias-label-primary); font-size: 14.5px; font-weight: 650; line-height: 1.4; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 头里的那一格描述：单行截断（与标题同一个块，不占独立行高）。 */
+/* ★真图实测：描述是**单行**截断（不是 SPEC 文字里那个两行/min-height 38px）。 */
+.esc-card-headdesc { margin: 3px 0 0; color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .esc-card-author-row { display: flex; align-items: center; gap: 12px; }
 /* 官方 AuthorInfo/index.less：容器 min-width: 30px; gap: 4px; flex: 0 1 auto，
    头像 **16×16**（原实现写的是 14×14，比官方小一圈），名字 height: 16px; line-height: 16px。 */
@@ -153,7 +243,7 @@ const CSS = `
    技能/连接器卡片没有它（否则多出 24px + 16px 间隙，正是把描述挤出内容盒的那 40px）。渲染与否由卡片的
    showStats 决定（见 esc-card.tsx），这里只保证它的几何。 */
 .esc-card-footer { height: 24px; display: flex; align-items: center; flex: none; }
-.esc-count-box { display: flex; align-items: center; gap: 16px; flex: 1; }
+.esc-count-box { display: flex; align-items: center; gap: 10px; flex: 1; }
 .esc-count-text { display: flex; align-items: center; font-size: 12px; color: var(--dsw-alias-label-tertiary); gap: 4px; }
 .esc-action-box { position: absolute; top: 12px; right: 16px; display: flex; align-items: center; gap: 4px; opacity: 0; transition: opacity .3s ease-in-out; z-index: -1; }
 .esc-card:hover .esc-action-box { opacity: 1; z-index: 1; }
@@ -209,8 +299,92 @@ const CSS = `
    ★口径 38：主行已 nowrap ⇒ 这一档只负责把搜索框的**下限**从 120px 收到 96px（缩得下去但不塌成一条缝）。
    下限以下宁可让搜索框轻微溢出，也不许回到"换行"那一态。 */
 @media (max-width: 560px) {
-  .esc-search { min-width: 96px; }
+  /* 定宽后的收窄档：200px 在手机上会挤掉右块其余两枚，收到 160px 仍在（不是 96px 那种塌成缝）。 */
+  .esc-search { width: 160px; }
+  /* 三行标签的间距也收一档，否则「系统广场 / 团队空间 / 我启用的」自己就换行了。 */
+  .esc-resource-tabs, .esc-source-tabs, .esc-category-tabs { gap: 4px; }
 }
+
+/* ══════════════ 本刀（workbuddy 风格重构）：以下为本刀新增的类 ══════════════
+ * 几何与 token 全部取自**本文件上面已验过的那些**（主题真源 dsh-client-ui-theme 里真实存在的那几枚），
+ * 一枚新 token 都没引入 —— 故这批规则不会重演「失效 token 让整条声明作废」那类坑。 */
+
+/* —— 顶栏右块新增的两枚控件（截图里排在搜索框右侧的那一对）——
+   ★两枚**本刀都不接线**（筛选与添加动作都不做），但按产品宪法不许只挂一句 title 的死控件：
+   它们**看得见、有文案、有 title**，只是置灰。 */
+.esc-installed { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; height: 32px; padding: 0 12px; border-radius: var(--dsw-radius-md, 8px); border: 1px solid var(--dsw-alias-border-l2); background: none; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 13px; white-space: nowrap; cursor: pointer; }
+.esc-installed:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); }
+.esc-installed:disabled { cursor: default; opacity: .6; }
+.esc-installed-count { color: var(--dsw-alias-label-tertiary); font-variant-numeric: tabular-nums; }
+/* 读不到已装清单 ≠ 一个都没装 ⇒ 另出一枚「？」，不写 0（写 0 等于对用户谎称「这台机器上一个技能都没装」）。 */
+.esc-installed-failed { margin-left: 2px; color: var(--dsw-alias-state-warn-primary); cursor: help; }
+/* ★本刀（用户裁决④）：「添加技能」是**纯黑实底按钮**（workbuddy 那张里它是全页最重的一枚）。
+   button-primary-fill 在本主题里就是近黑（浅色 #0f1115／深色反相近白），直接用原语的
+   .primary 即可——**不写死颜色**，深浅两套主题都由主题自己翻。
+   顺带把它那层 :disabled 的冲淡按回去（口径 36 同一手法）：本刀不接线，但**形态**要对。 */
+.esc-add-skill { flex-shrink: 0; gap: 6px; white-space: nowrap; }
+/* ★SPEC §7：主按钮走**近黑**（button-primary-fill 在本主题里就是 brand-primary = 近黑），
+   品牌青绿**只留给状态标识**。这与本文件原先"动作按钮全黑"那一刀同源，这里把范围写清楚。 */
+.esc-root .esc-add-skill:disabled { opacity: 1; }
+/* 口径 36 那条（.esc-action-solid:disabled { opacity: 1 }）同样覆盖新加的「去试试」——
+   动作按钮那一层灰来自原语 .button:disabled { opacity: .4 }，用户裁决「换成全黑按钮」⇒ 只把冲淡按回去。 */
+.esc-try-now { white-space: nowrap; }
+
+/* —— 技能卡右侧动作区（workbuddy 那一版式：未装「+」，已装「更多 + 去试试」）—— */
+.esc-skill-actions { position: absolute; top: 12px; right: 16px; display: flex; align-items: center; gap: 8px; z-index: 1; }
+/* ★用户裁决⑥：右上角那枚「安装」按钮此前是个**灰色圆圈小方块**（截图里看不出是加号），且颜色偏淡。
+   现在改成 workbuddy 那种**淡底 + 可辨识的加号**：bg-layer-2 作底（比白卡略深一档，有边界感）、
+   字色走主文字色（加号看得清），尺寸放大到 30px，hover 才加深。 */
+/* ★真图实测：那枚「+」是**浅灰圆角方块**（不是透明底），约 24px。 */
+.esc-install-plus { display: inline-flex; align-items: center; justify-content: center; width: 24px; min-width: 24px; height: 24px; flex-shrink: 0; border: none; border-radius: 6px; background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-secondary); cursor: pointer; transition: background .15s, color .15s; }
+.esc-install-plus:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
+.esc-install-plus:disabled { cursor: default; opacity: .6; }
+.esc-more-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; min-width: 24px; height: 24px; flex-shrink: 0; border: none; border-radius: 6px; background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-secondary); cursor: pointer; transition: background .15s, color .15s; }
+.esc-more-btn:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
+.esc-more-btn:focus-visible { outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color); outline-offset: 2px; }
+
+/* —— 技能卡底部那条「标签行」（取代原页面的统计页脚）：
+   逐项是 图标 + 值；缺的项显示一个短横（如实说「本该有数字、现在没有」，0 会被读成「装过 0 次」）。 */
+.esc-card-skill { height: 170px; }
+.esc-card-tags { display: flex; align-items: center; gap: 12px; flex: none; flex-wrap: nowrap; overflow: hidden; margin-top: auto; padding-top: 6px; }
+.esc-tag { display: inline-flex; align-items: center; gap: 4px; color: var(--dsw-alias-label-secondary); font-size: 11px; line-height: 1.4; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* SPEC：统计行的图标 opacity .7（数字不降权，图标降权——那才是"次要信息"的正确表达）。 */
+.esc-tag svg { opacity: .7; }
+.esc-tag-author { min-width: 0; overflow: hidden; }
+/* 作者名可能很长 ⇒ 单行截断，别把整行撑破或把别的标签挤走。 */
+.esc-tag-author > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* —— 「精选技能」那一行（workbuddy 版式：标题栏 + 「换一批」+ 卡片网格）—— */
+.esc-featured { flex-shrink: 0; padding-bottom: 8px; }
+.esc-featured-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.esc-featured-title { margin: 0; color: var(--dsw-alias-label-primary); font-size: 15px; font-weight: 600; line-height: 22px; }
+.esc-featured-refresh { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; border: 0; background: none; padding: 0; color: var(--dsw-alias-label-tertiary); font-family: inherit; font-size: 12px; cursor: pointer; }
+.esc-featured-refresh:hover { color: var(--dsw-alias-brand-primary); }
+.esc-featured-refresh:focus-visible { outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color); outline-offset: 2px; }
+.esc-featured-body { position: relative; }
+/* 精选卡**刻意只两格**（图标 + 标题）：那条接口没有描述/作者/收藏量/安装量/使用量，
+   薄壳是用户裁决（见 esc-featured.tsx 文件头）——宁可简，不编字段。 */
+/* ★用户裁决⑤：精选卡与下面那些卡片**用同一套几何**——栅格列宽（minmax(300px,1fr)）、列间距（16px）、
+   卡高（170px）、内衬（16px）、圆角、边框、背景，逐值照 .esc-list-section / .esc-card 那几行。
+   此前精选那行自成一套（220px 列、64px 矮卡），真机截图里两段网格**列数都对不齐**。 */
+.esc-featured-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(262px, 1fr)); gap: 12px; align-content: start; }
+/* 精选卡 = 图标 + 标题**同处一行**，与普通卡片的「头行」同一形态（不是各自占一行）。 */
+.esc-card-featured { flex-direction: row; align-items: center; gap: 12px; min-height: 84px; padding: 16px 20px; cursor: default; }
+/* 精选卡里的图标 + 标题：照普通卡片的「头行」版式（图标在左、标题在右） */
+/* 精选卡与普通卡片**同一套内部结构**：图标在左、标题在右，同处那一行。
+   （此前这里用 margin-top:-46px 把标题硬拉回图标那行——那是 hack，负边距撑出的空白在真机上很明显。） */
+.esc-card-featured .esc-featured-icon { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.esc-card-featured .esc-featured-label { flex: 1; min-width: 0; }
+.esc-card-featured:hover { border-color: var(--dsw-alias-border-l1); background-color: var(--dsw-alias-interactive-bg-hover); box-shadow: var(--dsw-shadow-lv2); }
+.esc-featured-icon { flex-shrink: 0; }
+.esc-featured-image { display: block; width: 40px; height: 40px; border-radius: var(--dsw-radius-md, 8px); object-fit: cover; background: var(--dsw-alias-bg-skeleton); }
+.esc-featured-image-empty { border: 1px solid var(--dsw-alias-border-l1); }
+.esc-featured-label { min-width: 0; overflow: hidden; color: var(--dsw-alias-label-primary); font-size: 13px; line-height: 20px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+/* 精选行自己的失败/未登录说明：复用本页既有的失败色与提示字号，不另立一套。 */
+.esc-featured-note { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 0; color: var(--dsw-alias-state-error-primary); font-size: 13px; line-height: 20px; }
+.esc-featured-note .esc-sub { margin: 0; color: var(--dsw-alias-label-secondary); }
+.esc-retry { border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md, 8px); background: none; padding: 4px 12px; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 13px; cursor: pointer; }
+.esc-retry:hover { background: var(--dsw-alias-interactive-bg-hover); }
 `
 
 /**

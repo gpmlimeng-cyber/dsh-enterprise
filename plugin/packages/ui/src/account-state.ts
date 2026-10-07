@@ -33,7 +33,7 @@ export const CONNECTION_PRESENTATION: Record<EnterpriseConnectionState, StatePre
   UNCONFIGURED: {
     title: '配置企业服务',
     description: '设置 DSH Enterprise Server 地址后即可登录',
-    color: 'var(--dsw-alias-accent-primary, #2563eb)',
+    color: 'var(--dsw-alias-brand-primary, #2563eb)',
     icon: 'building',
   },
   SIGNED_OUT: {
@@ -45,19 +45,19 @@ export const CONNECTION_PRESENTATION: Record<EnterpriseConnectionState, StatePre
   AUTHORIZING: {
     title: '等待授权',
     description: '请在系统浏览器中完成企业登录',
-    color: 'var(--dsw-alias-accent-primary, #2563eb)',
+    color: 'var(--dsw-alias-brand-primary, #2563eb)',
     icon: 'progress',
   },
   ENROLLING: {
     title: '正在注册设备',
     description: '正在建立此设备的独立企业会话',
-    color: 'var(--dsw-alias-accent-primary, #2563eb)',
+    color: 'var(--dsw-alias-brand-primary, #2563eb)',
     icon: 'progress',
   },
   BOOTSTRAPPING: {
     title: '正在同步配置',
     description: '正在读取账号与设备策略',
-    color: 'var(--dsw-alias-accent-primary, #2563eb)',
+    color: 'var(--dsw-alias-brand-primary, #2563eb)',
     icon: 'progress',
   },
   READY: {
@@ -75,25 +75,25 @@ export const CONNECTION_PRESENTATION: Record<EnterpriseConnectionState, StatePre
   FAILED: {
     title: '登录失败',
     description: '企业服务未能完成本次登录',
-    color: 'var(--dsw-alias-status-error, #c4320a)',
+    color: 'var(--dsw-alias-state-error-primary, #c4320a)',
     icon: 'error',
   },
   REFRESHING: {
     title: '正在刷新',
     description: '现有会话可用，正在同步最新策略',
-    color: 'var(--dsw-alias-status-warning, #b54708)',
+    color: 'var(--dsw-alias-state-warn-primary, #b54708)',
     icon: 'progress',
   },
   AUTH_EXPIRED: {
     title: '登录已过期',
     description: '企业会话已失效，请重新登录',
-    color: 'var(--dsw-alias-status-warning, #b54708)',
+    color: 'var(--dsw-alias-state-warn-primary, #b54708)',
     icon: 'warning',
   },
   DEVICE_REVOKED: {
     title: '设备已撤销',
     description: '此设备不再具有企业访问权限',
-    color: 'var(--dsw-alias-status-error, #c4320a)',
+    color: 'var(--dsw-alias-state-error-primary, #c4320a)',
     icon: 'error',
   },
 }

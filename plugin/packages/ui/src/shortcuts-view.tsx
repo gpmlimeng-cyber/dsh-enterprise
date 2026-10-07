@@ -280,7 +280,7 @@ const SHORTCUTS_STYLES = `
       .own-shortcuts-unbound, .own-shortcuts-note { color: var(--dsw-alias-label-tertiary, #667085); font-size: 12px; line-height: 18px; margin: 0; }
       .own-shortcuts-note { margin-top: 14px; }
       /* 降级引导（产品裁决 B 的失败路径）：警示色 + 一颗「打开设置」，下面照旧是官方一览。 */
-      .own-shortcuts-notice { align-items: center; color: var(--dsw-alias-status-warning, #b54708); display: flex; flex-wrap: wrap; font-size: 13px; gap: 8px; line-height: 20px; margin: 0 0 12px; }
+      .own-shortcuts-notice { align-items: center; color: var(--dsw-alias-state-warn-primary, #b54708); display: flex; flex-wrap: wrap; font-size: 13px; gap: 8px; line-height: 20px; margin: 0 0 12px; }
 `
 
 const FOOTER_STYLE: CSSProperties = { display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }

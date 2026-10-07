@@ -538,7 +538,7 @@ const PRE_STYLE = {
   padding: '8px 10px',
   overflowX: 'auto',
   whiteSpace: 'pre',
-  background: 'var(--dsw-alias-background-secondary,#f2f4f7)',
+  background: 'var(--dsw-alias-bg-skeleton,#f2f4f7)',
   borderRadius: 'var(--dsw-radius-sm,6px)',
 } as const
 const CODE_STYLE = {
@@ -548,7 +548,7 @@ const CODE_STYLE = {
 const INLINE_CODE_STYLE = {
   ...CODE_STYLE,
   padding: '1px 4px',
-  background: 'var(--dsw-alias-background-secondary,#f2f4f7)',
+  background: 'var(--dsw-alias-bg-skeleton,#f2f4f7)',
   borderRadius: 'var(--dsw-radius-sm,6px)',
 } as const
 const LINK_STYLE = { color: 'var(--dsw-alias-brand-primary,#1570ef)', textDecoration: 'underline' } as const

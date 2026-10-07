@@ -19,13 +19,24 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+import {
+  ENTERPRISE_ESC_RECOMMEND_PAGE_NO,
+  ENTERPRISE_ESC_RECOMMEND_PAGE_SIZE,
+  ENTERPRISE_ESC_RECOMMEND_PATH,
+  ENTERPRISE_ESC_RECOMMEND_REC_TYPE,
+  ENTERPRISE_ESC_RECOMMEND_TARGET_TYPE,
+} from './esc-constants.js'
 import { EnterpriseLocalApiError } from '../local-api-decode.js'
+import { decodeEnterpriseInstalledSkills, type EnterpriseInstalledSkill } from '../skill-api-decode.js'
 import type {
   EscCategoryNode,
   EscConnectorProvider,
   EscPage,
   EscPlatformEnvelope,
   EscPublishedItem,
+  EscRecommendPage,
+  EscRecommendTargetTypeEnum,
+  EscRecommendType,
   EscSpace,
 } from './esc-types.js'
 
@@ -136,6 +147,30 @@ export interface EnterpriseEscApi {
    * `{enabled:false}`（横幅不出现），因为"横幅挂不上"绝不该把整页拖进失败态——它不是页面在取的数据。
    */
   escMockStatus(signal?: AbortSignal | undefined): Promise<EnterpriseEscMockStatus>
+  /**
+   * ★本刀补上（上一刀定义了 prop 却**没接线**，真机截图里「已安装」不带计数就是这个）：
+   * 本机**已装技能清单**（`GET /skills/installed`，走本包既有的 `EnterpriseLocalApi` 那一族同源路由）。
+   *
+   * ★**不是新接口**：`skill-market.tsx` 早就在消费这份清单（安装/卸载后的真值也来自它），
+   *   本页只是**再读一次同一份**——两个页面各读一次，比造第二份缓存更简单也更不会漂。
+   *   同源、同样只读、同样不出浏览器。
+   */
+  installedSkills(signal?: AbortSignal | undefined): Promise<readonly EnterpriseInstalledSkill[]>
+  /**
+   * ★**本刀新增**：「精选技能」那一行的取数（`POST /api/system/display/recommend/list`，
+   * `recType=Official` + `targetType=Skill`）。
+   *
+   * 与上面六个方法**同一套取数面**（同一条本机 `/esc/read` 路由、同一份关闭键集、同一枚
+   * `EnterpriseLocalApiError`），所以它同样**失败必抛**：精选行读不到就该出失败态，
+   * 不能悄悄画成「今天没有精选」。
+   *
+   * ★参数是**本方法自己封死**的（调用方只传 signal）：`pageNo`/`pageSize`/`recType`/`targetType`
+   * 四格都由这里给定，页面**无法**改它们——避免「筛选条件由 UI 拼、拼错了没人知道」。
+   */
+  officialRecommended(
+    targetType: EscRecommendTargetTypeEnum,
+    signal?: AbortSignal | undefined,
+  ): Promise<EscPlatformEnvelope<EscRecommendPage>>
 }
 
 /** 本机演示数据开关状态（`GET …/esc/mock` 的 `data`）。 */
@@ -233,6 +268,30 @@ export function createEnterpriseEscApi(fetcher: typeof fetch): EnterpriseEscApi 
         return { enabled: false }
       }
     },
+    // ★本刀补上：已装技能清单。与 `local-api.ts` 里那一族同源路由同款（GET + 无正文 + 同一个解码器），
+    //   形状自然逐字同形（都是那个**严格八键**的中心口径）。
+    installedSkills: async signal =>
+      decodeEnterpriseInstalledSkills(
+        await (
+          await fetcher('/enterprise/api/v1/local/skills/installed', {
+            method: 'GET',
+            ...(signal === undefined ? {} : { signal }),
+          })
+        ).json(),
+      ),
+    // ★「精选」那一行（用户裁决：专家页与技能页同一套逻辑，只有 targetType 不同）。
+    //   pageNo/pageSize/recType 三格在本方法里封死；targetType 由调用方给（Agent / Skill 两档）。
+    officialRecommended: async (targetType, signal) =>
+      read(
+        ENTERPRISE_ESC_RECOMMEND_PATH,
+        {
+          pageNo: ENTERPRISE_ESC_RECOMMEND_PAGE_NO,
+          pageSize: ENTERPRISE_ESC_RECOMMEND_PAGE_SIZE,
+          recType: ENTERPRISE_ESC_RECOMMEND_REC_TYPE,
+          targetType,
+        },
+        signal,
+      ) as Promise<EscPlatformEnvelope<EscRecommendPage>>,
   }
 }
 

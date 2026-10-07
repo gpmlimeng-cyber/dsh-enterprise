@@ -15,6 +15,13 @@
  *   ② 原页面读不到数据时静默画空态，这里画出**失败态 + 稳定码 + 重试**；
  *   ③ 未登录（平台回 401）单独成一态：写明"请先登录 NUWAX 账号"，而不是显示成"平台没有数据"。
  *   ★`react-infinite-scroll-component` 换成容器自身的 `onScroll` 判据（同一个容器、同一个滚动源，行为等价）。
+ *   ★**本刀（用户裁决②③⑧ + 补半成品）**：① 顶栏「已安装(N)」的计数**真正接线**了——上一刀只定义了
+ *   `installedCount` 这个 prop 却没人去读那份清单，真机截图里「已安装」光秃秃没有数字。
+ *   本刀经 `api.installedSkills()`（复用 `GET /skills/installed` 那份**既有真值**，不是新接口）读一次，
+ *   **只在技能页读**；`undefined`＝读不到（顶栏出 `？`）、数字＝真读到了，**绝不用 0 顶替"读不到"**。
+ *   ② 技能卡的「+」与「更多+去试试」按**已装清单**分流。★**匹配键是名字，不是 id**（实测纠正）：
+ *   已装那份的 `packageId` 是雪花号（实测 `2105915576743428098`）、广场那条的 `id` 是 `4194`，
+ *   两套坐标系对不上；真正的公共键是 kebab 名（已装 `skillId` / 广场 `name`）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -26,6 +33,9 @@ import { EnterpriseEscCard } from './esc-card.js'
 import { useEnterpriseEscCategories } from './esc-categories.js'
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from './esc-copy.js'
 import { useEnterpriseEscResourceList } from './esc-list.js'
+import { enterpriseErrorMessage, enterpriseErrorRetryable } from '../error-messages.js'
+import { EnterpriseEscFeatured } from './esc-featured.js'
+import { EnterpriseEscResourceTabs } from './esc-resource-tabs.js'
 import { EnterpriseEscToolbar } from './esc-toolbar.js'
 import type { ResourceSourceEnum, ResourceTypeEnum } from './esc-types.js'
 
@@ -37,13 +47,17 @@ export interface EnterpriseEscAggregationProps {
   readonly api: EnterpriseEscApi
   /** 资源类型（左栏选中项）。 */
   readonly resourceType: ResourceTypeEnum
+  /**
+   * ★用户裁决④：切换资源类型（**含「重复点当前项也要重拉**，与原页面那个 `_t` 令牌同义**）。
+   * 由 `esc-page` 持有状态与刷新令牌，本层只负责把页签的点击交上去。
+   */
+  readonly onResourceTypeChange?: ((code: ResourceTypeEnum) => void) | undefined
 }
 
 /** 工具栏下方那句如实说明（本页新增，不是原文的一部分）。 */
-const READ_ONLY_NOTE = '动作按钮尚未在 DSH 侧接入，本页先只读展示目录'
 
 /** 资源聚合内容区。 */
-export function EnterpriseEscAggregation({ api, resourceType }: EnterpriseEscAggregationProps): ReactNode {
+export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChange }: EnterpriseEscAggregationProps): ReactNode {
   // 主 tab：系统广场/团队空间（连接器另有"已连接的"、技能另有"我启用的"）
   const [source, setSource] = useState<ResourceSourceEnum>('system')
   // 二级分类 key（空串=全部；团队维度下它承载空间 id）
@@ -132,11 +146,71 @@ export function EnterpriseEscAggregation({ api, resourceType }: EnterpriseEscAgg
   const initialLoading = (loading || waitingSpace) && list.length === 0
   const signedOut = error?.code === 'ENT_AUTH_REQUIRED'
 
+  /**
+   * ★本刀补上：顶栏那枚「已安装(N)」的计数。
+   *
+   * 上一刀把 `installedCount` 这个 prop **定义好了却没接线**——真机截图里「已安装」光秃秃没有数字，
+   * 就是因为没人去读那份清单。这一刀补上，并守住两条纪律：
+   * ① **只有技能页读**（专家/连接器页顶栏不显示这枚控件，读了就是白白发一条请求）；
+   * ② `installedCount` 三态分明——`undefined`＝**读不到**（工具栏出「已安装」不带数字、另缀一枚 `？`），
+   *    数字＝真读到了（哪怕是 0，那也是"确实一个都没装"）；**绝不用 0 顶替"读不到"**，
+   *    写 0 等于对用户谎称「这台机器上一个技能都没装」。
+   */
+  const [installedCount, setInstalledCount] = useState<number | undefined>(undefined)
+  const [installedReadFailed, setInstalledReadFailed] = useState(false)
+  /** 已装包 id 集合（卡片据此在「+」与「更多+去试试」之间分流）。读不到时是空集 ⇒ 按"未装"画「+」。 */
+  const [installedIds, setInstalledIds] = useState<ReadonlySet<string>>(new Set<string>())
+  useEffect(() => {
+    if (resourceType !== 'skill') return
+    const controller = new AbortController()
+    setInstalledCount(undefined)
+    setInstalledReadFailed(false)
+    setInstalledIds(new Set<string>())
+    api
+      .installedSkills(controller.signal)
+      .then(list => {
+        if (controller.signal.aborted) return
+        setInstalledCount(list.length)
+        // ★**实测纠正**（别照我上一版的猜测）：已装清单的 `packageId` 是雪花号
+        //   （实测 `2105915576743428098`），而广场列表那条的 `id` 是 `4194` —— **两套坐标系对不上**。
+        //   真正的公共键是**名字**：已装那份有 `skillId`（kebab 名，如 `interactive-architecture-diagram`），
+        //   广场那份有 `name`（同为 kebab 名，如 `dev-engineer-toolkit`）。
+        //   故这里收**名字集合**，不去收 packageId（收了就永远命中不了）。
+        setInstalledIds(new Set(list.map(each => each.skillId)))
+      })
+      .catch(() => {
+        // ★读不到就如实说读不到（交工具栏出那枚 `？`），**不回落成 0**、也不把整页拖进失败态。
+        if (controller.signal.aborted) return
+        setInstalledReadFailed(true)
+      })
+    return () => controller.abort()
+  }, [api, resourceType])
+
   return createElement(
     'div',
     { className: 'esc-content' },
+    // ★用户裁决④ + 本刀：「精选技能」那一行在**内容区最顶部**，三页签则排进**工具栏左侧**
+    //   （与「更多/搜索/已安装/添加」同处那一行 ⇒ 同排由 flex 保证）。
+    //   精选只在技能页出现——它读官方推荐的 `targetType=Skill` 档，专家/连接器页挂它只是空请求。
     createElement(EnterpriseEscToolbar, {
+      // ★用户裁决④：三页签作为**主行左侧插槽**进去（与右块同一个 flex 行），不再是兄弟元素
+      leading: onResourceTypeChange === undefined
+        ? undefined
+        : createElement(EnterpriseEscResourceTabs, {
+            activeKey: resourceType,
+            onSelect: onResourceTypeChange,
+          }),
+      // ★用户裁决：「精选」排在**第二栏**（三页签那一行之下、维度标签之上）
+      belowLeading:
+        resourceType === 'skill' || resourceType === 'expert'
+          ? createElement(EnterpriseEscFeatured, {
+              api,
+              targetType: resourceType === 'skill' ? 'Skill' : 'Agent',
+            })
+          : undefined,
       resourceType,
+      installedCount,
+      installedCountFailed: installedReadFailed,
       source,
       onSourceChange: next => {
         setSource(next)
@@ -153,7 +227,6 @@ export function EnterpriseEscAggregation({ api, resourceType }: EnterpriseEscAgg
       showMore: resourceType !== 'connector',
       categoriesUnavailable: unavailable,
     }),
-    createElement('div', { className: 'esc-toolbar-note', children: READ_ONLY_NOTE }),
     signedOut === true
       ? createElement(
           'div',
@@ -186,6 +259,10 @@ export function EnterpriseEscAggregation({ api, resourceType }: EnterpriseEscAgg
                     iconShape: resourceType === 'expert' ? 'circle' : 'square',
                     showSummon: resourceType === 'expert',
                     showUse: resourceType === 'skill',
+                    // ★本刀：技能卡按「这个技能在不在已装清单里」在两种动作形态间分流。
+                    //   匹配键是**名字**（见上面那段实测纠正：packageId 与广场 id 不是一套坐标系）。
+                    //   命中不到就按未装画「+」——宁可少给一次「更多」，也不谎称已装。
+                    installed: resourceType === 'skill' && installedIds.has(item.name),
                     // 底部统计行仅专家卡片展示（技能本就无统计；连接器工具数统计已下线）
                     showStats: resourceType === 'expert',
                     showConnect: resourceType === 'connector',
@@ -231,15 +308,24 @@ function ErrorRow({
   onRetry,
 }: {
   readonly code: string
+  /** 上游自由文本。★**故意不渲染**（见下面那行注释）——保留入参是为了调用方不必改签名。 */
   readonly message: string
   readonly onRetry: () => void
 }): ReactNode {
   return createElement(
     'div',
     { className: 'esc-state' },
-    createElement('div', { className: 'esc-state-title esc-state-error', children: ENTERPRISE_ESC_LOCAL_COPY.loadFailed }),
-    message.length > 0 ? createElement('div', { className: 'esc-state-code', children: message }) : null,
+    createElement('div', { className: 'esc-state-title esc-state-error', children: enterpriseErrorMessage(code) }),
+    /* ★平台那句**自由文本不再直接上屏**。真机截图里那行英文原话（`No static resource
+       api/connector/providers.` 之类）被人直接读到了——那是**上游的实现细节**，不是给用户看的话，
+       而且它其实在说「NUWAX 那边没有这个端点」，用户读不出下一步该做什么。
+       **保留**的是那一枚稳定码（`4040` 这类）：它可检索、能定位，且不含任何实现细节。
+       这一条纪律与全仓 `no-silent-swallow` 那条一致——**说出来，但只说人话 + 稳定码**。 */
     createElement('div', { className: 'esc-state-code', children: code }),
-    createElement(Button, { variant: 'outline', size: 'sm', onClick: onRetry, children: ENTERPRISE_ESC_LOCAL_COPY.retry }),
+    // ★不可重试的失败（部署缺能力那类）**不画「重试」**——重试对它永远无效，
+    //   画一枚只会把人引向死路（全仓 error-messages 的 retryable 纪律）。
+    enterpriseErrorRetryable(code)
+      ? createElement(Button, { variant: 'outline', size: 'sm', onClick: onRetry, children: ENTERPRISE_ESC_LOCAL_COPY.retry })
+      : null,
   )
 }

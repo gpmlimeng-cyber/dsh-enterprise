@@ -354,9 +354,15 @@ describe('no new CSS class on either card surface', () => {
   it('keeps the plugin-market stylesheet byte-identical (length + FNV-1a) and declares no tag class itself', async () => {
     const source = await readFile(new URL('plugin-market.tsx', UI_SRC), 'utf8')
     const styles = templateLiteralAfter(source, 'const styles')
-    // **本刀 CSS 一字未动**：两道字节级判据锁着同一份基线（改一字节就红）。
-    expect(styles.length).toBe(5345)
-    expect(styleChecksum(styles)).toBe(1754276488)
+    // **本刀（扫清 esc 之外那 9 枚失效 token）**：CSS 动了三处**声明体里的 token 名**（不是类结构）：
+    //   `.own-market-card` 的 `stroke-border-2`→`border-l2`、`background-primary`→`bg-layer-1`、
+    //   搜索框与文本域的 `stroke-border-2`→`border-l2`、`background-primary`→`bg-layer-1`。
+    //   这四枚在 `dsh-client-ui-theme` 里**查无此名** ⇒ 声明计算期无效（hover 描边回退 `currentColor`＝
+    //   用户截图里那张「黑边卡片」，卡底回退透明），与本仓 `esc-style` 早已用过的真名同一枚。
+    //   ⇒ `style(5345 chars)` → `style(5297 chars)`、FNV-1a `1754276488` → **1293481983**
+    //   （**再基线化，不是放宽判据**）。类名集合一条没动，故下面那条反向锁照旧成立。
+    expect(styles.length).toBe(5297)
+    expect(styleChecksum(styles)).toBe(1293481983)
     // 标签的类名是**复用**技能那一枚，本文件不许自己声明它们（否则就是同一页第二套样式）。
     const declared = declaredClassNames(source)
     expect(declared.has('own-market-tag')).toBe(false)

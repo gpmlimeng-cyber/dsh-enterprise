@@ -28,6 +28,40 @@ export interface ResourceStat {
   readonly value: number | string
 }
 
+/* ══════════════ 「精选技能」那一行（官方推荐）══════════════ */
+
+/** 推荐目标类型（逐字抄 NUWAX `types/interfaces/displayRecommend.ts:13-20` 的 `DisplayRecommendTargetTypeEnum`）。 */
+export type EscRecommendTargetTypeEnum = 'Agent' | 'PageApp' | 'UserApp' | 'Skill' | 'Plugin' | 'Workflow'
+
+/** 推荐类型（逐字抄 `DisplayRecTypeEnum`：Home / Official / ChatBoxNav）。 */
+export type EscRecommendType = 'Home' | 'Official' | 'ChatBoxNav'
+
+/**
+ * 推荐列表里的一条记录 —— 字段子集，逐字对齐
+ * NUWAX `types/interfaces/displayRecommend.ts:28-43` 的 `DisplayRecommendInfo`。
+ *
+ * ★**只声明本页真消费的字段**（与本文件对平台原始类型的既有收窄口径一致）：那一行只画 `label` 与 `icon`，
+ * 故 `placeholder`/`category`/`prompts`/`sort`/`modified`/`created` **一律不声明**——
+ * 声明了却不用，就是给未来埋一个"看起来能用、其实没人验过"的字段。
+ * `targetId` 保留是因为它标着"这条推荐指向哪个技能"，将来要回查详情时它是唯一的凭据。
+ */
+export interface EscRecommendRecord {
+  readonly id: number
+  readonly targetType: EscRecommendTargetTypeEnum | string
+  readonly targetId: number
+  readonly recType: EscRecommendType | string
+  readonly label: string
+  readonly icon?: string | undefined
+}
+
+/** 分页信封（服务端 `{records,total,pageNo,pageSize}`；`total` 等四格都可能缺席，故全部可选）。 */
+export interface EscRecommendPage {
+  readonly records: readonly EscRecommendRecord[]
+  readonly total?: number | undefined
+  readonly pageNo?: number | undefined
+  readonly pageSize?: number | undefined
+}
+
 /** 归一化后的资源卡片数据（纯展示）——字段语义逐条照抄原文件注释里的口径。 */
 export interface ResourceItem {
   /** 唯一标识（资源类型 + 原始 ID，避免跨类型撞 key）。 */

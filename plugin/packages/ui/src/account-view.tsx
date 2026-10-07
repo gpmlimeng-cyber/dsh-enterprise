@@ -186,8 +186,8 @@ const baseButton: CSSProperties = {
 
 const primaryButton: CSSProperties = {
   ...baseButton,
-  background: 'var(--dsw-alias-accent-primary, #2563eb)',
-  color: 'var(--dsw-alias-label-on-primary, #fff)',
+  background: 'var(--dsw-alias-brand-primary, #2563eb)',
+  color: 'var(--dsw-alias-label-primary-foreground, #fff)',
 }
 
 /** 账号区的登录入口：**本刀之后它读 NUWAX 登录态**（未登录/登录中都开同一面 NUWAX 表单，已登录才是退出）。 */
@@ -233,10 +233,10 @@ function EnterpriseAccountContent({ store }: EnterpriseStoreInjected): ReactNode
 
   return <div style={panel} className="own-account">
     {errorDisplay === undefined ? null : errorDisplay.code === undefined
-      ? <div role="alert" style={{ color: 'var(--dsw-alias-status-error, #c4320a)', fontSize: 13, lineHeight: '20px', paddingBottom: 12 }}>
+      ? <div role="alert" style={{ color: 'var(--dsw-alias-state-error-primary, #c4320a)', fontSize: 13, lineHeight: '20px', paddingBottom: 12 }}>
         {errorDisplay.message}
       </div>
-      : <EnterpriseErrorNotice code={errorDisplay.code} style={{ color: 'var(--dsw-alias-status-error, #c4320a)', fontSize: 13, lineHeight: '20px', paddingBottom: 12 }} />}
+      : <EnterpriseErrorNotice code={errorDisplay.code} style={{ color: 'var(--dsw-alias-state-error-primary, #c4320a)', fontSize: 13, lineHeight: '20px', paddingBottom: 12 }} />}
     <div className="own-account-summary" style={{ alignItems: 'center', background: 'var(--dsw-alias-bg-layer-1, #f8fafc)', border: '1px solid var(--dsw-alias-border-l2, #e4e7ec)', borderRadius: 10, display: 'flex', gap: 10, padding: 12 }}>
       <div style={{ alignItems: 'center', background: 'var(--dsw-alias-bg-layer-2, #f2f4f7)', borderRadius: '50%', color: 'var(--dsw-alias-label-secondary, #475467)', display: 'flex', flexShrink: 0, height: 34, justifyContent: 'center', width: 34 }}>
         <UserRound aria-hidden size={18} />
@@ -289,7 +289,7 @@ function EnterpriseAccountContent({ store }: EnterpriseStoreInjected): ReactNode
       </div>
       <UninstallAction store={store} snapshot={snapshot} quiet />
     </div>
-    {snapshot.uninstallRestartRequested === false ? <div role="status" style={{ color: 'var(--dsw-alias-status-warning, #b54708)', fontSize: 13 }}>
+    {snapshot.uninstallRestartRequested === false ? <div role="status" style={{ color: 'var(--dsw-alias-state-warn-primary, #b54708)', fontSize: 13 }}>
       DSH Enterprise 已卸载，请手动重启 Harness。
     </div> : null}
   </div>

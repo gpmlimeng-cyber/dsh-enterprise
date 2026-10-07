@@ -18,6 +18,7 @@
 import { createElement, useState, type ReactNode } from 'react'
 import { EnterpriseEscAggregation } from './esc-aggregation.js'
 import type { EnterpriseEscApi } from './esc-api.js'
+import { EnterpriseEscFeatured } from './esc-featured.js'
 import { EnterpriseEscResourceTabs } from './esc-resource-tabs.js'
 import { EnterpriseEscStyle } from './esc-style.js'
 import type { ResourceTypeEnum } from './esc-types.js'
@@ -43,17 +44,21 @@ export function EnterpriseEscPanel({ api }: EnterpriseEscPanelProps): ReactNode 
     'div',
     { className: 'esc-root' },
     createElement(EnterpriseEscStyle),
-    createElement(EnterpriseEscResourceTabs, {
-      activeKey: resourceType,
-      onSelect: code => {
-        setResourceType(code)
-        setRefreshToken(token => token + 1)
-      },
-    }),
+    // ★用户裁决④：**三页签与顶栏右块（更多/搜索/已安装/添加）必须在同一行**。
+    //   此前页签住在 `.esc-root`、工具栏住在 `.esc-content`（聚合区）——**两个容器、两行**，
+    //   怎么调 CSS 都不可能同排。解法是**结构**而不是样式：把页签交给聚合区，由它排进工具栏**左侧**，
+    //   与右块同处那个 `justify-content: space-between` 的主行里 ⇒ 同排由 flex 保证，不靠巧合。
+    //   ★「精选技能」那一行仍住在聚合区**上方**（截图里它是第一行，下面才是维度/分类/列表）。
+    //     它**只在技能页出现**——那一行读官方推荐的 `targetType=Skill` 档，
+    //     专家/连接器页挂它就是挂一条空行（没有 Agent/Plugin 档的取数，那是不该有的请求）。
     createElement(EnterpriseEscAggregation, {
       key: `${resourceType}-${refreshToken}`,
       api,
       resourceType,
+      onResourceTypeChange: code => {
+        setResourceType(code)
+        setRefreshToken(token => token + 1)
+      },
     }),
   )
 }
