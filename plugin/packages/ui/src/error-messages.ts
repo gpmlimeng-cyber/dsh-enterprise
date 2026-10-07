@@ -135,15 +135,19 @@ const ENTERPRISE_ERROR_TABLE: Readonly<Record<string, EnterpriseErrorEntry>> = {
   ENT_NUWAX_TIMEOUT: { message: 'NUWAX 平台响应超时。', action: '请稍后重试。', retryable: true },
   ENT_NUWAX_PROTOCOL: { message: 'NUWAX 平台返回了无法识别的结果。', action: '请重试；仍然失败请联系企业管理员。', retryable: true },
   /**
-   * ★esc 页三处「**部署侧没有该端点**」的稳定码（实测：平台回 `4040 No static resource …`，
+   * ★esc 页四处「**部署侧没有该端点**」的稳定码（实测：平台回 `4040 No static resource …`，
    *   而同页的其它列表正常回 200 ⇒ 不是网络、不是登录、也不是我们路由的问题）。
-   *   那不是"出错了"，是**这一版部署没有这个能力**——重试没有意义，故三枚都 `retryable: false`，
+   *   那不是"出错了"，是**这一版部署没有这个能力**——重试没有意义，故四枚都 `retryable: false`，
    *   下一步是「换版本 / 联系管理员」，而不是让用户对着一句 4040 反复点重试。
-   *   ★三枚**分开**（本刀）：缺的是连接器目录、这一类目录、还是推荐内容，是三件不同的事实、
-   *   三句不同的话；由 `esc-api.ts` 的 `ESC_MISSING_ENDPOINT_CODES` 按**取数面**取对应那一枚。
+   *   ★四枚**分开**（本刀补第四枚）：缺的是连接器目录、这一类目录、技能启停清单，还是推荐内容，
+   *   是四件不同的事实、四句不同的话；由 `esc-api.ts` 的 `ESC_MISSING_ENDPOINT_CODES`
+   *   按**取数面（资源类型 + 维度）**取对应那一枚。第四枚的由来有一次现场探针作证：
+   *   同一次请求里 `skill/list` 回 `0000 / total 138`，而 `skill/enable/list` 回 `4040`
+   *   ⇒ 目录在、启停清单不在，两者绝不能共用一句话。
    */
   ENT_ESC_CONNECTOR_UNAVAILABLE: { message: '这台 NUWAX 服务还没有提供连接器目录。', action: '请联系企业管理员确认部署版本；专家与技能不受影响。', retryable: false },
   ENT_ESC_DIRECTORY_UNAVAILABLE: { message: '这台 NUWAX 服务还没有提供这一类目录。', action: '请联系企业管理员确认部署版本。', retryable: false },
+  ENT_ESC_ENABLE_LIST_UNAVAILABLE: { message: '这台 NUWAX 服务还没有提供「我启用的」技能清单。', action: '请联系企业管理员确认部署版本；技能目录本身不受影响。', retryable: false },
   ENT_ESC_RECOMMEND_UNAVAILABLE: { message: '这台 NUWAX 服务还没有提供推荐内容。', action: '请联系企业管理员确认部署版本；下面的目录不受影响。', retryable: false },
 
   // ── 用量配额 ─────────────────────────────────────────────────────────────────

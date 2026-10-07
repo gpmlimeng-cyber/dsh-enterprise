@@ -28,16 +28,22 @@ import type { ResourceItem, ResourceSourceEnum, ResourceTypeEnum } from './esc-t
 /**
  * 本面在「这台部署没有这个端点」（平台 `4040`）时该说的那枚稳定码。
  *
- * ★按**取数面**分（本刀纠正）：连接器面缺的是连接器目录，专家/技能面缺的是"这一类目录"。
+ * ★按**取数面**分（本刀纠正，且细化到维度）：连接器面缺的是连接器目录，专家/技能面缺的是"这一类目录"，
+ *   而技能的「我启用的」维度缺的是**另一个端点**（`POST /api/published/skill/enable/list`）。
  *   上一刀那条映射**不看面**、对任何一面都说"没有连接器目录"——专家/技能面一旦也回 `4040`，
- *   那就是在跟员工说假话。三枚码本身仍在 `error-messages.ts` 那张唯一码表里，
- *   这里只决定"哪一面取哪一枚"。
+ *   那就是在跟员工说假话；本刀再修一层：把"技能目录"与"技能启停清单"也分开。
+ *   现场证据（本机现役宿主一次探针）：`skill/list` → `0000 / total 138`，同一刻
+ *   `skill/enable/list` → `4040 No static resource …` ⇒ 目录在、清单不在，两句话不能共用。
+ *   四枚码本身仍在 `error-messages.ts` 那张唯一码表里，这里只决定"哪一面取哪一枚"。
  *   ★导出是为了让测试直调核对**每一面各自那一枚**（与 `escCategoryChildrenOf` 同一个做法）。
  */
-export function missingEndpointCodeOf(resourceType: ResourceTypeEnum): string {
-  return resourceType === 'connector'
-    ? ESC_MISSING_ENDPOINT_CODES.connector
-    : ESC_MISSING_ENDPOINT_CODES.directory
+export function missingEndpointCodeOf(resourceType: ResourceTypeEnum, source: ResourceSourceEnum): string {
+  if (resourceType === 'connector') return ESC_MISSING_ENDPOINT_CODES.connector
+  // ★启停清单是**技能专有**端点（`/api/published/skill/enable/list`），故两个条件都要：
+  //   只按 source 判会让"专家 + 我启用的"这种组合（当前不可达）也去说技能启停清单的事
+  //   —— 测试的反向锁当场抓到了我第一版这条不精确。
+  if (resourceType === 'skill' && source === 'enabled') return ESC_MISSING_ENDPOINT_CODES.enabled
+  return ESC_MISSING_ENDPOINT_CODES.directory
 }
 
 /** 服务端分页请求参数（逐字对齐原文件）。 */
@@ -386,7 +392,7 @@ export function useEnterpriseEscResourceList({
             setError(undefined)
           } else {
             // ★与原文的差异：原文件只在 reset 时清空列表、**不说明为什么**；这里如实记下码与原话
-            setError({ code: escPlatformErrorCode(res?.code, missingEndpointCodeOf(resourceType)), message: typeof res?.message === 'string' ? res.message : '' })
+            setError({ code: escPlatformErrorCode(res?.code, missingEndpointCodeOf(resourceType, source)), message: typeof res?.message === 'string' ? res.message : '' })
             if (reset) {
               setList([])
               setHasMore(false)
@@ -401,7 +407,7 @@ export function useEnterpriseEscResourceList({
               setError(undefined)
             } else {
               rawListRef.current = []
-              setError({ code: escPlatformErrorCode(res?.code, missingEndpointCodeOf(resourceType)), message: typeof res?.message === 'string' ? res.message : '' })
+              setError({ code: escPlatformErrorCode(res?.code, missingEndpointCodeOf(resourceType, source)), message: typeof res?.message === 'string' ? res.message : '' })
             }
           }
           // 全量数据按分类/关键字做客户端筛选后内存切片；

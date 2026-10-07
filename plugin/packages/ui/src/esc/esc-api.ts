@@ -90,13 +90,19 @@ export const ESC_PLATFORM_MISSING_ENDPOINT_CODE = '4040'
  *
  * ★上一刀只有一条「`4040` ⇒ 连接器目录不存在」的映射，且**不看是哪个面**：于是专家 / 技能目录
  *   或精选行一旦也回 `4040`，界面对员工说的是「没有连接器目录」——那是一句**假话**。
- *   本刀把这句话交回给取数面自己（三枚码都在 `error-messages.ts` 那张唯一码表里）。
+ *   本刀把这句话交回给取数面自己（四枚码都在 `error-messages.ts` 那张唯一码表里）。
+ *   ★第四枚「我启用的」是本刀补的：`POST /api/published/skill/enable/list` 在**这台部署**
+ *     实测回 `4040`（同一次探针里技能目录回 `0000 / total 138`）⇒ 缺的是**启停清单**，
+ *     不是这一类目录。它原先被归到 `directory` 那一枚，等于对员工说"没有技能目录"——又一句假话。
+ *     面级取值因此从「按资源类型」细化到「按资源类型 + 维度」：同一类资源的不同维度可以各自缺端点。
  */
 export const ESC_MISSING_ENDPOINT_CODES = {
-  /** 连接器列表（`GET /api/connector/providers`，实测这台部署缺它）。 */
+  /** 连接器列表（`GET /api/connector/providers`）。 */
   connector: 'ENT_ESC_CONNECTOR_UNAVAILABLE',
   /** 专家 / 技能目录（`POST /api/published/{agent,skill}/list`）。 */
   directory: 'ENT_ESC_DIRECTORY_UNAVAILABLE',
+  /** 技能「我启用的」清单（`POST /api/published/skill/enable/list`，实测这台部署缺它）。 */
+  enabled: 'ENT_ESC_ENABLE_LIST_UNAVAILABLE',
   /** 精选行（`POST /api/system/display/recommend/list`）。 */
   recommend: 'ENT_ESC_RECOMMEND_UNAVAILABLE',
 } as const

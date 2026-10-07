@@ -1024,24 +1024,41 @@ describe('esc：失败面收口（本刀 —— 精选行与列表页同一套�
     expect(escErrorCodeOf({ code: 'ENT_AUTH_REQUIRED' })).toBe('ENT_AUTH_REQUIRED')
     expect(escErrorCodeOf(new Error('boom'))).toBe('ENT_LOCAL_RESPONSE_INVALID')
     expect(escErrorCodeOf({ code: '' })).toBe('ENT_LOCAL_RESPONSE_INVALID')
-    // 三枚都在**唯一码表**里、都不可重试、三句话两两不同
-    //（同一件事不许说两种话；三件不同的事也不许说成同一句）
-    const messages = (['connector', 'directory', 'recommend'] as const).map(key => {
+    // 四枚都在**唯一码表**里、都不可重试、四句话两两不同
+    //（同一件事不许说两种话；四件不同的事也不许说成同一句）
+    const messages = (['connector', 'directory', 'enabled', 'recommend'] as const).map(key => {
       const code = ESC_MISSING_ENDPOINT_CODES[key]
       expect(enterpriseErrorPresentation(code).known, code).toBe(true)
       expect(enterpriseErrorRetryable(code), code).toBe(false)
       return enterpriseErrorMessage(code)
     })
-    expect(new Set(messages).size).toBe(3)
+    expect(new Set(messages).size).toBe(4)
   })
 
-  it('★列表面的 `4040` 也按资源类型取码：专家/技能不再被说成「没有连接器目录」', () => {
-    expect(missingEndpointCodeOf('connector')).toBe('ENT_ESC_CONNECTOR_UNAVAILABLE')
-    expect(missingEndpointCodeOf('expert')).toBe('ENT_ESC_DIRECTORY_UNAVAILABLE')
-    expect(missingEndpointCodeOf('skill')).toBe('ENT_ESC_DIRECTORY_UNAVAILABLE')
+  it('★列表面的 `4040` 按「资源类型 + 维度」取码：专家/技能不再被说成「没有连接器目录」', () => {
+    expect(missingEndpointCodeOf('connector', 'system')).toBe('ENT_ESC_CONNECTOR_UNAVAILABLE')
+    expect(missingEndpointCodeOf('expert', 'system')).toBe('ENT_ESC_DIRECTORY_UNAVAILABLE')
+    expect(missingEndpointCodeOf('skill', 'system')).toBe('ENT_ESC_DIRECTORY_UNAVAILABLE')
+    expect(missingEndpointCodeOf('skill', 'team')).toBe('ENT_ESC_DIRECTORY_UNAVAILABLE')
     // 这两句话措辞**必须不同**——本刀修的正是"专家/技能面上报连接器"那句假话
-    expect(enterpriseErrorMessage(missingEndpointCodeOf('expert')))
-      .not.toBe(enterpriseErrorMessage(missingEndpointCodeOf('connector')))
+    expect(enterpriseErrorMessage(missingEndpointCodeOf('expert', 'system')))
+      .not.toBe(enterpriseErrorMessage(missingEndpointCodeOf('connector', 'system')))
+  })
+
+  it('★「我启用的」是另一个端点：技能目录缺端点 ≠ 技能启停清单缺端点（本刀，有现场探针作证）', () => {
+    // 现场：同一刻 skill/list → 0000 / total 138，skill/enable/list → 4040
+    expect(missingEndpointCodeOf('skill', 'enabled')).toBe('ENT_ESC_ENABLE_LIST_UNAVAILABLE')
+    // 两句话必须不同：说"没有技能目录"是假话（目录在），缺的是启停清单
+    expect(enterpriseErrorMessage(missingEndpointCodeOf('skill', 'enabled')))
+      .not.toBe(enterpriseErrorMessage(missingEndpointCodeOf('skill', 'system')))
+    // 反向锁：目录面**不许**落到启停清单那一枚（反向也一样），且连接器面与维度无关
+    expect(missingEndpointCodeOf('skill', 'system')).not.toBe('ENT_ESC_ENABLE_LIST_UNAVAILABLE')
+    expect(missingEndpointCodeOf('expert', 'enabled')).not.toBe('ENT_ESC_ENABLE_LIST_UNAVAILABLE')
+    expect(missingEndpointCodeOf('connector', 'enabled')).toBe('ENT_ESC_CONNECTOR_UNAVAILABLE')
+    // 源码级锁：两个失败落点都必须把**维度**传进去，否则又会退回"按资源类型"那句话
+    const source = readFileSync(new URL('../src/esc/esc-list.ts', import.meta.url), 'utf8')
+    expect(source).toContain('missingEndpointCodeOf(resourceType, source)')
+    expect(source).not.toContain('missingEndpointCodeOf(resourceType)')
   })
 
   it('★本刀只动失败那一态：加载 / 空 / 未登录三态的标记与文案一字未改', () => {
