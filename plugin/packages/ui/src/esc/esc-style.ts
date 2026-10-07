@@ -71,10 +71,15 @@ const CSS = `
    否则「三页签」与「搜索/已安装/添加」之间会多出一条空白带。左右内衬交给 .esc-content 那 24px。 */
 /* ★用户裁决：三页签改**凹槽型**（SPEC §3.7 那种「整条容器有底槽、选中项凸起白块」的形态）。
    容器：底色 + 一圈更淡的描边 + 圆角 6px + 内衬 2px；项与项之间 gap 2px（凹槽是一体的，
-   项之间要留缝就散了形）。字号/字重按用户口径：**20px / 600**、容器 gap **20px**。 */
+   项之间要留缝就散了形）。容器 gap **20px**；字号/字重沿革与当前值见下方 ★（当前 **18px / 600**）。 */
 .esc-resource-tabs { flex: none; display: inline-flex; align-items: center; gap: 20px; flex-wrap: nowrap; }
-/* ★用户裁决⑦：三页签**再大一号**（15px → 17px），字重仍 600。 */
-.esc-resource-tab { height: 32px; padding: 0; display: inline-flex; align-items: center; gap: 6px; background: none !important; box-shadow: none !important; border: 0; border-radius: 0; font-size: 20px; font-weight: 600; line-height: 1; color: var(--dsw-alias-label-secondary); transition: color .15s; }
+/* 字号沿革（逐条用户裁决，每次都只改"字号"这一档）：官方 Pill 原值 13px/400 → 15px（① 三行标签
+   统一那一刀）→ 17px（⑦"三页签再大一号"）→ **20px**（真图对齐那一刀）→ **18px**（本刀，用户原话
+   「专家技能连接器和系统广场，工作空间小一号」）。
+   ★本刀**只收字号**：height 32 / font-weight 600 / line-height 1 / 图标 gap 6 / 容器 gap 20 一个都不动；
+   并且本行与维度行（「.esc-source-tabs .esc-pill」）**必须继续逐值相等**——它们是同一套视觉语言
+   （判据：两处 font-size/weight/line-height 提取后直接比对，见 spec）。 */
+.esc-resource-tab { height: 32px; padding: 0; display: inline-flex; align-items: center; gap: 6px; background: none !important; box-shadow: none !important; border: 0; border-radius: 0; font-size: 18px; font-weight: 600; line-height: 1; color: var(--dsw-alias-label-secondary); transition: color .15s; }
 /* ★用户裁决（本轮）：「非选中的页签颜色深一点」。
    ★先把上一版注释里那句**假话**改掉：它写着「label-dimmed 是主题里最接近 50% 黑的一枚」——不是。
      主题浅色阶梯的真值（dsh-client-ui-theme 真源）：dimmed #e1e5ee（≈12% 黑，几乎是白）
@@ -115,11 +120,14 @@ const CSS = `
 /* 主行左侧插槽：三页签与右块真同处这一行（用户裁决④） */
 .esc-toolbar-leading { flex: none; display: flex; align-items: center; }
 /* ★本刀（用户裁决⑤）：维度标签（系统广场/团队空间/我启用的）与顶栏三页签同一套：无底色、
-   15px/600，非选中灰、选中黑。不参与压缩（flex: none）——标签永不被压。 */
+   同一字号（**本刀起 18px**，与「.esc-resource-tab」逐值相等）、字重 600，非选中灰、选中黑。
+   不参与压缩（flex: none）——标签永不被压。
+   ★本刀（用户原话「专家技能连接器和系统广场，工作空间小一号」）**同收一档的就是这一行**：20px → 18px，
+   其余（height 30 / weight 600 / line-height 1 / 容器 gap 20）一个不动。 */
 /* ★用户裁决：维度标签（系统广场/团队空间/我启用的）也走**凹槽型**——与三页签同一形态。
    容器：底色 + 淡描边 + 圆角 6px + 内衬 2px；项在槽内，选中项凸起白块。 */
 .esc-source-tabs { display: flex; align-items: center; gap: 20px; margin-top: 14px; flex: none; flex-wrap: nowrap; }
-.esc-source-tabs .esc-pill { height: 30px; padding: 0; display: inline-flex; align-items: center; background: none !important; box-shadow: none !important; border: 0; border-radius: 0; font-size: 20px; font-weight: 600; line-height: 1; color: var(--dsw-alias-label-secondary); transition: color .15s; }
+.esc-source-tabs .esc-pill { height: 30px; padding: 0; display: inline-flex; align-items: center; background: none !important; box-shadow: none !important; border: 0; border-radius: 0; font-size: 18px; font-weight: 600; line-height: 1; color: var(--dsw-alias-label-secondary); transition: color .15s; }
 .esc-source-tabs .esc-pill:hover { color: var(--dsw-alias-label-primary); }
 /* ★用户裁决（本轮）：维度标签的「未选中」与三页签**同步深一档**（同一套视觉语言，不许一行深一行浅） */
 .esc-source-tabs .esc-pill:not([data-esc-selected='true']) { color: var(--dsw-alias-label-tertiary); }
@@ -154,7 +162,13 @@ const CSS = `
 /* ★本刀（用户裁决⑤）：维度标签这一行与顶栏三页签**同一套视觉语言**（无底色、字号字重各加一档、
    非选中灰 / 选中黑）；.esc-source-tabs 里的每一枚都挂这条。 */
 /* ★用户裁决：二级分类同样走**凹槽型**（与前两行同一形态）。 */
-.esc-category-tabs { display: flex; align-items: center; gap: 20px; margin-top: 14px; flex-wrap: nowrap; overflow-x: auto; }
+/* ★本刀（用户原话「全部那行分类标签之间间距紧凑些」）：容器 gap 20px → **8px**。
+   选 8px 不是随手取小：药丸自己的横向内衬就是 padding 0 8px（本文件 CSS 注释的惯例是不写反引号，
+   注释里不出现反引号——本段整体在一枚模板字符串内），而选中项带一层灰色底
+   （interactive-bg-hover）——间距收到与内衬同宽，一排药丸才**读成一条**（选中底色相邻 8px 就是组内
+   呼吸），20px 时每枚各自漂着，这也是"松"的来处。一级（全部/Agent/…）与二级分类同挂这条规则，
+   故一档改完两级同时生效；行高/字重/内衬/选中灰底与滚动行为（overflow-x: auto）都不动。 */
+.esc-category-tabs { display: flex; align-items: center; gap: 8px; margin-top: 14px; flex-wrap: nowrap; overflow-x: auto; }
 /* ★本刀（用户裁决⑥）：二级分类用**小圆角**——workbuddy 那排分类是近乎方角的短标签。 */
 /* ★用户裁决（本轮，真机）：「一级二级分类标签再小一号」——一级（全部/Agent/经营管理…）与二级
    （选中一级后展开的子分类）**同挂这一类**（渲染点只有 esc-toolbar.tsx 一处），故一档改完两级同时生效：
@@ -288,6 +302,11 @@ const CSS = `
 .esc-state-title { color: var(--dsw-alias-label-secondary); font-size: 14px; }
 .esc-state-error { color: var(--dsw-alias-state-error-primary); }
 .esc-state-code { font-size: 12px; color: var(--dsw-alias-label-tertiary); word-break: break-all; }
+/* ★本刀（真机故障「下滑加载中…会一直闪屏」的可见面）：触底加载那一行原先复用整屏态「.esc-state」
+   （内衬 20px、字号 13px）——它出现在滚动内容里，**出现/消失都会把列表顶一下**。当底部一遍遍
+   发空补拉时，那行一闪一缩就是用户看到的"闪"。改成**定高紧凑行**：高度固定 28px、12px 字、
+   内衬为 0 ⇒ 它出现或消失只占这 28px，不再牵动整段列表（判据侧的根因修复见 esc-aggregation.tsx）。 */
+.esc-scroll-loader { flex: none; height: 28px; display: flex; align-items: center; justify-content: center; color: var(--dsw-alias-label-tertiary); font-size: 12px; }
 /* 空态插图（官方是 antd <Empty> 的默认插图；dsh 无 Empty 原语 ⇒ 用 token 画一张等价物，见 esc-aggregation.tsx）。 */
 .esc-empty-art { display: flex; align-items: center; justify-content: center; width: 64px; height: 64px; border-radius: var(--dsw-radius-lg, 12px); background: var(--dsw-alias-bg-skeleton); color: var(--dsw-alias-label-tertiary); }
 

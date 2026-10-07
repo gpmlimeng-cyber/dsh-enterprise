@@ -360,6 +360,9 @@ export function useEnterpriseEscResourceList({
   // 进行中的请求标识（过期响应丢弃）
   const requestIdRef = useRef<number>(0)
   const loadingRef = useRef<boolean>(false)
+  /** `hasMore` 的 ref 镜像：`loadMore` 用 `[]` 依赖，读不到 state，故在渲染期同步一次（同 `loadRef` 手法）。 */
+  const hasMoreRef = useRef<boolean>(true)
+  hasMoreRef.current = hasMore
 
   const load = useCallback(
     async (reset: boolean) => {
@@ -465,9 +468,17 @@ export function useEnterpriseEscResourceList({
     void loadRef.current(true)
   }, [resourceType, source, category, keyword, spaceId, spaceIds])
 
-  /** 滚动触底加载下一页。 */
+  /** 滚动触底加载下一页。
+   *
+   * ★**本刀补上 `hasMore` 这道闸**（真机故障「下滑加载中不起作用、会一直闪屏」的根因之一）：
+   *   这条不变量此前只写在"不满屏自动补拉"那一侧，触底入口**没有**——于是平台已经回过
+   *   「没有下一页」时（实测 `/api/published/skill/list` ⇒ `current:1 pages:1 total:7`，第 2 页
+   *   `records: []` 且 `pages: 1`），手指一到底部仍会一遍遍发同一条取不到东西的请求，每次在底部
+   *   插一行「加载中…」再拆掉。收在这里之后两条入口（触底 + 自动补拉）都带这道闸，
+   *   以后新增调用点也自动带上。
+   */
   const loadMore = useCallback(() => {
-    if (loadingRef.current) return
+    if (loadingRef.current || !hasMoreRef.current) return
     void loadRef.current(false)
   }, [])
 

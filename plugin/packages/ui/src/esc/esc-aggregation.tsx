@@ -46,6 +46,68 @@ import type { ResourceSourceEnum, ResourceTypeEnum } from './esc-types.js'
 /** 触底判据的提前量：距底 80px 就拉下一页（原 `InfiniteScroll` 的默认手感）。 */
 const SCROLL_THRESHOLD_PX = 80
 
+/**
+ * 触底判据（纯函数，`handleScroll` 与门禁共用同一条）。
+ *
+ * ★**本刀修的就是这里**（真机故障「下滑加载中不起作用、会一直闪屏」）。原判据只看"离底多近"，
+ *   **从不问 `hasMore`**：平台已经回过"没有下一页"（实测 `/api/published/skill/list` ⇒ `current:1
+ *   pages:1 total:7`，本页 7 条；再要第 2 页 ⇒ `records: []` 且 `pages: 1`），可手指一到底部就一遍遍
+ *   发同一条取不到东西的请求（Android 在回弹/按压期间**会持续发 scroll**），每次都在列表末尾插一行
+ *   「加载中…」再拆掉 ⇒ 看到的正是"加载不起作用"+"一直闪"。
+ *   上一刀把滚动面从列表那口小格子挪到整页（用户裁决「不要冻结、支持全屏滚动」）之后，手指才**够得着**
+ *   这个触发点——所以它是那一刀**暴露**出来的老洞，不是新写坏的。
+ * ★另外两条同源纪律：请求在途时不再叠加（`loading`）；本筛选集下已判定"补拉无进展"时不再自动重试
+ *   （`suppressed`，见 `decideAutoFill`）。用户换筛选条件/点重试会解闩。
+ */
+export function shouldTriggerBottomLoad(input: {
+  readonly scrollHeight: number
+  readonly scrollTop: number
+  readonly clientHeight: number
+  readonly hasMore: boolean
+  readonly loading: boolean
+  readonly suppressed: boolean
+}): boolean {
+  if (!input.hasMore || input.loading || input.suppressed) return false
+  return input.scrollHeight - input.scrollTop - input.clientHeight <= SCROLL_THRESHOLD_PX
+}
+
+/** 「不满屏自动补拉」的三态裁决（纯函数）。 */
+export type AutoFillDecision =
+  /** 滚动面确实不满屏且还有下一页 ⇒ 补一页。 */
+  | 'pull'
+  /** 不需要补（已经能滚 / 没有下一页 / 正在加载 / 列表还空着）。 */
+  | 'idle'
+  /** 上一次补拉**没有让列表变长** ⇒ 上闩停手（否则每 100ms 一次，就是"一直闪"）。 */
+  | 'suppress'
+
+/**
+ * 「列表没填满滚动面 ⇒ 自动补拉」判据。**上一刀把滚动面挪到整页时这里踩了两个洞，本刀一起堵：**
+ *
+ * ① **两个高度必须来自同一个盒子**。旧写法是「卡片区 `.esc-list-section` 的 scrollHeight」比
+ *    「滚动面的 clientHeight」。桌面档滚动面就是那口格子、里面只装卡片，比得公平；手机档滚动面是
+ *    **整页** `.esc-content`（工具栏/精选/维度/分类全在里面），卡片区只是它的一部分 ⇒ 卡片**永远**
+ *    比"视口"矮 ⇒ 判据恒真，一路把页拉光（问错了盒子）。
+ *    现在问滚动面**它自己**：`scrollHeight <= clientHeight + 1` 就是"这个面没东西可滚"。
+ * ② **补拉必须有进展**。列表长度与上次补拉时相同（空页、同批页、或请求失败）⇒ 再补也是同一结果，
+ *    直接上闩（返回 `suppress`），由调用方置位并停止自动补拉。
+ */
+export function decideAutoFill(input: {
+  readonly scrollerScrollHeight: number
+  readonly scrollerClientHeight: number
+  readonly hasMore: boolean
+  readonly loading: boolean
+  readonly listLength: number
+  /** 上一次补拉发起时的列表长度（-1 = 本筛选集下还没补拉过）。 */
+  readonly previousLength: number
+  readonly suppressed: boolean
+}): AutoFillDecision {
+  if (input.suppressed) return 'idle'
+  if (input.loading || !input.hasMore || input.listLength === 0) return 'idle'
+  // 补过一轮但列表没长 ⇒ 空页/同批页/失败，再补也是同一结果
+  if (input.previousLength >= 0 && input.listLength === input.previousLength) return 'suppress'
+  return input.scrollerScrollHeight <= input.scrollerClientHeight + 1 ? 'pull' : 'idle'
+}
+
 /** 内容区入参。 */
 export interface EnterpriseEscAggregationProps {
   readonly api: EnterpriseEscApi
@@ -111,9 +173,8 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
     return () => window.clearTimeout(timer)
   }, [keywordInput])
 
-  // 滚动容器与内容区，用于不满屏自动补拉
+  // 滚动容器，用于不满屏自动补拉
   const containerRef = useRef<HTMLDivElement | null>(null)
-  const contentRef = useRef<HTMLDivElement | null>(null)
   /**
    * ★移动端那一档（触屏/窄/矮，见 `esc-style.ts` 里同名的那条 @media）把**滚动面从列表挪到了内容区**：
    *   `.esc-content` 成为滚动容器、`.esc-scroll` 退回普通块。于是"到底谁在滚"在两种档位下不同，
@@ -121,6 +182,8 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
    *   （问错了的后果：手机上一口气把所有页都拉光）。
    *   ★判据取真实溢出（`scrollHeight > clientHeight`）而不是 `matchMedia`：断点只有一个真源（样式表），
    *     JS 不另立一套断点，两边不可能漂移；样式改档位时这里自动跟随。
+   *   ★本刀补一句：**两个高度必须来自同一个盒子**——旧写法拿"卡片区高度"比"滚动面视口高"，
+   *     手机档必然误判（详见 `decideAutoFill` 的注释）。
    */
   const boxRef = useRef<HTMLDivElement | null>(null)
   const activeScroller = useCallback((): HTMLDivElement | null => {
@@ -129,11 +192,44 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
     return containerRef.current
   }, [])
 
-  /** 列表内容没填满容器且还有更多 ⇒ 自动补拉（原文同判据，含 100ms 延迟；"容器"= 当前真正在滚的那一个）。 */
+  /**
+   * ★本刀：「补拉无进展」闩锁 + 上次补拉发起时的列表长度（判据见文件头的 `decideAutoFill`）。
+   * `lastFillLengthRef === -1` 表示本筛选集下还没补拉过——不能拿它当"没进展"。
+   */
+  const suppressedRef = useRef<boolean>(false)
+  const lastFillLengthRef = useRef<number>(-1)
+  const clearFillLatch = useCallback((): void => {
+    suppressedRef.current = false
+    lastFillLengthRef.current = -1
+  }, [])
+
+  // 换资源类型/换维度/换分类/换关键字 ⇒ 这是**新查询**，解闩（"补过了没进展"只对同一批数据成立）
+  useEffect(() => {
+    clearFillLatch()
+  }, [clearFillLatch, resourceType, source, category, keyword, listSpaceId, teamSpaceIds])
+
+  /** 列表没填满滚动面且还有更多 ⇒ 自动补拉（100ms 延迟照原文；判据见 `decideAutoFill`）。 */
   const checkAndAutoFill = useCallback(() => {
     const scroller = activeScroller()
-    if (scroller === null || !contentRef.current || loading || !hasMore || list.length === 0) return
-    if (contentRef.current.scrollHeight <= scroller.clientHeight) loadMore()
+    if (scroller === null) return
+    const decision = decideAutoFill({
+      scrollerScrollHeight: scroller.scrollHeight,
+      scrollerClientHeight: scroller.clientHeight,
+      hasMore,
+      loading,
+      listLength: list.length,
+      previousLength: lastFillLengthRef.current,
+      suppressed: suppressedRef.current,
+    })
+    if (decision === 'suppress') {
+      // 补过一轮而列表没长（空页/同批页/失败）⇒ **停手**：再补也是同一结果，而每 100ms 重来一次
+      // 就是用户看见的"一直闪"。要解闩得换筛选条件、换页签，或点失败行上的「重试」。
+      suppressedRef.current = true
+      return
+    }
+    if (decision !== 'pull') return
+    lastFillLengthRef.current = list.length
+    loadMore()
   }, [activeScroller, loading, hasMore, list, loadMore])
 
   useEffect(() => {
@@ -152,10 +248,30 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
   const handleScroll = useCallback(
     (event: { readonly currentTarget: HTMLDivElement }) => {
       const el = event.currentTarget
-      if (el.scrollHeight - el.scrollTop - el.clientHeight <= SCROLL_THRESHOLD_PX) loadMore()
+      // ★判据收进纯函数（`shouldTriggerBottomLoad`）：它必须问 `hasMore`——见那里的注释，
+      //   "平台说没有下一页了还一遍遍发请求"正是真机上"一直闪、加载不起作用"的来处。
+      if (
+        !shouldTriggerBottomLoad({
+          scrollHeight: el.scrollHeight,
+          scrollTop: el.scrollTop,
+          clientHeight: el.clientHeight,
+          hasMore,
+          loading,
+          suppressed: suppressedRef.current,
+        })
+      ) {
+        return
+      }
+      loadMore()
     },
-    [loadMore],
+    [loadMore, hasMore, loading],
   )
+
+  /** 「重试」：解闩后再重拉（失败/空页之后用户明确要求再试一次，闩锁不该拦着）。 */
+  const retry = useCallback((): void => {
+    clearFillLatch()
+    reload()
+  }, [clearFillLatch, reload])
 
   // 团队空间维度等待空间数据就绪（专家/技能「全部」页签需 spaceIds、具体空间页签需 spaceId）；
   // 连接器维度「全部」页签无 spaceId 也可请求（scope 聚合），不等待
@@ -258,7 +374,7 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
           { className: 'esc-gate' },
           createElement('div', { className: 'esc-gate-title', children: ENTERPRISE_ESC_LOCAL_COPY.signInRequiredTitle }),
           createElement('div', { className: 'esc-gate-body', children: ENTERPRISE_ESC_LOCAL_COPY.signInRequiredBody }),
-          createElement(Button, { variant: 'outline', size: 'sm', onClick: reload, children: ENTERPRISE_ESC_LOCAL_COPY.retry }),
+          createElement(Button, { variant: 'outline', size: 'sm', onClick: retry, children: ENTERPRISE_ESC_LOCAL_COPY.retry }),
         )
       : initialLoading
         ? createElement(
@@ -275,7 +391,7 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
               { className: 'esc-scroll esc-scroll-hidden', ref: containerRef, onScroll: handleScroll },
               createElement(
                 'div',
-                { className: 'esc-list-section', ref: contentRef },
+                { className: 'esc-list-section' },
                 list.map(item =>
                   createElement(EnterpriseEscCard, {
                     key: item.id,
@@ -295,13 +411,15 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
                 ),
               ),
               // 触底加载中的提示 + 追加加载失败的如实行（原文只有 loader）
-              loading ? createElement('div', { className: 'esc-state', children: '加载中…' }) : null,
+              // ★本刀：这行原先复用整屏态那枚 `.esc-state`（内衬 20px ⇒ 出现/消失会把列表顶一下，
+              //   在"一遍遍空补拉"的场景里就是看得见的闪）。换成**定高紧凑行** `.esc-scroll-loader`。
+              loading ? createElement('div', { className: 'esc-scroll-loader', children: '加载中…' }) : null,
               error !== undefined
-                ? createElement(ErrorRow, { code: error.code, message: error.message, onRetry: reload })
+                ? createElement(ErrorRow, { code: error.code, message: error.message, onRetry: retry })
                 : null,
             )
           : error !== undefined
-            ? createElement(ErrorRow, { code: error.code, message: error.message, onRetry: reload })
+            ? createElement(ErrorRow, { code: error.code, message: error.message, onRetry: retry })
             : createElement(EmptyBlock),
   )
 }

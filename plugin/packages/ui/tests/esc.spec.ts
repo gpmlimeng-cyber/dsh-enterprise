@@ -37,6 +37,7 @@ import {
   enterpriseEscMainOptions,
   enterpriseEscPanelOptions,
 } from '../src/esc/esc-entry.js'
+import { decideAutoFill, shouldTriggerBottomLoad } from '../src/esc/esc-aggregation.js'
 import { escCategoryChildrenOf, escResourceAdapters, missingEndpointCodeOf } from '../src/esc/esc-list.js'
 import { EnterpriseEscResourceTabs } from '../src/esc/esc-resource-tabs.js'
 import { EnterpriseEscStyle } from '../src/esc/esc-style.js'
@@ -476,13 +477,46 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     // ② 「一级二级分类标签再小一号」：两级同挂 `.esc-category-tabs .esc-pill`（渲染点只有一处）
     expect(css).toMatch(/\.esc-category-tabs \.esc-pill \{[^}]*font-size: 13px;/)
     expect(css).not.toMatch(/\.esc-category-tabs \.esc-pill \{[^}]*font-size: 14px;/)
-    // 反向锁：只收字号这一档——行高/字重/间距/选中灰底都不许被顺手改
+    // 反向锁：只收字号这一档——行高/字重/选中灰底都不许被顺手改
+    //   ★本刀例外：那一刀的"间距也不许动"被**新的用户裁决**取代了（「全部那行分类标签之间间距紧凑些」），
+    //     gap 20px → 8px 见下一处断言；除 gap 外的反向锁原样留着。
     expect(css).toMatch(/\.esc-category-tabs \.esc-pill \{[^}]*font-weight: 500;/)
     expect(css).toContain(".esc-category-tabs .esc-pill[data-esc-selected='true'] { background: var(--dsw-alias-interactive-bg-hover);")
-    expect(css).toMatch(/\.esc-category-tabs \{[^}]*gap: 20px;/)
+    expect(css).toMatch(/\.esc-category-tabs \{[^}]*gap: 8px;/)
     // 源码级锁：两级的渲染点只有一处，故"一档改完两级同时生效"这句话成立
     const toolbarSource = readFileSync(new URL('../src/esc/esc-toolbar.tsx', import.meta.url), 'utf8')
     expect(toolbarSource.match(/esc-category-tabs/g) ?? []).toHaveLength(1)
+  })
+
+  it('样式层（本轮真机裁决）：顶部两行标签同收一档到 18px，且两行继续逐值相等', () => {
+    // 用户原话「专家技能连接器和系统广场，工作空间小一号」⇒ **两行各收一档**（两处原本都是 20px）：
+    //   行① 专家/技能/连接器  → `.esc-resource-tab`
+    //   行② 系统广场/团队空间/我启用的 → `.esc-source-tabs .esc-pill`
+    expect(css).toMatch(/\.esc-resource-tab \{[^}]*font-size: 18px;/)
+    expect(css).toMatch(/\.esc-source-tabs \.esc-pill \{[^}]*font-size: 18px;/)
+    // 反向锁①：20px 那一档不许回来（两处都锁，只锁一处会留半条退路）
+    expect(css).not.toMatch(/\.esc-resource-tab \{[^}]*font-size: 20px;/)
+    expect(css).not.toMatch(/\.esc-source-tabs \.esc-pill \{[^}]*font-size: 20px;/)
+    // 反向锁②：两行是**同一套视觉语言** ⇒ font-size / font-weight / line-height 逐值相等。
+    //   判据是"提取后比对"，不是"两边各写一条 toMatch"——后者在任何一处被单独改掉时仍会绿。
+    const body = (head: string): string => {
+      const hit = new RegExp(`${head.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`).exec(css)
+      expect(hit, head).not.toBeNull()
+      return hit![1]!
+    }
+    const triplet = (head: string): readonly (string | undefined)[] =>
+      ['font-size', 'font-weight', 'line-height'].map(prop => new RegExp(`${prop}: ([^;]+);`).exec(body(head))?.[1])
+    expect(triplet('.esc-resource-tab')).toEqual(triplet('.esc-source-tabs .esc-pill'))
+    expect(triplet('.esc-resource-tab')).toEqual(['18px', '600', '1'])
+    // 反向锁③：本刀**只收字号**——高度/字重/行高/容器间距一个都不许被顺手改（改了就是新裁决，得显式改这条）
+    expect(css).toMatch(/\.esc-resource-tab \{[^}]*height: 32px;/)
+    expect(css).toMatch(/\.esc-source-tabs \.esc-pill \{[^}]*height: 30px;/)
+    expect(css).toMatch(/\.esc-resource-tabs \{[^}]*gap: 20px;/)
+    expect(css).toMatch(/\.esc-source-tabs \{[^}]*gap: 20px;/)
+    // 唯一真源：这两行的字号**各自只有一处声明**（若日后有媒体档再声明一次，手机上"小一号"会被悄悄覆盖）
+    //   ★正则锚到行首（`m`）：不锚的话，上面那段**注释里提到过同一个选择器名**，会误配成第二处声明。
+    expect(css.match(/^\.esc-resource-tab[^{]*\{[^}]*font-size/gm) ?? []).toHaveLength(1)
+    expect(css.match(/^\.esc-source-tabs [^{]*\.esc-pill[^{]*\{[^}]*font-size/gm) ?? []).toHaveLength(1)
   })
 
   it('样式层（口径 35）：原子对齐官方的五条 + 三条失效 token 的反向锁', () => {
@@ -666,8 +700,67 @@ describe('esc：演示数据开关（口径 32）', () => {
     expect(aggregation).toContain("{ className: 'esc-content', ref: boxRef, onScroll: handleScroll }")
     expect(aggregation).toContain('const activeScroller = useCallback')
     expect(aggregation).toContain('const scroller = activeScroller()')
-    expect(aggregation).toContain('if (contentRef.current.scrollHeight <= scroller.clientHeight) loadMore()')
-    expect(aggregation).not.toContain('contentRef.current.scrollHeight <= containerRef.current.clientHeight')
+    // ★本刀改写了这条：旧写法 `contentRef.current.scrollHeight <= scroller.clientHeight` 是"卡片区高度
+    //   比滚动面视口高"——手机档滚动面是整页（工具栏/精选/维度/分类都在里面），卡片区只是它的一部分
+    //   ⇒ 判据恒真、一路把页拉光。现在收进纯函数 `decideAutoFill`，问滚动面**自己**有没有溢出。
+    expect(aggregation).toContain('const decision = decideAutoFill({')
+    expect(aggregation).not.toContain('contentRef')
+  })
+
+  it('★本刀（真机故障「下滑加载中不起作用、会一直闪屏」）：两条判据必须问 hasMore、且问自己那个盒子', () => {
+    const css = (EnterpriseEscStyle() as unknown as { props: { children: string } }).props.children
+    // 现场读数（本轮探针打现役宿主，两个端点都测了）：
+    //   /api/published/skill/list 与 /api/published/agent/list（official:true）
+    //     page 1 ⇒ { records: 7, current: 1, pages: 1, total: 7 }
+    //     page 2 ⇒ { records: [], current: 2, pages: 1 }   ← 平台**没有第 2 页**
+    // ⇒ 提取后 hasMore=false（"响应提取"那条用例已锁）。可是旧代码的**触底入口从不问 hasMore**：
+    //   手指一到底部（Android 在回弹/按压期间会**持续**发 scroll）就一遍遍发同一条取不到东西的请求，
+    //   每次在列表末尾插一行「加载中…」再拆掉 ⇒ 用户看到的正是"加载不起作用 + 一直闪"。
+    //   上一刀把滚动面提到的整页（用户裁决「不要冻结、支持全屏滚动」）之后手指才**够得着**这个触发点。
+
+    // ① 触底判据：hasMore=false ⇒ 哪怕就贴在底部，也不许触发
+    const bottom = { scrollHeight: 1000, scrollTop: 900, clientHeight: 100 }
+    expect(shouldTriggerBottomLoad({ ...bottom, hasMore: false, loading: false, suppressed: false })).toBe(false)
+    expect(shouldTriggerBottomLoad({ ...bottom, hasMore: true, loading: false, suppressed: false })).toBe(true)
+    // 80px 提前量照旧（原 InfiniteScroll 手感）：距底 80 触发、81 不触发
+    expect(shouldTriggerBottomLoad({ scrollHeight: 1000, scrollTop: 820, clientHeight: 100, hasMore: true, loading: false, suppressed: false })).toBe(true)
+    expect(shouldTriggerBottomLoad({ scrollHeight: 1000, scrollTop: 819, clientHeight: 100, hasMore: true, loading: false, suppressed: false })).toBe(false)
+    // 在途不叠加；已停手（补拉无进展）也不再自动重试
+    expect(shouldTriggerBottomLoad({ ...bottom, hasMore: true, loading: true, suppressed: false })).toBe(false)
+    expect(shouldTriggerBottomLoad({ ...bottom, hasMore: true, loading: false, suppressed: true })).toBe(false)
+
+    // ② 自动补拉判据：两个高度必须来自**同一个盒子**
+    const fill = { scrollerScrollHeight: 610, scrollerClientHeight: 610, hasMore: true, loading: false, listLength: 7, previousLength: -1, suppressed: false }
+    // 滚动面自己没东西可滚（610/610）⇒ 补一页
+    expect(decideAutoFill(fill)).toBe('pull')
+    // ★旧写法在这里误判：卡片区 400px ≤ 整页视口 610px ⇒ "不满屏"恒真。现在问滚动面自己：900 > 610 ⇒ 不补
+    expect(decideAutoFill({ ...fill, scrollerScrollHeight: 900 })).toBe('idle')
+    // ★补过一轮而列表**没长**（空页 / 同批页 / 请求失败）⇒ 上闩停手（否则每 100ms 一次，就是"一直闪"）
+    expect(decideAutoFill({ ...fill, previousLength: 7 })).toBe('suppress')
+    // 补过一轮且**长了**（真有多页）⇒ 继续补，这是正常无限滚动
+    expect(decideAutoFill({ ...fill, listLength: 27, previousLength: 7 })).toBe('pull')
+    // 没有下一页 / 在途 / 列表还空着 / 已闩 ⇒ 一律不补
+    expect(decideAutoFill({ ...fill, hasMore: false })).toBe('idle')
+    expect(decideAutoFill({ ...fill, loading: true })).toBe('idle')
+    expect(decideAutoFill({ ...fill, listLength: 0, previousLength: -1 })).toBe('idle')
+    expect(decideAutoFill({ ...fill, suppressed: true })).toBe('idle')
+
+    // ③ 源码级反向锁：两个旧指纹都不许回来
+    const aggregation = readFileSync(new URL('../src/esc/esc-aggregation.tsx', import.meta.url), 'utf8')
+    // 触底入口必须走纯判据 —— 不许退回"只看离底多近就 loadMore()"（那条正是故障本体）
+    expect(aggregation).toContain('shouldTriggerBottomLoad({')
+    expect(aggregation).not.toMatch(/if \(el\.scrollHeight - el\.scrollTop - el\.clientHeight <= SCROLL_THRESHOLD_PX\) loadMore\(\)/)
+    // 自动补拉必须走三态裁决，且**不许再引用卡片区**比高度（`contentRef` 已整条删除）
+    expect(aggregation).toContain('decideAutoFill({')
+    expect(aggregation).not.toContain('contentRef')
+    // ④ 底部那行换成定高紧凑行：出现在滚动内容里，出现/消失不再把列表顶一下
+    expect(aggregation).toContain("{ className: 'esc-scroll-loader', children: '加载中…' }")
+    expect(aggregation).not.toContain("className: 'esc-state', children: '加载中…'")
+    expect(css).toContain('.esc-scroll-loader { flex: none; height: 28px;')
+    // ⑤ 取数层的第二道闸：`loadMore` 自己也要认 hasMore（两条入口共用这一道，新增调用点自动带上）
+    const listSource = readFileSync(new URL('../src/esc/esc-list.ts', import.meta.url), 'utf8')
+    expect(listSource).toContain('if (loadingRef.current || !hasMoreRef.current) return')
+    expect(listSource).toContain('hasMoreRef.current = hasMore')
   })
 
   it('★用户裁决（本轮）工具栏结构：药丸组挂 `esc-source-tabs`（样式层那条 no-shrink 规则的落点）', () => {
