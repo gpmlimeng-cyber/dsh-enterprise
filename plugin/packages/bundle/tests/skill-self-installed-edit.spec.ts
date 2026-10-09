@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 `src/skill-self-installed.ts` 的 `editSelfInstalledSkill`/`revealSelfInstalledSkill` 与端口形状 `EnterpriseSkillFileLauncher`、`src/skill-self-installed-route.ts` 的第三条 exact 路由与路径常量、`src/skill-errors.ts` 的既有码边界、`tests/engine-route-match.ts` 的引擎语义匹配器，以及 node:fs/promises、node:child_process（两处测试专用 double）、node:http、node:crypto
- * [OUTPUT]: 在真实临时 dshHome（`~/.sshwork` 下）+ 真实 HTTP（引擎语义分发）上锁定本刀「编辑」：**正常路径 ⇒ 交接被执行且 argv 逐字**（注入式 launcher double 取证路径、`execFile` double 取证三个平台的 argv）、**五类失败各自明确码且零交接**（无记录 / 被中心认领 / `SKILL.md` 不是普通文件 / 越界 / 系统交接抛错）、**正文键集紧闭**（10 种畸形 ⇒ 400；九种形状类**一次都不进内核**，kebab 形状那一种按「判据只有一处」的纪律进内核被拒）、**405 + `Allow: POST`**、**响应不含宿主路径**（逐字反向锁）、**只读**（写类 fs 出口零调用 + 技能树逐字节逐 mtime 不变）、**源码级**（唯一一次 `execFile` 与 argv 形态 / 无 shell / 无动态 import / 与 `reveal` 同一份归属判据）、**复用既有码**（本面出现的码字面量集合恰好六枚，无第二枚新码、无第二张码→状态表）
+ * [OUTPUT]: 在真实临时 dshHome（`~/.sshwork` 下）+ 真实 HTTP（引擎语义分发）上锁定本刀「编辑」：**正常路径 ⇒ 交接被执行且 argv 逐字**（注入式 launcher double 取证路径、`execFile` double 取证三个平台的 argv；★**当前平台不是那三种桌面之一时（本机就是 `android`）改判「同一枚既有码 `ENT_PLATFORM_UNAVAILABLE` + 零交接」** —— 门禁不假设跑它的机器一定是桌面，判据按运行平台分岔）、**五类失败各自明确码且零交接**（无记录 / 被中心认领 / `SKILL.md` 不是普通文件 / 越界 / 系统交接抛错）、**正文键集紧闭**（10 种畸形 ⇒ 400；九种形状类**一次都不进内核**，kebab 形状那一种按「判据只有一处」的纪律进内核被拒）、**405 + `Allow: POST`**、**响应不含宿主路径**（逐字反向锁）、**只读**（写类 fs 出口零调用 + 技能树逐字节逐 mtime 不变）、**源码级**（唯一一次 `execFile` 与 argv 形态 / 无 shell / 无动态 import / 与 `reveal` 同一份归属判据）、**复用既有码**（本面出现的码字面量集合恰好六枚，无第二枚新码、无第二张码→状态表）
  * [POS]: bundle 技能纵深「编辑」这一刀的回归门禁；有人把 `SKILL.md` 的普通文件判据删掉、不判文件越界、改用 shell 交接、把宿主路径写进响应、给这条面新造一枚码，或另写一份归属判定，本文件都会红
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -315,13 +315,21 @@ describe('self-installed skill «edit» over the real local API', () => {
     expect(response.text).not.toContain('skills')
 
     // ★默认实现（**不注入**端口）的 argv 逐字证据：`execFile` double 逐平台断言。
+    // ★判据按**当前平台**分岔，不假设跑门禁的机器一定是三种桌面之一（本机就是 `android`）：
+    //   三种桌面之一 ⇒ 交接真的发生、argv 逐字；其余平台 ⇒ 同一枚既有码 + **零交接**。
     const platform = makePlatform()
     childAudit.calls = []
-    await editSelfInstalledSkill(options(dshHome, platform), 'edit-skill')
-    expect(childAudit.calls).toHaveLength(1)
-    if (process.platform === 'darwin') expect(childAudit.calls[0]).toEqual({ file: 'open', args: [skillFile] })
-    else if (process.platform === 'win32') expect(childAudit.calls[0]).toEqual({ file: 'cmd', args: ['/c', 'start', '', skillFile] })
-    else if (process.platform === 'linux') expect(childAudit.calls[0]).toEqual({ file: 'xdg-open', args: [skillFile] })
+    if (process.platform === 'darwin' || process.platform === 'win32' || process.platform === 'linux') {
+      await editSelfInstalledSkill(options(dshHome, platform), 'edit-skill')
+      expect(childAudit.calls).toHaveLength(1)
+      if (process.platform === 'darwin') expect(childAudit.calls[0]).toEqual({ file: 'open', args: [skillFile] })
+      else if (process.platform === 'win32') expect(childAudit.calls[0]).toEqual({ file: 'cmd', args: ['/c', 'start', '', skillFile] })
+      else expect(childAudit.calls[0]).toEqual({ file: 'xdg-open', args: [skillFile] })
+    } else {
+      await expect(editSelfInstalledSkill(options(dshHome, platform), 'edit-skill'))
+        .rejects.toMatchObject({ code: 'ENT_PLATFORM_UNAVAILABLE' })
+      expect(childAudit.calls).toEqual([])
+    }
     for (const [platformName, expected] of [
       ['darwin', { file: 'open', args: [skillFile] }],
       ['win32', { file: 'cmd', args: ['/c', 'start', '', skillFile] }],
