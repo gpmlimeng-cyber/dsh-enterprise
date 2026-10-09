@@ -19,7 +19,8 @@
  *   ④ 卡片要**看得见的边框**：原值的 `.5px` 发丝线（`stroke-border-2`）→ `1px`（`border-l2`），
  *      hover 只换描边颜色（不换宽度，故没有 1px 的布局抖动）；
  *   ⑤ **移动端**：药丸标签**永不压缩/不折行**（`.esc-source-tabs { flex: none }` + `.esc-pill { white-space: nowrap }`），
- *      搜索框改为**自适应宽度**（窄屏先缩到 120px，再整行换行占满；`@media (max-width: 560px)` 直接整行占满）。
+ *      搜索框**整行占满**（口径 68 起：移动档里它**独占一整行**、`flex: 1 1 100%`；桌面档仍是 220px 定宽、
+ *      与三页签同一行 —— 那正是口径 37/38 的"同一行 + 定宽"裁决，本刀一个字没动它）。
  *   ⑥ **一比一还原官方**（**撤回**③那一档的紧凑几何与"底部不留白 / 收藏上移"两轮裁决；
  *      ④的 1px 可见边框与⑤的移动端自适应**保留**——那两条用户明确要过）：
  *      卡片 170/130px、内衬 16px、卡内与头行间距 16/12px、图标 48px、标题 16px/20px、描述 16px×2 行、
@@ -109,6 +110,21 @@
  *      容器再窄时最后那枚按钮整枚落到下一行 —— 宁可多一行，绝不裁半枚。
  *      ★尺子更正：口径 44 写的「CSS 视口 608、内容区 560」是**竖屏全屏**那一档；分屏/横屏下第一栏可用宽
  *      分别是 377.5（1170 物理 ÷ 2.75 − 48）与 532（860 − 280 侧栏 − 48）。三条规则在两档下都成立。
+ *   ⑮ **口径 68（用户裁决「删除搜索栏左边的更多按钮，搜索栏移动端下自适应宽度撑满」）**：两件事。
+ *      ① **「更多」那枚按钮整枚下线**（连同 `showMore` prop、`.esc-more`/`.esc-more-hidden` 两条样式、
+ *      `ESC_RESOURCE_MORE_HREF` / `ESC_RESOURCE_MORE_SQUARE_PATH` 两枚常量与 `moreExternal` 那句文案）
+ *      ⇒ 右块从四件变三件（搜索 / 已安装 / 添加技能）。口径 45 那段估值里的「更多 24.4 + 3×12 间隙」
+ *      因此各少一项：固定宽 233 → **200.6**（= 233 − 24.4 − 8，末项是"间隙从 3 处变 2 处"，
+ *      口径 45 那三条改法本身一条不减：下限 88 / 间隙 8 / 内衬 8）。
+ *      ② **移动档里搜索框不再与两枚按钮抢同一行，而是独占一整行并撑满**：
+ *      `.esc-toolbar-right .esc-search { width: auto; flex: 1 1 100%; min-width: 0; }`
+ *      —— 行断开的判据是**假设主尺寸**，basis 100% ⇒ 它自己占满第一行，两枚按钮（+ 行上原因那句）
+ *      整组折到第二行；右块早就 `flex-wrap: wrap`（口径 45 的兜底），故这只是"多一行"，不是溢出。
+ *      ★为什么选择器要带 `.esc-toolbar-right`：`.esc-search` 是**两处共用**的类（工具栏右块 +
+ *      「我的专家」子页右块），而后者那个容器是 `flex: none` 且**不折行** ⇒ 通用写法会在那一页把
+ *      「+ 创建专家」顶出溢出。作用域收窄后，那一页在移动档的行为**一个字节都没变**（仍是 `flex: 1 1 0`）。
+ *      ★为什么整行占满：这正是口径 37 当年撤下的那件事，但**撤的是桌面档**（那里要与三页签同一行）；
+ *      移动档早已拆行（口径 44），此刻"独占一行"与那条裁决不冲突 —— 桌面档仍是 `flex: none` + 220px 定宽。
  *   ★**口径 46/47**：新增 `.esc-card-switch`（已安装技能卡标题行那一格＝官方 Switch 的位置）与
  *   「已安装技能」页那一组几何（`.esc-installed-*`、`.esc-import-error`）；字号声明 26 → 29（三处新字号，
  *   全是 calc(基准 + 两 delta)，门禁里那一格随之加一档）。
@@ -634,13 +650,10 @@ const CSS = `
    加载顺序不由本文件决定** ⇒ 只写单类是不可靠的（同 .esc-root .esc-pill { box-shadow: none } 那条既有先例）。 */
 .esc-root .esc-search { border: 1px solid var(--dsw-alias-border-l2); }
 .esc-root .esc-search:focus-within { border-color: var(--dsw-alias-border-l4); }
-/* 「更多」现在是一枚**真超链接**（用户裁决指向 https://skillhub.cn/）⇒ 补 text-decoration: none 保持原观感；
-   原来那条 .esc-more:disabled 随"置灰"写法一起撤掉（它不再是按钮）。 */
-.esc-more { flex-shrink: 0; font-size: var(--esc-fs-xxs); color: var(--dsw-alias-label-tertiary); white-space: nowrap; background: none; border: 0; padding: 0; font-family: inherit; cursor: pointer; text-decoration: none; }
-/* ★口径 35⑤：accent-primary 这个名字 **在 dsh 主题里不存在**（403 枚 token 里查无此名，带上 --dsw-alias-
-   前缀写出来就是计算期无效）⇒ 这条 hover 色一直没生效，官方那枚是 @colorPrimary。改用真名 brand-primary。 */
-.esc-more:hover { color: var(--dsw-alias-brand-primary); }
-.esc-more-hidden { visibility: hidden; pointer-events: none; }
+/* ★**口径 68（本刀）**：这里原先有三条给「更多」用的规则（.esc-more 外壳 / 它的 hover 色 / 非系统广场维度的
+   .esc-more-hidden 占位隐藏）——那枚按钮已整枚下线，三条随之删除（没有渲染点的规则一律不留）。
+   顺带作废一条历史注记：口径 35⑤ 那处「accent-primary 在 dsh 主题里不存在、改用 brand-primary」的 hover 修正
+   是打在这三条里的，如今连同它们一起下线（brand-primary 在别处仍是真名，那条结论不受影响）。 */
 /* 官方 ResourceToolbar/index.less:41 是 margin-top: 14px（原 8px）。 */
 /* ★本刀（用户裁决⑤）：维度标签这一行与顶栏三页签**同一套视觉语言**（无底色、字号字重各加一档、
    非选中灰 / 选中黑）；.esc-source-tabs 里的每一枚都挂这条。 */
@@ -1118,12 +1131,24 @@ const CSS = `
         （竖屏 560 时 327）。
       ★兜底：.esc-toolbar-right 自己也允许折行 ⇒ 容器再窄（< 321）时最后那枚按钮**整枚**折到下一行，
         **宁可多一行，绝不裁半枚** —— 这是"不要溢出"的结构保证，不依赖上面任何估值。
-     ★另一条**刻意没做**的省法：把「更多」在非系统广场时从「占位隐藏」改成 display: none（省 36px）。
-       留着它是为了**切主 tab 时右块宽度不跳**（那是口径 31 的用户裁决），本刀不动它。 */
+     ★★**口径 68（本刀）取代了上面两段的一个前提**：
+       · 右边那枚「更多」已**整枚删除** ⇒ 右块从四件变三件，上面 257 / 233 两个估值各少 24.4 + 一处间隙
+         （233 → 200.6）；口径 45 的三条改法（下限 88 / 间隙 8 / 内衬 8）**一条不减**。
+       · 用户裁决「搜索栏移动端下自适应宽度撑满」⇒ 移动档里搜索框**不再与两枚按钮共享一行**，
+         而是**独占一整行并撑满**（见本档那条 .esc-toolbar-right .esc-search）。
+       · 旧的「刻意没做」那条（把「更多」从占位隐藏改成 display: none 以省 36px）**随按钮一起作废** ——
+         它当年是为"切主 tab 时右块宽度不跳"服务的，而那一枚已经不存在了。 */
   .esc-toolbar-row { flex-wrap: wrap; row-gap: 12px; }
   .esc-toolbar-leading { flex: 1 1 100%; }
   .esc-toolbar-right { flex: 1 1 100%; margin-left: 0; flex-wrap: wrap; row-gap: 12px; column-gap: 8px; }
+  /* ★口径 45 那条**仍然只服务「我的专家」子页**（它复用同一个类，右块是 flex: none 且不折行）。 */
   .esc-search { width: auto; flex: 1 1 0; min-width: 88px; }
+  /* ★**口径 68（本刀）**：工具栏右块里那枚搜索框**独占一整行并撑满**（用户原话「搜索栏移动端下自适应宽度撑满」）。
+     basis 用 100%：行断开的判据是**假设主尺寸** ⇒ 它自己占满第一行，两枚按钮（与可能在场的那句行上原因）
+     整组折到第二行；右块早已 flex-wrap: wrap（口径 45 的兜底），故这只是"多一行"，不是溢出。
+     ★**选择器必须带 .esc-toolbar-right**：.esc-search 是两处共用的类（工具栏右块 + 「我的专家」子页），
+     而后者那个容器 flex: none 且**不折行** ⇒ 通用写法会把那一页的「+ 创建专家」顶出溢出。 */
+  .esc-toolbar-right .esc-search { width: auto; flex: 1 1 100%; min-width: 0; }
   .esc-root .esc-installed { padding: 0 8px; }
   /* ★口径 49：主按钮那枚整条类名清单（含专家页的描边档）都吃这条移动档内衬——否则描边那一枚
      在窄屏会比其他两页宽一档，"三页同一枚按钮"这条在移动档就破了。 */
@@ -1448,7 +1473,9 @@ const CSS = `
 .esc-my-experts-tab { height: var(--esc-tab-h); padding: 0 var(--esc-sp-md); border: 0; background: none; border-radius: var(--esc-radius-sm); color: var(--dsw-alias-label-tertiary); font-family: inherit; font-size: var(--esc-fs-s); font-weight: 500; line-height: 1; cursor: pointer; transition: color .15s, background .15s; }
 .esc-my-experts-tab:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
 .esc-my-experts-tab[data-esc-selected='true'] { color: var(--dsw-alias-label-primary); font-weight: 600; }
-/* 右块：搜索框（**复用**工具栏那枚 .esc-search 的同一份宽度/高度/描边/聚焦口径）+ 行上原因 + 「+ 创建专家」。 */
+/* 右块：搜索框（**复用**工具栏那枚 .esc-search 的同一份宽度/高度/描边/聚焦口径）+ 行上原因 + 「+ 创建专家」。
+   ★**口径 68 备注**：工具栏那枚在移动档改成了"独占一行撑满"（.esc-toolbar-right .esc-search），
+   而本页这枚**刻意不吃**那条（本容器 flex: none 且不折行）⇒ 移动档下它仍是 flex: 1 1 0 吃剩余宽度。 */
 .esc-my-experts-right { display: flex; align-items: center; gap: var(--esc-sp-base); flex: none; }
 /* ★产品宪法（禁用控件不许只挂一句 title）：主按钮按不动时那句原因**行上可见**。
    两处共用这一条规则（子页的「+ 创建专家」与工具栏三页的主按钮），故选择器写两枚。 */

@@ -425,7 +425,7 @@ import {
   enterpriseErrorPresentation,
   enterpriseErrorRetryable,
 } from '../src/error-messages.js'
-import { ESC_DEFAULT_CATEGORY_MENUS, ESC_RESOURCE_MORE_HREF, ESC_RESOURCE_TYPES, ESC_SUCCESS_CODE } from '../src/esc/esc-constants.js'
+import { ESC_DEFAULT_CATEGORY_MENUS, ESC_RESOURCE_TYPES, ESC_SUCCESS_CODE } from '../src/esc/esc-constants.js'
 import {
   bindEnterpriseEscSeats,
   ENTERPRISE_ESC_ENTRY_ID,
@@ -1539,8 +1539,10 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     // 左格（三页签）的**上界估值**：三枚药丸 × 各自 ~70 + 两处 gap(--esc-sp-md)。取宽松上界即可——
     // 本判据要的是"有富余"这个结论，不是精确测量（精确值由 Lead 真机量）。
     const tabsUpperBound = 3 * 70 + 2 * numOf('--esc-sp-md')
-    // 右格：更多(24.4) + 搜索框(220) + 已安装(~114) + 添加技能(~100) + 3 处 gap 12。
-    const rightBlock = 24.4 + numOf('--esc-search-w') + 114 + 100 + 3 * 12
+    // 右格：搜索框(220) + 已安装(~114) + 添加技能(~100) + 2 处 gap 12。
+    // ★口径 68：「更多」(24.4) 与它身后那处 gap 已随按钮下线 ⇒ 两项从算式里删掉（估值跟着真源走，
+    //   不保留一个"其实已经不在界面上"的加数——那会让"装得下"这个结论虚高 36.4px）。
+    const rightBlock = numOf('--esc-search-w') + 114 + 100 + 2 * 12
     const rowGap = 20 // .esc-toolbar-row 的 gap
     // 富余必须为正且有余量（不是"刚好卡住"）：230 是宽松下界——三页签上界已按 ~210 估。
     expect(container - tabsUpperBound - rightBlock - rowGap).toBeGreaterThan(200)
@@ -1557,6 +1559,11 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     expect(css).toMatch(/@media \(max-width: 560px\) \{[\s\S]*\.esc-search \{ width: 160px; \}/)
     const mobile = /@media \(pointer: coarse\), \(max-width: 1024px\), \(max-height: 700px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? ''
     expect(mobile).toContain('.esc-search { width: auto; flex: 1 1 0; min-width: 88px; }')
+    // ★口径 68：工具栏右块里那一枚**独占一整行并撑满**（用 `.esc-toolbar-right` 前缀把作用域收窄——
+    // 通用写会把「我的专家」子页那枚（同类的另一处渲染点、容器 flex:none 且不折行）顶出溢出）。
+    const mobileScoped = /\.esc-toolbar-right \.esc-search \{([^}]*)\}/.exec(mobile)?.[1] ?? ''
+    expect(mobileScoped).toContain('flex: 1 1 100%')
+    expect(mobileScoped).toContain('width: auto')
     // 移动档的右块仍允许折行（"绝不裁半枚"的结构保证），故窄断点上没有新增横向溢出。
     expect(mobile).toMatch(/\.esc-toolbar-right \{[^}]*flex-wrap: wrap/)
   })
@@ -2269,9 +2276,12 @@ describe('esc：演示数据开关（口径 32）', () => {
     expect(baseRight).toContain('flex: none')
     expect(baseRight).toContain('margin-left: auto')
     expect(baseRight).not.toContain('flex: 1 1 auto')
-    // ⑤ 反向锁：口径 37 那条"**搜索格自己**整行占满"的写法不许回来 —— 口径 44 的拆行走的不是它，
-    //    走的是"第一栏的两个子格各占一行"（占满一行的是 .esc-toolbar-leading / .esc-toolbar-right）
-    expect(css).not.toMatch(/\.esc-search \{[^}]*flex: 1 1 100%/)
+    // ⑤ 反向锁：口径 37 那条"**搜索格自己**整行占满"的写法不许回到**桌面档** —— 口径 44 的拆行走的不是它，
+    //    走的是"第一栏的两个子格各占一行"（占满一行的是 .esc-toolbar-leading / .esc-toolbar-right）。
+    //    ★口径 68 起这条反向锁**收窄到桌面那一条声明块**（`[^}]*` 本来就跨不过 `}`，全文扫咬不到 @media 里的
+    //      那条；但口径 68 的写法是带前缀的 `.esc-toolbar-right .esc-search`，故这里按"桌面块里不许有它"钉）：
+    //      移动档**确实**要搜索框整行占满（用户裁决），桌面档仍逐字保留口径 37 的定宽 + 同一行。
+    expect(/\.esc-search \{([^}]*)\}/.exec(css)?.[1] ?? '').not.toContain('flex: 1 1 100%')
     // ★用户裁决②：定宽那一档的收窄档 —— 手机上 200px 会挤掉右块其余两枚，收到 160px（不是 96px 那种塌成缝）
     //    ★口径 44 备注：触屏设备上这条被移动档的 `width: auto` 接管（同一条 CSS 里更靠后 ⇒ 后者胜），
     //      但它**不是死代码**——桌面浏览器把窗口拖到 560px 以下时，生效的正是它。
@@ -2297,6 +2307,9 @@ describe('esc：演示数据开关（口径 32）', () => {
     //    ★口径 45 起右块多了折行兜底与 8px 间隙（那条见下面用例②；这里只锁"整块占满一行"这一件）
     expect(mobile).toContain('.esc-toolbar-right { flex: 1 1 100%; margin-left: 0;')
     // ② 搜索框在第二行里吃剩余（不再是桌面那一档的定宽；下限与 basis 由口径 45 重定，见下一条用例）
+    //    ★**口径 68 起**：工具栏那一枚改成"独占一整行撑满"（`flex: 1 1 100%`，写在带 `.esc-toolbar-right`
+    //      前缀的那条里）；**这一条通用规则仍然有效且仍然必要** —— 它服务的是复用同一个类的
+    //      「我的专家」子页右块（那里容器 `flex: none` 且不折行，不能吃 100%）。
     expect(mobile).toContain('.esc-search { width: auto; flex: 1 1 0; min-width: 88px; }')
     // ③ 反向锁：**桌面档**三件事一字不动 —— 同一个类两档两种布局，改动不许外溢到桌面
     //    ★本刀第 ③ 条：桌面档那条定宽已提成刻度变量 --esc-search-w（见上一处断言），故这里也只断言"走变量"。
@@ -2325,6 +2338,8 @@ describe('esc：演示数据开关（口径 32）', () => {
     // ① 搜索框：basis 必须是 **0** —— 行断开用的是**假设主尺寸**，而 basis: auto 取的是内容宽
     //    （官方 Input 外框基准约 240px）⇒ 一打开 wrap 就会先断行、把「添加技能」提前顶到第三行，
     //    根本轮不到收缩（"开了 wrap 反而更散"那个坑）。
+    //    ★口径 68 备注：这一条现在只服务「我的专家」子页那一枚（工具栏那枚改成 100% 独占一行，
+    //      见文件末尾那条口径 68 的用例）；它**不许被删** —— 删了那一页的搜索框就回到 basis: auto 的坑里。
     expect(mobile).toContain('.esc-search { width: auto; flex: 1 1 0; min-width: 88px; }')
     //    下限必须是**数**且 ≤ 96：真机第一栏可用宽 377.5（分屏窗口 1170 物理 ÷ dpr 2.75 −
     //    .esc-content 的 24×2 内衬）减去右块固定宽 233（口径 45 收紧后）只剩 144.5 ⇒ 下限一旦高于
@@ -2358,6 +2373,66 @@ describe('esc：演示数据开关（口径 32）', () => {
     expect(css).not.toMatch(/\.esc-search \{[^}]*padding:/)
     // ⑦ 本档**仍不另立判据**（口径 30 那条 @media 全文只有一处）
     expect(css.match(/@media \(pointer: coarse\), \(max-width: 1024px\), \(max-height: 700px\) \{/g)).toHaveLength(1)
+  })
+
+  /**
+   * ★**口径 68**（用户裁决「删除搜索栏左边的更多按钮，搜索栏移动端下自适应宽度撑满」）。
+   *
+   * 两件事各自锁"新形态 + 反向"：
+   *   ① 「更多」下线：源码层三处**零出现**（组件里的 prop / 两枚常量 / 那句文案）+ 样式层两条规则删除
+   *      + 渲染树断言（上面那条工具栏用例已按三维度各查一次）——四道一起才叫"删了"；
+   *   ② 移动档搜索框整行撑满：**带前缀**的那条规则必须存在且是 100%；而**不带前缀**的通用规则
+   *      （服务「我的专家」子页那枚）必须**逐字保留**（不许被顺手一起改成 100%——那一页会溢出）；
+   *   ③ 桌面档三条基线一字不动（口径 37/38：同一行 + 220px 定宽 + 右块 margin-left: auto）。
+   */
+  it("★口径 68（用户裁决「删除搜索栏左边的更多按钮，搜索栏移动端下自适应宽度撑满」）", () => {
+    const css = (EnterpriseEscStyle() as unknown as { props: { children: string } }).props.children
+    const mobile = /@media \(pointer: coarse\), \(max-width: 1024px\), \(max-height: 700px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? ''
+    const readSrc = (name: string) => readFileSync(new URL(`../src/esc/${name}`, import.meta.url), 'utf8')
+    const strip = (code: string) => code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+
+    // ① 三处"只服务那一枚"的东西在**代码层**（剔掉注释后）零出现 —— 免得将来"顺手加回来"或"留半个接线"。
+    const toolbarCode = strip(readSrc('esc-toolbar.tsx'))
+    expect(toolbarCode).not.toContain('showMore')
+    expect(toolbarCode).not.toContain('ESC_RESOURCE_MORE')
+    expect(toolbarCode).not.toContain('moreExternal')
+    expect(toolbarCode).not.toContain('esc-more')
+    const constantsCode = strip(readSrc('esc-constants.ts'))
+    expect(constantsCode).not.toContain('ESC_RESOURCE_MORE')
+    expect(constantsCode).not.toContain('skillhub.cn')
+    const copyCode = strip(readSrc('esc-copy.ts'))
+    expect(copyCode).not.toContain('moreExternal')
+    // 文案表里 `more: '更多'` **刻意保留**：那张表是 NUWAX 原页面文案的逐字对照表（保真审计按它逐条比），
+    // 删掉会让审计少一格；本页已无渲染点，这件事由本节注释负责说清，而不是靠"把它删干净"。
+    expect(copyCode).toContain("more: '更多'")
+    // 样式层：`.esc-more` / `.esc-more:hover` / `.esc-more-hidden` 三条整组下线。判据是**类名 token**
+    // 而不是子串：`.esc-more-btn`（**卡片**那枚「更多」按钮）里的 `esc-more` 只是前缀，它必须留着。
+    const styleCode = strip(readSrc('esc-style.ts'))
+    expect(styleCode).not.toMatch(/\.esc-more(?!-btn)/)
+    expect(styleCode).toContain('.esc-more-btn {')
+
+    // ② 移动档：工具栏右块那一枚**独占一整行并撑满**（带前缀 ⇒ 只有工具栏吃这条）
+    const scoped = /\.esc-toolbar-right \.esc-search \{([^}]*)\}/.exec(mobile)?.[1] ?? ''
+    expect(scoped).toContain('flex: 1 1 100%')
+    expect(scoped).toContain('width: auto')
+    expect(scoped).toContain('min-width: 0')
+    //    ★反向锁：**不许**把通用那条也改成 100%（那会连带改掉「我的专家」子页，而它那个容器不折行 ⇒ 溢出）
+    const generic = /\.esc-search \{([^}]*)\}/.exec(mobile)?.[1] ?? ''
+    expect(generic).toContain('flex: 1 1 0')
+    expect(generic).not.toContain('flex: 1 1 100%')
+    //    ★反向锁：右块必须仍然允许折行（"多一行"是这条 Layout 的**前提**；否则 100% 会把它挤成溢出）
+    expect(mobile).toMatch(/\.esc-toolbar-right \{[^}]*flex-wrap: wrap/)
+
+    // ③ 桌面档三条基线一字不动
+    const baseSearch = /\.esc-search \{([^}]*)\}/.exec(css)?.[1] ?? ''
+    expect(baseSearch).toContain('width: var(--esc-search-w)')
+    expect(baseSearch).toContain('flex: none')
+    expect(baseSearch).not.toContain('flex: 1 1 100%')
+    //    ★反向锁：`100%` 这个写法只允许出现在**移动档**里（全文扫会误伤？不会：桌面那条已单独断言，
+    //      而这里的判据是"桌面块里没有它"——见上一行）。
+    const baseRight = /\.esc-toolbar-right \{([^}]*)\}/.exec(css)?.[1] ?? ''
+    expect(baseRight).toContain('margin-left: auto')
+    expect(baseRight).not.toContain('flex-wrap')
   })
 
   it('★用户裁决（本轮）两条：非选中页签深一档 · 移动端整页单滚动面', () => {
@@ -3225,7 +3300,7 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
     expect(labelsOf('connector')).toEqual(['系统广场', '团队空间', '已连接的'])
   })
 
-  it('工具栏：「更多」只系统广场维度点亮、连接器页整格不画；搜索占位随页变；分类行按分类数组画', () => {
+  it('工具栏：★口径 68「更多」整枚已下线（三页都不再有它）；搜索占位随页变；分类行按分类数组画', () => {
     const toolbarOf = (props: Record<string, unknown>) =>
       asElement(
         EnterpriseEscToolbar({
@@ -3255,19 +3330,20 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
       expect(found).toBeTruthy()
       return found as Element
     }
-    // 「更多」= **真超链接**（用户裁决指向 https://skillhub.cn/）：只有系统广场维度可见/可点，
-    // 其余两维保留占位（visibility 隐藏 + 不吃点击），连接器页整格不画 —— 与官方口径一致。
-    const moreLink = asElement(childrenOf(rightOf(toolbarOf({ source: 'system' })))[0])
-    expect(moreLink.type).toBe('a')
-    expect(moreLink.props['className']).toBe('esc-more')
-    expect(moreLink.props['href']).toBe('https://skillhub.cn/')
-    expect(moreLink.props['target']).toBe('_blank')
-    expect(moreLink.props['rel']).toBe('noreferrer noopener')
-    expect(moreLink.props['children']).toBe(ENTERPRISE_ESC_COPY.more)
-    expect(moreLink.props['title']).toBe(ENTERPRISE_ESC_LOCAL_COPY.moreExternal)
-    expect(asElement(childrenOf(rightOf(toolbarOf({ source: 'team' })))[0]).props['className']).toBe('esc-more esc-more-hidden')
-    expect(ESC_RESOURCE_MORE_HREF).toBe('https://skillhub.cn/')
-    expect(childrenOf(rightOf(toolbarOf({ showMore: false })))[0]).toBeNull()
+    // ★**口径 68（用户裁决「删除搜索栏左边的更多按钮」）**：那一枚**整枚下线** —— 这不是"某个维度不画"
+    //   而是"三页、四个维度都不再有它"。本用例只做**渲染树级**判据（两件独立事实）：
+    //   ① 右块里没有任何 `<a>`（它当年是本页唯一的超链接）；
+    //   ② 整棵工具栏树里没有 `esc-more` / `esc-more-hidden` 这两个类名。
+    //   ★源码级的反向锁（prop / 常量 / 文案 / 样式那几处"零出现"）写在文件末尾那条**口径 68 专条**里，
+    //     且必须**剔掉注释**再查 —— 本仓的注释会如实写出"某物已撤下"，裸扫文本会把沿革说明当成代码命中。
+    for (const source of ['system', 'team', 'third-party', 'skillhub'] as const) {
+      const right = rightOf(toolbarOf({ source }))
+      expect(walk(right).some(node => asElement(node).type === 'a'), `右块里不该再有超链接（${source}）`).toBe(false)
+      expect(
+        walk(toolbarOf({ source })).some(node => String(asElement(node).props['className'] ?? '').includes('esc-more')),
+        `整棵树里不该再有「更多」（${source}）`,
+      ).toBe(false)
+    }
     /**
      * ★**口径 49**：搜索框 placeholder **随页变**——三页各一枚、逐字且互不相同。
      * 这里按类名找搜索框（右块里从此多了一层 Menu 包装，按下标取会踩空）。

@@ -254,8 +254,9 @@ export type EnterpriseEscCopyKey = keyof typeof ENTERPRISE_ESC_COPY
  *    一律取自 `error-messages.ts` 那张**唯一码表**（人话 + 下一步），页内不再自留一句笼统前缀，
  *    否则同一件事会出现两套措辞（本页原先正是平台原话 + 这枚前缀拼出来的）；
  *  · `actionNotPorted`：召唤/立即使用/连接/启停/付费这些动作本刀不做，按钮置灰并写明原因；
- *  · `moreExternal`：「更多」在原页面 `history.push` 到 NUWAX 广场分类页；**用户裁决**改指向公开技能广场
- *    `https://skillhub.cn/`（见 `esc-constants.ts` 的 `ESC_RESOURCE_MORE_HREF`），这枚是那链接的说明文字；
+ *  · ★口径 34 曾有过 `moreExternal`（那枚指向公开技能广场的「更多」超链接的说明文字）——**口径 68 随按钮一并撤下**
+ *    （用户原话「删除搜索栏左边的更多按钮」）：按钮、地址常量、这句说明文字三件一起下线，
+ *    右块从此只有三件（搜索 / 已安装 / 添加技能）；
  *  · ★口径 32 曾有过 `mockBannerTitle`/`mockBannerBody` 一对（演示数据免责横幅）——**已被用户裁决撤下**
  *    （原话「模拟数据提示不要」），故这里不再有那两句；"这一栏是演示数据"这件事仍可在协议层查到
  *    （宿主 `GET …/esc/mock` + 演示响应的 `mock: true`），只是不再占据页面。
@@ -266,7 +267,6 @@ export const ENTERPRISE_ESC_LOCAL_COPY = {
   /** 分类字典读不到时的那句提示（列表本身仍可看，只是筛选少了）。 */
   categoriesUnavailable: '分类暂时读不到',
   actionNotPorted: '该动作尚未在 DSH 侧接入',
-  moreExternal: '在 skillhub.cn 打开技能广场',
   retry: '重试',
 
   /* ══════════════ 本刀（workbuddy 风格重构）══════════════ */

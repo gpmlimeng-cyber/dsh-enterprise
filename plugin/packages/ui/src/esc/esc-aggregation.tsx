@@ -1381,8 +1381,8 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
       // ★**本刀**：改搜索词是"换了一面列表"⇒ 同样撤标记（每一次输入都撤；幂等，不会多渲染——reducer
       //   在"已经是空"时返回**同一引用**，`setState` 直接 bail out）。
       onKeywordChange: next => { relistCards(); setKeywordInput(next) },
-      // 连接器页不展示"更多"入口（产品要求），专家/技能页保留
-      showMore: resourceType !== 'connector',
+      // ★口径 68：原先这里传 `showMore: resourceType !== 'connector'`（连接器页整格不画那枚「更多」）。
+      //   用户裁决把那枚按钮**整枚删掉** ⇒ 工具栏那个 prop 一并撤下，这一位不再是"三页两种取值"。
       categoriesUnavailable: unavailable,
       // ★口径 46/60：那枚「上传技能」的**开窗**入口（写入口缺席时 `undefined` ⇒ 该项置灰 + 写明原因）。
       onAddSkill: skillImportPort === undefined ? undefined : () => { setSkillImportOpen(true) },

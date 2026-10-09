@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖本包 `esc-copy` 的文案常量与 `esc-types` 的两个枚举类型
- * [OUTPUT]: 对外提供 esc 页面的常量族：平台成功码 `ESC_SUCCESS_CODE`、资源类型全集 `ESC_RESOURCE_TYPES`、分类根节点映射 `ESC_RESOURCE_TYPE_TO_CATEGORY_TYPE`、原页面的菜单父级 code `ESC_MENU_PARENT_CODE`、左栏兜底菜单 `ESC_DEFAULT_CATEGORY_MENUS`、以及「更多」原跳转地址 `ESC_RESOURCE_MORE_SQUARE_PATH`
+ * [OUTPUT]: 对外提供 esc 页面的常量族：平台成功码 `ESC_SUCCESS_CODE`、资源类型全集 `ESC_RESOURCE_TYPES`、分类根节点映射 `ESC_RESOURCE_TYPE_TO_CATEGORY_TYPE`、原页面的菜单父级 code `ESC_MENU_PARENT_CODE`、左栏兜底菜单 `ESC_DEFAULT_CATEGORY_MENUS`（★口径 68 起「更多」那两枚地址常量已随按钮下线删除）
  * [POS]: 逐字移植自 NUWAX `src/pages/ExpertSkillConnector/constants.ts`（口径 31）。
  *   ★三处**如实差异**：① `dict()` 换成 `esc-copy` 的常量（DSH 侧没有那套 i18n 运行时）；
  *   ② `RESOURCE_ROUTE_PATH`（三条子路由）**不搬**——DSH 侧不再按路径分发，资源类型就是组件状态；
@@ -65,27 +65,11 @@ export const ESC_RESOURCE_TYPE_TO_CATEGORY_TYPE: Readonly<Partial<Record<Resourc
 /** 连接器维度在分类接口里的根节点 key（原文件里的字面量，提出来做唯一真源）。 */
 export const ESC_CONNECTOR_CATEGORY_ROOT_KEY = 'Connector'
 
-/**
- * 各资源类型「更多」的原跳转地址（广场分类页）。
- *
- * ★原页面在这一格 `history.push(squarePath)`（见原 `ResourceToolbar/index.tsx` 里那段"更多"跳转）。
- * 本页**不跳 umi 路由**（DSH 里没有那个广场页面），改由用户裁决指向**外部技能广场**，见
- * {@link ESC_RESOURCE_MORE_HREF}；这里保留原地址只为逐条对照，不参与跳转。
- */
-export const ESC_RESOURCE_MORE_SQUARE_PATH: Readonly<Partial<Record<ResourceTypeEnum, string>>> = {
-  expert: '/square?cate_type=Agent',
-  skill: '/square?cate_type=Skill',
-}
-
-/**
- * 「更多」现在的真实去向（**用户裁决**：「更多超链接到 https://skillhub.cn/」）。
- *
- * ★这是一处**刻意的本页差异**：官方那枚「更多」跳的是 NUWAX 自己的广场分类页（umi 路由，带 `cate_type`），
- * 那个页面在 DSH 里不存在；用户指定用公开的技能广场顶替，于是这里渲染成一枚**真超链接**
- * （`target="_blank"` + `rel="noreferrer noopener"`），而不是像口径 31 那样置灰写"未接入"。
- * 只有**系统广场**维度画它（连接器栏原本就不展示这个入口），团队空间/我启用的两维保留占位但不显示 —— 与原页面一致。
- */
-export const ESC_RESOURCE_MORE_HREF = 'https://skillhub.cn/'
+/* ★**口径 68（本刀）**：这里原先有两枚常量 —— `ESC_RESOURCE_MORE_SQUARE_PATH`（原页面那串 umi 广场
+   分类地址，只作逐条对照）与 `ESC_RESOURCE_MORE_HREF`（口径 34 起真正渲染的那枚超链接去
+   `https://skillhub.cn/`）。用户裁决「删除搜索栏左边的更多按钮」⇒ 那枚按钮整枚下线，两枚常量随之删除
+   （它们在本仓的唯一用途就是喂那一枚；留着就是"没有渲染点的死常量"）。
+   ★原页面这段 `history.push(squarePath)` 的形状仍在 `docs/notes/direction-decisions.md` 第 34 行留档。 */
 
 /**
  * 左侧分类菜单本地兜底配置。

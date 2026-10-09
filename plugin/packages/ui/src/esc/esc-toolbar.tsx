@@ -1,14 +1,16 @@
 /**
- * [INPUT]: 依赖 React 的 createElement、lucide-react 的 `Plus`/`Download`/`Search`/`Upload`、官方原语 `Input`/`Pill`/`Button`（`@deepseek-ai/dsh-client-ui-primitives`）、`official-ui` 接缝给出的官方 `Menu`/`MenuItemButton`、`esc-constants` 的「更多」原地址、`esc-copy` 的文案与 `esc-types` 的类型
- * [OUTPUT]: 对外提供 `EnterpriseEscToolbar`——**两段并列**（① 冻结头：三页签 + 右块；② 工具栏体：精选/维度/二级行）；★**口径 62（用户修正：二级 chip 行数据驱动）**：二级行的**唯一入口**是可选 prop `subTabs`（已投影好的 chip 行），缺席即逐字回到 `categories` 那一支、三个纯投影（`enterpriseEscSearchPlaceholder` / `enterpriseEscAddSkillLock` / `ENTERPRISE_ESC_ADD_SKILL_ITEMS`）与 `ENTERPRISE_ESC_MORE_PATH`
+ * [INPUT]: 依赖 React 的 createElement、lucide-react 的 `Plus`/`Download`/`Search`/`Upload`、官方原语 `Input`/`Pill`/`Button`（`@deepseek-ai/dsh-client-ui-primitives`）、`official-ui` 接缝给出的官方 `Menu`/`MenuItemButton`、`esc-copy` 的文案与 `esc-types` 的类型
+ * [OUTPUT]: 对外提供 `EnterpriseEscToolbar`——**两段并列**（① 冻结头：三页签 + 右块；② 工具栏体：精选/维度/二级行）；★**口径 62（用户修正：二级 chip 行数据驱动）**：二级行的**唯一入口**是可选 prop `subTabs`（已投影好的 chip 行），缺席即逐字回到 `categories` 那一支、三个纯投影（`enterpriseEscSearchPlaceholder` / `enterpriseEscAddSkillLock` / `ENTERPRISE_ESC_ADD_SKILL_ITEMS`）
  * [POS]: esc 页面的**工具栏**，移植自 NUWAX `components/ResourceToolbar/index.tsx`（145 行）。
  *   ★四处注入点替换：① antd `Segmented` → 官方原语 `Pill` 组（DSH 体系里没有 Segmented，而 Pill 就是同一件事：
  *   一枚可选中态的小胶囊）；② antd `Input` + `@ant-design/icons` 的 `SearchOutlined` → 官方 `Input` + lucide `Search`；
- *   ③ 二级分类页签的 antd-less 自绘胶囊 → 同一个 `Pill`；④ umi `history.push` 跳广场 → **真超链接**指向
- *   外部技能广场 `https://skillhub.cn/`（**用户裁决**「更多超链接到 https://skillhub.cn/」，新开标签页 +
- *   `rel="noreferrer noopener"`；口径 31 那版是置灰写"未接入"，已被这条裁决取代）。
- *   ★版式与行为照抄：主行左右分置、搜索框 214px、「更多」用 `visibility` 隐藏**保留占位**（避免切主 tab 时右侧宽度跳动）、
- *   分类行 8px 间距 14px 上边距、页签胶囊 3px/12px 内衬 + 999px 圆角。
+ *   ③ 二级分类页签的 antd-less 自绘胶囊 → 同一个 `Pill`；④ **原页面那枚「更多」整枚下线**（口径 68：用户裁决
+ *   「删除搜索栏左边的更多按钮」）——口径 34 曾按用户裁决把它改成指向外部技能广场 `https://skillhub.cn/` 的
+ *   真超链接，本刀把**按钮、地址常量与那句说明文案**一并撤掉；右块从此只有三件（搜索 / 已安装 / 添加技能）。
+ *   ★版式与行为照抄：主行左右分置、搜索框 214px、分类行 8px 间距 14px 上边距、页签胶囊 3px/12px 内衬 + 999px 圆角。
+ *   ★**口径 68**：移动档里搜索框**不再与两枚按钮抢同一行**，而是**独占一整行并撑满**该行宽（选择器是
+ *   `.esc-toolbar-right .esc-search`，只写在移动档那条 @media 里）。为什么不写通用的 `.esc-search`：
+ *   「我的专家」子页复用同一个类，而它那个右块是 `flex: none` 且不折行 ⇒ 通用写法会在那一页把它顶出溢出。
  *   ★antd Input 的 `allowClear` **没有**对应实现（官方 Input 不带清空钮）：这是本刀已知的一处小缺口，
  *   搜索框内容仍可全选删除，但少了那枚 × 按钮。
  *   ★用户裁决：药丸**不要描边**——本文件给每枚 `Pill` 都挂上 `esc-pill`（`esc-style` 用它压掉官方选中态自带的
@@ -96,7 +98,6 @@
 import { Button, Input, Pill } from '@deepseek-ai/dsh-client-ui-primitives'
 import { Download, Plus, Search, Upload } from 'lucide-react'
 import { createElement, type ReactNode } from 'react'
-import { ESC_RESOURCE_MORE_HREF, ESC_RESOURCE_MORE_SQUARE_PATH } from './esc-constants.js'
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from './esc-copy.js'
 import { OfficialMenu, OfficialMenuItemButton } from '../official-ui.js'
 import { EnterpriseEscSubTabRow, type EnterpriseEscSubTab } from './esc-sub-tabs.js'
@@ -289,8 +290,6 @@ export interface EnterpriseEscToolbarProps {
   /** 搜索关键字（输入框受控值）。 */
   readonly keyword: string
   readonly onKeywordChange: (keyword: string) => void
-  /** 是否显示「更多」入口（连接器页为 false，与原页面一致）。 */
-  readonly showMore?: boolean | undefined
   /** 分类字典读不到时的降级提示（本页新增：原页面静默）。 */
   readonly categoriesUnavailable?: boolean | undefined
   /**
@@ -494,7 +493,6 @@ export function EnterpriseEscToolbar({
   subTabs,
   keyword,
   onKeywordChange,
-  showMore = true,
   categoriesUnavailable,
   installedCount,
   installedCountFailed,
@@ -675,18 +673,9 @@ export function EnterpriseEscToolbar({
       createElement(
         'div',
         { className: 'esc-toolbar-right' },
-        showMore === true
-          ? createElement('a', {
-              className:
-                source === 'system' ? 'esc-more' : 'esc-more esc-more-hidden',
-              // 用户裁决：「更多」超链接到公开技能广场（官方那枚跳的是 NUWAX 自己的广场分类页）
-              href: ESC_RESOURCE_MORE_HREF,
-              target: '_blank',
-              rel: 'noreferrer noopener',
-              title: ENTERPRISE_ESC_LOCAL_COPY.moreExternal,
-              children: ENTERPRISE_ESC_COPY.more,
-            })
-          : null,
+        /* ★**口径 68**：这里原先是那枚「更多」（口径 34 起是一枚指向 https://skillhub.cn/ 的真超链接，
+           非系统广场维度用 `visibility` 占位保留宽度）——用户裁决「删除搜索栏左边的更多按钮」⇒ 整枚下线，
+           连同 `showMore` 这个 prop 一起（连接器页当初靠它整格不画，如今三页都没有这一枚，故这个位子没有意义了）。 */
         createElement(Input, {
           className: 'esc-search',
           icon: createElement(Search, { size: 14, 'aria-hidden': true }),
@@ -862,10 +851,3 @@ export function EnterpriseEscToolbar({
     ),
   ]
 }
-
-/**
- * 「更多」的原跳转地址（只用于置灰提示里的说明，不参与跳转）。
- *
- * 单独导出是为了让测试盯住"这条地址没被误接成跳转"——它是本文件唯一还在引用它的地方。
- */
-export const ENTERPRISE_ESC_MORE_PATH = ESC_RESOURCE_MORE_SQUARE_PATH
