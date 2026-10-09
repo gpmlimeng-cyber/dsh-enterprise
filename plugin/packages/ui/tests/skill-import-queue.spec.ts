@@ -547,3 +547,70 @@ describe('口径 60：反向锁（本刀明确不做的事）', () => {
     expect(queueHook).toContain('port.onSelect(file)')
   })
 })
+
+/**
+ * ★**追加项（用户口径：拖拽区 hover 要有反馈）**。
+ *
+ * 真机缺口：虚线拖拽区原先**一条 `:hover` 规则都没有**、也没有 `transition` ⇒ 指针移上去毫无反应。
+ * 参照物是 Cherry `ImportSkillDialog.tsx:285` 那串（`hover:border-border-strong hover:bg-accent`
+ * ——**边框变强 + 底色变淡**两件一起给，只改一样用户看不出来）。
+ *
+ * 五条判据（源码级，因为这份排版就住在模板字符串里）：① hover 规则存在且**同时**改 border-color
+ * 与 background；② 有 `transition`；③ hover 规则**排除**忙碌态（`:hover:not([data-busy='true'])`）；
+ * ④ **反向锁**：忙碌那条的 `cursor: not-allowed` 与 `opacity` 一字未动；⑤ 两枚新 token 都是主题
+ * 真源里真有的名字（`border-l4` / `interactive-bg-hover`）——审计 `--strict` 会以 `dead` 兜住任何
+ * 写错的名字（本文件只钉住"用的是这两枚"，值本身交给主题）。
+ */
+describe('追加项：拖拽区的 hover 反馈（边框变强 + 底色变淡，忙碌时不反馈）', () => {
+  /** 弹出这份自持排版（它是一枚导出常量模板串，故直接读字符串比读 DOM 更稳）。 */
+  const styles = (): string => {
+    const source = readFileSync(new URL('../src/skill-import-dialog.tsx', import.meta.url), 'utf8')
+    const start = source.indexOf('export const ENTERPRISE_SKILL_IMPORT_DIALOG_STYLES = `')
+    const end = source.indexOf('`\n', start + 60)
+    return source.slice(start, end)
+  }
+
+  it('① hover 规则存在，且**同时**改了 border-color 与 background（只改一样不算）', () => {
+    const css = styles()
+    const rule = css.split('\n').map(line => line.trim())
+      .find(line => line.startsWith('.own-skill-import-drop:hover'))
+    expect(rule, '拖拽区那枚 hover 规则').toBeTruthy()
+    // 两件都要：边框变强 + 底色变淡（Cherry 那串就是这两件一起给）。
+    expect(rule).toContain('border-color:')
+    expect(rule).toContain('background:')
+    // 边框那枚必须**比基档强**（基档是 border-l2；这里是真源里更强的 l4，不是同一枚）。
+    expect(rule).toContain('var(--dsw-alias-border-l4')
+    expect(rule).not.toContain('border-color: var(--dsw-alias-border-l2')
+    // 底色走主题里那枚既有 hover 填充（本仓 esc 那排胶囊用的就是它，不新造一套）。
+    expect(rule).toContain('var(--dsw-alias-interactive-bg-hover')
+  })
+
+  it('② 基档有 transition（border-color 与 background 一起过渡，时长照本仓既有 .15s）', () => {
+    const css = styles()
+    const base = css.split('\n').map(line => line.trim())
+      .find(line => line.startsWith('.own-skill-import-drop {'))
+    expect(base).toBeTruthy()
+    expect(base).toContain('transition:')
+    expect(base).toContain('border-color')
+    expect(base).toContain('background-color')
+    expect(base).toContain('.15s')
+  })
+
+  it('③ hover 规则**排除**忙碌态（`:hover:not([data-busy=\'true\'])`），装中不给反馈', () => {
+    const css = styles()
+    expect(css).toContain(".own-skill-import-drop:hover:not([data-busy='true'])")
+    // 反向：不许存在一条**不排除忙碌**的 hover 规则（那会让"装中"看起来还能再拖进来）。
+    const bare = css.split('\n').map(line => line.trim())
+      .filter(line => line.startsWith('.own-skill-import-drop:hover') && !line.includes(":not([data-busy='true'])"))
+    expect(bare).toEqual([])
+  })
+
+  it('④ 反向锁：忙碌那条的 `cursor: not-allowed` 与 `opacity` 一字未动', () => {
+    const css = styles()
+    const busy = css.split('\n').map(line => line.trim())
+      .find(line => line.startsWith(".own-skill-import-drop[data-busy='true']"))
+    expect(busy).toBeTruthy()
+    expect(busy).toContain('cursor: not-allowed')
+    expect(busy).toContain('opacity: 0.6')
+  })
+})

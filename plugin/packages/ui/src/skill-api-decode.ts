@@ -9,6 +9,25 @@
  *     以及 `decodeEnterpriseDiscoveredSkills`（信封**恰好两键** `{skills,complete}`，多一格即整条判
  *     `ENT_LOCAL_RESPONSE_INVALID` —— 这是"路径不进浏览器"的**第二道闸**，第一道在 Host 的白名单；
  *     每条**必需五键封闭 + 可选 `whenToUse`**，缺席合法、"说空"非法；条数封顶 2000）。
+ *   ★**口径 62（本刀）**：再加**通路四**「本地三方 Agent 技能源」（别的 Agent CLI 的技能库）——
+ *     `EnterpriseThirdPartyRoot`（`{id,name,present,count}` **四键封闭，形状里没有 `path`**：
+ *     宿主绝对路径不进浏览器，故界面在类型层就**没有**可以拼路径的原料）、
+ *     `EnterpriseThirdPartySkill`（`{id,name,rootId,sourceName,directory,status}` + 可选 `description`；
+ *     `status` 三字面 `available|installed|conflict`；`id` 是 `sha256(realpath)` 前 16 位，
+ *     是**唯一**可回传的不透明值——安装时原样交给 `{path}`，界面从不拼）与
+ *     `EnterpriseThirdPartySkills`，以及 `decodeEnterpriseThirdPartySkills`：
+ *     信封**单键封闭** `{roots,skills}`、根 `rootId` 必须在 `roots` 里、候选 `id` 去重、条数封顶，
+ *     外加本契约独有的一条 —— **每条根的 `count` 必须与该根下的候选条数逐字相等**（对不上即整条
+ *     判畸形：界面要显示"这个根几枚"，数与清单对不上时其中半个必是假的）。空列表**合法**。
+ *   ★**本刀（S5a：自装技能的两个本机动作）**：再加两份动作回执 ——
+ *     `EnterpriseSelfInstalledUninstall`（`POST …/skills/self-installed/uninstall` 的 `data`）与
+ *     `decodeEnterpriseSelfInstalledUninstall`：`skills` **复用**上面那枚自装清单解码器（卸载后的投影与
+ *     `GET /skills/self-installed` 逐字同形）、`removed` 逐项过**非空 kebab 目录名**门禁；
+ *     ★三格**各自严格、多出来的键忽略**——宿主今天真的多带一格 `alreadyMissing`（它写的是"只进 Host 日志"），
+ *     闭合键集会把员工的一次**成功卸载**判成 `ENT_LOCAL_RESPONSE_INVALID`（口径 47 那个 bug 的形状）；
+ *     另有 `decodeEnterpriseSelfInstalledReveal`（`{revealed:true}` 单键封闭，宿主绝对路径不进浏览器）。
+ *     两条动作的**入参口径是技能本地目录名 `name`**（不是记录里的 `skillId`——那个字段的语义跨四条安装
+ *     通路并不统一），正文关闭键集恰好那**一枚**键。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -411,6 +430,82 @@ export function decodeEnterpriseSelfInstalledSkills(value: unknown): readonly En
   return row['skills'].map(decodeSelfInstalledSkill)
 }
 
+/* ───────────────── 自装技能的两个本机动作（卸载 / 打开所在文件夹） ───────────────── */
+
+/**
+ * 一次**自装技能卸载**的回执（`POST …/skills/self-installed/uninstall` 的 `data`）。
+ *
+ * 两格各有各的来历，**缺一不可**：
+ *   · `skills` —— 卸载**之后**的自装投影（与 `GET /skills/self-installed` 逐字同形），界面据此
+ *     把卡片上那两枚动作**收起来**（这份记录里已经没有那个名字了 ⇒ 它不再是"本机自装技能"）；
+ *   · `removed` —— 本次真的从技能根里消失的名字。
+ *
+ * ★**为什么入参是技能目录名而不是记录里的 `skillId`**：`skillId` 的真实语义**不统一**
+ *   （本地上传那批是 archive 的 `manifest.id`、广场/skillhub 那批是技能名或 slug），而真正的落盘目录名
+ *   在记录的另一格 `names[]` 里。宿主侧两条路由的入参口径就是「`name` ∈ 某条记录的 `names`」，
+ *   故客户端交出去的**永远只有这一个键**——"替客户端挑一条记录"这件事在形状上不可表达。
+ */
+export interface EnterpriseSelfInstalledUninstall {
+  readonly skills: readonly EnterpriseSelfInstalledSkill[]
+  readonly removed: readonly string[]
+}
+
+/**
+ * 名字清单（`removed`）的形状门禁：数组、条数有界、每一项都是**非空 kebab 目录名**。
+ *
+ * ★**每一条**都必须过官方 kebab 形状（`skill-upload.ts` 读盘那条收窄的同款）——它们是**落盘目录名**，
+ * 畸形值说明宿主那份投影坏了，必须显式失败，不能把一串来历不明的东西当成"卸载结果"念出来。
+ * 空数组**合法**；重复项也放过（这是一份**事实清单**，不是集合）。
+ */
+function decodeSelfInstalledNameList(value: unknown): readonly string[] {
+  if (!Array.isArray(value) || value.length > 200) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  const names: string[] = []
+  for (const name of value) {
+    if (typeof name !== 'string' || name.length === 0 || name.length > 64 || !SKILL_ENTRY_NAME.test(name)) {
+      throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    names.push(name)
+  }
+  return names
+}
+
+/**
+ * 解码**卸载**回执（`data`）：`skills` / `removed` **两格各自严格**，多出来的键**忽略**。
+ *
+ * ★**为什么不把键集收成恰好两键**（本仓对大多数本地响应是那么做的）：宿主是**投影方**，它保证两键；
+ *   而这两格里每一格都必须严格成立——`skills` 走**同一枚**自装清单解码器（含每条的七键形状），
+ *   `removed` 逐项过 kebab 门禁。**多一枚键就判整条畸形**的代价是：Host 哪天多带一格日志字段，
+ *   员工的一次**成功卸载**就会被读成 `ENT_LOCAL_RESPONSE_INVALID` —— 那正是口径 47 那个 bug 的形状。
+ *   故这里的方向是"我要的两格一格不放，没要的键原样放过（也不回显到界面）"。
+ *
+ * @param value - `data` 那一层（信封已由 `requestJson` 拆掉）。
+ * @throws {EnterpriseLocalApiError} `ENT_LOCAL_RESPONSE_INVALID`：两格任一格形状不对。
+ */
+export function decodeEnterpriseSelfInstalledUninstall(value: unknown): EnterpriseSelfInstalledUninstall {
+  const row = record(value)
+  if (row === undefined) throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  // `skills` 复用自装清单那枚既有解码器：它只读 `skills` 那一格、其余键原样放过（同一份口径）。
+  const skills = decodeEnterpriseSelfInstalledSkills(value)
+  return { skills, removed: decodeSelfInstalledNameList(row['removed']) }
+}
+
+/**
+ * 解码**打开所在文件夹**的回执（`POST …/skills/self-installed/reveal` 的 `data`）。
+ *
+ * 键集**恰好一枚** `revealed` 且必须是 `true`：宿主绝对路径**不进浏览器**（这是那条路由的设计口径），
+ * 故响应里除了这枚布尔没有任何东西可判——`false` / 缺键 / 多键一律判畸形（多键意味着宿主开始回别的东西，
+ * 那必须让人看见，而不是被静默忽略）。
+ */
+export function decodeEnterpriseSelfInstalledReveal(value: unknown): { readonly revealed: true } {
+  const row = record(value)
+  if (row === undefined || !hasExactKeys(row, ['revealed']) || row['revealed'] !== true) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  return { revealed: true }
+}
+
 /* ───────────────── 官方发现面（口径 54：「已安装」的真源） ───────────────── */
 
 /**
@@ -691,6 +786,225 @@ export function decodeEnterpriseSystemSkills(value: unknown): EnterpriseSystemSk
       throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
     }
     seen.add(skill.path)
+  }
+  return { roots, skills }
+}
+
+/* ───────────────── 通路四「本地三方 Agent 技能源」的投影（口径 62） ───────────────── */
+
+/**
+ * **本地三方技能源**的一个根（`GET /local/skills/third-party` 的 `data.roots` 项）。
+ *
+ * ★与既有通路二（系统搜索）的根**不是同一族**：那一族说的是**官方**技能根（`present` 即"这个位置
+ *   有没有技能目录"），这一族说的是**别的 Agent CLI 的技能库**（`~/.claude/skills`、`~/.codex`…）。
+ *   两者都靠 `present` 说"这个位置在不在"，故界面在两种维度下用的是同一条**判据**、不同的**文案**。
+ * ★`count` = 本根下**进入候选**的技能数（一级子目录 + 普通文件 `SKILL.md`，且过了 frontmatter 闸门）：界面**不拿它当渲染真源**（列表长度才是），
+ *   但它必须被如实过桥——**解码后与 `skills` 里该根的条数逐字相等**才算协议成立（见下面那段）。
+ * ★★`skipped`（用户决定）= 本根下**有 `SKILL.md` 但过不了闸门**的目录数；★**没有 `SKILL.md` 的普通子目录不算**。
+ *   本机实测 **796 枚候选里 26 枚过不了我们自己的闸门**，而本仓纪律是**丢弃不许静默**
+ *   ⇒ 界面要能说一句「另有 N 个目录不符合技能规范」。★它是**数、不是列表**。
+ * ★★**没有 `path`**：宿主绝对路径**不进浏览器**（冻结契约 §3.2 第一行就是这么定的）。
+ *   界面因此**不存在**任何可以"拼路径"的原料——这条纪律在类型层就是自明的。
+ * ★`aliasOf`（口径 62 规格 §3.1 B 类）：这个根是**另一枚根的符号链接别名**
+ *   （本机真实形态：`~/.qwen/skills`、`~/.junie/skills`… 40+ 个都指向 `~/.agents/skills`）。
+ *   有它就说明"这份库已经由另一枚根代表了"⇒ 界面**不为它出 chip**（否则同一批技能会出现几十枚
+ *   chip），但**照旧把它列进 `roots`**（分组/说明要用）。
+ */
+export interface EnterpriseThirdPartyRoot {
+  readonly id: string
+  /** 人话来源名（如 "Claude Code"、"Agent Skills"）：界面直接上屏，不再自己编名字。 */
+  readonly name: string
+  readonly present: boolean
+  /** 本根下**进入候选**的技能数（解码后必须与 `skills` 里该根的条数逐字相等）。 */
+  readonly count: number
+  /**
+   * 本根下**有 `SKILL.md` 但过不了闸门**的目录数：它是**数、不是列表**
+   * （非负安全整数；“被跳过的条目”**不进响应**，界面对它们什么也不做）。
+   * 本机真实形态：各根合计 26 枚（`name` 大写 17 / 缺 name 3 / 缺 description 6）。
+   */
+  readonly skipped: number
+  /** 它是**哪一枚根的别名**（指向那一枚的 `id`）；不是别名时**整键缺席**（不是空串）。 */
+  readonly aliasOf?: string | undefined
+}
+
+/**
+ * 一条候选技能目录的**三态**（Host 的唯一判定，界面只做翻译）。
+ *
+ * `installed` = 这颗技能已经在本机 DSH 里（同名技能已落盘）；`conflict` = 同名目录被**另一枚**
+ * 不同技能占着（复制进去会覆盖别人的东西 ⇒ 不能装）；`available` = 可以复制进来。
+ */
+export type EnterpriseThirdPartySkillState = 'available' | 'installed' | 'conflict'
+
+/**
+ * 一条**本地三方**候选技能。
+ *
+ * ★ `id` 是唯一那枚**可以被回传的不透明值**（Host 侧 = `sha256(realpath)` 前 16 位）：安装时
+ *   原样回传给 `POST /local/skills/third-party/install` 的 `{path}` 字段，Host 再 `realpath` +
+ *   在本次候选集里逐字比对。界面**自己拼不出这个值**（它不是路径、不可导出、不可猜）——
+ *   这正是"界面绝不拼路径"这条纪律在契约上的落点。
+ * ★ `directory` 是**目录名**（不是路径）；`sourceName` 是人话来源名；`rootId` 是分组的键
+ *   （靠 **id** 而不是靠名字，因为宿主根表里有两枚都叫 "Agent Skills" 的重名根）。
+ */
+export interface EnterpriseThirdPartySkill {
+  readonly id: string
+  /** 技能名（认 `SKILL.md` frontmatter 的 `name`，不是目录名）。 */
+  readonly name: string
+  /** 描述：读不到就**整键缺席**（不是空串、不是占位句）。 */
+  readonly description?: string | undefined
+  readonly rootId: string
+  readonly sourceName: string
+  /** 目录名（与 `name` 可能不同：frontmatter 改名过的那一枚）。 */
+  readonly directory: string
+  readonly status: EnterpriseThirdPartySkillState
+}
+
+/** `GET /enterprise/api/v1/local/skills/third-party` 的投影。 */
+export interface EnterpriseThirdPartySkills {
+  /** 根清单（顺序 = Host 的根表序，界面按它分组、**不再排序**）。 */
+  readonly roots: readonly EnterpriseThirdPartyRoot[]
+  /** 候选清单（顺序 = Host 的（根表序，根内 name 升序），界面按根分组后保持原序）。 */
+  readonly skills: readonly EnterpriseThirdPartySkill[]
+}
+
+/** 根 id 上限：与既有通路二同值（两侧都是 kebab 短的稳定 id）。 */
+const THIRD_PARTY_ROOT_ID_MAX = 64
+/** 根数量上限：宿主根表是 15 枚的闭集，给一个宽裕但**有界**的上界。 */
+const THIRD_PARTY_ROOT_MAX = 64
+/** 候选数量上限：与既有通路二同值（有界渲染，超限即协议畸形）。 */
+const THIRD_PARTY_SKILL_MAX = 1000
+/** 显示名上限：与 Host 侧 frontmatter 的 `name` 上限逐字同值。 */
+const THIRD_PARTY_NAME_MAX = 64
+/** 描述上限：与既有通路二同值。 */
+const THIRD_PARTY_DESCRIPTION_MAX = 1024
+/** 来源人话名上限：宿主根表里最长的那几个都远在它之内。 */
+const THIRD_PARTY_SOURCE_NAME_MAX = 128
+/** 目录名上限：与既有通路二同值。 */
+const THIRD_PARTY_DIRECTORY_MAX = 128
+/** `id` 上限：它是 16 位摘要（或 Host 选的任何稳定短串），给一个宽裕但**有界**的上界。 */
+const THIRD_PARTY_ID_MAX = 128
+/** 三种状态的字面真源（多一个字面都会在这里被判畸形）。 */
+const THIRD_PARTY_SKILL_STATES: readonly EnterpriseThirdPartySkillState[] = ['available', 'installed', 'conflict']
+
+/**
+ * 一枚"短的、无控制字符的可见文本"（根名 / 来源名 / 目录名共用同一把尺子）。
+ *
+ * 它们都要上屏，故**必须**非空且不含控制字符（含 NUL 与换行）——一段带换行的"名字"会把一行
+ * 撑成两行、把布局读坏；这是形状校验，不是语义校验（界面不在这里猜它像不像目录名）。
+ */
+function thirdPartyTextShape(value: unknown, max: number): value is string {
+  if (typeof value !== 'string' || value.length === 0 || value.length > max) return false
+  for (const character of value) {
+    const code = character.codePointAt(0) ?? 0
+    if (code < 0x20 || code === 0x7f) return false
+  }
+  return true
+}
+
+function decodeThirdPartyRoot(value: unknown): EnterpriseThirdPartyRoot {
+  const row = record(value)
+  if (row === undefined
+    || !hasExactKeys(row, ['id', 'name', 'present', 'count', 'skipped'], ['aliasOf'])
+    || !thirdPartyTextShape(row['id'], THIRD_PARTY_ROOT_ID_MAX)
+    || !thirdPartyTextShape(row['name'], THIRD_PARTY_SOURCE_NAME_MAX)
+    || typeof row['present'] !== 'boolean'
+    || !Number.isSafeInteger(row['count']) || (row['count'] as number) < 0
+    // `skipped` 与 `count` 同一把尺子（非负安全整数）；**不许**是数组/对象（“它是数、不是列表”）。
+    || !Number.isSafeInteger(row['skipped']) || (row['skipped'] as number) < 0) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  // `aliasOf` 走**可选键**位，口径照本文件既有那几枚可选文本：缺席 / JSON null / 空串三者都归一成
+  // 「不是别名」，只有类型不对或超上限才判畸形（Host 那一侧三种形态都可能出现，判死会让整次扫描失败）。
+  if (!(row['aliasOf'] === undefined || row['aliasOf'] === null
+    || (typeof row['aliasOf'] === 'string' && row['aliasOf'].length <= THIRD_PARTY_ROOT_ID_MAX))) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  const aliasOf = nonEmptyString(row['aliasOf']) ? row['aliasOf'] : undefined
+  return {
+    id: row['id'],
+    name: row['name'],
+    present: row['present'],
+    count: row['count'] as number,
+    skipped: row['skipped'] as number,
+    ...(aliasOf === undefined ? {} : { aliasOf }),
+  }
+}
+
+function decodeThirdPartySkill(value: unknown): EnterpriseThirdPartySkill {
+  const row = record(value)
+  if (row === undefined
+    || !hasExactKeys(row, ['id', 'name', 'rootId', 'sourceName', 'directory', 'status'], ['description'])
+    || !thirdPartyTextShape(row['id'], THIRD_PARTY_ID_MAX)
+    // 技能名走官方技能名规约（Host 只在 frontmatter 合法时才列进候选，故这里照收窄）。
+    || typeof row['name'] !== 'string' || row['name'].length > THIRD_PARTY_NAME_MAX || !SKILL_ENTRY_NAME.test(row['name'])
+    || !thirdPartyTextShape(row['rootId'], THIRD_PARTY_ROOT_ID_MAX)
+    || !thirdPartyTextShape(row['sourceName'], THIRD_PARTY_SOURCE_NAME_MAX)
+    || !thirdPartyTextShape(row['directory'], THIRD_PARTY_DIRECTORY_MAX)
+    || !THIRD_PARTY_SKILL_STATES.includes(row['status'] as EnterpriseThirdPartySkillState)) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  // 可选描述的口径**照本文件既有那两枚**（`whenToUse` / `system-search` 的 `description`）：
+  // 缺席 / JSON null / 空串三者都归一成「没有这个键」，只有类型不对或超上限才判畸形
+  // —— 一份写着空描述的 SKILL.md 完全可能把 `description: ''` 带出来，那时判整条畸形会让
+  // **整次扫描**失败，代价远大于「少一行描述」。
+  if (!(row['description'] === undefined || row['description'] === null
+    || (typeof row['description'] === 'string' && row['description'].length <= THIRD_PARTY_DESCRIPTION_MAX))) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  const description = nonEmptyString(row['description']) ? row['description'] : undefined
+  return {
+    id: row['id'],
+    name: row['name'],
+    rootId: row['rootId'],
+    sourceName: row['sourceName'],
+    directory: row['directory'],
+    status: row['status'] as EnterpriseThirdPartySkillState,
+    ...(description === undefined ? {} : { description }),
+  }
+}
+
+/**
+ * 解码**本地三方 Agent 技能源**的扫描结果（`GET /enterprise/api/v1/local/skills/third-party` 的 `data`）。
+ *
+ * 严格四条（每一条都是「界面上少说一句假话」的前提）：
+ *  ① 信封**单键封闭** `{roots, skills}`（Host 多塞一枚字段即整条判畸形）；
+ *  ② 每条根**五键封闭**（`id`/`name`/`present`/`count`/`skipped`，+ 可选 `aliasOf`）、每条候选六键（+一枚可选）封闭，`status` 只能是那三种字面；
+ *  ③ **每条候选的 `rootId` 必须真的在 `roots` 里**（界面按根分组铺设，指向不存在根的候选没有
+ *     诚实的落点 ⇒ 判协议畸形，而不是悄悄丢掉它）；
+ *  ④ **每条根的 `count` 必须与该根下的候选条数逐字相等** —— 这是本契约独有的、也是最要紧的一条：
+ *     界面要显示"这个根几枚"，若 Host 报的数与它自己列的清单对不上，那就说明**其中半个是假的**；
+ *     此时**整次扫描失败**（由失败态 + 唯一错误码说出来）比铺一行对不上的数字诚实。
+ *     空列表**合法**（本机一枚三方技能都没有），它由 `empty` 态表达，不是畸形。
+ *     ★**`skipped` 同款的一条**：它是**数、不是列表**（非负安全整数，不接收数组）——被跳过的那些条目
+ *     **不进响应**：界面对它们什么也不做，列出来只会造出第二份真源。
+ * 另加两条有界约束：候选 `id` 去重（`id` 是 React key 与回传值，重复即协议 bug）、条数封顶。
+ *
+ * @param value - 响应 `data`。
+ * @returns `{roots, skills}`（顺序原样保留：根按根表序、候选按（根表序，根内 name）序）。
+ * @throws {EnterpriseLocalApiError} `ENT_LOCAL_RESPONSE_INVALID`：任一形状不满足。
+ */
+export function decodeEnterpriseThirdPartySkills(value: unknown): EnterpriseThirdPartySkills {
+  const row = record(value)
+  if (row === undefined || !hasExactKeys(row, ['roots', 'skills'])
+    || !Array.isArray(row['roots']) || row['roots'].length > THIRD_PARTY_ROOT_MAX
+    || !Array.isArray(row['skills']) || row['skills'].length > THIRD_PARTY_SKILL_MAX) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  const roots = row['roots'].map(decodeThirdPartyRoot)
+  const rootIds = new Set(roots.map(root => root.id))
+  const skills = row['skills'].map(decodeThirdPartySkill)
+  const seen = new Set<string>()
+  const counted = new Map<string, number>()
+  for (const skill of skills) {
+    if (!rootIds.has(skill.rootId) || seen.has(skill.id)) {
+      throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    seen.add(skill.id)
+    counted.set(skill.rootId, (counted.get(skill.rootId) ?? 0) + 1)
+  }
+  for (const root of roots) {
+    if (root.count !== (counted.get(root.id) ?? 0)) {
+      throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+    }
   }
   return { roots, skills }
 }

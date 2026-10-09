@@ -251,6 +251,11 @@
  *     ★**真机像素仍由 Lead 复量**：上面 WB 的读数是本机对那张截图的像素测量；"口径放宽之后本页
  *     真机上是否与 WB 同观感、是否真的不滚动"本层不冒充量过。
  *     模板内反引号计数仍为 **0**（本刀新增注释只用「」引号）。
+ *  * **口径 53（本刀）**：新增三块规则——① `.esc-card-meta` / `.esc-card-lock`（卡片元信息行与
+ *    "那枚【＋】为什么按不动"的行上可见原因；两者**缺席即不进 DOM**，另几档的渲染一字未变）；
+ *    ② `.esc-catalog-*`（企业技能维度内容区：标题/说明/状态/降级/空/重试/失败格）。卡片网格**复用**
+ *    `.esc-list-section`（与另几维同一份列模板与间距）、色值一律走既有 `--dsw-*` token
+ *    （**一个新 token 名都没加** ⇒ 审计 `--strict` 仍 `dead 0`）；本刀新增注释**零反引号**。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -741,6 +746,13 @@ const CSS = `
    （与下面那条标签行对齐），省略号落在卡片边缘。
    flex: none 与头行/页脚同一条纪律（见上面 .esc-card-header 那段）：任何超出都不许把它压扁。 */
 .esc-card-headdesc { margin: 3px 0 0; color: var(--dsw-alias-label-secondary); font-size: var(--esc-fs-xxs); line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; }
+/* ★**口径 53**：卡片元信息行（版本短号 / 大小 / 内含技能数）。
+   ★**缺席即整行不进 DOM**（取值口唯一：ResourceItem.meta）⇒ 广场/专家/连接器/精选那几档
+     的卡片渲染**一字未变**。单行截断 + title 兜住全文：它是元信息，长出来只会把卡片顶高。 */
+.esc-card-meta { margin: 0; color: var(--dsw-alias-label-tertiary); font-size: var(--esc-fs-xxxs); line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; }
+/* ★**口径 53**：未装技能卡那枚【＋】**按不动时**那句**行上可见**的原因
+   （产品宪法：禁用控件不许只挂一句 title）。它是可见文字、role="status"，不是悬浮说明。 */
+.esc-card-lock { margin: 0; color: var(--dsw-alias-label-tertiary); font-size: var(--esc-fs-xxxs); line-height: 1.5; flex: none; }
 /* ★**口径 39（用户裁决「标题和描述加一起要和图标中间对齐」）**：标签行版式的头行**垂直居中**。
    .esc-card-header 默认 align-items: stretch，而图标是定高 40px 的 img（stretch 对定高项无效 ⇒
    回落成 start）⇒ 头行比图标高时图标被钉在行首、看上去偏上（真机截图里就是"图标顶在标题上方"）。
@@ -842,6 +854,54 @@ const CSS = `
 .esc-scroll-loader { flex: none; height: 28px; display: flex; align-items: center; justify-content: center; color: var(--dsw-alias-label-tertiary); font-size: var(--esc-fs-xxs); }
 /* 空态插图（官方是 antd <Empty> 的默认插图；dsh 无 Empty 原语 ⇒ 用 token 画一张等价物，见 esc-aggregation.tsx）。 */
 .esc-empty-art { display: flex; align-items: center; justify-content: center; width: 64px; height: 64px; border-radius: var(--dsw-radius-lg, 12px); background: var(--dsw-alias-bg-skeleton); color: var(--dsw-alias-label-tertiary); }
+
+/* —— 口径 62：「本地三方」（本地三方 Agent 技能源）这一维度的内容区 ——
+   复用本页既有那几个排版角色（块间距/两级字色/错误提示），类名一律 esc-third-party-* 单层命名，
+   不新造 token（审计 --strict 会以 dead 抓住不存在的名字）。 */
+.esc-third-party { display: flex; flex-direction: column; gap: var(--esc-sp-lg); margin-top: var(--esc-sp-lg); }
+.esc-third-party-head { display: flex; flex-direction: column; gap: 6px; }
+.esc-third-party-title { margin: 0; font-size: var(--esc-fs-s); font-weight: 600; line-height: 20px; color: var(--dsw-alias-label-primary); }
+.esc-third-party-note { margin: 0; font-size: var(--esc-fs-xs); line-height: 20px; color: var(--dsw-alias-label-secondary); }
+.esc-third-party-status { margin: 0; font-size: var(--esc-fs-xs); line-height: 20px; color: var(--dsw-alias-label-secondary); }
+.esc-third-party-empty { margin: 0; font-size: var(--esc-fs-s); color: var(--dsw-alias-label-secondary); }
+.esc-third-party-roots { display: flex; flex-direction: column; gap: 4px; margin-top: var(--esc-sp-sm); }
+.esc-third-party-rootnote { margin: 0; font-size: var(--esc-fs-xxs); line-height: 18px; color: var(--dsw-alias-label-tertiary); }
+.esc-third-party-groups { display: flex; flex-direction: column; gap: var(--esc-sp-lg); }
+.esc-third-party-group { display: flex; flex-direction: column; gap: var(--esc-sp-sm); }
+.esc-third-party-grouphead { display: flex; align-items: center; gap: var(--esc-sp-sm); }
+.esc-third-party-grouptitle { margin: 0; font-size: var(--esc-fs-xs); font-weight: 600; line-height: 18px; color: var(--dsw-alias-label-primary); }
+.esc-third-party-grouptag { flex: none; font-size: var(--esc-fs-xxs); color: var(--dsw-alias-label-tertiary); }
+.esc-third-party-count { flex: none; font-size: var(--esc-fs-xxs); color: var(--dsw-alias-label-tertiary); }
+.esc-third-party-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.esc-third-party-row { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; border-top: 1px solid var(--dsw-alias-border-l1); }
+.esc-third-party-rowline { display: flex; align-items: flex-start; gap: var(--esc-sp-sm); }
+.esc-third-party-rowmain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.esc-third-party-name { font-size: var(--esc-fs-xs); font-weight: 500; line-height: 18px; color: var(--dsw-alias-label-primary); word-break: break-all; }
+.esc-third-party-desc { font-size: var(--esc-fs-xxs); line-height: 18px; color: var(--dsw-alias-label-secondary); word-break: break-all; }
+.esc-third-party-meta { font-size: var(--esc-fs-xxs); line-height: 18px; color: var(--dsw-alias-label-tertiary); word-break: break-all; }
+.esc-third-party-action { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; max-width: 200px; }
+.esc-third-party-lock { font-size: var(--esc-fs-xxs); line-height: 16px; color: var(--dsw-alias-label-tertiary); text-align: right; }
+.esc-third-party-retry { align-self: flex-start; }
+
+/* —— 口径 53：「企业技能」（企业中心注册的技能包）这一维度的内容区 ——
+   ★它与上面那一族**同一条手法**（复用本页既有那几个排版角色：块间距 / 两级字色 / 错误提示），
+     类名一律 esc-catalog-* 单层命名、不新造 token（审计 --strict 会以 dead 抓住不存在的名字）。
+   ★卡片网格**复用** .esc-list-section（与系统广场/团队广场同一份列模板与间距）——
+     这一维度的卡片与那几维**长得一样**（同一个按钮、同一套版式），不该长出第二套网格。
+   ★谁都不许在这里写死色值（本文件门禁有一条反向锁盯着六位色）。 */
+.esc-catalog { display: flex; flex-direction: column; gap: var(--esc-sp-lg); margin-top: var(--esc-sp-lg); }
+.esc-catalog-head { display: flex; flex-direction: column; gap: 6px; }
+.esc-catalog-title { margin: 0; font-size: var(--esc-fs-s); font-weight: 600; line-height: 20px; color: var(--dsw-alias-label-primary); }
+.esc-catalog-note { margin: 0; font-size: var(--esc-fs-xs); line-height: 20px; color: var(--dsw-alias-label-secondary); }
+.esc-catalog-status { margin: 0; font-size: var(--esc-fs-xs); line-height: 20px; color: var(--dsw-alias-label-secondary); }
+.esc-catalog-degraded { margin: 0; font-size: var(--esc-fs-xxs); line-height: 18px; color: var(--dsw-alias-label-tertiary); }
+.esc-catalog-empty { margin: 0; font-size: var(--esc-fs-s); color: var(--dsw-alias-label-secondary); }
+.esc-catalog-retry { align-self: flex-start; }
+/* 一张卡 + 它那一行失败提示（失败**只落在那一行**上，故卡与提示同处一格）。
+   ★flex: 1 让卡把这一格撑满：网格项是这一格而不是卡本身 ⇒ 卡的高度仍由内容决定、同排不参差。 */
+.esc-catalog-cell { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.esc-catalog-cell > .esc-card { flex: 1; }
+.esc-catalog-error { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 
 /* —— 首屏加载（官方那一态画的是 components/custom/Loading：居中的一枚转圈图标 + 「加载中...」，
    色走主色、字号 12、间距 8px）——原先是本页自造的六张骨架卡，口径 35 按官方换成这一枚。 */

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖本包 `local-api-decode` 的唯一错误类 `EnterpriseLocalApiError` 与 `esc-types` 的平台响应类型
- * [OUTPUT]: 对外提供 `createEnterpriseEscApi`（六个取数方法，签名与 NUWAX `services/{square,systemManage,workspace}` 里那六个函数**逐条同名同参**，外加一条信息性的 `escMockStatus` 与**一条委托出去**的 `installedSkills`；第二参数是本机只读取数面 `EnterpriseEscLocalReads`）、
+ * [OUTPUT]: 对外提供 `createEnterpriseEscApi`（六个平台取数方法，签名与 NUWAX `services/{square,systemManage,workspace}` 里那六个函数**逐条同名同参**，外加一条信息性的 `escMockStatus` 与**五条委托出去**的本机只读方法 `installedSkills`/`discoveredSkills`/`selfInstalledSkills`/`thirdPartySkills`/`installThirdPartySkill`/`skills`；第二参数是本机只读取数面 `EnterpriseEscLocalReads`）、
  *   路径常量 `ENTERPRISE_ESC_READ_LOCAL_PATH`、图片代理路径常量 `ENTERPRISE_ESC_IMAGE_LOCAL_PATH`、
  *   演示数据开关路径常量 `ENTERPRISE_ESC_MOCK_LOCAL_PATH`、
  *   图片地址改写器 `enterpriseEscImageSrc`、平台业务码归一器 `escPlatformErrorCode`/`escErrorCodeOf`、
@@ -30,6 +30,16 @@
  *     真源** = 宿主官方发现面）与 `selfInstalledSkills`（**只作来源/元信息**）。★`publishedSkillEnableList`
  *     这个**取数方法**保留（页面已无消费方；它是平台面镜像的一格、宿主只读闭集里仍列着那条端点，
  *     单独删 ui 这一半会让两张表不再一一对应 —— 理由写在该方法自己的注释里）。
+ *   ★**口径 62**：`EnterpriseEscLocalReads` 由三格扩成**五格**（加 `thirdPartySkills` /
+ *     `installThirdPartySkill`），`EnterpriseEscApi` 同步新增这两枚方法——技能页第三枚维度
+ *     「本地三方」（本地三方 Agent 技能源）的扫描与**复制安装**。★边界写清：那一格安装动作走的是
+ *     **同一份 `requestJson` 委托**（正文只有一枚从上次响应里原样回传的不透明 `id`，浏览器提供不了
+ *     任何新信息），与 `EnterpriseEscSkillPort` 那族"交文件字节 / 交包 id"的写入口**不是一回事**。
+ *   ★**口径 53（本刀）**：`EnterpriseEscLocalReads` 再收一格 `skills`（`GET /skills`，
+ *     `local-api.ts` 既有那一枚，"企业设置 → 技能"一直在用的同一个），`EnterpriseEscApi` 同步
+ *     新增 `skills`——技能页**第四枚**维度「企业技能」的目录面。★**安装那一半不进这一面**：
+ *     它走 `EnterpriseEscSkillPort.installSkill`（要动本机落盘与制品校验，是**写**），
+ *     混进只读面会让"esc 只读"这条不变式名存实亡（边界见 `EnterpriseEscLocalReads` 那段的说明）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -45,7 +55,9 @@ import { createEnterpriseLocalApi } from '../local-api.js'
 import type {
   EnterpriseDiscoveredSkills,
   EnterpriseInstalledSkill,
+  EnterpriseRuntimeSkill,
   EnterpriseSelfInstalledSkill,
+  EnterpriseThirdPartySkills,
 } from '../skill-api-decode.js'
 import type {
   EscCategoryNode,
@@ -267,6 +279,40 @@ export interface EnterpriseEscApi {
    */
   selfInstalledSkills(signal?: AbortSignal | undefined): Promise<readonly EnterpriseSelfInstalledSkill[]>
   /**
+   * ★**口径 62（本刀）**：**本地三方 Agent 技能源**的扫描（`GET /skills/third-party`）——本页第三枚
+   *   维度「本地三方」的内容区就铺它。
+   *
+   * ★它与上面那三格**不是同一族事实**：那三格答的是"**我这台 DSH** 里装了什么"（企业记录 / 自装记录 /
+   *   官方发现面），这一格答的是"**别人家的 Agent CLI 库里**有什么、能不能复制进来"。
+   *   两者唯一的交点是每条候选自己的 `status`（`installed` 就是"复制过来会撞上已有技能"），
+   *   而这枚状态是**宿主算好的**——界面只翻译，绝不自己再算一遍。
+   * ★它**没有 `path`**：宿主绝对路径不进浏览器（冻结契约 §3.2）。每条候选只带一枚不透明 `id`，
+   *   界面在安装时把它原样回传（见下一条）。
+   */
+  thirdPartySkills(signal?: AbortSignal | undefined): Promise<EnterpriseThirdPartySkills>
+  /**
+   * ★**口径 62（本刀）**：把一条本地三方候选**复制**进本机 DSH 的技能根
+   *   （`POST /skills/third-party/install`，正文关闭键集恰好 `{path}`）。
+   *
+   * ★`path` 只可能是 `thirdPartySkills()` 那次投影里给过的那枚 `id`——界面把它当**不透明值**
+   *   原样回传（Host 侧再 `realpath` + 在本次候选集里逐字比对）。**界面绝不拼路径**：这条不变式
+   *   在类型层就成立（响应形状里没有 path 可拼），门禁另有一条源码级反向锁盯着它。
+   * ★响应（自装清单）**只用来念一句结果**，界面不拿它改状态：真值靠**重新扫描**（不乐观切换）。
+   */
+  installThirdPartySkill(path: string, signal?: AbortSignal | undefined): Promise<readonly EnterpriseSelfInstalledSkill[]>
+  /**
+   * ★**口径 53（本刀）**：**企业中心注册的技能包目录**（`GET /skills`）——技能页第四枚维度
+   *   「企业技能」的**唯一**数据面。
+   *
+   * ★为什么它进这条**只读**面、而不是新造一条路由：`local-api.ts` 早就有这一枚
+   *   （`skills`：同源 GET、严格解码 `decodeEnterpriseSkills`），「企业设置 → 技能」那一页
+   *   一直在用它。本页只是**再读一次同一份**——两颗页面各读一次，比造第二份缓存更简单也更不会漂。
+   * ★它与本面的 `discoveredSkills` **不是一件事**：那一格答的是"本机磁盘上真的装着什么"，
+   *   这一格答的是"企业中心**发布了什么**、能不能装"；两件事的交点是每条的 `id`（= 已装清单的
+   *   `packageId`），口径 53 的已装判定正是用这枚键**精确命中**。
+   */
+  skills(signal?: AbortSignal | undefined): Promise<readonly EnterpriseRuntimeSkill[]>
+  /**
    * ★**本刀新增**：「精选技能」那一行的取数（`POST /api/system/display/recommend/list`，
    * `recType=Official` + `targetType=Skill`）。
    *
@@ -305,10 +351,21 @@ export interface EnterpriseEscMockStatus {
  *   `selfInstalledSkills` 降级为**来源/元信息**（版本号 / 校验和 / 卸载用的中心包 id）。
  *   ★`selfInstalledSkills` 进这一面之后，esc 的两条只读真源（发现面 + 两份元信息）走的是
  *   **同一条** `requestJson`，不再有"从哪读"的分叉（写入口仍只在 `EnterpriseEscSkillPort`）。
+ * ★**口径 62（本刀）**：再收两格 `thirdPartySkills` / `installThirdPartySkill`——第三枚维度
+ *   「本地三方」的扫描与**复制安装**。★这里第一次出现"只读面里带一个**写**动作"的形态，
+ *   故把边界写清：它**不是** `EnterpriseEscSkillPort` 那种"本机导入/卸载"写入口（那条要求浏览器
+ *   交上文件字节或包 id），而是**同一条只读路由族里的一个动作**（正文只有一枚从上次响应里
+ *   原样回传的不透明 `id`，浏览器提供不了任何新信息、也拼不出任何路径）。它与既有通路二
+ *   （`system-search`/`adopt`）**语义不同**：那条是"只登记"，这条是"复制进来"。
+ * ★**口径 53（本刀）**：再收一格 `skills`——技能页第四枚维度「企业技能」的目录面
+ *   （`GET /skills`，`local-api.ts` 既有那一枚，"企业设置 → 技能"一直在用的同一个）。
+ *   ★相应地：**安装**那一半`installSkill`**不进**这一面 —— 它走 `EnterpriseEscSkillPort`
+ *     （见 `esc-types.ts`）：那是一条**写**（要动本机落盘与制品校验），与 `thirdPartySkills` 那条
+ *     "只回传一枚不透明 id"的动作**不是一回事**，混进只读面会让"esc 只读"这条不变式名存实亡。
  */
 export type EnterpriseEscLocalReads = Pick<
   EnterpriseLocalApi,
-  'installedSkills' | 'selfInstalledSkills' | 'discoveredSkills'
+  'installedSkills' | 'selfInstalledSkills' | 'discoveredSkills' | 'thirdPartySkills' | 'installThirdPartySkill' | 'skills'
 >
 
 /**
@@ -436,6 +493,27 @@ export function createEnterpriseEscApi(
      */
     selfInstalledSkills: async signal =>
       localReads.selfInstalledSkills(signal ?? new AbortController().signal),
+    /**
+     * ★**口径 62（本刀）**：本地三方扫描与复制安装 —— 与上面三格**同一份委托**（同一个
+     * `localReads`，也就是 `local-api.ts` 那唯一一份 `requestJson`）。
+     *
+     * 为什么连"安装"这个动作也走这条只读面：它**不携带任何浏览器侧的新信息**（正文只有一枚
+     * 从上次响应里原样回传的不透明 `id`），与 `EnterpriseEscSkillPort` 那族"浏览器交文件字节 /
+     * 交包 id"的写入口不是一回事 —— 后者要动本机落盘与制品校验，故仍留在独立端口上。
+     * `signal` 缺席时给一枚不会被 abort 的信号（与上面三格逐字同一行写法）。
+     */
+    thirdPartySkills: async signal =>
+      localReads.thirdPartySkills(signal ?? new AbortController().signal),
+    installThirdPartySkill: async (path, signal) =>
+      localReads.installThirdPartySkill(path, signal ?? new AbortController().signal),
+    /**
+     * ★**口径 53（本刀）**：企业技能目录（`GET /skills`）—— 与上面几格**同一份委托**
+     *   （同一个 `localReads`，也就是 `local-api.ts` 那唯一一份 `requestJson` + 严格解码器）。
+     *
+     * ★为什么是"委托"而不是在这里 `fetch().json()`：口径 47 那个 bug 的**全部教训**就是
+     *   "同一件事的第二份实现必然漂"——这一条读的是同一份信封、同一个解码器，故一行都不许自己拆。
+     */
+    skills: async signal => localReads.skills(signal ?? new AbortController().signal),
     // ★「精选」那一行（用户裁决：专家页与技能页同一套逻辑，只有 targetType 不同）。
     //   pageNo/pageSize/recType 三格在本方法里封死；targetType 由调用方给（Agent / Skill 两档）。
     officialRecommended: async (targetType, signal) =>

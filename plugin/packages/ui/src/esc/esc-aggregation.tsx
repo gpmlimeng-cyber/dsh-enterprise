@@ -1,5 +1,7 @@
 /**
- * [INPUT]: 依赖 React 的 hook 原语、官方原语 `Button`、`esc-api` 的取数面、`esc-categories`/`esc-list` 两个数据 hook、`esc-card`/`esc-toolbar`/`esc-style` 的展示件与 `esc-copy` 的文案
+ * [INPUT]: 依赖 React 的 hook 原语、官方原语 `Button`、`esc-api` 的取数面、`esc-categories`/`esc-list` 两个数据 hook、
+ *   `esc-card`/`esc-toolbar`/`esc-style`/`esc-third-party-list`/`esc-catalog-list` 的展示件、`esc-catalog` 的纯投影、
+ *   `skill-market` 的**唯一**取数源工厂（口径 53 复用）与 `esc-copy` 的文案
  * [OUTPUT]: 对外提供 `EnterpriseEscAggregation`——工具栏 + 卡片网格 + 触底加载 + 三态（骨架/失败/空）
  * [POS]: esc 页面的**内容区**，移植自 NUWAX `ResourceAggregation/index.tsx`（831 行）里**本刀范围内**的那部分。
  *   ★留下了什么：主 tab 与二级分类状态、搜索 400ms 防抖、团队空间维度的两种寻址（具体空间 `spaceId` / 「全部」
@@ -47,28 +49,98 @@
  *   ★**用户裁决（读不到 ⇒ 0）**：顶栏计数读不到时，本层**照旧**把 `installedCount: undefined` +
  *   `installedCountFailed: true` 交上去（**计数来源与请求次数/时机一字未动**），由工具栏把数字位画成
  *   `(0)` 并在 title 里说明"这是暂定值"——本层不写假数、不吞失败，也不新增请求。
+ *   ★**口径 62（本刀）**：技能页第三枚维度「本地三方」（本地三方 Agent 技能源）——
+ *     本层持**一份**扫描真值（`api.thirdPartySkills`）与选中的来源根：为什么提到这一层而不在内容区里取
+ *     ——**chip 行住在工具栏、候选列表住在内容区**，两者必须认同**同一份**真值与**同一枚**
+ *     选中 key（否则就是“子组件 fetch → 回调 setState → 父组件重渲染 → 子组件重建取数源”那种自激）；
+ *     chip 行的投影与过滤走 `esc-third-party.ts` + `esc-sub-tabs.ts` 两份**纯函数**（本层只接线）；
+ *     内容区那一块只管“一次一条在途”的安装动作（成功后重扫本维度 + **复用**口径 46 那枚 `installedRefreshToken`）。
  *   ★**口径 54（本刀）**：「已安装」真源换成**官方发现面**（`api.discoveredSkills()`）—— 顶栏计数与
  *     广场/精选卡片的已装判定键由**同一处纯投影** `installedSnapshotFacts(snapshot)` 给出（`count` /
  *     `names` / `discovering` 三件事实同源，这是"计数与列表说的是同一件事"唯一可被机器判据证明的形态）；
  *     两份老记录**退出计数链**（降级为子页的来源/元信息）。三态纪律保留，`complete === false` 是第四态。
+ *   ★**口径 53（本刀）**：技能页**第四枚**维度「企业技能」——本层持**一份**目录真值
+ *     （`createEnterpriseSkillListSource`，与「企业设置 → 技能」那页**同一个工厂**，不新造取数器/路由/解码器）
+ *     与选中的二级分类：为什么提到这一层而不在内容区里取 —— 与「本地三方」**逐条同因**
+ *     （**chip 行住在工具栏、卡片住在内容区**，两者必须认同同一份真值与同一枚选中 key，
+ *     否则就是"子组件 fetch → 回调 setState → 父组件重渲染 → 子组件重建取数源"那种自激）；
+ *     chip 行的投影走 `esc-catalog.ts` 的 `enterpriseCatalogSubChips`（**取响应自己的 `category`**）
+ *     + `esc-sub-tabs.ts` 那份通用机制；内容区那一支（`esc-catalog-list.tsx`）只管画与发动作
+ *     （**真的能装**：写入口是企业技能端口上那枚 `installSkill`，成功以 Host 回传的最新清单为准，
+ *     并**复用**口径 46/62 那枚 `installedRefreshToken` 请顶栏计数重读）。
+ *   ★**口径 64（本刀）**：技能页**第一枚**维度「系统广场」那批 NUWAX 已发布技能的【＋】**真的接上**——
+ *     终态由 `esc-system.ts` 的纯投影 `escSystemInstallPlan` 给（七档：可点 / 本枚在途 / 被别的在途挡住 /
+ *     记录缺安装坐标 / 发布者不允许复制 / 需要付费 / 端口缺席），写入口是技能端口上**并列**的那一枚
+ *     `installPublishedSkill`（`packageId` 那条路一字未动，两条路各只有一个调用点）；
+ *     本层持三件状态（在途那一枚 / 失败落在哪一行 / 刚成功那一句），成功只把 Host 回传清单里的名字
+ *     **并进**已装集合再**复用同一枚** `onInstalledRefresh` 请官方发现面重读（**不乐观翻态**）。
+ *   ★**本刀（S5a：技能卡「更多」里的两个本机管理动作）**：本层多持**四件状态**——本机自装清单真值
+ *     （`GET /skills/self-installed`，**可用性判据的唯一来源**，随既有的 `installedRefreshToken` 一起重读）、
+ *     在途那一枚（`name` + 是哪枚动作）、失败那一行（`name` + 稳定码 + 是哪枚动作）、成功那一句；
+ *     唯一计划工厂 `moreOf`（纯投影 `escSkillMorePlan`）把「这一枚能不能卸 / 能不能打开文件夹」
+ *     交给**广场网格与精选行这两处**（同一个函数 ⇒ 不可能一处画得出、一处画不出）。
+ *     成功以 Host 回执为准（卸载回执里的 `skills` 覆盖那份清单）+ **复用同一枚** `onInstalledRefresh`；
+ *     自装清单读不到时不静默（出一句 `role="status"` 的降级交代）。
+ *   ★**本刀（S5b：技能卡那枚「去试试」真的能用）**：本层再多**三件状态**（在途那一枚技能名 / 失败那一枚 +
+ *     稳定码 / 刚办成那一句）与**一个计划工厂** `tryOf`（纯投影 `enterpriseEscSkillTryPlan`，见 `esc-skill-try.ts`）：
+ *     它把「这一枚能不能试 / 为什么不能试 / 在途写什么」交给**广场网格与精选行这两处**（同一个函数）。
+ *     写入口是技能端口上那格 `fillSkillTryDraft`（`client.tsx` 接在**同一枚** `createEnterprisePresetLauncher`
+ *     上：跳新会话 + 写输入框、**不发送**）。一次一条只禁**正在跑的那一枚**（不占本机资源、不抢工作区）；
+ *     成功只留一句如实交代（**不开新页面**、也**不宣称已发送**），失败出唯一提示件 + 稳定码
+ *     `ENT_SKILL_TRY_LAUNCH_FAILED`（落在**这一枚卡片**上；与「更多」那两枚共用一个失败位）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import { Inbox, LoaderCircle } from 'lucide-react'
-import { createElement, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createElement, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import type { EnterpriseEscApi } from './esc-api.js'
+import { enterpriseLocalErrorCode } from '../local-api.js'
 import { EnterpriseEscCard } from './esc-card.js'
 import { useEnterpriseEscCategories } from './esc-categories.js'
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from './esc-copy.js'
 import { useEnterpriseEscResourceList } from './esc-list.js'
-import { ENTERPRISE_ESC_DRAFT_FAILED_CODE, enterpriseErrorMessage, enterpriseErrorRetryable } from '../error-messages.js'
+import { ENTERPRISE_ESC_DRAFT_FAILED_CODE, ENTERPRISE_ESC_SKILL_TRY_FAILED_CODE, enterpriseErrorAction, enterpriseErrorMessage, enterpriseErrorRetryable } from '../error-messages.js'
 import { EnterpriseErrorNotice } from '../error-notice.js'
 import { EnterpriseEscFeatured } from './esc-featured.js'
 import { EnterpriseEscResourceTabs } from './esc-resource-tabs.js'
 import { EnterpriseEscToolbar } from './esc-toolbar.js'
+import { EnterpriseEscThirdPartyList } from './esc-third-party-list.js'
+import { createEnterpriseThirdPartyInstaller } from './esc-third-party-install.js'
+import { enterpriseThirdPartyInstalledText, enterpriseThirdPartySubChips } from './esc-third-party.js'
+import { EnterpriseEscCatalog } from './esc-catalog-list.js'
+import { enterpriseCatalogSubChips } from './esc-catalog.js'
+import { EnterpriseEscSystemInstallFailure } from './esc-system-list.js'
+import {
+  ENTERPRISE_ESC_SYSTEM_INSTALL_TIMEOUT_MS,
+  enterpriseEscSystemCardInstall,
+  enterpriseEscSystemInstalledNames,
+  enterpriseEscSystemInstalledText,
+  escSystemInstallPlan,
+} from './esc-system.js'
+import {
+  ENTERPRISE_ESC_SKILL_MORE_TIMEOUT_MS,
+  enterpriseEscSkillMorePlan,
+  enterpriseEscSkillMoreRevealedText,
+  enterpriseEscSkillMoreUninstalledText,
+  type EnterpriseEscSkillMoreAction,
+  type EnterpriseEscSkillMoreFailure,
+  type EnterpriseEscSkillMorePending,
+} from './esc-skill-more.js'
+import {
+  enterpriseEscSkillTryFilledText,
+  enterpriseEscSkillTryPlan,
+} from './esc-skill-try.js'
+import type { EscCardMore } from './esc-more-menu.js'
+import type { EscCardTryNow } from './esc-card.js'
+import { ENTERPRISE_ESC_SUB_TAB_ALL_KEY, enterpriseEscSubTabFilter, enterpriseEscSubTabs } from './esc-sub-tabs.js'
+import type { EnterpriseListState } from '../list-state.js'
+import type { EnterpriseSelfInstalledSkill } from '../skill-api-decode.js'
+import type { EnterpriseThirdPartySkills } from '../skill-api-decode.js'
+import type { EnterpriseSelfInstalledUninstall } from '../skill-api-decode.js'
 import { EnterpriseSkillImportDialog } from '../skill-import-dialog.js'
 import { useEnterpriseSkillImportQueue } from '../skill-import-port.js'
+import { createEnterpriseSkillListSource, type EnterpriseSkillListPayload } from '../skill-market.js'
 import type {
   EnterpriseEscAddSkillLock,
   EnterpriseEscDraftKind,
@@ -463,6 +535,394 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
   const [skillImportOpen, setSkillImportOpen] = useState(false)
 
   /**
+   * ★**口径 62**：第三枚维度「本地三方」的**重扫令牌**（点【重试】/【重新扫描】只是把它 +1）。
+   *
+   * ★与 `installedRefreshToken` 同一条手法：**令牌变化 = 一次新请求**（下面那个子组件按它重建取数源），
+   *   不是"重画一下"。失败态那枚【重试】与就绪态那枚【重新扫描】**共用这一枚令牌**——两处都是
+   *   "再发一条请求"，没有第二种语义，故不许各造一枚（那样两处就会漂成"一处真重发、一处只重画"）。
+   */
+  const [thirdPartyAttempt, setThirdPartyAttempt] = useState(0)
+  /** 重新扫描本维度（**真的**再发一次请求；与上面那枚令牌同一个出口）。 */
+  const onReloadThirdParty = useCallback((): void => {
+    setThirdPartyAttempt(current => current + 1)
+  }, [])
+  /** 装好一枚之后请「已安装」计数重读——★**复用**口径 46 那一枚既有的 refresh token，不造第二个。 */
+  const onInstalledRefresh = useCallback((): void => {
+    setInstalledRefreshToken(token => token + 1)
+  }, [])
+
+  /**
+   * ★**口径 64（本刀）**：**系统广场**那批 NUWAX 已发布技能的一枚【＋】——三件状态 + 唯一的执行路。
+   *
+   * ★**为什么这三件状态住在这里、而不是内容区某个子组件里**：卡片网格就是本层直接铺的
+   *   （系统广场是平台列表，与触底加载/四态同一条 data flow），故"哪一枚在途、失败落在哪一行"
+   *   只能与那份列表同生共死；抽一个子组件出来反而要把整份列表转交出去。
+   * ★**三条动作纪律**（与口径 46/53/62 那三条通路逐条对齐）：
+   *   ① **一次一条**：`systemPending` 在场时第二次点击**直接返回**（那一条请求一条都不发），
+   *      且**其余每一枚【＋】随之禁用并各自写明原因**（纯投影 `escSystemInstallPlan` 的 `blocked` 档，
+   *      不是只把当前那枚灰掉——否则别的按钮看着能点却什么都不会发生）；
+   *   ② **不乐观翻态**：成功时**只**把 Host 回传那份清单里的名字**并进**已装集合
+   *      （`enterpriseEscSystemInstalledNames`：每一个名字都出自宿主那一次回执，不是我们自己猜的），
+   *      随后**复用**那一枚既有的 `onInstalledRefresh` 请官方发现面重读（真值最终仍由它说）；
+   *      失败**一格都不翻**，只把稳定码落在那一行上；
+   *   ③ **失败不吞**：失败走**唯一**提示组件 + 稳定码（`EnterpriseEscSystemInstallFailure`），
+   *      与"平台目录读不到"（`error`）两件事互不覆盖。
+   */
+  const [systemPending, setSystemPending] = useState<{ readonly id: number; readonly name: string } | undefined>(undefined)
+  const [systemError, setSystemError] = useState<{ readonly id: number; readonly code: string } | undefined>(undefined)
+  const [systemNotice, setSystemNotice] = useState<string | undefined>(undefined)
+  /**
+   * 「系统广场技能安装」这一枚写入口（判据是**端口在不在场**：缺席 ⇒ 那批【＋】禁用 +
+   * 行上可见写明原因，绝不画一枚点了没反应的按钮）。★它与「企业技能」那一枚是**两格**
+   * （坐标 / 制品 / 响应三件全不同，见 `esc-types.ts` 的长注释），本层只是各自原样转交。
+   */
+  const installPublishedSkill = skillPort?.installPublishedSkill
+  /**
+   * 发起一次安装（**界面上只有系统广场那些技能卡的【＋】与失败那一行的【重试】会调它**）。
+   *
+   * ★这里没有第二个 `fetch`、没有第二个解码器：动作原样交给注入的 `installPublishedSkill`
+   *   （它内部就是 `local-api.ts` 的 `requestJson('/skills/published/install', …)` + 既有严格解码器）。
+   * ★被"一次一条"挡住时直接返回（**一条请求都不发**）——原因已经在屏幕上（正在装的那一枚写着
+   *   「安装中…」，其余每一枚下面写着"另一枚技能正在安装"）。
+   */
+  const runSystemInstall = useCallback((targetId: number, name: string): void => {
+    if (systemPending !== undefined) return
+    if (installPublishedSkill === undefined) return
+    setSystemPending({ id: targetId, name })
+    setSystemError(undefined)
+    setSystemNotice(undefined)
+    const signal = AbortSignal.timeout(ENTERPRISE_ESC_SYSTEM_INSTALL_TIMEOUT_MS)
+    void installPublishedSkill(targetId, signal).then(
+      (next) => {
+        // ★以 Host 回传的清单为准（**并进**，不替换：那份自装清单只是官方发现面的一个子集）。
+        setInstalledIds(previous => new Set([...previous, ...enterpriseEscSystemInstalledNames(next)]))
+        setSystemNotice(enterpriseEscSystemInstalledText(name))
+        // ★同一枚 refresh token（聚合层那枚）：装了东西就该让顶栏计数重数一遍。
+        onInstalledRefresh()
+      },
+      (error: unknown) => {
+        setSystemError({ id: targetId, code: enterpriseLocalErrorCode(error) })
+      },
+    ).finally(() => { setSystemPending(undefined) })
+  }, [systemPending, installPublishedSkill, onInstalledRefresh])
+
+  /**
+   * ★**本刀（S5a）**：技能卡「更多」里那两枚本机管理动作（卸载 / 打开所在文件夹）的**四件状态**。
+   *
+   * ★**为什么它们住在这一层**（与上面 systemPending 那条同因）：卡片网格就是本层直接铺的
+   *   （系统广场是平台列表），而"哪一枚在途、失败落在哪一行"必须与那份列表同生共死；
+   *   另一处消费点是**精选行**（同一枚卡片、同一份真值，见下面 `moreOf` 那段），
+   *   两处必须认同**同一个**在途事实 —— 抽到子组件里就得分两份状态，那正是"同一枚技能两处不一致"的来源。
+   * ★**四件**：自装清单真值（**可用性判据的唯一来源**，来自 `GET /skills/self-installed`）、
+   *   在途那一枚（`name` + 是哪枚动作）、失败那一行（`name` + 稳定码 + 是哪枚动作）、成功那一句。
+   */
+  const [selfInstalled, setSelfInstalled] = useState<readonly EnterpriseSelfInstalledSkill[]>([])
+  /** 自装清单这次没读到（稳定码）：**必须说出来**——否则"每张卡都没有管理入口"会被读成"本机什么都没装"。 */
+  const [selfInstalledCode, setSelfInstalledCode] = useState<string | undefined>(undefined)
+  const [morePending, setMorePending] = useState<EnterpriseEscSkillMorePending | undefined>(undefined)
+  const [moreError, setMoreError] = useState<EnterpriseEscSkillMoreFailure | undefined>(undefined)
+  const [moreNotice, setMoreNotice] = useState<string | undefined>(undefined)
+  /**
+   * ★**本刀（S5b）**：技能卡那枚「去试试」的三件状态（与上面那三格**并列**、同一条纪律）。
+   *
+   * 与 `morePending` 那一组的唯一差别是**在途只可能有一枚技能名**（那枚按钮自己禁用即可，
+   * 不必把全场按钮连带禁用）：这件事不占本机资源、也不与别人抢工作区。
+   */
+  const [tryPending, setTryPending] = useState<string | undefined>(undefined)
+  const [tryError, setTryError] = useState<{ readonly name: string; readonly code: string } | undefined>(undefined)
+  const [tryNotice, setTryNotice] = useState<string | undefined>(undefined)
+  /**
+   * 自装清单那一趟读（**可用性判据的来源**）。
+   *
+   * ★三条纪律与上面"官方发现面"那一趟逐条对齐：
+   *   ① **只有技能页读**（专家/连接器页不显示那两枚动作，读了就是白白发一条请求）；
+   *   ② **`installedRefreshToken` 变化就重读**——本刀卸载成功后触发的正是**同一枚**令牌，
+   *      于是"顶栏计数"与"这张卡的「更多」还在不在"由**同一次**刷新一起收敛（不另造第二枚令牌）；
+   *   ③ 读不到**不回落成空清单就算数**：置 `selfInstalledCode` 让界面如实说一句（人话 + 下一步 + 稳定码），
+   *      而不是让员工对着一个"没有管理入口"的页面猜。
+   * ★`api.selfInstalledSkills` 就是那条既有只读路由（`EnterpriseEscApi` 上的委托读，不是新接口）。
+   */
+  useEffect(() => {
+    if (resourceType !== 'skill') return undefined
+    const controller = new AbortController()
+    setSelfInstalled([])
+    setSelfInstalledCode(undefined)
+    void api.selfInstalledSkills(controller.signal).then(
+      (records) => {
+        if (controller.signal.aborted) return
+        setSelfInstalled(records)
+      },
+      (error: unknown) => {
+        if (controller.signal.aborted) return
+        // ★失败**不抛给整页**（自装清单是次级取数：它读不到只该让那两枚动作缺席，不该拖垮目录），
+        //   但**必须说出来**（下面那行 `role="status"`）——这就是本仓"降级必须可见"的口径。
+        setSelfInstalledCode(enterpriseLocalErrorCode(error))
+      },
+    )
+    return () => { controller.abort() }
+  }, [api, resourceType, installedRefreshToken])
+  /**
+   * 两枚动作的写入口（判据是**端口在不在场**：缺席 ⇒ 那一行**不画**，见 `esc-skill-more.ts` 的计划投影）。
+   *
+   * ★**入参只有技能目录名**：界面不拼路径、不挑记录、不加工——归属判据的权威在宿主
+   *   （`local-api.ts` 那两条 exact 路由，正文关闭键集恰好 `{name}`）。
+   */
+  const uninstallSelfInstalledSkill = skillPort?.uninstallSelfInstalledSkill
+  const revealSelfInstalledSkill = skillPort?.revealSelfInstalledSkill
+  /**
+   * 一次本机管理动作的**公共起点**（两条共用）：在途闸 + 清掉上一轮的两句反馈。
+   *
+   * @returns `false` = 被"一次一条"挡下（**那一条请求一条都不发**，也不排队）。
+   */
+  const beginSkillMore = (action: EnterpriseEscSkillMoreAction, name: string): boolean => {
+    if (morePending !== undefined) return false
+    setMorePending({ name, action })
+    setMoreError(undefined)
+    setMoreNotice(undefined)
+    // ★**本刀（S5b）**：一张卡上同一时刻只说一件事——开始这两枚动作时也清掉「去试试」那两句反馈
+    //   （见 `esc-card.tsx` 的 `cardFailure`：两枚动作共用一个失败位）。
+    setTryError(undefined)
+    setTryNotice(undefined)
+    return true
+  }
+  /**
+   * **卸载**一枚自装技能（**破坏性**：界面上只有那枚下拉里、且过了二次确认的那一行会调它）。
+   *
+   * ★三条纪律（与上面「系统广场安装」那条逐条对齐）：
+   *   ① **不乐观改本地**：成功时把自装清单换成 **Host 回执里那份投影**（`result.skills`，卸载后的真值），
+   *      界面从不自己从清单里减去一枚、也不自己加减计数；
+   *   ② **成功后触发同一枚计数刷新**（`onInstalledRefresh` → 既有的 `installedRefreshToken`）：
+   *      顶栏「已安装(N)」与本页这份自装清单由**同一次**刷新一起收敛；
+   *   ③ **失败不吞**：只把稳定码落在**这一枚卡片**上（唯一提示组件），不动任何本地状态。
+   * ★**不中止在途**：那是一次**写**动作（宿主可能已经在删目录 / 已经改了记录），中止 fetch 不会撤销它，
+   *   只会让界面不知道结果 ⇒ 只挂一枚超时信号（与设置页那几枚同一条）。
+   */
+  const runUninstallSelfInstalled = useCallback((name: string): void => {
+    if (uninstallSelfInstalledSkill === undefined) return
+    if (!beginSkillMore('uninstall', name)) return
+    const signal = AbortSignal.timeout(ENTERPRISE_ESC_SKILL_MORE_TIMEOUT_MS)
+    void uninstallSelfInstalledSkill(name, signal).then(
+      (next: EnterpriseSelfInstalledUninstall) => {
+        // ★以 Host 回传的最新记录为准（不乐观改本地）：那份 `skills` 就是"卸完之后本机自装了什么"。
+        setSelfInstalled(next.skills)
+        setMoreNotice(enterpriseEscSkillMoreUninstalledText(name))
+        // ★同一枚 refresh token（聚合层那枚）：卸了东西就该让顶栏计数重数一遍。
+        onInstalledRefresh()
+      },
+      (error: unknown) => {
+        setMoreError({ name, action: 'uninstall', code: enterpriseLocalErrorCode(error) })
+      },
+    ).finally(() => { setMorePending(undefined) })
+  }, [morePending, uninstallSelfInstalledSkill, onInstalledRefresh])
+  /**
+   * **打开所在文件夹**（非破坏性、无确认，但**仍是异步动作**：在途禁用 + 失败如实上屏）。
+   *
+   * ★成功**不改任何本地状态**（宿主那一跳不改记录），只说一句"已经交出去了"；
+   *   失败（目录不在了 ⇒ 404、系统交接失败 ⇒ 503）走同一条失败落点。
+   */
+  const runRevealSelfInstalled = useCallback((name: string): void => {
+    if (revealSelfInstalledSkill === undefined) return
+    if (!beginSkillMore('open-folder', name)) return
+    const signal = AbortSignal.timeout(ENTERPRISE_ESC_SKILL_MORE_TIMEOUT_MS)
+    void revealSelfInstalledSkill(name, signal).then(
+      () => { setMoreNotice(enterpriseEscSkillMoreRevealedText(name)) },
+      (error: unknown) => {
+        setMoreError({ name, action: 'open-folder', code: enterpriseLocalErrorCode(error) })
+      },
+    ).finally(() => { setMorePending(undefined) })
+  }, [morePending, revealSelfInstalledSkill])
+  /**
+   * 某一枚技能 → 它的「更多」计划（**唯一构造点**：纯投影 `enterpriseEscSkillMorePlan`）。
+   *
+   * ★三处一起交给它：这份自装清单（**可用性判据只认 `names[]`**）、两条端口在不在场、在途与失败。
+   *   算出来的 `undefined` 就是"这一枚不画那枚 `⋯`"——系统广场网格与精选行**共用这一个函数**，
+   *   故同一枚技能在两处不可能一个画、一个不画（那是口径 43 明令要避免的"同一屏两种形态"）。
+   */
+  const moreOf = useCallback((name: string): EscCardMore | undefined => enterpriseEscSkillMorePlan({
+    selfInstalled,
+    name,
+    wired: {
+      uninstall: uninstallSelfInstalledSkill !== undefined,
+      reveal: revealSelfInstalledSkill !== undefined,
+    },
+    ...(morePending === undefined ? {} : { pending: morePending }),
+    ...(moreError === undefined ? {} : { failure: moreError }),
+    onUninstall: runUninstallSelfInstalled,
+    onReveal: runRevealSelfInstalled,
+  }), [selfInstalled, morePending, moreError, uninstallSelfInstalledSkill, revealSelfInstalledSkill, runUninstallSelfInstalled, runRevealSelfInstalled])
+
+  /**
+   * ★**本刀（S5b）**：技能卡那枚「去试试」的**唯一执行路**（三件状态见上面那三格）。
+   *
+   * ★**一次一条**：`tryPending` 在场时第二次点击**直接返回**（不排队、也不重入）；
+   *   其余每一枚的按钮**不会被连带禁用**（这件事不占任何本机资源、也不与别人抢工作区——
+   *   与安装/卸载那种"一次一条挡住全场"的语义刻意不同，故这里只禁用**正在跑的那一枚**）。
+   * ★**成功与失败都如实收束**：成功只留一句「已在新会话的输入框里填好…按发送即可」（**不开新页面**、
+   *   也不宣称已发送——我们只填不发送）；失败只记稳定码，落在**这一枚卡片**上（唯一提示组件）。
+   */
+  /**
+   * 那枚写入口（判据是**端口在不在场**：缺席 ⇒ 卡片上禁用 + 行上可见写明原因，见 `esc-skill-try.ts`）。
+   *
+   * ★它**不是**本层新造的机制：`client.tsx` 把它接在**同一个** `createEnterprisePresetLauncher(...)`
+   *   上（与技能页下拉那两项草稿同一枚构造器），故"打开会话 + 写草稿"在本仓仍然只有 `preset-launch.ts`
+   *   一处实现；本层只是把那句拼好的指令原样转交。
+   */
+  const fillSkillTryDraft = skillPort?.fillSkillTryDraft
+  /**
+   * 发起一次「去试试」（**界面上只有已装技能卡那枚按钮会调它**）。
+   *
+   * ★`draft` 是**计划层拼好的那句指令**（`enterpriseEscSkillTryPlan` 的 `onTry` 闭包带下来）——
+   *   本层与卡片都拿不到"第二处拼它"的机会，也就没有第二个文案真源。
+   * ★被"一次一条"挡住时直接返回（那一次**什么都不做**：按钮此刻已禁用并写着「正在把这句话填进…」）。
+   */
+  const runSkillTry = useCallback((name: string, draft: string): void => {
+    if (tryPending !== undefined) return
+    if (fillSkillTryDraft === undefined) return
+    setTryPending(name)
+    setTryError(undefined)
+    setTryNotice(undefined)
+    // 一张卡上同一时刻只说一件事：这一次开始时清掉那两枚本机管理动作的反馈（见 `esc-card.tsx` 的 `cardFailure`）。
+    setMoreError(undefined)
+    setMoreNotice(undefined)
+    void fillSkillTryDraft(draft).then(
+      (ok) => {
+        if (ok) setTryNotice(enterpriseEscSkillTryFilledText(name))
+        else setTryError({ name, code: ENTERPRISE_ESC_SKILL_TRY_FAILED_CODE })
+      },
+      // 端口抛错与返回 false 同一条收束（都是"这一级没走成"），绝不静默。
+      () => { setTryError({ name, code: ENTERPRISE_ESC_SKILL_TRY_FAILED_CODE }) },
+    ).finally(() => { setTryPending(undefined) })
+  }, [tryPending, fillSkillTryDraft])
+  /**
+   * 某一枚技能 → 它的「去试试」计划（**唯一构造点**：纯投影 `enterpriseEscSkillTryPlan`）。
+   *
+   * ★三处一起交给它：这一枚**装没装**（与卡片 `installed` 同源，同一把名字键）、**端口在不在场**、
+   *   在途与失败。算出来的计划**恒有值**（不可用是"禁用 + 写明原因"，不是"整枚不画"）。
+   * ★网格与精选行**共用这一个函数**（与 `moreOf` 同一条纪律）：同一枚技能在两处不可能一处能点、
+   *   一处不能点。
+   */
+  const tryOf = useCallback((name: string, installed: boolean): EscCardTryNow => enterpriseEscSkillTryPlan({
+    name,
+    installed,
+    wired: fillSkillTryDraft !== undefined,
+    ...(tryPending === name ? { pending: true } : {}),
+    ...(tryError !== undefined && tryError.name === name ? { failure: { code: tryError.code } } : {}),
+    onTry: (draft: string) => { runSkillTry(name, draft) },
+  }), [fillSkillTryDraft, tryPending, tryError, runSkillTry])
+
+  /**
+   * ★**口径 62（用户修正：二级 chip 行数据驱动）**：本维度的**取数与 chip 行**都住在**这一层**。
+   *
+   * ★为什么取数必须提到这一层（而不是留在内容区那个子组件里）：chip 行住在**工具栏**、候选列表住在
+   *   **内容区**，而"哪几枚 chip、选中的是哪一枚"必须与那一份响应**同源**。若取数留在内容区、chip 行
+   *   再由子组件回调上来，就成了"子组件 fetch → 回调 setState → 父组件重渲染 → 子组件重建 source"
+   *   那种**自激**形状（页面上表现为请求反复重发）。提到这一层之后：**一次扫描一份真值**，
+   *   工具栏与内容区都只是它的两个投影。
+   * ★`aliasOf` / `count === 0` 的根**不出 chip**（判据在 `enterpriseThirdPartySubChips` 那一处，
+   *   理由逐条写在它上面）；选中的那一枚**已经不在**这一排里时回落「全部」（判据在
+   *   `enterpriseEscSubTabs`）。两件事都是**纯投影**，故这里的代码只有"接线"。
+   */
+  const [thirdPartyState, setThirdPartyState] = useState<EnterpriseListState<EnterpriseThirdPartySkills>>({ kind: 'loading' })
+  /** 选中的来源根（`ENTERPRISE_ESC_SUB_TAB_ALL_KEY` = 全部）。切换资源类型/维度时复位。 */
+  const [thirdPartyRoot, setThirdPartyRoot] = useState<string>(ENTERPRISE_ESC_SUB_TAB_ALL_KEY)
+  const thirdPartyApi = api
+  useEffect(() => {
+    if (source !== 'third-party') return undefined
+    const controller = new AbortController()
+    /**
+     * ★重扫（`thirdPartyAttempt` 变化）时**不**回到加载态：上一次的真值继续铺着，结果到了再换
+     *   ——与本页"行上装/卸之后不整页闪"是同一条口径；首帧才出「正在扫描…」。
+     * ★失败**绝不回落空列表**：这里只记 `{kind:'failed', code}`（界面据此出失败态 + 真重发的重试）。
+     */
+    setThirdPartyState(previous =>
+      previous.kind === 'ready' || previous.kind === 'empty' ? previous : { kind: 'loading' })
+    void thirdPartyApi.thirdPartySkills(controller.signal).then(
+      (scanned) => {
+        if (controller.signal.aborted) return
+        setThirdPartyState(scanned.skills.length === 0 ? { kind: 'empty', value: scanned } : { kind: 'ready', value: scanned })
+      },
+      (error: unknown) => {
+        if (controller.signal.aborted) return
+        setThirdPartyState({ kind: 'failed', code: enterpriseLocalErrorCode(error) })
+      },
+    )
+    return () => { controller.abort() }
+  }, [source, thirdPartyAttempt, thirdPartyApi])
+  /**
+   * 换维度/换资源类型时把选中的来源根**复位**（否则会带着「上一维度选的那一枚」进新维度）。
+   * 判据取"离开这一维度"：只在 `source !== 'third-party'` 时清，进来时不动（同一会话内切走再切回
+   * 仍记得上次选的那一枚——那是我们自己的状态，不是从别处借来的）。
+   */
+  useEffect(() => {
+    if (source !== 'third-party') setThirdPartyRoot(ENTERPRISE_ESC_SUB_TAB_ALL_KEY)
+  }, [source, resourceType])
+  /** 这一维度的 chip 行（数据驱动）：全部 + 有技能、非别名的每一枚根。 */
+  const thirdPartyScan = thirdPartyState.kind === 'ready' || thirdPartyState.kind === 'empty' ? thirdPartyState.value : undefined
+  const thirdPartySubTabs = useMemo(
+    () => {
+      if (source !== 'third-party') return undefined
+      const chips = thirdPartyScan === undefined ? [] : enterpriseThirdPartySubChips(thirdPartyScan)
+      return enterpriseEscSubTabs({ chips, activeKey: thirdPartyRoot })
+    },
+    [source, thirdPartyScan, thirdPartyRoot],
+  )
+  /** 按选中的 chip 过滤候选（判据在 `esc-sub-tabs.ts` 那一份：选「全部」原样返回，不重建数组）。 */
+  const thirdPartySkills = useMemo(
+    () => thirdPartyScan === undefined
+      ? undefined
+      : enterpriseEscSubTabFilter(thirdPartyScan.skills, thirdPartySubTabs?.activeKey ?? ENTERPRISE_ESC_SUB_TAB_ALL_KEY, skill => skill.rootId),
+    [thirdPartyScan, thirdPartySubTabs],
+  )
+
+  /**
+   * ★**口径 53（本刀）**：第四枚维度「企业技能」的**取数源**——**复用**「企业设置 → 技能」那一页的
+   *   **同一个**工厂 `createEnterpriseSkillListSource`（不新造取数器、不新造路由、不新造解码器）。
+   *
+   * ★为什么它也要提到这一层（与上面「本地三方」逐条同因）：这一维度的**二级 chip 行住在工具栏**、
+   *   卡片住在内容区，两者必须认同**同一份**真值与**同一枚**选中的 key；若取数留在内容区、
+   *   再由子组件回调把 chip 交上去，就成了"子组件 fetch → 回调 setState → 父组件重渲染 →
+   *   子组件重建取数源"那种**自激**形状（页面上表现为请求反复重发）。
+   * ★它的两个输入都来自**这条结构性只读的 `api`**（`skills` = 中心发布的目录、`installedSkills` =
+   *   本机已装清单）：与设置页那一页逐字同源，本页只是**再读一次同一份**。
+   * ★`useSyncExternalStore` 订阅它（与设置页那一页同一条手法）：四态互斥、`retry()` 真重发。
+   */
+  const catalogSource = useMemo(
+    () => createEnterpriseSkillListSource({
+      skills: signal => api.skills(signal),
+      installedSkills: signal => api.installedSkills(signal),
+    }),
+    [api],
+  )
+  const catalogState = useSyncExternalStore(catalogSource.subscribe, catalogSource.getSnapshot, catalogSource.getSnapshot)
+  /**
+   * ★**只在进到这一维度时才发请求**（首帧与切走时一条都不发）。
+   *   `load()` 是幂等的（已在途 / 已有结果都不动），故反复进出一趟不会重复打平台。
+   */
+  useEffect(() => {
+    if (source !== 'catalog') return
+    catalogSource.load()
+  }, [source, catalogSource])
+  /** 选中的二级分类（`category` 取自响应本身；空串 = 全部）。切换资源类型/维度时复位。 */
+  const [catalogCategory, setCatalogCategory] = useState<string>(ENTERPRISE_ESC_SUB_TAB_ALL_KEY)
+  useEffect(() => {
+    if (source !== 'catalog') setCatalogCategory(ENTERPRISE_ESC_SUB_TAB_ALL_KEY)
+  }, [source, resourceType])
+  /** 这一维度的 chip 行（数据驱动）：全部 + 目录里真的出现过的每一个 `category`。 */
+  const catalogScan = catalogState.kind === 'ready' || catalogState.kind === 'empty' ? catalogState.value : undefined
+  const catalogSubTabs = useMemo(
+    () => {
+      if (source !== 'catalog') return undefined
+      const chips = catalogScan === undefined ? [] : enterpriseCatalogSubChips(catalogScan.items)
+      return enterpriseEscSubTabs({ chips, activeKey: catalogCategory })
+    },
+    [source, catalogScan, catalogCategory],
+  )
+  /** 这一维度那枚【刷新】的动作：失败态那枚【重试】与就绪/空态那枚【刷新】**共用**它（真重发）。 */
+  const onReloadCatalog = useCallback((): void => {
+    catalogSource.retry()
+  }, [catalogSource])
+
+  /**
    * ★**口径 49**：技能页那枚主按钮下拉的**开合态**与**预填失败态**。
    *
    * 为什么这两件事住在这里而不是工具栏里：`esc-toolbar.tsx` 是**纯投影**（不持 hook、可直调，
@@ -533,6 +993,18 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
               api,
               targetType: resourceType === 'skill' ? 'Skill' : 'Agent',
               installedSkillNames: resourceType === 'skill' ? installedIds : undefined,
+              /**
+               * ★**本刀（S5a）**：精选行的卡片与广场**同一枚卡片**（口径 43），故「更多」那两枚
+               * 本机管理动作也必须**同源**：把这个**同一个**计划工厂交下去（不是复制一份状态，
+               * 而是同一个 `moreOf`）——两处因此不可能一处画得出、一处画不出，也不可能同时跑两条动作。
+               */
+              ...(resourceType === 'skill' ? { moreOf } : {}),
+              /**
+               * ★**本刀（S5b）**：精选行那枚「去试试」的计划工厂——与 `moreOf` **同一条手法**：
+               * 交下去的正是**同一个** `tryOf`（不是复制一份状态），故精选行与广场网格在
+               * "这一枚能不能试"上不可能给出两个答案。
+               */
+              ...(resourceType === 'skill' ? { tryOf } : {}),
             })
           : undefined,
       resourceType,
@@ -550,6 +1022,17 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
       categories,
       activeCategory: category,
       onCategoryChange: setCategory,
+      // ★口径 62：本维度那一排**数据驱动**的 chip（全部 + 有技能的来源根）。缺席 ⇒ 工具栏逐字回到
+      //   后端分类那一支（专家/连接器页与另两枚维度都走它）。
+      //   ★口径 53：第四枚维度「企业技能」同一条手法（全部 + 目录里真的出现过的分类），
+      //     两者用**同一个** prop、**同一份** chip 机制 ⇒ 工具栏那一侧一个字都不用改。
+      ...(thirdPartySubTabs === undefined && catalogSubTabs === undefined
+        ? {}
+        : {
+            subTabs: thirdPartySubTabs !== undefined
+              ? { chips: thirdPartySubTabs.chips, activeKey: thirdPartySubTabs.activeKey, onSelect: setThirdPartyRoot }
+              : { chips: catalogSubTabs!.chips, activeKey: catalogSubTabs!.activeKey, onSelect: setCatalogCategory },
+          }),
       keyword: keywordInput,
       onKeywordChange: setKeywordInput,
       // 连接器页不展示"更多"入口（产品要求），专家/技能页保留
@@ -560,7 +1043,7 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
       // ★口径 47：那枚「已安装」的入口（切视图由页壳做）。
       onOpenInstalled,
       // ★口径 51：专家页那枚「我的专家」的入口（切视图由页壳做，本层只把它交上去）。
-      //   ★连接器页那枚「自定义连接器」**没有对应的一位**：本部署没有自定义连接器管理接口，
+      //   ★连接器页那枚「添加连接器」**没有对应的一位**：本部署没有添加连接器管理接口，
       //     全仓也没有任何调用方会传 `onCustomConnectors` ⇒ 那一页的按钮恒置灰 + 行上写明原因
       //     （这不是"忘了接线"，是"没有这条能力"，故不在这里编一个假端口）。
       onOpenMyExperts,
@@ -606,7 +1089,56 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
           code: ENTERPRISE_ESC_DRAFT_FAILED_CODE,
           prefix: draftFailureLabel,
         }),
-    signedOut === true
+    /**
+     * ★**口径 62**：「本地三方」维度下，右侧这三态（登录门 / 首屏加载 / 卡片网格-空态-失败行）
+     * **整段不渲染** —— 这一维度的内容由下面那一支 `EnterpriseEscThirdParty` 铺。
+     *
+     * ★为什么必须**整段**换掉而不是"叠在上面"：本维度**没有**平台列表可取（适配器表里没有它那一支
+     *   ⇒ `list` 恒空、`loading` 恒假、`error` 恒缺席），若照旧往下走一趟，页面上会出现
+     *   `EmptyBlock`（「暂无数据」）——那正是口径 62 明令禁止的"空又不加载又无错误"的空白态。
+     * ★判据取 `source === 'third-party'`（**不是**"列表为空"）：维度是唯一的事实，
+     *   列表空只是它的后果；按后果判会让将来任何一个空列表维度都掉进这一支。
+     */
+    source === 'third-party'
+      ? createElement(EnterpriseEscThirdParty, {
+          // ★真值与过滤都在**上面那一层**（chip 行住在工具栏，必须与候选列表同源）。
+          state: thirdPartyState,
+          /** 当前选中的来源根（空串 = 全部）；过滤发生在铺行那一层，四态投影拿的永远是整份真值。 */
+          selectedRoot: thirdPartySubTabs?.activeKey ?? ENTERPRISE_ESC_SUB_TAB_ALL_KEY,
+          api,
+          onReload: onReloadThirdParty,
+          // ★成功之后**同时**做两件事，且用的都是**既有**那两枚令牌：
+          //   ① `onReloadThirdParty`（重新扫描本维度，真值由 Host 说，界面不乐观切换）；
+          //   ② `onInstalledRefresh`（请「已安装」计数重读）—— 与口径 46 本地导入成功时用的是**同一枚**
+          //      refresh token（`installedRefreshToken`），**不新造第二个**：装了东西就该让计数重数一遍，
+          //      这件事在本页只有一条机制。
+          onRefresh: () => {
+            onReloadThirdParty()
+            onInstalledRefresh()
+          },
+        })
+      /**
+       * ★**口径 53（本刀）**：「企业技能」维度下，平台那三态（登录门 / 首屏加载 / 卡片网格-空态-失败行）
+       * **整段不渲染** —— 这一维度的内容由下面那一支 `EnterpriseEscCatalog` 铺。
+       *
+       * ★为什么必须**整段**换掉而不是"叠在上面"：本维度**没有**平台列表可取（适配器表里没有它那一支
+       *   ⇒ `list` 恒空、`loading` 恒假、`error` 恒缺席），若照旧往下走一趟，页面上会出现
+       *   `EmptyBlock`（「暂无数据」）——那正是"空又不加载又无错误"的空白态（口径 62 起本仓明令禁止）。
+       * ★判据取 `source === 'catalog'`（**不是**"列表为空"）：维度是唯一的事实，列表空只是它的后果。
+       * ★**取数源与 chip 行都在上面那一层**（同源），这一支只画 + 把动作交上去。
+       */
+      : source === 'catalog'
+      ? createElement(EnterpriseEscCatalog, {
+          state: catalogState,
+          keyword,
+          category: catalogSubTabs?.activeKey ?? ENTERPRISE_ESC_SUB_TAB_ALL_KEY,
+          skillPort,
+          onReload: onReloadCatalog,
+          // ★与「本地三方」那支**同一枚** refresh token（`installedRefreshToken`）：
+          //   装了东西就该让顶栏计数重数一遍，这件事在本页只有一条机制。
+          onInstalledRefresh,
+        })
+      : signedOut === true
       ? createElement(
           'div',
           { className: 'esc-gate' },
@@ -627,11 +1159,119 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
           ? createElement(
               'div',
               { className: 'esc-scroll esc-scroll-hidden', ref: containerRef, onScroll: handleScroll },
+              /**
+               * ★**口径 64**：刚装好一枚那句可见反馈（`role="status"`；下一次动作开始时清掉）。
+               * 落点复用既有 `.esc-catalog-status`（与另两枚维度的在途/成功交代同一套字号与颜色，
+               * **零新增 CSS 类**）；它铺在网格**之上**，故不会让卡片列位次平移。
+               */
+              systemNotice === undefined
+                ? null
+                : createElement('p', {
+                    className: 'esc-catalog-status',
+                    role: 'status',
+                    'data-esc-system-installed': 'true',
+                    children: systemNotice,
+                  }),
+              /**
+               * ★**本刀（S5a）**：那两枚本机管理动作的**成功交代**（「已卸载…」/「已打开…」）。
+               *
+               * 落点与上面那句同一条（`.esc-catalog-status` + `role="status"`，**零新增 CSS 类**）：
+               * 两条通路说的是同一类事情（"刚才那一下成了"），没有理由长出第二种版式。
+               * 可见性是这两枚动作的硬要求之一（卸载是破坏性的、打开文件夹是异步的）：
+               * 动作一成功就得有一句能读到的话，而不是只靠"卡片上的 `⋯` 忽然不见了"。
+               */
+              moreNotice === undefined
+                ? null
+                : createElement('p', {
+                    className: 'esc-catalog-status',
+                    role: 'status',
+                    'data-esc-skill-more-notice': 'true',
+                    children: moreNotice,
+                  }),
+              /**
+               * ★**本刀（S5b）**：「去试试」办成之后那句交代（「已在新会话的输入框里填好…按发送即可」）。
+               *
+               * 落点与上面几句同一条（`.esc-catalog-status` + `role="status"`，**零新增 CSS 类**）。
+               * ★为什么必须说出来：那一下的可见结果是**官方把主视图切到了新会话**（我们**不**自己开页面），
+               *   员工回到这一页时只看到按钮复原了；没有这句话，"刚才那一下到底成没成"就无从判断。
+               * ★措辞**如实**：只填不发送（`enterpriseEscSkillTryFilledText` 说清了这一件）。
+               */
+              tryNotice === undefined
+                ? null
+                : createElement('p', {
+                    className: 'esc-catalog-status',
+                    role: 'status',
+                    'data-esc-skill-try-notice': 'true',
+                    children: tryNotice,
+                  }),
+              /**
+               * ★**本刀（S5a）**：**本机自装清单读不到**时那句如实交代（降级必须可见）。
+               *
+               * ★为什么非说不可：那份清单是那两枚动作**唯一的可用性判据**，读不到 ⇒ 每张卡上都不会有
+               *   `⋯`。若静默，员工只会看到"这页没有本机管理入口"，而不会知道那是**取数失败**。
+               *   故按本仓既有口径出一句 `role="status"`（人话 + 下一步由唯一码表给，稳定码原样带上）。
+               * ★它**不拖垮整页**：目录与已装计数照旧（自装清单是次级取数），只是那两枚动作这次不可用。
+               */
+              selfInstalledCode === undefined
+                ? null
+                : createElement('p', {
+                    className: 'esc-catalog-degraded',
+                    role: 'status',
+                    'data-esc-skill-more-degraded': selfInstalledCode,
+                    children: `${enterpriseErrorMessage(selfInstalledCode)}下一步：${enterpriseErrorAction(selfInstalledCode)}`,
+                  }),
               createElement(
                 'div',
                 { className: 'esc-list-section' },
-                list.map(item =>
-                  createElement(EnterpriseEscCard, {
+                list.map((item) => {
+                  /**
+                   * ★**口径 64（本刀）**：**系统广场 × 技能**这一格才构造安装终态 ——
+                   * 专家（召唤）、连接器（连接/断开）两档与**团队空间**那枚维度都**不给**计划
+                   * （它们的动作不在本刀里；不给计划时卡片逐字回到改前那一态）。
+                   * ★计划是**纯投影**（`escSystemInstallPlan`）：能不能点、为什么不能点、在途写什么，
+                   * 全部在那一处判定，本层只接线（与口径 53 那条通路同一条分界）。
+                   */
+                  const plan = resourceType === 'skill' && source === 'system'
+                    ? escSystemInstallPlan({
+                        // 判据是**端口在不在场**，不是写死的 disabled。
+                        wired: installPublishedSkill !== undefined,
+                        ...(item.targetId === undefined ? {} : { targetId: item.targetId }),
+                        ...(item.allowCopy === undefined ? {} : { allowCopy: item.allowCopy }),
+                        paymentRequired: item.paymentRequired === true,
+                        name: item.name,
+                        ...(systemPending === undefined ? {} : { busy: systemPending.id }),
+                      })
+                    : undefined
+                  /**
+                   * ★**本刀（S5a）**：已装那一档那枚「更多」的计划（**唯一构造点** `moreOf`）。
+                   *
+                   * ★判据在纯投影里（`enterpriseEscSkillMorePlan`：这个名字在不在本机自装清单的
+                   *   `names[]` 里 + 端口在不在场）⇒ 算出来 `undefined` 就**连 `⋯` 都不画**：
+                   *   中心装下来的、官方内置的那批技能因此**没有卸载入口**（画了就是在暗示能卸）。
+                   * ★它**只在技能卡**上给（`showUse` 那一档才有这枚下拉）；维度取系统广场
+                   *   （团队空间那一支没有这枚动作，与安装计划同一条闸）。
+                   */
+                  const more = resourceType === 'skill' && source === 'system'
+                    ? moreOf(item.name)
+                    : undefined
+                  /**
+                   * ★**本刀（S5b）**：这一枚技能装没装（**与卡片 `installed` 同源**：同一个
+                   * `installedIds`、同一把名字键）。抽成局部量是**为了让它只算一次**——卡片那格与
+                   * 「去试试」计划必须拿到**同一个**布尔，否则会出现"卡片画着已装、按钮却说还没装"。
+                   */
+                  const skillInstalled = resourceType === 'skill' && installedIds.has(item.name)
+                  /**
+                   * ★**本刀（S5b）**：这一枚技能卡的「去试试」计划（**唯一构造点** `tryOf`）。
+                   *
+                   * ★与 `more` 那道闸**刻意不同**：这里**不按维度限定**（`resourceType === 'skill'`
+                   *   即可，系统广场 / 团队空间都算）——「去试试」不依赖任何本机管理路由，只要这枚技能
+                   *   **装在本机**就该能试；按维度藏起来只会留下"同一枚技能在别的维度点得动、在这里
+                   *   点不动"的第二种形态。
+                   * ★计划**恒有值**（不可用是"禁用 + 行上可见原因"，不是"整枚不画"）——故这里不做
+                   *   `undefined` 判断，直接交下去。
+                   */
+                  const tryNow = resourceType === 'skill' ? tryOf(item.name, skillInstalled) : undefined
+                  const card = createElement(EnterpriseEscCard, {
                     key: item.id,
                     item,
                     // 专家&专家团卡片图标裁圆（技能/连接器保持方形口径）
@@ -641,14 +1281,42 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
                     // ★本刀：技能卡按「这个技能在不在已装清单里」在两种动作形态间分流。
                     //   匹配键是**名字**（见上面那段实测纠正：packageId 与广场 id 不是一套坐标系）。
                     //   命中不到就按未装画「+」——宁可少给一次「更多」，也不谎称已装。
-                    installed: resourceType === 'skill' && installedIds.has(item.name),
+                    installed: skillInstalled,
                     // 底部那一行：★**口径 42** 起**专家卡也走标签行**（作者 + 三格统计，与技能卡同一行，
                     //   见 esc-card.tsx 的 tagRowLayout）⇒ 这一位现在只对**旧三层版式**生效：
                     //   连接器靠它不画那条空页脚（技能卡本就靠标签行、不看它）。
                     showStats: resourceType === 'expert',
                     showConnect: resourceType === 'connector',
-                  }),
-                ),
+                    // ★口径 64：终态铺成卡片入参（可点那一档**才**带写入口 ⇒ 其余六档连 onClick 都没有）。
+                    ...(plan === undefined
+                      ? {}
+                      : { install: enterpriseEscSystemCardInstall(plan, targetId => { runSystemInstall(targetId, item.name) }) }),
+                    // ★本刀（S5a）：已装那一档那枚「更多」的计划（算不出来 ⇒ 整枚不画，见下面那段）。
+                    ...(more === undefined ? {} : { more }),
+                    // ★本刀（S5b）：那枚「去试试」的终态（技能卡才有；不可用那一档禁用 + 行上可见原因）。
+                    ...(tryNow === undefined ? {} : { tryNow }),
+                  })
+                  /**
+                   * ★**口径 64**：失败只落在**失败的那一行**上（坐标对得上才铺该行）。
+                   *   它与"平台目录读不到"那条 `ErrorRow` **互不覆盖**（一个说这一条没装成，
+                   *   一个说这一整面没读到）——两者可以同时成立，故各自有各自的落点。
+                   */
+                  const failure = resourceType === 'skill' && source === 'system'
+                    && item.targetId !== undefined
+                    && systemError !== undefined
+                    && systemError.id === item.targetId
+                    ? createElement(EnterpriseEscSystemInstallFailure, {
+                        targetId: item.targetId,
+                        code: systemError.code,
+                        // ★"可重试"是真的重发：同一枚写入口、同一枚坐标（不是重画一下）。
+                        onRetry: (targetId: number) => { runSystemInstall(targetId, item.name) },
+                      })
+                    : null
+                  // 失败块与卡片同格（`.esc-catalog-cell` 是既有那套"卡片 + 其下失败块"的列布局；零新增 CSS）。
+                  return failure === null
+                    ? card
+                    : createElement('div', { key: item.id, className: 'esc-catalog-cell' }, card, failure)
+                }),
               ),
               // 触底加载中的提示 + 追加加载失败的如实行（原文只有 loader）
               // ★本刀：这行原先复用整屏态那枚 `.esc-state`（内衬 20px ⇒ 出现/消失会把列表顶一下，
@@ -662,6 +1330,101 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
             ? createElement(ErrorRow, { code: error.code, message: error.message, onRetry: retry })
             : createElement(EmptyBlock),
   )
+}
+
+/**
+ * ★**口径 62**：「本地三方」维度的**动作层**（内容区的最后一块）。
+ *
+ * ★**它现在只管"安装"这一件事**：取数与"哪几枚 chip、选中的是哪一枚"都提到了聚合层（理由见那里：
+ *   chip 行住在工具栏、候选列表住在内容区，两者**必须同源**——取数留在这一层再由回调把 chip 交上去，
+ *   就成了"子组件 fetch → 回调 setState → 父组件重渲染 → 子组件重建取数源"那种**自激**形状）。
+ *   抽成子组件仍然值得：安装执行器需要一个**稳定的生命周期**（与"这一维度在不在场"同生共死），
+ *   而它持的那两枚可见反馈（在哪一行、哪一句）也只属于这一块。
+ *
+ * ★三条纪律照既有通路（系统搜索/在线搜索）逐条对齐：
+ *  ① **不中止在途的安装**：那是一次**写**动作（宿主可能已经把目录复制过去了），中止 fetch 并不会
+ *     撤销它，只会让界面**不知道**结果 ⇒ 让它跑完（结算后照旧刷新，下次进来就看得到）。
+ *     故这里的安装执行器拿的是**不会被打断**的信号（见 `esc-third-party-install.ts` 头注）。
+ *  ② **成功后不乐观切换**：既不改本地那份清单里的 `status`，也不自己加减计数 —— 真值一律靠
+ *     重新扫描（`onRefresh` 里那两件事）说出来。
+ *  ③ **失败不吞**：安装失败只落在那一行上（`installError`），与"扫描失败"（`state.kind === 'failed'`）
+ *     两件事互不覆盖。
+ *
+ * ★**一次只允许一条在途**由 `createEnterpriseThirdPartyInstaller` 保证（那是可直调取证的对象，
+ *   本仓 vitest 没有 DOM）：被挡下的第二次点击**返回 false 且一条请求都不发**，界面那一侧
+ *   看到的是"其余按钮都禁用 + 旁边写着为什么"。
+ */
+function EnterpriseEscThirdParty({
+  api,
+  state,
+  selectedRoot,
+  onReload,
+  onRefresh,
+}: {
+  readonly api: EnterpriseEscApi
+  /** 四态真值（**由聚合层持有**：chip 行与它同源）。 */
+  readonly state: EnterpriseListState<EnterpriseThirdPartySkills>
+  /** 当前选中的来源根（空串 = 全部）。 */
+  readonly selectedRoot: string
+  /** 重新扫描（失败态那枚【重试】与就绪态那枚【重新扫描】共用它；由聚合层持有）。 */
+  readonly onReload: () => void
+  /** 装好一枚之后要做的两件事（重扫本维度 + 请「已安装」计数重读）。 */
+  readonly onRefresh: () => void
+}): ReactNode {
+  /**
+   * 安装执行器：**每次挂载一枚**（与这一维度的在场与否同一条生命周期）。
+   *
+   * ★它自己持"在途是哪一条"（不需要再造一枚 React state，也就不会出现"state 说没有、执行器说
+   *   有"这种两处判据）；`useState` 那枚 `tick` 只是把它的变化**通知给渲染**（执行器是外部对象，
+   *   快照又是一对 `isBusy/target` 而不是一枚稳定值，故用自增 tick 订阅它 —— 语义与
+   *   `useSyncExternalStore` 相同、代码更短，且不引入第二份真值）。
+   */
+  const [tick, setTick] = useState(0)
+  /** 安装的可见反馈：失败归到那一行（`id` + 稳定码）、成功是一句 `role="status"`。两者互斥。 */
+  const [installError, setInstallError] = useState<{ readonly id: string; readonly code: string } | undefined>(undefined)
+  const [installedNotice, setInstalledNotice] = useState<string | undefined>(undefined)
+  const installer = useMemo(
+    () => createEnterpriseThirdPartyInstaller({
+      run: (target, signal) => api.installThirdPartySkill(target.id, signal),
+      errorCode: enterpriseLocalErrorCode,
+      onSettled: (target, settlement) => {
+        setTick(current => current + 1)
+        if (settlement.ok) {
+          setInstalledNotice(enterpriseThirdPartyInstalledText(target.title))
+          setInstallError(undefined)
+          // ★成功：重扫本维度 + 请计数重读（两件事都在 `onRefresh` 里，用的是既有那两枚令牌）。
+          onRefresh()
+        } else {
+          setInstalledNotice(undefined)
+          setInstallError({ id: target.id, code: settlement.code })
+        }
+      },
+    }),
+    [api, onRefresh],
+  )
+  useEffect(() => installer.subscribe(() => { setTick(current => current + 1) }), [installer])
+  /** ★这里**读** `tick` 是为了让订阅到的变化真的触发重渲染（执行器本身是外部可变对象）。 */
+  void tick
+  const busy = installer.target()
+  return createElement(EnterpriseEscThirdPartyList, {
+    state,
+    selectedRoot,
+    ...(busy === undefined ? {} : { busy }),
+    ...(installError === undefined ? {} : { installError }),
+    ...(installedNotice === undefined ? {} : { installedNotice }),
+    // ★写入口的判据是**端口在不在场**（`api.installThirdPartySkill` 是必填方法，故这里恒在场）；
+    //   门票仍在：`EnterpriseEscThirdPartyList` 按 `onInstall === undefined` 判"整条不在场"，
+    //   故将来若要降级，只在这里停传即可（界面那一侧一个字都不用改）。
+    onInstall: (id, name) => {
+      // 开始一次新动作：清掉上一轮的两句反馈（否则失败行会与新一次安装并存）。
+      setInstallError(undefined)
+      setInstalledNotice(undefined)
+      // ★被"一次一条"挡下时**返回 false**：那一条请求一条都没发，界面也不必多说一句
+      //   ——正在装的那一行照旧写着"正在安装「X」…完成前不能安装别的技能。"，原因已经在屏幕上。
+      installer.run({ id, title: name })
+    },
+    onReload,
+  })
 }
 
 /**

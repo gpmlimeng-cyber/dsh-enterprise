@@ -62,7 +62,8 @@ export const ENTERPRISE_SKILL_IMPORT_DIALOG_STYLES = `
   .own-skill-import-content { min-height: 0; overflow-y: auto; }
   .own-skill-import-body { display: flex; flex-direction: column; gap: 12px; }
   .own-skill-import-summary { color: var(--dsw-alias-state-error-primary, #c4320a); font-size: 13px; line-height: 20px; margin: 0; }
-  .own-skill-import-drop { align-items: center; background: transparent; border: 1px dashed var(--dsw-alias-border-l2, #d0d5dd); border-radius: var(--dsw-radius-md, 8px); box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 4px; padding: 24px 16px; text-align: center; }
+  .own-skill-import-drop { align-items: center; background: transparent; border: 1px dashed var(--dsw-alias-border-l2, #d0d5dd); border-radius: var(--dsw-radius-md, 8px); box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 4px; padding: 24px 16px; text-align: center; transition: border-color .15s, background-color .15s; }
+  .own-skill-import-drop:hover:not([data-busy='true']) { border-color: var(--dsw-alias-border-l4, #98a2b3); background: var(--dsw-alias-interactive-bg-hover, #f2f4f7); }
   .own-skill-import-drop[data-busy='true'] { cursor: not-allowed; opacity: 0.6; }
   .own-skill-import-drop-icon { color: var(--dsw-alias-label-tertiary, #667085); }
   .own-skill-import-hint { color: var(--dsw-alias-label-secondary, #475467); font-size: 13px; line-height: 20px; margin: 0; }

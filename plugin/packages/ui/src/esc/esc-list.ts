@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 React 的 hook 原语、`esc-api` 的 `EnterpriseEscApi` 契约、`esc-constants` 的成功码与分类根映射、`esc-types` 的归一化类型与 `mapPublishedStats`
- * [OUTPUT]: 对外提供 `useEnterpriseEscResourceList`（`{list, loading, hasMore, error, loadMore, updateItem, reload}`）、`escResourceAdapters` 适配器表（各资源类型 × 数据源的取数与提取口径）与 `escPublishedTargetIdOf`（精选行回查的公共键，口径 43）
+ * [OUTPUT]: 对外提供 `useEnterpriseEscResourceList`（`{list, loading, hasMore, error, loadMore, updateItem, reload}`）、`escResourceAdapters` 适配器表（各资源类型 × 数据源的取数与提取口径）、`escPublishedTargetIdOf`（精选行回查的公共键，口径 43）与 `escSafeTargetId`（安装坐标的安全整数门禁，口径 64）
  * [POS]: esc 页面的**归一化数据层**，逐字移植自 NUWAX `ResourceAggregation/hooks/useResourceList.ts`（574 行）。
  *   ★改动的只有三处**注入点**，判定逻辑一字未动：① `@/services/*` 那六个函数 → `EnterpriseEscApi` 的六个同签名方法；
  *   ② `SUCCESS_CODE` → `ESC_SUCCESS_CODE`；③ umi 的类型 → 本包 `esc-types`。
@@ -18,6 +18,11 @@
  *     这一类目录），`mapPublishedItem` 的 `'enabled-skill'` 前缀退场；并**顺手清掉一处既有死代码** ——
  *     连接器那一支的 `enabled`（`connectionEnabled:'true'` + `'enabled-conn'`）**从落地起就不可达**
  *     （连接器页第三枚维度是 `'connected'`，而 `'enabled'` 只由技能页产出），删除处逐条写明了这条推理。
+ *   ★**口径 64（本刀）**：`mapPublishedItem` **就地**多投两格事实——`targetId`（先过
+ *     `escSafeTargetId` 的安全整数门禁）与 `allowCopy`（原值；非数字归一成缺席）——供系统广场
+ *     那批已发布技能的【＋】做**安装坐标 + 授权预判**。★**没有第二条取值路径**：本文件仍是
+ *     "广场记录 → `ResourceItem`"的唯一投影，故系统广场 / 团队空间 / 精选回查三处的这两格
+ *     不可能各说一套（本刀不新造取数器、不加路由、不加解码器）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -97,13 +102,26 @@ export type EscResourceAdapters = Readonly<
   Record<ResourceTypeEnum, Readonly<Partial<Record<ResourceSourceEnum, EscServerAdapter | EscClientAdapter>>>>
 >
 
-/** 广场已发布条目（智能体/技能）归一化（逐字对齐原文件，含"哪些维度填 agentId/skillId"的判据）。 */
+/**
+ * 广场已发布条目（智能体/技能）归一化（逐字对齐原文件，含"哪些维度填 agentId/skillId"的判据）。
+ *
+ * ★**口径 64（本刀）**：多解码两格事实——`targetId`（经 {@link escSafeTargetId} 的安全整数门禁）
+ *   与 `allowCopy`（**原值**：只有数字 `1` 才算允许复制，判据在 `esc-system.tsx`）。
+ *   ★**就地扩投影、不新造第二个目录取数器**：系统广场、团队空间、精选回查三处读的都是**这一份**
+ *   `mapPublishedItem`，故"这条记录能不能装"的事实只可能有一处取值口（三处各抄一份必然会漂）。
+ *   ★`allowCopy` 只收**数字**：非数字（`true` / `'1'` / 畸形）归一成**缺席**——于是它落到下游那条
+ *   "只有 `=== 1` 才算允许"的 fail-closed 判据里，与"平台没给这个字段"**同判**（都装不了）。
+ *   这与旁边 `mapPublishedStats` 的口径同一条：**不把"没给"伪造成一个值**。
+ */
 const mapPublishedItem = (item: EscPublishedItem, idPrefix: string): ResourceItem => ({
   id: `${idPrefix}-${item.id}`,
   agentId: idPrefix === 'agent' || idPrefix === 'space-agent' ? item.targetId : undefined,
   // ★口径 55：`'enabled-skill'` 这一格随技能页那枚维度一起退场 —— 前缀是**由适配器给**的，
   //   而唯一给出它的那一支（`adapters.skill.enabled`）已删 ⇒ 留着它就是在枚举一个不可能出现的值。
   skillId: idPrefix === 'skill' || idPrefix === 'space-skill' ? item.targetId : undefined,
+  // ★口径 64：安装坐标（安全整数门禁）与发布者授权（原值，下游只认 1）——两格都是**这一处**投出来的。
+  targetId: escSafeTargetId(item.targetId),
+  allowCopy: typeof item.allowCopy === 'number' ? item.allowCopy : undefined,
   name: item.name,
   description: item.description,
   icon: item.icon,
@@ -115,6 +133,26 @@ const mapPublishedItem = (item: EscPublishedItem, idPrefix: string): ResourceIte
   subscribed: item.subscribed === true,
   stats: mapPublishedStats(item.statistics),
 })
+
+/**
+ * ★**口径 64（本刀）**：安装坐标的**唯一门禁**——平台那枚 `targetId` 只有真的是
+ * **安全整数且 `>= 1`** 时才交出去，其余一律 `undefined`（fail-closed）。
+ *
+ * 三条判据逐条都有理由（宿主那条路由的正文门禁就是这四条之和）：
+ *   · `typeof === 'number'`：字符串 id / 数字字符串一律不要（宿主只收 JSON number）；
+ *   · `Number.isSafeInteger`：小数、`NaN`、`Infinity`、超出 `2^53-1` 的雪花号一律不要
+ *     （`Number.isSafeInteger` 一次挡掉这四种，且**不**接受 `'158'`）；
+ *   · `>= 1`：宿主那侧的下界是 `1`（`0` 与负数不进上游）。
+ * ⇒ 判不过时**整格缺席**，界面据此把那枚【＋】**禁用 + 行上可见原因**（绝不发一条注定 400 的请求）。
+ * ★它是**纯函数**：门禁可以逐档直调取证（`158` 过；`0`/`-1`/`1.5`/`NaN`/`Infinity`/`2**53`/`'158'`/
+ *   `true`/`null`/缺席全部不过），不需要起渲染器——本仓 vitest 没有 DOM。
+ *
+ * @param value - 平台记录里的 `targetId`（**未知形状**：原始响应只是类型断言，没有运行时校验）。
+ * @returns 安全整数坐标；任何不合规形状一律 `undefined`。
+ */
+export function escSafeTargetId(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 1 ? value : undefined
+}
 
 /**
  * 精选行（官方推荐）回查广场目录用的**公共键**：平台已发布条目的 `targetId`（口径 43）。

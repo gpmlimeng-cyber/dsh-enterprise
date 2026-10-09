@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 接收任意 `ENT_*` 稳定错误码（来源可以是本地路由投影、store 快照、动作 promise 的 catch）
- * [OUTPUT]: **本刀（登录入口换成 NUWAX）**：表里新增六枚 NUWAX 码（`ENT_NUWAX_NOT_CONFIGURED` / `_INVALID_CREDENTIALS` / `_REJECTED` / `_UNAVAILABLE` / `_TIMEOUT` / `_PROTOCOL`），下一步逐句不同——被平台拒绝（风控/账号锁定）是**终态**，不给「再输一次同样的口令」画饼。对外提供**唯一一份**错误码 → 员工可读呈现的纯投影：`enterpriseErrorPresentation`（人话 + 下一步动作 + 是否可重试 + 码原样保留）、`enterpriseErrorMessage` / `enterpriseErrorAction` / `enterpriseErrorRetryable` 与三条兜底常量。**本刀（资料库入口）**：新增三码——`ENT_LIBRARY_UNAVAILABLE`（资料库还没接线：页面失败态的「接入中」）、`ENT_LIBRARY_SETTING_READ_FAILED` / `ENT_LIBRARY_SETTING_SAVE_FAILED`（本机设置读/写失败：组件行那枚开关的失败态与重试），一律人话 + 下一步、不含裸码 **本刀（配方一键启用）**：新增十一枚配方启用码（`ENT_PRESET_AUTHORIZATION_REQUIRED` / `_AUTHORIZATION_STALE` / `_INSTALL_IN_PROGRESS` / `_INSTALL_CANCELLED` / `_STATE_INVALID` / `_RECIPE_INVALID` / `_INSTALL_FAILED` / `_UNINSTALL_FAILED` / `_BUNDLE_WRITE_FAILED` / `_ARTIFACT_UNAVAILABLE`）与降级链第二级那枚 `ENT_PRESET_LAUNCH_FAILED`（没打开新会话 → 请改用「复制导入指令」）。**本刀（企业插件真取消）**：新增一枚 `ENT_PLUGIN_INSTALL_CANCELLED`（「这次安装被取消了。请重试。」，`retryable: true`）——取消是员工自己的动作、本机什么都没变（Host 已把记录回到安装前），故它的收束就是再试一次，与配方族那枚同判。**本刀（本地导入）**：新增三枚上传码 `ENT_SKILL_UPLOAD_{TOO_LARGE,INVALID,FAILED}`——超限与「不是有效技能包」是终态（下一步是**换一份文件**，`skill-import.ts` 的「重新选择文件」那枚按钮承担动作），只有落盘失败可原地再试；再补一枚 Host 侧第 4 枚 `ENT_SKILL_SKILLMD_INVALID`（ZIP 结构没问题、是 `SKILL.md` 的 frontmatter 写错了 ⇒ 下一步是**改文件头**，与「换一份文件」不同）。**本刀（系统搜索 → 纳入）**：新增三枚纳入码 `ENT_SKILL_DISCOVERY_UNKNOWN` / `ENT_SKILL_ALREADY_REGISTERED` / `ENT_SKILL_ADOPT_FAILED`；并把「一个码只有一句话」的边界写清（同流一套、真跨流的码用 `actions` 按流取，见下表注）。**本刀（在线搜索）**：新增三枚在线来源码 `ENT_SKILL_SOURCE_{UNKNOWN,UNREACHABLE,TOO_LARGE}`（下一步各不相同：换一条结果 / 检查网络重试 / 换一条结果），并把 `ENT_SKILL_ARCHIVE_INVALID`、`ENT_SKILL_SKILLMD_INVALID`、`ENT_SKILL_INSTALL_FAILED` 三枚**跨流码**补上 `'online-install'` 这一流的口径（那三句默认文案里的「重新下载 / 重新导入 / 联系企业管理员」在**在线安装流**下说不通——包在第三方仓库、本机替用户取）；流值清单一并导出成 `ENTERPRISE_ERROR_FLOWS`（供逐流逐句的机械判据遍历）。**本刀（通过 Agent 创建）**：新增两枚**本机动作**码 `ENT_SKILL_CREATE_{LAUNCH,COPY}_FAILED`——前者是「新会话没开起来」（下一步：把这句指令复制走，界面那枚按钮就是它），后者是「剪贴板没写成」（下一步：检查权限后重试）；两枚刻意分开，因为下一步真的不同。**本刀（esc 失败面收口）**：新增两枚 `ENT_ESC_DIRECTORY_UNAVAILABLE` / `ENT_ESC_RECOMMEND_UNAVAILABLE`——平台那枚 `4040`（本部署没有这个端点）在专家/技能目录与精选行上各说各的事实，不再共用「没有连接器目录」那一句；三枚的**面级**取值真源在 `esc-api.ts` 的 `ESC_MISSING_ENDPOINT_CODES`，且三枚一律 `retryable: false`（重试对"端点不存在"永远无效）。**本刀（口径 49：技能页主按钮三项下拉）**：新增一枚 `ENT_ESC_DRAFT_UNAVAILABLE`——「查找技能 / 创建技能」那两项走 `preset-launch.ts` 的"跳新会话 + 预填、不发送"，预填没走成（端口缺席，或这一次返回 false / 抛）时必须**说出来**；下一步是"手动新建一个会话把这句话贴进去"，故 `retryable: false`（同一条官方链路再点一次还是同一结果，不给必然失败的重试画饼）。**本刀（口径 51：专家页「我的专家」子页）**：新增一枚 `ENT_ESC_MY_EXPERTS_UNAVAILABLE`——本部署的只读闭集**恰好七条**（`bundle/src/esc-route.ts` 的 `ENTERPRISE_ESC_READ_ENDPOINTS`），里面**没有**"我的专家"这条接口，且本刀**不许**新增端点、**不许**拿 `/api/published/agent/list`（那是**专家广场**列表）冒充"我的" ⇒ 子页内容区在全部 tab／分段组合下都是同一份如实交代；`retryable: false` 的理由与本族那四枚「这一版部署没有这个端点」逐条相同。
+ * [OUTPUT]: **本刀（登录入口换成 NUWAX）**：表里新增六枚 NUWAX 码（`ENT_NUWAX_NOT_CONFIGURED` / `_INVALID_CREDENTIALS` / `_REJECTED` / `_UNAVAILABLE` / `_TIMEOUT` / `_PROTOCOL`），下一步逐句不同——被平台拒绝（风控/账号锁定）是**终态**，不给「再输一次同样的口令」画饼。对外提供**唯一一份**错误码 → 员工可读呈现的纯投影：`enterpriseErrorPresentation`（人话 + 下一步动作 + 是否可重试 + 码原样保留）、`enterpriseErrorMessage` / `enterpriseErrorAction` / `enterpriseErrorRetryable` 与三条兜底常量。**本刀（资料库入口）**：新增三码——`ENT_LIBRARY_UNAVAILABLE`（资料库还没接线：页面失败态的「接入中」）、`ENT_LIBRARY_SETTING_READ_FAILED` / `ENT_LIBRARY_SETTING_SAVE_FAILED`（本机设置读/写失败：组件行那枚开关的失败态与重试），一律人话 + 下一步、不含裸码 **本刀（配方一键启用）**：新增十一枚配方启用码（`ENT_PRESET_AUTHORIZATION_REQUIRED` / `_AUTHORIZATION_STALE` / `_INSTALL_IN_PROGRESS` / `_INSTALL_CANCELLED` / `_STATE_INVALID` / `_RECIPE_INVALID` / `_INSTALL_FAILED` / `_UNINSTALL_FAILED` / `_BUNDLE_WRITE_FAILED` / `_ARTIFACT_UNAVAILABLE`）与降级链第二级那枚 `ENT_PRESET_LAUNCH_FAILED`（没打开新会话 → 请改用「复制导入指令」）。**本刀（企业插件真取消）**：新增一枚 `ENT_PLUGIN_INSTALL_CANCELLED`（「这次安装被取消了。请重试。」，`retryable: true`）——取消是员工自己的动作、本机什么都没变（Host 已把记录回到安装前），故它的收束就是再试一次，与配方族那枚同判。**本刀（本地导入）**：新增三枚上传码 `ENT_SKILL_UPLOAD_{TOO_LARGE,INVALID,FAILED}`——超限与「不是有效技能包」是终态（下一步是**换一份文件**，`skill-import.ts` 的「重新选择文件」那枚按钮承担动作），只有落盘失败可原地再试；再补一枚 Host 侧第 4 枚 `ENT_SKILL_SKILLMD_INVALID`（ZIP 结构没问题、是 `SKILL.md` 的 frontmatter 写错了 ⇒ 下一步是**改文件头**，与「换一份文件」不同）。**本刀（系统搜索 → 纳入）**：新增三枚纳入码 `ENT_SKILL_DISCOVERY_UNKNOWN` / `ENT_SKILL_ALREADY_REGISTERED` / `ENT_SKILL_ADOPT_FAILED`；并把「一个码只有一句话」的边界写清（同流一套、真跨流的码用 `actions` 按流取，见下表注）。**本刀（在线搜索）**：新增三枚在线来源码 `ENT_SKILL_SOURCE_{UNKNOWN,UNREACHABLE,TOO_LARGE}`（下一步各不相同：换一条结果 / 检查网络重试 / 换一条结果），并把 `ENT_SKILL_ARCHIVE_INVALID`、`ENT_SKILL_SKILLMD_INVALID`、`ENT_SKILL_INSTALL_FAILED` 三枚**跨流码**补上 `'online-install'` 这一流的口径（那三句默认文案里的「重新下载 / 重新导入 / 联系企业管理员」在**在线安装流**下说不通——包在第三方仓库、本机替用户取）；流值清单一并导出成 `ENTERPRISE_ERROR_FLOWS`（供逐流逐句的机械判据遍历）。**本刀（通过 Agent 创建）**：新增两枚**本机动作**码 `ENT_SKILL_CREATE_{LAUNCH,COPY}_FAILED`——前者是「新会话没开起来」（下一步：把这句指令复制走，界面那枚按钮就是它），后者是「剪贴板没写成」（下一步：检查权限后重试）；两枚刻意分开，因为下一步真的不同。**本刀（esc 失败面收口）**：新增两枚 `ENT_ESC_DIRECTORY_UNAVAILABLE` / `ENT_ESC_RECOMMEND_UNAVAILABLE`——平台那枚 `4040`（本部署没有这个端点）在专家/技能目录与精选行上各说各的事实，不再共用「没有连接器目录」那一句；三枚的**面级**取值真源在 `esc-api.ts` 的 `ESC_MISSING_ENDPOINT_CODES`，且三枚一律 `retryable: false`（重试对"端点不存在"永远无效）。**本刀（口径 49：技能页主按钮三项下拉）**：新增一枚 `ENT_ESC_DRAFT_UNAVAILABLE`——「查找技能 / 创建技能」那两项走 `preset-launch.ts` 的"跳新会话 + 预填、不发送"，预填没走成（端口缺席，或这一次返回 false / 抛）时必须**说出来**；下一步是"手动新建一个会话把这句话贴进去"，故 `retryable: false`（同一条官方链路再点一次还是同一结果，不给必然失败的重试画饼）。**本刀（口径 51：专家页「我的专家」子页）**：新增一枚 `ENT_ESC_MY_EXPERTS_UNAVAILABLE`——本部署的只读闭集**恰好七条**（`bundle/src/esc-route.ts` 的 `ENTERPRISE_ESC_READ_ENDPOINTS`），里面**没有**"我的专家"这条接口，且本刀**不许**新增端点、**不许**拿 `/api/published/agent/list`（那是**专家广场**列表）冒充"我的" ⇒ 子页内容区在全部 tab／分段组合下都是同一份如实交代；`retryable: false` 的理由与本族那四枚「这一版部署没有这个端点」逐条相同。**本刀（S5b）**：新增一枚 `ENT_SKILL_TRY_LAUNCH_FAILED`（技能卡那枚「去试试」没能把指令填进新会话）+ 唯一码值常量 `ENTERPRISE_ESC_SKILL_TRY_FAILED_CODE`——它与「通过 Agent 创建的启动失败」「配方启动失败」都**同形**（同一条 `preset-launch.ts` 链路这一环不成立），但那两枚的下一步都指向**界面上真有的复制按钮 / 配方指令**，在这一格是**说假话**（这句指令按技能名现拼、从不显示、卡片上也没有复制钮）⇒ 新开一枚，下一步是"自己新建一个会话让它用这枚技能干活"，`retryable: false`（与 `ENT_ESC_DRAFT_UNAVAILABLE` 对同一条链路逐条同判）。
  * [POS]: ui 的员工侧文案降维层（失败自愈）——产品宪法「必须给稳定错误码时，也要配对一句人话与下一步动作，禁止把技术码直接砸给用户」的唯一落点；界面只消费本模块，不再各写一份码表
  *   ★**口径 55（本刀）**：删掉 `ENT_ESC_ENABLE_LIST_UNAVAILABLE` 那一格 —— 它只为技能页「我启用的」
  *     那枚维度存在，维度整枚删除后**永远取不到**（本仓不会再有任何请求打到那条端点），
@@ -10,6 +10,17 @@
  *     换来的是"接受多大"在全 `src` 里只有一个数字真源（门禁：剥注释后全 src 的 `50 MiB` 恰好出现一次）。
  *     方向是单向的（`skill-import.ts` 不依赖本表）⇒ 没有循环；那枚常量本就是 `enterpriseErrorAction`
  *     这条用例双向绑定过的东西，本刀只是把绑带从"用例"换成"代码"。
+ *   ★**口径 62（本刀）**：新增一枚 `ENT_SKILL_THIRD_PARTY_UNAVAILABLE`（本地三方 Agent 技能源的
+ *     扫描读不到，宿主回 503）—— 它**不是**同族那几枚「这一版部署没有这个端点」：
+ *     那几枚是部署事实（`retryable: false`），这一枚是"这一次没读到"（`retryable: true`，
+ *     下一步就是点界面那一枚真重发的重试）。同刀复用既有的 `ENT_SKILL_DISCOVERY_UNKNOWN` /
+ *     `ENT_SKILL_NAME_CONFLICT` / `ENT_SKILL_ALREADY_REGISTERED` 三枚做安装失败的三条收束，
+ *     一码一句话这一点不变（不许为同一种结果造第二枚码）。
+ *   ★**口径 64（本刀）**：新增一枚 `ENT_SKILL_PUBLISHED_COPY_FORBIDDEN`（系统广场「已发布技能」的
+ *     复制授权被拒：`allowCopy !== 1` 或 `paymentRequired === true`）——`retryable: false`
+ *     （授权是发布者设定的，重试永远无效；界面据此**不画**重试按钮），并另出一枚常量
+ *     `ENTERPRISE_ESC_PUBLISHED_COPY_FORBIDDEN_CODE`（码值只有一处，供界面把同一句话用作
+ *     **卡片上那枚【＋】的可见禁用原因**）。同刀**一个既有码的文案都没有改**。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -286,6 +297,22 @@ const ENTERPRISE_ERROR_TABLE: Readonly<Record<string, EnterpriseErrorEntry>> = {
   // 它们只属于这一条通路，出现在技术信息里时不该指向别的功能。
   ENT_SKILL_CREATE_LAUNCH_FAILED: { message: '没能为你打开一个新的会话。', action: '请点「复制这句指令」，粘贴给助手即可。', retryable: true },
   ENT_SKILL_CREATE_COPY_FAILED: { message: '没能把这句指令复制到剪贴板。', action: '请检查剪贴板权限后重试。', retryable: false },
+  /**
+   * **本刀（S5b）**：技能卡那枚「去试试」**没能把指令填进新会话**。
+   *
+   * 出现时机与上面那枚「通过 Agent 创建」的启动失败**同形**（都是 `preset-launch.ts` 那条
+   * "跳新会话 + `setDraft`"的链路这一环不成立：端口缺席 / 没有可落的工作区 / 官方那次打开被中止），
+   * 但**下一步真的不同**，故不能借上面那枚：
+   *   · 上面那枚的下一步是「点『复制这句指令』」——界面上真有那枚按钮（那句指令也显示在菜单里）；
+   *   · 这一枚的那句指令是**按这枚技能现拼的、从不显示**，卡片上**没有**复制按钮 ⇒ 让它"点复制"
+   *     是**说假话**（`ENT_PRESET_LAUNCH_FAILED` 那句指向「复制导入指令」、`ENT_ESC_DRAFT_UNAVAILABLE`
+   *     那句要求"把这句话粘贴进去"，在这一格同样没有可执行的落点）。
+   * ★**为什么 `retryable: false`**：失败面是"官方那条链路这一环不成立"（与
+   *   `ENT_ESC_DRAFT_UNAVAILABLE` 逐条同判：同一条链路、同一份结构面，同样的调用再点一次面对的是
+   *   同一形状）；故下一步给的是**一定能做**的那件事——自己新建一个会话，让它用这枚技能干活
+   *   （不需要我们那句原文）。那不叫"重试"，故本码不画重试的饼。
+   */
+  ENT_SKILL_TRY_LAUNCH_FAILED: { message: '没能为这枚技能打开一个新的会话。', action: '请手动新建一个会话，让它用这枚技能帮你干活。', retryable: false },
   // **本刀（在线搜索 → 安装）**：三枚新码，**下一步各不相同**（这是它们分三枚的理由）：
   //   · 源不认（400）——这条结果没有可安装的来源（上游没给坐标 / 源不在白名单）⇒ 换一条结果；
   //   · 源取不到（502）——**这次**没取到（网络 / 上游挂了）⇒ 检查网络重试，或换一个来源；
@@ -293,6 +320,30 @@ const ENTERPRISE_ERROR_TABLE: Readonly<Record<string, EnterpriseErrorEntry>> = {
   ENT_SKILL_SOURCE_UNKNOWN: { message: '这条搜索结果不提供可安装的来源。', action: '请换一条搜索结果再试。', retryable: false },
   ENT_SKILL_SOURCE_UNREACHABLE: { message: '暂时连不上这个技能来源。', action: '请检查网络后重试，或换一个来源。', retryable: true },
   ENT_SKILL_SOURCE_TOO_LARGE: { message: '这个技能的仓库超出可安装的大小。', action: '请换一条体积更小的搜索结果再试。', retryable: false },
+  /**
+   * ★**口径 62（本刀）**：本地三方 Agent 技能源的**扫描读不到**那一枚（宿主回 503）。
+   *
+   * ★它与同族那几枚 `ENT_ESC_*_UNAVAILABLE`（「这一版部署没有这个端点」）**刻意分成两枚**：
+   *   那几枚说的是**部署事实**（重试永远无效，`retryable: false`），而这一枚说的是**这一次读失败**
+   *   （根表读不动 / 扫描抛错）——`retryable: true`，下一步就是**重试**。把两件事混成一句会让
+   *   "这台部署根本没有这个功能"与"刚才那一下没读到"在界面上长得一样，而它们要员工做的事完全不同
+   *   （找管理员 vs 再点一次）。
+   * ★下一步里的「重试」有**落点**：本维度失败态里就有那一枚真重发的按钮（不是"稍后再试"那种空话）。
+   */
+  ENT_SKILL_THIRD_PARTY_UNAVAILABLE: { message: '没有读到本机三方技能源的内容。', action: '请重试；仍然失败请联系企业管理员。', retryable: true },
+  /**
+   * ★**口径 64（本刀）**：**系统广场「已发布技能」的复制授权被拒**那一枚
+   *   （宿主按**那条记录**的详情判：`allowCopy !== 1` 或 `paymentRequired === true`）。
+   *
+   * ★**为什么必须自己判、以及为什么重试无效**：真机实测平台**有 `allowCopy` 字段、没有执行**
+   *   （138 条里 68 条 `allowCopy=0`，而 `allowCopy=0` 的 `export/700` **照样回 200 + 128,784B ZIP**）
+   *   ⇒ 不自己判就等于**替员工绕过发布者的授权**。授权由发布者在平台上设定、付款也不是"再点一次"
+   *   能改变的 ⇒ `retryable: false`（与「这一版部署没有这个端点」那几枚同一条判据：**不给必然失败的
+   *   重试画饼**——界面那一侧据此**不画**重试按钮）。
+   * ★**一码一句话**：`allowCopy !== 1` 与 `paymentRequired === true` 的**下一步完全相同**
+   *   （找发布者 / 找管理员），故共用这一枚码，不为同一种结果造第二枚。
+   */
+  ENT_SKILL_PUBLISHED_COPY_FORBIDDEN: { message: '这枚技能的发布者不允许复制到本机。', action: '请联系发布者或企业管理员；这一条重试无效。', retryable: false },
 
   // ── 插件 ─────────────────────────────────────────────────────────────────────
   ENT_PLUGIN_DOWNLOAD_FAILED: { message: '插件包没有下载完成。', action: '请检查网络后重试。', retryable: true },
@@ -404,6 +455,29 @@ export const ENTERPRISE_ESC_DRAFT_FAILED_CODE = 'ENT_ESC_DRAFT_UNAVAILABLE'
  * 界面侧只引用这枚常量（门禁逐字锁住"常量值 === 表里的键"，两处不可能漂）。
  */
 export const ENTERPRISE_ESC_MY_EXPERTS_UNAVAILABLE_CODE = 'ENT_ESC_MY_EXPERTS_UNAVAILABLE'
+
+/**
+ * ★**口径 64（本刀）**：系统广场「已发布技能」的复制授权被拒时那枚稳定码。
+ *
+ * 与上面两枚同一条纪律：**码值只在这一处**，人话与下一步在表里，界面侧只引用这枚常量
+ * （门禁逐字锁住"常量值 === 表里的键"）。界面用它做**另一件事**：把"发布者不允许复制"这句
+ * **行上可见的原因**写在卡片上（`esc-system.tsx` 的 `ENTERPRISE_ESC_SYSTEM_COPY_FORBIDDEN_REASON`）
+ * —— 于是这句话在全仓只有一处真源（表里那一格），预判与真失败说的是同一句。
+ */
+export const ENTERPRISE_ESC_PUBLISHED_COPY_FORBIDDEN_CODE = 'ENT_SKILL_PUBLISHED_COPY_FORBIDDEN'
+
+/**
+ * ★**本刀（S5b）**：技能卡那枚「去试试」的**唯一稳定码**（新建会话 + 写草稿那条链路这一环没走成）。
+ *
+ * 与上面三枚同一条纪律：**码值只在这一处**，人话与下一步在表里，界面侧只引用这枚常量
+ * （门禁逐字锁住"常量值 === 表里的键"）。
+ *
+ * ★**为什么码值不叫 `ENT_ESC_*`**（常量名带 `ESC`，码值带 `SKILL`，这不是笔误）：
+ *   语义上它属于**技能动作**那一族（与 `ENT_SKILL_CREATE_LAUNCH_FAILED` 同族：都是本机那条
+ *   "跳新会话 + 写输入框"的动作没走成），而不属于 `ENT_ESC_*` 那五枚——那五枚说的是
+ *   "这一版部署缺端点 / 本页草稿没填成"这一类**页面级**事实。族按语义分，不按它出现在哪个页面分。
+ */
+export const ENTERPRISE_ESC_SKILL_TRY_FAILED_CODE = 'ENT_SKILL_TRY_LAUNCH_FAILED'
 
 export const ENTERPRISE_ERROR_CODES: readonly string[] = Object.freeze(Object.keys(ENTERPRISE_ERROR_TABLE).sort())
 

@@ -2,7 +2,8 @@
  * [INPUT]: 依赖 React 的 createElement/useCallback/useEffect/useRef/useState、lucide-react 的 `RefreshCw`、
  *   `esc-api` 的 `EnterpriseEscApi`、
  *   `esc-constants` 的成功码、`esc-copy` 的文案、`esc-types` 的推荐记录与归一化卡片类型、
- *   **`esc-card` 的 `EnterpriseEscCard`（精选卡就是广场那张卡）**、`esc-list` 的适配器表与回查键，
+ *   **`esc-card` 的 `EnterpriseEscCard`（精选卡就是广场那张卡）**、`esc-more-menu` 的「更多」计划类型
+ *   （**类型**导入）、`esc-list` 的适配器表与回查键，
  *   以及宿主 DOM **两处**（口径 50 的窗口步长：组件里那一次 `section.querySelector` 取网格元素 +
  *   薄适配器 `enterpriseEscFeaturedColumnCount` 读 `getComputedStyle(grid).gridTemplateColumns` 数轨道；
  *   读不到一律兜底 1、绝不抛）——除这两处外全文件零 DOM
@@ -18,6 +19,13 @@
  * [POS]: esc 页面的**精选行**，数据源是 NUWAX 的官方推荐接口（`POST /api/system/display/recommend/list`，
  *   `recType=Official` + `targetType=Skill|Agent`），由 `esc-aggregation` 经工具栏**第二栏**（`belowLeading`）
  *   挂一次：**专家页与技能页都挂**（两页只有 `targetType` 不同），连接器页不挂。
+ *   ★**本刀（S5a）**：新增可选 prop / 可选 option `moreOf`（技能卡「更多」那两枚本机管理动作的计划工厂）
+ *   ——**additive**：不传时逐字回到改前那一态（卡片那枚 `⋯` 整枚不画）。它必须与 `installedSkillNames`
+ *   **同源**（同一枚卡片在两处只能有一个答案），故由聚合层把**同一个** `moreOf` 同时交给广场网格与本行。
+ *   ★**本刀（S5b）**：同一条手法再加可选 prop / 可选 option `tryOf`（技能卡那枚「去试试」的计划工厂，
+ *   纯投影 `enterpriseEscSkillTryPlan`）——**additive**（不传时卡片逐字回到改前那一态）。
+ *   本行把「这一枚装没装」**只算一次**（`skillInstalled`）并同时交给卡片与计划：两处各算一遍就会出现
+ *   "卡片画着已装、按钮却说还没装"那种自相矛盾；工厂本身**仍由聚合层持有**（与本行同一份状态）。
  *   ★**本刀（口径 43，用户裁决「精选的卡片调整成和非精选的一致」）**：这一行的卡片从"薄壳"换成**广场那张卡**。
  *   ① **为什么以前是薄壳、现在能不是了**：那条推荐接口的 `DisplayRecommendInfo` 只有
  *      `label`/`icon`/`placeholder`/`category`/`prompts`/`targetId` 六格，**没有**描述、作者、收藏量、
@@ -73,6 +81,8 @@ import {
   type EnterpriseEscApi,
 } from './esc-api.js'
 import { EnterpriseEscCard } from './esc-card.js'
+import type { EscCardTryNow } from './esc-card.js'
+import type { EscCardMore } from './esc-more-menu.js'
 import { ESC_SUCCESS_CODE } from './esc-constants.js'
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from './esc-copy.js'
 import { escPublishedTargetIdOf, escResourceAdapters } from './esc-list.js'
@@ -119,6 +129,25 @@ export interface EnterpriseEscFeaturedProps {
    * `false` 在卡片层是同一形态，而工具栏那一行另有「已安装（？）」的缺口标记）。
    */
   readonly installedSkillNames?: ReadonlySet<string> | undefined
+  /**
+   * ★**本刀（S5a）**：技能卡「更多」那两枚本机管理动作的**计划工厂**（页面层给的纯投影）。
+   *
+   * 与上面 `installedSkillNames` **必须同源**（都是聚合层那一份真值）：精选行与广场是同一枚卡片，
+   * 故"这一枚能不能卸 / 能不能打开文件夹"两处只能是同一个答案。缺席 ⇒ 卡片那枚 `⋯` 整枚不画
+   * （本行今天不接那两枚动作时即此形态，逐字不变）。
+   * ★它**只对技能卡**（`showUse`）有意义；专家卡那一档不看它。
+   */
+  readonly moreOf?: ((name: string) => EscCardMore | undefined) | undefined
+  /**
+   * ★**本刀（S5b）**：技能卡那枚「去试试」的**计划工厂**（页面层给的纯投影）。
+   *
+   * 与 `installedSkillNames` / `moreOf` **必须同源**（都是聚合层那一份真值）：精选行与广场是同一枚卡片，
+   * 故"这一枚能不能试"两处只能是同一个答案。缺席 ⇒ 卡片逐字回到改前那一态
+   * （禁用 + `title = actionNotPorted`；本行今天不接这条动作时即此形态）。
+   * ★入参是**装没装**（由本行那份 `installedSkillNames` 判）——计划的可用性判据要它。
+   * ★它**只对技能卡**（`showUse`）有意义；专家卡那一档不看它。
+   */
+  readonly tryOf?: ((name: string, installed: boolean) => EscCardTryNow) | undefined
 }
 
 /** 精选行内部状态（成功/失败/空/加载四态互斥，避免出现「空数组 + 没报错」那种空白态）。 */
@@ -356,7 +385,7 @@ export function enterpriseEscFeaturedAdvanceOffset(
 }
 
 /** 内容区第一行「精选技能 / 精选专家」。 */
-export function EnterpriseEscFeatured({ api, targetType, installedSkillNames }: EnterpriseEscFeaturedProps): ReactNode {
+export function EnterpriseEscFeatured({ api, targetType, installedSkillNames, moreOf, tryOf }: EnterpriseEscFeaturedProps): ReactNode {
   const [state, setState] = useState<EnterpriseEscFeaturedState>({ kind: 'loading' })
   /**
    * 口径 43 的回查索引。它**不参与**上面那四态：推荐记录是真拿到的，回查只是把卡片补成广场那张卡。
@@ -519,7 +548,14 @@ export function EnterpriseEscFeatured({ api, targetType, installedSkillNames }: 
       'div',
       { className: 'esc-featured-body' },
       // 四态那一枚 retry 仍交给失败态那枚「重试」用（ready 态用不到它）；窗口下标从这一格进。
-      enterpriseEscFeaturedBody(state, retry, { lookup, targetType, installedSkillNames, offset }),
+      enterpriseEscFeaturedBody(state, retry, {
+        lookup,
+        targetType,
+        installedSkillNames,
+        offset,
+        ...(moreOf === undefined ? {} : { moreOf }),
+        ...(tryOf === undefined ? {} : { tryOf }),
+      }),
     ),
   )
 }
@@ -537,6 +573,20 @@ export interface EnterpriseEscFeaturedBodyOptions {
   readonly lookup?: EnterpriseEscFeaturedLookup | undefined
   readonly targetType?: EscRecommendTargetTypeEnum | string | undefined
   readonly installedSkillNames?: ReadonlySet<string> | undefined
+  /**
+   * ★**本刀（S5a）**：技能卡「更多」那两枚本机管理动作的计划工厂（与 `installedSkillNames` 同源）。
+   *
+   * 缺席 ⇒ 卡片那枚 `⋯` 整枚不画（与"不传已装名字"同一条口径：宁可少给一次入口，也不谎称能卸）。
+   * 它的形状与用法在 `esc-aggregation.tsx` 的交点上一句话说完（那边是唯一构造点）。
+   */
+  readonly moreOf?: ((name: string) => EscCardMore | undefined) | undefined
+  /**
+   * ★**本刀（S5b）**：技能卡那枚「去试试」的计划工厂（与 `installedSkillNames` / `moreOf` 同源）。
+   *
+   * 缺席 ⇒ 卡片逐字回到改前那一态（禁用 + `title = actionNotPorted`）。它的形状与用法在
+   * `esc-aggregation.tsx` 的交点上一句话说完（那边是唯一构造点）。
+   */
+  readonly tryOf?: ((name: string, installed: boolean) => EscCardTryNow) | undefined
   /** ★口径 50：窗口起点（0 或负数/越界都会被纯投影归一到 `[0, N)`）。 */
   readonly offset?: number | undefined
 }
@@ -602,6 +652,22 @@ export function enterpriseEscFeaturedBody(
         { className: ENTERPRISE_ESC_FEATURED_GRID_CLASS },
         windowed.map(record => {
           const item = enterpriseEscFeaturedItem(record, lookup)
+          /**
+           * ★**本刀（S5a）**：这一枚技能卡的「更多」计划（算不出来 ⇒ 卡片那枚 `⋯` 整枚不画）。
+           *
+           * 走的是聚合层交下来的**同一个** `moreOf`（可用性判据只认自装记录的 `names[]`，
+           * 端口在不在场也在那一处判）——精选行因此与广场卡片逐字同源，不是各判一套。
+           */
+          const more = expert ? undefined : options.moreOf?.(item.name)
+          /**
+           * ★**本刀（S5b）**：这一枚技能卡的「去试试」计划。
+           *
+           * ★**已装判据只算一次**（`skillInstalled`）并同时交给卡片与计划：两处各算一遍就会出现
+           *   "卡片画着已装、按钮却说还没装"那种自相矛盾（判据本身是同一条，但读的是同一份
+           *   `installedSkillNames`，故这里抽一个局部量就够了）。
+           */
+          const skillInstalled = expert ? false : options.installedSkillNames?.has(item.name) === true
+          const tryNow = expert ? undefined : options.tryOf?.(item.name, skillInstalled)
           return createElement(EnterpriseEscCard, {
             // key 用**推荐记录自己的 id**（不是回查命中那条的 id）——同一条推荐在命中/未命中两态下
             // 都是同一枚 key，回查前后 React 复用同一个节点，不会整格重建闪一下。
@@ -616,7 +682,13 @@ export function enterpriseEscFeaturedBody(
             showUse: !expert,
             // 已装分流与广场同一条口径：命中已装清单 ⇒ 「更多 + 去试试」，否则「+」
             // （读不到清单时按未装画 —— 宁可少给一次「更多」，也不谎称已装）
-            installed: expert ? undefined : options.installedSkillNames?.has(item.name) === true,
+            installed: expert ? undefined : skillInstalled,
+            // ★本刀（S5a）：已装那一档那枚「更多」的计划（与广场**同一枚**工厂 ⇒ 两处同源）。
+            //   专家卡没有这枚下拉（`showUse: false`），故那一档不给计划。
+            ...(more === undefined ? {} : { more }),
+            // ★本刀（S5b）：那枚「去试试」的终态（与广场**同一枚**工厂 ⇒ 两处同源；不可用那一档
+            //   禁用 + 行上可见原因）。
+            ...(tryNow === undefined ? {} : { tryNow }),
           })
         }),
       )

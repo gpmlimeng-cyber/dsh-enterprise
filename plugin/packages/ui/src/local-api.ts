@@ -25,6 +25,33 @@
  *     与路径常量 `ENTERPRISE_SKILL_DISCOVERED_LOCAL_PATH` —— 它是**「已安装」的真源**（宿主官方
  *     `ctx.get('skills')` 的快照 = 本机运行时真正加载的那一份），答的是"磁盘上真的装着什么"；
  *     老那两份记录（`installedSkills` / `selfInstalledSkills`）**降级为来源/元信息**，不再作判据。
+ * **本刀（口径 62：本地三方 Agent 技能源）**：新增 `thirdPartySkills(signal)`（只读扫描
+ *   `GET /skills/third-party`：别家 Agent CLI 的技能库里有哪几枚候选、各自什么状态）与
+ *   `installThirdPartySkill(path, signal)`（`POST /skills/third-party/install`，正文**关闭键集恰好 `{path}`**；
+ *   `path` 就是扫描投影里那枚不透明 `id`，界面原样回传、**从不拼路径**——响应里压根没有路径可拼）；
+ *   并导出与 Host exact 注册面逐字同值的 `ENTERPRISE_SKILL_THIRD_PARTY{,_INSTALL}_LOCAL_PATH`。
+ *   ★语义与通路二（`system-search`/`adopt`）**不同**：那条是"只登记"（目录本来就在官方加载的根里），
+ *     这条是"**复制**进 `<dshHome>/skills`"（源目录在别人的库里，官方扫不到）⇒ 两套语义各自有名字。
+ * **本刀（口径 64：系统广场「已发布技能」安装）**：新增 `installPublishedSkill(targetId, signal)`
+ *   （`POST /skills/published/install`，正文**关闭键集恰好** `{targetId}`，坐标是**安全整数**
+ *   `1..2^53-1`——不是路径、不是字符串 id、更不是 `packageId`）与路径常量
+ *   `ENTERPRISE_SKILL_PUBLISHED_INSTALL_LOCAL_PATH`（与 Host exact 注册面逐字同值）。
+ *   ★响应与 `GET /skills/self-installed` **逐字同形** ⇒ **复用** `decodeEnterpriseSelfInstalledSkills`
+ *     那一枚既有严格解码器（宿主收尾那行就是 `installedSelfSkills(…)`）；**不**用企业已装那份七键闭合的
+ *     解码器——响应里没有中心 `packageId`/`versionId`，用它会把每一次成功都判成 `ENT_LOCAL_RESPONSE_INVALID`
+ *     （见 `local-api-decode.ts` 那一格的长注释）。
+ *   ★它与 `installSkill` 是**两条路**：坐标（安全整数 vs 雪花字符串）、制品来源（平台导出 ZIP vs 中心制品）、
+ *     响应（本机自装清单 vs 企业已装清单）三件全不同 ⇒ 两格并列，各只有一个调用点（门禁反锁）。
+ *  **本刀（S5a：自装技能的两个本机动作）**：新增两格动作 —— `uninstallSelfInstalledSkill(name, signal)`
+ *   与 `revealSelfInstalledSkill(name, signal)`（`POST /skills/self-installed/{uninstall,reveal}`，
+ *   正文**关闭键集恰好** `{name}`，键名收敛成导出常量 `ENTERPRISE_SKILL_SELF_INSTALLED_ACTION_KEY`）
+ *   与两条 exact 注册面常量 `ENTERPRISE_SKILL_SELF_INSTALLED_{UNINSTALL,REVEAL}_LOCAL_PATH`。
+ *   ★`name` 是技能在**本机的目录名**（kebab）而不是记录里的 `skillId`（后者跨四条安装通路语义不统一，
+ *     真正的落盘名在记录的 `names[]` 里）；界面的可用性判据因此只看「`name` 在不在这份记录里」，
+ *     而**归属的权威仍在宿主**（中心记录认领 ⇒ 404、两条自装记录认领 ⇒ 409，界面不写第二套判据）。
+ *   ★响应的严格口径在 `skill-api-decode.ts`（自装清单那一族）：卸载回执 `{skills,removed}`
+ *     （`skills` **复用**既有自装清单解码器；两格各自严格、宿主多带的日志键忽略），
+ *     打开文件夹回执 `{revealed:true}` 单键封闭（宿主绝对路径不进浏览器）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -62,10 +89,13 @@ import {
   decodeEnterpriseRestoredSession,
   decodeEnterpriseOnlineSkillSearch,
   decodeEnterpriseSelfInstalledSkills,
+  decodeEnterpriseSelfInstalledUninstall,
+  decodeEnterpriseSelfInstalledReveal,
   decodeEnterpriseServerUrl,
   decodeEnterpriseSkillDetail,
   decodeEnterpriseSkills,
   decodeEnterpriseSystemSkills,
+  decodeEnterpriseThirdPartySkills,
   decodeEnterpriseNuwaxStatus,
   decodeEnterpriseUninstall,
   decodeEnterpriseUsage,
@@ -127,6 +157,39 @@ const PLUGIN_DISABLE_PATH = '/plugins/disable'
 const NUWAX_LOGIN_PATH = '/nuwax/login'
 const NUWAX_LOGOUT_PATH = '/nuwax/logout'
 const NUWAX_STATUS_PATH = '/nuwax/status'
+
+/**
+ * 系统广场「已发布技能」**安装**动作的**相对**路径（口径 64）。
+ *
+ * 与 Host 的 `bundle/src/skill-published-route.ts` 注册的那条 **exact** 路径逐字同值；
+ * 它只在这里与下面那条导出的注册面常量各出现一次（`${…}` 拼接），故全 `src` 里那枚带引号的
+ * 路径字面量**恰好一处**（门禁反向锁盯着这一点：两条安装路不许各写一次）。
+ * ★正文是关闭键集**恰好** `{targetId}`（安全整数）；响应与 `GET /skills/self-installed` 逐字同形。
+ */
+const SKILL_PUBLISHED_INSTALL_PATH = '/skills/published/install'
+
+/**
+ * ★**本刀（S5a）**：自装技能两个本机动作的**相对**路径（与 Host 的 exact 注册面逐字同值）。
+ *
+ * 两条都是 `POST`、都注册在既有只读 `GET /skills/self-installed` 之下（Host 侧两条 **exact** sibling：
+ * 引擎 exact 表优先 ⇒ 不会被 `skill-route.ts` 那条 `/skills` prefix 当成包 id 判 400）：
+ *   · `uninstall` —— **破坏性**：删掉本机这份技能目录（其余归属一个字节都不动）；
+ *   · `reveal` —— 非破坏性：用系统文件管理器打开这条技能所在文件夹（宿主绝对路径不回浏览器）。
+ * ★各自的**带引号字面量**只在这里与下面那条导出的注册面常量各出现一次（`${…}` 拼接）——
+ *   门禁反向锁盯着"两条动作不许各写第二遍路径"。
+ */
+const SKILL_SELF_INSTALLED_UNINSTALL_PATH = '/skills/self-installed/uninstall'
+const SKILL_SELF_INSTALLED_REVEAL_PATH = '/skills/self-installed/reveal'
+
+/**
+ * ★**本刀（S5a）**：这两条动作正文里那**唯一**一枚键的名字（冻结契约逐字：`name`）。
+ *
+ * ★**为什么单列成常量**：契约的两侧（宿主路由的键集门禁与这里）**必须同名**——改一处漏一处就是
+ *   「每一次调用都 400」「一次都不进端口」这种最难查的形状。单列之后，若契约改口径只动这一行。
+ * ★`name` 的值是技能在**本机的目录名**（kebab），不是 `skillId`/`packageId`/`targetId`：
+ *   宿主按「`name` ∈ 某条自装记录的 `names`」判归属 ⇒ "客户端替宿主挑一条记录"在形状上不可表达。
+ */
+export const ENTERPRISE_SKILL_SELF_INSTALLED_ACTION_KEY = 'name'
 
 function errorCode(value: unknown): string {
   const code = decodeEnterpriseErrorCode(value)
@@ -380,6 +443,16 @@ export function createEnterpriseLocalApi(
     installSkill: async (packageId, signal) => decodeEnterpriseInstalledSkills(
       await requestJson('/skills/install', jsonInit('POST', { packageId }, signal), fetcher),
     ),
+    // 系统广场「已发布技能」安装（口径 64）：与上面那一格**并列**、不共用任何一个字面量。
+    //  · 坐标是**安全整数** `targetId`（不是路径、不是字符串 id、不是 packageId）；
+    //  · 响应与 `GET /skills/self-installed` **逐字同形**（宿主收尾那行就是 `installedSelfSkills(…)`）
+    //    ⇒ **复用** `decodeEnterpriseSelfInstalledSkills`：拿企业已装那份七键闭合的解码器来解它，
+    //    会把每一次成功都判成畸形（响应里没有 `packageId`/`versionId`，见 local-api-decode 那一格）。
+    //  · 合规判据的权威在宿主（`allowCopy !== 1` / `paymentRequired` ⇒ `ENT_SKILL_PUBLISHED_COPY_FORBIDDEN`），
+    //    本层只负责把这一枚数字原样交上去。
+    installPublishedSkill: async (targetId, signal) => decodeEnterpriseSelfInstalledSkills(
+      await requestJson(SKILL_PUBLISHED_INSTALL_PATH, jsonInit('POST', { targetId }, signal), fetcher),
+    ),
     uninstallSkill: async (packageId, signal) => decodeEnterpriseInstalledSkills(
       await requestJson('/skills/uninstall', jsonInit('POST', { packageId }, signal), fetcher),
     ),
@@ -396,6 +469,27 @@ export function createEnterpriseLocalApi(
     ),
     selfInstalledSkills: async signal => decodeEnterpriseSelfInstalledSkills(
       await requestJson('/skills/self-installed', getInit(signal), fetcher),
+    ),
+    // ★**本刀（S5a）**：自装技能的两个本机动作（与 Host 侧两条 exact sibling 逐字对应）。
+    //  · 两条正文都是**关闭键集恰好**那一枚键（`ENTERPRISE_SKILL_SELF_INSTALLED_ACTION_KEY` = `name`），
+    //    `name` 是技能在本机的**目录名**（kebab）——界面从不传路径、也从不替宿主挑记录；
+    //  · 卸载回执是 `{skills,removed}`（`skills` 与 `GET /skills/self-installed` 逐字同形
+    //    ⇒ **复用**同一枚严格解码器），打开文件夹回执是单键 `{revealed:true}`；
+    //  · 归属判据（只有自装技能能卸）的**权威在宿主**：被中心记录认领 ⇒ 404、两条自装记录认领 ⇒ 409，
+    //    界面不写第二套判据，只按稳定码出人话。
+    uninstallSelfInstalledSkill: async (name, signal) => decodeEnterpriseSelfInstalledUninstall(
+      await requestJson(
+        SKILL_SELF_INSTALLED_UNINSTALL_PATH,
+        jsonInit('POST', { [ENTERPRISE_SKILL_SELF_INSTALLED_ACTION_KEY]: name }, signal),
+        fetcher,
+      ),
+    ),
+    revealSelfInstalledSkill: async (name, signal) => decodeEnterpriseSelfInstalledReveal(
+      await requestJson(
+        SKILL_SELF_INSTALLED_REVEAL_PATH,
+        jsonInit('POST', { [ENTERPRISE_SKILL_SELF_INSTALLED_ACTION_KEY]: name }, signal),
+        fetcher,
+      ),
     ),
     // 官方发现面（口径 54，本刀）：「已安装」的**真源**。只读 GET、单键信封、**恰好两格**
     // （`skills` + `complete`）；宿主侧已把 `path`/`resourceBase` 挡在白名单之外，本层再挡一道
@@ -422,6 +516,18 @@ export function createEnterpriseLocalApi(
     ),
     installSkillFromResult: async (source, signal) => decodeEnterpriseInstalledSkills(
       await requestJson('/skills/install-from-result', jsonInit('POST', { source }, signal), fetcher),
+    ),
+    // 本地三方 Agent 技能源两条（口径 62）：扫描是只读 GET（宿主绝对路径**不进**响应，
+    // 每条候选只带一枚不透明 `id`）；安装是 POST，正文**关闭键集恰好 `{path}`**，`path` 就是
+    // 扫描投影里那枚 `id` —— 界面把它当**不透明值原样回传**，从不拼、从不改、从不接受用户输入
+    // （Host 侧再 realpath 一遍并在本次候选里逐字比对，不在即 400 `ENT_SKILL_DISCOVERY_UNKNOWN`）。
+    // 安装成功的响应与 `GET /skills/self-installed` **逐字同形** ⇒ 复用同一个严格解码器，
+    // 一句都不改写；界面**不**用它的返回值改状态（它只念一句结果），真值一律靠重新扫描。
+    thirdPartySkills: async signal => decodeEnterpriseThirdPartySkills(
+      await requestJson('/skills/third-party', getInit(signal), fetcher),
+    ),
+    installThirdPartySkill: async (path, signal) => decodeEnterpriseSelfInstalledSkills(
+      await requestJson('/skills/third-party/install', jsonInit('POST', { path }, signal), fetcher),
     ),
     startLogin: async signal => decodeEnterpriseLoginStart(
       await requestJson('/auth/start', postInit(signal), fetcher),
@@ -515,6 +621,19 @@ export const ENTERPRISE_SKILL_UPLOAD_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/up
 export const ENTERPRISE_SKILL_SELF_INSTALLED_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/self-installed`
 
 /**
+ * ★**本刀（S5a）**：自装技能**两个本机动作**的 exact 同源路径常量；Host 侧注册路径必须与它们逐字相同。
+ *
+ * 与 `platform-client`/bundle 的 `skill-self-installed-route.ts` 两条 exact 注册面逐字同值：
+ * `POST /enterprise/api/v1/local/skills/self-installed/{uninstall,reveal}`。它们都是那条只读
+ * `GET …/skills/self-installed` 的 **exact sibling**，故 Host 侧必须注册成 exact（否则 `self-installed`
+ * 会被 `/skills` 那条 prefix 当包 id 判 400 —— 与 `third-party`/`published` 同一个坑、同一条解法）。
+ * 两枚常量单独导出的理由与 `ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH` 相同：「这次动作真的打到了那一条路由」
+ * 必须是可逐字断言的；而正文**关闭键集恰好** `{name}`（见 `ENTERPRISE_SKILL_SELF_INSTALLED_ACTION_KEY`）。
+ */
+export const ENTERPRISE_SKILL_SELF_INSTALLED_UNINSTALL_LOCAL_PATH = `${LOCAL_API_PREFIX}${SKILL_SELF_INSTALLED_UNINSTALL_PATH}`
+export const ENTERPRISE_SKILL_SELF_INSTALLED_REVEAL_LOCAL_PATH = `${LOCAL_API_PREFIX}${SKILL_SELF_INSTALLED_REVEAL_PATH}`
+
+/**
  * **官方发现面**的同源路径常量（口径 54）；Host 侧注册路径必须与它逐字相同。
  *
  * ★它是「已安装」的**真源**：答的是"本机 DSH 真的装着什么"（宿主官方服务 `ctx.get('skills')` 的快照），
@@ -546,6 +665,30 @@ export const ENTERPRISE_SKILL_ADOPT_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/ado
  */
 export const ENTERPRISE_SKILL_ONLINE_SEARCH_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/online-search`
 export const ENTERPRISE_SKILL_INSTALL_FROM_RESULT_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/install-from-result`
+
+/**
+ * **本地三方 Agent 技能源**两条同源路径常量（口径 62）；Host 侧注册路径必须与它们逐字相同。
+ *
+ * ★契约逐字取自冻结文件 `analysis/esc-third-party-skills-spec.md` §3.2（那是两侧唯一的真源）：
+ *   `GET  /enterprise/api/v1/local/skills/third-party`（只读扫描）、
+ *   `POST /enterprise/api/v1/local/skills/third-party/install`（复制安装，正文关闭键集恰好 `{path}`）。
+ * ★它们与既有通路二（`/skills/system-search`、`/skills/adopt`）**是两条不同的路**，故另立两条常量、
+ *   不共用任何一个字面：那条是"只登记本机已有目录"，这条是"把别的 CLI 的目录**复制**进来"
+ *   —— 混用会让"装没装、装的是哪一份"两件事在同一个字段上打架。
+ */
+export const ENTERPRISE_SKILL_THIRD_PARTY_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/third-party`
+export const ENTERPRISE_SKILL_THIRD_PARTY_INSTALL_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/third-party/install`
+
+/**
+ * **系统广场「已发布技能」安装**那条 exact 同源路径常量（口径 64）；Host 侧注册路径必须与它逐字相同。
+ *
+ * 与 `platform-client`/bundle 的 `ENTERPRISE_SKILL_PUBLISHED_INSTALL_LOCAL_PATH` 逐字同值：
+ * `POST /enterprise/api/v1/local/skills/published/install`。它是 `/skills` 那条 prefix 的**子路径**，
+ * 故 Host 侧必须注册成 **exact**（否则 `published` 会被当成包 id 判 400 —— 与 `third-party` 同一个坑）。
+ * 单独导出的理由与 `ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH` 相同：「安装真的打到了那一条路由」这件事
+ * 必须是可逐字断言的；而正文**关闭键集恰好** `{targetId}`（安全整数）。
+ */
+export const ENTERPRISE_SKILL_PUBLISHED_INSTALL_LOCAL_PATH = `${LOCAL_API_PREFIX}${SKILL_PUBLISHED_INSTALL_PATH}`
 
 /**
  * 上传那条 multipart 里 file part 的**字段名**（冻结契约逐字：`artifact`）。

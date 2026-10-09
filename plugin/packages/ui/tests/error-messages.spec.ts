@@ -11,6 +11,11 @@
  *   并逐字锁它的人话、下一步与 `retryable: false`（与"预填没走成"那枚 `ENT_ESC_DRAFT_UNAVAILABLE`
  *   刻意不同值：一枚是部署没有这个端点、一枚是本机动作这一次没成）。
  *   **本刀（本地导入，+1 条）**：码清单加四枚上传通路的码（`ENT_SKILL_UPLOAD_{TOO_LARGE,INVALID,FAILED}` + `ENT_SKILL_SKILLMD_INVALID`），并新增「**跨流码的按流下一步**」判据——逐码逐流（`local-upload`）审第二句的完整性与「本地上传流下不许出现『重新下载』」，且按流取值在不传流时与默认取值**逐字相同**
+ *   **本刀（口径 64 收口，+1 条）**：码清单加 `ENT_SKILL_PUBLISHED_COPY_FORBIDDEN`（系统广场「已发布技能」的复制授权被拒：宿主按那条记录的 `allowCopy` / `paymentRequired` 重判后回它），并逐字锁三件——码值只有一处真源（常量 === 表里的键）、`retryable: false`（授权与付款不是"再点一次"能改变的 ⇒ 界面**不画**重试）、界面那侧**预判**用的行上可见原因**就是本表这一格**的投影（`esc-system.ts` 的 `ENTERPRISE_ESC_SYSTEM_COPY_FORBIDDEN_REASON`，谁在界面里另写一份字面量会先红）
+ *   **本刀（S5b，+1 条）**：码清单加 `ENT_SKILL_TRY_LAUNCH_FAILED`（技能卡那枚「去试试」没能把指令填进新会话：
+ *   与"通过 Agent 创建的启动失败"同形、但与配方那枚和预填那枚**逐句不同**——那三枚的下一步都指向界面上真有的
+ *   东西，这一格没有复制钮也没有可粘贴的原文），并逐字锁「码值一处真源 + `retryable: false` 与那句下一步一致
+ *   （不是"再试一次"）+ 与三枚 look-alike 的人话/下一步都不同 + 不提复制/粘贴」。
  * [POS]: 失败自愈的机械门禁——宪法「禁止把技术码砸给用户」与「一处定义、处处复用」的可执行版本
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -21,6 +26,8 @@ import {
   ENTERPRISE_ERROR_ACTIONS,
   ENTERPRISE_ERROR_CODES,
   ENTERPRISE_ESC_DRAFT_FAILED_CODE,
+  ENTERPRISE_ESC_PUBLISHED_COPY_FORBIDDEN_CODE,
+  ENTERPRISE_ESC_SKILL_TRY_FAILED_CODE,
   ENTERPRISE_ERROR_FALLBACK_ACTION,
   ENTERPRISE_ERROR_FALLBACK_MESSAGE,
   ENTERPRISE_ERROR_FLOWS,
@@ -30,6 +37,7 @@ import {
   enterpriseErrorPresentation,
   enterpriseErrorRetryable,
 } from '../src/error-messages.js'
+import { ENTERPRISE_ESC_SYSTEM_COPY_FORBIDDEN_REASON } from '../src/esc/esc-system.js'
 import { ENTERPRISE_ERROR_TECH_ATTR, ENTERPRISE_ERROR_TECH_CONTAINER_ATTR, ENTERPRISE_ERROR_TECH_SUMMARY } from '../src/error-notice.js'
 
 /** 员工侧可达的码族（技能 / 插件 / 配方 / 账号 / 反馈 / 品牌 / 更新 / 会话）必须逐个在表里。 */
@@ -45,6 +53,15 @@ const REQUIRED_CODES = [
   'ENT_SKILL_DISCOVERY_UNKNOWN', 'ENT_SKILL_ALREADY_REGISTERED', 'ENT_SKILL_ADOPT_FAILED',
   // **本刀（通过 Agent 创建）**：那两项本机动作码（开新会话失败 / 复制草稿失败）。
   'ENT_SKILL_CREATE_LAUNCH_FAILED', 'ENT_SKILL_CREATE_COPY_FAILED',
+  /**
+   * ★**本刀（S5b）**：技能卡那枚「去试试」没能把指令填进新会话那一枚。
+   *
+   * 它与上面那枚「通过 Agent 创建」的启动失败**同形**（同一条 `preset-launch.ts` 链路这一环不成立），
+   * 但那两枚的下一步都指向**界面上真有的**东西（「复制这句指令」那枚按钮 / 配方导入指令），
+   * 在这一格**没有可执行的落点**（那句指令按技能名现拼、从不显示，卡片上也没有复制钮）
+   * ⇒ 必须单独一枚，下一步是"自己新建一个会话让它用这枚技能干活"，`retryable: false`。
+   */
+  'ENT_SKILL_TRY_LAUNCH_FAILED',
   /**
    * ★**口径 49**：esc 技能页主按钮下拉里「查找技能 / 创建技能」预填失败那一枚。
    *
@@ -62,6 +79,24 @@ const REQUIRED_CODES = [
   'ENT_ESC_MY_EXPERTS_UNAVAILABLE',
   // **本刀（在线搜索 → 安装）**：三枚在线来源码。
   'ENT_SKILL_SOURCE_UNKNOWN', 'ENT_SKILL_SOURCE_UNREACHABLE', 'ENT_SKILL_SOURCE_TOO_LARGE',
+  /**
+   * ★**口径 62**：本地三方 Agent 技能源（别的 Agent CLI 的技能库）的扫描读不到那一枚。
+   *
+   * 它与同族那几枚「这一版部署没有这个端点」**不是一回事**：那几枚 `retryable: false`（部署事实，
+   * 重试永远无效），这一枚 `retryable: true`（这一次没读到，下一步就是点那枚真重发的重试）。
+   * 安装那三条收束**复用既有码**（`ENT_SKILL_DISCOVERY_UNKNOWN` / `ENT_SKILL_NAME_CONFLICT` /
+   * `ENT_SKILL_ALREADY_REGISTERED`，上面与下面都已列着），故本刀只新增这一枚。
+   */
+  'ENT_SKILL_THIRD_PARTY_UNAVAILABLE',
+  /**
+   * ★**口径 64 收口**：系统广场「已发布技能」的**复制授权被拒**那一枚。
+   *
+   * 宿主按**那条记录**的详情重判（`allowCopy !== 1` 或 `paymentRequired === true`）后回它；
+   * 授权由发布者在平台上设定、付款也不是"再点一次"能改的 ⇒ `retryable: false`
+   * （界面那一侧据此**不画**重试按钮）。它与既有那六枚（409/409/400/400/413/503）走**同一个**
+   * 失败落点（`EnterpriseEscSystemInstallFailure` = 唯一提示组件 + 稳定码）。
+   */
+  'ENT_SKILL_PUBLISHED_COPY_FORBIDDEN',
   // 插件链
   'ENT_PLUGIN_DOWNLOAD_FAILED', 'ENT_PLUGIN_HASH_MISMATCH', 'ENT_PLUGIN_SIZE_MISMATCH', 'ENT_PLUGIN_ARTIFACT_INVALID',
   'ENT_PLUGIN_ARCHIVE_TOO_LARGE', 'ENT_PLUGIN_SIGNATURE_INVALID', 'ENT_PLUGIN_INCOMPATIBLE', 'ENT_PLUGIN_BUSY',
@@ -293,6 +328,71 @@ describe('enterprise error vocabulary (single projection)', () => {
     }
     // 流值清单是唯一真源：两枚都在、且没有第三个。
     expect([...ENTERPRISE_ERROR_FLOWS].sort()).toEqual(['local-upload', 'online-install'])
+  })
+
+  /**
+   * **口径 64 收口**：系统广场「已发布技能」的复制授权被拒那一枚。
+   *
+   * 三件必须同时成立，缺一条这条链就会在员工眼前说错话：
+   *   · **码值只有一处真源**（`ENTERPRISE_ESC_PUBLISHED_COPY_FORBIDDEN_CODE` === 表里的键）；
+   *   · **终态**（`retryable: false`）—— 授权与付款都不是"再点一次"能改变的，界面据此不画重试；
+   *   · **一码一句话**：界面那一侧的**预判**（`allowCopy !== 1` / `paymentRequired === true`，
+   *     行上可见原因）与**真失败**（唯一提示组件）说的是同一句 —— 由 `esc-system.ts`
+   *     直接投影本表那一格来保证（谁在界面里另写一份字面量，`tests/esc-system.spec.ts` 会先红）。
+   */
+  it('keeps the published-copy refusal one sentence, terminal, and projected from this table alone', () => {
+    const code = ENTERPRISE_ESC_PUBLISHED_COPY_FORBIDDEN_CODE
+    expect(code).toBe('ENT_SKILL_PUBLISHED_COPY_FORBIDDEN')
+    expect(ENTERPRISE_ERROR_CODES).toContain(code)
+    const view = enterpriseErrorPresentation(code)
+    expect(view.known).toBe(true)
+    expect(view.message.length).toBeGreaterThan(0)
+    expect(view.action.length).toBeGreaterThan(0)
+    expect(view.message).not.toContain('ENT_')
+    expect(view.action).not.toContain('ENT_')
+    // 终态：不给必然失败的重试画饼（界面那一侧据此**不画**重试按钮）。
+    expect(view.retryable).toBe(false)
+    expect(enterpriseErrorRetryable(code)).toBe(false)
+    // 一句话：`allowCopy !== 1` 与 `paymentRequired === true` 共用这一枚（下一步完全相同）。
+    expect(enterpriseErrorAction(code)).toBe('请联系发布者或企业管理员；这一条重试无效。')
+    // 界面那侧那句**行上可见原因**就是本表这一格的投影（不是第二份字面量）。
+    expect(ENTERPRISE_ESC_SYSTEM_COPY_FORBIDDEN_REASON).toBe(view.message)
+  })
+
+  /**
+   * ★**本刀（S5b）**：技能卡那枚「去试试」没能把指令填进新会话那一枚。
+   *
+   * 三件必须同时成立，缺一条员工眼前就会说错话：
+   *   · **码值只有一处真源**（`ENTERPRISE_ESC_SKILL_TRY_FAILED_CODE` === 表里的键），界面侧只引用常量；
+   *   · **终态**（`retryable: false`）—— 失败面是"官方那条链路这一环不成立"（与 `ENT_ESC_DRAFT_UNAVAILABLE`
+   *     同一条链路、同一份结构面），下一步给的是一件**一定能做**的事，而不是"再点一次"；
+   *   · **一码一句话**：它与三枚"看起来像"的码（配方启动失败 / 通过 Agent 创建的启动失败 / 预填没走成）
+   *     **逐句不同** —— 那三枚的下一步都指向界面上真有的东西（配方导入指令 / 「复制这句指令」/「把这句话
+   *     粘贴进去」），而这一格那句指令**从不显示、也没有复制钮**，借它们就是在说假话。
+   */
+  it('keeps the skill-try launch miss terminal, one sentence, and apart from the three look-alikes', () => {
+    const code = ENTERPRISE_ESC_SKILL_TRY_FAILED_CODE
+    expect(code).toBe('ENT_SKILL_TRY_LAUNCH_FAILED')
+    expect(ENTERPRISE_ERROR_CODES).toContain(code)
+    const view = enterpriseErrorPresentation(code)
+    expect(view.known).toBe(true)
+    expect(view.message.length).toBeGreaterThan(0)
+    expect(view.action.length).toBeGreaterThan(0)
+    expect(view.message).not.toContain('ENT_')
+    expect(view.action).not.toContain('ENT_')
+    // 终态，且 `retryable` 与那句下一步**一致**（下一步不是"再试一次"，故不画重试的饼）。
+    expect(view.retryable).toBe(false)
+    expect(enterpriseErrorRetryable(code)).toBe(false)
+    expect(view.action).not.toContain('重试')
+    expect(view.action).toContain('新建一个会话')
+    // 三枚"看起来像"的码，逐句都不同（谁想把这一格并回去，这条会先红）。
+    for (const sibling of ['ENT_PRESET_LAUNCH_FAILED', 'ENT_SKILL_CREATE_LAUNCH_FAILED', 'ENT_ESC_DRAFT_UNAVAILABLE']) {
+      expect(enterpriseErrorAction(code), sibling).not.toBe(enterpriseErrorAction(sibling))
+      expect(enterpriseErrorMessage(code), sibling).not.toBe(enterpriseErrorMessage(sibling))
+    }
+    // 界面上没有复制按钮 / 也没有那句原文可粘贴 ⇒ 这一格的人话与下一步一个字都不提它们。
+    expect(view.action).not.toContain('复制')
+    expect(view.action).not.toContain('粘贴')
   })
 
   it('keeps every ENT_ code that appears in the ui sources inside the single table', async () => {

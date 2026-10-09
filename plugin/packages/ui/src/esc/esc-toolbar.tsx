@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 React 的 createElement、lucide-react 的 `Plus`/`Download`/`Search`/`Upload`、官方原语 `Input`/`Pill`/`Button`（`@deepseek-ai/dsh-client-ui-primitives`）、`official-ui` 接缝给出的官方 `Menu`/`MenuItemButton`、`esc-constants` 的「更多」原地址、`esc-copy` 的文案与 `esc-types` 的类型
- * [OUTPUT]: 对外提供 `EnterpriseEscToolbar`——**两段并列**（① 冻结头：三页签 + 右块；② 工具栏体：精选/维度/二级分类）、三个纯投影（`enterpriseEscSearchPlaceholder` / `enterpriseEscAddSkillLock` / `ENTERPRISE_ESC_ADD_SKILL_ITEMS`）与 `ENTERPRISE_ESC_MORE_PATH`
+ * [OUTPUT]: 对外提供 `EnterpriseEscToolbar`——**两段并列**（① 冻结头：三页签 + 右块；② 工具栏体：精选/维度/二级行）；★**口径 62（用户修正：二级 chip 行数据驱动）**：二级行的**唯一入口**是可选 prop `subTabs`（已投影好的 chip 行），缺席即逐字回到 `categories` 那一支、三个纯投影（`enterpriseEscSearchPlaceholder` / `enterpriseEscAddSkillLock` / `ENTERPRISE_ESC_ADD_SKILL_ITEMS`）与 `ENTERPRISE_ESC_MORE_PATH`
  * [POS]: esc 页面的**工具栏**，移植自 NUWAX `components/ResourceToolbar/index.tsx`（145 行）。
  *   ★四处注入点替换：① antd `Segmented` → 官方原语 `Pill` 组（DSH 体系里没有 Segmented，而 Pill 就是同一件事：
  *   一枚可选中态的小胶囊）；② antd `Input` + `@ant-design/icons` 的 `SearchOutlined` → 官方 `Input` + lucide `Search`；
@@ -26,7 +26,7 @@
  *      ★**下拉在场时那枚按钮不许 `disabled`**：它是锚点，禁用了连菜单都点不开（整条新通路被关死）；
  *        上传那一项自己按不动由项级 `plan.disabled` 负责。没有下拉时才逐字回到口径 46 的 `disabled` 口径；
  *   ③ **文案暂不改**：三页都仍写「添加技能」。WorkBuddy 那两页分别是「我的专家」（进**子页**）与
- *      「自定义连接器」（开 **MCP 弹窗**），那两件事本仓还没有排期（用户裁决：等子页与 MCP 弹窗排期再改名）
+ *      「添加连接器」（开 **MCP 弹窗**），那两件事本仓还没有排期（用户裁决：等子页与 MCP 弹窗排期再改名）
  *      —— 改了文案却不改行为就是让按钮说谎，故宁可暂缓；
  *   ④ **「已安装」只在技能页渲染**（专家/连接器页**整枚不渲染**，与 WorkBuddy 三页的分布一致）；
  *   ⑤ **搜索框 placeholder 随页变**（搜索专家 / 搜索技能 / 搜索连接器，取值只有
@@ -46,12 +46,12 @@
  *   移动档由样式表把 sticky 关掉（`position: static`），既有那条「整页单滚动面」裁决保持。
  *   ★**口径 51（本刀）：三页主按钮的文案与动作逐页落地**（WorkBuddy 实机三页是三种交互，研究文件 §3）：
  *   ① **专家页**改「我的专家」、点它**进子页**（页内视图切换，由 `esc-page` 切到 `esc-my-experts.tsx`）；
- *   ② **连接器页**改「自定义连接器」——WorkBuddy 那一枚开的是 MCP 管理弹窗，本刀**不做**那个弹窗
+ *   ② **连接器页**改「添加连接器」——WorkBuddy 那一枚开的是 MCP 管理弹窗，本刀**不做**那个弹窗
  *      ⇒ 该按钮**置灰 + 行上可见原因**（`customConnectorLocked`），绝不继续走本地导入文件选择器
- *      （那会让"文案说自定义连接器、点开却是选文件"继续说谎）；
+ *      （那会让"文案说添加连接器、点开却是选文件"继续说谎）；
  *   ③ **技能页**一字不改（仍是三项下拉；那一页的文案仍是「添加技能」）。
  *   ★**判据仍是"端口在不在场"**：专家页看 `onOpenMyExperts`、连接器页看 `onCustomConnectors`
- *   （这个口子今天**全仓没有任何调用方会传**——本部署根本没有自定义连接器管理接口）。
+ *   （这个口子今天**全仓没有任何调用方会传**——本部署根本没有添加连接器管理接口）。
  *   两页的置灰原因都**行上可见**（`ENTERPRISE_ESC_LOCAL_COPY` 里那两句短句 + `role="status"`），
  *   挂一句 `title` 不算数（产品宪法：禁用控件不许只挂 `title`）——顺带把技能页那条降级路径
  *   （没有下拉供给、又没有本机写入口时的主按钮）也补上了同一句可见原因。
@@ -74,6 +74,22 @@
  *   ★**口径 54（本刀）**：新增第四态 prop `installedCountDiscovering`（官方发现面说 `complete === false`）
  *     —— 数字位画的仍是**真的读到的那几个**（**不许当 0**），只有 `title` 换成「还在发现中…」
  *     （句子里一个数字都没有 ⇒ **不许写死数字**）；title 优先级四档：暂定 > 发现中 > 口没接 > 正常。
+ *   ★**口径 56（本刀，用户决定）**：连接器页那枚主按钮**改名「添加连接器」**——旧的那个名字在整个
+ *     `src` 里**零出现**（连沿革注释也不写它：留一句"旧名叫 X"就是给同一件东西留第二个称呼，与
+ *     "被替换的那一格必须整格不在"同一条纪律），并在它**左侧**
+ *     加一枚「已安装」（形状/尺寸/字号照技能页那枚：**同一个类名** `.esc-installed`）。
+ *     ★三件差别**逐条钉死**：① 连接器页那枚**不含数字**（那个数是**技能**的数，拿它冒充连接器的数
+ *     比不给数字更坏）；② **恒禁用**（它打开的是**技能**的已安装页，本页没有"已安装的连接器"这回事，
+ *     故即使页壳传了 `onOpenInstalled` 也不能放开）；③ 两枚都**行上可见**写明原因（那一行里只写**一句**，
+ *     两枚同因：本部署还没有添加连接器的接口）。★**专家页整枚不渲染**（那一页没有这件东西）。
+ *   ★**口径 51/49**（沿革）：连接器页那枚开的是 WorkBuddy 的 MCP 管理弹窗，本刀**仍不做**那个弹窗
+ *     ⇒ 只改名与加那枚「已安装」，按钮照旧置灰 + 行上可见原因（绝不走本地导入文件选择器）。
+ *   ★**口径 53（本刀，新裁决）**：技能页**再加第四枚**维度「企业技能」（`value: 'catalog'`，
+ *     排在**最后**：系统广场 → 团队空间 → 本地三方 → 企业技能）。这是**新裁决、不是把口径 55/62
+ *     那把锁放宽**（口径 55 删的是「我启用的」、口径 62 加的是「本地三方」，这一枚与两者语义无关）：
+ *     它读的是**企业中心注册的技能包**，动作是真的"下载 + SHA-256 校验 + 落盘"。
+ *     ★第四枚与第三枚一样**只在技能页**、一样带一句悬浮说明（四个字读不出"从哪来、装什么"）；
+ *       前两枚照旧不挂 title、连接器页第三枚仍是「已连接的」（本刀两处都不动）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -83,6 +99,7 @@ import { createElement, type ReactNode } from 'react'
 import { ESC_RESOURCE_MORE_HREF, ESC_RESOURCE_MORE_SQUARE_PATH } from './esc-constants.js'
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from './esc-copy.js'
 import { OfficialMenu, OfficialMenuItemButton } from '../official-ui.js'
+import { EnterpriseEscSubTabRow, type EnterpriseEscSubTab } from './esc-sub-tabs.js'
 import type {
   EnterpriseEscAddSkillLock,
   ResourceCategoryInfo,
@@ -223,7 +240,7 @@ export function enterpriseEscMainActionPlan(input: {
       label: ENTERPRISE_ESC_COPY.customConnector,
       disabled: !wired,
       onClick: input.onCustomConnectors,
-      // 今天恒走"未接线"那一支（本部署没有自定义连接器管理接口）；真接线那天标题换成"会发生什么"。
+      // 今天恒走"未接线"那一支（本部署没有添加连接器管理接口）；真接线那天标题换成"会发生什么"。
       title: wired
         ? ENTERPRISE_ESC_LOCAL_COPY.customConnectorOpenTitle
         : ENTERPRISE_ESC_LOCAL_COPY.customConnectorLocked,
@@ -235,7 +252,7 @@ export function enterpriseEscMainActionPlan(input: {
 
 /** 主按钮的终态（见 `enterpriseEscMainActionPlan`）。 */
 export interface EnterpriseEscMainActionPlan {
-  /** 按钮上的可见文案（三页各不相同：添加技能 / 我的专家 / 自定义连接器）。 */
+  /** 按钮上的可见文案（三页各不相同：添加技能 / 我的专家 / 添加连接器）。 */
   readonly label: string
   /** `true` ⇒ 官方 `Button` 带 `disabled`（点不到）。 */
   readonly disabled: boolean
@@ -257,6 +274,18 @@ export interface EnterpriseEscToolbarProps {
   /** 当前分类 key，空串表示全部。 */
   readonly activeCategory: string
   readonly onCategoryChange: (key: string) => void
+  /**
+   * ★**口径 62**：二级行的**数据驱动入口**（由页壳投影好；缺席即逐字回到 `categories` 那一支）。
+   *
+   * 它的形状是"已经算好的一排 chip + 选中的那一枚 + 选它干什么"——工具栏**不认识任何数据形状**，
+   * 故下一个维度（SkillHub 的市场来源）复用它时，这里一个字都不用改。
+   * ★`chips` 里**恒含**首位那枚「全部」（由 `enterpriseEscSubTabs` 统一加，不在各维度各写一份）。
+   */
+  readonly subTabs?: {
+    readonly chips: readonly EnterpriseEscSubTab[]
+    readonly activeKey: string
+    readonly onSelect: (key: string) => void
+  } | undefined
   /** 搜索关键字（输入框受控值）。 */
   readonly keyword: string
   readonly onKeywordChange: (keyword: string) => void
@@ -354,9 +383,9 @@ export interface EnterpriseEscToolbarProps {
    */
   readonly onOpenMyExperts?: (() => void) | undefined
   /**
-   * ★**口径 51**：连接器页那枚「自定义连接器」的入口（WorkBuddy 那边开的是 MCP 服务管理弹窗）。
+   * ★**口径 51**：连接器页那枚「添加连接器」的入口（WorkBuddy 那边开的是 MCP 服务管理弹窗）。
    *
-   * ★**今天全仓没有任何调用方会传它**：本部署的只读闭集里没有自定义连接器管理面，
+   * ★**今天全仓没有任何调用方会传它**：本部署的只读闭集里没有添加连接器管理面，
    * 本刀也明令不做那个弹窗 ⇒ 这一枚恒置灰 + 行上可见原因（`customConnectorLocked`）。
    * 保留这个口子不是"预留将来要用的代码"，而是让禁用判据保持在**端口**上
    * （写死 `disabled: true` 会让下一个读者分不清"本部署没有这个能力"与"忘了接线"）。
@@ -365,8 +394,8 @@ export interface EnterpriseEscToolbarProps {
 }
 
 /**
- * 主 tab 选项（构造顺序与显隐口径：**专家页与技能页恰好两枚**「系统广场 / 团队空间」，
- * 连接器页多一枚「已连接的」）。
+ * 主 tab 选项（构造顺序与显隐口径：**技能页恰好四枚**「系统广场 / 团队空间 / 本地三方 / 企业技能」，
+ * 专家页两枚，连接器页那第三枚是「已连接的」）。
  *
  * ★**口径 55（用户裁决）**：技能页那枚「我启用的」（`value: 'enabled'`）**整枚删除**。
  *   用户原话是「我启用的」删掉，理由是**它跟「已安装」重复** —— 这一维读的是平台
@@ -378,11 +407,46 @@ export interface EnterpriseEscToolbarProps {
  *   不是"藏起来"：本仓不容许"看着还能用"的第二真源（与口径 49 删旧占位符同一条纪律）。
  *   ★这也正是 WorkBuddy 实机的形状：它的专家页/技能页**就是这两枚**。
  *   连接器页那第三枚仍是「已连接的」（`'connected'`）——本刀一字未动。
+ *
+ * ★**口径 62（本刀，新裁决）**：技能页**再**加第三枚「本地三方」（`value: 'third-party'`）。
+ *   用户原话是「我希望在系统广场、工作空间后增加一个标签，用以展示扫别的 Agent CLI 的技能库的
+ *   技能，同样可以安装进DSH，就是本地三方 Agent技能源」。
+ *   ★**这是新裁决、不是把口径 55 那把锁放宽**：口径 55 删的是「我启用的」（与「已安装」重复），
+ *     这一枚与它**语义无关**（扫的是别的 Agent CLI 的技能库，动作是"复制进来"而不是"只登记"）。
+ *     故那把锁**照旧存在**（仍是 `toHaveLength` + 逐字清单），只是数字与清单按本刀改为三枚。
+ *   ★**只在技能页**（专家页/连接器页不动）：这一维度的语义是"技能库"，与专家/连接器无关；
+ *     连接器页那第三枚仍逐字是「已连接的」（不改顺序、不改数量）。
+ *   ★顺序 = 用户原话的顺序：系统广场 → 团队空间 → 本地三方。
+ *
+ * ★**口径 53（本刀，新裁决）**：技能页**再**加第四枚「企业技能」（`value: 'catalog'`），
+ *   排在**最后**（系统广场 → 团队空间 → 本地三方 → 企业技能）。
+ *   ★**这是新裁决、不是把口径 55/62 那把锁放宽**：那两刀删/加的两枚分别是「我启用的」
+ *     （用户裁决：与「已安装」重复）与「本地三方」（扫别的 Agent CLI 的技能库），
+ *     这一枚与两者**语义无关**（它读的是**企业中心发布并登记过**的技能包，动作是真的
+ *     下载 + SHA-256 校验 + 落盘到 `~/.dsh/skills`）⇒ 那把锁**照旧存在**（仍是 `toHaveLength`
+ *     + 逐字清单），只是数字与清单按本刀改为四枚。
+ *   ★它也**只在技能页**：连接器页那第三枚一字未动，专家页仍是两枚。
  */
 function sourceOptionsOf(resourceType: ResourceTypeEnum): readonly { readonly label: string; readonly value: ResourceSourceEnum }[] {
   return [
     { label: ENTERPRISE_ESC_COPY.mainTabSystem, value: 'system' },
     { label: ENTERPRISE_ESC_COPY.mainTabTeam, value: 'team' },
+    // ★口径 62：第三枚**只在技能页**（`resourceType === 'skill'`），且排在「团队空间」之后。
+    ...(resourceType === 'skill'
+      ? [{ label: ENTERPRISE_ESC_COPY.mainTabThirdParty, value: 'third-party' as const }]
+      : []),
+    /**
+     * ★**口径 53（本刀，新裁决）**：第四枚「企业技能」**也只在技能页**，且排在**最后**
+     *   （用户裁决的落点甲＝新增一枚维度页签；前三维的位次与顺序一字未动）。
+     *
+     * ★**这是新裁决、不是把口径 55/62 那把锁放宽**：那两刀删/加的两枚分别是「我启用的」与
+     *   「本地三方」，这一枚又语义无关（它读的是**企业中心注册的技能包**，动作是真的下载 + 校验 + 落盘）
+     *   ⇒ 那把锁**照旧存在**（仍是 `toHaveLength` + 逐字清单），只是数字与清单按本刀改为四枚。
+     * ★它**不进** `esc-list.ts` 的适配器表：这一维度不读 NUWAX 平台（内容由 `esc-catalog.ts` 铺）。
+     */
+    ...(resourceType === 'skill'
+      ? [{ label: ENTERPRISE_ESC_COPY.mainTabCatalog, value: 'catalog' as const }]
+      : []),
     ...(resourceType === 'connector'
       ? [{ label: ENTERPRISE_ESC_COPY.mainTabConnected, value: 'connected' as const }]
       : []),
@@ -413,6 +477,7 @@ export function EnterpriseEscToolbar({
   categories,
   activeCategory,
   onCategoryChange,
+  subTabs,
   keyword,
   onKeywordChange,
   showMore = true,
@@ -485,7 +550,7 @@ export function EnterpriseEscToolbar({
     {
       // ★主按钮走**近黑实底**（本主题 button-primary-fill 即近黑），品牌色只留给状态标识。
       // ★**口径 49 的形态 + 口径 51 的文案**：技能/连接器页 = primary（黑胶囊，文案「添加技能」/
-      //   「自定义连接器」）；专家页 = `esc-add-skill-outline`（白底描边，文案「我的专家」）
+      //   「添加连接器」）；专家页 = `esc-add-skill-outline`（白底描边，文案「我的专家」）
       //   —— 描边档复用本页 `.esc-installed` 那条**既有**配方，不新造第二套白底按钮。
       //   ★口径 51 把三页的文案逐页落实（WorkBuddy 实机三页就是三个词）；连接器页那枚**同时置灰**
       //   并写明原因（那一页的动作本刀不做），故"改文案却不改行为"这条说谎路径被堵死。
@@ -622,24 +687,33 @@ export function EnterpriseEscToolbar({
              「已安装」切到已安装技能页。写入口缺席（纯函数直调 / 没有本机写面）时仍回到
              "看得见 + 有文案 + 有 title + 置灰"那一态 —— 判据就是 `onAddSkill` / `onOpenInstalled`
              在不在场，不再写死 `disabled`。
-           ★**口径 49**：「已安装」**只在技能页渲染**——WorkBuddy 三页里只有技能页有这枚
-             （专家/连接器页右块只有「搜索 + 主按钮」）。**整枚不渲染**（不是 disabled、不是
-             visibility 隐藏）：那两页上它没有任何对应物，画一枚灰的等于凭空多一件"点不动的东西"。
+           ★**口径 49**：「已安装」原先**只在技能页渲染**。
+           ★★**口径 56（用户决定，本刀）：连接器页**也画它**（用户原话「左侧增加**已安装**，
+             参照技能页面」）——但两页不是同一枚东西，差别有三件，逐条写在下面那三处；
+             **专家页仍整枚不渲染**（那一页没有这件东西，不凭空多一件"点不动的东西"）。
            ★**用户裁决（读不到 ⇒ 0）**：数字位**永远**画 `(N)`；`installedCount === undefined`
              （还没读回来 / 读失败）时画 `(0)`，与"真读到 0"**同形**（这个代价用户已明确接受）。
              代价由 `title` 兜住：那枚按钮仍**说得出**"这个数字是暂定的"（`installedCountUnreadable`）
              —— 同一个 `(0)`、两种状态靠 title 区分，**绝不静默吞掉"读不到"**。
              旧那枚橙色 `？` 连同它借用的 `categoriesUnavailable`（分类那句）一并撤下：`？` 的**真因**
              是已装清单读不到，而分类那一面当时是好的 —— 借那句话就是让按钮**指错原因**。 */
-        resourceType !== 'skill'
+        resourceType === 'expert'
           ? null
           : createElement(
               'button',
               {
                 type: 'button',
                 className: 'esc-installed',
-                disabled: onOpenInstalled === undefined,
-                onClick: onOpenInstalled,
+                /**
+                 * ★**口径 56**：连接器页那枚**恒禁用**（不看端口）。
+                 *
+                 * 为什么不能看 `onOpenInstalled`：那枚按钮打开的是**技能**的已安装页，
+                 * 而连接器页没有"已安装的连接器" 这件事（本部署连接器是**平台侧**的，
+                 * 本机没有一份可数的落盘清单）⇒ 它恒缺一个真实的去处，
+                 * 故**不能**因为页壳传了 `onOpenInstalled` 就把它放开（那会点进技能的已安装页）。
+                 */
+                disabled: resourceType === 'connector' || onOpenInstalled === undefined,
+                onClick: resourceType === 'connector' ? undefined : onOpenInstalled,
                 /* 四态 → 四句 title（**优先级：暂定 > 发现中 > 口没接 > 正常**）：
                    ① 计数暂定（`installedCountProvisional`）⇒ 说清"这个数是暂定的"；
                    ② 官方还没发现完（`installedCountDiscovering`，口径 54）⇒ "还在发现中，这个数字还会变"；
@@ -650,30 +724,46 @@ export function EnterpriseEscToolbar({
                    ★为什么②压过③：同一个理由的另一半 —— 数字位画着的是**部分发现结果**，
                      "还没发现完"是关于这个数字的最重要的一件事实，口没接是次要的。
                      两条事实各自仍被单独锁着（口径 46/47 那组：计数读到 + 口缺席 ⇒ actionNotPorted）。 */
-                title: installedCountProvisional
-                  ? ENTERPRISE_ESC_LOCAL_COPY.installedCountUnreadable
-                  : installedCountDiscovering === true
-                    ? ENTERPRISE_ESC_LOCAL_COPY.installedDiscovering
-                    : onOpenInstalled === undefined
-                      ? ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted
-                      : ENTERPRISE_ESC_LOCAL_COPY.installedFilterOpen,
+                title: resourceType === 'connector'
+                  ? ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted
+                  : installedCountProvisional
+                    ? ENTERPRISE_ESC_LOCAL_COPY.installedCountUnreadable
+                    : installedCountDiscovering === true
+                      ? ENTERPRISE_ESC_LOCAL_COPY.installedDiscovering
+                      : onOpenInstalled === undefined
+                        ? ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted
+                        : ENTERPRISE_ESC_LOCAL_COPY.installedFilterOpen,
               },
               createElement(Download, { size: 14, 'aria-hidden': true }),
               createElement('span', null, ENTERPRISE_ESC_COPY.installedFilter),
-              /* ★数字位**恒在**（这就是"读不到与真 0 同形"那条代价的落点）：没有第二枚 `？`、
-                 也不再有一条"不显示数字"的分支存着。 */
-              createElement('span', {
-                className: 'esc-installed-count',
-                children: `(${installedCount ?? 0})`,
-              }),
+              /**
+               * ★技能页：数字位**恒在**（"读不到与真 0 同形"那条代价的落点）—— 没有第二枚 `？`、
+               *   也不再有一条"不显示数字"的分支存着。
+               * ★★**口径 56**：连接器页**整格不画数字**（要么不带括号数、要么写「已安装」本身）。
+               *   为什么：那个数是**技能**的数（官方发现面的技能快照），拿它冒充"连接器已装 N 枚"
+               *   就是**拿另一件东西的数字撒谎**（比不给数字更坏）。
+               */
+              resourceType === 'connector'
+                ? null
+                : createElement('span', {
+                    className: 'esc-installed-count',
+                    children: `(${installedCount ?? 0})`,
+                  }),
             ),
-        // ★口径 51：主按钮按不动时的**行上可见原因**（紧挨着那一枚，不是悬浮说明）。
-        actionLock === undefined
+        /* ★口径 51：主按钮按不动时的**行上可见原因**（紧挨着那一枚，不是悬浮说明）。
+           ★★**口径 56**：连接器页那枚「已安装」**也得有一句行上可见的原因**
+           （它恒禁用）—— 产品宪法：禁用控件不许只挂一句 `title`。
+           两句各自**只出一次**（同一句话在一行里说两遍就是噪音，且会把那一行撑长）。 */
+        actionLock === undefined && resourceType !== 'connector'
           ? null
           : createElement('span', {
               className: 'esc-toolbar-lock',
               role: 'status',
-              children: actionLock,
+              /*
+               * 连接器页：主按钮与「已安装」**都**按不动，它们的原因同源（都是本部署缺这个能力）
+               * ⇒ 只写一句（写两遍只会让人以为是两个不同的毛病）。
+               */
+              children: actionLock ?? ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted,
             }),
         // ★口径 49：那一枚主按钮（技能页 = 三项下拉的锚；专家/连接器页 = 直接点的一枚）。
         addSkillMenuList,
@@ -689,7 +779,7 @@ export function EnterpriseEscToolbar({
       { className: 'esc-toolbar' },
       // ★第二栏：「精选」那一行（用户裁决）
       belowLeading === undefined ? null : createElement('div', { className: 'esc-toolbar-second' }, belowLeading),
-      // 维度标签（系统广场/团队空间/我启用的）—— **无背景**（用户裁决）
+      // 维度标签（系统广场/团队空间/本地三方）—— **无背景**（用户裁决）
       createElement(
         'div',
         { className: 'esc-source-tabs' },
@@ -702,32 +792,56 @@ export function EnterpriseEscToolbar({
               active: option.value === source,
               ...{ 'data-esc-selected': option.value === source },
               onClick: () => onSourceChange(option.value),
+              // ★**口径 62**：第三枚只有四个字（「本地三方」），完整说法「本地三方 Agent 技能源」
+              //   落在悬浮说明上（引文案表那一格真源，与页内说明句同一句话）。
+              //   ★另两枚**不挂** title：它们各自的四个字已经说全了，凭空多一句悬浮说明只会让
+              //     "哪一枚需要看说明"这件事失去信号（判据落在这里：只有第三枚带 title）。
+              //   ★**口径 53（本刀）**：第四枚同判——「企业技能」四个字也读不出"从哪来、装什么"，
+              //     故它也挂一句（引 `ENTERPRISE_ESC_LOCAL_COPY.catalogTabTitle` 那一格真源，
+              //     与这一维度的页内说明句同源）。前两枚照旧不挂、第三枚的说明一字未改。
+              ...(option.value === 'third-party' ? { title: ENTERPRISE_ESC_LOCAL_COPY.thirdPartyTabTitle } : {}),
+              ...(option.value === 'catalog' ? { title: ENTERPRISE_ESC_LOCAL_COPY.catalogTabTitle } : {}),
               children: option.label,
             },
           ),
         ),
       ),
-      categories.length > 0
-        ? createElement(
-            'div',
-            { className: 'esc-category-tabs' },
-            categories.map(item =>
-              createElement(Pill, {
-                key: item.key === '' ? '__all__' : item.key,
-                className: 'esc-pill',
-                active: item.key === activeCategory,
-                ...{ 'data-esc-selected': item.key === activeCategory },
-                onClick: () => onCategoryChange(item.key),
-                children: item.label,
-              }),
-            ),
-          )
-        : null,
+      /* ★**口径 62（用户修正：二级 chip 行数据驱动）**：二级行的**唯一入口**是 `subTabs`
+         （由页壳投影好交下来），它落在**与二级分类行同一排、同一套类名/token**上。
+
+         ★为什么把它做成"一个 prop 两种来源"而不是给工具栏加第二种行：
+           · 后端目录分类（专家/技能/连接器的平台分类树）与**数据驱动的 chip**（本机来源根、
+             将来的市场来源）在**视觉上是同一排东西**（用户明确要求"同一个视觉语言"）；
+           · 两处各写一排的后果是可预见的：两种选中态、两种"全部"文案、两套间距。
+         ★`subTabs` **缺席**时逐字回到后端分类那一支（口径 31 起的老行为，专家/连接器页与本维度的
+           兄弟维度都走它）——这是一条**降级路径**，不是"新老两套并存"。
+         ★页壳给的是**已经投影好的** chip（`enterpriseThirdPartySubChips` → `enterpriseEscSubTabs`），
+           工具栏**不认任何数据形状**：它只画一排胶囊，故下一个维度复用它时一个字都不用改这里。 */
+      subTabs !== undefined
+        ? EnterpriseEscSubTabRow({ chips: subTabs.chips, activeKey: subTabs.activeKey, onSelect: subTabs.onSelect })
+        : categories.length > 0
+          ? createElement(
+              'div',
+              { className: 'esc-category-tabs' },
+              categories.map(item =>
+                createElement(Pill, {
+                  key: item.key === '' ? '__all__' : item.key,
+                  className: 'esc-pill',
+                  active: item.key === activeCategory,
+                  ...{ 'data-esc-selected': item.key === activeCategory },
+                  onClick: () => onCategoryChange(item.key),
+                  children: item.label,
+                }),
+              ),
+            )
+          : null,
       categoriesUnavailable === true
-        ? createElement('div', {
-            className: 'esc-toolbar-note',
-            children: ENTERPRISE_ESC_LOCAL_COPY.categoriesUnavailable,
-          })
+        ? (subTabs === undefined
+            ? createElement('div', {
+                className: 'esc-toolbar-note',
+                children: ENTERPRISE_ESC_LOCAL_COPY.categoriesUnavailable,
+              })
+            : null)
         : null,
     ),
   ]

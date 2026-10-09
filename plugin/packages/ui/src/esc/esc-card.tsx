@@ -1,7 +1,16 @@
 /**
- * [INPUT]: 依赖 React 的 createElement/useState、lucide-react 的图标、官方原语 `Button`/`Menu`/`Switch`（`@deepseek-ai/dsh-client-ui-primitives`）、`esc-api` 的 `enterpriseEscImageSrc`、`esc-copy` 的文案与 `esc-types` 的 `ResourceItem`
- * [OUTPUT]: 对外提供 `EnterpriseEscCard`（专家/技能/连接器共用的聚合卡片）与 `SKILL_MORE_ENTRIES`（技能卡「更多」下拉那三行的**纯数据**）
+ * [INPUT]: 依赖 React 的 createElement/useState、lucide-react 的图标、官方原语 `Button`/`Switch`（`@deepseek-ai/dsh-client-ui-primitives`）、`error-notice` 的唯一失败提示件、`esc-api` 的 `enterpriseEscImageSrc`、`esc-copy` 的文案、`esc-more-menu` 的「更多」下拉（实现已抽出）与 `esc-types` 的 `ResourceItem`
+ * [OUTPUT]: 对外提供 `EnterpriseEscCard`（专家/技能/连接器共用的聚合卡片）、`EscCardInstall`（未装那枚【＋】的终态）、`EscCardMore`（已装那枚「更多」的终态，**类型再出口**；实现与那两行纯数据在 `esc-more-menu.tsx`，`SKILL_MORE_ENTRIES` 也由本文件再出口）与 `EscCardTryNow`（已装那枚「去试试」的终态）
  * [POS]: esc 页面的**卡片层**，同时移植了 NUWAX 的 `CardWrapper`（容器版式）与 `ResourceCard`（业务内容与动作位）两个组件。
+ *   ★**本刀（S5a：技能卡「更多」里的两个本机管理动作）**：三件事一起动，且**全部 additive**（不给 `more`
+ *     的调用方渲染逐字不变）——
+ *     ① 新增可选 prop `more`（`EscCardMore`：已装那枚「更多」下拉的终态）——**缺席即整枚不画**
+ *        （不是画一枚禁用的 `⋯`：缺席只可能是"这枚技能不是本机自装的"或"本端两条路由没接上"，
+ *        两种都不该画出一枚点了没反应的控件）；
+ *     ② 在途那句（「卸载中…」/「正在打开所在文件夹…」）按既有 `.esc-card-lock` 落点**行上可见**地写出来；
+ *     ③ 这两枚动作**失败**时，唯一提示件落回**这一枚卡片**上（`role="alert"` 由提示件自己挂，
+ *        **不画「重试」**：危险动作的每一次执行都必须重新过一次确认框）。
+ *     ★下拉的实现与那两行纯数据搬到了 `esc-more-menu.tsx`（本件因此回到单文件上限之下）。
  *   ★**本刀（workbuddy 风格重构）——技能卡这一档被换掉了三处**（当时专家/连接器两档一字未动；
  *     ★口径 42 起**专家卡也换成了同一套版式**，见下面那一段 ⇒ 现在只剩连接器与"无 props 的默认档"是三层旧版式）：
  *     ① **底部那条「标签行」取代原来的「统计页脚」**：逐项渲染作者 / 收藏 / 安装 / 使用，
@@ -14,8 +23,9 @@
  *        `.esc-extra-box` 与标题**平级**，不再嵌在发布者行内部。
  *     ★那一档已装态取自本仓**既有真值**（`GET /skills/installed` 那张清单），不是新接口、不猜；
  *       `undefined`（读不到）与 `false`（确实没装）分开表达，读不到时顶栏另有「已安装（？）」缺口标记。
- *   ★动作位一律按 A 档**置灰**并写明原因（召唤 / 连接 / 断开 / 安装 / 更多三行 / 去试试）：看得见的那一页
- *   先搬，动作诚实置灰——**不是**把它们删掉（删掉版式就与线上不同了）。
+ *   ★动作位一律按 A 档**置灰**并写明原因（召唤 / 连接 / 断开 / 安装 / 去试试）：看得见的那一页
+ *   先搬，动作诚实置灰——**不是**把它们删掉（删掉版式就与线上不同了）。★「更多」那一档**已经接线**
+ *   （本刀 S5a：两枚本机管理动作），不再是"置灰占位"。
  *   ★两处 DSH 体系替换：① 图标兜底（原文 `agent_image.png`）→ lucide 中性图标 + token 底色；
  *   ② 发布者头像兜底（原文 `avatar.png`）→ 昵称首字字母头像。
  *   ★**图片地址一律先过 `enterpriseEscImageSrc`**（图标与头像两处）：平台给的是**要票据的绝对地址**，
@@ -69,14 +79,41 @@
  *     ⑤ 专家卡**仍无阴影**（SPEC §7：技能卡是可点入口、专家卡是列表项）——这一刀改的是版式，不是分层。
  *   ★**口径 46/47**：新增两枚 props——`actionSwitch`（标题行第二格改画官方 Switch，已安装技能卡用）与
  *   `showTags: false`（底部标签行整行撤下）；默认值让技能卡/专家卡两条既有档**一字未变**。
+ *   ★**口径 53（本刀）**：三件事一起进——① 新增可选 prop `install`（`EscCardInstall`：技能卡那枚
+ *     【＋】的**终态**，给了它那枚按钮**真的能点**，动作是注入进来的唯一写入口）；② 未装技能卡的
+ *     【＋】**按不动时**多一句**行上可见**的原因（`.esc-card-lock` + `role="status"`）——广场那批
+ *     NUWAX 技能本刀**仍禁用**，但"为什么不能装"从此写在卡片上，而不是只挂一句 `title`；
+ *     ③ 新增可选元信息行（`ResourceItem.meta` → `.esc-card-meta`，**缺席即整行不进 DOM**）。
+ *     ★三条都是**additive**：不给 `install`、不填 `meta` 时，另几档（专家/连接器/精选/已安装）
+ *     的渲染逐字不变（既有那批大纲与类名计数锁照旧全绿）。
+ *   ★**口径 64（本刀）**：`EscCardInstall.onInstall` 收成**可选**，且那枚【＋】只在它**在场**时才挂
+ *     `onClick`（改前是"只要给了计划就挂"，禁用那几档也挂着一个不会被调的 `undefined`）。
+ *     于是"禁用 ⇒ 无写入口"从一句纪律变成**结构事实**：系统广场那批的六档禁用
+ *     （发布者不允许复制 / 需要付费 / 坐标不可用 / 本枚在途 / 别的在途 / 端口缺席）
+ *     在卡片上**连 `onClick` 属性都没有**。能点那一档照旧传着写入口，渲染逐字不变。
+ *   ★**本刀（S5b：技能卡那枚「去试试」真的能用）**：四处一起动，**全部 additive**（不给 `tryNow`
+ *     的调用方渲染逐字不变，`tests/esc.spec.ts` / `esc-catalog.spec.ts` 那两条"置灰 + `actionNotPorted`"
+ *     的既有断言因此照旧全绿——那是"没给计划"这一档的形态，不是被放宽）——
+ *     ① 新增可选 prop `tryNow`（`EscCardTryNow`：那枚按钮的**终态**，唯一构造点是纯投影
+ *        `esc-skill-try.ts` 的 `enterpriseEscSkillTryPlan`：**已装 + 有文案 + 端口在场** 才可点）；
+ *     ② 可点那一档挂**真 `onClick`**（写入口是注入进来的，卡片仍然不认识任何数据形状）；
+ *     ③ 不可点那一档按既有 `.esc-card-lock` 落点写一句**行上可见**的原因（`role="status"` +
+ *        `data-esc-skill-try-lock`），在途那一档写一句交代（`data-esc-skill-try-busy`）；
+ *     ④ **失败落点与 S5a 那枚合并成一处**：一张卡上同一时刻只说一件事 ⇒ 全文件
+ *        `createElement(EnterpriseErrorNotice, …)` 仍然**恰好一处**（`tests/esc-skill-more.spec.ts`
+ *        把这条数锁着；这不是省事，而是"一枚卡片一个失败位"这条口径的落法）。
+ *     ★**缺席 `tryNow` 时逐字回到改前那一态**（禁用 + `title = actionNotPorted`）：那正是既有测试与
+ *       非技能档的形态；生产路径上三处调用点（广场网格 / 精选行 / 企业技能目录）都会给计划。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { Button, Menu, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
-import { Bot, Folder, MessageSquare, MoreHorizontal, Pencil, Plus, Star, Trash2, User } from 'lucide-react'
+import { Button, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Bot, MessageSquare, Plus, Star, User } from 'lucide-react'
 import { createElement, useState, type ReactNode } from 'react'
+import { EnterpriseErrorNotice } from '../error-notice.js'
 import { enterpriseEscImageSrc } from './esc-api.js'
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from './esc-copy.js'
+import { SkillMoreActions, type EscCardMore } from './esc-more-menu.js'
 import type { ResourceItem, ResourceStatType } from './esc-types.js'
 
 /** 统计项图标（原文的三枚 svg 组件 → lucide 同义图标）。 */
@@ -132,6 +169,116 @@ export interface EnterpriseEscCardProps {
    * 默认 `true`（= 技能卡/专家卡都画那条行）——只有显式传 `false` 才不画，故既有两档的渲染一字未变。
    */
   readonly showTags?: boolean | undefined
+  /**
+   * ★**口径 53（本刀）**：技能卡那枚【＋】的**终态**（给了它 ⇒ 那枚按钮**真的能点**）。
+   *
+   * ★**为什么是一门"计划对象"而不是四枚散参**：`disabled` / 文案 / 无障碍名 / 原因 / 动作
+   *   这五件事实**必须同生同死**（分开传就会出现"看着能点、点下去没事"的半个按钮），
+   *   而它们的取值口只有一个——`esc-catalog.ts` 的 `enterpriseCatalogActionPlan`（纯投影，可直调取证）。
+   *   本组件因此**不认识任何数据形状**：它只按计划画一枚按钮、写一句原因。
+   * ★**缺席时逐字回到改前那一态**（禁用 + `title = actionNotPorted`）——那正是广场那批
+   *   （NUWAX 已发布技能）与本刀非目标①的形态：它们**没有可下载的制品**，本刀不动它们的动作，
+   *   但**照旧补一句行上可见的原因**（产品宪法：禁用不许只挂一句 `title`）。
+   * ★**已装那一档不看它**：装好的卡片改画「更多 + 去试试」（`installed === true`），
+   *   故"已装"不在这里、也不该被表达成一枚禁用的【＋】。
+   */
+  readonly install?: EscCardInstall | undefined
+  /**
+   * ★**本刀（S5a）**：已装技能卡那枚「更多」下拉的**终态**（那两枚本机管理动作）。
+   *
+   * ★**为什么缺席 = 整枚不画**（而不是"画一枚禁用的 `⋯`"）：这一格缺席只有两种情形，
+   *   而两种都不该画出一枚点了没反应的控件 ——
+   *   ① 这一枚技能**不是**本机自装的（中心装下来的、官方内置的：那两条路由管不着它，
+   *      画了就是在暗示能卸）；② 本部署那两条路由的端口没接上。
+   *   计划里**缺哪一行就不画哪一行**（两行都缺 ⇒ `SkillMoreActions` 返回 null），
+   *   取舍与理由逐条写在 `esc-more-menu.tsx` 的文件头。
+   * ★**本组件不认识任何数据形状**：能不能卸、点了干什么、确认框说什么，全部由计划给
+   *   （唯一构造点是 `esc-skill-more.ts` 的 `enterpriseEscSkillMorePlan`，纯投影、可直调取证）。
+   * ★**与 `install` 互不干扰**：它只在 `installed === true` 那一支被读（那一支没有【＋】）。
+   */
+  readonly more?: EscCardMore | undefined
+  /**
+   * ★**本刀（S5b）**：已装技能卡那枚「去试试」的**终态**（点了它 ⇒ 新建一个会话并把一句指令填进输入框，
+   * **不发送**）。
+   *
+   * ★**为什么缺席时不整枚不画、而仍然画着**（与 `more` 那一条**刻意相反**）：那枚按钮是已装卡片
+   *   版式的一部分（用户看到的原型里「更多 + 去试试」是并排两枚）；把它抽掉会让"这枚技能没法试"
+   *   变成静默事实。故缺席时逐字回到改前那一态（禁用 + `title = actionNotPorted`），
+   *   而**给了计划**时由计划说了算：可点 ⇒ 真 `onClick`；不可点 ⇒ 禁用 + **行上可见**的原因。
+   * ★**本组件不认识任何数据形状**：能不能点、为什么不能点、在途写什么、失败报哪个码，
+   *   全部由计划给（唯一构造点 `esc-skill-try.ts` 的 `enterpriseEscSkillTryPlan`，纯投影、可直调取证）。
+   * ★**与 `install`/`more` 互不干扰**：它只在 `installed === true` 那一支被读（未装那一支没有它）。
+   */
+  readonly tryNow?: EscCardTryNow | undefined
+}
+
+/**
+ * ★**口径 53**：一枚【＋】的终态（本组件唯一认识的安装输入）。
+ *
+ * 形状与 `esc-catalog.ts` 的 `EnterpriseCatalogActionPlan` **刻意同构**（页面那一层只是把它铺平），
+ * 但**不 import** 那个模块：卡片是本页最底的一层展示件，它不该认识"企业技能目录"这个概念——
+ * 换个维度要给真实动作时，构造同样的对象即可（本组件一个字都不用改）。
+ */
+export interface EscCardInstall {
+  /** 按钮上不一定看得见的文案（圆形图标钮；读屏与悬浮说明念的就是它）。 */
+  readonly text: string
+  /** `true` ⇒ 原生 `<button>` 带 `disabled`（点不到）。 */
+  readonly disabled: boolean
+  /**
+   * 这一枚**正在装**（口径 53：在途时按钮禁用、并把文案「安装中…」**行上可见**地写出来）。
+   *
+   * ★为什么单列一位而不是拿 `disabled` 推：禁用有四种原因（这一枚在途 / 别的在途 / 端口缺席 /
+   *   广场那批没有制品），只有"这一枚正在装"该把那三个字写上屏；凭 `disabled` 推会让另外三种
+   *   也冒出「安装中…」——那是一句假话。
+   */
+  readonly busy?: boolean | undefined
+  /** 悬浮说明（可用时说会发生什么；不可用时与 `reason` 同源）。 */
+  readonly title: string
+  /** 无障碍名（「安装 X」/「安装中…」）。 */
+  readonly ariaLabel: string
+  /** 禁用时的**行上可见**原因（可点、以及在途那一档时缺席——在途时那格写的是「安装中…」）。 */
+  readonly reason?: string | undefined
+  /**
+   * 点它干什么（真实写入口；`disabled` 为真时不会触发）。
+   *
+   * ★**口径 64（本刀）起它是可选的**：禁用那一档**连写入口都不给**（不是"给一枚不会被调的回调"）
+   *   —— 卡片因此连 `onClick` 属性都不会挂上（见下面那处条件展开）。纯函数直调/测试得到的
+   *   "禁用 ⇒ 无 onClick"这条判据，正是靠"可点那一档才有它"成立的，而不是靠 `disabled` 挡着。
+   */
+  readonly onInstall?: (() => void) | undefined
+}
+
+/**
+ * ★**本刀（S5b）**：一枚「去试试」的终态（本组件唯一认识的「去试试」输入）。
+ *
+ * ★形状与 `esc-skill-try.ts` 的 `EnterpriseEscSkillTryPlan` **刻意同构**（与 `EscCardInstall`
+ *   对 `EnterpriseCatalogActionPlan` 那条同一条理由），但**不 import** 那个模块：卡片是本页最底的一层
+ *   展示件，它不认识"技能名能不能拼出指令""官方那条链路接没接上"这些概念——换个维度要给真实动作时，
+ *   构造同样的对象即可（本组件一个字都不用改）。
+ * ★`onTry` **只有可点那一档才有**：禁用那一档**连 `onClick` 属性都不挂**（不是"挂一枚不会被调的回调"）
+ *   ——「禁用 ⇒ 无写入口」因此是**结构事实**，与口径 64 那条同一条纪律。
+ */
+export interface EscCardTryNow {
+  /** 按钮上那三个字（「去试试」）。 */
+  readonly text: string
+  /** `true` ⇒ 官方 `Button` 带 `disabled`（点不到）。 */
+  readonly disabled: boolean
+  /** 悬浮说明（可用时说会发生什么；不可用时与 `reason` 同源）。 */
+  readonly title: string
+  /** 无障碍名（「去试试：这枚技能」）。 */
+  readonly ariaLabel: string
+  /** 禁用时的**行上可见**原因（在途那一档缺席——那时写的是 `busyText`）。 */
+  readonly reason?: string | undefined
+  /** 在途时那句**行上可见**的交代（与 `reason` 互斥）。 */
+  readonly busyText?: string | undefined
+  /** 失败那一次的唯一提示件入参（稳定码 + 动作前缀）；缺席 = 没有失败要说。 */
+  readonly failure?: { readonly code: string; readonly prefix: string } | undefined
+  /**
+   * 点它干什么（真实写入口：开新会话 + 把指令写进输入框，**不发送**）。
+   *
+   * ★**只有可点那一档才有它**：见上面那条（卡片因此连 `onClick` 属性都不会挂上）。
+   */
+  readonly onTry?: (() => void) | undefined
 }
 
 /** 已安装技能卡那一枚开关（口径 47）；见 `actionSwitch` 的长注释。 */
@@ -144,28 +291,12 @@ export interface EscCardSwitch {
 }
 
 /**
- * 「更多」下拉里的三行（照 workbuddy 截图：编辑 / 打开文件夹 / 卸载，卸载是危险档）。
+ * 「更多」下拉里的两行与它的计划形状住在 `esc-more-menu.tsx`（本刀从本文件抽出）。
  *
- * ★显式标出 `danger?` —— 不标的话 TS 会把三条推成三个互不相容的字面量联合，
- * 于是 `.map` 里读 `entry.danger` 直接报错（这就是 `MenuItem` 期望的那个可选位）。
+ * ★`SKILL_MORE_ENTRIES` 仍是 `../esc/esc-more-menu.js` 的导出（那两行是**纯数据**：测试直查）。
  */
-export interface SkillMoreEntry {
-  readonly id: 'edit' | 'open-folder' | 'uninstall'
-  readonly label: string
-  readonly danger?: boolean | undefined
-}
-
-/**
- * ★**导出**：这三条的**内容**（id / 文案 / 危险档）是纯数据，测试要能直查——
- * 而 `SkillMoreActions` 自己持有 `open` 态，在没有 React 调度器的纯函数测试里渲染不出来。
- * 导出它就能让「三行逐字 + 逐行置灰 + 卸载是危险档」这条判据落在**真数据**上，
- * 而不是靠把组件硬渲染一遍。
- */
-export const SKILL_MORE_ENTRIES: readonly SkillMoreEntry[] = [
-  { id: 'edit', label: '编辑' },
-  { id: 'open-folder', label: '打开文件夹' },
-  { id: 'uninstall', label: '卸载', danger: true },
-]
+export type { EscCardMore, EscCardMoreAction, EscCardMoreConfirm, SkillMoreEntry } from './esc-more-menu.js'
+export { SKILL_MORE_ENTRIES } from './esc-more-menu.js'
 
 /**
  * 一张资源卡片。
@@ -183,6 +314,9 @@ export function EnterpriseEscCard({
   installed,
   actionSwitch,
   showTags = true,
+  install,
+  more,
+  tryNow,
 }: EnterpriseEscCardProps): ReactNode {
   const notPorted = ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted
   const connected = item.connected === true
@@ -220,27 +354,42 @@ export function EnterpriseEscCard({
 
   // 专家「召唤」/ 技能动作位。
   //
-  // ★**本刀（workbuddy 风格）**：技能卡右侧改成 workbuddy 那两种形态——
+  // ★**workbuddy 风格那两档**：技能卡右侧改成 workbuddy 那两种形态——
   //   未安装：一枚**常驻圆形「+」**（不是原页面那种 hover 才浮现的按钮，截图里它一直看得见）；
   //   已安装：**「更多」下拉 + 「去试试」**两枚并排。
-  // 两枚动作本刀都**不接线**（安装/编辑/打开文件夹/卸载/去试用都不是本页这条纵深的事），
-  // 但照旧**置灰 + 写明原因**，且「更多」是真能打开的下拉（形态对、行为空），
-  // 这样用户看到的版式就是上线后的样子，差的那一步一眼可见。
+  // ★**口径 53**：未安装那枚【＋】**在给了 `install` 计划时真的能点**（企业技能维度：
+  //   点它就是 `local-api.ts` 那条 `/skills/install`）；没给（广场那批 NUWAX 技能、精选行）时
+  //   **逐字回到改前那一态**——禁用 + `title` 写明原因，**另补一句行上可见的原因**（见下面 `skillLock`）。
+  // ★**本刀（S5a）**：「更多」下拉里那两枚本机管理动作**真的接上线了**，但**只有拿到 `more` 计划时才画**
+  //   （`SkillMoreActions` 自己按计划里的行决定画不画；两行都画不出来时它返回 null ⇒ 只剩「去试试」）。
+  //   判据是"计划在不在场"而不是"已装"：已装但**不是**本机自装（中心装下来的、官方内置的）那一批
+  //   拿不到计划 ⇒ **不画**（画了就是在暗示能卸；理由与取舍逐条写在 `esc-more-menu.tsx` 的文件头）。
   const skillActionBox =
     showUse === true
       ? createElement(
           'div',
           { className: 'esc-skill-actions' },
           installed === true
-            ? createElement(SkillMoreActions, { name: item.name, notPorted })
+            ? createElement(SkillMoreActions, { name: item.name, more })
             : createElement(
                 'button',
                 {
                   type: 'button',
                   className: 'esc-install-plus',
-                  disabled: true,
-                  title: notPorted,
-                  'aria-label': `${ENTERPRISE_ESC_COPY.installSkill}：${item.name}`,
+                  // ★判据是**计划在不在场**（它不是"写死的禁用"）：给了计划就按计划的可点性来，
+                  //   没给就是广场那批（本刀不动它们）——两态在这里各占一支，不可能混。
+                  disabled: install === undefined ? true : install.disabled,
+                  title: install === undefined ? notPorted : install.title,
+                  'aria-label': install === undefined
+                    ? `${ENTERPRISE_ESC_COPY.installSkill}：${item.name}`
+                    : install.ariaLabel,
+                  /**
+                   * ★**口径 64（本刀）**：**没有写入口就不挂 `onClick`**（而不是挂一个 `undefined`
+                   *   或一个空函数）——禁用那一档（发布者不允许复制 / 需要付费 / 坐标不可用 / 在途 /
+                   *   端口缺席）因此**物理上**点不出任何请求：`props['onClick']` 在那个元素上**根本不存在**。
+                   *   这是"绝不画一枚点了没反应的按钮"最硬的形态，门禁逐档咬住这一点。
+                   */
+                  ...(install?.onInstall === undefined ? {} : { onClick: install.onInstall }),
                 },
                 createElement(Plus, { size: 16, 'aria-hidden': true }),
               ),
@@ -251,14 +400,88 @@ export function EnterpriseEscCard({
                   variant: 'primary',
                   size: 'sm',
                   className: 'esc-action-solid esc-try-now',
-                  disabled: true,
-                  title: notPorted,
+                  /**
+                   * ★**本刀（S5b）**：这一枚从"写死的禁用"改成**消费计划**（唯一构造点是纯投影
+                   * `enterpriseEscSkillTryPlan`）。**缺席计划时逐字回到改前那一态**（禁用 +
+                   * `title = actionNotPorted`）——那正是既有测试与非技能档的形态，生产路径上三处调用点
+                   * （广场网格 / 精选行 / 企业技能目录）都会给计划。
+                   * ★可点那一档挂的是**真 `onClick`**（写入口由计划带下来）；不可点那一档**连
+                   * `onClick` 属性都不挂**（不是"挂一枚不会被调的回调"）。
+                   */
+                  disabled: tryNow === undefined ? true : tryNow.disabled,
+                  title: tryNow === undefined ? notPorted : tryNow.title,
+                  'aria-label': tryNow === undefined
+                    ? `${ENTERPRISE_ESC_COPY.tryNow}：${item.name}`
+                    : tryNow.ariaLabel,
+                  ...(tryNow?.onTry === undefined ? {} : { onClick: tryNow.onTry }),
                   children: ENTERPRISE_ESC_COPY.tryNow,
                 },
               )
             : null,
         )
       : null
+
+  /**
+   * ★**口径 53**：未装技能卡那枚【＋】**按不动时**那句**行上可见**的原因。
+   *
+   * ★为什么非有不可（产品宪法：禁用控件不许只挂一句 `title`）：本刀之前那枚【＋】只有一个
+   *   `title`，键盘/触屏用户根本读不到它为什么按不动 —— 而广场那批（NUWAX 已发布技能）
+   *   本刀**明令不动它们的动作**（非目标①：那条导出链是另一刀），于是"仍然禁用"这件事
+   *   **必须**配一句看得见的话，否则这一刀就把一个已知缺口藏起来了。
+   * ★两句取值**互斥且各自如实**：
+   *   · 给了计划（企业技能维度）⇒ 说计划自己那句（在途时缺席——按钮上正写着「安装中…」）；
+   *   · 没给计划（广场/精选那批）⇒ `skillInstallUnavailable`（它们没有可下载的技能包，
+   *     不是"没接线"）——**绝不为让它们可点而临时接一条假路径**。
+   * ★已装那一档不画它（那张卡改画「更多 + 去试试」，两个词都在按钮上、不需要额外解释）。
+   */
+  const skillLock = showUse === true && installed !== true
+    ? (install === undefined ? ENTERPRISE_ESC_LOCAL_COPY.skillInstallUnavailable : install.reason)
+    : undefined
+  /**
+   * ★**口径 53**：这一枚**正在装**时那三个字（「安装中…」）。
+   *
+   * ★为什么它必须**上屏**而不是只挂在无障碍名上：那枚【＋】是个圆形图标钮（宽 `--esc-icon-btn`），
+   *   里面只有一个加号 —— 若"在途"只体现为 `disabled` 与 `aria-label`，**明眼用户看不出它在装**
+   *   （只会读成"这枚按钮忽然灰了"）。故按同一枚 `.esc-card-lock` 的行上落点把文案写出来。
+   * ★它**只有这一档**出（`busy` 由计划显式给，不从 `disabled` 推）——另三种禁用各自写各自的**原因**，
+   *   两者互斥：`reason` 在途那一档是缺席的，所以同一时刻只有一句话。
+   */
+  const skillBusyText = showUse === true && installed !== true && install?.busy === true ? install.text : undefined
+
+  /**
+   * ★**本刀（S5a）**：「更多」里那两枚本机管理动作的**在途交代**与**失败交代**。
+   *
+   * ★**为什么在途也要上屏**（与上面那三个字同一条理由）：那枚 `⋯` 是个图标钮、菜单一关就什么都没有；
+   *   而"正在删本机这份技能目录"是这件事里最必须当场看见的一句 —— 它由计划显式给
+   *   （`EscCardMore.busyText`），**不从 `disabled` 推**：禁用还可能是"端口缺席"或"另一枚在跑"，
+   *   凭它推会冒出一句假话。
+   * ★**失败为什么落在卡片上**：这两枚动作是**卡片自己的**下拉里的动作，失败就该落回**这一枚卡片**上
+   *   （与列表层那条"这一整面读不到"互不覆盖）。呈现走唯一提示组件（人话 + 下一步 + 收起稳定码），
+   *   `role="alert"` 由它自己挂；本组件只负责把它画在**卡片内缘**（headmain 的最后一格）——
+   *   卡片**直属子节点**的位次被一批位置级结构锁盯着，故新增的格子一律住 headmain（见下面那段）。
+   */
+  const moreBusyText = installed === true ? more?.busyText : undefined
+  const moreFailure = installed === true ? more?.failure : undefined
+  /**
+   * ★**本刀（S5b）**：「去试试」那枚的**在途交代**、**行上可见原因**与**失败**。
+   *
+   * 三件与 `more` 那一组**同一条纪律**（在途必须上屏、禁用必须写明原因、失败走唯一提示件），
+   * 只是落点由**计划**带下来（`esc-skill-try.ts` 的纯投影说了算，卡片不自己判）。
+   */
+  const tryBusyText = installed === true ? tryNow?.busyText : undefined
+  const tryLock = installed === true ? tryNow?.reason : undefined
+  const tryFailure = installed === true ? tryNow?.failure : undefined
+  /**
+   * ★**本刀（S5b）**：这一枚卡片上**唯一的失败位**（两枚动作共用一处提示件）。
+   *
+   * ★为什么合成一格而不是各画一枚：一张卡上"刚才那一下没成"同一时刻只可能有一件（两枚动作各自开始时
+   *   都会清掉自己那一格，见 `esc-aggregation.tsx` 的两枚执行器）；两处并排画出来只会让员工以为
+   *   **两件事都失败了**。这一格也顺带把"全文件 `createElement(EnterpriseErrorNotice, …)` 仍然恰好
+   *   一处"这条既有结构锁保住（`tests/esc-skill-more.spec.ts`）。
+   * ★次序是**确定**的（`more` 优先）：危险档（卸载）失败的信息量更大，且两枚同时有失败在正常路径上
+   *   不会发生；真正决定"谁上屏"的是页面层那两枚执行器的清理时机，不是这里的 `??`。
+   */
+  const cardFailure = moreFailure ?? tryFailure
 
   // ★口径 47（用户原话「……唯一不同是安装图标改为开关按钮，去除底部标签」）：
   //   已安装技能页那张卡把**标题行第二格**换成官方 `Switch` 原语——它表达的是**这一包装没装**
@@ -479,6 +702,103 @@ export function EnterpriseEscCard({
         tagRowLayout && hasText(item.description)
           ? createElement('p', { className: 'esc-card-headdesc', title: item.description, children: item.description })
           : null,
+        /**
+         * ★**口径 53（本刀）**：卡片元信息行（版本短号 / 大小 / 内含技能数）。
+         *
+         * ★**为什么它住在 headmain 里、而不是卡片的直属子节点**：本卡片的直属子节点序列**已被
+         *   一批位置级结构锁**（口径 31/42 的渲染树判据按 `[header, content, footer, connect]`
+         *   取位）。把新元素加到那一层会让**每一张**既有卡片的子节点位次平移 —— 那是"为了让新功能
+         *   上线而改旧结构的账"，本仓不做。放进 headmain（第三、四格）则：既有几档（不填 `meta`、
+         *   不画锁）**一个节点都不多**，四格位置锁照旧全绿。
+         * ★取值口唯一（`ResourceItem.meta` ← `enterpriseCatalogItem` ← `enterpriseSkillMeta`），
+         *   且**缺席即整行不进 DOM**。单行截断 + `title` 兜住全文：它是元信息，长出来只会把卡片顶高。
+         */
+        tagRowLayout && hasText(item.meta)
+          ? createElement('p', { className: 'esc-card-meta', title: item.meta, children: item.meta })
+          : null,
+        tagRowLayout && skillBusyText !== undefined
+          ? createElement('p', {
+              className: 'esc-card-lock',
+              role: 'status',
+              'data-esc-install-busy': 'true',
+              children: skillBusyText,
+            })
+          : null,
+        /**
+         * ★**口径 53（本刀）**：未装技能卡那枚【＋】**按不动时**的行上可见原因。
+         *
+         * 它是**可见文字**（`role="status"`）、不是悬浮说明 —— 产品宪法明令"禁用控件不许只挂一句 title"，
+         * 而广场那批技能（NUWAX 已发布）在本刀**仍然禁用**（没有可下载的制品，见 `skillLock` 那段的推理）
+         * ⇒ 那句话必须真的写在卡片上，否则这一刀就把一个已知缺口藏起来了。
+         * `data-esc-install-lock` 是给门禁的稳定钩子（"这一档的禁用真的带着可见原因"要能被机器判据咬住）。
+         */
+        tagRowLayout && skillLock !== undefined
+          ? createElement('p', {
+              className: 'esc-card-lock',
+              role: 'status',
+              'data-esc-install-lock': 'true',
+              children: skillLock,
+            })
+          : null,
+        /**
+         * ★**本刀（S5a）**：「更多」里那两枚本机管理动作的在途交代（「卸载中…」/「正在打开所在文件夹…」）。
+         *
+         * 落点与上面那枚「安装中…」**同一格**（`.esc-card-lock` + `role="status"`）：两句互斥
+         * （一个属于未装那一档的【＋】，一个属于已装那一档的「更多」），故同一时刻只可能有一句上屏。
+         * `data-esc-skill-more-busy` 是给门禁的稳定钩子（"在途真的有一句可见文字"要被机器判据咬住）。
+         */
+        tagRowLayout && moreBusyText !== undefined
+          ? createElement('p', {
+              className: 'esc-card-lock',
+              role: 'status',
+              'data-esc-skill-more-busy': 'true',
+              children: moreBusyText,
+            })
+          : null,
+        /**
+         * ★**本刀（S5b）**：已装技能卡那枚「去试试」的在途交代与**行上可见**的禁用原因。
+         *
+         * 落点与上面那两格**同一格**（`.esc-card-lock` + `role="status"`，**零新增 CSS 类**）：
+         * 四句话（安装中 / 更多在途 / 去试试在途 / 去试试为什么按不动）**两两互斥**——它们分属不同档位，
+         * 同一时刻只可能有一句上屏；`data-esc-skill-try-busy` / `data-esc-skill-try-lock` 是给门禁的
+         * 稳定钩子（"在途真有一句可见文字""禁用真带着可见原因"要能被机器判据咬住）。
+         */
+        tagRowLayout && tryBusyText !== undefined
+          ? createElement('p', {
+              className: 'esc-card-lock',
+              role: 'status',
+              'data-esc-skill-try-busy': 'true',
+              children: tryBusyText,
+            })
+          : null,
+        tagRowLayout && tryLock !== undefined
+          ? createElement('p', {
+              className: 'esc-card-lock',
+              role: 'status',
+              'data-esc-skill-try-lock': 'true',
+              children: tryLock,
+            })
+          : null,
+        /**
+         * ★**本刀（S5a）**：这两枚动作**失败**时的唯一提示件（人话 + 下一步 + 收进「技术信息」的稳定码）。
+         *
+         * ★它由计划带来（稳定码 + 动作前缀），卡片只把它画在**这一枚卡片**上：
+         *   失败落在"哪一枚技能"上是卡片级的坐标（与列表层那条"整面读不到"互不覆盖）。
+         * ★**一张卡一个失败位**（本刀 S5b 把「去试试」的失败并进这一格，见上面 `cardFailure` 那段）：
+         *   全文件因此仍然**恰好一处** `createElement(EnterpriseErrorNotice, …)`。
+         * ★**没有「重试」按钮**（与列表层那些失败块**刻意不同**）：危险动作的每一次执行都必须重新过
+         *   确认框，而提示件里塞一枚「重试」正好绕过它 —— 重试的正当入口是那枚下拉（打开 → 点它 → 确认）。
+         * ★**零新增 CSS 类**：底色/字号走行内 token（与 `error-notice.tsx` 自己的口径一致：
+         *   它跨多个各自注入全局单类 `<style>` 的页面复用，故不新增会被互相覆盖的类）。
+         */
+        tagRowLayout && cardFailure !== undefined
+          ? createElement(EnterpriseErrorNotice, {
+              className: 'esc-card-error',
+              code: cardFailure.code,
+              prefix: cardFailure.prefix,
+              style: { marginTop: 4, color: 'var(--dsw-alias-state-error-primary, #c4320a)', fontSize: 12, lineHeight: '18px' },
+            })
+          : null,
         connectorExtraBox,
       ),
       // 动作位**不在这里**：口径 39 它进过头行（头行第三格），口径 41 起再往里收一格、
@@ -490,6 +810,8 @@ export function EnterpriseEscCard({
     // 底部那一行：标签行版式＝标签行（作者 + 三格统计，口径 40/42）；旧三层版式＝统计页脚。
     // ★**口径 47**：标签行可以**整行撤下**（`showTags: false`，已安装技能页用——它与技能卡的唯一
     //   区别就是没有这一行）。默认 `true`，故技能卡/专家卡既有渲染一字未变；旧三层那一支不看它。
+    //   ★口径 53 的两格（`esc-card-meta` / `esc-card-lock`）**不在这里**：它们住在上面 headmain 里
+    //     的第三、四格（理由见那一处：卡片直属子节点的位次已被位置级结构锁盯着，不动它）。
     tagRowLayout
       ? (showTags ? tagRow : null)
       : showStats === true ? createElement('div', { className: 'esc-card-footer' }, statsRow) : null,
@@ -499,46 +821,10 @@ export function EnterpriseEscCard({
 }
 
 /**
- * 已安装技能那枚「更多」下拉（workbuddy 截图里的 `⋯`）。
- *
- * ★形态照截图（三行：编辑 / 打开文件夹 / 卸载，卸载是危险档），**行为空**：三行都置灰并写明原因——
- * 那三个动作分别属于技能编辑/文件/卸载三条纵深，都不在本页这一刀里。
- * 用官方 `Menu` 原语（它自带遮罩、Esc、外部点击关闭、`danger` 行），不自造下拉。
+ * ★**本刀（S5a）**：「更多」下拉的实现（`SkillMoreActions` 与那两行纯数据）已抽到
+ * `esc-more-menu.tsx`——本件因此回到单文件上限之下（抽之前它已逼近 800 行）。
+ * 本文件只留一行接线（`skillActionBox` 里那一句）与上面 `more` 计划那一段契约说明。
  */
-function SkillMoreActions({ name, notPorted }: { readonly name: string; readonly notPorted: string }): ReactNode {
-  const [open, setOpen] = useState(false)
-  return createElement(
-    Menu,
-    {
-      open,
-      // 官方 Menu 是「触发器 + 条件列表」两合一：`anchor` 落在原位、列表跟随它。
-      anchor: createElement(
-        'button',
-        {
-          type: 'button',
-          className: 'esc-more-btn',
-          'aria-label': `${ENTERPRISE_ESC_COPY.moreActions}：${name}`,
-          'aria-expanded': open,
-          title: ENTERPRISE_ESC_COPY.moreActions,
-        },
-        createElement(MoreHorizontal, { size: 16, 'aria-hidden': true }),
-      ),
-      items: SKILL_MORE_ENTRIES.map(entry => ({
-        id: entry.id,
-        label: entry.label,
-        disabled: true,
-        title: notPorted,
-        danger: 'danger' in entry && entry.danger === true,
-        icon: createElement(entry.danger === true ? Trash2 : entry.id === 'edit' ? Pencil : Folder, {
-          size: 14,
-          'aria-hidden': true,
-        }),
-      })),
-      onSelect: () => setOpen(false),
-      onClose: () => setOpen(false),
-    },
-  )
-}
 
 /** 卡片图标：有可用地址就画图；没有就画中性图标（原文是固定 PNG 兜底图）。 */
 function CardIcon({

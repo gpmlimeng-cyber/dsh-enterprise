@@ -14,26 +14,64 @@
  *     技能页那枚 `'enabled'` 维度整枚删除之后**没有任何取值口**会构造它（联合里留着就是死路）。
  *     另：`EnterpriseEscSkillPort` 仍是**写入口**（`uploadSkill`/`selfInstalledSkills`/`uninstallSkill`），
  *     口径 54 的**只读**两格（`discoveredSkills`/`selfInstalledSkills`）走 `EnterpriseEscApi` 那一面。
+ *   ★**口径 62**：`ResourceSourceEnum` 再加 `'third-party'`（技能页第三枚维度「本地三方」）
+ *     —— 它**没有**平台取数适配器（那一维度的内容走 `esc-third-party.ts` 那条独立通路），
+ *     故"这一维度不发平台请求"这件事在**类型层**就成立（适配器表里没有它那一支）。
+ *   ★**口径 53（本刀）**：`ResourceSourceEnum` 再加 `'catalog'`（技能页**第四枚**维度「企业技能」）
+ *     —— 数据源是**企业中心注册的技能包**（`createEnterpriseSkillListSource`，与「企业设置 → 技能」
+ *     同一个取数源），同样**没有**平台取数适配器；`ResourceItem` 多两格（`packageId` / `meta`）
+ *     供这一维度的卡片投影与**精确命中**已装判定；`EnterpriseEscSkillPort` 多一枚 `installSkill`
+ *     （**复用** `local-api.ts` 那条 `/skills/install`，见那一格的长注释）。
+ *   ★**口径 64（本刀）**：系统广场那批 NUWAX 已发布技能的**安装坐标与授权预判**就地扩进既有投影——
+ *     `ResourceItem` 多两格（`targetId`：**只在安全整数时在场**；`allowCopy`：原值，只有数字 `1`
+ *     才算允许复制）、`EscPublishedItem` 多一格 `allowCopy`（原始类型仍是数字：归一化是投影层的判据）、
+ *     `EnterpriseEscSkillPort` 多一枚 `installPublishedSkill(targetId, signal)`（**与 `installSkill` 并列**，
+ *     两条路的坐标/制品/响应三件都不同，见那一格的长注释——混成一格就是让两套坐标系在同一个字段上打架）。
+ *     这两格**不新造取数器**：`esc-list.ts` 的 `mapPublishedItem` 就是它们的唯一取值口。
+ *   ★**本刀（S5a：技能卡「更多」里的两个本机管理动作）**：`EnterpriseEscSkillPort` 再多**两格可选**
+ *     写入口——`uninstallSelfInstalledSkill(name, signal)` 与 `revealSelfInstalledSkill(name, signal)`
+ *     （`POST …/skills/self-installed/{uninstall,reveal}`，正文关闭键集恰好 `{name}`；`name` 是技能在
+ *     **本机的目录名** kebab，不是 `packageId`/`skillId`/`targetId`）。两条**刻意可选**：判据仍是
+ *     「端口在不在场」（缺席 ⇒ 「更多」里那两行**不画**——官方 `MenuItem` 没有 `title` 位，
+ *     一枚禁用的菜单行说不出为什么按不动，见 `esc-more-menu.tsx` 的文件头）。
+ *   ★**本刀（S5b：技能卡那枚「去试试」真的能用）**：`EnterpriseEscSkillPort` 再多**一格可选**写入口
+ *     ——`fillSkillTryDraft(draft)`：把一句拼好的指令交给官方那条「新建会话 + 写入输入框（**不发送**）」
+ *     的链路。它**不是**新机制：`client.tsx` 把它接在**同一个** `createEnterprisePresetLauncher(...)`
+ *     上（与 `EnterpriseEscDraftPort.launch` 同一枚构造器、同一份四个结构面），故本仓"开会话 + 写草稿"
+ *     仍然**只有一处实现**（`preset-launch.ts`）。**刻意可选**：判据仍是「端口在不在场」
+ *     （缺席 ⇒ 那枚按钮禁用 + **行上可见**写明原因，见 `esc-skill-try.ts` 的计划投影）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 /** ★口径 46/47：本机技能写入口那两条记录形状（**类型**导入，故本文件仍无运行时依赖）。 */
-import type { EnterpriseInstalledSkill, EnterpriseSelfInstalledSkill } from '../skill-api-decode.js'
+import type { EnterpriseInstalledSkill, EnterpriseSelfInstalledSkill, EnterpriseSelfInstalledUninstall } from '../skill-api-decode.js'
 
 /** 资源类型：专家&专家团 / 技能 / 连接器。 */
 export type ResourceTypeEnum = 'expert' | 'skill' | 'connector'
 
 /**
- * 数据源：系统广场 / 团队空间 / 已连接的（连接器页专属）。
+ * 数据源：系统广场 / 团队空间 / 本地三方 / 企业技能（技能页）/ 已连接的（连接器页专属）。
  *
  * ★**口径 55（用户裁决）**：技能页那枚 `'enabled'` 维度**整枚删除**（用户原话「和已安装重复」），
  *   故这一格也一并退场 —— 联合类型里留着一个**没有任何取值口**会构造的字面量，就是给下一个读者
  *   留一条"看着还能用"的死路。今天产出数据源的地方只有一处（`esc-toolbar.tsx` 的
- *   `sourceOptionsOf`：system / team / connected），而适配器表的键集被
+ *   `sourceOptionsOf`：system / team / third-party / catalog / connected），而适配器表的键集被
  *   `Partial<Record<ResourceSourceEnum, …>>` 收在这条联合之内 ⇒ 联合收窄之后，"表里多一支
  *   没人选的适配器"在**类型层**就写不出来了（口径 55 顺手清掉的那支连接器 `enabled` 即此）。
+ * ★**口径 62**：新增 `'third-party'`（「本地三方」= 本地三方 Agent 技能源，**只在技能页**）。
+ *   它**没有**平台取数适配器（`esc-list.ts` 的适配器表里没有它那一支 ⇒ `Partial<Record<…>>` 收得下，
+ *   而"取数"根本不该发生：这一维度的内容由 `esc-third-party.ts` 那条独立通路铺）。
+ * ★**口径 53（本刀，新裁决）**：再新增 `'catalog'`（「企业技能」= 企业中心注册的技能包，**只在技能页**，
+ *   排在**最后**）。它与 `'third-party'` **同一条形态、不同一条数据面**：
+ *   · 都不进 `esc-list.ts` 的适配器表（本维度不读 NUWAX 平台，故"不发平台请求"在类型层成立）；
+ *   · 内容各自走一条独立通路（`esc-third-party.ts` / `esc-catalog.ts`），由聚合层整块换掉卡片网格。
+ *   ★它与 `'third-party'` 的**语义差别**（这决定了为什么是两枚维度而不是一枚）：
+ *     `'third-party'` 扫的是**别的 Agent CLI 的技能库**（动作是把目录**复制**进来），
+ *     `'catalog'` 读的是**企业中心自己发布、登记过的技能包**（动作是**下载 + SHA-256 校验 + 落盘**，
+ *     即口径 53 用户裁决的那句「把后台注册的技能安装到 DSH 本地」）。
+ *   ★它同样是**页专属**取值：`'catalog'` 只可能来自技能页（`sourceOptionsOf` 里有一道 `resourceType` 闸）。
  */
-export type ResourceSourceEnum = 'system' | 'team' | 'connected'
+export type ResourceSourceEnum = 'system' | 'team' | 'third-party' | 'catalog' | 'connected'
 
 /** 卡片统计项图标类型。 */
 export type ResourceStatType = 'user' | 'link' | 'star'
@@ -86,6 +124,46 @@ export interface ResourceItem {
   readonly agentId?: number | undefined
   /** 技能 ID（选择透传跳转用）；专家/连接器不填。 */
   readonly skillId?: number | undefined
+  /**
+   * ★**口径 53（本刀）**：企业技能包在**企业中心**的那枚雪花 id（`GET /skills/installed` 的
+   *   `packageId` 与 `GET /skills` 的 `id` 是**同一个键**）。
+   *
+   * ★为什么单独立一格而不是塞进 `skillId`：`skillId` 是**数字**（NUWAX 平台的 `targetId`），
+   *   而这里是一枚**字符串**雪花号——两套坐标系（真机实测：广场 `id=4194` vs 中心
+   *   `packageId=2105915576743428098`）。混成一格就等于让"这两条技能是不是同一枚"永远说不清。
+   * ★它**只由企业在维度**的卡片投影填（`esc-catalog.ts` 的 `enterpriseCatalogItem`），
+   *   取值口唯一；已装判定与安装动作都认它，**不按名字猜**（口径 53 的硬判据）。
+   */
+  readonly packageId?: string | undefined
+  /**
+   * ★**口径 53（本刀）**：卡片元信息行（版本短号 / 大小 / 内含技能数）。
+   *
+   * 只有企业技能维度填（取值唯一：`skill-market.tsx` 的 `enterpriseSkillMeta`——与「企业设置 → 技能」
+   * 那一页**逐字同源**）；缺席即整行不进 DOM（其它维度的卡片渲染一字未变）。
+   */
+  readonly meta?: string | undefined
+  /**
+   * ★**口径 64（本刀）**：系统广场那条记录在平台上的**安装坐标**（`EscPublishedItem.targetId`）。
+   *
+   * ★**它只在真的是"安全整数"时才在场**（`esc-list.ts` 的 `escSafeTargetId` 是唯一判定点）：
+   *   非数字 / 小数 / 非有限 / `< 1` / `> 2^53-1` 一律**整格缺席** —— 这是 fail-closed 的落点，
+   *   因为宿主那条路由的正文门禁就是「安全整数 `1..2^53-1`」，畸形值发过去只会换回一个 400。
+   * ★它与 `skillId` **不是同一件事、也不许互相冒充**：`skillId` 是页内既有的跳转坐标（专家/技能两档
+   *   共用一套归一化），而这一格**只服务**「系统广场那批已发布技能装到本机」这一条动作路
+   *   （宿主 `POST …/local/skills/published/install` 收的就是它）。两格今天取同一个平台字段，
+   *   但**判据不同**（这一格带安全整数门禁），故各自有名字、各自有取值口。
+   */
+  readonly targetId?: number | undefined
+  /**
+   * ★**口径 64（本刀）**：那条记录里发布者是否允许复制（平台 `allowCopy` 的**原值**）。
+   *
+   * ★**只有数字 `1` 才算允许**（`allowCopy === 1`）；缺席 / 非数字 / `0` / 其它任何值一律按
+   *   **不允许**判（fail-closed，判据在 `esc-system.tsx` 的 `escSystemInstallPlan`）。
+   *   真机实测平台**有字段没有执行**（138 条里 68 条 `allowCopy=0`，而 `export/700` 照样回 200 ZIP），
+   *   故这道闸门只能我们自己判；而判据的**权威在宿主**（它按那条记录的详情再判一遍），
+   *   界面这一格只是**预判**——判不过就在行上给可见原因并禁用，绝不画一枚点下去必被拒的按钮。
+   */
+  readonly allowCopy?: number | undefined
   /** 名称。 */
   readonly name: string
   /** 描述。 */
@@ -174,6 +252,14 @@ export interface EscPublishedItem {
   readonly subscribed?: boolean | undefined
   /** 技能维度的启用位（平台在部分口径下不回，故可选）。 */
   readonly enabled?: boolean | undefined
+  /**
+   * ★**口径 64（本刀）**：发布者是否允许复制（平台那条记录里的 `allowCopy`）。
+   *
+   * 平台给的是**数字**（真机实测 `1` / `0` 两值）。这里**不**写成 `boolean`：归一化（"只有 1 才算
+   * 允许、其余一律不允许"）是**投影层**的判据，写进原始类型就会让"原值是什么"这件事在类型层消失，
+   * 而那条 fail-closed 判据恰恰要能对着各种畸形原值被机械复核（`true` / `'1'` / 缺席都要判不允许）。
+   */
+  readonly allowCopy?: number | undefined
 }
 
 /** 连接器提供方（`GET /api/connector/providers` 的一条）。 */
@@ -262,11 +348,74 @@ export const mapPublishedStats = (
  *   · `uninstallSkill`：卸载一枚**企业**已装技能包（`packageId` 是中心雪花 id）。
  * ★ 本机自装包**没有**中心雪花 id，也就**没有**卸载路由（见 `skill-upload.ts` 的落盘面）——
  *   故「用户自定义」那一组的开关只能是**置灰 + 写明原因**，绝不画一枚拨了没反应的控件。
+ * ★**口径 53（本刀）**：再加一枚 `installSkill`——把**企业中心注册的技能包**装到本机
+ *   （用户裁决原话：「把后台注册的技能，安装到 DSH 本地」）。
+ *
+ *   ★**它为什么是可选**：判据仍是「端口在不在场」（本仓既有纪律：禁用即须有可见说明，绝不写死
+ *     `disabled`），故"没接上"必须是一个**可表达的事实**（纯函数直调 / 老调用方 / 本部署没接线），
+ *     而不是一个编译期就能骗过的必填位。真接线在 `client.tsx`（一定给）。
+ *   ★**它复用哪一枚实现**：`local-api.ts` 的 `installSkill`（`POST …/local/skills/install`，
+ *     正文关闭键集恰好 `{packageId}`，响应是 Host 落盘后的**最新已装清单**）。
+ *     界面这一侧**绝不手写第二套 fetch + decode**——口径 47 那个 bug（整只信封喂给只认拆封体的解码器）
+ *     就是这么来的；本仓全 `src` 里 `'/skills/install'` 这个字面量**只有一个调用点**（门禁反向锁）。
+ *   ★**成功以 Host 回传的清单为准**：它的返回值就是"装完之后本机真的有哪些包"，界面据此翻卡片，
+ *     **不做乐观切换**（不自己往清单里塞一枚、也不自己加计数）。
  */
 export interface EnterpriseEscSkillPort {
   readonly uploadSkill: (file: File, signal: AbortSignal) => Promise<readonly EnterpriseInstalledSkill[]>
   readonly selfInstalledSkills: (signal: AbortSignal) => Promise<readonly EnterpriseSelfInstalledSkill[]>
   readonly uninstallSkill: (packageId: string, signal: AbortSignal) => Promise<readonly EnterpriseInstalledSkill[]>
+  /** ★口径 53：企业技能包安装（复用 `local-api.ts` 那条既有实现；见接口上方那段）。 */
+  readonly installSkill?: ((packageId: string, signal: AbortSignal) => Promise<readonly EnterpriseInstalledSkill[]>) | undefined
+  /**
+   * ★**口径 64（本刀）**：**系统广场**那批 NUWAX 已发布技能的安装
+   *   （复用 `local-api.ts` 的 `installPublishedSkill`：`POST …/local/skills/published/install`，
+   *   正文**关闭键集恰好** `{targetId}`，`targetId` 是**安全整数**而不是路径/字符串 id）。
+   *
+   * ★**它为什么与上一格分开、而不是并进 `installSkill`**：两条路的**坐标与制品来源完全不同**——
+   *   · `installSkill(packageId)`：坐标是企业中心的**雪花字符串**，制品由 Host 代取中心 `/skills/…/download`，
+   *     响应是**企业已装清单**（含 `packageId`/`versionId`），落盘后还要能被「企业技能」那一维度精确命中；
+   *   · 这一格：坐标是平台这条记录的**数字 `targetId`**，制品是平台导出的裸技能目录 ZIP，
+   *     响应是**本机自装清单**（没有中心包 id）——它改不动"企业已装"那份账。
+   *   ⇒ 把二者混成一格就等于让"装的是哪一份、装没装"在同一个字段上打架（两套坐标系不可能同真）。
+   * ★**它同样刻意可选**：判据仍是「端口在不在场」（缺席 ⇒ 那批【＋】禁用 + **行上可见**写明原因），
+   *   而不是一个编译期就能骗过的必填位。真接线在 `client.tsx`（与 `installSkill` **同一处、同一枚实例**）。
+   */
+  readonly installPublishedSkill?: ((targetId: number, signal: AbortSignal) => Promise<readonly EnterpriseSelfInstalledSkill[]>) | undefined
+  /**
+   * ★**本刀（S5a）**：技能卡「更多」下拉里那两枚**本机管理动作**的实现面。
+   *
+   * ★**入参是技能在本机的目录名（kebab），不是 `packageId`、不是 `skillId`、不是 `targetId`**：
+   *   宿主那两条路由的判据是「`name` ∈ 某条**自装**记录的 `names[]`」，故界面这一侧**只交名字**、
+   *   从不交路径、也从不替宿主挑记录（"传一个路径进来"在宿主端口的形状上不可表达）。
+   * ★**两条为什么与上面那几格都分开**：坐标（落盘目录名）、动作（删本机目录 / 开系统文件管理器）、
+   *   失败面（404 找不到归属 / 409 跨归属或状态重叠 / 503 系统交接失败）与那几条"装东西"的路全不同；
+   *   混进 `installSkill` 那类格子里，等于让"装/卸/开"三件事在同一个字段上打架。
+   * ★**两条都刻意可选**：判据仍是「端口在不在场」（缺席 ⇒ 那两行**不画**，见 `esc-skill-more.ts`
+   *   的计划投影与 `esc-more-menu.tsx` 的文件头——官方 `MenuItem` 没有 `title` 位，一枚禁用的菜单行
+   *   说不出为什么按不动，故"不适用"一律表达为不画）。真接线在 `client.tsx`（同一枚 `escSkillApi` 实例）。
+   */
+  readonly uninstallSelfInstalledSkill?: ((name: string, signal: AbortSignal) => Promise<EnterpriseSelfInstalledUninstall>) | undefined
+  readonly revealSelfInstalledSkill?: ((name: string, signal: AbortSignal) => Promise<{ readonly revealed: true }>) | undefined
+  /**
+   * ★**本刀（S5b）**：技能卡那枚「去试试」的写入口——**新建一个会话 + 把一句指令填进输入框**
+   * （**不发送**，用户按发送才发出去）。
+   *
+   * ★**入参是那句拼好的指令**（唯一构造器是 `esc-skill-try.ts` 的 `enterpriseEscSkillTryDraft(name)`，
+   *   名字来自卡片自己的 `item.name`）——界面这一侧**不交路径、不交 URL、不交任何内部键名**。
+   * ★**它为什么是"跳新会话"而不是一条本机路由**：会话只能由**官方** `openWorkspace` 建（这是本仓的
+   *   硬边界：不自己造会话、不自己发 HTTP）。故这一格的实现**复用** `preset-launch.ts` 那条唯一链路
+   *   ——`client.tsx` 里接的就是**同一个** `createEnterprisePresetLauncher(...)`（与「查找技能 / 创建技能」
+   *   那两项走的是同一枚构造器、同一份四个官方结构面）⇒ 全仓 `openWorkspace` / `setDraft` 的调用点
+   *   **仍然只有 `preset-launch.ts` 一处**（门禁逐字节盯着这一点）。
+   * ★`true` = 已经打开（复用空白或新建的）会话、并确实把文本交给了官方那枚写入口；`false` / reject
+   *   = 这一级没走成 ⇒ 界面出 `ENT_SKILL_TRY_LAUNCH_FAILED` 的人话 + 下一步（**绝不静默**、也绝不假装成功）。
+   * ★**为什么与 `EnterpriseEscDraftPort` 分成两格**（它们共用同一枚构造器，看起来像重复）：两处的
+   *   **失败面与落点不同**——那一格属于工具栏下拉（漏填的是**界面写死的**两句提示词，用户自己也能贴），
+   *   这一格属于**某一张卡片**（漏填的是**按这枚技能拼的**指令，卡片上还得说清是哪一枚失败了）。
+   *   合并成一格就会让"哪一处缺席 / 哪一枚失败"说不清，而这正是本仓不肯含糊的那一格。
+   */
+  readonly fillSkillTryDraft?: ((draft: string) => Promise<boolean>) | undefined
 }
 
 /**

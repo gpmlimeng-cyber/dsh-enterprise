@@ -10,6 +10,13 @@
  *   （返回 `EnterpriseOnlineSkillSearch`：逐源状态 + 归一化结果，严格判据在 `skill-api-decode.ts`）与
  *   `installSkillFromResult(source, signal)`（正文关闭键集恰好 `{source}`；响应与 `/skills/installed`
  *   **逐字同形** ⇒ 复用同一个严格解码器；界面只回传它自己收到过的那条 `installSource`）。
+ * **本刀（口径 62：本地三方 Agent 技能源）**：`EnterpriseLocalApi` 再新增**第四**条通路的两个口子——
+ *   只读扫描 `thirdPartySkills(signal)`（返回 `EnterpriseThirdPartySkills`：根清单 + 候选三态；
+ *   形状里**没有 `path`**，宿主绝对路径不进浏览器）与安装动作 `installThirdPartySkill(path, signal)`
+ *   （正文关闭键集恰好 `{path}`；`path` 就是扫描投影里那枚不透明 `id`，界面原样回传、**从不拼路径**；
+ *   响应与 `/skills/self-installed` **逐字同形** ⇒ 复用同一个严格解码器）。**
+ *   语义与既有通路二**不同**：那一族是"只登记"（目录本来就在官方加载的根里），这一族是"**复制进来**"
+ *   （源目录在别的 CLI 的库里，官方扫不到）——两套语义并存但各自有名字，谁也不冒充谁。
  * **本刀（插件行动分流）**：`EnterprisePluginItem` 新增那一枚**启停位** `enabled`（与「装没装」正交；
  *   解码白名单把它放在**可选键**位、缺席时归一成 `true`——旧 Host 那一半不发这个键也照旧解得开，
  *   绝不存在「服务端先发、客户端不认」的中间态；形状不是布尔照样判畸形）。`EnterpriseLocalApi` 相应新增
@@ -25,6 +32,20 @@
  *   ★**口径 54（本刀）**：`EnterpriseLocalApi` 新增 `discoveredSkills(signal)`（官方发现面 = 「已安装」
  *     的真源）；`complete === false` 是官方自己的交代（还没发现完），界面必须如实说"还在发现中"、
  *     **不许当 0**；另两条记录方法**降级为来源/元信息**（版本 / 校验和 / 卸载用包 id）。
+ *   ★**口径 64（本刀）**：`EnterpriseLocalApi` 新增 `installPublishedSkill(targetId, signal)`
+ *     （系统广场「已发布技能」→ 本机，`POST …/local/skills/published/install`，正文**关闭键集恰好**
+ *     `{targetId}`：安全整数 `1..2^53-1`）。**它复用 `decodeEnterpriseSelfInstalledSkills`**——
+ *     宿主的响应就是 `GET /skills/self-installed` 那份**本机自装记录**（`bundle/src/skill-published.ts`
+ *     收尾一行 `installedSelfSkills(…)`），**没有**中心 `packageId`/`versionId` ⇒ 拿企业已装那份
+ *     七键闭合的解码器来解它，会把**每一次成功**都判成 `ENT_LOCAL_RESPONSE_INVALID`。
+ *     这一条与 `installSkill` 是两条路（坐标 / 制品 / 响应三件全不同），故两格并列、各只有一个调用点。
+ *   ★**本刀（S5a：自装技能的两个本机动作）**：`EnterpriseLocalApi` 再多**两格动作** ——
+ *     `uninstallSelfInstalledSkill(name, signal)` 与 `revealSelfInstalledSkill(name, signal)`
+ *     （`POST …/local/skills/self-installed/{uninstall,reveal}`，正文**关闭键集恰好** `{name}`；
+ *     `name` 是技能在**本机的目录名** kebab，不是记录里的 `skillId`——后者跨四条安装通路语义不统一）。
+ *     两份回执的 DTO 与严格解码住在 `skill-api-decode.ts`（自装清单那一族）：卸载回执
+ *     `{skills,removed}`（`skills` 复用既有自装清单解码器；**两格各自严格、宿主多带的日志键忽略**），
+ *     打开文件夹回执 `{revealed:true}`（**单键封闭**——宿主绝对路径不进浏览器）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -40,7 +61,7 @@ import {
   timestamp,
 } from './decode-primitives.js'
 import type { JsonRecord } from './decode-primitives.js'
-import type { EnterpriseDiscoveredSkills, EnterpriseInstalledSkill, EnterpriseInstalledSkillContent, EnterpriseInstalledSkillFile, EnterpriseOnlineSkillSearch, EnterpriseRuntimeSkill, EnterpriseSelfInstalledSkill, EnterpriseSkillFiles, EnterpriseSystemSkills } from './skill-api-decode.js'
+import type { EnterpriseDiscoveredSkills, EnterpriseInstalledSkill, EnterpriseInstalledSkillContent, EnterpriseInstalledSkillFile, EnterpriseOnlineSkillSearch, EnterpriseRuntimeSkill, EnterpriseSelfInstalledSkill, EnterpriseSelfInstalledUninstall, EnterpriseSkillFiles, EnterpriseSystemSkills, EnterpriseThirdPartySkills } from './skill-api-decode.js'
 import type {
   EnterpriseLibraryHit,
   EnterpriseLibraryImportResult,
@@ -469,6 +490,27 @@ export interface EnterpriseLocalApi {
   skillFile(packageId: string, path: string, signal: AbortSignal): Promise<EnterpriseInstalledSkillFile>
   /** 一键安装一个技能包；返回安装后的最新已装态（一次往返拿到真值）。 */
   installSkill(packageId: string, signal: AbortSignal): Promise<readonly EnterpriseInstalledSkill[]>
+  /**
+   * ★**口径 64（本刀）**：把**系统广场**一条**已发布技能**装到本机
+   *   （`POST /enterprise/api/v1/local/skills/published/install`，正文**关闭键集恰好** `{targetId}`）。
+   *
+   * ★**它与 `installSkill` 是两条路，不许互相冒充**：
+   *   · 坐标不同：这里是平台那条记录的 **`targetId`（安全整数 `1..2^53-1`）**，
+   *     那里是企业中心的**雪花字符串 `packageId`**（真机实测两套坐标系：广场 `targetId=158`
+   *     vs 中心 `packageId=2105915576743428098`）；
+   *   · 制品来源不同：导出 ZIP（裸技能目录）由 Host 走「只读面 + 票据」取，全程**不进浏览器**；
+   *   · 响应不同：这一条回的是 **`{skills:[…]}` 本机自装记录**（五键 + 可选 `sourceInput`，
+   *     与 `GET /skills/self-installed` 逐字同形 ⇒ **复用** `decodeEnterpriseSelfInstalledSkills`
+   *     那一枚既有严格解码器，不新写第二套），而 `installSkill` 回的是**企业已装清单**。
+   * ★**为什么必须复用既有解码器而不是"照 installSkill 抄一份"**：`decodeEnterpriseInstalledSkills`
+   *   要的是**七键闭合**（`packageId`/`versionId` 是必填），而这条响应里**没有**中心包 id
+   *   ⇒ 拿它解会把**每一次成功**都判成 `ENT_LOCAL_RESPONSE_INVALID`（界面上就成了"装成功了却报失败"）。
+   *   宿主那份真值在 `bundle/src/skill-published.ts` 的收尾一行（`return await installedSelfSkills(…)`），
+   *   与三方/纳入两条同族"复制进 DSH"的路**同一个形状**；本层与它们**同一个解码器**。
+   * ★合规判据的**权威在宿主**（它按那条记录的详情再判一次 `allowCopy` / `paymentRequired`，
+   *   判不过回 `ENT_SKILL_PUBLISHED_COPY_FORBIDDEN`）：界面这一侧**只预判**、不替员工绕过授权。
+   */
+  installPublishedSkill(targetId: number, signal: AbortSignal): Promise<readonly EnterpriseSelfInstalledSkill[]>
   /** 卸载一个已装技能包；返回卸载后的最新已装态。 */
   uninstallSkill(packageId: string, signal: AbortSignal): Promise<readonly EnterpriseInstalledSkill[]>
   /**
@@ -491,6 +533,30 @@ export interface EnterpriseLocalApi {
    * `decodeEnterpriseSelfInstalledSkills` 的宽容口径）。
    */
   selfInstalledSkills(signal: AbortSignal): Promise<readonly EnterpriseSelfInstalledSkill[]>
+  /**
+   * ★**本刀（S5a）**：卸载一枚**本机自装**技能
+   *   （`POST /enterprise/api/v1/local/skills/self-installed/uninstall`，正文**关闭键集恰好** `{name}`）。
+   *
+   * ★**`name` 是技能在本机的目录名（kebab）**，不是记录里的 `skillId`、不是 `packageId`、不是 `targetId`：
+   *   那个 `skillId` 字段的语义跨四条安装通路**并不统一**（本地上传是 `manifest.id`、广场/skillhub 那批
+   *   是技能名或 slug），而真正的落盘目录名在记录的另一格 `names[]` 里。宿主按「`name` ∈ 某条记录的
+   *   `names`」判归属 ⇒ "替客户端挑一条记录"在形状上不可表达（正文只有这一个键）。
+   * ★**只有自装技能能卸**：被中心 `installed.json` 认领的名字 ⇒ 宿主 404 `ENT_RESOURCE_NOT_FOUND`
+   *   （那是 `/skills/uninstall` 按中心包 id 那条路的职责）；两条自装记录都认领 ⇒ 409
+   *   `ENT_SKILL_NAME_CONFLICT`（fail-closed，零删除）。界面**不写第二套判据**，只按码出人话。
+   * ★响应两格：`skills`（卸载后的自装投影，与 `GET /skills/self-installed` 逐字同形）与 `removed`。
+   */
+  uninstallSelfInstalledSkill(name: string, signal: AbortSignal): Promise<EnterpriseSelfInstalledUninstall>
+  /**
+   * ★**本刀（S5a）**：用系统文件管理器打开这条自装技能所在的文件夹
+   *   （`POST …/skills/self-installed/reveal`，正文**关闭键集恰好** `{name}`；入参口径同上）。
+   *
+   * ★**非破坏性、但仍是异步动作**：宿主把「记录里的名字 + 固定技能根」拼出来、过 `lstat` + `realpath`
+   *   落点等式之后交给系统文件管理器（argv 调 `open`/`explorer`/`xdg-open`，无 shell）。
+   * ★响应**只有** `{revealed:true}`：宿主绝对路径不进浏览器；目录不在了 / 名字不属于自装 ⇒ 404，
+   *   系统交接失败 ⇒ 503 `ENT_PLATFORM_UNAVAILABLE` —— 界面如实上屏，绝不静默说"打开了"。
+   */
+  revealSelfInstalledSkill(name: string, signal: AbortSignal): Promise<{ readonly revealed: true }>
   /**
    * **本机官方发现面**（`GET /skills/discovered`，口径 54）：本机 DSH **真的装着什么**。
    *
@@ -532,6 +598,32 @@ export interface EnterpriseLocalApi {
    * 严格解码器（Host 回畸形即整条失败，不会被当成「安装成功」）。
    */
   installSkillFromResult(source: string, signal: AbortSignal): Promise<readonly EnterpriseInstalledSkill[]>
+  /**
+   * **本地三方 Agent 技能源（扫描）**：列出**别的 Agent CLI 的技能库**里有哪些技能
+   * （`GET /local/skills/third-party`，只读；口径 62）。
+   *
+   * ★它与上面那条「系统搜索」**不是同一件事**，故是本层第**四**条独立通路：
+   *   系统搜索扫的是**官方**技能根（`<dshHome>/skills` 一类，纳入了就真能被 Agent 加载）；
+   *   这一条扫的是**别人的**库（`~/.claude/skills`、`~/.codex`…），那些根**不在**官方扫描范围里
+   *   ⇒ 光是"登记"Agent 根本加载不到，故这里的【安装】语义是**把目录复制进 `<dshHome>/skills`**。
+   * ★响应形状里**没有 `path`**（宿主绝对路径不进浏览器）：每条候选只有一枚不透明 `id`
+   *   （Host 侧 = `sha256(realpath)` 前 16 位）。界面把它当**不透明值**——原样收下、原样回传
+   *   （见下一条），**从不拼、从不改、从不接受用户输入**。
+   * ★空列表**合法**（本机一枚三方技能都没有）；扫描失败是 503 + `ENT_SKILL_THIRD_PARTY_UNAVAILABLE`
+   *   —— **绝不静默回空列表**（界面据此出失败态，不出空态）。
+   */
+  thirdPartySkills(signal: AbortSignal): Promise<EnterpriseThirdPartySkills>
+  /**
+   * **本地三方 Agent 技能源（安装）**：把一条候选**复制**进本机 DSH 的技能根
+   * （`POST /local/skills/third-party/install`，正文**关闭键集恰好 `{path}`**）。
+   *
+   * `path` 只可能是 `thirdPartySkills()` 那次投影里给过的那枚 `id`，界面**原样回传**
+   * （Host 侧会再 `realpath` 并在本次候选集里逐字比对，不在 ⇒ 400 `ENT_SKILL_DISCOVERY_UNKNOWN`）。
+   * 响应与 `GET /skills/self-installed` **逐字同形** ⇒ 复用同一个严格解码器
+   * （Host 回畸形即整条失败，不会被当成「安装成功」——复制落盘是**真写盘**，误报成功的代价最大）。
+   * ★源目录**一个字节不动**（不 rsync、不 move、不删）。
+   */
+  installThirdPartySkill(path: string, signal: AbortSignal): Promise<readonly EnterpriseSelfInstalledSkill[]>
   installPlugin(packageName: string, pluginVersionId: string, signal: AbortSignal): Promise<EnterprisePluginStatus>
   removePlugin(packageName: string, signal: AbortSignal): Promise<EnterprisePluginStatus>
   /**

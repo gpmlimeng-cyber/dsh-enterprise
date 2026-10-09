@@ -3,6 +3,30 @@
  * [OUTPUT]: 注册账号/插件设置、官方 settings.launcher 座位上的账号菜单、官方插件页「官方」分组里的「插件市场」入口卡片（注册 `EnterpriseMarketLegacyPage`：官方两行卡片 + **点技能行本体在该 page 视图内整页切换到技能详情子页面**，**这是唯一市场入口**）与详情页标题行（`plugins.detail.badge` 槽起出「**企业**徽章 + 版本号 + 包名」，无「预览版」签、无可拨总开关——徽章用官方 `Tag` 原语 + `tone="info"`，与官方「实验性」签同一枚原语；座位注册形状 `{ name, id, inject: () => ({ store }) }` 一字未动）**本刀（企业标签移回标题行）**：`apply` 里再起一处 `ctx.effect`——`startEnterpriseMarketBadgeDecoration(document, { warn: ctx.logger.warn })`，在官方渲染完成后往 `[data-plugin-item="plugin-market"]` 那一行的 `titleRow` 里、标题按钮**正后方**插一枚克隆自官方 Tag 实物的「企业」签（官方 `ItemCard`/`CardHead` 没有 tags 座位，API 层次做不到），观察器跟随官方重渲染、幂等、`dispose` 时停观察并摘签；官方那几行一字不动，失效即不显示（不报错、不留半成品）；「独立应用商店」的两处注册（官方 `main` 槽上的 `enterprise-store` 整页面板与 `sidebar.panellist` 一级入口，order 20）已在上一刀撤掉，本刀把它留下的 store 外壳死代码（`EnterpriseMarketStorePage`／`EnterpriseStoreIcon`／`ENTERPRISE_STORE_*`／HERO 与其样式文案／只服务它的搜索框）从 `marketplace-entry.tsx` 一并删除；**企业品牌的三处消费点**：侧栏品牌行的两格（`sidebar.brand.mark`／`sidebar.brand.name`，priority **-10** 遮蔽官方 priority 0 的鱼标与字标）与「新会话」Hero 的品牌位（`conversation.hero.brand.mark`，priority **0**，官方无占用者），三处都经 `bindEnterpriseBrandSeat` 由品牌视图驱动——有企业品牌才注册、未配置或取数失败就撤掉注册，官方鱼标／官方 HeroFish 原样接管（渲染器 single 槽只要有 occupant 就不再走 `opts.fallback`，故「占用者返回 null」不能当降级路径）；宿主模型/凭据变化后按需读取状态，让请求触发的认证失效立即呈现；向菜单注入官方主题只读源、桌面能力面（动作 + 更新状态）与官方快捷键注册表只读源 **本刀（资料库）**：`apply` 末尾新增资料库的两处座位接线——`createEnterpriseLibraryGate`（本机设置里的管理门，默认关）驱动 `bindEnterpriseLibrarySeats` 在 `sidebar.panellist`（id `library`）与 `main`（key 同名）上做**视图驱动的注册/注销**（关就真撤，复用 brand-occupants 那套手法），并建一份目录取数源经 `main` 的 inject 面交给页面；`plugins.item` 的 inject 面因此从 `{store}` 扩成 `{store, libraryGate}`（组件行那枚「资料库」开关与企业会话 store 是两回事）。 **本刀（配方一键启用）**：`plugins.item` 的 inject 面再增一件 `presetLaunch`——降级链第二级（跳到新会话并把导入指令填进输入框）的接线，由 `createEnterprisePresetLauncher(() => enterprisePresetSessionPortsFrom({uiWorkspace, workspaces, sessions, conversation}))` 在**每次点击时**经 `ctx.get` 现读官方那四件结构面（缺一即这一级不可用，界面如实说明并落到第三级）。
  * [POS]: dsh-ui 的浏览器组合根，只向 React 注入共享脱敏 store、主题源、桌面能力面与快捷键源，并把企业品牌的三个展示位挂到官方已声明的槽位上（品牌读取与 logo 渲染仍归 branding.ts，本文件不复制品牌逻辑），不注册任何全屏阻断层，也不自建第二份逻辑 **本刀（资料库 P1-A：把资料加入当前对话）**：`apply` 末尾再挂三件，全部由**同一个** `libraryGate` 驱动（关 → 真的一个占用者都不留、`@` 源也注销）：① 官方 `ctx.inputTriggers` 的 `@` 源（`createEnterpriseLibraryTriggerSource`，候选＝目录树文件行）——**选中集合的产生路径**；② `conversation.input.left` 的「@ 资料库」按钮；③ `conversation.input.dock` 的「本轮已加入的资料」条（可见 / 逐份移除 / 清空 / 失败重试）。会话 id 走官方正规口子（`onPick` 的 `pick.session.sessionId` 与 session 作用域座位 `inject(sessionId)`），不反解不透明 scope；`inputTriggers` **不硬注入**（缺席只是没有 `@` 源）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ *
+ * ★**口径 53（本刀）**：`bindEnterpriseEscSeats` 的 esc 技能写入口多接一格 `installSkill`
+ *   ——**复用**上面那份 `escSkillApi`（`createEnterpriseLocalApi()`）上的 `installSkill`，
+ *   也就是 `local-api.ts` 那条 `POST …/local/skills/install`（「企业设置 → 技能」与「应用商店」
+ *   两处走的是**同一枚**，本刀没写第二套 fetch/decode、没加路由）。它给技能页第四枚维度
+ *   「企业技能」那枚【＋】：装了之后以 Host 回传的最新已装清单为准翻卡片。
+ *   ★**口径 64（本刀）**：同一处接线再**并列**一格 `installPublishedSkill`
+ *     ——系统广场那批 NUWAX 已发布技能的【＋】走的那条本机路由
+ *     （`POST …/local/skills/published/install`，正文 `{targetId}`：**安全整数**，不是路径、不是
+ *     `packageId`）。**同样复用** `escSkillApi` 这一枚实例与 `local-api.ts` 那一份 `requestJson`；
+ *     两条安装路（`packageId` / `targetId`）各有各的格子、各只有一个调用点，谁也不冒充谁。
+ *   ★**本刀（S5a）**：同一处 `bindEnterpriseEscSeats` 接线再**并列**两格本机管理动作
+ *     `uninstallSelfInstalledSkill` / `revealSelfInstalledSkill`
+ *     （`POST …/local/skills/self-installed/{uninstall,reveal}`，正文**关闭键集恰好** `{name}`：
+ *     `name` 是技能在**本机的目录名** kebab，不是 `packageId`/`skillId`/`targetId`）。
+ *     **同样复用** `escSkillApi` 这一枚实例与 `local-api.ts` 那一份 `requestJson`；界面这一层
+ *     不加工、不挑选记录、不拼路径——归属判据的权威在宿主。
+ *   ★**本刀（S5b）**：同一处接线再多**一格可选**写入口 `fillSkillTryDraft`
+ *     ——技能卡那枚「去试试」用它把一句按技能名拼好的指令填进新会话的输入框（**不发送**）。
+ *     它**不新造任何机制**：`client.tsx` 把那一枚 `createEnterprisePresetLauncher(...)` 收成
+ *     **一个**常量 `escDraftLaunch`，`EnterpriseEscDraftPort.launch` 与这一格是**同一枚函数**
+ *     ⇒ 全仓 `openWorkspace` / `setDraft` 的调用点仍然**只有 `preset-launch.ts` 一处**。
+ *     每次点击现场 `ctx.get` 重读官方四件结构面（服务晚挂载也照常可用），缺环即 `false`
+ *     （界面出 `ENT_SKILL_TRY_LAUNCH_FAILED` 的人话 + 下一步，**绝不自己发 HTTP、绝不自己造会话**）。
  */
 
 import type { ReactNode } from 'react'
@@ -332,18 +356,74 @@ export function apply(ctx: SlotContextPort): void {
    * （服务可能晚于本插件挂载；缺一环就整条不可用，`launch` 返回 false ⇒ 界面出
    * `ENT_ESC_DRAFT_UNAVAILABLE` 的人话 + 下一步，绝不静默）。
    */
-  const escDraftPort = {
-    launch: createEnterprisePresetLauncher(() => enterprisePresetSessionPortsFrom({
-      uiWorkspace: ctx.get('uiWorkspace'),
-      workspaces: ctx.get('workspaces'),
-      sessions: ctx.get('sessions'),
-      conversation: ctx.get('conversation'),
-    })),
-  }
+  /**
+   * ★**本刀（S5b）**：那一枚启动器**只建一次**——技能页下拉那两项草稿与技能卡那枚「去试试」
+   * 走的是**同一个**实现（同一枚 `createEnterprisePresetLauncher`、同一份四个官方结构面；
+   * 每次点击都现场重读服务，故官方那几件服务晚于本插件挂载也照常可用）。
+   *
+   * ★为什么必须收成一枚实例：本仓"打开会话 + 写草稿"**只有一处实现**（`preset-launch.ts`）。
+   *   两处各建一枚构造器虽然行为相同，却会让"这条链路的失败面在哪儿"多出一个可以漂的分叉点
+   *   （而且门禁逐字盯着 `escDraftPort` 只出现两次）。故第二处消费点直接复用这一枚函数。
+   */
+  const escDraftLaunch = createEnterprisePresetLauncher(() => enterprisePresetSessionPortsFrom({
+    uiWorkspace: ctx.get('uiWorkspace'),
+    workspaces: ctx.get('workspaces'),
+    sessions: ctx.get('sessions'),
+    conversation: ctx.get('conversation'),
+  }))
+  const escDraftPort = { launch: escDraftLaunch }
   bindEnterpriseEscSeats(ctx.slots, escApi, {
     uploadSkill: (file, signal) => escSkillApi.uploadSkill(file, signal),
     selfInstalledSkills: signal => escSkillApi.selfInstalledSkills(signal),
     uninstallSkill: (packageId, signal) => escSkillApi.uninstallSkill(packageId, signal),
+    /**
+     * ★**口径 53（本刀）**：技能页第四枚维度「企业技能」那枚【＋】的写入口。
+     *
+     * ★**它复用哪一枚实现**：就是上面这一份 `escSkillApi`（`createEnterpriseLocalApi()`）上的
+     *   `installSkill` —— 也就是 `local-api.ts` 那条 `POST …/local/skills/install`
+     *   （正文关闭键集恰好 `{packageId}`、响应是 Host 落盘后的**最新已装清单**）。
+     *   「企业设置 → 技能」与「应用商店」两处走的**是同一枚**，本刀一个字节都没有新写路由或解码器。
+     * ★**为什么不在这一层做任何加工**（不包 try、不转码、不读返回值）：Host 那一次往返既执行动作
+     *   又回传真值，界面拿到的就是真值本身；在这里加一层就等于给它盖上一层"我们的理解"。
+     */
+    installSkill: (packageId, signal) => escSkillApi.installSkill(packageId, signal),
+    /**
+     * ★**口径 64（本刀）**：**系统广场**那批 NUWAX 已发布技能那枚【＋】的写入口——与上一格
+     *   **并列**、用**同一枚实例**（`escSkillApi`）、同一处接线。
+     *
+     * ★**它复用哪一枚实现**：上面这一份 `createEnterpriseLocalApi()` 上的 `installPublishedSkill`
+     *   —— 也就是 `local-api.ts` 那条 `POST …/local/skills/published/install`（正文**关闭键集恰好**
+     *   `{targetId}`，坐标是**安全整数**；响应是 Host 落盘后的**本机自装清单**）。
+     *   本刀一个字节都没有新写路由、新写解码器、新造第二个 fetch。
+     * ★**为什么它与 `installSkill` 必须是两格**：坐标（安全整数 `targetId` vs 中心雪花 `packageId`）、
+     *   制品来源（平台导出 ZIP vs 中心制品）、响应（本机自装清单 vs 企业已装清单）三件全不同
+     *   ⇒ 混成一格就是让两套坐标系在同一个字段上打架（门禁另有一条反锁盯着两条路各只有一个调用点）。
+     */
+    installPublishedSkill: (targetId, signal) => escSkillApi.installPublishedSkill(targetId, signal),
+    /**
+     * ★**本刀（S5a）**：技能卡「更多」下拉里那两枚**本机管理动作**的写入口——与上面几格
+     * **并列**、用**同一枚实例**（`escSkillApi`）、同一处接线。
+     *
+     * ★**它们复用哪一枚实现**：`local-api.ts` 的两条 exact 路由
+     *   `POST …/local/skills/self-installed/{uninstall,reveal}`（正文**关闭键集恰好** `{name}`，
+     *   `name` 是技能在**本机的目录名** kebab）。界面一个字节都没新写路由、新写解码器、新造第二个 fetch。
+     * ★**为什么正文只有名字**：归属判据的**权威在宿主**（"这个名字属于哪条自装记录"由它按
+     *   真实落盘名判，客户端不许挑记录）——故这里把 `name` **原样**转交，不加工、不挑选、不拼路径。
+     */
+    uninstallSelfInstalledSkill: (name, signal) => escSkillApi.uninstallSelfInstalledSkill(name, signal),
+    revealSelfInstalledSkill: (name, signal) => escSkillApi.revealSelfInstalledSkill(name, signal),
+    /**
+     * ★**本刀（S5b）**：技能卡那枚「去试试」的写入口——**与上面几格并列**、同一处接线，
+     * 但复用「查找技能 / 创建技能」那两项**同一枚**启动器（上面那枚 `escDraftLaunch`）。
+     *
+     * ★**它做了什么**：新建/复用一个空白会话，并把指令写进官方输入面板（`setDraft`）——**不发送**。
+     *   这条链路（`openWorkspace` 的同步 `beforeOpen` 拿 `sessionId` → `conversation.input.shell(id)
+     *   .actions.setDraft(text)`）在本仓**只有 `preset-launch.ts` 一处实现**；这里一个字节都没有新写。
+     * ★**为什么返回 `Promise<boolean>` 而不是抛**：与 `EnterpriseEscDraftPort.launch` 同一条口径——
+     *   `false` = 这一级没走成（端口缺席 / 没有可落的工作区 / 官方那次打开被中止），界面据此出
+     *   `ENT_SKILL_TRY_LAUNCH_FAILED` 的人话 + 下一步，**绝不静默**。
+     */
+    fillSkillTryDraft: draft => escDraftLaunch(draft),
   }, escDraftPort)
   /**
    * **资料库 P1-A：把资料加入当前对话**（口径 23，本刀）。
