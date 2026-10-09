@@ -44,6 +44,36 @@
  *   滚到底照样会走 ⇒ **冻不住**。提成**滚动面（`.esc-content`）的直属子节点**之后，包含块就是整段
  *   可滚高度 ⇒ 真的固定不动。三页签与右块仍**同一行**（用户裁决④那条结构一字未动），本刀只让那一行冻结。
  *   移动档由样式表把 sticky 关掉（`position: static`），既有那条「整页单滚动面」裁决保持。
+ *   ★**口径 51（本刀）：三页主按钮的文案与动作逐页落地**（WorkBuddy 实机三页是三种交互，研究文件 §3）：
+ *   ① **专家页**改「我的专家」、点它**进子页**（页内视图切换，由 `esc-page` 切到 `esc-my-experts.tsx`）；
+ *   ② **连接器页**改「自定义连接器」——WorkBuddy 那一枚开的是 MCP 管理弹窗，本刀**不做**那个弹窗
+ *      ⇒ 该按钮**置灰 + 行上可见原因**（`customConnectorLocked`），绝不继续走本地导入文件选择器
+ *      （那会让"文案说自定义连接器、点开却是选文件"继续说谎）；
+ *   ③ **技能页**一字不改（仍是三项下拉；那一页的文案仍是「添加技能」）。
+ *   ★**判据仍是"端口在不在场"**：专家页看 `onOpenMyExperts`、连接器页看 `onCustomConnectors`
+ *   （这个口子今天**全仓没有任何调用方会传**——本部署根本没有自定义连接器管理接口）。
+ *   两页的置灰原因都**行上可见**（`ENTERPRISE_ESC_LOCAL_COPY` 里那两句短句 + `role="status"`），
+ *   挂一句 `title` 不算数（产品宪法：禁用控件不许只挂 `title`）——顺带把技能页那条降级路径
+ *   （没有下拉供给、又没有本机写入口时的主按钮）也补上了同一句可见原因。
+ *   形态/高度/右边界三件**一字未动**（专家页仍是 `.esc-add-skill-outline` 白底描边、连接器页仍是黑胶囊、
+ *   盒高仍是 `height: var(--esc-btn-h)`）。
+ *   ★**用户裁决（读不到 ⇒ 0）（本刀）**：顶栏「已安装(N)」的计数位**恒画 `(N)`**——
+ *   `installedCount === undefined`（这一趟还没读回来 / 读失败）时画 `(0)`，与"真读到 0"**同形**；
+ *   旧那枚橙色 `？` 整枚撤下。代价由按钮的 `title` 兜住：同一个 `(0)`、两种状态用**两句不同的 title**
+ *   区分（读不到 ⇒ `installedCountUnreadable`「本机已装数量暂时读不到，先按 0 显示」；真 0 ⇒
+ *   `installedFilterOpen` 那句）—— 这是"不许静默吞掉读不到"那条硬纪律在本刀的机器化落点。
+ *   ★顺带**纠正文案错配**：`？` 原先挂的是 `ENTERPRISE_ESC_LOCAL_COPY.categoriesUnavailable`
+ *   （「分类暂时读不到」），而真机上分类那一面**本身是好的**（分类 chips 全在）—— 那句是给"分类字典
+ *   读不到"用的，被计数借走就是让按钮指错原因。现在计数用**它自己**那枚新文案，
+ *   `categoriesUnavailable` **收敛回分类那一处**（全 `src/esc` 的取值引用点只剩分类提示那一处，
+ *   门禁有集合级反向锁）。
+ *   ★不动的：计数来源（企业已装 + 本机自装**两份之和**）、请求次数与时机、「已安装」只在技能页、
+ *   几何（110×32 / 右边界 / 字号）。子页「已安装技能」自己的读失败态**一字未动**（它另有如实交代）。
+ *   ★**口径 55（本刀）**：技能页那枚「我启用的」维度**整枚删除**（用户裁决：他和已安装重复）⇒
+ *     专家/技能页**恰好两枚**维度（系统广场 / 团队空间），连接器页第三枚仍是「已连接的」。
+ *   ★**口径 54（本刀）**：新增第四态 prop `installedCountDiscovering`（官方发现面说 `complete === false`）
+ *     —— 数字位画的仍是**真的读到的那几个**（**不许当 0**），只有 `title` 换成「还在发现中…」
+ *     （句子里一个数字都没有 ⇒ **不许写死数字**）；title 优先级四档：暂定 > 发现中 > 口没接 > 正常。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -153,6 +183,70 @@ export function enterpriseEscAddSkillPlans(
   )
 }
 
+/**
+ * ★**口径 51**：主按钮（三页共用的那一枚）上的取证钩子。
+ *
+ * 页壳在**返回**时按它把焦点还给这一枚（进子页/进已安装页都会把内容区整棵换掉，
+ * 旧 DOM 引用已不可用 ⇒ 只能按选择器在新树里找回它）。写在属性上而不是类名上：
+ * 类名清单要留给"形态"那一条判据（`.esc-add-skill esc-add-skill-outline`），不混两件事。
+ */
+export const ENTERPRISE_ESC_MAIN_ACTION_ATTR = 'data-esc-main-action'
+
+/**
+ * ★**口径 51**：专家页/连接器页那两枚主按钮的**终态**（文案 / 能不能按 / 按下去干什么 /
+ * 悬浮说明 / 禁用时**行上可见**的原因）。技能页返回 `undefined`（那一页另有下拉与降级两态）。
+ *
+ * 与 `enterpriseEscAddSkillPlans` 同一条纪律：判据是**端口在不在场**，不是写死的 `disabled`；
+ * 按不动时**必须**配一句可见原因（`lock`），因为产品宪法禁止"只挂一句 title 的禁用控件"。
+ *
+ * @param input - 资源类型与两枚端口（`onOpenMyExperts` / `onCustomConnectors`）。
+ * @returns 那一页主按钮的终态；技能页为 `undefined`。
+ */
+export function enterpriseEscMainActionPlan(input: {
+  readonly resourceType: ResourceTypeEnum
+  readonly onOpenMyExperts?: (() => void) | undefined
+  readonly onCustomConnectors?: (() => void) | undefined
+}): EnterpriseEscMainActionPlan | undefined {
+  if (input.resourceType === 'expert') {
+    const wired = input.onOpenMyExperts !== undefined
+    return {
+      label: ENTERPRISE_ESC_COPY.myExperts,
+      disabled: !wired,
+      onClick: input.onOpenMyExperts,
+      title: wired ? ENTERPRISE_ESC_LOCAL_COPY.myExpertsOpenTitle : ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted,
+      lock: wired ? undefined : ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted,
+    }
+  }
+  if (input.resourceType === 'connector') {
+    const wired = input.onCustomConnectors !== undefined
+    return {
+      label: ENTERPRISE_ESC_COPY.customConnector,
+      disabled: !wired,
+      onClick: input.onCustomConnectors,
+      // 今天恒走"未接线"那一支（本部署没有自定义连接器管理接口）；真接线那天标题换成"会发生什么"。
+      title: wired
+        ? ENTERPRISE_ESC_LOCAL_COPY.customConnectorOpenTitle
+        : ENTERPRISE_ESC_LOCAL_COPY.customConnectorLocked,
+      lock: wired ? undefined : ENTERPRISE_ESC_LOCAL_COPY.customConnectorLocked,
+    }
+  }
+  return undefined
+}
+
+/** 主按钮的终态（见 `enterpriseEscMainActionPlan`）。 */
+export interface EnterpriseEscMainActionPlan {
+  /** 按钮上的可见文案（三页各不相同：添加技能 / 我的专家 / 自定义连接器）。 */
+  readonly label: string
+  /** `true` ⇒ 官方 `Button` 带 `disabled`（点不到）。 */
+  readonly disabled: boolean
+  /** 点它干什么（`disabled` 时缺席）。 */
+  readonly onClick: (() => void) | undefined
+  /** 悬浮说明（可用时是"会发生什么"，不可用时也写明原因）。 */
+  readonly title: string
+  /** 禁用时**行上可见**的那句原因（可点时缺席）。 */
+  readonly lock?: string | undefined
+}
+
 /** 工具栏入参。 */
 export interface EnterpriseEscToolbarProps {
   readonly resourceType: ResourceTypeEnum
@@ -173,13 +267,33 @@ export interface EnterpriseEscToolbarProps {
   /**
    * 本机已装技能数（顶栏「已安装(N)」那枚的计数）。
    *
-   * ★`undefined` 与 `0` 是两件事实：读不到就是读不到，界面出「已安装」不带计数并另缀一枚 `？`
-   * （**不写0**——写0 等于对用户谎称「这台机器上一个技能都没装」）；读到空清单才真的是 0。
-   * ★取值来自本仓**既有真值** `GET /skills/installed`，不是新接口。
+   * ★**用户裁决（读不到 ⇒ 0）**：`undefined`＝**没读到真值**（这一趟还没回来／读失败），此时数字位
+   * 画 `(0)`——与"真读到 0"**同一个形状**（用户已明确接受这个代价：真 0 与读不到的 0 在按钮上长得一样）。
+   * 代价由 `title` 兜住：那枚按钮**仍然说得出**"这个数字是暂定的／读不到"（`installedCountUnreadable`），
+   * 所以同一个 `(0)`、两种状态靠 `title` 区分 —— **绝不静默吞掉"读不到"**。
+   * ★旧口径（`？` ＋ 借 `categoriesUnavailable` 那句）已按本裁决撤下，理由见下面渲染处那段。
+   * ★取值来自**官方发现面** `GET /skills/discovered`（口径 54：本机 DSH 真的装着什么），
+   *   不是我们那两份记录 —— 两份记录只作来源/元信息。
    */
   readonly installedCount?: number | undefined
-  /** 本机已装清单读不到时的可见说明（与 `installedCount === undefined` 同时给）。 */
+  /**
+   * 本机已装清单**这一趟读失败**（与 `installedCount === undefined` 同时给）。
+   *
+   * ★它仍是那枚按钮的一个真输入：计数位画 `(0)` 时，"这个 0 是暂定的"这件事由它与 `installedCount`
+   * 一起判定（两条任一成立即暂定），说法落在 `title` 上。旧口径里它驱动的是那枚橙色 `？`，现已撤下。
+   */
   readonly installedCountFailed?: boolean | undefined
+  /**
+   * ★**口径 54**：官方发现面说它**还没发现完**（`complete === false`）。
+   *
+   * 这一态与上面两态**不同**：读是读到了（数字位画的是**真的读到的那几个**，不是暂定的 0），
+   * 但这个数**还会变**。用户裁决的原话是「`complete === false` ⇒ 如实说"还在发现中"
+   * （不许当 0、不许写死数字）」⇒ 这里不写死任何数字，只把这件事**说出来**
+   * （`installedCountDiscovering` 那句，落在 title 上，优先级在"暂定"之下、"口没接"之上）。
+   * ★为什么不让它压过"暂定"：`installedCount === undefined` 时数字位画的是 `(0)`，
+   *   那句"还在发现中"会让员工以为那个 0 是真的发现结果 —— 而它其实一个都没读到。
+   */
+  readonly installedCountDiscovering?: boolean | undefined
   /**
    * ★用户裁决（两栏结构）：
    *   · `leading` ＝ **第一栏左侧**：三页签（与右块同处这一行）。
@@ -232,11 +346,38 @@ export interface EnterpriseEscToolbarProps {
    * 这里只负责**上报**"是哪一项没走成"，让失败可见的那一半留在有 hook 的那一层。
    */
   readonly onSkillDraftFailure?: ((kind: 'find' | 'create') => void) | undefined
+  /**
+   * ★**口径 51**：专家页那枚「我的专家」的入口（切到「我的专家」子页）。
+   *
+   * 缺席 ⇒ 置灰 + **行上可见**原因（`actionNotPorted`）。★它**不进** `api`（只读面）、
+   * 也不是第二套路由机制：子页就是同一页里的一份视图状态（与「已安装技能」页同一条手法）。
+   */
+  readonly onOpenMyExperts?: (() => void) | undefined
+  /**
+   * ★**口径 51**：连接器页那枚「自定义连接器」的入口（WorkBuddy 那边开的是 MCP 服务管理弹窗）。
+   *
+   * ★**今天全仓没有任何调用方会传它**：本部署的只读闭集里没有自定义连接器管理面，
+   * 本刀也明令不做那个弹窗 ⇒ 这一枚恒置灰 + 行上可见原因（`customConnectorLocked`）。
+   * 保留这个口子不是"预留将来要用的代码"，而是让禁用判据保持在**端口**上
+   * （写死 `disabled: true` 会让下一个读者分不清"本部署没有这个能力"与"忘了接线"）。
+   */
+  readonly onCustomConnectors?: (() => void) | undefined
 }
 
 /**
- * 主 tab 选项（逐条照抄原文件的构造顺序与显隐口径：
- * 「已连接的」仅连接器页、「我启用的」仅技能页，其余两枚恒在）。
+ * 主 tab 选项（构造顺序与显隐口径：**专家页与技能页恰好两枚**「系统广场 / 团队空间」，
+ * 连接器页多一枚「已连接的」）。
+ *
+ * ★**口径 55（用户裁决）**：技能页那枚「我启用的」（`value: 'enabled'`）**整枚删除**。
+ *   用户原话是「我启用的」删掉，理由是**它跟「已安装」重复** —— 这一维读的是平台
+ *   `POST /api/published/skill/enable/list`（这台部署本来就没有它），而它想回答的那个问题
+ *   （"我这儿到底有哪些技能"）由「已安装」那一枚回答；口径 54 起「已安装」**已经换成本机 DSH
+ *   的官方发现面**（磁盘上真的装着什么），比"平台记着谁启用过"更接近员工问的那件事。
+ *   两枚并排只会让员工在同一屏上看到两个不同的数字。
+ *   ★删的是**整枚维度**（选项 + 文案 + 取数适配器 + 端点缺失码 + 联合类型那一格），
+ *   不是"藏起来"：本仓不容许"看着还能用"的第二真源（与口径 49 删旧占位符同一条纪律）。
+ *   ★这也正是 WorkBuddy 实机的形状：它的专家页/技能页**就是这两枚**。
+ *   连接器页那第三枚仍是「已连接的」（`'connected'`）——本刀一字未动。
  */
 function sourceOptionsOf(resourceType: ResourceTypeEnum): readonly { readonly label: string; readonly value: ResourceSourceEnum }[] {
   return [
@@ -244,9 +385,6 @@ function sourceOptionsOf(resourceType: ResourceTypeEnum): readonly { readonly la
     { label: ENTERPRISE_ESC_COPY.mainTabTeam, value: 'team' },
     ...(resourceType === 'connector'
       ? [{ label: ENTERPRISE_ESC_COPY.mainTabConnected, value: 'connected' as const }]
-      : []),
-    ...(resourceType === 'skill'
-      ? [{ label: ENTERPRISE_ESC_COPY.mainTabEnabled, value: 'enabled' as const }]
       : []),
   ]
 }
@@ -281,6 +419,7 @@ export function EnterpriseEscToolbar({
   categoriesUnavailable,
   installedCount,
   installedCountFailed,
+  installedCountDiscovering,
   leading,
   belowLeading,
   onAddSkill,
@@ -289,6 +428,8 @@ export function EnterpriseEscToolbar({
   onCreateSkill,
   addSkillMenu,
   onSkillDraftFailure,
+  onOpenMyExperts,
+  onCustomConnectors,
 }: EnterpriseEscToolbarProps): ReactNode {
   /**
    * ★**口径 49**：下拉里哪一项按不动（判据＝端口在不在场，见 `enterpriseEscAddSkillLock`）。
@@ -328,6 +469,11 @@ export function EnterpriseEscToolbar({
     run()
   }
   /**
+   * ★**口径 51**：专家页 / 连接器页那两枚主按钮的**终态**（技能页返回 `undefined`，见上面那段）。
+   * 判据是端口在不在场；按不动时 `lock` 那格带一句**行上可见**的原因。
+   */
+  const mainAction = enterpriseEscMainActionPlan({ resourceType, onOpenMyExperts, onCustomConnectors })
+  /**
    * ★**口径 49**：那一枚主按钮本身（三页共用**同一枚**，形态由 `resourceType` 派生）。
    *
    * 为什么先建它再决定包不包 Menu：没有下拉供给时（`addSkillMenu` 缺席、或这是专家/连接器页）
@@ -338,11 +484,11 @@ export function EnterpriseEscToolbar({
     Button,
     {
       // ★主按钮走**近黑实底**（本主题 button-primary-fill 即近黑），品牌色只留给状态标识。
-      // ★**口径 49 的形态**：技能/连接器页 = primary（黑胶囊）；专家页 = `esc-add-skill-outline`
-      //   （白底描边，复用本页 `.esc-installed` 那条**既有**配方，不新造第二套白底按钮）。
-      //   ★**文案暂不改**：三页都仍写「添加技能」——WorkBuddy 那两页分别是「我的专家」/「自定义连接器」，
-      //   而它们在那边的行为是进子页 / 开 MCP 弹窗，我们这两页**还没有**那两件事（用户裁决：
-      //   等"我的专家"子页与 MCP 弹窗排期再改名）。改了文案却不改行为就是让按钮说谎，故宁可暂缓。
+      // ★**口径 49 的形态 + 口径 51 的文案**：技能/连接器页 = primary（黑胶囊，文案「添加技能」/
+      //   「自定义连接器」）；专家页 = `esc-add-skill-outline`（白底描边，文案「我的专家」）
+      //   —— 描边档复用本页 `.esc-installed` 那条**既有**配方，不新造第二套白底按钮。
+      //   ★口径 51 把三页的文案逐页落实（WorkBuddy 实机三页就是三个词）；连接器页那枚**同时置灰**
+      //   并写明原因（那一页的动作本刀不做），故"改文案却不改行为"这条说谎路径被堵死。
       variant: resourceType === 'expert' ? 'outline' : 'primary',
       // 官方原语档位：`md` 给的是圆角/内衬的**基准**，高度另有 `.esc-add-skill` 的
       // `height: var(--esc-btn-h)` 真钉住（`min-height` 压不住官方 md 档的 `height: 36px` —— 上一轮就是这么没生效的）。
@@ -351,19 +497,39 @@ export function EnterpriseEscToolbar({
       // ★口径 49：有下拉时按钮只开合菜单（不直接干上传那件事，连 `disabled` 都不写——
       //   锚点被禁用就点不开菜单，那是把整条新通路关死）；没有下拉时**逐字回到口径 46 那一态**
       //   （点击 = 本地导入，端口缺席即置灰 + 写明原因）——这就是那条不许退化的降级路径。
+      //   ★口径 51：专家/连接器两页走 `mainAction`（各自的端口与文案），技能页沿用上面那两态。
       ...(withMenu
         ? { onClick: addSkillMenu!.onToggle, 'aria-haspopup': 'menu' as const, 'aria-expanded': menuOpen }
-        : {
-            disabled: onAddSkill === undefined,
-            onClick: onAddSkill,
-          }),
-      title: withMenu || onAddSkill !== undefined
-        ? ENTERPRISE_ESC_LOCAL_COPY.addSkillLocalImport
-        : ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted,
+        : mainAction === undefined
+          ? {
+              disabled: onAddSkill === undefined,
+              onClick: onAddSkill,
+            }
+          : {
+              disabled: mainAction.disabled,
+              onClick: mainAction.onClick,
+            }),
+      title: withMenu || mainAction === undefined
+        ? (onAddSkill === undefined ? ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted : ENTERPRISE_ESC_LOCAL_COPY.addSkillLocalImport)
+        : mainAction.title,
+      // ★口径 51：页壳返回时按这一枚找回焦点（进子页/进已安装页都会把内容区整棵换掉）。
+      ...{ [ENTERPRISE_ESC_MAIN_ACTION_ATTR]: '' },
     },
     createElement(Plus, { size: 14, 'aria-hidden': true }),
-    ENTERPRISE_ESC_COPY.addSkill,
+    // 文案三档：有下拉或技能页降级 ⇒「添加技能」；专家/连接器 ⇒ 那一页自己的词。
+    withMenu || mainAction === undefined ? ENTERPRISE_ESC_COPY.addSkill : mainAction.label,
   )
+  /**
+   * ★**口径 51**：主按钮此刻按不动时那句**行上可见**的原因（产品宪法：禁用不许只挂 `title`）。
+   *
+   * 三页共用这一档：技能页那条降级路径（没有下拉供给、又没有本机写入口）也一并补上——
+   * 这一句是**可见文字**（`role="status"`），不是悬浮说明。
+   */
+  const actionLock = withMenu
+    ? undefined
+    : mainAction === undefined
+      ? (onAddSkill === undefined ? ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted : undefined)
+      : mainAction.lock
   /**
    * 下拉菜单本体的**纯投影**（`data-esc-add-skill-item` 与类别行同一手法：给门禁一个稳定的判据钩子）。
    *
@@ -411,6 +577,15 @@ export function EnterpriseEscToolbar({
         ),
       )
     : addSkillButton
+  /**
+   * ★**用户裁决（读不到 ⇒ 0）**：计数位是不是**暂定值**。
+   *
+   * 两个子情形合成这一态：① 这一趟还没读回来（首帧）；② 这一趟读失败（`installedCountFailed`）。
+   * 两种情形下数字位都画 `(0)`（与"真读到 0"同形，用户裁决的代价），并且**共用同一句**如实交代
+   * （`installedCountUnreadable`）——首帧那一瞬确实也还没读到真值，同一句话不撒谎；
+   * 而句子里"读不到"这三个字说的是**结果**，不是对失败的猜测。
+   */
+  const installedCountProvisional = installedCount === undefined || installedCountFailed === true
   const tabRow = createElement(
     'div',
     { className: 'esc-tabs-freeze' },
@@ -449,7 +624,13 @@ export function EnterpriseEscToolbar({
              在不在场，不再写死 `disabled`。
            ★**口径 49**：「已安装」**只在技能页渲染**——WorkBuddy 三页里只有技能页有这枚
              （专家/连接器页右块只有「搜索 + 主按钮」）。**整枚不渲染**（不是 disabled、不是
-             visibility 隐藏）：那两页上它没有任何对应物，画一枚灰的等于凭空多一件"点不动的东西"。 */
+             visibility 隐藏）：那两页上它没有任何对应物，画一枚灰的等于凭空多一件"点不动的东西"。
+           ★**用户裁决（读不到 ⇒ 0）**：数字位**永远**画 `(N)`；`installedCount === undefined`
+             （还没读回来 / 读失败）时画 `(0)`，与"真读到 0"**同形**（这个代价用户已明确接受）。
+             代价由 `title` 兜住：那枚按钮仍**说得出**"这个数字是暂定的"（`installedCountUnreadable`）
+             —— 同一个 `(0)`、两种状态靠 title 区分，**绝不静默吞掉"读不到"**。
+             旧那枚橙色 `？` 连同它借用的 `categoriesUnavailable`（分类那句）一并撤下：`？` 的**真因**
+             是已装清单读不到，而分类那一面当时是好的 —— 借那句话就是让按钮**指错原因**。 */
         resourceType !== 'skill'
           ? null
           : createElement(
@@ -459,24 +640,41 @@ export function EnterpriseEscToolbar({
                 className: 'esc-installed',
                 disabled: onOpenInstalled === undefined,
                 onClick: onOpenInstalled,
-                title: onOpenInstalled === undefined
-                  ? ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted
-                  : ENTERPRISE_ESC_LOCAL_COPY.installedFilterOpen,
+                /* 四态 → 四句 title（**优先级：暂定 > 发现中 > 口没接 > 正常**）：
+                   ① 计数暂定（`installedCountProvisional`）⇒ 说清"这个数是暂定的"；
+                   ② 官方还没发现完（`installedCountDiscovering`，口径 54）⇒ "还在发现中，这个数字还会变"；
+                   ③ 计数真读到、但开合口没接 ⇒ `actionNotPorted`；
+                   ④ 都正常 ⇒ `installedFilterOpen`。
+                   ★为什么①压过②③：那句话讲的是**按钮上正画着的那个数字**——让它被别的说法顶掉，
+                     界面上就留了一个**没有任何交代的假 0**（本仓硬纪律不许静默吞"读不到"）。
+                   ★为什么②压过③：同一个理由的另一半 —— 数字位画着的是**部分发现结果**，
+                     "还没发现完"是关于这个数字的最重要的一件事实，口没接是次要的。
+                     两条事实各自仍被单独锁着（口径 46/47 那组：计数读到 + 口缺席 ⇒ actionNotPorted）。 */
+                title: installedCountProvisional
+                  ? ENTERPRISE_ESC_LOCAL_COPY.installedCountUnreadable
+                  : installedCountDiscovering === true
+                    ? ENTERPRISE_ESC_LOCAL_COPY.installedDiscovering
+                    : onOpenInstalled === undefined
+                      ? ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted
+                      : ENTERPRISE_ESC_LOCAL_COPY.installedFilterOpen,
               },
               createElement(Download, { size: 14, 'aria-hidden': true }),
               createElement('span', null, ENTERPRISE_ESC_COPY.installedFilter),
-              installedCount === undefined
-                ? null
-                : createElement('span', { className: 'esc-installed-count', children: `(${installedCount})` }),
-              installedCountFailed === true
-                ? createElement('span', {
-                    className: 'esc-installed-failed',
-                    role: 'status',
-                    children: '？',
-                    title: ENTERPRISE_ESC_LOCAL_COPY.categoriesUnavailable,
-                  })
-                : null,
+              /* ★数字位**恒在**（这就是"读不到与真 0 同形"那条代价的落点）：没有第二枚 `？`、
+                 也不再有一条"不显示数字"的分支存着。 */
+              createElement('span', {
+                className: 'esc-installed-count',
+                children: `(${installedCount ?? 0})`,
+              }),
             ),
+        // ★口径 51：主按钮按不动时的**行上可见原因**（紧挨着那一枚，不是悬浮说明）。
+        actionLock === undefined
+          ? null
+          : createElement('span', {
+              className: 'esc-toolbar-lock',
+              role: 'status',
+              children: actionLock,
+            }),
         // ★口径 49：那一枚主按钮（技能页 = 三项下拉的锚；专家/连接器页 = 直接点的一枚）。
         addSkillMenuList,
       ),

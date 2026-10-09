@@ -117,6 +117,19 @@
  *   并把字号/字重钉到 `--esc-fs-xs` / 500；新增 `.esc-add-skill-outline`（专家页白底描边，
  *   配方逐条复用既有 `.esc-installed`，**不新造第二套白底按钮**）；移动档那条 `padding: 0 8px`
  *   的类名清单同步覆盖描边档（否则窄屏三页宽度不再一致）。
+ *   ★**口径 51（本刀）**：新增「我的专家」子页那一组几何（`.esc-my-experts-*` 五个类 + 工具栏主按钮
+ *   旁边那句**行上可见原因** `.esc-toolbar-lock`）——页头**复用**口径 47 立的 `.esc-installed-head/-title/-back`
+ *   那一份（刻意不新造第二套，否则两个子页的标题字号迟早漂开），本刀只给 `.esc-installed-title` 补一条
+ *   `margin: 0`（新子页的标题是 `h3`，那条对已安装页的 `span` 是空操作）；另在 `.esc-root` 里新增
+ *   一枚圆角刻度 `--esc-pill-radius`（WorkBuddy 那枚「+ 创建专家」是**整圆胶囊**，与工具栏主按钮的 8px
+ *   不是同一档）。**卡片与精选的几何一个字节都没动**（口径 48 那两段照旧）。
+ *   ★**口径 52（本刀：禁用胶囊的禁用外观）**：**删掉**两条把官方 `:disabled` 冲淡按回来的覆盖
+ *   （`.esc-root .esc-add-skill:disabled { opacity: 1; }` 与 `.esc-root .esc-my-experts-create:disabled
+ *   { opacity: 1; }`）——查证结论：官方 `Button.module.css` 的 `.button:disabled { cursor: not-allowed;
+ *   opacity: 0.4 }` **本来就改外观**，是我们的 (0,3,0) 那条把它的 (0,2,0) 冲淡压掉了（不是"官方只改
+ *   cursor"、也不是"某枚 token 恰等于启用色"）⇒ 修法是**撤销覆盖**（官方那条是唯一真源），本页为此
+ *   **一个新色值、一条新规则都不写**。**启用态三枚（技能页「+ 添加技能」、专家页「我的专家」、
+ *   子页其它几何）一字未动**；几何（32 / 右边界 / 圆角 / 字号）与行为接线照旧。
  *   ⑮ **★本刀（八条真机对标，逐像素对着 workbuddy 的真实 UI）**——八条各落一处**可断言的判据**：
  *   ① **三页签**（`.esc-resource-tab`）：字号/字重各加一档（`--esc-fs-base` + 600，档位真源在 `esc-scale.ts`
  *      的 `rows.tab`）、容器 gap 收到 `--esc-sp-md`、**左移与卡片左边界对齐**（容器 `margin-left:
@@ -178,6 +191,14 @@
  *        compact 档的 auto + flex: 1 1 0 + 下限 88）一字未动，故窄断点没有新增横向溢出。
  *      门禁：本刀把三处**按设计**重新基线化（旧 0px / 24/20 / 180 三个数就是被裁决改掉的），
  *      并新增四条锁（八档派生自同一 delta、card 内衬与 WB 同值、搜索宽与 WB 同值、桌面一行装得下）。
+ *   ★**用户裁决（读不到 ⇒ 0）**：**删掉** `.esc-installed-failed` 那一条（"读不到已装清单"时另出的
+ *   橙色「？」，`margin-left: 2px` + `state-warn-primary` + `cursor: help`）——计数位现在恒画 `(N)`、
+ *   读不到就画 `(0)`（与真 0 同形），如实交代改由按钮自己的 `title` 承担，那一格再无元素使用。
+ *   删的是一条**死规则**，`.esc-installed` / `.esc-installed-count` 与全部几何（110×32、右边界、字号）
+ *   **一个字节都没动**；CSS 模板内仍是零反引号（本刀的注释只用「」引号）。
+ *   ★**口径 54（本刀）**：新增一条 `.esc-installed-discovering`（已安装子页页头那句「还在发现中」：
+ *     `--esc-fs-xs` + 20px 行高 + `--dsw-alias-label-tertiary`）—— **两个 token 都是既有的**，
+ *     卡片几何与本页其它规则一个字节没动；模板内反引号计数仍为 **0**。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -276,6 +297,10 @@ const CSS = `
      "两枚圆角一致"仍由这一格保证（现在两者都是 8，整条右块读起来是同一族控件）。
      真源仍是 WB.control.button（esc-scale.ts），改一处全页同步。 */
   --esc-btn-h: 32px; --esc-btn-px: 14px; --esc-btn-radius: 8px;
+  /* ★**口径 51**：「我的专家」子页那枚「+ 创建专家」在 WorkBuddy 实机里是**整圆胶囊**
+     （黑底 pill），与工具栏主按钮的 8px 圆角**不是同一档** —— 故单独一格刻度，
+     免得下一个人"顺手统一"成 --esc-btn-radius 而把那枚按钮的形态改掉。 */
+  --esc-pill-radius: 999px;
   /* ★专家卡那枚「召唤」（本轮第 ② 条）：单开一格——它是**卡片内**次级动作，不复用工具栏那枚
      「添加技能」的 36/14/18。取 28（官方原语 sm 档真值）后与标题行（14px × 1.4）同量级，
      兑现用户那句「高度小一点、与卡片标题文字高度大致对齐」；字重 600 = 三页签那一档的 weightActive。
@@ -850,12 +875,16 @@ const CSS = `
 .esc-installed:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); }
 .esc-installed:disabled { cursor: default; opacity: .6; }
 .esc-installed-count { color: var(--dsw-alias-label-tertiary); font-variant-numeric: tabular-nums; }
-/* 读不到已装清单 ≠ 一个都没装 ⇒ 另出一枚「？」，不写 0（写 0 等于对用户谎称「这台机器上一个技能都没装」）。 */
-.esc-installed-failed { margin-left: 2px; color: var(--dsw-alias-state-warn-primary); cursor: help; }
+/* ★**用户裁决（读不到 ⇒ 0）**：原先这里还有一条 .esc-installed-failed —— 那是"读不到已装清单"时
+   另出的一枚「？」（橙色 + cursor: help）。本刀按用户裁决撤掉整枚：计数位现在**恒画** (N)、读不到就画
+   (0)（与真 0 同形），"这个 0 是暂定的"改由按钮自己的 title 说清。那一格既已无元素使用，
+   规则连同它的注释一并删除（不留死规则）——**几何（高度/内衬/圆角/右边界）一个字节都没动**。 */
 /* ★本刀（用户裁决④）：「添加技能」是**纯黑实底按钮**（workbuddy 那张里它是全页最重的一枚）。
    button-primary-fill 在本主题里就是近黑（浅色 #0f1115／深色反相近白），直接用原语的
    .primary 即可——**不写死颜色**，深浅两套主题都由主题自己翻。
    顺带把它那层 :disabled 的冲淡按回去（口径 36 同一手法）：本刀不接线，但**形态**要对。
+   ⚠**这一句只对卡片里的视觉占位成立**：工具栏那两枚主胶囊的同一手已在口径 52 **撤销**
+   （禁用控件必须看得出来按不动——查证结论见下面 .esc-add-skill 之后那一段）。
    ★**第 ② 条的尺寸**：组件里 size: 'sm' → size: 'md'（见 esc-toolbar.tsx），
      这里再用 --esc-btn-h/--esc-btn-px/--esc-btn-radius 把高度/内衬/圆角**钉到本地刻度**
      （真源 WB.control.button）——
@@ -872,7 +901,18 @@ const CSS = `
 .esc-add-skill { flex-shrink: 0; gap: 6px; white-space: nowrap; height: var(--esc-btn-h); padding: 0 var(--esc-btn-px); border-radius: var(--esc-btn-radius); font-size: var(--esc-fs-xs); font-weight: 500; }
 /* ★SPEC §7：主按钮走**近黑**（button-primary-fill 在本主题里就是 brand-primary = 近黑），
    品牌青绿**只留给状态标识**。这与本文件原先"动作按钮全黑"那一刀同源，这里把范围写清楚。 */
-.esc-root .esc-add-skill:disabled { opacity: 1; }
+/* ★**口径 52（本刀，真机像素取证）**：这里**刻意一条规则都不留** —— 原先那条
+   ".esc-root .esc-add-skill:disabled { opacity: 1; }" 已删除。
+   ★查证结论（三种假说逐条排除后的那一种）：官方原语产物 Button.module.css 里就是
+     .button:disabled { cursor: not-allowed; opacity: 0.4 }
+   —— 它**是改外观的**，故既不是"官方 :disabled 只改 cursor / pointer-events、不改色"，
+   也不是"官方某一枚 token 在本主题里恰好等于启用色"（那条规则里一枚 token 都没有）；
+   真因是**第三种**：本页那条 (0,3,0) 的 opacity: 1 把官方 (0,2,0) 的冲淡**压掉了**
+   （两级选择器 vs 一级，特异性赢，且本页样式表在官方之后注入）。
+   ⇒ 修法只能是**撤销覆盖**：删掉它，官方那条自动生效，禁用胶囊回到"看得出来的淡"。
+     **不新造禁用配色**（那会变成第二处真源：官方改一次、我们漂一次），颜色照旧全部来自主题。
+   ⚠别再把它写回来：写回来 = 禁用胶囊与启用的一模一样（"看着可点、点下去毫无反应"）。
+   反向锁 + "官方那条真的会生效"的可证判据见 tests/esc.spec.ts 的口径 52 那一条。 */
 /* ★**口径 49**：专家页那一枚的**白底描边**档。
    配方**逐条复用本页既有的 .esc-installed**（border: 1px solid var(--dsw-alias-border-l2) +
    透明底 + color: var(--dsw-alias-label-primary)）——WorkBuddy 那枚实测就是 #e5e5e5 边框 + 白底，
@@ -956,9 +996,11 @@ const CSS = `
 /* ★**本轮（2026-10-08）第二处冲淡的真根因**：color 提到 label-primary 之后那枚加号**仍然偏灰**，
    真因是紧跟着的那条 :disabled { opacity: .6 } —— 它把已经是 #0f1115 的字色按 60% 冲淡成
    ≈#666a6d：**灰的是"不透明度"、不是"颜色"**，所以只改 color 永远不够。
-   ⇒ 照本页既有口径（.esc-root .esc-action-solid:disabled { opacity: 1 } 与
-     .esc-root .esc-add-skill:disabled { opacity: 1 }，都是把原语那层冲淡按回去），
+   ⇒ 照本页既有口径（.esc-root .esc-action-solid:disabled { opacity: 1 }，把原语那层冲淡按回去），
      把这一处也**按回 opacity: 1**（cursor: default 保留——它确实不可点）。
+   ★**这一条与口径 52 不矛盾**：卡片里那三枚（收藏/召唤/去试试）是**视觉占位**（真图里它们是实底，
+     点了也真的没有动作），而工具栏那两枚主胶囊是**用户要点的动作** ⇒ 口径 52 只撤掉了
+     .esc-add-skill / .esc-my-experts-create 那两条，它们改回官方那层冲淡。两处口径不同是有意的。
    ★**刻意不写死色值**（#000 之类）：① 那过不了本文件门禁的反向锁（不许出现写死六位色）；
      ② 深色主题下会黑底黑图——label-primary 两套主题各自翻（浅 #0f1115 / 深 #f9fafb），
      跟着主题走才是一枚真正"全黑"的图标。 */
@@ -1055,8 +1097,10 @@ const CSS = `
  * 三种几何；开关那一格（.esc-card-switch）在卡片那段里。网格仍取同一个列真源 --esc-grid-cols
  * （口径 39），故这一页的卡片列与列表页**永远对齐**，不靠巧合。 */
 .esc-installed-head { display: flex; align-items: center; gap: 12px; flex: none; margin-bottom: 16px; }
-/* 标题字号与三页签（.esc-resource-tab）同档 18px —— 同一页里的"页标题级"字号只有一个来源。 */
-.esc-installed-title { font-size: var(--esc-fs-label); font-weight: 600; line-height: 1; color: var(--dsw-alias-label-primary); }
+/* 标题字号与三页签（.esc-resource-tab）同档 18px —— 同一页里的"页标题级"字号只有一个来源。
+   ★口径 51：本子页的标题渲染成 h3（真实标题语义 + 程序化聚焦落点），故补一条 margin: 0；
+   对已安装页那枚 span 是空操作（既有渲染逐字不变）。 */
+.esc-installed-title { margin: 0; font-size: var(--esc-fs-label); font-weight: 600; line-height: 1; color: var(--dsw-alias-label-primary); }
 .esc-installed-group { display: flex; flex-direction: column; gap: 12px; padding-bottom: 16px; }
 .esc-installed-group-title { margin: 0; font-size: var(--esc-fs-s); font-weight: 600; line-height: 20px; color: var(--dsw-alias-label-primary); }
 .esc-installed-hint { display: flex; align-items: center; gap: 8px; font-size: var(--esc-fs-xs); line-height: 20px; color: var(--dsw-alias-label-tertiary); }
@@ -1066,7 +1110,44 @@ const CSS = `
 .esc-import-error { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; color: var(--dsw-alias-state-error-primary); }
 .esc-installed-back { flex: none; }
 .esc-installed-retry { flex: none; align-self: flex-start; margin-top: 12px; }
+/* ★口径 54：官方发现面还没发现完（complete === false）时页头那一句。
+   走既有的次级色与 xs 字号真源，**不新造颜色/字号**；它排在标题之后、不抢标题的位置。 */
+.esc-installed-discovering { font-size: var(--esc-fs-xs); line-height: 20px; color: var(--dsw-alias-label-tertiary); }
 
+/* ══════════════ 口径 51：「我的专家」子页（第三个视图）+ 主按钮的行上可见原因 ══════════════
+ * 版式照 WorkBuddy 5.7.6 实机那一页（analysis/wb-my-experts.png）：页头（返回 + 标题）→ 一行
+ * （左 tabs「专家 / 专家团」、右「搜索我创建的专家 + 创建专家」）→ 右对齐分段（我创建的 / 我购买的）
+ * → 内容区（今天是一句如实交代，见 esc-my-experts.tsx 的头注）。
+ * ★**页头零新增**：复用口径 47 立的 .esc-installed-head / -title / -back 那一份几何 —— 两个子页的
+ *   标题字号与页头内衬只有一个来源，刻意不新造第二套（那正是"两页迟早漂开"的老路）。
+ * ★新加的只有下面几个类：tabs / 搜索+创建那一行 / 分段 / 分段格 / 行上可见原因。
+ * ⚠本段整体在一枚模板字符串内 ⇒ 注释里不许出现反引号（会截断模板）。 */
+.esc-my-experts-row { display: flex; align-items: center; justify-content: space-between; gap: var(--esc-sp-lg); flex: none; margin-bottom: 12px; }
+.esc-my-experts-tabs { display: flex; align-items: center; gap: var(--esc-sp-lg); min-width: 0; }
+/* tab 是无底色纯文字（与三页签／维度行同一套语言）：非选中走三级文字色、选中走主文字色 + 600。
+   ★**不画计数**（WorkBuddy 那边是「专家 6 / 专家团 1」）：那两枚数字在本部署**没有任何真值来源**，
+   写一个上去就是编事实；见 esc-my-experts.tsx 头注与工具栏那枚「已安装 ？」的三态口径。 */
+.esc-my-experts-tab { height: var(--esc-tab-h); padding: 0 var(--esc-sp-md); border: 0; background: none; border-radius: var(--esc-radius-sm); color: var(--dsw-alias-label-tertiary); font-family: inherit; font-size: var(--esc-fs-s); font-weight: 500; line-height: 1; cursor: pointer; transition: color .15s, background .15s; }
+.esc-my-experts-tab:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
+.esc-my-experts-tab[data-esc-selected='true'] { color: var(--dsw-alias-label-primary); font-weight: 600; }
+/* 右块：搜索框（**复用**工具栏那枚 .esc-search 的同一份宽度/高度/描边/聚焦口径）+ 行上原因 + 「+ 创建专家」。 */
+.esc-my-experts-right { display: flex; align-items: center; gap: var(--esc-sp-base); flex: none; }
+/* ★产品宪法（禁用控件不许只挂一句 title）：主按钮按不动时那句原因**行上可见**。
+   两处共用这一条规则（子页的「+ 创建专家」与工具栏三页的主按钮），故选择器写两枚。 */
+.esc-my-experts-lock,
+.esc-toolbar-lock { flex: none; max-width: 220px; font-size: var(--esc-fs-xxs); line-height: 1.4; color: var(--dsw-alias-label-tertiary); }
+/* WB 那一枚是**黑胶囊**（整圆）：圆角自占一格刻度，内衬/高度与工具栏主按钮同源（--esc-btn-*）。 */
+.esc-my-experts-create { flex: none; height: var(--esc-btn-h); padding: 0 var(--esc-btn-px); border-radius: var(--esc-pill-radius); font-size: var(--esc-fs-xs); font-weight: 500; }
+/* ★口径 52：这一枚的 ".esc-root .esc-my-experts-create:disabled { opacity: 1; }" 同样**删除** ——
+   写入口缺席（onCreateExpert === undefined）时它必须看起来按不动。查证结论与理由见上面
+   .esc-add-skill 之后那一段（官方 .button:disabled 的 opacity 才是唯一真源，本页不新造一套）。 */
+/* 分段：WB 那一枚是浅灰轨道 + 选中格白底（与菜单里的外观分段同一条语言）。 */
+.esc-my-experts-segments { display: flex; align-items: center; justify-content: flex-end; gap: 2px; flex: none; margin-bottom: var(--esc-sp-lg); padding: 2px; border-radius: var(--esc-radius-sm); background: var(--dsw-alias-bg-skeleton); }
+.esc-my-experts-segment-item { height: var(--esc-summon-h); padding: 0 var(--esc-sp-base); border: 0; border-radius: var(--esc-radius-sm); background: none; color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: var(--esc-fs-xs); font-weight: 500; line-height: 1; cursor: pointer; }
+.esc-my-experts-segment-item[data-esc-selected='true'] { background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); font-weight: 600; }
+/* 内容区那一格（WB 那边是专家卡片网格）：今天放着唯一提示组件那一棵树。 */
+.esc-my-experts-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.esc-my-experts-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
 `
 /**

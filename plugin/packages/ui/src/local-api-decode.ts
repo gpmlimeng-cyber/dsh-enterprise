@@ -22,6 +22,9 @@
  *   （契约 `PluginReadme`，1..65536）——插件详情「描述」段的**首选**取值。白名单把它放在**可选键**位
  *   （缺席 / JSON null / 非空串 ≤65536 三种合法形态，其余一律判畸形），投影时只有真拿到非空串才产出该键；
  *   本层**只看形状、不解析内容**（README 是数据：不解析 Markdown、不查标签、不 trim、绝不注入 HTML）。
+ *   ★**口径 54（本刀）**：`EnterpriseLocalApi` 新增 `discoveredSkills(signal)`（官方发现面 = 「已安装」
+ *     的真源）；`complete === false` 是官方自己的交代（还没发现完），界面必须如实说"还在发现中"、
+ *     **不许当 0**；另两条记录方法**降级为来源/元信息**（版本 / 校验和 / 卸载用包 id）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -37,7 +40,7 @@ import {
   timestamp,
 } from './decode-primitives.js'
 import type { JsonRecord } from './decode-primitives.js'
-import type { EnterpriseInstalledSkill, EnterpriseInstalledSkillContent, EnterpriseInstalledSkillFile, EnterpriseOnlineSkillSearch, EnterpriseRuntimeSkill, EnterpriseSelfInstalledSkill, EnterpriseSkillFiles, EnterpriseSystemSkills } from './skill-api-decode.js'
+import type { EnterpriseDiscoveredSkills, EnterpriseInstalledSkill, EnterpriseInstalledSkillContent, EnterpriseInstalledSkillFile, EnterpriseOnlineSkillSearch, EnterpriseRuntimeSkill, EnterpriseSelfInstalledSkill, EnterpriseSkillFiles, EnterpriseSystemSkills } from './skill-api-decode.js'
 import type {
   EnterpriseLibraryHit,
   EnterpriseLibraryImportResult,
@@ -488,6 +491,16 @@ export interface EnterpriseLocalApi {
    * `decodeEnterpriseSelfInstalledSkills` 的宽容口径）。
    */
   selfInstalledSkills(signal: AbortSignal): Promise<readonly EnterpriseSelfInstalledSkill[]>
+  /**
+   * **本机官方发现面**（`GET /skills/discovered`，口径 54）：本机 DSH **真的装着什么**。
+   *
+   * ★这是「已安装」的**真源**（用户裁决）：它取自宿主官方服务 `ctx.get('skills')` 的快照，
+   *   也就是运行时真正加载的那一份，而不是我们那两份"自己的记录"。
+   * ★`complete: false` = 官方**还没发现完**：界面必须如实说"还在发现中"，
+   *   **不许当 0、不许写死数字**（这一态与"读不到"是两件事，后者的落点是 HTTP 非 2xx + 稳定码）。
+   * ★Host 侧已把 `path`/`resourceBase` 挡在白名单之外；本层信封**恰好两键**，多一格即整条失败。
+   */
+  discoveredSkills(signal: AbortSignal): Promise<EnterpriseDiscoveredSkills>
   /**
    * **系统搜索（盘点）**：列出本机技能根与每条候选的三态（`GET /skills/system-search`，只读）。
    *

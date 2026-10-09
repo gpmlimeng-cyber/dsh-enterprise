@@ -303,15 +303,25 @@ export function apply(ctx: SlotContextPort): void {
    * 「查找技能 / 创建技能」那两项"跳新会话 + 预填、不发送"的实现面（**同一个**
    * `createEnterprisePresetLauncher(...)`，见下面那段）。
    */
-  const escApi = createEnterpriseEscApi((input, init) => fetch(input, init))
   /**
    * ★口径 46/47：本机技能写入口 —— 与资料库那三件动作**同一份** `createEnterpriseLocalApi()`
-   * （固定同源路径、严格解码、不认识 origin/Authorization）。它给 esc 页两件事：
-   * 「添加技能」（本地导入：与商城页**同一枚** `useEnterpriseSkillImport`）与「已安装技能」页
-   * （自装清单 `GET …/skills/self-installed` + 卸载 `POST …/skills/uninstall`）。
-   * ★它**不进** `escApi`：那一面是结构性只读的（宿主那张闭集恰好六条读端点），写入口走独立端口。
+   * （固定同源路径、严格解码、不认识 origin/Authorization）。它给 esc 页三件事：
+   * 「添加技能」（本地导入：与商城页**同一枚** `useEnterpriseSkillImport`）、「已安装技能」页
+   * （自装清单 `GET …/skills/self-installed` + 卸载 `POST /skills/uninstall`），以及
+   * **顶栏「已安装(N)」计数里那份企业已装清单**（★本刀：`escApi` 那一次读直接委托给它，
+   * 见下面第二参数那段）。
+   * ★它**不进** `escApi` 的结构（那一面是结构性只读的：宿主那张闭集恰好六条读端点）——
+   * 只把 `.installedSkills` 这一个**只读**方法借过去，写入口仍走独立端口。
    */
   const escSkillApi = createEnterpriseLocalApi()
+  /**
+   * ★**本刀（根因修复）**：esc 取数面的第二参数就是上面那份 `escSkillApi`。
+   *
+   * 为什么必须显式传：`escApi.installedSkills` 从本刀起是**委托**（不再自己 `fetch().json()`）。
+   * 显式把它与页面另外两条腿（自装清单 / 卸载）接在**同一个实例**上，计数那两条腿才真正同源；
+   * 不传也有正确缺省（`createEnterpriseLocalApi(fetcher)`），但那份缺省是给纯函数直调与测试用的。
+   */
+  const escApi = createEnterpriseEscApi((input, init) => fetch(input, init), escSkillApi)
   /**
    * ★**口径 49**：技能页主按钮下拉里「查找技能 / 创建技能」那两项的**实现面**。
    *

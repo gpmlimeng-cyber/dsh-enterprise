@@ -33,6 +33,7 @@ import {
   ENTERPRISE_PLUGIN_DISABLE_LOCAL_PATH,
   ENTERPRISE_PLUGIN_ENABLE_LOCAL_PATH,
   ENTERPRISE_SKILL_ADOPT_LOCAL_PATH,
+  ENTERPRISE_SKILL_DISCOVERED_LOCAL_PATH,
   ENTERPRISE_SKILL_INSTALL_FROM_RESULT_LOCAL_PATH,
   ENTERPRISE_SKILL_ONLINE_SEARCH_LOCAL_PATH,
   ENTERPRISE_SKILL_SELF_INSTALLED_LOCAL_PATH,
@@ -697,6 +698,51 @@ describe('enterprise local browser API', () => {
     }
     // 纯解码入口也能直接用（与浏览器 API 同一条判据）。
     expect(decodeEnterpriseSelfInstalledSkills({ skills: [record] })).toHaveLength(1)
+  })
+
+  /**
+   * **口径 54**：官方发现面那条只读面（「已安装」的**真源**）。
+   *
+   * 三条一起锁：① 同源固定路径（与 Host 侧注册路径逐字同值）；② 只读 GET、带 abort 信号、无正文；
+   * ③ 信封**恰好两键**（`skills` + `complete`）且**逐条白名单** —— 多一格（尤其 `path` /
+   * `resourceBase`）即整条判畸形（Host 侧已有第一道白名单，这里是第二道）。
+   */
+  it('reads the official skill discovery snapshot over its own read-only route, key-closed to two fields', async () => {
+    const entry = {
+      name: 'agent-manager',
+      description: '把子代理管起来',
+      whenToUse: '需要多代理协作时',
+      invocation: { modelInvocable: true, userInvocable: false },
+      source: 'user-dsh',
+      provider: 'skill-filesystem',
+    }
+    const fetcher = vi.fn(async () => ok({ skills: [entry], complete: false }))
+    const api = createEnterpriseLocalApi(fetcher)
+    const signal = new AbortController().signal
+    await expect(api.discoveredSkills(signal)).resolves.toEqual({ skills: [entry], complete: false })
+    expect(ENTERPRISE_SKILL_DISCOVERED_LOCAL_PATH).toBe('/enterprise/api/v1/local/skills/discovered')
+    // 只读那条面：GET（默认方法，故 init 里不显式写 method）、无正文、带 abort 信号。
+    expect(fetcher).toHaveBeenLastCalledWith(ENTERPRISE_SKILL_DISCOVERED_LOCAL_PATH, expect.objectContaining({
+      cache: 'no-store', signal,
+    }))
+    const [, readInit] = fetcher.mock.calls[0]!
+    expect(readInit?.body).toBeUndefined()
+    expect(readInit?.method).toBeUndefined()
+    // ★宿主路径**不许**在这里被接受：多一格即整条畸形（这正是"绝不让 path 进浏览器"的第二道闸）。
+    for (const bad of [
+      { skills: [entry], complete: true, path: '/Users/x/.dsh/skills' },
+      { skills: [{ ...entry, path: '/Users/x/.dsh/skills/agent-manager' }], complete: true },
+      { skills: [{ ...entry, resourceBase: { kind: 'directory', path: '/Users/x' } }], complete: true },
+      { skills: [], complete: 'yes' },
+      { skills: 'nope' },
+      { skills: [] },
+    ]) {
+      await expect(createEnterpriseLocalApi(vi.fn(async () => ok(bad))).discoveredSkills(signal))
+        .rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    // ★空列表是**合法**结果（磁盘上真的没有），与"读不到"（非 2xx + 稳定码）是两条路。
+    await expect(createEnterpriseLocalApi(vi.fn(async () => ok({ skills: [], complete: true }))).discoveredSkills(signal))
+      .resolves.toEqual({ skills: [], complete: true })
   })
 
   /**

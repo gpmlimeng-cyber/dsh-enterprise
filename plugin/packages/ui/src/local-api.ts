@@ -21,6 +21,10 @@
  *   `POST /enterprise/api/v1/local/plugins/{enable,disable}`（方向由路径决定，正文恒是关闭键集 `{packageName}`），
  *   响应与只读 `GET /plugins` 完全同形故复用同一个严格解码器；并导出与 `platform-client` 逐字同值的
  *   `ENTERPRISE_PLUGIN_{ENABLE,DISABLE}_LOCAL_PATH`。**关闭开关＝停用，不是卸载**：卸载仍走 `removePlugin`。
+ *   ★**口径 54（本刀）**：新增 `discoveredSkills(signal)`（同源只读 `GET /skills/discovered`，严格解码）
+ *     与路径常量 `ENTERPRISE_SKILL_DISCOVERED_LOCAL_PATH` —— 它是**「已安装」的真源**（宿主官方
+ *     `ctx.get('skills')` 的快照 = 本机运行时真正加载的那一份），答的是"磁盘上真的装着什么"；
+ *     老那两份记录（`installedSkills` / `selfInstalledSkills`）**降级为来源/元信息**，不再作判据。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -34,6 +38,7 @@ import {
   decodeEnterpriseDataEnvelope,
   decodeEnterpriseCredentialResult,
   decodeEnterpriseErrorCode,
+  decodeEnterpriseDiscoveredSkills,
   decodeEnterpriseInstalledSkills,
   decodeEnterpriseInstalledSkillContent,
   decodeEnterpriseInstalledSkillFile,
@@ -392,6 +397,12 @@ export function createEnterpriseLocalApi(
     selfInstalledSkills: async signal => decodeEnterpriseSelfInstalledSkills(
       await requestJson('/skills/self-installed', getInit(signal), fetcher),
     ),
+    // 官方发现面（口径 54，本刀）：「已安装」的**真源**。只读 GET、单键信封、**恰好两格**
+    // （`skills` + `complete`）；宿主侧已把 `path`/`resourceBase` 挡在白名单之外，本层再挡一道
+    // （多一格即 `ENT_LOCAL_RESPONSE_INVALID`）。空列表是合法结果，读不到由非 2xx + 稳定码表达。
+    discoveredSkills: async signal => decodeEnterpriseDiscoveredSkills(
+      await requestJson('/skills/discovered', getInit(signal), fetcher),
+    ),
     // 系统搜索两条（本刀）：盘点是 GET（只读，不改任何状态）；纳入是 POST，正文**关闭键集恰好 `{path}`**，
     // `path` 就是盘点投影里那条候选的 canonical 绝对路径 —— 界面把它当**不透明值原样回传**，
     // 从不拼、从不改、从不接受用户输入（Host 侧会再 realpath 一遍并在本次候选里逐字比对）。
@@ -502,6 +513,17 @@ export const ENTERPRISE_SKILL_INSTALLED_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills
  */
 export const ENTERPRISE_SKILL_UPLOAD_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/upload`
 export const ENTERPRISE_SKILL_SELF_INSTALLED_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/self-installed`
+
+/**
+ * **官方发现面**的同源路径常量（口径 54）；Host 侧注册路径必须与它逐字相同。
+ *
+ * ★它是「已安装」的**真源**：答的是"本机 DSH 真的装着什么"（宿主官方服务 `ctx.get('skills')` 的快照），
+ *   而不是我们那两份记录里写了什么。与上面那族同属 `/skills` 前缀之下，故 Host 侧必须注册成
+ *   **exact**（否则 `discovered` 会被 `/skills` 那条详情 prefix 当成包 id 判 400 —— 与
+ *   `system-search`/`online-search` 同一个坑，坐标见 `bundle/src/skill-route.ts` 头注）。
+ * ★响应**只**有 `{skills, complete}` 两格，`path`/`resourceBase` 在 Host 侧就不出厂。
+ */
+export const ENTERPRISE_SKILL_DISCOVERED_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/discovered`
 
 /**
  * **系统搜索**两条同源路径常量（本刀）；Host 侧注册路径必须与它们逐字相同。

@@ -22,7 +22,8 @@
  *   ★**本刀（用户裁决②③⑧ + 补半成品）**：① 顶栏「已安装(N)」的计数**真正接线**了——上一刀只定义了
  *   `installedCount` 这个 prop 却没人去读那份清单，真机截图里「已安装」光秃秃没有数字。
  *   本刀经 `api.installedSkills()`（复用 `GET /skills/installed` 那份**既有真值**，不是新接口）读一次，
- *   **只在技能页读**；`undefined`＝读不到（顶栏出 `？`）、数字＝真读到了，**绝不用 0 顶替"读不到"**。
+ *   **只在技能页读**；`undefined`＝没读到真值（工具栏按用户裁决把数字位画 `(0)`，并用 `title` 说清
+ *   "这是暂定值"）、数字＝真读到了。★**用户裁决（读不到 ⇒ 0）**：这两态在按钮上同形，如实交代全在 title。
  *   ② 技能卡的「+」与「更多+去试试」按**已装清单**分流。★**匹配键是名字，不是 id**（实测纠正）：
  *   已装那份的 `packageId` 是雪花号（实测 `2105915576743428098`）、广场那条的 `id` 是 `4194`，
  *   两套坐标系对不上；真正的公共键是 kebab 名（已装 `skillId` / 广场 `name`）。
@@ -35,6 +36,15 @@
  *   稳定码 `ENT_ESC_DRAFT_UNAVAILABLE`（人话 + 下一步在唯一码表里）；两项的调用**只有** `draftPort.launch`
  *   这一个出口，它内部就是 `preset-launch.ts` 的"跳新会话 + setDraft、**不发送**"——本层没有第二个开会话端口，
  *   也没有任何发送出口（门禁源码级反向锁）。
+ *   ★**口径 51**：新增 `onOpenMyExperts`（专家页那枚「我的专家」切子页的入口，由页壳持有视图状态）
+ *   ——本层只是把它原样交给工具栏（与 `onOpenInstalled` 同一条注入范式）。
+ *   ★**用户裁决（读不到 ⇒ 0）**：顶栏计数读不到时，本层**照旧**把 `installedCount: undefined` +
+ *   `installedCountFailed: true` 交上去（**计数来源与请求次数/时机一字未动**），由工具栏把数字位画成
+ *   `(0)` 并在 title 里说明"这是暂定值"——本层不写假数、不吞失败，也不新增请求。
+ *   ★**口径 54（本刀）**：「已安装」真源换成**官方发现面**（`api.discoveredSkills()`）—— 顶栏计数与
+ *     广场/精选卡片的已装判定键由**同一处纯投影** `installedSnapshotFacts(snapshot)` 给出（`count` /
+ *     `names` / `discovering` 三件事实同源，这是"计数与列表说的是同一件事"唯一可被机器判据证明的形态）；
+ *     两份老记录**退出计数链**（降级为子页的来源/元信息）。三态纪律保留，`complete === false` 是第四态。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -128,6 +138,34 @@ export function decideAutoFill(input: {
   return input.scrollerScrollHeight <= input.scrollerClientHeight + 1 ? 'pull' : 'idle'
 }
 
+/**
+ * ★**口径 54**：官方发现面的一次快照 → 顶栏与广场卡片要用的**三件事实**（唯一投影）。
+ *
+ * 为什么非要抽成纯函数：本仓 vitest 跑不了 hook，而"计数"与"已装判定键"这两件事
+ * **必须同源**（同一份假响应喂进去，两侧必须得到同一个数）—— 只有把这条投影抽出来，
+ * "同源"才能被机器判据证明，而不是靠"看代码里两处写的都是 snapshot"。
+ *
+ * 三件事实：
+ *   · `count` —— 顶栏「已安装(N)」画的那个数（**官方说几枚就几枚**，不是任何"两份之和"）；
+ *   · `names` —— 广场卡片/精选行判"已装"用的**名字集合**（口径 47 那把公共键，口径 54 起
+ *     对撞的是**磁盘真值**：报告里有这个名字就是真的装着）；
+ *   · `discovering` —— 官方自己说"还没发现完"（`complete === false`）：这个数**还会变**，
+ *     工具栏据此换掉 title（**不许当 0、不许写死数字**）。
+ *
+ * @param snapshot - `api.discoveredSkills()` 的返回值。
+ * @returns 计数 / 名字集合 / 是否还在发现中。
+ */
+export function installedSnapshotFacts(snapshot: {
+  readonly skills: readonly { readonly name: string }[]
+  readonly complete: boolean
+}): { readonly count: number; readonly names: ReadonlySet<string>; readonly discovering: boolean } {
+  return {
+    count: snapshot.skills.length,
+    names: new Set(snapshot.skills.map(each => each.name)),
+    discovering: snapshot.complete === false,
+  }
+}
+
 /** 内容区入参。 */
 export interface EnterpriseEscAggregationProps {
   readonly api: EnterpriseEscApi
@@ -148,6 +186,14 @@ export interface EnterpriseEscAggregationProps {
   /** ★口径 47：「已安装」那枚的入口（由页壳切视图；缺席即置灰写明原因）。 */
   readonly onOpenInstalled?: (() => void) | undefined
   /**
+   * ★**口径 51**：专家页那枚「我的专家」的入口（由页壳切到「我的专家」子页）。
+   *
+   * 与 `onOpenInstalled` 同一条：缺席即置灰 + 行上写明原因（判据是端口，不是写死的 disabled）。
+   * ★它**不带数据面**：子页今天要不到清单（本部署没有那条只读接口），内容区是一句如实交代
+   *   （见 `esc-my-experts.tsx` 的头注）——故这里就**没有**第二枚端口要往下传。
+   */
+  readonly onOpenMyExperts?: (() => void) | undefined
+  /**
    * ★**口径 49**：技能页主按钮下拉里「查找技能 / 创建技能」那两项的**实现面**
    * （跳新会话 + 把提示词预填进输入框、**不发送**）。
    *
@@ -161,7 +207,7 @@ export interface EnterpriseEscAggregationProps {
 /** 工具栏下方那句如实说明（本页新增，不是原文的一部分）。 */
 
 /** 资源聚合内容区。 */
-export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChange, skillPort, onOpenInstalled, draftPort }: EnterpriseEscAggregationProps): ReactNode {
+export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChange, skillPort, onOpenInstalled, onOpenMyExperts, draftPort }: EnterpriseEscAggregationProps): ReactNode {
   // 主 tab：系统广场/团队空间（连接器另有"已连接的"、技能另有"我启用的"）
   const [source, setSource] = useState<ResourceSourceEnum>('system')
   // 二级分类 key（空串=全部；团队维度下它承载空间 id）
@@ -325,19 +371,30 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
    * 上一刀把 `installedCount` 这个 prop **定义好了却没接线**——真机截图里「已安装」光秃秃没有数字，
    * 就是因为没人去读那份清单。这一刀补上，并守住两条纪律：
    * ① **只有技能页读**（专家/连接器页顶栏不显示这枚控件，读了就是白白发一条请求）；
-   * ② `installedCount` 三态分明——`undefined`＝**读不到**（工具栏出「已安装」不带数字、另缀一枚 `？`），
-   *    数字＝真读到了（哪怕是 0，那也是"确实一个都没装"）；**绝不用 0 顶替"读不到"**，
-   *    写 0 等于对用户谎称「这台机器上一个技能都没装」。
+   * ② `installedCount` **四态**分明——`undefined`＝**没读到真值**、数字＝真读到了（哪怕是 0，那也是
+   *    "确实一个都没装"）；★**用户裁决（读不到 ⇒ 0）**：界面上前两态**同一个形状**（都画 `(0)`，
+   *    代价用户已接受），差别由工具栏那一侧写在 `title` 上（读不到 ⇒ `installedCountUnreadable`）
+   *    —— 这是"不许静默吞掉读不到"的落点；本层只管如实把"读失败"这个事实交上去，不改数、不写 0。
+   * ★**口径 54（用户裁决：同时已安装里面显示的就是 DSH 本地已安装的技能）**：这一趟改读
+   *    **官方发现面**（`api.discoveredSkills`，宿主 `ctx.get('skills')` 的快照 = 磁盘/运行时真值），
+   *    不再读我们那两份记录。理由有一次真机取证：`~/.dsh/skills/` 上实有 **7** 枚技能，
+   *    而企业那份记录只认 **1** 枚 —— "装了多少"这个问题，两份记录的回答必然是错的。
+   *    ★两份老记录**降级为来源/元信息**（子页里用），**不再作"是否已装"的判据**（故本层不再读它们）。
+   * ★**第四态（`complete === false`）**：官方自己说"还没发现完" ⇒ 数字位画的是**真的读到的那几个**
+   *    （**不许当 0、不许写死数字**），同时把这件事交上去（`installedCountDiscovering`），
+   *    由工具栏写成 title 那句「本机技能还在发现中，这个数字还会变」。
    */
   const [installedCount, setInstalledCount] = useState<number | undefined>(undefined)
   const [installedReadFailed, setInstalledReadFailed] = useState(false)
-  /** 已装包 id 集合（卡片据此在「+」与「更多+去试试」之间分流）。读不到时是空集 ⇒ 按"未装"画「+」。 */
+  /** ★口径 54 第四态：官方说它还没发现完。 */
+  const [installedDiscovering, setInstalledDiscovering] = useState(false)
+  /** 已装技能**名**集合（卡片据此在「+」与「更多+去试试」之间分流）。读不到时是空集 ⇒ 按"未装"画「+」。 */
   const [installedIds, setInstalledIds] = useState<ReadonlySet<string>>(new Set<string>())
   /**
    * ★口径 46：**本地导入成功之后**请上面那次读重跑一遍。
    *
-   * 为什么不直接改 `installedCount`：导入成功回的是**企业**已装清单，而本机自装包**不在**那一份里
-   * （见 `esc-installed.tsx` 文件头）——所以这里只重跑"真值那一趟"，让界面显示的就是真值。
+   * ★口径 54 起它重跑的是**官方发现面**那一趟（导入真的落了盘 ⇒ 发现面该看到它；
+   *   官方 watcher 是即时发现的，这一趟重读就是"新装的那枚出现在计数里"的机制）。
    */
   const [installedRefreshToken, setInstalledRefreshToken] = useState(0)
   useEffect(() => {
@@ -345,36 +402,37 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
     const controller = new AbortController()
     setInstalledCount(undefined)
     setInstalledReadFailed(false)
+    setInstalledDiscovering(false)
     setInstalledIds(new Set<string>())
     void (async () => {
       try {
-        const list = await api.installedSkills(controller.signal)
+        const snapshot = await api.discoveredSkills(controller.signal)
         if (controller.signal.aborted) return
-        // ★**实测纠正**（别照我上一版的猜测）：已装清单的 `packageId` 是雪花号
-        //   （实测 `2105915576743428098`），而广场列表那条的 `id` 是 `4194` —— **两套坐标系对不上**。
-        //   真正的公共键是**名字**：已装那份有 `skillId`（kebab 名，如 `interactive-architecture-diagram`），
-        //   广场那份有 `name`（同为 kebab 名，如 `dev-engineer-toolkit`）。
-        //   故这里收**名字集合**，不去收 packageId（收了就永远命中不了）。
-        setInstalledIds(new Set(list.map(each => each.skillId)))
         /**
-         * ★口径 47：那枚「已安装(N)」说的是**本机一共装了多少** ⇒ 要把**本机自装**那一份也算上。
-         *
-         * 不加这一条就会出现一处自相矛盾：本地导入成功后，「已安装技能」页里明明多了一张卡，
-         * 而工具栏那枚计数纹丝不动（那一份读的是**企业**已装清单，自装包没有中心雪花 id、不在里面）。
-         * 自装清单读不到时的处置与另一份同一条纪律：**交 `？`**（宁可说"不知道"，也不给一个偏小的数）。
-         * 写入口缺席（没有本机写面）时这一份恒为 0 ⇒ 计数行为与口径 47 之前**逐字相同**。
+         * ★**实测纠正**（沿革，仍然是这条键的由来）：中心已装清单的 `packageId` 是雪花号
+         *   （实测 `2105915576743421088` 那一族），而广场列表那条的 `id` 是 `4194` ——
+         *   **两套坐标系对不上**。真正的公共键是**名字**。口径 54 把这把公共键**升级为磁盘真值**：
+         *   `installedSnapshotFacts` 收的就是发现面给的 kebab `name`（广场那份的 `name` 与它
+         *   同一套命名），故命中率由真值决定。
+         * ★三件事实**出自同一处投影**（`installedSnapshotFacts`）—— 计数、已装判定键、"还没发现完"
+         *   不许各算一遍：它们必须同源，同源才谈得上"计数与列表说的是同一件事"。
          */
-        const selfRecords = skillPort === undefined ? [] : await skillPort.selfInstalledSkills(controller.signal)
-        if (controller.signal.aborted) return
-        setInstalledCount(list.length + selfRecords.length)
+        const facts = installedSnapshotFacts(snapshot)
+        setInstalledIds(facts.names)
+        // ★**真值优先**：数字就是发现面报的那几个（不是两份记录长度相加 —— 那是"我们的账"）。
+        setInstalledCount(facts.count)
+        // ★官方自己说还没发现完 ⇒ 这一个数**还会变**：如实置旗（工具栏据此写 title 那句）。
+        setInstalledDiscovering(facts.discovering)
       } catch {
-        // ★读不到就如实说读不到（交工具栏出那枚 `？`），**不回落成 0**、也不把整页拖进失败态。
+        // ★读不到就如实说读不到（`installedCount` 留在 `undefined` + 置 `installedReadFailed`，
+        //   工具栏据此把 `(0)` 的 title 写成"暂定值"那句），**不回落成 0**（本层不写假数）、
+        //   也不把整页拖进失败态。
         if (controller.signal.aborted) return
         setInstalledReadFailed(true)
       }
     })()
     return () => controller.abort()
-  }, [api, resourceType, skillPort, installedRefreshToken])
+  }, [api, resourceType, installedRefreshToken])
   /**
    * ★口径 46：本地导入那台状态机（**与商城页同一枚 `useEnterpriseSkillImport`**）。
    *
@@ -464,6 +522,8 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
       resourceType,
       installedCount,
       installedCountFailed: installedReadFailed,
+      // ★口径 54 第四态：官方发现面自己说"还没发现完" ⇒ 工具栏据此换掉 title 那一句。
+      installedCountDiscovering: installedDiscovering,
       source,
       onSourceChange: next => {
         setSource(next)
@@ -483,6 +543,11 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
       onAddSkill: skillImportPort?.onOpen,
       // ★口径 47：那枚「已安装」的入口（切视图由页壳做）。
       onOpenInstalled,
+      // ★口径 51：专家页那枚「我的专家」的入口（切视图由页壳做，本层只把它交上去）。
+      //   ★连接器页那枚「自定义连接器」**没有对应的一位**：本部署没有自定义连接器管理接口，
+      //     全仓也没有任何调用方会传 `onCustomConnectors` ⇒ 那一页的按钮恒置灰 + 行上写明原因
+      //     （这不是"忘了接线"，是"没有这条能力"，故不在这里编一个假端口）。
+      onOpenMyExperts,
       // ★口径 49：技能页那枚主按钮变成一个三项下拉——下面三件就是它的输入：
       //   ① 开合态与开合动作（本层持有，工具栏是纯投影）；
       //   ② 两项走会话的动作（各调各的、都由同一个 `runDraftWithAgent` 分派）；

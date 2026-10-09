@@ -118,6 +118,123 @@
  *    **真锁自证**（十一种改法各自让对应那条变红，随后按 md5 逐字节还原复绿）：旋转退回截断 / 适配器写死 4 /
  *      去掉 stride 钳制 / 「换一批」偷回重发请求 / 新一批不归零 / 网格类名常量与 CSS 漂开 / 渲染体无视 offset /
  *      推进退回原地 / 兜底步长改 4 / 去掉形状判据（非法读数照数）/ 行名不再剥。
+ * ⑮ **口径 51（专家页「我的专家」子页 · 连接器页改名 · 无新增端点）**：本文件 94 → **104** 条
+ *    （+10，一条未删；口径 46/47 那一组的 ④ 按设计**重新基线化**，见下）。十条锁：
+ *    ① **三页主按钮的文案与动作**：专家页「我的专家」→ 进子页（渲染级取证 `onClick === onOpenMyExperts`
+ *       + 源码级"页壳 → 聚合区 → 工具栏"三层一条链）、连接器页「自定义连接器」→ 置灰 + **行上可见原因**、
+ *       技能页**一字未改**（仍是三项下拉的锚 / 降级仍直接本地导入）；两枚新文案逐字且与 `addSkill` 三枚互不相同，
+ *       并有一条**反向锁**：这四个组件文件里不许再出现「我的专家 / 自定义连接器」字面量（真源只有 `esc-copy`）。
+ *    ② **子页不是弹窗**：全树角色清单**封闭**（region / tablist / tab / tabpanel / status），无 `aria-modal`、
+ *       无 `aria-haspopup`、无固定定位遮罩，唯一的 `role="region"` 就是 `.esc-content` 那一块；
+ *       外加源码级反向锁（`Modal`/`dialog`/`createPortal`/`overlay`/`mask` 一个都不许出现）。
+ *    ③ **返回与 Esc 两条路**：返回按钮直连 `onBack`；Esc 监听钉在页壳根节点、`preventDefault` + `stopPropagation`；
+ *       并锁死"浏览器返回键**不接**"（`pushState`/`popstate`/`history.` 零出现）。
+ *    ④ **返回后还原滚动位置与焦点**：滚动面判定是可直调的纯读（`enterpriseEscViewScroller` 逐形态：命中 /
+ *       `null` / `null` 根 / `undefined` 根），收尾三件在源码级逐句锁（读 `scrollTop` → 写回 → 按
+ *       `data-esc-main-action` 把焦点还给主按钮），且那枚属性钩子确实挂在主按钮上、常量与选择器同字面。
+ *    ⑤ **chrome 逐项**：标题（h3 + `tabIndex={-1}` + 聚焦钩子）、返回文案、两个 tab 的键与文案、
+ *       搜索 placeholder、创建按钮文案、两个分段的键与文案 —— 全部逐字，且 tab/分段是**真控件**
+ *       （选中态由交进来的状态决定、点一下调到**各自**的回调）。
+ *    ⑥ **内容区如实交代**：稳定码常量与表里的键同字面、入 `ENTERPRISE_ERROR_CODES`、人话/下一步不含裸码、
+ *       `retryable === false`；`enterpriseEscMyExpertsBody()` **零参数**（结构上不可能随选中态变化，
+ *       且剥注释后整段取出、逐词确认不读 `tab`/`segment`/`keyword`），树里恰好一枚 `EnterpriseErrorNotice`；
+ *       **无假计数**（文本子节点零数字、无 `（N）` 形态）、**无假条目**（没有 `.esc-list-section`、没有卡片元素）、
+ *       **不发请求**（`fetch(`/`api.`/`useEffect` 零出现）。
+ *    ⑦ **连接器页那一枚**：`disabled` + 行上原因（`role="status"`）逐字，纯投影三态（未接线 / 已接线 /
+ *       标题与原因**不是同一句**），并有一条反向锁：页壳、聚合区、组合根**都不许**传 `onCustomConnectors:`。
+ *    ⑧ **无新增端点**（数据面反向锁）：扫 `src/esc` 全目录的**引号字面量**，集合必须**恰好等于**既有那七条
+ *       平台端点（多一条就红）——这就是"不拿 `/api/published/agent/list` 冒充'我的'、也不编一条路径去发请求"
+ *       的机械版本；并另锁新子页里零 `/api/`、零 `http`。
+ *    ⑨ **技能页回归**：主按钮仍是菜单锚（`aria-haspopup="menu"`、三项按序、各调各的）、降级档仍直连本地导入、
+ *       `enterpriseEscMainActionPlan` 对技能页返回 `undefined`；顺手把"技能页主按钮按不动时的可见原因"
+ *       （本刀补的那一句 `esc-toolbar-lock`）也锁住。
+ *    ⑩ **形态/高度/右边界三件一字未动**：主按钮仍是 `height: var(--esc-btn-h)` 真钉、专家页描边 + 连接器页
+ *       primary 的分流照旧、新增的圆角刻度 `--esc-pill-radius` 只用在新子页那枚「+ 创建专家」上。
+ *    ★**重新基线化（一处，加强不是放宽）**：口径 46/47 那组的 ④ 原写"专家/连接器两页主按钮都直接调本地导入"
+ *      —— 它已被用户裁决改掉（WorkBuddy 那两页不是"选文件"）。新判据更强：即使把本地导入端口照样传进来，
+ *      两页的 `onClick` 也一个都不许等于 `onAddSkill`，且都不许出现 `aria-haspopup`；专家页到底接的是谁，
+ *      由 ① 逐字取证。原断言对"专家页悄悄接回本地导入"是绿的，新断言不可能。
+ *    **真锁自证**（14 种改法各自让对应那条变红，随后按 md5 逐字节还原复绿）：文案改坏 / 专家页不再接子页 /
+ *      子页加上 `aria-modal` / Esc 判据改坏 / 收尾把滚动写死成 0 / placeholder 改坏 / `retryable` 翻成 true /
+ *      tab 文案带计数 / 新子页里塞一条假端点 / 连接器页不再置灰 / 技能页文案被换 / 高度退回 min-height /
+ *      **删掉一个具名导出**（"import 一个已删除的导出 ⇒ undefined ⇒ 空转锁"那口老坑，出口存在性那条先红）/
+ *      **去掉写回那一步的可达性判据**（退回"只写一次"的静默失效形态）；另在 `tests/error-messages.spec.ts`
+ *      侧自证两条（表键改名 ⇒ `REQUIRED_CODES` 门禁红、人话改坏 ⇒ 逐字锁红），同样按 md5 还原复绿。
+ * ⑯ **口径 52（禁用胶囊的禁用外观 —— 真机像素缺陷）**：本文件 104 → **107** 条（+3，一条未删）。
+ *    缺陷：连接器页「+ 自定义连接器」与「我的专家」子页「+ 创建专家」都 `disabled`，却与技能页**启用**的
+ *    「+ 添加技能」像素级一致（黑底白字，见 analysis/pill-compare.png 三枚放大对照）——"看着可点、
+ *    点下去毫无反应"，正是产品宪法禁止的那一档。**查证结论**（三种假说逐条排除，决定了"怎么修"）：
+ *    官方 `Button.module.css` 的 `.button:disabled { cursor: not-allowed; opacity: 0.4 }` **本来就改外观**，
+ *    是本页那两条 (0,3,0) 的 `.esc-root .xxx:disabled { opacity: 1 }` 把它 (0,2,0) 的冲淡**压掉了**
+ *    （不是"官方只改 cursor、不改色"，也不是"某枚 token 恰等于启用色"）⇒ 口径 52 把那两条**删掉**
+ *    （撤销覆盖，官方那条成为唯一真源），本页不新造禁用配色、一个新色值都不写。三条锁：
+ *    ① **可证判据**（官方产物级）：`.button:disabled` 存在且不透明度 < 1；官方 Button 的实现里
+ *       `...rest`（`disabled` 原样落到原生 `<button>` 上）与它自己的 `.button` 类恒在 ⇒ `:disabled`
+ *       必然命中那两枚胶囊。★这条锁的正是"官方那条真的会生效"这个前提。
+ *    ② **本页不许覆盖**：凡选择器命中"那两枚 disabled 胶囊身上那些类名"的规则，一条都不许声明 `opacity`
+ *       （基类也不行）。★类名从**渲染树里那两枚胶囊自己报出来的 `className`** 取，不是写死的字面量
+ *       （组件改名 ⇒ 锁跟着走，不会退化成"扫一个已不存在的选择器"的空转锁；且扫到的类名必须真的在
+ *       样式表里有规则）；外加一条**全表清单**：本文件里"把 :disabled 冲淡按回 `opacity: 1`"的规则
+ *       **只许**剩口径 36 那两处卡片视觉占位（`.esc-root .esc-action-solid:disabled` /
+ *       `.esc-install-plus:disabled`）——多出第三条就是有人又给某枚禁用控件按回去了。
+ *    ③ **反向锁（启用态不许被一刀切弄灰）**：启用态那两条几何规则里不许出现 `dimmed` 家族 token
+ *       （本主题的"禁用专用"色：button-primary-dimmed / label-dimmed / label-primary-dimmed）、也不许
+ *       声明 `opacity`/`background`/`color`；关键不变量——技能页**启用**那枚与连接器页**禁用**那枚的
+ *       类名**完全相同**（都是 `.esc-add-skill`）⇒ 两枚外观上唯一的差别只能来自官方那条 `:disabled`。
+ *    **真锁自证**（四种改法各自让对应那条变红，随后按 md5 逐字节还原复绿）：把
+ *      `.esc-root .esc-add-skill:disabled { opacity: 1 }` 写回来（②红；报错逐字：「连接器页
+ *      「+ 自定义连接器」：.esc-root .esc-add-skill:disabled 不许声明 opacity（那是把官方 :disabled
+ *      冲淡压掉的唯一手法）」）/ 把「+ 创建专家」那条写回来（②红）/ 给启用态那条几何规则塞一个
+ *      `opacity: .5`（②③双红）/ 把①里官方那条规则名改坏（①红，证明它不是一枚空转锁）。
+ * ⑰ **用户裁决（读不到 ⇒ 0）（本刀）**：本文件 107 → **109** 条（+2，一条**未删**；⑤ 那条按用户裁决
+ *    **重新基线化**——旧口径"读不到 ⇒ 不显示数字 + 另缀一枚 `？`"整条被裁决改掉）。
+ *    裁决原话「读不到就显示 0」：顶栏「已安装(N)」的计数位**恒画** `(N)`，`installedCount === undefined`
+ *    （还没读回来／读失败）时画 `(0)` —— 与"真读到 0"**同形**（真 0 与读不到的 0 在按钮上长得一样，
+ *    这个代价用户明确接受）。**代价由 `title` 兜住**：同一个 `(0)`、两种状态靠那句 `title` 区分
+ *    （真 0 ⇒ `installedFilterOpen`；读不到 ⇒ `installedCountUnreadable`「本机已装数量暂时读不到，
+ *    先按 0 显示」）—— "不许静默吞掉读不到"这条硬纪律由此机器化。两条新锁 + 一条重写：
+ *    ① **三态同形**（读到 3 ⇒ `(3)`；真 0／读不到／首帧 ⇒ 都是 `(0)`，且树里**不再有** `？` 与
+ *       `esc-installed-failed`，源码级反向锁落在**剥注释后的代码**上）；
+ *    ② **title 必须把真 0 与读不到分开**（两句逐字、且必须不同）+ 读不到那句同时含"读不到"与
+ *       "按 0 显示"两件事、不含裸码 + 首帧吃同一句；
+ *    ③ **集合级反向锁**：`categoriesUnavailable` 在 `src/esc` 里的**每一次出现**钉成一张闭合名单
+ *       （分类那条链的传参 + 文案真源 + 工具栏那四处），任何"再借它当计数的 title"都会让名单对不上；
+ *       外加回归锁（计数来源仍是**两份之和**、`api.installedSkills(` 全文件恰好一处、effect 依赖三件
+ *       + 刷新令牌、catch 里不许出现 `setInstalledCount(0)`）。
+ *    ★**两条按设计重新基线化（加强，不是放宽）**：口径 46/47 那条 `bare` 的 title 由 `actionNotPorted`
+ *      改成 `installedCountUnreadable`（那一格连计数都没给 ⇒ 那个 `(0)` 是暂定值，按裁决必须先说这件事），
+ *      同时**补了**"计数读到 + 口缺席 ⇒ actionNotPorted"这一格把原来那条事实单独锁回来（两条事实各锁一遍，
+ *      旧断言对"读不到时随便糊一句"是绿的）；`wired` 那格补上 `installedCount: 2` 把前提写明
+ *      （title 现在同时承担"这个数字是不是暂定的"，"读到了计数时说会发生什么"必须带真计数才成立）。
+ *    **真锁自证**（四种改法各自让对应那条变红，随后按 md5 逐字节还原复绿）：把 `(0)` 改回 `？`／
+ *      把读不到与真 0 的 title 改成同一句／把 `categoriesUnavailable` 借回计数处／
+ *      **删掉 `installedCountUnreadable` 这个具名导出**（证明这两条不是空转锁——`tsconfig` 不含 tests，
+ *      tsc 照不到"import 一个已删除的导出"那口老坑，故这一刀必须由测试自己咬住）。
+ * ⑱ **本刀追加（根因修复：口径 47 起「已装清单永远读不到」）**：本文件 109 → **112** 条（+3，一条未删）。
+ *    **真因**：`esc-api.ts` 的 `installedSkills` 把**整只本机信封** `{data:{skills:[…]}}` 交给了
+ *    `decodeEnterpriseInstalledSkills`，而它要的是**拆封后的** `{skills:[…]}`（判据 `hasExactKeys(row,['skills'])`）
+ *    ⇒ **必抛** `ENT_LOCAL_RESPONSE_INVALID` ⇒ 顶栏计数**从来没读到过**（真机上那枚 `？` 指的就是这件事，
+ *    **不是**"服务读不到"：本机两条只读路由实测都是 200 —— 已装 `[{…1 枚}]`、自装 `[]`）。
+ *    **为什么一直没被发现**：两条腿（企业已装 / 本机自装）都吞进 `esc-aggregation.tsx` 同一个 `catch`，
+ *    而 catch 只把 `installedCount` 留成 `undefined`（旧口径的界面表现是"没有数字 + 一枚 `？`"），
+ *    看起来与"读不到"一模一样 —— 界面在**如实报告一件被我们自己弄坏的事**，没人能从那句话里看出来。
+ *    **修法**：**委托**（`escApi.installedSkills` → 注入的 `EnterpriseEscLocalReads`，缺省即
+ *    `createEnterpriseLocalApi(fetcher)`；`client.tsx` 显式传**同一个** `escSkillApi` 实例），
+ *    `esc-api.ts` **不再** import 任何 `decodeEnterprise*` —— "拆信封 + 翻错误码"全包只有 `local-api.ts`
+ *    的 `requestJson` 一份实现。为什么是"复用"而不是"就地拆"：商城页那条一直是对的，而**同一件事的
+ *    第二份实现必然漂** —— 本次 bug 就是那条缝。**第二条腿（`selfInstalledSkills`）本来就是好的**：
+ *    它一直走 `requestJson`（`tests/local-api.spec.ts:665-695` 早已锁住它吃完整信封），本刀一行未动、
+ *    只补一条同源证据。三条锁：① 假 fetcher 回**完整信封**时 `installedSkills` 必须返回**记录数组**，
+ *    且与 local-api 那条**逐字段同值**（同源铁证；旧实现在这一格抛 `ENT_LOCAL_RESPONSE_INVALID`）；
+ *    ② 错误信封（401 + `{error:{code}}`）/ 非 JSON / 无 `{data}` 三种正文两侧翻出**同一枚**稳定码
+ *    （"不做错误信封翻译"会退成兜底码 ⇒ 红）；③ 源码级反向锁：`esc-api.ts` 里 `decodeEnterprise*`
+ *    **零出现**，且全 `src/**` 里任何 `decodeEnterpriseX(...)` 的**实参文本**（括号配对后取）
+ *    都不许含 `.json()`（该判据自带自检：旧写法喂进去必须命中，防"走空了却全绿"）。
+ *    **真锁自证**（两种改法各自让对应那条变红，随后按 md5 逐字节还原复绿）：把那次读改回
+ *      "`fetch().json()` 直接喂解码器"（**3 条红**，报错就是真机同款 `ENT_LOCAL_RESPONSE_INVALID`）/
+ *      去掉 `local-api.ts` 那句"错误信封翻 `EnterpriseLocalApiError`"（错误码那条红：`ENT_AUTH_REQUIRED`
+ *      退成 `ENT_LOCAL_RESPONSE_INVALID`）。★**真机上用户应看到 `(1)`**（企业已装 1 枚 + 自装 0 枚）
+ *      —— 这是**推导**，真机像素与交互由 Lead 复量，本文件不冒充量过。
  * [POS]: esc 页面的**无 React 契约回归**；视觉与真实交互由构建产物手工冒烟覆盖（本仓 vitest 没有 DOM）
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -136,14 +253,30 @@ import {
   type EnterpriseEscApi,
 } from '../src/esc/esc-api.js'
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from '../src/esc/esc-copy.js'
+import { createEnterpriseLocalApi, ENTERPRISE_SKILL_DISCOVERED_LOCAL_PATH } from '../src/local-api.js'
 import { EnterpriseEscCard, SKILL_MORE_ENTRIES } from '../src/esc/esc-card.js'
 import {
   EnterpriseEscToolbar,
   ENTERPRISE_ESC_ADD_SKILL_ITEMS,
+  ENTERPRISE_ESC_MAIN_ACTION_ATTR,
   enterpriseEscAddSkillLock,
   enterpriseEscAddSkillPlans,
+  enterpriseEscMainActionPlan,
   enterpriseEscSearchPlaceholder,
 } from '../src/esc/esc-toolbar.js'
+import {
+  EnterpriseEscMyExpertsView,
+  ENTERPRISE_ESC_MY_EXPERTS_SEGMENTS,
+  ENTERPRISE_ESC_MY_EXPERTS_TABS,
+  ENTERPRISE_ESC_MY_EXPERTS_TITLE_ATTR,
+  enterpriseEscMyExpertsBody,
+} from '../src/esc/esc-my-experts.js'
+import {
+  ENTERPRISE_ESC_VIEW_RESTORE_FRAMES,
+  ENTERPRISE_ESC_VIEW_SCROLL_CLASS,
+  enterpriseEscViewScroller,
+} from '../src/esc/esc-page.js'
+import { EnterpriseErrorNotice } from '../src/error-notice.js'
 import {
   EnterpriseSkillImportChrome,
   EnterpriseSkillImportNotice,
@@ -153,10 +286,10 @@ import {
   ENTERPRISE_SKILL_IMPORT_RESELECT_LABEL,
 } from '../src/skill-import.js'
 import {
-  ENTERPRISE_ESC_INSTALLED_KINDS,
-  enterpriseEscCenterInstalledCard,
-  enterpriseEscInstalledTitleOf,
-  enterpriseEscSelfInstalledCard,
+  ENTERPRISE_ESC_INSTALLED_SOURCE_KINDS,
+  enterpriseEscInstalledGroups,
+  enterpriseEscInstalledMetaTable,
+  enterpriseEscInstalledSourceLabel,
 } from '../src/esc/esc-installed-model.js'
 import {
   ENTERPRISE_ESC_FEATURED_GRID_CLASS,
@@ -177,6 +310,7 @@ import {
 import {
   ENTERPRISE_ERROR_CODES,
   ENTERPRISE_ESC_DRAFT_FAILED_CODE,
+  ENTERPRISE_ESC_MY_EXPERTS_UNAVAILABLE_CODE,
   enterpriseErrorAction,
   enterpriseErrorMessage,
   enterpriseErrorPresentation,
@@ -191,12 +325,14 @@ import {
   enterpriseEscMainOptions,
   enterpriseEscPanelOptions,
 } from '../src/esc/esc-entry.js'
-import { decideAutoFill, shouldTriggerBottomLoad } from '../src/esc/esc-aggregation.js'
+import { decideAutoFill, installedSnapshotFacts, shouldTriggerBottomLoad } from '../src/esc/esc-aggregation.js'
 import { escCategoryChildrenOf, escPublishedTargetIdOf, escResourceAdapters, missingEndpointCodeOf } from '../src/esc/esc-list.js'
 import { EnterpriseEscResourceTabs } from '../src/esc/esc-resource-tabs.js'
 import { WB } from '../src/esc/esc-scale.js'
 import { EnterpriseEscStyle } from '../src/esc/esc-style.js'
 import type { EscCategoryNode, EscRecommendRecord, ResourceItem } from '../src/esc/esc-types.js'
+import type { EnterpriseDiscoveredSkill } from '../src/skill-api-decode.js'
+import { decodeEnterpriseDiscoveredSkills } from '../src/skill-api-decode.js'
 
 // 官方原语包在本仓不可直接加载（它依赖的 `clsx` 没进本包依赖树），既有 ui 测试一律 mock 掉它；
 // 本文件不渲染任何组件，只需让模块图加载得起来。
@@ -252,7 +388,6 @@ describe('esc：文案与常量（与原页面逐字一致）', () => {
       mainTabSystem: '系统广场',
       mainTabTeam: '团队空间',
       mainTabConnected: '已连接的',
-      mainTabEnabled: '我启用的',
       tabAll: '全部',
       /**
        * ★**口径 49 重新基线化**：旧那一条锁的是**一枚**笼统的 `searchPlaceholder: '搜索名称或描述...'`，
@@ -302,6 +437,141 @@ describe('esc：文案与常量（与原页面逐字一致）', () => {
       { code: 'skill', label: '技能', path: '/expert-skill-connector/skill', icon: 'icons-nav-skill' },
       { code: 'connector', label: '连接器', path: '/expert-skill-connector/connector', icon: 'icons-common-link' },
     ])
+  })
+})
+
+/**
+ * ★**口径 55（用户裁决：「我启用的」删掉，他和已安装重复）**。
+ *
+ * 这一组锁的是**删干净**这件事本身，不是"界面上看不见"：
+ *   ① 文案表里那一格**整格不在**（不是留着不读 —— 那是"看着还能用"的第二真源）；
+ *   ② 那四个字在**剥注释后的 `src/esc` 源码里零出现**（判据是代码，注释里写沿革是允许的）；
+ *   ③ 面级端点码表里那一格、唯一错误码表里那一句，都**整格不在**；
+ *   ④ 适配器表里**两支** `enabled` 都退场（技能那支随维度删、连接器那支是本来就不可达的死代码）；
+ *   ⑤ 从**行为**上反向锁：技能页维度恰好两枚、连接器页第三枚仍是「已连接的」。
+ * 任何一条"把维度加回来"的改法（加文案 / 加选项 / 加适配器 / 加码 / 加联合类型那一格）都会同时
+ * 撞上其中至少两条 ⇒ 红。
+ */
+describe('esc：口径 55（删掉技能页「我启用的」维度 · 顺手清掉连接器那支不可达的 enabled）', () => {
+  type Element = { readonly type: unknown; readonly props: Record<string, unknown> }
+  const asElement = (node: unknown) => node as Element
+  const childrenOf = (element: Element) => {
+    const children = element.props['children']
+    return Array.isArray(children) ? children : children === undefined || children === null ? [] : [children]
+  }
+
+  it('① 文案表整格不在 + 值里零出现；② 剥注释后的 src/esc 里也零出现', () => {
+    // ① 表里那一格**不在**（与口径 49 删旧 placeholder 同一条纪律：不许留第二真源）。
+    expect('mainTabEnabled' in ENTERPRISE_ESC_COPY).toBe(false)
+    // 判据落在**值**上：注释里写沿革说明允许，但表里任何一格的值都不许再是那四个字。
+    expect(JSON.stringify(ENTERPRISE_ESC_COPY)).not.toContain('我启用的')
+    // ② 剥注释后的全 `src/esc`：那四个字与那个标识符都**一次都不出现**。
+    const escDir = new URL('../src/esc/', import.meta.url)
+    for (const name of readdirSync(escDir).filter(each => /\.tsx?$/.test(each)).sort()) {
+      const code = stripEscComments(readFileSync(new URL(name, escDir), 'utf8'))
+      expect(code, name).not.toContain('我启用的')
+      expect(code, name).not.toContain('mainTabEnabled')
+    }
+  })
+
+  it('③ 面级码表与唯一错误码表都少掉那一格；「按面取码」的调用形状不许退化', () => {
+    expect(Object.keys(ESC_MISSING_ENDPOINT_CODES).sort()).toEqual(['connector', 'directory', 'recommend'])
+    expect('enabled' in ESC_MISSING_ENDPOINT_CODES).toBe(false)
+    // 唯一错误码表里那句也整格不在（它**永远取不到**了：没有任何请求会打到那条端点）。
+    expect(ENTERPRISE_ERROR_CODES).not.toContain('ENT_ESC_ENABLE_LIST_UNAVAILABLE')
+    expect(ENTERPRISE_ERROR_CODES.filter(code => code.startsWith('ENT_ESC_')).sort())
+      .toEqual(['ENT_ESC_CONNECTOR_UNAVAILABLE', 'ENT_ESC_DIRECTORY_UNAVAILABLE', 'ENT_ESC_DRAFT_UNAVAILABLE',
+        'ENT_ESC_MY_EXPERTS_UNAVAILABLE', 'ENT_ESC_RECOMMEND_UNAVAILABLE'])
+    // 三枚面级码各自还有一句话、都不可重试、三句两两不同（少了一枚但纪律一条没少）。
+    const messages = (['connector', 'directory', 'recommend'] as const).map(key => {
+      const code = ESC_MISSING_ENDPOINT_CODES[key]
+      expect(enterpriseErrorPresentation(code).known, code).toBe(true)
+      expect(enterpriseErrorRetryable(code), code).toBe(false)
+      return enterpriseErrorMessage(code)
+    })
+    expect(new Set(messages).size).toBe(3)
+    // 源码级：`missingEndpointCodeOf` 仍按「资源类型 + 维度」调用（少了一枚码不等于把判据退回一层）。
+    const source = readFileSync(new URL('../src/esc/esc-list.ts', import.meta.url), 'utf8')
+    expect(source).toContain('missingEndpointCodeOf(resourceType, source)')
+    expect(source).not.toContain('missingEndpointCodeOf(resourceType)')
+  })
+
+  it('④ 两支 `enabled` 适配器都退场（含连接器那支本来就不可达的死代码）', () => {
+    const { api } = spyApi()
+    const adapters = escResourceAdapters(api)
+    expect(Object.keys(adapters.skill).sort()).toEqual(['system', 'team'])
+    expect(Object.keys(adapters.connector).sort()).toEqual(['connected', 'system', 'team'])
+    // 反向锁：那支死代码的**两个指纹**在源码里零出现 —— 查询参数 `connectionEnabled: 'true'`
+    // 与它的 id 前缀 `enabled-conn`。
+    // ★注意：`mapConnectorItem` 里那格 `connectionEnabled: item.connectionEnabled` 是**归一化字段**
+    //   （连接器卡片要画连接态，与"哪一维在取数"无关），**不在这条反向锁的靶心里**，故意留着。
+    const source = stripEscComments(readFileSync(new URL('../src/esc/esc-list.ts', import.meta.url), 'utf8'))
+    expect(source).not.toContain("connectionEnabled: 'true'")
+    expect(source).not.toContain('enabled-conn')
+    expect(source).not.toContain('enabled-skill')
+    expect(source).not.toContain('publishedSkillEnableList')
+  })
+
+  it('⑤ 集合级反向锁：`enabled` 这个字面量在剥注释后的 src/esc 里只剩一处，且必须是另一件事', () => {
+    /**
+     * ★判据落在**剥注释后的代码**上（沿革注释里提到"删掉了什么"是说明，不是"它回来了"）。
+     * ★闭合名单：`'enabled'` 这个**字面量**（带引号）今天在 `src/esc` 里只允许出现在
+     *   `esc-api.ts` 的演示数据开关那一格（读 `GET …/esc/mock` 的 `enabled` 字段）——
+     *   那是**mock 开关**，与"技能维度"是两件毫不相干的事。任何一处新增（例如把 `value: 'enabled'`
+     *   加回工具栏、或给 `ResourceSourceEnum` 添回那一格并配一个取值口）都会让这张名单对不上。
+     */
+    const escDir = new URL('../src/esc/', import.meta.url)
+    const occurrences = new Map<string, string[]>()
+    for (const name of readdirSync(escDir).filter(each => /\.tsx?$/.test(each)).sort()) {
+      const lines = stripEscComments(readFileSync(new URL(name, escDir), 'utf8'))
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.includes("'enabled'") || line.includes('"enabled"'))
+      if (lines.length > 0) occurrences.set(name, lines)
+    }
+    expect([...occurrences.entries()]).toEqual([
+      ['esc-api.ts', ["enabled: record['enabled'] === true,"]],
+    ])
+  })
+
+  it('反向锁：技能页维度恰好两枚且逐字；连接器页第三枚仍是「已连接的」（回归）', () => {
+    const labelsOf = (resourceType: 'expert' | 'skill' | 'connector') => {
+      const toolbar = asElement(
+        EnterpriseEscToolbar({
+          resourceType,
+          source: 'system',
+          onSourceChange: () => undefined,
+          categories: [],
+          activeCategory: '',
+          onCategoryChange: () => undefined,
+          keyword: '',
+          onKeywordChange: () => undefined,
+        } as never),
+      )
+      const walk = (node: unknown, out: Element[] = []): Element[] => {
+        if (Array.isArray(node)) {
+          for (const each of node) walk(each, out)
+          return out
+        }
+        if (node === null || node === undefined || node === false) return out
+        if (typeof node !== 'object') return out
+        const element = node as Element
+        if (element.props['className'] === 'esc-source-tabs') {
+          out.push(element)
+          return out
+        }
+        return walk(element.props['children'], out)
+      }
+      const sourceTabs = walk(toolbar)[0]
+      expect(sourceTabs).toBeTruthy()
+      return childrenOf(sourceTabs as Element).map(node => asElement(node).props['children'])
+    }
+    // ★正向锁：**恰好两枚**、逐字（这正是 WorkBuddy 实机上专家页/技能页的形状）。
+    expect(labelsOf('expert')).toEqual(['系统广场', '团队空间'])
+    expect(labelsOf('skill')).toEqual(['系统广场', '团队空间'])
+    expect(labelsOf('skill')).toHaveLength(2)
+    // ★回归锁：连接器页第三枚仍是「已连接的」，且仍排在最后（本刀一字未动）。
+    expect(labelsOf('connector')).toEqual(['系统广场', '团队空间', '已连接的'])
   })
 })
 
@@ -415,6 +685,136 @@ describe('esc：取数面（浏览器只打同源固定路径）', () => {
       code: 'ENT_LOCAL_RESPONSE_INVALID',
     })
   })
+
+  /**
+   * ★**本刀（根因修复）**：口径 47 起「顶栏已装计数**永远**读不到」那条 bug 的回归锁。
+   *
+   * 真因：esc 这一条把**整只本机信封** `{code,message,data:{skills:[…]}}` 直接交给了
+   * `decodeEnterpriseInstalledSkills`，而那个解码器要的是**拆封后的** `{skills:[…]}`
+   * （判据 `hasExactKeys(row,['skills'])`）⇒ **必抛** `ENT_LOCAL_RESPONSE_INVALID`
+   * ⇒ 计数从那天起没读到过（真机上那枚 `？` 指的就是这件事，不是"服务读不到"）。
+   * 商城页那条（`local-api.ts` 的 `requestJson`）一直是对的，故修法是**委托**过去，
+   * 不是在这里再写一套拆信封。
+   */
+  it('★根因锁：installedSkills 吃完整信封（返回记录数组），与 local-api 那条逐字段同值', async () => {
+    /** 真机实测形状：`data.skills` 才是那条解码器要的 payload。 */
+    const entry = {
+      packageId: '2105915576743428098',
+      skillId: 'interactive-architecture-diagram',
+      displayName: '架构图一键生成',
+      versionId: '2105915576743428099',
+      sha256: '8f2c67'.padEnd(64, '0'),
+      names: ['interactive-architecture-diagram'],
+      installedAt: '2026-10-09T00:00:00.000Z',
+    }
+    /**
+     * 完整本机信封（真机实测形状：`{"data":{"skills":[…]}}`）——`data.skills` 才是那条解码器要的 payload。
+     * ★注意本机那族路由的信封是**单键** `{data}`（错误态才是 `{error:{code}}`），故这里不能带上 `code`/`message`。
+     */
+    const { fetcher, calls } = fakeFetcher({ data: { skills: [entry] } })
+    const local = createEnterpriseLocalApi(fetcher)
+    const esc = createEnterpriseEscApi(fetcher, local)
+    const signal = new AbortController().signal
+    const viaEsc = await esc.installedSkills(signal)
+    // ① 旧实现到这里**必抛**（"整只信封喂解码器"）；现在必须真的拿到记录数组
+    expect(viaEsc).toHaveLength(1)
+    expect(viaEsc[0]!.skillId).toBe('interactive-architecture-diagram')
+    expect(viaEsc[0]!.packageId).toBe('2105915576743428098')
+    // ② **同源铁证**：同一只假响应下，esc 那条与 local-api 那条**逐字段同值**
+    expect(viaEsc).toEqual(await local.installedSkills(signal))
+    // ③ 打的是同一条同源固定路径（GET + signal 原样带下去）
+    expect(calls.map(call => call.url)).toEqual([
+      '/enterprise/api/v1/local/skills/installed',
+      '/enterprise/api/v1/local/skills/installed',
+    ])
+    // GET 是 fetch 的默认方法，故 init 里**不写** method（与 `local-api.spec.ts` 那条自装清单同一口径）
+    expect(calls[0]!.init?.method).toBeUndefined()
+    expect(calls[0]!.init?.cache).toBe('no-store')
+    expect(calls[0]!.init?.signal).toBe(signal)
+    // ④ 不传 signal 也照打（`EnterpriseEscApi` 那一格的签名本来就允许缺）
+    expect(await esc.installedSkills()).toEqual(viaEsc)
+    // ⑤ 另一条腿（自装清单）在**同一个实例**上本来就是好的（真因只在那一条，别把它一起"修"坏）
+    const selfEnvelope = fakeFetcher({ data: { skills: [] } })
+    await expect(createEnterpriseLocalApi(selfEnvelope.fetcher).selfInstalledSkills(signal)).resolves.toEqual([])
+  })
+
+  it('★根因锁：错误信封翻出**同一枚**稳定码（esc 那条不做第二套翻译）', async () => {
+    // ① 401 + `{error:{code}}` ⇒ 两侧同一枚稳定码（"不做错误信封翻译"那种改法会退成兜底码，这里立刻红）
+    const denied = fakeFetcher({ error: { code: 'ENT_AUTH_REQUIRED' } }, { ok: false, status: 401 })
+    const local = createEnterpriseLocalApi(denied.fetcher)
+    const esc = createEnterpriseEscApi(denied.fetcher, local)
+    await expect(esc.installedSkills()).rejects.toMatchObject({ code: 'ENT_AUTH_REQUIRED' })
+    await expect(local.installedSkills(new AbortController().signal)).rejects.toMatchObject({ code: 'ENT_AUTH_REQUIRED' })
+    // ② 非 JSON 正文 ⇒ 同一枚兜底码
+    const notJson = (async () => ({
+      ok: true,
+      status: 200,
+      json: async () => { throw new SyntaxError('not json') },
+    })) as unknown as typeof fetch
+    await expect(createEnterpriseEscApi(notJson).installedSkills()).rejects.toMatchObject({
+      code: 'ENT_LOCAL_RESPONSE_INVALID',
+    })
+    // ③ 200 但正文不是 `{data}` 单键信封 ⇒ 同一枚兜底码
+    const noEnvelope = fakeFetcher({ skills: [] })
+    await expect(createEnterpriseEscApi(noEnvelope.fetcher).installedSkills()).rejects.toMatchObject({
+      code: 'ENT_LOCAL_RESPONSE_INVALID',
+    })
+  })
+
+  /**
+   * ★**源码级反向锁**：`esc-api.ts` 里不许再有"把 `.json()` 的原样结果交给解码器"那条缝。
+   *
+   * 这一类接缝就是本刀那个 bug 的温床（**整只信封**被当成 payload），故从两个方向咬：
+   * ① 这份文件**一个 `decodeEnterprise*` 都不许出现**（连 import 都不许）——"拆信封 + 翻错误码"
+   *   全包只有 `local-api.ts` 的 `requestJson` 那一份实现，缺省构造器也指向它；
+   * ② 全 `src/**` 扫一遍：任何 `decodeEnterpriseX(...)` 的**实参文本里**都不许出现 `.json()`
+   *   （按括号配对取实参，故跨行的旧写法也会被咬住；判据落在**剥注释后**的代码上）。
+   */
+  it('★源码级反向锁：不许再出现「把 .json() 结果直接喂 decodeEnterprise*」', () => {
+    const escApiCode = stripEscComments(readFileSync(new URL('../src/esc/esc-api.ts', import.meta.url), 'utf8'))
+    expect(escApiCode).not.toContain('decodeEnterprise')
+    expect(escApiCode).toContain('localReads.installedSkills(')
+    expect(escApiCode).toContain('createEnterpriseLocalApi')
+    /** 括号配对后取每一处 decode 调用的**实参文本**，看里面有没有 `.json()`。 */
+    const rawJsonIntoDecoder = (code: string): readonly string[] => {
+      const hits: string[] = []
+      const call = /decodeEnterprise[A-Za-z0-9_]*\s*\(/g
+      let match = call.exec(code)
+      while (match !== null) {
+        let depth = 0
+        let index = match.index + match[0].length - 1
+        const start = index
+        for (; index < code.length; index += 1) {
+          const char = code[index]
+          if (char === '(') depth += 1
+          else if (char === ')') {
+            depth -= 1
+            if (depth === 0) break
+          }
+        }
+        const args = code.slice(start, index + 1)
+        if (args.includes('.json()')) hits.push(args.replace(/\s+/g, ' ').slice(0, 120))
+        match = call.exec(code)
+      }
+      return hits
+    }
+    // ★这条判据**不是空转锁**：把旧写法喂给它必须命中（下面这枚自检就是它的"红"）
+    expect(rawJsonIntoDecoder('decodeEnterpriseInstalledSkills(await (await fetcher(url, {\n method: \'GET\',\n })).json())')).toHaveLength(1)
+    const sourceFiles: string[] = []
+    const collect = (dir: URL): void => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const child = new URL(entry.isDirectory() ? `${entry.name}/` : entry.name, dir)
+        if (entry.isDirectory()) collect(child)
+        else if (/\.tsx?$/.test(entry.name)) sourceFiles.push(child.toString())
+      }
+    }
+    collect(new URL('../src/', import.meta.url))
+    // 防"走空了却全绿"：真源文件必须扫到一大把
+    expect(sourceFiles.length).toBeGreaterThan(50)
+    const offenders = sourceFiles.flatMap(file =>
+      rawJsonIntoDecoder(stripEscComments(readFileSync(new URL(file), 'utf8'))).map(hit => `${file}: ${hit}`))
+    expect(offenders).toEqual([])
+  })
 })
 
 /** 假取数面：六个方法都记账，返回测试给的信封。 */
@@ -474,33 +874,37 @@ describe('esc：适配器口径（各资源类型 × 数据源的参数差异）
     expect(calls[4]!.params).not.toHaveProperty('spaceIds')
   })
 
-  it('技能：系统广场仅官方；团队空间 category=Skill；「我启用的」是全量接口（无参数）且本地筛选', async () => {
+  it('技能：系统广场仅官方；团队空间 category=Skill；★口径 55 起**恰好两维**（「我启用的」整支退场）', async () => {
     const { api, calls } = spyApi()
     const adapters = escResourceAdapters(api)
     const system = adapters.skill.system!
     const team = adapters.skill.team!
-    const enabled = adapters.skill.enabled!
-    if (system.mode !== 'server' || team.mode !== 'server' || enabled.mode !== 'client') throw new Error('技能三维的形状不对')
+    if (system.mode !== 'server' || team.mode !== 'server') throw new Error('技能两维都应是服务端分页')
     await system.fetchPage({ page: 1, pageSize: 20, category: '', keyword: '', spaceId: undefined, spaceIds: undefined })
     expect(calls[0]!.params).toEqual({ page: 1, pageSize: 20, category: '', kw: undefined, official: true })
     await team.fetchPage({ page: 1, pageSize: 20, category: '', keyword: '', spaceId: 7, spaceIds: undefined })
     expect(calls[1]!.params).toMatchObject({ category: 'Skill', justReturnSpaceData: true, spaceId: 7 })
-    await enabled.fetchAll({ spaceId: undefined, keyword: 'x', category: 'y' })
-    expect(calls[2]!.params).toEqual({})
-    // serverKeyword/serverCategory 都**没有**置位 ⇒ 本地必须自己按关键字与分类收窄
-    expect(enabled.serverKeyword ?? false).toBe(false)
-    expect(enabled.serverCategory ?? false).toBe(false)
+    /**
+     * ★**口径 55 重新基线化（加强，不是放宽）**：旧这一条取的是 `adapters.skill.enabled`，
+     *   断言它"是全量接口且本地筛选"——那一支已按用户裁决整支删除（它读的
+     *   `POST /api/published/skill/enable/list` 是「我启用的」这个维度的专属端点）。
+     *   新判据比旧的两条**更强**：① 这一支的键集**恰好** `['system','team']`（多一维即红）；
+     *   ② 走完两维之后请求数**恰好 2**（旧断言只证明"那一支这么取数"，新断言还证明
+     *   "没有任何第三支会被走到"——旧断言对"悄悄又加回一维"是绿的，新断言不可能）。
+     */
+    expect(Object.keys(adapters.skill).sort()).toEqual(['system', 'team'])
+    expect(adapters.skill).not.toHaveProperty('enabled')
+    expect(calls).toHaveLength(2)
   })
 
-  it('连接器：官方目录 scope=official；空间维度 scope=space；已连接的/我启用的各带一个服务端筛选且本地跳过双重收窄', async () => {
+  it('连接器：官方目录 scope=official；空间维度 scope=space；已连接的带一个服务端筛选且本地跳过双重收窄（★口径 55 起恰好三维）', async () => {
     const { api, calls } = spyApi()
     const adapters = escResourceAdapters(api)
     const system = adapters.connector.system!
     const team = adapters.connector.team!
     const connected = adapters.connector.connected!
-    const enabled = adapters.connector.enabled!
-    if (system.mode !== 'server' || team.mode !== 'server' || connected.mode !== 'client' || enabled.mode !== 'client') {
-      throw new Error('连接器四个维度的形状不对')
+    if (system.mode !== 'server' || team.mode !== 'server' || connected.mode !== 'client') {
+      throw new Error('连接器三个维度的形状不对')
     }
     await system.fetchPage({ page: 3, pageSize: 20, category: '通讯工具', keyword: 'oss', spaceId: undefined, spaceIds: undefined })
     expect(calls[0]!.params).toEqual({
@@ -519,10 +923,16 @@ describe('esc：适配器口径（各资源类型 × 数据源的参数差异）
     expect(calls[3]!.params).toEqual({ connected: 'true', category: 'c', keyword: 'k' })
     expect(connected.serverKeyword).toBe(true)
     expect(connected.serverCategory).toBe(true)
-    await enabled.fetchAll({ spaceId: undefined, keyword: 'k', category: 'c' })
-    expect(calls[4]!.params).toEqual({ connectionEnabled: 'true', category: 'c', keyword: 'k' })
-    expect(enabled.serverKeyword).toBe(true)
-    expect(enabled.serverCategory).toBe(true)
+    /**
+     * ★**口径 55 重新基线化（加强）**：旧这一条还有第四维 `adapters.connector.enabled`
+     *   （`connectionEnabled:'true'`）。它**从落地那天起就不可达**（连接器页第三枚维度是
+     *   `'connected'`；`'enabled'` 只由技能页产出，而技能页的 source 落不到连接器这张表上），
+     *   遂按"不留死代码"清掉并在 `esc-list.ts` 里写明理由。
+     *   新判据比旧的强：① 键集**恰好** `['connected','system','team']`；② 请求数**恰好 4**。
+     */
+    expect(Object.keys(adapters.connector).sort()).toEqual(['connected', 'system', 'team'])
+    expect(adapters.connector).not.toHaveProperty('enabled')
+    expect(calls).toHaveLength(4)
   })
 
   it('响应提取：已发布按 current<pages 判有无更多；连接器按"本页取满"判（它没有总页数）', () => {
@@ -2366,7 +2776,7 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
     expect(childrenOf(asElement(status2))).toEqual([null, '未连接'])
   })
 
-  it('工具栏：主 tab 的组成随资源类型变（已连接的仅连接器、我启用的仅技能），顺序照原文件', () => {
+  it('工具栏：主 tab 的组成随资源类型变（已连接的**仅**连接器页；★口径 55 起技能页恰好两枚），顺序照原文件', () => {
     const labelsOf = (resourceType: 'expert' | 'skill' | 'connector') => {
       const toolbar = asElement(
         EnterpriseEscToolbar({
@@ -2401,7 +2811,13 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
       return childrenOf(sourceTabs as Element).map(node => asElement(node).props['children'])
     }
     expect(labelsOf('expert')).toEqual(['系统广场', '团队空间'])
-    expect(labelsOf('skill')).toEqual(['系统广场', '团队空间', '我启用的'])
+    /**
+     * ★**口径 55 重新基线化**：这里旧值带第三枚「我启用的」（用户裁决：删掉，他和已安装重复）。
+     * 新判据**更强**：技能页与专家页**同样两枚**（逐字），且技能页**恰好两枚**
+     * （`toHaveLength(2)` 让"悄悄又加回一枚"当场红）。连接器页那第三枚仍是「已连接的」——回归锁。
+     */
+    expect(labelsOf('skill')).toEqual(['系统广场', '团队空间'])
+    expect(labelsOf('skill')).toHaveLength(2)
     expect(labelsOf('connector')).toEqual(['系统广场', '团队空间', '已连接的'])
   })
 
@@ -2548,15 +2964,16 @@ describe('esc：失败面收口（本刀 —— 精选行与列表页同一套�
     expect(escErrorCodeOf({ code: 'ENT_AUTH_REQUIRED' })).toBe('ENT_AUTH_REQUIRED')
     expect(escErrorCodeOf(new Error('boom'))).toBe('ENT_LOCAL_RESPONSE_INVALID')
     expect(escErrorCodeOf({ code: '' })).toBe('ENT_LOCAL_RESPONSE_INVALID')
-    // 四枚都在**唯一码表**里、都不可重试、四句话两两不同
-    //（同一件事不许说两种话；四件不同的事也不许说成同一句）
-    const messages = (['connector', 'directory', 'enabled', 'recommend'] as const).map(key => {
+    // ★口径 55：面级码表只剩**三枚**（技能启停清单那枚随「我启用的」维度整枚退场；
+    //   原来这里写成"四枚都在码表里、四句话两两不同"）。
+    const messages = (['connector', 'directory', 'recommend'] as const).map(key => {
       const code = ESC_MISSING_ENDPOINT_CODES[key]
       expect(enterpriseErrorPresentation(code).known, code).toBe(true)
       expect(enterpriseErrorRetryable(code), code).toBe(false)
       return enterpriseErrorMessage(code)
     })
-    expect(new Set(messages).size).toBe(4)
+    expect(new Set(messages).size).toBe(3)
+    expect(Object.keys(ESC_MISSING_ENDPOINT_CODES).sort()).toEqual(['connector', 'directory', 'recommend'])
   })
 
   it('★列表面的 `4040` 按「资源类型 + 维度」取码：专家/技能不再被说成「没有连接器目录」', () => {
@@ -2569,16 +2986,25 @@ describe('esc：失败面收口（本刀 —— 精选行与列表页同一套�
       .not.toBe(enterpriseErrorMessage(missingEndpointCodeOf('connector', 'system')))
   })
 
-  it('★「我启用的」是另一个端点：技能目录缺端点 ≠ 技能启停清单缺端点（本刀，有现场探针作证）', () => {
-    // 现场：同一刻 skill/list → 0000 / total 138，skill/enable/list → 4040
-    expect(missingEndpointCodeOf('skill', 'enabled')).toBe('ENT_ESC_ENABLE_LIST_UNAVAILABLE')
-    // 两句话必须不同：说"没有技能目录"是假话（目录在），缺的是启停清单
-    expect(enterpriseErrorMessage(missingEndpointCodeOf('skill', 'enabled')))
-      .not.toBe(enterpriseErrorMessage(missingEndpointCodeOf('skill', 'system')))
-    // 反向锁：目录面**不许**落到启停清单那一枚（反向也一样），且连接器面与维度无关
-    expect(missingEndpointCodeOf('skill', 'system')).not.toBe('ENT_ESC_ENABLE_LIST_UNAVAILABLE')
-    expect(missingEndpointCodeOf('expert', 'enabled')).not.toBe('ENT_ESC_ENABLE_LIST_UNAVAILABLE')
-    expect(missingEndpointCodeOf('connector', 'enabled')).toBe('ENT_ESC_CONNECTOR_UNAVAILABLE')
+  it('★口径 55：「我启用的」这个维度整枚删除 ⇒ 那一枚端点码**永远取不到**，故整格不在（保留的两枚仍按面分开）', () => {
+    /**
+     * ★**重新基线化（加强，不是放宽）**：旧这一条锁的是"技能面缺的是启停清单"那枚码
+     * （`ENT_ESC_ENABLE_LIST_UNAVAILABLE`，有现场探针作证：同一刻 `skill/list` 回 `0000 / total 138`
+     * 而 `skill/enable/list` 回 `4040`）。★用户裁决把「我启用的」这个维度**整枚删掉**之后，
+     * 本仓不会再有任何请求打到那条端点 ⇒ 那枚码**永远取不到**，留着它就是一张"看着还能用"的
+     * 死条目（口径 55 明令一并删）。新判据**比旧的多一层**：
+     *   ① 码表里那一格、唯一错误码表里那一句都**整格不在**；
+     *   ② 保留的两枚**仍按面分开**（少了一枚不等于退回"一句话通用"——这正是旧那一刀修掉的病）。
+     */
+    expect('enabled' in ESC_MISSING_ENDPOINT_CODES).toBe(false)
+    expect(ENTERPRISE_ERROR_CODES).not.toContain('ENT_ESC_ENABLE_LIST_UNAVAILABLE')
+    // ② 目录面与连接器面仍是两句不同的话（不许因为少了一枚而合流）。
+    expect(missingEndpointCodeOf('skill', 'system')).toBe('ENT_ESC_DIRECTORY_UNAVAILABLE')
+    expect(missingEndpointCodeOf('skill', 'team')).toBe('ENT_ESC_DIRECTORY_UNAVAILABLE')
+    expect(missingEndpointCodeOf('expert', 'system')).toBe('ENT_ESC_DIRECTORY_UNAVAILABLE')
+    expect(missingEndpointCodeOf('connector', 'system')).toBe('ENT_ESC_CONNECTOR_UNAVAILABLE')
+    expect(enterpriseErrorMessage(missingEndpointCodeOf('skill', 'system')))
+      .not.toBe(enterpriseErrorMessage(missingEndpointCodeOf('connector', 'system')))
     // 源码级锁：两个失败落点都必须把**维度**传进去，否则又会退回"按资源类型"那句话
     const source = readFileSync(new URL('../src/esc/esc-list.ts', import.meta.url), 'utf8')
     expect(source).toContain('missingEndpointCodeOf(resourceType, source)')
@@ -2930,12 +3356,28 @@ describe('esc：口径 46/47（「添加技能」照商城那套做 · 「已安
     const bare = rightOf(toolbarOf({ resourceType: 'skill' }))
     const installedBare = byClass(bare, 'esc-installed')!
     expect(installedBare.props['disabled']).toBe(true)
-    expect(installedBare.props['title']).toBe(ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted)
+    /**
+     * ★**本刀重新基线化（加强，不是放宽）**：旧值写的是 `actionNotPorted` —— 那是"计数**读到了**、
+     *   只是入口没接"时的说法。这一格连 `installedCount` 都没给 ⇒ 数字位那个 `(0)` 是**暂定值**，
+     *   按用户裁决必须先说出这件事（不许静默吞"读不到"），"口子没接"那句因此让位。
+     *   ★"口子没接"**没有**从判据里消失：它由下面**补的那一格**（计数读得到 + 口缺席）单独锁住 ——
+     *   两条事实各锁一遍。旧断言对"读不到时随便糊一句"是绿的，这两格合起来不可能绿。
+     */
+    expect(installedBare.props['title']).toBe(ENTERPRISE_ESC_LOCAL_COPY.installedCountUnreadable)
+    const noOpener = rightOf(toolbarOf({ resourceType: 'skill', installedCount: 2 }))
+    const installedNoOpener = byClass(noOpener, 'esc-installed')!
+    expect(installedNoOpener.props['disabled']).toBe(true)
+    expect(installedNoOpener.props['title']).toBe(ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted)
+    expect(byClass(noOpener, 'esc-installed-count')!.props['children']).toBe('(2)')
     const addBare = addSkillOf(bare)
     expect(addBare.props['disabled']).toBe(true)
     expect(addBare.props['title']).toBe(ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted)
-    // ② 在场：能点、点的是那一枚回调、悬浮说明换成"会发生什么"
-    const wired = rightOf(toolbarOf({ resourceType: 'skill', onAddSkill, onOpenInstalled }))
+    /**
+     * ② 在场：能点、点的是那一枚回调、悬浮说明换成"会发生什么"。
+     * ★`installedCount: 2` 是本刀把这条旧断言的前提**写明**（不是放宽）：title 现在同时承担
+     *   "这个数字是不是暂定的"，所以"读到了计数时 title 说会发生什么"这一条必须带上真计数才成立。
+     */
+    const wired = rightOf(toolbarOf({ resourceType: 'skill', onAddSkill, onOpenInstalled, installedCount: 2 }))
     const installed = byClass(wired, 'esc-installed')!
     expect(installed.props['disabled']).toBe(false)
     expect(installed.props['onClick']).toBe(onOpenInstalled)
@@ -2954,10 +3396,21 @@ describe('esc：口径 46/47（「添加技能」照商城那套做 · 「已安
     //    仍是一枚"点了就走本地导入"的真按钮 —— 判据是回调本身。
     const legacy = addSkillOf(rightOf(toolbarOf({ resourceType: 'skill', onAddSkill })))
     expect(legacy.props['onClick']).toBe(onAddSkill)
-    // ④ 专家页/连接器页**没有下拉**：主按钮直接调本地导入（文案与动作本刀都不改）。
+    /**
+     * ④ ★**口径 51 重新基线化（加强，不是放宽）**：口径 46 这条写的是"专家页/连接器页的主按钮
+     *    都直接调本地导入"——它**已被用户裁决改掉**：WorkBuddy 实机那两页根本不是"选文件"
+     *    （专家页进子页、连接器页开 MCP 弹窗，研究文件 §3），继续让它们调本地导入就是
+     *    "文案说我的专家、点开却选文件"的说谎按钮。
+     *    ★新判据比旧的两条**更强**：即使把本地导入端口照样传进来，两页的 `onClick` 也一个都
+     *      不许等于 `onAddSkill`，且都不许出现 `aria-haspopup`（那会退化成下拉）；
+     *      专家页到底接的是谁，由口径 51 那一组**逐字取证**（`onOpenMyExperts`）。
+     *      旧断言对"专家页悄悄接回本地导入"是绿的，新断言不可能。
+     *    本地导入这条路仍然活着（技能页「上传技能」那一项 + 技能页的降级档，由上面 ②③ 与口径 49 那组锁住）。
+     */
     for (const resourceType of ['expert', 'connector'] as const) {
-      const other = addSkillOf(rightOf(toolbarOf({ resourceType, onAddSkill })))
-      expect(other.props['onClick'], resourceType).toBe(onAddSkill)
+      const ownPort = vi.fn()
+      const other = addSkillOf(rightOf(toolbarOf({ resourceType, onAddSkill, onOpenMyExperts: ownPort })))
+      expect(other.props['onClick'], resourceType).not.toBe(onAddSkill)
       expect(other.props['aria-haspopup'], resourceType).toBeUndefined()
     }
   })
@@ -2987,29 +3440,99 @@ describe('esc：口径 46/47（「添加技能」照商城那套做 · 「已安
     expect(classesOf(card({ showUse: true }))).toContain('esc-card-tags')
   })
 
-  it('已安装页的纯投影：分组顺序 / 组名 / 卡片字段 / 哪一组那枚开关拨不动', () => {
-    // 用户自定义（本机自装）：没有中心雪花 id ⇒ 开关**恒拨不动**
-    const self = enterpriseEscSelfInstalledCard({
-      skillId: 'meeting-notes', displayName: '会议纪要', sha256: 'a', names: ['meeting-notes'], installedAt: '2026-10-07', sourceInput: 'notes.dshskill',
+  it('已安装页的纯投影（★口径 54 重新基线化）：真源=发现面 / 分组=来源标注 / 卡片字段 / 哪一枚那开关拨不动', () => {
+    /**
+     * ★**重新基线化（加强，不是放宽）**：旧这一条测的是"两张**记录**各投一张卡"（`self`/`center` 两组）。
+     * 用户裁决把「已安装」的真源换成**官方发现面**之后，那两张卡投影（`enterpriseEscSelfInstalledCard` /
+     * `enterpriseEscCenterInstalledCard`）**整两个函数都不存在了** —— 列表由**磁盘真值**铺，
+     * 两份记录只贡献显示名/版本/摘要/卸载口。新判据覆盖的形态比旧的多：
+     *   ① 分组身份由**来源**决定（五类，含"未知来源各自成组"）；
+     *   ② 卡片三格逐字段（key / 标题 / **描述取官方那句真描述**——旧那两份记录里根本没有描述文案）；
+     *   ③ 开关可拨性只由"名字有没有对上企业记录"决定，且**元信息半句**逐字落位。
+     */
+    const discovered = (
+      name: string,
+      source: string,
+      extra: Partial<EnterpriseDiscoveredSkill> = {},
+    ): EnterpriseDiscoveredSkill => ({
+      name,
+      description: `${name} 的真描述`,
+      invocation: { modelInvocable: true, userInvocable: true },
+      source,
+      provider: 'skill-filesystem',
+      ...extra,
     })
-    expect(self.key).toBe('self-meeting-notes')
-    expect(self.item.name).toBe('会议纪要')
-    expect(self.item.description).toBe('meeting-notes')
-    expect(self.locked).toBe(true)
-    // 显示名缺 ⇒ 回落 skillId（记录里一定有它）——不画一张空标题
-    expect(enterpriseEscSelfInstalledCard({ skillId: 'k', displayName: '', sha256: 'a', names: [], installedAt: '' }).item.name).toBe('k')
-    // 来自市场（企业已装）：key 走 packageId（两套 id 命名空间不撞），开关能拨
-    const center = enterpriseEscCenterInstalledCard({
-      packageId: '2105915576743428098', skillId: 'dev-engineer-toolkit', displayName: '开发工程工具箱', versionId: 'v1', sha256: 'b', names: ['tools', 'helpers'], installedAt: '',
-    })
-    expect(center.key).toBe('installed-2105915576743428098')
-    expect(center.item.name).toBe('开发工程工具箱')
-    expect(center.item.description).toBe('tools、helpers')
-    expect(center.locked).toBe(false)
-    // 顺序：用户自定义在前（参考图就是这个顺序）+ 组名逐字
-    expect(ENTERPRISE_ESC_INSTALLED_KINDS).toEqual(['self', 'center'])
-    expect(enterpriseEscInstalledTitleOf('self')).toBe('用户自定义')
-    expect(enterpriseEscInstalledTitleOf('center')).toBe('来自市场')
+    const center = [{
+      packageId: '2105915576743428098',
+      skillId: 'dev-engineer-toolkit',
+      displayName: '开发工程工具箱',
+      versionId: '2.0.3',
+      sha256: 'b'.repeat(64),
+      names: ['dev-engineer-toolkit'],
+      installedAt: '',
+    }]
+    const self = [{
+      skillId: 'meeting-notes',
+      displayName: '会议纪要',
+      sha256: 'a'.repeat(64),
+      names: ['meeting-notes'],
+      installedAt: '2026-10-07',
+    }]
+    const meta = enterpriseEscInstalledMetaTable(center, self)
+    const skills = [
+      discovered('dev-engineer-toolkit', 'user-dsh', { whenToUse: '需要时' }),
+      discovered('meeting-notes', 'user-dsh'),
+      discovered('proj-helper', 'project-agents'),
+      discovered('bundled-thing', 'bundled'),
+      discovered('weird', 'custom'),
+    ]
+    // ① 单条来源标注（"谁放进去的"）：企业记录同名优先，其余按官方 source 归。
+    expect(skills.map(each => enterpriseEscInstalledSourceLabel(each, meta))).toEqual([
+      '企业装下来的', '本机导入的', '项目里的', '官方内置', '其它来源（custom）',
+    ])
+    // ② 分组顺序（真源那一格数组）+ 组名逐字；空组不进结果。
+    expect(ENTERPRISE_ESC_INSTALLED_SOURCE_KINDS).toEqual(['center', 'self', 'project', 'bundled'])
+    const groups = enterpriseEscInstalledGroups(skills, meta)
+    expect(groups.map(group => group.id)).toEqual(['center', 'self', 'project', 'bundled', 'other:custom'])
+    expect(groups.map(group => group.title))
+      .toEqual(['企业装下来的', '本机导入的', '项目里的', '官方内置', '其它来源（custom）'])
+    expect(groups.map(group => group.cards.length)).toEqual([1, 1, 1, 1, 1])
+    // ③ 卡片逐字段：企业那一枚（有中心包 id ⇒ 能拨；元信息是**版本**）。
+    const centerCard = groups[0]!.cards[0]!
+    expect(centerCard.key).toBe('installed-0-dev-engineer-toolkit')
+    expect(centerCard.item.name).toBe('开发工程工具箱')
+    expect(centerCard.item.description).toBe('dev-engineer-toolkit 的真描述')
+    expect(centerCard.locked).toBe(false)
+    expect(centerCard.packageId).toBe('2105915576743428098')
+    expect(centerCard.meta).toBe('版本 2.0.3')
+    // 本机导入那一枚（没有中心包 id ⇒ 恒拨不动；元信息是**摘要**，截断到 12 位 + 省略号）。
+    const selfCard = groups[1]!.cards[0]!
+    expect(selfCard.item.name).toBe('会议纪要')
+    expect(selfCard.locked).toBe(true)
+    expect(selfCard.packageId).toBeUndefined()
+    expect(selfCard.meta).toBe(`摘要 ${'a'.repeat(12)}…`)
+    // 项目 / 官方内置 / 未知来源三枚：一律拨不动、一律没有元信息半句（不编"未知"）。
+    for (const group of groups.slice(2)) {
+      expect(group.cards[0]!.locked, group.id).toBe(true)
+      expect(group.cards[0]!.meta, group.id).toBeUndefined()
+    }
+    // ④ 显示名缺 ⇒ 回落发现面给的技能名（不画一张空标题）；描述永远取发现面那一句。
+    const bare = enterpriseEscInstalledGroups([discovered('k', 'user-dsh')],
+      enterpriseEscInstalledMetaTable([], [{ skillId: 'x', displayName: '', sha256: '', names: [], installedAt: '' }]))
+    expect(bare[0]!.cards[0]!.item.name).toBe('k')
+    expect(bare[0]!.cards[0]!.item.description).toBe('k 的真描述')
+    expect(bare[0]!.cards[0]!.meta).toBeUndefined()
+    // ⑤ 空组不进结果：只给一条本机导入的技能 ⇒ 只有一组（没有 center 的空壳）。
+    const onlySelf = enterpriseEscInstalledGroups([discovered('meeting-notes', 'user-dsh')], meta)
+    expect(onlySelf.map(group => group.id)).toEqual(['self'])
+    // ⑥ 一条都没有 ⇒ 空数组（整页空态由视图说）。
+    expect(enterpriseEscInstalledGroups([], meta)).toEqual([])
+    // ⑦ 两份记录**合并**进同一把键（同名时企业那半不抹掉自装那半，反之亦然）。
+    const merged = enterpriseEscInstalledMetaTable(center, [{
+      skillId: 'dev-engineer-toolkit', displayName: 'X', sha256: 'c'.repeat(64), names: ['dev-engineer-toolkit', 'meeting-notes'], installedAt: '',
+    }])
+    expect(merged.of('dev-engineer-toolkit')).toMatchObject({ packageId: '2105915576743428098', versionId: '2.0.3', sha256: 'c'.repeat(64) })
+    expect(merged.of('meeting-notes')).toMatchObject({ sha256: 'c'.repeat(64) })
   })
 
   it('本地导入是**同一份实现**：状态机与三件事实全仓只有一处，两面都 import 同一叶片（结构级不变式）', () => {
@@ -3499,7 +4022,18 @@ describe('esc：口径 49（技能页主按钮三项下拉 · 三页尺寸/形�
     expect(outline).not.toMatch(/#[0-9a-fA-F]{3,6}/)
   })
 
-  it('⑤ 「已安装」只在技能页渲染：专家/连接器页**整枚不渲染**（不是 disabled、不是隐藏）', () => {
+  /**
+   * ★**本用例按用户裁决重新基线化（加强，不是放宽）**。
+   *
+   * 旧那条锁的是"读不到 ⇒ **不显示数字** + 另缀一枚 `？`（橙色，title 借 `categoriesUnavailable`）"。
+   * 用户裁决把它改成：读不到 ⇒ **画 `(0)`**（与真 0 同形，代价用户明确接受），
+   * 而"这个 0 是暂定的"这件事**必须**由同一个按钮的 `title` 说出来（不许静默）。
+   * ⇒ 新判据比旧的**更强**：旧断言对"读不到时随便不显示点什么"是绿的；现在要求
+   *   ① 数字位在**三种**状态下都存在且形状一致；② 真 0 与读不到的 **title 必须不同**；
+   *   ③ 那句 title 必须同时含"读不到"与"按 0 显示"两件事、且不含裸码；
+   *   ④ 旧那枚 `？` 与它的类名**在整个 src/esc 里零出现**（连 CSS 死规则一起）。
+   */
+  it('⑤ 「已安装」只在技能页渲染 + 计数三态（用户裁决：读不到 ⇒ 与真 0 同形，靠 title 区分）', () => {
     // 技能页：在（且仍是同一枚自绘按钮）
     const skill = rightOf(toolbarOf({ resourceType: 'skill', onOpenInstalled: () => undefined }))
     const installed = byClass(skill, 'esc-installed')
@@ -3517,12 +4051,150 @@ describe('esc：口径 49（技能页主按钮三项下拉 · 三页尺寸/形�
     // 源码级：那一格的条件是**资源类型**，不是计数器（`installedCount === 0` 也要渲染这枚按钮）
     const toolbar = readSrc('esc-toolbar.tsx')
     expect(toolbar).toContain("resourceType !== 'skill'")
-    // 计数三态口径一字未改：读不到 ⇒ 无数字 + `？`（不写 0）
-    const unknown = rightOf(toolbarOf({ resourceType: 'skill', onOpenInstalled: () => undefined }))
-    expect(byClass(unknown, 'esc-installed-count')).toBeUndefined()
-    expect(byClass(unknown, 'esc-installed-failed')).toBeUndefined()
-    const failed = rightOf(toolbarOf({ resourceType: 'skill', onOpenInstalled: () => undefined, installedCountFailed: true }))
-    expect(byClass(failed, 'esc-installed-failed')!.props['children']).toBe('？')
+    /* ══════════ 计数三态（★用户裁决「读不到就显示 0」）══════════
+       读到 N ⇒ `(N)`；**真 0 与读不到 ⇒ 同一个形状 `(0)`**（这个代价用户明确接受）；
+       两种状态由那枚按钮的 `title` 区分：真 0 用正常说明，读不到用"暂定值"那句 —— 绝不静默。 */
+    const opened = () => undefined
+    const skillRight = (props: Record<string, unknown> = {}) =>
+      rightOf(toolbarOf({ resourceType: 'skill', onOpenInstalled: opened, ...props }))
+    const countOf = (tree: unknown) => byClass(tree, 'esc-installed-count')
+    const titleOf = (tree: unknown) => String(byClass(tree, 'esc-installed')!.props['title'])
+    // ① 读到 N：数字位就是真值
+    expect(countOf(skillRight({ installedCount: 3 }))!.props['children']).toBe('(3)')
+    // ② **真 0** / ③ **读不到** / ④ **首帧（还没读回来）**：数字位**同形**
+    const zero = skillRight({ installedCount: 0 })
+    const unreadable = skillRight({ installedCount: undefined, installedCountFailed: true })
+    const inFlight = skillRight({})
+    for (const [label, tree] of [['真 0', zero], ['读不到', unreadable], ['首帧', inFlight]] as const) {
+      expect(countOf(tree), `${label}：数字位必须在场`).toBeTruthy()
+      expect(countOf(tree)!.props['children'], label).toBe('(0)')
+      // 反向锁：旧那枚 `？` 那一格与它的类名**都不许回来**
+      expect(byClass(tree, 'esc-installed-failed'), label).toBeUndefined()
+      expect(
+        walkAll(tree).some(each => String(each.props['children'] ?? '').includes('？')),
+        `${label}：树里不许再出现那枚问号`,
+      ).toBe(false)
+    }
+    // ⑤ **title 必须把真 0 与读不到分开**（"不静默吞失败"的机器化判据）
+    expect(titleOf(zero)).toBe(ENTERPRISE_ESC_LOCAL_COPY.installedFilterOpen)
+    expect(titleOf(unreadable)).toBe(ENTERPRISE_ESC_LOCAL_COPY.installedCountUnreadable)
+    expect(titleOf(zero)).not.toBe(titleOf(unreadable))
+    // 首帧也吃同一句 —— 那一瞬这个 0 同样不是真读到的（同一句话不撒谎）
+    expect(titleOf(inFlight)).toBe(ENTERPRISE_ESC_LOCAL_COPY.installedCountUnreadable)
+    // ⑥ 那句 title 必须**同时**含"读不到"与"按 0 显示"两件事，且**不含裸码**
+    const sentence = titleOf(unreadable)
+    expect(sentence).toContain('读不到')
+    expect(sentence).toContain('按 0 显示')
+    expect(sentence).not.toMatch(/ENT_[A-Z_]+/)
+    // ⑦ 它**不是**分类那句（借用关系已拆；集合级反向锁见下一条用例）
+    expect(sentence).not.toBe(ENTERPRISE_ESC_LOCAL_COPY.categoriesUnavailable)
+    // ⑧ 读到数字时 title 仍是"会发生什么"（本刀没把正常态带平）
+    expect(titleOf(skillRight({ installedCount: 3 }))).toBe(ENTERPRISE_ESC_LOCAL_COPY.installedFilterOpen)
+    // ⑨ 源码级反向锁：那枚 `？` 与它的类名都退场了 —— 判据落在**剥注释后的代码**上
+    //    （沿革注释里提到被删掉的那条规则是**说明**，不是"它回来了"；这正是 `stripEscComments` 的口径）。
+    const escDir = new URL('../src/esc/', import.meta.url)
+    for (const name of readdirSync(escDir).filter(each => /\.tsx?$/.test(each))) {
+      expect(stripEscComments(readFileSync(new URL(name, escDir), 'utf8')), name).not.toContain('esc-installed-failed')
+    }
+    expect(stripEscComments(toolbar)).not.toContain('？')
+  })
+
+  /**
+   * ★**集合级反向锁（本刀要锁的正是"再被借走"这件事）**。
+   *
+   * `categoriesUnavailable`（「分类暂时读不到」）是给**分类字典读不到**用的；真机上那枚 `？` 借的
+   * 就是它，而分类那一面本身好好的 —— 按钮因此**指错原因**。本刀把两件事拆成两枚文案之后，
+   * 这条锁把"标识符 `categoriesUnavailable` 在 `src/esc` 里的每一次出现"钉成一张**闭合的名单**：
+   * 任何一处**新增**（例如计数位再拿它当 title）或**替换**都会让这张名单对不上 ⇒ 立刻红。
+   * 判据落在**剥注释后的代码**上：注释里引用这个名字是沿革说明，不算"借用"。
+   */
+  it('④ 集合级反向锁：categoriesUnavailable 只许出现在「分类读不到」的语境（不许再被计数借用）', () => {
+    // ① 两枚文案是两件事（值不同、互不相等）
+    expect(ENTERPRISE_ESC_LOCAL_COPY.categoriesUnavailable).toBe('分类暂时读不到')
+    expect(ENTERPRISE_ESC_LOCAL_COPY.installedCountUnreadable).toBe('本机已装数量暂时读不到，先按 0 显示')
+    expect(ENTERPRISE_ESC_LOCAL_COPY.installedCountUnreadable).not.toBe(ENTERPRISE_ESC_LOCAL_COPY.categoriesUnavailable)
+    // ② 全 `src/esc`：这个标识符的每一次出现都必须在这张白名单里
+    const escDir = new URL('../src/esc/', import.meta.url)
+    const occurrences = new Map<string, string[]>()
+    for (const name of readdirSync(escDir).filter(each => /\.tsx?$/.test(each)).sort()) {
+      const lines = stripEscComments(readFileSync(new URL(name, escDir), 'utf8'))
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.includes('categoriesUnavailable'))
+      if (lines.length > 0) occurrences.set(name, lines)
+    }
+    expect([...occurrences.entries()]).toEqual([
+      // 分类那一面：取数 hook 的降级标志 → 原样交给工具栏（"分类读不到"这条链上的传参）
+      ['esc-aggregation.tsx', ['categoriesUnavailable: unavailable,']],
+      // 文案真源：这一句只为分类而存在
+      ['esc-copy.ts', ["categoriesUnavailable: '分类暂时读不到',"]],
+      // 工具栏：类型声明 + 解构 + 判据 + 那句提示本身（**四处**，没有一处与计数有关）
+      ['esc-toolbar.tsx', [
+        'readonly categoriesUnavailable?: boolean | undefined',
+        'categoriesUnavailable,',
+        'categoriesUnavailable === true',
+        'children: ENTERPRISE_ESC_LOCAL_COPY.categoriesUnavailable,',
+      ]],
+    ])
+    // ③ 渲染级：分类读不到时出的仍是分类那句；同一棵树上计数位的 title 是**计数自己**那句
+    //    （分类提示住在工具栏**体**里，不在右块，故这里取整棵树）
+    const both = toolbarOf({
+      resourceType: 'skill',
+      onOpenInstalled: () => undefined,
+      categoriesUnavailable: true,
+      installedCount: 3,
+    })
+    expect(byClass(both, 'esc-toolbar-note')!.props['children']).toBe(ENTERPRISE_ESC_LOCAL_COPY.categoriesUnavailable)
+    expect(byClass(both, 'esc-installed')!.props['title']).toBe(ENTERPRISE_ESC_LOCAL_COPY.installedFilterOpen)
+  })
+
+  /**
+   * ★**回归锁（本仓硬纪律：改一刀不许把别处的口径带平）**。
+   *
+   * ★**口径 54 重新基线化（加强，不是放宽）**：旧这一条锁的是"计数 = 企业已装清单 + 本机自装清单
+   * **两份之和**"。用户裁决把真源换成**官方发现面**（"同时已安装里面显示的就是 DSH 本地已安装的技能"）
+   * ⇒ 那两份记录**不再作"是否已装"的判据**（真机取证：磁盘 7 枚 vs 企业记录 1 枚，两份之和必然是错的）。
+   * 新判据覆盖的比旧的多：① 这条链**只读一条真源**且**恰好一次**请求；② 计数**不是**任何"两份之和"
+   * 的形态（反向锁：文件里不许再出现 `list.length +` / `selfRecords`）；③ 三态纪律（读不到不写假数）
+   * 与时机（技能页那条 effect + 刷新令牌）**一条不少**，并多锁一条 `complete === false` 的第四态。
+   */
+  it('⑤ 回归：计数真源（**一条**官方发现面）与请求次数/时机/三态纪律', () => {
+    const aggregation = stripEscComments(readSrc('esc-aggregation.tsx'))
+    // ① **一条真源**：发现面那一趟（全文件恰好一处调用），且它是计数的**唯一**来路。
+    expect(aggregation.match(/api\.discoveredSkills\(/g)).toHaveLength(1)
+    expect(aggregation).toContain('const snapshot = await api.discoveredSkills(controller.signal)')
+    // ★三件事实**出自同一处投影**（计数 / 已装判定键 / 还没发现完）—— 这条比"某一行写得对"强：
+    //   任何"计数另算一遍"的改法都会让这三行不再同源。
+    expect(aggregation).toContain('const facts = installedSnapshotFacts(snapshot)')
+    expect(aggregation).toContain('setInstalledCount(facts.count)')
+    expect(aggregation).toContain('setInstalledIds(facts.names)')
+    expect(aggregation).toContain('setInstalledDiscovering(facts.discovering)')
+    // ② 反向锁：**不再是**"两份记录之和"（那两份已降级为元信息）。
+    expect(aggregation).not.toContain('list.length +')
+    expect(aggregation).not.toContain('selfRecords')
+    expect(aggregation).not.toMatch(/api\.installedSkills\(/)
+    /**
+     * ★`selfInstalledSkills` 在这份文件里**只剩一处**，且必须是**本地导入那台状态机**的接线
+     * （导入成功后要拿自装清单念出"这次装好了哪几个技能"）—— 它**不再**是计数链的一环。
+     * 旧那一条锁的是"计数 = 企业清单 + 自装清单"；新判据把"自装清单"的**唯一**许可用途钉死，
+     * 任何"把它读回来喂给计数"的改法都会多出第二处出现 ⇒ 红。
+     */
+    expect(aggregation.match(/selfInstalledSkills/g)).toHaveLength(2)
+    expect(aggregation).toContain('selfInstalledSkills: skillPort === undefined ? undefined : signal => skillPort.selfInstalledSkills(signal),')
+    // ③ 已装判定键仍是**名字**（口径 47 那把公共键，本刀把它升级为磁盘真值）。
+    expect(aggregation).toContain('setInstalledIds(facts.names)')
+    // ④ **时机**：仍是"技能页 + 取数面 + 刷新令牌"那一条 effect（切页/导入成功才重跑）。
+    expect(aggregation).toContain("if (resourceType !== 'skill') return")
+    expect(aggregation).toContain('}, [api, resourceType, installedRefreshToken])')
+    // ⑤ 读失败**不写假数**、也不静默：catch 里不许出现 `setInstalledCount(0)`，且必须记下失败这件事。
+    expect(aggregation).not.toMatch(/setInstalledCount\(\s*0\s*\)/)
+    expect(aggregation).toContain('setInstalledReadFailed(true)')
+    // ⑥ 三个事实仍**原样**交给工具栏（读不到时 `undefined` + `true`；说法的落点在工具栏那侧），
+    //    外加口径 54 的第四态（`complete === false`）。
+    expect(aggregation).toContain('installedCount,')
+    expect(aggregation).toContain('installedCountFailed: installedReadFailed,')
+    expect(aggregation).toContain('installedCountDiscovering: installedDiscovering,')
+    expect(aggregation).toContain('setInstalledDiscovering(facts.discovering)')
   })
 
   it('⑥ 三枚 placeholder 逐字且互不相同，且**只有一处**取值口（旧那枚不许回来）', () => {
@@ -3807,5 +4479,853 @@ describe('esc：口径 50（「换一批」＝本地窗口循环，不重发请�
     const css = (EnterpriseEscStyle() as unknown as { props: { children: string } }).props.children
     expect(css).toContain(`.${ENTERPRISE_ESC_FEATURED_GRID_CLASS} {`)
     expect(css).toContain(`grid-template-columns: var(--esc-grid-cols);`)
+  })
+})
+
+/* ══════════════ 口径 51（专家页「我的专家」子页 · 连接器页改名 · 无新增端点）══════════════
+ * 这一组锁三件事：
+ *   ① **三页主按钮的文案与动作**（WorkBuddy 实机三页三种交互）：专家页「我的专家」→ 进子页；
+ *      连接器页「自定义连接器」→ 本刀不做 MCP 弹窗 ⇒ 置灰 + **行上可见原因**；技能页一字不改；
+ *   ② **新子页**：chrome 逐项、**不是弹窗**（全树无 dialog/modal/遮罩/portal）、返回与 Esc 两条路
+ *      + 返回后还原滚动位置与焦点、内容区在所有组合下都是**同一份如实交代**（稳定码入表、
+ *      唯一提示件在场、`retryable === false`、**无假计数/无假条目**）；
+ *   ③ **数据面不许被偷偷放大**：`src/esc` 里除既有那七条平台端点外，一个 `/api/...` 字面量都不许新增
+ *      （本部署根本没有"我的专家"接口，编一条路径去发请求就是本仓明令禁止的那件事）。
+ * ★判据形态：纯投影直调 + 源码级反向锁（本仓 vitest 没有 DOM；含 hook 的组件直调会抛 Invalid hook call，
+ *   故子页的 chrome 特意拆成**不持 hook 的纯投影** `EnterpriseEscMyExpertsView`，外壳只持三个选中态）。
+ */
+describe('esc：口径 51（「我的专家」子页 · 连接器页改名 · 无新增端点）', () => {
+  type Element = { readonly type: unknown; readonly props: Record<string, unknown> }
+  const asElement = (node: unknown) => node as Element
+  const childrenOf = (element: Element) => {
+    const children = element.props['children']
+    return Array.isArray(children) ? children : children === undefined || children === null ? [] : [children]
+  }
+  /** 深度优先铺平整棵元素树，**含经 props 传递的那些元素**（官方原语的 icon/anchor 都走 props）。 */
+  const elementsIn = (node: unknown, seen: WeakSet<object>): Element[] => {
+    if (node === null || node === undefined) return []
+    if (Array.isArray(node)) return node.flatMap(each => elementsIn(each, seen))
+    if (typeof node !== 'object') return []
+    const candidate = node as { type?: unknown; props?: unknown }
+    if (typeof candidate.type === 'undefined' || typeof candidate.props !== 'object' || candidate.props === null) return []
+    if (seen.has(node)) return []
+    seen.add(node)
+    const element = node as Element
+    const nested = Object.values(element.props).flatMap(value => elementsIn(value, seen))
+    return [element, ...nested]
+  }
+  const walkAll = (node: unknown): Element[] => elementsIn(node, new WeakSet<object>())
+  const byClass = (node: unknown, className: string): Element | undefined =>
+    walkAll(node).find(each =>
+      typeof each.props['className'] === 'string'
+      && (each.props['className'] as string).split(' ').includes(className))
+  const allByClass = (node: unknown, className: string): Element[] =>
+    walkAll(node).filter(each =>
+      typeof each.props['className'] === 'string'
+      && (each.props['className'] as string).split(' ').includes(className))
+  /** 树里所有**字符串子节点**（判"无假计数"用：只看文本，不看图标那些数字 props）。 */
+  const textOf = (node: unknown): string[] =>
+    walkAll(node).flatMap(each => childrenOf(each).filter((child): child is string => typeof child === 'string'))
+  const readSrc = (name: string) => readFileSync(new URL(`../src/esc/${name}`, import.meta.url), 'utf8')
+  const readRoot = (name: string) => readFileSync(new URL(`../src/${name}`, import.meta.url), 'utf8')
+  const toolbarOf = (props: Record<string, unknown>) =>
+    asElement(
+      EnterpriseEscToolbar({
+        resourceType: 'skill',
+        source: 'system',
+        onSourceChange: () => undefined,
+        categories: [],
+        activeCategory: '',
+        onCategoryChange: () => undefined,
+        keyword: '',
+        onKeywordChange: () => undefined,
+        ...props,
+      } as never),
+    )
+  const mainButtonOf = (element: Element): Element => {
+    const found = byClass(element, 'esc-add-skill')
+    expect(found, '主按钮（.esc-add-skill）').toBeTruthy()
+    return found as Element
+  }
+  /** 子页纯投影的默认入参（三个选中态 + 四枚动作；`onCreateExpert` 默认缺席 = 今天真实的接线）。 */
+  const myExpertsOf = (props: Record<string, unknown> = {}) =>
+    asElement(
+      EnterpriseEscMyExpertsView({
+        tab: 'expert',
+        segment: 'owned',
+        keyword: '',
+        onTabChange: () => undefined,
+        onSegmentChange: () => undefined,
+        onKeywordChange: () => undefined,
+        onBack: () => undefined,
+        ...props,
+      } as never),
+    )
+
+  it('① 两枚新文案逐字（新增常量，不写字面量散落）；技能页那枚一字未改', () => {
+    // ① 真源：两枚新常量逐字（WorkBuddy 实机 i18n：unifiedMarket.myExperts / 连接器页那枚）。
+    expect(ENTERPRISE_ESC_COPY.myExperts).toBe('我的专家')
+    expect(ENTERPRISE_ESC_COPY.customConnector).toBe('自定义连接器')
+    // 技能页那枚**不动**：三页三个词，互不相同（这是"逐页对齐 WorkBuddy"的另一半判据）。
+    expect(ENTERPRISE_ESC_COPY.addSkill).toBe('添加技能')
+    expect(new Set([ENTERPRISE_ESC_COPY.addSkill, ENTERPRISE_ESC_COPY.myExperts, ENTERPRISE_ESC_COPY.customConnector]).size).toBe(3)
+    // ② 渲染级：三页主按钮上的**可见文案**就是各自那一枚。
+    const labelOf = (element: Element) => {
+      const children = childrenOf(mainButtonOf(element))
+      return children.filter((child): child is string => typeof child === 'string').join('')
+    }
+    expect(labelOf(toolbarOf({ resourceType: 'expert' }))).toBe('我的专家')
+    expect(labelOf(toolbarOf({ resourceType: 'connector' }))).toBe('自定义连接器')
+    expect(labelOf(toolbarOf({ resourceType: 'skill', addSkillMenu: { open: false, onClose: () => undefined, onToggle: () => undefined } })))
+      .toBe('添加技能')
+    // ③ 源码级反向锁：文案不许以字面量形式散落在组件里（真源只有 esc-copy 一处）。
+    for (const name of ['esc-toolbar.tsx', 'esc-my-experts.tsx', 'esc-page.tsx', 'esc-aggregation.tsx']) {
+      const code = stripEscComments(readSrc(name))
+      expect(code, `${name} 里不许再出现「我的专家」字面量`).not.toContain('我的专家')
+      expect(code, `${name} 里不许再出现「自定义连接器」字面量`).not.toContain('自定义连接器')
+    }
+  })
+
+  it('① 专家页那枚的 onClick **进入子页**（渲染级 + 源码级），且不再碰本地导入', () => {
+    const onOpenMyExperts = vi.fn()
+    const onAddSkill = vi.fn()
+    const button = mainButtonOf(toolbarOf({ resourceType: 'expert', onOpenMyExperts, onAddSkill }))
+    expect(button.props['disabled']).toBe(false)
+    expect(button.props['onClick']).toBe(onOpenMyExperts)
+    ;(button.props['onClick'] as () => void)()
+    expect(onOpenMyExperts).toHaveBeenCalledTimes(1)
+    expect(onAddSkill).not.toHaveBeenCalled()
+    // 纯投影：终态逐字段（可直调取证）
+    const plan = enterpriseEscMainActionPlan({ resourceType: 'expert', onOpenMyExperts })
+    expect(plan).toEqual({
+      label: '我的专家',
+      disabled: false,
+      onClick: onOpenMyExperts,
+      title: ENTERPRISE_ESC_LOCAL_COPY.myExpertsOpenTitle,
+      lock: undefined,
+    })
+    // 判据是**端口在不在场**（不是写死的 disabled）：缺席 ⇒ 置灰 + 行上可见原因。
+    const bare = enterpriseEscMainActionPlan({ resourceType: 'expert' })
+    expect(bare!.disabled).toBe(true)
+    expect(bare!.onClick).toBeUndefined()
+    expect(bare!.lock).toBe(ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted)
+    const bareButton = mainButtonOf(toolbarOf({ resourceType: 'expert' }))
+    expect(bareButton.props['disabled']).toBe(true)
+    expect(byClass(toolbarOf({ resourceType: 'expert' }), 'esc-toolbar-lock')!.props['children'])
+      .toBe(ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted)
+    // 源码级：页壳把「我的专家」接到第三个视图上（三层一条链：页壳开视图 → 聚合区 → 工具栏）。
+    const panel = readSrc('esc-page.tsx')
+    expect(panel).toContain('onOpenMyExperts: () => openMyExperts()')
+    expect(panel).toContain('EnterpriseEscMyExpertsPage')
+    expect(panel).toContain('myExpertsOpen')
+    expect(panel).toContain('const openMyExperts = (): void => {')
+    const aggregation = readSrc('esc-aggregation.tsx')
+    expect(aggregation).toContain('onOpenMyExperts,')
+    expect(aggregation).toContain('onOpenMyExperts?: (() => void) | undefined')
+  })
+
+  it('② 子页**不是弹窗**：全树无 dialog/aria-modal/Modal/遮罩/portal/aria-haspopup（含源码级反向锁）', () => {
+    const tree = myExpertsOf()
+    const roles = walkAll(tree).map(each => each.props['role']).filter((value): value is string => typeof value === 'string')
+    // ① 角色清单是封闭的：region（子页本体）+ tablist/tab/tabpanel（两个 tab 与内容格）+ status（禁用原因）。
+    expect([...new Set(roles)].sort()).toEqual(['region', 'status', 'tab', 'tablist', 'tabpanel'])
+    expect(roles).not.toContain('dialog')
+    // ② 全树没有任何弹窗语义/遮罩/portal 钩子。
+    for (const element of walkAll(tree)) {
+      expect(element.props['aria-modal']).toBeUndefined()
+      expect(element.props['aria-haspopup']).toBeUndefined()
+      expect(element.props['popover']).toBeUndefined()
+      // 弹窗的"标准长相"：固定定位 + 半透明遮罩 + 高 z-index（本页一格都不许有）。
+      const style = element.props['style']
+      if (typeof style === 'object' && style !== null) {
+        const record = style as Record<string, unknown>
+        expect(record['position']).not.toBe('fixed')
+        expect(String(record['zIndex'] ?? '')).not.toBe('9999')
+      }
+    }
+    // ③ 唯一的 `role="region"` 就是**内容区里那一块**（不是浮层）：它的类名是 .esc-content。
+    const region = walkAll(tree).filter(each => each.props['role'] === 'region')
+    expect(region).toHaveLength(1)
+    expect(String(region[0]!.props['className'])).toBe('esc-content')
+    // ④ 源码级反向锁：这一页一个弹窗原语/portal 都没有（连注释之外也不许出现）。
+    const code = stripEscComments(readSrc('esc-my-experts.tsx'))
+    for (const forbidden of ['Modal', 'dialog', 'aria-modal', 'aria-haspopup', 'createPortal', 'portal', 'overlay', 'mask']) {
+      expect(code, `esc-my-experts 不该出现 ${forbidden}`).not.toContain(forbidden)
+    }
+  })
+
+  it('② 返回与 Esc **两条**关闭路径；返回后还原滚动位置与焦点（源码级 + 纯投影级）', () => {
+    // ① 返回按钮：它唯一的动作就是 `onBack`（页壳据此切回目录）。
+    const onBack = vi.fn()
+    const back = byClass(myExpertsOf({ onBack }), 'esc-installed-back')!
+    expect(back.props['onClick']).toBe(onBack)
+    // ② Esc：监听钉在页壳根节点上，命中即 preventDefault + stopPropagation，两条路关的是**同一件事**
+    //    （同一个 `closeView` 语义：两个视图状态一起清）。
+    const panel = readSrc('esc-page.tsx')
+    expect(panel).toContain("if (event.key !== 'Escape') return")
+    expect(panel).toContain('event.preventDefault()')
+    expect(panel).toContain('event.stopPropagation()')
+    expect(panel).toContain('node.addEventListener(\'keydown\', onKeyDown)')
+    expect(panel).toContain('node.removeEventListener(\'keydown\', onKeyDown)')
+    expect(panel).toContain('setInstalledOpen(false)')
+    expect(panel).toContain('setMyExpertsOpen(false)')
+    expect(panel).toContain("onBack: closeView")
+    // ③ 浏览器返回键**不接**（本页没有真实路由，硬造 history 会与宿主打架）——反向锁。
+    for (const forbidden of ['pushState', 'popstate', 'history.']) {
+      expect(stripEscComments(panel), `esc-page 不该出现 ${forbidden}`).not.toContain(forbidden)
+    }
+    // ④ 滚动面判定是可直调的纯读：认的就是 `.esc-content` 那一格（两档位下都是它）。
+    expect(ENTERPRISE_ESC_VIEW_SCROLL_CLASS).toBe('esc-content')
+    const node = { scrollTop: 480 }
+    expect(enterpriseEscViewScroller({ querySelector: () => node })).toBe(node)
+    expect(enterpriseEscViewScroller({ querySelector: () => null })).toBeUndefined()
+    expect(enterpriseEscViewScroller(null)).toBeUndefined()
+    expect(enterpriseEscViewScroller(undefined)).toBeUndefined()
+    //    类名常量必须与样式层那条规则**同字面**（漂了的话收尾会静默写到别的元素上）。
+    const css = (EnterpriseEscStyle() as unknown as { props: { children: string } }).props.children
+    expect(css).toContain('.esc-content {')
+    // ⑤ 收尾三件（源码级）：读进那一刻的 scrollTop、返回时写回、焦点还给主按钮（按属性选择器找回，
+    //    因为进子页前那个 DOM 节点已经不可用）。
+    expect(panel).toContain('enterpriseEscViewScroller(root.current)?.scrollTop')
+    expect(panel).toContain('scroller.scrollTop = top')
+    expect(panel).toContain("root.current?.querySelector<HTMLElement>('[data-esc-main-action]')?.focus()")
+    expect(panel).toContain('useLayoutEffect')
+    /**
+     * ★**口径 51 补**：写回那一步必须是**有界重放**，不能只写一次 —— 返回时列表是**重新挂载**的，
+     * 它先渲染 `.esc-loading`（高度不够）⇒ 浏览器会把 `scrollTop` 夹回 0，只写一次在真实数据下
+     * 是**静默失效**。四条判据：① 可达性判据在场；② 不可达才等下一帧；③ 帧数有**上限**（不是死循环）；
+     * ④ 有取消（离开页面即停，绝不留悬空回调去写已经换掉的那棵树）。
+     */
+    expect(Number.isInteger(ENTERPRISE_ESC_VIEW_RESTORE_FRAMES)).toBe(true)
+    expect(ENTERPRISE_ESC_VIEW_RESTORE_FRAMES).toBeGreaterThan(0)
+    expect(Number.isFinite(ENTERPRISE_ESC_VIEW_RESTORE_FRAMES)).toBe(true)
+    expect(panel).toContain('scroller.scrollHeight - scroller.clientHeight >= top')
+    expect(panel).toContain('reachable || frames > ENTERPRISE_ESC_VIEW_RESTORE_FRAMES')
+    expect(panel).toContain('restoreFrame.current = requestAnimationFrame(apply)')
+    expect(panel).toContain('cancelAnimationFrame(restoreFrame.current)')
+    // 反向锁：不许把重放写成没有上限的递归 / 定时器（那会把滚动位置变成一个后台常驻循环）。
+    const panelCode = stripEscComments(panel)
+    expect(panelCode).not.toContain('setInterval')
+    expect(panelCode).not.toContain('setTimeout')
+    //    主按钮上那枚钩子确实挂着（两边同字面：属性名只有一处真源）。
+    expect(ENTERPRISE_ESC_MAIN_ACTION_ATTR).toBe('data-esc-main-action')
+    const main = mainButtonOf(toolbarOf({ resourceType: 'expert' }))
+    expect(main.props[ENTERPRISE_ESC_MAIN_ACTION_ATTR]).toBe('')
+  })
+
+  it('② 子页 chrome 逐项：标题 / 两个 tab / 搜索 placeholder / 创建按钮 / 两个分段', () => {
+    const tree = myExpertsOf()
+    // ① 标题（页头那一枚 h3，`tabIndex={-1}` 是进入子页时的程序化聚焦落点）。
+    const title = walkAll(tree).find(each => each.props[ENTERPRISE_ESC_MY_EXPERTS_TITLE_ATTR] !== undefined)!
+    expect(title.type).toBe('h3')
+    expect(title.props['children']).toBe('我的专家')
+    expect(title.props['tabIndex']).toBe(-1)
+    expect(String(title.props['className'])).toContain('esc-installed-title')
+    // ② 返回那枚：文案逐字（workbuddy 那一枚只有箭头，本仓子页一贯给文字）。
+    const back = byClass(tree, 'esc-installed-back')!
+    expect(childrenOf(back)).toContain(ENTERPRISE_ESC_LOCAL_COPY.myExpertsBack)
+    expect(ENTERPRISE_ESC_LOCAL_COPY.myExpertsBack).toBe('返回')
+    // ③ 两个 tab：文案逐字且按序（真源 = ENTERPRISE_ESC_MY_EXPERTS_TABS）。
+    expect(ENTERPRISE_ESC_MY_EXPERTS_TABS.map(each => each.key)).toEqual(['expert', 'team'])
+    expect(ENTERPRISE_ESC_MY_EXPERTS_TABS.map(each => each.label)).toEqual(['专家', '专家团'])
+    const tabs = walkAll(tree).filter(each => each.props['data-esc-my-experts-tab'] !== undefined)
+    expect(tabs.map(each => each.props['data-esc-my-experts-tab'])).toEqual(['expert', 'team'])
+    expect(tabs.map(each => each.props['children'])).toEqual(['专家', '专家团'])
+    expect(tabs.every(each => each.type === 'button')).toBe(true)
+    // ④ 搜索框：placeholder 逐字（WorkBuddy 实机那枚），且复用工具栏同一个 `.esc-search`。
+    const search = byClass(tree, 'esc-search')!
+    expect(search.props['placeholder']).toBe('搜索我创建的专家')
+    expect(search.props['aria-label']).toBe('搜索我创建的专家')
+    // ⑤ 创建按钮：文案逐字（「+」由图标承担）。
+    const create = byClass(tree, 'esc-my-experts-create')!
+    expect(childrenOf(create).filter((child): child is string => typeof child === 'string')).toEqual(['创建专家'])
+    // ⑥ 两个分段：文案逐字且按序（真源 = ENTERPRISE_ESC_MY_EXPERTS_SEGMENTS）。
+    expect(ENTERPRISE_ESC_MY_EXPERTS_SEGMENTS.map(each => each.key)).toEqual(['owned', 'purchased'])
+    expect(ENTERPRISE_ESC_MY_EXPERTS_SEGMENTS.map(each => each.label)).toEqual(['我创建的', '我购买的'])
+    const segments = walkAll(tree).filter(each => each.props['data-esc-my-experts-segment'] !== undefined)
+    expect(segments.map(each => each.props['data-esc-my-experts-segment'])).toEqual(['owned', 'purchased'])
+    expect(segments.map(each => each.props['children'])).toEqual(['我创建的', '我购买的'])
+    // ⑦ tabs 与分段是**真控件**（选中态真的翻、点得动），不是死控件：
+    //    初始选中态由交进来的状态决定，点一下调的是**各调各的**回调。
+    expect(tabs[0]!.props['aria-selected']).toBe(true)
+    expect(tabs[1]!.props['aria-selected']).toBe(false)
+    expect(segments[0]!.props['aria-pressed']).toBe(true)
+    expect(segments[1]!.props['aria-pressed']).toBe(false)
+    expect(tabs[0]!.props['onClick']).not.toBe(tabs[1]!.props['onClick'])
+    expect(segments[0]!.props['onClick']).not.toBe(segments[1]!.props['onClick'])
+    const onTabChange = vi.fn()
+    const onSegmentChange = vi.fn()
+    const wired = myExpertsOf({ tab: 'team', segment: 'purchased', onTabChange, onSegmentChange })
+    const wiredTabs = walkAll(wired).filter(each => each.props['data-esc-my-experts-tab'] !== undefined)
+    expect(wiredTabs[0]!.props['aria-selected']).toBe(false)
+    expect(wiredTabs[1]!.props['aria-selected']).toBe(true)
+    ;(wiredTabs[0]!.props['onClick'] as () => void)()
+    expect(onTabChange).toHaveBeenCalledWith('expert')
+    ;(wiredTabs[1]!.props['onClick'] as () => void)()
+    expect(onTabChange).toHaveBeenCalledWith('team')
+    const wiredSegments = walkAll(wired).filter(each => each.props['data-esc-my-experts-segment'] !== undefined)
+    ;(wiredSegments[1]!.props['onClick'] as () => void)()
+    expect(onSegmentChange).toHaveBeenCalledWith('purchased')
+    expect(wiredSegments[1]!.props['data-esc-selected']).toBe(true)
+    // ⑧ 「创建专家」不许是死控件：写入口缺席 ⇒ `disabled` + **行上可见**原因（不是只挂 title）。
+    expect(create.props['disabled']).toBe(true)
+    expect(create.props['onClick']).toBeUndefined()
+    const lock = byClass(tree, 'esc-my-experts-lock')!
+    expect(lock.props['children']).toBe(ENTERPRISE_ESC_LOCAL_COPY.createExpertLocked)
+    expect(lock.props['role']).toBe('status')
+    expect(ENTERPRISE_ESC_LOCAL_COPY.createExpertLocked).toContain('没有')
+    // ⑨ **导出真的存在**（防"import 一个已删除的具名导出 ⇒ undefined ⇒ 空转锁"——ui 的 tsconfig
+    //    不含 tests，tsc 照不到这口坑，本仓历史上正踩过）。四个出口都必须真是函数。
+    for (const [name, value] of Object.entries({
+      EnterpriseEscMyExpertsView,
+      enterpriseEscMyExpertsBody,
+      enterpriseEscViewScroller,
+      enterpriseEscMainActionPlan,
+    })) {
+      expect(typeof value, name).toBe('function')
+    }
+    expect(typeof EnterpriseErrorNotice, 'EnterpriseErrorNotice').toBe('function')
+    //    写入口在场 ⇒ 真按钮（判据是端口，不是写死的 disabled）。
+    const onCreateExpert = vi.fn()
+    const live = byClass(myExpertsOf({ onCreateExpert }), 'esc-my-experts-create')!
+    expect(live.props['disabled']).toBe(false)
+    expect(live.props['onClick']).toBe(onCreateExpert)
+    expect(byClass(myExpertsOf({ onCreateExpert }), 'esc-my-experts-lock')).toBeUndefined()
+  })
+
+  it('② 内容区**如实交代**：稳定码入表、唯一提示件在场、retryable false、无假计数/无假条目', () => {
+    // ① 稳定码：常量与表里的键**同字面**（两处不可能漂），且人话 + 下一步都不含裸码。
+    expect(ENTERPRISE_ESC_MY_EXPERTS_UNAVAILABLE_CODE).toBe('ENT_ESC_MY_EXPERTS_UNAVAILABLE')
+    expect(ENTERPRISE_ERROR_CODES).toContain(ENTERPRISE_ESC_MY_EXPERTS_UNAVAILABLE_CODE)
+    const view = enterpriseErrorPresentation(ENTERPRISE_ESC_MY_EXPERTS_UNAVAILABLE_CODE)
+    expect(view.known).toBe(true)
+    expect(view.message.length).toBeGreaterThan(0)
+    expect(view.action.length).toBeGreaterThan(0)
+    expect(view.message).not.toContain('ENT_')
+    expect(view.action).not.toContain('ENT_')
+    // 终态：对"端点不存在"重试永远无效（与那四枚 ENT_ESC_*_UNAVAILABLE 同判）。
+    expect(view.retryable).toBe(false)
+    expect(enterpriseErrorRetryable(ENTERPRISE_ESC_MY_EXPERTS_UNAVAILABLE_CODE)).toBe(false)
+    // ② 唯一提示件在场：内容区那棵树里就是它（不是自造的一句话、不是 console.warn）。
+    const body = enterpriseEscMyExpertsBody()
+    const notices = walkAll(body).filter(each => each.type === EnterpriseErrorNotice)
+    expect(notices).toHaveLength(1)
+    expect(notices[0]!.props['code']).toBe(ENTERPRISE_ESC_MY_EXPERTS_UNAVAILABLE_CODE)
+    // ③ **同一份**：内容区投影是**零参数**的 ⇒ 它在类型层面不可能随 tab／分段变化。
+    const code = stripEscComments(readSrc('esc-my-experts.tsx'))
+    expect(code).toContain('export function enterpriseEscMyExpertsBody(): ReactNode {')
+    const bodySource = /export function enterpriseEscMyExpertsBody\(\)[\s\S]*?\n\}/.exec(code)?.[0]
+    expect(bodySource, '内容区投影必须能在剥注释后整段取出').toBeDefined()
+    for (const forbidden of ['tab', 'segment', 'keyword', 'query']) {
+      expect(bodySource!, `内容区不许读选中态 ${forbidden}`).not.toContain(forbidden)
+    }
+    // 并且它在子页树里**只挂一次**（两个 tab × 两个分段共用同一棵树：任何组合都不会多出第二份交代）。
+    const tree = myExpertsOf()
+    expect(walkAll(tree).filter(each => each.type === EnterpriseErrorNotice)).toHaveLength(1)
+    const panel = byClass(tree, 'esc-my-experts-panel')!
+    expect(panel.props['role']).toBe('tabpanel')
+    // ④ **无假计数**：文本子节点里一个数字都没有（workbuddy 那边是「专家 6 / 专家团 1」，
+    //    这两枚数字在本部署没有任何真值来源），也没有 `(N)` 这种计数形态。
+    for (const text of textOf(tree)) expect(text, `子页文本不许带计数：${text}`).not.toMatch(/[0-9]/)
+    expect(textOf(tree).join('|')).not.toContain('（')
+    // ⑤ **无假条目**：一个卡片/网格元素都不建（画空网格 = 谎称"你一个专家都没创建"）。
+    expect(byClass(tree, 'esc-list-section')).toBeUndefined()
+    expect(walkAll(tree).some(each => each.type === EnterpriseEscCard)).toBe(false)
+    // ⑥ **不发请求**：这一页没有取数面、没有 fetch（源码级反向锁）。
+    for (const forbidden of ['fetch(', 'api.', '/api/', 'XMLHttpRequest', 'useEffect']) {
+      expect(code, `esc-my-experts 不该出现 ${forbidden}`).not.toContain(forbidden)
+    }
+  })
+
+  it('② 连接器页那枚：`disabled` + **行上可见**原因，且不许再挂本地导入', () => {
+    const onAddSkill = vi.fn()
+    const bare = toolbarOf({ resourceType: 'connector', onAddSkill })
+    const button = mainButtonOf(bare)
+    expect(button.props['disabled']).toBe(true)
+    expect(button.props['onClick']).toBeUndefined()
+    // 行上可见原因（产品宪法：禁用控件不许只挂一句 title）。
+    const lock = byClass(bare, 'esc-toolbar-lock')!
+    expect(lock.props['children']).toBe(ENTERPRISE_ESC_LOCAL_COPY.customConnectorLocked)
+    expect(lock.props['role']).toBe('status')
+    expect(ENTERPRISE_ESC_LOCAL_COPY.customConnectorLocked).toContain('没有')
+    // 纯投影：判据是端口在不在场；`title` 另有一句（但**不是**唯一说明）。
+    const plan = enterpriseEscMainActionPlan({ resourceType: 'connector' })
+    expect(plan!.label).toBe('自定义连接器')
+    expect(plan!.disabled).toBe(true)
+    expect(plan!.onClick).toBeUndefined()
+    expect(plan!.lock).toBe(ENTERPRISE_ESC_LOCAL_COPY.customConnectorLocked)
+    expect(plan!.title).toBe(ENTERPRISE_ESC_LOCAL_COPY.customConnectorLocked)
+    // 真接线那天（端口在场）才会是另一态：文案不变、原因那句换"会发生什么"，且不再置灰。
+    const onCustomConnectors = vi.fn()
+    const livePlan = enterpriseEscMainActionPlan({ resourceType: 'connector', onCustomConnectors })
+    expect(livePlan!.disabled).toBe(false)
+    expect(livePlan!.onClick).toBe(onCustomConnectors)
+    expect(livePlan!.lock).toBeUndefined()
+    expect(livePlan!.title).toBe(ENTERPRISE_ESC_LOCAL_COPY.customConnectorOpenTitle)
+    expect(livePlan!.title).not.toBe(ENTERPRISE_ESC_LOCAL_COPY.customConnectorLocked)
+    // 源码级反向锁：今天**全仓没有任何调用方**会传这枚端口（本部署没有自定义连接器管理接口）
+    // —— 谁想"先接上再说"，得先说明那个接口在哪，这条会先红。
+    for (const name of ['esc-page.tsx', 'esc-aggregation.tsx', 'client.tsx']) {
+      const source = name === 'client.tsx' ? readRoot(name) : readSrc(name)
+      expect(stripEscComments(source), `${name} 不该传 onCustomConnectors`).not.toContain('onCustomConnectors:')
+    }
+  })
+
+  it('③ 数据面反向锁：`src/esc` 里除既有七条平台端点外，一个 `/api/...` 字面量都没有新增', () => {
+    const dir = new URL('../src/esc/', import.meta.url)
+    const found = new Set<string>()
+    for (const name of readdirSync(dir)) {
+      const source = readFileSync(new URL(name, dir), 'utf8')
+      // 单引号/双引号两种写法都收（模板串里拼路径同样会被下面那条抓到）。
+      for (const match of source.matchAll(/'(\/api\/[^']*)'|"(\/api\/[^"]*)"/g)) found.add(match[1] ?? match[2]!)
+    }
+    // 恰好这七条（与宿主 `bundle/src/esc-route.ts` 的只读闭集逐条同值）：
+    // 没有「我的专家」这条接口 —— 这正是子页如实交代、而不是编一条路径去发请求的**结构性**理由。
+    expect([...found].sort()).toEqual([
+      '/api/connector/providers',
+      '/api/published/agent/list',
+      '/api/published/category/list',
+      '/api/published/skill/enable/list',
+      '/api/published/skill/list',
+      '/api/space/list',
+      '/api/system/display/recommend/list',
+    ])
+    // 新子页里一个 URL 形状的字符串都没有（连注释里也不留"以后打这个"的引子）。
+    const myExperts = readSrc('esc-my-experts.tsx')
+    expect(myExperts).not.toMatch(/\/api\//)
+    expect(myExperts).not.toContain('http')
+  })
+
+  it('④ 技能页那枚**未受影响**（回归）：仍是三项下拉的锚 / 降级仍是直接本地导入', () => {
+    const onAddSkill = vi.fn()
+    const onFindSkill = vi.fn()
+    const onCreateSkill = vi.fn()
+    const toggle = vi.fn()
+    const skill = toolbarOf({
+      resourceType: 'skill',
+      onAddSkill,
+      onFindSkill,
+      onCreateSkill,
+      addSkillMenu: { open: false, onClose: () => undefined, onToggle: toggle },
+    })
+    const button = mainButtonOf(skill)
+    expect(childrenOf(button).filter((child): child is string => typeof child === 'string')).toEqual(['添加技能'])
+    expect(button.props['aria-haspopup']).toBe('menu')
+    expect(button.props['onClick']).toBe(toggle)
+    expect(button.props['disabled']).toBeUndefined()
+    // 三项仍在、按序、各调各的（这一条与口径 49 那一组同源，这里只做"没被本刀带坏"的回归）。
+    const items = walkAll(skill).filter(each => each.props['data-esc-add-skill-item'] !== undefined)
+    expect(items.map(each => each.props['data-esc-add-skill-item'])).toEqual(['find', 'upload', 'create'])
+    expect(byClass(skill, 'esc-toolbar-lock')).toBeUndefined()
+    // 降级档（没有下拉供给）：仍是"点了就走本地导入"的那一枚真按钮（口径 46 的行为一字不退化）。
+    const legacy = mainButtonOf(toolbarOf({ resourceType: 'skill', onAddSkill }))
+    expect(legacy.props['onClick']).toBe(onAddSkill)
+    expect(legacy.props['disabled']).toBe(false)
+    // 纯投影：技能页**没有**主按钮终态那一档（那条路另有下拉/降级两态）。
+    expect(enterpriseEscMainActionPlan({ resourceType: 'skill', onOpenMyExperts: onAddSkill })).toBeUndefined()
+    // 技能页那枚**没有**行上原因（它此刻按得动）；真正按不动时才出那句（下面这条）。
+    const locked = toolbarOf({ resourceType: 'skill' })
+    expect(mainButtonOf(locked).props['disabled']).toBe(true)
+    expect(byClass(locked, 'esc-toolbar-lock')!.props['children']).toBe(ENTERPRISE_ESC_LOCAL_COPY.actionNotPorted)
+  })
+
+  it('①④ 形态/高度/右边界三件一字未动（口径 49 的既有不变量本刀不碰）', () => {
+    const css = (EnterpriseEscStyle() as unknown as { props: { children: string } }).props.children
+    const declarations = css.replace(/\/\*[\s\S]*?\*\//g, '')
+    const ruleBody = (head: string): string => {
+      const hit = new RegExp(`^${head.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`, 'm').exec(declarations)
+      expect(hit, `样式表顶层没有 ${head}`).not.toBeNull()
+      return hit![1]!
+    }
+    // ① 主按钮那一格仍是**真钉**高度（不是 min-height），三页共用同一枚 token。
+    const button = ruleBody('.esc-add-skill')
+    expect(button).toContain('height: var(--esc-btn-h)')
+    expect(button).not.toContain('min-height')
+    // ② 形态分流：专家页描边（复用 `.esc-installed` 配方）、连接器页仍是 primary 黑胶囊。
+    const expert = mainButtonOf(toolbarOf({ resourceType: 'expert' }))
+    expect(String(expert.props['className'])).toContain('esc-add-skill-outline')
+    expect(expert.props['variant']).toBe('outline')
+    const connector = mainButtonOf(toolbarOf({ resourceType: 'connector' }))
+    expect(String(connector.props['className'])).not.toContain('esc-add-skill-outline')
+    expect(connector.props['variant']).toBe('primary')
+    // ③ 新增的圆角刻度只在子页那枚「+ 创建专家」上用（主按钮那三页仍吃 --esc-btn-radius）。
+    expect(ruleBody('.esc-root')).toContain('--esc-pill-radius: 999px')
+    expect(ruleBody('.esc-my-experts-create')).toContain('border-radius: var(--esc-pill-radius)')
+    expect(button).toContain('border-radius: var(--esc-btn-radius)')
+  })
+})
+
+/* ══════════════ 口径 52：两枚**禁用**胶囊的禁用外观（真机像素缺陷的回归锁） ══════════════
+ * 缺陷（Lead 真机像素取证，不是猜的）：连接器页「+ 自定义连接器」与「我的专家」子页「+ 创建专家」
+ *   都是 `disabled`（各自的写入口缺席），却与技能页**启用**的「+ 添加技能」像素级完全一致
+ *   （黑底白字，见 analysis/pill-compare.png 三枚放大对照）——"看着可点、点下去毫无反应"，
+ *   正是产品宪法禁止的那一档（禁用不许只挂一句 title／禁用即须看得出按不动）。
+ *
+ * 查证结论（三种假说逐条排除，决定了"怎么修"）：官方原语产物 `Button.module.css` 里那条
+ *   .button:disabled { cursor: not-allowed; opacity: 0.4 }
+ * **是改外观的** —— 既不是"官方只改 cursor/pointer-events、不改色"，也不是"官方某枚 token 在本主题里
+ * 恰好等于启用色"（那条规则里一枚 token 都没有）；真因是**第三种**：本页那两条 (0,3,0) 的
+ * `.esc-root .xxx:disabled { opacity: 1; }` 把官方 (0,2,0) 的冲淡压掉了。⇒ 修法是**撤销覆盖**
+ * （口径 52 把那两条删掉），本页**不新造**禁用配色（官方那条是唯一真源，颜色照旧全来自主题）。
+ *
+ * 本组三条判据，每条都会红：
+ *   ① **可证判据**：官方产物里那条 :disabled 真的改外观（不透明度 < 1），且 `disabled` 一定落到原生
+ *      <button> 上、官方自己的 `.button` 类恒在 ⇒ `:disabled` 必然命中那两枚胶囊。这是"官方那条真的
+ *      会生效"的**机器可核对**版本（口径 52 的整条修法都建立在它身上）。
+ *   ② **本页不许覆盖**：凡选择器命中"这两枚胶囊身上那些类名"的规则，一条都不许声明 opacity
+ *      （基类也不行）；且全表里"把 :disabled 冲淡按回 opacity: 1"的规则**只许剩口径 36 那两处**
+ *      卡片视觉占位。★类名不是写死的字面量，是**从渲染树里那两枚 disabled 胶囊身上取下来的**
+ *      （组件改名 ⇒ 锁跟着走，不会退化成一枚"扫一个已经不存在的选择器"的空转锁）。
+ *   ③ **反向锁（启用态不许被一刀切弄灰）**：启用态那两条几何规则里不许出现 dimmed 家族 token
+ *      （本主题的"禁用专用"色：button-primary-dimmed / label-dimmed / label-primary-dimmed）、
+ *      也不许声明 opacity / background / color；且**关键不变量**——技能页启用那枚与连接器页禁用那枚
+ *      的类名完全相同（都是 .esc-add-skill）⇒ 两枚外观上唯一的差别只能来自官方那条 :disabled。
+ */
+describe('esc：口径 52（禁用胶囊的禁用外观 —— 官方 :disabled 的冲淡必须真的生效）', () => {
+  type Element = { readonly type: unknown; readonly props: Record<string, unknown> }
+  /** 深度优先铺平整棵元素树（含经 props 传递的那些元素：官方原语的 icon/anchor 都走 props）。 */
+  const walkAll = (node: unknown, seen = new WeakSet<object>()): Element[] => {
+    if (node === null || node === undefined) return []
+    if (Array.isArray(node)) return node.flatMap(each => walkAll(each, seen))
+    if (typeof node !== 'object') return []
+    const candidate = node as { type?: unknown; props?: unknown }
+    if (candidate.type === undefined || typeof candidate.props !== 'object' || candidate.props === null) return []
+    if (seen.has(node)) return []
+    seen.add(node)
+    const element = node as Element
+    return [element, ...Object.values(element.props).flatMap(value => walkAll(value, seen))]
+  }
+  /** 第一枚带这个类名的元素（树上真的挂着；取不到就响亮地红）。 */
+  const byClass = (node: unknown, className: string): Element => {
+    const hit = walkAll(node).find(each => String(each.props['className'] ?? '').split(' ').includes(className))
+    expect(hit, `渲染树里没有 .${className}`).toBeTruthy()
+    return hit as Element
+  }
+  const toolbarOf = (props: Record<string, unknown>): unknown =>
+    EnterpriseEscToolbar({
+      resourceType: 'connector',
+      source: 'system',
+      onSourceChange: () => undefined,
+      categories: [],
+      activeCategory: '',
+      onCategoryChange: () => undefined,
+      keyword: '',
+      onKeywordChange: () => undefined,
+      ...props,
+    } as never)
+  /** 子页纯投影的入参（`onCreateExpert` 刻意不传 = 今天真实的接线：本部署没有创建专家的写入口）。 */
+  const myExpertsOf = (): unknown =>
+    EnterpriseEscMyExpertsView({
+      tab: 'expert',
+      segment: 'owned',
+      keyword: '',
+      onTabChange: () => undefined,
+      onSegmentChange: () => undefined,
+      onKeywordChange: () => undefined,
+      onBack: () => undefined,
+    } as never)
+  const stylesheet = (): string => (EnterpriseEscStyle() as unknown as { props: { children: string } }).props.children
+  /** 剥注释后的规则表（注释里合法地可以出现花括号 ⇒ 取规则体必须走剥注释那一份）。 */
+  const rulesOf = (css: string): readonly { readonly selector: string; readonly body: string }[] =>
+    [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+      .map(hit => ({ selector: hit[1]!.trim(), body: hit[2]! }))
+  /** 选择器里是否有一枚复合选择器带着这个类名（伪类/伪元素先剥掉，故 `.x:disabled` 也算命中 `.x`）。 */
+  const targetsClass = (selector: string, className: string): boolean =>
+    new RegExp(`(^|[^\\w-])\\.${className}(?![\\w-])`).test(selector.replace(/::?[a-z-]+(\([^)]*\))?/g, ''))
+  /** 两枚**禁用**胶囊（判据是它们自己报出来的 `disabled`，不是我们猜的那个类名）。 */
+  const disabledPills = (): readonly { readonly label: string; readonly element: Element }[] => [
+    { label: '连接器页「+ 自定义连接器」', element: byClass(toolbarOf({}), 'esc-add-skill') },
+    { label: '「我的专家」子页「+ 创建专家」', element: byClass(myExpertsOf(), 'esc-my-experts-create') },
+  ]
+
+  it('① 官方产物：`.button:disabled` 真的改外观，且那两枚胶囊一定命中它（可证判据）', () => {
+    // 官方原语的**产物**（与本包同锁的开发依赖；运行期取的是宿主共享实例，同一份规则——
+    // 0.1.5-rc.2（本仓 devDependency）与运行树里的 0.2.0-rc.2 这一条都逐字核过，完全相同）。
+    const primitives = new URL('../node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/', import.meta.url)
+    const disabledRule = /\.button:disabled\s*\{([^}]*)\}/.exec(
+      readFileSync(new URL('Button.module.css', primitives), 'utf8'),
+    )
+    expect(disabledRule, '官方 Button.module.css 必须有一条 .button:disabled——口径 52 的整条修法都建立在它身上').not.toBeNull()
+    const opacity = /opacity:\s*([0-9.]+)/.exec(disabledRule![1]!)
+    expect(opacity, '官方 :disabled 必须改不透明度（真没了 ⇒ 本页就得自己写一条最小的禁用视觉态）').not.toBeNull()
+    expect(Number(opacity![1]), '官方 :disabled 的不透明度必须 < 1（否则禁用与启用同观感）').toBeLessThan(1)
+    // 官方 Button 恒把**自己的类**拼进 className、并把 disabled 原样铺到原生 `<button>` 上
+    // ⇒ 上面那条 `.button:disabled` 一定命中（这两条是从官方产物源码里读出来的，不是从注释里抄的）。
+    const buttonBody = /function Button\(\{[\s\S]*?\n\}/.exec(readFileSync(new URL('index.js', primitives), 'utf8'))?.[0]
+    expect(buttonBody, '官方 index.js 里必须取得到 Button 的实现').toBeDefined()
+    expect(buttonBody!).toContain('"button"')
+    expect(buttonBody!).toContain('...rest')
+    expect(buttonBody!, '官方 Button 必须恒带上自己的 .button 类').toMatch(/css\$\d+\.button/)
+  })
+
+  it('② 本页不许再把那层冲淡按回来（含"按回来的只剩口径 36 那两处"的全表清单）', () => {
+    const rules = rulesOf(stylesheet())
+    for (const pill of disabledPills()) {
+      // ★判据自锚：类名取自渲染树里那枚胶囊**自己**报出来的 className——组件改名 ⇒ 锁跟着走。
+      expect(pill.element.props['disabled'], `${pill.label} 必须是禁用那一枚`).toBe(true)
+      const classes = String(pill.element.props['className']).split(' ').filter(each => each.length > 0)
+      expect(classes.length, pill.label).toBeGreaterThan(0)
+      for (const className of classes) {
+        const targeting = rules.filter(rule => targetsClass(rule.selector, className))
+        // 反向锁：扫到的类名必须**真的**在样式表里有规则（否则这就是一枚扫不存在选择器的空转锁）。
+        expect(targeting.length, `样式表里没有 .${className} 的规则`).toBeGreaterThan(0)
+        for (const rule of targeting) {
+          expect(rule.body, `${pill.label}：${rule.selector} 不许声明 opacity（那是把官方 :disabled 冲淡压掉的唯一手法）`)
+            .not.toMatch(/(?:^|;)\s*opacity\s*:/)
+        }
+      }
+    }
+    // 全表清单：本文件里"把 :disabled 的冲淡按回 opacity: 1"的规则**只许**剩口径 36 那两处
+    // （卡片里的视觉占位：动作实底与安装加号）——多出第三条就是有人又给某枚禁用控件按回去了。
+    const pushBack = rules
+      .filter(rule => rule.selector.includes(':disabled') && /(?:^|;)\s*opacity\s*:\s*1\s*(?:;|$)/.test(rule.body))
+      .map(rule => rule.selector)
+    expect(pushBack.sort()).toEqual(['.esc-install-plus:disabled', '.esc-root .esc-action-solid:disabled'])
+  })
+
+  it('③ 反向锁：启用态不许被一刀切弄灰（dimmed 家族 / opacity / background / color 一个都不许进）', () => {
+    const rules = rulesOf(stylesheet())
+    for (const head of ['.esc-add-skill', '.esc-my-experts-create']) {
+      const rule = rules.find(each => each.selector === head)
+      expect(rule, `样式表顶层没有 ${head}`).toBeTruthy()
+      const body = rule!.body
+      // 本主题的"禁用专用"色是 dimmed 家族（button-primary-dimmed / label-dimmed / label-primary-dimmed）
+      // ⇒ 它们一旦出现在**启用态**的几何规则里，就是"一刀切把启用态也弄灰"。
+      expect(body, head).not.toContain('dimmed')
+      expect(body, head).not.toMatch(/(?:^|;)\s*opacity\s*:/)
+      expect(body, head).not.toMatch(/(?:^|;)\s*background\s*:/)
+      expect(body, head).not.toMatch(/(?:^|;)\s*color\s*:/)
+    }
+    // ★本刀的关键不变量：技能页**启用**那枚与连接器页**禁用**那枚的类名**完全相同**（都是 .esc-add-skill）
+    //   ⇒ 两枚外观上唯一的差别只能来自官方那条 :disabled；上面②"本页不许覆盖"正是"禁用看得出来、
+    //   启用一字不变"的充要条件（启用态的几何另有口径 49 那三条锁着）。
+    const enabled = byClass(
+      toolbarOf({
+        resourceType: 'skill',
+        onAddSkill: () => undefined,
+        addSkillMenu: { open: false, onClose: () => undefined, onToggle: () => undefined },
+      }),
+      'esc-add-skill',
+    )
+    const disabled = byClass(toolbarOf({}), 'esc-add-skill')
+    expect(enabled.props['disabled']).toBeUndefined()
+    expect(disabled.props['disabled']).toBe(true)
+    expect(String(enabled.props['className'])).toBe(String(disabled.props['className']))
+    expect(String(enabled.props['variant'])).toBe(String(disabled.props['variant']))
+  })
+})
+
+/* ══════════════ 口径 54（用户裁决：同时已安装里面显示的就是 DSH 本地已安装的技能）══════════════
+ *
+ * 这一组锁的是**真源换血**这件事本身：
+ *   ① 已安装的真源是**官方发现面**（`GET …/skills/discovered`），不是我们那两份记录；
+ *   ② **同源铁证**：同一份假响应喂进去，顶栏那枚计数与子页铺出来的卡片数**必须相等**
+ *      （投影只有两处：`installedSnapshotFacts` 一处算计数、`enterpriseEscInstalledGroups` 一处铺列表，
+ *      两者吃的是同一个 `snapshot.skills`）；
+ *   ③ 广场卡片的"已装"判定按 **name（kebab）与磁盘真值对撞**（两侧都锁：报告里有 ⇒ 已装、没有 ⇒ 未装）；
+ *   ④ `complete === false` ⇒ **如实说"还在发现中"**，**不许当 0、不许写死数字**；
+ *   ⑤ 老两份记录**降级为元信息**：列表真源只有发现面，它们只喂元信息表（读不到就空表 + 说出来）。
+ */
+describe('esc：口径 54（「已安装」真源换成官方发现面）', () => {
+  type Element = { readonly type: unknown; readonly props: Record<string, unknown> }
+  const asElement = (node: unknown) => node as Element
+  const childrenOf = (element: Element) => {
+    const children = element.props['children']
+    return Array.isArray(children) ? children : children === undefined || children === null ? [] : [children]
+  }
+  const walk = (node: unknown, out: Element[] = []): Element[] => {
+    if (node === null || node === undefined || typeof node !== 'object') return out
+    if (Array.isArray(node)) {
+      for (const each of node) walk(each, out)
+      return out
+    }
+    const element = node as Element
+    out.push(element)
+    for (const each of childrenOf(element)) walk(each, out)
+    return out
+  }
+  const byClass = (node: unknown, className: string): Element | undefined =>
+    walk(node).find(each =>
+      typeof each.props['className'] === 'string'
+      && (each.props['className'] as string).split(' ').includes(className))
+  const toolbarOf = (props: Record<string, unknown>) =>
+    asElement(EnterpriseEscToolbar({
+      resourceType: 'skill',
+      source: 'system',
+      onSourceChange: () => undefined,
+      categories: [],
+      activeCategory: '',
+      onCategoryChange: () => undefined,
+      keyword: '',
+      onKeywordChange: () => undefined,
+      ...props,
+    } as never))
+  const readEscSrc = (name: string) => readFileSync(new URL(`../src/esc/${name}`, import.meta.url), 'utf8')
+  const discovered = (name: string, source = 'user-dsh'): EnterpriseDiscoveredSkill => ({
+    name,
+    description: `${name} 的真描述`,
+    invocation: { modelInvocable: true, userInvocable: true },
+    source,
+    provider: 'skill-filesystem',
+  })
+  /** 官方发现面那三枚响应：**同一份假响应**同时喂给两条路（这就是"同源"的取证方式）。 */
+  const fakeApi = (snapshot: { readonly skills: readonly EnterpriseDiscoveredSkill[]; readonly complete: boolean }) => ({
+    discoveredSkills: async () => snapshot,
+    installedSkills: async () => [],
+    selfInstalledSkills: async () => [],
+  })
+
+  it('① 同源铁证：同一份假响应 ⇒ 顶栏计数与子页卡片数**同值**（多形态：空 / 7 枚 / 未发现完）', async () => {
+    for (const snapshot of [
+      { skills: [], complete: true },
+      { skills: [discovered('a')], complete: true },
+      { skills: ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map(name => discovered(name)), complete: true },
+      { skills: [discovered('a'), discovered('b')], complete: false },
+    ]) {
+      const api = fakeApi(snapshot)
+      const facts = installedSnapshotFacts(await api.discoveredSkills())
+      const groups = enterpriseEscInstalledGroups(
+        snapshot.skills,
+        enterpriseEscInstalledMetaTable(await api.installedSkills(), await api.selfInstalledSkills()),
+      )
+      const cards = groups.reduce((total, group) => total + group.cards.length, 0)
+      expect(facts.count, `${snapshot.skills.length}/${String(snapshot.complete)}`).toBe(snapshot.skills.length)
+      expect(cards, '子页卡片数必须与计数同值（同一份真源）').toBe(facts.count)
+      expect(facts.discovering).toBe(snapshot.complete === false)
+    }
+    // ★结构级同源：`api.discoveredSkills` 在整个 src/esc 里**恰好两处调用**（顶栏一处 + 子页一处），
+    //   没有第三处 —— "计数读一份、列表读另一份"那种漂开在结构上就不可能。
+    const escDir = new URL('../src/esc/', import.meta.url)
+    const callers = readdirSync(escDir).filter(each => /\.tsx?$/.test(each))
+      .filter(each => stripEscComments(readFileSync(new URL(each, escDir), 'utf8')).includes('api.discoveredSkills('))
+    expect(callers.sort()).toEqual(['esc-aggregation.tsx', 'esc-installed.tsx'])
+    expect(stripEscComments(readEscSrc('esc-aggregation.tsx')).match(/api\.discoveredSkills\(/g)).toHaveLength(1)
+    expect(stripEscComments(readEscSrc('esc-installed.tsx')).match(/api\.discoveredSkills\(/g)).toHaveLength(1)
+  })
+
+  it('② 广场卡片/精选行的"已装"判定：按 name 与磁盘真值对撞（两侧都锁）', () => {
+    const facts = installedSnapshotFacts({
+      skills: [discovered('agent-manager'), discovered('skill-creator')],
+      complete: true,
+    })
+    // 报告里有这个名字 ⇒ 已装
+    expect(facts.names.has('agent-manager')).toBe(true)
+    expect(facts.names.has('skill-creator')).toBe(true)
+    // 报告里没有 ⇒ 未装（不是"不知道"，也不是"按我们的记录猜"）
+    expect(facts.names.has('dev-engineer-toolkit')).toBe(false)
+    // ★源码级：两处判定读的都是 **item.name**（口径 47 那把公共键，本刀升级为磁盘真值）
+    expect(stripEscComments(readEscSrc('esc-aggregation.tsx'))).toContain('installedIds.has(item.name)')
+    const featured = stripEscComments(readFileSync(new URL('../src/esc/esc-featured.tsx', import.meta.url), 'utf8'))
+    expect(featured).toContain('installedSkillNames?.has(item.name)')
+    // ★反向锁：判定键**不许**再是中心那两套 id（packageId 是雪花、id 是平台号，都不是名字）
+    const aggregation = stripEscComments(readEscSrc('esc-aggregation.tsx'))
+    expect(aggregation).not.toContain('installedIds.has(item.id)')
+    expect(aggregation).not.toContain('installedIds.has(item.skillId)')
+  })
+
+  it('③ `complete === false` ⇒ 如实说"还在发现中"、**不许当 0**（第四态与前三态各自成立）', () => {
+    const opened = () => undefined
+    const countOf = (tree: unknown) => byClass(tree, 'esc-installed-count')
+    const titleOf = (tree: unknown) => String(byClass(tree, 'esc-installed')!.props['title'])
+    // ① 还没发现完：数字位画的是**真的读到的那几个**（这一格 2 枚），**不是 0**；
+    //    title 换成"还在发现中"那句（与"读不到"那句**不是同一句**）。
+    const discovering = toolbarOf({ onOpenInstalled: opened, installedCount: 2, installedCountDiscovering: true })
+    expect(countOf(discovering)!.props['children']).toBe('(2)')
+    expect(countOf(discovering)!.props['children']).not.toBe('(0)')
+    expect(titleOf(discovering)).toBe(ENTERPRISE_ESC_LOCAL_COPY.installedDiscovering)
+    expect(titleOf(discovering)).not.toBe(ENTERPRISE_ESC_LOCAL_COPY.installedCountUnreadable)
+    // ② 那句话里**一个数字都没有**（用户裁决：不许写死数字；数字由真源给）
+    expect(ENTERPRISE_ESC_LOCAL_COPY.installedDiscovering).not.toMatch(/\d/)
+    expect(ENTERPRISE_ESC_LOCAL_COPY.installedDiscovering).toContain('发现中')
+    // ③ 优先级：**读不到压过还没发现完**（`undefined` 时数字位画的是 (0)，这时说"还在发现中"
+    //    会让员工以为那个 0 是真的发现结果）
+    const both = toolbarOf({
+      onOpenInstalled: opened,
+      installedCount: undefined,
+      installedCountFailed: true,
+      installedCountDiscovering: true,
+    })
+    expect(titleOf(both)).toBe(ENTERPRISE_ESC_LOCAL_COPY.installedCountUnreadable)
+    // ④ 三态口径**没有丢**（回归）：确数 / 真 0 / 读不到 / 首帧 四格各自照旧
+    expect(titleOf(toolbarOf({ onOpenInstalled: opened, installedCount: 3 })))
+      .toBe(ENTERPRISE_ESC_LOCAL_COPY.installedFilterOpen)
+    expect(countOf(toolbarOf({ onOpenInstalled: opened, installedCount: 3 }))!.props['children']).toBe('(3)')
+    expect(countOf(toolbarOf({ onOpenInstalled: opened, installedCount: 0 }))!.props['children']).toBe('(0)')
+    expect(countOf(toolbarOf({ onOpenInstalled: opened }))!.props['children']).toBe('(0)')
+    expect(titleOf(toolbarOf({ onOpenInstalled: opened, installedCount: 0 })))
+      .toBe(ENTERPRISE_ESC_LOCAL_COPY.installedFilterOpen)
+    expect(titleOf(toolbarOf({ onOpenInstalled: opened })))
+      .toBe(ENTERPRISE_ESC_LOCAL_COPY.installedCountUnreadable)
+    // ④′ 发现中**不许**把"口没接"那句顶掉之后又反过来：口缺席 + 发现中 ⇒ 仍说发现中（那句话更相关）
+    expect(titleOf(toolbarOf({ installedCount: 2, installedCountDiscovering: true })))
+      .toBe(ENTERPRISE_ESC_LOCAL_COPY.installedDiscovering)
+    // ⑤ 子页那一侧：同一句话以可见的 `role="status"` 说出来（不是 title、不是静默）
+    const installed = stripEscComments(readEscSrc('esc-installed.tsx'))
+    expect(installed).toContain("role: 'status'")
+    expect(installed).toContain('ENTERPRISE_ESC_LOCAL_COPY.installedDiscovering')
+    expect(installed).toContain('discovery.complete === false')
+  })
+
+  it('④ 新路由只回白名单字段（UI 侧第二道闸）：信封恰好两键，多一格即整条失败', () => {
+    // Host 侧已把 path/resourceBase 挡掉（bundle 用例逐键取证）；这里锁**解码层**这第二道闸。
+    const good = {
+      skills: [{
+        name: 'a',
+        description: 'd',
+        whenToUse: 'w',
+        invocation: { modelInvocable: true, userInvocable: false },
+        source: 'user-dsh',
+        provider: 'skill-filesystem',
+      }],
+      complete: false,
+    }
+    expect(decodeEnterpriseDiscoveredSkills(good)).toEqual(good)
+    // ★判据落在**抛出的码**上（形状闸门不许"尽力而为"）。
+    const throws = (value: unknown) => {
+      let code: string | undefined
+      try {
+        decodeEnterpriseDiscoveredSkills(value)
+      } catch (error) {
+        code = (error as { code?: string }).code
+      }
+      expect(code, JSON.stringify(value)).toBe('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    throws({ skills: [], complete: true, path: '/Users/x' })
+    throws({ skills: [], complete: true, resourceBase: {} })
+    throws({ skills: [], complete: 'yes' })
+    throws({ skills: [{ ...good.skills[0]!, path: '/Users/x' }], complete: true })
+    throws({ skills: [{ ...good.skills[0]!, resourceBase: { kind: 'directory', path: '/x' } }], complete: true })
+    throws({ skills: [{ ...good.skills[0]!, invocation: { modelInvocable: true } }], complete: true })
+    throws({ skills: [{ ...good.skills[0]!, source: '' }], complete: true })
+    throws({ skills: [{ ...good.skills[0]!, whenToUse: '' }], complete: true })
+    // `whenToUse` 缺席合法（"官方没说"与"官方说空"分得开）。
+    expect(decodeEnterpriseDiscoveredSkills({
+      skills: [{ name: 'a', description: '', invocation: { modelInvocable: false, userInvocable: true }, source: 'bundled', provider: 'p' }],
+      complete: true,
+    }).skills[0]).not.toHaveProperty('whenToUse')
+    // 路径常量与 Host 侧逐字同值（同源路由的唯一凭据）。
+    expect(ENTERPRISE_SKILL_DISCOVERED_LOCAL_PATH).toBe('/enterprise/api/v1/local/skills/discovered')
+  })
+
+  it('⑤ 老两份记录**降级为元信息**：列表真源只有发现面，两份记录只喂元信息表', () => {
+    const installed = stripEscComments(readEscSrc('esc-installed.tsx'))
+    // ① 列表/分组走的是发现面那一条（唯一真源）。
+    expect(installed).toContain('await api.discoveredSkills(controller.signal)')
+    expect(installed).toContain('enterpriseEscInstalledGroups(skills, metaTable)')
+    // ② 两份记录只出现在**元信息那一趟**里（同一趟里各一次），不进列表投影。
+    expect(installed.match(/api\.installedSkills\(/g)).toHaveLength(1)
+    expect(installed.match(/api\.selfInstalledSkills\(/g)).toHaveLength(1)
+    expect(installed).toContain('enterpriseEscInstalledMetaTable(meta.value.center, meta.value.self)')
+    // ★反向锁：任何"用两份记录决定列不列出来"的形态都不许回来
+    //   （旧实现是两份记录各自 map 出一组卡片那两支）。
+    expect(installed).not.toContain('centerGroup')
+    expect(installed).not.toContain('selfGroup')
+    // ③ 元信息读不到 ⇒ 空表（列表照样铺出来）+ **说出来**（唯一提示件 + 稳定码）。
+    expect(installed).toContain('enterpriseEscInstalledMetaTable([], [])')
+    expect(installed).toContain('prefix: ENTERPRISE_ESC_LOCAL_COPY.installedMetaFailed')
+    // ④ 三条只读取数各恰好一次（发现面 + 企业元信息 + 自装元信息），没有第四条。
+    const reads = ['discoveredSkills', 'installedSkills', 'selfInstalledSkills']
+      .map(name => installed.match(new RegExp(`api\\.${name}\\(`, 'g'))?.length ?? 0)
+    expect(reads).toEqual([1, 1, 1])
   })
 })

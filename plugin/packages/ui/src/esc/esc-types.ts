@@ -10,6 +10,10 @@
  *    平台没回的字段**不入列**（原文件写 `?? 0`，把"没回"与"回了 0"压成同一个数，见函数上方那段）。
  *   ★**口径 49**：写入口族多两型——`EnterpriseEscDraftPort`（技能页下拉那两项"预填进新会话"的实现面）
  *    与 `EnterpriseEscAddSkillLock`（下拉里哪一项按不动、为什么）。两者都**不进** `EnterpriseEscApi`。
+ *   ★**口径 55（本刀）**：`ResourceSourceEnum` 由四枚收窄成 `'system' | 'team' | 'connected'` ——
+ *     技能页那枚 `'enabled'` 维度整枚删除之后**没有任何取值口**会构造它（联合里留着就是死路）。
+ *     另：`EnterpriseEscSkillPort` 仍是**写入口**（`uploadSkill`/`selfInstalledSkills`/`uninstallSkill`），
+ *     口径 54 的**只读**两格（`discoveredSkills`/`selfInstalledSkills`）走 `EnterpriseEscApi` 那一面。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -20,10 +24,16 @@ import type { EnterpriseInstalledSkill, EnterpriseSelfInstalledSkill } from '../
 export type ResourceTypeEnum = 'expert' | 'skill' | 'connector'
 
 /**
- * 数据源：系统广场 / 团队空间 / 已连接的（连接器页专属）/
- * 我启用的（技能页=当前用户启用的技能；连接器页=当前用户启用开关打开的连接器）。
+ * 数据源：系统广场 / 团队空间 / 已连接的（连接器页专属）。
+ *
+ * ★**口径 55（用户裁决）**：技能页那枚 `'enabled'` 维度**整枚删除**（用户原话「和已安装重复」），
+ *   故这一格也一并退场 —— 联合类型里留着一个**没有任何取值口**会构造的字面量，就是给下一个读者
+ *   留一条"看着还能用"的死路。今天产出数据源的地方只有一处（`esc-toolbar.tsx` 的
+ *   `sourceOptionsOf`：system / team / connected），而适配器表的键集被
+ *   `Partial<Record<ResourceSourceEnum, …>>` 收在这条联合之内 ⇒ 联合收窄之后，"表里多一支
+ *   没人选的适配器"在**类型层**就写不出来了（口径 55 顺手清掉的那支连接器 `enabled` 即此）。
  */
-export type ResourceSourceEnum = 'system' | 'team' | 'connected' | 'enabled'
+export type ResourceSourceEnum = 'system' | 'team' | 'connected'
 
 /** 卡片统计项图标类型。 */
 export type ResourceStatType = 'user' | 'link' | 'star'

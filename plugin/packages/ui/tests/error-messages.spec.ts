@@ -6,6 +6,10 @@
  *   **本刀（通过 Agent 创建，+1 条）**：码清单加两枚本机动作码（开新会话失败 / 复制草稿失败），并逐字锁
  *   「两枚的下一步互不相同」。**本刀（系统搜索，+2 条）**：码清单加三枚纳入码（并锁它们的下一步**互不相同**与终态/瞬时的划分），
  *   并把「同名冲突跨三条流但**只有一句话**」写成机械判据（谁想给它加流专属表述，这条会先红）。
+ *   **本刀（口径 51，+1 条）**：码清单加 `ENT_ESC_MY_EXPERTS_UNAVAILABLE`（专家页「我的专家」子页：
+ *   本部署的只读闭集里没有这条接口 ⇒ 子页内容区在所有 tab／分段组合下都是同一份如实交代），
+ *   并逐字锁它的人话、下一步与 `retryable: false`（与"预填没走成"那枚 `ENT_ESC_DRAFT_UNAVAILABLE`
+ *   刻意不同值：一枚是部署没有这个端点、一枚是本机动作这一次没成）。
  *   **本刀（本地导入，+1 条）**：码清单加四枚上传通路的码（`ENT_SKILL_UPLOAD_{TOO_LARGE,INVALID,FAILED}` + `ENT_SKILL_SKILLMD_INVALID`），并新增「**跨流码的按流下一步**」判据——逐码逐流（`local-upload`）审第二句的完整性与「本地上传流下不许出现『重新下载』」，且按流取值在不传流时与默认取值**逐字相同**
  * [POS]: 失败自愈的机械门禁——宪法「禁止把技术码砸给用户」与「一处定义、处处复用」的可执行版本
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -16,6 +20,7 @@ import { describe, expect, it } from 'vitest'
 import {
   ENTERPRISE_ERROR_ACTIONS,
   ENTERPRISE_ERROR_CODES,
+  ENTERPRISE_ESC_DRAFT_FAILED_CODE,
   ENTERPRISE_ERROR_FALLBACK_ACTION,
   ENTERPRISE_ERROR_FALLBACK_MESSAGE,
   ENTERPRISE_ERROR_FLOWS,
@@ -48,6 +53,13 @@ const REQUIRED_CODES = [
    * 这一枚的下一步是"自己新建会话把这句话贴进去"，人话与下一步都必须与那三枚不同。
    */
   'ENT_ESC_DRAFT_UNAVAILABLE',
+  /**
+   * ★**口径 51**：专家页「我的专家」子页那枚（本部署的只读闭集里没有"我的专家"这条接口）。
+   *
+   * 它与上面那枚同族但**不是同一件事**：那一枚是"这一次预填没走成"（本机动作），
+   * 这一枚是"这台部署没有这个端点"（部署事实、终态）——故两枚各自留着，且都必须 `retryable: false`。
+   */
+  'ENT_ESC_MY_EXPERTS_UNAVAILABLE',
   // **本刀（在线搜索 → 安装）**：三枚在线来源码。
   'ENT_SKILL_SOURCE_UNKNOWN', 'ENT_SKILL_SOURCE_UNREACHABLE', 'ENT_SKILL_SOURCE_TOO_LARGE',
   // 插件链
@@ -137,6 +149,30 @@ describe('enterprise error vocabulary (single projection)', () => {
     // 那一枚真实存在的跨流码：中心下载安装流那句原样保留（既有入口零改动）。
     expect(enterpriseErrorAction('ENT_SKILL_ARCHIVE_INVALID')).toBe('请重新下载；仍然失败请联系企业管理员重新发布。')
     expect(enterpriseErrorActionIn('ENT_SKILL_ARCHIVE_INVALID', 'local-upload')).toContain('重新选择')
+  })
+
+  /**
+   * **本刀（口径 51）**：「我的专家」子页那枚部署缺失码——**人话 + 下一步 + 终态**三件都要对，
+   * 且它与「预填没走成」那枚（同族、同为 esc 页的失败）**不是同一句话**：
+   * 一枚说"这台部署没有这个端点"（找管理员），一枚说"这次没把话填进去"（自己新建会话粘贴）。
+   */
+  it('keeps the my-experts deployment gap apart from the draft miss, both terminal', () => {
+    const gap = 'ENT_ESC_MY_EXPERTS_UNAVAILABLE'
+    expect(ENTERPRISE_ERROR_CODES).toContain(gap)
+    const view = enterpriseErrorPresentation(gap)
+    expect(view.known).toBe(true)
+    expect(view.message).toContain('我的专家')
+    expect(view.message).not.toContain('ENT_')
+    expect(view.action).not.toContain('ENT_')
+    // 终态：对"端点不存在"重试永远无效（与那四枚 ENT_ESC_*_UNAVAILABLE 逐条同判）。
+    expect(view.retryable).toBe(false)
+    expect(enterpriseErrorRetryable(gap)).toBe(false)
+    // 与「预填没走成」那枚**逐字不同**（人话与下一步都不同值）：两件事的补救动作本来就不同。
+    const draft = enterpriseErrorPresentation(ENTERPRISE_ESC_DRAFT_FAILED_CODE)
+    expect(view.message).not.toBe(draft.message)
+    expect(view.action).not.toBe(draft.action)
+    // 它属于"部署缺端点"那一族：下一步必须是"找管理员确认部署版本"，不是"再试一次"。
+    expect(view.action).toContain('企业管理员')
   })
 
   it('falls back to a human sentence for unmapped, malformed, empty and missing codes', () => {

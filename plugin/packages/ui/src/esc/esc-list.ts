@@ -13,6 +13,11 @@
  *     广场那条是**平台 `id=4194` / `targetId=158`** —— `id` 与 `targetId` 是**两套坐标系**，
  *     同一套的是 `targetId`（7 条技能 + 7 条专家逐条命中，`label` 与 `name` 亦逐字相同）。
  *     ⇒ 这一格就是「验过之后才敢接」的那一格（`esc-featured.tsx` 文件头早先记为待验）。
+ *   ★**口径 55（本刀）**：技能那一支的 `enabled` 适配器（读 `POST /api/published/skill/enable/list`）随
+ *     「我启用的」维度**整支删除**（不可达）；`missingEndpointCodeOf` 收成**两枚**面级码（连接器目录 /
+ *     这一类目录），`mapPublishedItem` 的 `'enabled-skill'` 前缀退场；并**顺手清掉一处既有死代码** ——
+ *     连接器那一支的 `enabled`（`connectionEnabled:'true'` + `'enabled-conn'`）**从落地起就不可达**
+ *     （连接器页第三枚维度是 `'connected'`，而 `'enabled'` 只由技能页产出），删除处逐条写明了这条推理。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -33,22 +38,23 @@ import type { ResourceItem, ResourceSourceEnum, ResourceTypeEnum } from './esc-t
 /**
  * 本面在「这台部署没有这个端点」（平台 `4040`）时该说的那枚稳定码。
  *
- * ★按**取数面**分（本刀纠正，且细化到维度）：连接器面缺的是连接器目录，专家/技能面缺的是"这一类目录"，
- *   而技能的「我启用的」维度缺的是**另一个端点**（`POST /api/published/skill/enable/list`）。
+ * ★按**取数面**分：连接器面缺的是连接器目录，专家/技能面缺的是"这一类目录"。
  *   上一刀那条映射**不看面**、对任何一面都说"没有连接器目录"——专家/技能面一旦也回 `4040`，
- *   那就是在跟员工说假话；本刀再修一层：把"技能目录"与"技能启停清单"也分开。
- *   现场证据（本机现役宿主一次探针）：`skill/list` → `0000 / total 138`，同一刻
- *   `skill/enable/list` → `4040 No static resource …` ⇒ 目录在、清单不在，两句话不能共用。
- *   四枚码本身仍在 `error-messages.ts` 那张唯一码表里，这里只决定"哪一面取哪一枚"。
+ *   那就是在跟员工说假话；后来按面分开时还多分出一枚「技能启停清单」（`skill/enable/list`）。
+ *   ★**口径 55（用户裁决）**：那一枚随「我启用的」这个维度**整枚退场** —— 该维度已删，
+ *   不会再有任何请求打到 `skill/enable/list`，留一枚"这一面缺的是启停清单"的码就是在描述
+ *   一个本仓已经不存在的数据面（`ESC_MISSING_ENDPOINT_CODES.enabled` 与
+ *   `ENT_ESC_ENABLE_LIST_UNAVAILABLE` 两句一并删除）。今天这里只剩**两枚**面级码：
+ *   连接器目录 / 这一类目录。
  *   ★导出是为了让测试直调核对**每一面各自那一枚**（与 `escCategoryChildrenOf` 同一个做法）。
  */
 export function missingEndpointCodeOf(resourceType: ResourceTypeEnum, source: ResourceSourceEnum): string {
-  if (resourceType === 'connector') return ESC_MISSING_ENDPOINT_CODES.connector
-  // ★启停清单是**技能专有**端点（`/api/published/skill/enable/list`），故两个条件都要：
-  //   只按 source 判会让"专家 + 我启用的"这种组合（当前不可达）也去说技能启停清单的事
-  //   —— 测试的反向锁当场抓到了我第一版这条不精确。
-  if (resourceType === 'skill' && source === 'enabled') return ESC_MISSING_ENDPOINT_CODES.enabled
-  return ESC_MISSING_ENDPOINT_CODES.directory
+  // `source` 仍留在签名里：它今天不改变结果，但"按面取码"这件事的判据是**资源类型 + 维度**这一对，
+  // 收掉参数会让下一个面（例如将来某个维度有自己的端点）只能靠改签名来接——那是接口倒退，不是简化。
+  void source
+  return resourceType === 'connector'
+    ? ESC_MISSING_ENDPOINT_CODES.connector
+    : ESC_MISSING_ENDPOINT_CODES.directory
 }
 
 /** 服务端分页请求参数（逐字对齐原文件）。 */
@@ -95,8 +101,9 @@ export type EscResourceAdapters = Readonly<
 const mapPublishedItem = (item: EscPublishedItem, idPrefix: string): ResourceItem => ({
   id: `${idPrefix}-${item.id}`,
   agentId: idPrefix === 'agent' || idPrefix === 'space-agent' ? item.targetId : undefined,
-  skillId:
-    idPrefix === 'skill' || idPrefix === 'space-skill' || idPrefix === 'enabled-skill' ? item.targetId : undefined,
+  // ★口径 55：`'enabled-skill'` 这一格随技能页那枚维度一起退场 —— 前缀是**由适配器给**的，
+  //   而唯一给出它的那一支（`adapters.skill.enabled`）已删 ⇒ 留着它就是在枚举一个不可能出现的值。
+  skillId: idPrefix === 'skill' || idPrefix === 'space-skill' ? item.targetId : undefined,
   name: item.name,
   description: item.description,
   icon: item.icon,
@@ -238,18 +245,6 @@ export function escResourceAdapters(api: EnterpriseEscApi): EscResourceAdapters 
           }),
         extract: (res, page) => extractPublishedPage(res, page, 'space-skill'),
       },
-      enabled: {
-        mode: 'client',
-        fetchAll: async () => api.publishedSkillEnableList({}),
-        extractAll: res => {
-          const data = res.data
-          // 不带分页参数时后端可能直接回数组、也可能仍套 records 分页壳，两者兼容（原文件同口径）
-          const records = Array.isArray(data)
-            ? (data as readonly EscPublishedItem[])
-            : ((data as EscPage<EscPublishedItem> | null | undefined)?.records ?? [])
-          return records.map(item => mapPublishedItem(item, 'enabled-skill'))
-        },
-      },
     },
     connector: {
       system: {
@@ -294,24 +289,22 @@ export function escResourceAdapters(api: EnterpriseEscApi): EscResourceAdapters 
           return records.map(item => mapConnectorItem(item, 'connected-conn'))
         },
       },
-      enabled: {
-        mode: 'client',
-        serverKeyword: true,
-        serverCategory: true,
-        fetchAll: ({ keyword, category }) =>
-          api.connectorProviderPageList({
-            connectionEnabled: 'true',
-            category: category || undefined,
-            keyword: keyword || undefined,
-          }),
-        extractAll: res => {
-          const data = res.data
-          const records = Array.isArray(data)
-            ? (data as readonly EscConnectorProvider[])
-            : ((data as EscPage<EscConnectorProvider> | null | undefined)?.records ?? [])
-          return records.map(item => mapConnectorItem(item, 'enabled-conn'))
-        },
-      },
+      /**
+       * ★**口径 55 顺手清掉的既有死代码（如实写明"为什么不可达"，不是悄悄删）**。
+       *
+       * 这里原先还有一支 `enabled`：`fetchAll` 打 `connectionEnabled: 'true'`、把记录映成
+       * `'enabled-conn'` 前缀。它**从落地那天起就一次都没被选中过**，理由是纯结构性的：
+       *   ① 适配器由 `load()` 按 `adapters[resourceType][source]` 取，`source` 只可能来自
+       *      `esc-toolbar.tsx` 的 `sourceOptionsOf`；
+       *   ② 而连接器页那一支产出的第三枚维度是 `value: 'connected'`（文案「已连接的」，
+       *      走的是**上面那一支** `connected=true`）—— 连接器页**从来没有**产出过 `'enabled'`；
+       *   ③ 全仓唯一的 `'enabled'` 产出点是技能页那枚维度，而技能页的 source 只会落到
+       *      `adapters.skill.enabled`，**落不到** `adapters.connector.enabled` 上。
+       * ⇒ 也就是说，连接器这一支早在口径 55 之前就是死代码。按"不留死代码"的纪律本刀一并清掉；
+       *   平台那侧 `connectionEnabled: 'true'` 这个查询参数本身仍然存在（它是平台面的事实），
+       *   只是本仓**没有任何页面维度**会去用它 —— 若将来真要做"我启用的连接器"那一维，
+       *   新加一支时必须同时把维度的产出点接上，否则又会变回今天这支死代码。
+       */
     },
   }
 }

@@ -2,6 +2,13 @@
  * [INPUT]: 依赖 decode-primitives 的键集封闭判定、record/nonEmptyString/timestamp/enterpriseId 与唯一失败码类
  * [OUTPUT]: 对外提供技能包 DTO（`EnterpriseRuntimeSkill` / `EnterpriseSkillEntry` / `EnterpriseInstalledSkill` / `EnterpriseInstalledSkillContent` / `EnterpriseSkillFiles` + `EnterpriseSkillFileEntry` / `EnterpriseInstalledSkillFile`）与严格解码 `decodeEnterpriseSkills`（列表，可选分类 `category` 进白名单）、`decodeEnterpriseSkillDetail`（详情）、`decodeEnterpriseInstalledSkills`（本机已装态）、`decodeEnterpriseInstalledSkillContent` …… **本刀（本地导入的结果交代）**：再加一份 `EnterpriseSelfInstalledSkill` 与 `decodeEnterpriseSelfInstalledSkills`（`GET /skills/self-installed`）——这份**刻意宽容**：必需五键（skillId / displayName / sha256 / names / installedAt）只校验形状，Host 多附的 provenance 之类字段一律忽略（用途只有「念一句结果」，不该被留痕字段打成硬失败）；其中 `sourceInput`（Host 落盘时记下的**用户原始文件名**）是**可选第六件**，收下它是为了把「这次装好的技能名」精确对上是哪一枚记录（对不上就只报成功、不编名字，故它不该把整条记录判死）；**本刀（系统搜索）**再加一份盘点投影 `EnterpriseSystemRoot`/`EnterpriseSystemSkill`/`EnterpriseSystemSkills` 与严格解码 `decodeEnterpriseSystemSkills`（`GET /skills/system-search`）——单键封闭信封 + 根三键/候选五键（+两枚可选）封闭 + `state` 三字面 + **每条候选的 `rootId` 必须在 `roots` 里**（界面按根分组铺设，指向不存在根的候选没有诚实落点）+ 路径去重与条数封顶；**本刀（在线搜索）**再加一份 `EnterpriseOnlineSkillSource`/`EnterpriseOnlineSkillResult`/`EnterpriseOnlineSkillSearch` 与严格解码 `decodeEnterpriseOnlineSkillSearch`（`GET /skills/online-search`）——信封单键封闭 + 来源两键（+可选 `dropped`，**只允许正数**）/结果三键（+四枚可选）封闭 + **结果的 `sourceId` 必须在 `sources` 里** + 两枚计数非负安全整数 + 来源 id 去重、**坐标串 `installSource` 去重**（界面拿它当 React key 与「行→结果」的回找坐标）与条数封顶；★来源 id **不做封闭字面集**（Host 可增源，写死会让良性变化变成整次搜索失败），显示时直接用 id 当来源名；（**已装技能的 SKILL.md 正文**：单键封闭 + 正文 ≤256 KiB）、`decodeEnterpriseInstalledSkillFiles`（**本机真树条目**：路径形状 + 类型 + 目录 sizeBytes 恒 0 + 条目数 ≤1000 + 路径去重）与 `decodeEnterpriseInstalledSkillFile`（**树里一个文本文件**：四键封闭 + 路径形状 + 正文 ≤256 KiB）
  * [POS]: dsh-ui 浏览器契约层的技能分片——从逼近 800 行的 local-api-decode 拆出，专管企业技能目录投影；只保留 frontmatter 脱敏事实，SKILL.md 正文、artifact 路径与 SHA-256 在这里校验形状后即丢，永不进入界面（**唯一例外**是下面那条「读已装技能正文」的只读投影：正文由用户主动点开详情才取，形状与上限在这里同样收窄）；**可选分类 `category`（服务端新增字段，列表与详情投影都会有）在这里严格校验形状并把「缺席/null/空串」统一归一成「没有这个键」**（照 `whenToUse` 的既有归一策略，为缺失设计）；已装态是本机真值（Host 状态文件 + 落盘存在性），这里只校验形状与技能名规约
+ *   ★**口径 54（本刀）**：再加官方发现面那一份 —— `EnterpriseDiscoveredSkill`（`name`/`description`/
+ *     `whenToUse?`/`invocation{modelInvocable,userInvocable}`/`source`/`provider`；**形状里没有 `path`
+ *     与 `resourceBase`**，宿主绝对路径不进浏览器，"谁放进去的"由 `source` 这一枚**开放取值域**的枚举
+ *     回答——故**不做封闭字面集**）、`EnterpriseDiscoveredSkillInvocation` 与 `EnterpriseDiscoveredSkills`，
+ *     以及 `decodeEnterpriseDiscoveredSkills`（信封**恰好两键** `{skills,complete}`，多一格即整条判
+ *     `ENT_LOCAL_RESPONSE_INVALID` —— 这是"路径不进浏览器"的**第二道闸**，第一道在 Host 的白名单；
+ *     每条**必需五键封闭 + 可选 `whenToUse`**，缺席合法、"说空"非法；条数封顶 2000）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -402,6 +409,121 @@ export function decodeEnterpriseSelfInstalledSkills(value: unknown): readonly En
     throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
   }
   return row['skills'].map(decodeSelfInstalledSkill)
+}
+
+/* ───────────────── 官方发现面（口径 54：「已安装」的真源） ───────────────── */
+
+/**
+ * 一条技能调用的两枚策略位（官方 `invocation` 的两格，逐字同名）。
+ *
+ * 它们决定这个技能**谁能启动**：`modelInvocable` = 模型可自己调用；`userInvocable` = 只有员工能点。
+ * 界面今天只用它们做事实展示（不据此改任何动作），故这里只保证两枚都是布尔。
+ */
+export interface EnterpriseDiscoveredSkillInvocation {
+  readonly modelInvocable: boolean
+  readonly userInvocable: boolean
+}
+
+/**
+ * 一条**已发现**技能（`GET /enterprise/api/v1/local/skills/discovered` 的 `data.skills` 项）。
+ *
+ * ★这是「已安装」的**真源条目**（口径 54，用户裁决：里面显示的就是 DSH 本地已安装的技能）：
+ *   它来自宿主官方服务 `ctx.get('skills')` 的快照，也就是**运行时真正加载的那一份**。
+ * ★**宿主绝对路径不在形状里**（`path` / `resourceBase.path` 在 Host 侧就没出厂）：
+ *   "这个技能是谁放进去的"由 `source` 这一枚枚举回答，界面不需要、也不该拿到路径。
+ *   `source` 的取值域是**开放的**（官方契约 `(string & {})`：`user-dsh`/`user-agents`/`project-dsh`/
+ *   `project-agents`/`runtime`/`bundled`/`custom` + 将来可能新增），故这里**不做封闭字面集**
+ *   ——写死会让官方加一个来源就变成整条取数失败；界面按已知取值给中文标注、未知取值如实显示原文。
+ */
+export interface EnterpriseDiscoveredSkill {
+  readonly name: string
+  readonly description: string
+  /** 官方**可选**的一格：没说就不给这个键（不编空串——"没说"与"说空"要分得开）。 */
+  readonly whenToUse?: string | undefined
+  readonly invocation: EnterpriseDiscoveredSkillInvocation
+  /** 来源枚举（官方开放取值域，原样透传）。 */
+  readonly source: string
+  readonly provider: string
+}
+
+/**
+ * 官方发现面的**一次快照**（`data`）。
+ *
+ * ★`complete` 是官方自己那份交代：`false` = 它**还没发现完**。界面必须**如实说"还在发现中"**，
+ *   不许把它当 0、也不许写死一个数字（口径 54 的计数三态 + 这一态共四态）。
+ */
+export interface EnterpriseDiscoveredSkills {
+  readonly skills: readonly EnterpriseDiscoveredSkill[]
+  readonly complete: boolean
+}
+
+/** 必需五键（`whenToUse` 是可选第六格，单独判）。 */
+const DISCOVERED_SKILL_KEYS = ['name', 'description', 'invocation', 'source', 'provider'] as const
+
+const DISCOVERED_NAME_MAX = 128
+const DISCOVERED_DESCRIPTION_MAX = 4096
+const DISCOVERED_WHEN_TO_USE_MAX = 4096
+const DISCOVERED_SOURCE_MAX = 64
+const DISCOVERED_PROVIDER_MAX = 128
+const DISCOVERED_SKILL_MAX = 2000
+
+/** 一条已发现技能：**必需五键封闭** + 可选 `whenToUse`，多给一格即整条失败（协议 bug 要显式）。 */
+function decodeDiscoveredSkill(value: unknown): EnterpriseDiscoveredSkill {
+  const row = record(value)
+  if (row === undefined
+    || !hasExactKeys(row, DISCOVERED_SKILL_KEYS, ['whenToUse'])
+    || !nonEmptyString(row['name']) || row['name'].length > DISCOVERED_NAME_MAX
+    || typeof row['description'] !== 'string' || row['description'].length > DISCOVERED_DESCRIPTION_MAX
+    || !nonEmptyString(row['source']) || row['source'].length > DISCOVERED_SOURCE_MAX
+    || !nonEmptyString(row['provider']) || row['provider'].length > DISCOVERED_PROVIDER_MAX) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  const whenToUse = row['whenToUse']
+  if (whenToUse !== undefined
+    && (typeof whenToUse !== 'string' || whenToUse.length === 0 || whenToUse.length > DISCOVERED_WHEN_TO_USE_MAX)) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  const invocation = record(row['invocation'])
+  if (invocation === undefined
+    || !hasExactKeys(invocation, ['modelInvocable', 'userInvocable'])
+    || typeof invocation['modelInvocable'] !== 'boolean'
+    || typeof invocation['userInvocable'] !== 'boolean') {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  return {
+    name: row['name'],
+    description: row['description'],
+    ...(whenToUse === undefined ? {} : { whenToUse }),
+    invocation: {
+      modelInvocable: invocation['modelInvocable'],
+      userInvocable: invocation['userInvocable'],
+    },
+    source: row['source'],
+    provider: row['provider'],
+  }
+}
+
+/**
+ * 解码本机**官方发现面**快照（`GET /enterprise/api/v1/local/skills/discovered` 的 `data`）。
+ *
+ * 信封**恰好两键** `{skills, complete}`：Host 多塞任何字段（例如某天顺手带上 `path`）都整条判失败
+ * ——这正是"宿主路径不进浏览器"这条纪律在**解码层**的第二道闸（第一道在 Host 的逐键白名单）。
+ * 空列表是合法结果（磁盘上真的一枚都没有）；它与"读不到"是两条路，后者由 HTTP 非 2xx + 稳定码表达，
+ * 到这里就已经是一个明确失败，绝不会被解成"空清单"。
+ *
+ * @param value - 拆封后的 `data`。
+ * @returns 快照（`skills` + `complete`）。
+ * @throws {EnterpriseLocalApiError} `ENT_LOCAL_RESPONSE_INVALID`：形状对不上。
+ */
+export function decodeEnterpriseDiscoveredSkills(value: unknown): EnterpriseDiscoveredSkills {
+  const row = record(value)
+  if (row === undefined
+    || !hasExactKeys(row, ['skills', 'complete'])
+    || !Array.isArray(row['skills']) || row['skills'].length > DISCOVERED_SKILL_MAX
+    || typeof row['complete'] !== 'boolean') {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  return { skills: row['skills'].map(decodeDiscoveredSkill), complete: row['complete'] }
 }
 
 /* ───────────────── 通路二「系统搜索」的盘点投影（本刀） ───────────────── */
