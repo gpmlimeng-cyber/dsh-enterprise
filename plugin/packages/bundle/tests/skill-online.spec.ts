@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 `src/skill-online.ts` 的 `searchOnlineSkills`/`installSkillFromResult`/上限常量、`src/skill-install.ts` 的 `installedSkillStatus`、`src/skill-upload.ts` 的 `SELF_INSTALLED_STATE_FILENAME`、`node:zlib` 的 gzip 与 node:fs/promises 的读写；tar 夹具在**本文件里独立重写**（不复用 `src/tar-archive.ts`），从而断言的是读取器行为而不是它自己的常量
- * [OUTPUT]: 在真实临时 dshHome 上锁定通路三「在线搜索 → 从结果安装」：三源 fan-out 的逐源 ok 与部分成功、`skills.sh` 缺失 description/stars 的整键缺席、跨源折叠去重、坐标不可解的条目丢弃、clawhub.ai **整源丢弃**（载荷里没有 GitHub 坐标）与留痕、15s 超时、跨出白名单的重定向被拒（且**没有**打到白名单外的 host）、**每一个**源都挂才抛 502；安装链：codeload 整包 → 按坐标目录/按 frontmatter 技能名定位 → 内存组 `.dshskill` → 复用加固落盘（目录/文件字节与 0600、自装记录七键 + `sourceType='github'`、响应与 `/skills/install` 同形、幂等、落点冲突拒、ref 兜底、全 404 拿不到包、体量上限、tar 链接与逃逸、frontmatter 闸门）
+ * [OUTPUT]: 在真实临时 dshHome 上锁定通路三「在线搜索 → 从结果安装」：**四源** fan-out 的逐源 ok 与部分成功、`skills.sh` 缺失 description/stars 的整键缺席、跨源折叠去重、坐标不可解的条目丢弃、clawhub.ai **整源丢弃**（载荷里没有 GitHub 坐标）与留痕、15s 超时、跨出白名单的重定向被拒（且**没有**打到白名单外的 host）、**每一个**源都挂才抛 502；安装链：codeload 整包 → 按坐标目录/按 frontmatter 技能名定位 → 内存组 `.dshskill` → 复用加固落盘（目录/文件字节与 0600、自装记录七键 + `sourceType='github'`、响应与 `/skills/install` 同形、幂等、落点冲突拒、ref 兜底、全 404 拿不到包、体量上限、tar 链接与逃逸、frontmatter 闸门）
  * [POS]: bundle 技能纵深的**第四条通路**回归门禁；有人把公开源改回带令牌的平台面、把白名单/重定向门禁拆了、把「装不出来就丢」放宽、或者新造第二套落盘，这里都会红
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -191,10 +191,39 @@ const CLAWHUB_BODY = {
   ],
 }
 
+/** 第四源（`skillhub.cn`）的真机形状：`{code:0,data:{total,skills[]}}`，条目带 slug/version 与中英双描述。 */
+const SKILLHUB_BODY = {
+  code: 0,
+  message: 'success',
+  data: {
+    total: 2,
+    skills: [
+      {
+        slug: 'weekly-report',
+        name: 'weekly-report',
+        description: 'Weekly report generator',
+        description_zh: '周报生成器',
+        category: 'productivity',
+        downloads: 12,
+        stars: 34,
+        installs: 56,
+        ownerName: 'acme',
+        homepage: 'https://api.skillhub.cn/acme/weekly-report',
+        version: '1.2.0',
+        source: 'community',
+        iconUrl: 'https://cdn.example/i.png',
+      },
+      // 没有版本 ⇒ 坐标解不出来（本机装不了这一版）⇒ 按条丢弃并计数。
+      { slug: 'no-version', name: 'no-version', description: 'x' },
+    ],
+  },
+}
+
 const ALL_SOURCES: readonly Route[] = [
   { host: 'skills.sh', path: /^\/api\/search$/, respond: () => jsonResponse(SKILLS_SH_BODY) },
   { host: 'claude-plugins.dev', path: /^\/api\/skills$/, respond: () => jsonResponse(CLAUDE_PLUGINS_BODY) },
   { host: 'clawhub.ai', path: /^\/api\/v1\/search$/, respond: () => jsonResponse(CLAWHUB_BODY) },
+  { host: 'api.skillhub.cn', path: /^\/api\/skills$/, respond: () => jsonResponse(SKILLHUB_BODY) },
 ]
 
 /* ────────────────────────── 技能包夹具 ────────────────────────── */
@@ -255,22 +284,25 @@ function offlinePlatform(): EnterpriseSkillInstallPlatformPort {
 }
 
 describe('enterprise online skill search', () => {
-  it('fans out all three sources, reports per-source ok, and normalizes each shape', async () => {
+  it('fans out all four sources, reports per-source ok, and normalizes each shape', async () => {
     const home = await makeHome()
     const harness = options(home, ALL_SOURCES)
     const search = await searchOnlineSkills(harness.options, 'notes')
 
-    // 三源都通 ⇒ 逐源 ok；结果顺序 = 源声明序 × 源内上游顺序。
+    // 四源都通 ⇒ 逐源 ok；结果顺序 = 源声明序 × 源内上游顺序（第四源在**表尾**）。
     expect(search.sources).toEqual([
       // 夹具里那条 `uizze.sh/ui-taste` 坐标解不出来 ⇒ skills.sh 丢 1 条（同为「不许静默」）。
       { id: 'skills.sh', ok: true, dropped: 1 },
       { id: 'claude-plugins.dev', ok: true },
       // ★两条都是 `kind='clawhub'` ⇒ 按条丢弃并**计数**（不许静默：界面要能说「该源 N 条暂时装不了」）。
       { id: 'clawhub.ai', ok: true, dropped: 2 },
+      // 第四源：那条没有 `version` 的条目装不出来 ⇒ 同样按条丢弃并计数。
+      { id: 'skillhub.cn', ok: true, dropped: 1 },
     ])
     expect(search.results.map(result => [result.sourceId, result.name])).toEqual([
       ['skills.sh', 'team-notes'],
       ['claude-plugins.dev', 'meeting-notes'],
+      ['skillhub.cn', 'weekly-report'],
     ])
     const fromSkillsSh = search.results.find(result => result.sourceId === 'skills.sh')!
     // ★该源根本没有 description/stars 两个键 ⇒ 归一化后**整键缺席**（不编 null、不编 0）。
@@ -286,6 +318,20 @@ describe('enterprise online skill search', () => {
     expect(fromClaudePlugins.author).toBe('example')
     // ref 与目录都写进坐标（冻结链路要求「ref 解自 sourceUrl 的 /tree/<ref>/ 段」）。
     expect(fromClaudePlugins.installSource).toBe('claude-plugins.dev:example/team-notes-skill/main/skills/meeting-notes')
+
+    // ★第四源：形状与前三源**逐字同形**（同一枚七键），`description` 优先中文、`stars`/`installs` 原样给出。
+    const fromSkillhub = search.results.find(result => result.sourceId === 'skillhub.cn')!
+    expect(Object.keys(fromSkillhub).sort()).toEqual([
+      'author', 'description', 'installSource', 'installs', 'name', 'sourceId', 'stars',
+    ])
+    expect(fromSkillhub.name).toBe('weekly-report')
+    expect(fromSkillhub.description).toBe('周报生成器')
+    expect(fromSkillhub.author).toBe('acme')
+    expect(fromSkillhub.stars).toBe(34)
+    expect(fromSkillhub.installs).toBe(56)
+    expect(fromSkillhub.installSource).toBe('skillhub.cn:weekly-report@1.2.0')
+    // ★`homepage` 一次都没进结果（官方禁令：那是 api.skillhub.cn/<owner>/<slug>）。
+    expect(JSON.stringify(search.results)).not.toContain('api.skillhub.cn/acme')
 
     // ★clawhub.ai 整源丢弃并留痕：它的载荷里没有任何 GitHub 坐标，冻结的 codeload 安装链兑现不了。
     expect(search.results.some(result => result.sourceId === 'clawhub.ai')).toBe(false)
@@ -367,15 +413,17 @@ describe('enterprise online skill search', () => {
         }),
       },
       { host: 'clawhub.ai', respond: () => jsonResponse(CLAWHUB_BODY) },
+      { host: 'api.skillhub.cn', respond: () => jsonResponse(SKILLHUB_BODY) },
     ])
     const search = await searchOnlineSkills(harness.options, 'notes')
-    // 三个源各自如实报「我丢了几条」——为 0 的源整键不产出（可选字段）。
+    // 四个源各自如实报「我丢了几条」——为 0 的源整键不产出（可选字段）。
     expect(search.sources).toEqual([
       { id: 'skills.sh', ok: true, dropped: 1 },
       { id: 'claude-plugins.dev', ok: true, dropped: 1 },
       { id: 'clawhub.ai', ok: true, dropped: 2 },
+      { id: 'skillhub.cn', ok: true, dropped: 1 },
     ])
-    expect(search.results.map(result => result.name)).toEqual(['team-notes', 'resolvable'])
+    expect(search.results.map(result => result.name)).toEqual(['team-notes', 'resolvable', 'weekly-report'])
   })
 
   it('dedupes across sources by folded name, first source wins', async () => {
@@ -404,20 +452,24 @@ describe('enterprise online skill search', () => {
       { host: 'skills.sh', respond: () => respond(500, 'boom') },
       { host: 'claude-plugins.dev', respond: () => jsonResponse(CLAUDE_PLUGINS_BODY) },
       { host: 'clawhub.ai', respond: () => jsonResponse({ results: [] }) },
+      { host: 'api.skillhub.cn', respond: () => jsonResponse(SKILLHUB_BODY) },
     ])
     const search = await searchOnlineSkills(harness.options, 'notes')
+    // 一个源挂了，其余三个照常出结果（部分成功是设计）。
     expect(search.sources).toEqual([
       { id: 'skills.sh', ok: false },
       { id: 'claude-plugins.dev', ok: true },
       { id: 'clawhub.ai', ok: true },
+      { id: 'skillhub.cn', ok: true, dropped: 1 },
     ])
-    expect(search.results).toHaveLength(1)
+    expect(search.results.map(result => result.sourceId)).toEqual(['claude-plugins.dev', 'skillhub.cn'])
     expect(harness.onError.mock.calls.map(call => String(call[0])).join('\n')).toContain('source=skills.sh')
 
     const allDown = options(home, [
       { host: 'skills.sh', respond: () => respond(503, 'down') },
       { host: 'claude-plugins.dev', respond: () => respond(503, 'down') },
       { host: 'clawhub.ai', respond: () => respond(503, 'down') },
+      { host: 'api.skillhub.cn', respond: () => respond(503, 'down') },
     ])
     expect(await codeOf(() => searchOnlineSkills(allDown.options, 'notes'))).toBe('ENT_SKILL_SOURCE_UNREACHABLE')
   })
@@ -459,12 +511,14 @@ describe('enterprise online skill search', () => {
       },
       { host: 'claude-plugins.dev', respond: () => jsonResponse(CLAUDE_PLUGINS_BODY) },
       { host: 'clawhub.ai', respond: () => jsonResponse({ results: [] }) },
+      { host: 'api.skillhub.cn', respond: () => jsonResponse(SKILLHUB_BODY) },
     ])
     const search = await searchOnlineSkills(harness.options, 'notes')
     expect(search.sources[0]).toEqual({ id: 'skills.sh', ok: false })
     // ★承重断言：一次都没往白名单外的 host 发请求。
     expect(harness.log.some(line => line.includes('evil.example'))).toBe(false)
-    expect(harness.log.every(line => /skills\.sh|claude-plugins\.dev|clawhub\.ai|codeload\.github\.com/.test(line))).toBe(true)
+    // 每一跳都必须落在**已声明的**四台取数面之一上（第四源进表尾 ⇒ 这里如实多一台）。
+    expect(harness.log.every(line => /skills\.sh|claude-plugins\.dev|clawhub\.ai|api\.skillhub\.cn|codeload\.github\.com/.test(line))).toBe(true)
   })
 
   it('requires a non-empty bounded query', async () => {
@@ -696,6 +750,7 @@ smoke('enterprise online skill search smoke (real endpoints, opt-in)', () => {
       'skills.sh',
       'claude-plugins.dev',
       'clawhub.ai',
+      'skillhub.cn',
     ])
     expect(search.sources.some(source => source.ok)).toBe(true)
     // 挂掉的源如实打出来（可观测），但**不判失败** —— 那正是产品要交代的东西。

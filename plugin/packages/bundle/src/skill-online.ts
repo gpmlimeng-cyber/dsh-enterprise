@@ -1,13 +1,13 @@
 /**
- * [INPUT]: 依赖 node:crypto 的 createHash、`@dshent/platform-client` 的 `resolveEnterpriseDshHome`、本包 `tar-archive.ts`（`readTarGzipEntries`）、`zip-archive.ts`（`writeZipArchive`）、`skill-archive.ts`（`decodeDshSkillArchive`）、`skill-frontmatter.ts`（`validateSkillFrontmatter`）、`skill-install.ts`（`placeEnterpriseSkillArchive`/`installedSkillStatus`/`readInstalledSkillRecords`/`SKILL_CONTENT_FILENAME`）与 `skill-upload.ts`（`upsertSelfInstalledRecord`/`readSelfInstalledRecords`/`installedSelfSkills`/`SYSTEM_ADOPT_SOURCE_TYPE` 同族的记录形状）
- * [OUTPUT]: 对外提供通路三「在线搜索」的两件事：`searchOnlineSkills(options, query)`（三源 fan-out + 归一化 + 去重 + **逐源 ok**）与 `installSkillFromResult(options, source)`（把 `installSource` 坐标解成 codeload tarball → 内存组 `.dshskill` → **复用加固落盘**），以及 `EnterpriseOnlineSkillSearch`/`EnterpriseOnlineSkillResult`/`EnterpriseOnlineSkillSource` 形状、四条独立上限常量与 `ONLINE_SKILL_SOURCE_IDS`
- * [POS]: bundle 技能纵深的**第四条通路**（真源 `docs/research/cherry-skill-add-2026-10-05.md` §1 与 `docs/plan/skill-install-sources.md` §B.2/§C/§F.1）——上游 Cherry 的**三个聚合源**（`skillMarketplace.ts:345-374` 的 `MARKETPLACE_SOURCES`）与我们**自己的**安装链：★公开源一律走**无凭据裸取数面** `options.fetch`，**绝不**用平台面（`platform-service.ts:709-733` 那个 `request` 是同源 + 注入 Bearer 的，拿它打第三方等于把企业令牌发给公网）；★SSRF 白名单（`skills.sh`/`claude-plugins.dev`/`clawhub.ai`/`codeload.github.com`）+ 手动重定向（跨出白名单即拒）+ 只 GET 不带任何 header；★「装不出来就丢」是**按条**判、不是按源：`clawhub.ai` 的 `install.kind` 实测两种（**75/80 是 `clawhub`、5/80 是 `skills-sh`**；我自己那次 4 query/40 条是 38+2），前者载荷里没有本机装得出来的坐标 ⇒ 丢并**计数**（`sources[].dropped`，不许静默），后者的 `reference` 形如 `skills-sh:<owner>/<repo>/<dir…>` ⇒ 保留并走**与 `skills.sh` 源同一份**解析（详见 `normalizeClawhub`）；★落盘不新造第二套：内存组包 → `decodeDshSkillArchive` → `placeEnterpriseSkillArchive`，与中心安装/本地上传**同一套**落点冲突预检与原子改名；★全程零 exec/spawn、不做动态 import、不落可执行位
+ * [INPUT]: 依赖 node:crypto 的 createHash、`@dshent/platform-client` 的 `resolveEnterpriseDshHome`、本包 `tar-archive.ts`（`readTarGzipEntries`）、`zip-archive.ts`（`writeZipArchive`）、`skill-archive.ts`（`decodeDshSkillArchive`/`SKILL_ARCHIVE_MAX_BYTES`）、`skill-frontmatter.ts`（`validateSkillFrontmatter`）、`skill-install.ts`（`placeEnterpriseSkillArchive`/`installedSkillStatus`/`readInstalledSkillRecords`/`SKILL_CONTENT_FILENAME`）、`skill-skillhub.ts`（`installSkillhubSkill`/`parseSkillhubReference`/`requireSkillhubParts`/`SkillhubArtifact`）与 `skill-upload.ts`（`upsertSelfInstalledRecord`/`readSelfInstalledRecords`/`installedSelfSkills`/`SYSTEM_ADOPT_SOURCE_TYPE` 同族的记录形状）
+ * [OUTPUT]: 对外提供通路三「在线搜索」的两件事：`searchOnlineSkills(options, query)`（**四源** fan-out + 归一化 + 去重 + **逐源 ok**）与 `installSkillFromResult(options, source)`（把 `installSource` 坐标解成 codeload tarball → 内存组 `.dshskill` → **复用加固落盘**；`skillhub.cn` 那条坐标走**单跳 302 → COS 制品** → 复用 `skill-skillhub.ts` 的第三布局与加固落盘），以及 `EnterpriseOnlineSkillSearch`/`EnterpriseOnlineSkillResult`/`EnterpriseOnlineSkillSource` 形状、四条独立上限常量、`ONLINE_SKILL_SOURCE_IDS`、`SKILLHUB_REDIRECT_HOSTS` 与 `redirectRequestHeaders`（白名单跳的**减头**判据）
+ * [POS]: bundle 技能纵深的**第四条通路**（真源 `docs/research/cherry-skill-add-2026-10-05.md` §1 与 `docs/plan/skill-install-sources.md` §B.2/§C/§F.1）——上游 Cherry 的**三个聚合源**（`skillMarketplace.ts:345-374` 的 `MARKETPLACE_SOURCES`）加**本刀第四源** `skillhub.cn` 与我们**自己的**安装链：★公开源一律走**无凭据裸取数面** `options.fetch`，**绝不**用平台面（`platform-service.ts:709-733` 那个 `request` 是同源 + 注入 Bearer 的，拿它打第三方等于把企业令牌发给公网）；★SSRF 白名单（`skills.sh`/`claude-plugins.dev`/`clawhub.ai`/`api.skillhub.cn`/`codeload.github.com`）+ 手动重定向（跨出白名单即拒）+ 只 GET 不带任何 header；★**第四源** `skillhub.cn`（API Base `https://api.skillhub.cn`，免鉴权）追加在 `ONLINE_SKILL_SOURCE_IDS` **表尾** —— 顺序是**跨包契约**（界面那一刀按同一份顺序渲染来源 chip），既有三源**一字未改**：搜索走 `GET /api/skills?keyword=&page=&pageSize=&sortBy=score`（★**不用**官方文档禁掉的 `/api/v1/search`）、条目里 `description` 优先 `description_zh`、`name` 用主 `name`、`stars`/`installs` 有就给没有就整键不产出（"没说"与"说 0"分得开）、`homepage` 字段**一律不用**（主页由界面自己拼 `https://skillhub.cn/skills/<slug>`）；下载是 `GET /api/v1/download?slug=&version=` 的 **302 → `*.cos.accelerate.myqcloud.com`**，故本文件另有一条**只跟随一跳**的取数（`SKILLHUB_REDIRECT_HOSTS` 独立白名单 + 白名单跳**减头**：绝不给重定向那一跳带 `Authorization`/任何凭据头，COS 的 URL 自带授权），跳转正文（`<a href=…>`）**不是**制品；★它自己聚合别家（`source=clawhub` 那一桶与既有的直连 `clawhub.ai` **重叠**）⇒ 结果合并时按 **slug 去重**，直连源优先（理由见 `searchOnlineSkills` 的注释）；★「装不出来就丢」是**按条**判、不是按源：`clawhub.ai` 的 `install.kind` 实测两种（**75/80 是 `clawhub`、5/80 是 `skills-sh`**；我自己那次 4 query/40 条是 38+2），前者载荷里没有本机装得出来的坐标 ⇒ 丢并**计数**（`sources[].dropped`，不许静默），后者的 `reference` 形如 `skills-sh:<owner>/<repo>/<dir…>` ⇒ 保留并走**与 `skills.sh` 源同一份**解析（详见 `normalizeClawhub`）；★落盘不新造第二套：内存组包 → `decodeDshSkillArchive` → `placeEnterpriseSkillArchive`，与中心安装/本地上传**同一套**落点冲突预检与原子改名；★全程零 exec/spawn、不做动态 import、不落可执行位
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { createHash } from 'node:crypto'
 import { resolveEnterpriseDshHome } from '@dshent/platform-client'
-import { decodeDshSkillArchive } from './skill-archive.js'
+import { decodeDshSkillArchive, SKILL_ARCHIVE_MAX_BYTES } from './skill-archive.js'
 import { EnterpriseSkillInstallError, skillInstallError } from './skill-errors.js'
 import { validateSkillFrontmatter } from './skill-frontmatter.js'
 import {
@@ -19,6 +19,12 @@ import {
   type EnterpriseSkillInstallOptions,
   type EnterpriseSkillInstallPlatformPort,
 } from './skill-install.js'
+import {
+  installSkillhubSkill,
+  parseSkillhubReference,
+  requireSkillhubParts,
+  type SkillhubArtifact,
+} from './skill-skillhub.js'
 import {
   installedSelfSkills,
   readSelfInstalledRecords,
@@ -33,8 +39,14 @@ import {
 } from './tar-archive.js'
 import { writeZipArchive, type ZipWriteEntry } from './zip-archive.js'
 
-/** 三源声明序（响应里 `sources[]` 与去重的「先到先得」都按它）。 */
-export const ONLINE_SKILL_SOURCE_IDS = ['skills.sh', 'claude-plugins.dev', 'clawhub.ai'] as const
+/**
+ * 四源声明序（响应里 `sources[]` 与去重的「先到先得」都按它）。
+ *
+ * ★**顺序本身是跨包契约**：第四源 `skillhub.cn` 钉死在**表尾**（既有三源的相对顺序与字面值一个字节未动），
+ * 界面那一刀按同一份顺序渲染来源 chip；"先到先得"的去重也因此天然让**直连源**赢过**聚合源**
+ * （skillhub.cn 聚合别家 ⇒ 同一条技能若它先被直连源产出，就轮不到它）。
+ */
+export const ONLINE_SKILL_SOURCE_IDS = ['skills.sh', 'claude-plugins.dev', 'clawhub.ai', 'skillhub.cn'] as const
 export type OnlineSkillSourceId = (typeof ONLINE_SKILL_SOURCE_IDS)[number]
 
 /**
@@ -60,13 +72,44 @@ export const ONLINE_TARBALL_MAX_ENTRIES = 20_000
 export const ONLINE_TARBALL_MAX_ENTRY_BYTES = 33_554_432
 
 /**
- * SSRF 白名单（`skill-install-sources.md` §F.1）：**只有**这四个 host 会被取数。
- * 三个搜索源 + `codeload.github.com`；★`raw.githubusercontent.com` **不在**白名单里 ——
- * 本机实测它连不上（curl rc=28），而且按文件逐取会撞 GitHub Contents API 的 60/小时配额。
+ * SSRF 白名单（`skill-install-sources.md` §F.1）：**只有**这五个 host 会被取数。
+ * 三个搜索源 + `codeload.github.com`（整仓 tarball）+ **本刀第四源** `api.skillhub.cn`（搜索与 302 的起点）；
+ * ★`raw.githubusercontent.com` **不在**白名单里 —— 本机实测它连不上（curl rc=28），而且按文件逐取会撞
+ * GitHub Contents API 的 60/小时配额。
+ * ★`skillhub.cn` 那条 302 的**落点**（`*.cos.accelerate.myqcloud.com`）**刻意不在这里** ——
+ * 它是另一类信任关系（对象存储、URL 自带一次性授权），走下面 `SKILLHUB_REDIRECT_HOSTS` 那份**独立**白名单，
+ * 免得"搜索源白名单"被顺手当成"任何跳转都能去"的通行证。
  */
-const ALLOWED_HOSTS: readonly string[] = ['skills.sh', 'claude-plugins.dev', 'clawhub.ai', 'codeload.github.com']
+const ALLOWED_HOSTS: readonly string[] = ['skills.sh', 'claude-plugins.dev', 'clawhub.ai', 'api.skillhub.cn', 'codeload.github.com']
 /** 手动跟随的重定向上限（每次跳转都重新过白名单）。 */
 const MAX_REDIRECTS = 2
+/**
+ * skillhub.cn **制品**重定向的**独立**白名单（本刀只放行真机实测的那一台 COS 主机：
+ * `GET /api/v1/download?slug=&version=` 实测 302 到 `https://skillhub-1388575217.cos.accelerate.myqcloud.com/skills/<slug>/<version>.zip`）。
+ *
+ * ★为什么必须与 `ALLOWED_HOSTS` **分开**：两份表说的是两件事 —— 那一份是"我们的取数面有哪几个 host"，
+ * 这一份是"这一跳的对象存储确实属于我们信任的那条链路"。混成一份，"跨域跳转能被看见并拒掉"这条判据就没了
+ * （任何进过白名单的 host 都会顺理成章地成为跳转落点）。其余域一律拒，**绝不**"跟随任何 Location"。
+ */
+export const SKILLHUB_REDIRECT_HOSTS: readonly string[] = ['skillhub-1388575217.cos.accelerate.myqcloud.com']
+/** 制品下载**只跟随一跳**（`MAX_REDIRECTS` 那条多跳策略属搜索面与整仓面，**绝不**复用到制品跳上）。 */
+const SKILLHUB_ARTIFACT_MAX_REDIRECTS = 1
+/** 算"重定向"的状态码：只有这四个跟随；其余 3xx（300/301/304/305/306）一律判协议错。 */
+const REDIRECT_STATUSES: readonly number[] = [302, 303, 307, 308]
+/**
+ * 凭据类请求头（小写比对）：它们**绝不**跟着重定向离开平台域。
+ *
+ * COS 的下载 URL **自带**一次性授权，我们一个凭据字节都不需要送过去；而本通路的取数面本来就只 GET、不带任何 header
+ * —— 这道减头是"结构上不可能带上"的第二重保证：将来若有人在第一跳加了头，白名单那一跳也不会把它带出去。
+ */
+const CREDENTIAL_HEADERS: readonly string[] = [
+  'authorization',
+  'cookie',
+  'proxy-authorization',
+  'proxy-authenticate',
+  'x-api-key',
+  'x-auth-token',
+]
 /** 搜索串形状上限（界面输入；与既有 `q` 查询参数门禁同量级）。 */
 const MAX_QUERY_LENGTH = 128
 /** `installSource` 形状上限（与既有 `sourceInput` 那枚 1024 同量级）。 */
@@ -307,6 +350,117 @@ async function fetchSearchJson(deps: OnlineDependencies, url: string, sourceId: 
   } catch (error) {
     throw skillInstallError(error, 'ENT_SKILL_SOURCE_UNREACHABLE', `${sourceId} answered a body that is not JSON`)
   }
+}
+
+/**
+ * 白名单跳的**减头**判据：把一枚请求头集合里所有凭据类键去掉，只留与身份无关的那些。
+ *
+ * 参数缺省（本通路第一跳的真实情形）得到**空集合** —— 公开源只 GET、不带任何 header。
+ * 导出它是为了让"减头"这件事**能被单独取证**：跨域那一跳拿到的永远是本函数的输出，
+ * 而不是上一跳的请求头原件（`fetchSkillhubArtifact` 的注释给出为什么这一跳一个凭据字节都不许带）。
+ */
+export function redirectRequestHeaders(headers?: HeadersInit): Record<string, string> {
+  const sanitized: Record<string, string> = {}
+  if (headers === undefined) return sanitized
+  new Headers(headers).forEach((value, key) => {
+    if (CREDENTIAL_HEADERS.includes(key.toLowerCase())) return
+    sanitized[key] = value
+  })
+  return sanitized
+}
+
+/** 制品重定向落点的**独立**门禁：https + 无内嵌凭据 + `SKILLHUB_REDIRECT_HOSTS`（**不是** `ALLOWED_HOSTS`）。 */
+function requireSkillhubRedirectTarget(value: string): URL {
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch (error) {
+    throw unreachable(`the skillhub.cn redirect target is not absolute (${String(error)})`)
+  }
+  if (url.protocol !== 'https:') throw unreachable('the skillhub.cn redirect target is not https')
+  if (url.username !== '' || url.password !== '') {
+    throw unreachable('the skillhub.cn redirect target must not embed credentials')
+  }
+  if (!SKILLHUB_REDIRECT_HOSTS.includes(url.hostname)) {
+    throw unreachable(`the skillhub.cn redirect target host ${url.hostname} is not on the redirect allowlist`)
+  }
+  return url
+}
+
+/**
+ * 取一枚 skillhub.cn 制品：`GET https://api.skillhub.cn/api/v1/download?slug=&version=` → **手动跟随恰好一跳** 302 → COS ZIP。
+ *
+ * 判据与顺序：
+ *  ① 起点过 `ALLOWED_HOSTS`（`api.skillhub.cn` 在白名单里）；
+ *  ② `redirect: 'manual'` + **只跟随一跳**（`SKILLHUB_ARTIFACT_MAX_REDIRECTS`，与搜索面那条两跳策略分开）：
+ *     第二个 3xx 一律判 `ENT_SKILL_SOURCE_UNREACHABLE`，**绝不**再跟；
+ *  ③ 落点过**独立**白名单（`requireSkillhubRedirectTarget`）；相对 Location 会解析回 `api.skillhub.cn`
+ *     ⇒ 同样被那份白名单拒（这条通路只认实测那一台 COS 主机）；
+ *  ④ ★**白名单那一跳减头**（`redirectRequestHeaders`）：绝不给它带 `Authorization`/任何凭据头；
+ *  ⑤ ★302 的正文（真实形状是一段 `<a href=…>` 的 HTML）**不是**制品：无论跟不跟得成，当场 `cancel` 掉正文，
+ *     只有**跟随成功那一跳**的 200 正文才进有界读取；
+ *  ⑥ 有界读取上限复用既有那 **50 MiB** 配额（`SKILL_ARCHIVE_MAX_BYTES`，与中心验包/导出包同一把尺），超限即
+ *     `ENT_SKILL_SOURCE_TOO_LARGE`，**绝不截断、绝不半装**。
+ *
+ * @param deps - 无凭据取数面（公开源只走它）。
+ * @param slug - 上游 slug（已按 `requireSkillhubParts` 收窄）。
+ * @param version - 搜索那一刻看到的那一版（制品 URL 按版本取 ⇒ 装到的就是用户看到的那一版）。
+ * @returns 制品 ZIP 的字节。
+ * @throws {EnterpriseSkillInstallError} `ENT_SKILL_DOWNLOAD_FAILED`（404：这一版拿不到了）/
+ *   `ENT_SKILL_SOURCE_UNREACHABLE`（网络、超时、非 200、重定向越界或过多）/
+ *   `ENT_SKILL_SOURCE_TOO_LARGE`（超过 50 MiB 配额）。
+ */
+async function fetchSkillhubArtifact(deps: OnlineDependencies, slug: string, version: string): Promise<Buffer> {
+  const query = `slug=${encodeURIComponent(slug)}&version=${encodeURIComponent(version)}`
+  let current = requireAllowedUrl(`https://api.skillhub.cn/api/v1/download?${query}`, message => unreachable(message))
+  // 第一跳不带任何 header（公开源不要凭据）；白名单那一跳再从它做一次**减头**。
+  let headers = redirectRequestHeaders()
+  for (let hop = 0; hop <= SKILLHUB_ARTIFACT_MAX_REDIRECTS; hop += 1) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), ONLINE_SKILL_REQUEST_TIMEOUT_MS)
+    try {
+      const response = await deps.fetch(current.toString(), {
+        method: 'GET',
+        redirect: 'manual',
+        headers,
+        signal: controller.signal,
+      })
+      if (REDIRECT_STATUSES.includes(response.status)) {
+        const location = response.headers.get('location')
+        // ★跳转正文不是制品：先丢掉，再判这次跳转认不认。
+        await cancelBody(response)
+        if (location === null || location === undefined || location === '') {
+          throw unreachable('skillhub.cn redirected without a location')
+        }
+        current = requireSkillhubRedirectTarget(new URL(location, current).toString())
+        headers = redirectRequestHeaders(headers)
+        continue
+      }
+      if (response.status >= 300 && response.status < 400) {
+        await cancelBody(response)
+        throw unreachable(`skillhub.cn answered an unsupported redirect (${response.status})`)
+      }
+      if (response.status === 404) {
+        await cancelBody(response)
+        // 「这一版拿不到了」与「上游挂了」的下一步不同（前者该重新搜索，后者可以重试）。
+        throw new EnterpriseSkillInstallError(
+          'ENT_SKILL_DOWNLOAD_FAILED',
+          'the skillhub.cn artifact is not available any more',
+        )
+      }
+      if (response.status !== 200) {
+        await cancelBody(response)
+        throw unreachable(`skillhub.cn answered HTTP ${response.status}`)
+      }
+      return await readBoundedBytes(response, SKILL_ARCHIVE_MAX_BYTES)
+    } catch (error) {
+      // 已经是受控码的（上面的 404/超限）原样穿透；其余收敛成"源不可达"。
+      throw skillInstallError(error, 'ENT_SKILL_SOURCE_UNREACHABLE', `the skillhub.cn artifact request failed (${current.hostname})`)
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+  throw unreachable('skillhub.cn redirected more than once')
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
@@ -551,6 +705,70 @@ function clawhubSkillsShCoordinate(entry: Record<string, unknown>): string | und
   return skillsShReference(id)
 }
 
+/**
+ * 归一化 `skillhub.cn`（**第四源**，API Base `https://api.skillhub.cn`，免鉴权）：顶层是
+ * `{"code":0,"message":"success","data":{"total":<n>,"skills":[…]}}`。
+ *
+ * ★只认 `code === 0`（真机实测形状就是**数值** 0）：字符串 `'0'`、缺席、`null` 与任何非 0 值一律判
+ * **这个源这次挂了**（`ENT_SKILL_SOURCE_UNREACHABLE`）—— 判据宁可严：平台的失败码我们读不懂，
+ * 绝不拿它当"大概有结果"。
+ * ★官方文档两条禁令逐条照做：搜索**不用** `/api/v1/search`（走 `/api/skills`，见 `ONLINE_SKILL_SOURCES`）；
+ * **不用**返回的 `homepage` 字段（那是 `api.skillhub.cn/<owner>/<slug>`）—— 主页由界面自己按 slug 拼
+ * `https://skillhub.cn/skills/<slug>`，本文件连这个字段都不读。
+ * ★字段映射（与既有三源**逐字同形**的那一枚结果形状，**不多一枚键**）：
+ * `name` 取主 `name`（**不是** `description_zh`）；`description` **优先** `description_zh`（中文站点、
+ * 界面也面向中文员工），它缺席时才回落 `description`；`author` 取 `ownerName`；`stars`/`installs`
+ * **有就给、没有就整键不产出**（"没说"与"说 0"分得开，`optionalCount` 已经这么判）。
+ * ★坐标 `skillhub.cn:<slug>@<version>`：**必须**同时有形状合规的 `slug` 与 `version` ——
+ * ① 版本要写进自装记录的 provenance（不写版本，记录就对"装了哪一版"撒谎）；
+ * ② 制品 URL 按版本取 ⇒ 装到的就是用户看到的那一版（不按版本取，"最新"会在搜索与下载之间漂移）。
+ * 两者缺一或形状不合 ⇒ **按条丢弃并计数**（装不出来就丢，且不静默）；判据与安装侧是**同一把尺**
+ * （`requireSkillhubParts`，见 `skill-skillhub.ts`）。
+ */
+function normalizeSkillhub(value: unknown, deps: OnlineDependencies): OnlineSourceOutcome {
+  const record = asRecord(value)
+  const data = asRecord(record?.['data'])
+  if (record === undefined || data === undefined || record['code'] !== 0) {
+    throw unreachable('skillhub.cn answered an invalid search response')
+  }
+  const list = requireArray(data, 'skills', 'skillhub.cn')
+  const results: EnterpriseOnlineSkillResult[] = []
+  let dropped = 0
+  for (const item of list) {
+    const entry = asRecord(item)
+    const name = optionalString(entry?.['name'])
+    if (entry === undefined || name === undefined) {
+      throw unreachable('skillhub.cn answered an invalid search entry')
+    }
+    const parts = requireSkillhubParts(optionalString(entry['slug']), optionalString(entry['version']))
+    if (parts === undefined) {
+      dropped += 1
+      continue
+    }
+    const description = optionalString(entry['description_zh']) ?? optionalString(entry['description'])
+    const author = optionalString(entry['ownerName'])
+    const stars = optionalCount(entry['stars'])
+    const installs = optionalCount(entry['installs'])
+    results.push({
+      sourceId: 'skillhub.cn',
+      name,
+      ...(description === undefined ? {} : { description }),
+      ...(author === undefined ? {} : { author }),
+      ...(stars === undefined ? {} : { stars }),
+      ...(installs === undefined ? {} : { installs }),
+      installSource: `skillhub.cn:${parts.slug}@${parts.version}`,
+    })
+  }
+  if (dropped > 0) {
+    deps.onError?.(
+      `enterprise online skill search dropped ${dropped} skillhub.cn result(s):`
+      + ' a result without a well-formed slug@version cannot be installed from this host',
+      undefined,
+    )
+  }
+  return { results, dropped }
+}
+
 /** 一个源这一次的归一化产出：留下来的结果 + 被丢弃的条数（两者都要如实上报）。 */
 interface OnlineSourceOutcome {
   readonly results: readonly EnterpriseOnlineSkillResult[]
@@ -580,6 +798,18 @@ const ONLINE_SKILL_SOURCES: readonly OnlineSourceDeclaration[] = [
     endpoint: query => `https://clawhub.ai/api/v1/search?q=${encodeURIComponent(query)}`,
     normalize: normalizeClawhub,
   },
+  // ── 第四源（本刀）─────────────────────────────────────────────────────────────────────────────
+  // ★**追加在表尾**：既有三源的相对顺序与三个 endpoint 字面值一个字节未动；表尾位置是跨包契约
+  //   （界面按同一份顺序渲染来源 chip），同时让"先到先得"的去重天然把聚合源排在直连源之后。
+  {
+    id: 'skillhub.cn',
+    // 搜索面按官方文档给的那条：`/api/skills?keyword=&page=&pageSize=&sortBy=`（**不是** `/api/v1/search`）。
+    // `pageSize=20` 与 `claude-plugins.dev` 那枚 `limit=20` 同量级；`sortBy=score` 是相关度排序
+    // （真机 `keyword=周报&sortBy=score` 实测 200、total=1907）；`order`/`category`/`source`/`labels`
+    // 四个可选筛选一律不传 —— 本通路只做"按查询串搜"，不自作主张收窄用户看到的结果集。
+    endpoint: query => `https://api.skillhub.cn/api/skills?keyword=${encodeURIComponent(query)}&page=1&pageSize=20&sortBy=score`,
+    normalize: normalizeSkillhub,
+  },
 ]
 
 function requireQuery(query: unknown): string {
@@ -596,11 +826,13 @@ function requireQuery(query: unknown): string {
 }
 
 /**
- * 三源 fan-out：`Promise.allSettled` + **部分成功保留**（照上游 `skillMarketplace.ts:388-405`），
+ * 四源 fan-out：`Promise.allSettled` + **部分成功保留**（照上游 `skillMarketplace.ts:388-405`），
  * 只有**全失败**才抛 `ENT_SKILL_SOURCE_UNREACHABLE`(502)；每个失败源留一条 `onError` 痕。
  *
  * 去重照上游 `:407-413`：按 `name.toLowerCase()` **先到先得**，顺序 = 源声明序 × 源内上游顺序。
  * 去重在**丢弃之后**做 —— 否则一个源里「解不出坐标」的同名条目会把它自己挡掉后面那个能装的。
+ * ★本刀**另加**一层按 **slug** 的去重，**只作用于聚合源 `skillhub.cn`**（同一 slug 已被更早的源产出
+ * ⇒ 丢掉聚合源那一条；理由与"直连源优先"见合并循环里那段注释）。既有三源之间的行为因此**一个字节未变**。
  *
  * @param options - 无凭据取数面、可选 dshHome/时钟/留痕端口。
  * @param query - 搜索串（非空、≤128 字、无控制字符）。
@@ -621,6 +853,8 @@ export async function searchOnlineSkills(
   const sources: EnterpriseOnlineSkillSource[] = []
   const results: EnterpriseOnlineSkillResult[] = []
   const seen = new Set<string>()
+  // ★第四源带来的第二层去重键（按 **slug**）；既有那层按折叠名去重**一字未改**（两个集合各管一件事）。
+  const slugs = new Set<string>()
   for (let index = 0; index < ONLINE_SKILL_SOURCES.length; index += 1) {
     const source = ONLINE_SKILL_SOURCES[index]!
     const outcome = settled[index]!
@@ -634,7 +868,15 @@ export async function searchOnlineSkills(
     for (const result of outcome.value.results) {
       const key = result.name.toLowerCase()
       if (seen.has(key)) continue
+      // ★**只作用于聚合源 skillhub.cn 的一条新判据**（既有三源之间的相对行为因此完全不变）：
+      // `skillhub.cn` 自己聚合别家（`source=clawhub` 那一桶与既有的直连 `clawhub.ai` 重叠）⇒
+      // 同一条技能会在两个源里各出现一次。**直连源优先**：直连源的数据更原始，聚合源可能滞后
+      // （版本/描述/计数都可能旧一拍），而用户点"安装"要的是那份最原始的事实。
+      // 它在 `ONLINE_SKILL_SOURCE_IDS` **表尾** ⇒ "先到先得"天然等于"直连源赢"，这条判据只会挡下它自己。
+      const slug = slugKeyOf(result)
+      if (result.sourceId === 'skillhub.cn' && slug !== undefined && slugs.has(slug)) continue
       seen.add(key)
+      if (slug !== undefined) slugs.add(slug)
       results.push(result)
     }
   }
@@ -642,6 +884,27 @@ export async function searchOnlineSkills(
     throw unreachable('every online skill source is unavailable')
   }
   return { sources, results }
+}
+
+/**
+ * 一条结果里那枚"同一个技能"的判据（**按 slug**，不是按显示名）：坐标引用里最后一段、去掉 `@<version>` 后缀、
+ * 折叠成小写。
+ *
+ * 四种源的坐标最后一段恰好都是那枚技能在来源侧的名字：`skills.sh:<owner>/<repo>/<skill>`、
+ * `claude-plugins.dev:<owner>/<repo>/<ref>/<dir…>`（最后一段是目录名）、`clawhub.ai` 留下来的那条
+ * `skills.sh:<owner>/<repo>/<skill>`（`sourceId` 仍是 clawhub.ai，见 `normalizeClawhub`）、
+ * `skillhub.cn:<slug>@<version>`。★它**只**用于上面那条聚合源判据，不参与既有三源之间的去重。
+ */
+function slugKeyOf(result: EnterpriseOnlineSkillResult): string | undefined {
+  const separator = result.installSource.indexOf(':')
+  if (separator <= 0) return undefined
+  const reference = result.installSource.slice(separator + 1)
+  const at = reference.lastIndexOf('@')
+  const withoutVersion = at > 0 ? reference.slice(0, at) : reference
+  const last = withoutVersion.split('/').filter(segment => segment.length > 0).pop()
+  if (last === undefined) return undefined
+  const folded = last.toLowerCase()
+  return folded.length === 0 ? undefined : folded
 }
 
 /** 一个已解出的安装计划：仓库坐标 + 该试哪些 ref + 怎么在整包里定位目标技能。 */
@@ -690,11 +953,21 @@ function requireInstallSource(source: unknown): { readonly sourceId: OnlineSkill
  *（见 `normalizeClawhub`，那里 `sourceId` 仍报 `clawhub.ai`、坐标却是 skills.sh 的，这是**有意**的不对称），
  * 其余（`kind === 'clawhub'`，实测 75/80）在出结果之前就被丢掉并计进 `sources[].dropped`。
  * ⇒ 这里是一条**防御性**门：把一个 `clawhub.ai:` 开头的坐标走到安装步的，只可能是过期/手造的请求。
+ *
+ * ★`skillhub.cn` 这个 `sourceId` 同样**一律 400**，理由不同：它的坐标由 `installSkillFromResult` 在更前面
+ * 就分派给 `installSkillhubSkill`（302 → COS 制品那条链），**根本不该**走到本函数；显式拦住它是为了让它
+ * 不可能掉进下面 `claude-plugins.dev` 的分支（那会把一个 slug 当成仓库坐标去抓包）。
  */
 function resolveInstallPlan(sourceId: OnlineSkillSourceId, reference: string): InstallPlan {
   const segments = reference.split('/')
   if (sourceId === 'clawhub.ai') {
     throw sourceUnknown('clawhub.ai coordinates are not installable through this host\'s codeload path')
+  }
+  if (sourceId === 'skillhub.cn') {
+    // ★防御性门（照上面 clawhub.ai 那条）：`installSkillFromResult` 已经在前面把第四源分派给
+    // `installSkillhubSkill`（它走 302 → COS 制品那条链，不是 codeload）。走到这里只可能是过期/手造的请求；
+    // ★**必须显式拦**：否则它会掉进下面 `claude-plugins.dev` 那条分支，把一个 slug 当仓库坐标去抓包。
+    throw sourceUnknown('skillhub.cn coordinates are served by the artifact path, not the codeload path')
   }
   if (sourceId === 'skills.sh') {
     // `owner/repo/skill-name`（该源没有 ref/目录信息）⇒ ref 只能 main → master 兜底、目录按技能名在包里找。
@@ -856,11 +1129,17 @@ function sanitizeSourceInput(value: string): string {
 }
 
 /**
- * 从一条搜索结果安装：坐标 → codeload 整仓 `tar.gz` → 只取目标技能目录 → **内存组 `.dshskill`** →
- * `decodeDshSkillArchive`（同一道包闸门）→ `placeEnterpriseSkillArchive`（**同一套加固落盘**：
- * 落点冲突预检 → 暂存 → 逐个原子改名 → 失败整体回滚）→ 原子写**同一份**自装清单。
+ * 从一条搜索结果安装。**两条链**，按 `sourceId` 分派：
+ *  · 既有三源：坐标 → codeload 整仓 `tar.gz` → 只取目标技能目录 → **内存组 `.dshskill`** →
+ *    `decodeDshSkillArchive`（同一道包闸门）→ `placeEnterpriseSkillArchive`（**同一套加固落盘**：
+ *    落点冲突预检 → 暂存 → 逐个原子改名 → 失败整体回滚）→ 原子写**同一份**自装清单（`sourceType='github'`）；
+ *  · ★第四源 `skillhub.cn`（本刀）：坐标 `skillhub.cn:<slug>@<version>` → `GET /api/v1/download`
+ *    **单跳 302 → COS** 的那份**裸技能目录 ZIP** → `decodeBareSkillDirectory`（第三布局，**同一个** ZIP 内核）
+ *    → 同一份 frontmatter 闸门 → **同一份** `placeEnterpriseSkillArchive`（`ownNames` 恒空 ⇒ 绝不覆盖）
+ *    → 同一份七键自装记录（`sourceType='system'`、`sourceInput='skillhub:<slug>@<version>'`）。
+ * 两条链的**返回值逐字同形**（都是 `installedSkillStatus`，与 `/skills/install` 同形）。
  *
- * 判据与顺序：
+ * 判据与顺序（既有三源那条链）：
  *  ① 坐标形状与源（未知源 / 无 GitHub 坐标的 clawhub → `ENT_SKILL_SOURCE_UNKNOWN`(400)）；
  *  ② 仓库整包（ref 逐个试；全 404 → `ENT_SKILL_DOWNLOAD_FAILED`(502)；其它非 200 / 网络失败 / 超时 →
  *     `ENT_SKILL_SOURCE_UNREACHABLE`(502)；超上限 → `ENT_SKILL_SOURCE_TOO_LARGE`(413)；tar/gzip 非法 →
@@ -881,6 +1160,19 @@ export async function installSkillFromResult(
 ): Promise<EnterpriseInstalledSkills> {
   const deps = resolveDependencies(options)
   const coordinate = requireInstallSource(source)
+  // ★第四源（skillhub.cn）的坐标**不走** codeload 那条链：它是 `302 → COS` 的一份**裸技能目录 ZIP**，
+  //   取数（单跳重定向 + 独立白名单 + 减头 + 50 MiB 有界读）在下面 `fetchSkillhubArtifact`，
+  //   布局与安装内核在 `skill-skillhub.ts`（同一份加固落盘、同一份七键自装记录、同一个 ZIP 内核）。
+  if (coordinate.sourceId === 'skillhub.cn') {
+    const parts = parseSkillhubReference(coordinate.reference)
+    if (parts === undefined) throw sourceUnknown('the skillhub.cn coordinate is invalid')
+    const artifact: SkillhubArtifact = {
+      bytes: await fetchSkillhubArtifact(deps, parts.slug, parts.version),
+      slug: parts.slug,
+      version: parts.version,
+    }
+    return await installSkillhubSkill(deps.local, artifact)
+  }
   const plan = resolveInstallPlan(coordinate.sourceId, coordinate.reference)
   const entries = await fetchRepositoryTree(deps, plan)
   if (entries === undefined) {

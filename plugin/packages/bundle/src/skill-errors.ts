@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 接收技能制品下载、ZIP 解包、包契约核对、本机落点与状态文件四类边界的失败分类
- * [OUTPUT]: 对外提供只携带稳定 `ENT_*` code 的 `EnterpriseSkillInstallError`、封闭的 code 联合与归一化函数 `skillInstallError`
+ * [OUTPUT]: 对外提供只携带稳定 `ENT_*` code 的 `EnterpriseSkillInstallError`、封闭的 code 联合（本刀新增 `ENT_SKILL_PUBLISHED_COPY_FORBIDDEN`）与归一化函数 `skillInstallError`
  * [POS]: bundle 技能安装纵深的失败防泄漏边界——错误里不放响应正文、不放宿主绝对路径、不放子进程输出，浏览器只拿到 `error.code`；code 与 platform-client 的 `enterpriseLocalErrorStatus` 投影表一一对应
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -36,6 +36,29 @@
  * 「包结构不合法」「`SKILL.md` frontmatter 不过」「上游拿不到包」「落盘失败」一律沿用**既有**码
  * （`ENT_SKILL_ARCHIVE_INVALID` / `ENT_SKILL_SKILLMD_INVALID` / `ENT_SKILL_DOWNLOAD_FAILED` /
  * `ENT_SKILL_INSTALL_FAILED`）—— 不为同一种结果造第二枚码。
+ *
+ * **本刀（本地三方 Agent 技能源，口径 62）**只新增**一枚**（宿主侧新维度「本地三方」）：
+ * `ENT_SKILL_THIRD_PARTY_UNAVAILABLE`（本机三方技能根这次读不动 —— 根表决议失败、某个根存在却列不动、
+ * 候选目录扫到一半失败）。它与 `ENT_SKILL_DISCOVERY_UNAVAILABLE` **同一手法**：刻意**不进**
+ * `platform-client` 的 `enterpriseLocalErrorStatus` 表，落在表尾默认 **503**（本机这块暂时不可用、可重试）
+ * ⇒ platform-client **零改动**。★**绝不用空列表代替它**：空列表 = 谎称「本机没有三方技能」。
+ * 本维度**不新造**别的码：路径不在候选集里沿用 `ENT_SKILL_DISCOVERY_UNKNOWN`、已装过沿用
+ * `ENT_SKILL_ALREADY_REGISTERED`、落点被占沿用 `ENT_SKILL_NAME_CONFLICT`、落盘失败沿用
+ * `ENT_SKILL_INSTALL_FAILED`（见 `skill-third-party.ts` 的闸门顺序）。
+ *
+ * **本刀（口径 64 B0：系统广场「已发布技能」导出安装）**只新增**一枚**：
+ * `ENT_SKILL_PUBLISHED_COPY_FORBIDDEN`（发布者不允许复制：详情里 `allowCopy !== 1`，或
+ * `paymentRequired === true`）。★**一码一句话**：两条例外的**下一步完全相同**（重试永远无效，
+ * 因为平台的 `allowCopy` 是发布者自己设的、付款也不是重试能改变的）⇒ 不为同一种结果造第二枚码。
+ * 它同样**刻意不进** `platform-client` 那张码→状态表（落表尾默认 503）⇒ platform-client 零改动；
+ * 界面那侧的 `retryable: false` 由 `ui/src/error-messages.ts` 自己判（不在本包职责内）。
+ * ★为什么这条闸门**必须**在宿主侧：真机实测平台**有字段、没有执行** —— `allowCopy=0` 的记录
+ * （`export/700`）照样回 200 + 128,784B ZIP ⇒ 不自己判就等于替员工绕过发布者授权。
+ * 本维度其余结果**一律沿用既有码**：上游体量超上限 `ENT_SKILL_SOURCE_TOO_LARGE`（413）、
+ * 包结构非法 `ENT_SKILL_ARCHIVE_INVALID`（400）、frontmatter 不过 `ENT_SKILL_SKILLMD_INVALID`（400）、
+ * 已装过 `ENT_SKILL_ALREADY_REGISTERED`（409）、落点被占 `ENT_SKILL_NAME_CONFLICT`（409）、
+ * 落盘失败 `ENT_SKILL_INSTALL_FAILED`（503）、没登录 `ENT_AUTH_REQUIRED`（401）、
+ * 平台拒绝 `ENT_NUWAX_REJECTED`（403）、上游读不懂 `ENT_NUWAX_PROTOCOL`（502）。
  */
 export type EnterpriseSkillInstallErrorCode =
   | 'ENT_INVALID_REQUEST'
@@ -61,6 +84,8 @@ export type EnterpriseSkillInstallErrorCode =
   | 'ENT_SKILL_SOURCE_UNKNOWN'
   | 'ENT_SKILL_SOURCE_UNREACHABLE'
   | 'ENT_SKILL_SOURCE_TOO_LARGE'
+  | 'ENT_SKILL_THIRD_PARTY_UNAVAILABLE'
+  | 'ENT_SKILL_PUBLISHED_COPY_FORBIDDEN'
 
 /** 只向路由与界面暴露固定 code；`cause` 留在 Host 侧日志，不进响应体。 */
 export class EnterpriseSkillInstallError extends Error {

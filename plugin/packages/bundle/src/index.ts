@@ -2,6 +2,15 @@
  * [INPUT]: 依赖 Cordis/Schemastery、Harness credentials/LLM/inventory、官方 dsh-deepseek-account-platform、官方 settings 的 volatile Config 投影、platform-client 的地址写入诊断串与本地路由端口、plugin-distribution 的企业插件分发 Service 与其制品下载内核、官方运行时身份与企业业务模块
  * [OUTPUT]: 对外提供 Web/Desktop 共用 bundle apply、官方 settings 的 volatile Server/账户后台地址字段、默认关闭的插件验签开关、Host 凭据持久化、**企业插件安装/卸载/取消（官方 `pluginManager` 安装面，经 `manager-wiring.ts` 延迟接线；不再有 `dsh plugin` 子进程、不再 inject `subprocess`）**、**企业技能一键安装端口、已装技能只读正文端口、通路一「本地上传」两端口（`skill-upload.ts`：multipart 闸门 + 独立自装清单 + 复用中心安装的加固落盘）与通路二「系统搜索」两端口（`skill-system.ts`：本机技能根盘点三态 + 纳入只登记不复制）、**通路三「在线搜索」两端口（`skill-online.ts`：三源 fan-out + codeload 整仓包 → 内存组 `.dshskill` → 复用加固落盘；公开源走**无凭据裸 fetch**、带令牌的平台面只用在本机记账）****、**企业配方一键启用端口（官方 inject 声明 + 延迟解析取 `pluginManager` 安装面 + 三个实时解引用的本机路由端口 + 既有运行时下载面取配方正文；服务时序上不可用则 fail-closed，等它出现再接线）**、条件 Session 同步注册、**资料库三面（本机路由 `/enterprise/api/v1/local/library/**` + 3 个 Host 工具 + `system-prompt/assemble` 注入；域与主体晚绑定，未登录/未开域 ⇒ 503 可重试）**，以及用 settings 自定义地址热重挂官方账户插件；安卓按 `browserHandoff: 'client'` 把登录浏览器交接给浏览器半（宿主进程没有可用的开源路径），地址不可持久化的每个判定点都写 warn/error 宿主日志
  * [POS]: bundle 的唯一 Host Loader 入口，组合平台认证、官方企业模型、账户后台地址、环境原生插件调和与企业技能落盘（`skill-install.ts` 的中心安装 + 两条通路共用的 `placeEnterpriseSkillArchive`，以及 `skill-upload.ts` 的本地上传/自装清单）**、企业配方一键启用（`preset/`核心 + `preset-source.ts` + `preset-service.ts` + `preset/wiring.ts` 的时序边界）与受管插件官方安装面（`manager-wiring.ts`，复用同一份 `deferOfficialServiceWiring`）、以及资料库纵深（`library/index.ts` 的 `createEnterpriseLibraryHost` + `mountEnterpriseLibraryFaces`）**；Session 同步仅在 sessionPolicy.enabled 时挂载
+ *   ★**本刀（自装技能的卸载 / 打开所在文件夹）**：core 块再挂 `registerEnterpriseSelfInstalledActionRoutes` 两条
+ *     **exact** sibling（`POST …/skills/self-installed/{uninstall,reveal}`，实现见新叶 `skill-self-installed.ts` +
+ *     `skill-self-installed-route.ts`，**platform-client 零改动**）：正文关闭键集**恰好 `{name}`**（技能在本机的
+ *     目录名 —— 界面「已安装」的真相来自官方发现面，那份冻结投影里**只有 `name`、没有我们的记录 id**；而 `skillId`
+ *     的语义按来源各不相同，真正的落盘目录名在记录的 `names[]` 里），响应 `{data:{skills,removed}}`（两键，
+ *     与 `GET /skills/self-installed` 逐字同形；内核那枚 `alreadyMissing` **只进 Host 日志**）。★归属判据：
+ *     被**中心** `installed.json` 认领 ⇒ 404 拒；被**另一条**自装记录也认领 ⇒ 409 fail-closed；唯一独占才删，
+ *     一包多技能只删那一个目录、记录保留其余名字；最后一个名字才整条原子移除。★路径只来自记录（客户端交来的
+ *     永远只有名字），删除走 `deleteOwnedSkillDirectory` 那**唯一**一处；`reveal` 用系统文件管理器（argv、无 shell）。
  *   ★**口径 54（本刀）**：core 块再挂一条**只读**同源路由 `registerEnterpriseSkillDiscoveryRoute`
  *     （`GET /enterprise/api/v1/local/skills/discovered`，实现见新叶 `skill-discovery.ts`）—— 它是
  *     「已安装」的**真源**（宿主官方 `ctx.get('skills')` 的快照 = 本机运行时真正加载的那一份）。
@@ -68,7 +77,7 @@ import { registerEnterpriseFeedbackRoute } from './feedback-route.js'
 import { registerEnterpriseHelpRoute } from './help-route.js'
 import { registerEnterpriseUsageRoute } from './usage-route.js'
 import { registerEnterpriseModelsStatusRoute } from './models-status.js'
-import { registerEnterpriseEscReadRoute } from './esc-route.js'
+import { registerEnterpriseEscReadRoute, type EnterpriseEscReadRoutePort } from './esc-route.js'
 import { readEscMockSwitch } from './esc-mock.js'
 import { createNuwaxSessionHolder } from './nuwax-auth.js'
 import { registerEnterpriseNuwaxRoutes } from './nuwax-route.js'
@@ -78,6 +87,12 @@ import { adoptSystemSkill, discoverSystemSkills } from './skill-system.js'
 import { installSkillFromResult, searchOnlineSkills } from './skill-online.js'
 import { registerEnterpriseSkillRoutes } from './skill-route.js'
 import { registerEnterpriseSkillDiscoveryRoute } from './skill-discovery.js'
+import { discoverThirdPartySkills, installThirdPartySkill } from './skill-third-party.js'
+import { registerEnterpriseThirdPartySkillRoutes } from './skill-third-party-route.js'
+import { installPublishedSkill } from './skill-published.js'
+import { registerEnterprisePublishedSkillRoute } from './skill-published-route.js'
+import { revealSelfInstalledSkill, uninstallSelfInstalledSkill } from './skill-self-installed.js'
+import { registerEnterpriseSelfInstalledActionRoutes } from './skill-self-installed-route.js'
 import {
   createEnterpriseLibraryHost,
   mountEnterpriseLibraryFaces,
@@ -947,6 +962,30 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
   }, (message, error) => {
     ctx.logger.warn(`owndsh: ${message}`, error)
   }), 'enterpriseSkillDiscovery.routes')
+  // 本机三方 Agent 技能源（口径 62：技能页维度行第三枚「本地三方」）。两条 exact 本机路由：
+  //   GET  /enterprise/api/v1/local/skills/third-party           → 15 个内建根的盘点 + 候选三态
+  //   POST /enterprise/api/v1/local/skills/third-party/install   → 把候选**复制**进 `<dshHome>/skills`
+  // ★根表**内建**在本 bundle 里（`skill-third-party.ts` 的 `buildThirdPartySkillRoots`，逐条搬 Cherry
+  //   `systemSkillSources.ts` 的 15 个根 + 三个环境变量覆盖），**不由界面声明**、也不占 `extraRoots`
+  //   （通路二那条 `extraRoots` 的语义保持"部署注入"不变）。
+  // ★★**为什么这一面是"复制"而通路二是"只登记"**（Lead 裁决，两套语义并存但各有名字）：
+  //   官方 `skill-filesystem` 只扫 `<dshHome>/skills` 与项目根，而本维度的 15 个根**全都不在**它的扫描
+  //   范围内 ⇒ 只登记的话 ① Agent 的 `<available_skills>` 里没有它（**加载不到 = 没真的装**）、
+  //   ② 界面「已安装」（读官方发现面 = 磁盘真值）也不会显示它。因此本面走既有**加固落盘**
+  //   （`placeEnterpriseSkillArchive`：落点冲突预检 → 暂存 → 逐个原子改名 → 失败整体回滚）把目录复制
+  //   进 rank 400 的官方根，再原子写自装记录（七键形状一字不改，`sourceType: 'system'`、来源根 id 进
+  //   `sourceInput`）。★**源目录一个字节都不动**（不 move/rsync/删源），★**绝不覆盖**已有同名技能（409）。
+  //   ★是否把 `/skills/adopt`（只登记）与这条（复制）统一，**留后续独立裁决**——本刀两条并存，各自有名字。
+  // ★不暴露 `path`（宿主绝对路径不进浏览器）：响应只有根的 `{id,name,present,count}` 与技能的
+  //   `{id,name,description,rootId,sourceName,directory,status}`。
+  // ★扫描抛错 / 端口缺席 ⇒ `503 + ENT_SKILL_THIRD_PARTY_UNAVAILABLE`（该码刻意不进 platform-client 的
+  //   码→状态表，落表尾默认档 ⇒ platform-client 零改动），**绝不静默回空列表**。
+  ctx.effect(() => registerEnterpriseThirdPartySkillRoutes(ctx.webServer, {
+    discover: () => discoverThirdPartySkills(skillInstallOptions),
+    install: path => installThirdPartySkill(skillInstallOptions, path),
+  }, (message, error) => {
+    ctx.logger.warn(`owndsh: ${message}`, error)
+  }), 'enterpriseThirdPartySkills.routes')
   // 反馈提交透传：浏览器无令牌，由 Host 代取 Access Token 转交中心 multipart 提交；
   // 附件在本地就按中心同名口径限流（≤3 张 / 单张 ≤2 MiB / 位图魔数），
   // diagnostics 由 Host 采集（版本/OS/installationId/最近错误码）并覆盖浏览器提交的同名字段。
@@ -983,19 +1022,65 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
   }), 'enterpriseNuwaxAuth.routes')
   // 「专家·技能·连接器」页面的宿主只读代理（口径 31）：浏览器只打同源本机路由，宿主带着**同一枚**员工票据
   // 去 NUWAX 取数——复用上面那个 holder 实例，**绝不**建第二份登录态（否则两处登录态必然漂移）。
-  // ★只读是结构性的：闭集六条全是读端点（含三条"读语义的 POST"）；收藏/启停/建连这些写动作本刀不做、不在闭集里；
-  // ★票据仍不出宿主；响应把平台信封**原样**交回页面，故原页面的取数口径一字不改。
+  // ★只读是结构性的：闭集（七条字面 + 五条参数化模式，口径 64 B0 新增）全是读端点；
+  //   收藏/启停/建连这些写动作不在闭集里；★票据仍不出宿主；响应把平台信封**原样**交回页面。
+  // ★**口径 64 B0 的两张许可表**：同一个 `escReadPort` 对象交给两个入口 ——
+  //   ① `registerEnterpriseEscReadRoute`（浏览器那条 `POST /esc/read`）只认**浏览器可读表**
+  //     = 七条字面 + 三条「我的专家」模式规则；
+  //   ② `installPublishedSkill`（下面那条本机安装路由）走 `escReadPort` 的**宿主内部读面**
+  //     = 上者 + `/api/published/skill/<id>` 详情 + `/api/published/skill/export/<id>` 制品。
+  //   ★**为什么制品（与详情）不进浏览器可读表**：真机实测平台**不执行** `allowCopy`
+  //   （`allowCopy=0` 的 `export/700` 照样 200 + 128,784B ZIP）⇒ 合规闸门必须由宿主按
+  //   **那一条记录的 targetId** 自己判；这条路径一旦对浏览器开放，`allowCopy` 就形同虚设。
+  //   二进制从头到尾不进浏览器：宿主先取详情判合规，**判过才**去取导出 ZIP。
   // ★`mock` 是**演示数据**开关（口径 32）：平台上没有连接器域（`/api/connector/providers` 回
   // `No static resource …`），于是给这一栏留一条"看得到版式"的路。**默认关**——开关是
   // `${DSH_HOME}/enterprise/esc-mock.json` 这个文件（`DSHENT_ESC_MOCK_FILE` 可改址），
   // 缺席/畸形/读不到一律当关；开着时页面顶部常驻一条「模拟数据」横幅，绝不冒充平台数据。
-  ctx.effect(() => registerEnterpriseEscReadRoute(ctx.webServer, {
+  const escReadPort: EnterpriseEscReadRoutePort = {
     holder: nuwaxAuth,
     mock: () => readEscMockSwitch(process.env),
     onError: (message, error) => {
       ctx.logger.warn(`owndsh: ${message}`, error)
     },
-  }), 'enterpriseEsc.routes')
+  }
+  ctx.effect(() => registerEnterpriseEscReadRoute(ctx.webServer, escReadPort), 'enterpriseEsc.routes')
+  // 口径 64 B0：「系统广场 → 已发布技能 → 导出安装」的本机动作路由（注册面全在 bundle 侧，
+  // platform-client 零改动）。它是 `/skills` 那条 prefix 之外的 **exact** sibling（引擎 exact 整表优先）。
+  // ★闸门顺序全在 `skill-published.ts`：形状 ⇒ **详情判合规**（`allowCopy !== 1` / `paymentRequired === true`
+  //   一律拒，且**在取制品之前**）⇒ 有界取制品（50 MiB 配额）⇒ 共享 ZIP 内核四道门禁 ⇒ frontmatter ⇒
+  //   既有加固落盘（**绝不覆盖**）⇒ 自装记录七键（`sourceType: 'system'`、`sourceInput: 'nuwax:<targetId>'`）。
+  // ★全程走 `escReadPort` 那同一份「只读面 + 票据」：不新造下载器、不碰平台客户端、不动既有三条通路。
+  ctx.effect(() => registerEnterprisePublishedSkillRoute(ctx.webServer, {
+    install: targetId => installPublishedSkill({ ...skillInstallOptions, esc: escReadPort }, targetId),
+  }, (message, error) => {
+    ctx.logger.warn(`owndsh: ${message}`, error)
+  }), 'enterprisePublishedSkills.routes')
+  // 本刀：**自装技能**的两个宿主动作（卸载 / 打开所在文件夹）。两条 exact sibling 注册在
+  //   POST /enterprise/api/v1/local/skills/self-installed/{uninstall,reveal}
+  // —— 它们与 platform-client 那条只读 `GET …/skills/self-installed` **并列**（注册面全在 bundle 侧，
+  //   platform-client 零改动），且抢在 `skill-route.ts` 那条 `/skills` prefix 之前命中（引擎 exact 整表优先）。
+  // ★正文键是 `name`（技能在本机的**目录名**）而不是记录里的 `skillId`：界面「已安装」的真相来自官方发现面
+  //   `/skills/discovered`，那份冻结投影里**只有 `name`、没有我们的记录 id**；而 `skillId` 的语义并不统一
+  //   （本地上传是 archive 的 `manifest.id`、三方/广场/skillhub 是技能名或 slug）——真正的落盘目录名在记录的
+  //   `names[]` 里，故唯一入参口径是「`name` ∈ 某条记录的 `names`」。
+  // ★**为什么卸载必须有跨归属判据**：自装记录里的名字可能与**中心 `installed.json` 的某条记录**或
+  //   **另一条自装记录**重合（`placeEnterpriseSkillArchive` 的 `ownedElsewhere` 只挡新落点，历史重叠仍在）。
+  //   被中心认领 ⇒ 404（那是中心装的东西，归 `/skills/uninstall` 管）；被另一条自装记录也认领 ⇒ 409
+  //   fail-closed（重叠状态，不猜一条删掉）；只有**唯一一条**记录独占它才动手 —— 且一包多技能只删这一个目录、
+  //   记录保留其余名字（如实进响应），记录里已无别的名字才整条移除。
+  // ★**为什么路径只能来自记录**：客户端交来的永远只有 `name` 一个键（"传一个路径进来"在端口形状上
+  //   不可表达），落点由宿主按「记录里的名字 + 固定技能根」自己拼，再过 `deleteOwnedSkillDirectory` 那条
+  //   `lstat` 普通目录 + `realpath` 落点等式；递归删除**只有那一处实现**（不跟随符号链接、条目数与总字节有界）。
+  // ★`reveal` 用**系统文件管理器**打开（argv 调 `open`/`explorer`/`xdg-open`，**无 shell**），失败明确报错：
+  //   没有记录认领/被中心认领/目录不在 → 404 `ENT_RESOURCE_NOT_FOUND`、符号链接/越界 → 409、系统交接失败
+  //   → 503 `ENT_PLATFORM_UNAVAILABLE`（全是既有码，platform-client 零改动）。
+  ctx.effect(() => registerEnterpriseSelfInstalledActionRoutes(ctx.webServer, {
+    uninstall: name => uninstallSelfInstalledSkill(skillInstallOptions, name),
+    reveal: (name, signal) => revealSelfInstalledSkill(skillInstallOptions, name, signal),
+  }, (message, error) => {
+    ctx.logger.warn(`owndsh: ${message}`, error)
+  }), 'enterpriseSelfInstalledSkills.routes')
   // [组件拆分·块②] Session 同步已抽为 `mountSession`（纯移动，行为未改），返回的 handle 回写外层
   // 变量（block ① 的 sessionLocalPort 闭包读它）；session 已由 bootstrap sessionPolicy 门控。
   sessionSyncHandle = mountSession(ctx, platform, sessions, sessionPersistence)

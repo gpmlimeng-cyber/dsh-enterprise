@@ -2,17 +2,23 @@
  * [INPUT]: 依赖 platform-client 的 `resolveEnterpriseDshHome`（与官方 `dsh-home-paths` 同一套 `显式 → $DSH_HOME → ~/.dsh` 优先级）、plugin-distribution 的 `downloadVerifiedArtifact`（size+SHA-256 强制校验 + `.part` 原子改名）、本包的 `projectSkillEnvelope` 与 `decodeDshSkillArchive`
  * [OUTPUT]: 对外提供 `createEnterpriseSkillInstall`（`status`/`action`/`content`/`files`/`file` 五个端口）与可单测的 `installedSkillStatus`、**`readInstalledSkillRecords`**（不过滤的全量记录，供自装侧做「企业记录 ∪ 自装记录」预检）、**`placeEnterpriseSkillArchive`**（本刀从 `installSkillPackage` 尾部**原样抽出**的落盘引擎：落点冲突预检 + 暂存 + 逐个原子改名 + 失败整体回滚，中心安装与本地上传**共用同一份**）、`installSkillPackage`（首次安装与**同包新版本原子升级**同一条路）/`uninstallSkillPackage`/**`installedSkillContent`**（读一条已装技能的 SKILL.md 正文）/**`installedSkillFiles`**（列一条已装技能包在本机真树上的全部条目）/**`installedSkillFile`**（读已装技能里的文本文件），以及三者**共用**的路径实现 **`requireRelativeSkillPath`**（唯一的相对路径门禁）与 **`resolveInstalledSkillTarget`**（唯一的落点解析：记录归属 + `lstat` + `realpath` 三重等式 + 256 KiB 上限）、`SKILL_LOCAL_ROOT_SEGMENTS`/`SKILL_CONTENT_FILENAME`/`SKILL_FILE_MAX_ENTRIES`/`SKILL_FILE_MAX_DEPTH` 与状态文件形状
  * [POS]: bundle 技能纵深的**落盘所有者**——中心详情给出权威 `versionId`/`sha256`/技能名集合，Host 代取令牌下载并校验，再解到 `<dshHome>/enterprise/skill-staging/<uuid>` 后逐个**原子改名**进 `<dshHome>/skills/`；本机已装**同一个 packageId 的旧版本**时同一条路就是**原子升级**（旧目录先挪到 `<staging>-previous/<name>` 备份位、新目录再改名到位、失败原样挪回、成功后清掉旧版本孤儿目录），落点冲突预检只拒「同名目录被**别的包**占用」与「同名目录存在但不在本包记录里」，绝不就地半覆盖；这条路径正是官方 `dsh-skill-filesystem` 的 `user-dsh` 根（rank 400），watcher 深度 1 直发现，因此装完无需重启。官方 0.2.0-rc.2 全量核对后**不存在** skills 安装 RPC（`docs/compose/spec/skill-catalog.md` S2.1 已冻结同一结论），故这里落盘不违背「复用官方能力」：官方对技能的唯一能力面就是这套发现契约，本文件只写它承认的形状，且不执行包内任何内容。**另加一条只读家族（三个入口）**：技能详情子页面要读**已装**技能的本机文件——① `/skills/content` 读 `SKILL.md` 正文、② `/skills/<id>/files` 列本机真树、③ `/skills/<id>/file?path=` 读单个文本文件；客户端交来的永远只是**键形状**（包 id 雪花、相对路径），三者**共用同一份 `requireRelativeSkillPath` + `resolveInstalledSkillTarget` + 文本读取**：名字必须命中本包已装记录、落点由 Host 自己拼，再经 `lstat`（不跟随符号链接）+ `realpath` 逐字比对挡住符号链接逃逸，单文件复用包内 SKILL.md 的 256 KiB 上限，二进制（非法 UTF-8 或夹 NUL）按稳定码拒而不是丢进界面
+ * ★**本刀（自装技能卸载 / 打开所在文件夹）**：三处各自为政的技能目录删除收成 `deleteOwnedSkillDirectory`
+ * **唯一一处**（内部 `removeResolvedSkillDirectory` 用 `lstat` 逐条固化后只 `rm`（**不带** `recursive`，
+ * 目录必得 `EISDIR`）与 `rmdir`（只删空目录）—— **不跟随符号链接**是结构性的，不是靠一个 flag），
+ * 自装上传的孤儿清理与自装卸载都改走它；本文件**不认识**归属判据（"这个名字归谁"由调用方决定，
+ * 自装那一侧在 `skill-self-installed.ts` 里判）——这正是"删除能力唯一、归属判据各归其主"的分工。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { randomUUID } from 'node:crypto'
-import { lstat, mkdir, readdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, readdir, readFile, realpath, rename, rm, rmdir, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { resolveEnterpriseDshHome } from '@dshent/platform-client'
 import { downloadVerifiedArtifact } from '@dshent/plugin-distribution'
 import {
   decodeDshSkillArchive,
   SKILL_ARCHIVE_MAX_BYTES,
+  SKILL_ARCHIVE_MAX_UNCOMPRESSED_BYTES,
   SKILL_MD_MAX_BYTES,
   type EnterpriseSkillArchive,
 } from './skill-archive.js'
@@ -392,7 +398,7 @@ export async function installSkillPackage(
       const newNames = new Set(archive.skills.map(entry => entry.name))
       for (const name of ownNames) {
         if (newNames.has(name) || ownedElsewhere.has(name)) continue
-        await rm(join(skillRoot(deps), name), { force: true, recursive: true }).catch((error: unknown) => {
+        await deleteOwnedSkillDirectory(options, name).catch((error: unknown) => {
           // 清单已更新、装是成功的：孤儿目录清理失败只留痕，不把一次成功的升级报成失败。
           deps.onError?.(`enterprise skill upgrade left a stale directory ${name}`, error)
         })
@@ -493,13 +499,196 @@ export async function placeEnterpriseSkillArchive(
     await request.commit()
   } catch (error) {
     // 任何中途失败都回到动作前的磁盘状态：先撤掉本次放上的新目录，再把挪走的旧目录挪回原位。
-    for (const name of placed) await rm(join(root, name), { force: true, recursive: true }).catch(() => undefined)
+    // 撤回同样走**唯一**删除入口（符号链接/逃逸一律拒）——例外的是这里刻意吞掉失败：
+    // 此刻主错误尚未抛出，回滚失败只留痕，绝不能把主错误盖掉（`?` 那两处同理）。
+    for (const name of placed) await deleteOwnedSkillDirectory(options, name).catch(() => undefined)
     for (const item of replaced) await rename(item.aside, join(root, item.name)).catch(() => undefined)
     throw skillInstallError(error, request.failureCode, 'skill package could not be installed')
   } finally {
     await rm(staging, { force: true, recursive: true }).catch(() => undefined)
     await rm(backup, { force: true, recursive: true }).catch(() => undefined)
   }
+}
+
+/**
+ * 已落盘的一个技能目录（名字 + 真实目录）——**删除入口**与下面的只读入口共用的那一层解析结果。
+ *
+ * `packageId` 在**删除**这条路上是空串：自装卸载按记录里的技能名删，不经过中心雪花包 id；
+ * 只读那三个入口仍按本包 id 解析（`resolveSkillDirectoryFromRoot` 填真实值）。
+ */
+interface ResolvedSkillDirectory {
+  readonly packageId: string
+  readonly skillName: string
+  /** `<dshHome>/skills/<name>`（未规范化）。 */
+  readonly absolutePath: string
+  /** `realpath` 之后必须逐字等于它的那个落点。 */
+  readonly resolvedDirectory: string
+}
+
+/**
+ * 本文件与 `skill-upload.ts` 共用的**唯一**递归删除内核：把一个**已经解析过**的技能目录从磁盘上摘掉。
+ *
+ * 为什么要有这唯一一处（§E.3 + 本刀）：`<dshHome>/skills/<name>` 是**宿主自己**按记录拼出来的落点，
+ * 而它的内容可能是任何人（用户手工、别的工具、我们的安装器）放进去的东西。删除是唯一不可撤销的动作，
+ * 所以「哪些条目允许被摘掉」这条判据只允许有一份实现——安装回滚、升级孤儿清理、自装卸载三处**全部**
+ * 走这里，任何一处自己写 `rm(..., { recursive: true })` 都会长出「能删符号链接指向的东西」这种只在一条
+ * 路径上成立的漏洞。这里有两个刻意的性质：
+ *  ① **不是 `rm -rf`**：整棵树先用 `lstat` 逐条固化（`lstat` 不跟随符号链接 ⇒ 符号链接、设备、FIFO、
+ *     套接字一律按非普通条目**拒绝**，绝不递归跟着链接删到别处），再按「文件在前、目录按深度降序」
+ *     的顺序逐条 `unlink`/`rmdir`；**不跟随符号链接**是结构性的，不是靠一个 flag。
+ *  ② **有界**：条目数/嵌套深度复用只读文件树那条 `SKILL_FILE_MAX_ENTRIES`/`SKILL_FILE_MAX_DEPTH`，
+ *     解压后总字节复用技能包的 `SKILL_ARCHIVE_MAX_UNCOMPRESSED_BYTES`（200 MiB）⇒ 病态目录
+ *     （例如上万条垃圾）会让**卸载失败并如实报错**，而不是把一次 HTTP 请求变成无界磁盘风暴。
+ *
+ * 调用方必须自己先证明「这个目录归本次动作所有」（见 {@link deleteOwnedSkillDirectory} 的注释）；
+ * 本函数只负责「按上面那两条纪律把这个目录摘干净」。
+ *
+ * @param absolute - 技能目录的未规范化绝对路径（`<技能根>/<name>`）。
+ * @param resolved - 它的 `realpath`（调用方已验证逐字等于 `<真实技能根>/<name>`）。
+ * @throws {EnterpriseSkillInstallError} `ENT_SKILL_CONTENT_INVALID`（树里有非常规条目 / 三层界限任一超标 /
+ *   重新校验时发现落点已被换成符号链接）、`ENT_SKILL_INSTALL_FAILED`（unlink/rmdir 本身失败）。
+ */
+async function removeResolvedSkillDirectory(absolute: string, resolved: string): Promise<void> {
+  const files: string[] = []
+  const directories: { readonly path: string, readonly depth: number }[] = []
+  let totalBytes = 0
+  /**
+   * 逐层固化整棵树。**顺序必须自上而下**：只有父目录这一层被证明是普通目录（不是符号链接）之后，
+   * 才允许看它的子项，否则一次「父目录是链接」的逃逸就会把整棵外部树读进来。
+   * 返回值是本目录及其全部后代的字节数（父目录用它累计总量上限）。
+   */
+  const collect = async (directory: string, resolvedDirectory: string, depth: number): Promise<number> => {
+    if (depth > SKILL_FILE_MAX_DEPTH) {
+      throw new EnterpriseSkillInstallError('ENT_SKILL_CONTENT_INVALID', 'the installed skill directory is nested too deeply')
+    }
+    let items
+    try {
+      items = await readdir(directory, { withFileTypes: true })
+    } catch (error) {
+      throw skillInstallError(error, 'ENT_SKILL_INSTALL_FAILED', 'the installed skill directory could not be listed')
+    }
+    const ordered = [...items].sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0))
+    let bytes = 0
+    for (const item of ordered) {
+      if (files.length + directories.length >= SKILL_FILE_MAX_ENTRIES) {
+        throw new EnterpriseSkillInstallError('ENT_SKILL_CONTENT_INVALID', 'the installed skill file tree is too large to remove')
+      }
+      const child = join(directory, item.name)
+      const childResolved = join(resolvedDirectory, item.name)
+      let stats
+      try {
+        // lstat：绝不跟随符号链接。`readdir` 的 dirent 不参与类型判定（避免 TOCTOU）。
+        stats = await lstat(child)
+      } catch (error) {
+        throw skillInstallError(error, 'ENT_SKILL_INSTALL_FAILED', 'an installed skill entry could not be inspected')
+      }
+      if (stats.isSymbolicLink() || (!stats.isDirectory() && !stats.isFile())) {
+        throw new EnterpriseSkillInstallError('ENT_SKILL_CONTENT_INVALID', 'the installed skill tree contains a non-regular entry')
+      }
+      const real = await realpathOrUndefined(child)
+      if (real !== childResolved) {
+        throw new EnterpriseSkillInstallError('ENT_SKILL_CONTENT_INVALID', 'an installed skill entry escapes its skill directory')
+      }
+      if (stats.isDirectory()) {
+        directories.push({ path: child, depth })
+        bytes += await collect(child, childResolved, depth + 1)
+      } else {
+        files.push(child)
+        bytes += stats.size
+      }
+    }
+    totalBytes += bytes
+    if (totalBytes > SKILL_ARCHIVE_MAX_UNCOMPRESSED_BYTES) {
+      throw new EnterpriseSkillInstallError('ENT_SKILL_CONTENT_INVALID', 'the installed skill file tree is too large to remove')
+    }
+    return bytes
+  }
+  // 摘除前**再**做一次落点等式：从上一次校验到这里之间，目录可能被换成指向别处的符号链接。
+  const current = await lstat(absolute)
+  if (!current.isDirectory() || await realpathOrUndefined(absolute) !== resolved) {
+    throw new EnterpriseSkillInstallError('ENT_SKILL_CONTENT_INVALID', 'the installed skill directory is no longer a real directory')
+  }
+  await collect(absolute, resolved, 1)
+  // 文件先删、目录按深度降序删（深目录先空掉），最后才是技能目录本身。
+  // ★一律用 `rm(..., { force: true })`**不带** `recursive`：目录会得到 `EISDIR` ⇒ 只有"这一层已经被我
+  //   清空且逐条固化过"的目录才删得掉，等于对删除范围再做一次结构性反锁。
+  for (const file of files) {
+    await rm(file, { force: true }).catch((error: unknown) => {
+      throw skillInstallError(error, 'ENT_SKILL_INSTALL_FAILED', 'an installed skill file could not be removed')
+    })
+  }
+  for (const directory of [...directories].sort((left, right) => right.depth - left.depth)) {
+    // `rmdir` 只删**空**目录：上面那些文件已逐条摘掉，这一层要么是空的、要么当场失败（能力再次反锁）。
+    await rmdir(directory.path).catch((error: unknown) => {
+      throw skillInstallError(error, 'ENT_SKILL_INSTALL_FAILED', 'an installed skill directory could not be removed')
+    })
+  }
+  await rmdir(absolute).catch((error: unknown) => {
+    throw skillInstallError(error, 'ENT_SKILL_INSTALL_FAILED', 'the installed skill directory could not be removed')
+  })
+}
+/**
+ * 按**技能名**删掉技能根下的一个技能目录（本包内部的唯一删除入口）。
+ *
+ * 名字必须先由调用方按官方 kebab 规约收窄（记录读盘时收窄、或归档闸门收窄），落点一律由本函数自己拼成
+ * `join(<技能根>, name)`，再经 `resolveSkillDirectoryByName` 那几重等式（`lstat` 普通目录 +
+ * `realpath` 逐字等于 `<真实技能根>/<name>`）；父目录与兄弟目录一个字节都不动。
+ *
+ * @param options - 平台面、可选 dshHome、时钟与留痕端口。
+ * @param name - 技能目录名（kebab）。
+ * @returns `'removed'`（确实删掉了一个目录）。目录不在、技能根不在 ⇒ 抛既有 404（"它不在那儿"，
+ *   调用方需要幂等时自己按 `ENT_RESOURCE_NOT_FOUND` 收敛，例如 `uninstallSkillPackage`）。
+ * @throws {EnterpriseSkillInstallError} `ENT_RESOURCE_NOT_FOUND`（技能根或目录不在）、
+ *   `ENT_SKILL_CONTENT_INVALID`（符号链接 / 逃逸 / 非常规条目 / 超界）、`ENT_SKILL_INSTALL_FAILED`（I/O 失败）。
+ */
+export async function deleteOwnedSkillDirectory(
+  options: EnterpriseSkillInstallOptions,
+  name: string,
+): Promise<'removed' | 'missing'> {
+  const deps = resolveDependencies(options)
+  const directory = await resolveSkillDirectoryByName(deps, name)
+  await removeResolvedSkillDirectory(directory.absolutePath, directory.resolvedDirectory)
+  return 'removed'
+}
+
+/**
+ * 把一个**技能名**解析成技能根下已落盘的真实目录：落点由本函数自己拼（调用方给的永远只是名字），
+ * `lstat` 必须是普通目录（符号链接即拒），且 `realpath` 逐字等于 `<真实技能根>/<name>`。
+ *
+ * @param deps - 已解析的 dshHome/时钟/留痕。
+ * @param skillName - 技能目录名（kebab；仅用作**单个路径段**）。
+ * @returns 落点与它的 `realpath`。
+ * @throws {EnterpriseSkillInstallError} `ENT_RESOURCE_NOT_FOUND`（技能根或目录不在）、
+ *   `ENT_SKILL_CONTENT_INVALID`（符号链接 / 逃逸 / 非常规条目的读数）、`ENT_SKILL_INSTALL_FAILED`（`lstat` 的 I/O 失败）。
+ */
+async function resolveSkillDirectoryByName(
+  deps: ResolvedDependencies,
+  skillName: string,
+): Promise<ResolvedSkillDirectory> {
+  const root = skillRoot(deps)
+  const absolutePath = join(root, skillName)
+  const resolvedRoot = await realpathOrUndefined(root)
+  if (resolvedRoot === undefined) {
+    throw new EnterpriseSkillInstallError('ENT_RESOURCE_NOT_FOUND', 'the installed skill root is missing')
+  }
+  const resolvedDirectory = join(resolvedRoot, skillName)
+  let stats
+  try {
+    stats = await lstat(absolutePath)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new EnterpriseSkillInstallError('ENT_RESOURCE_NOT_FOUND', 'the installed skill directory is missing')
+    }
+    throw skillInstallError(error, 'ENT_SKILL_CONTENT_INVALID', 'the installed skill directory could not be inspected')
+  }
+  if (!stats.isDirectory()) {
+    throw new EnterpriseSkillInstallError('ENT_SKILL_CONTENT_INVALID', 'the installed skill path is not a directory')
+  }
+  const resolved = await realpathOrUndefined(absolutePath)
+  if (resolved !== resolvedDirectory) {
+    throw new EnterpriseSkillInstallError('ENT_SKILL_CONTENT_INVALID', 'the installed skill directory escapes its skill root')
+  }
+  return { packageId: '', skillName, absolutePath, resolvedDirectory }
 }
 
 /**
@@ -524,11 +713,12 @@ export async function uninstallSkillPackage(
   const shared = new Set(records
     .filter(item => item.packageId !== id)
     .flatMap(item => [...item.names]))
-  const root = skillRoot(deps)
   for (const name of record.names) {
     if (shared.has(name)) continue
-    await rm(join(root, name), { force: true, recursive: true }).catch((error: unknown) => {
-      throw skillInstallError(error, 'ENT_SKILL_INSTALL_FAILED', 'installed skill directory could not be removed')
+    // 目录本来就不在（重复卸载 / 用户手工删过）= 幂等成功，不报错也不创建任何东西。
+    await deleteOwnedSkillDirectory(options, name).catch((error: unknown) => {
+      if (error instanceof EnterpriseSkillInstallError && error.code === 'ENT_RESOURCE_NOT_FOUND') return
+      throw error
     })
   }
   await writeRecords(deps, records.filter(item => item.packageId !== id))
@@ -676,16 +866,6 @@ async function resolveInstalledSkillRoot(
     throw new EnterpriseSkillInstallError('ENT_RESOURCE_NOT_FOUND', 'the installed skill root is missing')
   }
   return { packageId: id, record, root, resolvedRoot }
-}
-
-/** 已落盘的一个技能目录（记录里的名字 + 真实目录），三个只读入口共用的第二层。 */
-interface ResolvedSkillDirectory {
-  readonly packageId: string
-  readonly skillName: string
-  /** `<dshHome>/skills/<name>`（未规范化）。 */
-  readonly absolutePath: string
-  /** `realpath` 之后必须逐字等于它的那个落点。 */
-  readonly resolvedDirectory: string
 }
 
 /**

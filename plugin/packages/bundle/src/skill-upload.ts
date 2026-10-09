@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 node:crypto 的 createHash/randomUUID、node:fs/promises、node:path、platform-client 的 `resolveEnterpriseDshHome`、本包的 `decodeDshSkillArchive`（ZIP/manifest 闸门）、`validateSkillFrontmatter`（§D.4 正文闸门）、`parseFeedbackMultipart`（**复用反馈那条 multipart 解析器，绝不新造第二个**）、`placeEnterpriseSkillArchive`（**复用中心安装那条加固落盘**）与稳定错误码
- * [OUTPUT]: 对外提供通路一「本地上传」的 Host 侧全流程 `uploadSkillArchive(options, body, boundary)`、只读投影 `installedSelfSkills(options)`、把一条记录并入自装清单的 `upsertSelfInstalledRecord(options, record)`（供通路二「系统搜索 → 纳入」复用同一份七键记录与 0600 原子写），以及 `SelfInstalledSkillRecord`/`EnterpriseSelfInstalledSkills` 形状、`SYSTEM_ADOPT_SOURCE_TYPE` 取值与自装状态文件常量
- * [POS]: bundle 技能纵深的**第二份记录**所有者（真源 `docs/plan/skill-install-sources.md` §B.1 方案甲 + §E.2③）——浏览器 multipart 字节进到 Host 后：**先闸门**（ZIP 结构 → manifest → frontmatter）、算 sha256、按内容寻址写进 `<dshHome>/enterprise/skill-uploads/<sha256>.dshskill`，再从 `decodeDshSkillArchive` 起的下游**一字不改**地交给 `placeEnterpriseSkillArchive`（与中心安装同一套落点冲突预检 / 暂存 / 逐个原子改名 / 失败整体回滚），最后原子写**独立**的自装清单 `<dshHome>/enterprise/skill-installs/self-installed.json`。★自装记录**不写进** `installed.json`（那份是严格八键 + 雪花 id 的中心口径，塞进去只能伪造 id 或放宽形状）；★本文件**不提供自装卸载**（那是下一刀，§E.3 的跨归属卸载判据因此本刀不动）；★全程零 exec/spawn、不做动态 import，只落 0o600 文件与 0o700 目录
+ * [OUTPUT]: 对外提供通路一「本地上传」的 Host 侧全流程 `uploadSkillArchive(options, body, boundary)`、只读投影 `installedSelfSkills(options)`、把一条记录并入自装清单的 `upsertSelfInstalledRecord(options, record)`（供通路二「系统搜索 → 纳入」复用同一份七键记录与 0600 原子写）、**用一整份清单原子替换自装清单的 `replaceSelfInstalledRecords(options, records)`**（本刀新增：自装技能卸载要"改短名单 / 整条移除"，`upsert` 的"并入"表达不了；形状 / 权限 / 0600 原子写仍是下面那两个函数的同一份实现 —— **`self-installed.json` 的写入口仍然只有这一处**），以及 `SelfInstalledSkillRecord`/`EnterpriseSelfInstalledSkills` 形状、`SYSTEM_ADOPT_SOURCE_TYPE` 取值与自装状态文件常量
+ * [POS]: bundle 技能纵深的**第二份记录**所有者（真源 `docs/plan/skill-install-sources.md` §B.1 方案甲 + §E.2③）——浏览器 multipart 字节进到 Host 后：**先闸门**（ZIP 结构 → manifest → frontmatter）、算 sha256、按内容寻址写进 `<dshHome>/enterprise/skill-uploads/<sha256>.dshskill`，再从 `decodeDshSkillArchive` 起的下游**一字不改**地交给 `placeEnterpriseSkillArchive`（与中心安装同一套落点冲突预检 / 暂存 / 逐个原子改名 / 失败整体回滚），最后原子写**独立**的自装清单 `<dshHome>/enterprise/skill-installs/self-installed.json`。★自装记录**不写进** `installed.json`（那份是严格八键 + 雪花 id 的中心口径，塞进去只能伪造 id 或放宽形状）；**★自装卸载与「打开所在文件夹」已由 `skill-self-installed.ts` 补上**（它只调本文件的 `readSelfInstalledRecords`/`replaceSelfInstalledRecords`，一个字节的落盘动作都不自己写），自装上传的孤儿清理改走 `skill-install.ts` 的**唯一**删除入口 `deleteOwnedSkillDirectory`（本文件不再有第二个 `rm(recursive)`）；★全程零 exec/spawn、不做动态 import，只落 0o600 文件与 0o700 目录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -14,6 +14,7 @@ import { EnterpriseSkillInstallError, skillInstallError } from './skill-errors.j
 import { parseFeedbackMultipart } from './feedback-route.js'
 import { validateSkillFrontmatter } from './skill-frontmatter.js'
 import {
+  deleteOwnedSkillDirectory,
   installedSkillStatus,
   placeEnterpriseSkillArchive,
   readInstalledSkillRecords,
@@ -275,6 +276,27 @@ export async function upsertSelfInstalledRecord(
 }
 
 /**
+ * 用**一整份**记录清单原子替换自装清单（本文件与 `skill-self-installed.ts` 的**唯一**写入口）。
+ *
+ * ★为什么这条入口必须住在**记录所有者**这一侧（本刀）：卸载那条路要的是「精确地把一条记录改成短名单 /
+ * 整条移除」，`upsertSelfInstalledRecord` 的「并入」表达不了它。两处各写一遍「读—过滤—0600 原子写」
+ * 迟早会出现「一处写得进、另一处读回来判损坏」的静默分裂，更糟的是会多出**第二个**
+ * `self-installed.json` 写者。故对外只多这一个薄入口：形状、权限与原子写仍是下面那两个函数的同一份
+ * 实现（`readSelfInstalledRecords` 的键集闸门 + `writeSelfInstalledRecords` 的 0o700/0o600/临时件 `rename`），
+ * `skill-self-installed.ts` 一个字节的落盘动作都不做。
+ *
+ * @param options - 平台面、可选 dshHome、时钟与留痕端口。
+ * @param records - **完整**的七键记录清单（调用方负责每条都已按契约收窄；`[]` 是合法空状态）。
+ * @throws {EnterpriseSkillInstallError} `ENT_SKILL_STATE_INVALID`：写盘失败。
+ */
+export async function replaceSelfInstalledRecords(
+  options: EnterpriseSkillInstallOptions,
+  records: readonly SelfInstalledSkillRecord[],
+): Promise<void> {
+  await writeSelfInstalledRecords(resolveUploadDependencies(options), records)
+}
+
+/**
  * 从 multipart 正文里取**恰好一个** `artifact` 文件 part 的字节（冻结契约，§B.1 步骤 3/4）。
  *
  * 解析器复用反馈那条 `parseFeedbackMultipart`（本仓只有这一份 multipart 分帧实现，不新造第二个）；
@@ -399,10 +421,12 @@ export async function uploadSkillArchive(
       }
       await writeSelfInstalledRecords(deps, [...selfRecords.filter(item => item.skillId !== archive.skillId), record])
       // 同一个 skillId 重传时不再被本包引用的旧目录随之清掉（与中心安装的孤儿清理同口径）。
+      // 删除走**唯一**那一处实现（`deleteOwnedSkillDirectory`：lstat 拒符号链接 + realpath 落点等式），
+      // 本文件不写第二个递归删除。
       const newNames = new Set(archive.skills.map(entry => entry.name))
       for (const name of ownNames) {
         if (newNames.has(name) || ownedElsewhere.has(name)) continue
-        await rm(join(skillRoot(deps), name), { force: true, recursive: true }).catch((error: unknown) => {
+        await deleteOwnedSkillDirectory(options, name).catch((error: unknown) => {
           deps.onError?.(`enterprise skill upload left a stale directory ${name}`, error)
         })
       }

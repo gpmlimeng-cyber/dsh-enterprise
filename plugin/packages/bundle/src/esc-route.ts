@@ -1,8 +1,24 @@
 /**
  * [INPUT]: 依赖 Node HTTP 类型、platform-client 的 `ctx.webServer` route port 与稳定码→HTTP 状态唯一映射 `enterpriseLocalErrorStatus`、本包 `./nuwax-auth.js` 的会话持有者（票据唯一来源）与 `resolveNuwaxOrigin`
- * [OUTPUT]: 对外提供 `registerEnterpriseEscReadRoute`（**三条** exact 路由：`POST …/esc/read` 只读取数 + `GET …/esc/image` 图片代理 + `GET …/esc/mock` 演示数据开关状态）、路径常量、上限常量、**只读端点闭集** `ENTERPRISE_ESC_READ_ENDPOINTS` 与**图片路径闭集** `ENTERPRISE_ESC_IMAGE_PATH_PREFIXES`
+ * [OUTPUT]: 对外提供 `registerEnterpriseEscReadRoute`（**三条** exact 路由：`POST …/esc/read` 只读取数 + `GET …/esc/image` 图片代理 + `GET …/esc/mock` 演示数据开关状态）、路径常量、上限常量、**只读端点闭集** `ENTERPRISE_ESC_READ_ENDPOINTS`、**参数化只读规则闭集** `ENTERPRISE_ESC_READ_PATTERNS`（+ 数字段闭集 `ENTERPRISE_ESC_READ_ID_PATTERN`）与**图片路径闭集** `ENTERPRISE_ESC_IMAGE_PATH_PREFIXES`；**本刀**另出宿主内部读的两个唯一入口 `readEnterpriseEscHostJson` / `readEnterpriseEscHostArtifact`（同一份 HTTP 客户端、会话与三条红线，**许可表是宿主那张** ⇒ 制品二进制永不进浏览器）
  * [POS]: 「专家·技能·连接器」页面的**宿主只读代理面**（口径 31）——浏览器只打同源本机路由，宿主带着**进程内那枚员工票据**去 NUWAX 取数，再把平台信封**原样**交回页面（原页面的取数口径因此一字不改）。
- *   ★只读是**结构性**的：闭集六个端点全是"读"，没有任何写端点；平台路径必须**逐字命中**闭集（不做前缀匹配），故本路由无法被拿去打平台别的接口。
+ *   ★只读是**结构性**的：闭集（字面表 + 参数化模式表）全是"读"，没有任何写端点；平台路径必须**逐字命中**闭集（字面表逐字、模式表整条正则），故本路由无法被拿去打平台别的接口。
+ *   ★**本刀（口径 64 B0）：闭集仍是闭集，但多了"参数段"这一维** —— 新增一份与字面表**并列**的
+ *   `ENTERPRISE_ESC_READ_PATTERNS`（四条 GET，逐条见常量注释）；参数段**只允许 1..18 位纯数字**
+ *   （`ENTERPRISE_ESC_READ_ID_PATTERN`）⇒ `/`、`..`、查询串、额外后缀、百分号编码一律**不匹配即 400**，
+ *   且**一次上游都不打**（`requireBrowserReadableEndpoint` 在发请求之前就抛）。
+ *   ★**同一份 HTTP 客户端，两张不同的许可表**（这是本刀唯一的信任边界改动，务必逐字读懂再改）：
+ *   · **浏览器可读表** = 七条字面规则 + 三条「我的专家」模式规则（`/api/agent/list/<id>`、
+ *     `/api/user/agent/collect/list/<id>/<id>`、`/api/user/agent/dev/collect/list/<id>/<id>`）；
+ *   · **宿主内部可读表** = 上者 **+** `/api/published/skill/<id>`（详情：`allowCopy`/`paymentRequired`/`files[]`）
+ *     **+** `/api/published/skill/export/<id>`（制品二进制 ZIP）。
+ *   ★**为什么导出规则不进浏览器可读表**：真机实测平台**不拦** `allowCopy=0` 的导出（`export/700` 照样 200 + 128,784B），
+ *   合规闸门只能由宿主按**那一条记录的 targetId** 自己判 ⇒ 只要浏览器拿到这条路径，`allowCopy` 就形同虚设
+ *   （页面可以直接把 ZIP 取走）。故制品的取数只有宿主内部一条路：宿主先取详情判合规，**判过才**取制品，
+ *   二进制从头到尾不进浏览器。详情那一条同理归宿主内部：它是**合规判据的唯一来源**，判据面留在一个信任域里，
+ *   界面按列表记录的 `allowCopy` 预判即可（列表走既有字面规则，浏览器照旧可读）。
+ *   ★宿主内部读**不是第二条通道**：它就是同一条 `sendEscPlatformRequest` + 同一枚 `holder` 票据 +
+ *   同一套判决（3xx/401/5xx/4xx 与两条上限），只是把许可表换成宿主那一张；没有新的 HTTP 客户端、没有新的下载器。
  *   ★取数面的闸门**有先后**：① 部署配置 ⇒ ② 演示数据（口径 32，默认关，见 `esc-mock.ts`）⇒ ③ 会话。
  *   演示数据**排在会话之前**是有意的：它不来自平台，就不该要平台会话；而它**只在组合层注入了开关读取器、
  *   且读取器说开着时**才存在，故真实部署里这条分支默认走不到（端口不给 `mock` ⇒ 恒回 `absent`）。
@@ -29,7 +45,7 @@ import {
   type EscMockSwitch,
   resolveEscMockPayload,
 } from './esc-mock.js'
-import { resolveNuwaxOrigin, type NuwaxSessionHolder } from './nuwax-auth.js'
+import { resolveNuwaxOrigin, type NuwaxSession, type NuwaxSessionHolder } from './nuwax-auth.js'
 
 /** 本机 esc 只读代理的公共前缀（路径常量由它派生）。 */
 export const ENTERPRISE_ESC_LOCAL_PREFIX = '/enterprise/api/v1/local/esc'
@@ -121,6 +137,114 @@ export const ENTERPRISE_ESC_READ_ENDPOINTS: Readonly<Record<string, EnterpriseEs
   '/api/published/skill/enable/list': 'POST',
 }
 
+/**
+ * 参数化只读规则的**参数段形状**：1..18 位纯数字（平台雪花 id 的十进制写法）。
+ *
+ * ★它是模式表**唯一**允许的可变部分，判据只有这一条就够了：整条正则带 `^…$` 锚，故 `/`、`..`、
+ * 查询串（`?`）、额外后缀、百分号编码（`%`）都不在 `[0-9]` 里 ⇒ **整条不匹配** ⇒ 400 且零上游。
+ * 用 `[0-9]` 而不是 `\d`：`\d` 在某些运行时会吃下别的 Unicode 数字（全角、阿拉伯-印度数字），
+ * 那会让"看起来是数字"的路径进到上游 URL 里——这里的闭集要的是**字节级确定**。
+ */
+export const ENTERPRISE_ESC_READ_ID_PATTERN = /^[0-9]{1,18}$/
+
+/**
+ * 一条**参数化**只读规则（闭集的第二份表，与 `ENTERPRISE_ESC_READ_ENDPOINTS` 并列）。
+ *
+ * `browserReadable` 就是**两张许可表**的那一位：`true` = 浏览器可经 `POST /esc/read` 打；
+ * `false` = **只有宿主内部读面**（`readEnterpriseEscHostJson` / `readEnterpriseEscHostArtifact`）能打。
+ */
+export interface EnterpriseEscReadPattern {
+  /** 整条平台路径的正则（带 `^…$`；参数段只允许 {@link ENTERPRISE_ESC_READ_ID_PATTERN}）。 */
+  readonly pattern: RegExp
+  readonly method: EnterpriseEscPlatformMethod
+  /** 人话模板（注释与测试的可读对照物；**不参与匹配**）。 */
+  readonly template: string
+  /** ★浏览器可读位：见本接口上方与文件头部「两张许可表」那段。 */
+  readonly browserReadable: boolean
+}
+
+/**
+ * **参数化只读规则闭集**（本刀新增，五条，全部 `GET`）。
+ *
+ * 来源逐条可查：
+ *  · `/api/agent/list/<id>`、`/api/user/agent/collect/list/<id>/<id>`、`/api/user/agent/dev/collect/list/<id>/<id>`
+ *    是 NUWAX 前端「我的专家」（我创建的 / 我购买的·收藏的 / 我开发的收藏）三个取数点的路径形状，
+ *    两个数字段分别是**专家 id** 与**分页/维度 id**（真实调用形状由界面侧固定，宿主只做形状闭集）。
+ *  · `/api/published/skill/<id>` 是**技能详情**：真机实测它比列表多 `files[]`，并带合规判据
+ *    `allowCopy` / `paymentRequired` ⇒ 本刀口径 64 的**合规判据唯一来源**。
+ *  · `/api/published/skill/export/<id>` 是**制品**：真机实测 `200 application/octet-stream` + 真 ZIP
+ *    （`158 dev-engineer-toolkit` 32,238B，首条 `dev-engineer-toolkit/SKILL.md`）。
+ *
+ * ★后两条 `browserReadable: false` 的理由见文件头部「为什么导出规则不进浏览器可读表」——一句话：
+ * 平台**不拦** `allowCopy=0` 的导出，这条路径一旦对浏览器开放，发布者的授权就被绕过了。
+ */
+export const ENTERPRISE_ESC_READ_PATTERNS: readonly EnterpriseEscReadPattern[] = [
+  {
+    template: '/api/agent/list/<id>',
+    pattern: /^\/api\/agent\/list\/[0-9]{1,18}$/,
+    method: 'GET',
+    browserReadable: true,
+  },
+  {
+    template: '/api/user/agent/collect/list/<id>/<id>',
+    pattern: /^\/api\/user\/agent\/collect\/list\/[0-9]{1,18}\/[0-9]{1,18}$/,
+    method: 'GET',
+    browserReadable: true,
+  },
+  {
+    template: '/api/user/agent/dev/collect/list/<id>/<id>',
+    pattern: /^\/api\/user\/agent\/dev\/collect\/list\/[0-9]{1,18}\/[0-9]{1,18}$/,
+    method: 'GET',
+    browserReadable: true,
+  },
+  {
+    template: '/api/published/skill/<id>',
+    pattern: /^\/api\/published\/skill\/[0-9]{1,18}$/,
+    method: 'GET',
+    browserReadable: false,
+  },
+  {
+    template: '/api/published/skill/export/<id>',
+    pattern: /^\/api\/published\/skill\/export\/[0-9]{1,18}$/,
+    method: 'GET',
+    browserReadable: false,
+  },
+]
+
+/**
+ * **浏览器可读表**：`POST /esc/read` 的唯一许可面（字面表 ∪ `browserReadable` 的模式表）。
+ *
+ * @param path - 浏览器交来的平台路径（**原样**，不做任何归一化/解码）。
+ * @returns 命中的方法；不在表里返回 `undefined`（调用方判 400 且**一次上游都不打**）。
+ */
+export function resolveEnterpriseEscBrowserReadable(path: string): EnterpriseEscPlatformMethod | undefined {
+  const literal = ENTERPRISE_ESC_READ_ENDPOINTS[path]
+  if (literal !== undefined) return literal
+  for (const rule of ENTERPRISE_ESC_READ_PATTERNS) {
+    if (rule.browserReadable && rule.pattern.test(path)) return rule.method
+  }
+  return undefined
+}
+
+/**
+ * **宿主内部可读表**：字面表 ∪ **全部**模式表（含那两条 `browserReadable: false`）。
+ *
+ * ★它与 {@link resolveEnterpriseEscBrowserReadable} 是**两张不同的许可表**，共用下面同一份 HTTP 客户端。
+ * 只有宿主内部读的两个入口（`readEnterpriseEscHostJson` / `readEnterpriseEscHostArtifact`）走这一张；
+ * 浏览器那条 `POST /esc/read` **永远**走上面那一张。两者唯一的差别就是那两条制品/判据路径。
+ *
+ * @param path - 宿主自己拼出来的平台路径（数字段来自**安全整数入参**，不是调用方给的字符串）。
+ * @returns 命中的方法；不在表里返回 `undefined`（调用方按内部许可失败处理）。
+ */
+export function resolveEnterpriseEscHostReadable(path: string): EnterpriseEscPlatformMethod | undefined {
+  const literal = ENTERPRISE_ESC_READ_ENDPOINTS[path]
+  if (literal !== undefined) return literal
+  for (const rule of ENTERPRISE_ESC_READ_PATTERNS) {
+    if (rule.pattern.test(path)) return rule.method
+  }
+  return undefined
+}
+
 const JSON_CONTENT_TYPE = 'application/json; charset=utf-8'
 
 /**
@@ -157,8 +281,28 @@ class EscReadError extends Error {
   }
 }
 
-/** 路由端口：会话持有者（票据唯一来源）+ 可注入的 `fetch`/配置/上限 + 失败留痕。 */
-export interface EnterpriseEscReadRoutePort {
+/**
+ * "平台正文超过本面配额"那一条传输失败（`readBoundedBytes` 的两处早退）。
+ *
+ * ★它的**对外身份与 `EscReadError` 逐字相同**（`code` 仍是 `ENT_NUWAX_PROTOCOL` ⇒ 浏览器那条
+ * `POST /esc/read` 的状态码与错误码一个字节都没变）；它只是让**宿主内部**的制品读面能把
+ * "太大"与"读不懂/超时"分开：前者可以由调用方翻成技能族那枚"上游体量超上限"（413），
+ * 后者必须原样上抛。**不为它新增任何稳定码**。
+ */
+class EscReadTooLargeError extends EscReadError {
+  constructor(message: string) {
+    super('ENT_NUWAX_PROTOCOL', message)
+    this.name = 'EscReadTooLargeError'
+  }
+}
+
+/**
+ * 平台只读取数的**共同入参**（浏览器读面与宿主内部读面共用同一份 HTTP 客户端与同一枚票据）。
+ *
+ * ★把"取数能力"抽出来是为了让**两张许可表共用一个实现**：许可表只是入口处的一次查表，
+ * 传输层（超时、有界读、不跟随重定向、票据 cookie）与判决（3xx/401/5xx/4xx）**逐字只有一份**。
+ */
+export interface EnterpriseEscReadAccess {
   /** 会话持有者；由组合层在 `apply()` 里造一次（进程内唯一，与登录面同一个实例）。 */
   readonly holder: NuwaxSessionHolder
   /** 平台请求实现（默认宿主全局 `fetch`；测试注入假实现）。 */
@@ -169,6 +313,13 @@ export interface EnterpriseEscReadRoutePort {
   readonly timeoutMs?: number | undefined
   /** 覆盖平台响应上限（测试用）。 */
   readonly maxBytes?: number | undefined
+}
+
+/** 宿主内部读面（口径 64 的安装路取数与浏览器那条 `POST /esc/read` 用的是同一份客户端）。 */
+export type EnterpriseEscHostReadPort = EnterpriseEscReadAccess
+
+/** 路由端口：会话持有者（票据唯一来源）+ 可注入的 `fetch`/配置/上限 + 失败留痕。 */
+export interface EnterpriseEscReadRoutePort extends EnterpriseEscReadAccess {
   /** 覆盖**图片**响应上限（测试用；未给时用 {@link ENTERPRISE_ESC_MAX_IMAGE_BYTES}）。 */
   readonly maxImageBytes?: number | undefined
   /**
@@ -205,8 +356,11 @@ export function registerEnterpriseEscReadRoute(
       try {
         const body = asRecord(await readJsonBody(request, ENTERPRISE_ESC_MAX_BODY_BYTES))
         requireClosedKeySet(body, READ_BODY_KEYS)
-        const endpoint = requireEndpoint(body)
+        // ★许可表①：**浏览器可读表**（字面表 + `browserReadable` 的模式规则）。制品那两条**不在**这里
+        //   ——浏览器永远取不到导出 ZIP（见文件头部「两张许可表」那段），这是本刀唯一的安全边界。
+        const target = requireBrowserReadableEndpoint(body)
         const params = readParams(body)
+        const endpoint = target.path
         // ① 部署配置闸门：显式停用 / 形状非法 ⇒ 503（**本机部署问题**，比"请先登录"更靠前的那一条事实）
         resolveNuwaxOrigin(port.env ?? process.env)
         // ② 演示数据闸门（口径 32；**默认关**，只有组合层注入了开关读取器、且它说开着才进得来）：
@@ -244,6 +398,7 @@ export function registerEnterpriseEscReadRoute(
           fetchImpl: port.fetch ?? defaultFetch(),
           origin: session.origin,
           endpoint,
+          method: target.method,
           params,
           ticket: session.ticket,
           timeoutMs: port.timeoutMs ?? ENTERPRISE_ESC_REQUEST_TIMEOUT_MS,
@@ -347,6 +502,8 @@ async function mergeMockCategoryTree(
       fetchImpl: port.fetch ?? defaultFetch(),
       origin: session.origin,
       endpoint: ENTERPRISE_ESC_MOCK_CATEGORY_PATH,
+      // 这一条走的是**字面表**（演示数据补的那根真树），方法从表里取，不走任何模式规则。
+      method: ENTERPRISE_ESC_READ_ENDPOINTS[ENTERPRISE_ESC_MOCK_CATEGORY_PATH] ?? 'GET',
       params: {},
       ticket: session.ticket,
       timeoutMs: port.timeoutMs ?? ENTERPRISE_ESC_REQUEST_TIMEOUT_MS,
@@ -368,6 +525,8 @@ interface PlatformFetchInput {
   readonly fetchImpl: (input: string, init?: RequestInit) => Promise<Response>
   readonly origin: string
   readonly endpoint: string
+  /** 方法已由**调用方那张许可表**判过（浏览器表 / 宿主内部表），本函数不再查任何表。 */
+  readonly method: EnterpriseEscPlatformMethod
   readonly params: Readonly<Record<string, string | number | boolean | readonly (string | number | boolean)[]>>
   readonly ticket: string
   readonly timeoutMs: number
@@ -379,13 +538,12 @@ interface PlatformFetchInput {
  *
  * 判决顺序固定：3xx 已在传输层判协议错 → 401 判"需要重新登录" → 5xx 判上游不可用 →
  * 其余非 2xx 判"平台拒绝" → 2xx 才解析信封（无 `code` 判协议错）。
+ *
+ * ★方法由调用方给：它必须来自**调用方那张许可表**（浏览器可读 / 宿主内部可读），本函数不做第二次查表
+ * —— 两张表共用这一个实现，差别只在入口那一次 `resolve…`。
  */
 async function fetchPlatformEnvelope(input: PlatformFetchInput): Promise<unknown> {
-  const method = ENTERPRISE_ESC_READ_ENDPOINTS[input.endpoint]
-  if (method === undefined) {
-    // 闭集已在入口判过，这里只是把"表里没有"变成编译期就看得见的穷尽检查
-    throw new EscReadError('ENT_NUWAX_PROTOCOL', `endpoint ${input.endpoint} is not in the read-only set`)
-  }
+  const method = input.method
   const url = new URL(input.endpoint, input.origin)
   const init: RequestInit = {
     method,
@@ -426,6 +584,144 @@ async function fetchPlatformEnvelope(input: PlatformFetchInput): Promise<unknown
     throw new EscReadError('ENT_NUWAX_REJECTED', `the platform answered HTTP ${status}`)
   }
   return parseEnvelope(bytes)
+}
+
+/* ────────────────────────── 宿主内部读面（口径 64 B0） ──────────────────────────
+ *
+ * ★**同一份 HTTP 客户端、两张不同的许可表**：下面两个入口与浏览器那条 `POST /esc/read`
+ * 共用 `sendEscPlatformRequest`/`fetchPlatformEnvelope`/同一枚 `holder` 票据与同一套判决，
+ * 唯一的差别是入口处查的那张表（宿主那张多两条：技能**详情**与**制品导出**）。
+ *
+ * ★为什么制品这条路必须留在宿主内部、绝不注册成浏览器可读：真机实测平台**不执行** `allowCopy`
+ *（`export/700`——发布者 `allowCopy=0`——照样 200 + 128,784B ZIP）⇒ 合规闸门只能由宿主按
+ * **那一条记录的 targetId** 自己判；浏览器一旦拿到这条路径，`allowCopy` 就形同虚设。
+ * 详情那一条同理：它是这套判据的**唯一来源**，判据面只留在一个信任域里。
+ *
+ * ★**这不是第二条下载通道**：没有新的 HTTP 客户端、没有新的重定向/超时/有界读实现，
+ * 也没有新的 ZIP 解析器（解包在 `skill-published.ts` 里复用 `zip-archive.ts` 的唯一内核）。
+ */
+
+/**
+ * 宿主内部读一个平台**只读**端点，回平台信封（原样）。
+ *
+ * @param port - 宿主内部读端口（组合层把 `registerEnterpriseEscReadRoute` 的同一个对象交进来）。
+ * @param path - 宿主自己拼的平台路径（必须在**宿主内部许可表**里）。
+ * @returns 平台信封（与浏览器那条 `POST /esc/read` 交回页面的东西逐字同一种）。
+ * @throws {EscReadError} 部署配置不可用 / 没会话（`ENT_AUTH_REQUIRED`）/ 上游四类失败；
+ *   路径不在宿主许可表里是本机代码写错（判协议错，不是调用方输入问题）。
+ */
+export async function readEnterpriseEscHostJson(
+  port: EnterpriseEscHostReadPort,
+  path: string,
+): Promise<unknown> {
+  const method = requireHostReadableEndpoint(path)
+  const session = requireHostReadSession(port)
+  return await fetchPlatformEnvelope({
+    fetchImpl: port.fetch ?? defaultFetch(),
+    origin: session.origin,
+    endpoint: path,
+    method,
+    params: {},
+    ticket: session.ticket,
+    timeoutMs: port.timeoutMs ?? ENTERPRISE_ESC_REQUEST_TIMEOUT_MS,
+    maxBytes: port.maxBytes ?? ENTERPRISE_ESC_MAX_RESPONSE_BYTES,
+  })
+}
+
+/**
+ * 宿主内部取一个平台**制品**（二进制 ZIP）的结果。
+ *
+ * `ok: false` 只有一种原因（`reason: 'too-large'`）：平台正文超过调用方给的配额。
+ * 其余失败一律抛（超时/不可达/重定向/401/5xx/非 2xx/不是制品），由路由那张唯一的码→状态表投影。
+ */
+export type EnterpriseEscHostArtifactResult =
+  | { readonly ok: true; readonly bytes: Buffer; readonly contentType: string }
+  | { readonly ok: false; readonly reason: 'too-large' }
+
+/**
+ * 宿主内部**有界**取一个平台制品（口径 64 的导出 ZIP）。
+ *
+ * @param port - 宿主内部读端口（同上）。
+ * @param input - 平台路径（必须在宿主许可表里、且是 `GET`）与本次配额（调用方给；技能族用 50 MiB 那条）。
+ * @returns `{ok:true, bytes}` 或 `{ok:false, reason:'too-large'}`（**超限明确失败**，绝不静默截断）。
+ * @throws {EscReadError} 除"超限"以外的全部传输/上游失败（与 JSON 面同一套判决）。
+ */
+export async function readEnterpriseEscHostArtifact(
+  port: EnterpriseEscHostReadPort,
+  input: { readonly path: string, readonly maxBytes: number },
+): Promise<EnterpriseEscHostArtifactResult> {
+  const method = requireHostReadableEndpoint(input.path)
+  if (method !== 'GET') {
+    // 制品只有 GET 语义：宿主许可表里那两条参数化规则都是 GET，走到这里说明本机调用写错了。
+    throw new EscReadError('ENT_NUWAX_PROTOCOL', 'a platform artifact can only be fetched with GET')
+  }
+  const session = requireHostReadSession(port)
+  let response: Awaited<ReturnType<typeof sendEscPlatformRequest>>
+  try {
+    response = await sendEscPlatformRequest(
+      port.fetch ?? defaultFetch(),
+      new URL(input.path, session.origin).toString(),
+      {
+        method,
+        headers: { accept: 'application/zip, application/octet-stream', cookie: `ticket=${session.ticket}` },
+      },
+      port.timeoutMs ?? ENTERPRISE_ESC_REQUEST_TIMEOUT_MS,
+      input.maxBytes,
+    )
+  } catch (error) {
+    // ★超限是本面唯一能被调用方区分出来的传输失败（`readBoundedBytes` 抛的那一枚）；
+    //   它的 `code` 与其它协议错相同（不新增稳定码），只把"太大"这一件事交给调用方。
+    if (error instanceof EscReadTooLargeError) return { ok: false, reason: 'too-large' }
+    throw error
+  }
+  if (response.status === 401) {
+    throw new EscReadError('ENT_AUTH_REQUIRED', 'the platform rejected the ticket')
+  }
+  if (response.status >= 500) {
+    throw new EscReadError('ENT_NUWAX_UNAVAILABLE', `the platform answered HTTP ${response.status}`)
+  }
+  if (response.status < 200 || response.status >= 300) {
+    throw new EscReadError('ENT_NUWAX_REJECTED', `the platform answered HTTP ${response.status}`)
+  }
+  // ★绝不能把一段 JSON 当 ZIP 交给解包器：平台在"没登录"时正是 **HTTP 200 + 业务码 `4010`**
+  //   （与图片面实测到的那条同一个形状）——不判这一格，员工会拿到一句"这个包结构不合法"。
+  if (isJsonContentType(response.contentType)) {
+    if (platformCodeOf(response.bytes) === PLATFORM_UNAUTHORIZED_CODE) {
+      throw new EscReadError('ENT_AUTH_REQUIRED', 'the platform answered an unauthenticated body instead of an artifact')
+    }
+    throw new EscReadError('ENT_NUWAX_PROTOCOL', 'the platform answered a body that is not an artifact')
+  }
+  return { ok: true, bytes: response.bytes, contentType: response.contentType }
+}
+
+/** 宿主内部读的许可表查询（**第二张表**；不在表里 = 本机代码写错，判协议错而不是 400）。 */
+function requireHostReadableEndpoint(path: string): EnterpriseEscPlatformMethod {
+  const method = resolveEnterpriseEscHostReadable(path)
+  if (method === undefined) {
+    throw new EscReadError('ENT_NUWAX_PROTOCOL', 'the host read path is not in the internal read-only set')
+  }
+  return method
+}
+
+/**
+ * 宿主内部读的两道闸（与浏览器读面逐字同序）：① 部署配置（显式停用/形状非法 ⇒ 503）
+ * ⇒ ② 会话（没登录 ⇒ `ENT_AUTH_REQUIRED`）。
+ *
+ * ★请求 origin 一律取自**会话自己**（签发这枚票据的那一台），与浏览器面同一条纪律。
+ */
+function requireHostReadSession(port: EnterpriseEscHostReadPort): NuwaxSession {
+  resolveNuwaxOrigin(port.env ?? process.env)
+  const session = port.holder.current()
+  if (session === undefined) {
+    throw new EscReadError('ENT_AUTH_REQUIRED', 'no NUWAX session in this process')
+  }
+  return session
+}
+
+/** `content-type` 是不是一族 JSON（`application/json` / `application/problem+json`）。 */
+function isJsonContentType(contentType: string): boolean {
+  const type = (contentType.split(';', 1)[0] ?? '').trim().toLowerCase()
+  return type === 'application/json' || type.endsWith('+json')
 }
 
 /**
@@ -576,7 +872,7 @@ async function readBoundedBytes(response: Response, limit: number): Promise<Buff
   const declared = Number(response.headers.get('content-length'))
   if (Number.isFinite(declared) && declared > limit) {
     await cancelBody(response)
-    throw new EscReadError('ENT_NUWAX_PROTOCOL', 'the platform response declares more bytes than the limit')
+    throw new EscReadTooLargeError('the platform response declares more bytes than the limit')
   }
   const body = response.body
   if (body === null) throw new EscReadError('ENT_NUWAX_PROTOCOL', 'the platform answered without a body')
@@ -592,7 +888,7 @@ async function readBoundedBytes(response: Response, limit: number): Promise<Buff
       total += chunk.byteLength
       if (total > limit) {
         await reader.cancel().catch(() => undefined)
-        throw new EscReadError('ENT_NUWAX_PROTOCOL', 'the platform response is larger than the limit')
+        throw new EscReadTooLargeError('the platform response is larger than the limit')
       }
       chunks.push(Buffer.from(chunk))
     }
@@ -651,16 +947,24 @@ function parseEnvelope(bytes: Buffer): unknown {
   return record
 }
 
-/** 取平台路径：必须**逐字**命中闭集。 */
-function requireEndpoint(body: Record<string, unknown>): string {
+/**
+ * 取平台路径：必须**逐字/整条**命中**浏览器可读表**（字面表 ∪ `browserReadable` 的模式规则）。
+ *
+ * ★模式规则的参数段只认 1..18 位纯数字（`ENTERPRISE_ESC_READ_ID_PATTERN` 的同一形状）——正则整条锚定，
+ * 因此 `/`、`..`、查询串、额外后缀、百分号编码一律**不匹配** ⇒ 400，且**一次上游都不打**。
+ */
+function requireBrowserReadableEndpoint(
+  body: Record<string, unknown>,
+): { readonly path: string; readonly method: EnterpriseEscPlatformMethod } {
   const value = body['path']
   if (typeof value !== 'string' || value.length === 0) {
     throw new TypeError('path must be a non-empty string')
   }
-  if (!Object.prototype.hasOwnProperty.call(ENTERPRISE_ESC_READ_ENDPOINTS, value)) {
+  const method = resolveEnterpriseEscBrowserReadable(value)
+  if (method === undefined) {
     throw new TypeError('path is not in the read-only endpoint set')
   }
-  return value
+  return { path: value, method }
 }
 
 /**
