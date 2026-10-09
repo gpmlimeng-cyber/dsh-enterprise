@@ -1,14 +1,26 @@
 /**
- * [INPUT]: 依赖 Node 全局 `fetch`/`AbortController`/`Buffer`，以及本包 `./account-origin.js` 的 `normalizeAccountOrigin`（origin 六条规则**只有那一份**，这里不写第二套）
- * [OUTPUT]: 对外提供插件侧 NUWAX 员工登录认证的四件事：`normalizeNuwaxOrigin`/`resolveNuwaxOrigin`（部署配置 → 平台 origin）、`loginNuwaxAccount`（口令登录 → 一次冻结的 `NuwaxSession`，**会话自带签发它的 `origin`**）、`createNuwaxSessionHolder`（进程内会话持有：`login`/`logout`/`status`/`current`/`serviceOrigin`）、以及封闭稳定码 `NuwaxAuthErrorCode` 与只带码的 `NuwaxAuthError`
- * [POS]: bundle 的**插件侧员工登录内核**（口径 29：企业后台换成 NUWAX、账号面走员工自己的 NUWAX 账号）——只碰 HTTP 与进程内存：**不落盘、不写日志、不碰 UI**。票据只在宿主进程里活着，本机路由只回**派生的** `principal`/`expiresAt` 与 `serviceOrigin`（部署配置决议出的服务地址）——票据绝不回到浏览器。
+ * [INPUT]: 依赖 Node 全局 `fetch`/`AbortController`/`Buffer`、`node:crypto` 的 `randomUUID`、`node:fs` 的 `mkdirSync`/`readFileSync`/`renameSync`/`rmSync`/`writeFileSync`、`node:path` 的 `dirname`/`join`、platform-client 的 `resolveEnterpriseDshHome`（与官方 `dsh-home-paths` 同一套 `显式 → $DSH_HOME → ~/.dsh` 优先级），以及本包 `./account-origin.js` 的 `normalizeAccountOrigin`（origin 六条规则**只有那一份**，这里不写第二套）
+ * [OUTPUT]: 对外提供插件侧 NUWAX 员工登录认证的五件事：`normalizeNuwaxOrigin`/`resolveNuwaxOrigin`（部署配置 → 平台 origin）、`loginNuwaxAccount`（口令登录 → 一次冻结的 `NuwaxSession`，**会话自带签发它的 `origin`**）、`createNuwaxSessionHolder`（会话持有：`login`/`logout`/`status`/`current`/`serviceOrigin`，**并在进程启动时从落盘件恢复**）、`nuwaxSessionStatePath`/`NUWAX_SESSION_STATE_FILENAME`/`NUWAX_SESSION_STATE_KEYS`/`NUWAX_PRINCIPAL_STATE_KEYS`（落盘坐标与冻结键集，测试与运维按它取证），以及封闭稳定码 `NuwaxAuthErrorCode` 与只带码的 `NuwaxAuthError`
+ * [POS]: bundle 的**插件侧员工登录内核**（口径 29：企业后台换成 NUWAX、账号面走员工自己的 NUWAX 账号）——只碰 HTTP 与本机文件系统：**不写日志、不碰 UI**。本机路由只回**派生的** `principal`/`expiresAt` 与 `serviceOrigin`（部署配置决议出的服务地址）——票据绝不回到浏览器。
  *   ★`NuwaxSession.origin` 是**取数面**的红线（口径 31 的 `esc-route.ts` 消费它）：票据只发回签发它的那一台，
- *   绝不按"当前配置"重新决议——否则配置一改，员工的票据就被交给第二个域。
+ *   绝不按"当前配置"重新决议——否则配置一改，员工的票据就被交给第二个域。**恢复出来的会话带的是落盘时那个
+ *   origin**，同样绝不按重启后的新配置重算（这一条正是本刀持久化最容易写错的地方，故有专门的反锁）。
  *   ★三处与 `skill-online.ts` 那个公开取数面**刻意不同**，别照抄：① **带凭据**（这里是登录本身，凭据就是员工刚输入的口令）；② **单源、不跟随重定向**（平台只有这一个 origin，3xx 一律当协议错误，绝不把口令交给第二个域）；③ 上限/超时是**本文件自己的常量**（登录响应 <1 KB，与公开源那几个 MiB 级上限不同义）。
- *   ★两条**如实缺口**（不是漏做，见口径 29）：票据**不持久化**（重启即需重新登录；要续期得先把凭据托管方案定下来）；过期即视作登出（**没有**用保存的口令自动重登——那等于把口令留在进程里）。
+ *   ★**本刀的落盘纪律**（与 `skill-install.ts`/`preset/authorization.ts` 那两份同构：0o700 目录 + 0o600 文件 + 临时件 rename 原子落）：
+ *   ① 落点 `<dshHome>/enterprise/nuwax-session.json`（经 `resolveEnterpriseDshHome()`，故它天然在 `.gitignore` 覆盖的 `$DSH_HOME` 之下）；
+ *   ② 只写**冻结四键** `{expiresAt, origin, principal, ticket}`（`principal` 再冻结四键），**口令一个字节都不写**——没有托管口令就没有自动续期的正当性，故不做后台重登；
+ *   ③ 读回来一律 fail-closed 成**无凭据**（崩掉、形状不对、键集多一个少一个、origin 归一化不过、已过期）：**绝不抛、绝不崩插件启动**，并顺手删掉那份坏状态；
+ *   ④ `logout()` 连落盘件一起删（删不掉就抛 `ENT_NUWAX_SESSION_STATE_INVALID`——那不是降级取舍，是"退出登录形同虚设"）；
+ *   ⑤ 与既有两条相反的一处**刻意差异**：`skill-install`/`preset/authorization` 读坏状态是**抛**（那是请求路径，得让人知道），
+ *      这里读坏状态是**按没登录**（这是启动路径，抛就等于插件起不来）——差别只在"请求路径 vs 启动路径"。
+ *   ★如实缺口（本刀**没有**做、也**不该**偷偷做的）：过期后不自动续期（续期要么重新输口令，要么先定凭据托管方案）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+import { randomUUID } from 'node:crypto'
+import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { resolveEnterpriseDshHome } from '@dshent/platform-client'
 import { normalizeAccountOrigin } from './account-origin.js'
 
 /** 部署配置项：NUWAX 平台 origin。 */
@@ -64,6 +76,8 @@ export type NuwaxAuthErrorCode =
   | 'ENT_NUWAX_UNAVAILABLE'
   | 'ENT_NUWAX_TIMEOUT'
   | 'ENT_NUWAX_PROTOCOL'
+  /** 本刀新增：登录态**落盘件**的形状/写/删失败（读到坏形状**不**用它——启动路径一律按没凭据，删掉坏件）。 */
+  | 'ENT_NUWAX_SESSION_STATE_INVALID'
 
 /** 各码的固定人话（**绝不**拼进平台原文：平台响应里可能有我们不该外传的东西）。 */
 const ERROR_MESSAGES: Record<NuwaxAuthErrorCode, string> = {
@@ -73,6 +87,7 @@ const ERROR_MESSAGES: Record<NuwaxAuthErrorCode, string> = {
   ENT_NUWAX_UNAVAILABLE: '连不上 NUWAX 平台',
   ENT_NUWAX_TIMEOUT: 'NUWAX 平台响应超时',
   ENT_NUWAX_PROTOCOL: 'NUWAX 平台返回了无法解析的响应',
+  ENT_NUWAX_SESSION_STATE_INVALID: 'NUWAX 登录态无法保存到本机',
 }
 
 /**
@@ -134,6 +149,8 @@ export interface NuwaxAuthDependencies {
   readonly timeoutMs?: number | undefined
   /** 覆盖响应正文上限（测试用）。 */
   readonly maxBytes?: number | undefined
+  /** 落点覆盖（测试用；缺省走 `resolveEnterpriseDshHome()` 的 `显式 → $DSH_HOME → ~/.dsh` 优先级）。 */
+  readonly dshHome?: string | undefined
 }
 
 /** 会话持有者（本机路由端口直接用它；没有第二份登录态真源）。 */
@@ -144,7 +161,11 @@ export interface NuwaxSessionHolder {
   current(): NuwaxSession | undefined
   /** 用员工自己的 NUWAX 账号登录；并发调用复用同一次登录（不重复打平台）。 */
   login(account: string, password: string): Promise<NuwaxAuthStatus>
-  /** 登出：丢弃进程内的会话（无网络调用 —— 平台的登出会把别的端也踢下线，本刀**不做**）。 */
+  /**
+   * 登出：丢弃**进程内**与**落盘件**两处会话（无网络调用 —— 平台的登出会把别的端也踢下线，本刀**不做**）。
+   *
+   * ★删不掉落盘件就抛 `ENT_NUWAX_SESSION_STATE_INVALID`：否则下次启动会把票据恢复回来，"退出登录"形同虚设。
+   */
   logout(): void
   /**
    * 部署配置决议出的 NUWAX **服务地址**（登录实际打的那一台；界面用它显示「登录到哪台」）。
@@ -251,23 +272,221 @@ export async function loginNuwaxAccount(
   }
 }
 
+/** 落盘根目录段（`<dshHome>/enterprise/`，与本仓另两份状态文件同一层）。 */
+const NUWAX_SESSION_STATE_DIR_SEGMENTS: readonly string[] = ['enterprise']
+
+/** 落盘文件名（自取但必须能表达「NUWAX 会话」；扩展名与另两份 JSON 状态文件同族）。 */
+export const NUWAX_SESSION_STATE_FILENAME = 'nuwax-session.json'
+
 /**
- * 造一个进程内会话持有者。
+ * 落盘**冻结四键**（已按字典序排好，直接拿去做逐字比对）。
  *
- * 四条语义（都有测试锁）：① **单飞** —— 并发 `login()` 复用同一次平台调用；② **失败不缓存** ——
+ * ★多一个键或少一个键即判「无凭据」：这张文件是磁盘输入，只有形状封闭才能挡住别人往里塞 `password`/`cookie`
+ * 这类我们**从不写**的字段后再被某段代码读出来当凭据。
+ */
+export const NUWAX_SESSION_STATE_KEYS = 'expiresAt,origin,principal,ticket'
+
+/** 落盘主体的**冻结四键**（同上，逐字比对用）。 */
+export const NUWAX_PRINCIPAL_STATE_KEYS = 'nickName,tenantId,uid,userName'
+
+/** 票据形状上限：只用来挡住「这不是一枚票据」的超长串，不是对平台票面长度的断言。 */
+const NUWAX_MAX_TICKET_LENGTH = 4096
+
+/**
+ * 落盘坐标：`<dshHome>/enterprise/nuwax-session.json`。
+ *
+ * 走 `resolveEnterpriseDshHome()`（与 `skill-install.ts`/`preset/authorization.ts` 同一份真源、同一套
+ * `显式 → $DSH_HOME → ~/.dsh` 优先级），因此落点天然位于 `.gitignore` 覆盖的 `$DSH_HOME` 之下——不需要改
+ * 任何排除规则，也不会有任何一条路径把票据带进 git。
+ *
+ * @param options - 可选 `dshHome` 覆盖与 `env` 配置来源（默认 `process.env`）。
+ * @returns 绝对路径。
+ */
+export function nuwaxSessionStatePath(
+  options: { readonly dshHome?: string | undefined; readonly env?: Record<string, string | undefined> | undefined } = {},
+): string {
+  // ★exactOptionalPropertyTypes：可选属性**不能**显式传 `undefined`，
+  //   故缺席的键一律不出现（而不是传 undefined）——语义相同，类型也对。
+  const home = resolveEnterpriseDshHome({
+    ...(options.dshHome === undefined ? {} : { dshHome: options.dshHome }),
+    env: options.env ?? process.env,
+  })
+  return join(home, ...NUWAX_SESSION_STATE_DIR_SEGMENTS, NUWAX_SESSION_STATE_FILENAME)
+}
+
+/**
+ * 读回一次落盘的会话（启动时恢复登录态的唯一入口）。
+ *
+ * 六种情况**一律**按「没有凭据」处理并**顺手删掉那份状态**，绝不抛、绝不让插件起不来：
+ * 文件不存在 / 读不到（权限、目录不是文件）/ 不是 JSON / 不是对象 / 键集不精确 / 字段形状非法（含 origin
+ * 归一化不过）/ 已过期。★这是与 `skill-install.ts`、`preset/authorization.ts` 那两处**刻意相反**的一处：
+ * 它们在请求路径上读坏状态要抛（让人知道），这里在**启动路径**上读坏状态只能按没登录（抛就等于整个插件起不来）。
+ *
+ * ★过期即失效：绝不拿一枚已过期的票据去打平台（那既是一次注定失败的网络往返，也让「过期」在链路上留痕）。
+ *
+ * @param options - `dshHome`/`env`（决定落点）。
+ * @param now - 时钟（判过期用，默认 `Date.now`）。
+ * @returns 仍有效的会话；无凭据（含过期/损坏）一律 `undefined`。
+ */
+function readPersistedSession(
+  options: Pick<NuwaxAuthDependencies, 'dshHome' | 'env'>,
+  now: () => number,
+): NuwaxSession | undefined {
+  const path = nuwaxSessionStatePath(options)
+  let text: string
+  try {
+    text = readFileSync(path, 'utf8')
+  } catch (error) {
+    // 判据：只有「文件不在」才是正常的未登录态；读不到（权限/不是普通文件）同样按无凭据走——
+    // 这两条都不值得让插件启动失败，但都**不是**「静默吞」：状态已被清掉，下次登录会重新写一份。
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') removePersistedSessionQuietly(path, 'unreadable')
+    return undefined
+  }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text) as unknown
+  } catch {
+    // 判据：正文不是 JSON ⇒ 这份状态没有可解析的事实，按无凭据并删掉（绝不允许"半份状态"活下来）。
+    removePersistedSessionQuietly(path, 'corrupt')
+    return undefined
+  }
+  const session = readPersistedShape(parsed)
+  if (session === undefined) {
+    removePersistedSessionQuietly(path, 'shape')
+    return undefined
+  }
+  if (now() >= session.expiresAt) {
+    // 判据：过期票**不算凭据**（且必须删掉，否则每次启动都要重读一次过期事实）。
+    removePersistedSessionQuietly(path, 'expired')
+    return undefined
+  }
+  return session
+}
+
+/** 逐字收窄落盘形状（键集精确比对，字段逐个判型）；任一处不符即回 `undefined` 由调用方删文件。 */
+function readPersistedShape(value: unknown): NuwaxSession | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined
+  const row = value as Record<string, unknown>
+  if (Object.keys(row).sort().join(',') !== NUWAX_SESSION_STATE_KEYS) return undefined
+  const ticket = row['ticket']
+  const origin = row['origin']
+  const expiresAt = row['expiresAt']
+  const principal = row['principal']
+  if (typeof ticket !== 'string' || ticket.length === 0 || ticket.length > NUWAX_MAX_TICKET_LENGTH) return undefined
+  if (typeof expiresAt !== 'number' || !Number.isFinite(expiresAt) || expiresAt <= 0) return undefined
+  if (typeof origin !== 'string' || origin.trim().length === 0) return undefined
+  if (typeof principal !== 'object' || principal === null || Array.isArray(principal)) return undefined
+  const profile = principal as Record<string, unknown>
+  if (Object.keys(profile).sort().join(',') !== NUWAX_PRINCIPAL_STATE_KEYS) return undefined
+  const uid = profile['uid']
+  const userName = profile['userName']
+  const nickName = profile['nickName']
+  const tenantId = profile['tenantId']
+  if (typeof uid !== 'number' || !Number.isInteger(uid) || uid <= 0) return undefined
+  if (typeof userName !== 'string' || userName.length === 0) return undefined
+  if (typeof nickName !== 'string' || nickName.length === 0) return undefined
+  if (typeof tenantId !== 'number' || !Number.isInteger(tenantId) || tenantId < 0) return undefined
+  // 落盘 origin 必须仍是**可归一化的 origin**：坏形状说明这份状态不是我们写的（或被人手改过），
+  // 按无凭据处理 —— 绝不把一串来路不明的 origin 当成"票据该发回去的那一台"。
+  try {
+    return { ticket, expiresAt, principal: { uid, userName, nickName, tenantId }, origin: normalizeAccountOrigin(origin) }
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * 原子落盘一次会话：同目录临时件 + rename（与 `skill-install.ts` 的已装清单、`preset/authorization.ts` 的授权
+ * 状态**同一套纪律**：0o700 目录 + 0o600 文件 + 临时件）。
+ *
+ * ★写出去的正文是**逐字四键** `{expiresAt, origin, principal, ticket}`：`password` 在这个对象里**不存在**
+ * （不是被删掉，是从源头就没有那个字段），源码级反锁见 `tests/nuwax-auth.spec.ts`。
+ *
+ * @param session - 刚拿到的那一次会话（含**签发时**的 `origin`）。
+ * @param options - `dshHome`/`env`（决定落点）。
+ * @throws {NuwaxAuthError} `ENT_NUWAX_SESSION_STATE_INVALID`：落盘失败（临时件已清，绝不留半份状态）。
+ */
+function writePersistedSession(session: NuwaxSession, options: Pick<NuwaxAuthDependencies, 'dshHome' | 'env'>): void {
+  const path = nuwaxSessionStatePath(options)
+  const temporary = `${path}.${randomUUID()}.tmp`
+  try {
+    mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
+    writeFileSync(temporary, JSON.stringify({
+      ticket: session.ticket,
+      expiresAt: session.expiresAt,
+      // ★原样写签发时那台：恢复出来绝不能按重启后的新配置重算（票据只发回签发它的那一台）。
+      origin: session.origin,
+      principal: { ...session.principal },
+    }), { encoding: 'utf8', mode: 0o600 })
+    renameSync(temporary, path)
+  } catch (error) {
+    // 判据：临时件已尽力清掉（清不掉也不改判：它带随机后缀、mode 0o600、且下一轮写会覆盖同名空间）；
+    // 真正不能降级的是**「登录成功却没持久化」**这件事——那会让员工以为重启后仍在登录态，所以抛稳定码。
+    try {
+      rmSync(temporary, { force: true })
+    } catch {
+      // 清理失败不改变判决（上面抛的那枚码才是给调用方的真话）。
+    }
+    throw new NuwaxAuthError('ENT_NUWAX_SESSION_STATE_INVALID', 'the nuwax session could not be persisted', error)
+  }
+}
+
+/**
+ * 删掉落盘件（`logout()` 的磁盘那一半）。
+ *
+ * ★删不掉就**抛**：留着这份文件就等于下次启动把票据恢复回来，"退出登录"形同虚设——这不是可以吞掉的降级取舍。
+ *
+ * @param options - `dshHome`/`env`（决定落点）。
+ * @throws {NuwaxAuthError} `ENT_NUWAX_SESSION_STATE_INVALID`。
+ */
+function removePersistedSession(options: Pick<NuwaxAuthDependencies, 'dshHome' | 'env'>): void {
+  const path = nuwaxSessionStatePath(options)
+  try {
+    rmSync(path, { force: true })
+  } catch (error) {
+    throw new NuwaxAuthError('ENT_NUWAX_SESSION_STATE_INVALID', 'the persisted nuwax session could not be removed', error)
+  }
+}
+
+/**
+ * 恢复路径上的删除（读不到/损坏/形状不对/已过期四种情况共用）。
+ *
+ * ★与 {@link removePersistedSession} 的差别是**故意的判据**：那四条路径的结论已经是「没有凭据」，
+ * 此时删不掉只是让这份坏状态留到下一次启动再被同样判一次——不改变任何结论，故按 best-effort 吞掉。
+ * 而 `logout()` 是**用户明确要求结束登录**，删不掉必须让人知道。
+ *
+ * @param path - 已知路径（避免重算落点）。
+ * @param reason - 判据标签：调用方在 catch 前已按它判过一次结论，这里只保证「四种坏状态一定尝试过删除」这一事实可被读到。
+ */
+function removePersistedSessionQuietly(path: string, reason: 'unreadable' | 'corrupt' | 'shape' | 'expired'): void {
+  try {
+    rmSync(path, { force: true })
+  } catch {
+    // 判据（`reason` 即本分支的判据标签）：结论已经是「没有凭据」，删除失败不改变它——best-effort，不是静默吞掉一次失败判定。
+    void reason
+  }
+}
+
+/**
+ * 造一个会话持有者。
+ *
+ * 六条语义（都有测试锁）：① **单飞** —— 并发 `login()` 复用同一次平台调用；② **失败不缓存** ——
  * 失败原样抛出且下一次 `login()` 会重新打平台；③ **过期即登出** —— 不做后台续期（没有托管口令就没有续期的正当性）；
- * ④ **登出不复活** —— `logout()` 之后到达的登录结果被丢弃（与 `platform-credentials.ts` 的会话代次纪律同源）。
+ * ④ **登出不复活** —— `logout()` 之后到达的登录结果被丢弃（与 `platform-credentials.ts` 的会话代次纪律同源）；
+ * ⑤ **启动即恢复** —— 构造时从 `<dshHome>/enterprise/nuwax-session.json` 读回上一次那枚会话（**连它签发时的
+ *    `origin` 一起**），读不到/坏了/已过期一律按未登录；⑥ **登出连盘一起清** —— 否则"退出登录"只在本次进程内成立。
  *
- * origin 在**首次登录时**才决议（部署配置缺失/非法不该拖垮插件启动，且每次登录都读当前配置）。
+ * origin 仍在**首次登录时**才决议（部署配置缺失/非法不该拖垮插件启动，且每次登录都读当前配置）；
+ * ★但**恢复路径不走这个决议**：落盘件里的 `origin` 就是那枚票据的归属地（见 {@link NuwaxSession.origin} 那条红线）。
  *
- * @param deps - `fetch`/时钟/上限/配置来源；`origin` 给了就用它（测试与显式部署都走这条）。
+ * @param deps - `fetch`/时钟/上限/配置来源/落点；`origin` 给了就用它（测试与显式部署都走这条）。
  * @returns 会话持有者。
  */
 export function createNuwaxSessionHolder(
   deps: NuwaxAuthDependencies & { readonly origin?: string | undefined },
 ): NuwaxSessionHolder {
   const now = deps.now ?? Date.now
-  let session: NuwaxSession | undefined
+  let session: NuwaxSession | undefined = readPersistedSession(deps, now)
   let inflight: Promise<NuwaxAuthStatus> | undefined
   /** 会话代次：`logout()` 递增；只增不减，用来丢掉迟到结果。 */
   let generation = 0
@@ -276,6 +495,9 @@ export function createNuwaxSessionHolder(
     if (session === undefined) return undefined
     if (now() >= session.expiresAt) {
       session = undefined
+      // 过期即失效：顺手把那份落盘件也清掉（否则下次启动还要重读一次过期事实才丢弃）。
+      // ★这处删除是 **best-effort**：结论已经是"没登录"，删不掉不改变任何结果，故不抛（同 readPersistedSession 那条判据）。
+      removePersistedSessionQuietly(nuwaxSessionStatePath(deps), 'expired')
       return undefined
     }
     return session
@@ -306,6 +528,9 @@ export function createNuwaxSessionHolder(
     const fresh = await loginNuwaxAccount(account, password, { ...deps, origin, now })
     // 登录期间发生过登出：这次结果属于上一个会话代次，丢弃（绝不复活已登出的凭据）。
     if (generation !== startedAt) return status()
+    // 先落盘再对外宣称已登录：写失败要如实抛（`ENT_NUWAX_SESSION_STATE_INVALID`），不能让员工以为
+    // "下次重启也在"而其实没存住。反过来"先宣称后落盘"则会在写失败时留下一句骗人的话。
+    writePersistedSession(fresh, deps)
     session = fresh
     return status()
   }
@@ -327,6 +552,8 @@ export function createNuwaxSessionHolder(
     logout(): void {
       generation += 1
       session = undefined
+      // ★顺序固定：先清内存、再删盘（删失败会抛，那枚码就是"这次退出没成功"的真话）。
+      removePersistedSession(deps)
     },
   }
 }

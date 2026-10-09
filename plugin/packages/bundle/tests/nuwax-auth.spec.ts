@@ -1,12 +1,12 @@
 /**
- * [INPUT]: 依赖 `src/nuwax-auth.ts` 的登录/会话/上限常量与 `src/account-origin.ts` 的默认域，以及 `node:fs/promises` 读源码做反锁；HTTP 反应由**真实 `Response`** 构造（不打真网）
- * [OUTPUT]: 锁定插件侧 NUWAX 员工登录内核：口令登录 → 票据 → 自证取主体的完整链路与请求形状（`phone` 字段、第二轮带 cookie）、六枚稳定码的每一条触发路径（凭据错 / 平台拒绝+码净化 / 5xx / 网络 / 超时 / 协议）、过期时刻三级优先级（cookie Max-Age > `expireDate` UTC+8 > 兜底）与荒谬值兜底、origin 决议四条（默认 / 覆盖 / 空串停用 / 非法形状）、会话持有者五条语义（登录态、`current`、过期即登出、单飞、失败不缓存、登出不复活）
- * [POS]: 口径 29「插件侧员工登录」的回归门禁；有人把口令写进错误消息、把重定向放开、把票据落盘，或者把"过期"当"仍有效"，这里都会红
+ * [INPUT]: 依赖 `src/nuwax-auth.ts` 的登录/会话/上限常量与 `src/account-origin.ts` 的默认域，`tests/nuwax-support.ts` 的临时 dshHome 隔离，以及 `node:fs/promises` 读源码做反锁；HTTP 反应由**真实 `Response`** 构造（不打真网）
+ * [OUTPUT]: 锁定插件侧 NUWAX 员工登录内核：口令登录 → 票据 → 自证取主体的完整链路与请求形状（`phone` 字段、第二轮带 cookie）、六枚稳定码的每一条触发路径（凭据错 / 平台拒绝+码净化 / 5xx / 网络 / 超时 / 协议）、过期时刻三级优先级（cookie Max-Age > `expireDate` UTC+8 > 兜底）与荒谬值兜底、origin 决议四条（默认 / 覆盖 / 空串停用 / 非法形状）、会话持有者五条语义（登录态、`current`、过期即登出、单飞、失败不缓存、登出不复活）、以及两条源码级反锁（**内核零 `console`／不写日志文件**；落盘纪律 0o700/0o600/临时件+rename 且顺序不反）。★**本刀的落盘行为本身**由 `tests/nuwax-session.spec.ts` 单独锁（跨重启恢复、origin 不按新配置重算、坏状态 fail-closed、`logout()` 删盘、口令绝不落盘），本份只负责 HTTP/判定面
+ * [POS]: 口径 29「插件侧员工登录」的回归门禁；有人把口令写进错误消息、把重定向放开、把落盘件的键集放宽，或把"过期"当"仍有效"，这里都会红
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { readFile } from 'node:fs/promises'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { DEFAULT_ACCOUNT_ORIGIN } from '../src/account-origin.js'
 import {
   createNuwaxSessionHolder,
@@ -19,12 +19,27 @@ import {
   resolveNuwaxOrigin,
   type NuwaxAuthDependencies,
 } from '../src/nuwax-auth.js'
+import { disposeNuwaxTempHomes, nuwaxTempHome } from './nuwax-support.js'
 
 const ORIGIN = 'https://nuwax.example.com'
 const ACCOUNT = '412566213@qq.com'
 const PASSWORD = 'super-secret-passphrase'
 const TICKET = 'jwt-ticket-value'
 const UID = 1_784_006_361
+
+/**
+ * 每份 holder 夹具一份**自己的**临时 dshHome。
+ *
+ * ★不是洁癖，是必需：会话持有者带落盘（`<dshHome>/enterprise/nuwax-session.json`），若不隔离，
+ * 本 spec 登录写下的票据会被后面那份 spec 构造 holder 时当成"重启后的登录态"读回来（本仓真跑过一次）。
+ */
+async function isolatedHome(): Promise<string> {
+  return await nuwaxTempHome('auth')
+}
+
+afterEach(async () => {
+  await disposeNuwaxTempHomes()
+})
 
 /** 记下每一次请求，供形状断言与"谁被调了几次"的反锁用。 */
 interface RecordedCall {
@@ -285,7 +300,7 @@ describe('nuwax-auth：过期时刻三级优先级', () => {
 describe('nuwax-auth：会话持有者', () => {
   it('登录后可读登录态，票据只在 current() 里（status 绝不带票据）', async () => {
     const platform = successfulPlatform()
-    const holder = createNuwaxSessionHolder({ fetch: platform.fetch, origin: ORIGIN, now: () => 0 })
+    const holder = createNuwaxSessionHolder({ fetch: platform.fetch, origin: ORIGIN, now: () => 0, dshHome: await isolatedHome() })
     expect(holder.status()).toEqual({ state: 'signed-out' })
     expect(holder.current()).toBeUndefined()
 
@@ -301,12 +316,12 @@ describe('nuwax-auth：会话持有者', () => {
   })
 
   it('服务地址是只读投影：决议得出就回它，停用/形状非法回 undefined（登录态照旧、绝不换地址）', async () => {
-    expect(createNuwaxSessionHolder({ fetch: successfulPlatform().fetch, origin: ORIGIN }).serviceOrigin()).toBe(ORIGIN)
+    expect(createNuwaxSessionHolder({ fetch: successfulPlatform().fetch, origin: ORIGIN, dshHome: await isolatedHome() }).serviceOrigin()).toBe(ORIGIN)
     // 未配置 ⇒ 企业默认域，与 login() 真正打的那一台同一个决议函数。
-    expect(createNuwaxSessionHolder({ fetch: successfulPlatform().fetch, env: {} }).serviceOrigin()).toBe(DEFAULT_NUWAX_ORIGIN)
+    expect(createNuwaxSessionHolder({ fetch: successfulPlatform().fetch, env: {}, dshHome: await isolatedHome() }).serviceOrigin()).toBe(DEFAULT_NUWAX_ORIGIN)
     // 显式停用（空串）与形状非法：**不抛**、回 undefined —— login() 那边才是 fail-closed 抛 503。
     for (const value of ['', '   ', 'not-a-url']) {
-      const holder = createNuwaxSessionHolder({ fetch: successfulPlatform().fetch, env: { [NUWAX_ORIGIN_ENV]: value } })
+      const holder = createNuwaxSessionHolder({ fetch: successfulPlatform().fetch, env: { [NUWAX_ORIGIN_ENV]: value }, dshHome: await isolatedHome() })
       expect(holder.serviceOrigin()).toBeUndefined()
       expect(holder.status()).toEqual({ state: 'signed-out' })
     }
@@ -315,7 +330,7 @@ describe('nuwax-auth：会话持有者', () => {
   it('过期即登出（不做后台续期：没有托管口令就没有续期的正当性）', async () => {
     const platform = successfulPlatform()
     let now = 0
-    const holder = createNuwaxSessionHolder({ fetch: platform.fetch, origin: ORIGIN, now: () => now })
+    const holder = createNuwaxSessionHolder({ fetch: platform.fetch, origin: ORIGIN, now: () => now, dshHome: await isolatedHome() })
     await holder.login(ACCOUNT, PASSWORD)
     expect(holder.status().state).toBe('signed-in')
     now = 604_800_000
@@ -325,7 +340,7 @@ describe('nuwax-auth：会话持有者', () => {
 
   it('并发登录单飞：两次 login 只打一趟平台', async () => {
     const platform = successfulPlatform()
-    const holder = createNuwaxSessionHolder({ fetch: platform.fetch, origin: ORIGIN, now: () => 0 })
+    const holder = createNuwaxSessionHolder({ fetch: platform.fetch, origin: ORIGIN, now: () => 0, dshHome: await isolatedHome() })
     const [first, second] = await Promise.all([holder.login(ACCOUNT, PASSWORD), holder.login(ACCOUNT, PASSWORD)])
     expect(first.state).toBe('signed-in')
     expect(second.state).toBe('signed-in')
@@ -342,7 +357,7 @@ describe('nuwax-auth：会话持有者', () => {
       }
       return envelope({ code: '0000', data: { uid: UID, userName: 'u', nickName: 'n', tenantId: 1 } })
     })
-    const holder = createNuwaxSessionHolder({ fetch: platform.fetch, origin: ORIGIN, now: () => 0 })
+    const holder = createNuwaxSessionHolder({ fetch: platform.fetch, origin: ORIGIN, now: () => 0, dshHome: await isolatedHome() })
     const first = await holder.login(ACCOUNT, PASSWORD).then(() => undefined, (thrown: unknown) => thrown)
     expect(codeOf(first)).toBe('ENT_NUWAX_INVALID_CREDENTIALS')
     expect(holder.status()).toEqual({ state: 'signed-out' })
@@ -359,7 +374,7 @@ describe('nuwax-auth：会话持有者', () => {
       }
       return envelope({ code: '0000', data: { uid: UID, userName: 'u', nickName: 'n', tenantId: 1 } })
     })
-    const holder = createNuwaxSessionHolder({ fetch: platform.fetch, origin: ORIGIN, now: () => 0 })
+    const holder = createNuwaxSessionHolder({ fetch: platform.fetch, origin: ORIGIN, now: () => 0, dshHome: await isolatedHome() })
     const login = holder.login(ACCOUNT, PASSWORD)
     holder.logout()
     release?.()
@@ -371,7 +386,7 @@ describe('nuwax-auth：会话持有者', () => {
   it('部署没配平台地址时如实成"未配置"（不是登录失败）', async () => {
     const platform = successfulPlatform()
     const holder = createNuwaxSessionHolder({
-      fetch: platform.fetch, env: { [NUWAX_ORIGIN_ENV]: '' }, now: () => 0,
+      fetch: platform.fetch, env: { [NUWAX_ORIGIN_ENV]: '' }, now: () => 0, dshHome: await isolatedHome(),
     })
     const error = await holder.login(ACCOUNT, PASSWORD).then(() => undefined, (thrown: unknown) => thrown)
     expect(codeOf(error)).toBe('ENT_NUWAX_NOT_CONFIGURED')
@@ -380,10 +395,20 @@ describe('nuwax-auth：会话持有者', () => {
 })
 
 describe('nuwax-auth：源码级反锁', () => {
-  it('票据不落盘、认证内核不写日志、不出现 console', async () => {
+  it('认证内核不写日志、不出现 console、不落日志文件', async () => {
     const source = await readFile(new URL('../src/nuwax-auth.ts', import.meta.url), 'utf8')
-    expect(source).not.toMatch(/from 'node:fs|writeFile|appendFile|console\./)
+    expect(source).not.toMatch(/appendFile|writeFileSync\(.*\.log|console\./)
     // 口令只在请求体里出现一次（没有第二处拼装/回显）。
     expect(source.match(/password/g)?.length ?? 0).toBeGreaterThan(0)
+  })
+
+  it('落盘纪律与本仓另两份状态文件同构：0o700 目录 + 0o600 文件 + 临时件 + rename', async () => {
+    const source = await readFile(new URL('../src/nuwax-auth.ts', import.meta.url), 'utf8')
+    // 本刀把「票据不落盘」改成「票据落盘但只落冻结四键」，故这里锁的是**新纪律**而不是旧缺口。
+    expect(source).toMatch(/mkdirSync\(dirname\(path\), \{ recursive: true, mode: 0o700 \}\)/)
+    expect(source).toMatch(/writeFileSync\(temporary,[\s\S]{0,400}mode: 0o600/)
+    expect(source).toMatch(/renameSync\(temporary, path\)/)
+    // 原子写必须先写临时件再 rename（顺序反了等于没有原子性）。
+    expect(source.indexOf('writeFileSync(temporary')).toBeLessThan(source.indexOf('renameSync(temporary, path)'))
   })
 })

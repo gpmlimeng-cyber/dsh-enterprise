@@ -911,7 +911,9 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
   }), 'enterpriseHelp.routes')
   // 插件侧 NUWAX 员工登录（口径 29：企业后台换成 NUWAX，账号面走员工自己的 NUWAX 账号）。
   // 三条 exact 本机路由：POST /nuwax/login（账号+口令进、登录态出）、POST /nuwax/logout、GET /nuwax/status。
-  // ★票据只活在宿主进程内存里（不落盘、不回浏览器，响应只给派生的 principal/expiresAt）；
+  // ★票据**落盘但绝不回浏览器**：落 `<dshHome>/enterprise/nuwax-session.json`（0o700 目录 + 0o600 文件 +
+  //   临时件 rename 原子落），故重启后能静默恢复上一次那枚会话；**口令一个字节都不写**——
+  //   没有托管口令就没有自动续期的正当性。响应只给派生的 principal/expiresAt，票据永不出宿主。
   // ★平台地址由部署配置 `DSHENT_NUWAX_ORIGIN` 在**首次登录时**决议（缺配置不拖垮插件启动，每次登录读当前配置）；
   // ★`fetch` 用宿主全局（与在线搜索那条无凭据取数面同一个形状），只打配置里的那一个 origin、且不跟随重定向。
   const nuwaxAuth = createNuwaxSessionHolder({

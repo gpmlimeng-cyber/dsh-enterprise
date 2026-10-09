@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 `src/nuwax-route.ts` 的三条路由与常量、`src/nuwax-auth.ts` 的会话持有者、`tests/engine-route-match.ts`（引擎语义匹配器）与 node:http 真服务器；平台反应由真实 `Response` 构造（不打真网）
+ * [INPUT]: 依赖 `src/nuwax-route.ts` 的三条路由与常量、`src/nuwax-auth.ts` 的会话持有者、`tests/engine-route-match.ts`（引擎语义匹配器）、`tests/nuwax-support.ts`（每份 holder 一份隔离 dshHome）与 node:http 真服务器；平台反应由真实 `Response` 构造（不打真网）
  * [OUTPUT]: 锁定 NUWAX 登录本机 HTTP 面：三条 exact 路由的注册形状（逐字路径、互不为前缀、方法各不相同）、`POST /login` 200 且**响应体不含票据**、三条路由一致投影**服务地址**（`origin`，未配置时如实缺席、绝不编地址）、`GET /status` 与 `POST /logout` 的登录态投影、四类失败投影（401 凭据 / 502 上游 / 503 未配置 / 400-413 形状）、以及两条路由的 405 + Allow
  * [POS]: 口径 29 的**本机面**回归门禁（真 HTTP + 引擎语义分发，不是直接调 handler）；有人把票据塞回响应、把 405 的 Allow 拿掉、或者让形状门禁漏过去，这里都会红
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -21,6 +21,7 @@ import {
   registerEnterpriseNuwaxRoutes,
 } from '../src/nuwax-route.js'
 import { engineRouteMatch, type RegisteredRoute } from './engine-route-match.js'
+import { disposeNuwaxTempHomes, nuwaxTempHome } from './nuwax-support.js'
 
 const ORIGIN = 'https://nuwax.example.com'
 const ACCOUNT = '412566213@qq.com'
@@ -31,6 +32,8 @@ const servers: Server[] = []
 
 afterEach(async () => {
   await Promise.all(servers.splice(0).map(server => new Promise<void>(resolve => { server.close(() => { resolve() }) })))
+  // ★会话持有者带落盘：每个 holder 夹具一份自己的 dshHome，否则上一份票据会被当成"重启后的登录态"读回来。
+  disposeNuwaxTempHomes()
 })
 
 /** 一次成功的平台往返（登录 + 自证）。 */
@@ -110,7 +113,7 @@ async function startHarness(holder: NuwaxSessionHolder): Promise<RouteHarness> {
 
 describe('nuwax-route：注册形状', () => {
   it('恰好三条 exact 路由，路径逐字、互不为前缀（不存在 prefix 抢路由的问题）', async () => {
-    const holder = createNuwaxSessionHolder({ fetch: successfulPlatform(), origin: ORIGIN })
+    const holder = createNuwaxSessionHolder({ fetch: successfulPlatform(), origin: ORIGIN, dshHome: nuwaxTempHome('route') })
     const harness = await startHarness(holder)
     expect(harness.routes.map(route => `${route.kind} ${route.path}`)).toEqual([
       `exact ${ENTERPRISE_NUWAX_LOGIN_LOCAL_PATH}`,
@@ -137,7 +140,7 @@ describe('nuwax-route：注册形状', () => {
 
 describe('nuwax-route：登录与登录态', () => {
   it('POST /login 200：回派生的登录态，**票据不出宿主**', async () => {
-    const holder = createNuwaxSessionHolder({ fetch: successfulPlatform(), origin: ORIGIN, now: () => 0 })
+    const holder = createNuwaxSessionHolder({ fetch: successfulPlatform(), origin: ORIGIN, now: () => 0, dshHome: nuwaxTempHome('route') })
     const harness = await startHarness(holder)
     const response = await harness.post(ENTERPRISE_NUWAX_LOGIN_LOCAL_PATH, { account: ACCOUNT, password: PASSWORD })
     expect(response.status).toBe(200)
@@ -157,7 +160,7 @@ describe('nuwax-route：登录与登录态', () => {
   })
 
   it('GET /status 如实反映登录态（未登录时只有 state）', async () => {
-    const holder = createNuwaxSessionHolder({ fetch: successfulPlatform(), origin: ORIGIN, now: () => 0 })
+    const holder = createNuwaxSessionHolder({ fetch: successfulPlatform(), origin: ORIGIN, now: () => 0, dshHome: nuwaxTempHome('route') })
     const harness = await startHarness(holder)
     const before = await harness.get(ENTERPRISE_NUWAX_STATUS_LOCAL_PATH)
     expect(before.status).toBe(200)
@@ -175,7 +178,7 @@ describe('nuwax-route：登录与登录态', () => {
       platformCalls += 1
       return await successfulPlatform()(input, init)
     }
-    const holder = createNuwaxSessionHolder({ fetch: platform, origin: ORIGIN, now: () => 0 })
+    const holder = createNuwaxSessionHolder({ fetch: platform, origin: ORIGIN, now: () => 0, dshHome: nuwaxTempHome('route') })
     const harness = await startHarness(holder)
     await harness.post(ENTERPRISE_NUWAX_LOGIN_LOCAL_PATH, { account: ACCOUNT, password: PASSWORD })
     const callsAfterLogin = platformCalls
@@ -187,7 +190,7 @@ describe('nuwax-route：登录与登录态', () => {
   })
 
   it('部署显式停用时：登录态照旧、地址那一格**如实缺席**（不编地址、也不回落企业默认域）', async () => {
-    const disabled = createNuwaxSessionHolder({ fetch: successfulPlatform(), env: { [NUWAX_ORIGIN_ENV]: '' } })
+    const disabled = createNuwaxSessionHolder({ fetch: successfulPlatform(), env: { [NUWAX_ORIGIN_ENV]: '' }, dshHome: nuwaxTempHome('route') })
     const harness = await startHarness(disabled)
     const status = await harness.get(ENTERPRISE_NUWAX_STATUS_LOCAL_PATH)
     expect(status.status).toBe(200)
@@ -204,18 +207,17 @@ describe('nuwax-route：失败投影（走同一张码→状态表）', () => {
   it('凭据不对 → 401；上游 5xx → 502；未配置 → 503', async () => {
     const rejected = createNuwaxSessionHolder({
       fetch: async () => new Response(JSON.stringify({ code: '0001', message: '用户不存在或密码错误' }), { status: 200 }),
-      origin: ORIGIN,
-    })
+      origin: ORIGIN, dshHome: nuwaxTempHome('route') })
     const first = await startHarness(rejected)
     const unauthorized = await first.post(ENTERPRISE_NUWAX_LOGIN_LOCAL_PATH, { account: ACCOUNT, password: PASSWORD })
     expect(unauthorized.status).toBe(401)
     expect(await unauthorized.json()).toEqual({ error: { code: 'ENT_NUWAX_INVALID_CREDENTIALS' } })
 
-    const broken = createNuwaxSessionHolder({ fetch: async () => new Response('nope', { status: 503 }), origin: ORIGIN })
+    const broken = createNuwaxSessionHolder({ fetch: async () => new Response('nope', { status: 503 }), origin: ORIGIN, dshHome: nuwaxTempHome('route') })
     const second = await startHarness(broken)
     expect((await second.post(ENTERPRISE_NUWAX_LOGIN_LOCAL_PATH, { account: ACCOUNT, password: PASSWORD })).status).toBe(502)
 
-    const unconfigured = createNuwaxSessionHolder({ fetch: successfulPlatform(), env: { [NUWAX_ORIGIN_ENV]: '' } })
+    const unconfigured = createNuwaxSessionHolder({ fetch: successfulPlatform(), env: { [NUWAX_ORIGIN_ENV]: '' }, dshHome: nuwaxTempHome('route') })
     const third = await startHarness(unconfigured)
     const missing = await third.post(ENTERPRISE_NUWAX_LOGIN_LOCAL_PATH, { account: ACCOUNT, password: PASSWORD })
     expect(missing.status).toBe(503)
@@ -223,7 +225,7 @@ describe('nuwax-route：失败投影（走同一张码→状态表）', () => {
   })
 
   it('正文形状门禁：非 JSON 类型 / 空体 / 多出来的键 / 缺字段 → 400；超大 → 413', async () => {
-    const holder = createNuwaxSessionHolder({ fetch: successfulPlatform(), origin: ORIGIN, now: () => 0 })
+    const holder = createNuwaxSessionHolder({ fetch: successfulPlatform(), origin: ORIGIN, now: () => 0, dshHome: nuwaxTempHome('route') })
     const harness = await startHarness(holder)
     const path = ENTERPRISE_NUWAX_LOGIN_LOCAL_PATH
 
@@ -240,7 +242,7 @@ describe('nuwax-route：失败投影（走同一张码→状态表）', () => {
   })
 
   it('方法不符 → 405 + Allow（异常体只回稳定码）', async () => {
-    const holder = createNuwaxSessionHolder({ fetch: successfulPlatform(), origin: ORIGIN, now: () => 0 })
+    const holder = createNuwaxSessionHolder({ fetch: successfulPlatform(), origin: ORIGIN, now: () => 0, dshHome: nuwaxTempHome('route') })
     const harness = await startHarness(holder)
 
     const onLogin = await harness.get(ENTERPRISE_NUWAX_LOGIN_LOCAL_PATH)

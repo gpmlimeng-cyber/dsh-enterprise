@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 `src/esc-route.ts` 的路由与闭集、`src/nuwax-auth.ts` 的会话持有者、`tests/engine-route-match.ts`（引擎语义匹配器）与 node:http 真服务器；平台反应由真实 `Response` 构造（不打真网）
+ * [INPUT]: 依赖 `src/esc-route.ts` 的路由与闭集、`src/nuwax-auth.ts` 的会话持有者、`tests/engine-route-match.ts`（引擎语义匹配器）、`tests/nuwax-support.ts`（每份 holder 一份隔离 dshHome）与 node:http 真服务器；平台反应由真实 `Response` 构造（不打真网）
  * [OUTPUT]: 锁定 esc 代理面**两条 exact 路由**：① 取数面——注册形状、**只读闭集**（未登记路径/前缀相似路径/写端点/带查询串一律 400）、正文关闭键集与扁平参数门禁、**未登录即 401 且零平台调用**、GET/POST 两种转发形状（带票据 cookie、查询参数按重复键）、响应原样回（含 `success`/`message` 两格）、**票据绝不出现在响应里**、上游四类失败映射（3xx/5xx/401/4xx 与超时）、两处上限（请求体 413 / 平台正文 502）、以及配置显式停用时的 503；② 图片面——非 GET 405、未登录 401 零调用、`src` 门禁（缺参、重复、非绝对、非 http(s)、带凭据、**第二个域**、闭集外路径、超长 一律 400 且零调用）、成功路径（带票据 cookie、`nosniff`、私有缓存、字节原样、响应无凭据）、**平台 `200 + {"code":"4010"}` ⇒ 401**（不把它当图片回给浏览器）、`200` 但非图片 ⇒ 502、3xx ⇒ 502（只调一次）、超限 ⇒ 502
  * [POS]: 口径 31 的**宿主面**回归门禁（真 HTTP + 引擎语义分发，不是直接调 handler）；只读这条性质就是这里锁住的：
  *   有人把某个写端点加进闭集、把"没登录"折成"平台拒绝"、或者让票据漏进响应，这里都会红
@@ -29,6 +29,7 @@ import {
   type NuwaxSessionHolder,
 } from '../src/nuwax-auth.js'
 import { engineRouteMatch, type RegisteredRoute } from './engine-route-match.js'
+import { disposeNuwaxTempHomes, nuwaxTempHome } from './nuwax-support.js'
 
 const ORIGIN = 'https://nuwax.example.com'
 const ACCOUNT = '412566213@qq.com'
@@ -43,6 +44,8 @@ const mockDirs: string[] = []
 afterEach(async () => {
   await Promise.all(servers.splice(0).map(server => new Promise<void>(resolve => { server.close(() => { resolve() }) })))
   for (const dir of mockDirs.splice(0)) rmSync(dir, { recursive: true, force: true })
+  // ★会话持有者带落盘：每个 holder 夹具一份自己的 dshHome，否则上一份票据会被当成"重启后的登录态"读回来。
+  disposeNuwaxTempHomes()
 })
 
 /** 登录用的平台反应（与登录路由的测试同一体裁）。 */
@@ -63,7 +66,7 @@ function loginPlatform(): NuwaxAuthDependencies['fetch'] {
 
 /** 已登录的会话持有者（本机路由的取数就靠它那枚票据）。 */
 async function signedInHolder(): Promise<NuwaxSessionHolder> {
-  const holder = createNuwaxSessionHolder({ fetch: loginPlatform(), origin: ORIGIN })
+  const holder = createNuwaxSessionHolder({ fetch: loginPlatform(), origin: ORIGIN, dshHome: nuwaxTempHome('esc') })
   await holder.login(ACCOUNT, PASSWORD)
   return holder
 }
@@ -279,7 +282,7 @@ describe('esc-route：正文门禁（形状与闭集）', () => {
 
 describe('esc-route：会话与转发', () => {
   it('宿主进程里没有 NUWAX 会话 ⇒ 401 ENT_AUTH_REQUIRED，且**零平台调用**', async () => {
-    const holder = createNuwaxSessionHolder({ fetch: loginPlatform(), origin: ORIGIN })
+    const holder = createNuwaxSessionHolder({ fetch: loginPlatform(), origin: ORIGIN, dshHome: nuwaxTempHome('esc') })
     const double = platformDouble(() => envelope([]))
     const harness = await startHarness({ holder, fetch: double.fetchImpl })
     const response = await harness.post({ path: '/api/space/list' })
@@ -479,7 +482,7 @@ describe('esc-route：图片代理（带票据取图标/头像）', () => {
   })
 
   it('没登录 ⇒ 401 ENT_AUTH_REQUIRED，且零平台调用（图片也不许绕过登录态）', async () => {
-    const holder = createNuwaxSessionHolder({ fetch: loginPlatform(), origin: ORIGIN })
+    const holder = createNuwaxSessionHolder({ fetch: loginPlatform(), origin: ORIGIN, dshHome: nuwaxTempHome('esc') })
     const double = platformDouble(() => new Response(PNG, { status: 200, headers: { 'content-type': 'image/png' } }))
     const harness = await startHarness({ holder, fetch: double.fetchImpl })
     const response = await harness.bare(pull(IMAGE_URL), 'GET')
@@ -605,7 +608,7 @@ describe('esc-route：演示数据闸门（口径 32，默认关）', () => {
   }
 
   it('开关开着 ⇒ 连接器目录**没登录也回 200**（信封是平台形状 + 多一枚 mock:true），且零平台调用', async () => {
-    const holder = createNuwaxSessionHolder({ fetch: loginPlatform(), origin: ORIGIN })
+    const holder = createNuwaxSessionHolder({ fetch: loginPlatform(), origin: ORIGIN, dshHome: nuwaxTempHome('esc') })
     const double = platformDouble(() => envelope([]))
     const file = switchFile('{"enabled": true}')
     const harness = await startHarness({
@@ -628,7 +631,7 @@ describe('esc-route：演示数据闸门（口径 32，默认关）', () => {
   })
 
   it('★演示数据只服务被模拟的那两条：别的端点（含**空间列表**）照旧过会话闸门或走真平台', async () => {
-    const holder = createNuwaxSessionHolder({ fetch: loginPlatform(), origin: ORIGIN })
+    const holder = createNuwaxSessionHolder({ fetch: loginPlatform(), origin: ORIGIN, dshHome: nuwaxTempHome('esc') })
     const double = platformDouble(() => envelope([]))
     const file = switchFile('{"enabled": true}')
     const harness = await startHarness({
@@ -685,7 +688,7 @@ describe('esc-route：演示数据闸门（口径 32，默认关）', () => {
   it('★空间列表**不**吃演示数据（用户裁决「空间要使用后台真实的空间」）：照旧走会话闸门与真平台', async () => {
     // 没登录 ⇒ 401（若它被演示数据接管，这里会是 200 + 演示空间）
     const anon = await startHarness({
-      holder: createNuwaxSessionHolder({ fetch: loginPlatform(), origin: ORIGIN }),
+      holder: createNuwaxSessionHolder({ fetch: loginPlatform(), origin: ORIGIN, dshHome: nuwaxTempHome('esc') }),
       mock: () => readEscMockSwitch({ [ENTERPRISE_ESC_MOCK_FILE_ENV]: switchFile('{"enabled": true}') }),
     })
     const denied = await anon.post({ path: '/api/space/list', params: {} })
@@ -712,7 +715,7 @@ describe('esc-route：演示数据闸门（口径 32，默认关）', () => {
   it('演示数据也真按查询参数筛（分页原样回 pageNum、分类与关键词真生效）', async () => {
     const file = switchFile('{"enabled": true}')
     const harness = await startHarness({
-      holder: createNuwaxSessionHolder({ fetch: loginPlatform(), origin: ORIGIN }),
+      holder: createNuwaxSessionHolder({ fetch: loginPlatform(), origin: ORIGIN, dshHome: nuwaxTempHome('esc') }),
       mock: () => readEscMockSwitch({ [ENTERPRISE_ESC_MOCK_FILE_ENV]: file }),
     })
     const page2 = await harness.post({
@@ -734,7 +737,7 @@ describe('esc-route：演示数据闸门（口径 32，默认关）', () => {
   })
 
   it('开关没打开（端口没注入读取器 / 文件写着 false / 文件畸形）⇒ 取数照旧 401，演示数据一格都不放出去', async () => {
-    const holder = createNuwaxSessionHolder({ fetch: loginPlatform(), origin: ORIGIN })
+    const holder = createNuwaxSessionHolder({ fetch: loginPlatform(), origin: ORIGIN, dshHome: nuwaxTempHome('esc') })
     const falseFile = switchFile('{"enabled": false}')
     const brokenFile = switchFile('{ 这不是 JSON')
     const cases: readonly [string, EnterpriseEscReadRoutePort['mock']][] = [
