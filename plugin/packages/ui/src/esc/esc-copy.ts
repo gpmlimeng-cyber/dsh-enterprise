@@ -37,6 +37,11 @@
  *     排在**最后**）；`ENTERPRISE_ESC_LOCAL_COPY` 新增三枚——`catalogSourceTitle` / `catalogTabTitle`
  *     （这一维度的完整说法与悬浮说明，两处引同一格）与 `skillInstallUnavailable`
  *     （广场那批技能的【＋】**行上可见**的禁用原因：它们没有可下载的制品，本刀不动它们）。
+ *   ★**本刀（用户最终裁决：按"来源渠道"分四组）**：口径 54 那四枚来源组名（`Center/Self/Project/Bundled`）
+ *     与 `installedGroupOther` **整族删除**，换成渠道四组 `installedGroup{Builtin,Internal,External,Custom}`
+ *     （「系统内置 / 来自内部市场 / 来自外部市场 / 用户自定义」，用户给的说法逐字、顺序即枚举顺序）；
+ *     `installedEmpty` 整句换掉（旧那句「本机还没有装任何技能」在"发现面扫到 48 枚"的机器上是假话
+ *     —— 新句说清"账上没有"与"扫到的那些在「本地三方」里"这两件事）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -286,25 +291,20 @@ export const ENTERPRISE_ESC_LOCAL_COPY = {
   installedTitle: '已安装技能',
   installedBack: '返回列表',
   /**
-   * ★**口径 54**：已安装的两组**来源标注**（组名即"谁把这枚技能放进去的"）。
+   * ★**本刀（用户最终裁决：「已安装就按来源渠道分四组」）**：四组**渠道**名（组名即"它是从哪条渠道
+   * 装进来的"），组名与顺序**逐字照用户原话**：「系统内置，来自内部市场、来自外部市场、用户自定义」。
    *
-   * 用户裁决把「已安装」的真源换成**官方发现面**（本机 DSH 真的装着什么）之后，
-   * 分组不再按"我们哪份记录里有它"分，而按**官方给的 `source`** 分（再把"企业中心装下来的"
-   * 那一类单独认出来 —— 它落盘在 `user-dsh` 根里，只有我们那份企业记录能说清它与众不同）。
-   * 措辞里必须能读出**谁放进去的**，故这四枚都带主语：企业 / 本机 / 项目 / 官方。
+   * 判据全在 `esc-installed-model.ts`（`enterpriseEscInstalledGroupIdOf`：内置看官方 `source` 枚举；
+   * 内部/外部/自定义看**两份 DSH 记录**——中心记录的在场 + 自装记录 `sourceInput` 的渠道前缀）。
+   * ★**没有 DSH 记录的一律不在这一页**（那 7 枚无记录 `user-dsh` 与 41 枚无记录 `user-agents`；
+   *   它们仍在「本地三方」那一面）。
+   * ★这四句是**显示口径**，不是权威事实：`sourceInput` 是自由串（用户自造前缀就能换组），
+   *   而分组**不参与任何动作的可用性**（能卸/能试只看记录与端口在不在场）。
    */
-  installedGroupCenter: '企业装下来的',
-  installedGroupSelf: '本机导入的',
-  installedGroupProject: '项目里的',
-  installedGroupBundled: '官方内置',
-  /**
-   * 未知来源（官方 `source` 是**开放取值域**，将来可能新增）的组名前缀。
-   *
-   * 组名 = `${installedGroupOther}（${原样 source}）`：宁可显示一个英文枚举，也不把它
-   * 硬塞进上面四类里假装知道 —— 那时员工看到的"谁放进去的"就是一句**假话**。
-   * 见 `enterpriseEscInstalledSourceLabel`（唯一取值口）。
-   */
-  installedGroupOther: '其它来源',
+  installedGroupBuiltin: '系统内置',
+  installedGroupInternal: '来自内部市场',
+  installedGroupExternal: '来自外部市场',
+  installedGroupCustom: '用户自定义',
   /**
    * 某一条已发现技能**这条记录里的版本/摘要**那一行的前缀（元信息降级后的落点）。
    *
@@ -321,8 +321,15 @@ export const ENTERPRISE_ESC_LOCAL_COPY = {
    * ★**不许当 0、不许写死数字**：句子里一个数字都没有 —— 数字由真源给。
    */
   installedDiscovering: '本机技能还在发现中，这个数字还会变',
-  /** 一装都没有时的空态（与平台列表空态那句话不同：这里说的**只是本机**）。 */
-  installedEmpty: '本机还没有装任何技能',
+  /**
+   * ★**本刀**：一条账目都没有时的空态。
+   *
+   * ★**必须说真话**（用户裁决）：这一页空了**不等于**"这台机器上没有技能" —— 机器上扫到的那些
+   *   （没有 DSH 安装记录的、别的 Agent CLI 的）在**「本地三方」**那一面。旧那句「本机还没有装任何技能」
+   *   在"发现面明明扫到 48 枚"的机器上就是一句假话，故按裁决整句换掉（不新增第二句空话：
+   *   这一格仍是整页空态的唯一取值口）。
+   */
+  installedEmpty: 'DSH 还没有在这台机器上装过技能；机器上扫到的那些在「本地三方」里。',
   /** 某一个分组读不到时的前缀（后面紧跟稳定码）。 */
   installedGroupFailed: '这一组暂时读不到：',
   /**

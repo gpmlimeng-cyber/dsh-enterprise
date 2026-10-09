@@ -49,7 +49,12 @@ import {
   enterpriseErrorPresentation,
   enterpriseErrorRetryable,
 } from '../src/error-messages.js'
-import { EnterpriseEscCard } from '../src/esc/esc-card.js'
+/**
+ * ★**本刀（技能页性能）**：`EnterpriseEscCard` 现在是 `memo` 包出来的那一枚（对象，不是函数）
+ *   —— 既有那批"纯函数直调取渲染树"的用例改调它的**内层**那一枚 `EnterpriseEscCardView`
+ *   （渲染语义逐字同一份）；`.type` 那几条结构锁仍对着 `EnterpriseEscCard`（元素类型就是它）。
+ */
+import { EnterpriseEscCardView } from '../src/esc/esc-card.js'
 import { ENTERPRISE_ESC_COPY } from '../src/esc/esc-copy.js'
 import {
   ENTERPRISE_ESC_SKILL_TRY_BUSY,
@@ -140,7 +145,7 @@ function allSrcFiles(): readonly { readonly name: string; readonly code: string 
 
 /** 卡片入参（`ResourceItem` 只填判据真正用得到的那两格）。 */
 const CARD_ITEM = { id: 'skill-4189', name: 'dev-engineer-toolkit', description: '一句话说明' }
-const card = (props: Record<string, unknown> = {}) => EnterpriseEscCard({ item: CARD_ITEM, showUse: true, installed: true, ...props } as never)
+const card = (props: Record<string, unknown> = {}) => EnterpriseEscCardView({ item: CARD_ITEM, showUse: true, installed: true, ...props } as never)
 
 const NAME = 'dev-engineer-toolkit'
 /** 计划工厂的调用夹（默认：这一枚真的已装、端口也在场）。 */
@@ -490,13 +495,34 @@ describe('S5b ⑥：复用证据（那两枚官方写入口全仓只有 `preset-
     const trySource = readEscSrc('esc-skill-try.ts')
     expect(trySource.match(/export function enterpriseEscSkillTryDraft\(/g) ?? []).toHaveLength(1)
     expect(trySource.match(/export function enterpriseEscSkillTryPlan\(/g) ?? []).toHaveLength(1)
-    // 全 `src` 里 `enterpriseEscSkillTryPlan(` 的调用点：只有三层页面 + 本 spec 的夹具形态
-    // （本仓约定：事实层定义一处，消费点各一处）。
+    // 全 `src` 里 `enterpriseEscSkillTryPlan(` 的调用点：**只剩事实层自己那一处**。
+    /**
+     * ★**本刀（技能页性能）重新基线化（加强，不是放宽）**：三层页面**不再直调**那枚纯投影 ——
+     *   它们改调**那一张计划表**（`enterpriseEscSkillTryTable`，表内才是唯一构造点）。
+     *   ⇒ "唯一工厂"这句话从"每个消费点各一处"加强成"**全 src 只有一处**"；
+     *   同时把三个页面那一侧锁在**表的调用者**上（它们不认识投影、也就造不出第二枚计划）。
+    /**
+     * ★**本刀（真机缺口修复：已安装页补上「去试试」）重新基线化——加强，不是放宽**：集合由三枚
+     *   （广场网格 / 企业技能目录 / 事实层自己）变成**四枚**，新增的正是 `esc-installed.tsx`
+     *   （那一页此前没接这枚计划 ⇒ 真机上点不出「去试试」）。判据的**形状一字未改**（仍是
+     *   `toEqual` 精确集合 + `.sort()`），只是把新来的那个合法调用者数进清单里 —— 多一个、少一个、
+     *   换一个都仍然必红（旧断言对"某一页另起一份实现"照样是绿的，这一条不可能）。
+     */
     const callers = allSrcFiles()
       .filter(file => /enterpriseEscSkillTryPlan\(/.test(file.code))
       .map(file => file.name)
       .sort()
-    expect(callers).toEqual(['esc/esc-aggregation.tsx', 'esc/esc-catalog-list.tsx', 'esc/esc-skill-try.ts'])
+    expect(callers).toEqual(['esc/esc-skill-try.ts'])
+    const tableCallers = allSrcFiles()
+      .filter(file => /enterpriseEscSkillTryTable\(/.test(file.code))
+      .map(file => file.name)
+      .sort()
+    expect(tableCallers).toEqual([
+      'esc/esc-aggregation.tsx',
+      'esc/esc-catalog-list.tsx',
+      'esc/esc-installed.tsx',
+      'esc/esc-skill-try.ts',
+    ])
     // 精选行不自己算：它拿的是聚合层交下来的**同一个**工厂（与 `moreOf` 同一条手法）。
     expect(readEscSrc('esc-featured.tsx')).toContain('options.tryOf?.(item.name, skillInstalled)')
     expect(readEscSrc('esc-aggregation.tsx')).toContain("...(resourceType === 'skill' ? { tryOf } : {}),")

@@ -1,7 +1,17 @@
 /**
  * [INPUT]: 依赖 React 的 createElement/useState、lucide-react 的图标、官方原语 `Button`/`Switch`（`@deepseek-ai/dsh-client-ui-primitives`）、`error-notice` 的唯一失败提示件、`esc-api` 的 `enterpriseEscImageSrc`、`esc-copy` 的文案、`esc-more-menu` 的「更多」下拉（实现已抽出）与 `esc-types` 的 `ResourceItem`
- * [OUTPUT]: 对外提供 `EnterpriseEscCard`（专家/技能/连接器共用的聚合卡片）、`EnterpriseEscCardIcon`（**本刀（Phase C D1）新导出**：卡片图标那一格——平台绝对地址经宿主图片代理 + 加载失败一次即回落兜底图形，是全仓**唯一**的破图兜底实现，连接器广场那张新卡复用它）、`EscCardInstall`（未装那枚【＋】的终态）、`EscCardMore`（已装那枚「更多」的终态，**类型再出口**；实现与那两行纯数据在 `esc-more-menu.tsx`，`SKILL_MORE_ENTRIES` 也由本文件再出口）与 `EscCardTryNow`（已装那枚「去试试」的终态）
+ * [OUTPUT]: 对外提供 `EnterpriseEscCard`（专家/技能/连接器共用的聚合卡片，**本刀起是 `memo` 包出来的那一枚**：
+ *   props 逐键浅相等就整棵子树跳过 —— "几百张卡不再整页重画"的落点）与它的**内层纯渲染函数**
+ *   `EnterpriseEscCardView`（本仓 vitest 没有 DOM，既有那批"纯函数直调取渲染树"的用例走它；
+ *   渲染语义与 `EnterpriseEscCard` 逐字同一份）、`EnterpriseEscCardIcon`（**本刀（Phase C D1）新导出**：卡片图标那一格——平台绝对地址经宿主图片代理 + 加载失败一次即回落兜底图形，是全仓**唯一**的破图兜底实现，连接器广场那张新卡复用它）、`EscCardInstall`（未装那枚【＋】的终态）、`EscCardMore`（已装那枚「更多」的终态，**类型再出口**；实现与那两行纯数据在 `esc-more-menu.tsx`，`SKILL_MORE_ENTRIES` 也由本文件再出口）与 `EscCardTryNow`（已装那枚「去试试」的终态）
  * [POS]: esc 页面的**卡片层**，同时移植了 NUWAX 的 `CardWrapper`（容器版式）与 `ResourceCard`（业务内容与动作位）两个组件。
+ *   ★**本刀（技能页性能 · 卡片 memo）**：这一层是"页面里最贵的那个节点"——技能页一次要铺几百张卡
+ *     （真机实测本地三方那一维度一次 **610** 条候选进 DOM）。故本层做两件事，且**都不改界面样子**：
+ *     ① **`memo` 包一层**（见文件末尾那段：`props` 逐键浅相等 ⇒ 整棵子树跳过重画）；
+ *     ② 让 `props` **真的**浅相等 —— 三份计划由 `esc-plan-table.ts` 那张表按名取**同一枚对象**
+ *        （`esc-aggregation.tsx` 的三处 `useMemo`），`item` 用列表里那份没变过的真值。
+ *     ★**memo 能生效的**前提**只有一个：引用稳定**。所以"这张卡没有 memo"与"这几份入参每渲染一次
+ *     都在现造"必须一起修 —— 只包 `memo` 而不稳引用，等于每次比较都判"变了"，白多一层判断。
  *   ★**本刀（S5a：技能卡「更多」里的两个本机管理动作）**：三件事一起动，且**全部 additive**（不给 `more`
  *     的调用方渲染逐字不变）——
  *     ① 新增可选 prop `more`（`EscCardMore`：已装那枚「更多」下拉的终态）——**缺席即整枚不画**
@@ -104,12 +114,18 @@
  *        把这条数锁着；这不是省事，而是"一枚卡片一个失败位"这条口径的落法）。
  *     ★**缺席 `tryNow` 时逐字回到改前那一态**（禁用 + `title = actionNotPorted`）：那正是既有测试与
  *       非技能档的形态；生产路径上三处调用点（广场网格 / 精选行 / 企业技能目录）都会给计划。
+ *   ★**本刀（已安装技能页补上「更多 + 去试试」）**：标题行那一格由**二选一**改成"开关之后**再挂**动作格"——
+ *     给了 `actionSwitch`（已安装技能页）且 `showUse === true` 时，标题行多一格 `skillActionBox`。
+ *     这是**第二半根因**：改前"有开关 ⇒ 只画开关"，于是已安装页即便把 `more`/`tryNow` 交下来，
+ *     `skillActionBox` 也进不了树（「去试试」那支虽写着 `installed === true` 就渲染，却永远走不到）。
+ *     ★**additive**：`actionSwitch` 缺席时那一格是**空数组** ⇒ 另两档（技能卡 / 专家卡）标题行的
+ *     子节点逐格不变（既有位置级结构锁照旧全绿）；开关自己的元素、props、位次（第二格）**一字未动**。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { Button, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import { Bot, MessageSquare, Plus, Star, User } from 'lucide-react'
-import { createElement, useState, type ReactNode } from 'react'
+import { createElement, memo, useState, type ReactNode } from 'react'
 import { EnterpriseErrorNotice } from '../error-notice.js'
 import { enterpriseEscImageSrc } from './esc-api.js'
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from './esc-copy.js'
@@ -299,12 +315,12 @@ export type { EscCardMore, EscCardMoreAction, EscCardMoreConfirm, SkillMoreEntry
 export { SKILL_MORE_ENTRIES } from './esc-more-menu.js'
 
 /**
- * 一张资源卡片。
+ * 一张资源卡片（**纯渲染函数**：本刀起它是 `EnterpriseEscCard` 的**内层**那一枚，见文件末尾那段）。
  *
  * 本刀所有动作位都是置灰占位（见文件头），故本组件**没有** `onSummon`/`onSelect`/`onConnect` 这类回调——
  * 加一个不接线的回调只会让"这动作能用"看起来像真的。
  */
-export function EnterpriseEscCard({
+export function EnterpriseEscCardView({
   item,
   iconShape = 'square',
   showStats = true,
@@ -695,6 +711,24 @@ export function EnterpriseEscCard({
               actionSwitch === undefined
                 ? showUse === true ? skillActionBox : summonSlot
                 : switchBox,
+              /**
+               * ★**本刀（已安装技能页补上「更多 + 去试试」）**：给了开关那一档**同时**在开关之后挂出
+               *   技能卡那枚动作格（`.esc-skill-actions`：`⋯` + 「去试试」）。
+               *
+               * ★**为什么非改这一格不可**：改前这里是**二选一**（有开关 ⇒ 只画开关）⇒ 已安装页即便
+               *   把 `more`/`tryNow` 两个计划交下来，`skillActionBox` 也**进不了树**；而「去试试」那一支
+               *   虽然写着 `installed === true` 就渲染，却永远走不到那一行。这正是真机上"已安装页
+               *   缺「更多」与「去试试」两个入口"的**第二半根因**（第一半是视图没交计划）。
+               *
+               * ★**additive**：`actionSwitch` 不在场时这一格是空数组 ⇒ 另两档（技能卡 / 专家卡）
+               *   标题行的子节点**逐格不变**（既有位置级结构锁照旧全绿）；没有 `showUse` 的档
+               *   （专家 / 连接器 / 默认档）也一格不动。
+               * ★**位次**：开关之后（标题行**第三**格）。开关本身一字未动（同一枚元素、同一份 props、
+               *   同一个位次＝第二格）——它走的是**中心卸载链**（要中心雪花包 id），这两枚走的是
+               *   **本机自装链**（只认落盘目录名），三条路互不替代（见 `esc-installed.tsx` 文件头那段
+               *   "为什么不冗余"：自装技能没有中心包 id ⇒ 那枚开关对它们本来就是锁死的）。
+               */
+              ...(actionSwitch === undefined || showUse !== true ? [] : [skillActionBox]),
             )
           : createElement('h3', { className: 'esc-card-title', title: item.name, children: item.name }),
         // 描述：**独立一行**（口径 41）——右端到卡片内缘、单行截断。口径 42 起专家卡也走这一格
@@ -819,6 +853,28 @@ export function EnterpriseEscCard({
     connectBox,
   )
 }
+
+/**
+ * ★**本刀（技能页性能：「不再白算 / 不再白画」那一半）**：共享卡片**用 `memo` 包一层**。
+ *
+ *   · **为什么**：技能页那几面（系统广场 / 团队空间 / 企业技能目录 / 精选行）一次要铺几百张卡；
+ *     改前本文件是 `export function EnterpriseEscCard`（一枚裸函数组件）⇒ 页面里**任何一次**状态变化
+ *     （切分类 / 改搜索词 / 装 / 卸 / 数据刷新）都会让每一张卡**重跑一遍整个渲染函数**——几百张卡
+ *     全量重画就是真机上那句"技能页很卡"：主线程被占着，鼠标事件排在后面，连 hover 都显得卡。
+ *   · **`memo` 的判据是 props 逐键浅相等**，故它**只在引用稳定时才有效**：三份计划
+ *     （`install` / `more` / `tryNow`）必须来自各自那张按名取的表（`esc-plan-table.ts` 是那条性质的
+ *     唯一实现），`item` 必须是列表里那份**没变过**的对象。这两件事各由 `useMemo` 与"数据真值不现造"
+ *     保证，见 `esc-aggregation.tsx` 那三处表。
+ *   · **零语义变化**：包的还是同一枚渲染函数、同一份 props、同一棵子树（`memo` 只多一层
+ *     "props 没变就跳过"的判断）——既有的渲染树结构锁（`element.type === EnterpriseEscCard`）
+ *     照旧成立：那个 `type` 现在就是这枚 memo 对象本身。
+ *   · **为什么内层那一枚仍导出**（`EnterpriseEscCardView`）：本仓的 vitest **没有 DOM**，
+ *     一批既有用例是拿"纯函数直调"取渲染树的（`EnterpriseEscCard({...})`）。`memo` 的产物是
+ *     一个**对象**、不是函数，直调它当场就红 ⇒ 把内层那一枚**原样导出**，那些用例改调它
+ *     （断言一字未动，只是不再经过 memo 那一层壳）。这不是为了方便，而是"能直调取证"这条
+ *     本仓纪律必须继续成立；它同时是门禁的对照物：`EnterpriseEscCard.type === EnterpriseEscCardView`。
+ */
+export const EnterpriseEscCard = memo(EnterpriseEscCardView)
 
 /**
  * ★**本刀（S5a）**：「更多」下拉的实现（`SkillMoreActions` 与那两行纯数据）已抽到

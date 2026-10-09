@@ -44,7 +44,12 @@ import { ENTERPRISE_ERROR_TECH_ATTR } from '../src/error-notice.js'
 import { EnterpriseErrorNotice } from '../src/error-notice.js'
 import { ENTERPRISE_SKILL_LIST_EMPTY, ENTERPRISE_SKILL_LIST_LOADING, ENTERPRISE_SKILL_LIST_NO_MATCH } from '../src/skill-market.js'
 import type { EnterpriseInstalledSkill, EnterpriseRuntimeSkill } from '../src/skill-api-decode.js'
-import { EnterpriseEscCard } from '../src/esc/esc-card.js'
+/**
+ * ★**本刀（技能页性能）**：`EnterpriseEscCard` 现在是 `memo` 包出来的那一枚（对象，不是函数）
+ *   —— 既有那批"纯函数直调取渲染树"的用例改调它的**内层**那一枚 `EnterpriseEscCardView`
+ *   （渲染语义逐字同一份）；`.type` 那几条结构锁仍对着 `EnterpriseEscCard`（元素类型就是它）。
+ */
+import { EnterpriseEscCard, EnterpriseEscCardView } from '../src/esc/esc-card.js'
 import {
   ENTERPRISE_CATALOG_BLOCKED_BY_BUSY,
   ENTERPRISE_CATALOG_EMPTY,
@@ -112,7 +117,8 @@ function byClassToken(node: unknown, token: string): Element | undefined {
 /**
  * 树里的**卡片元素**。
  *
- * ★为什么要单列这一条：`EnterpriseEscCard` 是**组件**（`createElement` 的 `type` 是函数），
+ * ★为什么要单列这一条：`EnterpriseEscCard` 是**组件**（本刀起它是 `memo` 那一枚：`createElement` 的
+ *   `type` 就是这个 memo 对象本身，故这里的 `===` 照旧成立），
  *   按 `children` 往下走**进不去它的输出**（那要真渲染器）。本仓 vitest 没有 DOM，
  *   故这一类判据的落点是"交给它的 props 是什么"——这也正是纯渲染层能被测到的边界。
  */
@@ -282,7 +288,7 @@ describe('口径 53：卡片投影（ResourceItem）与已装判定（packageId 
 /* ══════════════ ② 卡片【＋】的可用性判据 ══════════════ */
 
 describe('口径 53：卡片【＋】的可用性判据（本维度可用 / 广场仍禁用 + 行上可见原因）', () => {
-  const card = (props: Record<string, unknown>) => EnterpriseEscCard({ item: enterpriseCatalogItem(runtimeSkill()) as never, ...props } as never)
+  const card = (props: Record<string, unknown>) => EnterpriseEscCardView({ item: enterpriseCatalogItem(runtimeSkill()) as never, ...props } as never)
   const plus = (tree: unknown): Element => {
     const found = findByClass(tree, 'esc-install-plus')
     expect(found, '那枚【＋】').toBeTruthy()

@@ -43,6 +43,11 @@
  *   ★**本刀（Phase C D1：连接器广场）**：新增**第三枚端口** `EnterpriseEscConnectorPort`
  *     （只有只读一格 `catalog`；写入口属 D2，本刀**刻意不造**——见那一格的说明）。
  *     它**不进** `EnterpriseEscApi`（那一面是平台镜像；连接器广场是本机同源脱敏投影）。
+ *   ★**本刀（用户冻结规格 §3：已安装页「更多」四行）**：`EnterpriseEscSkillPort` 再多**一格可选**
+ *     写入口 `editSkillFile(name, signal)`（用系统默认应用打开这枚技能的 `SKILL.md`）。
+ *     ★**它今天**没有**任何接线**（`client.tsx` 不提供）：宿主那条同族路由还没落地 ⇒ 判据如实落在
+ *     "端口在不在场"上（缺席 ⇒ 那一行**整行不画**，不画成禁用）。声明它是为了让那个 `false`
+ *     是一次**查端口**的结果，而不是界面里写死的一个常量——两者的区别在于路由落地那天要不要改界面。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -425,6 +430,23 @@ export interface EnterpriseEscSkillPort {
    *   合并成一格就会让"哪一处缺席 / 哪一枚失败"说不清，而这正是本仓不肯含糊的那一格。
    */
   readonly fillSkillTryDraft?: ((draft: string) => Promise<boolean>) | undefined
+  /**
+   * ★**本刀（用户冻结规格 §3）**：「更多」里 `编辑` 那一行的实现面——**用系统默认应用打开这枚技能的
+   * `SKILL.md`**（本机动作）。
+   *
+   * ★**它今天故意没有任何接线**（`client.tsx` 里**不**提供这一格）：那需要宿主侧新开一条只读/本机动作
+   *   路由（与「打开文件夹」同族：`execFile` + argv、**不走 shell**、失败给稳定码），而那条路由
+   *   **还没落地**。声明在这里是为了让判据**如实**：`esc-installed.tsx` 交下去的是
+   *   `skillPort.editSkillFile !== undefined` 这个**端口在不在场**的事实（今天恒 `false` ⇒
+   *   那一行**整行不画**，见 `esc-more-menu.tsx` 文件头与 `esc-skill-more.ts` 的计划投影），
+   *   而不是界面里写死一个 `disabled` / 写死一个 `false`。
+   *   ⇒ 路由落地那天要动的只有一处：在 `client.tsx` 的端口上补一格（界面一个字都不用改），
+   *     那一行随之出现在那四行里的第二格。
+   *
+   * ★**入参仍是技能在本机的目录名（kebab）**，与上面那两格同一把键（界面不交路径：宿主拿到名字后
+   *   自己在官方技能根里寻址，因此"传一个路径进来"在这个形状上不可表达）。
+   */
+  readonly editSkillFile?: ((name: string, signal: AbortSignal) => Promise<{ readonly revealed: true }>) | undefined
 }
 
 /**

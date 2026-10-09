@@ -51,7 +51,12 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
   Tag: 'span',
 }))
 
-import { EnterpriseEscCard } from '../src/esc/esc-card.js'
+/**
+ * ★**本刀（技能页性能）**：`EnterpriseEscCard` 现在是 `memo` 包出来的那一枚（对象，不是函数）
+ *   —— 既有那批"纯函数直调取渲染树"的用例改调它的**内层**那一枚 `EnterpriseEscCardView`
+ *   （渲染语义逐字同一份）；`.type` 那几条结构锁仍对着 `EnterpriseEscCard`（元素类型就是它）。
+ */
+import { EnterpriseEscCardView } from '../src/esc/esc-card.js'
 import { escResourceAdapters, escSafeTargetId } from '../src/esc/esc-list.js'
 import { EnterpriseEscSystemInstallFailure } from '../src/esc/esc-system-list.js'
 import {
@@ -205,7 +210,7 @@ function planFor(overrides: Record<string, unknown> = {}) {
 
 /** 把计划铺成卡片入参并**真渲染**那张卡（取它收到的东西，本仓无 DOM）。 */
 function cardOf(install: unknown, item: ResourceItem = itemOf()): unknown {
-  return EnterpriseEscCard({ item, showUse: true, installed: false, install } as never)
+  return EnterpriseEscCardView({ item, showUse: true, installed: false, install } as never)
 }
 const plusOf = (tree: unknown): Element => {
   const found = findByClass(tree, 'esc-install-plus')
@@ -605,13 +610,23 @@ describe('口径 64 ⑤：在途禁双击 + 不乐观翻态 + 失败归行（唯
     expect(handler).not.toContain('catch')
     // 在途态在 `finally` 里清掉（成功与失败都解锁）。
     expect(handler).toContain('.finally(() => { setSystemPending(undefined) })')
-    // 渲染接线：计划由纯投影给；七档只有"可点"那一档带得动写入口。
-    expect(agg).toContain('? escSystemInstallPlan({')
+    /**
+     * ★**本刀（技能页性能）重新基线化（加强，不是放宽）**：聚合层**不再直调**那两枚投影 ——
+     *   它调**那一张计划表**（`enterpriseEscSystemInstallTable`），表内（`esc-system.ts`）才是
+     *   唯一构造点。⇒ 本文件里那几格实参逐字锁**移到了表那一侧**（同一份实参、同一个判据），
+     *   而聚合层这一侧只锁"那一张表恰好被建一次"。
+     */
+    expect(agg).toContain('enterpriseEscSystemInstallTable({')
+    expect(agg.match(/enterpriseEscSystemInstallTable\(/g) ?? []).toHaveLength(1)
     expect(agg).toContain('wired: installPublishedSkill !== undefined,')
-    expect(agg).toContain('...(item.targetId === undefined ? {} : { targetId: item.targetId }),')
-    expect(agg).toContain('...(item.allowCopy === undefined ? {} : { allowCopy: item.allowCopy }),')
-    expect(agg).toContain('paymentRequired: item.paymentRequired === true,')
-    expect(agg).toContain('enterpriseEscSystemCardInstall(plan, targetId => { runSystemInstall(targetId, item.name) })')
+    expect(agg).toContain('onInstall: runSystemInstall,')
+    // 七档只有"可点"那一档带得动写入口 —— 实参逐字锁仍在，位置是**表内**（唯一构造点）。
+    const system = readEscSrc('esc-system.ts')
+    expect(system).toContain('if (!input.enabled) return undefined')
+    expect(system).toContain('...(item.targetId === undefined ? {} : { targetId: item.targetId }),')
+    expect(system).toContain('...(item.allowCopy === undefined ? {} : { allowCopy: item.allowCopy }),')
+    expect(system).toContain('paymentRequired: item.paymentRequired === true,')
+    expect(system).toContain('enterpriseEscSystemCardInstall(plan, targetId => { input.onInstall(targetId, item.name) })')
     // 失败块与「平台目录读不到」那条 `ErrorRow` **互不覆盖**（两件事实各有各的落点）。
     expect(agg).toContain('createElement(EnterpriseEscSystemInstallFailure, {')
     expect(agg).toContain('createElement(ErrorRow, { code: error.code, message: error.message, onRetry: retry })')

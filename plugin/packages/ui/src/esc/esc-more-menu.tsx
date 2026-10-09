@@ -1,24 +1,29 @@
 /**
- * [INPUT]: 依赖 React 的 createElement/useState、lucide-react 的 `Folder`/`MoreHorizontal`/`Trash2`、官方原语
- *   `Menu`（`@deepseek-ai/dsh-client-ui-primitives`）、`confirm-action.tsx` 的唯一二次确认与 `esc-copy.ts` 的
- *   「更多操作」那一句
- * [OUTPUT]: 对外提供技能卡「更多」下拉的**两行纯数据** `SKILL_MORE_ENTRIES` 与行形状 `SkillMoreEntry`、
+ * [INPUT]: 依赖 React 的 createElement/useState、lucide-react 的 `Folder`/`MessageSquare`/`MoreHorizontal`/
+ *   `Pencil`/`Trash2`、官方原语 `Menu`（`@deepseek-ai/dsh-client-ui-primitives`）、`confirm-action.tsx` 的
+ *   唯一二次确认与 `esc-copy.ts` 的「更多操作」那一句
+ * [OUTPUT]: 对外提供技能卡「更多」下拉的**四行纯数据** `SKILL_MORE_ENTRIES` 与行形状 `SkillMoreEntry`、
+ *   行的图标唯一映射（本文件私有 `MORE_ROW_ICON`）、
  *   它的输入契约（`EscCardMore` / `EscCardMoreAction` / `EscCardMoreConfirm`）、被画出来的那些行的**纯投影**
  *   `escCardMoreRows`、按下某一行的**唯一分派** `escCardMoreSelect`（可直调取证），以及组件本体
  *   `SkillMoreActions`
- * [POS]: esc 卡片层里「更多」下拉的**唯一实现**（本刀从 `esc-card.tsx` 抽出来：那一枚卡片已接近单文件上限，
+ * [POS]: esc 卡片层里「更多」下拉的**唯一实现**（口径 S5a 从 `esc-card.tsx` 抽出来：那一枚卡片已接近单文件上限，
  *   而本件是一整块自洽的交互——触发器 + 下拉 + 二次确认 + 危险行；抽出后 `esc-card.tsx` 只留一行接线）。
  *
- *   ★**本刀（S5a：技能卡片「更多」里的两个本机管理动作）**——三处一起动：
- *     ① **三行收成两行**：`编辑` 整枚退场（语义不明，YAGNI）；留下的正是「打开文件夹」与「卸载」，
- *        顺序照 workbuddy 截图（非破坏性在前、危险档在最后）；
- *     ② **两行真的有动作**：能不能按、点了干什么，全部由页面层经 `EscCardMore` **计划**注入——
+ *   ★**本刀（用户冻结规格 §3：「…」菜单照 WorkBuddy，四行）**——三处一起动：
+ *     ① **两行回到四行**：`去对话` / `编辑` / `打开文件夹` / `卸载`（顺序与文案逐字照实物：
+ *        非破坏性在前、危险档收尾）。★`编辑` 那一行**只进数据、不进 DOM**——它的宿主动作
+ *        （用系统默认应用打开这枚技能的 `SKILL.md`）那条路由还没落地 ⇒ 端口缺席 ⇒ 计划里不给那一格
+ *        ⇒ `escCardMoreRows` 把整行丢掉（fail-closed，理由逐条在下面②与 `SKILL_MORE_ENTRIES` 那段）；
+ *     ② **四行真的有动作**：能不能按、点了干什么，全部由页面层经 `EscCardMore` **计划**注入——
  *        本组件不认识任何数据形状、不自己判"能不能卸"（判据是「这个名字在不在这台机器的自装清单里」，
  *        唯一判定在 `esc-skill-more.ts` 的 `enterpriseEscSkillMorePlan`）；
+ *        ★`去对话` 与卡片上那枚「去试试」是**同一个动作**（新会话 + 填好草稿、**绝不自动发送**）：
+ *        它的实现在**页面层**（两处入口调同一个执行器），本组件只转交"计划里那一格被按了"这件事；
  *     ③ **危险那一枚必须先过二次确认**：下拉里按它只**请求确认**（`escCardMoreSelect` 返回 `'confirm'`），
  *        业务写入口一次都不调；确认框复用 `ConfirmAction`（唯一次确认实现），三句文案由计划给。
  *
- *   ★**为什么"不适用"表达为「整行不画」而不是「画成禁用」**（本刀锁死的那条选择，理由三条）：
+ *   ★**为什么"不适用"表达为「整行不画」而不是「画成禁用」**（口径 S5a 锁死的那条选择，理由三条）：
  *     ① 官方 `MenuItem` 的字段只有 `{id,label,disabled,icon,danger,submenu}`（0.1.5-rc.2
  *        `lib/types/Menu.d.ts`，运行期 0.2.0-rc.2 同形）—— **没有 `title`、没有描述位**，一枚禁用的菜单行
  *        说不出「为什么按不动」；把 `title` 挂上去会被官方**静默丢弃**（`esc-toolbar.tsx` 口径 49 那条
@@ -27,18 +32,19 @@
  *        不成立——它说的是"这台机器没有这个能力"（那一行永远在），而这里是"**这枚技能**不是本机自装的那一份"
  *        （名字级事实）：把它折进 `打开文件夹（不是本机自装技能）` 会读成技能名的一部分，而不是一句原因；
  *     ③ 「画了就是在暗示能卸」（交付里的裁决原话）：一枚画出来的「卸载」即便灰着，也在暗示这台机器能卸它。
- *     ⇒ 判据落在"计划里有没有那一格"：没有那一行就**不画**；两行都画不出来时**连 `⋯` 触发器也不画**
+ *     ⇒ 判据落在"计划里有没有那一格"：没有那一行就**不画**；**一行都画不出来时连 `⋯` 触发器也不画**
  *       （见 `escCardMoreRows` 与 `esc-card.tsx` 那道闸）——**不是**画一枚点了没反应的死控件。
+ *       ★本刀 `编辑` 那一行正是这条规则的同一条命：路由没落地 ⇒ 没那一格 ⇒ **整行不画**
+ *       （不是先画成禁用、更不是画一枚点了没反应的"编辑"）。
  *
  *   ★**触发器必须有 `onClick`**：官方 `Menu`（0.1.5-rc.2 与 0.2.0-rc.2 都逐行核过）只渲染
  *     `[anchor, list]`，**不会**给 anchor 挂点击——`open` 由调用方持有，开合也只能由 anchor 自己发起
  *     （`esc-toolbar.tsx` 那枚「添加技能」下拉同一条：`onClick: addSkillMenu.onToggle` + `aria-haspopup`）。
- *     本刀补上这枚 `onClick`（此前那一版只有 `onClose`/`onSelect`，`open` 永远是 false ⇒ 下拉根本打不开）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { Menu } from '@deepseek-ai/dsh-client-ui-primitives'
-import { Folder, MoreHorizontal, Trash2 } from 'lucide-react'
+import { Folder, MessageSquare, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
 import { createElement, useState, type ReactNode } from 'react'
 import { ConfirmAction } from '../confirm-action.js'
 import { ENTERPRISE_ESC_COPY } from './esc-copy.js'
@@ -49,23 +55,48 @@ import { ENTERPRISE_ESC_COPY } from './esc-copy.js'
  * ★显式标出 `danger?` —— 不标的话 TS 会把两条推成两个互不相容的字面量联合，
  * 于是 `.map` 里读 `entry.danger` 直接报错（这就是 `MenuItem` 期望的那个可选位）。
  * ★**导出**：这一份是纯数据，测试要能直查（`SkillMoreActions` 自己持有 `open` 态，
- * 在没有 React 调度器的纯函数测试里渲染不出来）——「两行逐字 + 危险档只有卸载」这条判据因此落在
+ * 在没有 React 调度器的纯函数测试里渲染不出来）——「四行逐字 + 危险档只有卸载」这条判据因此落在
  * **真数据**上，而不是靠把组件硬渲染一遍。
  */
 export interface SkillMoreEntry {
-  readonly id: 'open-folder' | 'uninstall'
+  readonly id: 'goto-chat' | 'edit' | 'open-folder' | 'uninstall'
   readonly label: string
   readonly danger?: boolean | undefined
 }
 
 /**
- * ★**本刀（S5a）**：三行收成两行——`编辑` 整枚退场（语义不明，YAGNI），
- * 留下的是本刀真的接上线的两枚本机管理动作；顺序照截图（`打开文件夹` 在前、危险档 `卸载` 收尾）。
+ * ★**本刀（用户冻结规格 §3：『「…」菜单照 WorkBuddy，四行』）**：四行，顺序与文案**逐字**照实物——
+ * `去对话` / `编辑` / `打开文件夹` / `卸载`（非破坏性在前、危险档收尾）。
+ *
+ * ★**为什么 `编辑` 在数据里、却画不出来**（规格 §3 那条 ★ 的落法，**fail-closed**）：
+ *   它的宿主动作（用**系统默认应用**打开这枚技能的 `SKILL.md`）需要宿主侧新开一条只读/本机动作路由
+ *   （与「打开文件夹」同族：`execFile` + argv、不走 shell、失败给稳定码）；那条路由**还没落地** ⇒
+ *   端口缺席 ⇒ `enterpriseEscSkillMorePlan` **不给 `edit` 那一格** ⇒ `escCardMoreRows` 把它整行丢掉。
+ *   这一行的"在场"（`SKILL_MORE_ENTRIES` 是**版式真源**：行序与文案就是它）与"画不画"（计划里有没有
+ *   那一格）**刻意分成两件事**：画一枚点了没反应的菜单项、或先画成禁用，都是本仓明令禁止的形态
+ *   （官方 `MenuItem` 连 `title` 位都没有 ⇒ 一枚禁用的菜单行说不出为什么按不动）。
+ *   ⇒ 那条路由落地那天，只需在 `esc-installed.tsx` 的端口上补一格写入口，界面一个字都不用改。
  */
 export const SKILL_MORE_ENTRIES: readonly SkillMoreEntry[] = [
+  { id: 'goto-chat', label: '去对话' },
+  { id: 'edit', label: '编辑' },
   { id: 'open-folder', label: '打开文件夹' },
   { id: 'uninstall', label: '卸载', danger: true },
 ]
+
+/**
+ * 行的图标（**唯一映射**，与 `SKILL_MORE_ENTRIES` 的行 id 同域）。
+ *
+ * ★为什么是一个表而不是"三元表达式"：改前写的是 `id === 'uninstall' ? Trash2 : Folder` 那种二选一
+ *   —— 三行时它就只对了"卸载"那一个特例，四行之后必然分不开（两行共用文件夹图标）。
+ *   表是**全量**的：`SKILL_MORE_ENTRIES` 增删一行时，TS 会在这里当场报缺格。
+ */
+const MORE_ROW_ICON: Readonly<Record<SkillMoreEntry['id'], () => ReactNode>> = {
+  'goto-chat': () => createElement(MessageSquare, { size: 14, 'aria-hidden': true }),
+  edit: () => createElement(Pencil, { size: 14, 'aria-hidden': true }),
+  'open-folder': () => createElement(Folder, { size: 14, 'aria-hidden': true }),
+  uninstall: () => createElement(Trash2, { size: 14, 'aria-hidden': true }),
+}
 
 /**
  * 破坏性那一行点下去之前要问的那三句（`ConfirmAction` 的入参）。
@@ -216,7 +247,9 @@ export function SkillMoreActions({ name, more }: {
         label: entry.label,
         disabled: action?.disabled === true,
         danger: entry.danger === true,
-        icon: createElement(entry.id === 'uninstall' ? Trash2 : Folder, { size: 14, 'aria-hidden': true }),
+        // 图标按行 id 取（唯一映射）：`去对话`=会话气泡、`编辑`=铅笔、`打开文件夹`=文件夹、
+        // `卸载`=垃圾桶。改前是"非卸载就是文件夹"那种二选一 —— 四行之后它必然分不开。
+        icon: MORE_ROW_ICON[entry.id](),
       }
     }),
     onSelect: (id: string) => {

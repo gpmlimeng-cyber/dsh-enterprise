@@ -1,5 +1,7 @@
 /**
- * [INPUT]: 只依赖 `esc-card` 的 `EscCardInstall`（**类型**导入）、`error-messages` 的唯一码表
+ * [INPUT]: 只依赖 `esc-card` 的 `EscCardInstall`（**类型**导入）、`esc-types` 的 `ResourceItem`
+ *   （**类型**导入：计划表按卡片本身取键）、`esc-plan-table` 的 `enterpriseEscPlanTable`
+ *   （"同键同对象"的唯一实现）、`error-messages` 的唯一码表
  *   （取那句话本身与 `retryable`）与 `skill-api-decode` 的本机自装记录类型（**类型**导入）；
  *   不依赖 React、不依赖宿主 API、不发请求、不认识任何路由
  * [OUTPUT]: 对外提供**系统广场**（维度 key `'system'`，「已发布技能」那一批 NUWAX 技能）安装动作的
@@ -7,7 +9,10 @@
  *   在途与成功交代 / 失败提示前缀）、一次安装的**超时**、唯一**按钮终态** `escSystemInstallPlan`
  *   （七档互斥：可点 / 这一枚在途 / 被别人的在途挡住 / 坐标不可用 / 发布者不允许复制 / 需要付费 /
  *   写入口缺席）、把终态铺成卡片入参的唯一投影 `enterpriseEscSystemCardInstall`，以及把 Host
- *   回传的自装清单折成**已装名字集**的 `enterpriseEscSystemInstalledNames`
+ *   回传的自装清单折成**已装名字集**的 `enterpriseEscSystemInstalledNames`；
+ *   ★**本刀（技能页性能）**再加**唯一一张按卡片取的计划表** `enterpriseEscSystemInstallTable(input)`——
+ *   它是 `escSystemInstallPlan` 与 `enterpriseEscSystemCardInstall` 在全 `src` 里的**唯一调用点**，
+ *   也是"渲染时按名取**同一个对象**"的落点（卡片是 `memo` 的，计划对象每次换新的就等于没 memo）
  * [POS]: dsh-ui 技能页**第一枚维度**（系统广场，`ResourceSourceEnum` 的 `'system'`）那一枚【＋】的
  *   **唯一判定与文案真源**（页面只画、聚合层只接线）。真源是冻结契约
  *   `analysis/esc-platform-skill-export-spec.md` §3.2 + §4（宿主路由 `POST …/local/skills/published/install`）。
@@ -43,6 +48,8 @@
 import type { EnterpriseSelfInstalledSkill } from '../skill-api-decode.js'
 import { ENTERPRISE_ESC_PUBLISHED_COPY_FORBIDDEN_CODE, enterpriseErrorMessage } from '../error-messages.js'
 import type { EscCardInstall } from './esc-card.js'
+import { enterpriseEscPlanTable } from './esc-plan-table.js'
+import type { ResourceItem } from './esc-types.js'
 
 /** 【＋】可点时那三件（按钮上的词 / 悬浮说明 / 无障碍名前缀）——与另两枚维度**刻意同词**（同一件事）。 */
 export const ENTERPRISE_ESC_SYSTEM_INSTALL = '安装'
@@ -272,6 +279,52 @@ export function enterpriseEscSystemCardInstall(
     ...(plan.reason === undefined ? {} : { reason: plan.reason }),
     ...(targetId === undefined ? {} : { onInstall: () => { onInstall(targetId) } }),
   }
+}
+
+/* ───────────────────── 三之二、计划表（按卡片取，唯一构造点） ───────────────────── */
+
+/**
+ * 系统广场这一面的【＋】计划表 —— **`escSystemInstallPlan` 与 `enterpriseEscSystemCardInstall`
+ * 在 `src` 里的唯一调用点**。
+ *
+ * ★**为什么要有表**（与 `esc-skill-try.ts` / `esc-skill-more.ts` 那两张逐字同因）：卡片由 `memo` 包着，
+ *   memo 的判据是 props 逐键浅相等 ⇒ 逐卡现造的入参对象等于"每张卡每次渲染都变了"。
+ *   表的键是**卡片自己**（`item` 的对象身份）—— 计划依赖的每一格（`name` / `targetId` / `allowCopy` /
+ *   `paymentRequired`）都在这枚对象上，用它当键比"把几格拼成一个字符串键"**不会撞车**
+ *   （名字是外部数据，拼键就得假设它的形状）。
+ * ★**两种"没有计划"分得开**：`enabled === false`（这一面根本不是系统广场 × 技能）与
+ *   `item` 缺席 —— 两者都是 `undefined`，也正是"这一格不给计划"这个**结论**，一并被表存住。
+ * ★**它是这一面的唯一构造点**：改前这两枚投影在聚合层那一个 `installOf` 回调里被逐卡调用
+ *   （每渲染一次、每张卡一次），本刀收进表里 ⇒ 同一份状态下同一张卡拿到的永远是**同一枚**入参。
+ *
+ * @param input - 这一份状态：这一面在不在场、写入口在不在场、在途那一枚的 `targetId`、真写入口。
+ * @returns `get(item)` —— 同一份状态下同一张卡取两次是**同一枚入参**（可点那一档才带 `onInstall`）。
+ */
+export function enterpriseEscSystemInstallTable(input: {
+  /** 这一面该不该给计划（判据＝维度与资源类型这一对，由聚合层说）。 */
+  readonly enabled: boolean
+  /** 写入口在不在场（`false` ⇒ 禁用 + **行上可见**写明原因；判据是端口，不写死 disabled）。 */
+  readonly wired: boolean
+  /** 在途那一枚的 `targetId`（缺席 = 没有动作在跑）。 */
+  readonly busy?: number | undefined
+  /** 真写入口：收那枚安全整数坐标（只在可点那一档会被调到）。 */
+  readonly onInstall: (targetId: number, name: string) => void
+}): (item: ResourceItem) => EscCardInstall | undefined {
+  const table = enterpriseEscPlanTable<ResourceItem, EscCardInstall | undefined>(item => {
+    if (!input.enabled) return undefined
+    const plan = escSystemInstallPlan({
+      // 判据是**端口在不在场**，不是写死的 disabled。
+      wired: input.wired,
+      ...(item.targetId === undefined ? {} : { targetId: item.targetId }),
+      ...(item.allowCopy === undefined ? {} : { allowCopy: item.allowCopy }),
+      paymentRequired: item.paymentRequired === true,
+      name: item.name,
+      ...(input.busy === undefined ? {} : { busy: input.busy }),
+    })
+    // ★终态铺成卡片入参（可点那一档**才**带写入口 ⇒ 其余六档连 onClick 都没有）。
+    return enterpriseEscSystemCardInstall(plan, targetId => { input.onInstall(targetId, item.name) })
+  })
+  return item => table(item)
 }
 
 /**

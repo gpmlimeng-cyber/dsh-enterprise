@@ -38,7 +38,7 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
 }))
 
 import { EnterpriseErrorNotice } from '../src/error-notice.js'
-import { EnterpriseEscCard } from '../src/esc/esc-card.js'
+import { EnterpriseEscCard, EnterpriseEscCardView } from '../src/esc/esc-card.js'
 import {
   SKILL_MORE_ENTRIES,
   SkillMoreActions,
@@ -128,21 +128,41 @@ function selfInstalled(overrides: Partial<EnterpriseSelfInstalledSkill> = {}): E
 
 const WIRED = { uninstall: true, reveal: true } as const
 
-/** 计划工厂的调用夹（默认：这一枚真的在本机自装清单里、两条端口都在场）。 */
+/**
+ * 计划工厂的调用夹（默认：这一枚真的在本机自装清单里、两条端口都在场）。
+ *
+ * ★**本刀（技能页性能）**：纯投影的入参由"记录数组"改成"**已建好的名字集合**"
+ *   （`enterpriseEscSelfInstalledNames` 的产物；调用方在 `useMemo` 里建一次，不再逐卡折 Set）。
+ *   夹具一字未改：夹子照旧收 `{ selfInstalled: [记录…] }`，在**这里**折成集合 ——
+ *   于是这一批用例的判据（只认 `names[]` / 端口在场 / 在途 / 失败）全部原样成立，
+ *   变的只是"谁负责把记录折成集合"这一件事（从每卡一次变成每次状态变化一次）。
+ */
 function planOf(overrides: Record<string, unknown> = {}) {
+  const { selfInstalled: records = [selfInstalled()], ...rest } = overrides as {
+    selfInstalled?: readonly EnterpriseSelfInstalledSkill[]
+  } & Record<string, unknown>
   return enterpriseEscSkillMorePlan({
-    selfInstalled: [selfInstalled()],
+    selfInstalledNames: enterpriseEscSelfInstalledNames(records),
     name: 'dev-engineer-toolkit',
     wired: WIRED,
     onUninstall: () => undefined,
     onReveal: () => undefined,
-    ...overrides,
+    ...rest,
   } as never)
 }
 
 /** 卡片入参（`ResourceItem` 只填判据真正用得到的那两格）。 */
 const CARD_ITEM = { id: 'skill-4189', name: 'dev-engineer-toolkit', description: '一句话说明' }
-const card = (props: Record<string, unknown> = {}) => EnterpriseEscCard({ item: CARD_ITEM, showUse: true, installed: true, ...props } as never)
+/**
+ * 卡片树的取证入口。
+ *
+ * ★**本刀（技能页性能）**：`EnterpriseEscCard` 现在是 `memo` 包出来的那一枚（对象，不是函数）
+ *   —— 纯函数直调走它的**内层**那一枚 `EnterpriseEscCardView`（渲染语义逐字同一份）。
+ *   断言一字未动：本文件核的仍是"这枚计划交给组件的是什么"。
+ */
+const card = (props: Record<string, unknown> = {}) => EnterpriseEscCardView({ item: CARD_ITEM, showUse: true, installed: true, ...props } as never)
+/** memo 那一层仍在（本轮新增的那条结构锁，见下面「卡片记忆化」那一节）。 */
+void EnterpriseEscCard
 
 function ok(data: unknown): Response {
   return new Response(JSON.stringify({ data }), { headers: { 'content-type': 'application/json' }, status: 200 })
@@ -200,10 +220,25 @@ describe('S5a ①：可用性判据**只认**自装记录的 `names[]`（命中 
     expect(escCardMoreRows({
       actions: { uninstall: { confirm: { title: 't', impact: 'i', confirmLabel: 'c' }, onSelect: () => undefined } },
     }).map(each => each.id)).toEqual(['uninstall'])
-    // 两行逐字与顺序（截图顺序：非破坏性在前、危险档收尾；`编辑` 整枚退场）。
-    expect(SKILL_MORE_ENTRIES.map(entry => entry.id)).toEqual(['open-folder', 'uninstall'])
-    expect(SKILL_MORE_ENTRIES.map(entry => entry.label)).toEqual(['打开文件夹', '卸载'])
-    expect(SKILL_MORE_ENTRIES.some(entry => entry.label === '编辑')).toBe(false)
+    /**
+     * ★**本刀重新基线化（加强，不是放宽）**：用户冻结规格 §3 把菜单从"两行"改回**四行**
+     *   （`去对话` / `编辑` / `打开文件夹` / `卸载`）。判据的形状一字未改（两条 `toEqual` 精确逐字），
+     *   只是把行数与文案换成规格给的那四行；**新增**的是三条更强的：
+     *     ① **`编辑` 那一行在场（数据里）** —— 规格要求它回到第二格；
+     *     ② **它今天画不出来** —— 宿主那条路由没落地 ⇒ 端口缺席 ⇒ `escCardMoreRows` 里没有它
+     *        （fail-closed：不画一枚点了没反应的菜单项、也不先画成禁用）；
+     *     ③ **反向锁**：端口在场时它**必须**画出来（不然"fail-closed"就退化成"永远不画"）。
+     */
+    expect(SKILL_MORE_ENTRIES.map(entry => entry.id)).toEqual(['goto-chat', 'edit', 'open-folder', 'uninstall'])
+    expect(SKILL_MORE_ENTRIES.map(entry => entry.label)).toEqual(['去对话', '编辑', '打开文件夹', '卸载'])
+    expect(SKILL_MORE_ENTRIES.filter(entry => entry.danger === true).map(entry => entry.id)).toEqual(['uninstall'])
+    // ① 默认那一档（`planOf()`：只接了自装那两枚端口）里**没有** `去对话`（那一格由「去试试」计划带下来）、
+    //    也**没有** `编辑`（那条路由没落地）—— 画出来的恰好还是"打开文件夹 + 卸载"两行。
+    expect(escCardMoreRows(planOf()).map(entry => entry.id)).toEqual(['open-folder', 'uninstall'])
+    // ③ 反向锁：那条路由落地那天（写入口在场）`编辑` 就自己出来了（`escCardMoreRows` 的 fail-closed 闸
+    //    只认"计划里有没有那一格"，不是"行数据里有没有它"）。
+    const withEdit = planOf({ onEdit: () => undefined, wired: { ...WIRED, edit: true } })!
+    expect(escCardMoreRows(withEdit).map(entry => entry.id)).toEqual(['edit', 'open-folder', 'uninstall'])
   })
 })
 
@@ -507,7 +542,14 @@ describe('S5a ⑥：非自装技能（中心装下来的 / 官方内置的）⇒
     // ★两处共用**同一个**工厂：聚合层把它同时交给广场网格与精选行（源码级反锁）。
     const agg = readSrc('esc-aggregation.tsx')
     expect(agg.match(/const moreOf = useCallback/g)).toHaveLength(1)
-    expect(agg).toContain('? moreOf(item.name)')
+    /**
+     * ★**本刀重新基线化（加强，不是放宽）**：那一处的实参由 `(item.name)` 变成
+     *   `(item.name, tryNow)` —— 「去对话」那一行要的**整件事实**就是**同一枚**「去试试」计划
+     *   （按不按得动看它的 `disabled`、按下去干什么看它的 `onTry`）。判据形状一字未改（仍是精确
+     *   `toContain`），只是把那一格的实参逐字锁成"**同一枚计划**也一起交下去"——比旧断言更强：
+     *   旧的看不见「去对话」与「去试试」是不是同一份实现，这一条看得见。
+     */
+    expect(agg).toContain('? moreOf(item.name, tryNow)')
     expect(agg).toContain('...(resourceType === \'skill\' ? { moreOf } : {}),')
     // 专家/连接器两档不给这枚下拉（`showUse` 那一档才有）。
     expect(agg).toContain("resourceType === 'skill' && source === 'system'")

@@ -262,6 +262,30 @@
  *    ★卡片本体与卡片里每一格（头行/标题行/图标/描述/元信息/锁定行/兜底图形）、状态话、网格与重试
  *    **一律复用**既有类名 ⇒ 这一格不可能与另几维在取值上漂开；**一个新 token 名都没加**
  *    （审计 `--strict` 仍 `dead 0`），本刀新增注释**零反引号**。
+ *  * **本刀（技能卡规格 §1④：高度同源 · 作用域收窄）**：新增 **1 枚 token**
+ *    `--esc-card-action-h: var(--esc-icon-btn)`（广场刚装卡动作格里【＋】与「去试试」的**唯一高度真源**）
+ *    与 **1 条规则** `[data-esc-skill-just-installed='true'] .esc-try-now`（高度**只**在那枚属性下生效：
+ *    属性由聚合层打在"刚装那一枚"的外层格上）。`.esc-install-plus` 的 `height` 改成引用同一枚 token
+ *    （**取值一字未变**：24px），而**无作用域**的 `.esc-try-now` 回到原样（只有 `white-space`）——
+ *    **已安装页**那枚因此保持官方 `.sm` 的 28px（与改前逐字相同 ⇒ 零回归；用户裁决②：那句话管不到它，
+ *    因为**那一页根本没有安装按钮**）。★本文件整段 CSS 在一枚**模板字符串**内，注释里**不许出现反引号**
+ *    ——本刀**当场踩过一次**（新注释里写了带反引号的属性选择器，tsserver 立刻报了一屏
+ *    "Module declaration names may only use quoted strings"），终态已自查模板内反引号计数为 **0**。
+ *  * **本刀（技能页性能：②跳过屏幕外 · ③hover 只留真正会变的属性）**：本层只动**两处**，且
+ *    **计算样式逐像素不变**：
+ *    ① **新增 1 条规则**（三枚选择器共用一条声明）：`.esc-catalog-cell` / `.esc-third-party-row` /
+ *      `.esc-list-section > .esc-card` 三个**格子**吃 `content-visibility: auto` +
+ *      `contain-intrinsic-size: auto var(--esc-card-min-h)` —— 屏幕外的格子不再布局与绘制（真机那次
+ *      一次铺几百条进 DOM，改前全页 `content-visibility` **零出现**）。占位高只用**既有 token**
+ *      （不写魔法数字），`auto` 让浏览器记住上一次真的画出来的高度。**卡片本体的几何一行未动**。
+ *    ② **改 1 条规则**：`.esc-card:hover` 里删掉 `border-color` 与 `box-shadow` 两条 —— 它们与静止态
+ *      **逐字相同**（`.esc-card` 那两条声明一字未动），写上只是每次 hover 白算一遍。故 hover 现在
+ *      **只改背景色**，而 hover 时的边框色与阴影仍由静止态那两条给（值完全相同 ⇒ 零视觉变化）。
+ *    ③ 另补 1 条 **高度同源的作用域**：`.esc-featured-grid .esc-try-now` —— 精选行那张刚装卡也画
+ *      「去试试」却不在 `.esc-catalog-cell` 里，补掉"同一枚技能在广场 24px、在精选行 28px"那 4px 差；
+ *      已安装页仍吃官方 `.sm`（28px）。
+ *    ★本刀**一个新 token 名都没加**、**零新增 CSS 类**（审计 `--strict` 仍 `dead 0`）；
+ *      新增注释**零反引号**。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -411,6 +435,21 @@ const CSS = `
      真源 WB.control.summon（esc-scale.ts）。 */
   --esc-summon-h: 28px; --esc-summon-px: 10px; --esc-summon-radius: 6px;
   --esc-icon-btn: 24px; --esc-icon-btn-radius: 6px;
+  /* ★**本刀（用户冻结规格 §1④：「去试试」占原安装按钮的位置、高度与安装按钮一致）**：
+     **广场那张刚装卡**动作格里那两枚按钮【＋】（.esc-install-plus）与
+     「去试试」（.esc-try-now）的**唯一高度真源**。
+     · 为什么必须**同一处声明**：那两枚占的是**同一个格位**（未装画【＋】、刚装那一枚画「去试试」），
+       高度不同就会让卡片在"装完那一瞬间"跳一下（标题行那一格的高度由其中较高者决定）。
+     · 数值**只在本行出现一次**（var(--esc-icon-btn)：24px，出处＝workbuddy 真图实测的那枚圆角方块，
+       逐字见下面 .esc-install-plus 那段）；两条规则一律引用本 token ⇒ 不可能"两处各写一个数字"。
+     · ★**作用域收窄（用户 2026-10-09 裁决②）**：这条高度**只在广场那张刚装卡里**生效
+       （选择器挂在 .esc-catalog-cell[data-esc-skill-just-installed='true'] 下）——
+       判据就是用户那句话本身："去试试就在**原安装按钮**位置、高度和安装一致"；
+       **已安装页根本没有安装按钮**，故那句话管不到它 ⇒ 那一页那枚「去试试」回到官方 .sm 原状（28px，
+       与改前逐字相同 ⇒ 零回归）。
+     · 门禁有一条**取值级**锁：两条 height 的表达式逐字相同、本 token 恰好声明一次、
+       且**不许**存在一条不带作用域的 .esc-try-now { height: … }（那会让已安装页跟着变小）。 */
+  --esc-card-action-h: var(--esc-icon-btn);
   /* ★**本刀 B：卡片内衬 24/20 → 20/16**（用户裁决）。
      ① **SPEC 真值**：WorkBuddy UI-SPEC §4.2 的卡片容器逐字是 min-height: 84px; padding: 16px 20px
         ⇒ 横向 20、纵向 16（我们此前是 --esc-card-px: 24 / --esc-card-py: 20，两侧都比它大一档）。
@@ -732,11 +771,46 @@ const CSS = `
    ★**流畅一点**：.esc-card 那条 transition: all .3s ease-in-out 改成
    background-color .15s ease-out——只让底色这一条属性做过渡（all 会把 border/box-shadow 也算进去，
    且 .3s 对底色来说偏慢，点一下就有一顿一顿的迟滞感）。 */
-.esc-card:hover { border-color: var(--dsw-alias-border-l1); background-color: var(--dsw-alias-interactive-bg-hover); box-shadow: var(--dsw-shadow-lv2); }
+/* ★**本刀（技能页性能 ③：「不再白算」那一半：hover 只留真正会变的属性）**：
+   改前这条里 「border-color」 与 「box-shadow」 两条**与静止态逐字相同**（静止态就是
+   「border: 1px solid var(--dsw-alias-border-l1)」 / 「box-shadow: var(--dsw-shadow-lv2)」，见上面
+   「.esc-card」 那条）——它们**从来不会变**，写上只是让每次 hover 都白算一遍、并且让"这条规则到底改了什么"
+   读不出来（本页上一刀已经因为同一类空转吃过一次亏，见上面那段"空转的过渡"）。
+   ⇒ **只留 「background-color」**：hover 唯一真的会变的属性。
+   ★**静止态那两条必须仍在 「.esc-card」 上**（上面那条规则里 「border: … border-l1」 与
+   「box-shadow: var(--dsw-shadow-lv2)」 一字未动）⇒ 计算样式**逐像素不变**：hover 时的边框色与阴影
+   仍由静止态那两条给，值完全相同，只是不再经过这一条 hover 规则。
+   ★两向锁都在（「tests/esc.spec.ts」）：① 「:hover」 规则里**只有** background-color；
+   ② 「.esc-card」 静止态**仍**声明 border-color 那一档与 box-shadow。 */
+.esc-card:hover { background-color: var(--dsw-alias-interactive-bg-hover); }
 .esc-card-compact { min-height: var(--esc-card-min-h); }
 /* ★SPEC §7 分层策略：**技能卡有阴影（它是可点的入口）、专家/连接器卡无**（它们是列表项）。
    官方那套"所有卡一刀切同一阴影"在这里是错的——两类卡的交互语义不同，视觉权重就该不同。 */
 .esc-card-expert, .esc-card-connector { box-shadow: none; }
+
+/* —— 本刀（技能页性能 ②：「不再白画」那一半：跳过屏幕外的那一格）——
+   ★**要解决的事**：技能页一次要铺几百张卡/行（真机实测「本地三方」那一维度一次 **610** 条候选进 DOM），
+   而改前全页 CSS 里 「content-visibility」 **零出现** ⇒ 浏览器对每一格都要布局 + 绘制，哪怕它离视口很远。
+   主线程与合成器的时间就花在这些"员工此刻根本看不见"的格子上。
+   ★**只加在"格子"上，卡片本体的几何一个字节都不动**：网格项是**格子**（「.esc-catalog-cell」
+   = 卡片 + 它那一行失败提示、「.esc-third-party-row」 = 本地三方那条行、以及"
+   「.esc-list-section」 的直属卡片"这一种形态——那种格子里卡片本身就是网格项）。
+   「.esc-card」 那几条既有基线（border / 底色 / 内衬 / gap / min-height / box-shadow）**一行都未改**。
+   ★**占位高只用既有 token**（「--esc-card-min-h」，卡片自己的高度下限，见 「.esc-card」 那一段）——
+   **不写魔法数字**；「auto」 关键字让浏览器**记住上一次真的画出来的高度**，故只有"从没画过的那些格子"
+   才用这个下限估一个，一旦画过一次就按真实高度参与布局（滚动条不会因跳过绘制而抖）。
+   ★**为什么用 「auto」 而不是固定值**：卡片高度随字号设置/文本放大而变（本页字号跟随壳的设置），
+   写死一个数字就是"设置一变大就估错"，「auto」 那半句才是唯一不随字号漂的写法。
+   ★**已知相互作用（如实登记，本层不改那条判据）**：屏幕外的格子按**占位高**参与布局，而占位高
+   （--esc-card-min-h：84px）**略小于**卡片实测高（≈111px）、又**大于**本地三方那些行（≈54–70px）
+   ⇒ 在"内容刚好比滚动面高出不到一屏"那条窄带里，「不满屏自动补拉」的判据
+   （esc-aggregation.tsx 的 decideAutoFill，读的是滚动面自己的 scrollHeight / clientHeight）
+   可能把"其实装得下"判成装不下 ⇒ 后果是**多发一页请求**（不画错、也不会出空态；那枚
+   "补拉无进展"闩锁与列表长度比较会立刻收住）。真机上会不会真的多发一页**由用户复量**；
+   若真出现，正确修法是给格子一枚**更接近真实卡高**的既有刻度，而不是把这条跳过绘制的规则撤掉。 */
+.esc-catalog-cell,
+.esc-third-party-row,
+.esc-list-section > .esc-card { content-visibility: auto; contain-intrinsic-size: auto var(--esc-card-min-h); }
 /* 三行都 flex: none：官方紧凑卡片的 96px 内容盒恰好容纳「头 48 + 间隙 16 + 描述 32」，本页一旦因任何原因
    超出（例如宿主的长字号设置/文本放大），被压扁的必然是描述 ⇒ 那正是"第二行被切掉半截"的形态。钉死它。 */
 .esc-card-header { display: flex; gap: 12px; flex: none; }
@@ -1117,6 +1191,35 @@ const CSS = `
 .esc-add-skill-outline:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); }
 /* 口径 36 那条（.esc-action-solid:disabled { opacity: 1 }）同样覆盖新加的「去试试」——
    动作按钮那一层灰来自原语 .button:disabled { opacity: .4 }，用户裁决「换成全黑按钮」⇒ 只把冲淡按回去。 */
+/* ★**本刀（用户冻结规格 §1④：「去试试」占原安装按钮的位置、高度与安装按钮一致）**：
+   这条高度**只**在**广场那张刚装卡的外层格**下生效（[data-esc-skill-just-installed='true'] 是聚合成
+   在铺那一枚卡片时打的显式属性，打在既有类名 .esc-catalog-cell 的那一格上、**不动卡片组件**）。
+   · 高度**只**引用 --esc-card-action-h（本文件 .esc-root 里那一处声明，与 .esc-install-plus
+     **逐字同一个 height 表达式**）——**不写数字**、也不引用官方原语 .sm 那个 28px 档
+     （那正是改前两枚不同高的来由：原语 sm 是 28，安装按钮是 24）；
+   · 属性选择器 + 类名 = 一层属性 + 一层类（(0,2,0)），压得过官方 CSS module 那一层类（(0,1,0)，
+     且它的样式在宿主启动时先入表）；
+   · min-height 同值兜住 flex 收缩（与 .esc-root .esc-summon 那两行同一形态）；
+     white-space 那一格仍在下面那枚**无作用域**的 .esc-try-now 规则里（它对**所有**「去试试」成立）。
+   ★**为什么作用域必须收窄（用户裁决②，原话就是判据）**：用户要的是"去试试就在**原安装按钮**位置、
+     高度和安装一致"——**已安装页根本没有安装按钮**，所以那句话管不到它；那一页那枚「去试试」保持
+     官方 .sm 原状（28px，与改前逐字相同 ⇒ **零回归**）。若把这条写成无作用域的 .esc-try-now，
+     已安装页整排会跟着从 28 变成 24——那是**没被要求过**的视觉变化，门禁有一条反向锁盯住它。 */
+[data-esc-skill-just-installed='true'] .esc-try-now { height: var(--esc-card-action-h); min-height: var(--esc-card-action-h); }
+/* ★**本刀（用户裁决：补掉精选行那 4px 差 —— 同一枚技能在两行里不许两个高度）**：
+   精选行那张**刚装卡**也画着「去试试」（已装的被隐藏规则滤掉、未装的那张画的是【＋】），
+   而它**不在** 「.esc-catalog-cell」 里（精选卡是**直接挂在**网格上的——那是有结构锁的形态，
+   见 「esc-featured.tsx」 那段"卡片直接挂在树上"），故它吃不到上面那条按属性收窄的规则 ⇒
+   同一枚技能**在广场 24px、在精选行 28px**。
+   ⇒ 补这一条：作用域是**精选网格**（「ENTERPRISE_ESC_FEATURED_GRID_CLASS」 的唯一字面 「esc-featured-grid」）。
+   · **为什么不新包一层**：精选行里**只有"刚装那一枚"才会渲染「去试试」**——已装的被滤掉、未装的渲染【＋】
+     ⇒ 这条规则作用域**天然只命中该命中的那一枚**，多包一层格子只会去动那批结构锁（不值得）。
+   · 取值与上面那条**逐字同一表达式**（「var(--esc-card-action-h)」），故"同源"这件事在两处说得出来；
+     门禁锁"「.esc-try-now」 上的 「height: var(--esc-card-action-h)」 恰好两条、且逐字同一个表达式"，
+     并反向锁"**没有**任何无作用域的 「.esc-try-now { height: … }」"（有的话已安装页会跟着变小）。
+   · **已安装页仍然吃官方 「.sm」（28px）**：它不在这两个作用域里的任何一个里。 */
+.esc-featured-grid .esc-try-now { height: var(--esc-card-action-h); min-height: var(--esc-card-action-h); }
+/* 「去试试」三个字不许折行（**所有**「去试试」都成立：广场刚装那一枚 + 已安装页那一枚）。 */
 .esc-try-now { white-space: nowrap; }
 
 /* —— 技能卡右侧动作区（workbuddy 那一版式：未装「+」，已装「更多 + 去试试」）——
@@ -1184,7 +1287,12 @@ const CSS = `
    ★静止态改过来之后，原先那条 :hover 已是**空转**（两态同值）⇒ 按本页既有纪律
      （"transition 只声明真正会变的属性"，见 .esc-card 那段：空转的插值是每帧白烧）
      **连同那条 hover 规则一起撤掉**——留着它只会让这枚加号 hover 时"点了没反应"。 */
-.esc-install-plus { display: inline-flex; align-items: center; justify-content: center; width: var(--esc-icon-btn); min-width: var(--esc-icon-btn); height: var(--esc-icon-btn); flex-shrink: 0; border: none; border-radius: var(--esc-radius-sm); background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); cursor: pointer; }
+/* ★**本刀（用户冻结规格 §1④）**：height 由 var(--esc-icon-btn) 改成引用
+   var(--esc-card-action-h)（该 token 的值**就是** var(--esc-icon-btn)，声明在 .esc-root 里
+   那一处）——**取值一字未变**（仍是 24px），改的只是"这一高度与「去试试」同源"这件事从此
+   在一处声明上说得出来。宽/最小宽仍走 --esc-icon-btn 那一对（它就是这枚方形图标钮的宽，
+   高度与宽度在这枚按钮上本来就是同一个数，本刀不为此再造第二枚 token）。 */
+.esc-install-plus { display: inline-flex; align-items: center; justify-content: center; width: var(--esc-icon-btn); min-width: var(--esc-icon-btn); height: var(--esc-card-action-h); flex-shrink: 0; border: none; border-radius: var(--esc-radius-sm); background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); cursor: pointer; }
 /* ★**本轮（2026-10-08）第二处冲淡的真根因**：color 提到 label-primary 之后那枚加号**仍然偏灰**，
    真因是紧跟着的那条 :disabled { opacity: .6 } —— 它把已经是 #0f1115 的字色按 60% 冲淡成
    ≈#666a6d：**灰的是"不透明度"、不是"颜色"**，所以只改 color 永远不够。

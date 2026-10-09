@@ -35,7 +35,7 @@
 
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import { RefreshCw } from 'lucide-react'
-import { createElement, useEffect, useState, type ReactNode } from 'react'
+import { createElement, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { EnterpriseErrorNotice } from '../error-notice.js'
 import { ENTERPRISE_ESC_SKILL_TRY_FAILED_CODE, enterpriseErrorAction, enterpriseErrorMessage } from '../error-messages.js'
 import { enterpriseLocalErrorCode } from '../local-api.js'
@@ -45,7 +45,7 @@ import type { EnterpriseSkillListPayload } from '../skill-market.js'
 import { EnterpriseEscCard } from './esc-card.js'
 import {
   enterpriseEscSkillTryFilledText,
-  enterpriseEscSkillTryPlan,
+  enterpriseEscSkillTryTable,
   type EnterpriseEscSkillTryPlan,
 } from './esc-skill-try.js'
 import {
@@ -391,7 +391,7 @@ export function EnterpriseEscCatalog(props: EnterpriseEscCatalogProps): ReactNod
    * ★被"一次一条"挡住时直接返回（那一条请求一条都没发）——原因已经在屏幕上（正在装的那一枚写着
    *   「安装中…」、其余每一枚按钮下面写着"另一枚技能正在安装"）。
    */
-  const runInstall = (packageId: string, name: string): void => {
+  const runInstall = useCallback((packageId: string, name: string): void => {
     if (pending !== undefined) return
     if (installSkill === undefined) return
     setPending({ id: packageId, name })
@@ -410,7 +410,12 @@ export function EnterpriseEscCatalog(props: EnterpriseEscCatalogProps): ReactNod
         setInstallError({ id: packageId, code: enterpriseLocalErrorCode(error) })
       },
     ).finally(() => { setPending(undefined) })
-  }
+    /**
+     * ★**本刀（技能页性能）**：依赖列恰好是这枚闭包读的几格（在途那一枚 / 写入口 / 刷新令牌）——
+     *   它一变，本回调与下面那张【＋】计划表就跟着换新的。这不是"随手补依赖"：
+     *   表里存的**必须**是与当前状态同一份的执行器，否则表存下的是一枚闭着**过期在途闸**的回调。
+     */
+  }, [pending, installSkill, props.onInstalledRefresh])
   /**
    * ★**本刀（S5b）**：技能卡那枚「去试试」的三件状态 + 唯一执行路（与上面那三件**并列**）。
    *
@@ -427,7 +432,7 @@ export function EnterpriseEscCatalog(props: EnterpriseEscCatalogProps): ReactNod
   const [tryError, setTryError] = useState<{ readonly name: string; readonly code: string } | undefined>(undefined)
   const [tryNotice, setTryNotice] = useState<string | undefined>(undefined)
   /** 发起一次「去试试」（界面上只有已装卡片那枚按钮会调它；`draft` 是计划层拼好的那句指令）。 */
-  const runSkillTry = (name: string, draft: string): void => {
+  const runSkillTry = useCallback((name: string, draft: string): void => {
     if (tryPending !== undefined) return
     if (fillSkillTryDraft === undefined) return
     setTryPending(name)
@@ -444,16 +449,29 @@ export function EnterpriseEscCatalog(props: EnterpriseEscCatalogProps): ReactNod
       // 端口抛错与返回 false 同一条收束（都是"这一级没走成"），绝不静默。
       () => { setTryError({ name, code: ENTERPRISE_ESC_SKILL_TRY_FAILED_CODE }) },
     ).finally(() => { setTryPending(undefined) })
-  }
-  /** 某一枚技能 → 它的「去试试」计划（**唯一构造点**：纯投影 `enterpriseEscSkillTryPlan`）。 */
-  const tryNowOf = (name: string, installed: boolean): EnterpriseEscSkillTryPlan => enterpriseEscSkillTryPlan({
-    name,
-    installed,
+    // ★**本刀**：依赖列正是这枚闭包读的两格（在途那一枚 + 写入口）——理由与 `runInstall` 那条同。
+  }, [tryPending, fillSkillTryDraft])
+  /**
+   * ★**本刀（技能页性能：「不再白算」那一半）**：这一维度的「去试试」计划表（`useMemo` 建一次）。
+   *
+   * ★与聚合层那三张**逐条同因**：卡片由 `memo` 包着，判据是 props **逐键浅相等** ⇒ 逐卡现造的计划
+   *   等于"每张卡每次渲染都变了"。表按名取，同一份状态下同一枚技能拿到**同一枚计划**。
+   * ★**两种"装没装"分档**（表内两档，见 `esc-skill-try.ts`）：本维度那份 `installed` 是按
+   *   **`packageId`** 判的（`face.installed` 是包 id 集合），与广场那份"发现面名字"不是同一把键 ——
+   *   故调用方照旧自己给 `installed`，表不替它猜。
+   * ★**名字（`tryNowOf`）与签名一字未改**：交下去的仍是那一枚薄函数（`props.tryNowOf?.(name, installed)`）。
+   */
+  const tryPlans = useMemo(() => enterpriseEscSkillTryTable({
     wired: fillSkillTryDraft !== undefined,
-    ...(tryPending === name ? { pending: true } : {}),
-    ...(tryError !== undefined && tryError.name === name ? { failure: { code: tryError.code } } : {}),
-    onTry: (draft: string) => { runSkillTry(name, draft) },
-  })
+    ...(tryPending === undefined ? {} : { pending: tryPending }),
+    ...(tryError === undefined ? {} : { failure: tryError }),
+    onTry: runSkillTry,
+  }), [fillSkillTryDraft, tryPending, tryError, runSkillTry])
+  /**
+   * 某一枚技能 → 它的「去试试」计划（**唯一构造点**：上面那张 `tryPlans` 表，表内唯一投影是
+   * `enterpriseEscSkillTryPlan`；本文件里 `enterpriseEscSkillTryPlan` 一个字都不再出现）。
+   */
+  const tryNowOf = (name: string, installed: boolean): EnterpriseEscSkillTryPlan => tryPlans(name, installed)
   return EnterpriseEscCatalogList({
     state: props.state,
     keyword: props.keyword,

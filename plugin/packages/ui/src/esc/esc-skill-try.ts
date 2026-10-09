@@ -3,7 +3,9 @@
  *   不依赖 React、不依赖官方原语、不发请求、不认识任何路由 / 官方服务 / 平台 DTO
  * [OUTPUT]: 对外提供技能卡「去试试」的**唯一事实层**——唯一草稿文案构造器 `enterpriseEscSkillTryDraft(name)`、
  *   唯一可用性投影 `enterpriseEscSkillTryPlan(input)`、计划形状 `EnterpriseEscSkillTryPlan`，以及三句禁用原因、
- *   一句在途交代、一句成功交代、失败前缀与名字形状上限
+ *   一句在途交代、一句成功交代、失败前缀与名字形状上限；
+ *   ★**本刀（技能页性能）**再加**唯一一张按名取的计划表** `enterpriseEscSkillTryTable(input)`——
+ *   它是 `enterpriseEscSkillTryPlan` 在全 `src` 里的**唯一调用点**，也是"渲染时按名取**同一个对象**"的落点
  * [POS]: dsh-ui 技能卡那一枚「去试试」的**唯一判定与文案真源**：卡片只画、页面层只接线。
  *
  *   ★**它是什么**：把「这枚技能」变成一句**可读的**指令，交给官方那条「新建会话 + 写入输入框（**不发送**）」
@@ -24,10 +26,20 @@
  *   ★**零编造**：草稿里**只有技能名**（卡片自己的数据）——没有路径、没有 URL、没有内部键名
  *     （`packageId` / `targetId` / `skillId` / 宿主路由一个都不出现）。那是**一句给 Agent 读的话**，
  *     不是一份内部坐标；门禁逐字锁这一点。
+ *
+ *   ★**本刀（技能页性能：「不再白算」那一半）**：计划**不再在渲染里逐卡现造**，改由
+ *     `enterpriseEscSkillTryTable(input)` 出**一张按名取的表**（`useMemo` 在页面层建一次）——
+ *     三处调用点（广场网格 / 精选行 / 企业技能目录）都改成"按名取"。
+ *     理由只有一个、且是可验证的：`EnterpriseEscCard` 是 `memo` 包的，memo 的判据是 props **逐键浅相等**
+ *     ⇒ 计划若不是同一枚对象，几百张卡在**任何一次**状态变化（切分类 / 搜索 / 装 / 卸 / 数据刷新）里
+ *     都会被判成"props 变了"而整树重画——那正是真机上"技能页很卡、hover 也卡"的机制。
+ *     ★**表要的是"参考同一个对象"，不是"少算一次"**：一帧里省下的那点算术不是重点，
+ *     重点是那张卡**能不能被跳过**（`tests/esc-plan-reference.spec.ts` 用两次"渲染"逐键比对锁这一点）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { ENTERPRISE_ESC_COPY } from './esc-copy.js'
+import { enterpriseEscPlanTable } from './esc-plan-table.js'
 
 /**
  * 技能名的**可接受形状**（唯一判据）。
@@ -209,4 +221,51 @@ export function enterpriseEscSkillTryPlan(input: {
       ? {}
       : { onTry: () => { input.onTry(draft) } }),
   }
+}
+
+/* ────────────────────────── 三、计划表（按名取，唯一构造点） ────────────────────────── */
+
+/**
+ * 某一面（一轮数据 + 一份状态）的「去试试」计划表 —— **`enterpriseEscSkillTryPlan` 在 `src` 里的唯一调用点**。
+ *
+ * ★**为什么是"表"而不是"工厂函数"**：工厂每被调一次就造一枚新对象，而卡片是 `memo` 的
+ *   （判据是 props 逐键浅相等）⇒ 逐卡现造的对象等于"每张卡每次渲染都变了"。表把这枚对象**按名字存住**，
+ *   同一份数据 + 同一份状态下取到的永远是**同一枚**（`enterpriseEscPlanTable` 就是那条性质的唯一实现）。
+ * ★**为什么要"装没装"这一格**：同一枚技能名在两张卡上可能落在不同的已装真值下（企业技能目录那份
+ *   按 `packageId` 判、广场那份按发现面名字判）⇒ 两档各自成一张表，**绝不互相借答案**。
+ *   调用方照旧自己给 `installed`（本函数不替它从别处猜一个），所以三处调用点的语义与改前逐字相同。
+ * ★**名字不做任何编码**（不拼进键、不塞分隔符）：名字是外部数据，本叶不假设它的形状。
+ *   分档用"两张表"表达，正是为了免掉"拼键"这件容易撞车的事。
+ *
+ * @param input - 这**一份状态**：端口在不在场、在途与失败、以及唯一执行路。
+ * @returns `get(name, installed)` —— 同一份状态下、同名同档取两次是**同一枚计划**。
+ */
+export function enterpriseEscSkillTryTable(input: {
+  /** 那条官方链路的端口在不在场（`fillSkillTryDraft`）。 */
+  readonly wired: boolean
+  /** 在途的那一枚技能名（缺席 = 没有动作在跑；只影响**这一枚**）。 */
+  readonly pending?: string | undefined
+  /** 上一次失败（只对命中同一个名字的那一枚生效）。 */
+  readonly failure?: { readonly name: string; readonly code: string } | undefined
+  /** 真写入口：拿到拼好的那句指令之后去开新会话并写输入框（**不发送**）。 */
+  readonly onTry: (name: string, draft: string) => void
+}): (name: string, installed: boolean) => EnterpriseEscSkillTryPlan {
+  /** 唯一构造点（`enterpriseEscSkillTryPlan(` 在本文件之外**一次都不许出现**，门禁逐文件计数锁着）。 */
+  const buildPlan = (name: string, installed: boolean): EnterpriseEscSkillTryPlan =>
+    enterpriseEscSkillTryPlan({
+      name,
+      installed,
+      wired: input.wired,
+      ...(input.pending !== undefined && input.pending === name ? { pending: true } : {}),
+      ...(input.failure !== undefined && input.failure.name === name ? { failure: { code: input.failure.code } } : {}),
+      onTry: (draft: string) => { input.onTry(name, draft) },
+    })
+  /**
+   * 两档各一张表：`installed` 是判据的一部分 —— 同一枚技能名在两张卡上可能落在不同的已装真值下
+   * （企业技能目录那份按 `packageId` 判、广场那份按发现面名字判），两档**绝不互相借答案**。
+   * ★`installed` 仍由调用方给（本函数不替它从别处猜一个）：三处调用点的语义与改前逐字相同。
+   */
+  const installedTable = enterpriseEscPlanTable<string, EnterpriseEscSkillTryPlan>(name => buildPlan(name, true))
+  const notInstalledTable = enterpriseEscPlanTable<string, EnterpriseEscSkillTryPlan>(name => buildPlan(name, false))
+  return (name, installed) => (installed ? installedTable : notInstalledTable)(name)
 }

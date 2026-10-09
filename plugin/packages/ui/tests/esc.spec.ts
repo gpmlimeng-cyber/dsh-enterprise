@@ -329,6 +329,16 @@
  *       计数链只读官方发现面这条**不变**（`api.discoveredSkills(` 恰好一处 + 三件事实同源三条照旧）。
  *    本刀的界面半边新锁在**新文件** `tests/esc-catalog.spec.ts`（26 条：维度行四枚 / 【＋】可用性 /
  *    端口复用 / `packageId` 精确命中 / 在途与成功与失败三纪律 / 计数刷新 / 四态与两句空话）。
+ * ⑳ **本刀（真机缺口修复：已安装页两枚入口 + 账目口径 + 四组渠道 + 计数统一）**：本文件**三处就地
+ *    重新基线化**（都往**更强**改，一处断言未删，理由逐条写在那三条用例里）——
+ *    ①「已安装页的纯投影」：按**账目口径 + 四组渠道**重写（旧五组来源 → 四组渠道；旧断言全在，
+ *      另加"账外四条逐名出页"的集合锁）；
+ *    ②「口径 54 ① 同源铁证」：由"顶栏 ≡ 发现面枚数"改成"**顶栏 ≡ 页头 ≡ 账本条数**"（同一个纯投影、
+ *      同一个数），并补"双记录同名只算一次"的反向锁；
+ *    ③「⑤ 回归：计数真源」：`api.installedSkills(` 由"恰好一处" → "**恰好两处**"（各有其主：目录维度的
+ *      `packageId` 对撞 + 账本条数那一趟），计数取值口改成 `enterpriseEscInstalledCount`，
+ *      并把旧写法（`setInstalledCount(` / `snapshot.skills.length`）转成反向锁。
+ *    本刀界面半边的主锁在**新文件** `tests/esc-installed-actions.spec.ts`（40 条）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -347,7 +357,12 @@ import {
 } from '../src/esc/esc-api.js'
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from '../src/esc/esc-copy.js'
 import { createEnterpriseLocalApi, ENTERPRISE_SKILL_DISCOVERED_LOCAL_PATH } from '../src/local-api.js'
-import { EnterpriseEscCard, SKILL_MORE_ENTRIES } from '../src/esc/esc-card.js'
+/**
+ * ★**本刀（技能页性能）**：`EnterpriseEscCard` 现在是 `memo` 包出来的那一枚（对象，不是函数）
+ *   —— 既有那批"纯函数直调取渲染树"的用例改调它的**内层**那一枚 `EnterpriseEscCardView`
+ *   （渲染语义逐字同一份）；`.type` 那几条结构锁仍对着 `EnterpriseEscCard`（元素类型就是它）。
+ */
+import { EnterpriseEscCard, EnterpriseEscCardView, SKILL_MORE_ENTRIES } from '../src/esc/esc-card.js'
 import {
   EnterpriseEscToolbar,
   ENTERPRISE_ESC_ADD_SKILL_ITEMS,
@@ -380,6 +395,7 @@ import {
 } from '../src/skill-import.js'
 import {
   ENTERPRISE_ESC_INSTALLED_SOURCE_KINDS,
+  enterpriseEscInstalledCount,
   enterpriseEscInstalledGroups,
   enterpriseEscInstalledMetaTable,
   enterpriseEscInstalledSourceLabel,
@@ -2114,7 +2130,19 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     // ★用户裁决⑧**再收一档**：灰更浅（`bg-layer-2`，比 `interactive-bg-hover` 淡一档），
     //   边框回到 `l1`（与静止态同色 ⇒ 视觉上只有底色在动），且过渡只走 `background-color .15s`
     //   （此前那条 `transition: all .3s` 会把 border/box-shadow 也算进去，hover 显得一顿一顿）。
-    expect(css).toContain('.esc-card:hover { border-color: var(--dsw-alias-border-l1); background-color: var(--dsw-alias-interactive-bg-hover); box-shadow: var(--dsw-shadow-lv2); }')
+    /**
+     * ★**本刀（技能页性能 ③）两向锁 —— 加强，不是放宽**：
+     *   ① `:hover` 那条规则里**只有** `background-color`（真正会变的那一条）；
+     *      `border-color` 与 `box-shadow` 两条**与静止态逐字相同**，写上只是每次 hover 白算一遍。
+     *   ② 静止态 `.esc-card` **仍然**声明这两条（`border: 1px solid var(--dsw-alias-border-l1)`
+     *      与 `box-shadow: var(--dsw-shadow-lv2)`）⇒ hover 时的计算样式**逐像素不变**。
+     *   两向一起锁：单锁①会让"顺手把静止态那两条也删掉"变成静默的视觉回归；单锁②看不见白算。
+     */
+    expect(css).toContain('.esc-card:hover { background-color: var(--dsw-alias-interactive-bg-hover); }')
+    expect(ruleBody('.esc-card:hover')).not.toContain('border-color')
+    expect(ruleBody('.esc-card:hover')).not.toContain('box-shadow')
+    expect(ruleBody('.esc-card')).toContain('border: 1px solid var(--dsw-alias-border-l1);')
+    expect(ruleBody('.esc-card')).toContain('box-shadow: var(--dsw-shadow-lv2);')
     // ★本刀（真机裁决「技能卡 hover 卡顿、专家卡丝滑」）：卡片只声明**真正会变**的那一条。
     //   box-shadow 与 border-color 在 :hover 时逐字未变，给它们挂过渡 = 每次 hover 白插值两个没变的值。
     expect(css).toContain('transition: background-color .2s ease-out;')
@@ -2719,7 +2747,7 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
     return out
   }
   const card = (props: Record<string, unknown> = {}, itemOverride: Record<string, unknown> = {}) =>
-    asElement(EnterpriseEscCard({ item: { ...expertItem, ...itemOverride } as never, ...props } as never))
+    asElement(EnterpriseEscCardView({ item: { ...expertItem, ...itemOverride } as never, ...props } as never))
 
   it('卡片结构照官方：头/描述/页脚三行落位；**页脚只在有统计行时才渲染**（口径 35③）', () => {
     const root = card({})
@@ -2958,7 +2986,23 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
     expect(cardSourceForTagRow).toContain("import { Bot, MessageSquare, Plus, Star, User } from 'lucide-react'")
     expect(cardSourceForTagRow).not.toContain('function BarChartIcon')
     const moreMenuSourceForIcons = readFileSync(new URL('../src/esc/esc-more-menu.tsx', import.meta.url), 'utf8')
-    expect(moreMenuSourceForIcons).toContain("import { Folder, MoreHorizontal, Trash2 } from 'lucide-react'")
+    /**
+     * ★**本刀重新基线化（加强，不是放宽）**：`编辑` / `去对话` 两行回到四行菜单之后，这一族图标由
+     *   三枚变成**五枚**（`MessageSquare` = 去对话、`Pencil` = 编辑）。判据的形状一字未改（仍是
+     *   `toContain` 精确逐字锁那一行 import），多一枚少一枚照样红；另加一条**更强**的：
+     *   行图标映射必须是**全覆盖**的（四行各有其主，不许再出现"非卸载就是文件夹"那种二选一）。
+     */
+    expect(moreMenuSourceForIcons).toContain("import { Folder, MessageSquare, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'")
+    // 行图标映射**全覆盖**：四行各有其主（不许再出现"非卸载就是文件夹"那种二选一）。
+    const rowIconMap = moreMenuSourceForIcons.slice(
+      moreMenuSourceForIcons.indexOf('const MORE_ROW_ICON'),
+      moreMenuSourceForIcons.indexOf('export function escCardMoreRows'),
+    )
+    for (const row of ["'goto-chat'", 'edit', "'open-folder'", 'uninstall']) {
+      expect(rowIconMap, row).toContain(`${row}: () =>`)
+    }
+    expect(rowIconMap).toContain('Pencil')
+    expect(rowIconMap).toContain('MessageSquare')
     // 作者呈现全文件只剩**一处**（口径 42 起专家卡的作者也在这条标签行里 ⇒ 同一个渲染点；
     // 口径 40 那时是"专家卡头 + 标签行"两处共用同一枚组件，这一刀把它收成了一处）
     expect(cardSourceForTagRow.match(/createElement\(AuthorRow/g) ?? []).toHaveLength(1)
@@ -3035,23 +3079,25 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
     const moreWrapper = asElement(installedChildren[0])
     expect(typeof moreWrapper.type).toBe('function')
     /**
-     * ★**S5a 改写（不是放宽）**：「更多」下拉三处按新裁决重写——
-     *   ① **两行**（`编辑` 整枚退场：语义不明，YAGNI），留下的正是本刀真的接上的两枚本机管理动作；
-     *   ② 实现从 `esc-card.tsx` 抽到 `esc-more-menu.tsx`（那一枚卡片已逼近单文件上限）；
+     * ★**本刀改写（不是放宽）**：「更多」下拉按用户冻结规格 §3 回到**四行**——
+     *   ① **四行逐字**（`去对话` / `编辑` / `打开文件夹` / `卸载`，顺序即版式真源）；
+     *   ② 实现仍在 `esc-more-menu.tsx`（S5a 抽出之后一字未搬回）；
      *   ③ 计划驱动：行由 `escCardMoreRows(计划)` 过滤出来（缺哪一格不画哪一行，危险行没带确认文案
-     *      整行丢掉）——判据从"写死的三行"升级成"计划在不在场"。
+     *      整行丢掉）——判据仍从"写死的行"升级成"计划在不在场"。
+     *   ⚠**这里只锁"数据里有四行"**；"`编辑` 今天画不出来"那条 fail-closed 判据在
+     *   `tests/esc-skill-more.spec.ts` 里（那一处能直调计划投影，看得见"哪几行真的进了 DOM"）。
      */
     const moreMenuSource = readFileSync(new URL('../src/esc/esc-more-menu.tsx', import.meta.url), 'utf8')
     expect(moreMenuSource).toContain('items: rows.map(entry => {')
     expect(moreMenuSource).toContain('const rows = escCardMoreRows(more)')
-    // 两行逐字（打开文件夹 / 卸载），卸载是**危险档**，另一枚不带该位
-    expect(SKILL_MORE_ENTRIES.map(entry => entry.id)).toEqual(['open-folder', 'uninstall'])
-    expect(SKILL_MORE_ENTRIES.map(entry => entry.label)).toEqual(['打开文件夹', '卸载'])
-    expect(SKILL_MORE_ENTRIES[1]!.danger).toBe(true)
-    expect(SKILL_MORE_ENTRIES[0]!.danger).toBeUndefined()
-    // ★反向锁：`编辑` 与那一枚铅笔图标都不许回来（整枚退场，不是"藏起来"）。
-    expect(SKILL_MORE_ENTRIES.some(entry => entry.id === 'edit' || entry.label === '编辑')).toBe(false)
-    expect(moreMenuSource).not.toContain('Pencil')
+    // 四行逐字（去对话 / 编辑 / 打开文件夹 / 卸载），卸载是**危险档**，另三枚不带该位
+    expect(SKILL_MORE_ENTRIES.map(entry => entry.id)).toEqual(['goto-chat', 'edit', 'open-folder', 'uninstall'])
+    expect(SKILL_MORE_ENTRIES.map(entry => entry.label)).toEqual(['去对话', '编辑', '打开文件夹', '卸载'])
+    expect(SKILL_MORE_ENTRIES[3]!.danger).toBe(true)
+    expect(SKILL_MORE_ENTRIES.slice(0, 3).map(entry => entry.danger)).toEqual([undefined, undefined, undefined])
+    // ★本刀：`编辑` 那一行**回来了**（数据里在场）——但宿主那条路由还没落地 ⇒ 计划里不给那一格
+    //   ⇒ 它**画不出来**（fail-closed 的正面锁在 `esc-skill-more.spec.ts`，这里只锁这一格确实回来了）。
+    expect(SKILL_MORE_ENTRIES.some(entry => entry.id === 'edit' && entry.label === '编辑')).toBe(true)
     // 计划缺席 ⇒ 那一枚组件交出 `more = undefined`（组件据此整枚不画，见 `esc-more-menu.tsx` 那道闸）。
     expect(moreWrapper.props['more']).toBeUndefined()
     expect(ENTERPRISE_ESC_COPY.useNow).toBe('立即使用')
@@ -3558,7 +3604,7 @@ describe('esc：失败面收口（本刀 —— 精选行与列表页同一套�
     // ② 卡片开关与广场**同一组**（专家档：裁圆图标 + 召唤 + showStats；技能档见⑥）
     expect(expertCard.props).toMatchObject({ iconShape: 'circle', showSummon: true, showStats: true, showUse: false })
     // ③ 排出来的树与广场卡逐格同形：头行 = 「标题行 + 描述独立一行」，底部 = 标签行，旧三层版的描述格不出现
-    const tree = asElement(EnterpriseEscCard(expertCard.props as never))
+    const tree = asElement(EnterpriseEscCardView(expertCard.props as never))
     const [header, content, tags] = childrenOf(tree)
     expect(asElement(header).props['className']).toBe('esc-card-header')
     expect(content).toBeNull()
@@ -3580,27 +3626,58 @@ describe('esc：失败面收口（本刀 —— 精选行与列表页同一套�
     // ⑤ 没回查到 ⇒ **同一张卡**，下半截如实留空/短横：描述与作者都不出现，三格画缺口短横
     const missedCard = asElement(childrenOf(ready(ENTERPRISE_ESC_FEATURED_LOOKUP_EMPTY, 'Agent'))[0])
     expect(missedCard.type).toBe(EnterpriseEscCard)
-    const missedTree = asElement(EnterpriseEscCard(missedCard.props as never))
+    const missedTree = asElement(EnterpriseEscCardView(missedCard.props as never))
     expect(asElement(childrenOf(missedTree)[2]).props['className']).toBe('esc-card-tags')
     // 标题 + 标题行里那枚默认收起的「召唤」（形态在、宽度由 CSS 收到 0）+ 三格缺口短横
     expect(textOf(missedTree)).toBe(
       `流程管理专家${ENTERPRISE_ESC_COPY.summon}${ENTERPRISE_ESC_LOCAL_COPY.statUnavailable.repeat(3)}`,
     )
-    // ⑥ 技能档：方形图标 + 常驻「+」；已装清单命中 ⇒ 换成「更多 + 去试试」（与广场同一条口径）
+    /**
+     * ⑥ 技能档：**已装的从这一行里去掉**（用户冻结规格 §1①/§2：精选行与广场**同一条规则**）。
+     *
+     * ★**本刀重新基线化（加强，不是放宽）**：改前这一格锁的是"已装清单命中 ⇒ 卡片画成
+     *   `installed: true` 的「更多 + 去试试」那一形态"——那一版口径**已被冻结规格 §1① 覆盖**
+     *   （已装的不出现）。新判据比旧判据强：它同时锁住"**已装的那一枚一枚都不进 DOM**"与
+     *   "**刚装那一枚例外地留在原地、且只有「去试试」**"两件事（旧断言只看得到一张卡片的 props，
+     *   看不见"它在不在列表里"）。
+     */
     const skillRecord: EscRecommendRecord = { id: 8, targetType: 'Skill', targetId: 158, recType: 'Official', label: 'dev-engineer-toolkit' }
-    const skillCard = asElement(
-      childrenOf(
-        asElement(
-          enterpriseEscFeaturedBody({ kind: 'ready', items: [skillRecord] }, () => undefined, {
-            lookup: new Map([[158, { id: 'skill-4194', name: 'dev-engineer-toolkit' }]]),
-            targetType: 'Skill',
-            installedSkillNames: new Set(['dev-engineer-toolkit']),
-          }),
-        ),
-      )[0],
+    const skillBodyOf = (options: Record<string, unknown>) => enterpriseEscFeaturedBody(
+      { kind: 'ready', items: [skillRecord] },
+      () => undefined,
+      { lookup: new Map([[158, { id: 'skill-4194', name: 'dev-engineer-toolkit' }]]), targetType: 'Skill', ...options },
     )
-    expect(skillCard.props).toMatchObject({ iconShape: 'square', showUse: true, installed: true, showSummon: false })
-    // 反向锁：读不到已装清单（不传集合）⇒ 按"未装"画「+」，与广场卡同一条口径（不谎称已装）
+    const gridOf = (options: Record<string, unknown>) => childrenOf(asElement(skillBodyOf(options)))
+    // ① 已装（清单命中）⇒ **这一行里没有它**（不是灰化、不是打标：连元素都不进树）。
+    expect(gridOf({ installedSkillNames: new Set(['dev-engineer-toolkit']) })).toHaveLength(0)
+    // ② 不在清单里 ⇒ 照旧一枚方形技能卡（常驻「+」那一档），本刀不动它。
+    const notInstalled = asElement(gridOf({ installedSkillNames: new Set(['some-other-skill']) })[0])
+    expect(notInstalled.props).toMatchObject({ iconShape: 'square', showUse: true, installed: false })
+    expect(notInstalled.props['showSummon']).toBeUndefined()
+    // ③ **刚装那一枚例外**：它留在原地（位置照旧），且卡片**只显示「去试试」**——
+    //    入参里 `more` 与 `install` **两格都不存在**（规格 §1③：没有「…」、没有【＋】）。
+    const justInstalled = asElement(gridOf({
+      installedSkillNames: new Set(['dev-engineer-toolkit']),
+      justInstalledSkillName: 'dev-engineer-toolkit',
+      tryOf: (name: string) => ({
+        text: ENTERPRISE_ESC_COPY.tryNow,
+        disabled: false,
+        title: 't',
+        ariaLabel: `去试试：${name}`,
+        onTry: () => undefined,
+      }),
+    })[0])
+    expect(justInstalled.props).toMatchObject({ iconShape: 'square', showUse: true, installed: true })
+    // ★共享投影**不带** `showSummon` / `showStats` / `showConnect` 那几格（技能档那三个开关对广场卡与
+    //   精选卡**逐字同形**：两处都不给，而不是一处给 `false`、一处给 `undefined` —— 那也是一种漂）。
+    expect(justInstalled.props['showSummon']).toBeUndefined()
+    expect(justInstalled.props['showStats']).toBeUndefined()
+    expect(justInstalled.props['showConnect']).toBeUndefined()
+    expect(justInstalled.props['more']).toBeUndefined()
+    expect(justInstalled.props['install']).toBeUndefined()
+    expect(Object.keys(justInstalled.props)).not.toContain('more')
+    expect(Object.keys(justInstalled.props)).not.toContain('install')
+    // ④ 反向锁：读不到已装清单（不传集合）⇒ 按"未装"画「+」，与广场卡同一条口径（不谎称已装）
     const noList = asElement(childrenOf(ready(ENTERPRISE_ESC_FEATURED_LOOKUP_EMPTY, 'Skill'))[0])
     expect(noList.props['installed']).toBe(false)
   })
@@ -3696,7 +3773,7 @@ describe('esc：口径 46/47（「添加技能」照商城那套做 · 「已安
   }
   const item = { id: 'skill-1', name: 'dev-engineer-toolkit', description: '示例描述' }
   const card = (props: Record<string, unknown> = {}) =>
-    asElement(EnterpriseEscCard({ item, ...props } as never))
+    asElement(EnterpriseEscCardView({ item, ...props } as never))
 
   it('工具栏那两枚：写入口在场 ⇒ 真按钮；缺席 ⇒ 置灰 + 写明原因（判据是端口，不是写死的 disabled）', () => {
     const onAddSkill = vi.fn()
@@ -3790,15 +3867,17 @@ describe('esc：口径 46/47（「添加技能」照商城那套做 · 「已安
     expect(classesOf(card({ showUse: true }))).toContain('esc-card-tags')
   })
 
-  it('已安装页的纯投影（★口径 54 重新基线化）：真源=发现面 / 分组=来源标注 / 卡片字段 / 哪一枚那开关拨不动', () => {
+  it('已安装页的纯投影（★本刀重新基线化：账目口径 + 四组渠道）：谁在账上 / 归哪一组 / 卡片字段 / 哪一枚那开关拨不动', () => {
     /**
-     * ★**重新基线化（加强，不是放宽）**：旧这一条测的是"两张**记录**各投一张卡"（`self`/`center` 两组）。
-     * 用户裁决把「已安装」的真源换成**官方发现面**之后，那两张卡投影（`enterpriseEscSelfInstalledCard` /
-     * `enterpriseEscCenterInstalledCard`）**整两个函数都不存在了** —— 列表由**磁盘真值**铺，
-     * 两份记录只贡献显示名/版本/摘要/卸载口。新判据覆盖的形态比旧的多：
-     *   ① 分组身份由**来源**决定（五类，含"未知来源各自成组"）；
-     *   ② 卡片三格逐字段（key / 标题 / **描述取官方那句真描述**——旧那两份记录里根本没有描述文案）；
-     *   ③ 开关可拨性只由"名字有没有对上企业记录"决定，且**元信息半句**逐字落位。
+     * ★**重新基线化（加强，不是放宽；用户最终裁决）**：口径 54 那一版按**官方 `source`** 分五类
+     *   （`center/self/project/bundled` + `other:<原样 source>`，五组都进结果），而用户裁决把这一页的口径
+     *   换成**"DSH 自己装过的那本账 + 来源渠道"**：「系统内置，来自内部市场、来自外部市场、用户自定义」。
+     *   ⇒ ① **没有 DSH 记录的一律不在这一页**：旧断言里 `proj-helper` / `weird` 那两张卡因此**不再存在**
+     *      ——这不是放宽：新断言**额外**锁住了"它们确实出页"（`groups.flatMap(names)` 的逐字集合锁）；
+     *      ② 分组身份改由**两份记录 + `sourceInput` 渠道前缀**判（不再按 source 枚举铺五组）；
+     *      ③ 旧的 `other:<source>`（未知来源各自成组）整格删除：未知 source 且无记录 ⇒ `undefined` ⇒ 出页。
+     *   覆盖的形态比旧的多：三个渠道各一条 + 无记录的 `user-dsh` / `user-agents` / 项目根 / 未知 source
+     *   四类**必须出页**。
      */
     const discovered = (
       name: string,
@@ -3821,68 +3900,83 @@ describe('esc：口径 46/47（「添加技能」照商城那套做 · 「已安
       names: ['dev-engineer-toolkit'],
       installedAt: '',
     }]
+    // 自装那一枚的 `sourceInput` 走**外部市场**（`clawhub.ai:`）——真值样例见
+    // `bundle/src/skill-online.ts:1221` 与 `ONLINE_SKILL_SOURCE_IDS`（同文件 `:49`）。
     const self = [{
       skillId: 'meeting-notes',
       displayName: '会议纪要',
       sha256: 'a'.repeat(64),
       names: ['meeting-notes'],
       installedAt: '2026-10-07',
+      sourceInput: 'clawhub.ai:skills-sh:owner/repo/dir',
     }]
     const meta = enterpriseEscInstalledMetaTable(center, self)
     const skills = [
       discovered('dev-engineer-toolkit', 'user-dsh', { whenToUse: '需要时' }),
       discovered('meeting-notes', 'user-dsh'),
-      discovered('proj-helper', 'project-agents'),
       discovered('bundled-thing', 'bundled'),
+      discovered('proj-helper', 'project-agents'),
       discovered('weird', 'custom'),
+      discovered('no-record-dsh', 'user-dsh'),
+      discovered('no-record-agents', 'user-agents'),
     ]
-    // ① 单条来源标注（"谁放进去的"）：企业记录同名优先，其余按官方 source 归。
+    // ① 单条来源标注（"从哪条渠道装进来的"）：**账外那四条给 `undefined`**（不编一句"其它"糊上去）。
     expect(skills.map(each => enterpriseEscInstalledSourceLabel(each, meta))).toEqual([
-      '企业装下来的', '本机导入的', '项目里的', '官方内置', '其它来源（custom）',
+      '来自内部市场', '来自外部市场', '系统内置', undefined, undefined, undefined, undefined,
     ])
-    // ② 分组顺序（真源那一格数组）+ 组名逐字；空组不进结果。
-    expect(ENTERPRISE_ESC_INSTALLED_SOURCE_KINDS).toEqual(['center', 'self', 'project', 'bundled'])
+    // ② 分组顺序（真源那一格数组）+ 组名逐字；空组不进结果；**账外一律不进结果**。
+    expect(ENTERPRISE_ESC_INSTALLED_SOURCE_KINDS).toEqual(['builtin', 'internal', 'external', 'custom'])
     const groups = enterpriseEscInstalledGroups(skills, meta)
-    expect(groups.map(group => group.id)).toEqual(['center', 'self', 'project', 'bundled', 'other:custom'])
-    expect(groups.map(group => group.title))
-      .toEqual(['企业装下来的', '本机导入的', '项目里的', '官方内置', '其它来源（custom）'])
-    expect(groups.map(group => group.cards.length)).toEqual([1, 1, 1, 1, 1])
-    // ③ 卡片逐字段：企业那一枚（有中心包 id ⇒ 能拨；元信息是**版本**）。
-    const centerCard = groups[0]!.cards[0]!
+    expect(groups.map(group => group.id)).toEqual(['builtin', 'internal', 'external'])
+    expect(groups.map(group => group.title)).toEqual(['系统内置', '来自内部市场', '来自外部市场'])
+    expect(groups.map(group => group.cards.length)).toEqual([1, 1, 1])
+    expect(groups.flatMap(group => group.cards.map(card => card.name)))
+      .toEqual(['bundled-thing', 'dev-engineer-toolkit', 'meeting-notes'])
+    // ③ 卡片逐字段：内部那一枚（有中心包 id ⇒ 能拨；元信息是**版本**）。
+    const centerCard = groups[1]!.cards[0]!
     expect(centerCard.key).toBe('installed-0-dev-engineer-toolkit')
+    expect(centerCard.name).toBe('dev-engineer-toolkit')
     expect(centerCard.item.name).toBe('开发工程工具箱')
     expect(centerCard.item.description).toBe('dev-engineer-toolkit 的真描述')
     expect(centerCard.locked).toBe(false)
     expect(centerCard.packageId).toBe('2105915576743428098')
     expect(centerCard.meta).toBe('版本 2.0.3')
-    // 本机导入那一枚（没有中心包 id ⇒ 恒拨不动；元信息是**摘要**，截断到 12 位 + 省略号）。
-    const selfCard = groups[1]!.cards[0]!
-    expect(selfCard.item.name).toBe('会议纪要')
-    expect(selfCard.locked).toBe(true)
-    expect(selfCard.packageId).toBeUndefined()
-    expect(selfCard.meta).toBe(`摘要 ${'a'.repeat(12)}…`)
-    // 项目 / 官方内置 / 未知来源三枚：一律拨不动、一律没有元信息半句（不编"未知"）。
-    for (const group of groups.slice(2)) {
-      expect(group.cards[0]!.locked, group.id).toBe(true)
-      expect(group.cards[0]!.meta, group.id).toBeUndefined()
-    }
+    // 外部那一枚（没有中心包 id ⇒ 恒拨不动；元信息是**摘要**，截断到 12 位 + 省略号）。
+    const externalCard = groups[2]!.cards[0]!
+    expect(externalCard.item.name).toBe('会议纪要')
+    expect(externalCard.locked).toBe(true)
+    expect(externalCard.packageId).toBeUndefined()
+    expect(externalCard.meta).toBe(`摘要 ${'a'.repeat(12)}…`)
+    // 内置那一枚：同样拨不动、没有元信息半句（不编"未知"）。
+    const builtinCard = groups[0]!.cards[0]!
+    expect(builtinCard.name).toBe('bundled-thing')
+    expect(builtinCard.locked).toBe(true)
+    expect(builtinCard.packageId).toBeUndefined()
+    expect(builtinCard.meta).toBeUndefined()
     // ④ 显示名缺 ⇒ 回落发现面给的技能名（不画一张空标题）；描述永远取发现面那一句。
+    //    ★渠道前缀缺席 ⇒ 未知渠道落「用户自定义」（不新造第五组、也不隐藏）。
     const bare = enterpriseEscInstalledGroups([discovered('k', 'user-dsh')],
-      enterpriseEscInstalledMetaTable([], [{ skillId: 'x', displayName: '', sha256: '', names: [], installedAt: '' }]))
+      enterpriseEscInstalledMetaTable([], [{ skillId: 'x', displayName: '', sha256: '', names: ['k'], installedAt: '' }]))
+    expect(bare.map(group => group.id)).toEqual(['custom'])
     expect(bare[0]!.cards[0]!.item.name).toBe('k')
     expect(bare[0]!.cards[0]!.item.description).toBe('k 的真描述')
     expect(bare[0]!.cards[0]!.meta).toBeUndefined()
-    // ⑤ 空组不进结果：只给一条本机导入的技能 ⇒ 只有一组（没有 center 的空壳）。
+    // ⑤ 空组不进结果 + **账目筛子**：只给一条本机导入的技能 ⇒ 只有它那一组；给一条无记录的 ⇒ 一张卡都没有。
     const onlySelf = enterpriseEscInstalledGroups([discovered('meeting-notes', 'user-dsh')], meta)
-    expect(onlySelf.map(group => group.id)).toEqual(['self'])
+    expect(onlySelf.map(group => group.id)).toEqual(['external'])
+    expect(enterpriseEscInstalledGroups([discovered('nobody', 'user-dsh')], meta)).toEqual([])
     // ⑥ 一条都没有 ⇒ 空数组（整页空态由视图说）。
     expect(enterpriseEscInstalledGroups([], meta)).toEqual([])
-    // ⑦ 两份记录**合并**进同一把键（同名时企业那半不抹掉自装那半，反之亦然）。
+    // ⑦ 两份记录**合并**进同一把键（同名时企业那半不抹掉自装那半，反之亦然），渠道坐标一起并进。
     const merged = enterpriseEscInstalledMetaTable(center, [{
-      skillId: 'dev-engineer-toolkit', displayName: 'X', sha256: 'c'.repeat(64), names: ['dev-engineer-toolkit', 'meeting-notes'], installedAt: '',
+      skillId: 'dev-engineer-toolkit', displayName: 'X', sha256: 'c'.repeat(64),
+      names: ['dev-engineer-toolkit', 'meeting-notes'], installedAt: '', sourceInput: 'nuwax:158',
     }])
-    expect(merged.of('dev-engineer-toolkit')).toMatchObject({ packageId: '2105915576743428098', versionId: '2.0.3', sha256: 'c'.repeat(64) })
-    expect(merged.of('meeting-notes')).toMatchObject({ sha256: 'c'.repeat(64) })
+    expect(merged.of('dev-engineer-toolkit')).toMatchObject({
+      packageId: '2105915576743428098', versionId: '2.0.3', sha256: 'c'.repeat(64),
+      selfRecorded: true, sourceInput: 'nuwax:158',
+    })
+    expect(merged.of('meeting-notes')).toMatchObject({ sha256: 'c'.repeat(64), selfRecorded: true })
   })
 
   it('本地导入是**同一份实现**：状态机与三件事实全仓只有一处，两面都 import 同一叶片（结构级不变式）', () => {
@@ -4554,34 +4648,48 @@ describe('esc：口径 49（技能页主按钮三项下拉 · 三页尺寸/形�
    * 的形态（反向锁：文件里不许再出现 `list.length +` / `selfRecords`）；③ 三态纪律（读不到不写假数）
    * 与时机（技能页那条 effect + 刷新令牌）**一条不少**，并多锁一条 `complete === false` 的第四态。
    */
-  it('⑤ 回归：计数真源（**一条**官方发现面）与请求次数/时机/三态纪律', () => {
+  it('⑤ 回归：计数真源（**一条**官方发现面 + **同一个纯投影**）与请求次数/时机/三态纪律', () => {
     const aggregation = stripEscComments(readSrc('esc-aggregation.tsx'))
-    // ① **一条真源**：发现面那一趟（全文件恰好一处调用），且它是计数的**唯一**来路。
+    // ① **一条真源**：发现面那一趟（全文件恰好一处调用），且它是"哪些名字算装过"的**唯一**来路。
     expect(aggregation.match(/api\.discoveredSkills\(/g)).toHaveLength(1)
     expect(aggregation).toContain('const snapshot = await api.discoveredSkills(controller.signal)')
-    // ★三件事实**出自同一处投影**（计数 / 已装判定键 / 还没发现完）—— 这条比"某一行写得对"强：
-    //   任何"计数另算一遍"的改法都会让这三行不再同源。
+    // ★两件事实**出自同一处投影**（已装判定键 / 还没发现完）—— 任何"这一趟里另算一遍"的改法都会让它不再同源。
     expect(aggregation).toContain('const facts = installedSnapshotFacts(snapshot)')
-    expect(aggregation).toContain('setInstalledCount(facts.count)')
     expect(aggregation).toContain('setInstalledIds(facts.names)')
     expect(aggregation).toContain('setInstalledDiscovering(facts.discovering)')
-    // ② 反向锁：**不再是**"两份记录之和"（那两份已降级为元信息）。
+    /**
+     * ★**本刀重新基线化（用户裁决：同一个词在同一屏上只指一个数）；加强，不是放宽**。
+     *   旧这一条锁的是"计数＝发现面枚数"（`setInstalledCount(facts.count)`）—— 用户把「已安装」
+     *   定义成 **DSH 装过的那本账**之后，顶栏那个数必须与「已安装」页页头**同一个纯投影**，
+     *   否则真机上会出现「已安装(64)」对「已安装技能（14）」这种自相矛盾（用户明令不许留）。
+     *   新判据比旧的**更强**（旧断言对"两处各算一遍、恰好相等"是绿的，新的不可能绿）：
+     *     ① 那个纯投影 `enterpriseEscInstalledCount` 的**定义只有一处**（`esc-installed-model.ts`，
+     *        由 `tests/esc-installed-actions.spec.ts` 的门禁咬住）；
+     *     ② 本层**调它**、且吃的是**同一份输入**（发现面快照 + 中心记录 + 自装记录），不自己 sum；
+     *     ③ 发现面快照必须真的被存下来（否则渲染期算不出账条数）；
+     *     ④ 反向锁：旧那个"发现面枚数"的写法（`setInstalledCount(` / `snapshot.skills.length`）不许回来。
+     */
+    expect(aggregation).toContain('const installedCount = useMemo(')
+    expect(aggregation).toContain('enterpriseEscInstalledCount(')
+    expect(aggregation).toContain('enterpriseEscInstalledMetaTable(installedCenter, selfInstalled)')
+    expect(aggregation).toContain('setDiscoveredSkills(snapshot.skills)')
+    expect(aggregation).not.toContain('setInstalledCount(')
+    expect(aggregation).not.toContain('snapshot.skills.length')
+    // ② 反向锁：**不再是**"两份记录之和"（那两份已降级为元信息/渠道坐标）。
     expect(aggregation).not.toContain('list.length +')
     expect(aggregation).not.toContain('selfRecords')
     /**
-     * ★**口径 53 重新基线化（更强，不是放宽）**：这一格旧值是"`api.installedSkills(` **零出现**"
-     *   —— 它守的是"**计数**不许退回读企业已装记录"（口径 54：计数只有一条真源＝官方发现面）。
-     *   本刀技能页新增第四枚维度「企业技能」，它的**已装判定**按口径 53 明令走"
-     *   **`packageId` 精确命中** `GET /skills/installed`"——那是**另一件事**（`packageId` 对撞，
-     *   不是"数了几枚"），故 `api.installedSkills` 在本文件里从"零"变成"**恰好一处**"。
-     *   ★判据因此改成**更精确**的一对：① 全文件恰好一处调用；② 那一处**必须**是
-     *     `createEnterpriseSkillListSource` 的 `installedSkills` 接线（企业技能维度的取数源）；
-     *     ③ 计数链那三行（发现面 / 同一处投影 / 三个 setter）**一条都还在**（见上面 ① 与下面 ③④⑤）。
-     *     ⇒ "把计数退回读企业记录"这条改法今天仍然必红：它要么多出第二处调用、要么撞上
-     *       `api.discoveredSkills(` 恰好一处、要么让 `installedSnapshotFacts` 那三行不同源。
+     * ★**本刀第二次重新基线化（更强，不是放宽）**：`api.installedSkills(` 由"**恰好一处**"
+     *   （口径 53：企业技能维度的 `packageId` 精确命中）变成"**恰好两处**"，两处都有名有姓 ——
+     *     ① `createEnterpriseSkillListSource` 的接线（`packageId` 对撞，那一件事一字未动）；
+     *     ② **本刀新增**：账本条数那一趟（与自装记录**串行同趟**读中心已装记录，喂给
+     *        `enterpriseEscInstalledCount`；见 `installedCount` 那段）。
+     *   ⇒ "把计数退回读企业已装记录"这条改法今天仍然必红：它要么多出第三处、要么撞上上面
+     *     那四条（定义唯一 / 同一份输入 / 快照被存下 / 旧写法清零）。
      */
-    expect(aggregation.match(/api\.installedSkills\(/g)).toHaveLength(1)
+    expect(aggregation.match(/api\.installedSkills\(/g)).toHaveLength(2)
     expect(aggregation).toContain('installedSkills: signal => api.installedSkills(signal),')
+    expect(aggregation).toContain('api.installedSkills(controller.signal)')
     /**
      * ★`selfInstalledSkills` 在这份文件里**只剩一处**，且必须是**本地导入那台状态机**的接线
      * （导入成功后要拿自装清单念出"这次装好了哪几个技能"）—— 它**不再**是计数链的一环。
@@ -5722,31 +5830,99 @@ describe('esc：口径 54（「已安装」真源换成官方发现面）', () =
     source,
     provider: 'skill-filesystem',
   })
-  /** 官方发现面那三枚响应：**同一份假响应**同时喂给两条路（这就是"同源"的取证方式）。 */
-  const fakeApi = (snapshot: { readonly skills: readonly EnterpriseDiscoveredSkill[]; readonly complete: boolean }) => ({
-    discoveredSkills: async () => snapshot,
-    installedSkills: async () => [],
-    selfInstalledSkills: async () => [],
-  })
-
-  it('① 同源铁证：同一份假响应 ⇒ 顶栏计数与子页卡片数**同值**（多形态：空 / 7 枚 / 未发现完）', async () => {
-    for (const snapshot of [
-      { skills: [], complete: true },
-      { skills: [discovered('a')], complete: true },
-      { skills: ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map(name => discovered(name)), complete: true },
-      { skills: [discovered('a'), discovered('b')], complete: false },
-    ]) {
-      const api = fakeApi(snapshot)
+  /**
+   * ★**本刀第二次重新基线化（加强，不是放宽；用户最终裁决「同一个词在同一屏上只指一个数」）**：
+   *   上一版这一条锁的是"子页**只铺账上**那几条 + 顶栏计数仍＝发现面枚数"（用户裁决"不是 DSH 装的
+   *   不要出现在已安装里"那一版）。用户随后裁定**统一**：顶栏那枚「已安装(N)」也必须＝**账本条数**
+   *   —— 同一个词不能在同一屏上指两个数。
+   * ⇒ 新判据（旧的相等/差值断言**一条未删**，只是把"顶栏那个数"的取值口换成**同一个纯投影**）：
+   *   ① **顶栏那个数** ≡ `enterpriseEscInstalledCount(发现面, 两份记录)`（＝账上那几条）；
+   *   ② **子页那个数** ≡ 分组投影的卡片总数（两者**同一个函数**）；
+   *   ③ 两者之差 ≡ **0**（这就是"同一个词只指一个数"的等式锁）；
+   *   ④ 反向锁：同一枚名字**同时**命中中心记录与自装记录 ⇒ **只算一次**（不是"两份之和"）；
+   *   ⑤ 已装判定键（`facts.names`）仍按**发现面**（那是另一件事："这一枚在不在磁盘上"）。
+   *
+   * @param form - 发现面快照 + 这一份快照对应的两份记录（同一份假响应，两条路都吃它）。
+   * @param recorded - 期望"在账上"的枚数（顶栏与子页都该是这个数）。
+   */
+  it('① 同源铁证（本刀第二次重新基线化）：顶栏那个数 ≡ 子页那个数 ≡ 账本条数（同一函数）', async () => {
+    const selfOf = (names: readonly string[], sourceInput: string) => names.map((name, index) => ({
+      skillId: `${name}-${index}`, displayName: name, sha256: 'a'.repeat(64), names: [name],
+      installedAt: '2026-10-05T00:00:00.000Z', sourceInput,
+    }))
+    const forms: readonly {
+      readonly skills: readonly EnterpriseDiscoveredSkill[]
+      readonly complete: boolean
+      readonly center: readonly unknown[]
+      readonly self: readonly unknown[]
+      readonly recorded: number
+    }[] = [
+      { skills: [], complete: true, center: [], self: [], recorded: 0 },
+      { skills: [discovered('a')], complete: true, center: [], self: selfOf(['a'], 'notes.dshskill'), recorded: 1 },
+      {
+        skills: ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map(name => discovered(name)),
+        complete: true, center: [], self: selfOf(['a', 'b', 'c'], 'nuwax:1'), recorded: 3,
+      },
+      {
+        skills: [discovered('a'), discovered('b')], complete: false, center: [], self: selfOf(['a'], 'skillhub:s@1'), recorded: 1,
+      },
+      {
+        // ★账外比账上多（真机形态）：7 枚无记录 + 1 枚自装 + 1 枚内置。
+        skills: [
+          ...['p', 'q', 'r', 's', 't', 'u', 'v'].map(name => discovered(name)),
+          discovered('recorded', 'user-dsh'),
+          discovered('builtin', 'bundled'),
+        ],
+        complete: true, center: [], self: selfOf(['recorded'], 'clawhub.ai:skills-sh:a/b'), recorded: 2,
+      },
+    ]
+    for (const form of forms) {
+      const api = {
+        discoveredSkills: async () => ({ skills: form.skills, complete: form.complete }),
+        installedSkills: async () => form.center,
+        selfInstalledSkills: async () => form.self,
+      }
       const facts = installedSnapshotFacts(await api.discoveredSkills())
-      const groups = enterpriseEscInstalledGroups(
-        snapshot.skills,
-        enterpriseEscInstalledMetaTable(await api.installedSkills(), await api.selfInstalledSkills()),
-      )
+      const meta = enterpriseEscInstalledMetaTable(await api.installedSkills() as never, await api.selfInstalledSkills() as never)
+      const groups = enterpriseEscInstalledGroups(form.skills, meta)
+      // ① 顶栏那个数（`esc-aggregation.tsx` 调的就是这一个函数）＝**账本条数**。
+      const toolbarCount = enterpriseEscInstalledCount(form.skills, meta)
+      // ② 子页那个数（`esc-installed.tsx` 的 `total`）＝同一个函数的同一次调用。
+      const pageCount = enterpriseEscInstalledCount(form.skills, meta)
       const cards = groups.reduce((total, group) => total + group.cards.length, 0)
-      expect(facts.count, `${snapshot.skills.length}/${String(snapshot.complete)}`).toBe(snapshot.skills.length)
-      expect(cards, '子页卡片数必须与计数同值（同一份真源）').toBe(facts.count)
-      expect(facts.discovering).toBe(snapshot.complete === false)
+      expect(toolbarCount, `${form.skills.length}/${String(form.complete)}`).toBe(form.recorded)
+      expect(pageCount, '子页必须只铺账上那几条').toBe(form.recorded)
+      // ③ **等式锁**：同一个词在同一屏上只指一个数（差 ≡ 0），且都等于投影数组长度。
+      expect(pageCount - toolbarCount, '顶栏与页头必须是同一个数').toBe(0)
+      expect(toolbarCount).toBe(groups.flatMap(group => group.cards).length)
+      expect(cards).toBe(toolbarCount)
+      // ④ 子页铺出来的每一张卡都必须在账上（逐名核对，不是只数个数）。
+      const shown = groups.flatMap(group => group.cards.map(card => card.name)).sort()
+      const expected = form.skills
+        .filter(skill => skill.source === 'bundled' || form.self.some(record => (record as { names: readonly string[] }).names.includes(skill.name)))
+        .map(skill => skill.name)
+        .sort()
+      expect(shown).toEqual(expected)
+      // ⑤ 已装判定键仍按**发现面**（"在不在磁盘上"是另一件事，见 ② 那条）：逐枚都在。
+      expect(facts.names.size).toBe(form.skills.length)
+      expect(facts.discovering).toBe(form.complete === false)
     }
+    /**
+     * ★**反向锁（用户点名要的那条）**：同一枚名字**同时**命中中心记录与自装记录 ⇒ **只算一次**。
+     *   旧形态"企业清单 + 自装清单两份之和"在这里会给出 2 —— 那正是本刀消灭的算法。
+     */
+    const dualMeta = enterpriseEscInstalledMetaTable(
+      [{
+        packageId: '2105915576743428098', skillId: 'dual', displayName: '双记录技能', versionId: '1.0.0',
+        sha256: 'b'.repeat(64), names: ['dual'], installedAt: '',
+      }],
+      [{
+        skillId: 'meeting-notes', displayName: '双记录技能', sha256: 'a'.repeat(64), names: ['dual'],
+        installedAt: '2026-10-05T00:00:00.000Z', sourceInput: 'nuwax:158',
+      }],
+    )
+    expect(enterpriseEscInstalledCount([discovered('dual')], dualMeta)).toBe(1)
+    expect(enterpriseEscInstalledCount([discovered('dual')], enterpriseEscInstalledMetaTable([], []))).toBe(0)
     // ★结构级同源：`api.discoveredSkills` 在整个 src/esc 里**恰好两处调用**（顶栏一处 + 子页一处），
     //   没有第三处 —— "计数读一份、列表读另一份"那种漂开在结构上就不可能。
     const escDir = new URL('../src/esc/', import.meta.url)
@@ -5875,7 +6051,14 @@ describe('esc：口径 54（「已安装」真源换成官方发现面）', () =
     expect(installed).not.toContain('centerGroup')
     expect(installed).not.toContain('selfGroup')
     // ③ 元信息读不到 ⇒ 空表（列表照样铺出来）+ **说出来**（唯一提示件 + 稳定码）。
-    expect(installed).toContain('enterpriseEscInstalledMetaTable([], [])')
+    /**
+     * ★**本刀（技能页性能）重新基线化**：那三处"空真值"从**每次渲染现造**的 `[]` / `([], [])`
+     *   改成**同一引用**的三枚模块常量（`ENTERPRISE_ESC_INSTALLED_NO_*`）—— 那是"计划表与分组
+     *   不被逐帧重建"的前提（详见 `esc-installed.tsx` 那一段）。判据一样强：仍是"读不到 ⇒ 空表"，
+     *   只是这一份空表现在**引用稳定**，且全文件只有这三枚常量给出空真值。
+     */
+    expect(installed).toContain('enterpriseEscInstalledMetaTable(ENTERPRISE_ESC_INSTALLED_NO_CENTER, ENTERPRISE_ESC_INSTALLED_NO_RECORDS)')
+    expect(installed).not.toContain('enterpriseEscInstalledMetaTable([], [])')
     expect(installed).toContain('prefix: ENTERPRISE_ESC_LOCAL_COPY.installedMetaFailed')
     // ④ 三条只读取数各恰好一次（发现面 + 企业元信息 + 自装元信息），没有第四条。
     const reads = ['discoveredSkills', 'installedSkills', 'selfInstalledSkills']

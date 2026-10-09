@@ -68,6 +68,23 @@
  *   ★平台业务码经 `escPlatformErrorCode` 归一（`4040` ⇒ `ENT_ESC_RECOMMEND_UNAVAILABLE`），平台原话一个字不上屏。
  *   ★两处失败面（列表 / 精选）的标记仍未合并成同一个组件（列表面是 state 块、这里是 note 块），
  *     与全仓 `EnterpriseErrorNotice` 的合并属**独立一刀**，不在本刀夹带。
+ *
+ *   ★**本刀（用户冻结规格 §1①②/§2：已安装的不出现 · 刚装那枚例外 · 精选与广场逐项同源）**——
+ *     这一行**逐条**接上与广场**同一份**事实（三件都只调 `esc-skill-card.ts` 里那唯一一份实现）：
+ *     ① **已装的不出现**：`enterpriseEscSkillCardHidden`（磁盘上已有同名技能 ⇒ 滤掉；**不是**灰化/打标），
+ *        过滤发生在"换一批"那次**旋转之前**（否则转一圈会把已装的转回来）；判据键是回查后的
+ *        `item.name`（与广场同一把键）——专家档传空集合（那一档没有"已装"这件事实）。
+ *     ② **刚装那一枚留在原地**：`justInstalledSkillName`（聚合层那枚纯 reducer 给的标记）既让隐藏规则
+ *        放它一马，又让下面那枚共享投影把 `more`/`install` 两格摘掉（**只显示「去试试」**）。
+ *     ③ **精选卡接同一份安装计划**（这就是用户看到"描述三行"的**根因**）：新增可选 prop / option
+ *        `installOf` —— **就是**广场网格那一枚（内部只调 `escSystemInstallPlan` +
+ *        `enterpriseEscSystemCardInstall`）。改前精选行**少递**这一格 ⇒ 卡片退回兜底形态、把
+ *        「这类技能没有可下载的技能包…」铺成**独立一行**、卡片被撑高。同源之后，技能档的卡片入参
+ *        **只**从共享投影 `enterpriseEscSkillCardParams` 来（广场调的是同一个函数）⇒
+ *        同一份夹具下两处拿到的入参**逐键相等**（门禁有一条逐键比对锁）。
+ *        ⚠**如实边界**：另几枚维度（团队空间 / 企业技能 / 本地三方）在广场那一侧本来就没有安装计划
+ *        （口径 64 只给"系统广场×技能"这一格构造终态）⇒ 精选这一侧也照旧没有（同一条判据），
+ *        故那几档两处**仍然同形**，只是都没有计划——同源是判据，兜底那行出不出现是它的结果。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -81,8 +98,9 @@ import {
   type EnterpriseEscApi,
 } from './esc-api.js'
 import { EnterpriseEscCard } from './esc-card.js'
-import type { EscCardTryNow } from './esc-card.js'
+import type { EscCardInstall, EscCardTryNow } from './esc-card.js'
 import type { EscCardMore } from './esc-more-menu.js'
+import { ENTERPRISE_ESC_SKILL_CARD_NO_INSTALLED, enterpriseEscSkillCardHidden, enterpriseEscSkillCardParams } from './esc-skill-card.js'
 import { ESC_SUCCESS_CODE } from './esc-constants.js'
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from './esc-copy.js'
 import { escPublishedTargetIdOf, escResourceAdapters } from './esc-list.js'
@@ -148,6 +166,30 @@ export interface EnterpriseEscFeaturedProps {
    * ★它**只对技能卡**（`showUse`）有意义；专家卡那一档不看它。
    */
   readonly tryOf?: ((name: string, installed: boolean) => EscCardTryNow) | undefined
+  /**
+   * ★**本刀（用户冻结规格 §2：「精选卡与广场卡接同一份安装计划」）**：技能卡那枚【＋】的**计划工厂**。
+   *
+   * ★**它就是广场网格那一枚**（聚合层那唯一一个 `installOf`，内部只调 `escSystemInstallPlan` +
+   *   `enterpriseEscSystemCardInstall`）——精选行**不再少递**这一格。
+   * ★**为什么这一格缺席就是"描述三行"那个 bug**（用户真机看到的那一版）：卡片在 `install` 缺席时
+   *   走**兜底那一档**（禁用 + `title = actionNotPorted` + **行上可见**一句
+   *   `skillInstallUnavailable`「这类技能没有可下载的技能包…」）——那句话是**独立一行**，
+   *   于是精选卡的描述下面凭空多出一行、卡片被撑高，与广场卡不再同形。
+   *   同源之后：广场那一档有计划的，精选这一档也有；广场没有的（另几枚维度），精选也没有
+   *   （同一条判据 ⇒ 形态仍然一致，不是"精选又少递了一格"）。
+   * ★**它只对技能卡**（`showUse`）有意义；专家卡那一档不看它。
+   */
+  readonly installOf?: ((item: ResourceItem) => EscCardInstall | undefined) | undefined
+  /**
+   * ★**本刀（用户冻结规格 §1②：「刚装的那一枚留在原地」）**：本页本次会话里刚安装成功的那一枚
+   * （标记由聚合层那枚纯 reducer `enterpriseEscSkillCardMarkState` 说）。
+   *
+   * ★它做两件事，且两件都由**同一个** `enterpriseEscSkillCardHidden` / `enterpriseEscSkillCardParams`
+   *   判：① 隐藏规则放它一马（它留在精选行里）；② 卡片入参里**没有** `more`、**没有** `install`
+   *   —— 只显示「去试试」（规格 §1③）。
+   * ★缺席 = 没有刚装的（本轮没装过、或列表已重读/切过维度 ⇒ 标记已撤）。
+   */
+  readonly justInstalledSkillName?: string | undefined
 }
 
 /** 精选行内部状态（成功/失败/空/加载四态互斥，避免出现「空数组 + 没报错」那种空白态）。 */
@@ -385,7 +427,7 @@ export function enterpriseEscFeaturedAdvanceOffset(
 }
 
 /** 内容区第一行「精选技能 / 精选专家」。 */
-export function EnterpriseEscFeatured({ api, targetType, installedSkillNames, moreOf, tryOf }: EnterpriseEscFeaturedProps): ReactNode {
+export function EnterpriseEscFeatured({ api, targetType, installedSkillNames, moreOf, tryOf, installOf, justInstalledSkillName }: EnterpriseEscFeaturedProps): ReactNode {
   const [state, setState] = useState<EnterpriseEscFeaturedState>({ kind: 'loading' })
   /**
    * 口径 43 的回查索引。它**不参与**上面那四态：推荐记录是真拿到的，回查只是把卡片补成广场那张卡。
@@ -555,6 +597,10 @@ export function EnterpriseEscFeatured({ api, targetType, installedSkillNames, mo
         offset,
         ...(moreOf === undefined ? {} : { moreOf }),
         ...(tryOf === undefined ? {} : { tryOf }),
+        // ★本刀：那枚【＋】的计划工厂（与广场**同一枚** ⇒ 精选卡不再退回"兜底那句长说明"那一形态）。
+        ...(installOf === undefined ? {} : { installOf }),
+        // ★本刀：刚装那一枚（隐藏规则的唯一例外 + 卡片只显示「去试试」的判据）。
+        ...(justInstalledSkillName === undefined ? {} : { justInstalledSkillName }),
       }),
     ),
   )
@@ -587,6 +633,13 @@ export interface EnterpriseEscFeaturedBodyOptions {
    * `esc-aggregation.tsx` 的交点上一句话说完（那边是唯一构造点）。
    */
   readonly tryOf?: ((name: string, installed: boolean) => EscCardTryNow) | undefined
+  /**
+   * ★**本刀**：技能卡那枚【＋】的计划工厂（**与广场同一枚** —— 见 `EnterpriseEscFeaturedProps.installOf`
+   * 那段：它就是"描述三行"那个 bug 的根因所在那一格）。
+   */
+  readonly installOf?: ((item: ResourceItem) => EscCardInstall | undefined) | undefined
+  /** ★**本刀**：刚装那一枚的名字（隐藏规则的唯一例外，见 `EnterpriseEscFeaturedProps.justInstalledSkillName`）。 */
+  readonly justInstalledSkillName?: string | undefined
   /** ★口径 50：窗口起点（0 或负数/越界都会被纯投影归一到 `[0, N)`）。 */
   readonly offset?: number | undefined
 }
@@ -642,16 +695,32 @@ export function enterpriseEscFeaturedBody(
       // 与 `esc-aggregation` 给广场卡片的开关**逐格相同**（同一资源类型 ⇒ 同一组 props）：
       // 专家走 showSummon（召唤默认收起、hover 才展开），技能走 showUse（常驻「+」/ 已装「更多 + 去试试」）。
       const expert = (options.targetType ?? 'Skill') === 'Agent'
+      /**
+       * ★**本刀（用户冻结规格 §1①/§2：「已安装的从列表里去掉」，精选行与广场**同一条规则**）**：
+       *   隐藏判据是**同一个函数** `enterpriseEscSkillCardHidden`（广场网格那一处调的也是它）——
+       *   磁盘上已有同名技能（官方发现面给的 `installedNames`）就不出现；刚装那一枚例外（留在原地）。
+       *
+       * ★**过滤发生在旋转之前**：`enterpriseEscFeaturedWindow` 是"在**要看的那一批**上循环"，
+       *   先把不该出现的滤掉，旋转出来的每一屏才都是该出现的那些（否则"换一批"会把已装的转回来）。
+       * ★**名字取回查之后的 `item.name`**（与广场卡片同一把键 `ResourceItem.name`）：推荐记录自己的
+       *   `label` 在技能档虽然逐字相同，但键必须与判据同源 —— 拿它当键就是第二把坐标系。
+       * ★专家档**不走这条规则**（那一档没有"已装"这件事实）⇒ 传空集合（判据恒 false）。
+       */
+      const resolved = state.items.map(record => ({ record, item: enterpriseEscFeaturedItem(record, lookup) }))
+      const visible = resolved.filter(each => !enterpriseEscSkillCardHidden({
+        name: each.item.name,
+        installedNames: expert ? ENTERPRISE_ESC_SKILL_CARD_NO_INSTALLED : options.installedSkillNames ?? ENTERPRISE_ESC_SKILL_CARD_NO_INSTALLED,
+        justInstalledSkillName: expert ? undefined : options.justInstalledSkillName,
+      }))
       const windowed = enterpriseEscFeaturedWindow(
-        state.items,
+        visible,
         options.offset ?? ENTERPRISE_ESC_FEATURED_OFFSET_INITIAL,
       )
       return createElement(
         'div',
         // ★类名走**唯一字面**常量：读列数那个适配器按同一个常量去 `querySelector`，两处不可能漂。
         { className: ENTERPRISE_ESC_FEATURED_GRID_CLASS },
-        windowed.map(record => {
-          const item = enterpriseEscFeaturedItem(record, lookup)
+        windowed.map(({ record, item }) => {
           /**
            * ★**本刀（S5a）**：这一枚技能卡的「更多」计划（算不出来 ⇒ 卡片那枚 `⋯` 整枚不画）。
            *
@@ -668,6 +737,35 @@ export function enterpriseEscFeaturedBody(
            */
           const skillInstalled = expert ? false : options.installedSkillNames?.has(item.name) === true
           const tryNow = expert ? undefined : options.tryOf?.(item.name, skillInstalled)
+          /**
+           * ★**本刀（用户冻结规格 §2）**：那枚【＋】的计划 —— 与广场网格**同一枚工厂**
+           *   （聚合层那唯一一个 `installOf`）。★这就是"描述三行"的修法：改前精选卡拿不到计划 ⇒
+           *   卡片走兜底那一档、把「这类技能没有可下载的技能包…」铺成**独立一行**、把卡片撑高。
+           */
+          const install = expert ? undefined : options.installOf?.(item)
+          /**
+           * ★**本刀（用户冻结规格 §1②/③ + §2）**：技能档的卡片入参**只**从这一枚共享投影来
+           *   （`enterpriseEscSkillCardParams`，广场网格调的是**同一个函数**）⇒ 同一份夹具下
+           *   精选卡与广场卡拿到的入参**逐键相等**；而"刚装那一枚"在这一处就把 `more`/`install`
+           *   两格摘掉（只留「去试试」）。
+           */
+          const cardProps = expert
+            ? {
+                iconShape: 'circle' as const,
+                showSummon: true,
+                showStats: true,
+                showUse: false,
+                // 专家档不给已装那位（这一档没有"已装"这件事实）——与广场专家卡那一格逐字同形。
+                installed: undefined,
+              }
+            : enterpriseEscSkillCardParams({
+                installed: skillInstalled,
+                justInstalled: options.justInstalledSkillName !== undefined
+                  && options.justInstalledSkillName === item.name,
+                ...(install === undefined ? {} : { install }),
+                ...(more === undefined ? {} : { more }),
+                ...(tryNow === undefined ? {} : { tryNow }),
+              })
           return createElement(EnterpriseEscCard, {
             // key 用**推荐记录自己的 id**（不是回查命中那条的 id）——同一条推荐在命中/未命中两态下
             // 都是同一枚 key，回查前后 React 复用同一个节点，不会整格重建闪一下。
@@ -676,19 +774,9 @@ export function enterpriseEscFeaturedBody(
             //   而不是"看起来像"（门禁正是这么核的）。
             key: String(record.id),
             item,
-            iconShape: expert ? 'circle' : 'square',
-            showSummon: expert,
-            showStats: expert,
-            showUse: !expert,
-            // 已装分流与广场同一条口径：命中已装清单 ⇒ 「更多 + 去试试」，否则「+」
-            // （读不到清单时按未装画 —— 宁可少给一次「更多」，也不谎称已装）
-            installed: expert ? undefined : skillInstalled,
-            // ★本刀（S5a）：已装那一档那枚「更多」的计划（与广场**同一枚**工厂 ⇒ 两处同源）。
-            //   专家卡没有这枚下拉（`showUse: false`），故那一档不给计划。
-            ...(more === undefined ? {} : { more }),
-            // ★本刀（S5b）：那枚「去试试」的终态（与广场**同一枚**工厂 ⇒ 两处同源；不可用那一档
-            //   禁用 + 行上可见原因）。
-            ...(tryNow === undefined ? {} : { tryNow }),
+            // ★口径 43 那条"卡片开关与广场逐格相同"仍成立：这里铺的正是上面那份入参
+            //   （技能档 = 共享投影的原样结果；专家档 = 与广场专家卡同一组开关）。
+            ...cardProps,
           })
         }),
       )
