@@ -2,6 +2,13 @@
  * [INPUT]: 依赖 Cordis/Schemastery、Harness credentials/LLM/inventory、官方 dsh-deepseek-account-platform、官方 settings 的 volatile Config 投影、platform-client 的地址写入诊断串与本地路由端口、plugin-distribution 的企业插件分发 Service 与其制品下载内核、官方运行时身份与企业业务模块
  * [OUTPUT]: 对外提供 Web/Desktop 共用 bundle apply、官方 settings 的 volatile Server/账户后台地址字段、默认关闭的插件验签开关、Host 凭据持久化、**企业插件安装/卸载/取消（官方 `pluginManager` 安装面，经 `manager-wiring.ts` 延迟接线；不再有 `dsh plugin` 子进程、不再 inject `subprocess`）**、**企业技能一键安装端口、已装技能只读正文端口、通路一「本地上传」两端口（`skill-upload.ts`：multipart 闸门 + 独立自装清单 + 复用中心安装的加固落盘）与通路二「系统搜索」两端口（`skill-system.ts`：本机技能根盘点三态 + 纳入只登记不复制）、**通路三「在线搜索」两端口（`skill-online.ts`：三源 fan-out + codeload 整仓包 → 内存组 `.dshskill` → 复用加固落盘；公开源走**无凭据裸 fetch**、带令牌的平台面只用在本机记账）****、**企业配方一键启用端口（官方 inject 声明 + 延迟解析取 `pluginManager` 安装面 + 三个实时解引用的本机路由端口 + 既有运行时下载面取配方正文；服务时序上不可用则 fail-closed，等它出现再接线）**、条件 Session 同步注册、**资料库三面（本机路由 `/enterprise/api/v1/local/library/**` + 3 个 Host 工具 + `system-prompt/assemble` 注入；域与主体晚绑定，未登录/未开域 ⇒ 503 可重试）**，以及用 settings 自定义地址热重挂官方账户插件；安卓按 `browserHandoff: 'client'` 把登录浏览器交接给浏览器半（宿主进程没有可用的开源路径），地址不可持久化的每个判定点都写 warn/error 宿主日志
  * [POS]: bundle 的唯一 Host Loader 入口，组合平台认证、官方企业模型、账户后台地址、环境原生插件调和与企业技能落盘（`skill-install.ts` 的中心安装 + 两条通路共用的 `placeEnterpriseSkillArchive`，以及 `skill-upload.ts` 的本地上传/自装清单）**、企业配方一键启用（`preset/`核心 + `preset-source.ts` + `preset-service.ts` + `preset/wiring.ts` 的时序边界）与受管插件官方安装面（`manager-wiring.ts`，复用同一份 `deferOfficialServiceWiring`）、以及资料库纵深（`library/index.ts` 的 `createEnterpriseLibraryHost` + `mountEnterpriseLibraryFaces`）**；Session 同步仅在 sessionPolicy.enabled 时挂载
+ *   ★**口径 54（本刀）**：core 块再挂一条**只读**同源路由 `registerEnterpriseSkillDiscoveryRoute`
+ *     （`GET /enterprise/api/v1/local/skills/discovered`，实现见新叶 `skill-discovery.ts`）—— 它是
+ *     「已安装」的**真源**（宿主官方 `ctx.get('skills')` 的快照 = 本机运行时真正加载的那一份）。
+ *     端口**每次调用现场解引用**官方服务（apply 那刻可能还没 provide），并要求它真的带一个函数形状的
+ *     `snapshot`；服务缺席 / `snapshot()` 抛 / 回的东西读不懂 ⇒ 三条收敛成**明确失败码**
+ *     `ENT_SKILL_DISCOVERY_UNAVAILABLE`（→503，落在唯一那张码→状态表的表尾 ⇒ platform-client 零改动），
+ *     **绝不静默回空列表**；只回白名单字段，`path`/`resourceBase` 不出厂。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -62,6 +69,7 @@ import { installedSelfSkills, uploadSkillArchive } from './skill-upload.js'
 import { adoptSystemSkill, discoverSystemSkills } from './skill-system.js'
 import { installSkillFromResult, searchOnlineSkills } from './skill-online.js'
 import { registerEnterpriseSkillRoutes } from './skill-route.js'
+import { registerEnterpriseSkillDiscoveryRoute } from './skill-discovery.js'
 import {
   createEnterpriseLibraryHost,
   mountEnterpriseLibraryFaces,
@@ -891,6 +899,24 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
     files: packageId => skillInstall.files(packageId),
     file: (packageId, path) => skillInstall.file(packageId, path),
   }), 'enterpriseSkills.routes')
+  // 本机**官方发现面**只读镜像（口径 54）：员工端「已安装」的计数与子页改读这条
+  // `GET /enterprise/api/v1/local/skills/discovered` —— 它答的是"**本机 DSH 真的装着什么**"，
+  // 而不是"我们自己那两份记录里写了什么"（真机取证：磁盘 7 枚 vs 企业记录 1 枚，两份必然不一致）。
+  // ★端口是**每次调用现场解引用** `ctx.get('skills')`（与 preset/wiring 那个冻结点同一个道理：
+  //   apply 那刻官方服务可能还没 provide）；服务缺席 ⇒ 路由回明确失败码 `ENT_SKILL_DISCOVERY_UNAVAILABLE`
+  //   （→503），**绝不静默回空列表**（空列表 = 谎称"你什么都没装"）。
+  // ★不暴露 `path`/`resourceBase`（宿主绝对路径不进浏览器），也不读任何 SKILL.md 正文。
+  ctx.effect(() => registerEnterpriseSkillDiscoveryRoute(ctx.webServer, {
+    discover: () => {
+      const service = ctx.get('skills') as { snapshot?: unknown } | undefined
+      // 形状闸门：只有真的带一个函数形状的 `snapshot` 才算"这个服务在场"（不假装、不 `as`）。
+      return service !== undefined && typeof service.snapshot === 'function'
+        ? (service as { snapshot: (options: { readonly signal?: AbortSignal }) => Promise<unknown> })
+        : undefined
+    },
+  }, (message, error) => {
+    ctx.logger.warn(`owndsh: ${message}`, error)
+  }), 'enterpriseSkillDiscovery.routes')
   // 反馈提交透传：浏览器无令牌，由 Host 代取 Access Token 转交中心 multipart 提交；
   // 附件在本地就按中心同名口径限流（≤3 张 / 单张 ≤2 MiB / 位图魔数），
   // diagnostics 由 Host 采集（版本/OS/installationId/最近错误码）并覆盖浏览器提交的同名字段。
