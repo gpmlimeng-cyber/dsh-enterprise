@@ -1,22 +1,31 @@
 /**
  * [INPUT]: 依赖 Node HTTP 类型、platform-client 的 `ctx.webServer` route port 与稳定码→HTTP 状态唯一映射 `enterpriseLocalErrorStatus`、本包 `./nuwax-auth.js` 的会话持有者（票据唯一来源）与 `resolveNuwaxOrigin`
- * [OUTPUT]: 对外提供 `registerEnterpriseEscReadRoute`（**三条** exact 路由：`POST …/esc/read` 只读取数 + `GET …/esc/image` 图片代理 + `GET …/esc/mock` 演示数据开关状态）、路径常量、上限常量、**只读端点闭集** `ENTERPRISE_ESC_READ_ENDPOINTS`、**参数化只读规则闭集** `ENTERPRISE_ESC_READ_PATTERNS`（+ 数字段闭集 `ENTERPRISE_ESC_READ_ID_PATTERN`）与**图片路径闭集** `ENTERPRISE_ESC_IMAGE_PATH_PREFIXES`；**本刀**另出宿主内部读的两个唯一入口 `readEnterpriseEscHostJson` / `readEnterpriseEscHostArtifact`（同一份 HTTP 客户端、会话与三条红线，**许可表是宿主那张** ⇒ 制品二进制永不进浏览器）
+ * [OUTPUT]: 对外提供 `registerEnterpriseEscReadRoute`（**三条** exact 路由：`POST …/esc/read` 只读取数 + `GET …/esc/image` 图片代理 + `GET …/esc/mock` 演示数据开关状态）、路径常量、上限常量、**只读端点闭集** `ENTERPRISE_ESC_READ_ENDPOINTS`、**参数化只读规则闭集** `ENTERPRISE_ESC_READ_PATTERNS`（**八条**；口径 67 Phase C D0 新增 MCP 三条，全部 `browserReadable: false`）+ 数字段闭集 `ENTERPRISE_ESC_READ_ID_PATTERN` 与**图片路径闭集** `ENTERPRISE_ESC_IMAGE_PATH_PREFIXES`；**本刀**另出宿主内部读的两个唯一入口 `readEnterpriseEscHostJson` / `readEnterpriseEscHostArtifact`（同一份 HTTP 客户端、会话与三条红线，**许可表是宿主那张** ⇒ 制品二进制与 MCP 原始行（含 `mcpConfig`）永不进浏览器）
  * [POS]: 「专家·技能·连接器」页面的**宿主只读代理面**（口径 31）——浏览器只打同源本机路由，宿主带着**进程内那枚员工票据**去 NUWAX 取数，再把平台信封**原样**交回页面（原页面的取数口径因此一字不改）。
  *   ★只读是**结构性**的：闭集（字面表 + 参数化模式表）全是"读"，没有任何写端点；平台路径必须**逐字命中**闭集（字面表逐字、模式表整条正则），故本路由无法被拿去打平台别的接口。
  *   ★**本刀（口径 64 B0）：闭集仍是闭集，但多了"参数段"这一维** —— 新增一份与字面表**并列**的
- *   `ENTERPRISE_ESC_READ_PATTERNS`（四条 GET，逐条见常量注释）；参数段**只允许 1..18 位纯数字**
+ *   `ENTERPRISE_ESC_READ_PATTERNS`（八条 GET，逐条见常量注释；口径 67 Phase C D0 又从 5 条加到 8 条，
+ *   后三条全部 `browserReadable: false` ⇒ **浏览器可读表零新增**）；参数段**只允许 1..18 位纯数字**
  *   （`ENTERPRISE_ESC_READ_ID_PATTERN`）⇒ `/`、`..`、查询串、额外后缀、百分号编码一律**不匹配即 400**，
  *   且**一次上游都不打**（`requireBrowserReadableEndpoint` 在发请求之前就抛）。
  *   ★**同一份 HTTP 客户端，两张不同的许可表**（这是本刀唯一的信任边界改动，务必逐字读懂再改）：
  *   · **浏览器可读表** = 七条字面规则 + 三条「我的专家」模式规则（`/api/agent/list/<id>`、
  *     `/api/user/agent/collect/list/<id>/<id>`、`/api/user/agent/dev/collect/list/<id>/<id>`）；
  *   · **宿主内部可读表** = 上者 **+** `/api/published/skill/<id>`（详情：`allowCopy`/`paymentRequired`/`files[]`）
- *     **+** `/api/published/skill/export/<id>`（制品二进制 ZIP）。
+ *     **+** `/api/published/skill/export/<id>`（制品二进制 ZIP）
+ *     **+**（口径 67 Phase C）`/api/mcp/list/<id>`、`/api/mcp/deployed/list/<id>`、`/api/mcp/<id>`。
  *   ★**为什么导出规则不进浏览器可读表**：真机实测平台**不拦** `allowCopy=0` 的导出（`export/700` 照样 200 + 128,784B），
  *   合规闸门只能由宿主按**那一条记录的 targetId** 自己判 ⇒ 只要浏览器拿到这条路径，`allowCopy` 就形同虚设
  *   （页面可以直接把 ZIP 取走）。故制品的取数只有宿主内部一条路：宿主先取详情判合规，**判过才**取制品，
  *   二进制从头到尾不进浏览器。详情那一条同理归宿主内部：它是**合规判据的唯一来源**，判据面留在一个信任域里，
  *   界面按列表记录的 `allowCopy` 预判即可（列表走既有字面规则，浏览器照旧可读）。
+ *   ★**为什么 MCP 只读路径只进宿主内部表**（口径 67，与上面那条**不同的**理由，别混为一谈）：
+ *   这三条命中是**凭据面**而不是"合规判据面"——真机取证（`analysis/connector-plaza-probe.md` §2）：
+ *   `/api/mcp/list/<spaceId>` 与 `/api/mcp/deployed/list/<spaceId>` 每行 18 键里带 `mcpConfig` /
+ *   `deployedConfig`，而 `GET /api/mcp/<id>` 的 `mcpConfig` **实测就是可直接落地的客户端配置**
+ *   `{"mcpServers":{"qixinhuiyan-mcp":{"url":"https://mcp.qixin…"}}}` ⇒ 可能夹带 URL 内嵌凭据、header、token。
+ *   故浏览器可读表**零新增**：连接器广场由宿主侧投影出一条新路由
+ *   （`connector-plaza.ts` 的 `GET /enterprise/api/v1/local/connectors`），出厂只有安全格。
  *   ★宿主内部读**不是第二条通道**：它就是同一条 `sendEscPlatformRequest` + 同一枚 `holder` 票据 +
  *   同一套判决（3xx/401/5xx/4xx 与两条上限），只是把许可表换成宿主那一张；没有新的 HTTP 客户端、没有新的下载器。
  *   ★取数面的闸门**有先后**：① 部署配置 ⇒ ② 演示数据（口径 32，默认关，见 `esc-mock.ts`）⇒ ③ 会话。
@@ -164,7 +173,7 @@ export interface EnterpriseEscReadPattern {
 }
 
 /**
- * **参数化只读规则闭集**（本刀新增，五条，全部 `GET`）。
+ * **参数化只读规则闭集**（八条，全部 `GET`；仍是**闭集**）。
  *
  * 来源逐条可查：
  *  · `/api/agent/list/<id>`、`/api/user/agent/collect/list/<id>/<id>`、`/api/user/agent/dev/collect/list/<id>/<id>`
@@ -174,9 +183,18 @@ export interface EnterpriseEscReadPattern {
  *    `allowCopy` / `paymentRequired` ⇒ 本刀口径 64 的**合规判据唯一来源**。
  *  · `/api/published/skill/export/<id>` 是**制品**：真机实测 `200 application/octet-stream` + 真 ZIP
  *    （`158 dev-engineer-toolkit` 32,238B，首条 `dev-engineer-toolkit/SKILL.md`）。
+ *  · **本刀（口径 67 Phase C D0）新增后三条**，来源是本仓真机取证 `analysis/connector-plaza-probe.md`：
+ *    `GET /api/mcp/list/<spaceId>`（空间 MCP 管理列表：空间 3 ⇒ 42 条、248 ⇒ 9 条、2 ⇒ 0 条）是
+ *    **连接器广场的内容来源**；`GET /api/mcp/deployed/list/<spaceId>` 与它同形、另带
+ *    `deployedConfig.tools[]`（`toolCount` 的唯一来源）；`GET /api/mcp/<id>` 是详情（D2「启用到本机」的
+ *    制品面，**本刀只放行、不消费**）。
+ *    ★这三条的参数段是**空间 id / 服务 id**，与上面三条一样只认 1..18 位纯数字。
  *
- * ★后两条 `browserReadable: false` 的理由见文件头部「为什么导出规则不进浏览器可读表」——一句话：
- * 平台**不拦** `allowCopy=0` 的导出，这条路径一旦对浏览器开放，发布者的授权就被绕过了。
+ * ★后五条 `browserReadable: false` 的理由见文件头部「为什么导出规则不进浏览器可读表」与
+ * 「为什么 MCP 只读路径只进宿主内部表」——一句话：技能制品那条是**合规闸门**（平台不拦 `allowCopy=0`
+ * 的导出，开放即绕过发布者授权）；MCP 这三条是**凭据面**（每行带 `mcpConfig`/`deployedConfig`，
+ * 实测详情里就是可直接落地的客户端配置，可能夹带 URL 内嵌凭据/header/token），
+ * 进了浏览器可读表就等于把凭据发给前端。
  */
 export const ENTERPRISE_ESC_READ_PATTERNS: readonly EnterpriseEscReadPattern[] = [
   {
@@ -206,6 +224,24 @@ export const ENTERPRISE_ESC_READ_PATTERNS: readonly EnterpriseEscReadPattern[] =
   {
     template: '/api/published/skill/export/<id>',
     pattern: /^\/api\/published\/skill\/export\/[0-9]{1,18}$/,
+    method: 'GET',
+    browserReadable: false,
+  },
+  {
+    template: '/api/mcp/list/<id>',
+    pattern: /^\/api\/mcp\/list\/[0-9]{1,18}$/,
+    method: 'GET',
+    browserReadable: false,
+  },
+  {
+    template: '/api/mcp/deployed/list/<id>',
+    pattern: /^\/api\/mcp\/deployed\/list\/[0-9]{1,18}$/,
+    method: 'GET',
+    browserReadable: false,
+  },
+  {
+    template: '/api/mcp/<id>',
+    pattern: /^\/api\/mcp\/[0-9]{1,18}$/,
     method: 'GET',
     browserReadable: false,
   },

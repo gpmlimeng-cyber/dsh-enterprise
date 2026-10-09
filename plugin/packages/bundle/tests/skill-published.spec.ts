@@ -284,24 +284,48 @@ async function exists(path: string): Promise<boolean> {
 /* ────────────────────────── ① 模式表（闭集仍是闭集） ────────────────────────── */
 
 describe('口径 64 B0：参数化只读模式表', () => {
-  it('恰好五条、全部 GET；后两条（详情 + 制品）只给宿主内部', () => {
-    expect(ENTERPRISE_ESC_READ_PATTERNS).toHaveLength(5)
-    expect(ENTERPRISE_ESC_READ_PATTERNS.map(rule => rule.method)).toEqual(['GET', 'GET', 'GET', 'GET', 'GET'])
+  it('恰好八条、全部 GET；后五条（详情 + 制品 + MCP 三条）只给宿主内部', () => {
+    // ★口径 67 Phase C D0：模式表 5 → 8（旧值往**更强**方向改：多出来的三条一条都不许可浏览器读）。
+    expect(ENTERPRISE_ESC_READ_PATTERNS).toHaveLength(8)
+    expect(ENTERPRISE_ESC_READ_PATTERNS.map(rule => rule.method))
+      .toEqual(['GET', 'GET', 'GET', 'GET', 'GET', 'GET', 'GET', 'GET'])
     expect(ENTERPRISE_ESC_READ_PATTERNS.map(rule => rule.template)).toEqual([
       '/api/agent/list/<id>',
       '/api/user/agent/collect/list/<id>/<id>',
       '/api/user/agent/dev/collect/list/<id>/<id>',
       '/api/published/skill/<id>',
       '/api/published/skill/export/<id>',
+      '/api/mcp/list/<id>',
+      '/api/mcp/deployed/list/<id>',
+      '/api/mcp/<id>',
     ])
-    // ★浏览器可读位：前三条（「我的专家」）给浏览器；后两条（详情判据 + 导出制品）**只给宿主内部**。
-    expect(ENTERPRISE_ESC_READ_PATTERNS.map(rule => rule.browserReadable)).toEqual([true, true, true, false, false])
+    // ★浏览器可读位：前三条（「我的专家」）给浏览器；后五条（详情判据 + 导出制品 + MCP 凭据面）**只给宿主内部**。
+    expect(ENTERPRISE_ESC_READ_PATTERNS.map(rule => rule.browserReadable))
+      .toEqual([true, true, true, false, false, false, false, false])
     // 每一条的正则都真的匹配它自己的模板形状（模板只是人话，正则才是判据）。
     expect(ENTERPRISE_ESC_READ_PATTERNS[0]!.pattern.test('/api/agent/list/158')).toBe(true)
     expect(ENTERPRISE_ESC_READ_PATTERNS[1]!.pattern.test('/api/user/agent/collect/list/12/34')).toBe(true)
     expect(ENTERPRISE_ESC_READ_PATTERNS[2]!.pattern.test('/api/user/agent/dev/collect/list/12/34')).toBe(true)
     expect(ENTERPRISE_ESC_READ_PATTERNS[3]!.pattern.test('/api/published/skill/158')).toBe(true)
     expect(ENTERPRISE_ESC_READ_PATTERNS[4]!.pattern.test('/api/published/skill/export/158')).toBe(true)
+    expect(ENTERPRISE_ESC_READ_PATTERNS[5]!.pattern.test('/api/mcp/list/3')).toBe(true)
+    expect(ENTERPRISE_ESC_READ_PATTERNS[6]!.pattern.test('/api/mcp/deployed/list/3')).toBe(true)
+    expect(ENTERPRISE_ESC_READ_PATTERNS[7]!.pattern.test('/api/mcp/134')).toBe(true)
+    // MCP 三条的参数段同样只认"1..18 位纯数字"，尾斜杠/查询串/百分号编码/路径逃逸/非数字一律不吃。
+    for (const rule of ENTERPRISE_ESC_READ_PATTERNS.slice(5)) {
+      for (const bad of [
+        '/api/mcp/list/3/',
+        '/api/mcp/list/3?page=1',
+        '/api/mcp/list/%33',
+        '/api/mcp/list/..',
+        '/api/mcp/list/3a',
+        '/api/mcp/list/',
+      ]) {
+        expect(rule.pattern.test(bad), `${rule.template} 不该吃 ${bad}`).toBe(false)
+      }
+    }
+    expect(ENTERPRISE_ESC_READ_PATTERNS[7]!.pattern.test('/api/mcp/list')).toBe(false)
+    expect(ENTERPRISE_ESC_READ_PATTERNS[5]!.pattern.test('/api/mcp/deployed/list/3')).toBe(false)
     // 参数段闭集：1..18 位纯数字（19 位、空、非数字、全角数字一律不认）。
     for (const value of ['1', '158', '123456789012345678']) {
       expect(ENTERPRISE_ESC_READ_ID_PATTERN.test(value), value).toBe(true)

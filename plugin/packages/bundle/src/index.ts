@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Cordis/Schemastery、Harness credentials/LLM/inventory、官方 dsh-deepseek-account-platform、官方 settings 的 volatile Config 投影、platform-client 的地址写入诊断串与本地路由端口、plugin-distribution 的企业插件分发 Service 与其制品下载内核、官方运行时身份与企业业务模块
- * [OUTPUT]: 对外提供 Web/Desktop 共用 bundle apply、官方 settings 的 volatile Server/账户后台地址字段、默认关闭的插件验签开关、Host 凭据持久化、**企业插件安装/卸载/取消（官方 `pluginManager` 安装面，经 `manager-wiring.ts` 延迟接线；不再有 `dsh plugin` 子进程、不再 inject `subprocess`）**、**企业技能一键安装端口、已装技能只读正文端口、通路一「本地上传」两端口（`skill-upload.ts`：multipart 闸门 + 独立自装清单 + 复用中心安装的加固落盘）与通路二「系统搜索」两端口（`skill-system.ts`：本机技能根盘点三态 + 纳入只登记不复制）、**通路三「在线搜索」两端口（`skill-online.ts`：三源 fan-out + codeload 整仓包 → 内存组 `.dshskill` → 复用加固落盘；公开源走**无凭据裸 fetch**、带令牌的平台面只用在本机记账）****、**企业配方一键启用端口（官方 inject 声明 + 延迟解析取 `pluginManager` 安装面 + 三个实时解引用的本机路由端口 + 既有运行时下载面取配方正文；服务时序上不可用则 fail-closed，等它出现再接线）**、条件 Session 同步注册、**资料库三面（本机路由 `/enterprise/api/v1/local/library/**` + 3 个 Host 工具 + `system-prompt/assemble` 注入；域与主体晚绑定，未登录/未开域 ⇒ 503 可重试）**，以及用 settings 自定义地址热重挂官方账户插件；安卓按 `browserHandoff: 'client'` 把登录浏览器交接给浏览器半（宿主进程没有可用的开源路径），地址不可持久化的每个判定点都写 warn/error 宿主日志
+ * [OUTPUT]: 对外提供 Web/Desktop 共用 bundle apply、官方 settings 的 volatile Server/账户后台地址字段、默认关闭的插件验签开关、Host 凭据持久化、**企业插件安装/卸载/取消（官方 `pluginManager` 安装面，经 `manager-wiring.ts` 延迟接线；不再有 `dsh plugin` 子进程、不再 inject `subprocess`）**、**企业技能一键安装端口、已装技能只读正文端口、通路一「本地上传」两端口（`skill-upload.ts`：multipart 闸门 + 独立自装清单 + 复用中心安装的加固落盘）与通路二「系统搜索」两端口（`skill-system.ts`：本机技能根盘点三态 + 纳入只登记不复制）、**通路三「在线搜索」两端口（`skill-online.ts`：三源 fan-out + codeload 整仓包 → 内存组 `.dshskill` → 复用加固落盘；公开源走**无凭据裸 fetch**、带令牌的平台面只用在本机记账）****、**企业配方一键启用端口（官方 inject 声明 + 延迟解析取 `pluginManager` 安装面 + 三个实时解引用的本机路由端口 + 既有运行时下载面取配方正文；服务时序上不可用则 fail-closed，等它出现再接线）**、条件 Session 同步注册、**连接器广场只读投影（口径 67：`connector-plaza.ts` + `esc-route.ts` 宿主内部许可表新增三条 MCP 路径）**、**资料库三面（本机路由 `/enterprise/api/v1/local/library/**` + 3 个 Host 工具 + `system-prompt/assemble` 注入；域与主体晚绑定，未登录/未开域 ⇒ 503 可重试）**，以及用 settings 自定义地址热重挂官方账户插件；安卓按 `browserHandoff: 'client'` 把登录浏览器交接给浏览器半（宿主进程没有可用的开源路径），地址不可持久化的每个判定点都写 warn/error 宿主日志
  * [POS]: bundle 的唯一 Host Loader 入口，组合平台认证、官方企业模型、账户后台地址、环境原生插件调和与企业技能落盘（`skill-install.ts` 的中心安装 + 两条通路共用的 `placeEnterpriseSkillArchive`，以及 `skill-upload.ts` 的本地上传/自装清单）**、企业配方一键启用（`preset/`核心 + `preset-source.ts` + `preset-service.ts` + `preset/wiring.ts` 的时序边界）与受管插件官方安装面（`manager-wiring.ts`，复用同一份 `deferOfficialServiceWiring`）、以及资料库纵深（`library/index.ts` 的 `createEnterpriseLibraryHost` + `mountEnterpriseLibraryFaces`）**；Session 同步仅在 sessionPolicy.enabled 时挂载
  *   ★**本刀（自装技能的卸载 / 打开所在文件夹）**：core 块再挂 `registerEnterpriseSelfInstalledActionRoutes` 两条
  *     **exact** sibling（`POST …/skills/self-installed/{uninstall,reveal}`，实现见新叶 `skill-self-installed.ts` +
@@ -26,6 +26,23 @@
  *     全局层，preset 层整层漏掉（真机读数：3 条 vs 磁盘 7 枚，且这 7 枚**确实在会话技能目录里**）。
  *     作用域取不到 / 租约形状不过 / 释放失败 ⇒ 都收敛进上面那枚明确失败码（靠 `step` 在日志里分得开），
  *     **绝不回落成"不传 scope 的全局层读"**（那是同一条少报换个地方发生）。`cwd` 拿不到就不传。
+ *   ★**口径 67 Phase C（连接器广场）的宿主半边**：core 块再挂一条 **exact 只读**路由
+ *     `registerEnterpriseConnectorPlazaRoute`（`GET /enterprise/api/v1/local/connectors`，实现见新叶
+ *     `connector-plaza.ts`），它的取数入口是**同一个 `escReadPort`** 的宿主内部读面
+ *     （`readHostJson: path => readEnterpriseEscHostJson(escReadPort, path)`）——同一份 HTTP 客户端、
+ *     同一枚票据、同一套判决，**不新增第二条 HTTP 通道**。
+ *     · **D0**：`esc-route.ts` 的参数化模式表 5 → 8，新增 `/api/mcp/list/<id>`、`/api/mcp/deployed/list/<id>`、
+ *       `/api/mcp/<id>` 三条**全部 `browserReadable: false`** ⇒ **浏览器可读表零新增**。理由：这三条命中是
+ *       **凭据面**（真机每行带 `mcpConfig`/`deployedConfig`，`/api/mcp/134` 的 `mcpConfig` 实测就是可直接
+ *       落地的客户端配置，可能夹带 URL 内嵌凭据/header/token），与 B0 那条"合规闸门"是**不同**的理由。
+ *     · **D1**：广场由**宿主侧投影**（从零构造，不是删字段），出厂只有
+ *       `{id,name,description?,icon?,installType,deployStatus,official?,toolCount?,space:{id,name}}`；
+ *       逐空间取数（`/api/space/list` → 逐空间 `GET /api/mcp/list/<spaceId>`，**不引入 POST 读**），
+ *       部分成功保留（失败空间 `ok:false`）、**全失败回本面唯一那枚码**
+ *       `ENT_CONNECTOR_PLAZA_UNAVAILABLE`（→503，刻意不进 platform-client 那张码→状态表 ⇒ 该包零改动；
+ *       但上游自带的受控码如 `ENT_AUTH_REQUIRED` **原样上抛**，不把"请先登录"折成"本机不可用"），
+ *       **绝不静默回空列表**；空间数与连接器总数各一枚上限，超限 ⇒ 截断 + `complete:false` 原样出厂；
+ *       判定点 `space-list-failed`/`space-mcp-failed`/`plaza-failed` 都经 `onError` 进 Host 日志。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -77,8 +94,9 @@ import { registerEnterpriseFeedbackRoute } from './feedback-route.js'
 import { registerEnterpriseHelpRoute } from './help-route.js'
 import { registerEnterpriseUsageRoute } from './usage-route.js'
 import { registerEnterpriseModelsStatusRoute } from './models-status.js'
-import { registerEnterpriseEscReadRoute, type EnterpriseEscReadRoutePort } from './esc-route.js'
+import { registerEnterpriseEscReadRoute, readEnterpriseEscHostJson, type EnterpriseEscReadRoutePort } from './esc-route.js'
 import { readEscMockSwitch } from './esc-mock.js'
+import { registerEnterpriseConnectorPlazaRoute } from './connector-plaza.js'
 import { createNuwaxSessionHolder } from './nuwax-auth.js'
 import { registerEnterpriseNuwaxRoutes } from './nuwax-route.js'
 import { createEnterpriseSkillInstall } from './skill-install.js'
@@ -1045,6 +1063,37 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
     },
   }
   ctx.effect(() => registerEnterpriseEscReadRoute(ctx.webServer, escReadPort), 'enterpriseEsc.routes')
+  // ★★**口径 67 Phase C（连接器广场）的宿主半边**：D0 把三条 MCP 只读路径加进 `escReadPort` 的**宿主内部**
+  //   许可表（`/api/mcp/list/<spaceId>`、`/api/mcp/deployed/list/<spaceId>`、`/api/mcp/<id>`，
+  //   全部 `browserReadable: false`）；D1 就是下面这条 exact 只读路由 ——
+  //   `GET /enterprise/api/v1/local/connectors`（实现见新叶 `connector-plaza.ts`）。
+  //   ★**为什么 MCP 只读路径只进宿主内部表、浏览器可读表零新增**：这三条命中是**凭据面**。
+  //     真机取证（`analysis/connector-plaza-probe.md` §2）：每行 18 键里带 `mcpConfig`/`deployedConfig`，
+  //     而 `GET /api/mcp/134` 的 `mcpConfig` **实测就是可直接落地的客户端配置**
+  //     `{"mcpServers":{"qixinhuiyan-mcp":{"url":"https://mcp.qixin…"}}}` ⇒ 可能夹带 URL 内嵌凭据、
+  //     header、token。进了浏览器可读表就等于把凭据发给前端，故这三条**永不**出现在浏览器那张表里
+  //     （与 B0 的 `export/<id>` 是**不同**的理由：那条是合规闸门，这条是凭据面）。
+  //   ★**为什么广场必须宿主侧投影**：平台原始行既带配置面、又带 `creatorId`/`uid`/`permissions` 这类
+  //     平台内部身份，而界面要的只是"有哪些连接器、各自什么形态"。故本面**从零构造**每条连接器
+  //     （不是删字段），出厂只有 `{id,name,description?,icon?,installType,deployStatus,official?,toolCount?,space}`；
+  //     `toolCount` 只借 `deployedConfig.tools[]` 的**长度**，配置正文一个字都不出去。
+  //   ★**为什么跨空间走逐空间 GET**：`POST /api/mcp/deployed/list` 的真实查询体至今未文档化
+  //     （`docs/research/nuwax-plugin-backend-2026-10-06.md` §缺陷 4：`{}` 与 `{spaceId,pageNum,pageSize}`
+  //     都回 `5000`），而 `GET /api/mcp/list/<spaceId>` 已有真机读数（空间 3 ⇒ 42 条、248 ⇒ 9 条、2 ⇒ 0 条）
+  //     ⇒ 同一条事实用**已有动词**取，不必为一张表再开一套动词支持（也就没有 POST 读面）。
+  //   ★**取数面复用同一个 `escReadPort`**：同一份 HTTP 客户端 + 同一枚票据 + 同一套判决（3xx/401/5xx/4xx
+  //     与两条上限），本面只是把宿主内部读入口包成"逐空间盘点 + 脱敏投影"；**不新增第二条 HTTP 通道**。
+  //   ★**失败绝不静默**：空间列表读不到 / 形状读不懂 ⇒ 本面唯一那枚码 `ENT_CONNECTOR_PLAZA_UNAVAILABLE`
+  //     （→503，刻意不进 platform-client 那张码→状态表 ⇒ platform-client 零改动）；某个空间读失败 ⇒ 那个
+  //     空间 `ok:false`、其余照出（部分成功保留）；**一个都没成功 ⇒ 明确 503，绝不回空列表**；
+  //     空间数与连接器总数各有一枚上限，超限 ⇒ 截断并把 `complete:false` **原样出厂**。
+  //   四个判定点（`space-list-failed` / `space-mcp-failed` / `plaza-failed` 与部分失败那一条）都经 `onError` 进 Host 日志。
+  ctx.effect(() => registerEnterpriseConnectorPlazaRoute(ctx.webServer, {
+    readHostJson: path => readEnterpriseEscHostJson(escReadPort, path),
+    onError: (message, error) => {
+      ctx.logger.warn(`owndsh: ${message}`, error)
+    },
+  }), 'enterpriseConnectorPlaza.routes')
   // 口径 64 B0：「系统广场 → 已发布技能 → 导出安装」的本机动作路由（注册面全在 bundle 侧，
   // platform-client 零改动）。它是 `/skills` 那条 prefix 之外的 **exact** sibling（引擎 exact 整表优先）。
   // ★闸门顺序全在 `skill-published.ts`：形状 ⇒ **详情判合规**（`allowCopy !== 1` / `paymentRequired === true`
