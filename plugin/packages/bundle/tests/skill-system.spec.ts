@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 `src/skill-system.ts` 的 `discoverSystemSkills`/`adoptSystemSkill`/`digestSkillDirectory`/`SYSTEM_ADOPT_SOURCE_TYPE`/`SKILL_SYSTEM_PRIMARY_ROOT_ID`、`src/skill-upload.ts` 的 `installedSelfSkills`/`SELF_INSTALLED_STATE_FILENAME`、`src/skill-install.ts` 的平台面类型与 node:fs/promises 的 mkdir/mkdtemp/readdir/readlink/stat/symlink/writeFile
- * [OUTPUT]: 在真实临时 dshHome 上锁定通路二「系统搜索 → 纳入」：目录不存在静默跳过（不报错、不留痕、不造目录）、present 但无候选、候选的 frontmatter 事实与 canonical 绝对路径、可注入额外只读根与它的归属、canonical 路径去重（符号链接别名根）、**候选判据是 frontmatter 的 `name`**（缺/非法 ⇒ 不进清单但**必须留痕**；目录名不是 kebab 也照常进清单并可按技能名纳入）、三态（企业记录 / 自装记录 → registered、另一条目录声明同一技能名 → conflict、其余 available）、三条 fail-closed（不在候选 / 已登记 / 同名冲突）、纳入**只登记不复制**（目录字节零改动、无制品副本、七键 + 0600 原子写、响应与 `GET /skills/self-installed` 逐字同形、第二次纳入转 409）、符号链接逃逸被拒、摘要**不跟随**符号链接、摘要预算超限给独立基础设施码
- * [POS]: bundle 技能纵深的**第三条通路**回归门禁；有人把跨根去重拆成按名字、把三态判成两态、让纳入去复制/移动那份目录、放宽「不在候选里」这道门、把「非 kebab 目录名」误当成「不是技能」而静默不列、或者让摘要跟随符号链接读到根外，这里都会红
+ * [INPUT]: 依赖 `src/skill-system.ts` 的 `discoverSystemSkills`/`adoptSystemSkill`/`digestSkillDirectory`/`SYSTEM_ADOPT_SOURCE_TYPE`/`SKILL_SYSTEM_PRIMARY_ROOT_ID`/`SYSTEM_SEARCH_SOURCE_INPUT`、`src/skill-upload.ts` 的 `installedSelfSkills`/`SELF_INSTALLED_STATE_FILENAME`、`src/skill-install.ts` 的平台面类型与 node:fs/promises 的 mkdir/mkdtemp/readdir/readlink/realpath/stat/symlink/writeFile
+ * [OUTPUT]: 在真实临时 dshHome 上锁定通路二「系统搜索 → 纳入」：目录不存在静默跳过（不报错、不留痕、不造目录）、present 但无候选、候选的 frontmatter 事实与 canonical 绝对路径、可注入额外只读根与它的归属、canonical 路径去重（符号链接别名根）、**候选判据是 frontmatter 的 `name`**（缺/非法 ⇒ 不进清单但**必须留痕**；目录名不是 kebab 也照常进清单并可按技能名纳入）、三态（企业记录 / 自装记录 → registered、另一条目录声明同一技能名 → conflict、其余 available）、三条 fail-closed（不在候选 / 已登记 / 同名冲突）、纳入**只登记不复制**（目录字节零改动、无制品副本、七键 + 0600 原子写、响应与 `GET /skills/self-installed` 逐字同形、第二次纳入转 409）、符号链接逃逸被拒、摘要**不跟随**符号链接、摘要预算超限给独立基础设施码；**本刀**再锁 `sourceInput` 写的是**来源根 id**（`user-dsh`）、**不含 `/`**、**不等于**那条 canonical 绝对路径、键集仍是**逐字七键**，以及根 id 不可用时回落**固定字面量** `SYSTEM_SEARCH_SOURCE_INPUT`（**绝不**回落成路径；注入根记录在投影侧的结构性边界也逐字写明）
+ * [POS]: bundle 技能纵深的**第三条通路**回归门禁；有人把跨根去重拆成按名字、把三态判成两态、让纳入去复制/移动那份目录、放宽「不在候选里」这道门、把「非 kebab 目录名」误当成「不是技能」而静默不列、让摘要跟随符号链接读到根外、**把本机绝对路径写回 `sourceInput`**、或**把七键形状改掉**，这里都会红
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -15,6 +15,7 @@ import {
   discoverSystemSkills,
   SKILL_SYSTEM_PRIMARY_ROOT_ID,
   SYSTEM_ADOPT_SOURCE_TYPE,
+  SYSTEM_SEARCH_SOURCE_INPUT,
   type EnterpriseSkillSystemOptions,
 } from '../src/skill-system.js'
 import { installedSelfSkills, SELF_INSTALLED_STATE_FILENAME } from '../src/skill-upload.js'
@@ -277,20 +278,74 @@ describe('enterprise skill system search', () => {
 
     const result = await adoptSystemSkill(adopting, directory)
     const record = {
-      // `skillId`/`names` 用 **frontmatter 的技能名**；目录名完整落在 `sourceInput` 的绝对路径里，信息不丢。
+      // `skillId`/`names` 用 **frontmatter 的技能名**；`sourceInput` 是**来源根 id**（本刀起不再是路径）。
       skillId: 'my-skill',
       displayName: 'my-skill',
       sha256: await digestSkillDirectory(directory),
       names: ['my-skill'],
       installedAt: NOW,
       sourceType: SYSTEM_ADOPT_SOURCE_TYPE,
-      sourceInput: await realpath(directory),
+      sourceInput: SKILL_SYSTEM_PRIMARY_ROOT_ID,
     }
     expect(result).toEqual({ skills: [record] })
-    // 目录名 ≠ 技能名时，存在性判据必须走 `sourceInput`：否则刚纳入的记录会被立刻判成「目录没了」，
-    // 界面（读的就是这份投影）既看不到它、也没法再纳入一次。
+    // 目录名 ≠ 技能名时，存在性判据必须**不依赖** `sourceInput` 里有没有路径（本刀起那格只有根 id）：
+    // 否则刚纳入的记录会被立刻判成「目录没了」，界面（读的就是这份投影）既看不到它、也没法再纳入一次。
+    // 现行判据是只读地按**技能名**回扫技能根（`skill-upload.ts` 的 `scanLiveSystemSkillNames`）。
     expect(await installedSelfSkills(adopting)).toEqual(result)
     expect(stateOf(await discoverSystemSkills(adopting))).toEqual({ 'My Skill': 'registered' })
+  })
+
+  it('writes a non-path sourceInput: the source root id, never the canonical absolute path', async () => {
+    const home = await makeHome()
+    const root = join(home, SKILL_ROOT_RELATIVE)
+    const directory = await writeSkill(root, 'team-notes')
+    const canonical = await realpath(directory)
+
+    const result = await adoptSystemSkill(options(home), directory)
+    const sourceInput = result.skills[0]?.['sourceInput']
+    // ① 正例：等于既有根表里那枚根 id。
+    expect(sourceInput).toBe(SKILL_SYSTEM_PRIMARY_ROOT_ID)
+    // ② 反例锁：**不含 `/`**（也不含反斜杠、不等于那条 canonical 路径）—— 这一格会出厂。
+    expect(sourceInput).not.toContain('/')
+    expect(sourceInput).not.toContain('\\')
+    expect(sourceInput).not.toBe(canonical)
+    // ③ 盘上那份记录逐字七键、值与投影逐字相同（写入侧改的是**值**，不是形状；也没新增/删除任何键）。
+    const state = JSON.parse(await readFile(join(home, SELF_STATE_RELATIVE), 'utf8')) as { records: unknown[] }
+    expect(Object.keys(state.records[0] as object).sort()).toEqual(
+      ['displayName', 'installedAt', 'names', 'sha256', 'skillId', 'sourceInput', 'sourceType'],
+    )
+    expect(state.records).toEqual([{
+      skillId: 'team-notes',
+      displayName: 'team-notes',
+      sha256: await digestSkillDirectory(directory),
+      names: ['team-notes'],
+      installedAt: NOW,
+      sourceType: SYSTEM_ADOPT_SOURCE_TYPE,
+      sourceInput: SKILL_SYSTEM_PRIMARY_ROOT_ID,
+    }])
+  })
+
+  it('falls back to the fixed non-path literal when the source root id is unusable (never a path)', async () => {
+    const home = await makeHome()
+    // 注入根的 id 形状闸门只管「非空 + ≤64」⇒ 一条带分隔符的 id 可以进来；它**绝不许**被原样写进记录。
+    const extraRoot = join(home, 'extra-skills')
+    const directory = await writeSkill(extraRoot, 'team-notes')
+    const result = await adoptSystemSkill(
+      options(home, [{ id: 'evil/../../root', path: extraRoot }]),
+      directory,
+    )
+    expect(SYSTEM_SEARCH_SOURCE_INPUT).toBe('system-search')
+    // ★这里读**盘上那份记录**，不读投影：注入根不在 `<dshHome>/skills` 下，而投影一侧（`installedSelfSkills`）
+    //   在类型上拿不到 `extraRoots`、注入根的**路径也没有落进任何记录** ⇒ 它结构上无法定位这种记录
+    //   （见 `skill-upload.ts` 的 `scanLiveSystemSkillNames` 头注；v1 的生产路由不传 `extraRoots`）。
+    //   本条锁的是**写下去的值**：宁可写固定字面量，也绝不把路径写进这一格。
+    const state = JSON.parse(await readFile(join(home, SELF_STATE_RELATIVE), 'utf8')) as {
+      records: Record<string, unknown>[]
+    }
+    expect(state.records[0]?.['sourceInput']).toBe(SYSTEM_SEARCH_SOURCE_INPUT)
+    expect(String(state.records[0]?.['sourceInput'])).not.toContain('/')
+    // 记录确实落盘了（上一条断言不是"什么都没写"的空转）；投影里没有它，那是上面那条**结构性**边界。
+    expect(result).toEqual({ skills: [] })
   })
 
   it('refuses to adopt a path that is not one of the discovered candidates', async () => {
@@ -356,8 +411,9 @@ describe('enterprise skill system search', () => {
     const digestBefore = await digestSkillDirectory(directory)
     const listingBefore = (await readdir(directory, { recursive: true })).sort()
     const adopting = options(home)
-    // 记录里的 `path` 是 **canonical** 绝对路径（`realpath` 之后）——`sourceInput` 与候选投影同源。
+    // 记录里的 `sourceInput` 是**来源根 id**（根表里那枚不透明 id），**不是**候选投影里那条 canonical 路径。
     const canonicalDirectory = await realpath(directory)
+    expect(canonicalDirectory.startsWith('/')).toBe(true)
 
     const result = await adoptSystemSkill(adopting, directory)
     const record = {
@@ -367,7 +423,7 @@ describe('enterprise skill system search', () => {
       names: ['team-notes'],
       installedAt: NOW,
       sourceType: SYSTEM_ADOPT_SOURCE_TYPE,
-      sourceInput: canonicalDirectory,
+      sourceInput: SKILL_SYSTEM_PRIMARY_ROOT_ID,
     }
     // ① 响应与 `GET /skills/self-installed` **逐字同形**（界面复用同一份解码器）。
     expect(result).toEqual({ skills: [record] })

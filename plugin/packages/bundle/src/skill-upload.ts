@@ -1,18 +1,18 @@
 /**
- * [INPUT]: 依赖 node:crypto 的 createHash/randomUUID、node:fs/promises、node:path、platform-client 的 `resolveEnterpriseDshHome`、本包的 `decodeDshSkillArchive`（ZIP/manifest 闸门）、`validateSkillFrontmatter`（§D.4 正文闸门）、`parseFeedbackMultipart`（**复用反馈那条 multipart 解析器，绝不新造第二个**）、`placeEnterpriseSkillArchive`（**复用中心安装那条加固落盘**）与稳定错误码
- * [OUTPUT]: 对外提供通路一「本地上传」的 Host 侧全流程 `uploadSkillArchive(options, body, boundary)`、只读投影 `installedSelfSkills(options)`、把一条记录并入自装清单的 `upsertSelfInstalledRecord(options, record)`（供通路二「系统搜索 → 纳入」复用同一份七键记录与 0600 原子写）、**用一整份清单原子替换自装清单的 `replaceSelfInstalledRecords(options, records)`**（本刀新增：自装技能卸载要"改短名单 / 整条移除"，`upsert` 的"并入"表达不了；形状 / 权限 / 0600 原子写仍是下面那两个函数的同一份实现 —— **`self-installed.json` 的写入口仍然只有这一处**），以及 `SelfInstalledSkillRecord`/`EnterpriseSelfInstalledSkills` 形状、`SYSTEM_ADOPT_SOURCE_TYPE` 取值与自装状态文件常量
- * [POS]: bundle 技能纵深的**第二份记录**所有者（真源 `docs/plan/skill-install-sources.md` §B.1 方案甲 + §E.2③）——浏览器 multipart 字节进到 Host 后：**先闸门**（ZIP 结构 → manifest → frontmatter）、算 sha256、按内容寻址写进 `<dshHome>/enterprise/skill-uploads/<sha256>.dshskill`，再从 `decodeDshSkillArchive` 起的下游**一字不改**地交给 `placeEnterpriseSkillArchive`（与中心安装同一套落点冲突预检 / 暂存 / 逐个原子改名 / 失败整体回滚），最后原子写**独立**的自装清单 `<dshHome>/enterprise/skill-installs/self-installed.json`。★自装记录**不写进** `installed.json`（那份是严格八键 + 雪花 id 的中心口径，塞进去只能伪造 id 或放宽形状）；**★自装卸载与「打开所在文件夹」已由 `skill-self-installed.ts` 补上**（它只调本文件的 `readSelfInstalledRecords`/`replaceSelfInstalledRecords`，一个字节的落盘动作都不自己写），自装上传的孤儿清理改走 `skill-install.ts` 的**唯一**删除入口 `deleteOwnedSkillDirectory`（本文件不再有第二个 `rm(recursive)`）；★全程零 exec/spawn、不做动态 import，只落 0o600 文件与 0o700 目录
+ * [INPUT]: 依赖 node:crypto 的 createHash/randomUUID、node:fs/promises、node:path、platform-client 的 `resolveEnterpriseDshHome`、本包的 `decodeDshSkillArchive`（ZIP/manifest 闸门）、`validateSkillFrontmatter`/`parseSkillFrontmatter`（§D.4 正文闸门；后者只用于**存在性回扫**，不新写第二个解析器）、`parseFeedbackMultipart`（**复用反馈那条 multipart 解析器，绝不新造第二个**）、`placeEnterpriseSkillArchive`（**复用中心安装那条加固落盘**）与稳定错误码
+ * [OUTPUT]: 对外提供通路一「本地上传」的 Host 侧全流程 `uploadSkillArchive(options, body, boundary)`、只读投影 `installedSelfSkills(options)`（**本刀：出厂口唯一的 `sourceInput` 形状收窄 —— 看起来像宿主绝对路径的那一格整格不产出**，见 `projectSelfInstalledRecord`）、把一条记录并入自装清单的 `upsertSelfInstalledRecord(options, record)`（供通路二「系统搜索 → 纳入」复用同一份七键记录与 0600 原子写）、**用一整份清单原子替换自装清单的 `replaceSelfInstalledRecords(options, records)`**（自装技能卸载要"改短名单 / 整条移除"，`upsert` 的"并入"表达不了；形状 / 权限 / 0600 原子写仍是下面那两个函数的同一份实现 —— **`self-installed.json` 的写入口仍然只有这一处**），以及 `SelfInstalledSkillRecord`/`EnterpriseSelfInstalledSkillView`/`EnterpriseSelfInstalledSkills` 形状、`SYSTEM_ADOPT_SOURCE_TYPE` 取值与自装状态文件常量
+ * [POS]: bundle 技能纵深的**第二份记录**所有者（真源 `docs/plan/skill-install-sources.md` §B.1 方案甲 + §E.2③）——浏览器 multipart 字节进到 Host 后：**先闸门**（ZIP 结构 → manifest → frontmatter）、算 sha256、按内容寻址写进 `<dshHome>/enterprise/skill-uploads/<sha256>.dshskill`，再从 `decodeDshSkillArchive` 起的下游**一字不改**地交给 `placeEnterpriseSkillArchive`（与中心安装同一套落点冲突预检 / 暂存 / 逐个原子改名 / 失败整体回滚），最后原子写**独立**的自装清单 `<dshHome>/enterprise/skill-installs/self-installed.json`。★自装记录**不写进** `installed.json`（那份是严格八键 + 雪花 id 的中心口径，塞进去只能伪造 id 或放宽形状）；**★自装卸载与「打开所在文件夹」已由 `skill-self-installed.ts` 补上**（它只调本文件的 `readSelfInstalledRecords`/`replaceSelfInstalledRecords`，一个字节的落盘动作都不自己写），自装上传的孤儿清理改走 `skill-install.ts` 的**唯一**删除入口 `deleteOwnedSkillDirectory`（本文件不再有第二个 `rm(recursive)`）；★全程零 exec/spawn、不做动态 import，只落 0o600 文件与 0o700 目录。**本刀（出厂口 `sourceInput` 形状收窄）**：这七键记录**会出厂**（`GET /skills/self-installed` 与 uninstall/reveal/edit 的响应都带它，界面靠 `sourceInput` 做上传文件名匹配与渠道分类），而「系统搜索 → 纳入」那条通道过去往这格里写**宿主绝对路径** ⇒ 出厂口自己补一道**只读**投影守卫（`looksLikeHostPath` + `projectSelfInstalledRecord`，只作用于 `installedSelfSkills` 这一处，不做迁移、不动盘上一个字节）：像绝对路径的那一格**整格不产出**（"没说"比"说一半"干净），其余六键逐字保留；连带补一条**只读**存在性退化判据 `scanLiveSystemSkillNames`（新形态的 system 记录 `sourceInput` 是来源根 id、不再带目录名，按**技能名**回扫技能根的一级目录，避免「刚纳入的记录凭空消失」）
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { createHash, randomUUID } from 'node:crypto'
-import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join } from 'node:path'
 import { resolveEnterpriseDshHome } from '@dshent/platform-client'
 import { decodeDshSkillArchive } from './skill-archive.js'
 import { EnterpriseSkillInstallError, skillInstallError } from './skill-errors.js'
 import { parseFeedbackMultipart } from './feedback-route.js'
-import { validateSkillFrontmatter } from './skill-frontmatter.js'
+import { parseSkillFrontmatter, validateSkillFrontmatter } from './skill-frontmatter.js'
 import {
   deleteOwnedSkillDirectory,
   installedSkillStatus,
@@ -37,6 +37,11 @@ const MAX_SKILLS_PER_PACKAGE = 200
 const MAX_DISPLAY_NAME_LENGTH = 120
 const MAX_SOURCE_INPUT_LENGTH = 1024
 const MAX_SOURCE_TYPE_LENGTH = 32
+/**
+ * 存在性回扫时读 `<dir>/SKILL.md` 的单文件上限：与 `skill-system.ts` 的 `SKILL_MD_MAX_BYTES` **同值同口径**
+ * （超出即「不是一条活技能」）。这里只读它判 `frontmatter.name`，正文一个字节都不留。
+ */
+const SKILL_MD_MAX_BYTES = 256 * 1024
 /** multipart 里那个唯一的文件字段名（冻结契约；UI 侧只发这一个）。 */
 const UPLOAD_PART_NAME = 'artifact'
 
@@ -80,7 +85,54 @@ export interface SelfInstalledSkillRecord {
 /** `GET /enterprise/api/v1/local/skills/self-installed` 的本地投影。 */
 export interface EnterpriseSelfInstalledSkills {
   /** 只列**目录仍在**的记录（与 `installedSkillStatus` 同口径：绝不给「假已装态」）。 */
-  readonly skills: readonly SelfInstalledSkillRecord[]
+  readonly skills: readonly EnterpriseSelfInstalledSkillView[]
+}
+
+/**
+ * **出厂投影**里的一条自装记录：与盘上那份**逐字七键**形状同构，唯一的例外是 `sourceInput`
+ * —— 看起来像宿主绝对路径的那一格**整格不产出**，故这里把它标成可选。
+ *
+ * ★为什么类型要分成两枚（`SelfInstalledSkillRecord` = 盘上真源 / 本枚 = 出厂形状）：盘上形状是**冻结**的，
+ * 而「这一格有没有」恰恰是出厂口要表达的事实。把可选位写进类型，比「删掉键再 `as` 回七键类型」诚实 ——
+ * 后者是在类型上撒谎，且会让下一个读这枚字段的人以为它必然存在。
+ */
+export type EnterpriseSelfInstalledSkillView = Omit<SelfInstalledSkillRecord, 'sourceInput'> & {
+  readonly sourceInput?: string
+}
+
+/**
+ * 出厂投影的 `sourceInput` **形状收窄**判据（本刀）：看起来像宿主绝对路径的一律不产出。
+ *
+ * ★为什么要在**出厂口**判、而不是只求写入侧改干净：这份记录**会出厂**（`GET /skills/self-installed`
+ * 与 uninstall/reveal/edit 的响应都带这七键），而本刀之前「系统搜索 → 纳入」那条通道往这格里写的是
+ * 那条技能目录的 **canonical 绝对路径**（`skill-system.ts` 的 `adoptSystemSkill`）。盘上可能已经躺着
+ * 这种旧记录 ⇒ 出厂的唯一那处必须自己关门（纵深防御），**不做迁移、不改写、不截断**：
+ * 路径形态 ⇒ 整格不产出（"没说"比"说一半"干净），其余六键逐字保留。
+ *
+ * 判据只覆盖「像路径」这一件事（四类规则、覆盖五种写法，宁可只抓硬的、不猜软的）：
+ *  · 以 `/` 开头（POSIX 绝对路径）；
+ *  · Windows 盘符形态 `X:\` / `X:/`（一类规则两种写法）；
+ *  · 含反斜杠（Windows 分隔符；非路径形态的来源坐标里没有它）；
+ *  · 含 `..` 路径段（相对穿越形态）。
+ * 非路径形态（`nuwax:158` / `skillhub:a@1` / `team-notes.dshskill` / `dsh`）**一律原样产出** ——
+ * 界面靠上传文件名匹配与渠道分类，误杀比漏杀更糟。
+ */
+function looksLikeHostPath(value: string): boolean {
+  if (value.startsWith('/')) return true
+  if (/^[A-Za-z]:[\\/]/.test(value)) return true
+  if (value.includes('\\')) return true
+  return value.split('/').some(segment => segment === '..')
+}
+
+/**
+ * 记录 → 出厂投影的**唯一一处**：只做形状收窄，**不碰盘、不写盘**（纯内存函数，零 fs 调用）。
+ *
+ * 未来若给冻结七键补字段：`...rest` 会自动带上，字段名一个都不用在这里重列。
+ */
+function projectSelfInstalledRecord(record: SelfInstalledSkillRecord): EnterpriseSelfInstalledSkillView {
+  if (!looksLikeHostPath(record.sourceInput)) return record
+  const { sourceInput: _withheldSourceInput, ...rest } = record
+  return rest
 }
 
 /** 自装侧需要的最小依赖（与中心安装同一套优先级：显式 → `$DSH_HOME` → `~/.dsh`）。 */
@@ -137,8 +189,9 @@ function requireSkillName(value: unknown): string {
 /**
  * 严格读自装清单；文件不存在是合法空状态，损坏一律 fail-closed 而不是当成空清单覆盖。
  *
- * 键集**逐字定死**这七枚（与既有 `installed.json` 的严格八键同一纪律）：文件形状与出网投影是同一个，
- * 未来要给 §F.4 补字段时必须两侧同批改，不允许「盘上有、投影没有」的静默丢字段。
+ * 键集**逐字定死**这七枚（与既有 `installed.json` 的严格八键同一纪律）：盘上形状与出网投影**同构**
+ * —— 投影只可能**再少** `sourceInput` 那一格（路径形态的形状收窄，见 `installedSelfSkills`，且是**响亮**
+ * 写明的收窄，不是静默丢字段）；未来要给 §F.4 补字段时必须两侧同批改，不允许「盘上有、投影没有」的静默丢字段。
  */
 export async function readSelfInstalledRecords(
   options: EnterpriseSkillInstallOptions,
@@ -215,17 +268,27 @@ async function writeSelfInstalledRecords(
 /**
  * 本机自装清单（只读投影）。
  *
+ * ★**这是自装记录出厂外界的唯一一处**（路由与 uninstall/reveal/edit 都复用本函数或其返回值）：
+ * 本刀在这里对 `sourceInput` 做**形状收窄**（路径形态整格不产出，见 {@link projectSelfInstalledRecord}）。
+ * 收窄只在内存里发生 —— 盘上那份七键记录一个字节都不动，本函数与它调用的存在性判据**全部只读**。
+ *
  * @param options - 平台面、可选 dshHome、时钟与留痕端口。
- * @returns 目录仍完整的自装记录。
+ * @returns 目录仍完整的自装记录（`sourceInput` 为路径形态时该格不产出）。
  * @throws {EnterpriseSkillInstallError} `ENT_SKILL_STATE_INVALID`：自装清单损坏或形状非法。
  */
 export async function installedSelfSkills(
   options: EnterpriseSkillInstallOptions,
 ): Promise<EnterpriseSelfInstalledSkills> {
   const deps = resolveUploadDependencies(options)
-  const skills: SelfInstalledSkillRecord[] = []
+  // 存在性回扫**整个投影只做一次**（惰性：一条都不需要回扫时一次都不做）。
+  let liveSystemSkillNames: Promise<ReadonlySet<string>> | undefined
+  const liveNames = (): Promise<ReadonlySet<string>> => (liveSystemSkillNames ??= scanLiveSystemSkillNames(deps))
+  const skills: EnterpriseSelfInstalledSkillView[] = []
   for (const record of await readSelfInstalledRecords(options)) {
-    if (await selfInstalledRecordPresent(deps, record)) skills.push(record)
+    if (await selfInstalledRecordPresent(deps, record, liveNames)) {
+      // ★出厂的唯一一处（本刀）：记录 → 投影时对 `sourceInput` 做形状收窄（见 `projectSelfInstalledRecord`）。
+      skills.push(projectSelfInstalledRecord(record))
+    }
   }
   return { skills }
 }
@@ -240,19 +303,69 @@ export async function installedSelfSkills(
  * （`@deepseek-ai/dsh-skill-filesystem/lib/index.js:584-597` 逐目录取 `<dir>/SKILL.md`，`:679`/`:685` 只看
  * frontmatter 的 `name`）⇒ 目录名可以完全不同于技能名（`My Skill/` 里声明 `name: my-skill` 也是一条活技能）。
  * 那时 `names` 里那个 kebab 名**根本不会**是磁盘上的目录名，只按 `names` 判存在会把**刚纳入**的记录立刻
- * 判成「目录没了」：界面看不到它、用户也没法再纳入一次。故 `sourceType === 'system'` 的记录改为按它自己的
- * `sourceInput`（通路二写的就是那条目录的 **canonical 绝对路径**）判定；相对串一律不参与存在性判定。
+ * 判成「目录没了」：界面看不到它、用户也没法再纳入一次。
+ *
+ * ★本刀把这份例外**分成两条只读判据**（旧记录与新记录各一条，判的**都是盘上真值**）：
+ *  · **旧记录**（本刀之前写的）：`sourceInput` 就是那条目录的 **canonical 绝对路径** ⇒ 直接判它
+ *    （`isAbsolute` 才认；相对串一律不参与存在性判定）。
+ *  · **新记录**（本刀起写的）：那格只放**来源根 id**（记录会出厂 ⇒ 路径不许进记录，见 `adoptSystemSkill`）
+ *    ⇒ 目录名不再可复原，只能按**技能名**回扫技能根（{@link scanLiveSystemSkillNames}，同一份
+ *    `parseSkillFrontmatter` 解析器 + 同一把「一级目录 + 普通文件 `SKILL.md`」的尺，一个字节都不写）。
+ *    没有它，「目录名 ≠ 技能名」的纳入记录会**在写下的那一刻**就被判成「目录没了」——那是比漏一条更糟的谎。
  */
 async function selfInstalledRecordPresent(
   deps: UploadDependencies,
   record: SelfInstalledSkillRecord,
+  liveSystemSkillNames: () => Promise<ReadonlySet<string>>,
 ): Promise<boolean> {
   const root = skillRoot(deps)
   const present = await Promise.all(record.names.map(name => exists(join(root, name, SKILL_CONTENT_FILENAME))))
   if (present.every(Boolean)) return true
-  return record.sourceType === SYSTEM_ADOPT_SOURCE_TYPE
-    && isAbsolute(record.sourceInput)
-    && await exists(join(record.sourceInput, SKILL_CONTENT_FILENAME))
+  if (record.sourceType !== SYSTEM_ADOPT_SOURCE_TYPE) return false
+  if (isAbsolute(record.sourceInput)) return await exists(join(record.sourceInput, SKILL_CONTENT_FILENAME))
+  const claimed = await liveSystemSkillNames()
+  return record.names.some(name => claimed.has(name))
+}
+
+/**
+ * 回扫技能根：把「这里真的有一条**一级目录**、它的 `SKILL.md` frontmatter `name` 是它」的技能名收成一个集合。
+ *
+ * 判据与 `skill-system.ts` 的候选判据**同一把尺**（一级目录 + 普通文件 `SKILL.md` + 同一份
+ * `parseSkillFrontmatter`；`name`/`description` 缺一不可），只是这里只关心**名字集合**（存在性），
+ * 不做三态、不做 canonical 去重。目录不存在 / 读不动一律回**空集**（"这里没有活技能"，
+ * 与 `listRoot` 的「目录不存在即静默跳过」同口径；这是只读判定，不是盘点响应，不构成静默丢弃事实）。
+ *
+ * ★**只扫主根** `<dshHome>/skills`：它是记录所有者这一侧**唯一**能推出来的根
+ * （`EnterpriseSkillInstallOptions` 里没有 `extraRoots`，注入根的**路径也没有落进任何记录**）。
+ * ⇒ 如实登记的**结构性边界**：一条从**注入根**纳入的新形态记录（`sourceInput` = 某个注入根 id），
+ * 在投影这一侧无法被定位，因而**不出现在自装清单里**（旧记录带绝对路径，不受影响）。
+ * 这不影响今天的产品面：v1 的唯一路由（`index.ts` 的 `skillAdopt`）不传 `extraRoots`，该选项默认 `[]`、
+ * 文档里写明是「将来放开跨 CLI 根」的挂点；真接线时要与「跨 CLI 根的存在性怎么判」一起裁决。
+ *
+ * ★只读：只 `readdir`/`lstat`/`readFile`，**零写类 fs 出口**（本函数存在的意义是判「目录还在不在」）。
+ */
+async function scanLiveSystemSkillNames(deps: UploadDependencies): Promise<ReadonlySet<string>> {
+  const root = skillRoot(deps)
+  const names = new Set<string>()
+  let entries
+  try {
+    entries = await readdir(root, { withFileTypes: true })
+  } catch {
+    return names
+  }
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue
+    try {
+      const target = join(root, entry.name, SKILL_CONTENT_FILENAME)
+      const stats = await lstat(target)
+      if (!stats.isFile() || stats.size > SKILL_MD_MAX_BYTES) continue
+      names.add(parseSkillFrontmatter(await readFile(target)).name)
+    } catch {
+      // 不是普通 `SKILL.md` / 读不动 / frontmatter 不过闸门 ⇒ 这一条目录**不认领任何名字**。
+      continue
+    }
+  }
+  return names
 }
 
 /**

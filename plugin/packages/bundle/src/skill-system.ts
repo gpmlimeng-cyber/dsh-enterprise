@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 node:crypto 的 createHash、node:fs/promises 的 lstat/readdir/readFile/readlink/realpath、node:path 的 isAbsolute/join/resolve、platform-client 的 `resolveEnterpriseDshHome`、本包 `skill-install.ts` 的 `SKILL_LOCAL_ROOT_SEGMENTS`/`SKILL_CONTENT_FILENAME`/`SKILL_FILE_MAX_ENTRIES`/`SKILL_FILE_MAX_DEPTH`/`readInstalledSkillRecords`/`requireRelativeSkillPath` 与 `EnterpriseSkillInstallOptions`、`skill-upload.ts` 的 `SelfInstalledSkillRecord`/`EnterpriseSelfInstalledSkills`/`readSelfInstalledRecords`/`upsertSelfInstalledRecord`/`installedSelfSkills`/`SYSTEM_ADOPT_SOURCE_TYPE`、`skill-frontmatter.ts` 的 `parseSkillFrontmatter` 与 `skill-errors.ts` 的稳定码
- * [OUTPUT]: 对外提供通路二「系统搜索」的两件事：`discoverSystemSkills(options)`（本机技能根盘点 + 三态）与 `adoptSystemSkill(options, path)`（**只登记、不复制、不动该目录一个字节**），以及 `EnterpriseSystemSkills`/`EnterpriseSystemSkill`/`EnterpriseSystemRoot` 形状、`SKILL_SYSTEM_PRIMARY_ROOT_ID` 常量（`SYSTEM_ADOPT_SOURCE_TYPE` 自 `skill-upload.ts` 转出）与目录内容摘要 `digestSkillDirectory(path)`
- * [POS]: bundle 技能纵深的**第三条通路**（真源 `docs/research/cherry-skill-add-2026-10-05.md` §2.2/§2.3/§2.4 + `docs/plan/skill-install-sources.md` §E.2③）——上游 `SkillService.discoverSystem`/`importSystem` 的**语义**逐条对齐（canonical 路径去重、三态、先 `realpath` 再查候选、三条 fail-closed 硬拒），另有两处**有意偏离**（都写在函数注释里，别当成漏抄）：① 三态把上游的「自家库技能判 conflict」**合并成 registered**；② 上游 `:360` 排除它自己的受管根，我们**反过来包含** `<dshHome>/skills`。★「是不是技能」的判据是 **frontmatter 的 `name`**、不是目录名（官方 watcher `dsh-skill-filesystem/lib/index.js:679`/`:685` 同款）；★本文件**不复制、不移动、不删除**任何技能目录，只往刀 3a 建成的**同一份**自装清单里登记一条记录；★全程零 exec/spawn、不做动态 import、不改权限位；★**已知识别边界**：官方还认根下裸 `.md` 当技能（`dsh-skill-filesystem/lib/index.js:586-592`），v1 只认「一级子目录 + `SKILL.md`」，那种技能**不在清单里** —— 理由与三条结构性约束见 `listRoot` 的注释（属单独一刀）
+ * [OUTPUT]: 对外提供通路二「系统搜索」的两件事：`discoverSystemSkills(options)`（本机技能根盘点 + 三态）与 `adoptSystemSkill(options, path)`（**只登记、不复制、不动该目录一个字节**），以及 `EnterpriseSystemSkills`/`EnterpriseSystemSkill`/`EnterpriseSystemRoot` 形状、`SKILL_SYSTEM_PRIMARY_ROOT_ID`/`SYSTEM_SEARCH_SOURCE_INPUT` 常量（`SYSTEM_ADOPT_SOURCE_TYPE` 自 `skill-upload.ts` 转出）与目录内容摘要 `digestSkillDirectory(path)`
+ * [POS]: bundle 技能纵深的**第三条通路**（真源 `docs/research/cherry-skill-add-2026-10-05.md` §2.2/§2.3/§2.4 + `docs/plan/skill-install-sources.md` §E.2③）——上游 `SkillService.discoverSystem`/`importSystem` 的**语义**逐条对齐（canonical 路径去重、三态、先 `realpath` 再查候选、三条 fail-closed 硬拒），另有两处**有意偏离**（都写在函数注释里，别当成漏抄）：① 三态把上游的「自家库技能判 conflict」**合并成 registered**；② 上游 `:360` 排除它自己的受管根，我们**反过来包含** `<dshHome>/skills`。★「是不是技能」的判据是 **frontmatter 的 `name`**、不是目录名（官方 watcher `dsh-skill-filesystem/lib/index.js:679`/`:685` 同款）；★本文件**不复制、不移动、不删除**任何技能目录，只往刀 3a 建成的**同一份**自装清单里登记一条记录；★**本刀**：纳入写进 `sourceInput` 的**不再是那条目录的 canonical 绝对路径**，而是**来源根 id**（根 id 拿不到 ⇒ 固定字面量 `SYSTEM_SEARCH_SOURCE_INPUT`，绝不回落成路径）—— 理由是这份记录**会出厂**（`GET /skills/self-installed` 与 uninstall/reveal/edit 的响应都带它）⇒ 宿主绝对路径不许进记录（出厂口另有 `skill-upload.ts` 的只读投影守卫兜住盘上旧记录）；★全程零 exec/spawn、不做动态 import、不改权限位；★**已知识别边界**：官方还认根下裸 `.md` 当技能（`dsh-skill-filesystem/lib/index.js:586-592`），v1 只认「一级子目录 + `SKILL.md`」，那种技能**不在清单里** —— 理由与三条结构性约束见 `listRoot` 的注释（属单独一刀）
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -30,6 +30,13 @@ import {
 
 /** 本机唯一确定的技能根在盘点响应里的稳定 id（官方 `skill-filesystem` 的 `user-dsh` 根）。 */
 export const SKILL_SYSTEM_PRIMARY_ROOT_ID = 'user-dsh'
+/**
+ * 根 id 取不到时，纳入写进自装记录 `sourceInput` 的**固定字面量**（**非路径形态**）。
+ *
+ * ★它是一枚**兜底**，不是常态取值：常态写的是 `candidate.rootId`（来源根表里的 id，见 `adoptSourceInput`）。
+ * 宁可写一枚固定字面量，也**绝不**回落成路径 —— 这一格会出厂（见 `adoptSystemSkill` 第 ⑤ 步的注释）。
+ */
+export const SYSTEM_SEARCH_SOURCE_INPUT = 'system-search'
 /** 纳入写进自装记录的 `sourceType`（取值与上游同源，定义在记录所有者 `skill-upload.ts` 里，这里转出）。 */
 export { SYSTEM_ADOPT_SOURCE_TYPE }
 
@@ -421,6 +428,8 @@ export async function discoverSystemSkills(
  *  ④ 三条 fail-closed 硬拒：不在候选里 → `ENT_SKILL_DISCOVERY_UNKNOWN`(404)、已被认领 →
  *     `ENT_SKILL_ALREADY_REGISTERED`(409)、`conflict` → `ENT_SKILL_NAME_CONFLICT`(409，**既有码**)；
  *  ⑤ 递归算该目录内容摘要 → 并入**同一份**自装清单（`upsertSelfInstalledRecord`，七键 + 0600 原子写）。
+ *     ★本刀：`sourceInput` 写的是**来源根 id**（`candidate.rootId`；拿不到 ⇒ `SYSTEM_SEARCH_SOURCE_INPUT`），
+ *     **不再写那条 canonical 绝对路径** —— 记录会出厂，路径不许进记录（理由见函数体第 ⑤ 步的注释）。
  *
  * @param options - 平台面、可选 dshHome、时钟与留痕端口，以及可注入的额外只读根（默认空）。
  * @param path - `/skills/system-search` 投影里那条候选的 `path`（canonical 绝对路径）。
@@ -472,9 +481,16 @@ export async function adoptSystemSkill(
     throw new EnterpriseSkillInstallError('ENT_SKILL_NAME_CONFLICT', 'a different skill already uses this folder name')
   }
   // ⑤ 只登记：算摘要 → 并入同一份自装清单。
-  // 记录的 `skillId`/`names` 用 **frontmatter 的技能名**（官方 watcher 认定的就是它）；目录名不丢 ——
-  // 它完整落在 `sourceInput` 那条 canonical 绝对路径里，而 `installedSelfSkills` 对 `sourceType==='system'`
-  // 的记录正是按那条路径判存在性（否则「目录名 ≠ 技能名」时刚纳入的记录会被立刻判成「目录没了」）。
+  // 记录的 `skillId`/`names` 用 **frontmatter 的技能名**（官方 watcher 认定的就是它）。
+  // ★本刀：`sourceInput` **不再写那条目录的 canonical 绝对路径**，改写**来源根 id**（与「本地三方复制」
+  //   那一面同一形态：`skill-third-party.ts` 写的也是 `candidate.rootId`）；根 id 拿不到就写固定字面量
+  //   `SYSTEM_SEARCH_SOURCE_INPUT`，**绝不**回落成路径。
+  //   ★为什么（记录会出厂 ⇒ 路径不许进记录）：这份七键记录会随 `GET /skills/self-installed` 与
+  //   uninstall/reveal/edit 的响应进浏览器（界面靠 `sourceInput` 做上传文件名匹配与渠道分类），
+  //   把本机绝对路径写进去就等于破了「宿主绝对路径不进浏览器」这条既有不变量。
+  //   ★连带的如实登记：旧记录里那条路径还兼职「目录名 ≠ 技能名」时的存在性判据，新记录不再携带目录名
+  //   （那本来就不是出厂的来源坐标）⇒ `installedSelfSkills` 一侧按**技能名**回扫技能根补上这条只读判据
+  //   （见 `skill-upload.ts` 的 `scanLiveSystemSkillNames`），刚纳入的记录**不会**凭空消失。
   const sha256 = await digestSkillDirectory(canonicalPath)
   await upsertSelfInstalledRecord(options, {
     skillId: skillName,
@@ -483,10 +499,26 @@ export async function adoptSystemSkill(
     names: [skillName],
     installedAt: deps.now().toISOString(),
     sourceType: SYSTEM_ADOPT_SOURCE_TYPE,
-    // 来源输入就是那条 canonical 绝对路径本身（用户「从系统搜到的那一条」），不是 URL、不是编造的坐标。
-    sourceInput: canonicalPath.slice(0, MAX_ADOPT_PATH_LENGTH),
+    // 来源坐标 = 这条技能所在**根表的 id**（`user-dsh` / 注入根 id），不是路径、不是 URL、没有分隔符。
+    sourceInput: adoptSourceInput(candidate.rootId),
   })
   return await installedSelfSkills(options)
+}
+
+/**
+ * 来源根 id 的取用与收窄：拿不到一枚可用的根 id 时写 {@link SYSTEM_SEARCH_SOURCE_INPUT}（**绝不**回落成路径）。
+ *
+ * 根 id 来自**既有根表**（`systemRoots` 的声明 id；主根恒为 `SKILL_SYSTEM_PRIMARY_ROOT_ID`），
+ * 形状上限与 `resolveSystemDependencies` 对注入根 id 的那把尺同值。这里再判一次「没有分隔符、没有 `..`」
+ * 是最后一道硬边界：这一格**会出厂** ⇒ 任何形似路径的东西都不许从这里溜进去。
+ */
+function adoptSourceInput(rootId: string): string {
+  if (rootId.length === 0 || rootId.length > MAX_SYSTEM_ROOT_ID_LENGTH
+    || rootId.includes('/') || rootId.includes('\\')
+    || rootId.split('/').some(segment => segment === '..')) {
+    return SYSTEM_SEARCH_SOURCE_INPUT
+  }
+  return rootId
 }
 
 /**
