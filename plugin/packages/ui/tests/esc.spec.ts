@@ -235,6 +235,89 @@
  *      去掉 `local-api.ts` 那句"错误信封翻 `EnterpriseLocalApiError`"（错误码那条红：`ENT_AUTH_REQUIRED`
  *      退成 `ENT_LOCAL_RESPONSE_INVALID`）。★**真机上用户应看到 `(1)`**（企业已装 1 枚 + 自装 0 枚）
  *      —— 这是**推导**，真机像素与交互由 Lead 复量，本文件不冒充量过。
+ * ⑲ **口径 56（真机缺陷「全部那行分类标签的标签文字没有居中」——二级分类胶囊的对称内衬；本刀按 WB 实测重基线）**：
+ *    本文件 **+1 条**（按实测的 `it` 数 122 → **123**，一条未删；本头部沿革里此前那串数字是更早几刀的
+ *    读数、其后几刀没跟着更新，本刀按**可复现的实测口径**重述，不沿用已漂的旧数）。
+ *    **缺陷与根因**：二级分类那一行（`.esc-category-tabs`：「全部／Agent／经营管理」）选中/悬停时那层
+ *    灰底里**文字贴左、右侧空一块**——根因是口径 35④ 刻意的「左内衬归零」（`padding: 0 … 0 0`）：
+ *    那一刀为的是让分类**文字**与卡片左边界对齐（初衷必须保住），代价就是灰底只往右长 8px。
+ *    **沿革（用户两次反馈的取向变化，如实记录）**：① **口径 35④**——用户先要「这行更紧凑」⇒ gap 一路
+ *    收到 `--esc-sp-sm`(6)、左内衬**归零**（视觉左边距 = 内容区 padding = 卡片左边界）。② **口径 56
+ *    第一版**——用户报「标签文字没有居中」⇒ 内衬改成**左右对称**的新刻度 `--esc-cat-pad`，多出来的
+ *    那半个左内衬由容器负外边距整行拉回；那一版把口径取成"历史组成"14px（右内衬 `--esc-sp-md` 8 +
+ *    容器 gap `--esc-sp-sm` 6）⇒ 内衬只反解出 **4px**，**真机上依然太紧**。③ **本刀（第二版）**——
+ *    用户看过真机说还是太紧、明确要"往 WB 靠" ⇒ 把**口径那一格 token 重新基线到 WB 实机实测值**，
+ *    其余结构性手法（对称内衬 + 容器负外边距补偿 + 恒等式）**一字不动**。
+ *    **本刀的取值与出处**：口径 `--esc-cat-label-pitch` **14px → 30px**（= WB 实测 29.5 **向上取整**，
+ *    只许更宽不许更紧）；内衬由反解式跟着变成 **12px**（与 WB 实测 12.0~13.1 一致）；容器 gap 仍是
+ *    `--esc-sp-sm`(6)、窄屏档 `gap: 3px` **一字未改**；恒等式 2×12 + 6 = 30 仍成立、窄屏 2×12 + 3 = 27。
+ *    WB 实测（`analysis/wb-live.png` 那枚「全部」胶囊，口径 = 灰底 bbox 与墨迹 bbox；截图 1567×922
+ *    ÷ 窗口 1710×1006，k = 1567/1710）：灰底 51.3×31.6、墨迹 26.2、左右内衬 ≈ 13.1 / 12.0、
+ *    左右偏差 ≈ +0.5px、**文字到文字口径 ≈ 29.5**（本机复测 29.47）——本文件不冒充量过本页真机，
+ *    真机像素由 Lead 复量。
+ *    **横向滚动核算（内衬 4 → 12 会让这一行变宽，先算再改）**：技能页那排 **13 枚**（v7-disk-truth.png
+ *    逐枚墨迹 bbox）Σ墨迹 ≈ 626.4px、gap 12×6 = 72、旧内衬 13×8 = 104 ⇒ 行盒 ≈ 802.4px；新内衬
+ *    13×24 = 312 ⇒ 行盒 ≈ **1010.4px**，可用宽 = 内容区 1377.7 + 负外边距 12 = **1389.7px**
+ *    ⇒ **未触发横向滚动**（余量 ≈ 379px）。窄屏档必然滚动，那是既有行为（这一行一直是
+ *    `flex-wrap: nowrap; overflow-x: auto`），不是本刀引入的降级。
+ *    **那条锁**（语义级、**读 token 逐值复算**，不把 12/6/30 写死成"事实"）：
+ *    ① 那枚胶囊的 `padding` 简写**按 CSS 语义展开**成 (上,右,下,左) 后断言 **left === right**，
+ *       且左内衬是**正数**、走**同一枚 token**；反向锁一条——四值语法「左内衬归零」的写法不许回来；
+ *    ② 恒等式 `2 × 左内衬 + 容器 gap === --esc-cat-label-pitch`（两侧都从样式表算出来）
+ *       ＋反向锁"这一行的文字间距不许变大"；
+ *    ③ 对齐补偿在场且**同源**（margin-left 的 token 列表**恰好** `[var(--esc-cat-pad)]`、
+ *       数值 `=== -内衬值`）——写死像素或换一枚"数值凑巧相等"的变量都红；
+ *    ④ 垂直那三条（`height: var(--esc-tab-h)` / `align-items: center` / `line-height: 1`）在场、
+ *       垂直内衬仍是 `0 0`，两条反向锁（不许改 flex-start、不许用 min-height 顶掉高度）；
+ *    ⑤ 回归：字号/字重/圆角/底色/描边/字色逐条在场、hover 与选中仍是同一对声明、
+ *       分类渲染点仍**只有一处**且选中判据仍是 `item.key === activeCategory`；
+ *    ⑥ **逐档扫描**（真机缺陷不是只在桌面档）：容器规则恰好两条（基档 + `@media (max-width: 560px)`
+ *       那条**既有**的 `gap: 3px`），**每一档**都断言 `2×内衬 + gap ≤ 口径`，且**除基档外不许有任何
+ *       规则**碰 `padding` / `margin-left`（碰了就是把居中/对齐在窄屏写没），外加"那枚胶囊只许有
+ *       **一条**规则"（出现第二条 ⇔ 某个媒体档在改写内衬）。
+ *       —— 这一格是发现"产物里还有第二条 `.esc-category-tabs { gap: 3px }`"之后补的，如实登记。
+ *    ★**本刀新增/改写的四条锁（全部是加强，逐条说明为什么）**：
+ *      ① **方向锁 · 口径**（新）`pitch ≥ 29.5`（WB 实测值）——**用户这次反馈的机器化**：再往回收
+ *         （口径变小 / 回到 14）当场红。上一版没有任何一条能表达"不许比 WB 更紧"。
+ *      ② **锚定 · 口径 ≡ ceil(29.5)**（替换旧锚定）＋ **形式锁 · 口径必须是字面 px**（新）——
+ *         旧那条 `pitch ≡ --esc-sp-md + --esc-sp-sm` 按设计**废止**：它锁的是"口径的**历史组成**"，
+ *         而口径这次正是被**有意**从 14 改到 30 的；更关键的是**它在"内衬 4、文字贴边"那一版是绿的**
+ *         —— 对用户这次"还是太紧"的反馈零咬合力。替代它的两条都约束**外部实测**：pad=4 那版在锚定
+ *         上就红（14 ≠ 30）；"字面 px"这条则把旧锚定唯一还成立的功能（防口径与它的来源一起漂）
+ *         换成更强的形态锁（连"派生自什么"都不许）。
+ *      ③ **方向锁 · 内衬**（新）`--esc-cat-pad ≥ 12.0`（WB 实测左右内衬的**紧**那一侧）——把
+ *         "文字贴边、不像在标签中间"这半句反馈也机器化；"口径调大而内衬写死成 4"那种改法在这里红。
+ *      ④ **反解形式锁 · 内衬**（新）`--esc-cat-pad` 必须仍是 `calc((口径 − gap刻度) / 2)` 这条
+ *         反解式（恰好引用这两枚 token + 除以 2）——**这是发现"① 内衬走 token"挡不住写死**之后补的：
+ *         `--esc-cat-pad: 12px` 能同时满足旧版全部断言（左右相等 / 走 token / 恒等式成立 / 补偿同源），
+ *         只有这条形式锁咬得住。旧版"内衬不许写死"只到"引用 token"这一层，本刀把它锁到代数形态。
+ *    **三处按设计重新基线化/拆并（都是加强，不是放宽）**：
+ *      ① `.esc-resource-tab` / `.esc-source-tabs .esc-pill` / `.esc-category-tabs .esc-pill` **三枚一起**
+ *         断言 `padding: 0 var(--esc-sp-md)` 的那条循环 ⇒ 拆成「上两行仍锁这条」＋「二级分类由上面那组
+ *         更强的锁接管」。旧断言对"内衬对称但把这行撑松""补偿缺席"都是绿的，新那组不可能；
+ *      ② 三个容器一起断言 `margin-left` 只能缺席（`toBeUndefined`）的那条循环 ⇒ 拆成「上两行仍锁缺席」
+ *         ＋「二级分类的补偿**必须在场**且与内衬同源」。旧断言在新的正确修法下必然为红，
+ *         若继续留着它，等于把"取消补偿、整行右移半个内衬"锁成合法；
+ *      ③ 口径那三处旧数（pitch 14 / pad 4 / 窄屏 2p+g = 11）⇒ 全部从 token 算出来、并把口径本身
+ *         钉到 WB 实测上（旧数 14 正是本刀要改掉的东西，留着就是自相矛盾）。
+ *    **真锁自证**（**六种**改法各自让对应那条变红，随后**按 md5 逐字节还原复绿**——`esc-style.ts`
+ *      md5 `ce216ec035b9c8421c96f983d857545b`，六次还原后逐次核对 md5 相同）：
+ *      **口径改回 14**（①的方向锁红：「左右内衬不许比 WB 实测更紧: expected 4 to be greater than or
+ *      equal to 12」——注意它先在内衬那一条上炸，这正是"太紧"的可执行判据）/
+ *      **内衬写死 `--esc-cat-pad: 12px`**（④的形式锁红：「反解式只许引用口径与 gap 刻度这两枚 token:
+ *      expected [] to deeply equal [ 'var(--esc-cat-label-pitch)', …(1) ]」）/
+ *      **内衬不对称**（`0 var(--esc-sp-md) 0 var(--esc-cat-pad)` ⇒ ①红：「二级分类胶囊的左内衬:
+ *      expected 'var(--esc-cat-pad)' to be 'var(--esc-sp-md)'」）/
+ *      **去掉对齐补偿**（③红：「.esc-category-tabs 没有声明 margin-left: expected null not to be null」）/
+ *      **口径写成二次派生 `calc(14px + 16px)`**（②的形式锁红：「口径必须是实测字面 px（不许 calc /
+ *      var 二次派生）: expected 'calc(14px + 16px)' to match /^\d+(?:\.\d+)?px$/」）/
+ *      **口径改到 40px**（②的锚定红：「口径 ≡ ceil(WB 实测的文字到文字口径): expected 40 to be 30」——
+ *      这一格证明锚定不是空转：40 比 WB 更宽、方向锁放行，只有"≡ ceil(29.5)"咬得住）。
+ *      ★**逐档扫描**那一格的两条旧自证本刀重跑仍红（判据未改，只是口径变了，故读数跟着变）：
+ *      **把窄屏档 gap 从 3px 放宽到 8px**（⑥红：「2×内衬 + gap(8px) 不许大于既有文字间距口径:
+ *      expected 32 to be less than or equal to 30」）/ **让窄屏档那条规则顺手写一句 `padding: 0`**
+ *      （⑥红：「窄屏档只许覆盖 gap（覆盖内衬就把"左右相等"写没了）: expected
+ *      '.esc-category-tabs { gap: 3px; paddin…' not to match /padding/」）。
  * [POS]: esc 页面的**无 React 契约回归**；视觉与真实交互由构建产物手工冒烟覆盖（本仓 vitest 没有 DOM）
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -1482,14 +1565,22 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     // ★★用户裁决（2026-10-08）：三页签走 **base-16 / 600**（官方 Pill 的 weightActive 档）。
     expect(ruleBody('.esc-resource-tab')).toContain(fs('16'))
     expect(ruleBody('.esc-source-tabs .esc-pill')).toContain(fs('14'))
-    // ★左对齐统一手法：三枚的**左内衬归零**，且**容器不做负 margin 抵消** ——
+    // ★左对齐统一手法：**上两行**（三页签 / 维度行）仍是「项的左内衬归零 + 容器不做负 margin 抵消」——
+    //   它们是没有选中态灰底的纯文字行，左内衬归零在那里没有任何副作用，
     //   视觉左边距 = 内容区 padding ⇒ 与卡片左边界逐字对齐（真机实测此前差 38px）。
-    for (const sel of ['.esc-resource-tab', '.esc-source-tabs .esc-pill', '.esc-category-tabs .esc-pill']) {
+    for (const sel of ['.esc-resource-tab', '.esc-source-tabs .esc-pill']) {
       expect(ruleBody(sel), sel).toMatch(/padding: 0 var\(--esc-sp-md\)/)
     }
-    for (const sel of ['.esc-resource-tabs', '.esc-source-tabs', '.esc-category-tabs']) {
+    for (const sel of ['.esc-resource-tabs', '.esc-source-tabs']) {
       expect(ruleBody(sel), sel).not.toContain('margin-left: calc(')
     }
+    // ★★**二级分类那一行（口径 56）不再走这条手法**——它有选中/悬停的灰底，左内衬归零正是用户报的
+    //   真机缺陷（"灰底里文字偏左"）。它改成「**左右对称内衬** + 容器负 margin 拉回」这一对，
+    //   判据也从"内衬是 0"**升级**成一组更强的锁（① 左右相等且 > 0 ② 补偿与内衬**同一枚** token
+    //   ③ 恒等式 2×内衬 + gap ≡ 既有文字间距口径 ④ 垂直那三条未动）——逐条在下面那条
+    //   「★口径 56」的用例里；这里只钉住"它确实换了手法"，不重复那组锁。
+    //   （旧的 `padding: 0 var(--esc-sp-md)` 字面锁对"内衬对称但把这行撑松"是绿的，新那组不可能。）
+    expect(ruleBody('.esc-category-tabs .esc-pill')).toMatch(/padding: 0 var\(--esc-cat-pad\)/)
     // 反向锁①：行①不许退回 xs-13 那一档（"各大一号"是本轮的裁决，退回去就是把它撤了）
     // ★**行② ≡ 「精选技能」那一行**（用户原话⑤"字号与精选技能那一行一致"）：判据是**提取后比对**，
     //   不是两边各写一条 toMatch（后者在任何一处被单独改掉时仍会绿）。
@@ -1511,14 +1602,18 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     expect(gapOf('.esc-resource-tabs')).toBe('var(--esc-sp-md)')
     expect(gapOf('.esc-category-tabs')).toBe('var(--esc-sp-sm)')
     // ★**两行都必须与卡片左边界对齐**（用户原话①与⑤各说了一次）。
-    //   ★对齐手法**只用一种**：三行的**左内衬归零**（`padding: 0 …`），容器**不做**负 margin 抵消——
+    //   ★上两行的手法**只用一种**：左内衬归零（`padding: 0 …`），容器**不做**负 margin 抵消——
     //   于是视觉左边距 = 内容区 padding（.esc-content 24px）= 卡片左边界，逐像素对齐。
     //   （此前是「项自带 16px 左内衬 + 容器抵消 16px」两套手法叠加，真机实测差 38px；
     //     负 margin 与 padding 归零只能选其一，两套并存必错。）
-    for (const sel of ['.esc-resource-tab', '.esc-source-tabs .esc-pill', '.esc-category-tabs .esc-pill']) {
+    //   ★★**二级分类（口径 56）反过来**：内衬对称之后，对齐**必须由补偿给出**（补偿值 === 内衬值、
+    //   同一枚 token）——旧那条"这一行不许有负 margin"在这里已被**更强的判据**取代（见「★口径 56」用例：
+    //   补偿在场 ÷ 同源 ÷ 数值 === 内衬值，三件一起锁；旧断言对"取消补偿、整行右移半个内衬"是绿的）。
+    //   这一格只负责锁住**上两行没被它带改**。
+    for (const sel of ['.esc-resource-tab', '.esc-source-tabs .esc-pill']) {
       expect(valueOf(sel, 'padding'), sel).toMatch(/^0 var\(--esc-sp-md\)/)
     }
-    for (const sel of ['.esc-resource-tabs', '.esc-source-tabs', '.esc-category-tabs']) {
+    for (const sel of ['.esc-resource-tabs', '.esc-source-tabs']) {
       expect(valueOf(sel, 'margin-left'), sel).toBeUndefined()
     }
     // 反向锁②：本刀**只动字号/字重/gap/左移**——高度与行高一个都不许被顺手改（改了就是新裁决）
@@ -1530,6 +1625,213 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     //   ★正则锚到行首（`m`）：不锚的话，上面那段**注释里提到过同一个选择器名**，会误配成第二处声明。
     expect(css.match(/^\.esc-resource-tab[^{]*\{[^}]*font-size/gm) ?? []).toHaveLength(1)
     expect(css.match(/^\.esc-source-tabs [^{]*\.esc-pill[^{]*\{[^}]*font-size/gm) ?? []).toHaveLength(1)
+  })
+
+  it('★口径 56（真机缺陷「那行标签文字没有居中」→ 本刀按 WB 实测把口径重基线）：二级分类胶囊左右内衬相等 + 恒等式 2p+g ≡ 口径 + 对齐补偿同源', () => {
+    // **用户原话**「全部那行分类标签的标签文字没有居中」——技能页/专家页那行二级分类
+    // （`.esc-category-tabs` 里的胶囊，如「全部／Agent／经营管理」）选中/悬停时那层灰底里，
+    // 文字**贴左**、右侧空一块。**根因**：口径 35④ 刻意做的「左内衬归零」（四值内衬的左值为 0）——
+    // 它的初衷是让分类**文字**与下面卡片的左边界对齐（这个初衷本刀**必须保住**），
+    // 代价就是灰底只往右长 8px、文字落在灰底最左。
+    // **本刀三条同时成立（缺一不可）**：
+    //   ① 左右内衬**对称**（同一枚 token）⇒ 文字在灰底里水平居中；
+    //   ② 多出来的那半个左内衬由容器**负外边距整行拉回** ⇒ 首枚**文字**的 x 与口径 35④ 逐像素相同；
+    //   ③ 内衬**不写死**，而是从"文字间距口径"与容器**实际**用的 gap 刻度反解出来
+    //      ⇒ 恒等式 2×内衬 + gap ≡ 口径 由构造保证。**本刀只把口径那一格按 WB 实测放宽**
+    //      （14 → 30，内衬随之 4 → 12），上面这三条结构一个字节都没动。
+    // ★判据形态（本仓纪律）：**读 token 逐值复算**，绝不把 12 / 6 / 30 写死成"事实"——
+    //   那几个数是算出来的（口径本身也由样式表里那枚具名常量承载），不是从读数抄进断言的。
+    //   唯一的例外是下面那枚 **WB 实测常量**：它是**外部事实**（WorkBuddy 实机那枚胶囊的像素读数），
+    //   只能在断言里以字面出现；口径 token 被钉在它上面（ceil 锚定 + ≥ 方向锁），不是反过来。
+    // ★**本刀（口径 56 第二版）的取向变化，如实记录**：上一版这一格的理由是"不许照抄 WB 把 14 撑到 29"，
+    //   因为用户当时明令要"更紧凑"；**这次用户看过真机后说还是太紧、明确要往 WB 靠** ⇒ 取向反转：
+    //   口径按 WB 实测重基线成 30（= 29.5 向上取整），旧那条「pitch ≡ --esc-sp-md + --esc-sp-sm」的
+    //   历史组成锚定随之**废止**（它恰好把"太紧的 4px 内衬"锁成合法，对这次反馈零咬合力，见 ② 那段）。
+    const escVarRaw = (name: string): string => {
+      const hit = new RegExp(`(?:^|[;{\\s])${name}:\\s*([^;]+);`).exec(ruleBody('.esc-root'))
+      expect(hit, `.esc-root 里没有定义 ${name}`).not.toBeNull()
+      return hit![1]!.trim()
+    }
+    /** px 尺度上的极小四则运算求值器（只喂本页那几条 calc；不经 eval，故没有注入面）。 */
+    const evalArithmetic = (source: string): number => {
+      expect(source, `算式里出现未支持的记号：${source}`).toMatch(/^[\d\s()+\-*/.]+$/)
+      const tokens = source.match(/\d+(?:\.\d+)?|[()+\-*/]/g) ?? []
+      let at = 0
+      const factor = (): number => {
+        const token = tokens[at]
+        expect(token, `算式被截断：${source}`).toBeTruthy()
+        if (token === '(') {
+          at += 1
+          const inner = sum()
+          expect(tokens[at], `少一个右括号：${source}`).toBe(')')
+          at += 1
+          return inner
+        }
+        expect(token, `不是数：${token}（${source}）`).toMatch(/^\d/)
+        at += 1
+        return Number(token)
+      }
+      const product = (): number => {
+        let value = factor()
+        while (tokens[at] === '*' || tokens[at] === '/') {
+          const op = tokens[at]
+          at += 1
+          const rhs = factor()
+          value = op === '*' ? value * rhs : value / rhs
+        }
+        return value
+      }
+      const sum = (): number => {
+        let value = product()
+        while (tokens[at] === '+' || tokens[at] === '-') {
+          const op = tokens[at]
+          at += 1
+          const rhs = product()
+          value = op === '+' ? value + rhs : value - rhs
+        }
+        return value
+      }
+      const value = sum()
+      expect(tokens.slice(at), `算式有剩余记号：${source}`).toEqual([])
+      return value
+    }
+    /** 把一段声明值（px 字面 / calc + var 引用）算成 px 数——变量递归从样式表里读，不写死。 */
+    const px = (expr: string, seen: readonly string[] = []): number => {
+      const substituted = expr.replace(/var\((--esc-[a-z0-9-]+)\)/g, (_all, name: string) => {
+        expect(seen, `变量自引用：${[...seen, name].join(' -> ')}`).not.toContain(name)
+        return String(px(escVarRaw(name), [...seen, name]))
+      })
+      return evalArithmetic(substituted.replace(/\bcalc\(/g, '(').replace(/px/g, ''))
+    }
+    /** padding 简写展开成 (上, 右, 下, 左)：两值语法天然左右相等，四值语法必须逐值比。 */
+    const expands = (value: string): readonly string[] => {
+      const parts = value.trim().split(/\s+/)
+      expect(parts.length, `padding 取值个数：${value}`).toBeLessThanOrEqual(4)
+      if (parts.length === 1) return [parts[0]!, parts[0]!, parts[0]!, parts[0]!]
+      if (parts.length === 2) return [parts[0]!, parts[1]!, parts[0]!, parts[1]!]
+      if (parts.length === 3) return [parts[0]!, parts[1]!, parts[2]!, parts[1]!]
+      return [parts[0]!, parts[1]!, parts[2]!, parts[3]!]
+    }
+    const readOf = (head: string, prop: string): string => {
+      const hit = new RegExp(`${prop}: ([^;]+);`).exec(ruleBody(head))
+      expect(hit, `${head} 没有声明 ${prop}`).not.toBeNull()
+      return hit![1]!.trim()
+    }
+    // ── ⓪ WB 实测常量（**外部事实**，本刀全部取值的出处）────────────────────────────────────
+    //    出处＝`analysis/wb-live.png` 那枚「全部」胶囊的像素测量（口径 = 灰底 bbox 与墨迹 bbox）：
+    //      灰底 51.3×31.6 窗口 px、文字墨迹 26.2px、**左右内衬 ≈ 13.1 / 12.0（基本对称）**、
+    //      左右偏差 ≈ +0.5px、**文字到文字口径 ≈ 29.5**（左一枚墨迹右缘 → 右一枚墨迹左缘，
+    //      截图 1567×922 ÷ 窗口 1710×1006，k = 1567/1710；本机复测 29.47）。
+    //    ⚠这两个数是**量出来的**、不是算出来的：本文件不冒充量过本页真机（真机像素由 Lead 复量），
+    //      但口径与内衬这两格必须钉在它们上面——这就是用户这次"还是太紧、要往 WB 靠"的机器化。
+    const WB_CAT_LABEL_PITCH_PX = 29.5
+    const WB_CAT_LABEL_PAD_PX = 12.0
+    const padToken = 'var(--esc-cat-pad)'
+    const pill = ruleBody('.esc-category-tabs .esc-pill')
+    const [padTop, padRight, padBottom, padLeft] = expands(readOf('.esc-category-tabs .esc-pill', 'padding'))
+
+    // ── ① 同一枚胶囊的左内衬 === 右内衬（文字在灰底里居中的充要条件）────────────────────────
+    expect(padLeft, '二级分类胶囊的左内衬').toBe(padRight)
+    //    反向锁：把文字挤到一边的那种写法（四值语法、左 0 / 右非 0）一个都不许回来。
+    expect(cssDeclarations, '二级分类胶囊又出现了「左内衬归零」的写法').not.toMatch(
+      /\.esc-category-tabs \.esc-pill \{[^}]*padding: 0\s+[^;{}]*\s0\s+0[;}]/,
+    )
+    //    内衬必须**走 token**（写死像素就没有"改一处全页同步"，下面那条恒等式也无从谈起）。
+    expect(padLeft, '左右内衬要走同一枚 token').toBe(padToken)
+    expect(px(padToken), '对称内衬必须是正数（等于 0 就是原来的缺陷形态）').toBeGreaterThan(0)
+    //    ★方向锁（本刀新增，用户反馈的另一半）：内衬**不许比 WB 实测更紧**——这正是"文字贴在边上、
+    //      看着不像在标签中间"那条反馈的判据；把口径调大而内衬写死成 4px 那种改法在这里也红。
+    expect(px(padToken), '左右内衬不许比 WB 实测更紧').toBeGreaterThanOrEqual(WB_CAT_LABEL_PAD_PX)
+
+    // ── ② 恒等式：2 × 左内衬 + 容器 gap ≡ 文字间距口径（口径是**具名常量**，本刀按 WB 实测重基线）────
+    const pitch = px('var(--esc-cat-label-pitch)')
+    const gap = px(readOf('.esc-category-tabs', 'gap'))
+    expect(2 * px(padToken) + gap, '2×内衬 + gap 必须仍等于文字间距口径').toBe(pitch)
+    //    ★锚定①（本刀新增的**形式锁**）：口径必须是**字面 px**，不许 calc / var 二次派生——
+    //      二次派生会让恒等式两侧同源、刻度漂移一起漂、谁都咬不住（这正是旧那条"pitch ≡ 历史组成"
+    //      锚定唯一还成立的功能；本刀把它换成更强的形态锁：连"派生自什么"都不许）。
+    expect(escVarRaw('--esc-cat-label-pitch'), '口径必须是实测字面 px（不许 calc / var 二次派生）').toMatch(
+      /^\d+(?:\.\d+)?px$/,
+    )
+    //    ★锚定②（本刀**重基线**的那一格）：口径 ≡ WB 实测「文字到文字」口径**向上取整**——
+    //      ceil 的方向就是用户"还是太紧"这条反馈的方向：只许更宽、不许更紧。
+    expect(pitch, '口径 ≡ ceil(WB 实测的文字到文字口径)').toBe(Math.ceil(WB_CAT_LABEL_PITCH_PX))
+    //    ★方向锁（用户这次反馈的机器化）：口径**不许小于** WB 实测值——再往回收就是把这次反馈撤了。
+    expect(pitch, '这一行的文字间距不许比 WB 实测更紧').toBeGreaterThanOrEqual(WB_CAT_LABEL_PITCH_PX)
+    //    ★反向锁：这一行的文字间距不许**大于**口径（任一枚刻度被改大即红）。
+    expect(2 * px(padToken) + gap, '这一行的文字间距不许回退变大').toBeLessThanOrEqual(pitch)
+    //    ★锚定③（本刀新增的**反解形式锁**）：内衬必须仍**由口径与 gap 刻度反解**出来，不许写死一个数——
+    //      写死 `--esc-cat-pad: 12px` 能同时满足上面全部断言（左右相等 / 走 token / 恒等式成立 / 补偿同源），
+    //      故必须锁住那条反解式的**代数形态**：(口径 − gap刻度) / 2。这正是上一刀留下的那份价值。
+    const padRaw = escVarRaw('--esc-cat-pad').replace(/\s+/g, '')
+    expect(padRaw.match(/var\(--esc-[a-z0-9-]+\)/g) ?? [], '反解式只许引用口径与 gap 刻度这两枚 token').toEqual([
+      'var(--esc-cat-label-pitch)',
+      'var(--esc-sp-sm)',
+    ])
+    expect(padRaw, '内衬必须仍是「(口径 − gap刻度) / 2」这条反解式').toMatch(
+      /^calc\(\(var\(--esc-cat-label-pitch\)-var\(--esc-sp-sm\)\)\/(?:2|0\.5)\)$/,
+    )
+    //    ⚠旧那条 `pitch ≡ --esc-sp-md + --esc-sp-sm` 按设计**废止**（是加强、不是放宽）：它锁的是"口径的
+    //      历史组成"，而口径这次正是被**有意**从 14 改到 30 的；更关键的是它在"内衬 4、文字贴边"那一版
+    //      是**绿的** —— 对用户这次"还是太紧"的反馈零咬合力。替代它的三条（字面 px 形态锁 / ceil 锚定 /
+    //      ≥ 方向锁）每一条都约束着**外部实测**：pad=4 那一版的 14 在第二条上就红（14 ≠ 30）。
+
+    // ── ③ 对齐补偿在场、且与内衬**同源**（补偿值 === 内衬值）────────────────────────────────
+    const compensation = readOf('.esc-category-tabs', 'margin-left')
+    expect(compensation, '对齐补偿不许缺席（缺席 ⇔ 整行右移半个内衬、与卡片左边界错开）').toContain(padToken)
+    expect(px(compensation), '补偿值必须 === 内衬值（负号在外）').toBe(-px(padToken))
+    //    同源 = 同一枚 token（不是"数值凑巧相等"）：换一枚变量、或写死成像素，两条都红。
+    expect(compensation.match(/var\(--esc-[a-z0-9-]+\)/g) ?? [], '补偿只许引用内衬那一枚 token').toEqual([padToken])
+
+    // ── ④ 垂直方向**已经是居中**，一个字节都不许动 ─────────────────────────────────────────
+    //    内衬只动水平分量（垂直分量仍是 0）；居中靠 height + align-items: center + line-height: 1
+    //    （真机实测上 13.1 / 下 12.4，本来就居中）。
+    expect([padTop, padBottom], '垂直内衬不许被顺手改').toEqual(['0', '0'])
+    expect(pill).toContain('height: var(--esc-tab-h);')
+    expect(pill).toContain('align-items: center;')
+    expect(pill).toContain('line-height: 1;')
+    expect(pill, '反向锁：不许改用 flex-start 顶对齐').not.toContain('align-items: flex-start')
+    expect(pill, '反向锁：不许用 min-height 顶掉那枚真钉的高度').not.toMatch(/min-height/)
+
+    // ── ⑤ 回归：颜色/字号/字重/圆角/底色/描边与选中态判据**一字未动**，hover 与选中仍是同一对声明 ──
+    expect(pill).toContain('font-size: var(--esc-fs-xs);')
+    expect(pill).toContain('font-weight: 500;')
+    expect(pill).toContain('border-radius: var(--esc-radius-sm);')
+    expect(pill).toContain('background: none;')
+    expect(pill).toContain('box-shadow: none;')
+    expect(pill).toContain('border: 0;')
+    expect(pill).toContain('color: var(--dsw-alias-label-secondary);')
+    const hover = ruleBody(".esc-category-tabs .esc-pill:not([data-esc-selected='true']):hover")
+    const selected = ruleBody(".esc-category-tabs .esc-pill[data-esc-selected='true']")
+    for (const prop of ['background', 'color', 'font-weight']) {
+      const of = (body: string): string | undefined => new RegExp(`${prop}: ([^;]+);`).exec(body)?.[1]
+      expect(of(hover), `hover 与选中的 ${prop} 必须逐值相等`).toBe(of(selected))
+    }
+    //    分类数据与选中判据（渲染点只有一处、判据仍是 item.key === activeCategory）也没被这一刀碰到。
+    const toolbar = readFileSync(new URL('../src/esc/esc-toolbar.tsx', import.meta.url), 'utf8')
+    expect(toolbar.match(/esc-category-tabs/g) ?? []).toHaveLength(1)
+    expect(toolbar).toContain("'data-esc-selected': item.key === activeCategory")
+
+    // ── ⑥ **逐档扫描**：这条修法在**最窄那一档**也必须成立 ───────────────────────────────
+    //    事实（不改，只锁）：@media (max-width: 560px) 里这一行另有一条既有的「gap: 3px」
+    //    （"它比上面两行更紧"那条实测裁决）。它只覆盖 gap ⇒ 基档的对称内衬与负 margin 在那一档
+    //    继续生效（居中 + 对齐全档成立）；那一档的文字间距 2p + g = 27 **小于**基档口径 30。
+    //    ⇒ 两条一起锁：① **每一档**的 2×内衬 + gap 都不许**大于**口径（"更紧凑"任何一档都不许回退）；
+    //       ② 除基档外**不许有任何规则**碰内衬或对齐补偿（碰了就是把居中/对齐在窄屏写没）。
+    const containerRules = [...cssDeclarations.matchAll(/\.esc-category-tabs \{[^}]*\}/g)].map(hit => hit[0])
+    expect(containerRules.length, '二级分类容器应当恰好两条：基档 + 窄屏档的 gap 覆盖').toBe(2)
+    const gapDeclarations = containerRules.map(rule => /gap: ([^;]+);/.exec(rule)?.[1] ?? '')
+    expect(gapDeclarations[0], '基档 gap').toBe('var(--esc-sp-sm)')
+    for (const each of gapDeclarations) {
+      expect(each, '每一条容器规则都必须声明 gap').not.toBe('')
+      expect(2 * px(padToken) + px(each), `2×内衬 + gap(${each}) 不许大于既有文字间距口径`).toBeLessThanOrEqual(pitch)
+    }
+    for (const rule of containerRules.slice(1)) {
+      expect(rule, '窄屏档只许覆盖 gap（覆盖 margin-left 就把对齐补偿写没了）').not.toMatch(/margin-left/)
+      expect(rule, '窄屏档只许覆盖 gap（覆盖内衬就把"左右相等"写没了）').not.toMatch(/padding/)
+    }
+    const pillRules = [...cssDeclarations.matchAll(/\.esc-category-tabs \.esc-pill \{[^}]*\}/g)].map(hit => hit[0])
+    expect(pillRules, '那枚胶囊只许有**一条**规则（有第二条就是某个媒体档在改写内衬）').toHaveLength(1)
   })
 
   it('★口径 39（用户裁决「平板下最少两列，只有手机竖屏才一列」）：列模板走同一真源，532/560/1200 三档列数算得对', () => {
@@ -3539,12 +3841,17 @@ describe('esc：口径 46/47（「添加技能」照商城那套做 · 「已安
     const leaf = readFileSync(new URL('../src/skill-import-port.tsx', import.meta.url), 'utf8')
     const market = readFileSync(new URL('../src/marketplace-entry.tsx', import.meta.url), 'utf8')
     const aggregation = readFileSync(new URL('../src/esc/esc-aggregation.tsx', import.meta.url), 'utf8')
-    // ① 商城页与 esc 页都 import 同一个 hook（不是"各写一套、长得像"）
-    expect(market).toContain("from './skill-import-port.js'")
-    expect(aggregation).toContain("from '../skill-import-port.js'")
-    expect(market).toContain('useEnterpriseSkillImport')
-    expect(aggregation).toContain('useEnterpriseSkillImport')
+    // ① 商城页与 esc 页都进**同一枚**状态机（不是"各写一套、长得像"）。
+    //    ★**口径 60 重新基线化（更强）**：旧断言只要求 aggregation 里出现 `useEnterpriseSkillImport`
+    //      这半截字符串 —— 而 `useEnterpriseSkillImportQueue`（本刀新增的队列驱动器，**内部持的正是
+    //      那一枚单件状态机**）天然包含它，于是旧断言在"esc 悄悄换成另一套上传器"时照样是绿的。
+    //      现在两面各自钉在**它真正用的那个入口**上：商城 = 单件状态机本体，esc = 队列驱动器（较窄、更强）。
+    expect(market).toContain('useEnterpriseSkillImport(')
+    expect(aggregation).toContain('useEnterpriseSkillImportQueue(')
+    expect(leaf).toContain('export function useEnterpriseSkillImport(')
+    expect(leaf).toContain('export function useEnterpriseSkillImportQueue(')
     // ② 状态机的**心脏**（上传那一次调用）在整个 src 里只出现一处 —— 这条比"渲染出来像"强得多
+    //    （口径 60 的队列驱动器**不碰**这一行：它只把文件交棒给那枚状态机）
     const srcDir = new URL('../src/', import.meta.url)
     const owners = readdirSync(srcDir)
       .filter(name => /\.tsx?$/.test(name))
@@ -3555,9 +3862,17 @@ describe('esc：口径 46/47（「添加技能」照商城那套做 · 「已安
     expect(leaf).toContain('enterpriseSkillImportRejectReason(file)')
     expect(leaf).toContain("event.currentTarget.value = ''")
     expect(leaf).toContain('abortRef.current?.abort()')
-    // ④ esc 那一侧三条接线事实：按钮接 port、落点在工具栏下方、已安装页用同一张卡的两处差异
-    expect(aggregation).toContain('onAddSkill: skillImportPort?.onOpen')
-    expect(aggregation).toContain('EnterpriseSkillImportChrome')
+    // ④ esc 那一侧三条接线事实（★口径 60 重新基线化：入口形态由"隐藏选择器"换成"导入弹窗"，
+    //    旧那两条（`onAddSkill: skillImportPort?.onOpen` / 出现 `EnterpriseSkillImportChrome`）随之**作废**，
+    //    改成更强的一组：① 主按钮的动作**只开窗**（不是直接点选择器）；② 弹窗挂在这一层且吃同一枚 port；
+    //    ③ **反向锁**——技能页不许再挂那枚恒不可见选择器（挂回来就是"两种入口并存"，两个上传入口互相打架）。
+    expect(aggregation).toContain('onAddSkill: skillImportPort === undefined ? undefined : () => { setSkillImportOpen(true) }')
+    expect(aggregation).toContain('createElement(EnterpriseSkillImportDialog, {')
+    expect(aggregation).toContain('onOpenChange: setSkillImportOpen')
+    expect(aggregation).not.toContain('EnterpriseSkillImportChrome')
+    expect(aggregation).not.toContain('skillImportPort?.onOpen')
+    // 那枚恒不可见选择器**没有消失**：商城页照旧用它（本刀只换技能页这一条的入口形态）
+    expect(market).toContain('EnterpriseSkillImportChrome')
     const installed = readFileSync(new URL('../src/esc/esc-installed.tsx', import.meta.url), 'utf8')
     expect(installed).toContain('actionSwitch:')
     expect(installed).toContain('showTags: false')
@@ -3786,9 +4101,18 @@ describe('esc：口径 49（技能页主按钮三项下拉 · 三页尺寸/形�
     expect(toolbarSrc).toContain('onAddSkill?.()')
     expect(toolbarSrc).toContain('runDraft(plan.key)')
     expect(toolbarSrc).toContain("const run = key === 'find' ? onFindSkill : onCreateSkill")
-    // 上传那一项走的就是口径 46 那枚**本地导入**写入口（不是第二套实现）
+    // 上传那一项走的就是口径 46 那枚**本地导入**写入口（不是第二套实现）。
+    // ★**口径 60 重新基线化（更强）**：esc 那一侧现在把这一项接到**导入弹窗**的开窗动作上
+    //   （`skillImportPort === undefined ? undefined : …setSkillImportOpen(true)`）——旧断言
+    //   `onAddSkill: skillImportPort?.onOpen`（点一下直接开原生选择器）已作废。这里同时钉住三件：
+    //   ① 缺写入口 ⇒ `undefined`（那一项因此置灰 + 写明原因，判据仍是"端口在不在场"）；
+    //   ② 在场 ⇒ 只**开窗**，不再有"点了就弹原生选择器"这条第二入口；
+    //   ③ 弹窗吃的是同一枚 port（队列驱动器），不是另造一份。
     const aggregation = readSrc('esc-aggregation.tsx')
-    expect(aggregation).toContain('onAddSkill: skillImportPort?.onOpen')
+    expect(aggregation).toContain('onAddSkill: skillImportPort === undefined ? undefined : () => { setSkillImportOpen(true) }')
+    expect(aggregation).toContain('useEnterpriseSkillImportQueue({')
+    expect(aggregation).toContain('port: skillImportPort,')
+    expect(aggregation).not.toContain('skillImportPort?.onOpen')
     // 另两项走草稿端口，且**只有** `launch` 这一个出口
     const aggregationSrc = readSrc('esc-aggregation.tsx')
     expect(aggregationSrc).toContain('draftPort.launch(prompt)')

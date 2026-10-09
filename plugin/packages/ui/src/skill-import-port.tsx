@@ -1,11 +1,18 @@
 /**
- * [INPUT]: 依赖 React 的 createElement/useEffect/useRef/useState（含 `RefObject`/`CSSProperties`/`ReactNode` 类型）、官方原语 `Button`，`error-notice` 的唯一失败提示件、`local-api` 的稳定码取值口，以及纯事实层 `skill-import` 的 accept/预检/三态文案与 `skill-api-decode` 的两份记录类型
- * [OUTPUT]: 对外提供本地导入的**唯一实现**——接线面 `EnterpriseSkillImportPort`、状态机 `useEnterpriseSkillImport`、可见反馈 `EnterpriseSkillImportNotice`、页面级落点 `EnterpriseSkillImportChrome`，以及恒不可见选择器那套行内样式 `ENTERPRISE_SKILL_IMPORT_INPUT_STYLE`
- * [POS]: 本地导入的**视图与副作用层**（纯事实在 `skill-import.ts`，运输层在 `local-api.ts` 的 `uploadSkill`/`selfInstalledSkills`，落盘闸门在宿主）。它此前整份住在企业市场页里（`marketplace-entry.tsx`），本刀把它**抽成独立叶片**，因为「专家·技能·连接器」页的「添加技能」要**照同一套机制**做：两面各 import 同一个 hook 与同一枚反馈件，**不可能**再长出第二套状态机或第二份文案。
+ * [INPUT]: 依赖 React 的 createElement/useEffect/useRef/useState（含 `RefObject`/`CSSProperties`/`ReactNode` 类型）、官方原语 `Button`，`error-notice` 的唯一失败提示件、`local-api` 的稳定码取值口，以及纯事实层 `skill-import` 的 accept/预检/三态文案、`skill-import-queue` 的四态队列投影与 `skill-api-decode` 的两份记录类型
+ * [OUTPUT]: 对外提供本地导入的**唯一实现**——接线面 `EnterpriseSkillImportPort`、状态机 `useEnterpriseSkillImport`、可见反馈 `EnterpriseSkillImportNotice`、页面级落点 `EnterpriseSkillImportChrome`、恒不可见选择器那套行内样式 `ENTERPRISE_SKILL_IMPORT_INPUT_STYLE`，以及**口径 60** 的队列接线面 `EnterpriseSkillImportQueuePort` 与串行驱动器 `useEnterpriseSkillImportQueue`
+ * [POS]: 本地导入的**视图与副作用层**（纯事实在 `skill-import.ts`、队列状态迁移在 `skill-import-queue.ts`，运输层在 `local-api.ts` 的 `uploadSkill`/`selfInstalledSkills`，落盘闸门在宿主）。它此前整份住在企业市场页里（`marketplace-entry.tsx`），本刀把它**抽成独立叶片**，因为「专家·技能·连接器」页的「添加技能」要**照同一套机制**做：两面各 import 同一个 hook 与同一枚反馈件，**不可能**再长出第二套状态机或第二份文案。
  *   ★三件事实**必须同源**才对：① 状态机（换文件即中止在途那次、离开页面即中止、超限一个字节都不发）；
  *     ② 可见反馈（进行中/成功各一句 `role="status"`、失败走唯一提示组件 + 真能点的「重新选择文件」）；
  *     ③ 隐藏选择器的属性（accept 串、单文件、选完清空 value）。任何一面自己再写一遍，就会出现
  *     「商城能选的文件在这里选不了」这类**同页两种规矩**的漂移。
+ *   ★**口径 60（本刀）的队列是"驱动器"而不是"第二个上传器"**：`useEnterpriseSkillImportQueue` 内部
+ *     **直接持有**上面那枚 `useEnterpriseSkillImport`，把一份文件一份文件地**交棒**给它
+ *     （`port.onSelect`），自己只做四件事：按选择顺序入队、串行推进、把结果落回队列项、算出收束裁决。
+ *     故「预检 / multipart / 自装清单 / `onInstalled` 刷新」这些机制在本仓仍然**只有一处实现**
+ *     （门禁：全 `src` 里 `await uploadSkill(file, controller.signal)` 恰好出现在本文件一处）。
+ *     队列**不判断**一项装到哪一步——它只认"交棒前那一件结果对象"与"交棒后新来的结果对象"是不是同一枚
+ *     （收束判据是**对象身份**，不是时间/计数：这样上一项的 `done` 绝不可能被读成下一项的结果）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -25,6 +32,14 @@ import {
   enterpriseSkillImportRejectReason,
   type EnterpriseSkillImportState,
 } from './skill-import.js'
+import {
+  ENTERPRISE_SKILL_IMPORT_EMPTY_QUEUE,
+  enterpriseSkillImportQueueClosable,
+  enterpriseSkillImportQueueOf,
+  enterpriseSkillImportQueueSettle,
+  enterpriseSkillImportQueueStart,
+  type EnterpriseSkillImportQueue,
+} from './skill-import-queue.js'
 
 /**
  * 本地导入的接线面（**商城页与 esc 页共用同一副形状**）。
@@ -120,6 +135,99 @@ export function useEnterpriseSkillImport(options: EnterpriseSkillImportOptions):
           setState({ kind: 'failed', name: file.name, bytes: file.size, code: enterpriseLocalErrorCode(error) })
         }
       })()
+    },
+  }
+}
+
+/**
+ * **口径 60**：多份文件的本地导入接线面（弹窗只消费这三件）。
+ *
+ * 与单件那枚 `EnterpriseSkillImportPort` 的关系：**同一套机制的两个入口**——单件那枚是商城页的
+ * 「选一个文件」，本枚是技能页弹窗的「选/拖一批文件，串行装」。两者共用同一个上传实现
+ * （本 hook 内部就是它），差别只在"队列"这一层。
+ */
+export interface EnterpriseSkillImportQueuePort {
+  /** 四态队列（纯数据；状态迁移全部由 `skill-import-queue.ts` 的纯函数算）。 */
+  readonly queue: EnterpriseSkillImportQueue
+  /** 用户选/拖进来一批文件（**装中不受理**：在途那批没跑完就不再叠一批）。 */
+  readonly enqueue: (files: readonly File[]) => void
+  /** 关窗即清空（重开时是一张白纸；与 Cherry 在 `open=false` 时清 items 同判）。 */
+  readonly reset: () => void
+}
+
+/**
+ * **口径 60**：本地导入的**串行队列驱动器**（不是第二个上传器）。
+ *
+ * ★为什么是"驱动器"：`useEnterpriseSkillImport` 已经把事情做全了（尺寸预检、abort、multipart、
+ *   自装清单、`onInstalled` 刷新）。队列要补的只有一件事——**一次只喂一份**，并把这一份的结果落回队列项。
+ *   于是这里**直接持有**那枚 hook（`single`），把每一份文件经它的 `onSelect` 交棒出去；本文件里
+ *   一个 `fetch`、一个 `FormData`、一次 `uploadSkill` 调用都没有（门禁盯着这一条）。
+ * ★**收束判据是对象身份**（`handedOff`）：交棒前把 `single.state` 那枚对象记下来，只有出现**另一枚**
+ *   终态对象时才算"这一项出结果了"。用时间戳/计数做不到这一点——上一项的 `done` 会被读成下一项的结果，
+ *   于是 B 项会拿着 A 项的技能名字报成功（这正是把单件状态机改造成驱动器时唯一的真陷阱）。
+ * ★**串行**由构造保证：交棒只标记当前项 `installing`（`active` 不动），推进只发生在收束那一拍。
+ *   `pending` 项在同一时刻只可能是"排在前一项后面"，故永不并发。
+ *
+ * @param options - 与单件那枚**同一份入参**（写入口、自装清单、安装后刷新）。
+ * @returns 队列接线面；`uploadSkill` 缺席时为 `undefined`（**一枚元素都不该画**）。
+ */
+export function useEnterpriseSkillImportQueue(
+  options: EnterpriseSkillImportOptions,
+): EnterpriseSkillImportQueuePort | undefined {
+  const single = useEnterpriseSkillImport(options)
+  const [queue, setQueue] = useState<EnterpriseSkillImportQueue>(ENTERPRISE_SKILL_IMPORT_EMPTY_QUEUE)
+  /** 这一批文件本体（下标与队列项**一一对应**；队列项只带 `name`/`size` 两件可展示事实）。 */
+  const selected = useRef<readonly File[]>([])
+  /** 交棒那一刻 `single.state` 的**对象身份**（见上面那段：收束判据不是时间/计数）。 */
+  const handedOff = useRef<EnterpriseSkillImportState | undefined>(undefined)
+  const singleRef = useRef(single)
+  const singleState = single === undefined ? undefined : single.state
+  // 每拍把最新那枚接线面记下来：effect 的依赖只跟队列走，不因为"每次渲染都新建一枚 port 对象"而空转。
+  useEffect(() => { singleRef.current = single })
+  /**
+   * ① 交棒：把 `active` 那一项推进到 `installing`，并把文件交给**既有单件状态机**。
+   *    `selected.current[index]` 与队列项同下标 —— 这就是"文件本体不进队列状态"的落点（队列可序列化）。
+   */
+  useEffect(() => {
+    const port = singleRef.current
+    const index = queue.active
+    const item = index === undefined ? undefined : queue.items[index]
+    if (port === undefined || index === undefined || item === undefined || item.status !== 'pending') return
+    const file = selected.current[index]
+    if (file === undefined) return
+    handedOff.current = port.state
+    setQueue(previous => enterpriseSkillImportQueueStart(previous, index))
+    port.onSelect(file)
+  }, [queue])
+  /**
+   * ② 收束：单件状态机给出**新的一枚终态对象**时，把结果落回这一项并推进到下一项。
+   *    `uploading` 是在途态、`undefined` 是"还没交棒"、与 `handedOff` 同一是"还没出结果"。
+   */
+  useEffect(() => {
+    const port = singleRef.current
+    const index = queue.active
+    const item = index === undefined ? undefined : queue.items[index]
+    if (port === undefined || index === undefined || item === undefined || item.status !== 'installing') return
+    const state = port.state
+    if (state === undefined || state === handedOff.current || state.kind === 'uploading') return
+    setQueue(previous => enterpriseSkillImportQueueSettle(previous, index, state.kind === 'done'
+      ? { kind: 'success', names: state.names, listed: state.listed }
+      : { kind: 'failed', code: state.code }))
+  }, [queue, singleState])
+  if (single === undefined) return undefined
+  const busy = !enterpriseSkillImportQueueClosable(queue)
+  return {
+    queue,
+    enqueue: (files) => {
+      // 装中不受理新一批（与本仓"在途不叠加"同一条纪律）；空选择也不动队列。
+      if (busy || files.length === 0) return
+      selected.current = files
+      setQueue(enterpriseSkillImportQueueOf(files))
+    },
+    reset: () => {
+      selected.current = []
+      handedOff.current = undefined
+      setQueue(ENTERPRISE_SKILL_IMPORT_EMPTY_QUEUE)
     },
   }
 }

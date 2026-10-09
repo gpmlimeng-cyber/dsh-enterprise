@@ -5,11 +5,18 @@
  *   （`ENTERPRISE_SKILL_IMPORT_{TOO_LARGE,INVALID,FAILED}_CODE`，逐字与 Host 侧同值、且都在 error-messages 的唯一表里）、
  *   选择器与重选按钮的文案常量、状态机 `EnterpriseSkillImportState`（uploading / done / failed；**没有 idle 成员**——
  *   缺席即空闲）、纯预检 `enterpriseSkillImportRejectReason`、纯人话投影 `enterpriseSkillImportNotice`
- *   与自装记录 → 技能名集合的纯投影 `enterpriseSkillImportNames`
+ *   与自装记录 → 技能名集合的纯投影 `enterpriseSkillImportNames`；
+ *   **口径 60（本刀）**再加弹窗那一组**由 accept/上限派生**的文案：形态翻译 `enterpriseSkillImportFormatNames`
+ *   （媒体类型 → 人话的**唯一**映射点，`ENTERPRISE_SKILL_IMPORT_ARCHIVE_NAME` 是那枚词）、
+ *   `_FORMAT_NAMES` / `_FORMATS_TEXT`（「接受 …，单个文件不超过 50 MiB」——上限逐字引用常量）、
+ *   `_DROP_HINT` / `_PICK_LABEL` / `_PICK_ARIA` / `_DIALOG_TITLE` / `_DIALOG_SUBTITLE`，
+ *   以及「文件名 + 大小」那句的**唯一**拼法 `enterpriseSkillImportLabel`（反馈三处与队列逐项行共用）
  * [POS]: dsh-ui 本地上传通路的事实与文案真源（页面只画、控制器只接线），真源是
  *   `docs/plan/skill-install-sources.md` §B.1（multipart 恰好一个 `artifact` part + 50 MiB 配额）与本刀冻结契约；
  *   **它与 `local-api.ts` 分工**：那边只管发与收（固定同源路径、严格解码复用既有 install 那一份），
  *   这边只管「选之前拦什么、选之后说什么」。故本文件里没有一次 fetch、没有一处 React、没有第二份错误码表。
+ *   ★**口径 60 的一条硬纪律**：弹窗文案里**不许**出现第二个上限字面量——接受格式与上限都必须从
+ *   `ENTERPRISE_SKILL_IMPORT_{ACCEPT,MAX_TEXT}` 派生（门禁：本文件剥注释后 `50 MiB` 恰好出现一次）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -35,6 +42,64 @@ export const ENTERPRISE_SKILL_IMPORT_MAX_BYTES = 52_428_800
 
 /** 上面那个上限的**人话形态**（写进错误动作里；与字节常量同源，由用例双向绑定，不许各写一份）。 */
 export const ENTERPRISE_SKILL_IMPORT_MAX_TEXT = '50 MiB'
+
+/**
+ * 归档形态（ZIP）那一枚**人话名**——它是媒体类型 → 人话的**唯一**映射点。
+ *
+ * ★为什么要有它、而不是在文案里直接写 ZIP：口径 60 的弹窗必须**如实**说清接受什么形态，
+ *   而「接受什么」的真源是上面那串 `ENTERPRISE_SKILL_IMPORT_ACCEPT`（Host 侧冻结契约逐字）。
+ *   在文案里再写一个 `ZIP` 字面量，就等于给这件事开了第二份真源——契约改了、文案不会跟着改。
+ */
+export const ENTERPRISE_SKILL_IMPORT_ARCHIVE_NAME = 'ZIP'
+
+/**
+ * 把 accept 串翻译成**人话形态清单**（纯函数）：扩展名原样留，媒体类型里的 zip 归成 `ENTERPRISE_SKILL_IMPORT_ARCHIVE_NAME`。
+ *
+ * ★它是「文案与 Host 常量同源」那条纪律的**机器化落点**：弹窗里那两句提示与按钮文案全部由它派生，
+ *   故契约一变、界面那三句话跟着变，不存在"文案说 ZIP、选择器只收 .dshskill"这类漂移。
+ *
+ * @param accept - 冻结契约那串（见 `ENTERPRISE_SKILL_IMPORT_ACCEPT`）。
+ * @returns 去重后的形态清单（顺序 = accept 串里的出现顺序）。
+ */
+export function enterpriseSkillImportFormatNames(accept: string): readonly string[] {
+  const names: string[] = []
+  for (const raw of accept.split(',')) {
+    const token = raw.trim()
+    if (token === '') continue
+    const name = token.startsWith('.')
+      ? token
+      : /^application\/[a-z0-9.+-]*zip$/i.test(token) ? ENTERPRISE_SKILL_IMPORT_ARCHIVE_NAME : undefined
+    if (name === undefined || names.includes(name)) continue
+    names.push(name)
+  }
+  return names
+}
+
+/** 冻结契约翻译出来的人话形态清单（`['.dshskill', 'ZIP']`；弹窗那两句提示与按钮都从它派生）。 */
+export const ENTERPRISE_SKILL_IMPORT_FORMAT_NAMES = enterpriseSkillImportFormatNames(ENTERPRISE_SKILL_IMPORT_ACCEPT)
+
+/**
+ * 弹窗里**接受格式与上限**那一行（第二行提示）——上限逐字来自 `ENTERPRISE_SKILL_IMPORT_MAX_TEXT`。
+ *
+ * ★这一行里**不许**出现第二个上限字面量（口径 60 的源码级反向锁：`skill-import.ts` 剥注释后的
+ *   `50 MiB` 只许出现一次，就是上面那枚常量的定义处）。
+ */
+export const ENTERPRISE_SKILL_IMPORT_FORMATS_TEXT =
+  `接受 ${ENTERPRISE_SKILL_IMPORT_FORMAT_NAMES.join('、')}，单个文件不超过 ${ENTERPRISE_SKILL_IMPORT_MAX_TEXT}`
+
+/** 弹窗里第一行提示（拖拽区那句：「把技能包拖到这里」＋「或点下面的按钮选择」）。 */
+export const ENTERPRISE_SKILL_IMPORT_DROP_HINT = '把技能包拖到这里，或点下面的按钮选择'
+
+/** 那枚显式按钮的可见文案（口径 60 逐字要求「选择 ZIP 文件」；ZIP 那枚词从 accept 派生，不写死）。 */
+export const ENTERPRISE_SKILL_IMPORT_PICK_LABEL = `选择 ${ENTERPRISE_SKILL_IMPORT_ARCHIVE_NAME} 文件`
+
+/** 那枚按钮的无障碍名（它同时是"选择哪一类文件"的读屏交代，与可见文案同源）。 */
+export const ENTERPRISE_SKILL_IMPORT_PICK_ARIA = `${ENTERPRISE_SKILL_IMPORT_PICK_LABEL}（可多选）`
+
+/** 导入弹窗的标题（与登录弹窗、卸载确认同一条 Modal 原语上的那一格）。 */
+export const ENTERPRISE_SKILL_IMPORT_DIALOG_TITLE = '导入技能'
+/** 导入弹窗的副标题：一句话说清这件事干什么、装到哪（不承诺任何 Host 没做的事）。 */
+export const ENTERPRISE_SKILL_IMPORT_DIALOG_SUBTITLE = '从本机把技能包安装到这台设备，装好后由官方技能发现面直接生效。'
 
 /** 前端尺寸预检那枚码（冻结契约：超限即拦，且给这个稳定码）。 */
 export const ENTERPRISE_SKILL_IMPORT_TOO_LARGE_CODE = 'ENT_SKILL_UPLOAD_TOO_LARGE'
@@ -119,8 +184,14 @@ export type EnterpriseSkillImportNotice =
   | { readonly kind: 'done'; readonly text: string }
   | { readonly kind: 'failed'; readonly code: string; readonly prefix: string }
 
-/** 文件名 + 大小那句共用的**唯一**拼法（三处反馈都从它出，不各拼一份）。 */
-function importLabel(name: string, bytes: number): string {
+/**
+ * 文件名 + 大小那句共用的**唯一**拼法（反馈那三处与口径 60 的队列逐项行都从它出，不各拼一份）。
+ *
+ * @param name - 用户选中的文件名（原样）。
+ * @param bytes - 那一份的字节数。
+ * @returns 逐字 `「名称」（人话大小）`。
+ */
+export function enterpriseSkillImportLabel(name: string, bytes: number): string {
   return `「${name}」（${formatByteSize(bytes)}）`
 }
 
@@ -131,7 +202,7 @@ function importLabel(name: string, bytes: number): string {
  * @returns 见 `EnterpriseSkillImportNotice`；`failed` 的 `prefix` 逐字给出「哪一份文件失败了」。
  */
 export function enterpriseSkillImportNotice(state: EnterpriseSkillImportState): EnterpriseSkillImportNotice {
-  const label = importLabel(state.name, state.bytes)
+  const label = enterpriseSkillImportLabel(state.name, state.bytes)
   if (state.kind === 'uploading') {
     return { kind: 'busy', text: `${ENTERPRISE_SKILL_IMPORT_UPLOADING}${label}…` }
   }

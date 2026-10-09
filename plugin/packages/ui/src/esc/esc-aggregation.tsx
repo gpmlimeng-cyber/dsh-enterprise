@@ -31,6 +31,12 @@
  *   广场那张卡，已装分流必须同源，否则同一条技能在上面写「+」、下面写「更多 + 去试试」。
  *   ★**口径 46/47**：新增 `skillPort`（本机技能写入口）与 `onOpenInstalled`；本地导入走**与商城页同一枚**
  *   `useEnterpriseSkillImport`，隐藏选择器与三态反馈挂在工具栏下方一格（触发钮在哪棵树，落点就在哪棵树）。
+ *   ★**口径 60（本刀）**：技能页那条本地导入通路改走**队列驱动器** `useEnterpriseSkillImportQueue`
+ *   （内部仍持同一枚单件状态机，见 `skill-import-port.tsx` 的长注释）＋**导入弹窗**
+ *   `EnterpriseSkillImportDialog`（官方 Modal；拖拽区 + 多选按钮 + 逐项状态 + 批量摘要 + 装中禁关 +
+ *   成功 toast/自动关闭）。`onAddSkill` 从此只**开窗**（不再点隐藏选择器）；本层新增的那一格状态
+ *   `skillImportOpen` 就是这枚弹窗的开合。★**恒不可见选择器这张叶子仍在**（商城页照旧用它，一字未动）
+ *   —— 本刀只换掉技能页这一条的入口形态，不删任何既有实现（门禁有反向锁盯着这条）。
  *   ★**口径 49（本刀）**：新增 `draftPort`（技能页下拉里「查找技能 / 创建技能」的实现面）——
  *   本层持那枚下拉的**开合态**与**预填失败态**（工具栏是纯投影、不持 hook），失败走唯一提示组件 +
  *   稳定码 `ENT_ESC_DRAFT_UNAVAILABLE`（人话 + 下一步在唯一码表里）；两项的调用**只有** `draftPort.launch`
@@ -61,7 +67,8 @@ import { EnterpriseErrorNotice } from '../error-notice.js'
 import { EnterpriseEscFeatured } from './esc-featured.js'
 import { EnterpriseEscResourceTabs } from './esc-resource-tabs.js'
 import { EnterpriseEscToolbar } from './esc-toolbar.js'
-import { EnterpriseSkillImportChrome, useEnterpriseSkillImport } from '../skill-import-port.js'
+import { EnterpriseSkillImportDialog } from '../skill-import-dialog.js'
+import { useEnterpriseSkillImportQueue } from '../skill-import-port.js'
 import type {
   EnterpriseEscAddSkillLock,
   EnterpriseEscDraftKind,
@@ -436,15 +443,24 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
   /**
    * ★口径 46：本地导入那台状态机（**与商城页同一枚 `useEnterpriseSkillImport`**）。
    *
-   * 触发钮在工具栏里、隐藏选择器与反馈挂在这一层（工具栏下方一格）——两处树的接缝就是这枚 port。
-   * 写入口缺席（没有本机写面）⇒ hook 返回 `undefined` ⇒ 按钮置灰写明原因、选择器一枚都不画。
+   * ★**口径 60**：技能页那条路现在走**队列驱动器** `useEnterpriseSkillImportQueue`——它内部持的仍是
+   *   上面那同一枚单件状态机（一份文件一份文件地交棒），故「预检 / multipart / 自装清单 / `onInstalled` 刷新」
+   *   在本仓仍然只有一处实现；本层多出来的只有"一批文件排队"这一层（纯投影在 `skill-import-queue.ts`）。
+   *   写入口缺席（没有本机写面）⇒ hook 返回 `undefined` ⇒ 菜单项置灰写明原因、弹窗一枚都不画。
    */
-  const skillImportPort = useEnterpriseSkillImport({
+  const skillImportPort = useEnterpriseSkillImportQueue({
     uploadSkill: skillPort === undefined ? undefined : (file, signal) => skillPort.uploadSkill(file, signal),
     selfInstalledSkills: skillPort === undefined ? undefined : signal => skillPort.selfInstalledSkills(signal),
     // 导入成功后只做一件事：请"本机已装"那一趟读重跑（真值仍由它说，不在这里自己加减）。
     onInstalled: () => setInstalledRefreshToken(token => token + 1),
   })
+  /**
+   * ★**口径 60**：导入弹窗的开合态。
+   *
+   * 触发钮在工具栏里、弹窗挂在这一层（与口径 46 那枚隐藏选择器同一个落点：**触发钮在哪棵树，
+   * 落点就在哪棵树**）。`onAddSkill` 从此只**开窗**——上传那件事由用户在弹窗里发起（拖入或选文件）。
+   */
+  const [skillImportOpen, setSkillImportOpen] = useState(false)
 
   /**
    * ★**口径 49**：技能页那枚主按钮下拉的**开合态**与**预填失败态**。
@@ -539,8 +555,8 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
       // 连接器页不展示"更多"入口（产品要求），专家/技能页保留
       showMore: resourceType !== 'connector',
       categoriesUnavailable: unavailable,
-      // ★口径 46：那枚「添加技能」的写入口（缺席时它自己回到"置灰 + 写明原因"）。
-      onAddSkill: skillImportPort?.onOpen,
+      // ★口径 46/60：那枚「上传技能」的**开窗**入口（写入口缺席时 `undefined` ⇒ 该项置灰 + 写明原因）。
+      onAddSkill: skillImportPort === undefined ? undefined : () => { setSkillImportOpen(true) },
       // ★口径 47：那枚「已安装」的入口（切视图由页壳做）。
       onOpenInstalled,
       // ★口径 51：专家页那枚「我的专家」的入口（切视图由页壳做，本层只把它交上去）。
@@ -568,13 +584,13 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
         onSkillDraftFailure: (kind: EnterpriseEscDraftKind) => runDraftWithAgent(kind),
       }),
     }),
-    // ★口径 46：本地导入那枚**恒不可见**的文件选择器 + 它的三态反馈（挂在工具栏下方一格）。
+    // ★口径 60：本地导入那枚**导入弹窗**（挂在工具栏下方一格，与口径 46 那枚选择器同一个落点）。
     //   与商城页那三处落点同一条纪律：**触发钮在哪个视图里，落点就得在哪个视图里**——少挂一处
-    //   就是"点了没反应"的死控件。
-    createElement(EnterpriseSkillImportChrome, {
+    //   就是"点了没反应"的死控件。★它换掉了口径 46 那枚恒不可见选择器（那枚仍活在商城页，一字未动）。
+    createElement(EnterpriseSkillImportDialog, {
+      open: skillImportOpen,
+      onOpenChange: setSkillImportOpen,
       port: skillImportPort,
-      noteClassName: 'esc-toolbar-note',
-      errorClassName: 'esc-import-error',
     }),
     /**
      * ★**口径 49**：下拉里「查找技能 / 创建技能」**没把话填进新会话**时的可见交代。

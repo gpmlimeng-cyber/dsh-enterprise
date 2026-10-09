@@ -5,6 +5,11 @@
  *   ★**口径 55（本刀）**：删掉 `ENT_ESC_ENABLE_LIST_UNAVAILABLE` 那一格 —— 它只为技能页「我启用的」
  *     那枚维度存在，维度整枚删除后**永远取不到**（本仓不会再有任何请求打到那条端点），
  *     留着就是一张没有落点的死条目（`ESC_MISSING_ENDPOINT_CODES` 同步少一格）。
+ *   ★**口径 60（本刀）**：`ENT_SKILL_UPLOAD_TOO_LARGE` 那句「下一步」里的上限改**引用**本地导入通路
+ *     那枚唯一常量 `ENTERPRISE_SKILL_IMPORT_MAX_TEXT`（`skill-import.ts`）——本表第一次从通路叶片取词，
+ *     换来的是"接受多大"在全 `src` 里只有一个数字真源（门禁：剥注释后全 src 的 `50 MiB` 恰好出现一次）。
+ *     方向是单向的（`skill-import.ts` 不依赖本表）⇒ 没有循环；那枚常量本就是 `enterpriseErrorAction`
+ *     这条用例双向绑定过的东西，本刀只是把绑带从"用例"换成"代码"。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -24,6 +29,11 @@ export interface EnterpriseErrorPresentation {
   /** 是否命中了下面那张表（未命中即走了兜底人话）。 */
   readonly known: boolean
 }
+
+// ★**口径 60**：本表唯一一处需要"上限数字"的那句话改引本地导入那条通路的事实常量
+//   （`skill-import.ts` 是那件事的真源；本模块只借它的**人话形态**，不引它的任何行为）。
+//   方向是单向的：`skill-import.ts` 不反过来依赖本表，故没有循环。
+import { ENTERPRISE_SKILL_IMPORT_MAX_TEXT } from './skill-import.js'
 
 /** 未在映射表里的码一律落到这句人话（绝不漏出裸码）。 */
 export const ENTERPRISE_ERROR_FALLBACK_MESSAGE = '操作没有完成。'
@@ -254,7 +264,11 @@ const ENTERPRISE_ERROR_TABLE: Readonly<Record<string, EnterpriseErrorEntry>> = {
   // 那是换一份输入，不是原地重发），故 retryable=false；形状不对同理（换一份文件才有意义）。
   // 只有第三枚（Host 落盘/落点失败）是瞬时态，同一份文件再传一次可能就过了，故 retryable=true。
   // 三句都逐字含本地上传的下一步（选文件 / 换小一点），不出现裸码，也不出现中心安装那套「重新下载」。
-  ENT_SKILL_UPLOAD_TOO_LARGE: { message: '这个技能包太大了，没有导入。', action: '请选择不超过 50 MiB 的技能包，再试一次。', retryable: false },
+  // ★**口径 60**：这一句里的上限**不再自带一个字面量**，而是引用 `skill-import.ts` 那枚唯一的
+  //   `ENTERPRISE_SKILL_IMPORT_MAX_TEXT`（字节常量亦然）——于是"接受多大"这件事在全 `src` 里
+  //   恰好一个数字真源（门禁：剥注释后全 src 的 `50 MiB` 只许出现一次，就是那枚常量的定义处）。
+  //   旧形态靠一条 `toContain` 用例把两处字面量绑在一起；本刀把这条绑带换成**真依赖**，更强也更短。
+  ENT_SKILL_UPLOAD_TOO_LARGE: { message: '这个技能包太大了，没有导入。', action: `请选择不超过 ${ENTERPRISE_SKILL_IMPORT_MAX_TEXT} 的技能包，再试一次。`, retryable: false },
   ENT_SKILL_UPLOAD_INVALID: { message: '这个文件不是有效的技能包。', action: '请选择 .dshskill 技能包文件后重试。', retryable: false },
   ENT_SKILL_UPLOAD_FAILED: { message: '技能包没有导入成功。', action: '请重试；仍然失败请联系企业管理员。', retryable: true },
   // **本刀（系统搜索 → 纳入）**：纳入那条通路的三枚码。三句「下一步」刻意各不相同，因为下一步真的不同：
