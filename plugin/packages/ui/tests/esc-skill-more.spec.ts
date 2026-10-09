@@ -411,8 +411,14 @@ describe('S5a ④：成功后触发**既有那一枚**「已安装」计数刷�
     // 反向锁：内容这一层没有自己的第二枚刷新令牌。
     expect(agg.match(/const \[installedRefreshToken, setInstalledRefreshToken\]/g)).toHaveLength(1)
     expect(agg.match(/const onInstalledRefresh = useCallback/g)).toHaveLength(1)
-    // ★三处成功都请的是**同一枚**回调（口径 46 本地导入 / 口径 64 广场安装 / 本刀卸载）。
-    expect(agg.match(/onInstalledRefresh\(\)/g)).toHaveLength(3)
+    /**
+     * ★**本刀收尾重新基线化（不是放宽）**：`onInstalledRefresh()` 由**三处**变成**四处** ——
+     *   新增的那一处是技能页第四枚维度 `SkillHub` 装好一条结果之后（`esc-skillhub-list` 的接线层
+     *   `EnterpriseEscSkillHub` 在宿主回执之后调它）。★判据形状一字未改、且**更强的那两行仍在**：
+     *   全文件**只有一枚** `installedRefreshToken` / **只有一个** `onInstalledRefresh` 定义
+     *   ⇒ 任何"另造一枚令牌"的改法照样红；四处请的都是同一枚回调（一条机制）。
+     */
+    expect(agg.match(/onInstalledRefresh\(\)/g)).toHaveLength(4)
   })
 })
 

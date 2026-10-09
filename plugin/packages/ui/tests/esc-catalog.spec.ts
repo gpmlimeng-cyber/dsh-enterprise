@@ -60,7 +60,6 @@ import {
   ENTERPRISE_CATALOG_INSTALL_FAILED_PREFIX,
   ENTERPRISE_CATALOG_INSTALL_NOT_PORTED,
   ENTERPRISE_CATALOG_NO_MATCH,
-  ENTERPRISE_CATALOG_SOURCE_TITLE,
   enterpriseCatalogActionPlan,
   enterpriseCatalogFace,
   enterpriseCatalogInstalledPackages,
@@ -200,16 +199,20 @@ describe('口径 53：技能页维度行恰好四枚（系统广场 / 团队空�
   }
 
   it('技能页逐字且按序四枚（企业技能排最后）；专家页两枚；连接器页第三枚仍是「已连接的」', () => {
-    // ★**新裁决、不是放宽**：口径 55 删的是「我启用的」（与「已安装」重复），口径 62 加的是
-    //   「本地三方」（扫别的 Agent CLI 的技能库），本刀口径 53 加的是「企业技能」（企业中心注册的
-    //   技能包，动作是真的下载 + 校验 + 落盘）。三枚维度语义互不相关 ⇒ 那把锁照旧存在，
-    //   判据更强：逐字 + 顺序 + 恰好四枚（少一枚、多一枚、换位次都当场红）。
-    expect(labelsOf('skill')).toEqual(['系统广场', '团队空间', '本地三方', '企业技能'])
+    // ★**本刀收尾重新基线化（用户裁决：第四枚的名字与来源都换）**：第四个字符串由「企业技能」
+    //   换成 `SkillHub`（用户原话「那一枚的名字与来源都换」）。★**不是放宽**：判据形状一字未改
+    //   （仍是逐字 + 顺序 + 恰好四枚 —— 少一枚、多一枚、换位次都当场红），前三枚的位次也一字未动。
+    //   ★「企业技能」**维度整枚撤掉**，但它的内容不丢：「应用商店 → 企业技能」与企业设置两处照旧；
+    //     那一面的**代码**本刀按 ① 明令不动，故 `mainTabCatalog` 那一格文案**照旧留着**（下面仍在锁）。
+    expect(labelsOf('skill')).toEqual(['系统广场', '团队空间', '本地三方', 'SkillHub'])
     expect(labelsOf('skill')).toHaveLength(4)
+    expect(ENTERPRISE_ESC_COPY.mainTabSkillHub).toBe('SkillHub')
     expect(ENTERPRISE_ESC_COPY.mainTabCatalog).toBe('企业技能')
     // ★反锁：这两枚页专属维度**都不许**出现在专家页/连接器页。
     for (const other of ['expert', 'connector'] as const) {
       expect(labelsOf(other), other).not.toContain('本地三方')
+      expect(labelsOf(other), other).not.toContain('SkillHub')
+      // ★本刀收尾加强：撤掉的那一枚**也不许**回来（否则就是"维度又长出一枚"）。
       expect(labelsOf(other), other).not.toContain('企业技能')
     }
     // ★回归锁：专家页仍是两枚；连接器页第三枚仍是「已连接的」（且仍排最后）。
@@ -217,7 +220,7 @@ describe('口径 53：技能页维度行恰好四枚（系统广场 / 团队空�
     expect(labelsOf('connector')).toEqual(['系统广场', '团队空间', '已连接的'])
   })
 
-  it('企业技能那一枚的悬浮说明与页内说明同源（四个字读不出"从哪来、装什么"）', () => {
+  it('SkillHub 那一枚的悬浮说明与页内说明同源（一个英文专名读不出"从哪来、装什么"）', () => {
     const toolbar = asElement(EnterpriseEscToolbar({
       resourceType: 'skill',
       source: 'system',
@@ -229,8 +232,10 @@ describe('口径 53：技能页维度行恰好四枚（系统广场 / 团队空�
       onKeywordChange: () => undefined,
     } as never))
     const pills = childrenOf(findByClass(toolbar, 'esc-source-tabs') as Element)
-    expect(asElement(pills[3]).props['title']).toBe(ENTERPRISE_ESC_LOCAL_COPY.catalogTabTitle)
-    expect(String(asElement(pills[3]).props['title'])).toContain(ENTERPRISE_CATALOG_SOURCE_TITLE)
+    // ★本刀收尾：第四枚换成 `SkillHub` 之后同判（一个英文专名更读不出"从哪来、装什么"）——
+    //   完整说法与页内说明句同源（同一格 `skillHubSourceTitle`）。
+    expect(asElement(pills[3]).props['title']).toBe(ENTERPRISE_ESC_LOCAL_COPY.skillHubTabTitle)
+    expect(String(asElement(pills[3]).props['title'])).toContain(ENTERPRISE_ESC_LOCAL_COPY.skillHubSourceTitle)
     // 前两枚仍不挂 title（四个字已经说全了）。
     expect(asElement(pills[0]).props['title']).toBeUndefined()
     expect(asElement(pills[1]).props['title']).toBeUndefined()

@@ -32,6 +32,13 @@
  *     `connectors`（`local-api.ts` 唯一那条 `GET …/local/connectors`；宿主半边是
  *     `bundle/src/connector-plaza.ts` 的脱敏投影）。本刀**没有**任何写方法（启用/断开是 D2）
  *     ⇒ 卡片那枚启用动作恒禁用 + 行上可见原因；界面一个字节都没新写路由/解码器/fetch。
+ *   ★**本刀收尾（技能页收尾 ③：SkillHub 维度）**：`skillPort` 那枚对象的接线再多**一格**
+ *     `installFromResult: (source, signal) => escSkillApi.installSkillFromResult(source, signal)` ——
+ *     与上面几格**并列**、用**同一枚实例**（`escSkillApi` = `createEnterpriseLocalApi()`）、同一处接线；
+ *     它复用 `local-api.ts` 那条 `POST …/local/skills/install-from-result`（正文关闭键集恰好 `{source}`，
+ *     `source` 就是搜索结果里原样给来的不透明坐标），界面一个字节都没新写路由、新写解码器、新造 fetch。
+ *     搜索那半走 `escApi` 的只读委托（`onlineSearchSkills`，同一份 `requestJson`），故这一维度
+ *     一个新的 fetch / 一条新路由都没有。
  */
 
 import type { ReactNode } from 'react'
@@ -405,6 +412,18 @@ export function apply(ctx: SlotContextPort): void {
      *   ⇒ 混成一格就是让两套坐标系在同一个字段上打架（门禁另有一条反锁盯着两条路各只有一个调用点）。
      */
     installPublishedSkill: (targetId, signal) => escSkillApi.installPublishedSkill(targetId, signal),
+    /**
+     * ★**本刀 ③（SkillHub 维度）**：技能页第四枚维度那枚【＋】的写入口 —— 与上面几格**并列**、
+     *   用**同一枚实例**（`escSkillApi` = `createEnterpriseLocalApi()`）、同一处接线。
+     *
+     * ★**它复用哪一枚实现**：`local-api.ts` 那条 `POST …/local/skills/install-from-result`
+     *   （正文**关闭键集恰好** `{source}`，`source` 就是搜索结果里原样给来的那枚不透明坐标
+     *   `installSource`）。界面一个字节都没新写路由、新写解码器、新造第二个 fetch。
+     * ★**为什么坐标原样转交、不在这里加工**：归属与路径判据的**权威在宿主**
+     *   （它按那条结果自己解析并落盘）——故这里只把它交给同一个 `requestJson`，
+     *   不 trim、不解析、不拼路径（"传一个路径进来"在这个形状上不可表达）。
+     */
+    installFromResult: (source, signal) => escSkillApi.installSkillFromResult(source, signal),
     /**
      * ★**本刀（S5a）**：技能卡「更多」下拉里那两枚**本机管理动作**的写入口——与上面几格
      * **并列**、用**同一枚实例**（`escSkillApi`）、同一处接线。

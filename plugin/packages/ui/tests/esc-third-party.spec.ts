@@ -27,6 +27,13 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
   Button: 'button',
   Pill: 'button',
   Input: 'input',
+  // ★**本刀收尾（②本地三方换成与广场同一张卡）**：本文件现在要**直调卡片内层那一枚**
+  //   （`EnterpriseEscCardView`，本仓无 DOM）来核"禁用必带**行上可见**原因"，
+  //   故替身里必须把卡片会读到的那几枚原语也给全（`esc-card.tsx` 在模块层取 `Button`/`Switch`；
+  //   `official-ui.ts` 另取 Menu/MenuItemButton 与四枚图标，见下面那几行）。
+  Switch: 'span',
+  Tag: 'span',
+  Modal: 'div',
   // `official-ui.ts` 在**模块求值**时就把这几枚取出来（`official.Menu` / `official.MenuItemButton` /
   // 四枚图标），故替身里必须给它们一个值（字符串只是占位：本文件不断言菜单与图标的渲染）。
   Menu: 'div',
@@ -62,6 +69,8 @@ import {
   enterpriseThirdPartyInstallingText,
   enterpriseThirdPartyRootGroups,
   enterpriseThirdPartyRootLabel,
+  enterpriseThirdPartyCardInstall,
+  enterpriseThirdPartyCardItem,
   enterpriseThirdPartySkillRow,
   enterpriseThirdPartySourceSummary,
   enterpriseThirdPartySubChips,
@@ -69,6 +78,7 @@ import {
 import { enterpriseEscSubTabFilter, enterpriseEscSubTabs } from '../src/esc/esc-sub-tabs.js'
 import { createEnterpriseThirdPartyInstaller } from '../src/esc/esc-third-party-install.js'
 import { EnterpriseEscThirdPartyList } from '../src/esc/esc-third-party-list.js'
+import { EnterpriseEscCard, EnterpriseEscCardView } from '../src/esc/esc-card.js'
 import { EnterpriseEscToolbar } from '../src/esc/esc-toolbar.js'
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from '../src/esc/esc-copy.js'
 import { decodeEnterpriseThirdPartySkills, decodeEnterpriseThirdPartySkills as decodeThirdParty } from '../src/skill-api-decode.js'
@@ -103,6 +113,21 @@ function walk(node: unknown, out: Element[] = []): Element[] {
   return walk(element.props['children'], out)
 }
 
+/**
+ * ★**本刀收尾（②本地三方换成与广场同一张卡）**：两枚取证入口 —— 本仓**无 DOM**，而卡片是
+ * 组件（列表把 props 交出来之后，卡片内部那一棵树不在 `walk` 的射程里）⇒ 分两步取证：
+ *   ① `cardsOf` 读**列表交给卡片的那一份 props**（"这一枚卡片拿到什么"的判据）；
+ *   ② `renderCard` 拿那一份 props **直调卡片内层** `EnterpriseEscCardView`（与既有已安装页那几条
+ *      同一条手法）⇒ 卡片内部那枚圆形【＋】与**行上可见**的禁用原因照样可机械判据。
+ */
+const cardsOf = (tree: unknown): Element[] => walk(tree).filter(each => each.type === EnterpriseEscCard)
+/** 一枚卡片元素 → 它内部渲染出来的树（纯函数直调走**内层**那一枚，`memo` 的产物是对象）。 */
+const renderCard = (card: Element): Element =>
+  asElement(EnterpriseEscCardView(card.props as never))
+/** 一格（本刀起「本地三方」的卡片住在广场那一枚格子 `.esc-catalog-cell` 里）。 */
+const cellsOf = (tree: unknown): Element[] =>
+  walk(tree).filter(each => typeof each.props['data-enterprise-third-party-skill'] === 'string')
+
 const ROOT: EnterpriseThirdPartyRoot = { id: 'claude-code', name: 'Claude Code', present: true, count: 1, skipped: 0 }
 /** 一枚**没被检测到**的根（`present:false`）——口径 62 要求它照旧成组并显示「未检测到」。 */
 const ABSENT_ROOT: EnterpriseThirdPartyRoot = { id: 'codex', name: 'Codex', present: false, count: 0, skipped: 0 }
@@ -134,7 +159,7 @@ function selfConsistent(roots: readonly EnterpriseThirdPartyRoot[], skills: read
 
 /* ══════════════ ① 维度行 ══════════════ */
 
-describe('口径 62/53：技能页维度行恰好四枚（系统广场 / 团队空间 / 本地三方 / 企业技能）', () => {
+describe('口径 62/本刀 ③：技能页维度行恰好四枚（系统广场 / 团队空间 / 本地三方 / SkillHub）', () => {
   it('技能页逐字且按序四枚；专家页两枚；连接器页第三枚仍是「已连接的」', () => {
     const labelsOf = (resourceType: 'expert' | 'skill' | 'connector', source = 'system') => {
       const toolbar = asElement(EnterpriseEscToolbar({
@@ -152,23 +177,24 @@ describe('口径 62/53：技能页维度行恰好四枚（系统广场 / 团队�
       return childrenOf(row as Element).map(node => asElement(node).props['children'])
     }
     /**
-     * ★**口径 62 → 口径 53 重新基线化**（**新裁决**，不是把口径 55 那把锁放宽）：
-     *   口径 62 加的是「本地三方」（用户原话：扫别的 Agent CLI 的技能库、同样可以安装进 DSH）；
-     *   口径 53（本刀）**再**加第四枚「企业技能」——用户原话是「继续开发技能卡片的安装行为执行功能」
-     *   +「这里的安装是指把后台注册的技能，安装到 DSH 本地」。两枚维度的数据源、可装判据与
-     *   失败码族**全不同** ⇒ 那把锁**照旧存在**（`toEqual` 逐字 + 顺序 + `toHaveLength`），
-     *   只是数字与清单按本刀改为四枚、位次=用户原话的顺序（企业技能排最后）。
+     * ★**本刀收尾重新基线化**（用户裁决：第四枚的名字与来源都换）：第四个字符串由「企业技能」
+     *   换成 `SkillHub`。★**不是把口径 55/62/53 那把锁放宽**：判据形状一字未改（`toEqual` 逐字
+     *   + 顺序 + `toHaveLength(4)`），数量与前三枚的位次也一字未动 —— 换的只是第四枚的名字与它
+     *   背后的数据面（企业中心目录 → 既有的在线搜索本机路由）。
+     *   ★「企业技能」**维度整枚撤掉**：它的内容不丢（「应用商店 → 企业技能」与企业设置两处照旧）。
      */
-    expect(labelsOf('skill')).toEqual(['系统广场', '团队空间', '本地三方', '企业技能'])
+    expect(labelsOf('skill')).toEqual(['系统广场', '团队空间', '本地三方', 'SkillHub'])
     expect(labelsOf('skill')).toHaveLength(4)
     expect(ENTERPRISE_ESC_COPY.mainTabThirdParty).toBe('本地三方')
-    expect(ENTERPRISE_ESC_COPY.mainTabCatalog).toBe('企业技能')
+    expect(ENTERPRISE_ESC_COPY.mainTabSkillHub).toBe('SkillHub')
     // ★回归：专家页仍是两枚、连接器页第三枚仍是「已连接的」（两处一字未动）。
     expect(labelsOf('expert')).toEqual(['系统广场', '团队空间'])
     expect(labelsOf('connector')).toEqual(['系统广场', '团队空间', '已连接的'])
     // ★反向锁：这两枚页专属维度**都不许**出现在专家页/连接器页。
     for (const other of ['expert', 'connector'] as const) {
       expect(labelsOf(other), other).not.toContain('本地三方')
+      expect(labelsOf(other), other).not.toContain('SkillHub')
+      // ★本刀收尾加强：撤掉的那一枚也不许回来。
       expect(labelsOf(other), other).not.toContain('企业技能')
     }
   })
@@ -189,9 +215,10 @@ describe('口径 62/53：技能页维度行恰好四枚（系统广场 / 团队�
     // 「本地三方」四个字读不出是什么 ⇒ 完整说法「本地三方 Agent 技能源」必须挂在它的悬浮说明里。
     expect(titleOf(2)).toBe(ENTERPRISE_ESC_LOCAL_COPY.thirdPartyTabTitle)
     expect(String(titleOf(2))).toContain(ENTERPRISE_THIRD_PARTY_SOURCE_TITLE)
-    // ★口径 53：第四枚同判（「企业技能」四个字也读不出"从哪来、装什么"）——完整说法与页内说明同源。
-    expect(titleOf(3)).toBe(ENTERPRISE_ESC_LOCAL_COPY.catalogTabTitle)
-    expect(String(titleOf(3))).toContain(ENTERPRISE_ESC_LOCAL_COPY.catalogSourceTitle)
+    // ★本刀 ③：第四枚换成 `SkillHub` 之后同判（一个英文专名更读不出"从哪来、装什么"）——
+    //   完整说法与页内说明句同源（同一个常量）。
+    expect(titleOf(3)).toBe(ENTERPRISE_ESC_LOCAL_COPY.skillHubTabTitle)
+    expect(String(titleOf(3))).toContain(ENTERPRISE_ESC_LOCAL_COPY.skillHubSourceTitle)
     expect(titleOf(2)).not.toBe(titleOf(3))
     // ★判据：**只有**这两枚带 title（前两枚的四个字已经说全了，凭空多一句会毁掉"哪一枚需要看说明"的信号）。
     expect(titleOf(0)).toBeUndefined()
@@ -396,7 +423,7 @@ describe('口径 62：四态互斥 + 两句不同的「为什么空」', () => {
 
 /* ══════════════ ③ 行投影 ══════════════ */
 
-describe('口径 62：一条候选 → 一行（只有可装才画按钮）', () => {
+describe('口径 62 / 本刀②：一条候选 → 一张**与广场同一张**卡（只有可装那一档那枚【＋】可点）', () => {
   it('三态各有中文；只有 available 可装，另两态各带一句**不同的**可见原因', () => {
     const available = enterpriseThirdPartySkillRow(skill({ status: 'available' }))
     expect(available.statusLabel).toBe(ENTERPRISE_THIRD_PARTY_STATE_AVAILABLE)
@@ -435,7 +462,7 @@ describe('口径 62：一条候选 → 一行（只有可装才画按钮）', ()
     expect(differ.sourceName).toBe('Claude Code')
   })
 
-  it('呈现层：只有可装那两态画按钮；禁用时原因**行上可见**（不是只挂 title）', () => {
+  it('★本刀②：三态各画成一枚卡片（同一格骨架）；只有可装那两态那枚【＋】可点，禁用时原因**行上可见**', () => {
     const tree = EnterpriseEscThirdPartyList({
       state: { kind: 'ready', value: value([ROOT], [
         skill({ id: 'id-available', name: 'can-install', status: 'available' }),
@@ -445,20 +472,61 @@ describe('口径 62：一条候选 → 一行（只有可装才画按钮）', ()
       onInstall: () => undefined,
       onReload: () => undefined,
     })
-    const rows = walk(tree).filter(each => String(each.props['className']) === 'esc-third-party-row')
-    expect(rows).toHaveLength(3)
-    const buttons = walk(tree).filter(each => String(each.props['className']) === 'esc-third-party-install')
-    // ★只有 `available` 那一行画按钮（另两态**不画**：可做的是"别的技能"，不是这一条）。
-    expect(buttons).toHaveLength(1)
-    expect(asElement(buttons[0]).props['disabled']).toBe(false)
-    expect(asElement(buttons[0]).props['children']).toBe(ENTERPRISE_THIRD_PARTY_INSTALL)
-    // 三行的状态词都在行上（员工读得出"为什么这一条没有按钮"）。
-    const textOf = (element: Element): string => JSON.stringify(element.props['children'])
-    expect(rows.map(textOf).join('|')).toContain(ENTERPRISE_THIRD_PARTY_STATE_INSTALLED)
-    expect(rows.map(textOf).join('|')).toContain(ENTERPRISE_THIRD_PARTY_STATE_CONFLICT)
+    /**
+     * ★**本刀②重新基线化**：改前这三条画的是**本文件手写的行**（`li.esc-third-party-row` +
+     *   `span`×3 + 一枚 `Button`），现在画的是**与广场逐字同构的格子 + 同一张卡**
+     *   （`.esc-list-section > .esc-catalog-cell > EnterpriseEscCard`）。
+     *   ★**判据没有放宽、反而更强**：旧断言只数得到"本文件自己造的那枚按钮"，
+     *   看不见卡片内部到底画了什么；新断言分两层取证 ——
+     *     ① 列表交给卡片的 props（`installed` / `install` 两格逐档）；
+     *     ② **直调卡片内层**再核那枚圆形【＋】与**行上可见**的原因（`.esc-card-lock`）。
+     */
+    const cells = cellsOf(tree)
+    expect(cells).toHaveLength(3)
+    // ① 三枚都是同一枚卡片（结构与广场同构：`.esc-list-section > .esc-catalog-cell`）。
+    expect(cells.map(cell => String(cell.props['className']))).toEqual(['esc-catalog-cell', 'esc-catalog-cell', 'esc-catalog-cell'])
+    expect(String(asElement(byClass(tree, 'esc-list-section')).props['className'])).toBe('esc-list-section')
+    const cards = cardsOf(tree)
+    expect(cards).toHaveLength(3)
+    expect(cards[0]!.props['item']).toEqual(enterpriseThirdPartyCardItem(enterpriseThirdPartySkillRow(
+      skill({ id: 'id-available', name: 'can-install', status: 'available' }),
+    )))
+    // ★只有 `available` 那一档拿到**可点**的【＋】计划（另两态拿到的是禁用的）。
+    expect(cards[0]!.props['installed']).toBe(false)
+    expect((cards[0]!.props['install'] as { disabled: boolean }).disabled).toBe(false)
+    /**
+     * ★**已装那一档走"已装"分支**（与广场同判据）：`installed === true` ⇒ 卡片画「更多 + 去试试」，
+     *   **根本画不出【＋】**（这一格不是"给一枚禁用的按钮"，是"那一档没有按钮"）。
+     * ★**命名冲突那一档不是"已装"**（它是"复制过去会覆盖"）：`installed === false` +
+     *   一枚**禁用**的【＋】+ 原因**行上可见**。
+     */
+    const allCards = walk(tree).filter(each => each.type === EnterpriseEscCard)
+    const installedCard = allCards.find(each => (each.props['item'] as { id: string }).id === 'id-installed')!
+    const conflictCard = allCards.find(each => (each.props['item'] as { id: string }).id === 'id-conflict')!
+    expect(installedCard.props['installed']).toBe(true)
+    expect(installedCard.props['install']).toBeUndefined()
+    expect(conflictCard.props['installed']).toBe(false)
+    const conflictInstall = conflictCard.props['install'] as { disabled: boolean; reason?: string; onInstall?: unknown }
+    expect(conflictInstall.disabled).toBe(true)
+    expect(conflictInstall.reason).toBe(enterpriseThirdPartySkillRow(skill({ id: 'id-conflict', name: 'name-taken', status: 'conflict' })).note)
+    expect(conflictInstall.onInstall).toBeUndefined()
+    // ② 直调卡片内层：可用那一张真的画出一枚可点的圆形【＋】；冲突那一张画的是禁用 + 可见原因。
+    const liveButton = asElement(byClass(renderCard(cards[0]!), 'esc-install-plus'))
+    expect(liveButton.props['disabled']).toBe(false)
+    expect(liveButton.props['aria-label']).toBe(`${ENTERPRISE_THIRD_PARTY_INSTALL}can-install`)
+    const conflictTree = renderCard(conflictCard)
+    expect(asElement(byClass(conflictTree, 'esc-install-plus')).props['disabled']).toBe(true)
+    const locks = walk(conflictTree).filter(each => String(each.props['className']) === 'esc-card-lock')
+    expect(locks).toHaveLength(1)
+    expect(locks[0]!.props['role']).toBe('status')
+    expect(locks[0]!.props['children']).toBe(String(conflictInstall.reason))
+    // 状态词与后果那两句都在（员工读得出"为什么这一条不能装"）。
+    expect(String(conflictInstall.reason)).toContain(ENTERPRISE_THIRD_PARTY_STATE_CONFLICT)
+    expect(String(conflictInstall.reason)).toContain(ENTERPRISE_THIRD_PARTY_CONFLICT_NOTE)
+    expect(String(conflictInstall.reason)).not.toBe(ENTERPRISE_THIRD_PARTY_INSTALLED_NOTE)
   })
 
-  it('★一次一条在途：正在装的那一行文案变「正在安装…」，其余按钮禁用 + **可见原因**', () => {
+  it('★一次一条在途：正在装的那一条卡片写着「正在安装…」，其余那枚【＋】禁用 + **可见原因**', () => {
     const tree = EnterpriseEscThirdPartyList({
       state: { kind: 'ready', value: value([ROOT], [
         skill({ id: 'id-1', name: 'first' }),
@@ -468,17 +536,31 @@ describe('口径 62：一条候选 → 一行（只有可装才画按钮）', ()
       onInstall: () => undefined,
       onReload: () => undefined,
     })
-    const buttons = walk(tree).filter(each => String(each.props['className']) === 'esc-third-party-install')
-    expect(buttons).toHaveLength(2)
-    // 第一行（在途那一行）：文案是进行中、禁用。
-    expect(asElement(buttons[0]).props['children']).toBe(ENTERPRISE_THIRD_PARTY_INSTALLING)
-    expect(asElement(buttons[0]).props['disabled']).toBe(true)
-    // 第二行：仍写「安装」但禁用，**且行上可见写着为什么**。
-    expect(asElement(buttons[1]).props['children']).toBe(ENTERPRISE_THIRD_PARTY_INSTALL)
-    expect(asElement(buttons[1]).props['disabled']).toBe(true)
-    const locks = walk(tree).filter(each => each.props['role'] === 'status' && each.props['data-enterprise-third-party-blocked'] === 'blocked')
-    expect(locks).toHaveLength(1)
-    expect(asElement(locks[0]).props['children']).toBe(ENTERPRISE_THIRD_PARTY_BLOCKED_BY_BUSY)
+    /**
+     * ★**本刀②重新基线化**（判据形状未改、落点改成卡片那两格）：改前数的是本文件自己造的两枚
+     *   `Button`，现在读的是**列表交给卡片的那两格计划**（唯一构造点是纯适配器）。
+     */
+    const cards = cardsOf(tree)
+    expect(cards).toHaveLength(2)
+    // 第一条（在途那一条）：计划是"本枚在途"那一档（文案进行中、禁用、`busy` 显式给）。
+    const busyPlan = cards[0]!.props['install'] as { text: string; disabled: boolean; busy: boolean }
+    expect(busyPlan.text).toBe(ENTERPRISE_THIRD_PARTY_INSTALLING)
+    expect(busyPlan.disabled).toBe(true)
+    expect(busyPlan.busy).toBe(true)
+    // 第二条：仍写「安装」但禁用，**且计划里带着那句可见原因**。
+    const blockedPlan = cards[1]!.props['install'] as { text: string; disabled: boolean; reason?: string; onInstall?: unknown }
+    expect(blockedPlan.text).toBe(ENTERPRISE_THIRD_PARTY_INSTALL)
+    expect(blockedPlan.disabled).toBe(true)
+    expect(blockedPlan.reason).toBe(ENTERPRISE_THIRD_PARTY_BLOCKED_BY_BUSY)
+    expect(blockedPlan.onInstall).toBeUndefined()
+    // 直调卡片内层：在途那张把「正在安装…」**行上可见**地写出来；被挡住那张写的是那句原因。
+    expect(asElement(byClass(renderCard(cards[0]!), 'esc-install-plus')).props['disabled']).toBe(true)
+    const busyLock = walk(renderCard(cards[0]!)).filter(each => String(each.props['className']) === 'esc-card-lock')
+    expect(busyLock).toHaveLength(1)
+    expect(busyLock[0]!.props['children']).toBe(ENTERPRISE_THIRD_PARTY_INSTALLING)
+    const blockedLock = walk(renderCard(cards[1]!)).filter(each => String(each.props['className']) === 'esc-card-lock')
+    expect(blockedLock).toHaveLength(1)
+    expect(blockedLock[0]!.props['children']).toBe(ENTERPRISE_THIRD_PARTY_BLOCKED_BY_BUSY)
     // ★可见原因与"进行中那一行"那句**不是同一句**（一个说"别的按钮为什么不能点"、一个说"现在在装谁"）。
     expect(ENTERPRISE_THIRD_PARTY_BLOCKED_BY_BUSY).not.toBe(ENTERPRISE_THIRD_PARTY_BUSY_SUFFIX)
     const status = walk(tree).find(each => typeof each.props['data-enterprise-third-party-busy'] === 'string')
@@ -490,10 +572,16 @@ describe('口径 62：一条候选 → 一行（只有可装才画按钮）', ()
       state: { kind: 'ready', value: value([ROOT], [skill()]) },
       onReload: () => undefined,
     })
-    const button = asElement(walk(tree).find(each => String(each.props['className']) === 'esc-third-party-install'))
-    expect(button.props['disabled']).toBe(true)
-    const lock = walk(tree).find(each => each.props['data-enterprise-third-party-blocked'] === 'not-ported')
-    expect(asElement(lock).props['children']).toBe(ENTERPRISE_THIRD_PARTY_INSTALL_NOT_PORTED)
+    // ★本刀②：落点从"本文件造的那枚按钮"改成"卡片那格计划 + 直调卡片内层那枚【＋】"。
+    const plan = cardsOf(tree)[0]!.props['install'] as { disabled: boolean; reason?: string; onInstall?: unknown }
+    expect(plan.disabled).toBe(true)
+    expect(plan.reason).toBe(ENTERPRISE_THIRD_PARTY_INSTALL_NOT_PORTED)
+    expect(plan.onInstall).toBeUndefined()
+    const cardTree = renderCard(cardsOf(tree)[0]!)
+    expect(asElement(byClass(cardTree, 'esc-install-plus')).props['disabled']).toBe(true)
+    const lock = walk(cardTree).filter(each => String(each.props['className']) === 'esc-card-lock')
+    expect(lock).toHaveLength(1)
+    expect(asElement(lock[0]).props['children']).toBe(ENTERPRISE_THIRD_PARTY_INSTALL_NOT_PORTED)
     // 纯投影那一层也逐档锁住（四档互斥）。
     expect(enterpriseThirdPartyActionPlan({ wired: true, id: 'x', name: 'X' })).toMatchObject({ kind: 'install', disabled: false })
     expect(enterpriseThirdPartyActionPlan({ wired: false, id: 'x', name: 'X' })).toMatchObject({ kind: 'not-ported', disabled: true })
@@ -566,11 +654,15 @@ describe('口径 62：path 只来自上次响应（界面绝不拼路径）', ()
       onInstall: (id) => { seen.push(id) },
       onReload: () => undefined,
     })
-    const button = asElement(walk(tree).find(each => String(each.props['className']) === 'esc-third-party-install'))
-    ;(button.props['onClick'] as () => void)()
+    // ★本刀②：那枚【＋】的写入口现在由卡片那格计划带着（**可点那一档才有**）——
+    //   点它之后回传的仍只有那枚不透明 `id`（`data-*` 钩子与 `item.id` 都是它，没有第二处 derivation）。
+    const plan = cardsOf(tree)[0]!.props['install'] as { onInstall?: () => void }
+    expect(typeof plan.onInstall).toBe('function')
+    plan.onInstall!()
     expect(seen).toEqual(['a1b2c3d4e5f60718'])
     // 呈现树上那枚 id 就是投影里给的那一枚（没有第二处 derivation）。
     expect(walk(tree).some(each => each.props['data-enterprise-third-party-skill'] === 'a1b2c3d4e5f60718')).toBe(true)
+    expect((cardsOf(tree)[0]!.props['item'] as { id: string }).id).toBe('a1b2c3d4e5f60718')
   })
 
   it('★两条新路由：同源固定路径 + 正文关闭键集恰好 `{path}`', async () => {

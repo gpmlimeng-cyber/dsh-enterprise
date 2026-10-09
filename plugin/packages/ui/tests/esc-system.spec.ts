@@ -649,8 +649,10 @@ describe('口径 64 ⑥：成功后触发**同一枚**计数刷新回调（不�
      *   ③ **本刀新增**：自装技能**卸载**成功之后（`setSelfInstalled(next.skills)` 紧随其后）。
      *   三处请的都是**同一枚**回调（下面两行仍在锁"全文件只有一枚令牌、一个 updater"）⇒
      *   任何"另造一枚令牌"的改法照样红。
+     * ★**本刀收尾重新基线化（不是放宽）**：再由**三处**变成**四处** —— 新增的那一处是技能页
+     *   第四枚维度 `SkillHub` 装好一条结果之后（同一枚 refresh token，一条机制）。
      */
-    expect(agg.match(/onInstalledRefresh\(\)/g)).toHaveLength(3)
+    expect(agg.match(/onInstalledRefresh\(\)/g)).toHaveLength(4)
     // 系统广场那一支：并入 Host 清单在前、请计数重读在后（顺序即语义：先有真值、再请重数）。
     const handler = agg.slice(agg.indexOf('const runSystemInstall = useCallback'), agg.indexOf('}, [systemPending, installPublishedSkill, onInstalledRefresh])'))
     expect(handler.indexOf('setInstalledIds(previous =>')).toBeLessThan(handler.indexOf('onInstalledRefresh()'))

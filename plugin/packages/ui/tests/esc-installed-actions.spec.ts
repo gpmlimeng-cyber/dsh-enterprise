@@ -747,13 +747,22 @@ describe('本刀 ⑦：那枚官方 `Switch`（中心卸载链）逐字未改；
 
   it('★全 src 里**同时**传 `actionSwitch` 与 `showUse` 的调用点**恰好一处**（＝「已安装」页那一处，逐调用点列出）', () => {
     const sites = cardCallSites()
-    // 先把分母数清：全 `src` 里 `createElement(EnterpriseEscCard, { … })` 恰好五处（逐调用点列出）。
+    /**
+     * 先把分母数清：全 `src` 里 `createElement(EnterpriseEscCard, { … })` 恰好**七处**（逐调用点列出）。
+     *
+     * ★**本刀收尾重新基线化（更强，不是放宽）**：由**五处**变成**七处** —— 新增的两处正是本刀
+     *   把「本地三方」与「SkillHub」两个面接到**同一张卡**上的那两处（① 的四个面都只走那一枚装配）。
+     *   判据形状一字未改（仍是逐调用点列出的精确集合 + 下面那条"同时传 `actionSwitch`/`showUse`
+     *   恰好一处"的反向锁）。
+     */
     expect(sites.map(site => site.name).sort()).toEqual([
       'esc/esc-aggregation.tsx',
       'esc/esc-catalog-list.tsx',
       'esc/esc-catalog-list.tsx',
       'esc/esc-featured.tsx',
       'esc/esc-installed.tsx',
+      'esc/esc-skillhub-list.tsx',
+      'esc/esc-third-party-list.tsx',
     ])
     /**
      * ★**这一条就是"第三格只出现在这两个条件同时成立时"的反向锁**：若还有第二处同时传这两个，

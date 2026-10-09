@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖本包 `local-api-decode` 的唯一错误类 `EnterpriseLocalApiError` 与 `esc-types` 的平台响应类型
- * [OUTPUT]: 对外提供 `createEnterpriseEscApi`（六个平台取数方法，签名与 NUWAX `services/{square,systemManage,workspace}` 里那六个函数**逐条同名同参**，外加一条信息性的 `escMockStatus` 与**五条委托出去**的本机只读方法 `installedSkills`/`discoveredSkills`/`selfInstalledSkills`/`thirdPartySkills`/`installThirdPartySkill`/`skills`；第二参数是本机只读取数面 `EnterpriseEscLocalReads`）、
+ * [OUTPUT]: 对外提供 `createEnterpriseEscApi`（六个平台取数方法，签名与 NUWAX `services/{square,systemManage,workspace}` 里那六个函数**逐条同名同参**，外加一条信息性的 `escMockStatus` 与**六条委托出去**的本机只读方法 `installedSkills`/`discoveredSkills`/`selfInstalledSkills`/`thirdPartySkills`/`installThirdPartySkill`/`skills`/`onlineSearchSkills`；第二参数是本机只读取数面 `EnterpriseEscLocalReads`）、
  *   路径常量 `ENTERPRISE_ESC_READ_LOCAL_PATH`、图片代理路径常量 `ENTERPRISE_ESC_IMAGE_LOCAL_PATH`、
  *   演示数据开关路径常量 `ENTERPRISE_ESC_MOCK_LOCAL_PATH`、
  *   图片地址改写器 `enterpriseEscImageSrc`、平台业务码归一器 `escPlatformErrorCode`/`escErrorCodeOf`、
@@ -55,6 +55,7 @@ import { createEnterpriseLocalApi } from '../local-api.js'
 import type {
   EnterpriseDiscoveredSkills,
   EnterpriseInstalledSkill,
+  EnterpriseOnlineSkillSearch,
   EnterpriseRuntimeSkill,
   EnterpriseSelfInstalledSkill,
   EnterpriseThirdPartySkills,
@@ -313,6 +314,21 @@ export interface EnterpriseEscApi {
    */
   skills(signal?: AbortSignal | undefined): Promise<readonly EnterpriseRuntimeSkill[]>
   /**
+   * ★**本刀 ③（SkillHub 维度）**：**在线搜索**（`GET /skills/online-search?q=…`，只读）—— 技能页
+   *   第四枚维度 `SkillHub` 的**唯一数据面**。
+   *
+   * ★**它不是新接口、也不是第二条路由**：`local-api.ts` 早就有这一枚（`onlineSearchSkills`，
+   *   「添加技能 → 在线搜索」那一面一直在用），本文件只是把它**委托**过来（同一份 `requestJson`、
+   *   同一个严格解码器 `decodeEnterpriseOnlineSkillSearch`）。
+   * ★**v1 的已知浪费（如实登记）**：那条路由是**四源 fan-out**（`skills.sh` / `claude-plugins.dev` /
+   *   `clawhub.ai` / `skillhub.cn`），而本维度只投影 `sourceId === 'skillhub.cn'` 那批
+   *   （判据在 `esc-skillhub.ts`）⇒ 另三源的结果被**界面侧丢弃**。★修法只有一条（给那条路由加
+   *   `source` 参数、让它只 fan-out 一个源），而那要动 `platform-client`（本刀禁改）⇒ v1 如实认下这
+   *   笔浪费，不假装它不存在、也不在界面侧另造一条"只取一源"的路由（那才是第二份真值）。
+   * ★它与 `thirdPartySkills` 那格**同族**（同为 `local-api.ts` 的本机同源只读），故与它同一条委托写法。
+   */
+  onlineSearchSkills(query: string, signal?: AbortSignal | undefined): Promise<EnterpriseOnlineSkillSearch>
+  /**
    * ★**本刀新增**：「精选技能」那一行的取数（`POST /api/system/display/recommend/list`，
    * `recType=Official` + `targetType=Skill`）。
    *
@@ -365,7 +381,7 @@ export interface EnterpriseEscMockStatus {
  */
 export type EnterpriseEscLocalReads = Pick<
   EnterpriseLocalApi,
-  'installedSkills' | 'selfInstalledSkills' | 'discoveredSkills' | 'thirdPartySkills' | 'installThirdPartySkill' | 'skills'
+  'installedSkills' | 'selfInstalledSkills' | 'discoveredSkills' | 'thirdPartySkills' | 'installThirdPartySkill' | 'skills' | 'onlineSearchSkills'
 >
 
 /**
@@ -514,6 +530,16 @@ export function createEnterpriseEscApi(
      *   "同一件事的第二份实现必然漂"——这一条读的是同一份信封、同一个解码器，故一行都不许自己拆。
      */
     skills: async signal => localReads.skills(signal ?? new AbortController().signal),
+    /**
+     * ★**本刀 ③**：在线搜索（`GET /skills/online-search?q=…`）—— 与上面几格**同一份委托**
+     *   （同一个 `localReads`、同一个 `requestJson`、同一个严格解码器）。
+     *
+     * ★`query` **原样**交给 `local-api.ts`（编码那一件事只有一处实现：`encodeURIComponent` 在
+     *   那条路径模板里），本文件不 trim、不改写、不拼查询串 —— 查询串是"用户输入"，
+     *   凡是我们这一侧加工过一格，界面上"我搜的是什么"与"实际搜的是什么"就会分叉。
+     */
+    onlineSearchSkills: async (query, signal) =>
+      localReads.onlineSearchSkills(query, signal ?? new AbortController().signal),
     // ★「精选」那一行（用户裁决：专家页与技能页同一套逻辑，只有 targetType 不同）。
     //   pageNo/pageSize/recType 三格在本方法里封死；targetType 由调用方给（Agent / Skill 两档）。
     officialRecommended: async (targetType, signal) =>

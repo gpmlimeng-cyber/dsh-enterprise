@@ -2,17 +2,25 @@
  * [INPUT]: 只依赖 `esc-card` 的两枚计划形状（`EscCardInstall` / `EscCardTryNow`）与 `esc-more-menu` 的
  *   `EscCardMore` —— **全部是类型导入**；不依赖 React、不发请求、
  *   不认识任何路由 / 官方服务 / 平台 DTO，也不认识"账本"（两份 DSH 记录）
- * [OUTPUT]: 对外提供技能卡（**系统广场 / 团队空间 / 精选行三处共用**）的三件纯事实——
+ * [OUTPUT]: 对外提供技能卡（**广场 / 精选 / 本地三方 / SkillHub 四个面共用**）的四件纯事实——
  *   ① **隐藏规则** `enterpriseEscSkillCardHidden`（磁盘上已有同名技能 ⇒ 从列表里**去掉**）
  *     与它用的空集合常量 `ENTERPRISE_ESC_SKILL_CARD_NO_INSTALLED`；
  *   ② **刚装标记的生命周期** `enterpriseEscSkillCardMarkState`（**唯一 reducer**）+ 状态形状
  *     `EnterpriseEscSkillCardMarkState` + 初值 `ENTERPRISE_ESC_SKILL_CARD_MARK_EMPTY`；
- *   ③ **卡片入参的唯一装配点** `enterpriseEscSkillCardParams` + 入参形状 `EnterpriseEscSkillCardParams`；
+ *   ③ **卡片入参的唯一装配点** `enterpriseEscSkillCardSpec`（**本刀改名/扩面**；旧名
+ *     `enterpriseEscSkillCardParams` 是**同一枚函数的别名**）+ 入参形状 `EnterpriseEscSkillCardSpecInput`
+ *     与产物形状 `EnterpriseEscSkillCardParams`；
  *   ④ **第三条"为什么空"**（隐藏规则的自然后果）：唯一判定 `enterpriseEscSkillAllInstalledEmpty`
  *     ＋两句文案 `ENTERPRISE_ESC_SKILL_ALL_INSTALLED_TITLE` / `…_NEXT`。
  * [POS]: 用户冻结规格 `analysis/esc-skill-card-spec.md` §1/§2 的**事实层**（技能卡那一档）。
- *   广场网格（`esc-aggregation.tsx`）与精选行（`esc-featured.tsx`）都调这里的三件事实，**各不重写**：
+ *   四个技能面（广场网格 `esc-aggregation.tsx` / 精选行 `esc-featured.tsx` / 本地三方
+ *   `esc-third-party-list.tsx` / SkillHub `esc-skillhub-list.tsx`）都调这里的事实，**各不重写**：
  *   "哪一枚该不出现""刚装那一枚现在长什么样""这一枚卡片拿到哪些入参"三件事在本仓**只有一份实现**。
+ *   ★**尚未归顺的两个面（如实登记，不许假装已统一）**：**已安装**（`esc-installed.tsx`，另有
+ *     `actionSwitch` 一格）与**企业技能**（`esc-catalog-list.tsx`，坐标是 `packageId`）——两者今天
+ *     仍各自手拼 `EnterpriseEscCard` 的 props；它们的收编是**下一刀**。★「企业技能」在技能页的
+ *     **入口维度**本刀已按用户裁决撤掉（换成 `SkillHub`），它的内容仍在「应用商店 → 企业技能」
+ *     与企业设置里 ⇒ 不丢。
  *
  *   ★★**为什么必须单开这一叶（而不是在两处各写一遍）**——三条都是本仓被咬过的形状：
  *     ① **隐藏规则**：规格 §1① 要的是"广场与团队空间两个维度、以及精选那一行"**同一条规则**。
@@ -150,6 +158,42 @@ export function enterpriseEscSkillCardMarkState(
 /* ────────────────────────── 三、卡片入参的唯一装配点 ────────────────────────── */
 
 /**
+ * ★★**本刀（技能页收尾）：这枚装配是"技能卡入参"在全仓的唯一定义**。
+ *
+ * 改前**四个技能面各自拼卡片入参**（广场网格手拼一份、精选行手拼一份、本地三方手写自己那套
+ * 行版式、SkillHub 这一维还没出生）——这就是用户已经报过**三次**的那类缺陷的根因：
+ * "某个面漏递一个入口 / 漂一套版式"（真机三次：精选卡"描述三行"、本地三方一行与广场卡两种版式、
+ * 某一面少了「去试试」）。故本刀把它抽成**一枚纯投影**，并让四个面（**广场 / 精选 / 本地三方 /
+ * SkillHub**）的卡片入参**构造点各自只调它**（源码级计数：四个文件里各恰一处
+ * `enterpriseEscSkillCardSpec(`；反向锁：这四处不许再出现手拼 `createElement(EnterpriseEscCard, {…})`
+ * 的第二写法）。
+ *
+ * ★**还没归顺的两个面**（如实登记，**不许**假装已经统一）：
+ *   ① **已安装**（`esc-installed.tsx`）：它那一张卡仍是手拼的（那一面有自己的 `actionSwitch` 一格，
+ *      本刀非目标）——**下一刀**按同一枚装配收编；
+ *   ② **企业技能**（`esc-catalog-list.tsx`）：它那一张卡也仍是手拼的（动作坐标是 `packageId`、
+ *      响应形状与技能目录不同）。★**这一面的入口维度本刀已按用户裁决撤掉**（技能页那一枚
+ *      「企业技能」页签换成 `SkillHub`，见 `esc-toolbar.tsx` 的 `sourceOptionsOf`），它的**内容不丢**
+ *      （「应用商店 → 企业技能」与企业设置两处照旧），只是不再从技能页进——故它的卡片装配**与「已安装」
+ *      并列**留在"下一刀"，本文件一个字都没动它。
+ * ★**旧名 `enterpriseEscSkillCardParams` 仍是同一枚函数**（别名再导出，不是第二份实现）：
+ *   既有那两处调用点（广场网格 / 精选行）与既有锁都照旧可用；新加的两个面直接用本名。
+ *   门禁的"定义恰一处"判据按 `export function enterpriseEscSkillCardSpec(` 计数（恒 1）。
+ */
+export interface EnterpriseEscSkillCardSpecInput {
+  /** 这一枚在磁盘上装没装（与隐藏规则**同一份真值**：官方发现面的名字集合）。 */
+  readonly installed: boolean
+  /** 这一枚是不是"本页本次会话里刚安装成功的那一枚"（标记的状态由上面那枚 reducer 说）。 */
+  readonly justInstalled: boolean
+  /** 未装那一档那枚【＋】的终态（维度/端口不允许时缺席）。 */
+  readonly install?: EscCardInstall | undefined
+  /** 已装那一档那枚「更多」的终态（不是本机自装 / 端口缺席时缺席）。 */
+  readonly more?: EscCardMore | undefined
+  /** 那枚「去试试」的终态（唯一事实层 `esc-skill-try.ts` 给的，本函数只转交）。 */
+  readonly tryNow?: EscCardTryNow | undefined
+}
+
+/**
  * 一张**技能卡**的入参（不含 `key` 与 `item`：那两格是"这一枚是谁 / 在列表里的位次"，必然不同）。
  *
  * ★形状刻意只覆盖**技能**这一档（`iconShape` / `showUse` 恒为方图标 + 技能档）：专家卡与连接器卡
@@ -175,12 +219,14 @@ export interface EnterpriseEscSkillCardParams {
 }
 
 /**
- * 一枚技能卡 → 它的卡片入参（**全仓唯一装配点**）。
+ * 一枚技能卡 → 它的卡片入参（**全仓唯一装配点**，名字就是本刀给它的那一个）。
  *
- * ★**广场网格与精选行都只调它**（`esc-aggregation.tsx` 与 `esc-featured.tsx` 各一处，都是这一枚函数）：
- *   同一份夹具（同一枚 `item`、同一批子计划）下，两处拿到的对象**逐键相等** —— 这就是规格 §2
+ * ★**四个技能面都只调它**（`esc-aggregation.tsx` 广场网格 / `esc-featured.tsx` 精选行 /
+ *   `esc-third-party-list.tsx` 本地三方 / `esc-skillhub-list.tsx` SkillHub，各一处）：
+ *   同一份夹具（同一枚 `row`、同一批子计划）下，四处拿到的对象**逐键相等** —— 这就是规格 §2
  *   "精选卡与广场卡接同一份安装计划"的落法；改前精选行少递那份安装计划 ⇒ 卡片退回默认形态、
- *   把兜底那句长说明打出来（用户看到的"描述三行"）。
+ *   把兜底那句长说明打出来（用户看到的"描述三行"）。本地三方与 SkillHub 同理：它们各自的
+ *   【＋】/禁用原因/「去试试」都必须由**这一枚**函数铺平，否则就是第四个"漏一个入口"的面。
  *
  * ★**刚装那一枚（`justInstalled`）只显示「去试试」**：`install` 与 `more` **两格都不进返回值**
  *   —— 不是"给了但不画"、也不是"画成禁用"，而是**卡片层那两枚控件的构造点物理上够不到**。
@@ -191,18 +237,7 @@ export interface EnterpriseEscSkillCardParams {
  *   以及三枚**已由各自唯一事实层算好**的子计划（安装 / 更多 / 去试试）。
  * @returns 卡片入参（调用方与 `item`/`key` 一起铺成 `EnterpriseEscCard` 的 props）。
  */
-export function enterpriseEscSkillCardParams(input: {
-  /** 这一枚在磁盘上装没装（与隐藏规则**同一份真值**：官方发现面的名字集合）。 */
-  readonly installed: boolean
-  /** 这一枚是不是"本页本次会话里刚安装成功的那一枚"（标记的状态由上面那枚 reducer 说）。 */
-  readonly justInstalled: boolean
-  /** 未装那一档那枚【＋】的终态（维度/端口不允许时缺席）。 */
-  readonly install?: EscCardInstall | undefined
-  /** 已装那一档那枚「更多」的终态（不是本机自装 / 端口缺席时缺席）。 */
-  readonly more?: EscCardMore | undefined
-  /** 那枚「去试试」的终态（唯一事实层 `esc-skill-try.ts` 给的，本函数只转交）。 */
-  readonly tryNow?: EscCardTryNow | undefined
-}): EnterpriseEscSkillCardParams {
+export function enterpriseEscSkillCardSpec(input: EnterpriseEscSkillCardSpecInput): EnterpriseEscSkillCardParams {
   if (input.justInstalled) {
     // ★规格 §1③：刚装那一枚**只有**「去试试」——`more` 与 `install` 两格不出现（见上面那段推理）。
     return {
@@ -221,6 +256,15 @@ export function enterpriseEscSkillCardParams(input: {
     ...(input.tryNow === undefined ? {} : { tryNow: input.tryNow }),
   }
 }
+
+/**
+ * 旧名（**同一枚函数的别名再导出**，不是第二份实现）。
+ *
+ * ★为什么留着它：广场网格与精选行那两处调用点、以及三份既有 spec 都写着这个名字；
+ *   改名会把"这次到底改了哪几件"这件事淹没在无关的重命名 hunk 里。定义仍**只有一处**
+ *   （`enterpriseEscSkillCardSpec`），别名只是把同一枚函数再出口一次。
+ */
+export const enterpriseEscSkillCardParams = enterpriseEscSkillCardSpec
 
 /* ────────────────────────── 四、第三条"为什么空"（隐藏规则的自然后果） ────────────────────────── */
 

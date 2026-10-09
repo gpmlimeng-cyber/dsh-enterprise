@@ -42,6 +42,12 @@
  *     （「系统内置 / 来自内部市场 / 来自外部市场 / 用户自定义」，用户给的说法逐字、顺序即枚举顺序）；
  *     `installedEmpty` 整句换掉（旧那句「本机还没有装任何技能」在"发现面扫到 48 枚"的机器上是假话
  *     —— 新句说清"账上没有"与"扫到的那些在「本地三方」里"这两件事）。
+ *   ★**本刀 ③（SkillHub 维度）**：`ENTERPRISE_ESC_COPY` 新增 `mainTabSkillHub`（'SkillHub'，技能页
+ *     **第四枚** —— 用户裁决「那一枚的名字与来源都换」：位次与数量一字未动，只换第四个字符串）；
+ *     `ENTERPRISE_ESC_LOCAL_COPY` 新增 `skillHubSourceTitle` / `skillHubTabTitle`（这一维度的完整说法
+ *     与悬浮说明，两处引同一格）。★`mainTabCatalog` / `catalogSourceTitle` / `catalogTabTitle` **照旧留着**：
+ *     「企业技能」那一面的**代码**本刀按 ① 明令不动（与「已安装」并列登记为下一刀收编），
+ *     只有它在技能页的**入口维度**撤掉了（内容仍在「应用商店 → 企业技能」与企业设置里 ⇒ 不丢）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -114,6 +120,23 @@ export const ENTERPRISE_ESC_COPY = {
    * ★取值口只有 `esc-toolbar.tsx` 的 `sourceOptionsOf` 一处（与另几枚同一条纪律）。
    */
   mainTabCatalog: '企业技能',
+  /**
+   * ★**本刀（③：SkillHub 维度）**：技能页**第四枚**维度 —— 用户裁决原话「那一枚的名字与来源都换」
+   *   （名字改成 `SkillHub`，来源换成 skillhub.cn，走既有的在线搜索本机路由）。
+   *
+   * ★**它是"换"不是"加"**：位次与数量**一字未动**（仍是四枚、仍排最后），换的只是那一枚的名字与
+   *   它背后的数据面 —— 故既有的那把锁（`toEqual` 逐字 + 顺序 + `toHaveLength(4)`）**照旧成立**，
+   *   只有第四个字符串变了（每一条改动都在 spec 里写明理由）。
+   * ★**「企业技能」维度整枚撤掉**（本刀 ③ 的裁决）：它的**内容不丢** —— 「应用商店 → 企业技能」
+   *   （`marketplace-entry.tsx` 那一枚页签与卡片）与企业设置 → 技能两处照旧；
+   *   撤掉的只是"技能页这一枚入口"。★`mainTabCatalog` / `catalogSourceTitle` / `catalogTabTitle`
+   *   三格**照旧留着**：那一面的代码本刀按 ① 明令**不动**（它仍手拼卡片，
+   *   与「已安装」并列登记为"下一刀收编"），把它那一格文案删掉只会让下一次收编缺一格。
+   * ★**名字用原文 `SkillHub`**（不译）：它是 skillhub.cn 这个来源自己的名字，
+   *   译成中文反而让员工对不上站点；完整说法进悬浮说明与页内说明句（与另两枚同一条纪律）。
+   * ★取值口只有 `esc-toolbar.tsx` 的 `sourceOptionsOf` 一处（与另几枚同一条纪律）。
+   */
+  mainTabSkillHub: 'SkillHub',
   mainTabConnected: '已连接的',
   /** 二级分类首位页签。 */
   tabAll: '全部',
@@ -441,6 +464,22 @@ export const ENTERPRISE_ESC_LOCAL_COPY = {
    *   而本刀要做的恰恰是**让那枚【＋】真的能装**（口径 53），故这句话里必须能读到它。
    */
   catalogTabTitle: '企业技能目录：企业中心注册的技能包，可一键安装到本机 DSH',
+
+  /* ══════════════ 本刀 ③（技能页第四枚维度「SkillHub」）══════════════ */
+
+  /**
+   * 这一维度的**完整说法**：标签上只有 `SkillHub` 一个词，故完整说法是**标签的悬浮说明**与
+   * **页内说明句**开头共用的那一格真源（两处引同一格，与 `thirdPartySourceTitle` / `catalogSourceTitle` 同判）。
+   */
+  skillHubSourceTitle: 'SkillHub（skillhub.cn）技能市场',
+  /**
+   * 标签的悬浮说明：说清这一维度**从哪来**（公开技能市场 skillhub.cn，经在线搜索本机路由取回）。
+   *
+   * ★为什么必须把来源写出来：`SkillHub` 这四个字符本身读不出"这是谁家的东西、我搜的是什么"，
+   *   而这一枚与「系统广场 / 团队空间 / 本地三方」并列，员工有权知道它背后是谁。
+   * ★**如实写明 v1 的边界**：这一版只取 skillhub.cn 那一个源，故说明句里不承诺"搜遍全网"。
+   */
+  skillHubTabTitle: 'SkillHub（skillhub.cn）技能市场：搜索公开技能市场里的技能，找到合适的可装到本机',
   /**
    * 广场那批（NUWAX 已发布技能）的【＋】**本刀不动**，仍保持禁用 —— 但必须配上**行上可见**的原因
    * （产品宪法：禁用控件不许只挂一句 `title`；`title` 也照旧挂着，两处同源）。

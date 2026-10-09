@@ -273,8 +273,8 @@
  *    "Module declaration names may only use quoted strings"），终态已自查模板内反引号计数为 **0**。
  *  * **本刀（技能页性能：②跳过屏幕外 · ③hover 只留真正会变的属性）**：本层只动**两处**，且
  *    **计算样式逐像素不变**：
- *    ① **新增 1 条规则**（三枚选择器共用一条声明）：`.esc-catalog-cell` / `.esc-third-party-row` /
- *      `.esc-list-section > .esc-card` 三个**格子**吃 `content-visibility: auto` +
+ *    ① **新增 1 条规则**（两枚选择器共用一条声明）：`.esc-catalog-cell` / `.esc-list-section > .esc-card`
+ *      两个**格子**吃 `content-visibility: auto` +
  *      `contain-intrinsic-size: auto var(--esc-card-min-h)` —— 屏幕外的格子不再布局与绘制（真机那次
  *      一次铺几百条进 DOM，改前全页 `content-visibility` **零出现**）。占位高只用**既有 token**
  *      （不写魔法数字），`auto` 让浏览器记住上一次真的画出来的高度。**卡片本体的几何一行未动**。
@@ -286,6 +286,17 @@
  *      已安装页仍吃官方 `.sm`（28px）。
  *    ★本刀**一个新 token 名都没加**、**零新增 CSS 类**（审计 `--strict` 仍 `dead 0`）；
  *      新增注释**零反引号**。
+ *
+ *  ★**本刀（② 本地三方换成与广场同一张卡 + 同一骨架）**：上面那条"跳过屏幕外"的选择器由**三枚**
+ *    收成**两枚**（`.esc-third-party-row` 那一枚连同它那一族九条规则**整族删除**），并**新增一族**
+ *    五条规则给第四枚维度 `SkillHub`（本刀 ③）。★**这是"更强"方向的重基线化，不是放宽**：
+ *      · 本地三方那一维从"自己的行格"变成**与广场逐字同构的格子**（`.esc-list-section >
+ *        .esc-catalog-cell`）⇒ 它**照旧**吃到 `content-visibility`（走 `.esc-catalog-cell` 那一枚
+ *        选择器，覆盖面**严格更大**：以前只覆盖这一族那一枚类，现在覆盖所有格子）；
+ *      · 删掉的那九条是**死规则**（那九个类名在全 `src` 已零引用）——留着就是下一刀的坑
+ *        （有人照着它们写出第二个行版式）；
+ *      · 新增的五条只服务这一维度自己的"头 + 状态话"，卡片本体与网格**一枚新类都没加**
+ *        （`.esc-list-section` / `.esc-catalog-cell` / `.esc-import-error` / `.esc-card*` 全复用）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -793,8 +804,8 @@ const CSS = `
    而改前全页 CSS 里 「content-visibility」 **零出现** ⇒ 浏览器对每一格都要布局 + 绘制，哪怕它离视口很远。
    主线程与合成器的时间就花在这些"员工此刻根本看不见"的格子上。
    ★**只加在"格子"上，卡片本体的几何一个字节都不动**：网格项是**格子**（「.esc-catalog-cell」
-   = 卡片 + 它那一行失败提示、「.esc-third-party-row」 = 本地三方那条行、以及"
-   「.esc-list-section」 的直属卡片"这一种形态——那种格子里卡片本身就是网格项）。
+   = 卡片 + 它那一行失败提示 —— 本刀起「本地三方」与「SkillHub」两维的卡片也住在这一格里；
+   以及"「.esc-list-section」 的直属卡片"这一种形态——那种格子里卡片本身就是网格项）。
    「.esc-card」 那几条既有基线（border / 底色 / 内衬 / gap / min-height / box-shadow）**一行都未改**。
    ★**占位高只用既有 token**（「--esc-card-min-h」，卡片自己的高度下限，见 「.esc-card」 那一段）——
    **不写魔法数字**；「auto」 关键字让浏览器**记住上一次真的画出来的高度**，故只有"从没画过的那些格子"
@@ -809,7 +820,6 @@ const CSS = `
    "补拉无进展"闩锁与列表长度比较会立刻收住）。真机上会不会真的多发一页**由用户复量**；
    若真出现，正确修法是给格子一枚**更接近真实卡高**的既有刻度，而不是把这条跳过绘制的规则撤掉。 */
 .esc-catalog-cell,
-.esc-third-party-row,
 .esc-list-section > .esc-card { content-visibility: auto; contain-intrinsic-size: auto var(--esc-card-min-h); }
 /* 三行都 flex: none：官方紧凑卡片的 96px 内容盒恰好容纳「头 48 + 间隙 16 + 描述 32」，本页一旦因任何原因
    超出（例如宿主的长字号设置/文本放大），被压扁的必然是描述 ⇒ 那正是"第二行被切掉半截"的形态。钉死它。 */
@@ -952,15 +962,6 @@ const CSS = `
 .esc-third-party-grouptitle { margin: 0; font-size: var(--esc-fs-xs); font-weight: 600; line-height: 18px; color: var(--dsw-alias-label-primary); }
 .esc-third-party-grouptag { flex: none; font-size: var(--esc-fs-xxs); color: var(--dsw-alias-label-tertiary); }
 .esc-third-party-count { flex: none; font-size: var(--esc-fs-xxs); color: var(--dsw-alias-label-tertiary); }
-.esc-third-party-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-.esc-third-party-row { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; border-top: 1px solid var(--dsw-alias-border-l1); }
-.esc-third-party-rowline { display: flex; align-items: flex-start; gap: var(--esc-sp-sm); }
-.esc-third-party-rowmain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.esc-third-party-name { font-size: var(--esc-fs-xs); font-weight: 500; line-height: 18px; color: var(--dsw-alias-label-primary); word-break: break-all; }
-.esc-third-party-desc { font-size: var(--esc-fs-xxs); line-height: 18px; color: var(--dsw-alias-label-secondary); word-break: break-all; }
-.esc-third-party-meta { font-size: var(--esc-fs-xxs); line-height: 18px; color: var(--dsw-alias-label-tertiary); word-break: break-all; }
-.esc-third-party-action { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; max-width: 200px; }
-.esc-third-party-lock { font-size: var(--esc-fs-xxs); line-height: 16px; color: var(--dsw-alias-label-tertiary); text-align: right; }
 .esc-third-party-retry { align-self: flex-start; }
 
 /* —— 口径 53：「企业技能」（企业中心注册的技能包）这一维度的内容区 ——
@@ -982,6 +983,23 @@ const CSS = `
 .esc-catalog-cell { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .esc-catalog-cell > .esc-card { flex: 1; }
 .esc-catalog-error { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+
+/* —— 本刀 ③：「SkillHub」（公开技能市场 skillhub.cn）这一维度的内容区 ——
+   ★它与上面两族（.esc-third-party-* / .esc-catalog-*）**同一条手法**：只加"这一维度自己那几格"
+     （标题 / 说明 / 状态话 / 那枚重试钮的对齐），其余全部**复用**本页既有角色 ——
+     结果卡网格复用 .esc-list-section + .esc-catalog-cell（与广场、本地三方**同一份列模板**）、
+     失败提示复用 .esc-import-error、卡片内部每一格复用 .esc-card*。
+   ★**为什么不留一套"SkillHub 专用卡片"**：这一维的卡片就是广场那张卡（四个面共用一枚装配），
+     版式上不该也不可能漂；这一族只负责"这一面自己的头与状态行"。
+   ★谁都不许在这里写死色值（本文件门禁有一条反向锁盯着六位色）。
+   ★本注释里**零反引号**（本文件整段 CSS 在一枚模板字符串内，反引号会当场截断它，见文件头那条）。 */
+.esc-skillhub { display: flex; flex-direction: column; gap: var(--esc-sp-lg); margin-top: var(--esc-sp-lg); }
+.esc-skillhub-head { display: flex; flex-direction: column; gap: 6px; }
+.esc-skillhub-title { margin: 0; font-size: var(--esc-fs-s); font-weight: 600; line-height: 20px; color: var(--dsw-alias-label-primary); }
+.esc-skillhub-note { margin: 0; font-size: var(--esc-fs-xs); line-height: 20px; color: var(--dsw-alias-label-secondary); }
+.esc-skillhub-status { margin: 0; font-size: var(--esc-fs-xs); line-height: 20px; color: var(--dsw-alias-label-secondary); }
+.esc-skillhub-empty { margin: 0; font-size: var(--esc-fs-s); color: var(--dsw-alias-label-secondary); }
+.esc-skillhub-retry { align-self: flex-start; }
 
 /* —— 本刀（Phase C D1：连接器广场）——
    ★**为什么只加两条**：那一格的卡片、卡片内部每一格（头行 / 标题行 / 图标 / 描述 / 元信息 / 锁定行 /

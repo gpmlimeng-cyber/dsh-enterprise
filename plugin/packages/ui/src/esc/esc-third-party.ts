@@ -1,9 +1,17 @@
 /**
- * [INPUT]: 只依赖 `list-state` 的四态类型、`skill-api-decode` 的三方候选投影类型与 `esc-third-party-install` 的在途类型（不依赖 React、不依赖任何宿主 API、不发请求）
- * [OUTPUT]: 对外提供「本地三方 Agent 技能源」（口径 62）这一面的**纯事实层**：可见文案（页内说明 / 加载 / 失败前后缀 / **两句不同的空话** / 三态中文 / 安装动作与它在途·成功文案 / 在途禁用原因）、唯一状态投影 `enterpriseThirdPartyFace`（四态 → loading / failed / empty / ready，**互斥**）、按根分组的 `enterpriseThirdPartyRootGroups`（含未检测到的根）、单条候选的行投影 `enterpriseThirdPartySkillRow`（可安装性 + 可见原因）、一次一条的**按钮终态** `enterpriseThirdPartyActionPlan`（可点 / 在途 / 被别人的在途挡住 / 端点缺席，四档各有可见文案）
+ * [INPUT]: 只依赖 `list-state` 的四态类型、`skill-api-decode` 的三方候选投影类型、`esc-third-party-install` 的在途类型、`esc-types` 的卡片数据形状（`ResourceItem`）与 `esc-card` 的【＋】终态类型（`EscCardInstall`）——**全是类型导入**（不依赖 React、不依赖任何宿主 API、不发请求）
+ * [OUTPUT]: 对外提供「本地三方 Agent 技能源」（口径 62）这一面的**纯事实层**：可见文案（页内说明 / 加载 / 失败前后缀 / **两句不同的空话** / 三态中文 / 安装动作与它在途·成功文案 / 在途禁用原因）、唯一状态投影 `enterpriseThirdPartyFace`（四态 → loading / failed / empty / ready，**互斥**）、按根分组的 `enterpriseThirdPartyRootGroups`（含未检测到的根）、单条候选的行投影 `enterpriseThirdPartySkillRow`（可安装性 + 可见原因）、一次一条的**按钮终态** `enterpriseThirdPartyActionPlan`（可点 / 在途 / 被别人的在途挡住 / 端点缺席，四档各有可见文案），**本刀（②）再加两枚**：卡片 `item` 投影 `enterpriseThirdPartyCardItem` 与【＋】终态的**纯适配器** `enterpriseThirdPartyCardInstall`（把上面那枚既有计划映成 `EscCardInstall`；**既有计划一个字不改**）
  * [POS]: dsh-ui 技能页第三枚维度的**唯一判定与文案真源**（页面只画、控制器只接线）。真源是冻结契约
  *   `analysis/esc-third-party-skills-spec.md` §3.2/§3.3（`GET /skills/third-party` +
  *   `POST /skills/third-party/install`）。
+ *   ★**本刀（② 本地三方换成与广场同一张卡 + 同一骨架）**：这一面的**版式整体退场**
+ *     （`.esc-third-party-row` / `-rowline` / `-rowmain` / `-name` / `-desc` / `-meta` / `-action` /
+ *     `-install` / `-lock` 那一套**行 CSS 一并删掉，不留死规则**），换成与广场逐字同构的
+ *     `.esc-list-section > .esc-catalog-cell > 同一张卡`。★**为什么非换不可**：同一个页面上两张卡
+ *     两种版式，就是用户已经报过的那类"同一件东西两种形态"；而"哪一枚卡片拿到哪些入参"这件事
+ *     一旦散成两份实现，注定会漂（本仓已被咬过三次）。★**换卡不丢东西**（逐件保留）：按来源根
+ *     分组的组标题、根汇总那句、二级 chip 行（`esc-sub-tabs.ts`）、**两句不同的"为什么空"**、
+ *     失败态与真重发、在途与禁用原因 —— 全部照旧，只是"行"换成"卡片"。
  *   ★它与 `esc-third-party-install.ts` 的分工：那个对象只管「**一次只允许一条在途**」这条动作纪律
  *     （可直调取证、不需要 DOM），本文件只管「收回来之后说什么、哪几条能点、为什么不能点」。
  *   ★**二级 chip 行那一层不在本文件**：`esc-sub-tabs.ts` 是「维度 → 二级 chip 行 → 内容过滤」这条机制
@@ -24,7 +32,9 @@
 
 import type { EnterpriseListState } from '../list-state.js'
 import type { EnterpriseThirdPartyRoot, EnterpriseThirdPartySkill, EnterpriseThirdPartySkills } from '../skill-api-decode.js'
+import type { EscCardInstall } from './esc-card.js'
 import { ENTERPRISE_ESC_LOCAL_COPY } from './esc-copy.js'
+import type { ResourceItem } from './esc-types.js'
 
 /**
  * 这一维度的**完整说法**（「本地三方 Agent 技能源」）。
@@ -95,6 +105,16 @@ export const ENTERPRISE_THIRD_PARTY_INSTALL = '安装'
 export const ENTERPRISE_THIRD_PARTY_INSTALLING = '正在安装…'
 export const ENTERPRISE_THIRD_PARTY_INSTALLED_NOTICE = '已安装'
 export const ENTERPRISE_THIRD_PARTY_INSTALL_FAILED_PREFIX = '安装失败'
+/**
+ * ★**本刀（② 本地三方换成与广场同一张卡）**：那枚【＋】**可点**时的悬浮说明。
+ *
+ * ★为什么本刀才需要它：旧行版式那枚 `Button` 只有 `aria-label`（没有 `title`），而**广场那张卡**
+ *   的 `EscCardInstall.title` 是**必填**（它在两种禁用档里承担"为什么按不动"的悬浮说明）。
+ *   可点那一档必须给一句"会发生什么"，否则卡片会拿到一枚空串——那比不画还糟。
+ * ★措辞与页内说明句（`ENTERPRISE_THIRD_PARTY_NOTE`）**同一条事实**：这一面说的就是"复制进来"，
+ *   故这里逐字说"复制"，不写"下载"（这一条通路一份制品都不下载）。
+ */
+export const ENTERPRISE_THIRD_PARTY_INSTALL_TITLE = '把这枚技能复制进 DSH；源目录不动。'
 /**
  * ★**一次一条在途**那条纪律的**可见原因**（写在正在安装那一行里）。
  *
@@ -420,4 +440,87 @@ export function enterpriseThirdPartyInstallingText(name: string): string {
 /** 装好一条那一行 `role="status"` 里那一整句（说清刚刚装了谁）。 */
 export function enterpriseThirdPartyInstalledText(name: string): string {
   return `已${ENTERPRISE_THIRD_PARTY_INSTALL}「${name}」。`
+}
+
+/* ══════════════ 与广场**同一张卡**（本刀 ②）：两枚纯投影 ══════════════ */
+
+/**
+ * ★**本刀（② 本地三方换成与广场同一张卡 + 同一骨架）之一**：一条三方候选 → 那张卡的 `item`。
+ *
+ * ★**为什么需要这一枚**：广场那张卡吃的是归一化后的 `ResourceItem`，而三方候选是另一族的形状
+ *   （`EnterpriseThirdPartySkill`：`id` / `name` / `rootId` / `sourceName` / `directory` / `status`）。
+ *   改前这一面**自己手写行版式**（`.esc-third-party-row*` 那一套），故不需要这一步；本刀要求它
+ *   与广场**逐字同构**（`.esc-list-section > .esc-catalog-cell > 同一张卡`），就必须先把候选归一成
+ *   卡片认识的那一格 —— 这一步是**纯投影**（可直调取证），不是"在渲染里顺手拼"。
+ *
+ * ★**只映射卡片真的会读的三件**（`id` / `name` / `description`）：
+ *   · `id` —— `key` 与那枚 `data-enterprise-third-party-skill` 钩子的取值口（**不透明值原样用**，
+ *     界面一个字节都不加工，见文件头"界面里没有一处能拼路径"那段）；
+ *   · `name` —— 卡片标题；
+ *   · `description` —— **首行**（`enterpriseThirdPartySkillRow` 已经切过；缺席即整行不出）。
+ * ★**来源根名与状态词不进卡片**：它们由**分组标题 / 根汇总 / 那枚【＋】的禁用原因**承担
+ *   （本刀 ② 明令保留的那几件），在卡片上再铺一遍就是同一件事说两处。
+ */
+export function enterpriseThirdPartyCardItem(row: EnterpriseThirdPartySkillRow): ResourceItem {
+  return {
+    id: row.id,
+    name: row.name,
+    ...(row.description === undefined ? {} : { description: row.description }),
+  }
+}
+
+/**
+ * ★**本刀（②）之二**：那枚【＋】的终态 —— 把**既有**的 `enterpriseThirdPartyActionPlan`
+ *   （纯投影，**一个字不改**）**纯适配**成卡片认识的 `EscCardInstall` 形态。
+ *
+ * ★**为什么必须走适配器、而不是让卡片认识我们的计划**：`esc-card.tsx` 是本页最底那层展示件，
+ *   它**不认识任何数据形状**（`EscCardInstall` 的说明写着这条）。适配只能发生在我们这一侧：
+ *   一枚纯函数，输入是"既有计划 + 这一条 + 写入口"，输出是卡片要的那七格。
+ *
+ * ★**两档的形态与理由**：
+ *   · `available`（`row.installable`）⇒ 调**既有**那枚四档计划（可点 / 本枚在途 / 被别的在途挡住 /
+ *     端口缺席），逐档映成 `EscCardInstall`：`busy` 由计划**显式**给（口径 53：不许从 `disabled` 推，
+ *     否则"端口缺席"也会冒出「安装中…」那句假话）；`reason` 原样带上 ⇒ 卡片把它画成**行上可见**
+ *     的原因（`.esc-card-lock`，与广场那几档同一条落点）；**可点那一档才挂 `onInstall`**
+ *     （禁用即无写入口，这是结构事实，不是"挂一枚不会被调的回调"）。
+ *   · `installed` / `conflict` ⇒ **不调计划**（那枚计划只回答"这一枚能不能按"，而这两态问的是
+ *     "这一条根本没有能做的动作"）——直接给一枚**禁用**的【＋】并把 `row.note`
+ *     （＝`状态：原因`，含「已安装 / 命名冲突」那两个词与"目录名"那句）当**行上可见原因**。
+ *     ★这与改前"另两态**不画**按钮"**形态不同、交代相同**：改前是"整枚按钮不出现 + 行上一句 note"，
+ *       本刀是"按钮恒在（卡片版式的一部分）+ 禁用 + 同一句 note 行上可见"——产品宪法要的
+ *       "禁用必须能读出为什么"在**两种形态下都成立**，而卡片的版式要求【＋】恒在（规格 §1③/§2）。
+ *
+ * @param input - 这一条的行投影、写入口在不在场、在途的那一条、以及点它干什么。
+ * @returns 卡片那枚【＋】的终态（七格，逐档互斥）。
+ */
+export function enterpriseThirdPartyCardInstall(input: {
+  readonly row: EnterpriseThirdPartySkillRow
+  readonly wired: boolean
+  readonly busy?: { readonly id: string; readonly title: string } | undefined
+  readonly onInstall: () => void
+}): EscCardInstall {
+  if (!input.row.installable) {
+    return {
+      text: ENTERPRISE_THIRD_PARTY_INSTALL,
+      disabled: true,
+      title: input.row.note,
+      ariaLabel: `${ENTERPRISE_THIRD_PARTY_INSTALL}${input.row.name}`,
+      reason: input.row.note,
+    }
+  }
+  const plan = enterpriseThirdPartyActionPlan({
+    wired: input.wired,
+    id: input.row.id,
+    name: input.row.name,
+    ...(input.busy === undefined ? {} : { busy: input.busy }),
+  })
+  return {
+    text: plan.text,
+    disabled: plan.disabled,
+    busy: plan.kind === 'this-busy',
+    title: plan.reason ?? ENTERPRISE_THIRD_PARTY_INSTALL_TITLE,
+    ariaLabel: plan.ariaLabel,
+    ...(plan.reason === undefined ? {} : { reason: plan.reason }),
+    ...(plan.disabled ? {} : { onInstall: input.onInstall }),
+  }
 }

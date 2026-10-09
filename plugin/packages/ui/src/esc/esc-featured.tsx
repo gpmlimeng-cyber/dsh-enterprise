@@ -80,7 +80,7 @@
  *        `installOf` —— **就是**广场网格那一枚（内部只调 `escSystemInstallPlan` +
  *        `enterpriseEscSystemCardInstall`）。改前精选行**少递**这一格 ⇒ 卡片退回兜底形态、把
  *        「这类技能没有可下载的技能包…」铺成**独立一行**、卡片被撑高。同源之后，技能档的卡片入参
- *        **只**从共享投影 `enterpriseEscSkillCardParams` 来（广场调的是同一个函数）⇒
+ *        **只**从共享投影 `enterpriseEscSkillCardSpec` 来（广场调的是同一个函数）⇒
  *        同一份夹具下两处拿到的入参**逐键相等**（门禁有一条逐键比对锁）。
  *        ⚠**如实边界**：另几枚维度（团队空间 / 企业技能 / 本地三方）在广场那一侧本来就没有安装计划
  *        （口径 64 只给"系统广场×技能"这一格构造终态）⇒ 精选这一侧也照旧没有（同一条判据），
@@ -100,7 +100,7 @@ import {
 import { EnterpriseEscCard } from './esc-card.js'
 import type { EscCardInstall, EscCardTryNow } from './esc-card.js'
 import type { EscCardMore } from './esc-more-menu.js'
-import { ENTERPRISE_ESC_SKILL_CARD_NO_INSTALLED, enterpriseEscSkillCardHidden, enterpriseEscSkillCardParams } from './esc-skill-card.js'
+import { ENTERPRISE_ESC_SKILL_CARD_NO_INSTALLED, enterpriseEscSkillCardHidden, enterpriseEscSkillCardSpec } from './esc-skill-card.js'
 import { ESC_SUCCESS_CODE } from './esc-constants.js'
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from './esc-copy.js'
 import { escPublishedTargetIdOf, escResourceAdapters } from './esc-list.js'
@@ -184,7 +184,7 @@ export interface EnterpriseEscFeaturedProps {
    * ★**本刀（用户冻结规格 §1②：「刚装的那一枚留在原地」）**：本页本次会话里刚安装成功的那一枚
    * （标记由聚合层那枚纯 reducer `enterpriseEscSkillCardMarkState` 说）。
    *
-   * ★它做两件事，且两件都由**同一个** `enterpriseEscSkillCardHidden` / `enterpriseEscSkillCardParams`
+   * ★它做两件事，且两件都由**同一个** `enterpriseEscSkillCardHidden` / `enterpriseEscSkillCardSpec`
    *   判：① 隐藏规则放它一马（它留在精选行里）；② 卡片入参里**没有** `more`、**没有** `install`
    *   —— 只显示「去试试」（规格 §1③）。
    * ★缺席 = 没有刚装的（本轮没装过、或列表已重读/切过维度 ⇒ 标记已撤）。
@@ -745,7 +745,7 @@ export function enterpriseEscFeaturedBody(
           const install = expert ? undefined : options.installOf?.(item)
           /**
            * ★**本刀（用户冻结规格 §1②/③ + §2）**：技能档的卡片入参**只**从这一枚共享投影来
-           *   （`enterpriseEscSkillCardParams`，广场网格调的是**同一个函数**）⇒ 同一份夹具下
+           *   （`enterpriseEscSkillCardSpec`，广场网格调的是**同一个函数**）⇒ 同一份夹具下
            *   精选卡与广场卡拿到的入参**逐键相等**；而"刚装那一枚"在这一处就把 `more`/`install`
            *   两格摘掉（只留「去试试」）。
            */
@@ -758,7 +758,7 @@ export function enterpriseEscFeaturedBody(
                 // 专家档不给已装那位（这一档没有"已装"这件事实）——与广场专家卡那一格逐字同形。
                 installed: undefined,
               }
-            : enterpriseEscSkillCardParams({
+            : enterpriseEscSkillCardSpec({
                 installed: skillInstalled,
                 justInstalled: options.justInstalledSkillName !== undefined
                   && options.justInstalledSkillName === item.name,

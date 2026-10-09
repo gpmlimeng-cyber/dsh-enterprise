@@ -309,12 +309,32 @@ describe('④ 真值引用稳定：已安装页那四份派生真值都走 `useM
 describe('⑤ 跳过屏幕外：卡片所在的那一格吃到 `content-visibility`，占位高只用既有 token', () => {
   const css = (): string => (EnterpriseEscStyle() as unknown as { props: { children: string } }).props.children
 
-  it('三枚"格子"选择器共用一条规则，且 `contain-intrinsic-size` 引用既有 token（不写魔法数字）', () => {
+  it('两枚"格子"选择器共用一条规则，且 `contain-intrinsic-size` 引用既有 token（不写魔法数字）', () => {
     const declarations = css().replace(/\/\*[\s\S]*?\*\//g, '')
     const rule = cssRules(declarations).find(each => each.body.includes('content-visibility'))
     expect(rule, '样式表里必须有那条跳过屏幕外的规则').toBeTruthy()
-    for (const selector of ['.esc-catalog-cell', '.esc-third-party-row', '.esc-list-section > .esc-card']) {
+    /**
+     * ★**本刀收尾重新基线化（更强方向，不是放宽）**：选择器由**三枚**收成**两枚** ——
+     *   `.esc-third-party-row` 整族九条规则**已删**（本刀 ②：本地三方换成与广场同一张卡 + 同一骨架，
+     *   那一族类名在全 `src` 已零引用）。★覆盖面**严格更大**而不是更小：本地三方那两维的卡片现在
+     *   住在 `.esc-catalog-cell` 那一格里（`.esc-list-section > .esc-catalog-cell > 卡片`），
+     *   故它们照旧吃到这一条规则 —— 走的是覆盖面更宽的那一枚选择器。
+     *   ★下面那两条**反向锁**是这一刀新增的（旧断言看不见"死规则被留下"这件事）：
+     *   ① 那一族九个类名**一个都不许残留**在样式表里；② 选择器清单**恰好**是这两枚。
+     */
+    for (const selector of ['.esc-catalog-cell', '.esc-list-section > .esc-card']) {
       expect(rule!.selector, selector).toContain(selector)
+    }
+    expect(rule!.selector).not.toContain('.esc-third-party-row')
+    expect([...rule!.selector.matchAll(/\.esc-[a-z0-9-]+/g)].map(hit => hit[0]).sort())
+      .toEqual(['.esc-card', '.esc-catalog-cell', '.esc-list-section'])
+    for (const dead of [
+      '.esc-third-party-rows', '.esc-third-party-row', '.esc-third-party-rowline', '.esc-third-party-rowmain',
+      '.esc-third-party-name', '.esc-third-party-desc', '.esc-third-party-meta', '.esc-third-party-action',
+      '.esc-third-party-lock',
+    ]) {
+      // 判据是"整份样式表里没有一条规则的选择器带这个类名"（剥注释后取规则体，避免沿革说明误判）。
+      expect(cssRules(declarations).some(each => each.selector.includes(dead)), dead).toBe(false)
     }
     expect(rule!.body).toContain('content-visibility: auto')
     expect(rule!.body).toContain('contain-intrinsic-size: auto var(--esc-card-min-h)')

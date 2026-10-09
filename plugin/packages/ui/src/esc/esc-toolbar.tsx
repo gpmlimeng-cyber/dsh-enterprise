@@ -426,6 +426,16 @@ export interface EnterpriseEscToolbarProps {
  *     下载 + SHA-256 校验 + 落盘到 `~/.dsh/skills`）⇒ 那把锁**照旧存在**（仍是 `toHaveLength`
  *     + 逐字清单），只是数字与清单按本刀改为四枚。
  *   ★它也**只在技能页**：连接器页那第三枚一字未动，专家页仍是两枚。
+ *
+ * ★**本刀 ③（SkillHub 维度：第四枚的名字与来源都换）**：用户裁决「那一枚的名字与来源都换」——
+ *   第四枚由「企业技能」（`'catalog'`）换成 **`SkillHub`**（`'skillhub'`），位次与数量一字未动
+ *   （仍是四枚、仍排最后），换的是名字与它背后的数据面（企业中心目录 → 既有的在线搜索本机路由）。
+ *   ★**「企业技能」维度整枚撤掉**：它的**内容不丢** —— 「应用商店 → 企业技能」（`marketplace-entry.tsx`
+ *     那一枚页签与卡片）与企业设置 → 技能两处照旧，撤掉的只是"技能页这一枚入口"。
+ *   ★**这一刀**没有把口径 55/62/53 那把锁放宽**：判据形状（`toEqual` 逐字 + 顺序 + `toHaveLength`）
+ *     一字未改，只是第四个字符串按用户裁决换了值——每处改动都在 spec 里写明理由。
+ *   ★**那一面的代码按 ① 明令不动**（`esc-catalog-list.tsx` 仍手拼卡片，与「已安装」并列登记为
+ *     "下一刀收编"）⇒ `ResourceSourceEnum` 里 `'catalog'` 那一格**留着**、这里不再产出它。
  */
 function sourceOptionsOf(resourceType: ResourceTypeEnum): readonly { readonly label: string; readonly value: ResourceSourceEnum }[] {
   return [
@@ -436,16 +446,20 @@ function sourceOptionsOf(resourceType: ResourceTypeEnum): readonly { readonly la
       ? [{ label: ENTERPRISE_ESC_COPY.mainTabThirdParty, value: 'third-party' as const }]
       : []),
     /**
-     * ★**口径 53（本刀，新裁决）**：第四枚「企业技能」**也只在技能页**，且排在**最后**
-     *   （用户裁决的落点甲＝新增一枚维度页签；前三维的位次与顺序一字未动）。
+     * ★**本刀 ③（SkillHub 维度）**：第四枚**只在技能页**，且排在**最后** —— 用户裁决原话是
+     *   「那一枚的名字与来源都换」：位次与数量**一字未动**（仍是四枚），换掉的是那一枚的名字
+     *   （「企业技能」→ `SkillHub`）与它背后的数据面（企业中心目录 → 既有的在线搜索本机路由）。
      *
-     * ★**这是新裁决、不是把口径 55/62 那把锁放宽**：那两刀删/加的两枚分别是「我启用的」与
-     *   「本地三方」，这一枚又语义无关（它读的是**企业中心注册的技能包**，动作是真的下载 + 校验 + 落盘）
-     *   ⇒ 那把锁**照旧存在**（仍是 `toHaveLength` + 逐字清单），只是数字与清单按本刀改为四枚。
-     * ★它**不进** `esc-list.ts` 的适配器表：这一维度不读 NUWAX 平台（内容由 `esc-catalog.ts` 铺）。
+     * ★**这是"换"、不是"把口径 53 那把锁放宽"**：那把锁照旧存在（仍是 `toHaveLength` + 逐字清单
+     *   + 顺序），只是第四个字符串按用户裁决改了；每一条改动都在 spec 里写明理由。
+     * ★**「企业技能」维度整枚撤掉**（本刀 ③）：它的内容**不丢** —— 「应用商店 → 企业技能」与企业设置
+     *   → 技能两处照旧；撤掉的只是"技能页这一枚入口"。★那一面的**代码**本刀按 ① 明令不动
+     *   （它仍手拼卡片，与「已安装」并列登记为"下一刀收编"）⇒ 这里不再产出 `'catalog'` 取值，
+     *   但 `ResourceSourceEnum` 里那一格**留着**（删它要连带改那一面的代码与它的锁，那是下一刀的事）。
+     * ★它**不进** `esc-list.ts` 的适配器表：这一维度不读 NUWAX 平台，内容由 `esc-skillhub.ts` 铺。
      */
     ...(resourceType === 'skill'
-      ? [{ label: ENTERPRISE_ESC_COPY.mainTabCatalog, value: 'catalog' as const }]
+      ? [{ label: ENTERPRISE_ESC_COPY.mainTabSkillHub, value: 'skillhub' as const }]
       : []),
     ...(resourceType === 'connector'
       ? [{ label: ENTERPRISE_ESC_COPY.mainTabConnected, value: 'connected' as const }]
@@ -799,8 +813,10 @@ export function EnterpriseEscToolbar({
               //   ★**口径 53（本刀）**：第四枚同判——「企业技能」四个字也读不出"从哪来、装什么"，
               //     故它也挂一句（引 `ENTERPRISE_ESC_LOCAL_COPY.catalogTabTitle` 那一格真源，
               //     与这一维度的页内说明句同源）。前两枚照旧不挂、第三枚的说明一字未改。
+              //   ★**本刀 ③**：第四枚换成 `SkillHub` 之后同判 —— 一个英文专名更读不出"这是谁家的东西、
+              //     我搜的是什么"，故它照旧挂一句（`skillHubTabTitle`，与页内说明句同源）。
               ...(option.value === 'third-party' ? { title: ENTERPRISE_ESC_LOCAL_COPY.thirdPartyTabTitle } : {}),
-              ...(option.value === 'catalog' ? { title: ENTERPRISE_ESC_LOCAL_COPY.catalogTabTitle } : {}),
+              ...(option.value === 'skillhub' ? { title: ENTERPRISE_ESC_LOCAL_COPY.skillHubTabTitle } : {}),
               children: option.label,
             },
           ),

@@ -451,13 +451,16 @@ describe('规格 §2：精选卡接**同一份安装计划** ⇒ 与广场卡入
 
   it('源码级：精选行**不许自己**构造卡片入参（三格只能从共享投影来）', () => {
     const featured = readEscSrc('esc-featured.tsx')
-    expect(featured.match(/enterpriseEscSkillCardParams\(/g) ?? []).toHaveLength(1)
+    // ★**本刀收尾改名（判据形状一字未改）**：装配的正名是 `enterpriseEscSkillCardSpec`
+    //   （旧名 `enterpriseEscSkillCardParams` 仍是**同一枚函数的别名**，见 `esc-skill-card.ts`）——
+    //   四个技能面（广场 / 精选 / 本地三方 / SkillHub）现在都调**正名**，故这一条跟着改。
+    expect(featured.match(/enterpriseEscSkillCardSpec\(/g) ?? []).toHaveLength(1)
     // 那一处只交给共享投影：技能档的 props **整份**从那枚函数来（`...cardProps`）。
-    expect(featured).toContain('enterpriseEscSkillCardParams({')
+    expect(featured).toContain('enterpriseEscSkillCardSpec({')
     expect(featured).toContain('...cardProps,')
     // 反向锁：技能档那三个键**不许**在精选行里就地出现（就一个字面也不许）。
     const readyBranch = featured.slice(featured.indexOf("case 'ready':"))
-    const skillBranch = readyBranch.slice(readyBranch.indexOf(': enterpriseEscSkillCardParams({'))
+    const skillBranch = readyBranch.slice(readyBranch.indexOf(': enterpriseEscSkillCardSpec({'))
     const beforeSpread = skillBranch.slice(0, skillBranch.indexOf('return createElement(EnterpriseEscCard'))
     expect(beforeSpread).not.toMatch(/\bmore:/)
     expect(beforeSpread).not.toMatch(/\binstall:/)

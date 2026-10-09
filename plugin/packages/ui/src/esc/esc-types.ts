@@ -48,6 +48,17 @@
  *     ★**它今天**没有**任何接线**（`client.tsx` 不提供）：宿主那条同族路由还没落地 ⇒ 判据如实落在
  *     "端口在不在场"上（缺席 ⇒ 那一行**整行不画**，不画成禁用）。声明它是为了让那个 `false`
  *     是一次**查端口**的结果，而不是界面里写死的一个常量——两者的区别在于路由落地那天要不要改界面。
+ *   ★**本刀 ③（SkillHub 维度）**：`ResourceSourceEnum` 再加 `'skillhub'`（技能页**第四枚**维度，
+ *     用户裁决"那一枚的名字与来源都换"：位次与数量一字未动，只换了第四个字符串与它背后的数据面）。
+ *     ★它**没有**平台取数适配器（内容走 `esc-skillhub.ts` + 既有那条在线搜索本机路由），
+ *     故"这一维度不发平台请求"在类型层就成立。
+ *     ★`EnterpriseEscSkillPort` 再加**一格可选**写入口 `installFromResult(source, signal)`
+ *     —— **复用** `local-api.ts` 既有那条 `POST /skills/install-from-result`（正文关闭键集恰好
+ *     `{source}`，`source` 就是搜索结果里原样给来的 `installSource` 不透明坐标）。
+ *     ★**为什么它进"写入口"而不是只读面**：它真的会把一条技能**落盘**（下载 + 校验 + 落盘），
+ *     与 `installSkill` / `installPublishedSkill` 同一族；而契约上那条只读面是**结构性只读**的。
+ *     ★**本刀没有新造第二条搜索通路**：搜索走 `esc-api.ts` 那条既有只读委托
+ *     （`onlineSearchSkills`，`local-api.ts` 的 `GET /skills/online-search?q=…`），一个字都没新写路径。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -85,7 +96,7 @@ export type ResourceTypeEnum = 'expert' | 'skill' | 'connector'
  *     即口径 53 用户裁决的那句「把后台注册的技能安装到 DSH 本地」）。
  *   ★它同样是**页专属**取值：`'catalog'` 只可能来自技能页（`sourceOptionsOf` 里有一道 `resourceType` 闸）。
  */
-export type ResourceSourceEnum = 'system' | 'team' | 'third-party' | 'catalog' | 'connected'
+export type ResourceSourceEnum = 'system' | 'team' | 'third-party' | 'catalog' | 'skillhub' | 'connected'
 
 /** 卡片统计项图标类型。 */
 export type ResourceStatType = 'user' | 'link' | 'star'
@@ -447,6 +458,23 @@ export interface EnterpriseEscSkillPort {
    *   自己在官方技能根里寻址，因此"传一个路径进来"在这个形状上不可表达）。
    */
   readonly editSkillFile?: ((name: string, signal: AbortSignal) => Promise<{ readonly revealed: true }>) | undefined
+  /**
+   * ★**本刀 ③（SkillHub 维度）**：把一条**在线搜索结果**装到本机
+   *   （`POST /skills/install-from-result`，正文**关闭键集恰好** `{source}`）。
+   *
+   * ★`source` 只可能是 `EnterpriseEscApi.onlineSearchSkills()` 那次投影里给过的
+   *   **`installSource`**（一枚不透明坐标）：界面**原样收下、原样回传**，
+   *   不拼、不解析、**不接受任何用户输入**（搜索结果里那一格没有第二个入口能改它）。
+   *   与「本地三方」那枚 `id` 同一条纪律：这条不变式在**类型层**成立——
+   *   响应形状里没有任何路径或 URL 可供拼接，门禁另有一条源码级反向锁盯着这一族文件。
+   * ★**它与 `installSkill` / `installPublishedSkill` 并列而不同**：坐标（`installSource` 字符串
+   *   vs 中心雪花 `packageId` vs 安全整数 `targetId`）、制品来源（公开市场 vs 中心制品 vs 平台导出 ZIP）
+   *   三件全不同 ⇒ 混成一格就是让三套坐标系在同一个字段上打架（门禁逐格盯着"各只有一个调用点"）。
+   * ★**响应只用来念一句结果 + 触发计数重读**：真值一律以宿主回执为准（与 `installThirdPartySkill` 同判），
+   *   界面**不乐观切换**任何本地清单。
+   * ★**刻意可选**：判据仍是「端口在不在场」（缺席 ⇒ 那一枚【＋】禁用 + **行上可见**写明原因）。
+   */
+  readonly installFromResult?: ((source: string, signal: AbortSignal) => Promise<readonly EnterpriseInstalledSkill[]>) | undefined
 }
 
 /**

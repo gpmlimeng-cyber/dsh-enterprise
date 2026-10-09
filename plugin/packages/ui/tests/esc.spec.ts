@@ -688,7 +688,14 @@ describe('esc：口径 55（删掉技能页「我启用的」维度 · 顺手清
      *     判据**更强**（`toEqual` 逐字 + 顺序 + `toHaveLength(4)`：悄悄少一枚、多一枚、换位次都当场红），
      *     只是数字与清单按本刀更新为四枚。★**顺序也是判据**（用户原话的顺序：系统广场 → 团队空间 → 本地三方 → 企业技能）。
      */
-    expect(labelsOf('skill')).toEqual(['系统广场', '团队空间', '本地三方', '企业技能'])
+    /**
+     * ★**本刀收尾重新基线化（用户裁决：第四枚的名字与来源都换）**：第四个字符串由「企业技能」
+     *   换成 `SkillHub` —— **不是把口径 55 那把锁放宽**：判据形状一字未改（仍是 `toEqual` 逐字
+     *   + 顺序 + `toHaveLength`），数字与前三枚的位次也一字未动；换的只是第四枚的名字
+     *   （以及它背后的数据面：企业中心目录 → 既有的在线搜索本机路由）。
+     *   ★「企业技能」**维度整枚撤掉**，但它的内容不丢（「应用商店 → 企业技能」与企业设置两处照旧）。
+     */
+    expect(labelsOf('skill')).toEqual(['系统广场', '团队空间', '本地三方', 'SkillHub'])
     expect(labelsOf('skill')).toHaveLength(4)
     // ★反向锁：那两枚**都只在技能页**（专家页/连接器页都不许有它们）。
     for (const other of ['expert', 'connector'] as const) {
@@ -3212,7 +3219,8 @@ describe('esc：卡片与工具栏的渲染树（口径 31 的「结构保真」
      * （系统广场 → 团队空间 → 本地三方 → 企业技能）。
      * 连接器页那第三枚仍是「已连接的」——回归锁。
      */
-    expect(labelsOf('skill')).toEqual(['系统广场', '团队空间', '本地三方', '企业技能'])
+    // ★本刀收尾：第四枚按用户裁决由「企业技能」换成 `SkillHub`（判据形状、位次、数量一字未改）。
+    expect(labelsOf('skill')).toEqual(['系统广场', '团队空间', '本地三方', 'SkillHub'])
     expect(labelsOf('skill')).toHaveLength(4)
     expect(labelsOf('connector')).toEqual(['系统广场', '团队空间', '已连接的'])
   })
