@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 React 的 createElement/useState、lucide-react 的图标、官方原语 `Button`/`Switch`（`@deepseek-ai/dsh-client-ui-primitives`）、`error-notice` 的唯一失败提示件、`esc-api` 的 `enterpriseEscImageSrc`、`esc-copy` 的文案、`esc-more-menu` 的「更多」下拉（实现已抽出）与 `esc-types` 的 `ResourceItem`
- * [OUTPUT]: 对外提供 `EnterpriseEscCard`（专家/技能/连接器共用的聚合卡片）、`EscCardInstall`（未装那枚【＋】的终态）、`EscCardMore`（已装那枚「更多」的终态，**类型再出口**；实现与那两行纯数据在 `esc-more-menu.tsx`，`SKILL_MORE_ENTRIES` 也由本文件再出口）与 `EscCardTryNow`（已装那枚「去试试」的终态）
+ * [OUTPUT]: 对外提供 `EnterpriseEscCard`（专家/技能/连接器共用的聚合卡片）、`EnterpriseEscCardIcon`（**本刀（Phase C D1）新导出**：卡片图标那一格——平台绝对地址经宿主图片代理 + 加载失败一次即回落兜底图形，是全仓**唯一**的破图兜底实现，连接器广场那张新卡复用它）、`EscCardInstall`（未装那枚【＋】的终态）、`EscCardMore`（已装那枚「更多」的终态，**类型再出口**；实现与那两行纯数据在 `esc-more-menu.tsx`，`SKILL_MORE_ENTRIES` 也由本文件再出口）与 `EscCardTryNow`（已装那枚「去试试」的终态）
  * [POS]: esc 页面的**卡片层**，同时移植了 NUWAX 的 `CardWrapper`（容器版式）与 `ResourceCard`（业务内容与动作位）两个组件。
  *   ★**本刀（S5a：技能卡「更多」里的两个本机管理动作）**：三件事一起动，且**全部 additive**（不给 `more`
  *     的调用方渲染逐字不变）——
@@ -669,7 +669,7 @@ export function EnterpriseEscCard({
     createElement(
       'header',
       { className: 'esc-card-header' },
-      createElement(CardIcon, { icon: item.icon, shape: iconShape }),
+      createElement(EnterpriseEscCardIcon, { icon: item.icon, shape: iconShape }),
       createElement(
         'div',
         { className: 'esc-card-headmain' },
@@ -826,8 +826,15 @@ export function EnterpriseEscCard({
  * 本文件只留一行接线（`skillActionBox` 里那一句）与上面 `more` 计划那一段契约说明。
  */
 
-/** 卡片图标：有可用地址就画图；没有就画中性图标（原文是固定 PNG 兜底图）。 */
-function CardIcon({
+/**
+ * 卡片图标：有可用地址就画图；没有就画中性图标（原文是固定 PNG 兜底图）。
+ *
+ * ★**本刀（Phase C D1）把它导出**（原名 `CardIcon`，私有）：连接器广场那张**新卡**
+ *   （`esc-connector-plaza.tsx`）也要画图标，而"平台给的绝对地址要经宿主代理 + 加载失败一次即回落
+ *   兜底图形"这条**唯一**的破图兜底只该有一处实现 —— 复制一份出来迟早在 `onError` 上漂开
+ *   （本文件那段注释记的正是"没有 onError 兜底时真机画出破图"那次事故）。
+ */
+export function EnterpriseEscCardIcon({
   icon,
   shape,
 }: {

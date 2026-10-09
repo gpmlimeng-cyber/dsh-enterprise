@@ -18,6 +18,8 @@
  *   "这一栏是演示数据"这件事仍可在协议层查到：宿主 `GET …/esc/mock` 报开关态、演示响应多一枚 `mock: true`。
  *   ★**口径 46/47**：这一页有**两个视图**（目录 / 已安装技能）——没有真实路由，故用一份视图状态切换
  *   （与商城页的技能详情同一条手法）；`skillPort` 缺席时那一页根本打不开（按钮跟着置灰）。
+ *   ★**本刀（Phase C D1：连接器广场）**：`main` 的 inject 面再多带一枚 `connectorPort`（连接器页「系统广场」
+ *   那一格的本机只读数据面）——同一条注入范式，同样**不进** `api`。
  *   ★**口径 49**：`main` 的 inject 面再多带一枚 `draftPort`（技能页下拉那两项「查找技能 / 创建技能」
  *   的实现面），由本层原样转交给内容区；它同样**不进** `api`（那一面结构性只读）。
  *   ★**口径 51（本刀）**：**第三个视图**「我的专家」（`esc-my-experts.tsx`，由专家页那枚主按钮打开）。
@@ -48,7 +50,7 @@ import { EnterpriseEscInstalledView } from './esc-installed.js'
 import { EnterpriseEscMyExpertsPage, ENTERPRISE_ESC_MY_EXPERTS_TITLE_ATTR } from './esc-my-experts.js'
 import { EnterpriseEscResourceTabs } from './esc-resource-tabs.js'
 import { EnterpriseEscStyle } from './esc-style.js'
-import type { EnterpriseEscDraftPort, EnterpriseEscSkillPort, ResourceTypeEnum } from './esc-types.js'
+import type { EnterpriseEscConnectorPort, EnterpriseEscDraftPort, EnterpriseEscSkillPort, ResourceTypeEnum } from './esc-types.js'
 
 /**
  * ★**口径 51**：esc 页子页的滚动面类名。
@@ -98,10 +100,17 @@ export interface EnterpriseEscPanelProps {
    * ★它**不进** `api`（那一面结构性只读），也不是第二套开会话机制——实现在 `preset-launch.ts`。
    */
   readonly draftPort?: EnterpriseEscDraftPort | undefined
+  /**
+   * ★**本刀（Phase C D1：连接器广场）**：本机连接器广场的**只读**端口（连接器页「系统广场」那一格的数据面）。
+   *
+   * 与上面两枚同一条注入范式（**不进** `api`：那一面是平台镜像，而这一格读的是本机同源脱敏投影）。
+   * 缺席 ⇒ 那一格出一句可见交代；本刀**没有**任何写方法（启用/断开是 D2）。
+   */
+  readonly connectorPort?: EnterpriseEscConnectorPort | undefined
 }
 
 /** 「专家·技能·连接器」整页。 */
-export function EnterpriseEscPanel({ api, skillPort, draftPort }: EnterpriseEscPanelProps): ReactNode {
+export function EnterpriseEscPanel({ api, skillPort, draftPort, connectorPort }: EnterpriseEscPanelProps): ReactNode {
   // 当前资源类型（原文由路径推导，这里就是状态）
   const [resourceType, setResourceType] = useState<ResourceTypeEnum>('expert')
   /**
@@ -271,7 +280,7 @@ export function EnterpriseEscPanel({ api, skillPort, draftPort }: EnterpriseEscP
             //   与右块同处那个 `justify-content: space-between` 的主行里 ⇒ 同排由 flex 保证，不靠巧合。
             //   ★「精选」那一行由聚合区经工具栏的**第二栏**（`belowLeading`）挂出——**专家页与技能页都挂**
             //     （两页同一套逻辑，只有 `targetType` 不同：`Agent` / `Skill`），连接器页不挂
-            //     （连接器目录走 `/api/connector/providers`，与官方推荐那条取数面无关）。
+            //     （连接器广场走本机那条**脱敏投影**路由 —— 与官方推荐那条取数面无关，口径 67 D1）。
             {
               key: `${resourceType}-${refreshToken}`,
               api,
@@ -284,6 +293,8 @@ export function EnterpriseEscPanel({ api, skillPort, draftPort }: EnterpriseEscP
               skillPort,
               // ★口径 49：技能页下拉那两项的草稿端口（跳新会话 + 预填、不发送；缺席即置灰写明原因）。
               draftPort,
+              // ★本刀（Phase C D1）：连接器广场那一格的只读数据面（原样交给聚合区，缺席即那一格出可见交代）。
+              connectorPort,
               // ★口径 47：「已安装」打开已安装技能页（没有真实路由 ⇒ 一份视图状态；缺席即置灰）。
               onOpenInstalled: skillPort === undefined ? undefined : () => openInstalled(),
               // ★口径 51：「我的专家」打开第三个视图（本刀）。它**没有数据面**（子页如实交代），

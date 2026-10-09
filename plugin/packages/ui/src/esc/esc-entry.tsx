@@ -12,6 +12,8 @@
  *   ★**口径 46/47**：`main` 槽的 inject 面多带一枚 `skillPort`（本机技能写入口）——它**不进** `api`。
  *   ★**口径 49**：`main` 槽的 inject 面再带一枚 `draftPort`（技能页下拉那两项"跳新会话 + 预填、不发送"
  *   的实现面，建自 `preset-launch.ts`）——同一条范式，同样**不进** `api`。
+ *   ★**本刀（Phase C D1：连接器广场）**：`main` 槽的 inject 面再带一枚 `connectorPort`
+ *   （连接器页「系统广场」那一格的本机只读数据面）——同一条范式，同样**不进** `api`。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -19,7 +21,7 @@ import { LayoutGrid } from 'lucide-react'
 import { createElement, type ReactNode } from 'react'
 import type { EnterpriseEscApi } from './esc-api.js'
 import { EnterpriseEscPanel } from './esc-page.js'
-import type { EnterpriseEscDraftPort, EnterpriseEscSkillPort } from './esc-types.js'
+import type { EnterpriseEscConnectorPort, EnterpriseEscDraftPort, EnterpriseEscSkillPort } from './esc-types.js'
 
 /** 侧栏一级入口的 id，同时是 `main` 槽的 key（官方约定：list id 指向同名的 main 面板）。 */
 export const ENTERPRISE_ESC_ENTRY_ID = 'expert-skill-connector'
@@ -62,6 +64,7 @@ export function enterpriseEscMainOptions(
   api: EnterpriseEscApi,
   skillPort?: EnterpriseEscSkillPort | undefined,
   draftPort?: EnterpriseEscDraftPort | undefined,
+  connectorPort?: EnterpriseEscConnectorPort | undefined,
 ): Readonly<Record<string, unknown>> {
   return {
     name: 'main',
@@ -70,7 +73,8 @@ export function enterpriseEscMainOptions(
     // ★口径 46：本机技能写入口（本地导入 / 自装清单 / 卸载）另走一枚端口随 inject 一起下去——
     //   它**不进** `api`（那一面是结构性只读的，见 `esc-types.ts` 的长注释）。
     // ★口径 49：草稿端口（技能页下拉那两项"跳新会话 + 预填"）同一条范式，也**不进** `api`。
-    inject: () => ({ api, skillPort, draftPort }),
+    // ★本刀（Phase C D1）：连接器广场那一格的**只读**数据面（同一条范式、同样不进 `api`）。
+    inject: () => ({ api, skillPort, draftPort, connectorPort }),
   }
 }
 
@@ -89,6 +93,7 @@ export interface EnterpriseEscSeatPorts {
  * @param api - 页面取数面（经 `main` 的 inject 面交给页面）。
  * @param skillPort - 本机技能写入口（口径 46；可选——缺席时那两枚按钮置灰写明原因）。
  * @param draftPort - 草稿端口（口径 49；可选——缺席时技能页下拉那两项置灰写明原因）。
+ * @param connectorPort - 连接器广场的只读数据面（口径 67 D1；可选——缺席时那一格出一句可见交代）。
  * @returns 两处座位的注销器（顺序与注册顺序一致；实际生命周期由 `ports.inject` 接管）。
  */
 export function bindEnterpriseEscSeats(
@@ -96,6 +101,7 @@ export function bindEnterpriseEscSeats(
   api: EnterpriseEscApi,
   skillPort?: EnterpriseEscSkillPort | undefined,
   draftPort?: EnterpriseEscDraftPort | undefined,
+  connectorPort?: EnterpriseEscConnectorPort | undefined,
 ): readonly unknown[] {
   return [
     ports.inject('sidebar.panellist', () =>
@@ -103,7 +109,7 @@ export function bindEnterpriseEscSeats(
     ),
     ports.inject('main', () =>
       ports.register(
-        enterpriseEscMainOptions(api, skillPort, draftPort),
+        enterpriseEscMainOptions(api, skillPort, draftPort, connectorPort),
         EnterpriseEscPanel as unknown as (props: never) => ReactNode,
       ),
     ),

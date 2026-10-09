@@ -18,6 +18,11 @@
  *     这一类目录），`mapPublishedItem` 的 `'enabled-skill'` 前缀退场；并**顺手清掉一处既有死代码** ——
  *     连接器那一支的 `enabled`（`connectionEnabled:'true'` + `'enabled-conn'`）**从落地起就不可达**
  *     （连接器页第三枚维度是 `'connected'`，而 `'enabled'` 只由技能页产出），删除处逐条写明了这条推理。
+ *   ★**本刀（Phase C D1：连接器广场）**：`load` 里多**一条短路**——连接器页「系统广场」那一格
+ *     （`resourceType === 'connector' && source === 'system'`）**连一次平台请求都不发**：那一格的数据面
+ *     已换成宿主那条脱敏投影（新叶 `esc-connector-plaza.tsx`），本文件的适配器表对它不再有消费方。
+ *     ★判据与聚合区那一格的分支**逐字同源**（两处写的是同一个条件），且短路在**发请求之前**（不是"取回来不用"）；
+ *     连接器页另外两格（团队空间 / 已连接的）与专家/技能两页**一字未动**。
  *   ★**口径 64（本刀）**：`mapPublishedItem` **就地**多投两格事实——`targetId`（先过
  *     `escSafeTargetId` 的安全整数门禁）与 `allowCopy`（原值；非数字归一成缺席）——供系统广场
  *     那批已发布技能的【＋】做**安装坐标 + 授权预判**。★**没有第二条取值路径**：本文件仍是
@@ -206,7 +211,7 @@ const extractPublishedPage = (
   return { items: records.map(item => mapPublishedItem(item, idPrefix)), hasMore: current < pages }
 }
 
-/** 连接器接口响应提取（`GET /api/connector/providers` 的分页结构，无总页数字段）。 */
+/** 平台连接器目录接口的响应提取（分页结构、没有总页数字段；那一格连注释里的路径也不再写）。 */
 const extractConnectorPage = (
   res: EscPlatformEnvelope<unknown>,
   page: number,
@@ -434,6 +439,15 @@ export function useEnterpriseEscResourceList({
       if (source === 'team' && resourceType !== 'connector' && !spaceId && !(spaceIds && spaceIds.length > 0)) {
         return
       }
+      /**
+       * ★**本刀（Phase C D1：连接器广场）**：连接器页「系统广场」那一格的数据面**换了**——
+       *   它不再读平台这条目录（这台部署根本没有那个端点），改走宿主那条**脱敏投影**
+       *   （新叶 `esc-connector-plaza.tsx` 的 `GET /enterprise/api/v1/local/connectors`）
+       *   ⇒ **这一格连一次平台请求都不发**（判据与聚合区那一格的分支逐字同源）。
+       *   ★这一条不是"取回来不用"：`load` 在**发请求之前**就返回，故网络上一个字节都不会出去；
+       *     连接器页另外两格（团队空间 / 已连接的）**一字未动**，仍走下面那张适配器表。
+       */
+      if (resourceType === 'connector' && source === 'system') return
       const adapter = adapters[resourceType][source]
       // 该维度未配置数据源（专家/技能无"已连接的"tab，正常不会走到）
       if (!adapter) return

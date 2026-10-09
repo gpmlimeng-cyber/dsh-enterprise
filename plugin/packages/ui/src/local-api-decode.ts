@@ -46,6 +46,14 @@
  *     两份回执的 DTO 与严格解码住在 `skill-api-decode.ts`（自装清单那一族）：卸载回执
  *     `{skills,removed}`（`skills` 复用既有自装清单解码器；**两格各自严格、宿主多带的日志键忽略**），
  *     打开文件夹回执 `{revealed:true}`（**单键封闭**——宿主绝对路径不进浏览器）。
+ *   ★**本刀（Phase C D1：连接器广场）**：`EnterpriseLocalApi` 新增 `connectors(signal)` —— 宿主脱敏投影
+ *     `GET /enterprise/api/v1/local/connectors` 的严格解码（`{connectors,complete,spaces}` 三键封闭）。
+ *     三枚 DTO（`EnterpriseConnectorItem` / `EnterpriseConnectorSpaceRef` / `EnterpriseConnectorSpaceSummary`）
+ *     与 `EnterpriseConnectorCatalog`、四份**键集常量**（行必填/行可选/空间摘要/顶层，是漂移门禁的被测真源）、
+ *     两枚**有界**上限（与宿主 `ENTERPRISE_CONNECTOR_MAX_{SPACES,CONNECTORS}` 逐字同值）都在本文件。
+ *     ★**安全格是封闭的**：`mcpConfig`/`deployedConfig`/`serverConfig`/`url`/`headers`/`permissions`/
+ *     `creatorId`/`uid` **一个都不在**契约里 —— 多带一个键整份判畸形（不是悄悄透传）；
+ *     `complete:false` **原样**收下（不折成 `true`、不当失败）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -416,6 +424,19 @@ export interface EnterpriseLocalApi {
   bootstrap(signal: AbortSignal): Promise<EnterpriseAccountBootstrap | undefined>
   /** 本人四窗口 Token 用量；Host 代取中心 `usage/me`，浏览器不接触 Access Token。 */
   usage(signal: AbortSignal): Promise<readonly EnterpriseQuotaUsagePolicy[]>
+  /**
+   * ★**本刀（Phase C D1：连接器广场）**：本机**连接器广场**的只读投影
+   *   （`GET /enterprise/api/v1/local/connectors`，宿主半边见 `bundle/src/connector-plaza.ts`）。
+   *
+   * ★它是 esc 连接器页「系统广场」那一格的**唯一**数据面：平台那条连接器目录路由在这台部署上
+   *   **根本没有这个端点**（回 `No static resource …`），真正有货的是平台逐空间的 MCP 目录
+   *   （真机实测空间 3 ⇒ 42 条、248 ⇒ 9 条、2 ⇒ 0 条）。平台那几条 MCP 只读路径**只在宿主的
+   *   内部许可表**里（浏览器可读表零新增），因为平台每行 18 键里带**可直接落地的客户端配置面**
+   *   ⇒ 由宿主**从零构造**脱敏投影之后再出厂。
+   * ★`complete:false` **原样**：它说"这份不是全部"（有空间没读到 / 被上限截断），
+   *   不是失败、也不许被折成 `true`——界面据此多说一句，而不是把它当错误态。
+   */
+  connectors(signal: AbortSignal): Promise<EnterpriseConnectorCatalog>
   /**
    * 请 Host 用系统浏览器打开帮助中心（与 PKCE 登录同一条通道）。
    *
@@ -1765,6 +1786,180 @@ export function decodeEnterpriseRestoredSession(value: unknown): {
     throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
   }
   return { restoredSessionId: data['restoredSessionId'], sourceSessionId: data['sourceSessionId'] }
+}
+
+/**
+ * ★**本刀（Phase C D1：连接器广场）**：一条连接器出厂时的**安全格**——宿主
+ *   （`bundle/src/connector-plaza.ts` 的 `ENTERPRISE_CONNECTOR_KEYS`）**从零构造**的恰好这些键。
+ *
+ * ★**这里没有、也永远不会有**：`mcpConfig` / `deployedConfig` / `serverConfig` / `url` / `headers` /
+ *   `permissions` / `creatorId` / `uid`——宿主那边结构性不带它们，界面这一侧**也不许**为它们写任何
+ *   解码分支（键集封闭判据 `hasExactKeys` 会把它们判成畸形，而不是悄悄透传进界面）。
+ * ★`description` / `icon` / `official` / `toolCount` 是**可选格**：缺席就**没有这个键**（不是 `undefined` 值），
+ *   与宿主"平台没说就不给键"的口径逐字对齐（"没说"与"说了空"分得开）。
+ */
+export interface EnterpriseConnectorItem {
+  readonly id: number
+  readonly name: string
+  readonly description?: string
+  readonly icon?: string
+  readonly installType: string
+  readonly deployStatus: string
+  readonly official?: boolean
+  readonly toolCount?: number
+  readonly space: EnterpriseConnectorSpaceRef
+}
+
+/** 一条连接器所属的空间（宿主 `{id,name}` 投影；名字只有 `/api/space/list` 有）。 */
+export interface EnterpriseConnectorSpaceRef {
+  readonly id: number
+  readonly name: string
+}
+
+/** 一个空间在这次盘点里的**如实**结果（`ok:false` ⇒ 这个空间这次没读到、`count` 恒 0）。 */
+export interface EnterpriseConnectorSpaceSummary {
+  readonly id: number
+  readonly name: string
+  readonly ok: boolean
+  readonly count: number
+}
+
+/** 一次连接器盘点：`{connectors, complete, spaces}` 三键封闭（与宿主同名视图逐键对齐）。 */
+export interface EnterpriseConnectorCatalog {
+  readonly connectors: readonly EnterpriseConnectorItem[]
+  /**
+   * ★**原样出厂、原样收下**：`false` = "这份不是全部"（有空间没读到，或两处上限截断过）。
+   *   界面**不许**把它折成 `true`、也不许把它当失败（它不是错误，是"这份不完整"的如实交代）。
+   */
+  readonly complete: boolean
+  readonly spaces: readonly EnterpriseConnectorSpaceSummary[]
+}
+
+/**
+ * 连接器行的**必填**键集（顺序即宿主 `ENTERPRISE_CONNECTOR_KEYS` 的顺序）。
+ *
+ * ★导出是为了让契约漂移门禁能**逐键**比对（多一个键 = 宿主把不该给的东西给出去了，必须当场红）。
+ */
+export const ENTERPRISE_CONNECTOR_REQUIRED_KEYS = ['id', 'name', 'installType', 'deployStatus', 'space'] as const
+
+/** 连接器行的**可选**键集（宿主 `ENTERPRISE_CONNECTOR_OPTIONAL_KEYS` 逐字同值）。 */
+export const ENTERPRISE_CONNECTOR_OPTIONAL_KEYS = ['description', 'icon', 'official', 'toolCount'] as const
+
+/** 空间摘要那四格（键集封闭）。 */
+export const ENTERPRISE_CONNECTOR_SPACE_KEYS = ['id', 'name', 'ok', 'count'] as const
+
+/** 一次盘点的三格（键集封闭）。 */
+export const ENTERPRISE_CONNECTOR_CATALOG_KEYS = ['connectors', 'complete', 'spaces'] as const
+
+/**
+ * 两条**有界**上限，与宿主那两枚常量**逐字同值**（`bundle/src/connector-plaza.ts` 的
+ * `ENTERPRISE_CONNECTOR_MAX_SPACES` / `ENTERPRISE_CONNECTOR_MAX_CONNECTORS`）。
+ *
+ * ★为什么要照抄一份而不是"给个宽松的兜底"：解码器的上限**窄于**宿主时会把合法响应判成畸形；
+ *   宽于宿主则等于给"宿主没拦住的那一份"开后门。两处同值 + 一条漂移用例（逐值比对）才是对的形状。
+ */
+export const ENTERPRISE_CONNECTOR_MAX_SPACES = 64
+export const ENTERPRISE_CONNECTOR_MAX_CONNECTORS = 1000
+
+/** 一枚**安全整数 id**（宿主 `isSafeId` 的逐字同判：`> 0` 的 `Number.isSafeInteger`）。 */
+function connectorId(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
+}
+
+/** 一枚**有界非空字符串**（可选格为空串 = 宿主违反了"没说就不给键"，一律判畸形而不是画一条空文案）。 */
+function connectorText(value: unknown, max: number): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= max
+}
+
+/** 严格解码一条连接器（键集封闭；可选格缺席即**不产出那个键**）。 */
+function decodeConnectorItem(value: unknown): EnterpriseConnectorItem {
+  const row = record(value)
+  if (row === undefined
+    || !hasExactKeys(row, ENTERPRISE_CONNECTOR_REQUIRED_KEYS, ENTERPRISE_CONNECTOR_OPTIONAL_KEYS)
+    || !connectorId(row['id'])
+    || !connectorText(row['name'], 200)
+    || !connectorText(row['installType'], 64)
+    || !connectorText(row['deployStatus'], 64)
+    || (row['description'] !== undefined && !connectorText(row['description'], 2000))
+    || (row['icon'] !== undefined && !connectorText(row['icon'], 2048))
+    || (row['official'] !== undefined && typeof row['official'] !== 'boolean')
+    || (row['toolCount'] !== undefined
+      && !(typeof row['toolCount'] === 'number' && Number.isSafeInteger(row['toolCount']) && row['toolCount'] >= 0))
+    || !connectorSpaceRef(row['space'])) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  const description = row['description']
+  const icon = row['icon']
+  const official = row['official']
+  const toolCount = row['toolCount']
+  return {
+    id: row['id'],
+    name: row['name'],
+    // 可选四格**缺席就不给键**（不是给一个 undefined 值）——与宿主出厂形状逐字一致。
+    ...(description === undefined ? {} : { description }),
+    ...(icon === undefined ? {} : { icon }),
+    installType: row['installType'],
+    deployStatus: row['deployStatus'],
+    ...(official === undefined ? {} : { official: official === true }),
+    ...(toolCount === undefined ? {} : { toolCount: Number(toolCount) }),
+    space: row['space'],
+  }
+}
+
+/** 严格解码 `space` 两格（`id` 安全整数、`name` 有界非空）。 */
+function connectorSpaceRef(value: unknown): value is EnterpriseConnectorSpaceRef {
+  const space = record(value)
+  return space !== undefined
+    && hasExactKeys(space, ['id', 'name'])
+    && connectorId(space['id'])
+    && connectorText(space['name'], 200)
+}
+
+/** 严格解码一条空间摘要（四格全必填、键集封闭）。 */
+function decodeConnectorSpaceSummary(value: unknown): EnterpriseConnectorSpaceSummary {
+  const space = record(value)
+  if (space === undefined
+    || !hasExactKeys(space, ENTERPRISE_CONNECTOR_SPACE_KEYS)
+    || !connectorId(space['id'])
+    || !connectorText(space['name'], 200)
+    || typeof space['ok'] !== 'boolean'
+    || !(typeof space['count'] === 'number' && Number.isSafeInteger(space['count']) && space['count'] >= 0)) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  return { id: space['id'], name: space['name'], ok: space['ok'], count: Number(space['count']) }
+}
+
+/**
+ * ★**本刀（Phase C D1：连接器广场）**：严格解码本机连接器广场
+ *   （`GET /enterprise/api/v1/local/connectors` 的 `data`）。
+ *
+ * 四条口径（与宿主 `readConnectorPlaza` 的出厂形状逐条对齐）：
+ *   ① **键集封闭**：行 / 空间摘要 / 顶层三处都只认契约里那几格——多一个键（例如哪天有人把
+ *      `mcpConfig`/`url` 顺手带出来）整份判畸形，而不是悄悄透传进界面；
+ *   ② **可选的缺席就整格不给**：`description`/`icon`/`official`/`toolCount` 四个可选键缺席时
+ *      **不产出**（不是产出 `undefined`），于是"平台没说"在界面那一侧就是"没有这个键"；
+ *   ③ **`complete` 原样**：只判它是布尔，`false` 照原样交出去（**不折成 `true`、不当失败**）；
+ *   ④ **有界**：两处上限与宿主同值（见上面那两枚常量），超限即畸形（宿主不会超限出厂）。
+ *
+ * @param value - 拆封后的 `{connectors,complete,spaces}`（信封由 `local-api.ts` 的 `requestJson` 拆）。
+ * @returns 逐键安全、无配置面的连接器清单。
+ * @throws {EnterpriseLocalApiError} `ENT_LOCAL_RESPONSE_INVALID`（形状任何一处不合）。
+ */
+export function decodeEnterpriseConnectors(value: unknown): EnterpriseConnectorCatalog {
+  const source = record(value)
+  if (source === undefined
+    || !hasExactKeys(source, ENTERPRISE_CONNECTOR_CATALOG_KEYS)
+    || typeof source['complete'] !== 'boolean'
+    || !Array.isArray(source['connectors']) || source['connectors'].length > ENTERPRISE_CONNECTOR_MAX_CONNECTORS
+    || !Array.isArray(source['spaces']) || source['spaces'].length > ENTERPRISE_CONNECTOR_MAX_SPACES) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  return {
+    connectors: source['connectors'].map(item => decodeConnectorItem(item)),
+    // ★原样（上面已经判过它是布尔）：`false` 就是"这份不完整"，不是失败、更不许被折成 true。
+    complete: source['complete'],
+    spaces: source['spaces'].map(item => decodeConnectorSpaceSummary(item)),
+  }
 }
 
 /** 从本地错误响应体里取稳定错误码；缺字段、空串或非字符串一律返回 undefined（调用方给兜底码）。 */

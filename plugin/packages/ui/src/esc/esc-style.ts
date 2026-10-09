@@ -256,6 +256,12 @@
  *    ② `.esc-catalog-*`（企业技能维度内容区：标题/说明/状态/降级/空/重试/失败格）。卡片网格**复用**
  *    `.esc-list-section`（与另几维同一份列模板与间距）、色值一律走既有 `--dsw-*` token
  *    （**一个新 token 名都没加** ⇒ 审计 `--strict` 仍 `dead 0`）；本刀新增注释**零反引号**。
+ *  * **本刀（Phase C D1：连接器广场）**：只新增**两条**规则 —— `.esc-connector`（那一格自己的纵向容器，
+ *    与 `.esc-catalog` 同一条间距口径但不共用类名：那个类名是"企业技能目录"那一维度的根）与
+ *    `.esc-connector-enable`（那枚**禁用**启用动作在标题行里的行为：`flex:none` + 不折行）。
+ *    ★卡片本体与卡片里每一格（头行/标题行/图标/描述/元信息/锁定行/兜底图形）、状态话、网格与重试
+ *    **一律复用**既有类名 ⇒ 这一格不可能与另几维在取值上漂开；**一个新 token 名都没加**
+ *    （审计 `--strict` 仍 `dead 0`），本刀新增注释**零反引号**。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -902,6 +908,19 @@ const CSS = `
 .esc-catalog-cell { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .esc-catalog-cell > .esc-card { flex: 1; }
 .esc-catalog-error { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+
+/* —— 本刀（Phase C D1：连接器广场）——
+   ★**为什么只加两条**：那一格的卡片、卡片内部每一格（头行 / 标题行 / 图标 / 描述 / 元信息 / 锁定行 /
+   兜底图形）与那几句状态话**全部复用**本页既有类名（.esc-card* / .esc-list-section /
+   .esc-catalog-cell / .esc-catalog-status / .esc-catalog-degraded / .esc-catalog-empty /
+   .esc-catalog-retry / .esc-import-error）—— 它们是**同一套版式**，没有理由长出第二套
+   （第二套迟早在取值上与本页漂开）。这里只补两件本页此前没有的：① 这一格自己的纵向容器
+   （与 .esc-catalog 同一条间距口径，但**不**共用那个类名：.esc-catalog 是"企业技能目录"那一维度的
+   根，用它会让"这一格是谁"在 CSS 上也说不清）；② 那枚**禁用的启用动作**在标题行里的行为
+   （flex: none 让标题那格先让位、white-space: nowrap 保证「启用」两个字不被压成两行）。
+   类名一律 esc-connector-* 单层命名、不新造 token（审计 --strict 会以 dead 抓住不存在的名字）。 */
+.esc-connector { display: flex; flex-direction: column; gap: var(--esc-sp-lg); }
+.esc-connector-enable { flex: none; white-space: nowrap; }
 
 /* —— 首屏加载（官方那一态画的是 components/custom/Loading：居中的一枚转圈图标 + 「加载中...」，
    色走主色、字号 12、间距 8px）——原先是本页自造的六张骨架卡，口径 35 按官方换成这一枚。 */

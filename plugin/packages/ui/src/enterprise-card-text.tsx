@@ -1,6 +1,7 @@
 /**
  * [INPUT]: 依赖官方 `Tag` 原语（`@deepseek-ai/dsh-client-ui-primitives`）；零本地依赖（叶子模块）。
- * [OUTPUT]: 提供「企业」签的唯一文案与唯一渲染（`ENTERPRISE_MARKET_BADGE_TEXT` / `EnterpriseMarketBadgeTag`）、
+ * [OUTPUT]: 提供「企业」签的唯一文案与唯一渲染（`ENTERPRISE_MARKET_BADGE_TEXT` / `EnterpriseMarketBadgeTag`，
+ *           **本刀（Phase C D1）起该渲染多一枚可选文案入参、缺省逐字不变**——连接器广场那枚「官方」标识复用它）、
  *           版本短号签的唯一字面（`enterpriseMarketVersionTag`）、插件**标题**的唯一取值
  *           （`enterprisePluginDisplayName`：有显示名用显示名、缺省/空白**回退包名**）与插件描述缺失时的统一降级
  *           （`ENTERPRISE_PLUGIN_DESCRIPTION_EMPTY` / `enterprisePluginDescriptionText`）。
@@ -33,10 +34,24 @@ export const ENTERPRISE_MARKET_BADGE_TEXT = '企业'
 /**
  * 「企业」徽章的**唯一** React 渲染：官方 `plugins.detail.badge` 槽（详情页 `titleRow` 里 `h3` 正后方）与
  * 「企业设置 → 插件」卡片标题行都用它（后者原本只有一句「企业发布 · v…」的第二行文字，没有这枚签）。
+ *
+ * ★**本刀（Phase C D1：连接器广场）**：多一枚**可选**入参 `text`（**缺省逐字等于原行为**）——
+ *   连接器广场那张卡要一枚**同族**的「官方」标识（`ENTERPRISE_CONNECTOR_OFFICIAL_TEXT`），
+ *   而"官方 `Tag` 原语本体 + `tone="info"` + props 恰好 `{className,tone,children}`"这三件
+ *   是**这一枚签**的性质，不是"企业"那两个字的性质 ⇒ 复用这一枚、**不新造第二种签**
+ *   （新造一枚就会让 tone / 类名 / 属性面各漂一份，那正是本仓反复否掉的形状）。
+ *   ★缺省值让它对既有两处调用方（详情徽章、插件卡片标题行）**逐字不变**——
+ *   `EnterpriseMarketBadgeTag()` 产出的元素与改前完全同一个（门禁逐键锁着 props）。
+ * @param props - 可选 `{text}`（缺省＝`ENTERPRISE_MARKET_BADGE_TEXT`，「企业」）。
+ *   ★**为什么是一枚 props 对象而不是裸字符串入参**：这个函数同时是 JSX 组件（`plugin-market.tsx` /
+ *   `marketplace-entry.tsx` 里写的是 `<EnterpriseMarketBadgeTag />`）—— 裸字符串入参会让 JSX 那一侧
+ *   报「Type '{}' is not assignable to type 'string'」，而"为了新调用方去改既有两处 JSX"是本末倒置。
  * @returns 官方 `Tag` 原语 + `tone="info"` + 既有定位类 `.own-market-tag`。
  */
-export function EnterpriseMarketBadgeTag(): ReactNode {
-  return <Tag className="own-market-tag" tone="info">{ENTERPRISE_MARKET_BADGE_TEXT}</Tag>
+export function EnterpriseMarketBadgeTag(
+  props: { readonly text?: string | undefined } = {},
+): ReactNode {
+  return <Tag className="own-market-tag" tone="info">{props.text ?? ENTERPRISE_MARKET_BADGE_TEXT}</Tag>
 }
 
 /**

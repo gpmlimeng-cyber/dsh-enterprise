@@ -52,6 +52,11 @@
  *   ★响应的严格口径在 `skill-api-decode.ts`（自装清单那一族）：卸载回执 `{skills,removed}`
  *     （`skills` **复用**既有自装清单解码器；两格各自严格、宿主多带的日志键忽略），
  *     打开文件夹回执 `{revealed:true}` 单键封闭（宿主绝对路径不进浏览器）。
+ * **本刀（Phase C D1：连接器广场）**：新增 `connectors(signal)` —— 只读 `GET …/local/connectors`
+ *   （相对段 `CONNECTOR_PLAZA_PATH` 在**本文件内恰好一处**，导出常量由它拼出），响应经
+ *   `local-api-decode.ts` 的 `decodeEnterpriseConnectors` 严格解码（键集封闭、可选格缺席即不给键、
+ *   `complete` 原样）。★它是本仓**唯一**的连接器读入口：界面既不打平台那条连接器目录路由、
+ *   也不自己拼任何平台 MCP 路径（那几条只在宿主的内部许可表里，因为平台行里带配置面）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -64,6 +69,7 @@ import {
   decodeEnterpriseFeedbackReceipt,
   decodeEnterpriseDataEnvelope,
   decodeEnterpriseCredentialResult,
+  decodeEnterpriseConnectors,
   decodeEnterpriseErrorCode,
   decodeEnterpriseDiscoveredSkills,
   decodeEnterpriseInstalledSkills,
@@ -344,6 +350,17 @@ export function createEnterpriseLocalApi(
       }, fetcher),
     ),
     plugins: async signal => decodeEnterprisePluginStatus(await requestJson('/plugins', getInit(signal), fetcher)),
+    /**
+     * ★**本刀（Phase C D1：连接器广场）**：只读 `GET /connectors`，响应是宿主**从零构造**的
+     * `{connectors,complete,spaces}`（脱敏投影，配置面一个字都不出厂）。
+     *
+     * ★**它只打这一条同源路径**：相对段就是上面那枚 `CONNECTOR_PLAZA_PATH`（全 `src` 里唯一一处），
+     *   界面这一侧不打平台那条目录面、也不打平台那几条 MCP 路径；
+     *   解码仍走本文件唯一的 `requestJson` + `local-api-decode.ts` 的严格判据（不在这里拆信封/翻码）。
+     */
+    connectors: async signal => decodeEnterpriseConnectors(
+      await requestJson(CONNECTOR_PLAZA_PATH, getInit(signal), fetcher),
+    ),
     presets: async signal => decodeEnterprisePresets(await requestJson('/presets', getInit(signal), fetcher)),
     presetDetail: async (packageId, signal) => {
       const items = decodeEnterprisePresets([await requestJson(`/presets/${packageId}`, getInit(signal), fetcher)])
@@ -597,6 +614,23 @@ export const ENTERPRISE_PLUGIN_DISABLE_LOCAL_PATH = `${LOCAL_API_PREFIX}${PLUGIN
 export const ENTERPRISE_NUWAX_LOGIN_LOCAL_PATH = `${LOCAL_API_PREFIX}${NUWAX_LOGIN_PATH}`
 export const ENTERPRISE_NUWAX_LOGOUT_LOCAL_PATH = `${LOCAL_API_PREFIX}${NUWAX_LOGOUT_PATH}`
 export const ENTERPRISE_NUWAX_STATUS_LOCAL_PATH = `${LOCAL_API_PREFIX}${NUWAX_STATUS_PATH}`
+
+/**
+ * ★**本刀（Phase C D1：连接器广场）**：连接器广场的 exact 同源路径
+ *   （`GET /enterprise/api/v1/local/connectors`；宿主注册面见 `bundle/src/connector-plaza.ts`）。
+ *
+ * ★**它是本刀唯一新增的路由字面量，且只出现一次**：相对段在这里定义一次、下面那条导出的注册面
+ *   常量由它拼出来，`connectors` 那一格再引用它 ⇒ 全 `src` 里那枚带引号的相对字面量恰好一处
+ *   （门禁反向锁盯着这一点：界面那一侧**不许**再拼第二条连接器路径、也不许打平台那一条 MCP 面）。
+ * ★**为什么它在 `local-api.ts` 而不在 `esc-api.ts`**：`esc-api.ts` 是**平台面**的镜像
+ *   （它的每一条都对应平台一个只读端点，浏览器可读表在宿主那一侧）；本面是**本机同源**投影
+ *   （宿主从零构造的脱敏视图），与 `plugins`/`skills`/`presets` 同一条边界。
+ */
+const CONNECTOR_PLAZA_PATH = '/connectors'
+
+/** 连接器广场的注册面路径（与 Host 的 exact 路径逐字同值；测试与文档用它核对）。 */
+export const ENTERPRISE_CONNECTOR_LOCAL_PATH = `${LOCAL_API_PREFIX}${CONNECTOR_PLAZA_PATH}`
+
 export const ENTERPRISE_FEEDBACK_LOCAL_PATH = `${LOCAL_API_PREFIX}/feedback`
 
 /** 「帮助与文档」的同源路径常量：Host 侧同源路由的注册路径必须与它逐字相同。 */

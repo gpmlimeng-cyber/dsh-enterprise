@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 无运行时依赖（纯类型 + 一个纯函数）
- * [OUTPUT]: 对外提供「专家·技能·连接器」页面的两族类型——① **归一化后的展示类型**（`ResourceTypeEnum`/`ResourceSourceEnum`/`ResourceItem`/`ResourceStat`/`ResourceCategoryInfo`/`CategoryMenuItem`）与 `mapPublishedStats`；② **平台原始响应的字段子集**（`EscPlatformEnvelope`/`EscPage`/`EscPublishedItem`/`EscConnectorProvider`/`EscCategoryNode`/`EscSpace`/`EscCreator`/`EscStatistics`）
+ * [OUTPUT]: 对外提供「专家·技能·连接器」页面的两族类型——① **归一化后的展示类型**（`ResourceTypeEnum`/`ResourceSourceEnum`/`ResourceItem`/`ResourceStat`/`ResourceCategoryInfo`/`CategoryMenuItem`）与 `mapPublishedStats`；② **平台原始响应的字段子集**（`EscPlatformEnvelope`/`EscPage`/`EscPublishedItem`/`EscConnectorProvider`/`EscCategoryNode`/`EscSpace`/`EscCreator`/`EscStatistics`）；**本刀（Phase C D1）**另加第三族：三枚端口类型（`EnterpriseEscSkillPort` / `EnterpriseEscDraftPort` / **`EnterpriseEscConnectorPort`**）
  * [POS]: esc 页面（口径 31）的类型真源，逐字移植自 NUWAX `src/pages/ExpertSkillConnector/types.ts`。
  *   ★两处**如实收窄**（不是漏抄）：① 平台原始类型只声明**本刀真正消费**的字段——原文件从 `@/types/interfaces/*`
  *   引了整族类型（agent/library/square/systemManage/workspace），DSH 侧没有那套类型，逐个内联一份完整副本
@@ -40,11 +40,20 @@
  *     上（与 `EnterpriseEscDraftPort.launch` 同一枚构造器、同一份四个结构面），故本仓"开会话 + 写草稿"
  *     仍然**只有一处实现**（`preset-launch.ts`）。**刻意可选**：判据仍是「端口在不在场」
  *     （缺席 ⇒ 那枚按钮禁用 + **行上可见**写明原因，见 `esc-skill-try.ts` 的计划投影）。
+ *   ★**本刀（Phase C D1：连接器广场）**：新增**第三枚端口** `EnterpriseEscConnectorPort`
+ *     （只有只读一格 `catalog`；写入口属 D2，本刀**刻意不造**——见那一格的说明）。
+ *     它**不进** `EnterpriseEscApi`（那一面是平台镜像；连接器广场是本机同源脱敏投影）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 /** ★口径 46/47：本机技能写入口那两条记录形状（**类型**导入，故本文件仍无运行时依赖）。 */
 import type { EnterpriseInstalledSkill, EnterpriseSelfInstalledSkill, EnterpriseSelfInstalledUninstall } from '../skill-api-decode.js'
+/**
+ * ★**本刀（Phase C D1：连接器广场）**：本机连接器广场的投影形状（**类型**导入，本文件仍无运行时依赖）。
+ *
+ * 只借它的**形状**：取数、拆信封与严格解码全在 `local-api.ts` / `local-api-decode.ts` 那一份唯一实现里。
+ */
+import type { EnterpriseConnectorCatalog } from '../local-api-decode.js'
 
 /** 资源类型：专家&专家团 / 技能 / 连接器。 */
 export type ResourceTypeEnum = 'expert' | 'skill' | 'connector'
@@ -262,7 +271,7 @@ export interface EscPublishedItem {
   readonly allowCopy?: number | undefined
 }
 
-/** 连接器提供方（`GET /api/connector/providers` 的一条）。 */
+/** 平台连接器提供方目录的一条（连接器页「团队空间 / 已连接的」两格仍读它；本刀不动那两格）。 */
 export interface EscConnectorProvider {
   readonly id: number
   /** 服务标识（平台契约里是**必填**：如图中 `aliyun_oss`）——卡片名称的兜底就取自它。 */
@@ -445,6 +454,28 @@ export interface EnterpriseEscDraftPort {
 
 /** 下拉里那两项「走会话」的菜单项（口径 49）。 */
 export type EnterpriseEscDraftKind = 'find' | 'create'
+
+/**
+ * ★**本刀（Phase C D1：连接器广场）**：esc 连接器页「系统广场」那一格的**只读**数据端口。
+ *
+ * ★**为什么它是一枚独立端口、而不是 `EnterpriseEscApi` 上的第七个方法**：`esc-api.ts` 是**平台面**的
+ *   镜像——它的每一条都对应平台一个只读端点，浏览器可读表由宿主那张闭集裁决（口径 31 起"新增一条
+ *   `/api/...` 字面量"本身就是一件要被门禁咬住的事）。连接器广场走的是**本机同源脱敏投影**
+ *   （`local-api.ts` 那一族：`plugins`/`skills`/`presets` 同一条边界，宿主从零构造、配置面一个字都不出厂）
+ *   ⇒ 它**不进** `api`，与 `EnterpriseEscSkillPort` 走同一条注入范式。
+ * ★**只有只读一格、没有写入口，这不是"还没写"**：本刀（D1）**不做**启用/断开（那是 D2）——
+ *   故这一枚端口上**不存在**任何写方法，卡片那枚启用动作因此**恒禁用 + 行上可见原因**
+ *   （判据是"端口上有没有那枚写方法"，不是界面写死一个 `disabled`）。
+ * ★**它同时是"界面不碰平台 MCP 面"的结构性保证**：端口只交出 `EnterpriseConnectorCatalog`
+ *   （宿主脱敏后的 `{connectors,complete,spaces}`），界面拿不到 `mcpConfig`/`deployedConfig`/`url`
+ *   那类配置面——它们**在类型上就不可表达**（不是靠界面自觉不读）。
+ * ★`signal` 必填（与 `EnterpriseLocalApi.connectors` 同形）：取数源每次 `load`/`retry` 都带**新的**
+ *   `AbortSignal`，离开这一格 / 换维度即中止（迟到结果不回填，由 `createEnterpriseListSource` 保证）。
+ */
+export interface EnterpriseEscConnectorPort {
+  /** 读一次本机连接器广场（`GET /enterprise/api/v1/local/connectors`；失败**原样抛**，绝不回落空列表）。 */
+  readonly catalog: (signal: AbortSignal) => Promise<EnterpriseConnectorCatalog>
+}
 
 /**
  * ★**口径 49（降级）**：下拉里**这一项按不动**的可见原因（"禁用即须有说明"的唯一判据来源）。

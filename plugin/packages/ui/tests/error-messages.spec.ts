@@ -97,6 +97,14 @@ const REQUIRED_CODES = [
    * 失败落点（`EnterpriseEscSystemInstallFailure` = 唯一提示组件 + 稳定码）。
    */
   'ENT_SKILL_PUBLISHED_COPY_FORBIDDEN',
+  /**
+   * ★**本刀（Phase C D1：连接器广场）**：本机连接器广场那**一枚**稳定码（宿主
+   * `bundle/src/connector-plaza.ts` 的 `ENT_CONNECTOR_PLAZA_UNAVAILABLE`，→503）。
+   *
+   * 它与上面那枚本地三方码**同判**（这一次读失败、`retryable: true`，下一步是重试），
+   * 而与同族那几枚 `ENT_ESC_*_UNAVAILABLE`（部署事实、`retryable: false`）**刻意分开**。
+   */
+  'ENT_CONNECTOR_PLAZA_UNAVAILABLE',
   // 插件链
   'ENT_PLUGIN_DOWNLOAD_FAILED', 'ENT_PLUGIN_HASH_MISMATCH', 'ENT_PLUGIN_SIZE_MISMATCH', 'ENT_PLUGIN_ARTIFACT_INVALID',
   'ENT_PLUGIN_ARCHIVE_TOO_LARGE', 'ENT_PLUGIN_SIGNATURE_INVALID', 'ENT_PLUGIN_INCOMPATIBLE', 'ENT_PLUGIN_BUSY',

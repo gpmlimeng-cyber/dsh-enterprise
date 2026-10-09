@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 React 的 hook 原语、官方原语 `Button`、`esc-api` 的取数面、`esc-categories`/`esc-list` 两个数据 hook、
- *   `esc-card`/`esc-toolbar`/`esc-style`/`esc-third-party-list`/`esc-catalog-list` 的展示件、`esc-catalog` 的纯投影、
- *   `skill-market` 的**唯一**取数源工厂（口径 53 复用）与 `esc-copy` 的文案
+ *   `esc-card`/`esc-toolbar`/`esc-style`/`esc-third-party-list`/`esc-catalog-list`/`esc-connector-plaza` 的展示件、
+ *   `esc-catalog` 的纯投影、`skill-market` 的**唯一**取数源工厂（口径 53 复用）与 `esc-copy` 的文案
  * [OUTPUT]: 对外提供 `EnterpriseEscAggregation`——工具栏 + 卡片网格 + 触底加载 + 三态（骨架/失败/空）
  * [POS]: esc 页面的**内容区**，移植自 NUWAX `ResourceAggregation/index.tsx`（831 行）里**本刀范围内**的那部分。
  *   ★留下了什么：主 tab 与二级分类状态、搜索 400ms 防抖、团队空间维度的两种寻址（具体空间 `spaceId` / 「全部」
@@ -81,6 +81,13 @@
  *     交给**广场网格与精选行这两处**（同一个函数 ⇒ 不可能一处画得出、一处画不出）。
  *     成功以 Host 回执为准（卸载回执里的 `skills` 覆盖那份清单）+ **复用同一枚** `onInstalledRefresh`；
  *     自装清单读不到时不静默（出一句 `role="status"` 的降级交代）。
+ *   ★**本刀（Phase C D1：连接器广场）**：**连接器页「系统广场」那一格整段换掉**——判据是
+ *     `resourceType === 'connector' && source === 'system'`（维度与资源类型这一对，不是"列表为空"），
+ *     内容由新叶 `esc-connector-plaza.tsx` 铺：它自带那台**唯一**的四态取数源
+ *     （`createEnterpriseListSource`，端口是新增的 `connectorPort`，只有只读一格）
+ *     ⇒ 本层**不新造取数器、不加路由、不碰平台那条目录面**，只把端口与已防抖的搜索词原样交下去。
+ *     ★**连接器页另外两格（团队空间 / 已连接的）一字未动**：它们仍走共享列表那一支（本刀非目标）；
+ *     那一格的二级分类胶囊也随数据面一起退场（`esc-categories.ts` 里同一条短路，见那一处推理）。
  *   ★**本刀（S5b：技能卡那枚「去试试」真的能用）**：本层再多**三件状态**（在途那一枚技能名 / 失败那一枚 +
  *     稳定码 / 刚办成那一句）与**一个计划工厂** `tryOf`（纯投影 `enterpriseEscSkillTryPlan`，见 `esc-skill-try.ts`）：
  *     它把「这一枚能不能试 / 为什么不能试 / 在途写什么」交给**广场网格与精选行这两处**（同一个函数）。
@@ -110,6 +117,7 @@ import { createEnterpriseThirdPartyInstaller } from './esc-third-party-install.j
 import { enterpriseThirdPartyInstalledText, enterpriseThirdPartySubChips } from './esc-third-party.js'
 import { EnterpriseEscCatalog } from './esc-catalog-list.js'
 import { enterpriseCatalogSubChips } from './esc-catalog.js'
+import { EnterpriseEscConnectorPlaza } from './esc-connector-plaza.js'
 import { EnterpriseEscSystemInstallFailure } from './esc-system-list.js'
 import {
   ENTERPRISE_ESC_SYSTEM_INSTALL_TIMEOUT_MS,
@@ -143,6 +151,7 @@ import { useEnterpriseSkillImportQueue } from '../skill-import-port.js'
 import { createEnterpriseSkillListSource, type EnterpriseSkillListPayload } from '../skill-market.js'
 import type {
   EnterpriseEscAddSkillLock,
+  EnterpriseEscConnectorPort,
   EnterpriseEscDraftKind,
   EnterpriseEscDraftPort,
   EnterpriseEscSkillPort,
@@ -281,12 +290,24 @@ export interface EnterpriseEscAggregationProps {
    *   真实现在 `preset-launch.ts`，由 `client.tsx` 用同一个 `createEnterprisePresetLauncher` 建。
    */
   readonly draftPort?: EnterpriseEscDraftPort | undefined
+  /**
+   * ★**本刀（Phase C D1：连接器广场）**：本机连接器广场的**只读**端口（`client.tsx` 接在**同一枚**
+   *   `createEnterpriseLocalApi()` 实例上）。
+   *
+   * ★为什么它是**第三枚端口**而不是 `api` 上的第七个方法：`api` 那一面是**平台镜像**（宿主侧那张
+   *   浏览器可读闭集只放平台的只读端点），而连接器广场走的是**本机同源脱敏投影** —— 与
+   *   `skillPort`/`draftPort` 同一条注入范式（判据是"端口在不在场"）。
+   * ★**只有只读一格、没有写方法**：本刀（D1）不做启用/断开（D2），故卡片上那枚启用动作
+   *   **恒禁用 + 行上可见原因**（"端口上有没有写方法"是类型层的事实，不是界面写死一个 `disabled`）。
+   * ★缺席 ⇒ 那一格出一句可见交代（绝不画成"企业一台连接器都没有"）。
+   */
+  readonly connectorPort?: EnterpriseEscConnectorPort | undefined
 }
 
 /** 工具栏下方那句如实说明（本页新增，不是原文的一部分）。 */
 
 /** 资源聚合内容区。 */
-export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChange, skillPort, onOpenInstalled, onOpenMyExperts, draftPort }: EnterpriseEscAggregationProps): ReactNode {
+export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChange, skillPort, onOpenInstalled, onOpenMyExperts, draftPort, connectorPort }: EnterpriseEscAggregationProps): ReactNode {
   // 主 tab：系统广场/团队空间（连接器另有"已连接的"、技能另有"我启用的"）
   const [source, setSource] = useState<ResourceSourceEnum>('system')
   // 二级分类 key（空串=全部；团队维度下它承载空间 id）
@@ -1090,16 +1111,33 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
           prefix: draftFailureLabel,
         }),
     /**
-     * ★**口径 62**：「本地三方」维度下，右侧这三态（登录门 / 首屏加载 / 卡片网格-空态-失败行）
-     * **整段不渲染** —— 这一维度的内容由下面那一支 `EnterpriseEscThirdParty` 铺。
+     * ★**本刀（Phase C D1：连接器广场）**：「系统广场」这一格（连接器页的默认维度）**整段**换成
+     *   连接器广场那一支 —— 判据是**维度与资源类型这一对**（`resourceType === 'connector' && source === 'system'`），
+     *   不是"列表为空"（按后果判会让将来任何一个空列表都掉进这一支）。
      *
-     * ★为什么必须**整段**换掉而不是"叠在上面"：本维度**没有**平台列表可取（适配器表里没有它那一支
-     *   ⇒ `list` 恒空、`loading` 恒假、`error` 恒缺席），若照旧往下走一趟，页面上会出现
-     *   `EmptyBlock`（「暂无数据」）——那正是口径 62 明令禁止的"空又不加载又无错误"的空白态。
-     * ★判据取 `source === 'third-party'`（**不是**"列表为空"）：维度是唯一的事实，
-     *   列表空只是它的后果；按后果判会让将来任何一个空列表维度都掉进这一支。
+     * ★**为什么必须整段换掉而不是"叠在上面"**（与企业技能 / 本地三方那两支逐条同因）：这一格的数据面
+     *   不是平台目录 —— 平台那条连接器目录路由在这台部署上根本没有这个端点（回 `No static resource …`），
+     *   故共享列表支（`useEnterpriseEscResourceList`）在这一格**恒空**；
+     *   照旧往下走一趟就只剩一个 `EmptyBlock`（"暂无数据"）——那正是本仓明令禁止的"空又不加载又无错误"。
+     * ★**连接器页另外两格（团队空间 / 已连接的）一字未动**：它们仍走平台那条目录面（本刀非目标）。
      */
-    source === 'third-party'
+    resourceType === 'connector' && source === 'system'
+      ? createElement(EnterpriseEscConnectorPlaza, {
+          // 端口缺席 ⇒ 广场自己出一句可见交代（判据是端口在不在场，不是界面写死 disabled）。
+          ...(connectorPort === undefined ? {} : { port: connectorPort }),
+          keyword,
+        })
+      /**
+       * ★**口径 62**：「本地三方」维度下，右侧这三态（登录门 / 首屏加载 / 卡片网格-空态-失败行）
+       * **整段不渲染** —— 这一维度的内容由下面那一支 `EnterpriseEscThirdParty` 铺。
+       *
+       * ★为什么必须**整段**换掉而不是"叠在上面"：本维度**没有**平台列表可取（适配器表里没有它那一支
+       *   ⇒ `list` 恒空、`loading` 恒假、`error` 恒缺席），若照旧往下走一趟，页面上会出现
+       *   `EmptyBlock`（「暂无数据」）——那正是口径 62 明令禁止的"空又不加载又无错误"的空白态。
+       * ★判据取 `source === 'third-party'`（**不是**"列表为空"）：维度是唯一的事实，
+       *   列表空只是它的后果；按后果判会让将来任何一个空列表维度都掉进这一支。
+       */
+      : source === 'third-party'
       ? createElement(EnterpriseEscThirdParty, {
           // ★真值与过滤都在**上面那一层**（chip 行住在工具栏，必须与候选列表同源）。
           state: thirdPartyState,
@@ -1462,8 +1500,8 @@ function ErrorRow({
     'div',
     { className: 'esc-state' },
     createElement('div', { className: 'esc-state-title esc-state-error', children: enterpriseErrorMessage(code) }),
-    /* ★平台那句**自由文本不再直接上屏**。真机截图里那行英文原话（`No static resource
-       api/connector/providers.` 之类）被人直接读到了——那是**上游的实现细节**，不是给用户看的话，
+    /* ★平台那句**自由文本不再直接上屏**。真机截图里那行英文原话（`No static resource …` 之类）
+       被人直接读到了——那是**上游的实现细节**，不是给用户看的话，
        而且它其实在说「NUWAX 那边没有这个端点」，用户读不出下一步该做什么。
        **保留**的是那一枚稳定码（`4040` 这类）：它可检索、能定位，且不含任何实现细节。
        这一条纪律与全仓 `no-silent-swallow` 那条一致——**说出来，但只说人话 + 稳定码**。 */

@@ -10,6 +10,11 @@
  *   ★**口径 62/53**：`'third-party'`（本地三方）与 `'catalog'`（企业技能）两枚维度的二级行都是
  *   **数据驱动**的（各自从**自己的响应**里投影），故这两维度下**一条分类请求都不发**、也不置
  *   `unavailable`（那会指向一个不存在的筛选器）。
+ *   ★**本刀（Phase C D1：连接器广场）**：连接器页「系统广场」那一格（`resourceType === 'connector'
+ *     && source === 'system'`）**同判**——它的数据面是宿主那条脱敏投影（`GET …/local/connectors`），
+ *     里面**没有 `category` 这一格**，而平台那棵分类树的 `Connector` 根与它是两套取值域
+ *     ⇒ 这一格不请求分类字典、`categories` 恒为**空数组**（整排胶囊不画）。
+ *     连接器页另外两格（团队空间 / 已连接的）**一字未动**。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -102,6 +107,24 @@ export function useEnterpriseEscCategories(
       setUnavailable(false)
       return () => { active = false }
     }
+    /**
+     * ★**本刀（Phase C D1：连接器广场）**：连接器页「系统广场」那一格**同样不用后端分类字典** ——
+     *   它的数据面是宿主那条**脱敏投影**（`GET …/local/connectors`：`{connectors,complete,spaces}`），
+     *   投影里**没有 `category` 这一格**，而平台那棵分类树
+     *   （`POST /api/published/category/list` 的 `Connector` 根）与它是**两套毫不相干的取值域**
+     *   ⇒ 这一格下**一条分类请求都不发**。
+     *
+     * ★判据与上面两支**逐条同因**：那一趟请求的**唯一**消费者就是后端分类那一支胶囊；
+     *   为一行不画的东西去打一次平台请求，是本仓反复否掉的"白干活"；同理也不置 `unavailable`
+     *   —— 分类字典读不到与这一格无关，举一个"分类读不到"的提示会指向一个不存在的筛选器。
+     * ★返回**空数组**（工具栏那一侧按 `categories.length > 0` 分流 ⇒ 整排胶囊不画）。
+     * ★**只这一格**：连接器页另外两格（团队空间 = 空间胶囊、已连接的）**一字未动**。
+     */
+    if (resourceType === 'connector' && source === 'system') {
+      setItems([])
+      setUnavailable(false)
+      return () => { active = false }
+    }
     setUnavailable(false)
     const rootType =
       source === 'team'
@@ -143,9 +166,15 @@ export function useEnterpriseEscCategories(
   }, [api, key, resourceType, source])
 
   const categories = useMemo<readonly ResourceCategoryInfo[]>(
-    // ★口径 62/53：这两枚维度恒空（见上面两段短路：一条请求都不发、也没有任何分类可言）。
-    () => source === 'third-party' || source === 'catalog' ? [] : [ALL_TAB, ...items],
-    [items, source],
+    /**
+     * ★口径 62/53：这两枚维度恒空（见上面两段短路：一条请求都不发、也没有任何分类可言）。
+     * ★**本刀（Phase C D1）**：连接器页「系统广场」那一格同判（它的二级行来自脱敏投影本身，
+     *   而那份投影里没有 `category`）—— 判据与上面两支写在同一个 `useMemo` 里，不可能一处改、一处漏。
+     */
+    () => source === 'third-party' || source === 'catalog' || (resourceType === 'connector' && source === 'system')
+      ? []
+      : [ALL_TAB, ...items],
+    [items, source, resourceType],
   )
   return { categories, unavailable }
 }

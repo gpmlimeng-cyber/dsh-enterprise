@@ -27,6 +27,11 @@
  *     ⇒ 全仓 `openWorkspace` / `setDraft` 的调用点仍然**只有 `preset-launch.ts` 一处**。
  *     每次点击现场 `ctx.get` 重读官方四件结构面（服务晚挂载也照常可用），缺环即 `false`
  *     （界面出 `ENT_SKILL_TRY_LAUNCH_FAILED` 的人话 + 下一步，**绝不自己发 HTTP、绝不自己造会话**）。
+ *   ★**本刀（Phase C D1：连接器广场）**：同一处接线再多**第三枚端口** `connectorPort`（只有只读一格
+ *     `catalog`）——连接器页「系统广场」那一格的数据面，**复用** `escSkillApi` 这一枚实例上的
+ *     `connectors`（`local-api.ts` 唯一那条 `GET …/local/connectors`；宿主半边是
+ *     `bundle/src/connector-plaza.ts` 的脱敏投影）。本刀**没有**任何写方法（启用/断开是 D2）
+ *     ⇒ 卡片那枚启用动作恒禁用 + 行上可见原因；界面一个字节都没新写路由/解码器/fetch。
  */
 
 import type { ReactNode } from 'react'
@@ -424,7 +429,18 @@ export function apply(ctx: SlotContextPort): void {
      *   `ENT_SKILL_TRY_LAUNCH_FAILED` 的人话 + 下一步，**绝不静默**。
      */
     fillSkillTryDraft: draft => escDraftLaunch(draft),
-  }, escDraftPort)
+  }, escDraftPort, {
+    /**
+     * ★**本刀（Phase C D1：连接器广场）**：连接器页「系统广场」那一格的**只读**数据面
+     * —— 与上面那几格**并列**、用**同一枚实例**（`escSkillApi` = `createEnterpriseLocalApi()`）、同一处接线。
+     *
+     * ★**它复用哪一枚实现**：`local-api.ts` 那条 exact 路由 `GET …/local/connectors`
+     *   （宿主半边是 `bundle/src/connector-plaza.ts`：逐空间取平台 MCP 目录后**从零构造**脱敏投影，
+     *   配置面 `mcpConfig`/`deployedConfig` 一个字都不出厂）。界面一个字节都没新写路由、新写解码器、新造 fetch。
+     * ★**为什么这里只有只读一格**：本刀（D1）不做启用/断开（D2）⇒ 卡片那枚启用动作**恒禁用 + 行上可见原因**。
+     */
+    catalog: signal => escSkillApi.connectors(signal),
+  })
   /**
    * **资料库 P1-A：把资料加入当前对话**（口径 23，本刀）。
    *
