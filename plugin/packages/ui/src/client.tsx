@@ -298,6 +298,10 @@ export function apply(ctx: SlotContextPort): void {
    *
    * 取数面只打同源本机路由 `POST /enterprise/api/v1/local/esc/read`：平台路径由**宿主**的只读闭集裁决
    * （浏览器这边拼不出平台 URL、也拿不到票据），平台信封原样回给页面。
+   *
+   * ★**口径 49**：这一页的 `main` 座位还要再带一枚 `draftPort`——技能页主按钮下拉里
+   * 「查找技能 / 创建技能」那两项"跳新会话 + 预填、不发送"的实现面（**同一个**
+   * `createEnterprisePresetLauncher(...)`，见下面那段）。
    */
   const escApi = createEnterpriseEscApi((input, init) => fetch(input, init))
   /**
@@ -308,11 +312,29 @@ export function apply(ctx: SlotContextPort): void {
    * ★它**不进** `escApi`：那一面是结构性只读的（宿主那张闭集恰好六条读端点），写入口走独立端口。
    */
   const escSkillApi = createEnterpriseLocalApi()
+  /**
+   * ★**口径 49**：技能页主按钮下拉里「查找技能 / 创建技能」那两项的**实现面**。
+   *
+   * **复用**配方降级链第二级那枚端口（同一个 `createEnterprisePresetLauncher`，与上面
+   * `plugins.item` 的 `presetLaunch` 是**同一个构造器**）：它做的事就是"跳到一个空白/新会话 +
+   * 官方 `conversation.input.shell(id).actions.setDraft(text)` 预填"，**不发送**。
+   * 本页不新造第二套开会话机制，也不在这里认识任何官方类型 —— 四件官方结构面按需现读
+   * （服务可能晚于本插件挂载；缺一环就整条不可用，`launch` 返回 false ⇒ 界面出
+   * `ENT_ESC_DRAFT_UNAVAILABLE` 的人话 + 下一步，绝不静默）。
+   */
+  const escDraftPort = {
+    launch: createEnterprisePresetLauncher(() => enterprisePresetSessionPortsFrom({
+      uiWorkspace: ctx.get('uiWorkspace'),
+      workspaces: ctx.get('workspaces'),
+      sessions: ctx.get('sessions'),
+      conversation: ctx.get('conversation'),
+    })),
+  }
   bindEnterpriseEscSeats(ctx.slots, escApi, {
     uploadSkill: (file, signal) => escSkillApi.uploadSkill(file, signal),
     selfInstalledSkills: signal => escSkillApi.selfInstalledSkills(signal),
     uninstallSkill: (packageId, signal) => escSkillApi.uninstallSkill(packageId, signal),
-  })
+  }, escDraftPort)
   /**
    * **资料库 P1-A：把资料加入当前对话**（口径 23，本刀）。
    *

@@ -40,6 +40,14 @@ const REQUIRED_CODES = [
   'ENT_SKILL_DISCOVERY_UNKNOWN', 'ENT_SKILL_ALREADY_REGISTERED', 'ENT_SKILL_ADOPT_FAILED',
   // **本刀（通过 Agent 创建）**：那两项本机动作码（开新会话失败 / 复制草稿失败）。
   'ENT_SKILL_CREATE_LAUNCH_FAILED', 'ENT_SKILL_CREATE_COPY_FAILED',
+  /**
+   * ★**口径 49**：esc 技能页主按钮下拉里「查找技能 / 创建技能」预填失败那一枚。
+   *
+   * 它是**本机动作**（跳新会话 + `setDraft`），与"平台目录"无关，故**不属于** esc 那三枚
+   * 「这一版部署没有这个端点」族（那三枚下一步是找管理员、`retryable: false`）；
+   * 这一枚的下一步是"自己新建会话把这句话贴进去"，人话与下一步都必须与那三枚不同。
+   */
+  'ENT_ESC_DRAFT_UNAVAILABLE',
   // **本刀（在线搜索 → 安装）**：三枚在线来源码。
   'ENT_SKILL_SOURCE_UNKNOWN', 'ENT_SKILL_SOURCE_UNREACHABLE', 'ENT_SKILL_SOURCE_TOO_LARGE',
   // 插件链

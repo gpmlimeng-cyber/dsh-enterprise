@@ -14,6 +14,10 @@
  *   （`ResourceCard/index.tsx:173` 的 `{connectStatusOn ? '已连接' : '未连接'}`）；这两个串在 i18n 表里
  *   另有归属键（如 `PC.Components.VncPreview.connected`），但**本页不使用它们**——照抄原页面的做法。
  *   ★只放**本刀真用得上**的：付费订阅、收藏、连接器接入等动作本刀不做，故只留它们在卡片上的展示位文案。
+ *   ★**口径 49**：`searchPlaceholder`（搜索名称或描述...）被 `searchPlaceholder{Expert,Skill,Connector}`
+ *   三枚**替换**（WorkBuddy 实机 i18n 原文；旧格已整枚删除，不留第二真源）；新增技能页下拉三项文案
+ *   `addSkill{Find,Upload,Create}` 与两句预填提示词 `skillFindPrompt`/`skillCreatePrompt`
+ *   （逐字取自 `analysis/workbuddy-add-skill-research.md` §1/§2）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -44,8 +48,19 @@ export const ENTERPRISE_ESC_COPY = {
   mainTabEnabled: '我启用的',
   /** 二级分类首位页签。 */
   tabAll: '全部',
-  /** 搜索框占位与「更多」。 */
-  searchPlaceholder: '搜索名称或描述...',
+  /**
+   * ★**口径 49**：搜索框占位**随页变**——三枚逐字取自 WorkBuddy 实机的 i18n 摘录
+   * （`skills.search.placeholder` = 搜索技能 / 同族的专家与连接器那两枚）。
+   *
+   * ★这里**刻意不留**旧那枚 `searchPlaceholder: '搜索名称或描述...'`：它是被这三枚**替换**的，
+   *   留着就是一个"看起来还能用"的第二真源（下一个人会问"到底哪一枚生效"）。
+   *   旧值只活在 git 历史与 `tests/esc.spec.ts` 那条**反向锁**里（"旧文案不许回来"）。
+   * ★三枚**互不相同**由门禁逐字锁住 —— 它们各自只说这一页那一种资源，比笼统的"名称或描述"更能告诉
+   *   员工"这个框在搜什么"。
+   */
+  searchPlaceholderExpert: '搜索专家',
+  searchPlaceholderSkill: '搜索技能',
+  searchPlaceholderConnector: '搜索连接器',
   more: '更多',
   /** 专家卡片主按钮 / 技能卡片主按钮。 */
   summon: '召唤',
@@ -83,6 +98,19 @@ export const ENTERPRISE_ESC_COPY = {
   installedFilter: '已安装',
   /** 顶栏右块：添加技能（动作本刀不接线）。 */
   addSkill: '添加技能',
+  /**
+   * ★**口径 49**：技能页主按钮下拉里的三项（逐字取自 WorkBuddy 实机的 `skills.*.button`，
+   *   见 `analysis/workbuddy-add-skill-research.md` §1 的代码原文）。
+   *
+   * ★**为什么只有技能页有这三项**：WorkBuddy 自己在三页是三种不同交互——技能页是下拉、
+   *   专家页「我的专家」进**子页**、连接器页「自定义连接器」开 **MCP 弹窗**（研究文件 §3 已证）。
+   *   后两者都要新做页面/弹窗与数据面，**本刀只对齐尺寸与形态、文案暂不改**
+   *   （用户裁决：等"我的专家"子页与 MCP 弹窗排期再改名）—— 所以专家页/连接器页那两枚
+   *   仍写「添加技能」、动作仍是本地导入。
+   */
+  addSkillFind: '查找技能',
+  addSkillUpload: '上传技能',
+  addSkillCreate: '创建技能',
   /** 卡片：未安装时那枚「+」的无障碍名。 */
   installSkill: '安装',
   /** 卡片：已安装时的「更多」下拉触发钮。 */
@@ -140,6 +168,31 @@ export const ENTERPRISE_ESC_LOCAL_COPY = {
    * 显示一个 `-` 而不是编一个数：`-` 如实说「这里本该有数字、现在没有」，0 会被读成「装过 0 次」。
    */
   statUnavailable: '-',
+
+  /* ══════════════ 口径 49（技能页主按钮：三项下拉 + 尺寸/形态对齐）══════════════ */
+
+  /**
+   * 下拉里「查找技能 / 创建技能」**预填进新会话输入框**的那两句提示词——逐字取自 WorkBuddy 实机
+   * （`skills.find.examplePrompt` = 请帮我查找并自动安装能「……」的 skill，
+   *   `skills.create.examplePrompt` = 请帮我创建一个可以实现「……」的 skill）。
+   *
+   * ★**为什么留「……」**：那是给员工补的空。WorkBuddy 原话就是这样，预填后由员工把「……」改成
+   *   自己真正要的东西再按发送；我们**不**替他编一个具体内容（也**不**发送，见
+   *   `preset-launch.ts` 的口径：只 `setDraft`，输入框里那句要用户自己按发送）。
+   * ★**为什么放在文案表而不在 `esc-toolbar.tsx` 里拼**：这两句是**产品文案**，与页面其余每一句同源；
+   *   拼在组件里就成了"代码里的字符串字面量"，与本仓"文案真源只有一处"的口径不符。
+   */
+  skillFindPrompt: '请帮我查找并自动安装能「……」的 skill',
+  /** 见上一格（WorkBuddy `skills.create.examplePrompt` 逐字）。 */
+  skillCreatePrompt: '请帮我创建一个可以实现「……」的 skill',
+  /**
+   * 预填通路**这次没走成**时，下拉里那两项的悬浮说明（可见原因，绝不画一枚点了没反应/静默失败的菜单项）。
+   *
+   * 与 `actionNotPorted` 分开是因为**下一步不同**：整条写入口缺席是"本页还没接上"，
+   * 而这里是"接上了、但这次没把话填进去"——真实原因落在唯一提示组件 + 稳定码
+   * `ENT_ESC_DRAFT_UNAVAILABLE` 上（人话 + 下一步 + 码，走 `error-messages.ts` 那张唯一码表）。
+   */
+  draftUnavailable: '暂时无法把这句话填进新会话',
 
   /* ══════════════ 口径 46/47（本机技能：本地导入 + 已安装页）══════════════ */
 

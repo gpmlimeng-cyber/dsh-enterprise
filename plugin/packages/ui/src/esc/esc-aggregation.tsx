@@ -30,6 +30,11 @@
  *   广场那张卡，已装分流必须同源，否则同一条技能在上面写「+」、下面写「更多 + 去试试」。
  *   ★**口径 46/47**：新增 `skillPort`（本机技能写入口）与 `onOpenInstalled`；本地导入走**与商城页同一枚**
  *   `useEnterpriseSkillImport`，隐藏选择器与三态反馈挂在工具栏下方一格（触发钮在哪棵树，落点就在哪棵树）。
+ *   ★**口径 49（本刀）**：新增 `draftPort`（技能页下拉里「查找技能 / 创建技能」的实现面）——
+ *   本层持那枚下拉的**开合态**与**预填失败态**（工具栏是纯投影、不持 hook），失败走唯一提示组件 +
+ *   稳定码 `ENT_ESC_DRAFT_UNAVAILABLE`（人话 + 下一步在唯一码表里）；两项的调用**只有** `draftPort.launch`
+ *   这一个出口，它内部就是 `preset-launch.ts` 的"跳新会话 + setDraft、**不发送**"——本层没有第二个开会话端口，
+ *   也没有任何发送出口（门禁源码级反向锁）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -41,12 +46,22 @@ import { EnterpriseEscCard } from './esc-card.js'
 import { useEnterpriseEscCategories } from './esc-categories.js'
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from './esc-copy.js'
 import { useEnterpriseEscResourceList } from './esc-list.js'
-import { enterpriseErrorMessage, enterpriseErrorRetryable } from '../error-messages.js'
+import { ENTERPRISE_ESC_DRAFT_FAILED_CODE, enterpriseErrorMessage, enterpriseErrorRetryable } from '../error-messages.js'
+import { EnterpriseErrorNotice } from '../error-notice.js'
 import { EnterpriseEscFeatured } from './esc-featured.js'
 import { EnterpriseEscResourceTabs } from './esc-resource-tabs.js'
 import { EnterpriseEscToolbar } from './esc-toolbar.js'
 import { EnterpriseSkillImportChrome, useEnterpriseSkillImport } from '../skill-import-port.js'
-import type { EnterpriseEscSkillPort, ResourceSourceEnum, ResourceTypeEnum } from './esc-types.js'
+import type {
+  EnterpriseEscAddSkillLock,
+  EnterpriseEscDraftKind,
+  EnterpriseEscDraftPort,
+  EnterpriseEscSkillPort,
+  ResourceSourceEnum,
+  ResourceTypeEnum,
+} from './esc-types.js'
+
+
 
 /** 触底判据的提前量：距底 80px 就拉下一页（原 `InfiniteScroll` 的默认手感）。 */
 const SCROLL_THRESHOLD_PX = 80
@@ -132,12 +147,21 @@ export interface EnterpriseEscAggregationProps {
   readonly skillPort?: EnterpriseEscSkillPort | undefined
   /** ★口径 47：「已安装」那枚的入口（由页壳切视图；缺席即置灰写明原因）。 */
   readonly onOpenInstalled?: (() => void) | undefined
+  /**
+   * ★**口径 49**：技能页主按钮下拉里「查找技能 / 创建技能」那两项的**实现面**
+   * （跳新会话 + 把提示词预填进输入框、**不发送**）。
+   *
+   * 缺席 ⇒ 那两项置灰 + 写明原因（`esc-toolbar` 那一侧按"端口在不在场"判，不写死 disabled）。
+   * ★它**不进** `api`（那一面是结构性只读的），也**不是**第二套开会话机制——
+   *   真实现在 `preset-launch.ts`，由 `client.tsx` 用同一个 `createEnterprisePresetLauncher` 建。
+   */
+  readonly draftPort?: EnterpriseEscDraftPort | undefined
 }
 
 /** 工具栏下方那句如实说明（本页新增，不是原文的一部分）。 */
 
 /** 资源聚合内容区。 */
-export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChange, skillPort, onOpenInstalled }: EnterpriseEscAggregationProps): ReactNode {
+export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChange, skillPort, onOpenInstalled, draftPort }: EnterpriseEscAggregationProps): ReactNode {
   // 主 tab：系统广场/团队空间（连接器另有"已连接的"、技能另有"我启用的"）
   const [source, setSource] = useState<ResourceSourceEnum>('system')
   // 二级分类 key（空串=全部；团队维度下它承载空间 id）
@@ -364,6 +388,47 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
     onInstalled: () => setInstalledRefreshToken(token => token + 1),
   })
 
+  /**
+   * ★**口径 49**：技能页那枚主按钮下拉的**开合态**与**预填失败态**。
+   *
+   * 为什么这两件事住在这里而不是工具栏里：`esc-toolbar.tsx` 是**纯投影**（不持 hook、可直调，
+   * 既有那一批结构锁正是靠这一点才成立）；开合是交互状态、预填是异步动作，两者都需要 hook
+   * ⇒ 落在这一层，由它把「哪一项、什么状态」当 props 交上去。这也是"失败要可见"的落点：
+   * 唯一提示组件（`EnterpriseErrorNotice`）挂在本层，人话 + 下一步 + 稳定码都走 `error-messages.ts`
+   * 那张唯一码表 —— **绝不静默失败**。
+   */
+  const [addSkillMenuOpen, setAddSkillMenuOpen] = useState(false)
+  const [draftFailure, setDraftFailure] = useState<EnterpriseEscDraftKind | undefined>(undefined)
+  /**
+   * 走会话的那两项：把**已经写好的那句提示词**交给 `preset-launch.ts` 那条唯一实现
+   * （跳新会话 + `setDraft` 预填、**不发送**）。
+   *
+   * 三条诚实边界：
+   *   ① 端口缺席或这次没走成（`false` / reject）⇒ 记下是哪一项，由下面那枚提示件说出来；
+   *   ② 成功**什么都不做**：官方会把主视图切到那个新会话，草稿躺在输入框里等用户按发送——
+   *      那才是这件事的反馈（与商城页"通过 Agent 创建"那条同判，见 `marketplace-entry.tsx`）；
+   *   ③ 这条路径**一个发送出口都没有**：`launch` 是唯一的调用，它的实现在 `preset-launch.ts` 里
+   *      只调官方 `setDraft`（门禁有一条源码级反向锁盯住这一点）。
+   */
+  const runDraftWithAgent = useCallback((kind: EnterpriseEscDraftKind): void => {
+    const prompt = kind === 'find' ? ENTERPRISE_ESC_LOCAL_COPY.skillFindPrompt : ENTERPRISE_ESC_LOCAL_COPY.skillCreatePrompt
+    setDraftFailure(undefined)
+    if (draftPort === undefined) {
+      // 端口缺席 = 这一级不可用（菜单项已置灰 + 写明原因，正常路径点不到这里）。
+      setDraftFailure(kind)
+      return
+    }
+    void draftPort.launch(prompt).then(
+      (ok) => { if (!ok) setDraftFailure(kind) },
+      // 端口抛错与返回 false 同一条收束（都是"这一级没走成"），绝不静默。
+      () => { setDraftFailure(kind) },
+    )
+  }, [draftPort])
+  /** 按下的那一项渲染成提示件的**动作前缀**（说清是「查找技能」还是「创建技能」没成）。 */
+  const draftFailureLabel = draftFailure === undefined
+    ? undefined
+    : draftFailure === 'find' ? ENTERPRISE_ESC_COPY.addSkillFind : ENTERPRISE_ESC_COPY.addSkillCreate
+
   return createElement(
     'div',
     // ★本刀（用户裁决「移动端不要冻结、支持全屏滚动」）：内容区自己也是**滚动面**——
@@ -418,6 +483,25 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
       onAddSkill: skillImportPort?.onOpen,
       // ★口径 47：那枚「已安装」的入口（切视图由页壳做）。
       onOpenInstalled,
+      // ★口径 49：技能页那枚主按钮变成一个三项下拉——下面三件就是它的输入：
+      //   ① 开合态与开合动作（本层持有，工具栏是纯投影）；
+      //   ② 两项走会话的动作（各调各的、都由同一个 `runDraftWithAgent` 分派）；
+      //   ③ 失败上报（真实失败原因落在下面那枚唯一提示件 + 稳定码上）。
+      //   ★这三件**只在技能页给**：WorkBuddy 的专家页/连接器页那两枚根本不是下拉（进子页 / 开 MCP 弹窗），
+      //     本刀按用户裁决只对齐那两页的尺寸与形态。工具栏那一侧也自带同一道闸（双保险，不是两份判据）：
+      //     它只认 `resourceType === 'skill'`，其余页即便拿到这枚配置也不建 Menu。
+      ...(resourceType !== 'skill' ? {} : {
+        addSkillMenu: {
+          open: addSkillMenuOpen,
+          onClose: () => setAddSkillMenuOpen(false),
+          onToggle: () => setAddSkillMenuOpen(open => !open),
+        },
+        onFindSkill: () => runDraftWithAgent('find'),
+        onCreateSkill: () => runDraftWithAgent('create'),
+        // 上报与"直接点那一项"走**同一枚**执行器（不是第二条通路），只是入口不同：
+        // 前者给"键盘/程序触发到一枚 disabled 项"兜底，后者是菜单项自己的 onSelect。
+        onSkillDraftFailure: (kind: EnterpriseEscDraftKind) => runDraftWithAgent(kind),
+      }),
     }),
     // ★口径 46：本地导入那枚**恒不可见**的文件选择器 + 它的三态反馈（挂在工具栏下方一格）。
     //   与商城页那三处落点同一条纪律：**触发钮在哪个视图里，落点就得在哪个视图里**——少挂一处
@@ -427,6 +511,20 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
       noteClassName: 'esc-toolbar-note',
       errorClassName: 'esc-import-error',
     }),
+    /**
+     * ★**口径 49**：下拉里「查找技能 / 创建技能」**没把话填进新会话**时的可见交代。
+     *
+     * 走**唯一**提示组件（人话 + 下一步 + 收进「技术信息」的稳定码 `ENT_ESC_DRAFT_UNAVAILABLE`），
+     * `prefix` 说清是哪一项（查找技能 / 创建技能）没成 —— 不静默、也不把裸码砸在员工脸上。
+     * 落点复用本页既有那枚错误类名 `esc-import-error`（与本地导入失败同一个视觉层，不新造样式）。
+     */
+    draftFailure === undefined
+      ? null
+      : createElement(EnterpriseErrorNotice, {
+          className: 'esc-import-error',
+          code: ENTERPRISE_ESC_DRAFT_FAILED_CODE,
+          prefix: draftFailureLabel,
+        }),
     signedOut === true
       ? createElement(
           'div',

@@ -8,6 +8,8 @@
  *   因为本包已有自己的 `Page`/`RequestResponse` 语境，撞名会让读者以为两者同源。
  *   ★`mapPublishedStats` 三格（人/会话/收藏）与原文件同序同义，但**如实收了一处**（口径 42）：
  *    平台没回的字段**不入列**（原文件写 `?? 0`，把"没回"与"回了 0"压成同一个数，见函数上方那段）。
+ *   ★**口径 49**：写入口族多两型——`EnterpriseEscDraftPort`（技能页下拉那两项"预填进新会话"的实现面）
+ *    与 `EnterpriseEscAddSkillLock`（下拉里哪一项按不动、为什么）。两者都**不进** `EnterpriseEscApi`。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -256,3 +258,41 @@ export interface EnterpriseEscSkillPort {
   readonly selfInstalledSkills: (signal: AbortSignal) => Promise<readonly EnterpriseSelfInstalledSkill[]>
   readonly uninstallSkill: (packageId: string, signal: AbortSignal) => Promise<readonly EnterpriseInstalledSkill[]>
 }
+
+/**
+ * ★**口径 49**：技能页下拉里「查找技能 / 创建技能」用的**草稿端口**（把一句话预填进新会话输入框）。
+ *
+ * ★ 与 `EnterpriseEscSkillPort` **分开成两枚端口**，不是懒：两件事的**失败面对应的下一步不同**——
+ *   本机技能写入口走同源本机路由（`/skills/*`），草稿端口走的是**官方会话服务**（`uiWorkspace` +
+ *   `conversation`），缺的环不同、能做的补救也不同；混成一枚之后"哪半边缺席"就说不清了。
+ * ★ 它也**不进** `EnterpriseEscApi`：那一面是**结构性只读**的（宿主侧那张闭集恰好六条读端点），
+ *   而这里要做的是"打开一个会话 + 写它的输入框"——是**动作**，不是取数。
+ * ★ **复用而不新造**：形状上与 `preset-launch.ts` 的 `EnterprisePresetLaunchPort` 同一条口径
+ *   （`true` = 已打开空白/新会话并确实把文本交给了官方写入口，**不发送**），实现也**就是它**——
+ *   `esc-entry.tsx` 的接线把同一个 `createEnterprisePresetLauncher(...)` 包一层按 kind 取文案。
+ *   于是"跳新会话 + setDraft"这条机制在本仓仍然**只有一处实现**（`preset-launch.ts`），
+ *   本页不会长出第二套开会话/写草稿的代码。
+ */
+export interface EnterpriseEscDraftPort {
+  /**
+   * 预填一句话进新会话输入框（**不发送**）。
+   *
+   * `true` = 已经打开（复用空白或新建的）会话、并确实调到了官方那枚写入口；
+   * `false` / reject = 这一级没走成 ⇒ 界面必须**说出来**（人话 + 下一步 + `ENT_ESC_DRAFT_UNAVAILABLE`），
+   * **绝不静默失败**、也绝不假装成功。
+   */
+  readonly launch: (instruction: string) => Promise<boolean>
+}
+
+/** 下拉里那两项「走会话」的菜单项（口径 49）。 */
+export type EnterpriseEscDraftKind = 'find' | 'create'
+
+/**
+ * ★**口径 49（降级）**：下拉里**这一项按不动**的可见原因（"禁用即须有说明"的唯一判据来源）。
+ *
+ * 三件事实分开，因为补救动作不同：
+ *   · `'upload'`  = 本机技能写入口缺席（本地导入那台状态机没接上）；
+ *   · `'find'`    = 草稿端口缺席（官方会话服务那四个结构面缺一环）；
+ *   · `'create'`  = 同上，另一项（分开是为了让界面能说清**是这一项**按不动，而不是两项都灰）。
+ */
+export type EnterpriseEscAddSkillLock = EnterpriseEscDraftKind | 'upload'

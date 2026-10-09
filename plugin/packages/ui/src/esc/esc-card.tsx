@@ -294,7 +294,10 @@ export function EnterpriseEscCard({
             variant: 'primary',
             size: 'sm',
             disabled: true,
-            className: 'esc-action-solid',
+            // ★本轮第 ② 条：「召唤」的高度/内衬/圆角/字重由 `.esc-root .esc-summon` 那一格给
+            //   （--esc-summon-*，真源 esc-scale.ts 的 WB.control.summon）。它**不复用**工具栏那枚
+            //   「添加技能」的 --esc-btn-* —— 那是主按钮的尺度，压在卡片标题行上会显得过高。
+            className: 'esc-action-solid esc-summon',
             title: notPorted,
             children: ENTERPRISE_ESC_COPY.summon,
           }),

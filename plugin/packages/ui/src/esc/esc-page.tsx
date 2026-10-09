@@ -14,6 +14,8 @@
  *   "这一栏是演示数据"这件事仍可在协议层查到：宿主 `GET …/esc/mock` 报开关态、演示响应多一枚 `mock: true`。
  *   ★**口径 46/47**：这一页有**两个视图**（目录 / 已安装技能）——没有真实路由，故用一份视图状态切换
  *   （与商城页的技能详情同一条手法）；`skillPort` 缺席时那一页根本打不开（按钮跟着置灰）。
+ *   ★**口径 49**：`main` 的 inject 面再多带一枚 `draftPort`（技能页下拉那两项「查找技能 / 创建技能」
+ *   的实现面），由本层原样转交给内容区；它同样**不进** `api`（那一面结构性只读）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -24,7 +26,7 @@ import { EnterpriseEscFeatured } from './esc-featured.js'
 import { EnterpriseEscInstalledView } from './esc-installed.js'
 import { EnterpriseEscResourceTabs } from './esc-resource-tabs.js'
 import { EnterpriseEscStyle } from './esc-style.js'
-import type { EnterpriseEscSkillPort, ResourceTypeEnum } from './esc-types.js'
+import type { EnterpriseEscDraftPort, EnterpriseEscSkillPort, ResourceTypeEnum } from './esc-types.js'
 
 /** 页面入参（由 `main` 槽的 inject 面给出）。 */
 export interface EnterpriseEscPanelProps {
@@ -33,10 +35,17 @@ export interface EnterpriseEscPanelProps {
    * ★口径 46：本机技能写入口（可选——纯函数直调 / 没有本机写面时缺席，工具栏那两枚按钮随之置灰写明原因）。
    */
   readonly skillPort?: EnterpriseEscSkillPort | undefined
+  /**
+   * ★**口径 49**：技能页下拉里「查找技能 / 创建技能」的**草稿端口**（跳新会话 + 预填、不发送）。
+   *
+   * 与 `skillPort` 同一条注入范式：缺席 ⇒ 那两项置灰写明原因（判据是端口在不在场，不写死 disabled）。
+   * ★它**不进** `api`（那一面结构性只读），也不是第二套开会话机制——实现在 `preset-launch.ts`。
+   */
+  readonly draftPort?: EnterpriseEscDraftPort | undefined
 }
 
 /** 「专家·技能·连接器」整页。 */
-export function EnterpriseEscPanel({ api, skillPort }: EnterpriseEscPanelProps): ReactNode {
+export function EnterpriseEscPanel({ api, skillPort, draftPort }: EnterpriseEscPanelProps): ReactNode {
   // 当前资源类型（原文由路径推导，这里就是状态）
   const [resourceType, setResourceType] = useState<ResourceTypeEnum>('expert')
   /**
@@ -89,6 +98,8 @@ export function EnterpriseEscPanel({ api, skillPort }: EnterpriseEscPanelProps):
             },
             // ★口径 46：本机写入口（本地导入 + 自装清单 + 卸载），缺席时工具栏那两枚自己置灰写明原因。
             skillPort,
+            // ★口径 49：技能页下拉那两项的草稿端口（跳新会话 + 预填、不发送；缺席即置灰写明原因）。
+            draftPort,
             // ★口径 47：「已安装」打开已安装技能页（没有真实路由 ⇒ 一份视图状态；缺席即置灰）。
             onOpenInstalled: skillPort === undefined ? undefined : () => setInstalledOpen(true),
           },
