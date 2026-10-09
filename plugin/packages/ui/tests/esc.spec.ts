@@ -1559,11 +1559,13 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     expect(css).toMatch(/@media \(max-width: 560px\) \{[\s\S]*\.esc-search \{ width: 160px; \}/)
     const mobile = /@media \(pointer: coarse\), \(max-width: 1024px\), \(max-height: 700px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? ''
     expect(mobile).toContain('.esc-search { width: auto; flex: 1 1 0; min-width: 88px; }')
-    // ★口径 68：工具栏右块里那一枚**独占一整行并撑满**（用 `.esc-toolbar-right` 前缀把作用域收窄——
-    // 通用写会把「我的专家」子页那枚（同类的另一处渲染点、容器 flex:none 且不折行）顶出溢出）。
-    const mobileScoped = /\.esc-toolbar-right \.esc-search \{([^}]*)\}/.exec(mobile)?.[1] ?? ''
-    expect(mobileScoped).toContain('flex: 1 1 100%')
-    expect(mobileScoped).toContain('width: auto')
+    // ★口径 69（用户澄清「我是希望搜索栏和右边的按钮撑满一行，不是只有搜索框一行」）：工具栏那一枚
+    //   与两枚按钮**同一行**、吃满该行剩余宽度 —— 靠的就是上面那条**通用**声明（basis 0 + 下限 88）；
+    //   口径 68 曾给工具栏单加一条带前缀的 100%（＝把搜索框顶成"独占一整行"）⇒ 本刀整条撤回，这里反向锁死。
+    expect(mobile).not.toMatch(/\.esc-toolbar-right \.esc-search/)
+    //   同一条通用声明现在**同时服务两处**（工具栏 + 「我的专家」子页）⇒ 移动档里声明搜索框的规则
+    //   **恰好一条**（宽度真源唯一；多出第二条就是又分叉了）。
+    expect(mobile.match(/\.esc-search \{/g) ?? []).toHaveLength(1)
     // 移动档的右块仍允许折行（"绝不裁半枚"的结构保证），故窄断点上没有新增横向溢出。
     expect(mobile).toMatch(/\.esc-toolbar-right \{[^}]*flex-wrap: wrap/)
   })
@@ -2278,9 +2280,9 @@ describe('esc：演示数据开关（口径 32）', () => {
     expect(baseRight).not.toContain('flex: 1 1 auto')
     // ⑤ 反向锁：口径 37 那条"**搜索格自己**整行占满"的写法不许回到**桌面档** —— 口径 44 的拆行走的不是它，
     //    走的是"第一栏的两个子格各占一行"（占满一行的是 .esc-toolbar-leading / .esc-toolbar-right）。
-    //    ★口径 68 起这条反向锁**收窄到桌面那一条声明块**（`[^}]*` 本来就跨不过 `}`，全文扫咬不到 @media 里的
-    //      那条；但口径 68 的写法是带前缀的 `.esc-toolbar-right .esc-search`，故这里按"桌面块里不许有它"钉）：
-    //      移动档**确实**要搜索框整行占满（用户裁决），桌面档仍逐字保留口径 37 的定宽 + 同一行。
+    //    ★口径 69 起这条反向锁覆盖**全文**（不再只是桌面那一条声明块）：口径 68 那条带 `.esc-toolbar-right`
+    //      前缀的 100% 已在口径 69 整条撤回 ⇒ 此刻**任何**给 `.esc-search` 写 `flex: 1 1 100%` 的地方
+    //      都不该存在（三件必须同一行，见文件末尾那条口径 69 专条）。
     expect(/\.esc-search \{([^}]*)\}/.exec(css)?.[1] ?? '').not.toContain('flex: 1 1 100%')
     // ★用户裁决②：定宽那一档的收窄档 —— 手机上 200px 会挤掉右块其余两枚，收到 160px（不是 96px 那种塌成缝）
     //    ★口径 44 备注：触屏设备上这条被移动档的 `width: auto` 接管（同一条 CSS 里更靠后 ⇒ 后者胜），
@@ -2307,9 +2309,9 @@ describe('esc：演示数据开关（口径 32）', () => {
     //    ★口径 45 起右块多了折行兜底与 8px 间隙（那条见下面用例②；这里只锁"整块占满一行"这一件）
     expect(mobile).toContain('.esc-toolbar-right { flex: 1 1 100%; margin-left: 0;')
     // ② 搜索框在第二行里吃剩余（不再是桌面那一档的定宽；下限与 basis 由口径 45 重定，见下一条用例）
-    //    ★**口径 68 起**：工具栏那一枚改成"独占一整行撑满"（`flex: 1 1 100%`，写在带 `.esc-toolbar-right`
-    //      前缀的那条里）；**这一条通用规则仍然有效且仍然必要** —— 它服务的是复用同一个类的
-    //      「我的专家」子页右块（那里容器 `flex: none` 且不折行，不能吃 100%）。
+    //    ★**口径 69 起**：这一条通用规则**同时**服务工具栏那一枚与「我的专家」子页那一枚 —— 口径 68 曾
+    //      给工具栏单加一条带前缀的 100% 把它顶成"独占一整行"（两枚按钮折到第二行），那条已按用户澄清
+    //      整条撤回（用户要的是"搜索栏和右边的按钮撑满一行"）⇒ 这里断言的就是**唯一**那条宽度真源。
     expect(mobile).toContain('.esc-search { width: auto; flex: 1 1 0; min-width: 88px; }')
     // ③ 反向锁：**桌面档**三件事一字不动 —— 同一个类两档两种布局，改动不许外溢到桌面
     //    ★本刀第 ③ 条：桌面档那条定宽已提成刻度变量 --esc-search-w（见上一处断言），故这里也只断言"走变量"。
@@ -2338,8 +2340,9 @@ describe('esc：演示数据开关（口径 32）', () => {
     // ① 搜索框：basis 必须是 **0** —— 行断开用的是**假设主尺寸**，而 basis: auto 取的是内容宽
     //    （官方 Input 外框基准约 240px）⇒ 一打开 wrap 就会先断行、把「添加技能」提前顶到第三行，
     //    根本轮不到收缩（"开了 wrap 反而更散"那个坑）。
-    //    ★口径 68 备注：这一条现在只服务「我的专家」子页那一枚（工具栏那枚改成 100% 独占一行，
-    //      见文件末尾那条口径 68 的用例）；它**不许被删** —— 删了那一页的搜索框就回到 basis: auto 的坑里。
+    //    ★口径 69 备注：这一条**同时**服务工具栏那一枚与「我的专家」子页那一枚（口径 68 期间工具栏那枚
+    //      被另一条带前缀的规则接管、这一条只服务子页；那条已撤回）——它**不许被删**，删了两处的搜索框
+    //      就都回到 basis: auto 的坑里（行会在真的放不下之前先断）。
     expect(mobile).toContain('.esc-search { width: auto; flex: 1 1 0; min-width: 88px; }')
     //    下限必须是**数**且 ≤ 96：真机第一栏可用宽 377.5（分屏窗口 1170 物理 ÷ dpr 2.75 −
     //    .esc-content 的 24×2 内衬）减去右块固定宽 233（口径 45 收紧后）只剩 144.5 ⇒ 下限一旦高于
@@ -2378,11 +2381,14 @@ describe('esc：演示数据开关（口径 32）', () => {
   /**
    * ★**口径 68**（用户裁决「删除搜索栏左边的更多按钮，搜索栏移动端下自适应宽度撑满」）。
    *
-   * 两件事各自锁"新形态 + 反向"：
+   * ★**第二半已按口径 69 撤回**（见下面那条专条）：那句「自适应宽度撑满」被做成了"独占一整行"，
+   *   而用户随后澄清他要的是"搜索栏和右边的按钮撑满**一行**"⇒ 本节②只剩**反向锁**（不许回来）。
+   *
+   * 剩下的两件事各自锁"新形态 + 反向"：
    *   ① 「更多」下线：源码层三处**零出现**（组件里的 prop / 两枚常量 / 那句文案）+ 样式层两条规则删除
    *      + 渲染树断言（上面那条工具栏用例已按三维度各查一次）——四道一起才叫"删了"；
-   *   ② 移动档搜索框整行撑满：**带前缀**的那条规则必须存在且是 100%；而**不带前缀**的通用规则
-   *      （服务「我的专家」子页那枚）必须**逐字保留**（不许被顺手一起改成 100%——那一页会溢出）；
+   *   ② ~~移动档搜索框整行撑满~~（**口径 69 撤回**）：带 `.esc-toolbar-right` 前缀的那条 100% 不许再出现；
+   *      不带前缀的通用规则必须**逐字保留**（它现在同时服务工具栏与「我的专家」子页两处）；
    *   ③ 桌面档三条基线一字不动（口径 37/38：同一行 + 220px 定宽 + 右块 margin-left: auto）。
    */
   it("★口径 68（用户裁决「删除搜索栏左边的更多按钮，搜索栏移动端下自适应宽度撑满」）", () => {
@@ -2411,16 +2417,15 @@ describe('esc：演示数据开关（口径 32）', () => {
     expect(styleCode).not.toMatch(/\.esc-more(?!-btn)/)
     expect(styleCode).toContain('.esc-more-btn {')
 
-    // ② 移动档：工具栏右块那一枚**独占一整行并撑满**（带前缀 ⇒ 只有工具栏吃这条）
-    const scoped = /\.esc-toolbar-right \.esc-search \{([^}]*)\}/.exec(mobile)?.[1] ?? ''
-    expect(scoped).toContain('flex: 1 1 100%')
-    expect(scoped).toContain('width: auto')
-    expect(scoped).toContain('min-width: 0')
-    //    ★反向锁：**不许**把通用那条也改成 100%（那会连带改掉「我的专家」子页，而它那个容器不折行 ⇒ 溢出）
+    // ② ★**口径 69 撤回**：那条带前缀的"搜索框独占一整行撑满"**整条不许存在**（全文、不只在移动档）。
+    expect(css).not.toMatch(/\.esc-toolbar-right \.esc-search/)
+    expect(mobile).not.toMatch(/\.esc-toolbar-right \.esc-search/)
+    //    ★通用那条**必须逐字保留**：它现在同时服务工具栏那一枚（与两枚按钮同一行、吃满剩余宽度）
+    //      与「我的专家」子页那一枚（那个容器不折行）——改成 100% 会让两处都错。
     const generic = /\.esc-search \{([^}]*)\}/.exec(mobile)?.[1] ?? ''
     expect(generic).toContain('flex: 1 1 0')
     expect(generic).not.toContain('flex: 1 1 100%')
-    //    ★反向锁：右块必须仍然允许折行（"多一行"是这条 Layout 的**前提**；否则 100% 会把它挤成溢出）
+    //    ★反向锁：右块必须仍然允许折行（容器窄到放不下时"多一行"是结构保证，绝不裁半枚）
     expect(mobile).toMatch(/\.esc-toolbar-right \{[^}]*flex-wrap: wrap/)
 
     // ③ 桌面档三条基线一字不动
@@ -2433,6 +2438,80 @@ describe('esc：演示数据开关（口径 32）', () => {
     const baseRight = /\.esc-toolbar-right \{([^}]*)\}/.exec(css)?.[1] ?? ''
     expect(baseRight).toContain('margin-left: auto')
     expect(baseRight).not.toContain('flex-wrap')
+  })
+
+  /**
+   * ★**口径 69**（用户澄清，真机看过口径 68 那一版之后）：
+   *   「我是希望搜索栏和右边的按钮撑满一行，不是只有搜索框一行」。
+   *
+   * 口径 68 把"搜索栏移动端下自适应宽度撑满"做成了**搜索框独占一整行**（带前缀的 `flex: 1 1 100%`，
+   * 两枚按钮折到第二行）—— 用户看到的就是"只有搜索框一行"，与他要的相反。本刀把那条声明**整条撤回**，
+   * 移动档回到口径 45 的形态：**右块一行三件**（搜索框 + 已安装 + 添加技能），搜索框吃满剩余宽度。
+   *
+   * 本节锁四件事（**改的是样式层一条声明，组件一个字节都没动**）：
+   *   ① 撤回证据：`.esc-toolbar-right .esc-search` 在**全文**零出现；移动档里声明搜索框的规则**恰好一条**
+   *      （通用那条 + basis 0 + 下限 88）——宽度真源唯一，两处渲染点同形。
+   *   ② **一行算术**：三件的**下限之和**必须放得进真机可用宽（377.5 = 1170 物理 ÷ dpr 2.75 − 48），
+   *      且要留余量（不是刚好卡住）——这是"三件必在同一行"的可证判据，而不是"我觉得放得下"。
+   *   ③ 折行兜底仍在（`.esc-toolbar-right` 的 `flex-wrap: wrap` + 8px 间隙）⇒ 容器再窄只是多一行、不裁半枚。
+   *   ④ 桌面档与「我的专家」子页两处**零变化**（口径 37/38 三条基线 + 子页容器 `flex: none`）。
+   */
+  it('★口径 69（用户澄清「我是希望搜索栏和右边的按钮撑满一行，不是只有搜索框一行」）', () => {
+    const css = (EnterpriseEscStyle() as unknown as { props: { children: string } }).props.children
+    const mobile = /@media \(pointer: coarse\), \(max-width: 1024px\), \(max-height: 700px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? ''
+
+    // ① 撤回证据：那条带前缀的规则**全文零出现**（它是口径 68 第二半的唯一落点）
+    expect(css).not.toMatch(/\.esc-toolbar-right \.esc-search/)
+    //    移动档里声明搜索框的规则**恰好一条**（通用那条），且自带"吃满剩余宽度"的两个必需项：
+    //    basis 0（行断开用假设主尺寸；退回 auto 会先断行 ⇒ 三件不同一行，那正是口径 45 记下的坑）
+    //    与下限 88（口径 45 定的那个数；高过 96.5 会在边界上把右端那枚按钮裁掉）。
+    const mobileSearchRules = mobile.match(/\.esc-search \{/g) ?? []
+    expect(mobileSearchRules).toHaveLength(1)
+    const generic = /\.esc-search \{([^}]*)\}/.exec(mobile)?.[1] ?? ''
+    expect(generic).toContain('flex: 1 1 0')
+    expect(generic).not.toContain('100%')
+
+    // ② 一行算术：下限 + 两枚按钮的固定宽 + 两处 8px 间隙 ≤ 真机可用宽（留余量）
+    const floor = Number(/min-width: (\d+)px/.exec(generic)?.[1])
+    expect(floor).toBe(88)
+    //    两枚按钮的固定宽（口径 45 逐项算过：已安装 24 内衬 + 2 描边 + 6 间隙 + 14 图标 + 3×13.2 字
+    //    + 计数约 23 ≈ 108.6；添加技能 20 内衬 + 6 间隙 + 14 图标 + 4×12 字 ≈ 88）。
+    const installedBtn = 108.6
+    const addSkillBtn = 88
+    const mobileGaps = 2 * 8 // 三件之间两处间隙（column-gap: 8px，口径 45）
+    const containerW = 377.5 // 1170 物理 ÷ dpr 2.75 − .esc-content 的 24×2（口径 45 的尺子）
+    const minSum = floor + installedBtn + addSkillBtn + mobileGaps
+    expect(minSum).toBeLessThanOrEqual(containerW)
+    //    余量必须**明显**（>60）：不是"刚好卡住"——字号档、计数位数、字体回退任何一项宽一点就会折行。
+    expect(containerW - minSum).toBeGreaterThan(60)
+    //    于是搜索框在真机上的宽度就是"可用宽 − 固定件"（三件同一行、行被填满，≈176.9）。
+    const fixed = installedBtn + addSkillBtn + mobileGaps
+    expect(containerW - fixed).toBeGreaterThan(floor)
+
+    // ③ 折行兜底仍在（容器再窄 ⇒ 最后那枚按钮整枚落到第二行，绝不裁半枚）
+    expect(mobile).toMatch(/\.esc-toolbar-right \{[^}]*flex-wrap: wrap/)
+    expect(mobile).toMatch(/\.esc-toolbar-right \{[^}]*column-gap: 8px/)
+
+    // ④ 另两处零变化：桌面档三条基线 + 「我的专家」子页那个容器仍 flex: none（不折行）
+    const baseRow = /\.esc-toolbar-row \{([^}]*)\}/.exec(css)?.[1] ?? ''
+    const baseRight = /\.esc-toolbar-right \{([^}]*)\}/.exec(css)?.[1] ?? ''
+    const baseSearch = /\.esc-search \{([^}]*)\}/.exec(css)?.[1] ?? ''
+    expect(baseRow).toContain('flex-wrap: nowrap')
+    expect(baseRight).toContain('flex: none')
+    expect(baseRight).toContain('margin-left: auto')
+    expect(baseSearch).toContain('width: var(--esc-search-w)')
+    const myExpertsRight = /\.esc-my-experts-right \{([^}]*)\}/.exec(css)?.[1] ?? ''
+    expect(myExpertsRight).toContain('flex: none')
+
+    // ⑤ 结构锁：右块三件的**DOM 顺序**就是它们在同一行里的顺序（flex 按源序铺）——组件侧本刀零改动，
+    //    这里钉住"搜索框在最左、主按钮在最右"，免得将来有人调换顺序把这一行的语义改掉。
+    const toolbarSrc = readFileSync(new URL('../src/esc/esc-toolbar.tsx', import.meta.url), 'utf8')
+    const iSearch = toolbarSrc.indexOf("className: 'esc-search'")
+    const iInstalled = toolbarSrc.indexOf("className: 'esc-installed'")
+    const iAddSkill = toolbarSrc.indexOf('addSkillMenuList,')
+    expect(iSearch).toBeGreaterThan(0)
+    expect(iInstalled).toBeGreaterThan(iSearch)
+    expect(iAddSkill).toBeGreaterThan(iInstalled)
   })
 
   it('★用户裁决（本轮）两条：非选中页签深一档 · 移动端整页单滚动面', () => {
