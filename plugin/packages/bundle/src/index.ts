@@ -9,6 +9,14 @@
  *     `snapshot`；服务缺席 / `snapshot()` 抛 / 回的东西读不懂 ⇒ 三条收敛成**明确失败码**
  *     `ENT_SKILL_DISCOVERY_UNAVAILABLE`（→503，落在唯一那张码→状态表的表尾 ⇒ platform-client 零改动），
  *     **绝不静默回空列表**；只回白名单字段，`path`/`resourceBase` 不出厂。
+ *   ★★**口径 54 补丁（真机少报修复）**：同一端口再加一枚 `acquireScope()` —— 每次现场向官方
+ *     `agentPresets.acquireScope()`（不传 id = 默认/当前 preset）取一枚引用计数租约，把它的 `key`
+ *     作为 `snapshot({scope})` 的查看作用域，读完**必定释放**。官方 `skills` 是层叠注册表：
+ *     "host rows and repository plugins land in the **global layer**, while a plugin mounted by an
+ *      agent preset's standing composition lands in **that preset's layer**" ⇒ 不传 `scope` 只读得到
+ *     全局层，preset 层整层漏掉（真机读数：3 条 vs 磁盘 7 枚，且这 7 枚**确实在会话技能目录里**）。
+ *     作用域取不到 / 租约形状不过 / 释放失败 ⇒ 都收敛进上面那枚明确失败码（靠 `step` 在日志里分得开），
+ *     **绝不回落成"不传 scope 的全局层读"**（那是同一条少报换个地方发生）。`cwd` 拿不到就不传。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -905,14 +913,36 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
   // ★端口是**每次调用现场解引用** `ctx.get('skills')`（与 preset/wiring 那个冻结点同一个道理：
   //   apply 那刻官方服务可能还没 provide）；服务缺席 ⇒ 路由回明确失败码 `ENT_SKILL_DISCOVERY_UNAVAILABLE`
   //   （→503），**绝不静默回空列表**（空列表 = 谎称"你什么都没装"）。
+  // ★★**查看作用域（本刀：真机少报修复）**：官方 `skills` 是**层叠注册表** ——
+  //   "host rows and repository plugins land in the global layer, while a plugin mounted by an agent
+  //    preset's standing composition lands in that preset's layer. A read merges the global layer with
+  //    the viewing scope's chain…"。真机上少掉的那 7 枚（`~/.dsh/skills/`）正是挂在 **preset 层**的
+  //   `dsh-skill-filesystem` 报出来的（官方 web patch 把宿主那行 `skill-filesystem` 显式 disabled，
+  //   "presets own local discovery"）⇒ **不带 scope 的读永远只看得到全局层**（真机读数：3 条，
+  //   全是 `provider=dsh-office`）。故这里每次现场向官方 `agentPresets.acquireScope()`（不传 id =
+  //   默认/当前 preset）取一枚**引用计数租约**，把 `key` 交给 `snapshot({scope})`，
+  //   读完后由路由**必定释放**（不释放 = 每个请求漏一棵 preset 挂载）。
+  //   ★租约**原样转交**（不在这里读 `key`、不在这里包装释放）：唯一那道形状闸门与失败码在
+  //   `skill-discovery.ts` 的 `projectSkillViewScope`/`acquireSkillViewScope`；
+  //   服务缺席回 `undefined` ⇒ 路由判 `step=scope-unavailable` 并**明确失败**，绝不回落成全局层少报。
+  //   ★`cwd` **不传**：官方契约里它 "selects project roots"，而这条路由是**无会话的 GET**，
+  //   宿主侧没有"当前工作区/项目根"这个事实（`workspaceRegistry` 只有 list/get(id)，没有 current）
+  //   ⇒ 拿不到就不传，**绝不猜、不编造路径**（路由那侧只在租约真的带 `cwd` 时才给这一格）。
   // ★不暴露 `path`/`resourceBase`（宿主绝对路径不进浏览器），也不读任何 SKILL.md 正文。
   ctx.effect(() => registerEnterpriseSkillDiscoveryRoute(ctx.webServer, {
     discover: () => {
       const service = ctx.get('skills') as { snapshot?: unknown } | undefined
       // 形状闸门：只有真的带一个函数形状的 `snapshot` 才算"这个服务在场"（不假装、不 `as`）。
       return service !== undefined && typeof service.snapshot === 'function'
-        ? (service as { snapshot: (options: { readonly signal?: AbortSignal }) => Promise<unknown> })
+        ? (service as { snapshot: (options: { readonly scope: unknown; readonly cwd?: string; readonly signal?: AbortSignal }) => Promise<unknown> })
         : undefined
+    },
+    acquireScope: async () => {
+      const presets = ctx.get('agentPresets') as { acquireScope?: (id?: string) => Promise<unknown> } | undefined
+      // 服务缺席 / 形状不对 ⇒ `undefined`（路由判 `scope-unavailable`，**不是**"没有 scope 也能读"）。
+      if (presets === undefined || typeof presets.acquireScope !== 'function') return undefined
+      // 官方自己的失败（preset 未知 / composition 不可用）**原样抛出**，由路由翻成那一枚稳定码。
+      return await presets.acquireScope()
     },
   }, (message, error) => {
     ctx.logger.warn(`owndsh: ${message}`, error)
