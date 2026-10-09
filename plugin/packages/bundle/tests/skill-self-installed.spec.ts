@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 `src/skill-self-installed.ts` 的两个内核与端口形状、`src/skill-self-installed-route.ts` 的两条 exact 路由、`src/skill-upload.ts` 的记录读写与 `SELF_INSTALLED_STATE_FILENAME`、`src/skill-install.ts` 的 `deleteOwnedSkillDirectory`/`SKILL_LOCAL_ROOT_SEGMENTS`、`@dshent/platform-client` 的 route port 类型、`tests/engine-route-match.ts` 的引擎语义匹配器与 node:fs/http/crypto
+ * [INPUT]: 依赖 `src/skill-self-installed.ts` 的三个内核与端口形状（`uninstall`/`reveal` 被本文件逐条锁定；`edit` 只作为第三条**必需端口**接进 fixture —— 它自己的锁在 `tests/skill-self-installed-edit.spec.ts`）、`src/skill-self-installed-route.ts` 的三条 exact 路由、`src/skill-upload.ts` 的记录读写与 `SELF_INSTALLED_STATE_FILENAME`、`src/skill-install.ts` 的 `deleteOwnedSkillDirectory`/`SKILL_LOCAL_ROOT_SEGMENTS`、`@dshent/platform-client` 的 route port 类型、`tests/engine-route-match.ts` 的引擎语义匹配器与 node:fs/http/crypto
  * [OUTPUT]: 在真实临时 dshHome + 真实 HTTP（引擎语义分发）上锁定本刀：**跨归属**（中心记录认领 ⇒ 404 拒且零删除；两条自装记录认领 ⇒ 409 fail-closed；真正独占才删）、**路径安全**（目录本身符号链接 / 指向技能根之外的链接 / `..` / 绝对路径 / 非 kebab / 非普通目录一律拒且零删除）、**不动别人**（删一个技能时技能根下其它条目逐字节与 mtime 不变、`skills/` 本身不被删）、**原子与幂等**（盘上目录本来就没了 ⇒ 记录照样收干净；写失败 ⇒ 目录原样挪回，绝无半删状态；清单损坏 ⇒ fail-closed）、**一包多技能只删一个目录**（记录保留其余名字）、**`reveal`**（路径只来自记录、目录不在 ⇒ 404、符号链接/越界 ⇒ 409、系统交接失败 ⇒ 503、端口拿到的是宿主自己拼出来的那条路径）、**405 + Allow**、**正文 10 种坏值 400 + 零副作用**，以及**源码级反锁**（递归删除入口恰好一处、`self-installed.json` 写入口恰好一处、两条路径各恰好一处、`execFile` 参数数组无用户输入拼接 / 无 `shell: true` / 无 `exec(`/`execSync`）
  * [POS]: bundle 技能纵深**自装卸载 / 打开所在文件夹**这一刀的回归门禁；有人把跨归属判据删掉、让删除跟随符号链接、先删记录后删目录（中途抛错就留半删）、把 `reveal` 做成"打开任意路径"、或给 `self-installed.json` 长出第二个写者，本文件都会红
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -211,6 +211,9 @@ describe('self-installed skill actions over the real local API', () => {
     registerEnterpriseSelfInstalledActionRoutes(webServer, {
       uninstall: name => uninstallSelfInstalledSkill(options(dshHome, platform, fileManager), name),
       reveal: (name, signal) => revealSelfInstalledSkill(options(dshHome, platform, fileManager), name, signal),
+      // 第三条必需端口：本文件不驱动它（它的锁在 `skill-self-installed-edit.spec.ts`），
+      // 但端口形状是**必需成员** ⇒ fixture 必须如实提供，否则这个 double 就不是真的那条端口。
+      edit: async () => ({ edited: true }),
     }, onError)
     // 假的 `/skills` prefix：本刀两条 exact 若没抢在前面，请求会掉进这里（并回 400），测试立刻红。
     webServer.register({

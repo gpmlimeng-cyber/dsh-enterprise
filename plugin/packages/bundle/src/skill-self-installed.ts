@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 node:child_process 的 `execFile`（无 shell、argv 数组）、node:fs/promises 的 lstat/mkdir/realpath/rename、node:crypto 的 randomUUID、node:path 的 join、platform-client 的 `resolveEnterpriseDshHome`、`skill-install.ts` 的唯一删除入口 `deleteOwnedSkillDirectory`/`readInstalledSkillRecords`/`SKILL_LOCAL_ROOT_SEGMENTS`/`SKILL_NAME` 形状、`skill-upload.ts` 的 `readSelfInstalledRecords`/`upsertSelfInstalledRecord`（**唯一写入口**）/`installedSelfSkills`、`skill-errors.ts` 的稳定码
- * [OUTPUT]: 对外提供「自装技能卸载」的宿主内核 `uninstallSelfInstalledSkill(options, name)`（**按名字**定位唯一归属记录 + 跨归属判据 + 技能根外单向暂存 + 唯一写入口原子记账 + 幂等）、「打开所在文件夹」的宿主内核 `revealSelfInstalledSkill(options, name, signal?)`，以及结果形状 `SelfInstalledUninstallResult`/`SelfInstalledRevealResult`、依赖形状 `SelfInstalledDependencies`、系统文件管理器端口 `EnterpriseFileManagerLauncher` 与默认实现 `openSystemDirectory`
- * [POS]: bundle 技能纵深的**自装卸载 / 打开这一刀** —— 自装清单（`self-installed.json`）此前**只写不删**（`skill-upload.ts` 头注里那条「★不提供自装卸载」就是这处缺口：四条自装通路装得上、卸不掉）。本文件补上两个宿主动作，但**不新造第二份记录实现**（记录七键形状、写入口、原子写、存在性判据全在 `skill-upload.ts` 那一份里；本文件只调它）。
+ * [OUTPUT]: 对外提供「自装技能卸载」的宿主内核 `uninstallSelfInstalledSkill(options, name)`（**按名字**定位唯一归属记录 + 跨归属判据 + 技能根外单向暂存 + 唯一写入口原子记账 + 幂等）、「打开所在文件夹」的宿主内核 `revealSelfInstalledSkill(options, name, signal?)`、「编辑（用系统默认应用打开这枚技能的 `SKILL.md`）」的宿主内核 `editSelfInstalledSkill(options, name, signal?)`，以及结果形状 `SelfInstalledUninstallResult`/`SelfInstalledRevealResult`/`SelfInstalledEditResult`、依赖形状 `SelfInstalledDependencies`、系统文件管理器端口 `EnterpriseFileManagerLauncher` 与默认实现 `openSystemDirectory`、系统默认应用端口 `EnterpriseSkillFileLauncher` 与默认实现 `openSystemDocument`
+ * [POS]: bundle 技能纵深的**自装卸载 / 打开 / 编辑这一刀** —— 自装清单（`self-installed.json`）此前**只写不删**（`skill-upload.ts` 头注里那条「★不提供自装卸载」就是这处缺口：四条自装通路装得上、卸不掉）。本文件补上三个宿主动作（卸载 / 打开所在文件夹 / 用系统默认应用打开 `SKILL.md`），但**不新造第二份记录实现**（记录七键形状、写入口、原子写、存在性判据全在 `skill-upload.ts` 那一份里；本文件只调它），也**不新造第二份归属判据**（三个动作共用同一处 `findSelfInstalledOwner` + `centerClaimsName`）。
  *   ★**入参是技能在本机的目录名（`name`），不是记录里的 `skillId`**——这是消费方决定的：界面「已安装」的真相来自官方发现面
  *   （`GET …/skills/discovered`），那份投影的白名单里**只有 `name`、没有我们的记录 id**（且它是冻结的，不为这件事加 id）
  *   ⇒ 客户端能拿到的只有名字。而 `skillId` 的真实语义**并不统一**（本地上传是 archive 的 `manifest.id`、三方/广场/skillhub 是
@@ -11,7 +11,22 @@
  *   被**另一条**自装记录也认领 ⇒ **fail-closed 拒**（状态重叠，绝不"猜一条删掉"）；只有**唯一一条**记录独占它才动手。
  *   ② **路径只能来自记录** —— 落点一律由宿主按「记录里的 `name` + 固定技能根」自己拼，客户端交来的永远只是 `name` 这**一个键**
  *   （"传一个路径进来"在本文件的端口形状上**不可表达**）。★全程零 `shell`、零 `exec(`/`execSync`/`spawn(`、零动态 import，
- *   除 `openSystemDirectory` 那一次系统文件管理器交接外不碰任何外部进程、不碰网络。
+ *   除 `openSystemDirectory`/`openSystemDocument` 这两次系统交接（同一个 `handOffToSystem` 里**唯一**那一次 `execFile`）外
+ *   不碰任何外部进程、不碰网络。
+ *   ★**本刀（「编辑」＝用系统默认应用打开 `SKILL.md`）**：第三个宿主动作 `editSelfInstalledSkill`，与 `reveal` **同族同口径**，
+ *   判据**一个字节都不新写**——归属解析 `readSelfInstalledRecords` + 唯一归属 `findSelfInstalledOwner` + 跨归属
+ *   `centerClaimsName`（无记录 / 被中心认领 ⇒ 404）与目录落点等式 `resolveOwnedDirectory`（符号链接 / 越界 / 非常规条目 ⇒ 409）
+ *   全是 `reveal` 正在用的那几处实现；本刀只在它后面**追加一层文件落点** `resolveOwnedSkillFile`：
+ *   落点由宿主自己拼 `<技能根>/<name>/SKILL.md`（入参仍然**只有 `name`**），`lstat` 必须是**普通文件**（符号链接即拒、
+ *   目录 / 设备 / FIFO 一律拒），技能目录与文件**各自** `realpath` 并逐字等于期望路径（越界即拒）。
+ *   ★**为什么「编辑」属于这一族而不是 `skill-install.ts` 那条已装正文面**：它与 `reveal` 是同一枚技能卡「更多」菜单里的
+ *   相邻两行（`去对话 / 编辑 / 打开文件夹 / 卸载`），服务的是**同一个消费方**（官方发现面只给 `name`），
+ *   门禁也因此必须同源——换一条路由去读正文就等于把同一枚 `name` 的第二套归属判据引进来。
+ *   ★**它不写文件**：本函数一个字节都不落到 `SKILL.md`（也不去读它的正文——那是被交出去的那个系统应用的事），
+ *   宿主只做 `lstat`/`realpath` 两次元数据判定，然后把**已验证的那条绝对路径**交给系统默认应用；
+ *   失败语义与 `reveal` 逐条同码：没有记录认领 / 被中心认领 / 目录或文件不在 ⇒ 404 `ENT_RESOURCE_NOT_FOUND`、
+ *   符号链接 / 越界 / 非常规条目 ⇒ 409 `ENT_SKILL_CONTENT_INVALID`、系统交接失败或平台不支持 ⇒ 503 `ENT_PLATFORM_UNAVAILABLE`。
+ *   ★响应**不含任何宿主路径**（`{ edited: true }` 这一枚键）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -49,18 +64,30 @@ const MAX_SKILL_NAME_LENGTH = 64
 const SKILL_UNINSTALL_TRASH_DIR_SEGMENTS = ['enterprise', 'skill-uninstall-trash'] as const
 
 /**
- * 本文件两个内核要的最小依赖（与中心安装/自装那两份同一套优先级与同一个留痕端口）。
+ * 本文件三个内核要的最小依赖（与中心安装/自装那两份同一套优先级与同一个留痕端口）。
  *
- * `fileManager` 是**可注入端口**：真机上是 {@link openSystemDirectory}（argv 调系统文件管理器）；
- * 测试里是 spy——没有图形会话的机器上仍能断言「宿主究竟把哪个路径交给了谁」，且不需要真开窗口。
+ * `fileManager` / `fileLauncher` 是**可注入端口**：真机上是 {@link openSystemDirectory} / {@link openSystemDocument}
+ * （argv 调系统文件管理器 / 系统默认应用）；测试里是 spy——没有图形会话的机器上仍能断言「宿主究竟把哪个路径交给了谁」，
+ * 且不需要真开窗口。
  */
 export interface SelfInstalledDependencies extends EnterpriseSkillInstallOptions {
   readonly fileManager?: EnterpriseFileManagerLauncher
+  readonly fileLauncher?: EnterpriseSkillFileLauncher
 }
 
 /** 系统文件管理器交接端口（与 `platform-client` 的 `openSystemBrowser` 同一个形状）。 */
 export interface EnterpriseFileManagerLauncher {
   open(directory: string, signal: AbortSignal): Promise<void>
+}
+
+/**
+ * 系统**默认应用**交接端口（与 {@link EnterpriseFileManagerLauncher} 同一个形状，只是被交接的是一枚**文件**）。
+ *
+ * 与 `fileManager` 分成两枚端口而不是合成一枚：`reveal` 交出去的是**目录**、`edit` 交出去的是**文件**，
+ * 两件事在端口形状上分开 ⇒ 「把目录当文件交出去」在类型上不可表达（反之亦然）。
+ */
+export interface EnterpriseSkillFileLauncher {
+  openDocument(file: string, signal: AbortSignal): Promise<void>
 }
 
 /** 卸载一个自装技能目录的结果：卸载后的投影 + 两个**如实**的名字清单（Host 侧日志口径）。 */
@@ -76,6 +103,36 @@ export interface SelfInstalledUninstallResult {
 /** `reveal` 的结果：**只有**这一枚键——宿主绝对路径不进浏览器。 */
 export interface SelfInstalledRevealResult {
   readonly revealed: true
+}
+
+/** `edit` 的结果：**只有**这一枚键——宿主绝对路径（及其目录）不进浏览器。 */
+export interface SelfInstalledEditResult {
+  readonly edited: true
+}
+
+/**
+ * **唯一**一次系统交接：`execFile` + **参数数组**、**不走 shell**（没有 `shell: true`，也没有 `exec(`/`execSync(`）。
+ *
+ * 两个默认实现（{@link openSystemDirectory} / {@link openSystemDocument}）都从这条通道出去：命令与参数在各自的
+ * 平台分支里是**常量 + 已解析的宿主私有绝对路径**，本函数只负责把它交给内核、并把任何失败收敛成同一个稳定码
+ * （`ENT_PLATFORM_UNAVAILABLE`）——**绝不静默成功**。
+ *
+ * @param command - 已按 `process.platform` 决议好的 `{file,args}`（argv 直接交给内核，绝不拼命令行）。
+ * @param signal - 调用方取消信号（客户端在响应写完前断开时中止，避免留下半开的子进程）。
+ * @param failureMessage - 失败时那条面向 Host 日志的说明（不含路径）。
+ * @throws {EnterpriseSkillInstallError} `ENT_PLATFORM_UNAVAILABLE`：系统交接失败（`open`/`xdg-open` 不在、被系统拒绝等）。
+ */
+async function handOffToSystem(
+  command: { readonly file: string, readonly args: readonly string[] },
+  signal: AbortSignal,
+  failureMessage: string,
+): Promise<void> {
+  await new Promise<void>((resolvePromise, reject) => {
+    execFile(command.file, command.args, { signal, windowsHide: true }, (error) => {
+      if (error === null) resolvePromise()
+      else reject(skillInstallError(error, 'ENT_PLATFORM_UNAVAILABLE', failureMessage))
+    })
+  })
 }
 
 /**
@@ -106,12 +163,41 @@ export async function openSystemDirectory(directory: string, signal: AbortSignal
       `the system file manager is unsupported on ${process.platform}`,
     )
   }
-  await new Promise<void>((resolvePromise, reject) => {
-    execFile(command.file, command.args, { signal, windowsHide: true }, (error) => {
-      if (error === null) resolvePromise()
-      else reject(skillInstallError(error, 'ENT_PLATFORM_UNAVAILABLE', 'the system file manager could not be opened'))
-    })
-  })
+  await handOffToSystem(command, signal, 'the system file manager could not be opened')
+}
+
+/**
+ * 用**系统默认应用**打开一枚文件：macOS `open`、Windows `start`（经 `cmd /c`）、Linux `xdg-open`。
+ *
+ * 纪律与 {@link openSystemDirectory} 逐字同款（同一个 {@link handOffToSystem}）：
+ *  · `execFile` + **参数数组**（argv 直接交给内核，绝不拼命令行）；
+ *  · **不走 shell**（`cmd /c` 是**显式 argv** 里的一次进程调用，不是 `shell: true`；没有 `exec(`/`execSync(`）；
+ *  · 路径**不由用户输入拼接**——本实现只被 {@link editSelfInstalledSkill} 调用，那里的路径是
+ *    「记录里的技能名 + 固定技能根 + 固定文件名」拼出来、并已过 `lstat` + `realpath` 双重等式的宿主私有落点。
+ *
+ * `cmd /c start "" <file>` 里那个**空标题**是 `start` 的固定语义（第一个带引号的实参是窗口标题），
+ * 少了它，带空格的路径会被 `start` 当成标题吞掉。
+ *
+ * @param file - 宿主自己解析出来的**绝对文件路径**。
+ * @param signal - 调用方取消信号（客户端在响应写完前断开时中止，避免留下半开的子进程）。
+ * @throws {EnterpriseSkillInstallError} `ENT_PLATFORM_UNAVAILABLE`：平台不支持、或系统交接失败
+ *   （默认应用不在、被系统拒绝等）——**绝不静默成功**。
+ */
+export async function openSystemDocument(file: string, signal: AbortSignal): Promise<void> {
+  const command = process.platform === 'darwin'
+    ? { file: 'open', args: [file] }
+    : process.platform === 'win32'
+      ? { file: 'cmd', args: ['/c', 'start', '', file] }
+      : process.platform === 'linux'
+        ? { file: 'xdg-open', args: [file] }
+        : undefined
+  if (command === undefined) {
+    throw new EnterpriseSkillInstallError(
+      'ENT_PLATFORM_UNAVAILABLE',
+      `the system default application is unsupported on ${process.platform}`,
+    )
+  }
+  await handOffToSystem(command, signal, 'the system default application could not be opened')
 }
 
 /** 客户端交来的 `name` 形状门禁：官方 kebab、≤64（与记录读盘收窄那条逐字同源）。 */
@@ -210,6 +296,53 @@ async function resolveOwnedDirectory(
   if (resolved === undefined) return { status: 'missing' }
   if (resolved !== join(resolvedRoot, name)) {
     throw new EnterpriseSkillInstallError('ENT_SKILL_CONTENT_INVALID', 'the self-installed skill directory escapes its skill root')
+  }
+  return { status: 'present', absolutePath }
+}
+
+/**
+ * 技能包内唯一的技能正文文件名（与 `skill-install.ts` 的包布局判定、官方 `skill-filesystem` 的发现判据逐字同源）。
+ * 本文件只把它当**固定文件名**用：落点是宿主自己拼的 `<技能根>/<name>/SKILL.md`，客户端交不来第二个键。
+ */
+const SKILL_FILE_NAME = 'SKILL.md'
+
+/**
+ * 把 `name` 解析成技能目录下那个**已落盘的普通 `SKILL.md`**（`edit` 专用的第三层；归属与目录两层**复用**上面那两处实现）。
+ *
+ * 判据顺序与理由：
+ *  ① 目录那一层**原样复用** {@link resolveOwnedDirectory}（符号链接 / 非常规条目 / 越界 / 不在 ⇒ 那三枚既有结果）；
+ *  ② `lstat` 不跟随符号链接 ⇒ `SKILL.md` 是符号链接即 fail-closed 拒（**不**"顺着链接打开那个文件"）；
+ *  ③ 必须是**普通文件**（目录 / 设备 / FIFO / socket 一律拒）；
+ *  ④ 技能目录与文件**各自** `realpath`，文件那条必须逐字等于 `<真实技能目录>/SKILL.md` ⇒ 指向目录之外的落点一律不成立
+ *     （与目录那条等式同一个手法；两层都过之后，交出去的那条绝对路径只能落在技能根里那一枚名字下）。
+ *
+ * ★本函数**只读元数据**：不读 `SKILL.md` 的正文、更不写一个字节（打开它是被交出去的那个系统应用的事）。
+ */
+async function resolveOwnedSkillFile(
+  deps: { readonly dshHome: string },
+  name: string,
+): Promise<{ readonly status: 'present', readonly absolutePath: string } | { readonly status: 'missing' }> {
+  const directory = await resolveOwnedDirectory(deps, name)
+  if (directory.status === 'missing') return { status: 'missing' }
+  const absolutePath = join(directory.absolutePath, SKILL_FILE_NAME)
+  let stats
+  try {
+    stats = await lstat(absolutePath)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { status: 'missing' }
+    throw skillInstallError(error, 'ENT_SKILL_CONTENT_INVALID', 'the self-installed skill file could not be inspected')
+  }
+  if (stats.isSymbolicLink()) {
+    throw new EnterpriseSkillInstallError('ENT_SKILL_CONTENT_INVALID', 'the self-installed skill file is a symbolic link')
+  }
+  if (!stats.isFile()) {
+    throw new EnterpriseSkillInstallError('ENT_SKILL_CONTENT_INVALID', 'the self-installed skill file is not a regular file')
+  }
+  const resolvedDirectory = await realpathOrMissing(directory.absolutePath)
+  const resolved = await realpathOrMissing(absolutePath)
+  if (resolvedDirectory === undefined || resolved === undefined) return { status: 'missing' }
+  if (resolved !== join(resolvedDirectory, SKILL_FILE_NAME)) {
+    throw new EnterpriseSkillInstallError('ENT_SKILL_CONTENT_INVALID', 'the self-installed skill file escapes its skill directory')
   }
   return { status: 'present', absolutePath }
 }
@@ -355,4 +488,57 @@ export async function revealSelfInstalledSkill(
     throw skillInstallError(error, 'ENT_PLATFORM_UNAVAILABLE', 'the system file manager could not be opened')
   })
   return { revealed: true }
+}
+
+/**
+ * 按**技能目录名**用系统默认应用打开这枚技能的 `SKILL.md`（本刀③「编辑」的宿主内核）。
+ *
+ * 与 {@link revealSelfInstalledSkill} **同族同口径**，判据一处都不新写：
+ *  ① 归属：`readSelfInstalledRecords` + `findSelfInstalledOwner` + `centerClaimsName` —— 没有记录认领 / 被中心
+ *     记录认领 ⇒ 404（与 `reveal`、与 `uninstall` 那两条**逐字同源**的判定；两条以上自装记录认领 ⇒ 那两处共用的
+ *     `ENT_SKILL_NAME_CONFLICT` 409 fail-closed 也一并继承）；
+ *  ② 目录落点：`resolveOwnedDirectory`（名字侧 kebab 门禁 + `lstat` 普通目录 + `realpath` 逐字等于 `<真实技能根>/<name>`）
+ *     —— 符号链接 / 越界 / 非常规条目 ⇒ 409 `ENT_SKILL_CONTENT_INVALID`；
+ *  ③ 文件落点：本刀**唯一**新增的那一层 `resolveOwnedSkillFile` —— 宿主自己拼 `<技能根>/<name>/SKILL.md`，
+ *     `lstat` 必须是普通文件（符号链接即拒）、文件与目录**各自** `realpath` 逐字相等（越界即拒）。
+ *
+ * 路径**只能来自记录**：客户端的端口形状只有 `name` 一个键（`fileLauncher.openDocument` 的实参只可能来自本函数
+ * 自己拼出来的那一条），"传一个路径进来"在类型上不可表达。★**本函数不写一个字节、也不读 `SKILL.md` 的正文**
+ * （打开它是被交出去的那个系统应用的事）——宿主只交出一条已验证的宿主私有绝对路径。
+ *
+ * 失败**绝不静默**（全部既有码，一枚码一句话）：没有记录认领 / 被中心认领 / 目录或文件不在 ⇒ 404
+ * `ENT_RESOURCE_NOT_FOUND`；符号链接 / 越界 / 非常规条目 ⇒ 409 `ENT_SKILL_CONTENT_INVALID`；
+ * 系统交接失败或平台不支持 ⇒ 503 `ENT_PLATFORM_UNAVAILABLE`（与 `reveal` 同一个码：都是"宿主这台机器上的
+ * 桌面能力这次没交出去"）。
+ *
+ * @param options - 平台面、可选 dshHome、时钟、留痕端口与可选文件管理器/默认应用端口。
+ * @param name - 技能在本机的目录名（官方 kebab，≤64）。
+ * @param signal - 客户端断开时中止系统交接（缺省不取消）。
+ * @returns `{ edited: true }`（**不含**任何宿主路径）。
+ * @throws {EnterpriseSkillInstallError} 见上。
+ */
+export async function editSelfInstalledSkill(
+  options: SelfInstalledDependencies,
+  name: string,
+  signal?: AbortSignal,
+): Promise<SelfInstalledEditResult> {
+  const skillName = requireSkillName(name)
+  const records = await readSelfInstalledRecords(options)
+  const owner = findSelfInstalledOwner(records, skillName)
+  if (owner === undefined || await centerClaimsName(options, skillName)) {
+    throw new EnterpriseSkillInstallError('ENT_RESOURCE_NOT_FOUND', 'this skill is not installed by the user')
+  }
+  const dshHome = resolveEnterpriseDshHome(options.dshHome === undefined ? {} : { dshHome: options.dshHome })
+  const file = await resolveOwnedSkillFile({ dshHome }, skillName)
+  if (file.status === 'missing') {
+    // 记录在、盘上没有这枚普通文件（目录被删、或 SKILL.md 被删）⇒ 明确失败，绝不静默说"打开了"。
+    throw new EnterpriseSkillInstallError('ENT_RESOURCE_NOT_FOUND', 'the self-installed skill file is missing')
+  }
+  const launcher = options.fileLauncher ?? { openDocument: openSystemDocument }
+  // 交接失败是**同一种结果**（"这台机器上的桌面能力这次没交出去"），无论端口是默认实现还是注入实现，
+  // 都收敛成同一枚既有码 503 —— 绝不把裸 I/O 错误漏出这条面。
+  await launcher.openDocument(file.absolutePath, signal ?? new AbortController().signal).catch((error: unknown) => {
+    throw skillInstallError(error, 'ENT_PLATFORM_UNAVAILABLE', 'the self-installed skill file could not be opened')
+  })
+  return { edited: true }
 }

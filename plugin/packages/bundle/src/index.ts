@@ -2,8 +2,8 @@
  * [INPUT]: 依赖 Cordis/Schemastery、Harness credentials/LLM/inventory、官方 dsh-deepseek-account-platform、官方 settings 的 volatile Config 投影、platform-client 的地址写入诊断串与本地路由端口、plugin-distribution 的企业插件分发 Service 与其制品下载内核、官方运行时身份与企业业务模块
  * [OUTPUT]: 对外提供 Web/Desktop 共用 bundle apply、官方 settings 的 volatile Server/账户后台地址字段、默认关闭的插件验签开关、Host 凭据持久化、**企业插件安装/卸载/取消（官方 `pluginManager` 安装面，经 `manager-wiring.ts` 延迟接线；不再有 `dsh plugin` 子进程、不再 inject `subprocess`）**、**企业技能一键安装端口、已装技能只读正文端口、通路一「本地上传」两端口（`skill-upload.ts`：multipart 闸门 + 独立自装清单 + 复用中心安装的加固落盘）与通路二「系统搜索」两端口（`skill-system.ts`：本机技能根盘点三态 + 纳入只登记不复制）、**通路三「在线搜索」两端口（`skill-online.ts`：三源 fan-out + codeload 整仓包 → 内存组 `.dshskill` → 复用加固落盘；公开源走**无凭据裸 fetch**、带令牌的平台面只用在本机记账）****、**企业配方一键启用端口（官方 inject 声明 + 延迟解析取 `pluginManager` 安装面 + 三个实时解引用的本机路由端口 + 既有运行时下载面取配方正文；服务时序上不可用则 fail-closed，等它出现再接线）**、条件 Session 同步注册、**连接器广场只读投影（口径 67：`connector-plaza.ts` + `esc-route.ts` 宿主内部许可表新增三条 MCP 路径）**、**资料库三面（本机路由 `/enterprise/api/v1/local/library/**` + 3 个 Host 工具 + `system-prompt/assemble` 注入；域与主体晚绑定，未登录/未开域 ⇒ 503 可重试）**，以及用 settings 自定义地址热重挂官方账户插件；安卓按 `browserHandoff: 'client'` 把登录浏览器交接给浏览器半（宿主进程没有可用的开源路径），地址不可持久化的每个判定点都写 warn/error 宿主日志
  * [POS]: bundle 的唯一 Host Loader 入口，组合平台认证、官方企业模型、账户后台地址、环境原生插件调和与企业技能落盘（`skill-install.ts` 的中心安装 + 两条通路共用的 `placeEnterpriseSkillArchive`，以及 `skill-upload.ts` 的本地上传/自装清单）**、企业配方一键启用（`preset/`核心 + `preset-source.ts` + `preset-service.ts` + `preset/wiring.ts` 的时序边界）与受管插件官方安装面（`manager-wiring.ts`，复用同一份 `deferOfficialServiceWiring`）、以及资料库纵深（`library/index.ts` 的 `createEnterpriseLibraryHost` + `mountEnterpriseLibraryFaces`）**；Session 同步仅在 sessionPolicy.enabled 时挂载
- *   ★**本刀（自装技能的卸载 / 打开所在文件夹）**：core 块再挂 `registerEnterpriseSelfInstalledActionRoutes` 两条
- *     **exact** sibling（`POST …/skills/self-installed/{uninstall,reveal}`，实现见新叶 `skill-self-installed.ts` +
+ *   ★**本刀（自装技能的卸载 / 打开所在文件夹 / 编辑）**：core 块再挂 `registerEnterpriseSelfInstalledActionRoutes` 三条
+ *     **exact** sibling（`POST …/skills/self-installed/{uninstall,reveal,edit}`，实现见新叶 `skill-self-installed.ts` +
  *     `skill-self-installed-route.ts`，**platform-client 零改动**）：正文关闭键集**恰好 `{name}`**（技能在本机的
  *     目录名 —— 界面「已安装」的真相来自官方发现面，那份冻结投影里**只有 `name`、没有我们的记录 id**；而 `skillId`
  *     的语义按来源各不相同，真正的落盘目录名在记录的 `names[]` 里），响应 `{data:{skills,removed}}`（两键，
@@ -11,6 +11,10 @@
  *     被**中心** `installed.json` 认领 ⇒ 404 拒；被**另一条**自装记录也认领 ⇒ 409 fail-closed；唯一独占才删，
  *     一包多技能只删那一个目录、记录保留其余名字；最后一个名字才整条原子移除。★路径只来自记录（客户端交来的
  *     永远只有名字），删除走 `deleteOwnedSkillDirectory` 那**唯一**一处；`reveal` 用系统文件管理器（argv、无 shell）。
+ *     ★**「编辑」与 `reveal` 同族**：它把 `<技能根>/<name>/SKILL.md` 交给**系统默认应用**（`{data:{edited:true}}`），
+ *     归属/跨归属/目录落点三层判据**复用** `reveal` 那一份（无记录 / 被中心认领 ⇒ 404、符号链接 / 越界 ⇒ 409），
+ *     只多一层文件落点等式；宿主**不写**那个文件、响应**不含**任何宿主路径。界面那半刀（`editSkillFile` 端口）
+ *     **尚未接线**（端口缺席 ⇒ 「编辑」那一行今天整行不画），本刀只补宿主这半。
  *   ★**口径 54（本刀）**：core 块再挂一条**只读**同源路由 `registerEnterpriseSkillDiscoveryRoute`
  *     （`GET /enterprise/api/v1/local/skills/discovered`，实现见新叶 `skill-discovery.ts`）—— 它是
  *     「已安装」的**真源**（宿主官方 `ctx.get('skills')` 的快照 = 本机运行时真正加载的那一份）。
@@ -129,7 +133,7 @@ import { discoverThirdPartySkills, installThirdPartySkill } from './skill-third-
 import { registerEnterpriseThirdPartySkillRoutes } from './skill-third-party-route.js'
 import { installPublishedSkill } from './skill-published.js'
 import { registerEnterprisePublishedSkillRoute } from './skill-published-route.js'
-import { revealSelfInstalledSkill, uninstallSelfInstalledSkill } from './skill-self-installed.js'
+import { editSelfInstalledSkill, revealSelfInstalledSkill, uninstallSelfInstalledSkill } from './skill-self-installed.js'
 import { registerEnterpriseSelfInstalledActionRoutes } from './skill-self-installed-route.js'
 import {
   createEnterpriseLibraryHost,
@@ -1158,8 +1162,8 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
   }, (message, error) => {
     ctx.logger.warn(`owndsh: ${message}`, error)
   }), 'enterprisePublishedSkills.routes')
-  // 本刀：**自装技能**的两个宿主动作（卸载 / 打开所在文件夹）。两条 exact sibling 注册在
-  //   POST /enterprise/api/v1/local/skills/self-installed/{uninstall,reveal}
+  // 本刀：**自装技能**的三个宿主动作（卸载 / 打开所在文件夹 / 编辑＝用系统默认应用打开 SKILL.md）。三条 exact sibling
+  //   注册在 POST /enterprise/api/v1/local/skills/self-installed/{uninstall,reveal,edit}
   // —— 它们与 platform-client 那条只读 `GET …/skills/self-installed` **并列**（注册面全在 bundle 侧，
   //   platform-client 零改动），且抢在 `skill-route.ts` 那条 `/skills` prefix 之前命中（引擎 exact 整表优先）。
   // ★正文键是 `name`（技能在本机的**目录名**）而不是记录里的 `skillId`：界面「已安装」的真相来自官方发现面
@@ -1177,9 +1181,17 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
   // ★`reveal` 用**系统文件管理器**打开（argv 调 `open`/`explorer`/`xdg-open`，**无 shell**），失败明确报错：
   //   没有记录认领/被中心认领/目录不在 → 404 `ENT_RESOURCE_NOT_FOUND`、符号链接/越界 → 409、系统交接失败
   //   → 503 `ENT_PLATFORM_UNAVAILABLE`（全是既有码，platform-client 零改动）。
+  // ★**`edit`（编辑）与 `reveal` 同族同口径**：它把 `<技能根>/<name>/SKILL.md` 交给**系统默认应用**
+  //   （macOS `open` / Windows `cmd /c start` / Linux `xdg-open`，argv 数组、无 shell），响应 `{edited:true}`；
+  //   归属解析/唯一归属/跨归属**复用** `reveal` 那一份（无记录 / 被中心认领 → 404），目录落点等式复用
+  //   `resolveOwnedDirectory`（符号链接 / 越界 / 非常规条目 → 409），本刀只追加一层文件落点
+  //   （`lstat` 普通文件 + 文件与目录各自 `realpath` 逐字相等）。★宿主**不写**那个文件、**不读**它的正文，
+  //   响应**不含**任何宿主路径。★界面那半刀（`editSkillFile` 端口）**尚未接线**：按 fail-closed 纪律，
+  //   端口缺席 ⇒ 「编辑」那一行今天整行不画，本刀只补宿主这半。
   ctx.effect(() => registerEnterpriseSelfInstalledActionRoutes(ctx.webServer, {
     uninstall: name => uninstallSelfInstalledSkill(skillInstallOptions, name),
     reveal: (name, signal) => revealSelfInstalledSkill(skillInstallOptions, name, signal),
+    edit: (name, signal) => editSelfInstalledSkill(skillInstallOptions, name, signal),
   }, (message, error) => {
     ctx.logger.warn(`owndsh: ${message}`, error)
   }), 'enterpriseSelfInstalledSkills.routes')
