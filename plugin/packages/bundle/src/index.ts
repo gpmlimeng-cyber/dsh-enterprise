@@ -43,6 +43,23 @@
  *       但上游自带的受控码如 `ENT_AUTH_REQUIRED` **原样上抛**，不把"请先登录"折成"本机不可用"），
  *       **绝不静默回空列表**；空间数与连接器总数各一枚上限，超限 ⇒ 截断 + `complete:false` 原样出厂；
  *       判定点 `space-list-failed`/`space-mcp-failed`/`plaza-failed` 都经 `onError` 进 Host 日志。
+ *   ★★**口径 67 Phase C D2（连接器启用到本机）的本机 HTTP 面**：core 块再挂
+ *     `registerEnterpriseConnectorEnableRoutes`（实现见新叶 `connector-enable-service.ts` 脱敏投影 +
+ *     `connector-enable-route.ts` 四条路由），注册面全在 bundle 侧：
+ *     · 三条 **exact** —— `POST …/connectors/enable`、`POST …/connectors/disable`、
+ *       `GET …/connectors/connected`（`mcpId` 在**正文**里 ⇒ 路径是定值 ⇒ 引擎 exact 表整路径优先，
+ *       `enable`/`disable`/`connected` 这三个词**结构上**不可能被 `<mcpId>` 那条贪掉）；
+ *     · 一条 **prefix** —— `GET …/connectors/<mcpId>/status`，注册 path 与 D1 那条 exact **逐字相同、
+ *       不带尾斜杠**（引擎只认 `pathname === prefix || startsWith(prefix + '/')`；带尾斜杠会在引擎层空体 404）。
+ *       裸 `/connectors` 仍由 D1 的 exact 优先命中 ⇒ **D1 那条路由一字未改**（本刀只 import 它的路径常量）。
+ *     · **脱敏投影只此一处**（`connector-enable-service.ts`）：出厂键集关闭、从零构造；
+ *       `disclosure.url` 逐字去**内嵌凭据**（`https://u:p@h/x` ⇒ `https://h/x`；无凭据原样；解不出即明确失败）
+ *       —— 平台那份 `serverConfig` 是可直接落地的客户端配置，内嵌凭据进同源面=把凭据发给前端；
+ *     · **接线**：内核实例**只造一次**（`inFlight` 那本「同一 mcpId 正在装/卸就拒绝」的账活在实例里），
+ *       `port` 走**每次调用现场解引用** `connectorEnablePortFromContext(ctx)`（官方 plugin-manager 与本
+ *       bundle 同树并发 create，apply 那刻通常还没 provide；缺席 ⇒ fail-closed 503，**不装**）；
+ *       平台取数复用**同一个** `escReadPort` 的宿主内部读面（同一份 HTTP 客户端/票据/判决，零新增通道）。
+ *     · 失败一律走 platform-client 唯一那张码→状态表（内核 11 枚码逐枚定死）；判定点经 `onError` 进 Host 日志。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -97,6 +114,9 @@ import { registerEnterpriseModelsStatusRoute } from './models-status.js'
 import { registerEnterpriseEscReadRoute, readEnterpriseEscHostJson, type EnterpriseEscReadRoutePort } from './esc-route.js'
 import { readEscMockSwitch } from './esc-mock.js'
 import { registerEnterpriseConnectorPlazaRoute } from './connector-plaza.js'
+import { connectorEnablePortFromContext } from './connector-enable.js'
+import { createEnterpriseConnectorEnableService } from './connector-enable-service.js'
+import { registerEnterpriseConnectorEnableRoutes } from './connector-enable-route.js'
 import { createNuwaxSessionHolder } from './nuwax-auth.js'
 import { registerEnterpriseNuwaxRoutes } from './nuwax-route.js'
 import { createEnterpriseSkillInstall } from './skill-install.js'
@@ -1094,6 +1114,39 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
       ctx.logger.warn(`owndsh: ${message}`, error)
     },
   }), 'enterpriseConnectorPlaza.routes')
+  // ★★**口径 67 Phase C D2（连接器启用到本机）的本机 HTTP 面**：注册面全在 bundle 侧
+  //   （platform-client 这一刀**零路由改动**，只往它那张唯一的码→状态表补了连接器族 11 枚码）。
+  //   四条路由：三条 **exact**（`POST …/connectors/{enable,disable}`、`GET …/connectors/connected`）
+  //   + 一条 **prefix**（`GET …/connectors/<mcpId>/status`，注册 path 与 D1 那条 exact **逐字相同、不带尾斜杠**）。
+  //   ★**为什么 enable/disable 是 exact、status 只能是 prefix**：前两条把 mcpId 放在**正文**里，路径是定值
+  //     ⇒ 引擎 exact 表整路径优先，`/connectors/enable` **结构上**不可能被 `<mcpId>` 那条 prefix 贪掉；
+  //     而 `<mcpId>/status` 带动态段，exact 表表达不了（它与 platform-client 的 `/presets/<id>/…` 同款）。
+  //   ★**脱敏投影只有一处**（`connector-enable-service.ts`）：`connection`/`disclosure`/三个结果对象都
+  //     **从零构造**（出厂键集关闭），`disclosure.url` 逐字走 `new URL()` 去**内嵌凭据**——平台那份
+  //     `mcpConfig.serverConfig` 是可直接落地的客户端配置，`https://u:p@host/` 这种形态进同源 HTTP 面
+  //     就等于把凭据发给前端；`secretPath`/`headers`/patch 文本/宿主绝对路径一律不出厂。
+  //   ★**内核实例只造一次**（`inFlight` 那本「同一 mcpId 正在装/卸就拒绝」的账活在实例里），
+  //     **每次调用现场解引用**的只是官方管理面那一格；官方服务缺席/形状不对 ⇒ fail-closed（503，**不装**）。
+  //   ★**平台取数复用同一个 `escReadPort`**（`readEnterpriseEscHostJson`，D0 已把 `/api/mcp/<id>` 放进
+  //     宿主内部许可表）：同一份 HTTP 客户端 + 同一枚票据 + 同一套判决，**不新增第二条 HTTP 通道**。
+  //   ★失败一律走 platform-client 那张**唯一**的码→状态表（内核 11 枚码逐枚定死：403/409/400/502/503），
+  //     本面不另立第二张；判定点经 `onError` 进 Host 日志（`step=` + 内核的 `kernel-step=`）。
+  const connectorEnableService = createEnterpriseConnectorEnableService({
+    port: () => connectorEnablePortFromContext(ctx),
+    readPlatformJson: path => readEnterpriseEscHostJson(escReadPort, path),
+    onError: (message, error) => {
+      ctx.logger.warn(`owndsh: ${message}`, error)
+    },
+  })
+  ctx.effect(() => registerEnterpriseConnectorEnableRoutes(ctx.webServer, {
+    status: mcpId => connectorEnableService.status(mcpId),
+    enable: (mcpId, confirmFingerprint) => connectorEnableService.enable(mcpId, confirmFingerprint),
+    disable: mcpId => connectorEnableService.disable(mcpId),
+    connected: () => connectorEnableService.connected(),
+    onError: (message, error) => {
+      ctx.logger.warn(`owndsh: ${message}`, error)
+    },
+  }), 'enterpriseConnectorEnable.routes')
   // 口径 64 B0：「系统广场 → 已发布技能 → 导出安装」的本机动作路由（注册面全在 bundle 侧，
   // platform-client 零改动）。它是 `/skills` 那条 prefix 之外的 **exact** sibling（引擎 exact 整表优先）。
   // ★闸门顺序全在 `skill-published.ts`：形状 ⇒ **详情判合规**（`allowCopy !== 1` / `paymentRequired === true`

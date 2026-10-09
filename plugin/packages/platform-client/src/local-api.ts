@@ -39,6 +39,16 @@
  *   `ENT_NUWAX_REJECTED`→403（凭据有效但平台不允许这次登录：风控/验证码/账号被锁，**不是**"再输一次就好"）、
  *   `ENT_NUWAX_UNAVAILABLE`/`ENT_NUWAX_TIMEOUT`/`ENT_NUWAX_PROTOCOL`→502（**上游**故障或上游回了读不懂的东西，
  *   与既有 `ENT_SKILL_SOURCE_UNREACHABLE` 同族，绝不折成 503 的"本机暂时不可用"）。
+ * **本刀（口径 67 Phase C D2：连接器启用到本机）**：本文件**仍不注册任何新路由**（四条连接器路由
+ *   `/connectors/{enable,disable,connected}` 与 `<mcpId>/status` 的注册面全在 bundle 的
+ *   `connector-enable-route.ts`），只往唯一那张码→状态表补上连接器族**全部 11 枚码**（内核
+ *   `connector-enable.ts` 的码边界；此前一枚都不在表里 ⇒ 全被表尾折成 503，而 403「还没在本机确认过这枚
+ *   连接器」与 503「本机暂时不可用、可重试」是**实质不同**的下一步）：`ENT_INVALID_REQUEST`→400（已有）、
+ *   `_CONFIG_UNAVAILABLE`/`_STATE_INVALID`/`_LOCAL_WRITE_FAILED`/`_INSTALL_FAILED`/`_UNINSTALL_FAILED`→503、
+ *   `_CONFIG_INVALID`→502（上游协议问题，与 `ENT_NUWAX_PROTOCOL` 同族）、
+ *   `_AUTHORIZATION_REQUIRED`→403、`_AUTHORIZATION_STALE`/`_INSTALL_IN_PROGRESS`/`_INSTALL_CANCELLED`→409
+ *   （最后一枚与 `ENT_PLUGIN_INSTALL_CANCELLED` **逐字同判**）。语义与理由逐条写在
+ *   `enterpriseLocalErrorStatus` 里那一段注释；bundle 侧的回归锁按**这一张表**逐枚断言。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -550,6 +560,28 @@ export function enterpriseLocalErrorStatus(error: unknown): number {
   if (code === 'ENT_NUWAX_INVALID_CREDENTIALS') return 401
   if (code === 'ENT_NUWAX_REJECTED') return 403
   if (code === 'ENT_NUWAX_UNAVAILABLE' || code === 'ENT_NUWAX_TIMEOUT' || code === 'ENT_NUWAX_PROTOCOL') return 502
+  // 连接器族（口径 67 Phase C D2 的本机 HTTP 面：bundle 的 `connector-enable-route.ts` / `connector-enable.ts`
+  // 抛出内核那 11 枚码，状态只由**这一张**表定，bundle 侧不另立第二张）。逐枚的理由：
+  //  · 平台这次读不动 / 本机状态坏 / 本机写不动 / 官方装卸失败 → 503（本机这块暂时不可用、可重试）；
+  //  · **平台答了我们读不懂的东西**（`_CONFIG_INVALID`：信封不是信封、`mcpServers` 不是对象、`serverName`
+  //    不在域内、`url` 非 http(s)…）→ 502：与 `ENT_NUWAX_PROTOCOL` 同族，是**上游**的协议问题，
+  //    折成 503 那句"本机暂时不可用"会让人一直重试、而它永远不会自己好；
+  //  · 这枚连接器**还没在本机确认过** → 403（与 `ENT_PRESET_AUTHORIZATION_REQUIRED` 同判：需要员工先看披露再确认）；
+  //  · 披露变了要重新确认 / 同一枚连接器已在装或卸 → 409（与 `ENT_PRESET_AUTHORIZATION_STALE` /
+  //    `ENT_PRESET_INSTALL_IN_PROGRESS` 同判：请求合法，本机当前状态不允许这一次调用）；
+  //  · 官方安装被**取消**（用户/宿主在途中取消）→ 与上面那条 `ENT_PLUGIN_INSTALL_CANCELLED`（判 **409**）
+  //    **逐字同判**：同一件事在两条族线上给两个状态码，界面就得写两套文案。
+  //  ★`ENT_INVALID_REQUEST`（形状）已在上面判 400，不重复列。
+  if (code === 'ENT_CONNECTOR_CONFIG_UNAVAILABLE'
+    || code === 'ENT_CONNECTOR_STATE_INVALID'
+    || code === 'ENT_CONNECTOR_LOCAL_WRITE_FAILED'
+    || code === 'ENT_CONNECTOR_INSTALL_FAILED'
+    || code === 'ENT_CONNECTOR_UNINSTALL_FAILED') return 503
+  if (code === 'ENT_CONNECTOR_CONFIG_INVALID') return 502
+  if (code === 'ENT_CONNECTOR_AUTHORIZATION_REQUIRED') return 403
+  if (code === 'ENT_CONNECTOR_AUTHORIZATION_STALE'
+    || code === 'ENT_CONNECTOR_INSTALL_IN_PROGRESS'
+    || code === 'ENT_CONNECTOR_INSTALL_CANCELLED') return 409
   return 503
 }
 
