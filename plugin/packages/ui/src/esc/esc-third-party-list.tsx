@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 React 的 createElement/ReactNode、官方原语 `Button`、lucide 的 `RefreshCw`、`list-state` 的四态类型与重试文案、`error-notice` 的唯一提示组件、`esc-third-party` 的全部纯投影与文案、`esc-sub-tabs` 的按 key 过滤、**`esc-card` 那张与广场同一枚的卡片**、`esc-skill-card` 的**唯一装配点** `enterpriseEscSkillCardSpec`、以及 `esc-skill-try` / `esc-more-menu` 的计划类型（后两者只在"已装"那一档透传）
- * [OUTPUT]: 对外提供 `EnterpriseEscThirdPartyList`——「本地三方」（本地三方 Agent 技能源，口径 62）这一维度的**整块内容区**（纯渲染，无 hook、无请求、无路径拼接）；★**用户修正（二级 chip 行数据驱动）**：外多一枚可选 `selectedRoot`（当前选中的来源）——过滤同样走 `esc-sub-tabs` 那一份判据，与工具栏那一排 chip 同源；且内容区多一句“检测到 N 个源、其中 M 个有技能”（报那些**不进 chip** 的位置）
+ * [OUTPUT]: 对外提供 `EnterpriseEscThirdPartyList`——「本地三方」（本地三方 Agent 技能源，口径 62）这一维度的**整块内容区**（纯渲染，无 hook、无请求、无路径拼接）；★**用户修正（二级 chip 行数据驱动）**：外多一枚可选 `selectedRoot`（当前选中的来源）——过滤同样走 `esc-sub-tabs` 那一份判据，与工具栏那一排 chip 同源；★**本刀**：内容区**第一件东西就是卡片**（页内大标题、页内说明句、统计横幅、空来源那一族句子**全部退场**），如实丢弃计数改挂「重新扫描」的**悬浮说明**
  * [POS]: esc 技能页第三枚维度的**呈现层**，与 `esc-third-party.ts`（纯事实层）/ `esc-third-party-install.ts`（一次一条的动作闸）构成一带三：本文件只画。
  *   ★**为什么它是块内组件而不是工具栏的一部分**：工具栏是**纯投影**（直调可测、其结构锁靠这一点成立），
  *     而这一维度要在**内容区**整块替换掉卡片网格（四态 + 按根分组）⇒ 它是内容区的一支，由
@@ -38,20 +38,17 @@ import { enterpriseEscSkillCardSpec } from './esc-skill-card.js'
 import type { EnterpriseEscSkillTryPlan } from './esc-skill-try.js'
 import { ENTERPRISE_ESC_SUB_TAB_ALL_KEY, enterpriseEscSubTabFilter } from './esc-sub-tabs.js'
 import {
-  ENTERPRISE_THIRD_PARTY_ABSENT_TAG,
   ENTERPRISE_THIRD_PARTY_INSTALL_FAILED_PREFIX,
   ENTERPRISE_THIRD_PARTY_LOADING,
-  ENTERPRISE_THIRD_PARTY_NOTE,
   ENTERPRISE_THIRD_PARTY_REFRESH,
   ENTERPRISE_THIRD_PARTY_REFRESH_LABEL,
-  ENTERPRISE_THIRD_PARTY_SOURCE_TITLE,
   enterpriseThirdPartyCardInstall,
   enterpriseThirdPartyCardItem,
   enterpriseThirdPartyCountText,
   enterpriseThirdPartyFace,
   enterpriseThirdPartyInstallingText,
   enterpriseThirdPartySkillRow,
-  enterpriseThirdPartySourceSummary,
+  enterpriseThirdPartySkippedCount,
 } from './esc-third-party.js'
 
 /** 「本地三方」内容区的输入（唯一构造点是 `esc-aggregation.tsx`）。 */
@@ -97,9 +94,12 @@ export interface EnterpriseEscThirdPartyListProps {
 /**
  * 「本地三方」内容区（纯函数，无 hook）。
  *
- * 三块按序铺：① 标题 + 一句页内说明（说清"从哪来"与"安装做了什么"）；
- * ② 在途 / 刚成功那两句可见反馈（**在途那一句同时是所有被禁用按钮的原因来源**）；
- * ③ 四态内容（加载中 / 失败 + 重试 / 空 + 那句"为什么空" + 各根的空话 / 就绪 + 按根分组）。
+ * ★★**本刀（版面精简 + 空来源不显示）**：内容区的第一件东西**就是卡片**（或四态那一档）——
+ *   改前顶上那三块（大标题 + 页内说明句 + 统计横幅）已**整族删除**、连容器一起删掉 ⇒ 标题原来占的那块
+ *   高度**不补回来**（`.esc-third-party` 那一格自己的 `margin-top` 是块间距、不是"标题预留位"，
+ *   删了标题自然就没有空档；上面剩下的只有二级 chip 行与「重新扫描」那枚按钮）。
+ *   仍然铺的三块按序是：① 可见反馈（在途 / 刚成功，那一句同时是所有被禁用按钮的原因来源）；
+ *   ② 四态内容（加载中 / 失败 + 重试 / 空 + 那句**整机级**的"为什么空" / 就绪 + 按**可见**来源分组）。
  */
 export function EnterpriseEscThirdPartyList(props: EnterpriseEscThirdPartyListProps): ReactNode {
   const face = enterpriseThirdPartyFace(props.state)
@@ -110,32 +110,37 @@ export function EnterpriseEscThirdPartyList(props: EnterpriseEscThirdPartyListPr
    * 四态投影拿的永远是**整份**真值，"整机空"与"这一枚 chip 下空"是两件事）。
    */
   const selectedRoot = props.selectedRoot ?? ENTERPRISE_ESC_SUB_TAB_ALL_KEY
-  /** 真值在手的那一份（loading / failed 两态下缺席）：那句话只许报**可信**的数字。 */
+  /**
+   * 真值在手的那一份（loading / failed 两态下缺席）：**如实丢弃的目录数**只在这里算一次，
+   * 落点是「重新扫描」那枚按钮的**悬浮说明**（见下面那一句怎么组）。
+   */
   const scanned = props.state.kind === 'ready' || props.state.kind === 'empty' ? props.state.value : undefined
+  /**
+   * ★**本刀**：「重新扫描」的悬浮说明 —— 改前那句「另有 190 个目录不符合技能规范」在**统计横幅**上，
+   *   横幅已随版面精简删除；本仓纪律"丢弃不许静默"不许把这个数一起吞掉，故它挪到这里：
+   *   **悬浮可见、一行版面都不占**，且这正是"要解释才看"的落点。
+   * ★**计数为 0 时整句不出现**（不写"没有丢弃"这种零信息量的话——那会把真有缺口时的分量冲掉）。
+   */
+  const skipped = scanned === undefined ? 0 : enterpriseThirdPartySkippedCount(scanned)
+  const refreshTitle = skipped === 0 ? undefined : `${ENTERPRISE_THIRD_PARTY_REFRESH_LABEL}：另有 ${skipped} 个目录不符合技能规范。`
+  /**
+   * 那枚「重新扫描」按钮（就绪态 / 空态两处共用**同一枚**，判据与文案一字不改）。
+   * ★**失败态那枚是「重试」**（`ENTERPRISE_LIST_RETRY`，四个列表共用），**刻意不**挂这一句 ——
+   *   扫描读不到时"丢弃了几个"是**零信息**（没有可信真值），挂上去等于凭空给一个数。
+   */
+  const refreshButton = createElement(Button, {
+    size: 'sm',
+    className: 'esc-third-party-retry',
+    icon: createElement(RefreshCw, { size: 14, 'aria-hidden': true }),
+    'aria-label': ENTERPRISE_THIRD_PARTY_REFRESH_LABEL,
+    ...(refreshTitle === undefined ? {} : { title: refreshTitle }),
+    onClick: () => { props.onReload() },
+    children: ENTERPRISE_THIRD_PARTY_REFRESH,
+  })
   return createElement(
     'div',
     { className: 'esc-third-party', 'data-enterprise-third-party': 'true' },
-    // ① 标题 + 页内说明句（完整说法「本地三方 Agent 技能源」在这里，不在那四个字的标签上）。
-    createElement(
-      'div',
-      { className: 'esc-third-party-head' },
-      createElement('h3', { className: 'esc-third-party-title', children: ENTERPRISE_THIRD_PARTY_SOURCE_TITLE }),
-      createElement('p', { className: 'esc-third-party-note', children: ENTERPRISE_THIRD_PARTY_NOTE }),
-      /**
-       * ★**"检测到几个源、其中几个有技能"**（口径 62 用户修正）：0 枚的根与别名根**不进 chip 行**
-       *   （判据在 `enterpriseThirdPartySubChips`），于是员工看不到它们——不给出这个总数，那些
-       *   "本机确实存在但一枚技能都没有"的位置就**没有任何交代**了。这句话就是那个交代。
-       * ★**只在真值在手时画**（loading / failed 两态下没有可信数字可报，宁可不画也不编一个）。
-       */
-      scanned === undefined
-        ? null
-        : createElement('p', {
-            className: 'esc-third-party-summary',
-            'data-enterprise-third-party-summary': 'true',
-            children: enterpriseThirdPartySourceSummary(scanned),
-          }),
-    ),
-    // ② 可见反馈：进行中（同时是所有被禁用按钮的原因）与刚成功那句各占一行。
+    // ① 可见反馈：进行中（同时是所有被禁用按钮的原因）与刚成功那句各占一行。
     busy === undefined
       ? null
       : createElement('p', {
@@ -181,50 +186,32 @@ export function EnterpriseEscThirdPartyList(props: EnterpriseEscThirdPartyListPr
           'div',
           { 'data-enterprise-third-party-state': 'empty' },
           // ★两种"为什么空"由纯投影选好（`noSource`）——界面这里只铺那一句，不自己再判一次。
+          // ★这两句说的是**整机**（"这台机器上一枚源都没有" vs "源在、里面没东西"），
+          //   **照旧**——本刀删的是针对**单个**空来源的那三句，不是这两句。
           createElement('p', {
             className: 'esc-third-party-empty',
             'data-enterprise-third-party-empty': face.noSource === true ? 'no-source' : 'no-skill',
             children: face.emptyNote,
           }),
-          // 每一枚源自己那句（未检测到 / 里面没有技能 / 这里没有但别处有）照旧铺：它们说的是
-          // "**这个位置**怎么了"，与上面那句"整台机器怎么了"分工不同、两句都要有。
-          createElement(
-            'div',
-            { className: 'esc-third-party-roots' },
-            face.groups.map(group =>
-              createElement('p', {
-                key: group.root.id,
-                className: 'esc-third-party-rootnote',
-                'data-enterprise-third-party-root': group.root.id,
-                children: `${group.label}：${group.emptyNote ?? ''}`,
-              }),
-            ),
-          ),
+          /**
+           * ★**本刀**：改前这里还有一整块「每一枚源自己那句」（`Agent Skills 未检测到 / Codex 未检测到 /
+           *   …没有技能`）——**整块删除**，连同 `.esc-third-party-roots` 那个容器。
+           *   ★**为什么必须删而不是留**：空来源（含 `present:false` 的位置与 `aliasOf` 别名）在这一刀
+           *   之后**整枚不显示** ⇒ 这一族句子**永远不可达**，却还在源码里占着位置、还在版式里占着
+           *   高度。本仓纪律：留着不可达的句子就是一张"看着还能用"的死条目。
+           *   ★**这不违反"零编造"**：说真话的义务落在**整机级**那一句上（"检测到了技能源，但里面没有技能"）
+           *   与**可见来源的真实计数**上，这两句一个字节都没动。
+           */
           // 就绪态那枚重新扫描在这一态**照旧给**：空态恰恰是最需要"再扫一次"的时候
-          //   （员工刚往 `~/.claude/skills` 里放了一枚技能）。
-          createElement(Button, {
-            size: 'sm',
-            className: 'esc-third-party-retry',
-            icon: createElement(RefreshCw, { size: 14, 'aria-hidden': true }),
-            'aria-label': ENTERPRISE_THIRD_PARTY_REFRESH_LABEL,
-            onClick: () => { props.onReload() },
-            children: ENTERPRISE_THIRD_PARTY_REFRESH,
-          }),
+          //   （员工刚往 `~/.claude/skills` 里放了一枚技能）。**丢弃计数的悬浮说明也照旧**。
+          refreshButton,
         )
       : null,
     face.kind === 'ready'
       ? createElement(
           'div',
           { 'data-enterprise-third-party-state': 'ready' },
-          createElement(Button, {
-            size: 'sm',
-            variant: 'outline',
-            className: 'esc-third-party-retry',
-            icon: createElement(RefreshCw, { size: 14, 'aria-hidden': true }),
-            'aria-label': ENTERPRISE_THIRD_PARTY_REFRESH_LABEL,
-            onClick: () => { props.onReload() },
-            children: ENTERPRISE_THIRD_PARTY_REFRESH,
-          }),
+          refreshButton,
           createElement(
             'div',
             { className: 'esc-third-party-groups' },
@@ -236,45 +223,33 @@ export function EnterpriseEscThirdPartyList(props: EnterpriseEscThirdPartyListPr
                   className: 'esc-third-party-group',
                   'aria-label': group.label,
                   'data-enterprise-third-party-group': group.root.id,
-                  'data-enterprise-third-party-present': group.root.present ? 'true' : 'false',
+                  'data-enterprise-third-party-present': 'true',
                 },
+                /**
+                 * ★**本刀（组标题瘦身）**：改前节头是三件东西——根名 +「未检测到」签 + 计数，
+                 *   并且空组还额外铺一句"这个位置里没有技能…"。现在**只留**「来源名 + N 枚技能」
+                 *   **一行**：可见来源恒有候选、恒 `present: true` ⇒「未检测到」签与那句空话都不可达，
+                 *   三件并排读出来是同一件事说两遍。
+                 */
                 createElement(
                   'div',
                   { className: 'esc-third-party-grouphead' },
                   createElement('h4', { className: 'esc-third-party-grouptitle', children: group.label }),
-                  // ★未检测到的根**照样成组**，节头右边如实写「未检测到」（口径 62 明令可显示）。
-                  group.absent
-                    ? createElement('span', {
-                        className: 'esc-third-party-grouptag',
-                        'data-enterprise-third-party-absent': 'true',
-                        children: ENTERPRISE_THIRD_PARTY_ABSENT_TAG,
-                      })
-                    : null,
                   createElement('span', {
                     className: 'esc-third-party-count',
                     children: enterpriseThirdPartyCountText(group.skills.length),
                   }),
                 ),
-                // 就绪态里某一根也可能是空的（别的根有技能）⇒ 那句空话照旧要写。
-                group.emptyNote === undefined
-                  ? null
-                  : createElement('p', {
-                      className: 'esc-third-party-rootnote',
-                      'data-enterprise-third-party-root-note': group.root.id,
-                      children: group.emptyNote,
-                    }),
-                group.skills.length === 0
-                  ? null
-                  : createElement(
-                      /**
-                       * ★**本刀（②）**：这一格从 `ul.esc-third-party-rows` 换成 **`.esc-list-section`**
-                       *   —— 与广场网格**逐字同一枚类名**（同一份列模板、同一份间距、同一条
-                       *   `content-visibility` 跳过屏幕外的规则）。因此本维度的卡片与广场那些卡片
-                       *   在版式上不可能漂：它们由**同一个选择器**排版。
-                       */
-                      'div',
-                      { className: 'esc-list-section' },
-                      enterpriseEscSubTabFilter(group.skills, selectedRoot, skill => skill.rootId).map((skill) => {
+                createElement(
+                  /**
+                   * ★**本刀（②）**：这一格从 `ul.esc-third-party-rows` 换成 **`.esc-list-section`**
+                   *   —— 与广场网格**逐字同一枚类名**（同一份列模板、同一份间距、同一条
+                   *   `content-visibility` 跳过屏幕外的规则）。因此本维度的卡片与广场那些卡片
+                   *   在版式上不可能漂：它们由**同一个选择器**排版。
+                   */
+                  'div',
+                  { className: 'esc-list-section' },
+                  enterpriseEscSubTabFilter(group.skills, selectedRoot, skill => skill.rootId).map((skill) => {
                         const row = enterpriseThirdPartySkillRow(skill)
                         const error = props.installError?.id === row.id ? props.installError : undefined
                         /**

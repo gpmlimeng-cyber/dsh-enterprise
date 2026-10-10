@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 只依赖 `list-state` 的四态类型、`skill-api-decode` 的三方候选投影类型、`esc-third-party-install` 的在途类型、`esc-types` 的卡片数据形状（`ResourceItem`）与 `esc-card` 的【＋】终态类型（`EscCardInstall`）——**全是类型导入**（不依赖 React、不依赖任何宿主 API、不发请求）
- * [OUTPUT]: 对外提供「本地三方 Agent 技能源」（口径 62）这一面的**纯事实层**：可见文案（页内说明 / 加载 / 失败前后缀 / **两句不同的空话** / 三态中文 / 安装动作与它在途·成功文案 / 在途禁用原因）、唯一状态投影 `enterpriseThirdPartyFace`（四态 → loading / failed / empty / ready，**互斥**）、按根分组的 `enterpriseThirdPartyRootGroups`（含未检测到的根）、单条候选的行投影 `enterpriseThirdPartySkillRow`（可安装性 + 可见原因）、一次一条的**按钮终态** `enterpriseThirdPartyActionPlan`（可点 / 在途 / 被别人的在途挡住 / 端点缺席，四档各有可见文案），**本刀（②）再加两枚**：卡片 `item` 投影 `enterpriseThirdPartyCardItem` 与【＋】终态的**纯适配器** `enterpriseThirdPartyCardInstall`（把上面那枚既有计划映成 `EscCardInstall`；**既有计划一个字不改**）
+ * [OUTPUT]: 对外提供「本地三方 Agent 技能源」（口径 62）这一面的**纯事实层**：可见文案（加载 / 失败前后缀 / **两句整机级的"为什么空"** / 三态中文 / 安装动作与它在途·成功文案 / 在途禁用原因）、唯一状态投影 `enterpriseThirdPartyFace`（四态 → loading / failed / empty / ready，**互斥**）、**可见来源的唯一判据** `enterpriseThirdPartyRootVisible`（`present === true` 且 `count > 0` 且 `aliasOf === undefined`，**三句都要**——解码层**不保证** `present:false ⇒ count:0`，两把尺子不许互相顶替）及其三枚投影（`enterpriseThirdPartyVisibleRoots` / `enterpriseThirdPartyVisibleSkills`（那条"不许丢候选"的等式锁）/ `enterpriseThirdPartySkippedCount`）、按可见根分组的 `enterpriseThirdPartyRootGroups`（★**本刀起空来源整枚不显示**）、单条候选的行投影 `enterpriseThirdPartySkillRow`（可安装性 + 可见原因）、一次一条的**按钮终态** `enterpriseThirdPartyActionPlan`（可点 / 在途 / 被别人的在途挡住 / 端点缺席，四档各有可见文案），卡片 `item` 投影 `enterpriseThirdPartyCardItem` 与【＋】终态的**纯适配器** `enterpriseThirdPartyCardInstall`（把上面那枚既有计划映成 `EscCardInstall`；**既有计划一个字不改**）
  * [POS]: dsh-ui 技能页第三枚维度的**唯一判定与文案真源**（页面只画、控制器只接线）。真源是冻结契约
  *   `analysis/esc-third-party-skills-spec.md` §3.2/§3.3（`GET /skills/third-party` +
  *   `POST /skills/third-party/install`）。
@@ -9,9 +9,22 @@
  *     `-install` / `-lock` 那一套**行 CSS 一并删掉，不留死规则**），换成与广场逐字同构的
  *     `.esc-list-section > .esc-catalog-cell > 同一张卡`。★**为什么非换不可**：同一个页面上两张卡
  *     两种版式，就是用户已经报过的那类"同一件东西两种形态"；而"哪一枚卡片拿到哪些入参"这件事
- *     一旦散成两份实现，注定会漂（本仓已被咬过三次）。★**换卡不丢东西**（逐件保留）：按来源根
- *     分组的组标题、根汇总那句、二级 chip 行（`esc-sub-tabs.ts`）、**两句不同的"为什么空"**、
- *     失败态与真重发、在途与禁用原因 —— 全部照旧，只是"行"换成"卡片"。
+ *     一旦散成两份实现，注定会漂（本仓已被咬过三次）。
+ *   ★★**本刀（版面精简 + 空来源不显示，用户截图逐条点名）**：这一面**卡片之外**的东西退场四件 ——
+ *       ① 页内说明句（`ENTERPRISE_THIRD_PARTY_NOTE`，"这里列出本机其它 Agent CLI 技能库里的技能…"）**删除**；
+ *       ② 统计横幅（`enterpriseThirdPartySourceSummary`，"已检测到 12 个技能源，其中 11 个有技能，另有 190
+ *          个目录不符合技能规范。"）**删除** —— 其中**如实丢弃计数**（190）**不静默吞**：它挪进
+ *          「重新扫描」那枚按钮的**悬浮说明**（`title`，悬浮可见、一行版面都不占；**为 0 时整句不出**）；
+ *       ③ 空来源整枚不显示（`present === false` / `count === 0` / `aliasOf` 别名归并那三种）⇒
+ *          **不产出 chip、不产出组标题、不进"可见来源"计数**（唯一判据
+ *          `enterpriseThirdPartyRootVisible`），改前那一族三句"这个位置…"随之
+ *          **永远不可达** ⇒ **整族删除**（连 `EnterpriseThirdPartyRootGroup.emptyNote` 与「未检测到」签）；
+ *       ④ 页面级大标题（`ENTERPRISE_THIRD_PARTY_SOURCE_TITLE`，与页签「本地三方」同一句话说两遍）
+ *          **连容器一起删除** —— 只在这一维度不渲染，别的维度一个字不动。
+ *     ★**留下的**：组标题只留「来源名 + N 枚技能」一行、二级 chip 行（"按应用分组/筛选"的入口）、
+ *       「重新扫描」按钮、**整机级**的两句"为什么空"、失败态与真重发、在途与禁用原因 —— 全部照旧。
+ *     ★**为什么删空来源不丢技能**：`count` 与条数在解码层已钉成逐字相等，滤掉 `count === 0`
+ *       滤不掉任何一枚候选；隐藏的是**来源**，不是**技能**（`enterpriseThirdPartyVisibleSkills` 那条等式锁）。
  *   ★它与 `esc-third-party-install.ts` 的分工：那个对象只管「**一次只允许一条在途**」这条动作纪律
  *     （可直调取证、不需要 DOM），本文件只管「收回来之后说什么、哪几条能点、为什么不能点」。
  *   ★**二级 chip 行那一层不在本文件**：`esc-sub-tabs.ts` 是「维度 → 二级 chip 行 → 内容过滤」这条机制
@@ -37,14 +50,15 @@ import { ENTERPRISE_ESC_LOCAL_COPY } from './esc-copy.js'
 import type { ResourceItem } from './esc-types.js'
 
 /**
- * 这一维度的**完整说法**（「本地三方 Agent 技能源」）。
+ * ★**本刀（版面精简 + 空来源不显示）**：这里**曾**有一个页内大标题常量
+ * `ENTERPRISE_THIRD_PARTY_SOURCE_TITLE`（「本地三方 Agent 技能源」），它与页签「本地三方」
+ * **同一句话说两遍**（用户截图⑤点名要删）⇒ **本刀连同它的渲染、它的容器与那一格文案真源一并删除**。
+ * 标签的悬浮说明（`ENTERPRISE_ESC_LOCAL_COPY.thirdPartyTabTitle`）照旧 —— 四字标签读不出
+ * 它扫的是谁的库，而那一句**只在悬浮时出现、不占版面**。
  *
- * ★它是 `esc-copy.ts` 那一格的**唯一再出口**（不在这里另写一份字面量）：本文件的页内说明句与
- *   工具栏那一枚标签的悬浮说明都引它 ⇒ "悬浮说明"与"页内说明"不可能各说各的。
+ * ★**为什么不是"改小"而是"整条删"**：用户原话是「不要出现除卡片外其他冗余描述」。留着改小
+ *   等于把同一句重复信息换一种字号继续摆着 —— 那还是冗余。
  */
-export const ENTERPRISE_THIRD_PARTY_SOURCE_TITLE = ENTERPRISE_ESC_LOCAL_COPY.thirdPartySourceTitle
-/** 页内说明句：这一面在干什么、以及【安装】到底做了什么（"复制"这件事必须说出来，见文件头那段）。 */
-export const ENTERPRISE_THIRD_PARTY_NOTE = '这里列出本机其它 Agent CLI 技能库里的技能；安装会把技能复制进 DSH，源目录不动。'
 /** 在途那一句（`role="status"`）。 */
 export const ENTERPRISE_THIRD_PARTY_LOADING = '正在扫描本机的三方技能源…'
 /**
@@ -56,25 +70,24 @@ export const ENTERPRISE_THIRD_PARTY_LOADING = '正在扫描本机的三方技能
  *   · `NO_SKILL`：**检测到了技能源、但里面一枚技能都没有** —— 员工该做的事是"往那个库放技能"，
  *     或者确认那些目录里是不是少了 `SKILL.md`。
  * 合起来说成一句「暂无数据」就等于把这两种情况都糊掉了（本页第一版口径 31 正是被这条纪律否掉的）。
+ * ★**本刀起这两句是这一面**仅剩的**两句真话**：针对**单个**来源的三句（`ROOT_ABSENT` /
+ *   `ROOT_EMPTY` / `ROOT_EMPTY_OTHERS`）随"空来源整枚不显示"一并**整族删除**（见下面的说明）。
  */
 export const ENTERPRISE_THIRD_PARTY_EMPTY_NO_SOURCE = '本机未检测到任何三方技能源。'
 export const ENTERPRISE_THIRD_PARTY_EMPTY_NO_SKILL = '检测到技能源，但里面没有技能。'
-/** 根不存在（`present: false`）时那一句：**不是错误**，是这个位置本来就没有那个库。 */
-export const ENTERPRISE_THIRD_PARTY_ROOT_ABSENT = '这个位置没有检测到技能源。'
-/** 根在、但一枚候选都没有时那一句：与上面那句**刻意不同**（一个是位置不存在、一个是位置里没东西）。 */
-export const ENTERPRISE_THIRD_PARTY_ROOT_EMPTY = '这个位置里没有技能。'
 /**
- * 根在一枚技能都没有、但**整台机器上别处有**时那句（每组的空话）。
+ * ★**本刀（版面精简 + 空来源不显示）**：改前这里有**三句针对单个来源的空话**，它们**整族删除**了。
  *
- * 与 `ROOT_EMPTY` 分开是"零编造"的另一半：`ROOT_EMPTY` 说的是"这个位置里没有技能"，
- * 而这一句说的是"这个位置里没有技能**（别的源里有）**"——只有后者能解释"为什么整台机器不空、
- * 这一节却是空的"，否则员工会以为就这一枚源。
- * ★措辞不指方向（不写"上面/下面"）：这一句在**就绪态**（这一节夹在别的节之间）与**空态**
- *   （各节挨着铺）两处都出现，指方向的词在其中一处必然是错的。
+ *   · `ROOT_ABSENT`（位置不存在）／`ROOT_EMPTY`（位置里没东西）／
+ *     `ROOT_EMPTY_OTHERS`（这一节空但别处有）——它们各自回答"**这个位置**怎么了"。
+ *
+ * ★**为什么必须整族删**（不是"先留着"）：空来源（含 `present:false` 的位置与 `aliasOf` 别名归并
+ *   那种）在这一刀之后**整枚不显示** ⇒ 这三句**永远不可达**。本仓纪律：留一句永不出现的文案
+ *   就是一张"看着还能用"的死条目，它还会让后来的人以为"未检测到的源仍可显示"（改前口径 62 的那条
+ *   已被用户本刀否决），于是两份矛盾的口径并排躺着，久了必漂。
+ * ★**为什么这不影响"零编造"**：这一刀隐藏的是**来源**，不是**技能**——可见组里的技能总数与改前
+ *   逐字相等（`enterpriseThirdPartyVisibleSkills` 那条等式锁），且**整机级**的两句空话照旧。
  */
-export const ENTERPRISE_THIRD_PARTY_ROOT_EMPTY_OTHERS = '这个位置里没有技能；其它来源里有。'
-/** 未检测到的根在列表里照旧显示（口径 62：未检测到的根也可显示为"未检测到"）。 */
-export const ENTERPRISE_THIRD_PARTY_ABSENT_TAG = '未检测到'
 /**
  * 就绪态与空态那枚**重新扫描**钮（本机那几枚源是**外部可变**的：员工刚往 `~/.claude/skills`
  * 里放了一枚技能、或刚装了另一个 Agent CLI，这一面必须能重取）。
@@ -111,8 +124,9 @@ export const ENTERPRISE_THIRD_PARTY_INSTALL_FAILED_PREFIX = '安装失败'
  * ★为什么本刀才需要它：旧行版式那枚 `Button` 只有 `aria-label`（没有 `title`），而**广场那张卡**
  *   的 `EscCardInstall.title` 是**必填**（它在两种禁用档里承担"为什么按不动"的悬浮说明）。
  *   可点那一档必须给一句"会发生什么"，否则卡片会拿到一枚空串——那比不画还糟。
- * ★措辞与页内说明句（`ENTERPRISE_THIRD_PARTY_NOTE`）**同一条事实**：这一面说的就是"复制进来"，
- *   故这里逐字说"复制"，不写"下载"（这一条通路一份制品都不下载）。
+ * ★措辞与**这一面真有的那一件事实**一致：这一面做的动作就是"复制进来"，故这里逐字说"复制"，
+ *   不写"下载"（这一条通路一份制品都不下载）。★页内说明句已随本刀版面精简整族删除，但
+ *   **"复制"这件事不许因此没人说** —— 它落在这枚【＋】的悬浮说明上，那才是"会发生什么"该出现的地方。
  */
 export const ENTERPRISE_THIRD_PARTY_INSTALL_TITLE = '把这枚技能复制进 DSH；源目录不动。'
 /**
@@ -212,17 +226,15 @@ export function enterpriseThirdPartySkillRow(skill: EnterpriseThirdPartySkill): 
   }
 }
 
-/** 结果面上的一个根分组（根 + 它的候选 + 该根为空时那句人话）。 */
+/** 结果面上的一个根分组（根 + 它的候选）。★**本刀起空来源整枚不显示，故每一组必有候选。** */
 export interface EnterpriseThirdPartyRootGroup {
   readonly root: EnterpriseThirdPartyRoot
   /** 人话根名（`root.name` 原样；缺人话名时退到 `id`，见 `enterpriseThirdPartyRootLabel`）。 */
   readonly label: string
-  /** 这个根**没被检测到**（`present === false`）：节头右边会写明「未检测到」。 */
+  /** 这个根**没被检测到**（`present === false`）——**恒为假**：见 `enterpriseThirdPartyRootVisible`。 */
   readonly absent: boolean
-  /** 这个根下的候选（保持 Host 给的顺序，不重排）。 */
+  /** 这个根下的候选（保持 Host 给的顺序，不重排）。★**恒非空**（同上）。 */
   readonly skills: readonly EnterpriseThirdPartySkill[]
-  /** 这个根没有候选时那句人话（区分「位置不存在」「位置里没东西」「这一节空但别处有」三种）。 */
-  readonly emptyNote?: string | undefined
 }
 
 /** 一个人话根名：`name` 非空就用它，否则退到 `id`（不编名字、也不留空白）。 */
@@ -231,21 +243,85 @@ export function enterpriseThirdPartyRootLabel(root: EnterpriseThirdPartyRoot): s
 }
 
 /**
+ * ★★**本刀（版面精简 + 空来源不显示）的事实层**：**一枚来源在不在这一面上"有版面"**的唯一判定。
+ *
+ * ★**用户原话**（早先两条，按顺序）：
+ *   ①「我们真正要的是**本地的技能**，**有技能就按他所在应用分组显示，没有的就不显示**」；
+ *   ②「如果没有技能就不要显示来源了，DSH 默认过滤掉」。
+ *
+ * ★**判据只用响应里已有的真实字段**（不许界面另算一套）：`count`（解码层已钉成"与该根下候选条数
+ *   逐字相等"，见 `skill-api-decode.ts`）、`aliasOf`（宿主扫描期按 `realpath` 归并出来的符号链接别名）
+ *   与 `present`（这个位置真的能被读成目录清单）。三者合取 ⇒ **可见**。
+ *
+ * ★**为什么 `present === true` 必须显式写出来**（本刀补上的一处，第三字段不是冗余）：
+ *   用户点名的判据是**三句**——「**有技能**（`count > 0`）+ **不是别名**（`aliasOf === undefined`）
+ *   + **检测到**（`present === true`）」，而"检测到"那一句在本刀第一版里被当成了 `count > 0` 的**顺带覆盖**。
+ *   ★**那个推断是错的**：本仓解码层（`skill-api-decode.ts`）只逐键校验 `present` 是布尔、逐条校验
+ *   `count` 与该根候选**条数**相等，**两条纪律之间没有任何耦合** —— `present:false` 且 `count:3` 的形状
+ *   会**原样通过**解码。而 `present` 的语义是「这个根真的存在且能被读成目录清单」，它答的是
+ *   「**这个位置在不在**」，与「**里面有几枚**」是**两件不同的事** ⇒ 用一枚去顶替另一枚，
+ *   就是让界面在"位置根本不存在"时仍然报出一个来源。**两把尺子不许互相顶替。**
+ *
+ * ★**为什么别名也要滤掉**（不只是 0 枚那种）：本机真实形态里 `~/.qwen/skills`、`~/.junie/skills`…
+ *   40+ 个都是**指向 `~/.agents/skills` 的符号链接**——同一份库。宿主把它们**各带一枚自己的 `id`**
+ *   留在 `roots` 里，但它们**各自一个新候选都没带来**（技能出厂时只挂在 canonical 那枚根下）
+ *   ⇒ `count === 0` 这一条已顺带滤掉它们。**显式再写一次 `aliasOf === undefined`** 不是冗余，
+ *   是把"别名归并"这条**意图**钉在代码里：万一宿主将来给别名根也带上候选（形状变了），这里不会
+ *   因为"有候选就画"而把同一份库铺成两组。
+ * ★**为什么 `count === 0` 与 `present === false` 都要判假**（两条都不许省）：前者是"这个库被扫到了、
+ *   里面一枚都没有"，后者是"这个位置根本不存在"——**两种都不该给员工一个可点的筛选器**，
+ *   而它们是**两条独立的理由**：解码层不保证 `present:false ⇒ count:0`（见上），所以漏掉任何一条
+ *   都真实地漏一类来源。
+ *
+ * ★**为什么这是"隐藏来源"而不是"丢技能"**：`count` 与条数逐字相等（解码层保证），故滤掉 `count === 0`
+ *   **不可能**滤掉任何一枚候选。`enterpriseThirdPartyVisibleSkills` 是那条**等式锁**的实现：
+ *   可见组的技能总数与"响应里所有非空来源的技能数之和"逐字相等。
+ *
+ * @param root - 一次扫描真响应里的**一枚**根。
+ * @returns `true` = 这一枚来源在这一面上占版面（出 chip / 出组标题 / 进计数）。
+ */
+export function enterpriseThirdPartyRootVisible(root: EnterpriseThirdPartyRoot): boolean {
+  return root.present === true && root.count > 0 && root.aliasOf === undefined
+}
+
+/**
+ * ★**本刀**：这一维度**可见**的那些来源（顺序 = Host 给的根顺序）。
+ *
+ * 芯片行、组标题、以及任何"共几枚来源"的计数，**三处都必须经这一枚**（不许各写一遍判据）。
+ */
+export function enterpriseThirdPartyVisibleRoots(value: EnterpriseThirdPartySkills): readonly EnterpriseThirdPartyRoot[] {
+  return value.roots.filter(enterpriseThirdPartyRootVisible)
+}
+
+/**
+ * ★★**本刀（"不许丢候选"的那条等式锁）**：这一面上**真正会被画成卡片**的候选。
+ *
+ * 它逐字等于"响应里所有**可见**来源的候选数之和"——因为 `count` 与条数在解码层已钉死，
+ * 这里的可见性判据（`count > 0` 且非别名）与"这一根底下真的有条目"**同真**。
+ * 于是这一刀隐藏的**只是来源**（组标题、芯片、计数），**技能一枚不少**。
+ *
+ * ★**为什么它必须存在**：滤空来源这件事，最容易出的错不是"滤多了"（那会在界面上看得见），
+ *   而是**把 chip 的判据与铺卡的判据写成两套**（一处按 `count`、一处按 `present`），于是某枚根
+ *   出了芯片却铺不出卡片，员工点进去看到空白。把"可见的来源"收成一枚函数，两处就不可能漂。
+ *
+ * @param value - 一次扫描的真响应。
+ * @returns 全部可见候选（保持 Host 给的顺序）。
+ */
+export function enterpriseThirdPartyVisibleSkills(value: EnterpriseThirdPartySkills): readonly EnterpriseThirdPartySkill[] {
+  const visible = new Set(enterpriseThirdPartyVisibleRoots(value).map(root => root.id))
+  return value.skills.filter(skill => visible.has(skill.rootId))
+}
+
+/**
  * ★**口径 62（用户修正：二级 chip 行数据驱动）**：由扫描响应的**根表**投影出这一维度的 chip 行。
  *
- * 三条判据，逐条都有理由（不是"顺手滤一下"）：
- *  ① **`count === 0` 的根不出 chip**：本机真实的根表里绝大多数是 0 枚（`~/.codex`、`~/.qoder`…），
- *     全铺出来 chip 行会爆成几十枚，而"哪些源里真的有东西"才是员工要选的东西。
- *  ② **`aliasOf` 的根不出 chip**：本机真实形态里 `~/.qwen/skills`、`~/.junie/skills`… 40+ 个都是
- *     **指向 `~/.agents/skills` 的符号链接**（同一份库）⇒ 不过滤的话同一批技能会出现几十枚 chip，
- *     点哪一枚看到的东西都一样。它们**照旧留在 `roots` 里**（分组与"已检测到 N 个源"那句要用）。
- *  ③ **`present === false` 的根不出 chip**（它必然 `count: 0`，是被 ① 顺带覆盖的那一支；
- *     这里显式写出来是为了让"未检测到的位置不当筛选项"这条意图可读）。
+ * ★**本刀**：三条判据收成**唯一一枚** `enterpriseThirdPartyRootVisible`
+ *   （`present === true` 且 `count > 0` 且非别名 —— **三句都要**，理由见那一枚自己的说明）。
+ *   改前这里是"滤芯片、留组标题"的两套判据（芯片滤 0 枚与别名，组标题照旧全列）⇒ 空来源在芯片行里
+ *   消失了、在组标题那一带却又冒出来，同一个事实在两处两个样。**现在只有一把尺子。**
  *
  * ★**文案与 key 都取自响应**（`name` / `id`）：界面**不消费后端目录那套静态分类**，也**不写死任何
  *   清单**——宿主加一枚根、改一个名字，这一行自动跟着变。
- * ★**谁有技能**由 `skills` 里真的有条目的根决定（而不是信 `count`）：`count` 在解码层已被钉成与
- *   条数逐字相等，两者同真；这里用 `skills` 是因为它是**渲染真源**（列表就是它铺出来的）。
  *
  * @param value - 一次扫描的真响应。
  * @returns chip 行数据（**不含**「全部」——那一枚由 `esc-sub-tabs.ts` 统一加，两处不可能漂）。
@@ -253,74 +329,63 @@ export function enterpriseThirdPartyRootLabel(root: EnterpriseThirdPartyRoot): s
 export function enterpriseThirdPartySubChips(
   value: EnterpriseThirdPartySkills,
 ): readonly { readonly key: string; readonly label: string }[] {
-  const withSkills = new Set(value.skills.map(skill => skill.rootId))
-  return value.roots
-    .filter(root => root.present && root.aliasOf === undefined && withSkills.has(root.id))
-    .map(root => ({ key: root.id, label: enterpriseThirdPartyRootLabel(root) }))
+  return enterpriseThirdPartyVisibleRoots(value).map(root => ({ key: root.id, label: enterpriseThirdPartyRootLabel(root) }))
 }
 
 /**
- * ★**口径 62**：这一维度"检测到几个源、其中几个有技能"那一句（页面在别处说明用）。
+ * ★**本刀（版面精简：丢弃计数挪进「重新扫描」的悬浮说明）**：这一面**被如实丢弃**的目录数。
  *
- * 为什么需要它：0 枚的根与别名根**不进 chip 行**（见上一条的三条判据），于是员工看不到它们——
- * 若不给出一个总数，那些"本机确实存在但一枚技能都没有"的位置就**没有任何交代**了。
- * 这正是"零编造"的另一面：**该说的缺口要主动说出来**，而不是让人以为本机就那几枚源。
+ * ★**为什么它必须还在、且不许静默**：本仓纪律是**丢弃不许静默**——本机实测 796 枚里 26 枚过不了
+ *   我们自己的 `SKILL.md` 闸门，不说就是把那 26 枚**当成不存在**（改前那句统计横幅里的
+ *   「另有 190 个目录不符合技能规范」就是它）。
  *
- * ★三个数都**不数别名**（连 `skipped` 也只算非别名的根）：别名根（`aliasOf`，40+ 个指向 `~/.agents/skills` 的符号链接）是**同一个库**，
- *   把它们算成"11 个源里有 10 个有技能"是**替同一份东西报十次**——那正是本仓不许的编造。
- *   故这里与 chip 行同一把尺子：`present`（检测到）且**不是别名**。
+ * ★**为什么它从横幅挪进 `title`**（用户截图②）：那句横幅是**卡片外的冗余描述**，用户点名要删。
+ *   但删了之后这枚计数**不能跟着消失**——那正是"静默吞掉"。故它改挂在**「重新扫描」那枚按钮的悬浮
+ *   说明**上：**悬浮可见、一行版面都不占**，是"这个数仍然存在、只是不再占屏"的正确落点。
+ *   悬浮说明本来就是"要解释才看"的那种落点，而"有多少目录被丢弃了"恰好属于这一类。
+ *
+ * ★**按「所有根」求和**（含别名根与 `count === 0` 的空来源）——注意这与**芯片行/组标题**那一刀
+ *   **方向相反**：那里隐藏的是**来源**（只数可见来源），这里的计数回答的是**事实**
+ *   （整个本机三方扫描里有多少目录被挡在门外），故一律全数上报。理由见下面 `@returns` 那段。
  *
  * @param value - 一次扫描的真响应。
- * @returns 人话一句（如「已检测到 11 个技能源，其中 3 个有技能。」）。
+ * @returns 被丢弃的目录数（**所有根**的 `skipped` 之和 —— 含空来源与别名根）。
+ *   ★**为什么不是「可见根」之和**（本刀裁决）：这个数解释的是「**整个本机三方扫描里有多少目录被挡在门外**」，
+ *   与「界面上显示哪些来源」是两件事。「空来源不显示」管的是**来源**，不是**事实** —— 若把空来源的丢弃数
+ *   一起吞掉，「我在 Codex 里明明有技能却没出现」这件事就**没有任何解释**，而那恰恰是最需要解释的一档。
  */
-export function enterpriseThirdPartySourceSummary(value: EnterpriseThirdPartySkills): string {
-  const real = value.roots.filter(root => root.present && root.aliasOf === undefined)
-  const withSkills = new Set(value.skills.map(skill => skill.rootId))
-  const nonEmpty = real.filter(root => withSkills.has(root.id)).length
-  /**
-   * ★**被跳过的目录数**（口径 62 用户决定）：各根 `skipped` 之和。
-   *   本仓纪律是**丢弃不许静默**（本机实测 796 枚里 26 枚过不了我们自己的闸门）
-   *   —— 不说就是把那 26 枚当成不存在。
-   *   ★只数**非别名的根**：别名根与被指向的那枚是**同一份库**，算进去就是替同一份东西报十次。
-   *   ★**K === 0 时整句不出**（不写“另有 0 个”）—— 一句没信息量的话只会让真有缺口的那句失去分量。
-   */
-  const skipped = real.reduce((sum, root) => sum + root.skipped, 0)
-  const tail = skipped === 0 ? '' : `，另有 ${skipped} 个目录不符合技能规范`
-  return `已检测到 ${real.length} 个技能源，其中 ${nonEmpty} 个有技能${tail}。`
+export function enterpriseThirdPartySkippedCount(value: EnterpriseThirdPartySkills): number {
+  return value.roots.reduce((sum, root) => sum + root.skipped, 0)
 }
 
-/** 一个根下的候选计数（0 说「没有技能」，不说「0 枚」）。 */
+/** 一个根下的候选计数（0 说「没有技能」，不说「0 枚」；★**可见组恒 `> 0`**，那一档本刀起不可达）。 */
 export function enterpriseThirdPartyCountText(count: number): string {
   return count === 0 ? '没有技能' : `${count} 枚技能`
 }
 
 /**
- * 按根分组（顺序 = Host 给的根顺序；每组内保持候选原序）。
+ * 按根分组（顺序 = Host 给的**可见**根顺序；每组内保持候选原序）。
  *
- * ★**未检测到的根照样成组**（口径 62：未检测到的根也可显示为"未检测到"）——不把它们滤掉，
- *   否则员工根本不知道"这台机器上本该有哪些源"。
+ * ★★**本刀（用户原话：「有技能就按他所在应用分组显示，没有的就不显示」）**：**空来源整枚不显示**
+ *   ——没有组标题、没有组内容、也不进任何"共几枚来源"的计数。判据是唯一那枚
+ *   `enterpriseThirdPartyRootVisible`（`present === true` 且 `count > 0` 且非别名），它同时也是芯片行那一把尺子。
+ *   ★**改前这一族的三句"这个位置…"`（`ROOT_ABSENT` / `ROOT_EMPTY` / `ROOT_EMPTY_OTHERS`）随之
+ *     **永远不可达** ⇒ 已**整族删除**（见文件头那段为什么），故 `EnterpriseThirdPartyRootGroup`
+ *     的 `emptyNote` 一格也一并删掉：留一格恒为 `undefined` 的字段就是"看着还能用"的死条目。
+ *   ★**`absent` 同样恒为假**（可见来源过的是 `present === true` 那一关 ⇒ 它的 `absent` 恒不成立），
+ *     故「未检测到」那枚签与它那一格字段一并删除；这是同一条推理的另一头，不是两处独立的决定。
  * ★解码层已保证「每条候选的 `rootId` 必在 `roots` 里」（且每根的 `count` 与条数逐字相等），
  *   故这里不存在「无家可归的候选」这种分支。
- * ★三种空话的判据只有一条：**这个根在不在** + **整台机器上有没有别的候选**。
  */
 export function enterpriseThirdPartyRootGroups(
   value: EnterpriseThirdPartySkills,
 ): readonly EnterpriseThirdPartyRootGroup[] {
-  const anySkill = value.skills.length > 0
-  return value.roots.map((root) => {
-    const skills = value.skills.filter(skill => skill.rootId === root.id)
-    const label = enterpriseThirdPartyRootLabel(root)
-    if (skills.length > 0) return { root, label, absent: !root.present, skills }
-    return {
-      root,
-      label,
-      absent: !root.present,
-      skills,
-      emptyNote: !root.present
-        ? ENTERPRISE_THIRD_PARTY_ROOT_ABSENT
-        : anySkill ? ENTERPRISE_THIRD_PARTY_ROOT_EMPTY_OTHERS : ENTERPRISE_THIRD_PARTY_ROOT_EMPTY,
-    }
-  })
+  return enterpriseThirdPartyVisibleRoots(value).map(root => ({
+    root,
+    label: enterpriseThirdPartyRootLabel(root),
+    absent: false,
+    skills: value.skills.filter(skill => skill.rootId === root.id),
+  }))
 }
 
 /** 结果面的**唯一状态投影**（四态 → 页面该画什么；同一时刻只可能命中一档）。 */

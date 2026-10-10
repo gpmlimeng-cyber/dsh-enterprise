@@ -6,6 +6,14 @@
  * [OUTPUT]: 锁定**口径 62**（本地三方 Agent 技能源）的界面半边：① 维度行**恰好四枚**且逐字（含顺序；
  *   ★口径 53 按**新裁决**把它从三枚重新基线化为四枚，见那一条用例里那段理由）
  *   + 本维度**分类胶囊行不渲染**；② 四态互斥 + **两句不同的"为什么空"** + 失败态**真重发**（请求计数取证）；
+ *   ★★**本刀（版面精简 + 空来源不显示）**新增四组锁：⑦ **可见来源三句判据逐条归因**
+ *   （`present` / `count` / `aliasOf` 各自单独动一个字段都必须翻脸，且那一把尺子贯穿 chip / 可见来源 /
+ *   组标题**三处逐字相等**）；⑧ **"不许丢候选"的等式锁**（可见来源技能数之和 = 可见候选条数，
+ *   且判据**直接引** `enterpriseThirdPartyVisibleRoots`、不另写一遍 `.filter`）；⑨ **丢弃计数按所有根求和**
+ *   （含别名根与空来源；且**为 0 时那一句整个属性不出现**）；⑩ **页面级大标题的源码级反向锁**
+ *   （判「那一格文案真源 / 那一枚再出口 / 那两枚渲染类名**都已不存在**」，**不是**判那句字面量消失——
+ *   它必须活在标签的悬浮说明里，拿字面量当靶会连活的一起杀）；⑪ 改前那一族**死句子**全 `src` 一个字节不剩
+ *   （剥掉块注释与行注释后逐句判）；
  *   ③ 行投影三态（只有 `available` 才画【安装】；另两态各有可见原因）；④ **`path` 只来自上次响应**
  *   （纯投影里没有拼路径的地方 + 源码级反锁：相关文件里不出现宿主路径构造）；⑤ **一次一条在途**
  *   （第二条被拒且给出可见原因）；⑥ 新码入表 + 两条新路由的同源路径与委托形状
@@ -45,7 +53,6 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
 }))
 
 import {
-  ENTERPRISE_THIRD_PARTY_ABSENT_TAG,
   ENTERPRISE_THIRD_PARTY_BLOCKED_BY_BUSY,
   ENTERPRISE_THIRD_PARTY_BUSY_SUFFIX,
   ENTERPRISE_THIRD_PARTY_CONFLICT_NOTE,
@@ -58,7 +65,7 @@ import {
   ENTERPRISE_THIRD_PARTY_INSTALL_NOT_PORTED,
   ENTERPRISE_THIRD_PARTY_LOADING,
   ENTERPRISE_THIRD_PARTY_REFRESH,
-  ENTERPRISE_THIRD_PARTY_SOURCE_TITLE,
+  ENTERPRISE_THIRD_PARTY_REFRESH_LABEL,
   ENTERPRISE_THIRD_PARTY_STATE_AVAILABLE,
   ENTERPRISE_THIRD_PARTY_STATE_CONFLICT,
   ENTERPRISE_THIRD_PARTY_STATE_INSTALLED,
@@ -69,10 +76,13 @@ import {
   enterpriseThirdPartyInstallingText,
   enterpriseThirdPartyRootGroups,
   enterpriseThirdPartyRootLabel,
+  enterpriseThirdPartyRootVisible,
+  enterpriseThirdPartyVisibleRoots,
+  enterpriseThirdPartyVisibleSkills,
   enterpriseThirdPartyCardInstall,
   enterpriseThirdPartyCardItem,
   enterpriseThirdPartySkillRow,
-  enterpriseThirdPartySourceSummary,
+  enterpriseThirdPartySkippedCount,
   enterpriseThirdPartySubChips,
 } from '../src/esc/esc-third-party.js'
 import { enterpriseEscSubTabFilter, enterpriseEscSubTabs } from '../src/esc/esc-sub-tabs.js'
@@ -81,6 +91,7 @@ import { EnterpriseEscThirdPartyList } from '../src/esc/esc-third-party-list.js'
 import { EnterpriseEscCard, EnterpriseEscCardView } from '../src/esc/esc-card.js'
 import { EnterpriseEscToolbar } from '../src/esc/esc-toolbar.js'
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from '../src/esc/esc-copy.js'
+import { ENTERPRISE_LIST_RETRY } from '../src/list-state.js'
 import { decodeEnterpriseThirdPartySkills, decodeEnterpriseThirdPartySkills as decodeThirdParty } from '../src/skill-api-decode.js'
 import { ENTERPRISE_SKILL_THIRD_PARTY_INSTALL_LOCAL_PATH, ENTERPRISE_SKILL_THIRD_PARTY_LOCAL_PATH, createEnterpriseLocalApi } from '../src/local-api.js'
 import { createEnterpriseEscApi } from '../src/esc/esc-api.js'
@@ -212,9 +223,15 @@ describe('口径 62/本刀 ③：技能页维度行恰好四枚（系统广场 /
     } as never))
     const pills = childrenOf(findByClass(toolbar, 'esc-source-tabs') as Element)
     const titleOf = (index: number) => asElement(pills[index]).props['title']
-    // 「本地三方」四个字读不出是什么 ⇒ 完整说法「本地三方 Agent 技能源」必须挂在它的悬浮说明里。
+    // 「本地三方」四个字读不出是什么 ⇒ 完整说法「本地三方 Agent 技能源」必须挂在它的**标签悬浮说明**里。
     expect(titleOf(2)).toBe(ENTERPRISE_ESC_LOCAL_COPY.thirdPartyTabTitle)
-    expect(String(titleOf(2))).toContain(ENTERPRISE_THIRD_PARTY_SOURCE_TITLE)
+    // ★**本刀（版面精简）**：完整说法的唯一真源只剩标签悬浮说明这一处（页内大标题那一格文案连同
+    //   它的容器已整族删除，见 `esc-copy.ts` 那段）⇒ 判据从"引那枚常量"改成"句中必须逐字含完整说法"。
+    //   ★这是**加强**（原来只断言"含常量"，没断言那句完整说法真的在字面上）而不是放宽：常量本身已删，
+    //   判据必须落到**它保证的那件事**上——四字标签的悬浮说明读得出它是"本地三方 Agent 技能源"。
+    expect(String(titleOf(2))).toContain('本地三方 Agent 技能源')
+    // ★反向锁：删掉的是**页内**那一份大标题，**标签悬浮说明必须还在**（四字标签读不出"扫的是谁的库"）。
+    expect(String(titleOf(2))).toContain('扫本机其它 Agent CLI 的技能库')
     // ★本刀 ③：第四枚换成 `SkillHub` 之后同判（一个英文专名更读不出"从哪来、装什么"）——
     //   完整说法与页内说明句同源（同一个常量）。
     expect(titleOf(3)).toBe(ENTERPRISE_ESC_LOCAL_COPY.skillHubTabTitle)
@@ -308,23 +325,271 @@ describe('口径 62/本刀 ③：技能页维度行恰好四枚（系统广场 /
     expect(enterpriseEscSubTabFilter(skills, '', each => each.rootId)).toBe(skills)
     expect(enterpriseEscSubTabFilter(skills, 'workbuddy', each => each.rootId).map(each => each.name))
       .toEqual(['w-one', 'w-two'])
-    // "检测到几个源、其中几个有技能"那句（0 枚与别名的根不进 chip ⇒ 必须有个总数交代）。
-    // ★两个数**都不数别名**（别名是同一个库：算进去就是替同一份东西报十次）。
-    // ★三个数都不数别名；`workbuddy` 那 3 枚 skipped 必须出现在句尾。
-    expect(enterpriseThirdPartySourceSummary(selfConsistent(roots, skills)))
-      .toBe('已检测到 3 个技能源，其中 2 个有技能，另有 3 个目录不符合技能规范。')
-    // ★K === 0 ⇒ **整句不出那半句**（不写"另有 0 个"）。
-    expect(enterpriseThirdPartySourceSummary(selfConsistent([
-      { id: 'workbuddy', name: 'WorkBuddy', present: true, count: 0, skipped: 0 },
-      { id: 'qoder', name: 'QoderWork CN', present: true, count: 0, skipped: 0 },
-      { id: 'codex', name: 'Codex', present: false, count: 0, skipped: 0 },
-    ], []))).toBe('已检测到 2 个技能源，其中 0 个有技能。')
-    // ★别名的 skipped **不计入**（同一份库不许报两次）。
-    expect(enterpriseThirdPartySourceSummary(selfConsistent([
+    /**
+     * ★**本刀（版面精简）**：那句统计横幅「已检测到 N 个技能源，其中 M 个有技能，另有 K 个目录不符合
+     *   技能规范。」**整族删除**（用户截图②：不要出现除卡片外其他冗余描述）。但**如实丢弃计数 K 绝不
+     *   静默吞掉** ⇒ 它挪进「重新扫描」的**悬浮说明**。这一条锁的是那枚数本身。
+     * ★**按「所有根」求和**（本刀裁决，含别名根与空来源）：这个数解释的是「**整个本机三方扫描里
+     *   有多少目录被挡在门外**」，与「界面上显示哪些来源」是**两件不同的事**。「空来源不显示」管的是
+     *   **来源**，不是**事实** ⇒ 若把空来源的丢弃数一起吞掉，「我在 Codex 里明明有技能却没出现」
+     *   零解释。`workbuddy` 那 3 枚必须一个不少。
+     */
+    expect(enterpriseThirdPartySkippedCount(selfConsistent(roots, skills))).toBe(3)
+    // ★**别名根与空来源的 skipped 一样要进**（同一把尺子，不许对它们例外）：
+    //   `agents` 2 枚 + `agents-xdg`（别名归并、整枚不显示）9 枚 = **11**，一个字节都不许少。
+    expect(enterpriseThirdPartySkippedCount(selfConsistent([
       { id: 'agents', name: 'Agent Skills', present: true, count: 1, skipped: 2 },
       { id: 'agents-xdg', name: 'Agent Skills', present: true, count: 0, skipped: 9, aliasOf: 'agents' },
-    ], [skill({ rootId: 'agents' })])))
-      .toBe('已检测到 1 个技能源，其中 1 个有技能，另有 2 个目录不符合技能规范。')
+    ], [skill({ rootId: 'agents' })]))).toBe(11)
+    // ★**全是空来源**时，计数**照旧报真实的那几枚**（`qoder` 4 + `codex` 7 = **11**）——
+    //   这正是本刀裁决要守住的那一档：界面上**一枚来源都不显示**，但"有多少目录被挡在门外"
+    //   **一个字都不许少**。若这里回退成 0，「我在 Codex 里明明有技能却没出现」就真的零解释了。
+    expect(enterpriseThirdPartySkippedCount(selfConsistent([
+      { id: 'workbuddy', name: 'WorkBuddy', present: true, count: 0, skipped: 0 },
+      { id: 'qoder', name: 'QoderWork CN', present: true, count: 0, skipped: 4 },
+      { id: 'codex', name: 'Codex', present: false, count: 0, skipped: 7 },
+    ], []))).toBe(11)
+    // ★K === 0（**所有**根都没有丢弃）⇒ 那个数就是 0（页面据此**整句不出**悬浮说明，不写"没有丢弃"）。
+    expect(enterpriseThirdPartySkippedCount(selfConsistent([
+      { id: 'workbuddy', name: 'WorkBuddy', present: true, count: 0, skipped: 0 },
+      { id: 'qoder', name: 'QoderWork CN', present: true, count: 0, skipped: 0 },
+    ], []))).toBe(0)
+  })
+
+  it('★**空来源整枚不显示**（`count===0` 与 `aliasOf` 两种在场都不出芯片、不进"可见来源"、不出组标题）', () => {
+    const roots: EnterpriseThirdPartyRoot[] = [
+      { id: 'workbuddy', name: 'WorkBuddy', present: true, count: 2, skipped: 3 },
+      // 三种"空来源"形态同时在场：`count===0` 在场 / 别名归并（`aliasOf`）/ 未检测到。
+      { id: 'qoder', name: 'QoderWork CN', present: true, count: 0, skipped: 4 },
+      { id: 'codex', name: 'Cursor', present: false, count: 0, skipped: 0 },
+      { id: 'agents-xdg', name: 'Agent Skills', present: true, count: 0, skipped: 9, aliasOf: 'agents' },
+      { id: 'agents', name: 'Agent Skills', present: true, count: 1, skipped: 0 },
+      // ★★**第四种形态（本刀新锁的那一类）：`present:false` 却带着候选**。
+      //   `present` 答的是「这个位置真的能被读成目录清单」、`count` 答的是「里面有几枚」——**两件不同的事**，
+      //   而本仓解码层（`skill-api-decode.ts`）**只逐键校验 `present` 是布尔、只逐条校验 `count` 与候选条数相等，
+      //   两条纪律之间没有任何耦合** ⇒ 这枚形状会**原样通过**解码。
+      //   ★正因如此它**绝不能**被当成"有技能的可见来源"：界面会报出一个**位置根本不存在**的来源。
+      { id: 'ghost', name: 'Ghost Skills', present: false, count: 1, skipped: 0 },
+    ]
+    const skills = [
+      skill({ id: 'id-w1', name: 'w-one', rootId: 'workbuddy' }),
+      skill({ id: 'id-w2', name: 'w-two', rootId: 'workbuddy' }),
+      skill({ id: 'id-a1', name: 'a-one', rootId: 'agents' }),
+      skill({ id: 'id-g1', name: 'g-one', rootId: 'ghost' }),
+    ]
+    const scan = selfConsistent(roots, skills)
+    // ① 唯一判据：四种空来源形态**逐个**都判假（这是"芯片 / 组标题 / 计数"三处共用的那一把尺子）。
+    for (const id of ['qoder', 'codex', 'agents-xdg', 'ghost']) {
+      expect(enterpriseThirdPartyRootVisible(roots.find(each => each.id === id)!), id).toBe(false)
+    }
+    expect(enterpriseThirdPartyRootVisible(roots.find(each => each.id === 'workbuddy')!)).toBe(true)
+    // ★**逐字段归因**（比"整枚判假"更强：证明是**哪一句**在挡它，别让人靠删掉一个判据蒙过去）：
+    //   同一个根，每次只动**一个**字段，逐个证明三句判据**各自独立生效**、缺一不可。
+    const base = { id: 'probe', name: 'Probe', present: true, count: 1, skipped: 0 }
+    expect(enterpriseThirdPartyRootVisible(base)).toBe(true)
+    // ① `present` 那一句：改成 `false` ⇒ 即便带着 1 枚候选也判假（"位置不在"不许当筛选项）。
+    expect(enterpriseThirdPartyRootVisible({ ...base, present: false })).toBe(false)
+    // ② `count` 那一句：改成 0 ⇒ 判假（扫到了、里面没东西）。
+    expect(enterpriseThirdPartyRootVisible({ ...base, count: 0 })).toBe(false)
+    // ③ `aliasOf` 那一句：加上别名 ⇒ 判假（同一份库不许铺成两组）。
+    expect(enterpriseThirdPartyRootVisible({ ...base, aliasOf: 'probe-real' })).toBe(false)
+    // ② 芯片行只有两枚（空来源一枚都不出，含那枚"带候选的幽灵来源"）；③ 组标题同理，只有两枚组。
+    expect(enterpriseThirdPartySubChips(scan).map(each => each.key)).toEqual(['workbuddy', 'agents'])
+    expect(enterpriseThirdPartySubChips(scan).map(each => each.key)).not.toContain('ghost')
+    const groups = enterpriseThirdPartyRootGroups(scan)
+    expect(groups.map(each => each.root.id)).toEqual(['workbuddy', 'agents'])
+    // ★**同一把尺子贯穿三处**（芯片 / 可见来源 / 组标题）——三处**逐字等于**那唯一一枚判据的输出。
+    expect(enterpriseThirdPartySubChips(scan).map(each => each.key))
+      .toEqual(enterpriseThirdPartyVisibleRoots(scan).map(each => each.id))
+    expect(groups.map(each => each.root.id)).toEqual(enterpriseThirdPartyVisibleRoots(scan).map(each => each.id))
+    // ④ **每一组恒有候选、恒不缺席**（"组标题 + 一句空话"那种形态本刀起不可达）。
+    for (const group of groups) {
+      expect(group.skills.length, group.root.id).toBeGreaterThan(0)
+      expect(group.absent, group.root.id).toBe(false)
+      expect('emptyNote' in group, group.root.id).toBe(false)
+    }
+    // ★反向锁：组标题那一带**不许**再出现「未检测到」签或任何"这个位置…"的句子（它们恒为不可达）。
+    const tree = EnterpriseEscThirdPartyList({ state: { kind: 'ready', value: scan }, onReload: () => undefined })
+    const heads = walk(tree).filter(each => String(each.props['className']) === 'esc-third-party-grouphead')
+    expect(heads).toHaveLength(2)
+    for (const head of heads) {
+      // 组标题**只留**「来源名 + N 枚技能」一行（两件：根名 + 计数），不许有第三件东西。
+      expect(childrenOf(head)).toHaveLength(2)
+      expect(walk(head).filter(each => String(each.props['className']) === 'esc-third-party-grouptag')).toHaveLength(0)
+      expect(walk(head).filter(each => String(each.props['className']) === 'esc-third-party-rootnote')).toHaveLength(0)
+      expect(walk(head).map(each => String(each.props['children'])).join('')).not.toContain('未检测到')
+    }
+    // ★反向锁：改前那四件**死句子**，全 `src` 里一个字节都不许剩（源码级反向锁）。
+    //   ① 页内说明句 · ② 统计横幅 · ③④ 针对**单个**空来源的那三句（用户截图③）。
+    // ★**靶心取"整句里只有死掉的那一处才有"的片段**：不能拿"源目录不动"当靶 —— 它同时在**活着**的
+    //   【＋】悬浮说明（`ENTERPRISE_THIRD_PARTY_INSTALL_TITLE`）里，那一句本刀**必须留着**
+    //   （"复制"这件事不许因为删页内说明句而没人说了）。
+    const dead = [
+      '这里列出本机其它 Agent CLI 技能库里的技能',
+      '已检测到 12 个技能源',
+      '已检测到 3 个技能源',
+      '个技能源，其中',
+      '个有技能',
+      // ★丢弃计数**不在这里当靶**：横幅那句与 title 那句**都以「个目录不符合技能规范。」收尾**
+      //   ⇒ 这个片段区分不了「已删的横幅」与「活着的 title」（第一版锁就栽在这，跑红）。
+      //   横幅的**判别靶**是上面三条（已检测到 N 个技能源 / 个技能源，其中 / 个有技能）✓
+      //   而「计数确实挪进了 title」由下一条用例正面断言（逐字比对 title 文本）—— 一正一反，互不越界。
+      '这个位置没有检测到技能源',
+      '这个位置里没有技能',
+      '其它来源里有',
+      // ★**页面级大标题不在这族"字面量靶"里**（第二版锁就栽在这，跑红）：完整说法「本地三方 Agent 技能源」
+      //   **必须**留在**标签的悬浮说明**（`thirdPartyTabTitle`，四字标签读不出它扫的是谁的库 —— 那是本刀
+      //   刻意留下的活句子），拿字面量当靶会连活的一起杀。⇒ 大标题改用**下面那条源码级反向锁**判：
+      //   「那一格文案**真源**已不在 `esc-copy.ts`」+「那一维度的**导出常量**全仓已不存在」。
+      //   一正一反，与上面那三条横幅靶互不越界。
+    ]
+    // ★**④ 页面级大标题的源码级反向锁**（判"**定义与导出**已消失"，不是判那句字面量消失）：
+    //   ① `esc-copy.ts` 里那一格文案真源 `thirdPartySourceTitle` **不存在**（活着的 `thirdPartyTabTitle` 不受影响）；
+    //   ② 全 `src` 里 `ENTERPRISE_THIRD_PARTY_SOURCE_TITLE`（本仓曾把它当再出口的那枚）**一个都不许剩**；
+    //   ③ 三枚渲染它的类名 `.esc-third-party-head` / `.esc-third-party-title` 在 `esc-style.ts` 里**一个都不许剩**。
+    //   ★**为什么必须盯"定义与导出"而不是"字面量"**：那句话本身还要活在标签悬浮说明里，
+    //   唯一能证明"页内大标题整条删掉了"的，是**那一格真源与那一枚再出口在源码里已经不存在**。
+    for (const name of ['../src/esc/esc-third-party.ts', '../src/esc/esc-third-party-list.tsx', '../src/esc/esc-copy.ts', '../src/esc/esc-style.ts']) {
+      const raw = readFileSync(new URL(name, import.meta.url), 'utf8')
+      // 剥掉块注释：这一族句子在注释里被**指名解释为什么删**是允许的，代码里出现才是问题。
+      const code = raw.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').map(line => {
+        const at = line.indexOf('//')
+        return at === -1 ? line : line.slice(0, at)
+      }).join('\n')
+      for (const sentence of dead) {
+        expect(code, `${name} 不许剩死句「${sentence}」`).not.toContain(sentence)
+      }
+      // ★同一份剥注释后的源码，另跑下面那族"**定义/导出/规则**已消失"的判据。
+      //   （大标题那一格真源 `thirdPartySourceTitle` 只能在 `esc-copy.ts` 判，其余三枚全 `src` 判。）
+      expect(code, `${name} 不许剩大标题真源 thirdPartySourceTitle`).not.toContain('thirdPartySourceTitle')
+      expect(code, `${name} 不许剩大标题再出口 ENTERPRISE_THIRD_PARTY_SOURCE_TITLE`).not.toContain('ENTERPRISE_THIRD_PARTY_SOURCE_TITLE')
+      for (const className of ['esc-third-party-head', 'esc-third-party-title']) {
+        expect(code, `${name} 不许剩大标题那一族死规则「${className}」`).not.toContain(className)
+      }
+    }
+    // ★**反向锁（不许因为删了大标题把标签悬浮说明一起删掉）**：那一格**活着的**文案真源必须还在，
+    //   且它**读得出**完整说法与"从哪来"（四字标签读不出扫的是谁的库）。
+    expect('thirdPartyTabTitle' in ENTERPRISE_ESC_LOCAL_COPY).toBe(true)
+    expect(String(ENTERPRISE_ESC_LOCAL_COPY.thirdPartyTabTitle)).toContain('本地三方 Agent 技能源')
+    expect(String(ENTERPRISE_ESC_LOCAL_COPY.thirdPartyTabTitle)).toContain('扫本机其它 Agent CLI 的技能库')
+    // ★**别的维度一个字不许动**（本刀只删「本地三方」这一维的用法与定义）：另外两枚完整说法照旧在册。
+    expect(String(ENTERPRISE_ESC_LOCAL_COPY.catalogSourceTitle)).toBe('企业技能目录')
+    expect(String(ENTERPRISE_ESC_LOCAL_COPY.skillHubSourceTitle)).toContain('SkillHub')
+    // ★**键集逐字钉死**（比"某几个键不在"更强）：这一维度的文案真源**恰好**只剩这两枚
+    //   ——`thirdPartySourceTitle` 若被偷偷加回来，键数会变成 3 而这里跑红。
+    expect(Object.keys(ENTERPRISE_ESC_LOCAL_COPY).filter(key => key.toLowerCase().includes('thirdparty')))
+      .toEqual(['thirdPartyTabTitle'])
+  })
+
+  it('★★**等式锁：可见来源的技能总数与"响应里所有非空来源的技能数之和"逐字相等**（隐藏的是来源，不是技能）', () => {
+    // 本机真实形态：2 枚真源 + 一堆空来源/别名/未检测到，其中混进一枚**带技能的别名根**（形状变了也不许画两组）。
+    const roots: EnterpriseThirdPartyRoot[] = [
+      { id: 'workbuddy', name: 'WorkBuddy', present: true, count: 41, skipped: 190 },
+      { id: 'agents', name: 'Agent Skills', present: true, count: 7, skipped: 6 },
+      { id: 'qoder', name: 'QoderWork CN', present: true, count: 0, skipped: 4 },
+      { id: 'codex', name: 'Cursor', present: false, count: 0, skipped: 0 },
+      { id: 'agents-xdg', name: 'Agent Skills', present: true, count: 3, skipped: 9, aliasOf: 'agents' },
+      // ★**第三种"形状变了"的情形**：`present:false` 却带着 3 枚候选（解码层原样收，见 `enterpriseThirdPartyRootVisible`）。
+      { id: 'ghost', name: 'Ghost Skills', present: false, count: 3, skipped: 0 },
+    ]
+    const skills = [
+      ...Array.from({ length: 41 }, (_, i) => skill({ id: `w-${i}`, name: `w-${i}`, rootId: 'workbuddy' })),
+      ...Array.from({ length: 7 }, (_, i) => skill({ id: `a-${i}`, name: `a-${i}`, rootId: 'agents' })),
+      ...Array.from({ length: 3 }, (_, i) => skill({ id: `x-${i}`, name: `x-${i}`, rootId: 'agents-xdg' })),
+      ...Array.from({ length: 3 }, (_, i) => skill({ id: `g-${i}`, name: `g-${i}`, rootId: 'ghost' })),
+    ]
+    const scan = selfConsistent(roots, skills)
+    // 响应里一共 54 枚候选（41 + 7 + 3 别名 + 3 幽灵；后两组都在**这份清单**里）。
+    expect(scan.skills).toHaveLength(54)
+    // ★等式锁：可见来源（workbuddy + agents）的技能数之和 = 41 + 7 = 48，
+    //   而**可见**的那一份候选逐字等于它 —— 滤空来源一枚都没滤掉。
+    //   ★判据**直接引唯一那枚函数**（不另写一遍 `.filter(...)`）——两处判据迟早会漂，
+    //   而这条等式锁的**全部价值**恰恰在于"它与那一枚是同一把尺子"。
+    const expected = enterpriseThirdPartyVisibleRoots(scan).reduce((sum, root) => sum + root.count, 0)
+    expect(expected).toBe(48)
+    // ★**带候选的别名根那一组也不许出现在界面上**（同一份库不许铺成两组）。
+    expect(enterpriseThirdPartyVisibleSkills(scan).map(each => each.id)).not.toContain('x-0')
+    // ★**带候选的"位置不存在"那一组同样不许出现**（界面不许报出一个根本不存在的来源）。
+    expect(enterpriseThirdPartyVisibleSkills(scan).map(each => each.id)).not.toContain('g-0')
+    expect(enterpriseThirdPartyVisibleRoots(scan).map(each => each.id)).toEqual(['workbuddy', 'agents'])
+    expect(enterpriseThirdPartyVisibleSkills(scan)).toHaveLength(expected)
+    // ★**呈现层同一条等式**：树上那几枚卡片的 id 与"可见候选"逐字同序、一枚不多一枚不少。
+    const tree = EnterpriseEscThirdPartyList({ state: { kind: 'ready', value: scan }, onReload: () => undefined })
+    const rendered = cellsOf(tree).map(cell => String(cell.props['data-enterprise-third-party-skill']))
+    expect(rendered).toEqual(enterpriseThirdPartyVisibleSkills(scan).map(each => each.id))
+    expect(rendered).toHaveLength(expected)
+    // ★而改前**这一枚真值**是 54（改前组标题全列、空来源只多出空话与标题，候选一枚不少）——
+    //   ⇒ 本刀锁的不是"少了 6 枚技能"，锁的是"隐藏的是**来源**（分组/标题/芯片），不是候选"。
+    //   空来源那两枚（qoder / codex）本来就 0 枚，滤掉它们对候选总数**零影响**，等式两侧都成立。
+    expect(enterpriseThirdPartyVisibleSkills(scan).every(each => scan.skills.some(all => all.id === each.id))).toBe(true)
+  })
+
+  it('★**丢弃计数进「重新扫描」的悬浮说明**；为 0 时那句话**整句不出现**（不写"没有丢弃"）', () => {
+    const refreshTitle = (scan: EnterpriseThirdPartySkills) => {
+      const tree = EnterpriseEscThirdPartyList({ state: { kind: 'ready', value: scan }, onReload: () => undefined })
+      const button = walk(tree).find(each => each.props['children'] === ENTERPRISE_THIRD_PARTY_REFRESH)!
+      return button.props['title']
+    }
+    // ① 有丢弃：悬浮说明**逐字**报出那个数，且**行上版面一个字节都没多**（悬浮才看得到）。
+    const withSkipped = selfConsistent([
+      { id: 'workbuddy', name: 'WorkBuddy', present: true, count: 1, skipped: 190 },
+      { id: 'agents', name: 'Agent Skills', present: true, count: 1, skipped: 6 },
+    ], [skill({ rootId: 'workbuddy' }), skill({ id: 'id-a1', name: 'a-one', rootId: 'agents' })])
+    expect(refreshTitle(withSkipped)).toBe(`${ENTERPRISE_THIRD_PARTY_REFRESH_LABEL}：另有 196 个目录不符合技能规范。`)
+    // ★版面判据：页内**没有**那一句（`data-enterprise-third-party-summary` / 那一族死类名一处都不许复现）。
+    const tree = EnterpriseEscThirdPartyList({ state: { kind: 'ready', value: withSkipped }, onReload: () => undefined })
+    expect(walk(tree).some(each => each.props['data-enterprise-third-party-summary'] !== undefined)).toBe(false)
+    expect(walk(tree).some(each => String(each.props['className']).startsWith('esc-third-party-head'))).toBe(false)
+    // ② 计数为 0 ⇒ `title` **整个属性不出现**（不是空串、也不是"没有丢弃"那句废话）。
+    const none = selfConsistent([
+      { id: 'workbuddy', name: 'WorkBuddy', present: true, count: 1, skipped: 0 },
+    ], [skill()])
+    expect(refreshTitle(none)).toBeUndefined()
+    // ③ ★**空来源那一枚的 skipped 要进**（本刀裁决）：它整枚不显示，但「那 190 个目录被挡在门外」是**事实**，
+    //   吞掉它 = 「我在 Codex 里明明有技能却没出现」这件事零解释 ⇒ 计数按**所有根**求和。
+    expect(refreshTitle(selfConsistent([
+      { id: 'workbuddy', name: 'WorkBuddy', present: true, count: 1, skipped: 0 },
+      { id: 'qoder', name: 'QoderWork CN', present: true, count: 0, skipped: 190 },
+    ], [skill()]))).toBe(`${ENTERPRISE_THIRD_PARTY_REFRESH_LABEL}：另有 190 个目录不符合技能规范。`)
+    // ④ 空态那一枚「重新扫描」**照旧**给，且**同样**带悬浮说明（那一态恰是最需要再扫一次的时候）。
+    const emptyTree = EnterpriseEscThirdPartyList({
+      state: { kind: 'empty', value: selfConsistent([
+        { id: 'workbuddy', name: 'WorkBuddy', present: true, count: 0, skipped: 26 },
+      ], []) },
+      onReload: () => undefined,
+    })
+    expect(walk(emptyTree).some(each => each.props['children'] === ENTERPRISE_THIRD_PARTY_REFRESH)).toBe(true)
+    expect(walk(emptyTree).find(each => each.props['children'] === ENTERPRISE_THIRD_PARTY_REFRESH)!.props['title'])
+      .toBe(`${ENTERPRISE_THIRD_PARTY_REFRESH_LABEL}：另有 26 个目录不符合技能规范。`)
+    // ★失败态那枚是「重试」，**刻意不挂**这一句（读不到时没有任何可信真值，给一个数就是编）。
+    const failedTree = EnterpriseEscThirdPartyList({
+      state: { kind: 'failed', code: 'ENT_SKILL_THIRD_PARTY_UNAVAILABLE' }, onReload: () => undefined,
+    })
+    const retry = walk(failedTree).find(each => each.props['children'] === ENTERPRISE_LIST_RETRY)!
+    expect(retry.props['title']).toBeUndefined()
+  })
+
+  it('★**页面级大标题整条删除**（与页签「本地三方」同一句话说两遍）：内容区第一件东西就是卡片/chip 行', () => {
+    const tree = EnterpriseEscThirdPartyList({
+      state: { kind: 'ready', value: value([ROOT], [skill()]) }, onReload: () => undefined,
+    })
+    // ① 大标题那三个容器/类名一个都不许再出现。
+    for (const className of ['esc-third-party-head', 'esc-third-party-title', 'esc-third-party-note', 'esc-third-party-summary']) {
+      expect(byClass(tree, className), className).toBeUndefined()
+    }
+    // ② 页内**不许**再出现那句完整说法（它只在标签悬浮说明里）。
+    expect(walk(tree).map(each => String(each.props['children'])).join('|')).not.toContain('本地三方 Agent 技能源')
+    // ★反向锁：那两件事**不许因为删句子被一起删掉**——「重新扫描」与二级 chip 行的宿主都在位
+    //   （chip 行住在工具栏，由 `enterpriseThirdPartySubChips` 投影，见上面那条用例）。
+    expect(walk(tree).some(each => each.props['children'] === ENTERPRISE_THIRD_PARTY_REFRESH)).toBe(true)
+    expect(enterpriseThirdPartySubChips(value([ROOT], [skill()]))).toHaveLength(1)
+    // ③ **没有空档**：删掉的那三块没有留下任何替身元素（内容区的直接子节点就是反馈行 / 四态块）。
+    const root = asElement(tree)
+    const kinds = childrenOf(root)
+      .filter(node => node !== null)
+      .map(node => asElement(node).props['data-enterprise-third-party-state'])
+      .filter(Boolean)
+    expect(kinds).toEqual(['ready'])
   })
 })
 
@@ -368,28 +633,34 @@ describe('口径 62：四态互斥 + 两句不同的「为什么空」', () => {
     expect(ENTERPRISE_THIRD_PARTY_EMPTY_NO_SKILL).not.toContain('未检测到任何')
   })
 
-  it('按根分组：未检测到的根照样成组、保序、组内保序；三种空话各司其职', () => {
+  it('按根分组：只按**可见**根成组、保序、组内保序；空来源整枚不出现（那一族三句已整族删除）', () => {
     const roots = [ROOT, ABSENT_ROOT]
     const skills = [skill({ id: 'id-b', name: 'b-skill' }), skill({ id: 'id-a', name: 'a-skill' })]
     const groups = enterpriseThirdPartyRootGroups(value(roots, skills))
-    expect(groups.map(group => group.root.id)).toEqual(['claude-code', 'codex'])
+    /**
+     * ★**本刀（用户原话：「有技能就按他所在应用分组显示，没有的就不显示」）**：改前 `ABSENT_ROOT`
+     *   （`present:false` / `count:0`）**照样成组**并配一句「这个位置没有检测到技能源。」——那正是用户
+     *   截图③点名要删的那一行。判据从"全列"改成"只列 `enterpriseThirdPartyRootVisible` 判真的"。
+     * ★**这条不是把断言放宽**：改前那条锁的是"未检测到的根仍在列表里"，而用户**明确否决**了那一条
+     *   （「如果没有技能就不要显示来源了，DSH 默认过滤掉」）⇒ 旧期望值本身是本刀要撤的契约。
+     *   新的锁**更强**：不只"不在"（反向断言），还逐条锁住它连同组标题、空话一起消失。
+     */
+    expect(groups.map(group => group.root.id)).toEqual(['claude-code'])
     // 组内保持 Host 给的顺序（界面不重排）。
     expect(groups[0]!.skills.map(each => each.name)).toEqual(['b-skill', 'a-skill'])
-    // 未检测到的根照旧成组 + `absent` 为真（页面据此在节头写「未检测到」）。
-    expect(groups[1]!.absent).toBe(true)
-    expect(groups[1]!.skills).toEqual([])
-    expect(groups[1]!.emptyNote).toBeDefined()
-    // 三种空话互不相同（位置不存在 / 位置里没东西 / 这一节空但别处有）。
-    const alone = enterpriseThirdPartyRootGroups(value([ROOT], []))[0]!
-    const withOthers = enterpriseThirdPartyRootGroups(value([ROOT, ABSENT_ROOT], [skill()]))[0]!
-    expect(new Set([groups[1]!.emptyNote, alone.emptyNote, withOthers.emptyNote]).size).toBe(3)
+    // ★**每一组恒有候选、恒不缺席、恒没有 `emptyNote` 那一格**（三句"这个位置…"永不可达 ⇒ 一格字段也不留）。
+    for (const group of groups) {
+      expect(group.skills.length, group.root.id).toBeGreaterThan(0)
+      expect(group.absent, group.root.id).toBe(false)
+      expect(Object.keys(group)).not.toContain('emptyNote')
+    }
     // 根标签：人话名优先，空名退到 id（不编、不留白）。
     expect(enterpriseThirdPartyRootLabel(ROOT)).toBe('Claude Code')
     expect(enterpriseThirdPartyRootLabel({ ...ROOT, name: '  ' })).toBe('claude-code')
-    // 计数：零说「没有技能」，不说「0 枚」。
+    // 计数：零说「没有技能」，不说「0 枚」。（★**可见组恒 > 0**，那一档本刀起界面上不可达，
+    //   但这枚纯函数仍逐字锁住它——它是**说明口径**不是**渲染分支**，删掉等于把口径也丢了。）
     expect(enterpriseThirdPartyCountText(0)).toBe('没有技能')
     expect(enterpriseThirdPartyCountText(3)).toBe('3 枚技能')
-    expect(ENTERPRISE_THIRD_PARTY_ABSENT_TAG).toBe('未检测到')
   })
 
   it('★失败态那枚重试**真重发**（请求计数取证），不是重画一下', async () => {

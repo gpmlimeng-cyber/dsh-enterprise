@@ -1007,20 +1007,21 @@ const CSS = `
 
 /* —— 口径 62：「本地三方」（本地三方 Agent 技能源）这一维度的内容区 ——
    复用本页既有那几个排版角色（块间距/两级字色/错误提示），类名一律 esc-third-party-* 单层命名，
-   不新造 token（审计 --strict 会以 dead 抓住不存在的名字）。 */
+   不新造 token（审计 --strict 会以 dead 抓住不存在的名字）。
+   ★**本刀（版面精简 + 空来源不显示）**：下面这五条规则连同它们那一族元素**整族删除**，不留死规则 ——
+     .esc-third-party-head（大标题 + 说明 + 横幅那个容器）、.esc-third-party-title、
+     .esc-third-party-note（页内说明句）、.esc-third-party-roots（逐枚空来源那一块）、
+     .esc-third-party-rootnote（那一族"这个位置…"句子）、.esc-third-party-grouptag（「未检测到」签）。
+     ★**删规则不新增规则**：本刀**零新增 CSS 类**（悬浮说明落在既有 title 属性上，不占版面）。
+     ★**.esc-third-party 那一格的 margin-top 不是"标题预留位"**（它就是块间距），故标题删掉之后
+       内容区自然没有空档，不需要"收回"什么 —— 这是版面精简没有留下空白的机制保证。 */
 .esc-third-party { display: flex; flex-direction: column; gap: var(--esc-sp-lg); margin-top: var(--esc-sp-lg); }
-.esc-third-party-head { display: flex; flex-direction: column; gap: 6px; }
-.esc-third-party-title { margin: 0; font-size: var(--esc-fs-s); font-weight: 600; line-height: 20px; color: var(--dsw-alias-label-primary); }
-.esc-third-party-note { margin: 0; font-size: var(--esc-fs-xs); line-height: 20px; color: var(--dsw-alias-label-secondary); }
 .esc-third-party-status { margin: 0; font-size: var(--esc-fs-xs); line-height: 20px; color: var(--dsw-alias-label-secondary); }
 .esc-third-party-empty { margin: 0; font-size: var(--esc-fs-s); color: var(--dsw-alias-label-secondary); }
-.esc-third-party-roots { display: flex; flex-direction: column; gap: 4px; margin-top: var(--esc-sp-sm); }
-.esc-third-party-rootnote { margin: 0; font-size: var(--esc-fs-xxs); line-height: 18px; color: var(--dsw-alias-label-tertiary); }
 .esc-third-party-groups { display: flex; flex-direction: column; gap: var(--esc-sp-lg); }
 .esc-third-party-group { display: flex; flex-direction: column; gap: var(--esc-sp-sm); }
 .esc-third-party-grouphead { display: flex; align-items: center; gap: var(--esc-sp-sm); }
 .esc-third-party-grouptitle { margin: 0; font-size: var(--esc-fs-xs); font-weight: 600; line-height: 18px; color: var(--dsw-alias-label-primary); }
-.esc-third-party-grouptag { flex: none; font-size: var(--esc-fs-xxs); color: var(--dsw-alias-label-tertiary); }
 .esc-third-party-count { flex: none; font-size: var(--esc-fs-xxs); color: var(--dsw-alias-label-tertiary); }
 .esc-third-party-retry { align-self: flex-start; }
 
