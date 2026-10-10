@@ -1,4 +1,5 @@
 /**
+ *   ★**本刀（A2.2 话清剿）**：五条文案去部署内部话 —— `ENT_ESC_{CONNECTOR,DIRECTORY,RECOMMEND}_UNAVAILABLE` 由「这台 NUWAX 服务还没有提供…」改成「这次没有读到…」；`ENT_ESC_MY_EXPERTS_UNAVAILABLE` 由「…没有提供『我的专家』清单所需的只读接口」（★经真机取证：**这话是假的**，见 `analysis/roadmap-next.md` §C）改成「这里暂时还看不到你的专家。」；`ENT_LIBRARY_UNAVAILABLE` 由「还在接入中」改成「这次没有打开」。
  * [INPUT]: 接收任意 `ENT_*` 稳定错误码（来源可以是本地路由投影、store 快照、动作 promise 的 catch）
  * [OUTPUT]: **本刀（登录入口换成 NUWAX）**：表里新增六枚 NUWAX 码（`ENT_NUWAX_NOT_CONFIGURED` / `_INVALID_CREDENTIALS` / `_REJECTED` / `_UNAVAILABLE` / `_TIMEOUT` / `_PROTOCOL`），下一步逐句不同——被平台拒绝（风控/账号锁定）是**终态**，不给「再输一次同样的口令」画饼。对外提供**唯一一份**错误码 → 员工可读呈现的纯投影：`enterpriseErrorPresentation`（人话 + 下一步动作 + 是否可重试 + 码原样保留）、`enterpriseErrorMessage` / `enterpriseErrorAction` / `enterpriseErrorRetryable` 与三条兜底常量。**本刀（资料库入口）**：新增三码——`ENT_LIBRARY_UNAVAILABLE`（资料库还没接线：页面失败态的「接入中」）、`ENT_LIBRARY_SETTING_READ_FAILED` / `ENT_LIBRARY_SETTING_SAVE_FAILED`（本机设置读/写失败：组件行那枚开关的失败态与重试），一律人话 + 下一步、不含裸码 **本刀（配方一键启用）**：新增十一枚配方启用码（`ENT_PRESET_AUTHORIZATION_REQUIRED` / `_AUTHORIZATION_STALE` / `_INSTALL_IN_PROGRESS` / `_INSTALL_CANCELLED` / `_STATE_INVALID` / `_RECIPE_INVALID` / `_INSTALL_FAILED` / `_UNINSTALL_FAILED` / `_BUNDLE_WRITE_FAILED` / `_ARTIFACT_UNAVAILABLE`）与降级链第二级那枚 `ENT_PRESET_LAUNCH_FAILED`（没打开新会话 → 请改用「复制导入指令」）。**本刀（企业插件真取消）**：新增一枚 `ENT_PLUGIN_INSTALL_CANCELLED`（「这次安装被取消了。请重试。」，`retryable: true`）——取消是员工自己的动作、本机什么都没变（Host 已把记录回到安装前），故它的收束就是再试一次，与配方族那枚同判。**本刀（本地导入）**：新增三枚上传码 `ENT_SKILL_UPLOAD_{TOO_LARGE,INVALID,FAILED}`——超限与「不是有效技能包」是终态（下一步是**换一份文件**，`skill-import.ts` 的「重新选择文件」那枚按钮承担动作），只有落盘失败可原地再试；再补一枚 Host 侧第 4 枚 `ENT_SKILL_SKILLMD_INVALID`（ZIP 结构没问题、是 `SKILL.md` 的 frontmatter 写错了 ⇒ 下一步是**改文件头**，与「换一份文件」不同）。**本刀（系统搜索 → 纳入）**：新增三枚纳入码 `ENT_SKILL_DISCOVERY_UNKNOWN` / `ENT_SKILL_ALREADY_REGISTERED` / `ENT_SKILL_ADOPT_FAILED`；并把「一个码只有一句话」的边界写清（同流一套、真跨流的码用 `actions` 按流取，见下表注）。**本刀（在线搜索）**：新增三枚在线来源码 `ENT_SKILL_SOURCE_{UNKNOWN,UNREACHABLE,TOO_LARGE}`（下一步各不相同：换一条结果 / 检查网络重试 / 换一条结果），并把 `ENT_SKILL_ARCHIVE_INVALID`、`ENT_SKILL_SKILLMD_INVALID`、`ENT_SKILL_INSTALL_FAILED` 三枚**跨流码**补上 `'online-install'` 这一流的口径（那三句默认文案里的「重新下载 / 重新导入 / 联系企业管理员」在**在线安装流**下说不通——包在第三方仓库、本机替用户取）；流值清单一并导出成 `ENTERPRISE_ERROR_FLOWS`（供逐流逐句的机械判据遍历）。**本刀（通过 Agent 创建）**：新增两枚**本机动作**码 `ENT_SKILL_CREATE_{LAUNCH,COPY}_FAILED`——前者是「新会话没开起来」（下一步：把这句指令复制走，界面那枚按钮就是它），后者是「剪贴板没写成」（下一步：检查权限后重试）；两枚刻意分开，因为下一步真的不同。**本刀（esc 失败面收口）**：新增两枚 `ENT_ESC_DIRECTORY_UNAVAILABLE` / `ENT_ESC_RECOMMEND_UNAVAILABLE`——平台那枚 `4040`（本部署没有这个端点）在专家/技能目录与精选行上各说各的事实，不再共用「没有连接器目录」那一句；三枚的**面级**取值真源在 `esc-api.ts` 的 `ESC_MISSING_ENDPOINT_CODES`，且三枚一律 `retryable: false`（重试对"端点不存在"永远无效）。**本刀（口径 49：技能页主按钮三项下拉）**：新增一枚 `ENT_ESC_DRAFT_UNAVAILABLE`——「查找技能 / 创建技能」那两项走 `preset-launch.ts` 的"跳新会话 + 预填、不发送"，预填没走成（端口缺席，或这一次返回 false / 抛）时必须**说出来**；下一步是"手动新建一个会话把这句话贴进去"，故 `retryable: false`（同一条官方链路再点一次还是同一结果，不给必然失败的重试画饼）。**本刀（口径 51：专家页「我的专家」子页）**：新增一枚 `ENT_ESC_MY_EXPERTS_UNAVAILABLE`——本部署的只读闭集**恰好七条**（`bundle/src/esc-route.ts` 的 `ENTERPRISE_ESC_READ_ENDPOINTS`），里面**没有**"我的专家"这条接口，且本刀**不许**新增端点、**不许**拿 `/api/published/agent/list`（那是**专家广场**列表）冒充"我的" ⇒ 子页内容区在全部 tab／分段组合下都是同一份如实交代；`retryable: false` 的理由与本族那四枚「这一版部署没有这个端点」逐条相同。**本刀（Phase C D1：连接器广场）**：新增一枚 `ENT_CONNECTOR_PLAZA_UNAVAILABLE`（宿主 `bundle/src/connector-plaza.ts` 那枚码，四种来由共用一句）——「这一次没读到连接器清单」+「重试」，`retryable: true`（广场失败态里就有那枚真重发的按钮），与同族那几枚「这一版部署没有这个端点」（`retryable: false`）刻意分成两枚。**本刀（S5b）**：新增一枚 `ENT_SKILL_TRY_LAUNCH_FAILED`（技能卡那枚「去试试」没能把指令填进新会话）+ 唯一码值常量 `ENTERPRISE_ESC_SKILL_TRY_FAILED_CODE`——它与「通过 Agent 创建的启动失败」「配方启动失败」都**同形**（同一条 `preset-launch.ts` 链路这一环不成立），但那两枚的下一步都指向**界面上真有的复制按钮 / 配方指令**，在这一格是**说假话**（这句指令按技能名现拼、从不显示、卡片上也没有复制钮）⇒ 新开一枚，下一步是"自己新建一个会话让它用这枚技能干活"，`retryable: false`（与 `ENT_ESC_DRAFT_UNAVAILABLE` 对同一条链路逐条同判）。
  * [POS]: ui 的员工侧文案降维层（失败自愈）——产品宪法「必须给稳定错误码时，也要配对一句人话与下一步动作，禁止把技术码直接砸给用户」的唯一落点；界面只消费本模块，不再各写一份码表
@@ -171,9 +172,9 @@ const ENTERPRISE_ERROR_TABLE: Readonly<Record<string, EnterpriseErrorEntry>> = {
    *   `/api/published/skill/enable/list`）⇒ 留着它就是一张"看着还能用"的死条目。
    *   故它与 `ESC_MISSING_ENDPOINT_CODES.enabled` 一并删除（唯一码表里少一枚 = 少一句没有落点的话）。
    */
-  ENT_ESC_CONNECTOR_UNAVAILABLE: { message: '这台 NUWAX 服务还没有提供连接器目录。', action: '请联系企业管理员确认部署版本；专家与技能不受影响。', retryable: false },
-  ENT_ESC_DIRECTORY_UNAVAILABLE: { message: '这台 NUWAX 服务还没有提供这一类目录。', action: '请联系企业管理员确认部署版本。', retryable: false },
-  ENT_ESC_RECOMMEND_UNAVAILABLE: { message: '这台 NUWAX 服务还没有提供推荐内容。', action: '请联系企业管理员确认部署版本；下面的目录不受影响。', retryable: false },
+  ENT_ESC_CONNECTOR_UNAVAILABLE: { message: '这次没有读到连接器清单。', action: '请联系企业管理员确认这份清单是否已开通；专家与技能不受影响。', retryable: false },
+  ENT_ESC_DIRECTORY_UNAVAILABLE: { message: '这次没有读到这一类目录。', action: '请联系企业管理员确认这一类是否已开通；其它目录仍可浏览。', retryable: false },
+  ENT_ESC_RECOMMEND_UNAVAILABLE: { message: '这次没有读到推荐内容。', action: '下面的目录不受影响；仍然没有请联系企业管理员。', retryable: false },
   /**
    * ★**口径 49**：技能页主按钮下拉里「查找技能 / 创建技能」**没把话填进新会话**。
    *
@@ -202,8 +203,8 @@ const ENTERPRISE_ERROR_TABLE: Readonly<Record<string, EnterpriseErrorEntry>> = {
    *   这正是本仓"不许编造事实"那条纪律点名的禁区，故宁可如实说"没有这个接口"。
    */
   ENT_ESC_MY_EXPERTS_UNAVAILABLE: {
-    message: '这台 NUWAX 服务还没有提供「我的专家」清单所需的只读接口。',
-    action: '请联系企业管理员确认部署版本；返回后仍可浏览专家目录。',
+    message: '这里暂时还看不到你的专家。',
+    action: '返回后仍可浏览专家目录；需要自己的专家请联系企业管理员。',
     retryable: false,
   },
 
@@ -405,7 +406,7 @@ const ENTERPRISE_ERROR_TABLE: Readonly<Record<string, EnterpriseErrorEntry>> = {
   ENT_BRANDING_ASSET_TOO_LARGE: { message: '企业标识图片超出大小限制。', action: '请联系企业管理员换一张更小的图片。', retryable: false },
 
   // ── 资料库（本机资料集合） ───────────────────────────────────────────────────
-  ENT_LIBRARY_UNAVAILABLE: { message: '资料库还在接入中，暂时打不开。', action: '请稍后重试；仍然打不开请联系企业管理员。', retryable: true },
+  ENT_LIBRARY_UNAVAILABLE: { message: '资料库这次没有打开。', action: '请稍后重试；仍然打不开请联系企业管理员。', retryable: true },
   ENT_LIBRARY_SETTING_READ_FAILED: { message: '本机保存的资料库开关没有读取到。', action: '已按默认关闭处理；请重试，或重新拨动一次开关。', retryable: true },
   ENT_LIBRARY_SETTING_SAVE_FAILED: { message: '资料库开关没有保存到本机。', action: '请重试；仍然失败请检查本机的存储权限。', retryable: true },
   // 读本机文件失败（浏览器读不出选中的那个文件）：与"上传到资料库失败"分开说，因为下一步不同。

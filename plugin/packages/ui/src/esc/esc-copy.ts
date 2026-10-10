@@ -1,4 +1,5 @@
 /**
+ *   ★**本刀（A2.2 话清剿）**：可见文案里**不许出现开发侧/部署内部话**——`customConnectorLocked`/`createExpertLocked`/`actionNotPorted` 三句（原「本部署还没有…接口」「该动作尚未在 DSH 侧接入」）换成员工侧真话（「当前版本暂不支持…」「这个版本还没有这项功能」）；员工侧只该读到"这件能力现在没有"，不该读到"接口没接"（那是我们的施工状态）。
  * [INPUT]: 无（纯字面量，只依赖本文件自身）
  * [OUTPUT]: 对外提供 `ENTERPRISE_ESC_COPY`——「专家·技能·连接器」页面的可见文案，逐条取自
  *   NUWAX 前端 `src/locales/i18n/zh-CN.ts` 的 `PC.Pages.ExpertSkillConnector.*`（外加五枚零散键，见下）
@@ -267,7 +268,7 @@ export const ENTERPRISE_ESC_LOCAL_COPY = {
   signInRequiredBody: '这个页面读取的是 NUWAX 平台的专家、技能与连接器目录，登录后才能看到内容。',
   /** 分类字典读不到时的那句提示（列表本身仍可看，只是筛选少了）。 */
   categoriesUnavailable: '分类暂时读不到',
-  actionNotPorted: '该动作尚未在 DSH 侧接入',
+  actionNotPorted: '这个版本还没有这项功能',
   retry: '重试',
 
   /* ══════════════ 本刀（workbuddy 风格重构）══════════════ */
@@ -417,10 +418,12 @@ export const ENTERPRISE_ESC_LOCAL_COPY = {
    *
    * 写短句是因为它落在工具栏那一行里（与搜索框同排），长句会把一行撑成两行；
    * 完整的"发生了什么 + 下一步 + 稳定码"由 `EnterpriseErrorNotice` 在页面里承担
-   * （本部署这条今天没有码可报——它压根不是一次失败的请求，而是"没有这个接口"，
-   * 故这里如实写成部署事实，而不是造一枚假错误码）。
+   * （这一格不是一次失败的请求，故没有码可报——它是"这个版本还没有这件能力"）。
+   * ★**本刀（A2.2 话清剿）**：原文写的是**部署内部话**（「本部署还没有添加连接器的接口」）——
+   *   那是给开发看的事实，不是给员工看的下一步。员工侧只该读到"这件能力现在没有"，
+   *   不该读到"接口没接"（那是我们的施工状态，与他的下一步无关）。
    */
-  customConnectorLocked: '本部署还没有添加连接器的接口',
+  customConnectorLocked: '当前版本暂不支持在此添加连接器',
   /**
    * 连接器页那枚按钮**可用**时的悬浮说明（就是 WorkBuddy 那一枚的去向：MCP 服务管理）。
    *
@@ -429,8 +432,9 @@ export const ENTERPRISE_ESC_LOCAL_COPY = {
    * 下一个接线的人就会在按钮可用的那一天看到一句"本部署还没有…"的鬼话。
    */
   customConnectorOpenTitle: '添加与管理连接器（MCP 服务）',
-  /** 同一枚纪律，落在「我的专家」子页那枚「+ 创建专家」上（写入口不存在 ⇒ 置灰 + 行上写原因）。 */
-  createExpertLocked: '本部署还没有创建专家的接口',
+  /** 同一枚纪律，落在「我的专家」子页那枚「+ 创建专家」上（写入口不存在 ⇒ 置灰 + 行上写原因）。
+   *  ★**本刀（A2.2 话清剿）**：同上——部署内部话换成员工侧真话。 */
+  createExpertLocked: '当前版本暂不支持创建专家',
   /** ★**口径 51**：专家页那枚主按钮**可用**时的悬浮说明（不可用时仍走上面那句 `actionNotPorted`）。 */
   myExpertsOpenTitle: '查看我创建的专家与专家团',
 

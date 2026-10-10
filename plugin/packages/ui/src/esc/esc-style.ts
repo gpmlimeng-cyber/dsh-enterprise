@@ -980,7 +980,7 @@ const CSS = `
    而 button-primary-fill = brand-primary，浅色主题里就是近黑 #0f1115、深色主题里反相成近白，
    文字 label-primary-foreground 正好反过来 = #fff/#0f1115），是原语那条
    .button:disabled { opacity: .4 } 把它冲淡成了灰。
-   A 档动作**仍然 disabled**（点了不会有动作：title 里写着原因，页首也挂着"动作尚未在 DSH 侧接入"），
+   A 档动作**仍然 disabled**（点了不会有动作：title 里写着原因，页首也挂着那句"这个版本还没有这项功能"），
    这里只把那口冲淡按回去、让它露出主题自己的实底 —— 不写死黑/白，跟着主题走。
    选择器取 (0,3,0)，压过原语的 .button:disabled (0,2,0)。 */
 .esc-root .esc-action-solid:disabled { opacity: 1; }

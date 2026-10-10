@@ -1,4 +1,5 @@
 /**
+ *   ★**本刀（A2.2 话清剿）**：`ENTERPRISE_LIBRARY_NOT_WIRED` 由「资料库接入中，暂不可用」改成「这个版本还没有这项功能」（与 `esc-copy` 的 `actionNotPorted` 同一句口径）。
  * [INPUT]: 依赖 React（useSyncExternalStore/useEffect/useRef/useState）、lucide-react 的 Upload/RefreshCw/Search/ChevronLeft/FileText/Folder、官方 ui-primitives 的 Button、list-state 的唯一四态状态机与唯一取数源 `createEnterpriseListSource`、error-notice 的唯一失败呈现 `EnterpriseErrorNotice`、local-api 的 `EnterpriseLocalApiError`/`enterpriseLocalErrorCode`/`EnterpriseLocalApi`，以及 local-api-decode 的资料库 DTO（`EnterpriseLibrarySpace`/`EnterpriseLibraryHit`）
  * [OUTPUT]: 资料库**页面主体**：目录取数源 `createEnterpriseLibraryCatalogSource`（端口缺席＝宿主面还没接线时**如实**出 `ENT_LIBRARY_UNAVAILABLE`，绝不回落成空列表）、树行投影 `enterpriseLibraryItems`、纯呈现 `EnterpriseLibraryPanelView`（目录四态之一 + 目录树／查找命中／正文预览三块内容区 + 未接入控件的禁用与原因）、含 hook 的宿主 `EnterpriseLibraryPanel`（订阅取数源 + 上传／查找／看正文三件动作），以及全部页面文案常量与页面端口类型
  * [POS]: ui 的资料库页（侧栏一级入口点进去的 main 面板内容）。三态齐备、零白屏、零死按钮：加载中给轻提示、空说清「还没有内容」+ 下一步（**指向真的能点的「上传资料」**）、失败给人话 + 下一步 + **真的重发**的重试；上传／查找／看正文三件**只在注入端口到位时才可用**（端口缺席时禁用并把原因写在页面上，不是只挂在 title 里）。本页不发明宿主路由：数据只能从注入的端口进来（全文件无 fetch）
@@ -95,7 +96,7 @@ export const ENTERPRISE_LIBRARY_PREVIEW_LOADING = '正在打开…'
 export const ENTERPRISE_LIBRARY_DISABLED_BADGE = '已停用'
 
 /** 未接入控件**写在页面上**的原因（零死按钮：禁用一定配一句为什么）。 */
-export const ENTERPRISE_LIBRARY_NOT_WIRED = '资料库接入中，暂不可用'
+export const ENTERPRISE_LIBRARY_NOT_WIRED = '这个版本还没有这项功能'
 
 /** 那句原因在 DOM 里的 id（未接入时控件用 `aria-describedby` 指过来，读屏也听得到原因）。 */
 export const ENTERPRISE_LIBRARY_NOT_WIRED_ID = 'own-library-not-wired'

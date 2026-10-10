@@ -370,6 +370,37 @@ describe('employee-facing terminology (plain words only)', () => {
     })
     expectNoBanned(visibleText(detail), '技能详情')
   })
+
+  it('★本刀（A2.2 话清剿）：可见文案里不出现开发侧/部署内部话 —— 连「接口」二字都不出现', async () => {
+    // ★判据取自**真源文件本身**（不是渲染结果）：常量表与码表是全部可见文案的来源，
+    //   剥掉注释后逐条扫 —— 注释里写沿革（"原文写的是…"）是**允许**的，**值**里出现才是问题。
+    //   这一条比"逐页渲染后断言"覆盖更全：新加的一句文案一落地就进网，不必等谁想起来补渲染用例。
+    const strip = (source: string): string =>
+      source.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').map(line => {
+        const at = line.indexOf('//')
+        return at === -1 ? line : line.slice(0, at)
+      }).join('\n')
+    const banned = ['本部署', 'DSH 侧', '这台 NUWAX 服务', '尚未在', '还没有提供', '没有这条只读', '接入中', '接口']
+    for (const name of ['../src/esc/esc-copy.ts', '../src/error-messages.ts', '../src/library-panel.tsx']) {
+      const code = strip(await readFile(new URL(name, import.meta.url), 'utf8'))
+      for (const word of banned) expect(code, `${name} 的可见文案不许出现「${word}」`).not.toContain(word)
+    }
+    // ★反向锁：改干净之后**必须真的说了人话**（"删掉了旧句、也没给新句"同样是缺陷）。
+    const messages = await readFile(new URL('../src/error-messages.ts', import.meta.url), 'utf8')
+    for (const sentence of [
+      '这次没有读到连接器清单。',
+      '这次没有读到这一类目录。',
+      '这次没有读到推荐内容。',
+      '这里暂时还看不到你的专家。',
+      '资料库这次没有打开。',
+    ]) expect(messages, sentence).toContain(sentence)
+    const copy = await readFile(new URL('../src/esc/esc-copy.ts', import.meta.url), 'utf8')
+    expect(copy).toContain('当前版本暂不支持在此添加连接器')
+    expect(copy).toContain('当前版本暂不支持创建专家')
+    expect(copy).toContain('这个版本还没有这项功能')
+    const library = await readFile(new URL('../src/library-panel.tsx', import.meta.url), 'utf8')
+    expect(library).toContain("ENTERPRISE_LIBRARY_NOT_WIRED = '这个版本还没有这项功能'")
+  })
 })
 
 describe('employee-facing failure rendering has exactly one implementation', () => {

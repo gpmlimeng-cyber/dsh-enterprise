@@ -197,14 +197,16 @@ describe('enterprise error vocabulary (single projection)', () => {
   /**
    * **本刀（口径 51）**：「我的专家」子页那枚部署缺失码——**人话 + 下一步 + 终态**三件都要对，
    * 且它与「预填没走成」那枚（同族、同为 esc 页的失败）**不是同一句话**：
-   * 一枚说"这台部署没有这个端点"（找管理员），一枚说"这次没把话填进去"（自己新建会话粘贴）。
+   * 一枚说"这里暂时还看不到你的专家"（找管理员），一枚说"这次没把话填进去"（自己新建会话粘贴）。
+   * ★**本刀（A2.2 话清剿）**：前者的**人话**由部署内部话换成员工侧真话（改的是文案，
+   *   不是这条判据的意图）——"两枚不是同一句话"仍逐字锁着。
    */
   it('keeps the my-experts deployment gap apart from the draft miss, both terminal', () => {
     const gap = 'ENT_ESC_MY_EXPERTS_UNAVAILABLE'
     expect(ENTERPRISE_ERROR_CODES).toContain(gap)
     const view = enterpriseErrorPresentation(gap)
     expect(view.known).toBe(true)
-    expect(view.message).toContain('我的专家')
+    expect(view.message).toContain('你的专家')
     expect(view.message).not.toContain('ENT_')
     expect(view.action).not.toContain('ENT_')
     // 终态：对"端点不存在"重试永远无效（与那四枚 ENT_ESC_*_UNAVAILABLE 逐条同判）。

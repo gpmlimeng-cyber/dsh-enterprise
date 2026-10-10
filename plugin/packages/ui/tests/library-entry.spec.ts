@@ -319,7 +319,9 @@ describe('资料库页面：三态齐备、重试真重发、未接入处禁用�
     expect(tree.props['data-enterprise-library-state']).toBe('failed')
     const text = visibleText(tree)
     // 成功文案来自 error-messages.ts 的唯一映射（人话 + 下一步），不是本页自造。
-    expect(text).toContain(`${ENTERPRISE_LIBRARY_FAILED_PREFIX}：资料库还在接入中，暂时打不开。`)
+    // ★**本刀（A2.2 话清剿）**：文案由「资料库还在接入中，暂时打不开。」（我方施工状态）
+    //   换成「资料库这次没有打开。」（员工侧真话）；判据形状不变（仍必须逐字等于唯一映射那一句）。
+    expect(text).toContain(`${ENTERPRISE_LIBRARY_FAILED_PREFIX}：资料库这次没有打开。`)
     expect(text).toContain(ENTERPRISE_ERROR_ACTION_PREFIX)
     expect(text).not.toContain('ENT_LIBRARY_UNAVAILABLE')
     expect(technicalCodes(tree)).toContain('ENT_LIBRARY_UNAVAILABLE')

@@ -5628,7 +5628,10 @@ describe('esc：口径 51（「我的专家」子页 · 连接器页改名 · �
     const lock = byClass(tree, 'esc-my-experts-lock')!
     expect(lock.props['children']).toBe(ENTERPRISE_ESC_LOCAL_COPY.createExpertLocked)
     expect(lock.props['role']).toBe('status')
-    expect(ENTERPRISE_ESC_LOCAL_COPY.createExpertLocked).toContain('没有')
+    // ★**本刀（A2.2 话清剿）**：这句的**期望片段**跟着文案改 —— 旧值是部署内部话
+    //   （「本部署还没有创建专家的接口」），现在写的是员工侧真话（「当前版本暂不支持创建专家」）。
+    //   判据的形状**没变**（仍是"行上那句必须是这条常量、且必须说清做不到"），只换靶心。
+    expect(ENTERPRISE_ESC_LOCAL_COPY.createExpertLocked).toContain('当前版本暂不支持')
     // ⑨ **导出真的存在**（防"import 一个已删除的具名导出 ⇒ undefined ⇒ 空转锁"——ui 的 tsconfig
     //    不含 tests，tsc 照不到这口坑，本仓历史上正踩过）。四个出口都必须真是函数。
     for (const [name, value] of Object.entries({
@@ -5702,7 +5705,8 @@ describe('esc：口径 51（「我的专家」子页 · 连接器页改名 · �
     const lock = byClass(bare, 'esc-toolbar-lock')!
     expect(lock.props['children']).toBe(ENTERPRISE_ESC_LOCAL_COPY.customConnectorLocked)
     expect(lock.props['role']).toBe('status')
-    expect(ENTERPRISE_ESC_LOCAL_COPY.customConnectorLocked).toContain('没有')
+    // ★**本刀（A2.2 话清剿）**：同上（旧值是「本部署还没有添加连接器的接口」）。
+    expect(ENTERPRISE_ESC_LOCAL_COPY.customConnectorLocked).toContain('当前版本暂不支持')
     // 纯投影：判据是端口在不在场；`title` 另有一句（但**不是**唯一说明）。
     const plan = enterpriseEscMainActionPlan({ resourceType: 'connector' })
     expect(plan!.label).toBe('添加连接器')
