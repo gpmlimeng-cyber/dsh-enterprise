@@ -46,6 +46,45 @@
  *   ④ **卡片与广场逐格同形**：图标形状（专家裁圆）、右上角动作（技能＝常驻「+」，专家＝默认收起、
  *      hover 才展开的「召唤」）、描述独立一行、底部标签行（作者 + 三格统计）——全部由 `EnterpriseEscCard`
  *      按 `showUse`/`showSummon` 决定，本文件不自画一格卡片内部结构。
+ *
+ *  * ★★**本刀（精选卡描述「先多行后一行」闪烁 · 机理与两条被证伪的假设）**
+ *
+ *   ★**现象**（用户真机原话）：精选技能卡的描述刚显示时占多行、瞬间收成一行，中间闪一下；
+ *     要的是**原生一行**。
+ *
+ *   ★**机理（本刀实测定位）**：推荐记录**自己只有 `label` 与 `icon`**（`EscRecommendRecord`，
+ *     `esc-types.ts:127`）——**描述不在推荐这一趟里**，它在广场目录那份 `ResourceItem` 上，
+ *     要**另一趟请求**（②）才拿得到。改前那一瞬回查未命中，`enterpriseEscFeaturedItem` 就只给
+ *     `label`+`icon`（`description` 缺席）⇒ 描述那一格**整格不存在**，只余 `esc-card.tsx` 的
+ *     `skillLock` 那句兜底（`.esc-card-lock`，**无行数上限、可自由折行**）占着同一个落点；
+ *     回查落地后 `.esc-card-headdesc`（恒一行）才长出来 ⇒ 头里格数与卡片高度**跳变一次**。
+ *     ⇒ 用户读成的正是"先多行（占位的折行句）、后一行（真描述）"。
+ *
+ *   ★★**查过但**不成立**的两条假设（如实登记，不抹掉）**——它们一度被当成根因，写在这里是为了
+ *     让下一个改这里的人不必重走一遍**：
+ *     ① **「判据来自异步计划到场」不成立**：`esc-card.tsx:664` 的 `tagRowLayout` 确实由
+ *        `showUse`/`showSummon` 派生，但这两个 prop **不由计划派生**——全仓六个装配点写的
+ *        **全是字面量**（`esc-skill-card.ts` 那枚唯一装配两支 return 都写死 `showUse: true`；
+ *        `esc-installed.tsx` / `esc-catalog-list.tsx` 同样；另两处是 `showSummon` + `showUse: false`）。
+ *        实测两帧：描述元素类名与卡片根类名**逐字相同**（`esc-card-headdesc` / `esc-card esc-card-skill`），
+ *        即"首帧与终帧必须是同一元素同一类名"这条性质**改前就已满足**，不是本刀的失效点。
+ *     ② **「`<style>` 在 effect 里注入导致首帧无样式」不成立**：`EnterpriseEscStyle`（`esc-style.ts:1518`）
+ *        是纯 `createElement('style')`，与页面同树挂载于 `esc-page.tsx:255`，**不在 effect 里**；
+ *        且全 `src` 的 `-webkit-line-clamp` **只有一条且值为 2**（`esc-style.ts:915`），
+ *        `.esc-card-headdesc` 恒 `white-space: nowrap`（`:858`）——**"三行"这一形态在本仓 CSS 里不存在**，
+ *        那句"三行"是兜底句折出来的行数，不是某条 clamp 规则。
+ *
+ *   ★★**本刀改法（退路 (1)：回查落定之前这一行不画卡，骨架照旧）**：
+ *     `lookup` 由"空索引"变成 `undefined`／索引两态（**`undefined` ＝ 还挂在路上**），
+ *     由 `enterpriseEscFeaturedSettled` 这**唯一判据**在 `ready` 分支里挡一道：
+ *     未落定 ⇒ 出既有 loading 骨架（**不新增 CSS 类**）；落定 ⇒ 照常画卡。
+ *     ★**为什么不能改成同步投影**：②那趟回查的输入是 `api` + 一趟**独立的分页目录请求**
+ *       （`category:''`、`keyword:''`＝整份目录，刻意不受搜索词影响），**不是**聚合层同一帧
+ *       已经拿到的那份数据（聚合层只握有 `installedIds` 那个名字集合）⇒ 没有可同步投影的输入。
+ *     ★**为什么"不画卡"在这里是正确的**：原先禁它是为了别拿它掩盖**错版式**；而这一档画出来的
+ *       是**错内容**（描述缺格 + 占位句顶替），性质不同 ⇒ 多等一趟（两趟本就并发，量级百毫秒）。
+ *     ★**绝不"永远等"**：空索引（明确未命中）与回查失败**都算落定**，照常画卡——
+ *       那一档 `.esc-card-lock` 正是它**该有**的内容，不是占位。
  *   ★**口径 50（用户裁决）：「换一批」＝在已取到的那一批上做本地窗口并循环，不重发请求。**
  *     ① 为什么：`esc-api.ts` 的 `officialRecommended` 把 `pageNo`/`pageSize`/`recType` 写死在自己身上
  *        （`ENTERPRISE_ESC_RECOMMEND_PAGE_NO` 是常量），点「换一批」发出去的是**与首次逐字相同**的请求，
@@ -205,6 +244,37 @@ export type EnterpriseEscFeaturedState =
 
 /** 回查索引：平台 `targetId` → 归一化后的卡片数据。 */
 export type EnterpriseEscFeaturedLookup = ReadonlyMap<number, ResourceItem>
+
+/**
+ * ★★**本刀（精选卡描述闪烁）：这一行到底画不画卡**——**唯一判据**。
+ *
+ * ★**闪烁的机理（真机实测定位，与另外两条查过但不成立的假设记在文件头）**：
+ *   推荐记录自己**只有** `label` 与 `icon` 两格（`EscRecommendRecord`，`esc-types.ts:127`）——
+ *   描述在广场目录那份 `ResourceItem` 里，而那份要**另一趟请求**才拿得到（口径 43 的回查）。
+ *   于是改前那一瞬：`enterpriseEscFeaturedItem`（见下）**没命中就只给 label+icon、`description` 缺席**
+ *   ⇒ 卡片头里描述那一格**整格不存在**（不是"三行"，是"没有"），只余 `esc-card.tsx` 的
+ *   `skillLock` 那句兜底（`.esc-card-lock`，**无行数上限、可自由折行**）占着同一个落点；
+ *   回查落地后描述格（`.esc-card-headdesc`，恒一行）才长出来，卡片高度与头里格数**跳变一次**。
+ *
+ * ★**为什么判据只能是"回查落定没有"，不能是"命中有几条"**：命中与否是**平台数据**，
+ *   同一枚卡在命中/未命中两种数据下长得不同是**真实差异**（那是两种内容，不是同一内容的两种画法）；
+ *   而"还在路上"是**我们自己的取数状态**——那一瞬画出来的卡是**错内容**（描述缺格 + 占位句顶替），
+ *   它不该被员工看见。所以分界画在**取数状态**上，而不是数据上。
+ *
+ * ★**"落定"包含"明确一条都没命中"**（推荐里有、目录里没有 —— 真会出现的一档）与
+ *   **回查失败**（`loadEnterpriseEscFeaturedLookup` 抛出）：两者都落成**空索引**⇒ 照常画卡，
+ *   `.esc-card-lock` 正是那一档**该有**的内容。⇒ 本函数**永远不会"永远等"**：
+ *   每一支出口（见那枚 effect）都落定，只有**还在路上**才不画。
+ *
+ * ★**为什么不是"四态里的 `loading`"**：那说的是**推荐那一批**（`api.officialRecommended`），
+ *   与回查是**两趟**；推荐已到、回查在途，正是本函数判定的**那一档**（四态此时是 `ready`）。
+ *
+ * @param lookup - 回查索引；`undefined` ＝ **还挂在路上**（尚未落定）。
+ * @returns `true` ＝ 可以照常画卡（已落定：命中、未命中、或回查失败）。
+ */
+export function enterpriseEscFeaturedSettled(lookup: EnterpriseEscFeaturedLookup | undefined): boolean {
+  return lookup !== undefined
+}
 
 /**
  * 空索引（**常量**：同一引用喂给 `useState`，`setState` 同值时 React 直接 bail out，不会多渲染一轮）。
@@ -431,8 +501,14 @@ export function EnterpriseEscFeatured({ api, targetType, installedSkillNames, mo
   const [state, setState] = useState<EnterpriseEscFeaturedState>({ kind: 'loading' })
   /**
    * 口径 43 的回查索引。它**不参与**上面那四态：推荐记录是真拿到的，回查只是把卡片补成广场那张卡。
+   *
+   * ★★**本刀（精选卡描述闪烁）**：`undefined` ＝ **回查还没落定**（`null` 不再表示"空"，
+   *   空索引另有那枚常量）。这一格是**唯一**能区分"还没查"与"查了没有"的地方——改前两者都是空索引，
+   *   于是首帧那一瞬与"明确一条都没命中"长得**逐字一样**，页面先画出一批**没有描述**的卡
+   *   （描述那一格整格不存在，只剩 `.esc-card-lock` 那句兜底占位），回查落地后描述格才长出来 ⇒
+   *   用户真机看到的"先三行、瞬间一行"。机理与改法见下面 `enterpriseEscFeaturedSettled` 那段。
    */
-  const [lookup, setLookup] = useState<EnterpriseEscFeaturedLookup>(ENTERPRISE_ESC_FEATURED_LOOKUP_EMPTY)
+  const [lookup, setLookup] = useState<EnterpriseEscFeaturedLookup | undefined>(undefined)
   /**
    * ★**本刀第 ④ 条（用户原话「换一批只刷新精选区域，不整页刷新」）的取证与结构锁**：
    *
@@ -516,6 +592,11 @@ export function EnterpriseEscFeatured({ api, targetType, installedSkillNames, mo
    *   effect 里只写 `lookup`，不回写 `state` ⇒ 不构成环。
    * ★回查失败**不改变四态**（推荐那一批是真好到的，见文件头③）：`.catch` 里只留一句注释，
    *   卡片的可见后果是"下半截留空/短横"——与广场卡片对缺口的表现同一个形态。
+   *
+   * ★★**本刀（精选卡描述闪烁）**：**每一支出口都必须把 `lookup` 落定**——"没进 `ready`"那一支、
+   *   成功那一支、以及下面的 `.catch` 那一支。落定成**空索引**就是"查过了、一条都没命中"，
+   *   那个形态**照常画卡**（`.esc-card-lock` 正是它该有的内容）。只有**还挂在路上**的那段时间
+   *   （`lookup === undefined`）才不画卡 —— 判据见 `enterpriseEscFeaturedSettled`。
    */
   useEffect(() => {
     if (state.kind !== 'ready') {
@@ -534,6 +615,11 @@ export function EnterpriseEscFeatured({ api, targetType, installedSkillNames, mo
       })
       .catch(() => {
         // 回查失败 ⇒ 卡片只画推荐记录自己有的那两格（label / icon），四态不受影响（文件头③）
+        //
+        // ★★**本刀（闪烁）**：失败**也要落定**——落成空索引就是"查过了、一条都没拿到"，
+        //   卡片照常画（且是**终态**，不会再跳一次）。改前这里什么都不写，于是 `lookup`
+        //   会永远停在"还没查"，那一行就永远出不来卡（那不是闪烁，是更糟的空行）。
+        if (live) setLookup(ENTERPRISE_ESC_FEATURED_LOOKUP_EMPTY)
       })
     return () => {
       live = false
@@ -591,7 +677,11 @@ export function EnterpriseEscFeatured({ api, targetType, installedSkillNames, mo
       { className: 'esc-featured-body' },
       // 四态那一枚 retry 仍交给失败态那枚「重试」用（ready 态用不到它）；窗口下标从这一格进。
       enterpriseEscFeaturedBody(state, retry, {
-        lookup,
+        // ★★**本刀（闪烁）**：回查还在路上 ⇒ 交 `false`，那一行改出骨架（不再出"缺描述"的卡）。
+        //   落定之后（含**明确未命中**与回查失败，两者都落成空索引）⇒ 交 `true`，照常画卡。
+        lookupSettled: enterpriseEscFeaturedSettled(lookup),
+        // 落定之后这一格**恒非 `undefined`**（判据保证了这一点），`?? EMPTY` 只是收窄类型用的兜底。
+        lookup: lookup ?? ENTERPRISE_ESC_FEATURED_LOOKUP_EMPTY,
         targetType,
         installedSkillNames,
         offset,
@@ -642,6 +732,17 @@ export interface EnterpriseEscFeaturedBodyOptions {
   readonly justInstalledSkillName?: string | undefined
   /** ★口径 50：窗口起点（0 或负数/越界都会被纯投影归一到 `[0, N)`）。 */
   readonly offset?: number | undefined
+  /**
+   * ★★**本刀（闪烁）：回查**落定**没有**（缺省 ＝ 已落定，即改前那一形态）。
+   *
+   * ★**为什么是**一枚显式可选 flag、而不是靠 `lookup` 本身缺席**来表达"还在路上"**：
+   *   `lookup` 是本函数的**既有可选**入参，**不带它**在本仓的调用约定里一直等于"空索引"
+   *   （`options.lookup ?? ENTERPRISE_ESC_FEATURED_LOOKUP_EMPTY`，既有十几处直调用例全靠这条口径）——
+   *   拿"缺席"去承载"在途"会把那条既有约定整个掀翻。⇒ **只有组件那一个调用点**知道在途
+   *   （它才有那一格 state），由它把 `enterpriseEscFeaturedSettled(lookup)` 的结果显式交下来；
+   *   直调形态逐字回到改前（缺省即已落定），既有断言一条不必改。
+   */
+  readonly lookupSettled?: boolean | undefined
 }
 
 export function enterpriseEscFeaturedBody(
@@ -684,6 +785,16 @@ export function enterpriseEscFeaturedBody(
           : null,
       )
     case 'ready': {
+      /* ★★**本刀（闪烁）：回查还在路上 ⇒ 这一行不出卡**，先出既有 loading 骨架。
+       *
+       * ★机理与那两条**查过但不成立**的假设见文件头；判据是 `enterpriseEscFeaturedSettled`
+       * （本文件**唯一**一处"画不画卡"的判据）。骨架复用 `case 'loading'` 那一支**同一枚**
+       * `.esc-loading`（**零新增 CSS 类**、零新增文案），不新造第五种呈现。
+       * ★**这一条挡不掉"明确未命中"**：那一档 `lookup` 已落定成空索引 ⇒ 判据为真 ⇒ 照常画卡，
+       *   `.esc-card-lock` 是它**该有**的内容（门禁里那条反向锁正是钉这一格）。 */
+      if (options.lookupSettled === false) {
+        return createElement('div', { className: 'esc-loading', children: ENTERPRISE_ESC_COPY.loading })
+      }
       /* ★口径 48 起这一行**不设枚数上限**、也**不在取数层截断**：平台给多少条就画多少条进 DOM
          （本机实测 `total: 7`），"只显示一行、能排几个排几个"由**样式层**实现（见 `esc-style.ts`）；
          被裁掉的那些卡片**仍在 DOM 里**，它们的整份数据照旧是真值。
