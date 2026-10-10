@@ -725,9 +725,15 @@ const CSS = `
    ★**窄屏档例外（既有裁决，本刀一个字不动）**：@media (max-width: 560px) 里这一行另有一条
    「gap: 3px」（"它比上面两行更紧"那条实测裁决）⇒ 那一档 2p + g = 27 ≤ 30：更紧，不回退；
    **那条媒体规则只覆盖 gap，不碰内衬与负 margin** ⇒ 居中（对称内衬）与对齐（补偿）在**所有档**成立。
-   ★另加一条**负外边距**：把加了对称内衬之后多出来的那半个左内衬整行拉回去
-   （补偿值 === 内衬值，同一个 token，不许写死），首枚文字仍落在卡片左边界上。 */
-.esc-category-tabs { display: flex; align-items: center; gap: var(--esc-sp-sm); margin-top: var(--esc-sp-lg); margin-left: calc(0px - var(--esc-cat-pad)); flex-wrap: nowrap; overflow-x: auto; }
+   ★★**用户裁决（本刀，真机）**：「全部 这行标签组件整体右移，标签和卡片左对齐」——
+   即**胶囊的框**（不是它的文字）与卡片左边界对齐 ⇒ **取消那条负外边距**（整行右移半个内衬 = 12px）。
+   旧口径（"用负外边距把多出来的半个左内衬拉回去、让**首枚文字**落在卡片左边界"）是当初对着
+   WorkBuddy 定的；用户看过真机之后明确要**框对齐**，故本行**不再有对齐补偿**。
+   副作用正是用户要的：选中/悬停那层灰底也从卡片左边界开始，而不是"文字对齐、灰底左溢 12px"。
+   ★**同族两处刻意不动**（同一手法的另外两处，用的是另一枚刻度 --esc-tab-px）：
+   .esc-resource-tab 一族（三页签）与 .esc-source-tabs（维度页签）——它们是没有选中灰底的纯文字行，
+   左内衬归零在那里没有副作用；本刀只改这一行，那两行**逐字未动**（门禁有反向锁）。 */
+.esc-category-tabs { display: flex; align-items: center; gap: var(--esc-sp-sm); margin-top: var(--esc-sp-lg); flex-wrap: nowrap; overflow-x: auto; }
 /* ★本刀（用户裁决⑥）：二级分类用**小圆角**——workbuddy 那排分类是近乎方角的短标签。 */
 /* ★用户裁决（本轮，真机）：「一级二级分类标签再小一号」——一级（全部/Agent/经营管理…）与二级
    （选中一级后展开的子分类）**同挂这一类**（渲染点只有 esc-toolbar.tsx 一处），故一档改完两级同时生效。
