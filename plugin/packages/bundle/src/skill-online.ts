@@ -3,6 +3,36 @@
  * [OUTPUT]: 对外提供通路三「在线搜索」的两件事：`searchOnlineSkills(options, query)`（**四源** fan-out + 归一化 + 去重 + **逐源 ok**）与 `installSkillFromResult(options, source)`（把 `installSource` 坐标解成 codeload tarball → 内存组 `.dshskill` → **复用加固落盘**；`skillhub.cn` 那条坐标走**单跳 302 → COS 制品** → 复用 `skill-skillhub.ts` 的第三布局与加固落盘），以及 `EnterpriseOnlineSkillSearch`/`EnterpriseOnlineSkillResult`/`EnterpriseOnlineSkillSource` 形状、四条独立上限常量、`ONLINE_SKILL_SOURCE_IDS`、`SKILLHUB_REDIRECT_HOSTS` 与 `redirectRequestHeaders`（白名单跳的**减头**判据）
  * [POS]: bundle 技能纵深的**第四条通路**（真源 `docs/research/cherry-skill-add-2026-10-05.md` §1 与 `docs/plan/skill-install-sources.md` §B.2/§C/§F.1）——上游 Cherry 的**三个聚合源**（`skillMarketplace.ts:345-374` 的 `MARKETPLACE_SOURCES`）加**本刀第四源** `skillhub.cn` 与我们**自己的**安装链：★公开源一律走**无凭据裸取数面** `options.fetch`，**绝不**用平台面（`platform-service.ts:709-733` 那个 `request` 是同源 + 注入 Bearer 的，拿它打第三方等于把企业令牌发给公网）；★SSRF 白名单（`skills.sh`/`claude-plugins.dev`/`clawhub.ai`/`api.skillhub.cn`/`codeload.github.com`）+ 手动重定向（跨出白名单即拒）+ 只 GET 不带任何 header；★**第四源** `skillhub.cn`（API Base `https://api.skillhub.cn`，免鉴权）追加在 `ONLINE_SKILL_SOURCE_IDS` **表尾** —— 顺序是**跨包契约**（界面那一刀按同一份顺序渲染来源 chip），既有三源**一字未改**：搜索走 `GET /api/skills?keyword=&page=&pageSize=&sortBy=score`（★**不用**官方文档禁掉的 `/api/v1/search`）、条目里 `description` 优先 `description_zh`、`name` 用主 `name`、`stars`/`installs` 有就给没有就整键不产出（"没说"与"说 0"分得开）、`homepage` 字段**一律不用**（主页由界面自己拼 `https://skillhub.cn/skills/<slug>`）；下载是 `GET /api/v1/download?slug=&version=` 的 **302 → `*.cos.accelerate.myqcloud.com`**，故本文件另有一条**只跟随一跳**的取数（`SKILLHUB_REDIRECT_HOSTS` 独立白名单 + 白名单跳**减头**：绝不给重定向那一跳带 `Authorization`/任何凭据头，COS 的 URL 自带授权），跳转正文（`<a href=…>`）**不是**制品；★它自己聚合别家（`source=clawhub` 那一桶与既有的直连 `clawhub.ai` **重叠**）⇒ 结果合并时按 **slug 去重**，直连源优先（理由见 `searchOnlineSkills` 的注释）；★「装不出来就丢」是**按条**判、不是按源：`clawhub.ai` 的 `install.kind` 实测两种（**75/80 是 `clawhub`、5/80 是 `skills-sh`**；我自己那次 4 query/40 条是 38+2），前者载荷里没有本机装得出来的坐标 ⇒ 丢并**计数**（`sources[].dropped`，不许静默），后者的 `reference` 形如 `skills-sh:<owner>/<repo>/<dir…>` ⇒ 保留并走**与 `skills.sh` 源同一份**解析（详见 `normalizeClawhub`）；★落盘不新造第二套：内存组包 → `decodeDshSkillArchive` → `placeEnterpriseSkillArchive`，与中心安装/本地上传**同一套**落点冲突预检与原子改名；★全程零 exec/spawn、不做动态 import、不落可执行位
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ *
+ * ─────────────────────────────── 本刀（在线搜索的取数延迟：逐源截止时间） ───────────────────────────────
+ * 真机读数（用户反馈「数据加载很慢」）：`GET /enterprise/api/v1/local/skills/online-search?q=test` 连测两次
+ * 都是 **5.41 s**；逐源计时给出的账是 `clawhub.ai /api/v1/search` **4.03 s 冷 / 1.88 s 暖**（元凶）、
+ * `skills.sh` 0.86–0.94 s、`claude-plugins.dev` 0.35 s、`api.skillhub.cn` 0.28 s。四源**本来就并发**，
+ * 但整条路由 = 最慢那一个源 + 其余开销 ⇒ **一个慢源把整页拖到 5.4 秒**（对照：`/skills/third-party`
+ * 暖缓存 0.40 s、企业平台整条链路 ~0.1 s，都不是这一刀的事）。
+ *
+ * **做了什么**：新增具名常量 `ONLINE_SEARCH_SOURCE_TIMEOUT_MS = 2500`（数值出处：恰好容得下 clawhub 的
+ * 暖态 1.88 s 并留抖动余量，又把最坏情况从 5.4 s 压到 ~2.5 s + 其余源耗时；其余三家实测全部 ≤0.94 s，
+ * 2500 对它们宽裕 —— 这条线是为**最慢那一家**设的，不是为平均设的）。
+ *
+ * **怎么做的**：★**唯一一处 timeout 实现** —— `fetchWithinLimit` 那段既有的 `AbortController` + `setTimeout`
+ * 现在按一枚 `timeoutMs` **参数**决定预算：搜索面传本常量、安装面照旧传 `ONLINE_SKILL_REQUEST_TIMEOUT_MS`。
+ * **没有第二处实现、没有 `Promise.race`、没有外层兜底计时器**。
+ *
+ * **语义一条没动**：四源**仍然并发**（`Promise.allSettled` 那行未动）；每个源**自己**一个 controller
+ * ⇒ ★**一条超时不连坐**别的源；超时走既有的 catch 收敛成 `ENT_SKILL_SOURCE_UNREACHABLE`，在**既有的**
+ * 逐源状态里**如实标成 `ok:false`** —— ★**响应形状一个字节没改**（`EnterpriseOnlineSkillSource` 仍是
+ * `{id, ok, dropped?}`，界面那句「这一源这次没取到」照原形状渲染，**一个字段都不用加**）；
+ * 「部分成功保留、全失败才 502」那句也一字未动 ⇒ **该源超时不算整体失败**。
+ *
+ * ★**有意的取舍（代价如实登记，不藏）**：网络慢时 **`clawhub.ai` 会在结果里缺席**（那一源少一批结果）。
+ * 这是**故意**的：宁可少一个源的那部分，也不要整页 5.4 秒。缺席**如实可见**（那一源 `ok:false`），不为留住
+ * 它把整页拖回 5 秒。
+ *
+ * ★**与两条既有常量互不替代**：`ONLINE_SEARCH_MAX_BYTES`（4 MiB）挡的是「源回一个**巨型正文**」（无界的
+ * **体积**），本常量挡的是「源**慢到**让整页不可用」（无界的**等待**）—— 27 KB 的正文可以慢到 4 秒，
+ * 5 MiB 的正文也可以 40 ms 到；`ONLINE_SKILL_REQUEST_TIMEOUT_MS`（15 s）是**传输层**兜底（按跳重计，
+ * 装几百 MB 的整仓包 legitimately 要很久），本常量是**搜索面**的产品级上限。两者**并存**，不合并。
  */
 
 import { createHash } from 'node:crypto'
@@ -52,11 +82,55 @@ export type OnlineSkillSourceId = (typeof ONLINE_SKILL_SOURCE_IDS)[number]
 /**
  * 单次取数的超时（照上游 `skillSearch.ts:10` 的 `REQUEST_TIMEOUT_MS = 15_000`）。
  * 覆盖「拿到响应头 + 读完正文」全程：只给响应头设超时会让一个卡住的正文永远挂着。
+ *
+ * ★**这条只管安装面**（codeload 整仓包与 skillhub 制品）：它按**每一跳**重新计时，一次安装允许多跳。
+ * 搜索面**不走**这条 —— 见下面 `ONLINE_SEARCH_SOURCE_TIMEOUT_MS`。
  */
 export const ONLINE_SKILL_REQUEST_TIMEOUT_MS = 15_000
 /**
+ * ★**逐源取数截止时间**（本刀）：搜索面的**每一源**各自一条，四个源**仍然是并发**取的。
+ *
+ * **为什么要有它**：四源并发 ⇒ 整条路由的耗时 = **最慢那一个源** + 其余开销。真机实测
+ * `GET /enterprise/api/v1/local/skills/online-search?q=test` 连测两次都是 **5.41 s**，
+ * 逐源计时给出的账是：
+ *  | 源 | 端点 | 实测 |
+ *  |---|---|---|
+ *  | `clawhub.ai` | `/api/v1/search` | **4.03 s 冷 / 1.88 s 暖** ← 元凶 |
+ *  | `skills.sh` | `/api/search` | 0.86–0.94 s |
+ *  | `claude-plugins.dev` | `/api/skills` | 0.35 s |
+ *  | `api.skillhub.cn` | `/api/skills` | 0.28 s |
+ * ⇒ **一个慢源把整页拖到 5.4 秒**，而其余三源加起来不到 2 秒。
+ *
+ * **数值怎么来的**：取 **2500 ms** = 恰好容得下 clawhub 的**暖态** 1.88 s（留约 0.6 s 余量给抖动），
+ * 又把最坏情况从 5.4 s 压到 ~2.5 s + 其余源耗时。其余三家实测全部 ≤0.94 s，2500 对它们是**宽裕**的 ——
+ * 这条线是为**最慢那一家**设的，不是为平均设的。
+ *
+ * ★**它与 `ONLINE_SKILL_REQUEST_TIMEOUT_MS` 的分工（两条都在、职责不重叠）**：
+ * 15 s 是**传输层**的兜底（装一个几百 MB 的整仓包 legitimately 要很久；且它按跳重计），
+ * 2.5 s 是**搜索面**的产品级上限（这是一次交互里的页面加载，用户等不了 5 秒）。二者**并存**：
+ * 搜索面那 2.5 s 先到就先放弃；安装面根本没有 2.5 s 这条线。
+ *
+ * ★**与 `ONLINE_SEARCH_MAX_BYTES` 的关系（一个管字节、一个管时间，互不替代）**：
+ * 字节上限挡的是「源回一个巨型正文」（无界的**体积**）；本条挡的是「源慢到让整页不可用」（无界的**等待**）。
+ * 一个 27 KB 的正文可以慢到 4 秒，一个 5 MiB 的正文也可以 40 ms 就到 —— 谁都替不了谁，
+ * 所以两条常量**都在**，不合并、不互相推导。
+ *
+ * ★**有意的取舍（代价写在这里，不藏）**：网络慢的时候 **`clawhub.ai` 会在结果里缺席**（这一源少一批结果）。
+ * 这是**故意的**：宁可少一个源的 5% 结果，也不要整页 5.4 秒。缺席是**如实可见**的 —— 那一源在既有的
+ * 逐源状态里被标成 `ok:false`，界面那句「这一源这次没取到」照既有形状渲染，**为此新增任何字段都是多余的**
+ * （响应形状一个字节没动）。★**一条超时不连坐**：每个源有自己的 `AbortController` 与定时器，
+ * 一家超时其余三家照常返回；该源超时也**不算整体失败**（既有「部分成功保留、全失败才 502」一字不动）。
+ *
+ * ★**唯一一处实现**：定时器与 `AbortController` 全在 `fetchWithinLimit` 里（既有那段），由那枚
+ * `timeoutMs` 参数决定用哪条线 —— 搜索面传本常量、安装面传 `ONLINE_SKILL_REQUEST_TIMEOUT_MS`。
+ * 本刀**没有**第二处 timeout、没有 `Promise.race`、没有外层兜底计时器。
+ */
+export const ONLINE_SEARCH_SOURCE_TIMEOUT_MS = 2500
+/**
  * 单个搜索响应的字节上限（**独立常量**：既不是 JSON 路由那 256 KiB，也不是上传那 50 MiB）。
  * 三源实测 16~27 KB，这里留三个数量级冗余，只用来挡住「源返回一个巨型正文」。
+ *
+ * ★它管**字节**、`ONLINE_SEARCH_SOURCE_TIMEOUT_MS` 管**时间**，互不替代（理由见那条常量的注释）。
  */
 export const ONLINE_SEARCH_MAX_BYTES = 4_194_304
 /**
@@ -297,20 +371,29 @@ async function cancelBody(response: Response): Promise<void> {
 }
 
 /**
- * 一次受控取数：15s 超时（含正文）×  白名单 ×  手动重定向 ×  有界读取 ×  **零 header**。
+ * 一次受控取数：白名单 × 手动重定向 × 有界读取 × **零 header** × 逐跳 `timeoutMs` 截止时间。
  *
  * 返回状态码而不是「非 2xx 即抛」：`codeload` 的 404 是「这个 ref 没有」（调用方要换 ref 重试），
  * 而 403/429/5xx 是「上游不可用」，两者的下一步不同。
+ *
+ * ★**截止时间是本函数里唯一一处 timeout 实现**：`AbortController` + `setTimeout` 只在这里一对，
+ * 搜索面传 `ONLINE_SEARCH_SOURCE_TIMEOUT_MS`、安装面传 `ONLINE_SKILL_REQUEST_TIMEOUT_MS`（同一段代码，
+ * 两种预算）。每个调用点**自己**一个 controller ⇒ **一个源超时不会连坐别的源**（四源仍并发）。
+ *
+ * @param timeoutMs - 这一跳的截止时间；超时即 `controller.abort()`，`deps.fetch` 以 `AbortError` 收敛成
+ *   `ENT_SKILL_SOURCE_UNREACHABLE`（走 catch 那条既有收敛），**该源因此在逐源状态里被如实标成 `ok:false`**。
  */
 async function fetchWithinLimit(
   deps: OnlineDependencies,
   url: string,
   limit: number,
+  timeoutMs: number,
 ): Promise<{ readonly status: number, readonly bytes: Buffer }> {
   let current = requireAllowedUrl(url, message => unreachable(message))
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), ONLINE_SKILL_REQUEST_TIMEOUT_MS)
+    // ★每一跳一个自己的定时器（不跨跳复用）：跳数上限由 `MAX_REDIRECTS` 管。
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
     try {
       // ★不带任何 header：公开源不需要凭据，而带上平台令牌就是把企业身份发给第三方。
       // ★`redirect: 'manual'`：跨出白名单的重定向必须由我们**看见并拒掉**，而不是被 fetch 默默跟过去。
@@ -336,6 +419,8 @@ async function fetchWithinLimit(
     } catch (error) {
       throw skillInstallError(error, 'ENT_SKILL_SOURCE_UNREACHABLE', `the upstream request failed (${current.hostname})`)
     } finally {
+      // ★成功 / 失败 / 抛出（含 abort 本身）三条路径**都**走这里 ⇒ 不留悬挂定时器。
+      //   少了这一句，每次搜索都要在事件循环里留一个最长 2.5 s（安装面 15 s）的空转定时器。
       clearTimeout(timer)
     }
   }
@@ -343,7 +428,8 @@ async function fetchWithinLimit(
 }
 
 async function fetchSearchJson(deps: OnlineDependencies, url: string, sourceId: OnlineSkillSourceId): Promise<unknown> {
-  const { status, bytes } = await fetchWithinLimit(deps, url, ONLINE_SEARCH_MAX_BYTES)
+  // ★搜索面那条 2.5 s 的逐源截止时间（唯一实现见 `fetchWithinLimit`）；安装面那条 15 s 不参与搜索。
+  const { status, bytes } = await fetchWithinLimit(deps, url, ONLINE_SEARCH_MAX_BYTES, ONLINE_SEARCH_SOURCE_TIMEOUT_MS)
   if (status !== 200) throw unreachable(`${sourceId} answered HTTP ${status}`)
   try {
     return JSON.parse(bytes.toString('utf8')) as unknown
@@ -834,6 +920,14 @@ function requireQuery(query: unknown): string {
  * ★本刀**另加**一层按 **slug** 的去重，**只作用于聚合源 `skillhub.cn`**（同一 slug 已被更早的源产出
  * ⇒ 丢掉聚合源那一条；理由与"直连源优先"见合并循环里那段注释）。既有三源之间的行为因此**一个字节未变**。
  *
+ * ★**逐源截止时间**（本刀 `ONLINE_SEARCH_SOURCE_TIMEOUT_MS = 2500`）：`Promise.allSettled` 下面那一行
+ * **一个字都没改** —— 四源**仍然并发**，★**一条超时不连坐**别的源（每源自己的 `AbortController`）。
+ * 超时的那一源经既有 catch 收敛成 `ENT_SKILL_SOURCE_UNREACHABLE`，走到下面那个 `rejected` 分支，
+ * 于是被标成 `{id, ok:false}` —— ★**这正是「如实」**：它和「这个源 500」「这个源载荷形状不对」共用同一条
+ * 失败通道与同一枚 `ok:false`，**不需要为超时另造一枚码、也不需要给响应加一枚字段**（界面那句
+ * 「这一源这次没取到」照既有形状渲染）。★也因此**一条超时不等于整体失败**：`sources.every(ok === false)`
+ * 那句未动 ⇒ 其余三源有结果就是 200。
+ *
  * @param options - 无凭据取数面、可选 dshHome/时钟/留痕端口。
  * @param query - 搜索串（非空、≤128 字、无控制字符）。
  * @returns 逐源状态与归一化结果。
@@ -995,7 +1089,13 @@ function resolveInstallPlan(sourceId: OnlineSkillSourceId, reference: string): I
 async function fetchRepositoryTree(deps: OnlineDependencies, plan: InstallPlan): Promise<readonly TarArchiveEntry[] | undefined> {
   for (const ref of plan.refs) {
     const url = `https://codeload.github.com/${plan.owner}/${plan.repo}/tar.gz/refs/heads/${ref}`
-    const { status, bytes } = await fetchWithinLimit(deps, url, ONLINE_TARBALL_MAX_BYTES)
+    // ★安装面用**自己那条** 15 s（整仓包本来就大，且 ref 要逐个试）；搜索面那条 2.5 s 不蔓延到这里。
+    const { status, bytes } = await fetchWithinLimit(
+      deps,
+      url,
+      ONLINE_TARBALL_MAX_BYTES,
+      ONLINE_SKILL_REQUEST_TIMEOUT_MS,
+    )
     if (status === 404) continue
     if (status !== 200) throw unreachable(`codeload answered HTTP ${status} for ${plan.owner}/${plan.repo}@${ref}`)
     try {

@@ -3,6 +3,19 @@
  * [OUTPUT]: 在真实临时 dshHome 上锁定通路三「在线搜索 → 从结果安装」：**四源** fan-out 的逐源 ok 与部分成功、`skills.sh` 缺失 description/stars 的整键缺席、跨源折叠去重、坐标不可解的条目丢弃、clawhub.ai **整源丢弃**（载荷里没有 GitHub 坐标）与留痕、15s 超时、跨出白名单的重定向被拒（且**没有**打到白名单外的 host）、**每一个**源都挂才抛 502；安装链：codeload 整包 → 按坐标目录/按 frontmatter 技能名定位 → 内存组 `.dshskill` → 复用加固落盘（目录/文件字节与 0600、自装记录七键 + `sourceType='github'`、响应与 `/skills/install` 同形、幂等、落点冲突拒、ref 兜底、全 404 拿不到包、体量上限、tar 链接与逃逸、frontmatter 闸门）
  * [POS]: bundle 技能纵深的**第四条通路**回归门禁；有人把公开源改回带令牌的平台面、把白名单/重定向门禁拆了、把「装不出来就丢」放宽、或者新造第二套落盘，这里都会红
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ *
+ * ── 本刀（逐源取数截止时间 `ONLINE_SEARCH_SOURCE_TIMEOUT_MS`）追加的 describe：逐源放弃的可测对象
+ * **全部由注入的 fetcher double 构造，一个真请求都不发**（`hangingSource` 永挂起直到 abort / 一个延迟
+ * n 毫秒才回的慢源 / 既有 `fetchRouter`），不用真网、不改任何既有断言的期望值。新锁定：① 常量钉 2500 且
+ * 与 `ONLINE_SKILL_REQUEST_TIMEOUT_MS`(15 s)、`ONLINE_SEARCH_MAX_BYTES`(4 MiB) 三条**互相独立**；
+ * ② 永挂起的那一源**恰好 2500 ms** 处被放弃、如实标成 `{id, ok:false}`（**无新字段**）、其余三源结果
+ * 一个不少、整体仍 200、留痕点名该源；③ 四源各挂各的、**没有共用 signal**、全挂时既有 502 语义未变；
+ * ④ `clearTimeout` 在 `finally` ⇒ 成功/失败/放弃三条路径后 `vi.getTimerCount()` 均为 0（无悬挂定时器）；
+ *   ★**计数必须把时钟停在截止时间之前**：挂着的定时器一到 2500 自己就触发并消失（第一版推满 2500 再数，
+ *   结果「删掉 `clearTimeout`」那种改法只有源码级反锁抓住、运行期计数抓不住 —— 这是本文件自己踩过的坑）；
+ * ⑤ 两条预算**不串味**（安装面的 codeload 跑 8 s 仍能装成 ⇒ 搜索面那 2.5 s 没蔓延到安装面）；
+ * ⑥ 源码级反锁：`setTimeout(() => controller.abort())` **全文仅一处**、两处调用点各传各自预算、
+ * 无 `Promise.race`/`AbortSignal.timeout`、`finally { clearTimeout(timer) }` 那一行必须存在。
  */
 
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
@@ -13,6 +26,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { installedSkillStatus, type EnterpriseSkillInstallPlatformPort } from '../src/skill-install.js'
 import {
   installSkillFromResult,
+  ONLINE_SEARCH_MAX_BYTES,
+  ONLINE_SEARCH_SOURCE_TIMEOUT_MS,
+  ONLINE_SKILL_REQUEST_TIMEOUT_MS,
   ONLINE_TARBALL_MAX_BYTES,
   ONLINE_TARBALL_MAX_UNCOMPRESSED_BYTES,
   searchOnlineSkills,
@@ -486,7 +502,11 @@ describe('enterprise online skill search', () => {
     expect(search.results).toHaveLength(1)
   })
 
-  it('times out a slow source at the documented 15s and keeps the others', async () => {
+  // ★加强（不改期望值）：这条断言的**含义**被本刀的逐源截止时间改变了 —— 搜索面现在走
+  //   `ONLINE_SEARCH_SOURCE_TIMEOUT_MS`(2500)，所以推进 15_000 之后 `ok:false` 的成因是**2.5 s 那条线**先到，
+  //   而**不是**安装面那条 15 s（那条只服务安装面，逐源 2.5 s 的精确判据见下面 `describe('逐源取数截止时间')`）。
+  //   期望值 `{ id, ok: false }` / `{ id, ok: true }` 一字未改，只是把它归到正确的成因上。
+  it('times out a slow source and keeps the others', async () => {
     const home = await makeHome()
     vi.useFakeTimers()
     const log: string[] = []
@@ -782,4 +802,182 @@ smoke('enterprise online skill search smoke (real endpoints, opt-in)', () => {
     expect(records).toHaveLength(1)
     expect(records[0]).toMatchObject({ sourceType: 'github', sourceInput: target!.installSource })
   }, 120_000)
+})
+
+/* ─────────────────── 逐源取数截止时间（本刀 `ONLINE_SEARCH_SOURCE_TIMEOUT_MS`） ─────────────────── */
+
+/** 一个「永挂起直到被 abort」的取数面 —— 本刀唯一需要的可测对象，**不打真网**。 */
+function hangingSource(log: string[]): (input: string, init?: RequestInit) => Promise<Response> {
+  return (input, init) => new Promise<Response>((_resolve, reject) => {
+    log.push(`HANG ${new URL(input).hostname}`)
+    init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')), { once: true })
+  })
+}
+
+/** 留痕里有没有点名那个源（超时也必须留痕，和其它失败同一条通道）。 */
+function traced(onError: { mock: { calls: unknown[][] } }, sourceId: string): boolean {
+  return onError.mock.calls.map(call => String(call[0])).join('\n').includes(`source=${sourceId}`)
+}
+
+/** 把 `fetchWithinLimit` 的**函数体**抽出来（只数本刀那唯一一处实现，不受旁支既有定时器干扰）。 */
+function fetchWithinLimitBodies(source: string): string {
+  return [...source.matchAll(/async function fetchWithinLimit\([\s\S]*?\n\}/g)].map(match => match[0]).join('\n')
+}
+
+/** 剥掉注释只留代码：源码级反锁必须数**真代码**，不然头部注释里提到某个词就会自己把自己判红。 */
+function codeOnly(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '')
+}
+
+describe('enterprise online skill search · 逐源取数截止时间', () => {
+  it('★把那条常量钉在 2500，并说清它与另两条既有预算各管什么', () => {
+    // ★数值改一下这里就红：2500 是真机读数的产物（clawhub 暖态 1.88 s + 余量），不是随手取的数。
+    expect(ONLINE_SEARCH_SOURCE_TIMEOUT_MS).toBe(2500)
+    // ★安装面那条 15 s 独立存在（传输层兜底，按跳重计）；谁也不许吞掉谁。
+    expect(ONLINE_SKILL_REQUEST_TIMEOUT_MS).toBe(15_000)
+    expect(ONLINE_SEARCH_SOURCE_TIMEOUT_MS).toBeLessThan(ONLINE_SKILL_REQUEST_TIMEOUT_MS)
+    // ★字节预算同样独立：一个管时间、一个管字节，互不替代。
+    expect(ONLINE_SEARCH_MAX_BYTES).toBe(4_194_304)
+  })
+
+  it('★放弃永挂起的源、在**恰好 2500 ms** 处如实标记，其余三源照常返回，整体仍 200', async () => {
+    const home = await makeHome()
+    const log: string[] = []
+    const onError = vi.fn()
+    const router = fetchRouter(
+      [
+        { host: 'skills.sh', respond: () => jsonResponse({ skills: [] }) },
+        { host: 'claude-plugins.dev', respond: () => jsonResponse(CLAUDE_PLUGINS_BODY) },
+        { host: 'api.skillhub.cn', respond: () => jsonResponse(SKILLHUB_BODY) },
+      ],
+      log,
+    )
+    const hang = hangingSource(log)
+    // ★`clawhub.ai` 永挂起 —— 正是真机上那家 4.03 s 的元凶。
+    const fetchImpl = (input: string, init?: RequestInit): Promise<Response> =>
+      input.includes('clawhub.ai') ? hang(input, init) : router(input, init)
+
+    vi.useFakeTimers()
+    const startedAt = Date.now()
+    const pending = searchOnlineSkills({ fetch: fetchImpl, dshHome: home, onError }, 'notes')
+    // ★推进到 2500 之前它**还没**被放弃（截止时间是真的 2500，不是 0，也不是安装面那条 15 s）。
+    await vi.advanceTimersByTimeAsync(ONLINE_SEARCH_SOURCE_TIMEOUT_MS - 1)
+    let settled = false
+    void pending.then(() => { settled = true }, () => { settled = true })
+    await Promise.resolve()
+    expect(settled).toBe(false)
+    await vi.advanceTimersByTimeAsync(1)
+    const search = await pending
+    expect(Date.now() - startedAt).toBe(ONLINE_SEARCH_SOURCE_TIMEOUT_MS)
+
+    // ★如实标记成既有形状 `{id, ok:false}`：**没有 `dropped`** ⇒ 与「500」「载荷形状不对」逐字同形，
+    //   界面那句「这一源这次没取到」照原样渲染，**响应形状一个字节没改**。
+    // ★**加强**：期望值从「那一行含 ok:false」收紧成**整份 sources 数组逐字相等**。理由：光断言
+    //   `ok:false` 抓不住「超时那一条被改成 ok:true」这种改法（红法③ 正是这么绿的）——
+    //   逐字相等会立刻抓住。
+    expect(search.sources).toEqual([
+      { id: 'skills.sh', ok: true },
+      { id: 'claude-plugins.dev', ok: true },
+      { id: 'clawhub.ai', ok: false },
+      { id: 'skillhub.cn', ok: true, dropped: 1 },
+    ])
+    // ★**加强**：把**整个响应**的键集也钉住（不许为超时新增任何响应字段）。
+    expect(Object.keys(search).sort()).toEqual(['results', 'sources'])
+    for (const entry of search.sources) {
+      expect(Object.keys(entry).every(key => ['id', 'ok', 'dropped'].includes(key))).toBe(true)
+    }
+    // ★失败源不产出 `dropped`（它只属于「取到了但丢了几条」那一种状态）。
+    expect('dropped' in search.sources[2]!).toBe(false)
+    // ★不连坐：另外三源的结果一个不少（整体仍是 200，不是 502）。
+    expect(search.results.map(result => result.sourceId)).toEqual(['claude-plugins.dev', 'skillhub.cn'])
+    // ★超时也留痕（与其它源失败同一条通道 —— 界面/日志看到的和「这个源 500」是同一句）。
+    expect(traced(onError, 'clawhub.ai')).toBe(true)
+  })
+
+  it('★**一条超时不连坐**：四个源各挂各的，各自被 abort —— 谁也没共用一个 signal', async () => {
+    const home = await makeHome()
+    const log: string[] = []
+    const onError = vi.fn()
+    vi.useFakeTimers()
+    const pending = searchOnlineSkills({ fetch: hangingSource(log), dshHome: home, onError }, 'notes')
+    // ★先挂上拒绝处理器（在推进时钟**之前**）：否则这一次刻意的 502 会变成一条 unhandled rejection。
+    //   ★然后把时钟推到截止时间：**每源各自**触发自己的那一次 abort —— 谁也不许连坐。
+    const settled = pending.then(
+      value => ({ ok: true, value }),
+      error => ({ ok: false, error }),
+    )
+    // ★推到截止时间：**每源各自**触发自己的那一次 abort（此刻它们四个还都在飞 —— 截止时间之前它们是
+    //   **活的**定时器，不是泄漏；所以泄漏断言放在「四源毫秒级成功返回」那个测试里）。
+    await vi.advanceTimersByTimeAsync(ONLINE_SEARCH_SOURCE_TIMEOUT_MS)
+    // ★全挂 ⇒ 既有「全失败才 502」语义一字未动（超时不是新的整体失败条件）。
+    const outcome = await settled
+    expect(outcome.ok).toBe(false)
+    expect((outcome as { error: { code?: string } }).error.code).toBe('ENT_SKILL_SOURCE_UNREACHABLE')
+    // ★四源都**各自**发起过并各自被放弃（若有人共用一个 controller，这里会只剩一个或提前全灭）。
+    expect(log.slice().sort()).toEqual([
+      'HANG api.skillhub.cn', 'HANG claude-plugins.dev', 'HANG clawhub.ai', 'HANG skills.sh',
+    ])
+    // ★推满之后：四枚定时器都已触发并消失 ⇒ 也不许有**残留**。
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('★**运行期**证明定时器不泄漏：四源毫秒级成功返回后事件循环里一个空转把手都不许剩', async () => {
+    const home = await makeHome()
+    const harness = options(home, ALL_SOURCES)
+    vi.useFakeTimers()
+    // ★先数一次起点（0 个），再让四源各自在**截止时间之前**跑完。
+    expect(vi.getTimerCount()).toBe(0)
+    const pending = searchOnlineSkills(harness.options, 'notes')
+    // ★只推进 5 ms：四源毫秒级完成，而它们的截止时间（2500 ms）**还没到**。
+    //   ★这是关键：第一版推满 2500 再数，泄漏的定时器已经自己触发消失了 ⇒ 数出来是 0（假阴性）。
+    await vi.advanceTimersByTimeAsync(5)
+    const search = await pending
+    expect(search.sources.every(source => source.ok)).toBe(true)
+    // ★四枚定时器全被 `clearTimeout` 清掉 —— 成功/失败/抛出三条路径都走那个 `finally`。
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('★截止时间只卡搜索面：安装面的 codeload 整包仍走那条 15 s（两条预算不串味）', async () => {
+    const home = await makeHome()
+    const log: string[] = []
+    const onError = vi.fn()
+    const tarball = repositoryTarball('superpowers', 'main', [{ dir: 'skills/team-notes', name: 'team-notes' }])
+    const router = fetchRouter([codeloadRoute('obra/superpowers', { main: tarball })], log)
+    // ★codeload 这一跳要 8 s：搜索面那条 2.5 s **管不到它**（它根本不在搜索面上）。
+    const fetchImpl = async (input: string, init?: RequestInit): Promise<Response> => {
+      if (input.includes('codeload')) {
+        await new Promise<void>(resolve => setTimeout(resolve, 8_000))
+      }
+      return router(input, init)
+    }
+    vi.useFakeTimers()
+    const pending = installSkillFromResult(
+      { fetch: fetchImpl, dshHome: home, now: () => new Date(NOW), onError },
+      'skills.sh:obra/superpowers/team-notes',
+    )
+    await vi.advanceTimersByTimeAsync(15_000)
+    await pending
+    // ★装成了 ⇒ 那 8 s 没被 2.5 s 那条线砍掉（若两条串味，这里会抛 `ENT_SKILL_SOURCE_UNREACHABLE`）。
+    expect(await exists(join(home, 'skills', 'team-notes', 'SKILL.md'))).toBe(true)
+  })
+
+  it('★源码级反锁：搜索面的 timeout 只有**一处**实现，不许出现第二套机制', async () => {
+    const source = await readFile(new URL('../src/skill-online.ts', import.meta.url), 'utf8')
+    // ★把那两处 `fetchWithinLimit` 内部**抽空**（只剩 `function name(…) {` 与 `}`），数剩下的 abort 定时器。
+    //   那是本刀**唯一**该有的实现：`setTimeout(() => controller.abort(), timeoutMs)`。
+    //   （另两处 15 s 的 abort 定时器在 `fetchSkillhubArtifact` 与本函数之外的既有代码里，HEAD 就有，不归本刀管。）
+    expect(fetchWithinLimitBodies(source).match(/setTimeout\(\(\) => controller\.abort\(\)/g) ?? []).toHaveLength(1)
+    // ★预算必须**参数化**：那一行不许把常量写死（写死就等于把 2500 复制了第二份）。
+    expect(fetchWithinLimitBodies(source)).toContain('setTimeout(() => controller.abort(), timeoutMs)')
+    // ★两处调用点分别传各自那条预算（搜索 2500 / 安装 15 s）—— 证明是**同一段代码、两种预算**。
+    expect(source).toContain('ONLINE_SEARCH_MAX_BYTES, ONLINE_SEARCH_SOURCE_TIMEOUT_MS)')
+    expect(source).toContain('ONLINE_TARBALL_MAX_BYTES,\n      ONLINE_SKILL_REQUEST_TIMEOUT_MS,')
+    // ★不许有第二套超时机制（外层兜底计时器 / race / 静态超时 signal）——只在**代码**里数，
+    //   注释里把这些词当反面例子提一句不算数。
+    const code = codeOnly(source)
+    expect(code).not.toContain('Promise.race')
+    expect(code).not.toContain('AbortSignal.timeout')
+    // ★定时器清理不是可选的：`finally { clearTimeout(timer) }` 那一行必须在（去掉它就是红法⑤的泄漏）。
+    expect(fetchWithinLimitBodies(source)).toMatch(/finally \{[\s\S]*?clearTimeout\(timer\)/)
+  })
 })
