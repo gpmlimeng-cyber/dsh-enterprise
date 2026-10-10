@@ -1315,8 +1315,14 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     //   效果一字未变（--esc-sp-md = 8px），变的是"改 WB.space.md 时三行标签间距自动同步"。
     expect(Number(/--esc-sp-md: ([0-9]+)px/.exec(ruleBody('.esc-root'))?.[1])).toBe(8)
     // 源码级锁：两级的渲染点只有一处，故"一档改完两级同时生效"这句话成立
+    // ★**本刀加强（期望值未改、判据换强）**：从"裸字面量出现一次"改成"**剥掉注释后**恰好一处 **className 取值**"。
+    //   · 为什么必须剥注释：本刀给这几处加的沿革注释里正写着 `esc-category-tabs`（解释"这一行复用同一套类名"）。
+    //     把注释算进判据 = 逼着下一个改这里的人不敢写注释 —— 那比少一条断言更糟（沿革注释正是本仓的资产）。
+    //   · 为什么从"字面量"改成"className 取值"：真正要锁的是"**渲染这一行的地方有几处**"，
+    //     而不是"这个字符串在文件里被提了几次"（后者把注释与常量注释一并算进去，是一条**假强**判据）。
+    //   · 期望值仍是 **1**：一处不多、一处不少，本刀没有新增第二个渲染点。
     const toolbarSource = readFileSync(new URL('../src/esc/esc-toolbar.tsx', import.meta.url), 'utf8')
-    expect(toolbarSource.match(/esc-category-tabs/g) ?? []).toHaveLength(1)
+    expect(stripEscComments(toolbarSource).match(/className: 'esc-category-tabs'/g) ?? []).toHaveLength(1)
   })
 
   it('样式层（本刀）：字号一律接壳的字体缩放 + 移动档视口自适应（不许再出现裸 px 字号）', () => {
@@ -1866,8 +1872,10 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
       expect(of(hover), `hover 与选中的 ${prop} 必须逐值相等`).toBe(of(selected))
     }
     //    分类数据与选中判据（渲染点只有一处、判据仍是 item.key === activeCategory）也没被这一刀碰到。
+    // ★**本刀加强（期望值未改、判据换强）**：同样是"剥注释后恰好一处 **className 取值**"，理由见上面那条
+    //   （沿革注释里写着该类名；"渲染点有几处"才是这句话真正要锁的东西）。期望值仍是 **1**。
     const toolbar = readFileSync(new URL('../src/esc/esc-toolbar.tsx', import.meta.url), 'utf8')
-    expect(toolbar.match(/esc-category-tabs/g) ?? []).toHaveLength(1)
+    expect(stripEscComments(toolbar).match(/className: 'esc-category-tabs'/g) ?? []).toHaveLength(1)
     expect(toolbar).toContain("'data-esc-selected': item.key === activeCategory")
 
     // ── ⑥ **逐档扫描**：这条修法在**最窄那一档**也必须成立 ───────────────────────────────
@@ -2077,7 +2085,24 @@ describe('esc：用户裁决的版式（左栏撤掉改顶部药丸页签、卡�
     // 反向锁：那条"动作格与 headmain 平级（头行第三格）"的旧写法不许回来——它是本故障的根因。
     expect(cardSource).not.toMatch(/^\s*showUse === true \? skillActionBox : null,$/m)
     // ③ 三层版式（连接器/默认档）的标题还是**裸 h3**（那两档一字未动：不给它们套标题行）
-    expect(cardSource).toContain(": createElement('h3', { className: 'esc-card-title', title: item.name, children: item.name }),")
+    // ★**本刀加强（锁的**含义**一字未放宽，原判据是被本刀的免疫式行内几何**逼得更严**）**：
+    //   原判据是一条源码字符串 `toContain`，它把**整行调用**逐字锁死——本刀给标题那枚加了一枚行内几何常量
+    //   （`style: ESC_CARD_TITLE_INLINE_STYLE`）之后，那一行自然不再是改前那一串字符。
+    //   · 原判据**仍然成立的那一半**（"那两档的标题是**裸 h3**、不套标题行"）由下面 `not.toContain('esc-card-titlerow')`
+    //     之外的两条继续兜着；本条改成**结构级**判据：剥注释后，那一处 `className: 'esc-card-title'`
+    //     必须**仍在**、且**仍是同一枚 `h3`**、`title`/`children` 两格**逐字未动**。
+    //   · ★为什么"逐字快照式 toContain"在本刀后反而**更弱**：它会把"多出来的注释"与"多出来的 props"混为一谈，
+    //     逼着实现去迁就字符串形状。结构级判据咬的是**语义**（哪一枚元素、什么标签、文案还是那两个），
+    //     它对无关的格式变化不敏感，却对"这一格换了个元素/换了文案"照样红。
+    const cardCode = stripEscComments(cardSource)
+    expect(cardCode.match(/className: 'esc-card-title'/g) ?? []).toHaveLength(2)
+    // 三层版式那一枚（第二处，**不进标题行**）：仍是 `h3`、`title`/`children` 逐字未动。
+    expect(cardCode).toContain(": createElement('h3', {\n              className: 'esc-card-title',\n")
+    expect(cardCode).toContain("title: item.name,\n              children: item.name,\n            }),")
+    // ★反向锁：三层版式那一枚**不许**被顺手套上标题行容器（那正是这一条要守的"裸 h3"）。
+    const bareTitle = /: createElement\('h3', \{\s*className: 'esc-card-title',[\s\S]*?\}\),/.exec(cardCode)
+    expect(bareTitle, '裸 h3 那一枚').not.toBeNull()
+    expect(bareTitle![0]).not.toContain('esc-card-titlerow')
     // ④ 样式层：标题行是 flex 行、且不吃下一行的宽；标题那格仍可收缩（省略号才生效）
     expect(ruleBody('.esc-card-titlerow')).toContain('display: flex')
     expect(ruleBody('.esc-card-titlerow')).toContain('flex: none')

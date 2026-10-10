@@ -169,6 +169,20 @@
  *       先例：`markdown-render.tsx`（"版式全内联、零新增 CSS 类"）——**不违本仓风格**。
  *     ★**第二个装配点同样接上**：`esc-connector-plaza.tsx` 那张连接器卡（同一个类名、同一处症状）
  *       **共用同一个常量**；两个装配点各抄一份字面量，早晚会漂成"同一处文字两个形态"。
+ *
+ *   ★**本刀（同一类风险的剩余格子 · 卡内六格一起免疫）**：上一刀只免疫了描述那一格；
+ *     本表（`esc-style.ts` 头那张清单）把其余**仍靠类名 + 文档序**的单行几何逐格登记。
+ *     本刀按严重度把**卡头 + 卡尾 + 作者名**六格全部行内定死，理由与清单见 `esc-style.ts` 文件头：
+ *       ① `ESC_CARD_TITLE_INLINE_STYLE` —— `.esc-card-title`（**两个装配点共用**：标签行版式的
+ *          「标题行」里那一枚 + 三层版式的裸 `h3`）；
+ *       ② `ESC_CARD_META_INLINE_STYLE` —— `.esc-card-meta`（含 `flex: none`）；
+ *       ③ `ESC_CARD_TAGS_INLINE_STYLE` —— `.esc-card-tags` 容器；
+ *       ④ `ESC_TAG_INLINE_STYLE` —— `.esc-tag` 标签单格（`tagCellOf` 一个渲染点，三处共用）；
+ *       ⑤ `ESC_TAG_AUTHOR_INLINE_STYLE` —— `.esc-tag-author` 容器；
+ *       ⑥ `ESC_AUTHOR_NAME_INLINE_STYLE` —— `.esc-author-name`（`AuthorRow` 内唯一渲染点）。
+ *     ★**① ② ③ 共用同一格数预算** ⇒ 官方 sheet 晚到会**同一张卡连跳两次** ⇒ 少修一格就还在跳。
+ *     ★**纪律照旧**：CSS 里那几条规则**一条未删**（免疫 ≠ 拆样式，零新增 CSS 类、零新增 token、
+ *       只动几何，色值/字号/间距/圆角一律不碰）；`.esc-card-lock`（锁定原因）**仍刻意不加**截断。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -212,6 +226,139 @@ const STAT_ICON: Readonly<Record<ResourceStatType, () => ReactNode>> = {
  *   它是"为什么点不了"的那句话，截断它等于把理由藏起来（信息不许藏，版式才让位）。
  */
 export const ESC_CARD_HEADDESC_INLINE_STYLE: Readonly<CSSProperties> = {
+  display: 'block',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+}
+
+/**
+ * ★**本刀（同一类风险的剩余格子 · 技能名/标题）**：`.esc-card-title` 那格的**行内单行几何**。
+ *
+ * ★**为什么它和描述同案**（机理逐条证据见文件头那一段）：`.esc-card-title` 靠样式表里的
+ *   `white-space: nowrap` 才单行，而本仓那份 `<style>` 与官方主题 sheet 的**文档序不由我们决定**
+ *   ⇒ 官方那份晚到时标题格首帧回到 `white-space: normal` ⇒ **长技能名折成多行 → 同一张卡跳高**。
+ *   ★这条与 `.esc-card-meta` / `.esc-card-tags` / `.esc-tag` **共用同一格数预算**（卡头 + 卡尾），
+ *   所以官方 sheet 晚到会让**同一张卡连跳两次**——这一刀四格一起免疫。
+ *
+ * ★**这四件各自不可省**：`white-space`（不折行，正是那个形态）/ `overflow` + `text-overflow`
+ *   （超宽时截断 + 省略号，否则长名横向溢出卡片）/ `display: block`（显式钉死"它不会因官方某条
+ *   `display` 规则变成 flex/inline 而丢掉单行截断的前提"；`<h3>` 本就是块级，这一件不改观感）。
+ *
+ * ★**零新增 CSS 类**、观感一字未改：`.esc-card-title` 那条规则**仍在**（margin / 颜色 / 字号 /
+ *   字重 / 行高 / 字距仍归它），行内这四件只把"恒一行"从样式表搬到元素自己身上。
+ */
+export const ESC_CARD_TITLE_INLINE_STYLE: Readonly<CSSProperties> = {
+  display: 'block',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+}
+
+/**
+ * ★**本刀**：`.esc-card-meta`（卡片元信息行：版本短号 / 大小 / 内含技能数）的**行内单行几何**。
+ *
+ * ★**为什么必须**：这条 CSS 规则带 `flex: none`（元信息不许被压扁）**加** nowrap + 截断，
+ *   三件**同一条规则**里缺任何一件都会退化：只留 nowrap 而 CSS 未生效 ⇒ 折行 → **卡片跳高**；
+ *   而 `flex: none` 失效时它会被相邻格按 `flex-shrink` 压扁。三件都在样式表里 ⇒ 同样受文档序摆布。
+ *
+ * ★**这四件各自不可省**：`white-space` / `overflow` / `text-overflow`（同上，缺 `overflow` 时
+ *   `text-overflow` 不生效、长字横向溢出）/ `flex: none`（这一格是「定宽不让」的那条纪律本身，
+ *   与上面三件同属"这一格必须成立"的几何，故一并行内定死；CSS 里那份**一字未删**）。
+ */
+export const ESC_CARD_META_INLINE_STYLE: Readonly<CSSProperties> = {
+  display: 'block',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  flex: 'none',
+}
+
+/**
+ * ★**本刀**：`.esc-card-tags`（底部标签行容器）的**行内不换行几何**。
+ *
+ * ★**为什么容器也要免疫**：这一格靠 `flex-wrap: nowrap` + `overflow: hidden` 才恒一行；
+ *   官方 sheet 晚到 ⇒ 它按初始值自由换行 ⇒ **标签折成第二行 → 卡片跳高**（与标题/元信息
+ *   共用同一格数预算 ⇒ 同一张卡**连跳两次**）。
+ * ★**为什么是 `flexWrap` 而不是 `flex`**：`flex-wrap` 正是"是否折成第二行"这一个开关，
+ *   单独定死它最小、最不含糊；`display`/`overflow` 同属那一行必须成立的规格，一并带上。
+ * ★**零新增 CSS 类**：`.esc-card-tags` 那条规则**仍在**（gap / 对齐 / `padding-top` 仍归它）。
+ */
+export const ESC_CARD_TAGS_INLINE_STYLE: Readonly<CSSProperties> = {
+  display: 'flex',
+  flexWrap: 'nowrap',
+  overflow: 'hidden',
+}
+
+/**
+ * ★**本刀**：`.esc-tag`（标签行里那**一格**：收藏量 / 安装量 / 使用量）的**行内单行几何**。
+ *
+ * ★**为什么**：这一格靠 `white-space: nowrap` 才格内不折行；官方 sheet 晚到 ⇒ 格内折行 ⇒
+ *   **行高变化**（标签行是 `align-items: center`，格高一变整行视觉就跳）。
+ * ★**这几件最小**：`display: inline-flex`（钉死"它仍是那枚图标 + 数字并排的弹性盒"——
+ *   `gap`/图标对齐都挂在它上面）／`white-space: nowrap`／`overflow: hidden`。
+ *   ⚠**刻意不给 `textOverflow`**：这一格装的是「图标 + 个位数统计」，不是可能很长的正文；
+ *   加上省略号会在极端窄栏里显示一个**没有意义的省略号**。它要的是"不折行"，不是"截断"。
+ */
+export const ESC_TAG_INLINE_STYLE: Readonly<CSSProperties> = {
+  display: 'inline-flex',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+}
+
+/**
+ * ★**本刀**：`.esc-tag-author`（标签行里那格「作者」）**容器**的**行内几何**。
+ *
+ * ★**为什么它比另外几个 `esc-tag` 多两件**——因为这一格**同时挂两个类**
+ *   （`className: 'esc-tag esc-tag-author'`）⇒ 它必须**同时**满足两条 CSS 规则里"必须成立"的那几件：
+ *   · `.esc-tag` 给 `display: inline-flex` + `white-space: nowrap`（图标 + 名字并排、格内不折行）；
+ *   · `.esc-tag-author` 给 `min-width: 0` + `overflow: hidden`（能被 flex 压缩、裁掉溢出）。
+ *   ★`min-width: 0` 尤其关键：`min-width: auto` 的 flex 项**不被收缩**，这一格一旦失去它，
+ *     长作者名会把整条标签行**撑破**（那是"错位"），而名字那一格的省略号也就无从谈起
+ *     ——它压根没被压缩过。
+ *   ★**为什么不用两枚常量的展开合并**：`{...A, ...B}` 每次渲染都造**新对象**
+ *     ⇒ 两个装配点再也无法用 `toBe` 断言"共用同一枚定义"，漂开就查不出来。
+ *     故这里是**一枚自带五件的字面量**，并把"它是哪两条规则的并集"写在这里。
+ */
+export const ESC_TAG_AUTHOR_INLINE_STYLE: Readonly<CSSProperties> = {
+  display: 'inline-flex',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  minWidth: 0,
+}
+
+/**
+ * ★**本刀**：作者名那一枚 `.esc-author-name > span` 的**行内单行几何**。
+ *
+ * ★**为什么它是"会破版"那一档里最危险的一格**：CSS 给它的是 `height: 16px; line-height: 16px`
+ *   ——**定高盒**。nowrap 一旦随文档序失效，名字在 16px 的盒里折成两行 ⇒ **第二行溢出盒外、
+ *   被裁掉半截**（`.esc-author` 有 `overflow: hidden`）⇒ 用户看到的是**半个字**。
+ * ★**刻意定死 `overflow: hidden`**：光有 nowrap 时，若官方某条规则把它变高，折行仍会发生但**溢出到盒外**；
+ *   `overflow: hidden` 把溢出**关在盒内**，配合 nowrap 就是"恒一行"的完整前提。
+ */
+export const ESC_AUTHOR_NAME_INLINE_STYLE: Readonly<CSSProperties> = {
+  display: 'block',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+}
+
+/**
+ * ★**本刀**：`.esc-connect-category`（连接器分类那一格）的**行内单行几何**。
+ *
+ * ★**为什么是它自己的常量、而不复用卡片标题那一枚**：CSS 给它的是
+ *   `white-space: nowrap` + `overflow: hidden` + `text-overflow: ellipsis`（**没有** `flex: none`，
+ *   也没有 `display`），而标题那一枚还要钉死 `display`/`flex` 相关前提。
+ *   几何不同 ⇒ 两枚常量各自最小、互不拖累；只有**语义就是同一格**才共用同一枚
+ *   （`.esc-card-title` / `.esc-card-meta` / `.esc-card-headdesc` 那几处才是真正的复用点）。
+ *
+ * ★**清单里的严重度是"错位"**：官方 sheet 晚到时这一格折行 ⇒ `.esc-extra-box` 里
+ *   分类与连接状态**两格基线错位**。`.esc-connect-category` 那条 CSS 规则**一字未删**。
+ * ★**为什么住在本文件**：全仓它**只有下面 `connectorExtraBox` 这一个渲染点**——
+ *   放进 `esc-connector-plaza.tsx` 就得让本文件反向 import 它，而那个文件已经 import 本文件
+ *   （同一枚标题/元信息常量）⇒ **循环依赖**。语义归"唯一一个渲染它的地方"，这条比"按视图分组"更要紧。
+ */
+export const ESC_CONNECT_CATEGORY_INLINE_STYLE: Readonly<CSSProperties> = {
   display: 'block',
   whiteSpace: 'nowrap',
   overflow: 'hidden',
@@ -692,18 +839,27 @@ export function EnterpriseEscCardView({
     const stat = (item.stats ?? []).find(entry => entry.type === type)
     return createElement(
       'span',
-      { className: 'esc-tag', title },
+      // ★**本刀（免疫式修法）**：这一格的**行内单行几何**（`ESC_TAG_INLINE_STYLE`）——
+      //   CSS 里 `.esc-tag` 那条规则**仍在**，行内这三条只是把"格内恒一行"从样式表搬到元素身上
+      //   （机理与证据见文件头"免疫式修法"那一段：官方主题 sheet 的文档序不由我们决定）。
+      { className: 'esc-tag', title, style: ESC_TAG_INLINE_STYLE },
       statIconOf(type),
       createElement('span', null, stat === undefined ? ENTERPRISE_ESC_LOCAL_COPY.statUnavailable : String(stat.value)),
     )
   }
   const tagRow = createElement(
     'div',
-    { className: 'esc-card-tags' },
+    // ★**本刀（免疫式修法）**：标签行容器的**行内不换行几何**（`ESC_CARD_TAGS_INLINE_STYLE`）。
+    //   它与标题、元信息**共用同一格数预算** ⇒ 官方 sheet 晚到会让**同一张卡连跳两次**，
+    //   故这三格一起免疫，而不是只修其中最显眼的一格。
+    { className: 'esc-card-tags', style: ESC_CARD_TAGS_INLINE_STYLE },
     hasText(publishName)
       ? createElement(
           'span',
-          { className: 'esc-tag esc-tag-author', title: publishName },
+          // ★**本刀**：作者那格的**容器**也免疫（`min-width: 0` + `overflow: hidden`——
+          //   这是"名字那一格能被 flex 压缩、从而谈得上省略号"的前提）。
+          //   名字本身那一枚（`.esc-author-name`）在 `AuthorRow` 内部行内定死，两处不重开一套。
+          { className: 'esc-tag esc-tag-author', title: publishName, style: ESC_TAG_AUTHOR_INLINE_STYLE },
           createElement(AuthorRow, { avatar: item.publishUser?.avatar, name: publishName }),
         )
       : null,
@@ -722,7 +878,7 @@ export function EnterpriseEscCardView({
           createElement(
             'span',
             { className: 'esc-connect-info' },
-            hasText(item.category) ? createElement('span', { className: 'esc-connect-category' }, item.category) : null,
+            hasText(item.category) ? createElement('span', { className: 'esc-connect-category', style: ESC_CONNECT_CATEGORY_INLINE_STYLE }, item.category) : null,
             createElement(
               'span',
               {
@@ -784,7 +940,14 @@ export function EnterpriseEscCardView({
           ? createElement(
               'div',
               { className: 'esc-card-titlerow' },
-              createElement('h3', { className: 'esc-card-title', title: item.name, children: item.name }),
+              // ★**本刀（免疫式修法）**：标题格的**行内单行几何**（`ESC_CARD_TITLE_INLINE_STYLE`）；
+              //   `.esc-card-title` 那条 CSS 规则**仍在**（颜色/字号/字重/行高/字距仍归它）。
+              createElement('h3', {
+                className: 'esc-card-title',
+                style: ESC_CARD_TITLE_INLINE_STYLE,
+                title: item.name,
+                children: item.name,
+              }),
               // ★口径 47：那一格给了开关就画开关（开关优先）——已安装技能卡既不画技能那枚「+」，
               //   也不画专家那枚「召唤」。
               actionSwitch === undefined
@@ -809,7 +972,14 @@ export function EnterpriseEscCardView({
                */
               ...(actionSwitch === undefined || showUse !== true ? [] : [skillActionBox]),
             )
-          : createElement('h3', { className: 'esc-card-title', title: item.name, children: item.name }),
+          : createElement('h3', {
+              className: 'esc-card-title',
+              // ★**本刀（免疫式修法）**：三层版式那一枚**裸 h3**（连接器/默认档走它）与上面
+              //   标题行里那一枚**共用同一枚常量**——同一个类名、同一处症状，早晚不能漂成两个形态。
+              style: ESC_CARD_TITLE_INLINE_STYLE,
+              title: item.name,
+              children: item.name,
+            }),
         // 描述：**独立一行**（口径 41）——右端到卡片内缘、单行截断。口径 42 起专家卡也走这一格
         // （它的描述此前是 `.esc-card-content` 的两行截断，见下面那句反向说明）。
         //
@@ -847,7 +1017,15 @@ export function EnterpriseEscCardView({
          *   且**缺席即整行不进 DOM**。单行截断 + `title` 兜住全文：它是元信息，长出来只会把卡片顶高。
          */
         tagRowLayout && hasText(item.meta)
-          ? createElement('p', { className: 'esc-card-meta', title: item.meta, children: item.meta })
+          ? createElement('p', {
+              className: 'esc-card-meta',
+              // ★**本刀（免疫式修法）**：元信息行的**行内单行几何 + `flex: none`**
+              //   （`ESC_CARD_META_INLINE_STYLE`）。它与标题、标签行**共用同一格数预算**，
+              //   官方 sheet 晚到 ⇒ 三处一起失效 ⇒ **同一张卡连跳两次**。
+              style: ESC_CARD_META_INLINE_STYLE,
+              title: item.meta,
+              children: item.meta,
+            })
           : null,
         tagRowLayout && skillBusyText !== undefined
           ? createElement('p', {
@@ -1043,7 +1221,11 @@ function AuthorRow({ avatar, name }: { readonly avatar?: string | undefined; rea
     'span',
     { className: 'esc-author' },
     picture,
-    createElement('span', { className: 'esc-author-name', children: name }),
+    // ★**本刀（免疫式修法）**：昵称那枚的**行内单行几何**（`ESC_AUTHOR_NAME_INLINE_STYLE`）。
+    //   它是"会破版"那一档：CSS 写的是 `height: 16px` 的**定高盒**，nowrap 一旦随文档序失效，
+    //   第二行溢出盒外被 `.esc-author` 的 `overflow: hidden` 裁掉 ⇒ 用户看到**半个字**。
+    //   `.esc-author-name` 那条 CSS 规则**仍在**（字号/行高/颜色仍归它）。
+    createElement('span', { className: 'esc-author-name', style: ESC_AUTHOR_NAME_INLINE_STYLE, children: name }),
   )
 }
 

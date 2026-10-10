@@ -13,11 +13,15 @@
  *     **同一套类名**，故员工看到的永远是同一排东西。
  *   ★**零编造**：本文件不产生任何 chip 的文案或 key——它们全部由调用方从**真响应**里投影出来
  *     （例如 `enterpriseThirdPartySubChips(roots)`）；这里只做"选中态与过滤"这两件通用的事。
+ *   ★**本刀（免疫式修法）**：本行容器与每一枚药丸**共用工具栏那两枚行内几何常量**
+ *     （`ESC_TABS_ROW_INLINE_STYLE` / `ESC_PILL_INLINE_STYLE`）——本行刻意复用同一套类名，
+ *     几何就必须逐字同一份（官方主题 sheet 的文档序不由我们决定，详见 `esc-toolbar.tsx` 文件头）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { Pill } from '@deepseek-ai/dsh-client-ui-primitives'
 import { createElement, type ReactNode } from 'react'
+import { ESC_PILL_INLINE_STYLE, ESC_TABS_ROW_INLINE_STYLE } from './esc-toolbar.js'
 
 /**
  * 二级 chip 行的**一行数据**（维度无关：谁产出都长这个样）。
@@ -104,11 +108,15 @@ export function EnterpriseEscSubTabRow(props: {
   if (props.chips.length === 0) return null
   return createElement(
     'div',
-    { className: 'esc-category-tabs' },
+    // ★**本刀（免疫式修法）**：容器与每一枚药丸都**共用工具栏那两枚常量**
+    //   （`ESC_TABS_ROW_INLINE_STYLE` / `ESC_PILL_INLINE_STYLE`；本行刻意复用同一套类名，
+    //   几何就必须逐字同一份——各抄一份早晚会漂成"同一排东西两个形态"）。
+    { className: 'esc-category-tabs', style: ESC_TABS_ROW_INLINE_STYLE },
     props.chips.map(chip =>
       createElement(Pill, {
         key: chip.key === ENTERPRISE_ESC_SUB_TAB_ALL_KEY ? '__all__' : chip.key,
         className: 'esc-pill',
+        style: ESC_PILL_INLINE_STYLE,
         active: chip.key === props.activeKey,
         ...{ 'data-esc-selected': chip.key === props.activeKey },
         ...{ 'data-esc-subtab': chip.key },

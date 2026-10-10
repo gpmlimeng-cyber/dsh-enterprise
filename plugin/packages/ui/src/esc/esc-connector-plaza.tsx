@@ -37,12 +37,19 @@
  *   ★**界面零配置面**：全文件不认配置面那几格（宿主从零构造时就没有它们的位置）—— 这些键
  *     **在类型上就不可表达**（端口只交 `EnterpriseConnectorCatalog`，解码器对多带的键整份判畸形），
  *     界面自然也没有任何解码分支可写。
+ *   ★**本刀（免疫式修法）**：① 那枚**禁用**启用动作的行内几何由**本文件导出**的
+ *     `ESC_CONNECTOR_ENABLE_INLINE_STYLE` 定死（`flex: none` + `nowrap`；`.esc-connector-enable`
+ *     那条 CSS 规则仍在）；② 标题格与元信息行**共用 `esc-card.tsx` 的那两枚常量**
+ *     （`ESC_CARD_TITLE_INLINE_STYLE` / `ESC_CARD_META_INLINE_STYLE`）——同一类名、同一处症状，
+ *     各抄一份早晚会漂开。★`.esc-connect-category`（连接器分类那格）**不在本文件**：它唯一的渲染点
+ *     在 `esc-card.tsx`，故那枚常量随语义住在那里（放这边就得让 `esc-card.tsx` 反向 import 本文件
+ *     ⇒ 循环依赖）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import { RefreshCw } from 'lucide-react'
-import { createElement, useEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react'
+import { createElement, useEffect, useMemo, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
 import { EnterpriseMarketBadgeTag } from '../enterprise-card-text.js'
 import { EnterpriseErrorNotice } from '../error-notice.js'
 import {
@@ -53,8 +60,31 @@ import {
   type EnterpriseListState,
 } from '../list-state.js'
 import type { EnterpriseConnectorCatalog, EnterpriseConnectorItem } from '../local-api-decode.js'
-import { ESC_CARD_HEADDESC_INLINE_STYLE, EnterpriseEscCardIcon } from './esc-card.js'
+import {
+  ESC_CARD_HEADDESC_INLINE_STYLE,
+  ESC_CARD_META_INLINE_STYLE,
+  ESC_CARD_TITLE_INLINE_STYLE,
+  EnterpriseEscCardIcon,
+} from './esc-card.js'
 import type { EnterpriseEscConnectorPort } from './esc-types.js'
+
+/**
+ * ★**本刀（免疫式修法）**：那枚**禁用**启用动作（`.esc-connector-enable`）的**行内几何**。
+ *
+ * ★**为什么是它自己的常量、而不复用卡片那一枚**：CSS 给它的是
+ *   `flex: none` + `white-space: nowrap` 两条——nowrap 一旦随文档序失效，「启用」两个字折成两行
+ *   ⇒ **按钮高度与那枚 28px 药丸对不上**（卡片右上角一枚撑高的按钮，用户一眼看出错位）。
+ * ★**刻意不给 `overflow` / `textOverflow`**：这一格装的是两个字，**永远截不到**；
+ *   加了只是把"这一格必须成立的几何"稀释成装饰。它要的恰好两件：`flex: none`（标题先让位）
+ *   与 `whiteSpace: nowrap`。`.esc-connector-enable` 那条 CSS 规则**一字未删**。
+ * ★**为什么住在本文件**（而不是 `esc-card.tsx`）：这一格**只有本文件这一个渲染点**
+ *   ——广场那张卡自己画它，`esc-card.tsx` 的 `showConnect` 那一支画的是另一个类名空间里的
+ *   同义格（`.esc-connect-category`，那枚按语义住进了它唯一的渲染点所在文件）。
+ */
+export const ESC_CONNECTOR_ENABLE_INLINE_STYLE: Readonly<CSSProperties> = {
+  flex: 'none',
+  whiteSpace: 'nowrap',
+}
 
 /** 加载中那一句（与 `.esc-catalog-status` 同一条落点，不新造版式）。 */
 export const ENTERPRISE_CONNECTOR_LOADING = '正在读取连接器…'
@@ -217,7 +247,14 @@ export function EnterpriseEscConnectorCard({ item }: { readonly item: Enterprise
         createElement(
           'div',
           { className: 'esc-card-titlerow' },
-          createElement('h3', { className: 'esc-card-title', title: item.name, children: item.name }),
+          // ★**本刀（免疫式修法）**：标题格与 `esc-card.tsx` 那两个装配点**共用同一枚常量**
+          //   （`ESC_CARD_TITLE_INLINE_STYLE`；同一个类名、同一处症状，各抄一份早晚会漂开）。
+          createElement('h3', {
+            className: 'esc-card-title',
+            style: ESC_CARD_TITLE_INLINE_STYLE,
+            title: item.name,
+            children: item.name,
+          }),
           // ★官方标识：`official === true` **才**画（缺席 = "平台没说"，与 `false` 都不画，且都不当作官方）。
           item.official === true
             ? EnterpriseMarketBadgeTag({ text: ENTERPRISE_CONNECTOR_OFFICIAL_TEXT })
@@ -232,6 +269,9 @@ export function EnterpriseEscConnectorCard({ item }: { readonly item: Enterprise
             variant: 'primary',
             size: 'sm',
             className: 'esc-action-solid esc-connector-enable',
+            // ★**本刀（免疫式修法）**：那两件「这一格必须成立」的几何行内定死
+            //   （`ESC_CONNECTOR_ENABLE_INLINE_STYLE`；`.esc-connector-enable` 那条 CSS 规则仍在）。
+            style: ESC_CONNECTOR_ENABLE_INLINE_STYLE,
             disabled: plan.disabled,
             title: plan.title,
             'aria-label': plan.ariaLabel,
@@ -253,7 +293,14 @@ export function EnterpriseEscConnectorCard({ item }: { readonly item: Enterprise
         // ★元信息一行：三格都由真数据派生，缺哪个少画哪个；三格全缺则**整行不画**。
         metaLine === undefined
           ? null
-          : createElement('p', { className: 'esc-card-meta', title: metaLine, children: metaLine }),
+          : // ★**本刀（免疫式修法）**：与 `esc-card.tsx` 那一枚**共用同一枚常量**
+            //   （`ESC_CARD_META_INLINE_STYLE`；同一个类名、同一处症状）。
+            createElement('p', {
+              className: 'esc-card-meta',
+              style: ESC_CARD_META_INLINE_STYLE,
+              title: metaLine,
+              children: metaLine,
+            }),
         // ★部署状态：原值**逐字**上屏（`data-esc-connector-deploy` 带着原值，门禁据此逐档取证）。
         createElement('p', {
           className: 'esc-card-lock',

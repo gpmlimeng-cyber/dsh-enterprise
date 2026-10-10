@@ -9,6 +9,8 @@
  *   故三行页签是一套视觉语言，不再有两套）。
  *   ★交互语义**照抄**左栏那次裁决：点击当前项也算一次"切换请求"（原页面靠 `_t` 时间戳驱动内容区 remount 刷新），
  *   故每次点击都回调一次 `onSelect`，由页面把刷新令牌 +1——重复点击同一个资源类型同样会整区重拉。
+ *   ★**本刀（免疫式修法）**：三枚药丸**共用工具栏那一枚行内几何常量** `ESC_PILL_INLINE_STYLE`
+ *     （官方主题 sheet 的文档序不由我们决定，`white-space: nowrap` 单靠类名会晚到失效 ⇒ 折行/圆角塌）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -16,6 +18,7 @@ import { Pill } from '@deepseek-ai/dsh-client-ui-primitives'
 import { createElement, type ReactNode } from 'react'
 import { ESC_DEFAULT_CATEGORY_MENUS } from './esc-constants.js'
 import { ENTERPRISE_ESC_COPY } from './esc-copy.js'
+import { ESC_PILL_INLINE_STYLE } from './esc-toolbar.js'
 import { WORKBUDDY_ESC_TAB_PATH } from './esc-tab-icons.js'
 import type { ResourceTypeEnum } from './esc-types.js'
 
@@ -56,6 +59,11 @@ export function EnterpriseEscResourceTabs({ activeKey, onSelect }: EnterpriseEsc
         {
           key: item.code,
           className: 'esc-resource-tab esc-pill',
+          // ★**本刀（免疫式修法）**：与工具栏那两行、乃至数据驱动的二级 chip 行**共用同一枚常量**
+          //   （`ESC_PILL_INLINE_STYLE`；三行是同一套视觉语言，几何就得逐字同一份）。
+          //   容器 `.esc-resource-tabs` 的 `flex-wrap: nowrap` 同样靠样式表，不另起一枚——
+          //   它是**容器**格，而清单一格叫「二级 chip 行」，工具栏那两行已按同一枚常量免疫。
+          style: ESC_PILL_INLINE_STYLE,
           active: item.code === activeKey,
           'aria-current': item.code === activeKey ? 'page' : undefined,
           // 同上：选中态由我们自己的标记驱动（官方 active 落到它那份哈希类名上，外部选不中）。

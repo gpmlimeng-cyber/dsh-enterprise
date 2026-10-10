@@ -147,21 +147,37 @@ describe('技能卡描述「先三行、再收成一行」：免疫式修法（�
     }
   })
 
-  it('★快照③：卡片**其它格子**（锁 / 标签 / 元信息）几何**未变** —— 逐字快照', () => {
+  it('★快照③：`.esc-card-lock` 几何**未变**（仍未加截断） + 描述格的**其余 props 一字未动** —— 逐字快照', () => {
     const card = skillCard()
 
-    // 元信息行：单行截断**只由 CSS 给**（本刀刻意**没有**给它行内几何）
-    //   ⇒ 它不在本次改动范围内，这一条快照就是"其它格子的几何一个字节都没动"的证据。
+    // ★**本刀重新基线化（加强，不是放宽）**：改前这一条把"元信息行 `style` 为 `undefined`"当成
+    //   "其它格子的几何一个字节都没动"的证据。**本刀把那一格显式免疫了**（它与描述、标题、标签行
+    //   共用同一格数预算 ⇒ 官方 sheet 晚到会让**同一张卡连跳两次**，不修它就还在跳）
+    //   ⇒ 那半条判据**必须**改写，否则它会开始奖励"漏修一格"。
+    //   ★**加强的方向**：改前它只锁"没有 style"，现在它锁**逐属性断值 + 共用同一枚常量**，
+    //   并**追加**下面两条真正不许动的反向锁（锁格不加截断 / 标签行项数与顺序一字未改）。
+    //   ⇒ 净效果是覆盖面**变大**（多锁了元信息/标签行/标签格的行内几何与逐属性值），
+    //     "漏修"与"多改"两端都会红，只有一条**期望值**被改掉（元信息那一格的 `undefined` → 那枚常量）。
+
+    // 元信息行：本刀起它**也**带行内单行几何（`ESC_CARD_META_INLINE_STYLE`），
+    //   与标题、标签行**共用同一格数预算** ⇒ 三处必须一起免疫。
     const meta = byClass(card, 'esc-card-meta')
     expect(meta).toHaveLength(1)
-    expect(meta[0]!.props['style']).toBeUndefined()
+    const metaStyle = meta[0]!.props['style'] as Record<string, unknown>
+    expect(metaStyle['whiteSpace']).toBe('nowrap')
+    expect(metaStyle['overflow']).toBe('hidden')
+    expect(metaStyle['textOverflow']).toBe('ellipsis')
+    // `flex: none`（元信息不许被压扁）是那一条纪律本身，与上面三件同属"必须成立"的几何。
+    expect(metaStyle['flex']).toBe('none')
     expect(meta[0]!.props['title']).toBe(item.meta)
     expect(meta[0]!.props['children']).toBe(item.meta)
 
-    // 标签行整行：几何未变（**不许**被"顺手"加上 nowrap 行内样式）
+    // 标签行整行：本刀起它**也**带行内不换行几何（`ESC_CARD_TAGS_INLINE_STYLE`）。
     const tags = byClass(card, 'esc-card-tags')
     expect(tags).toHaveLength(1)
-    expect(tags[0]!.props['style']).toBeUndefined()
+    const tagsStyle = tags[0]!.props['style'] as Record<string, unknown>
+    expect(tagsStyle['flexWrap']).toBe('nowrap')
+    expect(tagsStyle['overflow']).toBe('hidden')
     // 四格（作者 → 收藏 → 安装 → 使用），顺序与项数一字未改。
     // 作者那格的类名是 `esc-tag esc-tag-author`（两个类），故按**包含**收齐五处再断数。
     const tagRow = tags[0]!
@@ -176,10 +192,17 @@ describe('技能卡描述「先三行、再收成一行」：免疫式修法（�
       ENTERPRISE_ESC_COPY.statInstall,
       ENTERPRISE_ESC_COPY.statUsage,
     ])
+    // ★**标签单格也免疫**（本刀）：格内恒一行 ⇒ 行高不再随官方 sheet 的文档序变化。
+    for (const cell of tagCells) {
+      const style = cell.props['style'] as Record<string, unknown>
+      expect(style['whiteSpace'], '每个标签单格都要 nowrap').toBe('nowrap')
+      expect(style['display'], '每个标签单格都要钉死 inline-flex').toBe('inline-flex')
+    }
 
     // ★**`.esc-card-lock` 刻意不许加截断** —— 它是"为什么点不了"的那句话，
     //   截了它等于把理由藏起来（信息不许藏，版式才让位）。这条快照把"没加"钉死。
     const locks = walk(card).filter(each => each.props['className'] === 'esc-card-lock')
+    expect(locks.length).toBeGreaterThan(0)
     for (const lock of locks) {
       expect(lock.props['style']).toBeUndefined()
       expect(lock.props['role']).toBe('status')

@@ -96,12 +96,21 @@
  *     它读的是**企业中心注册的技能包**，动作是真的"下载 + SHA-256 校验 + 落盘"。
  *     ★第四枚与第三枚一样**只在技能页**、一样带一句悬浮说明（四个字读不出"从哪来、装什么"）；
  *       前两枚照旧不挂 title、连接器页第三枚仍是「已连接的」（本刀两处都不动）。
+ *   ★**本刀（免疫式修法 · 顶部三行标签）**：新增两枚**导出的行内几何常量**——`ESC_PILL_INLINE_STYLE`
+ *     （每一枚药丸：`nowrap` + `flexShrink: 0` + `boxSizing: border-box`，即用户裁决⑤「永不压缩/不折行」
+ *     的两半 + 定高盒不被撑破）与 `ESC_TABS_ROW_INLINE_STYLE`（维度行与二级分类行那两个**容器**：
+ *     `display: flex` + `flexWrap: nowrap`）。★机理：官方主题 sheet 由 `installThemeStyles` 在插件激活
+ *     那一刻进 `document.head`，而本仓那份 `<style>` 是 React 树里的一枚元素 ⇒ **文档序不由我们决定**
+ *     ⇒ 靠类名写的 nowrap 晚到失效 ⇒ 「系统广场」折成两行、药丸撑高、圆角塌（逐条证据见
+ *     `esc-style.ts` 文件头与 `esc-card.tsx` 文件头）。★**CSS 里那几条规则一条未删**。
+ *   ★**跨文件共用**：另两个装配点（`esc-sub-tabs.tsx` 的数据驱动 chip 行、`esc-resource-tabs.tsx`
+ *     的资源页签）**import 同一枚常量**，不各抄一份字面量。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { Button, Input, Pill } from '@deepseek-ai/dsh-client-ui-primitives'
 import { Download, Plus, Search, Upload } from 'lucide-react'
-import { createElement, type ReactNode } from 'react'
+import { createElement, type CSSProperties, type ReactNode } from 'react'
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from './esc-copy.js'
 import { OfficialMenu, OfficialMenuItemButton } from '../official-ui.js'
 import { EnterpriseEscSubTabRow, type EnterpriseEscSubTab } from './esc-sub-tabs.js'
@@ -111,6 +120,51 @@ import type {
   ResourceSourceEnum,
   ResourceTypeEnum,
 } from './esc-types.js'
+
+/**
+ * ★**本刀（免疫式修法 · 顶部三行标签）**：每一枚药丸（`.esc-pill`）的**行内不折行几何**。
+ *
+ * ★**为什么它进"会破版"那一档**：CSS 里 `.esc-pill { white-space: nowrap }` 是**整个顶部三行
+ *   （资源页签 / 维度行 / 二级分类行）唯一的防折行声明**——用户裁决⑤「移动端：药丸标签永不压缩/
+ *   不折行」就是靠这一条。一旦它随文档序失效，窄屏上「系统广场」「本地三方」这类标签**折成两行**
+ *   ⇒ **药丸撑高、圆角塌掉**（胶囊的圆角按盒高走，两行字的盒看起来就是一枚方块）。
+ * ★**这几件最小**：`whiteSpace`（"永不折行"这件事本身）/ `flexShrink: 0`（**永不压缩**——
+ *   与 nowrap 同属用户那半句裁决，且是 flex 容器里真正"让标签先撑破容器"的那一半）/
+ *   `boxSizing: border-box`（钉死"内衬仍算在 `--esc-tab-h` 之内"：药丸的高度是**定高**的，
+ *   一旦换成 content-box，撑高的行盒会把 28px 的高度顶破、圆角随即塌）。
+ * ★**刻意不给 `overflow` / `textOverflow`**：药丸**从不截断**（它按内容吃宽，`nowrap` 保证标签
+ *   完整可读）；截断一枚页签等于藏信息，而"信息不许藏、版式才让位"是本仓既有纪律。
+ *
+ * ★**零新增 CSS 类、观感一字未改**：`.esc-pill` 与 `.esc-root .esc-pill` 那两条规则**都在**
+ *   （描边压掉仍归它们；选中/hover 的底色与字色归各自那条更长的规则）。
+ *
+ * ★**为什么住在本文件**：工具栏是这三行里**两行**（维度行 `.esc-source-tabs` 与二级分类行
+ *   `.esc-category-tabs`）的唯一装配点，第三行（资源页签 `.esc-resource-tabs`）在
+ *   `esc-resource-tabs.tsx`。★它**跨文件共用**：另两个装配点 `esc-sub-tabs.tsx`（数据驱动那一行）
+ *   与 `esc-resource-tabs.tsx` **import 同一枚常量**，不各抄一份字面量。
+ */
+export const ESC_PILL_INLINE_STYLE: Readonly<CSSProperties> = {
+  whiteSpace: 'nowrap',
+  flexShrink: 0,
+  boxSizing: 'border-box',
+}
+
+/**
+ * ★**本刀（免疫式修法）**：顶部那两行 chip 行**容器**（`.esc-source-tabs` / `.esc-category-tabs`）
+ *   的**行内不换行几何**。
+ *
+ * ★**为什么容器也要**：这两条 CSS 规则靠 `flex-wrap: nowrap` 才恒一行（`.esc-category-tabs`
+ *   还额外靠 `overflow-x: auto` 横向滚）⇒ 官方 sheet 晚到时按初始值**自由换行**
+ *   ⇒ **顶部整体撑高**（用户裁决⑤那条"不折行"的另一半是容器不许换行，不只是标签自己不折）。
+ * ★**两行共用同一枚**：两条 CSS 规则的这一段几何**逐字相同**（只有 `gap` / `margin` / `overflow-x` 不同，
+ *   而那些**不是**"必须成立"的那几件）⇒ 共用一枚常量，不是各写一份。
+ * ★`.esc-source-tabs` 还带 `flex: none`（维度行不参与窄屏压缩预算），那是**它自己那格**的属性，
+ *   下面两个装配点各自带上——它不在共用这一枚里，否则二级分类行会被白扣一条 `flex: none`。
+ */
+export const ESC_TABS_ROW_INLINE_STYLE: Readonly<CSSProperties> = {
+  display: 'flex',
+  flexWrap: 'nowrap',
+}
 
 /** ★**口径 49**：技能页主按钮下拉里的三项（先顺序即渲染顺序，逐字取自 WorkBuddy 实机）。 */
 export const ENTERPRISE_ESC_ADD_SKILL_ITEMS: readonly {
@@ -789,13 +843,17 @@ export function EnterpriseEscToolbar({
       // 维度标签（系统广场/团队空间/本地三方）—— **无背景**（用户裁决）
       createElement(
         'div',
-        { className: 'esc-source-tabs' },
+        // ★**本刀（免疫式修法）**：这一行容器的**行内不换行几何**（`ESC_TABS_ROW_INLINE_STYLE`）；
+        //   它自己还带 `flex: none`（维度行不参与窄屏压缩预算——用户裁决⑤另一半），一并在行内定死。
+        { className: 'esc-source-tabs', style: { ...ESC_TABS_ROW_INLINE_STYLE, flex: 'none' } },
         sourceOptionsOf(resourceType).map(option =>
           createElement(
             Pill,
             {
               key: option.value,
               className: 'esc-pill',
+              // ★**本刀（免疫式修法）**：与另两个装配点**共用同一枚常量**（`ESC_PILL_INLINE_STYLE`）。
+              style: ESC_PILL_INLINE_STYLE,
               active: option.value === source,
               ...{ 'data-esc-selected': option.value === source },
               onClick: () => onSourceChange(option.value),
@@ -831,11 +889,15 @@ export function EnterpriseEscToolbar({
         : categories.length > 0
           ? createElement(
               'div',
-              { className: 'esc-category-tabs' },
+              // ★**本刀（免疫式修法）**：这一行容器的**行内不换行几何**——与上面维度行**共用同一枚常量**
+              //   （两条 CSS 规则的这一段逐字相同；`.esc-source-tabs` 自己那条 `flex: none` 不带过来）。
+              { className: 'esc-category-tabs', style: ESC_TABS_ROW_INLINE_STYLE },
               categories.map(item =>
                 createElement(Pill, {
                   key: item.key === '' ? '__all__' : item.key,
                   className: 'esc-pill',
+                  // ★**本刀（免疫式修法）**：**第三处**装配点，与资源页签/数据驱动那一行共用同一枚。
+                  style: ESC_PILL_INLINE_STYLE,
                   active: item.key === activeCategory,
                   ...{ 'data-esc-selected': item.key === activeCategory },
                   onClick: () => onCategoryChange(item.key),

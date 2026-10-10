@@ -14,33 +14,40 @@
  *       三包里**零出现**。
  *
  *   ★★**因此本仓的单行几何分成两类（本文件头这张表就是它的地图）**：
- *     · **【免疫】行内定死** —— `white-space` / `overflow` / `text-overflow` / `display` 写在**元素自己身上**
- *       （行内样式压过任何 stylesheet 的作者规则，**与文档序无关**）。
- *       ★**当前只有一处**：`esc-card.tsx` 的 `ESC_CARD_HEADDESC_INLINE_STYLE`（技能卡与连接器卡**共用**），
- *         即本次「描述先三行、再收成一行」那一份。**`.esc-card-headdesc` 那条规则本刀保留、一字未删**
- *         （margin / 颜色 / 字号 / 行高 / flex 仍归它；免疫 ≠ 拆掉样式）。
+ *     · **【免疫】行内定死** —— `white-space` / `overflow` / `text-overflow` / `display` / `min-width` /
+ *       `flex-wrap` / `flex` 写在**元素自己身上**（行内样式压过任何 stylesheet 的作者规则，
+ *       **与文档序无关**）。
  *     · **【脆弱】靠类名 + 文档序** —— 其余所有靠 `white-space: nowrap` / 单行截断 / 定高才成立的格子。
- *       它们**仍然工作**（官方那份并不写这些类），但**一旦官方那份晚到就在首帧短暂失效**。
- *       ★**本刀一处都不改**（只登记，按严重度另派刀）——下表就是那张另派刀的单子。
  *
- *   | 格子 | 位置 | 依赖的那几件 | 官方 sheet 晚到会怎样 | 严重度 |
- *   |---|---|---|---|---|
- *   | 技能名/标题 | `:853` `.esc-card-title` | nowrap+ellipsis | 长名折成多行 → **卡片跳高** | **会跳变** |
- *   | 卡片元信息行 | `:862` `.esc-card-meta` | nowrap+ellipsis+`flex:none` | 折行 → **卡片跳高** | **会跳变** |
- *   | 标签行 | `:1377` `.esc-card-tags` | `flex-wrap: nowrap`+`overflow:hidden` | 折成第二行 → **卡片跳高** | **会跳变** |
- *   | 标签单格 | `:1378` `.esc-tag` | nowrap | 格内折行 → 行高变化 | **会跳变** |
- *   | 标签行作者名 | `:1383` `.esc-tag-author > span` | nowrap+ellipsis | 名折行 → 行高变化 | 会跳变 |
- *   | 作者昵称（头部旧档） | `:907` `.esc-author-name` | nowrap+定高16px | 折行溢出定高盒 → **截半截** | 会破版 |
- *   | 连接器分类 | `:949` `.esc-connect-category` | nowrap+ellipsis | 折行 → 状态行错位 | 错位 |
- *   | 顶部页签药丸 | `:572` `.esc-pill` | nowrap | 长标签折行 → **药丸撑高/圆角塌** | 会破版 |
- *   | 二级 chip 行 | `:651` `.esc-source-tabs` / `:723` `.esc-category-tabs` | `flex-wrap: nowrap` | 折成多行 → **顶部整体撑高** | **会跳变** |
- *   | 动作位「启用」 | `:1035` `.esc-connector-enable` | nowrap+`flex:none` | 「启用」折两行 → 按钮高度错 | 会破版 |
+ *   ★★**本刀（同一类风险的剩余格子）：上表**十行全部**已免疫**（状态逐条见下表第 7 列）**。
+ *     每格一枚**导出的 `Readonly<CSSProperties>` 常量**，放在**已经拥有该类名语义的那个文件**里
+ *     （卡片放 `esc-card.tsx`、工具栏放 `esc-toolbar.tsx`、连接器广场放 `esc-connector-plaza.tsx`），
+ *     **所有**渲染该格的装配点 **import 同一枚常量**——两处各抄一份字面量早晚会漂成"同一个类名两个形态"。
+ *     ★**CSS 里那几条规则一条未删**（免疫 ≠ 拆样式）：它们继续供"别处引用同一类名"与"将来改版式"用。
+ *     ★**零新增 CSS 类、零新增 token**；**只动几何**——色值/字号/间距/圆角一律没碰。
+ *     ★**`.esc-card-lock`（锁定原因）刻意不加截断**：它是"为什么点不了"的那句话，
+ *       截了它等于把理由藏起来（**信息不许藏，版式才让位**）。上一刀已定案，本刀不许改它，
+ *       `tests/esc-card-headdesc-inline.spec.ts` 把"没加"逐条钉死。
+ *
+ *   | 格子 | 位置 | 依赖的那几件 | 官方 sheet 晚到会怎样 | 严重度 | **本刀状态** | 常量 |
+ *   |---|---|---|---|---|---|---|
+ *   | 技能名/标题 | `:900` `.esc-card-title` | nowrap+ellipsis | 长名折成多行 → **卡片跳高** | **会跳变** | **【免疫】** | `ESC_CARD_TITLE_INLINE_STYLE`（`esc-card.tsx`） |
+ *   | 卡片元信息行 | `:909` `.esc-card-meta` | nowrap+ellipsis+`flex:none` | 折行 → **卡片跳高** | **会跳变** | **【免疫】** | `ESC_CARD_META_INLINE_STYLE`（`esc-card.tsx`） |
+ *   | 标签行 | `:1425` `.esc-card-tags` | `flex-wrap: nowrap`+`overflow:hidden` | 折成第二行 → **卡片跳高** | **会跳变** | **【免疫】** | `ESC_CARD_TAGS_INLINE_STYLE`（`esc-card.tsx`） |
+ *   | 标签单格 | `:1426` `.esc-tag` | nowrap | 格内折行 → 行高变化 | **会跳变** | **【免疫】** | `ESC_TAG_INLINE_STYLE` / `ESC_TAG_AUTHOR_INLINE_STYLE`（作者格挂两个类，后者是两条规则的并集） |
+ *   | 标签行作者名 | `:1431` `.esc-tag-author > span` | nowrap+ellipsis | 名折行 → 行高变化 | 会跳变 | **【免疫】** | `ESC_AUTHOR_NAME_INLINE_STYLE`（名字那一枚）+ `ESC_TAG_AUTHOR_INLINE_STYLE`（容器） |
+ *   | 作者昵称（头部旧档） | `:954` `.esc-author-name` | nowrap+**定高16px** | 折行溢出定高盒 → **截半截** | 会破版 | **【免疫】** | `ESC_AUTHOR_NAME_INLINE_STYLE`（**与上一行是同一枚**：两处渲染的是同一枚元素语义上的作者名） |
+ *   | 连接器分类 | `:996` `.esc-connect-category` | nowrap+ellipsis | 折行 → 状态行错位 | 错位 | **【免疫】** | `ESC_CONNECT_CATEGORY_INLINE_STYLE`（**住 `esc-card.tsx`**：唯一渲染点在那边；放进广场就得反向 import ⇒ 循环依赖） |
+ *   | 顶部页签药丸 | `:619` `.esc-pill` | nowrap | 长标签折行 → **药丸撑高/圆角塌** | 会破版 | **【免疫】** | `ESC_PILL_INLINE_STYLE`（`esc-toolbar.tsx`；**四处装配点共用**：工具栏维度行 / 工具栏二级分类行 / `esc-sub-tabs` 数据驱动那一行 / `esc-resource-tabs` 资源页签） |
+ *   | 二级 chip 行 | `:658` `.esc-source-tabs` / `:730` `.esc-category-tabs` | `flex-wrap: nowrap` | 折成多行 → **顶部整体撑高** | **会跳变** | **【免疫】** | `ESC_TABS_ROW_INLINE_STYLE`（`esc-toolbar.tsx`；**两行容器共用**这一枚——`.esc-source-tabs` 自己那条 `flex: none` 在它的装配点上单独带） |
+ *   | 动作位「启用」 | `:1083` `.esc-connector-enable` | nowrap+`flex:none` | 「启用」折两行 → 按钮高度错 | 会破版 | **【免疫】** | `ESC_CONNECTOR_ENABLE_INLINE_STYLE`（`esc-connector-plaza.tsx`；**刻意不给** `overflow`/`textOverflow`：两个字永远截不到，加了只是稀释） |
  *
  *   ★**为什么它们"只是脆弱"而不是"必然坏"**：官方那份**并不写**这些类名，故它只是**在文档序上
  *     压住**本文件的规则，让本文件的 `nowrap` 短暂不生效——**别的全局 sheet 若真写了同名/更高优先级
  *     规则，那就是另一回事**（实测官方三包无 `!important`、无同名类）。
  *   ★**证不了的边界**：本仓 vitest **无布局引擎无 DOM** ⇒ 上表的"会怎样"是**读 CSS 语义推出来的**，
  *     **没有像素实测**；"你真机上那一帧官方 sheet 差几毫秒到"同样测不了 ⇒ 真机复量只能由用户做。
+ *     本仓能保证的是：**这些格子不再依赖那份 sheet 在场**。
  * [POS]: esc 页面的**样式层**——从 NUWAX 那五个 LESS module 逐条搬过来（`index.less` + `CategorySidebar` +
  *   `ResourceToolbar` + `ResourceAggregation` + `ResourceCard` + `CardWrapper` 的容器样式）。
  *   ★两处按 DSH 体系改写：
