@@ -1,12 +1,22 @@
 /**
  * [INPUT]: 依赖本包 `local-api-decode` 的唯一错误类 `EnterpriseLocalApiError` 与 `esc-types` 的平台响应类型
- * [OUTPUT]: 对外提供 `createEnterpriseEscApi`（六个平台取数方法，签名与 NUWAX `services/{square,systemManage,workspace}` 里那六个函数**逐条同名同参**，外加一条信息性的 `escMockStatus` 与**六条委托出去**的本机只读方法 `installedSkills`/`discoveredSkills`/`selfInstalledSkills`/`thirdPartySkills`/`installThirdPartySkill`/`skills`/`onlineSearchSkills`；第二参数是本机只读取数面 `EnterpriseEscLocalReads`）、
+ * [OUTPUT]: 对外提供 `createEnterpriseEscApi`（六个平台取数方法，签名与 NUWAX `services/{square,systemManage,workspace}` 里那六个函数**逐条同名同参**，外加一条信息性的 `escMockStatus` 与**六条委托出去**的本机只读方法 `installedSkills`/`discoveredSkills`/`selfInstalledSkills`/`thirdPartySkills`/`installThirdPartySkill`/`skills`/`browseSkillhubSkills`；第二参数是本机只读取数面 `EnterpriseEscLocalReads`）、
  *   路径常量 `ENTERPRISE_ESC_READ_LOCAL_PATH`、图片代理路径常量 `ENTERPRISE_ESC_IMAGE_LOCAL_PATH`、
  *   演示数据开关路径常量 `ENTERPRISE_ESC_MOCK_LOCAL_PATH`、
  *   图片地址改写器 `enterpriseEscImageSrc`、平台业务码归一器 `escPlatformErrorCode`/`escErrorCodeOf`、
  *   「本部署没有这个端点」的**面级**稳定码真源 `ESC_MISSING_ENDPOINT_CODES`，
  *   以及 `EnterpriseEscApi`/`EnterpriseEscMockStatus` 契约类型
  * [POS]: esc 页面的**浏览器取数面**——只打同源本机路由 `POST {前缀}/esc/read`，正文 `{path, params}`；
+ *   ★**本刀（SkillHub 维度：单源浏览面）**：那一格**换掉了**：第四枚维度 `SkillHub` 的数据面从
+ *     `onlineSearchSkills`（四源 fan-out、`q` 必填、响应带 `sources[]`）换成 `browseSkillhubSkills`
+ *     （宿主那条**单源**只读路由 `/skills/skillhub`）。★**为什么换**：用户裁决「进页面自动显示」
+ *     在旧那条上**表达不了**（没 `q` 整条 400），而"这一维只投影 `skillhub.cn`、另三源被界面侧丢掉"
+ *     那笔已知浪费随之**整体消失**（单源面里没有别的源可滤，过滤留着就是一句永远为真的死代码）。
+ *     ★**旧那枚 `onlineSearchSkills` 因本仓再无消费者已整格删除**（不留死代码）；★**它在本包里的那条
+ *     取数通路 `local-api.ts` 的 `onlineSearchSkills` 一字未动**——「添加技能 → 在线搜索」那一面
+ *     （`marketplace-entry.tsx`）仍在用它，那是应用商店的路径，用户明令不许动。
+ *     仍是**委托**：同一个 `localReads`、同一份 `requestJson`、唯一一个严格解码器；`query` 由
+ *     `local-api.ts` 的 `skillhubBrowseQuery` 那枚唯一构造器产出，本文件**不**拼查询串。
  *   平台路径与方法由**宿主**的只读闭集裁决（浏览器这边连 URL 都拼不出来）。故原页面的取数逻辑
  *   （`useResourceList` 那套适配器）可以**一字不改**地移植过来，只是把 `apiXxx(...)` 的注入源从
  *   "NUWAX 那套 umi request"换成这里的六个同签名方法。
@@ -55,9 +65,9 @@ import { createEnterpriseLocalApi } from '../local-api.js'
 import type {
   EnterpriseDiscoveredSkills,
   EnterpriseInstalledSkill,
-  EnterpriseOnlineSkillSearch,
   EnterpriseRuntimeSkill,
   EnterpriseSelfInstalledSkill,
+  EnterpriseSkillhubBrowse,
   EnterpriseThirdPartySkills,
 } from '../skill-api-decode.js'
 import type {
@@ -314,20 +324,17 @@ export interface EnterpriseEscApi {
    */
   skills(signal?: AbortSignal | undefined): Promise<readonly EnterpriseRuntimeSkill[]>
   /**
-   * ★**本刀 ③（SkillHub 维度）**：**在线搜索**（`GET /skills/online-search?q=…`，只读）—— 技能页
-   *   第四枚维度 `SkillHub` 的**唯一数据面**。
+   * ★**本刀（SkillHub 浏览面）**：第四枚维度 `SkillHub` 的**唯一数据面**
+   *   （`GET /skills/skillhub?q=&category=&sort=&page=`，只读、**单源**）。
    *
-   * ★**它不是新接口、也不是第二条路由**：`local-api.ts` 早就有这一枚（`onlineSearchSkills`，
-   *   「添加技能 → 在线搜索」那一面一直在用），本文件只是把它**委托**过来（同一份 `requestJson`、
-   *   同一个严格解码器 `decodeEnterpriseOnlineSkillSearch`）。
-   * ★**v1 的已知浪费（如实登记）**：那条路由是**四源 fan-out**（`skills.sh` / `claude-plugins.dev` /
-   *   `clawhub.ai` / `skillhub.cn`），而本维度只投影 `sourceId === 'skillhub.cn'` 那批
-   *   （判据在 `esc-skillhub.ts`）⇒ 另三源的结果被**界面侧丢弃**。★修法只有一条（给那条路由加
-   *   `source` 参数、让它只 fan-out 一个源），而那要动 `platform-client`（本刀禁改）⇒ v1 如实认下这
-   *   笔浪费，不假装它不存在、也不在界面侧另造一条"只取一源"的路由（那才是第二份真值）。
-   * ★它与 `thirdPartySkills` 那格**同族**（同为 `local-api.ts` 的本机同源只读），故与它同一条委托写法。
+   * ★**它替掉的是上面那枚 `onlineSearchSkills`**（本刀已删）：那条是**四源 fan-out**、`q` **必填**、
+   *   响应带 `sources[]` 的逐源状态 —— 「进页面自动显示」在它上面**表达不了**（没 `q` 就 400），
+   *   而"这一维只投影 `skillhub.cn`、另三源被界面侧丢掉"那笔浪费也随之消失。
+   * ★`query` 是**已经拼好的查询串**（由 `local-api.ts` 的 `skillhubBrowseQuery` 那枚唯一构造器产出）：
+   *   本文件**不**拼查询串、不 `encodeURIComponent`、不决定"哪些键该出现" —— 那是那一处的职责。
+   * ★**委托**，不是第二份实现：同一个 `localReads`、同一份 `requestJson`、同一个严格解码器。
    */
-  onlineSearchSkills(query: string, signal?: AbortSignal | undefined): Promise<EnterpriseOnlineSkillSearch>
+  browseSkillhubSkills(query: string, signal?: AbortSignal | undefined): Promise<EnterpriseSkillhubBrowse>
   /**
    * ★**本刀新增**：「精选技能」那一行的取数（`POST /api/system/display/recommend/list`，
    * `recType=Official` + `targetType=Skill`）。
@@ -381,7 +388,7 @@ export interface EnterpriseEscMockStatus {
  */
 export type EnterpriseEscLocalReads = Pick<
   EnterpriseLocalApi,
-  'installedSkills' | 'selfInstalledSkills' | 'discoveredSkills' | 'thirdPartySkills' | 'installThirdPartySkill' | 'skills' | 'onlineSearchSkills'
+  'installedSkills' | 'selfInstalledSkills' | 'discoveredSkills' | 'thirdPartySkills' | 'installThirdPartySkill' | 'skills' | 'browseSkillhubSkills'
 >
 
 /**
@@ -538,8 +545,15 @@ export function createEnterpriseEscApi(
      *   那条路径模板里），本文件不 trim、不改写、不拼查询串 —— 查询串是"用户输入"，
      *   凡是我们这一侧加工过一格，界面上"我搜的是什么"与"实际搜的是什么"就会分叉。
      */
-    onlineSearchSkills: async (query, signal) =>
-      localReads.onlineSearchSkills(query, signal ?? new AbortController().signal),
+    /**
+     * ★**本刀**：SkillHub 浏览（`GET /skills/skillhub?q=&category=&sort=&page=`）—— 与上面几格
+     *   **同一份委托**（同一个 `localReads`、同一个 `requestJson`、同一个严格解码器
+     *   `decodeEnterpriseSkillhubBrowse`，**关闭键集**）。
+     *
+     * ★`query` **原样**交给 `local-api.ts`（拼串与编码那一件事只有它一处实现），本文件不加工一格。
+     */
+    browseSkillhubSkills: async (query, signal) =>
+      localReads.browseSkillhubSkills(query, signal ?? new AbortController().signal),
     // ★「精选」那一行（用户裁决：专家页与技能页同一套逻辑，只有 targetType 不同）。
     //   pageNo/pageSize/recType 三格在本方法里封死；targetType 由调用方给（Agent / Skill 两档）。
     officialRecommended: async (targetType, signal) =>

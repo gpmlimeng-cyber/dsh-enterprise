@@ -1,6 +1,18 @@
 /**
  * [INPUT]: 依赖浏览器 fetch 与 FormData/Blob、local-api-decode 的全部严格解码与失败码投影
  * [OUTPUT]: **本刀（登录入口换成 NUWAX）**：`createEnterpriseLocalApi` 新增三个同源方法 `nuwaxStatus` / `nuwaxLogin(account,password)` / `nuwaxLogout`（前两条响应同形 ⇒ 共用 `decodeEnterpriseNuwaxStatus`；口令只进 POST 正文，不写 URL 也不进请求头）与三条导出常量 `ENTERPRISE_NUWAX_{LOGIN,LOGOUT,STATUS}_LOCAL_PATH`（与 Host 的 exact 注册面逐字同值）。对外提供 `createEnterpriseLocalApi`（固定同源路径的取数与动作，含请 Host 打开帮助中心的 `openHelp`、读**已装**技能正文的 `skillContent`，以及详情子页面用的 `skillFiles`（本机文件树）与 `skillFile`（树里一个文本文件））、五条同源技能路径常量（`ENTERPRISE_SKILL_{INSTALL,UNINSTALL,INSTALLED,CONTENT}_LOCAL_PATH` 与 `enterpriseSkillFilesPath`/`enterpriseSkillFilePath` 两条**动态**本机文件路径构造器）与 local-api-decode 的全部导出 **本刀（配方一键启用）**：新增三件配方动作 `presetStatus` / `enablePreset` / `disablePreset`（路径与 body 严格照路由形状：`GET …/presets/<雪花 id>/status`、`POST …/presets/<雪花 id>/enable`（body 关闭键集 `{}` 或恰好 `{confirmFingerprint}`）、`POST …/presets/<声明 id>/disable`（body 恒 `{}`））与三个路径构造器 `enterprisePreset{Enable,Status,Disable}Path` + 三条子路径共用的注册面前缀 `ENTERPRISE_PRESET_ACTION_LOCAL_PATH`） **本刀（企业插件真取消）**：新增 `cancelPlugin(packageName, signal)`——同源 POST `/enterprise/api/v1/local/plugins/cancel`，正文关闭键集恰好 `{packageName}`，响应与只读 `GET /plugins` **完全同形**（复用同一个严格解码器，**零新增字段**），并导出与 Host exact 注册面逐字同值的常量 `ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH`。
+ * **本刀（SkillHub 维度：单源浏览面）**：新增 `browseSkillhubSkills(query, signal)`（只读
+ *   `GET /skills/skillhub?q=&category=&sort=&page=`）、路径常量 `ENTERPRISE_SKILLHUB_BROWSE_LOCAL_PATH`
+ *   （与 Host `bundle/src/skillhub-browser-route.ts` 的 exact 注册面**逐字同值**）与**唯一**那枚
+ *   查询串构造器 `skillhubBrowseQuery({q,category,sort,page})`。
+ *   ★**为什么是第二条技能面而不是"给 `online-search` 加个 `source` 参数"**：那条是**四源 fan-out**、
+ *     `q` **必填**、响应带 `sources[]` 的逐源状态 ——「进页面自动显示」在它上面**表达不了**（没 `q`
+ *     整条 400）。⇒ **同一把尺、不同的一张脸**；`online-search` 那条路由**一字未动**（「添加技能 →
+ *     在线搜索」仍在用它）。
+ *   ★**拼串与编码只有这一处实现**：四枚键**非空才带**、顺序固定（`q→category→sort→page`，同一浏览意图
+ *     永远同一个 URL）、`URLSearchParams` 那一把尺。界面那一族文件里 `encodeURIComponent` **零出现**
+ *     ——否则"界面上我搜的是什么"与"实际发出去的是什么"迟早分叉（源码级反向锁盯着）。
+ *   ★仍然只有一个 `requestJson`（拆 `{data}` 信封 + 翻错误码全包只有一处）、只有一个严格解码器。
  * [POS]: dsh-ui 的浏览器网络边界——只发同源固定路径请求，调用方无法注入平台 origin 或 Authorization；DTO 契约与解码在 local-api-decode.ts，本文件只管发与收 **本刀**：`/presets` 那三条子路径由 Host 的同一个 prefix 按后缀分派，本文件只多三件固定路径的收发，边界口径（只同源、只发固定路径、键集封闭）一字未改。 **本刀（企业插件真取消）**：`/plugins/cancel` 是本族第三件动作（与 `install`/`remove` 同源同族），浏览器侧只多一次 POST 收发；取消的**结果**不由这条响应判定（响应同形、零新增字段），而是由那次安装请求自己的收束（`ENT_PLUGIN_INSTALL_CANCELLED`）读出来——故本文件不解析任何取消语义。
  * **本刀（本地导入）**：`uploadSkill` 是本族第二条**上传**路径（`POST /skills/upload`，multipart 恰好一个
  *   `artifact` file part，正文构造与反馈附件同一手法 `skillUploadForm`；响应与 `installSkill` 完全同形
@@ -94,6 +106,7 @@ import {
   decodeEnterprisePresetStatus,
   decodeEnterpriseRestoredSession,
   decodeEnterpriseOnlineSkillSearch,
+  decodeEnterpriseSkillhubBrowse,
   decodeEnterpriseSelfInstalledSkills,
   decodeEnterpriseSelfInstalledUninstall,
   decodeEnterpriseSelfInstalledReveal,
@@ -534,6 +547,22 @@ export function createEnterpriseLocalApi(
     installSkillFromResult: async (source, signal) => decodeEnterpriseInstalledSkills(
       await requestJson('/skills/install-from-result', jsonInit('POST', { source }, signal), fetcher),
     ),
+    /**
+     * ★**本刀（SkillHub 浏览面）**：只读浏览一页 `GET /skills/skillhub?q=&category=&sort=&page=`。
+     *
+     * ★**为什么它与上面那条在线搜索是两条路**（不是"同一条路由换个参数"）：那条是**四源 fan-out**、
+     *   `q` **必填**、响应带 `sources[]` 的逐源 `ok`/`dropped` ——「进页面自动显示」在它上面表达不了
+     *   （没 `q` 就整条抛 `ENT_INVALID_REQUEST`）。这一条是**单源**、四键都可缺省、响应带
+     *   `total`/`categories`/`page`/`hasMore`。⇒ **同一把尺、不同的一张脸**。
+     * ★**查询串由本方法自己封死**：入参是一枚**已经投影好的** `URLSearchParams`（由调用方按
+     *   「非空才带」的规则构造），本方法只负责把它**原样**接上路径前缀 —— 编码与"哪些键该出现"
+     *   各只有一处实现，界面那一侧无法拼出一个我们没准备好的查询串。
+     * ★**仍然只有一个 `requestJson`**（拆 `{data}` 信封 + 翻错误码那件事全包只有一处实现），
+     *   仍然只有一个解码器（`decodeEnterpriseSkillhubBrowse`，关闭键集）。
+     */
+    browseSkillhubSkills: async (query, signal) => decodeEnterpriseSkillhubBrowse(
+      await requestJson(`/skills/skillhub${query}`, getInit(signal), fetcher),
+    ),
     // 本地三方 Agent 技能源两条（口径 62）：扫描是只读 GET（宿主绝对路径**不进**响应，
     // 每条候选只带一枚不透明 `id`）；安装是 POST，正文**关闭键集恰好 `{path}`**，`path` 就是
     // 扫描投影里那枚 `id` —— 界面把它当**不透明值原样回传**，从不拼、从不改、从不接受用户输入
@@ -699,6 +728,48 @@ export const ENTERPRISE_SKILL_ADOPT_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/ado
  */
 export const ENTERPRISE_SKILL_ONLINE_SEARCH_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/online-search`
 export const ENTERPRISE_SKILL_INSTALL_FROM_RESULT_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/install-from-result`
+
+/**
+ * ★**本刀（SkillHub 浏览面）**：那条只读浏览路由的**相对段**（带本机前缀）。
+ *
+ * 与 Host 的 `bundle/src/skillhub-browser-route.ts` 那一枚 `ENTERPRISE_SKILLHUB_BROWSE_LOCAL_PATH`
+ * **逐字同值**。它是 `/skills` prefix 的**子路径**、在 Host 侧注册成 **exact**（否则 `skillhub`
+ * 会被那条 prefix handler 当成包 id 去判 400 —— 与 `third-party`/`published`/`online-search`
+ * 同一个坑、同一条解法）。★`online-search` 那条路由**一字未动**：本刀只是给 SkillHub 这一维
+ * 换了一条**单源**的路，那条四源 fan-out 仍服务「添加技能 → 在线搜索」那一面。
+ */
+export const ENTERPRISE_SKILLHUB_BROWSE_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/skillhub`
+
+/**
+ * ★**本刀**：一次 SkillHub 浏览的**查询串唯一构造器**（编码与取舍的全包唯一点）。
+ *
+ * 三条口径：
+ *  ① **四枚键全都"非空才带"** —— `q` 空串与缺席等价（浏览模式）；`category` 空串 = 「全部」
+ *     （**不带**，而不是带一个空值）；`sort` 缺省由**界面**显式给（宿主不替你选，且只认三档）；
+ *     `page` 恒带（宿主那边收窄 1..20，界面翻页前自己就取过界了）。
+ *  ② **顺序固定** `q → category → sort → page`（不是 `Object.entries` 的插入序）：同一个浏览意图
+ *     永远产出**同一个 URL**，门禁才能逐字断言"挂载即发的那一趟长什么样"。
+ *  ③ **编码只有这一处**（`URLSearchParams` 自己那把尺）：界面那一族文件里 `encodeURIComponent`
+ *     **零出现**（源码级反向锁钉着），否则"界面上我搜的是什么"与"实际发出去的是什么"迟早分叉。
+ *
+ * @param input - 四枚可选的浏览参数（`q` 已防抖、`category` 是下级标签那一枚的 `key`、
+ *   `sort` 由界面显式给、`page` 是 1..20 的页码）。
+ * @returns 以 `?` 开头的查询串；四枚皆空时返回 `''`（`browseSkillhubSkills` 原样接在路径后面）。
+ */
+export function skillhubBrowseQuery(input: {
+  readonly q?: string | undefined
+  readonly category?: string | undefined
+  readonly sort?: string | undefined
+  readonly page?: number | undefined
+}): string {
+  const params = new URLSearchParams()
+  if (input.q !== undefined && input.q !== '') params.set('q', input.q)
+  if (input.category !== undefined && input.category !== '') params.set('category', input.category)
+  if (input.sort !== undefined && input.sort !== '') params.set('sort', input.sort)
+  if (input.page !== undefined) params.set('page', String(input.page))
+  const encoded = params.toString()
+  return encoded === '' ? '' : `?${encoded}`
+}
 
 /**
  * **本地三方 Agent 技能源**两条同源路径常量（口径 62）；Host 侧注册路径必须与它们逐字相同。

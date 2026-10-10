@@ -160,7 +160,7 @@ import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import { Inbox, LoaderCircle } from 'lucide-react'
 import { createElement, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import type { EnterpriseEscApi } from './esc-api.js'
-import { enterpriseLocalErrorCode } from '../local-api.js'
+import { enterpriseLocalErrorCode, skillhubBrowseQuery } from '../local-api.js'
 import { EnterpriseEscCard } from './esc-card.js'
 import { useEnterpriseEscCategories } from './esc-categories.js'
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from './esc-copy.js'
@@ -180,8 +180,12 @@ import { EnterpriseEscResourceTabs } from './esc-resource-tabs.js'
 import { EnterpriseEscToolbar } from './esc-toolbar.js'
 import { EnterpriseEscThirdPartyList } from './esc-third-party-list.js'
 import { EnterpriseEscSkillHubList } from './esc-skillhub-list.js'
-import { enterpriseSkillHubInstalledText } from './esc-skillhub.js'
-import { enterpriseOnlineQueryState } from '../online-search.js'
+import {
+  ENTERPRISE_SKILLHUB_DEFAULT_SORT,
+  ENTERPRISE_SKILLHUB_FIRST_PAGE,
+  ENTERPRISE_SKILLHUB_QUERY_MIN,
+  enterpriseSkillHubInstalledText,
+} from './esc-skillhub.js'
 import { createEnterpriseThirdPartyInstaller } from './esc-third-party-install.js'
 import { enterpriseThirdPartyInstalledText, enterpriseThirdPartySubChips } from './esc-third-party.js'
 import { EnterpriseEscCatalog } from './esc-catalog-list.js'
@@ -215,7 +219,7 @@ import type { EnterpriseEscSkillTryPlan } from './esc-skill-try.js'
 import { ENTERPRISE_ESC_SUB_TAB_ALL_KEY, enterpriseEscSubTabFilter, enterpriseEscSubTabs } from './esc-sub-tabs.js'
 import type { EnterpriseListState } from '../list-state.js'
 import type { EnterpriseDiscoveredSkill, EnterpriseInstalledSkill, EnterpriseSelfInstalledSkill } from '../skill-api-decode.js'
-import type { EnterpriseOnlineSkillSearch, EnterpriseThirdPartySkills } from '../skill-api-decode.js'
+import type { EnterpriseSkillhubBrowse, EnterpriseThirdPartySkills } from '../skill-api-decode.js'
 import type { EnterpriseSelfInstalledUninstall } from '../skill-api-decode.js'
 import { EnterpriseSkillImportDialog } from '../skill-import-dialog.js'
 import { useEnterpriseSkillImportQueue } from '../skill-import-port.js'
@@ -1154,38 +1158,59 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
   }, [catalogSource])
 
   /**
-   * ★**本刀 ③（SkillHub 维度）**：第四枚维度的**取数**——走**既有**那条在线搜索本机路由
-   *   （`api.onlineSearchSkills`，`local-api.ts` 的 `GET /skills/online-search?q=…`）。
+   * ★**本刀（SkillHub 浏览面）**：第四枚维度的**取数**——走宿主刚交付的那条**单源**只读路由
+   *   （`api.browseSkillhubSkills`，`local-api.ts` 的 `GET /skills/skillhub?q=&category=&sort=&page=`）。
+   *
+   * ★**为什么不再是那条在线搜索**（四源 fan-out、`q` **必填**）：用户裁决「进页面自动显示」在它上面
+   *   **表达不了**（没 `q` 整条 400），而"界面上那一枚只投影 `skillhub.cn`、另三源被丢掉"的过滤
+   *   **已随本刀整体删除**（单源面里没有别的源可滤）。★`online-search` 那条路由与 `online-search.ts`
+   *   **一字未动**——「添加技能 → 在线搜索」仍在用它。
    *
    * ★**为什么取数住在这一层**（与「本地三方」/「企业技能」逐条同因）：搜索框住在**工具栏**、
    *   结果卡住在**内容区**，两者必须认同**同一份**真值与**同一枚**查询串；若取数留在内容区、
    *   再由子组件回调上来，就成了"子组件 fetch → 回调 setState → 父组件重渲染 → 子组件重建取数源"
    *   那种**自激**形状（页面上表现为请求反复重发）。
-   * ★**查询串就是工具栏那一枚输入框的值**（`keyword`，已防抖）：本维度**不新造第二个搜索框**
-   *   —— 同一屏两个搜索框是"哪个在搜什么"的经典歧义。
-   * ★**没到门槛就一条请求都不发**（判据复用 `online-search.ts` 的 `enterpriseOnlineQueryState`，
-   *   同一个下限 `ENTERPRISE_ONLINE_QUERY_MIN`）：那一档由纯投影说"请先输入关键词"
-   *   （两句不同的"为什么空"之一），不是我们这里造一个假响应。
+   * ★**进页面自动显示**：★**不带 `q`** 地发一趟（`sort` 与 `page` 由界面**显式**给：宿主不替你选）——
+   *   这是"无需先搜就有内容"的**唯一**实现点。
+   * ★**输入 1 个字不许把已有内容清空**：这一条判据在**这里**（不取数 ⇒ 状态**原封不动**留在上一次
+   *   那批结果上，而不是被清成空）。★**不**用"空态一句话"去掩盖——那一档从此**不可达**。
    * ★**失败绝不回落空列表**：只记 `{kind:'failed', code}`（界面据此出失败态 + 真重发的重试）。
-   * ★**换关键词/换维度即中止**：`AbortController` 在清理函数里 abort，迟到结果不回填。
-   * ★**v1 的已知浪费**（如实登记）：那条路由是**四源 fan-out**，而本维度只投影 `skillhub.cn`
-   *   那一批（判据在 `esc-skillhub.ts`，**不在这一层**）⇒ 另三源的结果被界面侧丢掉。
-   *   省掉它只能给那条路由加 `source` 参数（要动 `platform-client`，本刀禁改）。
+   * ★**换关键词/换分类/换维度即中止**：`AbortController` 在清理函数里 abort，迟到结果不回填。
    */
-  const [skillHubState, setSkillHubState] = useState<EnterpriseListState<EnterpriseOnlineSkillSearch>>({ kind: 'loading' })
-  /** 失败态那枚【重试】的令牌（**真重发**：它一变就再打一次那条既有路由）。 */
+  const [skillHubState, setSkillHubState] = useState<EnterpriseListState<EnterpriseSkillhubBrowse>>({ kind: 'loading' })
+  /** 失败态那枚【重试】的令牌（**真重发**：它一变就再打一次那条浏览路由）。 */
   const [skillHubAttempt, setSkillHubAttempt] = useState(0)
-  const skillHubReady = enterpriseOnlineQueryState(keyword) === 'ready'
+  /** 当前选中的下级分类 key（空串 = 「全部」）；★**取值只来自响应里的 `categories`**，不自己编。 */
+  const [skillHubCategory, setSkillHubCategory] = useState('')
+  /** 当前页码（1..20）：分类一变就归 1（换筛选 = 换一页视图）。 */
+  const [skillHubPage, setSkillHubPage] = useState(ENTERPRISE_SKILLHUB_FIRST_PAGE)
+  /**
+   * ★**输入 1 个字不清空**的那道闸（纯判定，判据是"trim 之后还剩几个字"）。
+   *
+   * ★**为什么要有**：那一面过去靠"够不够 2 个字"决定发不发请求，于是员工刚开始打字，
+   *   屏上那批**还看得见的**结果就被清成一句空话——那不是"还没到门槛"，那是**把已有内容弄没了**。
+   *   本刀之后浏览是**默认形态**，所以半截输入的正确处理是**什么都不做**（继续看上一批）。
+   */
+  const skillHubQueryReady = keyword.trim().length >= ENTERPRISE_SKILLHUB_QUERY_MIN
   useEffect(() => {
     if (source !== 'skillhub') return undefined
-    // 没到下限 ⇒ 一条都不发（那一档的界面由纯投影 `enterpriseSkillHubFace` 说）。
-    if (!skillHubReady) return undefined
+    // ★**关键词不足一个字就一条都不发**，且**状态一字不动**（`return` 而不是 `setState`）。
+    if (!skillHubQueryReady) return undefined
     const controller = new AbortController()
     setSkillHubState({ kind: 'loading' })
-    void api.onlineSearchSkills(keyword, controller.signal).then(
+    void api.browseSkillhubSkills(
+      skillhubBrowseQuery({
+        ...(keyword === '' ? {} : { q: keyword }),
+        ...(skillHubCategory === '' ? {} : { category: skillHubCategory }),
+        // ★**界面显式传排序档**（宿主只认三档，不替界面选）；本刀只发默认那一档，见 `esc-skillhub.ts`。
+        sort: ENTERPRISE_SKILLHUB_DEFAULT_SORT,
+        page: skillHubPage,
+      }),
+      controller.signal,
+    ).then(
       (found) => {
         if (controller.signal.aborted) return
-        setSkillHubState(found.results.length === 0
+        setSkillHubState(found.skills.length === 0
           ? { kind: 'empty', value: found }
           : { kind: 'ready', value: found })
       },
@@ -1196,13 +1221,27 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
     )
     return () => { controller.abort() }
     /**
-     * ★依赖列恰好是这趟读读的几格：维度 / 查询串（已防抖）/ 重试令牌 / 取数面。
+     * ★依赖列恰好是这趟读读的几格：维度 / 查询串（已防抖）/ 选中的分类 / 当前页码 / 重试令牌 / 取数面。
      *   多一格就是一次多余的重发，少一格就是"改了关键词还在铺上一次的结果"。
      */
-  }, [source, skillHubReady, keyword, skillHubAttempt, api])
+  }, [source, skillHubQueryReady, keyword, skillHubCategory, skillHubPage, skillHubAttempt, api])
   /** 这一维度那枚【重试】的动作（失败态用；**真的**再发一次）。 */
   const onReloadSkillHub = useCallback((): void => {
     setSkillHubAttempt(current => current + 1)
+  }, [])
+  /** 点某枚分类 chip ⇒ 带 `category` 重取，**页码归 1**（新筛选从第一页开始看）。 */
+  const onSelectSkillHubCategory = useCallback((key: string): void => {
+    setSkillHubCategory(key)
+    setSkillHubPage(ENTERPRISE_SKILLHUB_FIRST_PAGE)
+  }, [])
+  /** ★`hasMore` 的 ref 镜像（与 `esc-list.ts` 那枚 `hasMoreRef` **同一条手法**）：翻页动作要在**事件里**就地重发一次。 */
+  const skillHubHasMoreRef = useRef<boolean>(false)
+  skillHubHasMoreRef.current =
+    (skillHubState.kind === 'ready' || skillHubState.kind === 'empty') && skillHubState.value.hasMore
+  /** 翻到下一页。★**`hasMore` 那道闸在这一层**（与纯投影同一条判据）：到底了**一次都不再发**。 */
+  const onLoadMoreSkillHub = useCallback((): void => {
+    if (!skillHubHasMoreRef.current) return
+    setSkillHubPage(current => current + 1)
   }, [])
 
   /**
@@ -1523,8 +1562,11 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
       ? createElement(EnterpriseEscSkillHub, {
           // ★真值与查询串都在上面那一层（搜索框住在工具栏，必须与结果卡同源）。
           state: skillHubState,
-          query: keyword,
+          category: skillHubCategory,
+          page: skillHubPage,
           onReload: onReloadSkillHub,
+          onCategoryChange: onSelectSkillHubCategory,
+          onLoadMore: onLoadMoreSkillHub,
           // ★装好一条之后请「已安装」计数重读 —— **复用**本页那一枚既有的 refresh token，
           //   **不新造第二个**（装了东西就该让计数重数一遍，这件事在本页只有一条机制）。
           onInstalledRefresh,
@@ -1877,19 +1919,27 @@ function EnterpriseEscThirdParty({
  */
 function EnterpriseEscSkillHub({
   state,
-  query,
+  category,
+  page,
   onReload,
+  onCategoryChange,
+  onLoadMore,
   onInstalledRefresh,
   installFromResult,
   moreOf,
   tryOf,
 }: {
   /** 四态真值（**由聚合层持有**：搜索框与结果卡必须同源）。 */
-  readonly state: EnterpriseListState<EnterpriseOnlineSkillSearch>
-  /** 搜索框里的当前文本（已防抖，由工具栏那一枚输入框持有）。 */
-  readonly query: string
-  /** 再搜一次（失败态那枚重试；**真的**再发一次请求）。 */
+  readonly state: EnterpriseListState<EnterpriseSkillhubBrowse>
+  /** 当前选中的下级分类 key（「全部」即空串）与当前页码（翻页判据都读这两格）。 */
+  readonly category: string
+  readonly page: number
+  /** 再取一次（失败态那枚重试；**真的**再发一次请求）。 */
   readonly onReload: () => void
+  /** 点某枚分类 chip（带 `category` 重取、页码归 1）。 */
+  readonly onCategoryChange: (key: string) => void
+  /** 翻到下一页（`hasMore === false` 时**一次都不再发**）。 */
+  readonly onLoadMore: () => void
   /** 装好一条之后请「已安装」计数重读（**复用**聚合层那一枚 refresh token）。 */
   readonly onInstalledRefresh: () => void
   /** 写入口（缺席 ⇒ 那枚【＋】禁用 + **行上可见**写明原因；判据是端口，不写死 disabled）。 */
@@ -1934,8 +1984,11 @@ function EnterpriseEscSkillHub({
   }, [pending, installFromResult, onInstalledRefresh])
   return createElement(EnterpriseEscSkillHubList, {
     state,
-    query,
+    category,
+    page,
     installedSources,
+    onCategoryChange,
+    onLoadMore,
     ...(pending === undefined ? {} : { busy: pending }),
     ...(installError === undefined ? {} : { installError }),
     ...(installedNotice === undefined ? {} : { installedNotice }),

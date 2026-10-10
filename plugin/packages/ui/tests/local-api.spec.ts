@@ -23,6 +23,7 @@ import {
   decodeEnterprisePluginStatus,
   decodeEnterpriseLocalStatus,
   decodeEnterpriseOnlineSkillSearch,
+  decodeEnterpriseSkillhubBrowse,
   decodeEnterpriseSelfInstalledSkills,
   decodeEnterpriseSystemSkills,
   ENTERPRISE_CONNECTION_STATES,
@@ -36,11 +37,13 @@ import {
   ENTERPRISE_SKILL_DISCOVERED_LOCAL_PATH,
   ENTERPRISE_SKILL_INSTALL_FROM_RESULT_LOCAL_PATH,
   ENTERPRISE_SKILL_ONLINE_SEARCH_LOCAL_PATH,
+  ENTERPRISE_SKILLHUB_BROWSE_LOCAL_PATH,
   ENTERPRISE_SKILL_SELF_INSTALLED_LOCAL_PATH,
   ENTERPRISE_SKILL_SYSTEM_SEARCH_LOCAL_PATH,
   ENTERPRISE_SKILL_UPLOAD_FIELD,
   ENTERPRISE_SKILL_UPLOAD_LOCAL_PATH,
   MANAGED_PLUGIN_STATES,
+  skillhubBrowseQuery,
 } from '../src/local-api.js'
 
 const STATUS = {
@@ -954,6 +957,60 @@ describe('enterprise local browser API', () => {
       await expect(createEnterpriseLocalApi(vi.fn(async () => ok(bad))).onlineSearchSkills('code', signal), label)
         .rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
     }
+  })
+
+  /**
+   * **本刀（SkillHub 浏览面）**：那条**单源**只读浏览路由。
+   *
+   * 四条：① 路径常量与 Host 的 exact 注册面**逐字相同**；② 查询串由**唯一构造器**
+   *   `skillhubBrowseQuery` 产出（编码与"非空才带"只有它一处实现）；③ 进页面那一趟
+   *   **不带 `q`**、排序**显式**为 `downloads`；④ 响应走**同一个** `requestJson`
+   *   与**唯一一个**严格解码器（关闭键集）。
+   */
+  it('browses skillhub through its exact same-origin route with one query-string builder', async () => {
+    const browse = {
+      skills: [{ name: 'dev-expert', slug: 'dev-expert', version: '1.2.3', description: '一句话说明', installSource: 'skillhub.cn:dev-expert@1.2.3' }],
+      total: 188535,
+      categories: [{ key: 'dev-programming', name: '开发编程' }],
+      page: 1,
+      hasMore: true,
+    }
+    const fetcher = vi.fn(async () => ok(browse))
+    const api = createEnterpriseLocalApi(fetcher)
+    const signal = new AbortController().signal
+    // ① 路径常量与 Host 的 exact 注册面逐字相同（`bundle/src/skillhub-browser-route.ts`）。
+    expect(ENTERPRISE_SKILLHUB_BROWSE_LOCAL_PATH).toBe('/enterprise/api/v1/local/skills/skillhub')
+    // ② ★**进页面那一趟不带 `q`**（浏览模式）、排序显式 `downloads`、页码 1。
+    const browseUrl = skillhubBrowseQuery({ sort: 'downloads', page: 1 })
+    expect(browseUrl).toBe('?sort=downloads&page=1')
+    await expect(api.browseSkillhubSkills(browseUrl, signal)).resolves.toEqual(browse)
+    expect(fetcher.mock.calls[0]?.[0]).toBe('/enterprise/api/v1/local/skills/skillhub?sort=downloads&page=1')
+    expect(fetcher.mock.calls[0]?.[1]?.body).toBeUndefined()
+    // 四枚皆空 ⇒ 空查询串（那就是"全缺省"的浏览，宿主那边照样 200）。
+    expect(skillhubBrowseQuery({})).toBe('')
+    // 编码只有构造器一处（斜杠、空格、中文都变成查询串里的字面量，界面那一侧不 `encodeURIComponent`）。
+    expect(skillhubBrowseQuery({ q: 'a/b c', category: 'pay-skill', sort: 'downloads', page: 2 }))
+      .toBe('?q=a%2Fb+c&category=pay-skill&sort=downloads&page=2')
+    // 空串与缺席等价（「全部」不���一个空值过去，那会被宿主判成非法 category）。
+    expect(skillhubBrowseQuery({ q: '', category: '', sort: 'downloads', page: 1 })).toBe('?sort=downloads&page=1')
+    // ③ ★**关闭键集**：Host 冻结了 `{skills,total?,categories?,page,hasMore}`，多一枚即整条失败。
+    for (const [label, bad] of [
+      ['信封多一枚键', { ...browse, upstreamUrl: 'https://skillhub.cn' }],
+      ['信封缺 page', { skills: [], hasMore: false }],
+      ['信封缺 hasMore', { skills: [], page: 1 }],
+      ['hasMore 不是布尔', { skills: [], page: 1, hasMore: 'false' }],
+      ['page 超出宿主上限 20', { skills: [], page: 21, hasMore: false }],
+      ['技能多一枚上游字段', { ...browse, skills: [{ ...browse.skills[0], namespace: 'ns' }] }],
+      ['坐标串重复', { ...browse, skills: [browse.skills[0], { ...browse.skills[0], name: 'other' }] }],
+      ['categories 不是数组', { skills: [], page: 1, hasMore: false, categories: {} }],
+    ] as const) {
+      expect(() => decodeEnterpriseSkillhubBrowse(bad), label).toThrow('ENT_LOCAL_RESPONSE_INVALID')
+      await expect(createEnterpriseLocalApi(vi.fn(async () => ok(bad))).browseSkillhubSkills('', signal), label)
+        .rejects.toThrow('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    // ★`categories` 整键缺席**合法**（宿主读不到那张表 ⇒ "没证据说有"，不是"说是没有"）；`total` 同理。
+    expect(decodeEnterpriseSkillhubBrowse({ skills: [], page: 1, hasMore: false }))
+      .toEqual({ skills: [], page: 1, hasMore: false })
   })
 
   /**

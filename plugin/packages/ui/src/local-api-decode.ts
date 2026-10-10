@@ -2,6 +2,12 @@
  * [INPUT]: 依赖 branding 的同源 LOGO 来源门禁与 `EnterpriseBrandingDocument` 形状、decode-primitives 的严格解码内核、skill-api-decode 的技能 DTO 与解码 **本刀**：修 `decodeEnterprisePresets` 的 `sizeBytes` 上界判定写反（原先任何非零大小的配方都被判畸形），改为与插件目录同款的 `<= 0`；**配方收尾刀**：`decodeEnterprisePresets` 补契约切片 B 的 `dependencies`（放**可选位**，旧服务端不输出也照旧可解），按契约 `PresetDependency` 逐条校验并把键集抽成导出的常量供漂移门禁比对。
  * [OUTPUT]: **本刀（登录入口换成 NUWAX）**：新增 `EnterpriseNuwaxStatus` / `EnterpriseNuwaxPrincipal` / `ENTERPRISE_NUWAX_STATES` 与严格解码 `decodeEnterpriseNuwaxStatus`（键集封闭——多一个 `ticket` 即畸形；两态与主体同生共死；`expiresAt` 是 epoch 毫秒整数，不是 RFC3339；`origin` 是服务地址、可缺席但在场必须非空），`EnterpriseLocalApi` 相应新增 `nuwaxStatus` / `nuwaxLogin` / `nuwaxLogout`。对外提供连接/受管插件状态枚举、本地 API DTO 类型与严格解码（账号、品牌、插件、配方、Session、四窗口用量、反馈回执、原生登录的来源列表与凭证/改密结果、**企业技能已装态 / 已装正文 / 本机文件树 / 树里单个文本文件**）、配方引用 `EnterpriseRuntimePresetDependency` 与四份**运行时键集常量**（`ENTERPRISE_PRESET_ROW_REQUIRED_KEYS` / `ENTERPRISE_PRESET_ROW_OPTIONAL_KEYS` / `ENTERPRISE_PRESET_DEPENDENCY_KEYS` / `ENTERPRISE_PRESET_DEPENDENCY_OPTIONAL_KEYS`，是 `tests/preset-decode.spec.ts` 契约漂移门禁的被测真源）、`EnterpriseLocalApi` 契约（含本刀新增的**取消**端口 `cancelPlugin(packageName, signal)`——响应与只读 `GET /plugins` 同形，故复用同一个严格解码器、**零新增字段**）、失败码投影 `enterpriseLocalErrorCode`，并再导出 `EnterpriseLocalApiError` 与 skill-api-decode 的全部技能契约 **本刀（配方一键启用）**：新增 `decodeEnterprisePresetEnable` / `decodeEnterprisePresetDisable` / `decodeEnterprisePresetStatus` 与它们的 DTO（披露清单 `EnterprisePresetDisclosure`、已装记录 `EnterpriseInstalledPreset`、授权三态 `EnterprisePresetAuthorization`、官方原值 `EnterprisePresetOfficialApplication`）与九份**键集常量**（enable/disable 的必填+可选、status 的必填、已装八键、披露三件、`officialError` 的两键）——形状真源是 Host 的 `bundle/src/preset-service.ts` 三个脱敏视图，未知键一律拒，`status.installed` 是**必填位上的可空值**。
  * [POS]: dsh-ui 的浏览器取数契约层——只定义「主机可以说什么」与「什么不许说」，不含任何 fetch；网络执行留在 local-api.ts，界面只消费本文件的投影结果。逼近 800 行后按业务纵切出技能分片与共享内核，本文件仍是唯一对外真源 **本刀**：这三条是**本机动作**（不是中心契约），故键集常量单独导出、由 `tests/preset-enable-decode.spec.ts` 做封闭键集断言；本文件仍是唯一 DTO 真源。
+ *   ★**本刀（SkillHub 维度：单源浏览面）**：新增 `browseSkillhubSkills(query, signal)` ——
+ *     只读 `GET /skills/skillhub?q=&category=&sort=&page=`（**单源**、四键皆可缺省）。★它与上面那条
+ *     四源 `onlineSearchSkills` 是**两条不同的路**（不是同一条路由换个参数）：后者 `q` **必填**且响应
+ *     带 `sources[]`，「进页面自动显示」在它上面表达不了；这一条响应带 `total?`/`categories?`/`page`/
+ *     `hasMore`。`query` 是**已拼好的查询串**（`local-api.ts` 的 `skillhubBrowseQuery` 是唯一构造器），
+ *     响应经 `skill-api-decode.ts` 的 `decodeEnterpriseSkillhubBrowse` 严格解码（关闭键集）。
  * **本刀（系统搜索）**：`EnterpriseLocalApi` 新增两件——只读盘点 `systemSearch(signal)`（返回
  *   `EnterpriseSystemSkills`：根清单 + 候选三态，形状与严格判据都在 `skill-api-decode.ts`）与动作
  *   `adoptSystemSkill(path, signal)`（正文关闭键集恰好 `{path}`；响应与 `/skills/self-installed` **逐字同形**
@@ -69,7 +75,7 @@ import {
   timestamp,
 } from './decode-primitives.js'
 import type { JsonRecord } from './decode-primitives.js'
-import type { EnterpriseDiscoveredSkills, EnterpriseInstalledSkill, EnterpriseInstalledSkillContent, EnterpriseInstalledSkillFile, EnterpriseOnlineSkillSearch, EnterpriseRuntimeSkill, EnterpriseSelfInstalledSkill, EnterpriseSelfInstalledUninstall, EnterpriseSkillFiles, EnterpriseSystemSkills, EnterpriseThirdPartySkills } from './skill-api-decode.js'
+import type { EnterpriseDiscoveredSkills, EnterpriseInstalledSkill, EnterpriseInstalledSkillContent, EnterpriseInstalledSkillFile, EnterpriseOnlineSkillSearch, EnterpriseRuntimeSkill, EnterpriseSkillhubBrowse, EnterpriseSelfInstalledSkill, EnterpriseSelfInstalledUninstall, EnterpriseSkillFiles, EnterpriseSystemSkills, EnterpriseThirdPartySkills } from './skill-api-decode.js'
 import type {
   EnterpriseLibraryHit,
   EnterpriseLibraryImportResult,
@@ -619,6 +625,19 @@ export interface EnterpriseLocalApi {
    * 严格解码器（Host 回畸形即整条失败，不会被当成「安装成功」）。
    */
   installSkillFromResult(source: string, signal: AbortSignal): Promise<readonly EnterpriseInstalledSkill[]>
+  /**
+   * ★**SkillHub 浏览**（`GET /skills/skillhub?q=&category=&sort=&page=`，只读、**单源**）。
+   *
+   * ★**为什么与上面那条在线搜索是两条路**（不是"同一条路由换个参数"）：那条是**四源 fan-out**、
+   *   `q` **必填**、响应带 `sources[]` 的逐源 `ok`/`dropped` ——「进页面自动显示」在它上面表达不了
+   *   （没 `q` 就整条抛 `ENT_INVALID_REQUEST`）。这一条四键**都可缺省**（缺省即浏览模式），
+   *   响应带 `total?`/`categories?`/`page`/`hasMore` ⇒ **同一把尺、不同的一张脸**。
+   * ★`query` 是**已经拼好的查询串**（以 `?` 开头、无参时是空串），由 `local-api.ts` 里那枚唯一
+   *   构造器按"非空才带"产出：编码与取舍各只有一处实现，界面那一侧拼不出我们没准备好的查询串。
+   * ★响应经 `skill-api-decode.ts` 的 `decodeEnterpriseSkillhubBrowse` 严格解码（**关闭键集**）：
+   *   `categories` 整键缺席**合法**（宿主读不到那张分类表 ⇒ "没有证据说有"，不是"没有分类"）。
+   */
+  browseSkillhubSkills(query: string, signal: AbortSignal): Promise<EnterpriseSkillhubBrowse>
   /**
    * **本地三方 Agent 技能源（扫描）**：列出**别的 Agent CLI 的技能库**里有哪些技能
    * （`GET /local/skills/third-party`，只读；口径 62）。

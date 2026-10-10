@@ -1,6 +1,20 @@
 /**
  * [INPUT]: 依赖 decode-primitives 的键集封闭判定、record/nonEmptyString/timestamp/enterpriseId 与唯一失败码类
  * [OUTPUT]: 对外提供技能包 DTO（`EnterpriseRuntimeSkill` / `EnterpriseSkillEntry` / `EnterpriseInstalledSkill` / `EnterpriseInstalledSkillContent` / `EnterpriseSkillFiles` + `EnterpriseSkillFileEntry` / `EnterpriseInstalledSkillFile`）与严格解码 `decodeEnterpriseSkills`（列表，可选分类 `category` 进白名单）、`decodeEnterpriseSkillDetail`（详情）、`decodeEnterpriseInstalledSkills`（本机已装态）、`decodeEnterpriseInstalledSkillContent` …… **本刀（本地导入的结果交代）**：再加一份 `EnterpriseSelfInstalledSkill` 与 `decodeEnterpriseSelfInstalledSkills`（`GET /skills/self-installed`）——这份**刻意宽容**：必需五键（skillId / displayName / sha256 / names / installedAt）只校验形状，Host 多附的 provenance 之类字段一律忽略（用途只有「念一句结果」，不该被留痕字段打成硬失败）；其中 `sourceInput`（Host 落盘时记下的**用户原始文件名**）是**可选第六件**，收下它是为了把「这次装好的技能名」精确对上是哪一枚记录（对不上就只报成功、不编名字，故它不该把整条记录判死）；**本刀（系统搜索）**再加一份盘点投影 `EnterpriseSystemRoot`/`EnterpriseSystemSkill`/`EnterpriseSystemSkills` 与严格解码 `decodeEnterpriseSystemSkills`（`GET /skills/system-search`）——单键封闭信封 + 根三键/候选五键（+两枚可选）封闭 + `state` 三字面 + **每条候选的 `rootId` 必须在 `roots` 里**（界面按根分组铺设，指向不存在根的候选没有诚实落点）+ 路径去重与条数封顶；**本刀（在线搜索）**再加一份 `EnterpriseOnlineSkillSource`/`EnterpriseOnlineSkillResult`/`EnterpriseOnlineSkillSearch` 与严格解码 `decodeEnterpriseOnlineSkillSearch`（`GET /skills/online-search`）——信封单键封闭 + 来源两键（+可选 `dropped`，**只允许正数**）/结果三键（+四枚可选）封闭 + **结果的 `sourceId` 必须在 `sources` 里** + 两枚计数非负安全整数 + 来源 id 去重、**坐标串 `installSource` 去重**（界面拿它当 React key 与「行→结果」的回找坐标）与条数封顶；★来源 id **不做封闭字面集**（Host 可增源，写死会让良性变化变成整次搜索失败），显示时直接用 id 当来源名；（**已装技能的 SKILL.md 正文**：单键封闭 + 正文 ≤256 KiB）、`decodeEnterpriseInstalledSkillFiles`（**本机真树条目**：路径形状 + 类型 + 目录 sizeBytes 恒 0 + 条目数 ≤1000 + 路径去重）与 `decodeEnterpriseInstalledSkillFile`（**树里一个文本文件**：四键封闭 + 路径形状 + 正文 ≤256 KiB）
+ *   ★**本刀（SkillHub 维度：单源浏览面）**：再加 `EnterpriseSkillhubCategory`/`EnterpriseSkillhubSkill`/
+ *     `EnterpriseSkillhubBrowse` 与**唯一**那枚新解码 `decodeEnterpriseSkillhubBrowse`
+ *     （`GET /skills/skillhub?q=&category=&sort=&page=`）——与宿主**冻结的响应键集**逐格对齐：
+ *     信封**关闭键集** `{skills,page,hasMore}` + 可选 `total`/`categories`（**多一枚键即整条判畸形**
+ *     ——宿主那边响应是**从零构造**的，上游原始字段一律不出厂，这是"上游碰巧多塞一格"绝不能悄悄
+ *     进浏览器的闸门）；技能必需三键 `name`/`slug`/`installSource` + **六枚可选**
+ *     （`description`/`category`/`downloads`/`installs`/`stars`/`version`）——★**「缺席」与「0」严格分开**：
+ *     `downloads: 0` 照旧留着（那不是缺口，是"确实是 0"），而整键缺席**不产出该键**（界面据此决定画不画
+ *     那一格，绝不编占位句）。`page` 收窄 1..20（与宿主 `SKILLHUB_BROWSE_MAX_PAGE` 逐字同值）、
+ *     `hasMore` **必须是布尔**（宿主那边它只按 `page*pageSize < total` 算，`total` 缺席时恒 `false`
+ *     ——"没证据说还有"不是乐观说有，故浏览器这一侧也**不许**从"数组非空"去推测它）；
+ *     `categories` **整键缺席合法**（宿主读不到那张分类表），在场时每枚**两键封闭**、形状不合的**按枚丢掉**
+ *     （元数据表，一枚坏的不拖垮整张表）、`key` 去重。三条有界：技能 ≤100、分类 ≤32、**坐标串去重**
+ *     （`installSource` 是 React key **也是**回传给安装的那枚坐标，重复时重则"点第二行装的是第一行"）。
  * [POS]: dsh-ui 浏览器契约层的技能分片——从逼近 800 行的 local-api-decode 拆出，专管企业技能目录投影；只保留 frontmatter 脱敏事实，SKILL.md 正文、artifact 路径与 SHA-256 在这里校验形状后即丢，永不进入界面（**唯一例外**是下面那条「读已装技能正文」的只读投影：正文由用户主动点开详情才取，形状与上限在这里同样收窄）；**可选分类 `category`（服务端新增字段，列表与详情投影都会有）在这里严格校验形状并把「缺席/null/空串」统一归一成「没有这个键」**（照 `whenToUse` 的既有归一策略，为缺失设计）；已装态是本机真值（Host 状态文件 + 落盘存在性），这里只校验形状与技能名规约
  *   ★**口径 54（本刀）**：再加官方发现面那一份 —— `EnterpriseDiscoveredSkill`（`name`/`description`/
  *     `whenToUse?`/`invocation{modelInvocable,userInvocable}`/`source`/`provider`；**形状里没有 `path`
@@ -1347,4 +1361,206 @@ export function decodeEnterpriseInstalledSkillFile(value: unknown): EnterpriseIn
     throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
   }
   return { packageId: row['packageId'], path, sizeBytes: Number(sizeBytes), text: row['text'] }
+}
+
+/* ══════════════ SkillHub 维度：单源**浏览**面（宿主上一刀交付的那条只读路由） ══════════════ */
+
+/**
+ * 一枚**下级分类标签**（`GET .../skills/skillhub` 的 `categories[]` 元素）。
+ *
+ * ★只有两格：`key` 与 `name`。★**刻意不收 `nameEn`**（宿主冻结键集时给了但那不是界面要显示的
+ *   那一格）——多收一格就等于把"上游碰巧给了什么"变成界面的依赖，冻结键集一动这里就判畸形。
+ *   `name` 是**中文显示名**（`办公效率` / `内容创作` / `开发编程` … / `Pay Skill`），★**不排序**：
+ *   界面照宿主给的**出现顺序**铺（宿主那边已按上游的 `sortOrder` 排过，界面再排一遍只会多一处漂移口）。
+ */
+export interface EnterpriseSkillhubCategory {
+  readonly key: string
+  readonly name: string
+}
+
+/**
+ * SkillHub 浏览页里的**一条**技能。
+ *
+ * ★必需三格 `name`/`slug`/`installSource`（装得出来的**唯一凭据**就是 `installSource`）；
+ *   `description`/`category`/`downloads`/`installs`/`stars`/`version` **可能整键缺席** ——
+ *   **"上游没说" ≠ "说是 0"**（口径：`onlineCountOf` 与 `optionalString` 在宿主那边都把读不到归一成
+ *   "没有这个键"，故这里一个字都不许用 `?? 0` 补）。★界面据此决定**画不画那一格**，绝不编占位句。
+ * ★`installSource` 逐字是 `skillhub.cn:<slug>@<version>` —— 界面把它当**不透明值**原样回传给既有
+ *   `POST /skills/install-from-result`（**不拼、不解析、不校验前缀**，同一枚坐标既由宿主造、也由宿主认）。
+ */
+export interface EnterpriseSkillhubSkill {
+  readonly name: string
+  readonly slug: string
+  readonly installSource: string
+  readonly description?: string | undefined
+  readonly category?: string | undefined
+  readonly downloads?: number | undefined
+  readonly installs?: number | undefined
+  readonly stars?: number | undefined
+  readonly version?: string | undefined
+}
+
+/**
+ * 一次浏览的投影（`GET .../skills/skillhub?q=&category=&sort=&page=` 的 `data`）。
+ *
+ * ★必需两格 `skills`/`page`、必需一格 `hasMore`；★**`total`/`categories` 都可能整键缺席**：
+ *   · `categories` 缺席 = 宿主这次读不到那张分类表（**不是**"没有分类"）⇒ 界面**整排 chip 不画**，
+ *     且当前选中回「全部」（不许留一个不存在的选中项在过滤一份看不见的清单）；
+ *   · `total` 缺席 = 没有证据说还有 ⇒ 宿主那边 `hasMore` 恒 `false`，界面就**一次都不再取**。
+ * ★`page` 照宿主给的**原样**收下（宿主已收窄到 1..20），界面不重排、不改写。
+ */
+export interface EnterpriseSkillhubBrowse {
+  readonly skills: readonly EnterpriseSkillhubSkill[]
+  readonly page: number
+  readonly hasMore: boolean
+  readonly total?: number | undefined
+  readonly categories?: readonly EnterpriseSkillhubCategory[] | undefined
+}
+
+/** 一页技能条数上限：宿主那边 `pageSize` 由它自己定（≤100），这里**照同一上限**封顶只作有界渲染。 */
+const SKILLHUB_SKILL_MAX = 100
+/** 分类表条数上限：宿主那边 13 枚（真机读数），封到 32 留良性余量。 */
+const SKILLHUB_CATEGORY_MAX = 32
+/** 三枚文本字段上限（描述宽松、名字有界），与本文件既有在线搜索那几枚同一量级。 */
+const SKILLHUB_NAME_MAX = 200
+const SKILLHUB_DESCRIPTION_MAX = 4000
+/** 坐标串上限：与宿主侧 `MAX_INSTALL_SOURCE_LENGTH` 逐字同值（回传时会被同一条收窄）。 */
+const SKILLHUB_INSTALL_SOURCE_MAX = 1024
+/** slug / 分类 key / 版本号上限：这些是**标识符**，比描述窄得多。 */
+const SKILLHUB_IDENTIFIER_MAX = 200
+/** 计数上限：非负安全整数且不超过这个上界（挡住病态的大数/浮点）。 */
+const SKILLHUB_COUNT_MAX = 1_000_000_000
+/** 页码上限：与宿主侧 `SKILLHUB_BROWSE_MAX_PAGE`（20）逐字同值。 */
+const SKILLHUB_PAGE_MAX = 20
+
+/** 文本形状：非空、有界、无控制字符（含 NUL）——这些字来自第三方 API，只做形状收窄。 */
+function skillhubText(value: unknown, max: number): value is string {
+  if (typeof value !== 'string' || value.length === 0 || value.length > max) return false
+  for (const character of value) {
+    const code = character.codePointAt(0) ?? 0
+    if (code < 0x20 || code === 0x7f) return false
+  }
+  return true
+}
+
+/** 一枚计数：非负安全整数且不超过上界（`0` **合法**——那不是"没给"）。 */
+function skillhubCount(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= SKILLHUB_COUNT_MAX
+}
+
+function decodeSkillhubCategory(value: unknown): EnterpriseSkillhubCategory | undefined {
+  const row = record(value)
+  // ★两格**封闭**（宿主冻结键集时多给了 `nameEn` 会在这里判畸形 —— 那是对的：界面契约只有这两格）。
+  if (row === undefined
+    || !hasExactKeys(row, ['key', 'name'])
+    || !skillhubText(row['key'], SKILLHUB_IDENTIFIER_MAX)
+    || !skillhubText(row['name'], SKILLHUB_IDENTIFIER_MAX)) {
+    return undefined
+  }
+  return { key: row['key'], name: row['name'] }
+}
+
+function decodeSkillhubSkill(value: unknown): EnterpriseSkillhubSkill {
+  const row = record(value)
+  if (row === undefined
+    || !hasExactKeys(
+      row,
+      ['name', 'slug', 'installSource'],
+      ['description', 'category', 'downloads', 'installs', 'stars', 'version'],
+    )
+    || !skillhubText(row['name'], SKILLHUB_NAME_MAX)
+    || !skillhubText(row['slug'], SKILLHUB_IDENTIFIER_MAX)
+    // 坐标串只做形状：**不校验前缀、不解析**（它由宿主造、也只由宿主认）。
+    || !skillhubText(row['installSource'], SKILLHUB_INSTALL_SOURCE_MAX)
+    || !(row['description'] === undefined || typeof row['description'] === 'string'
+      && row['description'].length <= SKILLHUB_DESCRIPTION_MAX)
+    || !(row['category'] === undefined || skillhubText(row['category'], SKILLHUB_IDENTIFIER_MAX))
+    || !(row['downloads'] === undefined || skillhubCount(row['downloads']))
+    || !(row['installs'] === undefined || skillhubCount(row['installs']))
+    || !(row['stars'] === undefined || skillhubCount(row['stars']))
+    || !(row['version'] === undefined || skillhubText(row['version'], SKILLHUB_IDENTIFIER_MAX))) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  const description = nonEmptyString(row['description']) ? row['description'] : undefined
+  const category = nonEmptyString(row['category']) ? row['category'] : undefined
+  const version = nonEmptyString(row['version']) ? row['version'] : undefined
+  return {
+    name: row['name'],
+    slug: row['slug'],
+    installSource: row['installSource'],
+    ...(description === undefined ? {} : { description }),
+    ...(category === undefined ? {} : { category }),
+    ...(version === undefined ? {} : { version }),
+    ...(row['downloads'] === undefined ? {} : { downloads: Number(row['downloads']) }),
+    ...(row['installs'] === undefined ? {} : { installs: Number(row['installs']) }),
+    ...(row['stars'] === undefined ? {} : { stars: Number(row['stars']) }),
+  }
+}
+
+/**
+ * 严格解码 SkillHub 的**一次浏览**（`GET /enterprise/api/v1/local/skills/skillhub` 的 `data`）。
+ *
+ * 严格四条 + 三条有界：
+ *  ① 信封**关闭键集** `{skills, page, hasMore}` + 可选 `total`/`categories` —— 宿主那边
+ *     **从零构造**响应（上游原始字段一律不出厂），多一枚键即整条判 `ENT_LOCAL_RESPONSE_INVALID`
+ *     （这是"上游碰巧多塞一格"绝不能悄悄进浏览器的闸门）；
+ *  ② `page` 是 1..`SKILLHUB_PAGE_MAX` 的安全整数、`hasMore` 是**布尔**（不是"数组非空"的推测：
+ *     宿主那边 `hasMore` 只按 `page * pageSize < total` 算，`total` 缺席时它恒 `false`）；
+ *  ③ 每条技能必需三键封闭 + 六枚可选（**"缺席"与"0"严格分开**），三枚计数非负安全整数；
+ *  ④ `categories` 缺席合法（宿主读不到那张表时整键不产出）；在场时**每枚两键封闭**、形状不合的**按枚丢掉**
+ *     （分类表是元数据，一枚坏的不该拖垮整张表）、`key` 去重。
+ *  三条有界：技能条数 ≤`SKILLHUB_SKILL_MAX`、分类枚数 ≤`SKILLHUB_CATEGORY_MAX`、**坐标串去重**
+ *     （`installSource` 是界面拿它当 React key、又拿它回传给安装的那条**唯一**凭据；重复时轻则两行共用
+ *     一个 key，重则**点第二行的【＋】装的是第一行那条技能** ⇒ 必须在边界判死，不让界面去猜）。
+ *
+ * ★**零第二份解码器**：这份与本文件其余投影共用 `decode-primitives` 那一把尺
+ *   （`record`/`hasExactKeys`/`nonEmptyString`）与同一枚 `EnterpriseLocalApiError`；
+ *   取数侧复用 `local-api.ts` 那个**唯一** `requestJson`（拆 `{data}` 信封 + 翻错误码那件事全包只有一处）。
+ *
+ * @param value - 响应 `data`。
+ * @returns 一页技能 + 页码 + 还有没有下一页 + 分类表（可能缺席）。
+ * @throws {EnterpriseLocalApiError} `ENT_LOCAL_RESPONSE_INVALID`：任一形状不满足。
+ */
+export function decodeEnterpriseSkillhubBrowse(value: unknown): EnterpriseSkillhubBrowse {
+  const row = record(value)
+  if (row === undefined
+    || !hasExactKeys(row, ['skills', 'page', 'hasMore'], ['total', 'categories'])
+    || !Array.isArray(row['skills']) || row['skills'].length > SKILLHUB_SKILL_MAX
+    || typeof row['hasMore'] !== 'boolean') {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  const page = row['page']
+  if (!Number.isSafeInteger(page) || Number(page) < 1 || Number(page) > SKILLHUB_PAGE_MAX) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  // `total` 缺席合法（宿主读不懂上游那个数就不产出）；在场时是非负安全整数。
+  if (!(row['total'] === undefined || skillhubCount(row['total']))) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  const skills = row['skills'].map(decodeSkillhubSkill)
+  const installSources = new Set<string>()
+  for (const skill of skills) {
+    if (installSources.has(skill.installSource)) throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+    installSources.add(skill.installSource)
+  }
+  const categories: EnterpriseSkillhubCategory[] = []
+  if (row['categories'] !== undefined) {
+    if (!Array.isArray(row['categories']) || row['categories'].length > SKILLHUB_CATEGORY_MAX) {
+      throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+    }
+    const seen = new Set<string>()
+    for (const value of row['categories']) {
+      const category = decodeSkillhubCategory(value)
+      if (category === undefined || seen.has(category.key)) continue
+      seen.add(category.key)
+      categories.push(category)
+    }
+  }
+  return {
+    skills,
+    page: Number(page),
+    hasMore: row['hasMore'],
+    ...(row['total'] === undefined ? {} : { total: Number(row['total']) }),
+    ...(categories.length > 0 ? { categories } : row['categories'] === undefined ? {} : { categories }),
+  }
 }
