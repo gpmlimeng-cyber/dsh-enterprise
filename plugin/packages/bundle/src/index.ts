@@ -64,6 +64,16 @@
  *       bundle 同树并发 create，apply 那刻通常还没 provide；缺席 ⇒ fail-closed 503，**不装**）；
  *       平台取数复用**同一个** `escReadPort` 的宿主内部读面（同一份 HTTP 客户端/票据/判决，零新增通道）。
  *     · 失败一律走 platform-client 唯一那张码→状态表（内核 11 枚码逐枚定死）；判定点经 `onError` 进 Host 日志。
+ *   ★**本刀（SkillHub 维度 · 单来源只读浏览面）**：core 块在**三方那两条的正下方**再挂**一条 exact** 路由
+ *     `registerEnterpriseSkillhubBrowseRoute`（`GET /enterprise/api/v1/local/skills/skillhub?q=&category=&sort=&page=`，
+ *     实现见新叶 `skillhub-browser.ts` + `skillhub-browser-route.ts`）。★**为什么新开一条而不是改既有
+ *     `/skills/online-search`**：那条是**四源 fan-out**、`q` **必填**、响应带 `sources[]` 逐源 `ok`/`dropped`
+ *     （**跨包契约**：界面按同一份顺序渲染来源 chip）；本维度是**单一来源**、**进页面自动显示**、**下级用
+ *     skillhub.cn 自己的分类标签**、**默认按下载量** ⇒ 这四件事在那条面上**表达不了**。⇒ **同一把尺、不同的一张脸**：
+ *     取数/坐标/计数/超时/字节上限**全部复用** `skill-online.ts` 的既有实现（`skill-online.ts` 本刀只**导出**
+ *     了四个出口，**没有新增任何搜索行为**），零新增 HTTP 通道、零新增依赖、platform-client **零改动**。
+ *     ★**取数面共用 `onlineSkillOptions`**（与在线搜索**同一个** `fetch` 依赖注入）——★**绝不能用带令牌的
+ *     `platform.request` 打公网**（那等于把企业令牌发给第三方）。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -131,6 +141,8 @@ import { registerEnterpriseSkillRoutes } from './skill-route.js'
 import { registerEnterpriseSkillDiscoveryRoute } from './skill-discovery.js'
 import { discoverThirdPartySkills, installThirdPartySkill } from './skill-third-party.js'
 import { registerEnterpriseThirdPartySkillRoutes } from './skill-third-party-route.js'
+import { browseSkillhubCatalog } from './skillhub-browser.js'
+import { registerEnterpriseSkillhubBrowseRoute } from './skillhub-browser-route.js'
 import { installPublishedSkill } from './skill-published.js'
 import { registerEnterprisePublishedSkillRoute } from './skill-published-route.js'
 import { editSelfInstalledSkill, revealSelfInstalledSkill, uninstallSelfInstalledSkill } from './skill-self-installed.js'
@@ -1028,6 +1040,23 @@ export function apply(ctx: EnterpriseHostContext, config: Config): void {
   }, (message, error) => {
     ctx.logger.warn(`owndsh: ${message}`, error)
   }), 'enterpriseThirdPartySkills.routes')
+  // SkillHub 维度（单来源 skillhub.cn 的只读浏览面）：一条 exact 本机路由
+  //   GET /enterprise/api/v1/local/skills/skillhub?q=&category=&sort=&page=
+  // ★**为什么新开一条而不是改既有 `/skills/online-search`**：那条是**四源 fan-out**、`q` **必填**、
+  //   响应带 `sources[]` 逐源 `ok`/`dropped`（那是**跨包契约**，界面按同一份顺序渲染来源 chip）。
+  //   本维度是**单一来源**、**进页面自动显示**（无 `q` 即浏览，真机实测不带 keyword 直接列、total=188,534）、
+  //   **下级用它自己的分类标签**、**默认按下载量** ⇒ 这四件事在那条面上**表达不了**，
+  //   合并形状会让两条面互相拖累。⇒ **同一把尺、不同的一张脸**。
+  // ★**取数面共用**上面那个 `onlineSkillOptions`（同一份无凭据裸 fetch 的依赖注入 ⇒ **零新增 HTTP 通道**；
+  //   ★绝不能用带令牌的 `platform.request` 打公网，那等于把企业令牌发给第三方）。
+  // ★**分类表带进程内 TTL 缓存**（`skillhub-browser.ts` 的 `SKILLHUB_BROWSE_CATEGORY_TTL_MS`）——
+  //   那 13 枚是静态元数据、正文 1.6 KB，**每翻一页打一次**是错的设计；进程内 ⇒ 不写盘、不进 `~/.dsh/**`。
+  // ★**失败绝不静默回空列表**：内核抛错/端口缺席 ⇒ 明确状态码（入参非法 400、上游读不到 502）。
+  ctx.effect(() => registerEnterpriseSkillhubBrowseRoute(ctx.webServer, {
+    browse: request => browseSkillhubCatalog(onlineSkillOptions, request),
+  }, (message, error) => {
+    ctx.logger.warn(`owndsh: ${message}`, error)
+  }), 'enterpriseSkillhubBrowse.routes')
   // 反馈提交透传：浏览器无令牌，由 Host 代取 Access Token 转交中心 multipart 提交；
   // 附件在本地就按中心同名口径限流（≤3 张 / 单张 ≤2 MiB / 位图魔数），
   // diagnostics 由 Host 采集（版本/OS/installationId/最近错误码）并覆盖浏览器提交的同名字段。

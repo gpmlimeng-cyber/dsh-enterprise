@@ -901,13 +901,31 @@ describe('源码级反锁', () => {
     expect(online).toContain('fetchSkillhubArtifact(deps, parts.slug, parts.version)')
   })
 
-  it('★组合层与 platform-client 零改动：没有第二条取数面、没有新路由', async () => {
+  it('★组合层不内联 skillhub 实现 + platform-client 零改动：只有一份取数面、那张码→状态表没动', async () => {
     const index = await readFile(new URL('index.ts', srcDir), 'utf8')
     // 仍然只有一份无凭据取数面，两个端口**原样**接线（本刀只动 `skill-online.ts` 内部）。
     expect(index.match(/const onlineSkillOptions = \{/g)).toHaveLength(1)
     expect(index).toContain('skillOnlineSearch: query => searchOnlineSkills(onlineSkillOptions, query)')
     expect(index).toContain('skillInstallFromResult: source => installSkillFromResult(onlineSkillOptions, source)')
-    expect(codeOfSource(index)).not.toContain('skillhub')
+    // ★**加强**（不是放宽）：原来这一条是「`index.ts` 去掉注释后不得出现 `skillhub` 这个词」，
+    //   它真正要锁的是「组合层**不内联** skillhub 的任何取数/安装实现」。后续一刀（SkillHub 维度
+    //   **只读浏览面**）在 `index.ts` 里**合法地**多了两行 `import`（内核 + 路由注册器）与一处
+    //   `registerEnterpriseSkillhubBrowseRoute(...)` —— 那是**委派**，不是内联；原措辞把
+    //   「import 一个模块」与「自己写一份实现」混成了一件事，所以本刀收窄判据本身。
+    //   ⇒ 收窄到它真正要锁的东西，并**同时加两条更硬的**：
+    //   ① 组合层里**没有任何自造的 skillhub 取数代码**（`api.skillhub.cn`、`normalizeSkillhub`、
+    //      `requireSkillhubParts`、`fetchWithinLimit`、`fetchSkillhubArtifact` 一律不许出现）。
+    //      ★**刻意不断言"整个文件没有 `fetch(`"**：`index.ts` 里本来就有**两处**合法的裸 fetch
+    //      （`onlineSkillOptions` 那一处与 NUWAX 会话那一处），全文锁 `fetch(` 会把这两处也误判，
+    //      而那正是「本刀只碰 skillhub、不越界」的反证。
+    //   ② 新面**必须共用那唯一一份**无凭据取数面（这就是「零新增 HTTP 通道」的机械锁 ——
+    //      将来若有人给它新开一个 skillhub fetch 面，这条会红）。
+    const indexCode = codeOfSource(index)
+    for (const forbidden of ['api.skillhub.cn', 'normalizeSkillhub', 'requireSkillhubParts', 'fetchWithinLimit', 'fetchSkillhubArtifact']) {
+      expect(indexCode, forbidden).not.toContain(forbidden)
+    }
+    expect(index).toContain('browse: request => browseSkillhubCatalog(onlineSkillOptions, request)')
+    expect(index).toContain('registerEnterpriseSkillhubBrowseRoute(ctx.webServer')
     // platform-client：十条技能同源路由逐字仍在，且一个字节都没提到本刀。
     const platform = await readFile(new URL('../../platform-client/src/local-api.ts', import.meta.url), 'utf8')
     for (const constant of [

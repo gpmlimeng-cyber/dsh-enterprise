@@ -33,6 +33,22 @@
  * **体积**），本常量挡的是「源**慢到**让整页不可用」（无界的**等待**）—— 27 KB 的正文可以慢到 4 秒，
  * 5 MiB 的正文也可以 40 ms 到；`ONLINE_SKILL_REQUEST_TIMEOUT_MS`（15 s）是**传输层**兜底（按跳重计，
  * 装几百 MB 的整仓包 legitimately 要很久），本常量是**搜索面**的产品级上限。两者**并存**，不合并。
+ *
+ * ───────────── 本刀（SkillHub 维度只读浏览面：把取数面与那几把尺子交出去，**不加行为**） ─────────────
+ * 本文件**没有新增任何搜索行为**：`searchOnlineSkills` 的四源 fan-out 与 `installSkillFromResult` 的两条安装链
+ * **一个字节都没动**（既有三源那六个函数体仍由 `tests/skillhub.spec.ts` 的 md5 冻结反锁钉住，本刀不碰它们的函数体）。
+ * 改的只有**可见性**，四处，目的只有一个：让 `skillhub-browser.ts` **复用**而不是**复刻**——
+ *  ① `MAX_QUERY_LENGTH` 由文件私有 → **导出**（两条技能面共用一条搜索串上限，「界面上能敲多少字」只有一个答案）；
+ *  ② `fetchOnlineJson(deps, url, sourceId)`：**薄包装**既有的 `fetchSearchJson`，后者又是 `fetchWithinLimit`
+ *     （白名单 + 手动重定向 + 有界读取 + `AbortController`/`setTimeout` + `finally` 清定时器）的调用点。
+ *     预算（`ONLINE_SEARCH_SOURCE_TIMEOUT_MS`）、字节上限（`ONLINE_SEARCH_MAX_BYTES`）、失败码
+ *     （`ENT_SKILL_SOURCE_UNREACHABLE`）**全部沿用既有取值，调用方一个都换不掉** ⇒ 新那条浏览面天生
+ *     与在线搜索「同一把尺」。★**本文件因此仍然只有一处 timeout 实现、一处重定向策略、一处 JSON 读法**；
+ *  ③ `onlineFetchDeps(options)`：依赖装配的只读出口（`Pick<…, 'fetch'|'onError'>`）—— 刻意丢掉 `dshHome`/`now`
+ *     （那条浏览面**一个字节不落盘**、不读任何本机状态），不给它本机落点是**刻意的收窄**、不是遗漏；
+ *  ④ `onlineCountOf`（私有 `optionalCount` 的别名）：「平台**没说**」与「平台**说 0**」分得开的那把尺。
+ * ★**为什么走"出口"而不是让新文件直接 import 私有实现**：`fetchWithinLimit`/`optionalCount` 是有意私有的实现细节，
+ * 直接 import 会把新面钉死在实现上、并绕过依赖装配；出口层既复用了实现，又把「能换什么」钉死（一个都换不了）。
  */
 
 import { createHash } from 'node:crypto'
@@ -184,8 +200,13 @@ const CREDENTIAL_HEADERS: readonly string[] = [
   'x-api-key',
   'x-auth-token',
 ]
-/** 搜索串形状上限（界面输入；与既有 `q` 查询参数门禁同量级）。 */
-const MAX_QUERY_LENGTH = 128
+/**
+ * 搜索串形状上限（界面输入；与既有 `q` 查询参数门禁同量级）。
+ *
+ * ★本常量**对外导出**（原为文件私有）：`skillhub-browser.ts` 那条只读浏览面与在线搜索**共用同一条上限**
+ * ⇒ 「界面上能敲多少字」在两条技能面上只有一个答案，两处各写一份迟早打架。
+ */
+export const MAX_QUERY_LENGTH = 128
 /** `installSource` 形状上限（与既有 `sourceInput` 那枚 1024 同量级）。 */
 const MAX_INSTALL_SOURCE_LENGTH = 1024
 /** `manifest.json` 的 `id` 规约（与 `skill-archive.ts` 的 `SKILL_PACKAGE_REF_PATTERN` 同源）。 */
@@ -439,6 +460,45 @@ async function fetchSearchJson(deps: OnlineDependencies, url: string, sourceId: 
 }
 
 /**
+ * ★**本刀新增的唯一出口**：把「同一套受控取数 + 同一把超时预算 + 同一条 JSON 读法」交给 `skillhub-browser.ts`。
+ *
+ * ★**为什么是出口而不是让对方自己碰 `fetchWithinLimit`**：白名单、手动重定向、有界读取、`AbortController`
+ * 与 JSON 解析这五件事**每一条都不许有第二份实现** —— 第二份意味着第二处能漏掉 `redirect: 'manual'` 或
+ * 第二处能忘了 `clearTimeout`。本函数是那段**既有**实现的薄包装：预算、字节上限、失败码三者全部沿用既有
+ * 取值（`ONLINE_SEARCH_SOURCE_TIMEOUT_MS` / `ONLINE_SEARCH_MAX_BYTES` / `ENT_SKILL_SOURCE_UNREACHABLE`），
+ * 调用方**换不掉任何一条** ⇒ 那条只读浏览面天生就是「和在线搜索同一把尺」。
+ *
+ * `sourceId` 只用于失败消息里的主机名占位，**不进响应体**（错误里只回稳定码）。
+ *
+ * @param deps - 由本模块 `resolveDependencies` 产出的依赖（无凭据取数面 + 留痕端口）。
+ * @param url - 目标地址（**必须**落在既有 `ALLOWED_HOSTS` 里，白名单照旧由 `fetchWithinLimit` 把住）。
+ * @param sourceId - 失败消息里的来源标识。
+ * @returns 上游那一份 JSON 正文（形状由调用方判，本模块不猜）。
+ */
+export async function fetchOnlineJson(
+  deps: Pick<OnlineDependencies, 'fetch' | 'onError'>,
+  url: string,
+  sourceId: string,
+): Promise<unknown> {
+  return await fetchSearchJson(deps as OnlineDependencies, url, sourceId as OnlineSkillSourceId)
+}
+
+/**
+ * 依赖装配的**只读出口**：把无凭据取数面与留痕端口收成 `Pick` 形状交给调用方，
+ * 使 `skillhub-browser.ts` 能复用本模块的取数实现**而不再装配第二份依赖**。
+ *
+ * ★本函数是纯投影（不新建任何东西），`options` 的 `dshHome`/`now` 那一侧被**刻意丢掉**：
+ * 那条只读浏览面**一个字节都不落盘**、也不读任何本机状态（它只是转发一份上游列表）⇒ 不给它 dshHome 是
+ * 刻意的收窄，不是遗漏。
+ */
+export function onlineFetchDeps(
+  options: EnterpriseSkillOnlineOptions,
+): Pick<OnlineDependencies, 'fetch' | 'onError'> {
+  const deps = resolveDependencies(options)
+  return { fetch: deps.fetch, onError: deps.onError }
+}
+
+/**
  * 白名单跳的**减头**判据：把一枚请求头集合里所有凭据类键去掉，只留与身份无关的那些。
  *
  * 参数缺省（本通路第一跳的真实情形）得到**空集合** —— 公开源只 GET、不带任何 header。
@@ -567,6 +627,17 @@ function optionalString(value: unknown): string | undefined {
 function optionalCount(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.floor(value) : undefined
 }
+
+/**
+ * ★**本刀新增的只读出口**（原为文件私有 `optionalCount`）：那把「计数」的尺。
+ *
+ * ★**为什么这把尺值得共用**：它是「平台**没说**」与「平台**说 0**」分得开的**唯一**判据
+ * （非有限数/负数/非数值一律 `undefined`，即"没说"）。两条技能面都产出 `downloads`/`installs`/`stars`
+ * 这类计数，若 `skillhub-browser.ts` 自己再写一个 `typeof v === 'number' ? v : 0`，
+ * 就会把「没说」编成 `0` —— 界面上就分不出「这一项没人用」与「上游没报这个数」，那是**两回事**。
+ * 导出的是同一份实现 ⇒ 两条面同读数。
+ */
+export const onlineCountOf = optionalCount
 
 function requireSafeSegment(value: string | undefined): string | undefined {
   if (value === undefined || value.length === 0 || value.length > 100) return undefined
