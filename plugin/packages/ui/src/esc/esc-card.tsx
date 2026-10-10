@@ -120,12 +120,61 @@
  *     `skillActionBox` 也进不了树（「去试试」那支虽写着 `installed === true` 就渲染，却永远走不到）。
  *     ★**additive**：`actionSwitch` 缺席时那一格是**空数组** ⇒ 另两档（技能卡 / 专家卡）标题行的
  *     子节点逐格不变（既有位置级结构锁照旧全绿）；开关自己的元素、props、位次（第二格）**一字未动**。
+ *
+ *   ★**本刀（免疫式修法：技能卡描述「**先三行、再收成一行**」闪烁）——症状 / 排除 / 机理 / 修法**
+ *
+ *   ★**症状**（用户真机原话，逐字）：「描述本身就是**先三行、再收成一行**
+ *     （**同一张卡、同一处文字**）」⇒ 是**同一枚元素内部**的排版跳变，**不是**格数跳变
+ *     （上一刀 `esc-featured-flicker.spec.ts` 锁的是"格数会不会跳"，那条判据对本症状天然抓不到：
+ *     两帧是同一枚元素、格数恒定）。
+ *
+ *   ★**排除过的**（都留档，下一个改这里的人不必重走）：
+ *     ① **异步计划到位导致 `tagRowLayout` 换档** —— 上一刀已用探针证伪，本刀复核**仍然成立**：
+ *        `tagRowLayout`（`tagRowLayout` 那行）由 `showUse`/`showSummon` 派生，
+ *        而全仓六个装配点写的**全是字面量**（`esc-skill-card.ts` / `esc-installed.tsx` /
+ *        `esc-catalog-list.tsx` / `esc-third-party-list.tsx` / `esc-skillhub-list.tsx` / `esc-featured.tsx`）。
+ *     ② **"某条 `-webkit-line-clamp` 给出三行"** —— 全 `src` 唯一一条 clamp 是 `.esc-card-content` 的 **2**
+ *        （`esc-style.ts:915`），且它**只给旧三层版式**，本症状那一格不走它。
+ *     ③ **"卡片渲染在与样式不同的树里 / portal / 第二个 React root"** —— **已排除**（逐条证据）：
+ *        · 全 `src` **零** `createPortal` / `createRoot` / `react-dom` 直调；
+ *        · 官方渲染器整包**只有一处** `createRoot`（`dsh-client-ui-renderer/lib/client.js:1832`，
+ *          全局单 root），slot 一律走 Fragment（`:1195-1201`，无 portal）；
+ *        · 五个渲染面（aggregation / installed / third-party-list / skillhub-list / catalog-list）
+ *          + 连接器广场那一格，全部是 `esc-page.tsx:255` 那份 `<style>` **同一个 `.esc-root` 的后代**
+ *          ⇒ **同树**；且 `EnterpriseEscStyle` 是纯 `createElement('style')`、**不在 effect 里**。
+ *
+ *   ★★**机理（本轮坐实）**：**两份样式表的文档序不由我们决定**。
+ *     · 官方主题 sheet 由 `installThemeStyles(ctx)` 在**插件激活那一刻**经 `ctx.effect`
+ *       追加进 `document.head`（`dsh-client-ui-theme/lib/client.js:1180-1193`；
+ *       另两处 module CSS 同法：`:29` / `:1016`）——**它在插件启动期挂载，与 React 何时渲染无关**；
+ *     · 本仓那份是 **React 树里的一枚 `<style>` 元素**（`esc-page.tsx:255`），随页面挂载；
+ *     ⇒ 官方那份若在文档序上压在我们之后，它那份全局 `p` 排版就让描述格首帧回到 CSS **初始值**
+ *       `white-space: normal` ⇒ **自由折行（用户看到的三行）**；等我们的规则生效再**收成一行**。
+ *     ★官方侧**无对抗性证据**：`line-clamp` 在 theme / primitives / renderer 三包里**零出现**，
+ *       `white-space…!important` 亦**零出现** ⇒ 它只是一份**普通的全局排版 sheet**在文档序上压了我们。
+ *
+ *   ★**修法（免疫式，不依赖时序）**：把"恒一行"**行内**钉在描述那枚元素上
+ *     （`ESC_CARD_HEADDESC_INLINE_STYLE`，那个常量的注释逐条写了理由与四件属性各自不可省的原因）。
+ *     ★**为什么行内能根治这一类**：同优先级的两条作者规则仍按**文档序**决胜，
+ *       再加一条 CSS 规则只是把赌注押在我们那份先到；**行内样式压过任何 stylesheet 的作者规则**，
+ *       与"谁先进 document.head"**完全无关** ⇒ 官方 sheet 早到、晚到、根本不来，这一格都恒一行。
+ *     ★**诚实边界（证不了的部分）**：本仓 vitest **没有布局引擎也没有 DOM** ⇒ 能证的只有
+ *       "元素在不在同一棵树""类名/内联属性在不在"，**证不了**"真机上官方那份 sheet 差几毫秒到"、
+ *       **证不了**"闪烁已消失"。★真机复量只能由用户做；**本仓能保证的是那一格不再依赖那份 sheet 在场**。
+ *     ★**只动描述这一格**：`.esc-card-lock`（锁定原因 / 在途交代 / 禁用理由）**刻意不加**截断——
+ *       它是"为什么点不了"的那句话，截断它等于把理由藏起来（**信息不许藏，版式才让位**）。
+ *       `tests/esc-card-headdesc-inline.spec.ts` 把"没加"逐条钉死。
+ *     ★**零新增 CSS 类**、观感一字未改：`.esc-card-headdesc` 那条规则**仍在**（margin / 颜色 / 字号 /
+ *       行高 / flex 仍归它），行内那四件只把"恒一行"从样式表搬到元素自己身上。
+ *       先例：`markdown-render.tsx`（"版式全内联、零新增 CSS 类"）——**不违本仓风格**。
+ *     ★**第二个装配点同样接上**：`esc-connector-plaza.tsx` 那张连接器卡（同一个类名、同一处症状）
+ *       **共用同一个常量**；两个装配点各抄一份字面量，早晚会漂成"同一处文字两个形态"。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { Button, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import { Bot, MessageSquare, Plus, Star, User } from 'lucide-react'
-import { createElement, memo, useState, type ReactNode } from 'react'
+import { createElement, memo, useState, type CSSProperties, type ReactNode } from 'react'
 import { EnterpriseErrorNotice } from '../error-notice.js'
 import { enterpriseEscImageSrc } from './esc-api.js'
 import { ENTERPRISE_ESC_COPY, ENTERPRISE_ESC_LOCAL_COPY } from './esc-copy.js'
@@ -137,6 +186,36 @@ const STAT_ICON: Readonly<Record<ResourceStatType, () => ReactNode>> = {
   user: () => createElement(User, { size: 12, 'aria-hidden': true }),
   link: () => createElement(MessageSquare, { size: 12, 'aria-hidden': true }),
   star: () => createElement(Star, { size: 12, 'aria-hidden': true }),
+}
+
+/**
+ * ★**本刀（免疫式修法）**：描述那一格的**行内单行几何**——"恒一行"这件事**不再依赖任何样式表**。
+ *
+ * ★**为什么是行内、而不是再加一条 CSS 规则**（同一优先级的两条作者规则仍按**文档序**决胜，
+ *   而那份先后**不由我们决定**，见文件头"机理"那一段）：
+ *   行内样式压过**任何** stylesheet 的作者规则，故这一格**不再受"官方主题 sheet 何时进 document.head"影响**。
+ *   ★**诚实边界**：只有 `!important` 能压过行内样式；官方三个 UI 包（theme / primitives / renderer）
+ *     对 `white-space` 的 `!important` **零出现**（已实测 grep），故这条前提成立——若将来官方引入 `!important`，
+ *     本文件头那段证据需要重新取证。
+ *
+ * ★**这四件各自不可省**（少一件就退化）：
+ *   `white-space: nowrap` —— 不折行（**三行变一行的那个形态就是缺它**）；
+ *   `overflow: hidden` + `text-overflow: ellipsis` —— 超宽时**截断 + 省略号**（否则文字横向溢出卡片）；
+ *   `display: block` —— `<p>` 本就是块级，这一件是**显式钉死**"它不会因为官方某条 `display` 规则变成
+ *   flex/inline 而丢掉单行截断的前提"（`text-overflow` 只对块级盒生效）。它不改变当前观感（已是块级）。
+ *
+ * ★**零新增 CSS 类**、版式观感一字未改：`.esc-card-headdesc` 那条规则**仍在**（margin / 颜色 / 字号 /
+ *   行高 / flex 都归它），行内这四件只把"恒一行"从样式表搬到元素自己身上。
+ *   ★**先例**：`markdown-render.tsx`（"版式全内联、零新增 CSS 类"）——这不违本仓风格。
+ *
+ * ★**刻意只作用于描述**：`.esc-card-lock`（锁定原因 / 在途交代 / 禁用理由）**不加**——
+ *   它是"为什么点不了"的那句话，截断它等于把理由藏起来（信息不许藏，版式才让位）。
+ */
+export const ESC_CARD_HEADDESC_INLINE_STYLE: Readonly<CSSProperties> = {
+  display: 'block',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
 }
 
 /** 卡片入参。 */
@@ -733,8 +812,28 @@ export function EnterpriseEscCardView({
           : createElement('h3', { className: 'esc-card-title', title: item.name, children: item.name }),
         // 描述：**独立一行**（口径 41）——右端到卡片内缘、单行截断。口径 42 起专家卡也走这一格
         // （它的描述此前是 `.esc-card-content` 的两行截断，见下面那句反向说明）。
+        //
+        // ★**本刀（免疫式修法：单行几何行内定死，不依赖任何样式表）**
+        //   —— 症状：同一张卡、同一处描述文字**先自由折三行、随后收成一行**（用户原话）。
+        //   —— 机理（已坐实，见文件头那一段）：官方主题 sheet 由 `installThemeStyles` 在**插件激活那一刻**
+        //      经 `ctx.effect` 追加进 `document.head`（`dsh-client-ui-theme/lib/client.js:1180-1193`），
+        //      而本件这份 `<style>` 是 React 树里的一枚元素（`esc-page.tsx:255`）⇒ **两份样式的先后不由我们决定**。
+        //      官方那份若在文档序上压在我们之后，它那份全局 `p` 排版就让这一格首帧回到 CSS 初始值
+        //      `white-space: normal`（**自由折行 = 用户看到的三行**）；等我们的规则生效再收成一行。
+        //   —— 为什么**行内**而不是再加一条 CSS 规则：同优先级的两条作者规则仍按**文档序**决胜，
+        //      加规则只是把赌注押在我们那份先到；**行内样式压过任何 stylesheet 的作者规则**
+        //      （官方三个 UI 包 `white-space…!important` 零出现，见文件头证据），与时序**无关**。
+        //   —— **零新增 CSS 类**、观感一字未改：`.esc-card-headdesc` 那条规则**仍在**（照旧给 margin / 颜色 /
+        //      字号 / 行高 / flex），行内这四件只是把"恒一行"这件事**从样式表搬到元素自己身上**。
+        //   —— **只动描述这一格**：`.esc-card-lock`（锁定原因 / 在途交代 / 禁用理由）**刻意不加**——
+        //      它是"为什么点不了"的那句话，截断它等于把理由藏起来（信息不许藏，版式才让位）。
         tagRowLayout && hasText(item.description)
-          ? createElement('p', { className: 'esc-card-headdesc', title: item.description, children: item.description })
+          ? createElement('p', {
+              className: 'esc-card-headdesc',
+              style: ESC_CARD_HEADDESC_INLINE_STYLE,
+              title: item.description,
+              children: item.description,
+            })
           : null,
         /**
          * ★**口径 53（本刀）**：卡片元信息行（版本短号 / 大小 / 内含技能数）。

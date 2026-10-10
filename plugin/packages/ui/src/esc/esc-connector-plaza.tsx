@@ -53,7 +53,7 @@ import {
   type EnterpriseListState,
 } from '../list-state.js'
 import type { EnterpriseConnectorCatalog, EnterpriseConnectorItem } from '../local-api-decode.js'
-import { EnterpriseEscCardIcon } from './esc-card.js'
+import { ESC_CARD_HEADDESC_INLINE_STYLE, EnterpriseEscCardIcon } from './esc-card.js'
 import type { EnterpriseEscConnectorPort } from './esc-types.js'
 
 /** 加载中那一句（与 `.esc-catalog-status` 同一条落点，不新造版式）。 */
@@ -239,8 +239,16 @@ export function EnterpriseEscConnectorCard({ item }: { readonly item: Enterprise
           }),
         ),
         // ★描述：有（非空白）才画**整格**；缺席即这一格不进 DOM（不写空壳、不写"暂无描述"）。
+        // ★**本刀（免疫式修法）**：单行几何**行内定死**——与 `esc-card.tsx` 那一格**共用同一处定义**
+        //   （`ESC_CARD_HEADDESC_INLINE_STYLE`；两个装配点各抄一份字面量早晚会漂开，
+        //   那正是"同一处文字两个形态"的由来）。机理与证据逐条写在 `esc-card.tsx` 文件头。
         hasText(item.description)
-          ? createElement('p', { className: 'esc-card-headdesc', title: item.description, children: item.description })
+          ? createElement('p', {
+              className: 'esc-card-headdesc',
+              style: ESC_CARD_HEADDESC_INLINE_STYLE,
+              title: item.description,
+              children: item.description,
+            })
           : null,
         // ★元信息一行：三格都由真数据派生，缺哪个少画哪个；三格全缺则**整行不画**。
         metaLine === undefined

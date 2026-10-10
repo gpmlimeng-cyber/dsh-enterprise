@@ -1,6 +1,46 @@
 /**
  * [INPUT]: 无（纯 CSS 字符串 + 一个组件）
  * [OUTPUT]: 对外提供 `EnterpriseEscStyle`（把 esc 页面全部样式注入一次的内联 `<style>` 组件）
+ *
+ * ★★**本刀（免疫式修法 · 根因坐实）：本文件的样式"在不在场"取决于文档序 ⇒ 本仓的单行几何有两类**
+ *
+ *   ★**机理（本轮坐实）**：这份 `<style>` 是 **React 树里的一枚元素**（唯一挂载点 `esc-page.tsx:255`，
+ *     挂在 `.esc-root` 里），而**官方主题 sheet 由 `installThemeStyles(ctx)` 在插件激活那一刻经
+ *     `ctx.effect` 追加进 `document.head`**（`dsh-client-ui-theme/lib/client.js:1180-1193`，
+ *     另两处 module CSS 同法 `:29`/`:1016`）⇒ **两者的文档序不由我们决定**。
+ *     官方那份若压在我们之后，它那份全局 `p` 排版会让受本文件管辖的元素首帧回到 CSS **初始值**
+ *     （`white-space: normal`）⇒ **自由折行**；等本文件的规则生效再收回去 ⇒ **闪烁**。
+ *     ★官方侧无对抗性证据：`line-clamp` 与 `white-space…!important` 在 theme / primitives / renderer
+ *       三包里**零出现**。
+ *
+ *   ★★**因此本仓的单行几何分成两类（本文件头这张表就是它的地图）**：
+ *     · **【免疫】行内定死** —— `white-space` / `overflow` / `text-overflow` / `display` 写在**元素自己身上**
+ *       （行内样式压过任何 stylesheet 的作者规则，**与文档序无关**）。
+ *       ★**当前只有一处**：`esc-card.tsx` 的 `ESC_CARD_HEADDESC_INLINE_STYLE`（技能卡与连接器卡**共用**），
+ *         即本次「描述先三行、再收成一行」那一份。**`.esc-card-headdesc` 那条规则本刀保留、一字未删**
+ *         （margin / 颜色 / 字号 / 行高 / flex 仍归它；免疫 ≠ 拆掉样式）。
+ *     · **【脆弱】靠类名 + 文档序** —— 其余所有靠 `white-space: nowrap` / 单行截断 / 定高才成立的格子。
+ *       它们**仍然工作**（官方那份并不写这些类），但**一旦官方那份晚到就在首帧短暂失效**。
+ *       ★**本刀一处都不改**（只登记，按严重度另派刀）——下表就是那张另派刀的单子。
+ *
+ *   | 格子 | 位置 | 依赖的那几件 | 官方 sheet 晚到会怎样 | 严重度 |
+ *   |---|---|---|---|---|
+ *   | 技能名/标题 | `:853` `.esc-card-title` | nowrap+ellipsis | 长名折成多行 → **卡片跳高** | **会跳变** |
+ *   | 卡片元信息行 | `:862` `.esc-card-meta` | nowrap+ellipsis+`flex:none` | 折行 → **卡片跳高** | **会跳变** |
+ *   | 标签行 | `:1377` `.esc-card-tags` | `flex-wrap: nowrap`+`overflow:hidden` | 折成第二行 → **卡片跳高** | **会跳变** |
+ *   | 标签单格 | `:1378` `.esc-tag` | nowrap | 格内折行 → 行高变化 | **会跳变** |
+ *   | 标签行作者名 | `:1383` `.esc-tag-author > span` | nowrap+ellipsis | 名折行 → 行高变化 | 会跳变 |
+ *   | 作者昵称（头部旧档） | `:907` `.esc-author-name` | nowrap+定高16px | 折行溢出定高盒 → **截半截** | 会破版 |
+ *   | 连接器分类 | `:949` `.esc-connect-category` | nowrap+ellipsis | 折行 → 状态行错位 | 错位 |
+ *   | 顶部页签药丸 | `:572` `.esc-pill` | nowrap | 长标签折行 → **药丸撑高/圆角塌** | 会破版 |
+ *   | 二级 chip 行 | `:651` `.esc-source-tabs` / `:723` `.esc-category-tabs` | `flex-wrap: nowrap` | 折成多行 → **顶部整体撑高** | **会跳变** |
+ *   | 动作位「启用」 | `:1035` `.esc-connector-enable` | nowrap+`flex:none` | 「启用」折两行 → 按钮高度错 | 会破版 |
+ *
+ *   ★**为什么它们"只是脆弱"而不是"必然坏"**：官方那份**并不写**这些类名，故它只是**在文档序上
+ *     压住**本文件的规则，让本文件的 `nowrap` 短暂不生效——**别的全局 sheet 若真写了同名/更高优先级
+ *     规则，那就是另一回事**（实测官方三包无 `!important`、无同名类）。
+ *   ★**证不了的边界**：本仓 vitest **无布局引擎无 DOM** ⇒ 上表的"会怎样"是**读 CSS 语义推出来的**，
+ *     **没有像素实测**；"你真机上那一帧官方 sheet 差几毫秒到"同样测不了 ⇒ 真机复量只能由用户做。
  * [POS]: esc 页面的**样式层**——从 NUWAX 那五个 LESS module 逐条搬过来（`index.less` + `CategorySidebar` +
  *   `ResourceToolbar` + `ResourceAggregation` + `ResourceCard` + `CardWrapper` 的容器样式）。
  *   ★两处按 DSH 体系改写：
