@@ -663,10 +663,43 @@ describe('规格纪律：零新增错误码、零新增 fetch/路由、零第二
     expect(installed).toContain('skillPort.fillSkillTryDraft')
   })
 
-  it('规格 §5 里那句 ★：`编辑` 的端口**今天没有任何接线**（`client.tsx` 不提供它）', () => {
+  it('★规格 §5 那句 ★ 已由本刀（A2.1）兑现：`编辑` 的端口**已接线**（`client.tsx` 提供它）', () => {
     const client = readFileSync(new URL('../src/client.tsx', import.meta.url), 'utf8')
-    expect(client).not.toContain('editSkillFile')
-    // 而端口形状本身在场（"端口缺席"是一次**查询**的结果，不是界面里写死的常量）。
+    // ★**事实已变**（不是放宽）：宿主那条 `POST …/skills/self-installed/edit` 落地之后，本刀把端口接上
+    //   ⇒ 四行菜单的第二格**随之出现**。旧断言"client.tsx 不许含 editSkillFile"锁的是当时的缺口，
+    //   缺口补上了，那一条就该按新事实反过来锁——**换成更强的判据**，不是删掉。
+    expect(client).toContain('editSkillFile: (name, signal) => escSkillApi.editSelfInstalledSkill(name, signal)')
+    // 而端口形状本身仍在场（"端口缺席"仍是一次**查询**的结果，不是界面里写死的常量）。
     expect(readEscSrc('esc-types.ts')).toContain('readonly editSkillFile?:')
+    // ★**回执键名与宿主逐字对齐**：宿主回 `{edited:true}`（不是 `revealed`）——类型写错就会让
+    //   "浏览器以为拿到 revealed"，而这正是同族两枚动作最容易漂的地方。
+    expect(readEscSrc('esc-types.ts')).toContain('Promise<{ readonly edited: true }>')
+  })
+
+  it('★本刀（A2.1）：`编辑` 整条链**每一步各只有一份实现**（路径 → 解码器 → 客户端方法 → 端口 → 回调 → 文案）', () => {
+    const localApi = readFileSync(new URL('../src/local-api.ts', import.meta.url), 'utf8')
+    const decode = readFileSync(new URL('../src/skill-api-decode.ts', import.meta.url), 'utf8')
+    const client = readFileSync(new URL('../src/client.tsx', import.meta.url), 'utf8')
+    const more = readEscSrc('esc-skill-more.ts')
+    // ① 路由字面量恰好一处（界面侧零处：页面只认端口，不认路径）。
+    expect(localApi.match(/'\/skills\/self-installed\/edit'/g) ?? [], '路径字面量只许一处').toHaveLength(1)
+    expect(readEscSrc('esc-installed.tsx')).not.toContain("'/skills/")
+    // ② 解码器恰好一枚，且键名恰好是 `edited`（与 `revealed` 各自一枚，不糊成一张表）。
+    expect(decode).toContain('export function decodeEnterpriseSelfInstalledEdit')
+    expect(decode.match(/hasExactKeys\(row, \['edited'\]\)/g) ?? []).toHaveLength(1)
+    expect(decode.match(/hasExactKeys\(row, \['revealed'\]\)/g) ?? []).toHaveLength(1)
+    // ③ 客户端方法恰好一处实现、恰好一处接线。
+    expect(localApi.match(/editSelfInstalledSkill: async/g) ?? []).toHaveLength(1)
+    expect(client.match(/editSkillFile:/g) ?? []).toHaveLength(1)
+    // ④ 两个消费点（聚合层 + 已安装页）都交真写入口，且都用**同一个动作 id**。
+    for (const file of ['esc-installed.tsx', 'esc-aggregation.tsx']) {
+      const code = readEscSrc(file)
+      expect(code, file).toContain('onEdit: runEditSelfInstalled,')
+      expect(code, file).toContain("beginSkillMore('edit', name)")
+      expect(code, file).toContain('skillPort')
+      expect(code, file).toContain('editSelfInstalledSkill')
+    }
+    // ⑤ 成功交代只有一处定义（与"打开文件夹"那句**刻意分开**：交出去的东西不同）。
+    expect(more.match(/export function enterpriseEscSkillMoreEditedText/g) ?? []).toHaveLength(1)
   })
 })

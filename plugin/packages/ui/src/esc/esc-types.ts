@@ -30,7 +30,7 @@
  *     这两格**不新造取数器**：`esc-list.ts` 的 `mapPublishedItem` 就是它们的唯一取值口。
  *   ★**本刀（S5a：技能卡「更多」里的两个本机管理动作）**：`EnterpriseEscSkillPort` 再多**两格可选**
  *     写入口——`uninstallSelfInstalledSkill(name, signal)` 与 `revealSelfInstalledSkill(name, signal)`
- *     （`POST …/skills/self-installed/{uninstall,reveal}`，正文关闭键集恰好 `{name}`；`name` 是技能在
+ *     （`POST …/skills/self-installed/{uninstall,reveal,edit}`，正文关闭键集恰好 `{name}`；`name` 是技能在
  *     **本机的目录名** kebab，不是 `packageId`/`skillId`/`targetId`）。两条**刻意可选**：判据仍是
  *     「端口在不在场」（缺席 ⇒ 「更多」里那两行**不画**——官方 `MenuItem` 没有 `title` 位，
  *     一枚禁用的菜单行说不出为什么按不动，见 `esc-more-menu.tsx` 的文件头）。
@@ -408,7 +408,7 @@ export interface EnterpriseEscSkillPort {
    */
   readonly installPublishedSkill?: ((targetId: number, signal: AbortSignal) => Promise<readonly EnterpriseSelfInstalledSkill[]>) | undefined
   /**
-   * ★**本刀（S5a）**：技能卡「更多」下拉里那两枚**本机管理动作**的实现面。
+   * ★**本刀（S5a）**：技能卡「更多」下拉里那三枚**本机管理动作**的实现面。
    *
    * ★**入参是技能在本机的目录名（kebab），不是 `packageId`、不是 `skillId`、不是 `targetId`**：
    *   宿主那两条路由的判据是「`name` ∈ 某条**自装**记录的 `names[]`」，故界面这一侧**只交名字**、
@@ -445,19 +445,17 @@ export interface EnterpriseEscSkillPort {
    * ★**本刀（用户冻结规格 §3）**：「更多」里 `编辑` 那一行的实现面——**用系统默认应用打开这枚技能的
    * `SKILL.md`**（本机动作）。
    *
-   * ★**它今天故意没有任何接线**（`client.tsx` 里**不**提供这一格）：那需要宿主侧新开一条只读/本机动作
-   *   路由（与「打开文件夹」同族：`execFile` + argv、**不走 shell**、失败给稳定码），而那条路由
-   *   **还没落地**。声明在这里是为了让判据**如实**：`esc-installed.tsx` 交下去的是
-   *   `skillPort.editSkillFile !== undefined` 这个**端口在不在场**的事实（今天恒 `false` ⇒
-   *   那一行**整行不画**，见 `esc-more-menu.tsx` 文件头与 `esc-skill-more.ts` 的计划投影），
-   *   而不是界面里写死一个 `disabled` / 写死一个 `false`。
-   *   ⇒ 路由落地那天要动的只有一处：在 `client.tsx` 的端口上补一格（界面一个字都不用改），
-   *     那一行随之出现在那四行里的第二格。
+   * ★**本刀（A2.1）已接线**：宿主那条路由（`POST …/skills/self-installed/edit`）与 `client.tsx` 的
+   *   这一格**都在场了** ⇒ 那一行**出现在四行菜单的第二格**（判据始终是"**端口在不在场**"：
+   *   `esc-installed.tsx` 交下去的是 `skillPort.editSkillFile !== undefined`，
+   *   界面里从来没有写死过 `false`；见 `esc-skill-more.ts` 的双闸投影）。
+   * ★**回执键名与宿主逐字对齐**：宿主回的是 `{edited:true}`（不是 `revealed`）⇒ 本类型与它一起定，
+   *   免得"浏览器以为拿到 revealed"这种口径漂移（两枚键名各自有自己的解码器，见 `skill-api-decode.ts`）。
    *
    * ★**入参仍是技能在本机的目录名（kebab）**，与上面那两格同一把键（界面不交路径：宿主拿到名字后
    *   自己在官方技能根里寻址，因此"传一个路径进来"在这个形状上不可表达）。
    */
-  readonly editSkillFile?: ((name: string, signal: AbortSignal) => Promise<{ readonly revealed: true }>) | undefined
+  readonly editSkillFile?: ((name: string, signal: AbortSignal) => Promise<{ readonly edited: true }>) | undefined
   /**
    * ★**本刀 ③（SkillHub 维度）**：把一条**在线搜索结果**装到本机
    *   （`POST /skills/install-from-result`，正文**关闭键集恰好** `{source}`）。

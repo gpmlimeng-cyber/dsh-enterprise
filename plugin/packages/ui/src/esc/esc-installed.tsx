@@ -112,6 +112,7 @@ import {
   ENTERPRISE_ESC_SKILL_MORE_TIMEOUT_MS,
   enterpriseEscSelfInstalledNames,
   enterpriseEscSkillMoreRevealedText,
+  enterpriseEscSkillMoreEditedText,
   enterpriseEscSkillMoreTable,
   enterpriseEscSkillMoreUninstalledText,
   type EnterpriseEscSkillMoreAction,
@@ -234,7 +235,7 @@ export function EnterpriseEscInstalledView({ api, skillPort, onBack }: Enterpris
   const [actionCode, setActionCode] = useState<string | undefined>(undefined)
   const actionAbort = useRef<AbortController | null>(null)
   /**
-   * ★**本刀**：「更多」那两枚**本机管理动作**（卸载 / 打开所在文件夹）的三件状态
+   * ★**本刀**：「更多」那三枚**本机管理动作**（卸载 / 编辑 / 打开所在文件夹）的三件状态
    * （在途那一枚 / 失败那一行 / 刚办成那一句）。
    *
    * ★**为什么另起一小组、不并进上面那两格**：那是**中心卸载链**（开关 → `packageId` → `…/skills/uninstall`），
@@ -375,6 +376,7 @@ export function EnterpriseEscInstalledView({ api, skillPort, onBack }: Enterpris
    */
   const uninstallSelfInstalledSkill = skillPort.uninstallSelfInstalledSkill
   const revealSelfInstalledSkill = skillPort.revealSelfInstalledSkill
+  const editSelfInstalledSkill = skillPort.editSkillFile
   const fillSkillTryDraft = skillPort.fillSkillTryDraft
 
   /**
@@ -440,6 +442,21 @@ export function EnterpriseEscInstalledView({ api, skillPort, onBack }: Enterpris
       },
     ).finally(() => { setMorePending(undefined) })
   }, [revealSelfInstalledSkill, beginSkillMore])
+  /**
+   * **编辑**（用系统**默认应用**打开这枚技能的 `SKILL.md`）：与「打开文件夹」同族同形 ——
+   * 非破坏性、无确认，但**仍是异步动作**（在途禁用 + 成败都如实说）；成功**不改任何本地状态**。
+   */
+  const runEditSelfInstalled = useCallback((name: string): void => {
+    if (editSelfInstalledSkill === undefined) return
+    if (!beginSkillMore('edit', name)) return
+    const signal = AbortSignal.timeout(ENTERPRISE_ESC_SKILL_MORE_TIMEOUT_MS)
+    void editSelfInstalledSkill(name, signal).then(
+      () => { setMoreNotice(enterpriseEscSkillMoreEditedText(name)) },
+      (error: unknown) => {
+        setMoreError({ name, action: 'edit', code: enterpriseLocalErrorCode(error) })
+      },
+    ).finally(() => { setMorePending(undefined) })
+  }, [editSelfInstalledSkill, beginSkillMore])
 
   /**
    * ★**本刀（技能页性能：「不再白算」那一半）**：本页那**两张计划表**（更多 / 去试试）。
@@ -457,7 +474,7 @@ export function EnterpriseEscInstalledView({ api, skillPort, onBack }: Enterpris
   const morePlans = useMemo(() => enterpriseEscSkillMoreTable({
     selfInstalledNames,
     wired: {
-      /** ★「编辑」：宿主路由没落地 ⇒ 端口缺席（视图这一侧如实交这个事实，不写死一个 `false`）。 */
+      /** ★「编辑」：宿主路由**已落地**（A2.1）⇒ 这一格不再恒 false（判据仍是"端口在不在场"）。 */
       edit: skillPort.editSkillFile !== undefined,
       uninstall: uninstallSelfInstalledSkill !== undefined,
       reveal: revealSelfInstalledSkill !== undefined,
@@ -466,8 +483,8 @@ export function EnterpriseEscInstalledView({ api, skillPort, onBack }: Enterpris
     ...(moreError === undefined ? {} : { failure: moreError }),
     onUninstall: runUninstallSelfInstalled,
     onReveal: runRevealSelfInstalled,
-    /** ★`onEdit` **刻意不交**：那条路由没落地 ⇒ 计划里那一格也不会出现（双闸，见 `esc-skill-more.ts`）。 */
-  }), [selfInstalledNames, morePending, moreError, skillPort, uninstallSelfInstalledSkill, revealSelfInstalledSkill, runUninstallSelfInstalled, runRevealSelfInstalled])
+    onEdit: runEditSelfInstalled,
+  }), [selfInstalledNames, morePending, moreError, skillPort, uninstallSelfInstalledSkill, revealSelfInstalledSkill, runUninstallSelfInstalled, runRevealSelfInstalled, editSelfInstalledSkill, runEditSelfInstalled])
 
   /**
    * 某一枚技能 → 它的「更多」计划（**唯一构造点**：上面那张 `morePlans` 表，表内唯一投影是

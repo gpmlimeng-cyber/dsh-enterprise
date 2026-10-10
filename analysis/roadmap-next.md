@@ -119,6 +119,19 @@ F3  已删死码的余波复查（「我启用的」等，已清，留一行确�
 
 ---
 
+## F2. 📋 GEB 缺口：`plugin/packages/ui` 的 L2 成员清单漏了 16 个文件（本会话审计发现）
+
+```
+审计方法：遍历 src/**.ts(x) 与 tests/**.spec.ts，凡"文件名:"在 CLAUDE.md 里找不到前缀的行即缺口。
+测试 11 个：esc-card-headdesc-inline / esc-featured-flicker / esc-geometry-inline-immunity / esc-plan-reference /
+            esc-skill-more / feedback-preview / library-page / market-entry-badge / personalization-entry /
+            plugin-install-gate / preset-decode
+源码 5 个：library-api-decode.ts · esc/esc-system.ts · esc/esc-tab-icons.ts ·
+            esc/esc-third-party.ts · esc/esc-third-party-install.ts
+★单开一刀补（要用架构师视角写，不是把 L3 的 [POS] 抄一遍）；本会话已顺手补上 esc-installed.tsx 那一条
+  （它连 L2 都没有，属 SEVERE-002）。
+```
+
 ## G. 环境 / 阻塞（我这一侧）
 
 ```

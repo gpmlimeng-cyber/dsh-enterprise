@@ -45,9 +45,9 @@
  *     收尾一行 `installedSelfSkills(…)`），**没有**中心 `packageId`/`versionId` ⇒ 拿企业已装那份
  *     七键闭合的解码器来解它，会把**每一次成功**都判成 `ENT_LOCAL_RESPONSE_INVALID`。
  *     这一条与 `installSkill` 是两条路（坐标 / 制品 / 响应三件全不同），故两格并列、各只有一个调用点。
- *   ★**本刀（S5a：自装技能的两个本机动作）**：`EnterpriseLocalApi` 再多**两格动作** ——
+ *   ★**本刀（S5a：自装技能的三个本机动作）**：`EnterpriseLocalApi` 再多**三格动作** ——
  *     `uninstallSelfInstalledSkill(name, signal)` 与 `revealSelfInstalledSkill(name, signal)`
- *     （`POST …/local/skills/self-installed/{uninstall,reveal}`，正文**关闭键集恰好** `{name}`；
+ *     （`POST …/local/skills/self-installed/{uninstall,reveal,edit}`，正文**关闭键集恰好** `{name}`；
  *     `name` 是技能在**本机的目录名** kebab，不是记录里的 `skillId`——后者跨四条安装通路语义不统一）。
  *     两份回执的 DTO 与严格解码住在 `skill-api-decode.ts`（自装清单那一族）：卸载回执
  *     `{skills,removed}`（`skills` 复用既有自装清单解码器；**两格各自严格、宿主多带的日志键忽略**），
@@ -584,6 +584,16 @@ export interface EnterpriseLocalApi {
    *   系统交接失败 ⇒ 503 `ENT_PLATFORM_UNAVAILABLE` —— 界面如实上屏，绝不静默说"打开了"。
    */
   revealSelfInstalledSkill(name: string, signal: AbortSignal): Promise<{ readonly revealed: true }>
+  /**
+   * ★**本刀（A2.1）**：用系统**默认应用**打开这条自装技能的 `SKILL.md`
+   *   （`POST …/skills/self-installed/edit`，正文**关闭键集恰好** `{name}`，入参口径同上）。
+   *
+   * ★它与「打开文件夹」是**同族相邻动作**（同一枚技能卡「更多」菜单里的相邻两行、同一个消费方、
+   *   同一份归属判据与同一条落点等式），差别只在**交给系统的对象**：一个目录、一个文档。
+   * ★响应**只有** `{edited:true}`：宿主绝对路径不进浏览器；名字不属于自装记录 / 落点不是普通文件
+   *   ⇒ 404 / 409，系统交接失败 ⇒ 503 —— 界面如实上屏，绝不静默说"打开了"。
+   */
+  editSelfInstalledSkill(name: string, signal: AbortSignal): Promise<{ readonly edited: true }>
   /**
    * **本机官方发现面**（`GET /skills/discovered`，口径 54）：本机 DSH **真的装着什么**。
    *

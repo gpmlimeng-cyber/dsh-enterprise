@@ -9,7 +9,7 @@
  *   `enterpriseEscSkillMorePlan`
  * [POS]: dsh-ui 技能页「更多」下拉（`esc-more-menu.tsx` 是它的呈现层）的**唯一判定与文案真源**：
  *   页面只画、聚合层只接线。冻结契约（宿主侧 `bundle/src/skill-self-installed-route.ts` +
- *   `skill-self-installed.ts`）：`POST …/local/skills/self-installed/{uninstall,reveal}`，
+ *   `skill-self-installed.ts`）：`POST …/local/skills/self-installed/{uninstall,reveal,edit}`，
  *   正文关闭键集恰好 `{name}`。
  *
  *   ★**本刀（用户冻结规格 §3：「…」菜单四行）**：计划从"两行"扩到**四行**（`去对话` / `编辑` /
@@ -17,9 +17,10 @@
  *     ① **`去对话` 与卡片那枚「去试试」是同一个动作** ⇒ 那一行由**同一枚**「去试试」计划整份带下来
  *        （`gotoChat` 那一格）：可点性取它的 `disabled`、动作取它的 `onTry` —— 本文件那一行**自己没有实现**；
  *        它的在途与失败也**不**走本文件那两张表（同一件事只说一遍，由「去试试」那一枚计划上屏）；
- *     ② **`编辑`**（用系统默认应用打开 `SKILL.md`）的宿主路由**还没落地** ⇒ `wired.edit` 恒 `false`
- *        ⇒ 那一格不进计划 ⇒ `escCardMoreRows` **整行丢掉**（fail-closed；它的两句文案在表里备着，
- *        是"那条路由落地那天不用再补文案"的落点，不是给今天画一枚死行用的）；
+ *     ② **`编辑`**（用系统默认应用打开 `SKILL.md`）：★**本刀（A2.1）起路由与端口都在场**，故那一格
+ *        真的进计划、**画在第二格**；而它当初的 fail-closed 形状**一字未改**（判据始终是"端口在不在场"：
+ *        路由未落地/界面未接线那两天，`wired.edit` 与 `onEdit` 同时缺席 ⇒ `escCardMoreRows` 整行丢掉，
+ *        它那两句文案也一直备在表里——这正是"接线那天不用补文案"的落点）；
  *     ③ `wired` 扩成**三格**（`edit`/`uninstall`/`reveal` —— `gotoChat` 不在这里，见 ①）——判据仍是
  *        「端口在不在场」，缺席的行**不画**（不是画成禁用：官方 `MenuItem` 没有 `title` 位，说不出为什么按不动）。
  *
@@ -206,8 +207,9 @@ export function enterpriseEscSkillMorePlan(input: {
    *
    * ★**「去对话」不在这里**：它与卡片那枚「去试试」共用同一条通路，故它要的那一整件事实由
    *   `gotoChat` 那一格（**同一枚计划**）整份带下来 —— 见下面那格的长注释。
-   * ★`edit`（「编辑」：用系统默认应用打开 `SKILL.md`）**今天恒为 `false`**：宿主那条路由还没落地，
-   *   端口缺席 ⇒ 那一行整行不画（用户冻结规格 §3 的 ★，见 `esc-more-menu.tsx` 文件头与下面那处双闸）。
+   * ★`edit`（「编辑」：用系统默认应用打开 `SKILL.md`）：宿主路由与界面端口**都已落地（A2.1）**，
+   *   故这一格今天为 `true`；判据仍是"端口在不在场"（不是界面写死的常量）——那条路由若哪天下线，
+   *   这里会自己变回 `false`、那一行随之消失（用户冻结规格 §3 的 ★ 说的就是这条 fail-closed 形状）。
    */
   readonly wired: {
     readonly edit: boolean
@@ -263,8 +265,8 @@ export function enterpriseEscSkillMorePlan(input: {
       onSelect: () => { gotoChat.onTry?.() },
     }
   }
-  // ★`编辑` 那一行：**宿主路由**（`wired.edit`）与**真的写入口**（`onEdit`）都在场才画 —— 今天两者
-  //   一起缺席（那条路由还没落地）⇒ 整行不画（规格 §3 的 ★，不是画成禁用）。
+  // ★`编辑` 那一行：**宿主路由**（`wired.edit`）与**真的写入口**（`onEdit`）都在场才画 —— 本刀（A2.1）
+  //   起两者都在场 ⇒ 那一行真的画出来；这两个格子哪天有一个不在场，它就整行不画（规格 §3 的 ★）。
   if (input.wired.edit && onEdit !== undefined) {
     actions.edit = { disabled: busy, onSelect: () => { onEdit(input.name) } }
   }
@@ -371,4 +373,15 @@ export function enterpriseEscSkillMoreUninstalledText(name: string): string {
 /** 打开文件夹成功那行 `role="status"` 里那一整句（系统那一跳已经交出去了）。 */
 export function enterpriseEscSkillMoreRevealedText(name: string): string {
   return `已在系统文件管理器中打开「${name}」的所在文件夹。`
+}
+
+/**
+ * ★**本刀（A2.1）**：编辑成功那行 `role="status"` 里那一整句。
+ *
+ * ★与上一条**刻意分开写**（不是同一句套模板）：两者交给系统的是**不同的东西**——一个**目录**
+ *   （文件管理器打开它）、一个**文档**（默认应用打开它）。合成一句就得说"交给系统了"这种含糊话，
+ *   而员工要判断的正是"它到底把什么交出去了"。
+ */
+export function enterpriseEscSkillMoreEditedText(name: string): string {
+  return `已把「${name}」的 SKILL.md 交给系统默认应用打开。`
 }

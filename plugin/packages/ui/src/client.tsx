@@ -16,7 +16,7 @@
  *     两条安装路（`packageId` / `targetId`）各有各的格子、各只有一个调用点，谁也不冒充谁。
  *   ★**本刀（S5a）**：同一处 `bindEnterpriseEscSeats` 接线再**并列**两格本机管理动作
  *     `uninstallSelfInstalledSkill` / `revealSelfInstalledSkill`
- *     （`POST …/local/skills/self-installed/{uninstall,reveal}`，正文**关闭键集恰好** `{name}`：
+ *     （`POST …/local/skills/self-installed/{uninstall,reveal,edit}`，正文**关闭键集恰好** `{name}`：
  *     `name` 是技能在**本机的目录名** kebab，不是 `packageId`/`skillId`/`targetId`）。
  *     **同样复用** `escSkillApi` 这一枚实例与 `local-api.ts` 那一份 `requestJson`；界面这一层
  *     不加工、不挑选记录、不拼路径——归属判据的权威在宿主。
@@ -425,17 +425,26 @@ export function apply(ctx: SlotContextPort): void {
      */
     installFromResult: (source, signal) => escSkillApi.installSkillFromResult(source, signal),
     /**
-     * ★**本刀（S5a）**：技能卡「更多」下拉里那两枚**本机管理动作**的写入口——与上面几格
+     * ★**本刀（S5a）**：技能卡「更多」下拉里那三枚**本机管理动作**的写入口——与上面几格
      * **并列**、用**同一枚实例**（`escSkillApi`）、同一处接线。
      *
      * ★**它们复用哪一枚实现**：`local-api.ts` 的两条 exact 路由
-     *   `POST …/local/skills/self-installed/{uninstall,reveal}`（正文**关闭键集恰好** `{name}`，
+     *   `POST …/local/skills/self-installed/{uninstall,reveal,edit}`（正文**关闭键集恰好** `{name}`，
      *   `name` 是技能在**本机的目录名** kebab）。界面一个字节都没新写路由、新写解码器、新造第二个 fetch。
      * ★**为什么正文只有名字**：归属判据的**权威在宿主**（"这个名字属于哪条自装记录"由它按
      *   真实落盘名判，客户端不许挑记录）——故这里把 `name` **原样**转交，不加工、不挑选、不拼路径。
      */
     uninstallSelfInstalledSkill: (name, signal) => escSkillApi.uninstallSelfInstalledSkill(name, signal),
     revealSelfInstalledSkill: (name, signal) => escSkillApi.revealSelfInstalledSkill(name, signal),
+    /**
+     * ★**本刀（A2.1）**：第三条同族动作「编辑」（用系统**默认应用**打开这条技能的 `SKILL.md`）。
+     *
+     * ★端口名 `editSkillFile` 与「更多」菜单里那一行逐字对应；路由、正文键与解码器都在
+     *   `local-api.ts` 那一族里（与 `revealSelfInstalledSkill` 逐字同形，只有路径与回执键名不同），
+     *   本层只把它接进 esc 端口。★接上之后那一行**随之出现** —— 菜单那侧的判据是"**端口在不在场**"，
+     *   界面一个字都不用改（这正是当初那样设计的用意）。
+     */
+    editSkillFile: (name, signal) => escSkillApi.editSelfInstalledSkill(name, signal),
     /**
      * ★**本刀（S5b）**：技能卡那枚「去试试」的写入口——**与上面几格并列**、同一处接线，
      * 但复用「查找技能 / 创建技能」那两项**同一枚**启动器（上面那枚 `escDraftLaunch`）。

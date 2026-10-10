@@ -54,8 +54,8 @@
  *     （见 `local-api-decode.ts` 那一格的长注释）。
  *   ★它与 `installSkill` 是**两条路**：坐标（安全整数 vs 雪花字符串）、制品来源（平台导出 ZIP vs 中心制品）、
  *     响应（本机自装清单 vs 企业已装清单）三件全不同 ⇒ 两格并列，各只有一个调用点（门禁反锁）。
- *  **本刀（S5a：自装技能的两个本机动作）**：新增两格动作 —— `uninstallSelfInstalledSkill(name, signal)`
- *   与 `revealSelfInstalledSkill(name, signal)`（`POST /skills/self-installed/{uninstall,reveal}`，
+ *  **本刀（S5a：自装技能的三个本机动作）**：新增三格动作 —— `uninstallSelfInstalledSkill(name, signal)`
+ *   与 `revealSelfInstalledSkill(name, signal)`（`POST /skills/self-installed/{uninstall,reveal,edit}`，
  *   正文**关闭键集恰好** `{name}`，键名收敛成导出常量 `ENTERPRISE_SKILL_SELF_INSTALLED_ACTION_KEY`）
  *   与两条 exact 注册面常量 `ENTERPRISE_SKILL_SELF_INSTALLED_{UNINSTALL,REVEAL}_LOCAL_PATH`。
  *   ★`name` 是技能在**本机的目录名**（kebab）而不是记录里的 `skillId`（后者跨四条安装通路语义不统一，
@@ -110,6 +110,7 @@ import {
   decodeEnterpriseSelfInstalledSkills,
   decodeEnterpriseSelfInstalledUninstall,
   decodeEnterpriseSelfInstalledReveal,
+  decodeEnterpriseSelfInstalledEdit,
   decodeEnterpriseServerUrl,
   decodeEnterpriseSkillDetail,
   decodeEnterpriseSkills,
@@ -188,7 +189,7 @@ const NUWAX_STATUS_PATH = '/nuwax/status'
 const SKILL_PUBLISHED_INSTALL_PATH = '/skills/published/install'
 
 /**
- * ★**本刀（S5a）**：自装技能两个本机动作的**相对**路径（与 Host 的 exact 注册面逐字同值）。
+ * ★**本刀（S5a）**：自装技能三个本机动作的**相对**路径（与 Host 的 exact 注册面逐字同值）。
  *
  * 两条都是 `POST`、都注册在既有只读 `GET /skills/self-installed` 之下（Host 侧两条 **exact** sibling：
  * 引擎 exact 表优先 ⇒ 不会被 `skill-route.ts` 那条 `/skills` prefix 当成包 id 判 400）：
@@ -199,6 +200,7 @@ const SKILL_PUBLISHED_INSTALL_PATH = '/skills/published/install'
  */
 const SKILL_SELF_INSTALLED_UNINSTALL_PATH = '/skills/self-installed/uninstall'
 const SKILL_SELF_INSTALLED_REVEAL_PATH = '/skills/self-installed/reveal'
+const SKILL_SELF_INSTALLED_EDIT_PATH = '/skills/self-installed/edit'
 
 /**
  * ★**本刀（S5a）**：这两条动作正文里那**唯一**一枚键的名字（冻结契约逐字：`name`）。
@@ -500,7 +502,7 @@ export function createEnterpriseLocalApi(
     selfInstalledSkills: async signal => decodeEnterpriseSelfInstalledSkills(
       await requestJson('/skills/self-installed', getInit(signal), fetcher),
     ),
-    // ★**本刀（S5a）**：自装技能的两个本机动作（与 Host 侧两条 exact sibling 逐字对应）。
+    // ★**本刀（S5a）**：自装技能的三个本机动作（与 Host 侧两条 exact sibling 逐字对应）。
     //  · 两条正文都是**关闭键集恰好**那一枚键（`ENTERPRISE_SKILL_SELF_INSTALLED_ACTION_KEY` = `name`），
     //    `name` 是技能在本机的**目录名**（kebab）——界面从不传路径、也从不替宿主挑记录；
     //  · 卸载回执是 `{skills,removed}`（`skills` 与 `GET /skills/self-installed` 逐字同形
@@ -517,6 +519,16 @@ export function createEnterpriseLocalApi(
     revealSelfInstalledSkill: async (name, signal) => decodeEnterpriseSelfInstalledReveal(
       await requestJson(
         SKILL_SELF_INSTALLED_REVEAL_PATH,
+        jsonInit('POST', { [ENTERPRISE_SKILL_SELF_INSTALLED_ACTION_KEY]: name }, signal),
+        fetcher,
+      ),
+    ),
+    // ★**本刀（A2.1）**：第三条同族动作「编辑」（用系统默认应用打开 SKILL.md）。
+    //   与上一条**逐字同形**：同一枚正文键（name，技能在本机的目录名）、同一枚请求初始化、
+    //   同一族"回执只有一个布尔、宿主路径不出厂"的解码器；差别只有路径与回执键名（edited）。
+    editSelfInstalledSkill: async (name, signal) => decodeEnterpriseSelfInstalledEdit(
+      await requestJson(
+        SKILL_SELF_INSTALLED_EDIT_PATH,
         jsonInit('POST', { [ENTERPRISE_SKILL_SELF_INSTALLED_ACTION_KEY]: name }, signal),
         fetcher,
       ),
@@ -684,10 +696,10 @@ export const ENTERPRISE_SKILL_UPLOAD_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/up
 export const ENTERPRISE_SKILL_SELF_INSTALLED_LOCAL_PATH = `${LOCAL_API_PREFIX}/skills/self-installed`
 
 /**
- * ★**本刀（S5a）**：自装技能**两个本机动作**的 exact 同源路径常量；Host 侧注册路径必须与它们逐字相同。
+ * ★**本刀（S5a）**：自装技能**三个本机动作**的 exact 同源路径常量；Host 侧注册路径必须与它们逐字相同。
  *
  * 与 `platform-client`/bundle 的 `skill-self-installed-route.ts` 两条 exact 注册面逐字同值：
- * `POST /enterprise/api/v1/local/skills/self-installed/{uninstall,reveal}`。它们都是那条只读
+ * `POST /enterprise/api/v1/local/skills/self-installed/{uninstall,reveal,edit}`。它们都是那条只读
  * `GET …/skills/self-installed` 的 **exact sibling**，故 Host 侧必须注册成 exact（否则 `self-installed`
  * 会被 `/skills` 那条 prefix 当包 id 判 400 —— 与 `third-party`/`published` 同一个坑、同一条解法）。
  * 两枚常量单独导出的理由与 `ENTERPRISE_PLUGIN_CANCEL_LOCAL_PATH` 相同：「这次动作真的打到了那一条路由」

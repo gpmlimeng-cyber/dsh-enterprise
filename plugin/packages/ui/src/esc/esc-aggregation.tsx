@@ -203,6 +203,7 @@ import {
   ENTERPRISE_ESC_SKILL_MORE_TIMEOUT_MS,
   enterpriseEscSelfInstalledNames,
   enterpriseEscSkillMoreRevealedText,
+  enterpriseEscSkillMoreEditedText,
   enterpriseEscSkillMoreTable,
   enterpriseEscSkillMoreUninstalledText,
   type EnterpriseEscSkillMoreAction,
@@ -740,7 +741,7 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
   }, [systemPending, installPublishedSkill, onInstalledRefresh])
 
   /**
-   * ★**本刀（S5a）**：技能卡「更多」里那两枚本机管理动作（卸载 / 打开所在文件夹）的**四件状态**。
+   * ★**本刀（S5a）**：技能卡「更多」里那两枚本机管理动作（卸载 / 编辑 / 打开所在文件夹）的**四件状态**。
    *
    * ★**为什么它们住在这一层**（与上面 systemPending 那条同因）：卡片网格就是本层直接铺的
    *   （系统广场是平台列表），而"哪一枚在途、失败落在哪一行"必须与那份列表同生共死；
@@ -856,6 +857,7 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
    */
   const uninstallSelfInstalledSkill = skillPort?.uninstallSelfInstalledSkill
   const revealSelfInstalledSkill = skillPort?.revealSelfInstalledSkill
+  const editSelfInstalledSkill = skillPort?.editSkillFile
   /**
    * 一次本机管理动作的**公共起点**（两条共用）：在途闸 + 清掉上一轮的两句反馈。
    *
@@ -919,6 +921,21 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
     ).finally(() => { setMorePending(undefined) })
   }, [morePending, revealSelfInstalledSkill])
   /**
+   * **编辑**（用系统**默认应用**打开这枚技能的 `SKILL.md`）：与「打开文件夹」同族同形 ——
+   * 非破坏性、无确认，但**仍是异步动作**（在途禁用 + 成败都如实说）；成功**不改任何本地状态**。
+   */
+  const runEditSelfInstalled = useCallback((name: string): void => {
+    if (editSelfInstalledSkill === undefined) return
+    if (!beginSkillMore('edit', name)) return
+    const signal = AbortSignal.timeout(ENTERPRISE_ESC_SKILL_MORE_TIMEOUT_MS)
+    void editSelfInstalledSkill(name, signal).then(
+      () => { setMoreNotice(enterpriseEscSkillMoreEditedText(name)) },
+      (error: unknown) => {
+        setMoreError({ name, action: 'edit', code: enterpriseLocalErrorCode(error) })
+      },
+    ).finally(() => { setMorePending(undefined) })
+  }, [morePending, editSelfInstalledSkill])
+  /**
    * 那枚写入口（判据是**端口在不在场**：缺席 ⇒ 卡片上禁用 + 行上可见写明原因，见 `esc-skill-try.ts`）。
    *
    * ★它**不是**本层新造的机制：`client.tsx` 把它接在**同一个** `createEnterprisePresetLauncher(...)`
@@ -980,7 +997,7 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
   const morePlans = useMemo(() => enterpriseEscSkillMoreTable({
     selfInstalledNames,
     wired: {
-      /** ★「编辑」那一行要的那条宿主路由**还没落地** ⇒ 这里如实交"端口不在场"（那一行整行不画）。 */
+      /** ★「编辑」：宿主路由**已落地**（A2.1）⇒ 这一格不再恒 false（判据仍是"端口在不在场"）。 */
       edit: skillPort?.editSkillFile !== undefined,
       uninstall: uninstallSelfInstalledSkill !== undefined,
       reveal: revealSelfInstalledSkill !== undefined,
@@ -989,8 +1006,8 @@ export function EnterpriseEscAggregation({ api, resourceType, onResourceTypeChan
     ...(moreError === undefined ? {} : { failure: moreError }),
     onUninstall: runUninstallSelfInstalled,
     onReveal: runRevealSelfInstalled,
-    /** ★`onEdit` **刻意不交**：那条路由没落地 ⇒ 计划里那一格也不会出现（双闸，见 `esc-skill-more.ts`）。 */
-  }), [selfInstalledNames, morePending, moreError, skillPort, uninstallSelfInstalledSkill, revealSelfInstalledSkill, runUninstallSelfInstalled, runRevealSelfInstalled])
+    onEdit: runEditSelfInstalled,
+  }), [selfInstalledNames, morePending, moreError, skillPort, uninstallSelfInstalledSkill, revealSelfInstalledSkill, runUninstallSelfInstalled, runRevealSelfInstalled, editSelfInstalledSkill, runEditSelfInstalled])
   const installPlans = useMemo(() => enterpriseEscSystemInstallTable({
     /**
      * ★**维度闸一字未动**（口径 64）：只有「系统广场 × 技能」这一格构造终态 —— 另几枚维度（团队空间 /

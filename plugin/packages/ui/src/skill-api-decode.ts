@@ -33,7 +33,7 @@
  *     信封**单键封闭** `{roots,skills}`、根 `rootId` 必须在 `roots` 里、候选 `id` 去重、条数封顶，
  *     外加本契约独有的一条 —— **每条根的 `count` 必须与该根下的候选条数逐字相等**（对不上即整条
  *     判畸形：界面要显示"这个根几枚"，数与清单对不上时其中半个必是假的）。空列表**合法**。
- *   ★**本刀（S5a：自装技能的两个本机动作）**：再加两份动作回执 ——
+ *   ★**本刀（S5a：自装技能的三个本机动作）**：再加两份动作回执 ——
  *     `EnterpriseSelfInstalledUninstall`（`POST …/skills/self-installed/uninstall` 的 `data`）与
  *     `decodeEnterpriseSelfInstalledUninstall`：`skills` **复用**上面那枚自装清单解码器（卸载后的投影与
  *     `GET /skills/self-installed` 逐字同形）、`removed` 逐项过**非空 kebab 目录名**门禁；
@@ -444,7 +444,7 @@ export function decodeEnterpriseSelfInstalledSkills(value: unknown): readonly En
   return row['skills'].map(decodeSelfInstalledSkill)
 }
 
-/* ───────────────── 自装技能的两个本机动作（卸载 / 打开所在文件夹） ───────────────── */
+/* ───────────────── 自装技能的三个本机动作（卸载 / 编辑 / 打开所在文件夹） ───────────────── */
 
 /**
  * 一次**自装技能卸载**的回执（`POST …/skills/self-installed/uninstall` 的 `data`）。
@@ -518,6 +518,22 @@ export function decodeEnterpriseSelfInstalledReveal(value: unknown): { readonly 
     throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
   }
   return { revealed: true }
+}
+
+/**
+ * ★**本刀（A2.1「编辑」接线）**：自装技能**编辑**的回执（`POST …/skills/self-installed/edit`）。
+ *
+ * ★与 `reveal` **同族、同形状**，只有那一枚键名不同（`edited` vs `revealed`）⇒ 各自一枚解码器，
+ *   **刻意不**拿一个 `key` 参数糊成一张表：键名是**冻结契约**，两处各自命中才叫严格（两枚键名混用
+ *   会让"宿主改了键名"这件事在一半的面里看不出来）。宿主那条同样**不含**任何宿主路径
+ *   （连技能目录都不给——界面拿到的只是一个布尔）。
+ */
+export function decodeEnterpriseSelfInstalledEdit(value: unknown): { readonly edited: true } {
+  const row = record(value)
+  if (row === undefined || !hasExactKeys(row, ['edited']) || row['edited'] !== true) {
+    throw new EnterpriseLocalApiError('ENT_LOCAL_RESPONSE_INVALID')
+  }
+  return { edited: true }
 }
 
 /* ───────────────── 官方发现面（口径 54：「已安装」的真源） ───────────────── */
